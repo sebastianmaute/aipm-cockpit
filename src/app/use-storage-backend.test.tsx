@@ -84,15 +84,29 @@ import * as tursoPortfolioMod from "./turso-portfolio";
 //   supported way to share a value with one. The registry is purely additive —
 //   it records instances and changes no mock behaviour.
 const tursoInstances = vi.hoisted(() => [] as { save: ReturnType<typeof vi.fn> }[]);
+// ★ The import diagnostics the mocked backend publishes from its own `load()`.
+//   The Turso ops construct `new TursoBackend(cfg, id)` and await `load()` in one
+//   unbroken stretch, so a test has no seam to set a property on the instance —
+//   this is the only place the fixture can live. EMPTY by default, so every test
+//   that does not write it sees byte-identical behaviour; the one describe that
+//   does resets it in `afterEach`, because these are plain PROPERTIES and a leak
+//   would surface under the shuffled seed as an unrelated failure.
+const tursoImportDiag = vi.hoisted(() => ({}) as { dropped?: number; unterminated?: boolean });
 vi.mock("./turso-backend", () => ({
   TursoBackend: class {
     kind = "turso" as const;
+    lastImportDroppedRows: number | undefined = undefined;
+    lastImportUnterminatedQuote: boolean | undefined = undefined;
     constructor(public config: unknown, public projectId: string) {
       // Class fields below initialise on `this` before this body runs, and the
       // assertion reads the recorded object long after construction either way.
       tursoInstances.push(this as unknown as { save: ReturnType<typeof vi.fn> });
     }
-    load = vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    load = vi.fn(async () => {
+      this.lastImportDroppedRows = tursoImportDiag.dropped;
+      this.lastImportUnterminatedQuote = tursoImportDiag.unterminated;
+      return { tasks: [], raid: [], absences: [], shifts: [] };
+    });
     save = vi.fn().mockResolvedValue(undefined);
     isReady = vi.fn().mockResolvedValue(true);
     describe = vi.fn().mockResolvedValue("Turso");
@@ -2877,6 +2891,208 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     await act(async () => { await result.current.switchToProject("t-3"); });
 
     expect(main.save).toHaveBeenCalled();
+  });
+});
+
+// ── Import diagnostics reach every load path, not just the one they were born on ──
+// The dropped-rows warning used to be an inline block at ONE call site
+// (`loadProjectFromFile`, `use-storage-file-ops.ts`) while the load channel had
+// five, so four load paths reported nothing however many rows vanished. It now
+// rides `truncationOps.reportFor`, which every load path already calls.
+//
+// ★★★ THE PROPERTY IS "THE USER WAS TOLD", NOT "reportFor RAN", and nothing in
+// this file pinned it before. The `reportFor`-per-`load()` census in
+// `use-load-truncation.test.ts` cannot close that gap: it SOURCE-SCANS
+// `OPS_FILES` — `use-storage-file-ops.ts` and `use-storage-turso-ops.ts` — for
+// `reportFor(` tokens, so it never reads `use-storage-backend.ts` at all, and a
+// token count says nothing about runtime reachability either way. These drive
+// each path for real and assert on the toast TEXT a user reads.
+// ★★ Measured, not asserted: replacing the whole of `reportImportDiagnostics`'s
+// body with `void backend;` turns SIX of the seven tests below red (every one but
+// the clean-load control, which is killed instead by `dropped > 0` → `>= 0`).
+//
+// ★★ The composed-toast test is the one that also pins the JOIN: the toast
+// surface is SINGLE-SLOT (`use-toast.ts` holds a `useState<Toast | null>` and
+// `showToast` REPLACES), so two toasts in one tick leave only the last — which is
+// how the dropped-row count was silently lost on a file that both dropped rows
+// AND ended mid-quote. Asserting "one call containing both sentences" is what
+// distinguishes the join from two calls or an `else`.
+describe("useStorageBackend — import diagnostics reach every load path", () => {
+  const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+  let setStorageConfig: ReturnType<typeof vi.fn<(config: StorageConfig) => void>>;
+
+  /** Publishes the import diagnostics from INSIDE `load()`, so the read order
+   *  (load, then report) is the real one. LOCAL per test: these are plain
+   *  PROPERTIES that `vi.clearAllMocks()` would not reset on a shared object, so
+   *  a reporting fixture leaking into a later test would surface under the
+   *  shuffled-seed gate as an unrelated failure elsewhere in the file. */
+  function makeImportBackend(diag: { dropped?: number; unterminated?: boolean } = {}) {
+    const b = {
+      kind: "browser",
+      load: vi.fn(async () => {
+        b.lastImportDroppedRows = diag.dropped;
+        b.lastImportUnterminatedQuote = diag.unterminated;
+        return emptyWorkspace();
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("f.csv"),
+      lastImportDroppedRows: undefined as number | undefined,
+      lastImportUnterminatedQuote: undefined as boolean | undefined,
+    };
+    return b;
+  }
+
+  /** Every error toast that carries either import sentence. Read as a LIST, not
+   *  as `toHaveBeenCalledWith`, so a test can assert HOW MANY toasts were spent —
+   *  the single-slot surface makes the count part of the behaviour. */
+  function importToasts(): string[] {
+    return showToast.mock.calls
+      .filter((c) => c[0] === "error" && /invalid row\(s\)|quotation mark/.test(String(c[1])))
+      .map((c) => String(c[1]));
+  }
+
+  /** Register a switch TARGET in the registry (browser-kind → no file handle). */
+  function registerTarget(id: string): void {
+    saveRegistry(addProject(loadRegistry(), { id, name: "Target", code: "T", storageConfig: { kind: "browser" } }, false));
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    setStorageConfig = vi.fn<(config: StorageConfig) => void>();
+    saveRegistry(emptyRegistry());
+    saveCurrentTursoProjectId(null);
+    (storageMod.pickFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.requestWriteAccessForBackend as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (storageMod.setBackendFileHandle as ReturnType<typeof vi.fn>).mockReturnValue(null);
+    (handlesMod.getHandle as ReturnType<typeof vi.fn>).mockResolvedValue(null);
+    (handlesMod.saveHandle as ReturnType<typeof vi.fn>).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    // The mocked TursoBackend reads this at load() time and it is module-scoped —
+    // leaving it set would make some later test's Turso load toast out of nowhere.
+    delete tursoImportDiag.dropped;
+    delete tursoImportDiag.unterminated;
+  });
+
+  // ── `use-storage-backend.ts` — the two paths this file owns ────────────────
+
+  it("the MOUNT load effect tells the user rows were dropped", async () => {
+    createBackendMock.mockReturnValue(makeImportBackend({ dropped: 3 }));
+
+    renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(importToasts()).toEqual([expect.stringContaining("3 invalid row(s)")]);
+  });
+
+  it("the MOUNT load effect composes BOTH signals into ONE toast", async () => {
+    // ★ Neither may be dropped when both hold: they are different losses with
+    //   different remedies. And it must be ONE call — see the describe header.
+    createBackendMock.mockReturnValue(makeImportBackend({ dropped: 2, unterminated: true }));
+
+    renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    const toasts = importToasts();
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toContain("2 invalid row(s)");
+    expect(toasts[0]).toContain("unclosed quotation mark");
+  });
+
+  it("a CLEAN load says nothing — no '0 invalid row(s)' over a healthy file", async () => {
+    // ★ The mirror of the blocks-only truncation test above: interpolating a
+    //   count unconditionally reports a loss that did not happen, and this is the
+    //   only assertion that can catch it (`>= 0` for `> 0` is one keystroke).
+    createBackendMock.mockReturnValue(makeImportBackend());
+
+    renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+
+    expect(importToasts()).toEqual([]);
+    // POSITIVE CONTROL — without it, "no toast" is equally satisfied by a mount
+    // whose load never ran at all.
+    expect(createBackendMock).toHaveBeenCalled();
+  });
+
+  it("reloadCurrentProject tells the user rows were dropped on the RE-read", async () => {
+    // Clean first read, dropping on the re-read — so the toast can only come from
+    // the reload, not from the mount.
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]); // control: not already reported
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 5;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    expect(importToasts()).toEqual([expect.stringContaining("5 invalid row(s)")]);
+  });
+
+  // ── the ops files, reached through this hook ───────────────────────────────
+
+  it("switchToProject tells the user the TARGET dropped rows", async () => {
+    const main = makeImportBackend();
+    const target = makeImportBackend({ dropped: 4, unterminated: true });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(target);
+    registerTarget("imp-1");
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+
+    await act(async () => { await result.current.switchToProject("imp-1"); });
+
+    const toasts = importToasts();
+    expect(toasts).toHaveLength(1);
+    expect(toasts[0]).toContain("4 invalid row(s)");
+    expect(toasts[0]).toContain("unclosed quotation mark");
+  });
+
+  it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {
+    // This one path DID report before `reportFor` absorbed it. The move must not
+    // have cost it: a refactor that centralises a behaviour and loses it at its
+    // original site is a regression the other four tests here cannot see.
+    const main = makeImportBackend();
+    const opened = makeImportBackend({ dropped: 9 });
+    createBackendMock.mockReturnValueOnce(main).mockReturnValue(opened);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(true));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+
+    await act(async () => { await result.current.loadProjectFromFile("json"); });
+
+    expect(importToasts()).toEqual([expect.stringContaining("9 invalid row(s)")]);
+  });
+
+  it("switchToTursoProject reports the target's unbalanced quotes", async () => {
+    // Covers the OTHER deps object — `truncationOps` reaching `useTursoProjectOps`.
+    // The diagnostics ride the module-scoped `tursoImportDiag` because the backend
+    // is constructed INSIDE the op (`new TursoBackend(cfg, id)`), leaving the test
+    // no seam between construction and the `load()` it awaits.
+    createBackendMock.mockReturnValue(makeImportBackend());
+    const { result } = renderBackend(makeArgs({
+      setStorageConfig,
+      settings: {
+        storageConfig: { kind: "turso" },
+        integrations: { turso: { databaseUrl: "https://x.turso.io", authToken: "tok" } },
+      } as unknown as Settings,
+    }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+
+    tursoImportDiag.unterminated = true;
+    await act(async () => { await result.current.switchToTursoProject("imp-turso"); });
+
+    expect(importToasts()).toEqual([expect.stringContaining("unclosed quotation mark")]);
   });
 });
 
