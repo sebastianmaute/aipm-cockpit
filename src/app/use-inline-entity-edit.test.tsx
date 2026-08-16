@@ -36,6 +36,54 @@ it("goes thinking -> preview and builds a diff", async () => {
   expect(result.current.plan?.updates).toEqual([{ field: "status", before: "To Do", after: "Done", raw: "Done" }]);
 });
 
+// ★★★ THE KILL SWITCH HAS TO REACH THE REQUEST, and nothing observed that it
+//   did. `use-inline-entity-edit.ts` passes `historySearch: deps.ai.historySearch`
+//   into `callInlineEdit`, which forwards it to `callClaude` so `toolsFor` can
+//   drop the `search_history` schema. Measured before this test: replacing that
+//   argument with a hardcoded `undefined` left 91 tests across 4 suites green —
+//   the user's "off" switch was inert on every inline-edit request and no test
+//   could tell. `toolsFor` itself is well covered; the DELIVERY was not.
+//
+// ★ Both directions, because only one of them can regress silently: an
+//   explicit `false` must arrive as `false`, and the default must arrive as
+//   `undefined` rather than being coerced to `false` on the way.
+describe("the historySearch kill switch reaches callInlineEdit", () => {
+  async function captureHistorySearch(ai: Partial<InlineAiEditDeps["ai"]>) {
+    let captured: { historySearch?: boolean } | undefined;
+    vi.spyOn(call, "callInlineEdit").mockImplementation(
+      ((args: { historySearch?: boolean }) => {
+        captured = args;
+        return Promise.resolve({
+          blocks: [], text: "", usage: { input_tokens: 1, output_tokens: 1 },
+        });
+      }) as unknown as typeof call.callInlineEdit,
+    );
+    const deps = mkDeps();
+    const { result } = renderHook(() =>
+      useInlineAiEdit({ ...deps, ai: { ...deps.ai, ...ai } as InlineAiEditDeps["ai"] }),
+    );
+    act(() => result.current.openFor(task));
+    await act(async () => { await result.current.submit("mark done"); });
+    // Positive observable: the call really happened, so an assertion about its
+    // argument cannot pass because the spy was never invoked.
+    expect(captured, "callInlineEdit was never called").toBeDefined();
+    return captured!;
+  }
+
+  it("forwards an explicit false", async () => {
+    expect((await captureHistorySearch({ historySearch: false })).historySearch).toBe(false);
+  });
+
+  it("forwards an unset toggle as undefined, never coerced to false", async () => {
+    const args = await captureHistorySearch({});
+    expect(args.historySearch).toBeUndefined();
+    // ★ `in` as well as the value: `toolsFor` reads `=== false`, so a key that
+    //   arrives present-and-false would silently drop the tool for a user who
+    //   never touched the setting.
+    expect(args.historySearch).not.toBe(false);
+  });
+});
+
 it("passes an AbortSignal into callInlineEdit and cancel() aborts the in-flight call", async () => {
   let captured: AbortSignal | undefined;
   vi.spyOn(call, "callInlineEdit").mockImplementation(

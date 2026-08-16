@@ -1628,3 +1628,64 @@ describe("400 response message surfacing", () => {
     expect(alert.textContent ?? "").not.toContain(" — ");
   });
 });
+
+// ---------------------------------------------------------------------------
+// The historySearch kill switch, asserted on the WIRE
+// ---------------------------------------------------------------------------
+// ★★★ `toolsFor` is well covered in chat-api.test.ts, but nothing observed that
+//   chat-panel actually HANDS IT the setting. `chat-panel.tsx` passes
+//   `ai.historySearch` as the fifth argument to `callClaude`; measured before
+//   this suite, replacing it with a hardcoded `undefined` left 91 tests across
+//   4 suites green — the user's "off" switch was inert on every chat request
+//   and no test could tell.
+//
+// ★★ Asserted on the REQUEST BODY rather than on a `callClaude` spy: the body
+//   is what the API actually receives, so this cannot pass while the tool
+//   schema still ships. It also survives a refactor of how the panel reaches
+//   the network, which a module spy would not.
+describe("historySearch reaches the request body", () => {
+  afterEach(() => vi.restoreAllMocks());
+
+  function okResponse() {
+    return Promise.resolve({
+      ok: true,
+      text: () => Promise.resolve(""),
+      json: () =>
+        Promise.resolve({
+          content: [{ type: "text", text: "ok" }],
+          stop_reason: "end_turn",
+          usage: { input_tokens: 1, output_tokens: 1 },
+        }),
+    } as unknown as Response);
+  }
+
+  async function toolNamesSentFor(ai: typeof AI_WITH_KEY) {
+    const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(okResponse);
+    const view = render(
+      <ChatPanel lang="en-US" ai={ai} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+    );
+    const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
+    fireEvent.change(ta, { target: { value: "what changed recently" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
+    const init = fetchSpy.mock.calls[0][1] as RequestInit;
+    const body = JSON.parse(String(init.body)) as { tools: { name: string }[] };
+    view.unmount();
+    fetchSpy.mockRestore();
+    return body.tools.map((tool) => tool.name);
+  }
+
+  it("ships the search_history schema by default", async () => {
+    expect(await toolNamesSentFor(AI_WITH_KEY)).toContain("search_history");
+  });
+
+  it("omits the search_history schema when the toggle is off", async () => {
+    const off = await toolNamesSentFor({ ...AI_WITH_KEY, historySearch: false });
+    expect(off).not.toContain("search_history");
+    // ★ CONTROL for the negative above: `not.toContain` also passes on an empty
+    //   array, so pin that exactly ONE tool was dropped rather than the list
+    //   being gutted — the same trap chat-api.test.ts guards for `toolsFor`.
+    const on = await toolNamesSentFor(AI_WITH_KEY);
+    expect(off).toHaveLength(on.length - 1);
+  });
+});

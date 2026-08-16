@@ -14,6 +14,7 @@ import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
 import { type LogActivityAsFn } from "./activity-log-context";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
+import { RECAP_WINDOW_DAYS } from "./history-search";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
 import { type DocOp } from "./document-mutations";
 import { MAX_BLOCKS_PER_DOC } from "./document-model";
@@ -2641,5 +2642,198 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     });
     expect(logActivityAs).not.toHaveBeenCalled();
     openSpy.mockRestore();
+  });
+
+  // ★★★ THE TWO REJECT CLASSES THE SUITE COULD NOT SEE. "does not log when the
+  //   write is rejected" above covers the twelve NOT-FOUND guards well, but
+  //   every read-only test in this file calls `renderDispatcher(tasks, true)`
+  //   with the `logActivityAs` argument OMITTED — so the spy does not exist in
+  //   those runs and nothing observes whether a refused write logged. Measured:
+  //   a log call moved INSIDE the read-only branch of `deleteAllTasks`, and
+  //   another inside `createTask`'s `!taskName` throw, both passed 155/155.
+  //
+  // ★★ Every negative assertion here is paired with a POSITIVE observable (the
+  //   `toThrow()` on the same line): a writer that silently stopped throwing
+  //   would otherwise satisfy `not.toHaveBeenCalled()` for the wrong reason,
+  //   which is exactly how this gap survived in the first place.
+  describe("a refused write records nothing", () => {
+    it("logs nothing for any entity writer refused in a read-only popout", () => {
+      const logActivityAs = vi.fn();
+      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAs);
+      const d = result.current;
+      // ★ The EN string is "Editing is disabled in the pop-out view …" —
+      //   hyphenated. Matching the user-facing wording rather than the
+      //   `popoutReadOnly` KEY keeps this asserting that the read-only refusal
+      //   fired, not merely that something threw.
+      const readOnly = /pop-?out/i;
+
+      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "2026-09-01" })).toThrow(readOnly);
+      expect(() => d.updateTask(1, { taskName: "X" })).toThrow(readOnly);
+      expect(() => d.setTaskDependencies(2, [{ taskId: 1, type: "FS" }])).toThrow(readOnly);
+      expect(() => d.deleteTask(1)).toThrow(readOnly);
+      expect(() => d.deleteAllTasks()).toThrow(readOnly);
+      expect(() => d.updateSettings({ showViewHints: false })).toThrow(readOnly);
+      expect(() => d.createRaid({ title: "R" })).toThrow(readOnly);
+      expect(() => d.updateRaid(1, { title: "R2" })).toThrow(readOnly);
+      expect(() => d.deleteRaid(1)).toThrow(readOnly);
+      expect(() => d.createChange({ title: "C" })).toThrow(readOnly);
+      expect(() => d.updateChange(1, { title: "C2" })).toThrow(readOnly);
+      expect(() => d.deleteChange(1)).toThrow(readOnly);
+      expect(() => d.createMilestone({ name: "M", date: "2026-09-01" })).toThrow(readOnly);
+      expect(() => d.updateMilestone(1, { name: "M2" })).toThrow(readOnly);
+      expect(() => d.deleteMilestone(1)).toThrow(readOnly);
+      expect(() => d.createStakeholder({ name: "S" })).toThrow(readOnly);
+      expect(() => d.updateStakeholder(1, { name: "S2" })).toThrow(readOnly);
+      expect(() => d.deleteStakeholder(1)).toThrow(readOnly);
+      expect(() => d.createResource({ firstName: "F", lastName: "L" })).toThrow(readOnly);
+      expect(() => d.updateResource(1, { firstName: "F2" })).toThrow(readOnly);
+      expect(() => d.deleteResource(1)).toThrow(readOnly);
+
+      expect(logActivityAs).not.toHaveBeenCalled();
+    });
+
+    // ★ sendInquiry REFUSES rather than throws in a popout, so it needs its own
+    //   positive observable — the refusal value, not a thrown error.
+    it("logs nothing when sendInquiry is refused in a read-only popout", () => {
+      const logActivityAs = vi.fn();
+      const { result } = renderDispatcher(seedTasks(), true, "open-points", logActivityAs);
+      act(() => {
+        expect(result.current.sendInquiry(1).sent).toBe(false);
+      });
+      expect(logActivityAs).not.toHaveBeenCalled();
+    });
+
+    // ★★ The OTHER unpinned class: a create rejected by its own VALIDATION,
+    //   before anything is written. All six entities, each with the input its
+    //   sanitizer refuses.
+    it("logs nothing for a create rejected by its own validation", () => {
+      const logActivityAs = vi.fn();
+      const { result } = renderDispatcher([], false, "open-points", logActivityAs);
+      const d = result.current;
+
+      expect(() => d.createTask({ taskName: "  ", assignee: "A", dueDate: "2026-09-01" })).toThrow(/taskName/);
+      expect(() => d.createTask({ taskName: "T", assignee: "", dueDate: "2026-09-01" })).toThrow(/assignee/);
+      expect(() => d.createTask({ taskName: "T", assignee: "A", dueDate: "nope" })).toThrow(/dueDate/);
+      expect(() => d.createRaid({ title: "   " })).toThrow(/RAID/);
+      expect(() => d.createChange({ title: "   " })).toThrow(/change/);
+      expect(() => d.createMilestone({ name: "M", date: "not-a-date" })).toThrow(/milestone/);
+      expect(() => d.createStakeholder({ name: "   " })).toThrow(/stakeholder/);
+      expect(() => d.createResource({ firstName: "  ", lastName: "  " })).toThrow(/resource/);
+
+      expect(logActivityAs).not.toHaveBeenCalled();
+      // Positive observable that the REJECTIONS were real: nothing was stored.
+      expect(d.listTasks()).toHaveLength(0);
+    });
+  });
+});
+
+// ★★★ THE SNAPSHOT SEAM. `getSnapshot().activitySummary` had NO assertion in
+//   this file, which is how the `summarizeForRecap(ai, entries, today, tz)`
+//   argument transposition survived: `today` and `tz` were both `string`, the
+//   swap compiled, `summarizeRecentActivity` hit its NaN guard and returned
+//   null forever, and 337 tests across 5 suites stayed green. The brand in
+//   `timezone.ts` now makes that swap a compile error — this pins the rest of
+//   the wiring, which the brand says nothing about: the recap reaching the
+//   snapshot at all, and reaching it with the PROJECT's zone.
+describe("useChatDispatcher – getSnapshot().activitySummary", () => {
+  function renderRecapProbe(timezone: string) {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders>{children}</TestProviders>
+    );
+    return renderHook(
+      () => ({
+        d: useChatDispatcher({
+          settings: makeSettings(),
+          today: "2026-08-16",
+          timezone: asTimeZoneForTests(timezone),
+          setSelectedIds: vi.fn(),
+          setSettings: vi.fn(),
+          isReadOnly: false,
+          currentView: "chat",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        }),
+        ws: useWorkspace(),
+      }),
+      { wrapper },
+    );
+  }
+
+  /** 23:30Z on the 9th. In Berlin (UTC+2) that is the 10th — the first day of
+   *  the default 7-day window ending 2026-08-16, so it is IN. In New York
+   *  (UTC-4) it is still the 9th, one day before the window, so it is OUT.
+   *  ★★ A UTC-only fixture cannot fail this: the entry's inclusion has to flip
+   *  with the zone, or the test passes whatever zone the wiring actually hands
+   *  over — including a transposed one. */
+  const BOUNDARY = {
+    id: "dev-1-boundary",
+    timestamp: "2026-08-09T23:30:00.000Z",
+    kind: "task.updated" as const,
+    args: [1, "Boundary edit"],
+    actor: "user" as const,
+  };
+  const INSIDE = {
+    id: "dev-1-inside",
+    timestamp: "2026-08-15T10:00:00.000Z",
+    kind: "task.updated" as const,
+    args: [2, "Mid-window edit"],
+    actor: "ai" as const,
+  };
+
+  it("carries the recap onto the snapshot, counted in the PROJECT zone", () => {
+    const { result } = renderRecapProbe("Europe/Berlin");
+    act(() => {
+      result.current.ws.setActivityLog([BOUNDARY, INSIDE]);
+    });
+    const summary = result.current.d.getSnapshot().activitySummary;
+    expect(summary?.total).toBe(2);
+    expect(summary?.byActor).toEqual({ user: 1, ai: 1, integration: 0, unknown: 0 });
+    expect(summary?.days).toBe(RECAP_WINDOW_DAYS);
+  });
+
+  // ★ The other side of the boundary. Same log, same `today`, different zone —
+  //   so this fails if the wiring passes a hardcoded zone, the wrong field, or
+  //   the two arguments the other way round.
+  it("drops the boundary entry in a zone where it falls outside the window", () => {
+    const { result } = renderRecapProbe("America/New_York");
+    act(() => {
+      result.current.ws.setActivityLog([BOUNDARY, INSIDE]);
+    });
+    const summary = result.current.d.getSnapshot().activitySummary;
+    expect(summary?.total).toBe(1);
+    expect(summary?.byActor).toEqual({ user: 0, ai: 1, integration: 0, unknown: 0 });
+  });
+
+  // ★ Absent, not present-and-empty, when the toggle is off — the field is
+  //   optional and `buildActivityRecapBlock` renders nothing for a null.
+  it("omits the summary entirely when the recap toggle is off", () => {
+    const wrapper = ({ children }: { children: ReactNode }) => (
+      <TestProviders>{children}</TestProviders>
+    );
+    const { result } = renderHook(
+      () => ({
+        d: useChatDispatcher({
+          settings: { ...makeSettings(), ai: { ...makeSettings().ai, activityRecap: false } },
+          today: "2026-08-16",
+          timezone: asTimeZoneForTests("Europe/Berlin"),
+          setSelectedIds: vi.fn(),
+          setSettings: vi.fn(),
+          isReadOnly: false,
+          currentView: "chat",
+          settingsProjectId: "default", holidaySet: new Set<string>(),
+          getDashboardModel: stubGetDashboardModel,
+          getBudgetRollup: stubGetBudgetRollup,
+          getAllocationsSnapshot: stubGetAllocationsSnapshot,
+        }),
+        ws: useWorkspace(),
+      }),
+      { wrapper },
+    );
+    act(() => {
+      result.current.ws.setActivityLog([BOUNDARY, INSIDE]);
+    });
+    expect(result.current.d.getSnapshot().activitySummary).toBeUndefined();
   });
 });
