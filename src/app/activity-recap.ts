@@ -46,10 +46,27 @@ const plural = (n: number, noun: string): string => `${n} ${noun}${n === 1 ? "" 
  * ★ `latestAt` is rendered in the PROJECT zone, matching every other instant
  *   the model is handed (`searchHistory`'s `at`, the `Today is …` line). A raw
  *   UTC slice would quote a day the user's Activity panel disagrees with.
+ *
+ * ★★★ `offeredTools` IS THE SET THE WIRE WILL ACTUALLY SEND (`toolsFor`), and
+ *     the closing "Use search_history to read them." is emitted ONLY when it
+ *     holds that name. The two toggles are INDEPENDENT: `activityRecap` decides
+ *     whether this sentence exists at all (upstream, in `summarizeForRecap`),
+ *     `historySearch` decides whether the tool exists — so recap-on +
+ *     history-off is a REACHABLE combination, and it was the one that shipped a
+ *     prompt naming a tool the request did not carry, on every turn of every
+ *     conversation. The COUNTS survive it: "12 changes, 9 by the user" still
+ *     orients the model even when it cannot go read them.
+ *
+ * ★★ Same set the view-scope block filters against, for the same reason — one
+ *    source of truth means a change to `toolsFor` moves every advertisement
+ *    with it. Deliberately a plain `ReadonlySet`, not an import from
+ *    `chat-api.ts`: that module imports THIS one, and a value import back would
+ *    close a runtime cycle (see the header note).
  */
 export function buildActivityRecapBlock(
   summary: ActivitySummary | null,
   tz: TimeZone,
+  offeredTools: ReadonlySet<string>,
 ): string {
   if (!summary) return "";
 
@@ -69,7 +86,9 @@ export function buildActivityRecapBlock(
     //    the constant here would misstate the window to the model.
     `Recent project activity: ${plural(summary.total, "change")} in the last ${plural(summary.days, "day")}`,
     `(${breakdown}latest ${latestDay}).`,
-    "Use search_history to read them.",
+    // ★ Conditional SUPPRESSION, not removal — with the tool offered (the
+    //   default) this clause is what makes the counts actionable.
+    ...(offeredTools.has("search_history") ? ["Use search_history to read them."] : []),
   ].join(" ");
 }
 

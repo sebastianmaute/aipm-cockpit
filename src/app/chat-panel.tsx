@@ -352,7 +352,7 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
-    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides);
+    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides, ai.historySearch);
     const messages = newHistory.slice();
 
     try {

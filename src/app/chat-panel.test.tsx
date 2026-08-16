@@ -607,7 +607,7 @@ const guide: OperatingGuide = {
 
 describe("buildSystemPrompt app-context + guides", () => {
   it("includes an APP CONTEXT block with mode/modules/view", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true,undefined));
     expect(s).toContain("APP CONTEXT");
     expect(s).toContain("Mode: advanced");
     expect(s).toContain("Current view: milestones");
@@ -615,24 +615,24 @@ describe("buildSystemPrompt app-context + guides", () => {
   });
 
   it("includes in-scope guides when grounding is ON", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true,undefined));
     expect(s).toContain("Be decisive.");
     expect(s).toContain("priority order");
   });
 
   it("omits the guide block when grounding is OFF", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false,undefined));
     expect(s).not.toContain("Be decisive.");
   });
 
   it("omits the guide block when no guide is in scope", () => {
     const off: OperatingGuide = { ...guide, scope: { views: ["budget" as const] } };
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true,undefined));
     expect(s).not.toContain("Be decisive.");
   });
 
   it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
-    const blocks = buildSystemPrompt("en-US", snap, [guide], true);
+    const blocks = buildSystemPrompt("en-US", snap, [guide], true,undefined);
     // Block 0 = cached stable prefix, contains the guide text.
     expect(blocks[0].cache_control?.type).toBe("ephemeral");
     expect(blocks[0].text).toContain("Be decisive.");

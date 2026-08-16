@@ -19,6 +19,13 @@ export interface ViewScope {
   toolHints?: string[];
   /** Domain gloss: how to read what the view displays. */
   reading?: string;
+  /** ★★ Names a tool this `reading` is ABOUT, so the formatter can drop the
+   *  gloss when that tool is not offered on this request. A TOOL name, never a
+   *  setting: this registry must never learn what `settings.ai` holds (see the
+   *  OperatingGuide note above — the same "a user preference must not reach
+   *  shipped product data" line). `buildViewScopeBlock` resolves it against the
+   *  tools the wire will actually send. Also pinned by the dead-hint guard. */
+  readingRequiresTool?: string;
 }
 
 /** Total by construction: adding an AppView is a typecheck error until it is
@@ -222,6 +229,16 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    here describing something the model or its tools cannot do is a
     //    liability with a fuse; pin it, in both directions, or do not write it.
     toolHints: ["search_history"],
+    // ★★ THE WHOLE `reading` IS ABOUT `search_history`, so it goes when the tool
+    //    does. `settings.ai.historySearch === false` removes the tool from the
+    //    request (`toolsFor`) while this entry went on telling the model to call
+    //    it — a fifth false claim in this entry, of the mirror-image kind to the
+    //    four below: those described a limitation that a slice REMOVED, this one
+    //    described a capability a SETTING removes. Dropping the gloss wholesale
+    //    is the honest end state, not a loss: with no tool the model cannot see
+    //    an activity entry at all, so an actor caution about results it can
+    //    never receive is noise.
+    readingRequiresTool: "search_history",
     // ★★★ FOURTH correction to this same sentence, and this one is a NARROWING
     //    rather than a retraction — read it as the pattern the three notes above
     //    describe, one turn later. The shipped clause was "(entries written

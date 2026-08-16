@@ -99,7 +99,14 @@ export function buildSystemPrompt(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
+  /** `settings.ai.historySearch` — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  historySearch: boolean | undefined,
 ): SystemBlock[] {
+  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
+  //    independent reads of the setting is how they drifted apart before.
+  const offeredTools = toolNamesFor(historySearch);
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
   // STABLE prefix (cached): fixed instructions that never interpolate per-call
@@ -145,7 +152,7 @@ export function buildSystemPrompt(
   // do not re-derive a per-message cost argument here (one was written, priced
   // against a baseline that did not exist, and retracted). Sits before VIEW
   // STATE so the model reads "what this surface is" before "what is on it".
-  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
+  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView, offeredTools);
   // Activity changes on EVERY turn, so this block MUST stay in the uncached
   // suffix — in the cached prefix it would invalidate the prompt cache on every
   // message, which costs far more than the ~20 tokens it saves.
@@ -154,6 +161,7 @@ export function buildSystemPrompt(
   const activityBlock = buildActivityRecapBlock(
     snapshot.activitySummary ?? null,
     snapshot.timezone,
+    offeredTools,
   );
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
@@ -289,6 +297,24 @@ const CACHED_TOOLS_NO_HISTORY = withCacheBreakpoint(
  */
 export function toolsFor(historySearch: boolean | undefined) {
   return historySearch === false ? CACHED_TOOLS_NO_HISTORY : CACHED_TOOLS;
+}
+
+// ★★ DERIVED FROM THE ARRAYS `toolsFor` RETURNS, never listed by hand. These
+//    feed the prompt surfaces that ADVERTISE tools (`buildViewScopeBlock`,
+//    `buildActivityRecapBlock`), so "what the model is told it has" and "what
+//    the request carries" come from ONE place and cannot disagree. A hand-kept
+//    second list is the drift this closes.
+// ★ Module-level for the same reason as the arrays: the setting is constant for
+//   a conversation, and `buildSystemPrompt` runs once per send.
+const TOOL_NAMES: ReadonlySet<string> = new Set(CACHED_TOOLS.map((d) => d.name));
+const TOOL_NAMES_NO_HISTORY: ReadonlySet<string> = new Set(
+  CACHED_TOOLS_NO_HISTORY.map((d) => d.name),
+);
+
+/** The names of the tools this request will actually carry. Same input and same
+ *  `=== false` reading as `toolsFor` — they are two views of one decision. */
+export function toolNamesFor(historySearch: boolean | undefined): ReadonlySet<string> {
+  return historySearch === false ? TOOL_NAMES_NO_HISTORY : TOOL_NAMES;
 }
 
 export async function callClaude(
