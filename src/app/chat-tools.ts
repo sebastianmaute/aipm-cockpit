@@ -21,6 +21,7 @@ import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
+import { searchHistory } from "./history-search";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import {
@@ -666,6 +667,23 @@ export async function runTool(
 
     case "list_budget_buckets":
       return d.listBudgetBuckets();
+
+    // Every field is coerced-or-dropped rather than validated-and-rejected:
+    // the engine treats an absent field as "no filter", which is the honest
+    // reading of garbage from a model that cannot be asked to try again.
+    case "search_history":
+      return searchHistory(d.getActivityLog(), {
+        query: typeof input.query === "string" ? input.query : undefined,
+        since: typeof input.since === "string" ? input.since : undefined,
+        until: typeof input.until === "string" ? input.until : undefined,
+        // A bare pass-through would hand a STRING to the engine's
+        // `new Set(q.kinds)`, which iterates it into a set of characters
+        // matching no kind — an empty result reported as a real filter.
+        kinds: Array.isArray(input.kinds)
+          ? input.kinds.filter((k): k is string => typeof k === "string")
+          : undefined,
+        limit: typeof input.limit === "number" ? input.limit : undefined,
+      });
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

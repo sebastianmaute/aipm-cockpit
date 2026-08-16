@@ -390,6 +390,41 @@ export const TOOL_DEFS = [
     input_schema: { type: "object", properties: {} },
   },
   {
+    name: "search_history",
+    description:
+      "Search this project's activity history — the audit trail of every create, update, delete, " +
+      "status change, AI action and integration sync, newest first. Use it for questions about what " +
+      "CHANGED and WHEN (\"what happened last week\", \"who moved that milestone\", \"what did this " +
+      "field say before\"); use the list_* tools for current state. Each event has an ISO timestamp, " +
+      "an English summary, and an optional detail string carrying the field-level before/after diff. " +
+      "If `truncated` is true, more events matched than were returned — say so rather than implying " +
+      "the list is complete. Read-only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Case-insensitive substring matched against the summary and diff detail.",
+        },
+        since: {
+          type: "string",
+          description: "Inclusive lower bound as YYYY-MM-DD. Convert relative phrasing yourself.",
+        },
+        until: { type: "string", description: "Inclusive upper bound as YYYY-MM-DD." },
+        kinds: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            'Restrict to specific event kinds, e.g. ["task.updated", "milestone.deleted"].',
+        },
+        limit: {
+          type: "number",
+          description: "Max events to return. Defaults to 50, capped at 200.",
+        },
+      },
+    },
+  },
+  {
     name: "create_resource",
     description:
       "Add a person to the resource directory. Provide firstName and lastName, OR a single full `name` (it is split). At least one of these is required — a call with no name is rejected. Use this when a document describes a team/resource plan — assigning a task to a name alone does NOT create a directory entry. Discipline/grade are assigned in the app, not here.",

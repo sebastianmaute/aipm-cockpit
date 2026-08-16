@@ -10,6 +10,7 @@ import {
   type Filters,
 } from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
+import { type ActivityEntry } from "./activity-log";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -1095,5 +1096,86 @@ describe("runTool — document tool routing", () => {
     await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
       /unknown tool: burn_everything/,
     );
+  });
+});
+
+describe("search_history", () => {
+  // Deliberately NOT already in newest-first order, so the ordering assertion
+  // below is about the engine's sort and not about the fixture's own order.
+  const LOG: ActivityEntry[] = [
+    { id: "a", timestamp: "2026-08-10T09:00:00.000Z", kind: "task.created", args: [1, "Alpha"] },
+    { id: "b", timestamp: "2026-08-12T09:00:00.000Z", kind: "task.created", args: [2, "Beta"] },
+  ];
+
+  it("is registered in TOOL_DEFS", () => {
+    expect(TOOL_DEFS.some((d) => d.name === "search_history")).toBe(true);
+  });
+
+  it("returns rendered events newest-first from the dispatcher's log", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", {})) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events.map((e) => e.summary)).toEqual([
+      "Task #2 created: Beta",
+      "Task #1 created: Alpha",
+    ]);
+    expect(r.truncated).toBe(false);
+  });
+
+  it("passes the model's filters through", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { query: "beta" })) as {
+      events: { summary: string }[];
+    };
+    expect(r.events).toHaveLength(1);
+  });
+
+  // ★ The model is untrusted input: a non-object/garbage arg must not throw.
+  it("ignores malformed arguments rather than throwing", async () => {
+    const d = makeDispatcher({ getActivityLog: () => [] });
+    await expect(
+      runTool(d, "search_history", { query: 42, kinds: "nope", limit: "ten" }),
+    ).resolves.toEqual({ events: [], truncated: false });
+  });
+
+  // ★★ PAIRED POSITIVE for the guard above, and the test that actually pins it.
+  //    On an EMPTY log the case above returns `{events: [], truncated: false}`
+  //    for several wrong reasons too — a guard that forwarded `"nope"` verbatim
+  //    would reach `new Set("nope")`, a set of four CHARACTERS matching no kind,
+  //    and still pass. With a real log that mistake returns zero events, so this
+  //    is the one that distinguishes "garbage treated as absent" from "garbage
+  //    treated as a filter that matches nothing".
+  it("treats garbage kinds/limit as absent, not as a filter matching nothing", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { kinds: "nope", limit: "ten" })) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events).toHaveLength(2);
+    expect(r.truncated).toBe(false);
+  });
+
+  // `truncated` is what the model reads to decide whether it may claim a
+  // complete answer, so it must cross the tool layer unaltered.
+  it("passes the engine's truncated flag through", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { limit: 1 })) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events.map((e) => e.summary)).toEqual(["Task #2 created: Beta"]);
+    expect(r.truncated).toBe(true);
+  });
+
+  // A real kind filter must still WORK — otherwise "garbage becomes undefined"
+  // above is indistinguishable from "kinds is ignored entirely".
+  it("honours a well-formed kinds filter", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { kinds: ["milestone.deleted"] })) as {
+      events: unknown[];
+    };
+    expect(r.events).toHaveLength(0);
   });
 });
