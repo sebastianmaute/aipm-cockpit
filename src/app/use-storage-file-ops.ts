@@ -102,6 +102,11 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       // 3. Load the target's existing data and apply it.
       const loaded = await targetBackend.load();
       deps.applyWorkspace(loaded);
+      // ★★ THIS TOAST FIRES BEFORE `reportFor`, NOT AFTER — see the landmine on
+      //    `TruncationOps.reportFor`. The surface is single-slot, so whichever of
+      //    the two runs LAST is the only one the user ever sees, and this one is
+      //    the disposable half (a confirmation with no remedy attached).
+      deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", target.name));
       deps.truncationOps.reportFor(targetBackend);
       // 4. Suppress the auto-load the storageConfig change triggers (we just
       //    loaded), then point the active backend + registry at the target.
@@ -109,7 +114,6 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(target.storageConfig);
       deps.commitRegistry(setCurrentProjectInRegistry(registry, id));
-      deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", target.name));
     } catch (err) {
       deps.reportProjectError(err);
     }
@@ -231,11 +235,15 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       });
       deps.commitRegistry(addProject(loadRegistry(), entry, true));
       deps.applyWorkspace(loaded);
+      // ★★ BEFORE `reportFor` — single-slot surface; see the landmine there. This
+      //    is the site the inline dropped-rows block used to live at, where it sat
+      //    AFTER this toast and therefore survived; centralising it into `reportFor`
+      //    silently moved it in FRONT and the count stopped painting.
+      deps.showToast("info", t(deps.langRef.current, "projectLoadedToast", entry.name));
       deps.truncationOps.reportFor(targetBackend);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setStorageConfig(storageConfig);
-      deps.showToast("info", t(deps.langRef.current, "projectLoadedToast", entry.name));
       // Cross-mode load (portfolio is currently Turso, but the user is loading a
       // local file from the empty state): persist the mode switch + file storage
       // config SYNCHRONOUSLY and reload so the app re-initialises in FILE mode

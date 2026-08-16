@@ -35,7 +35,20 @@ export interface TruncationOps {
    *  read at ONE call site while this channel had five, so four load paths
    *  reported nothing however many rows vanished. Both signals ride one call so
    *  they cannot drift apart, and the `reportFor`-per-`load()` census in this
-   *  file's test is what catches a new path that forgets. */
+   *  file's test is what catches a new path that forgets.
+   *
+   *  ★★★ A NEW CALL SITE MUST FIRE ITS OWN "loaded"/"switched"/"reloaded" TOAST
+   *  BEFORE CALLING THIS, NEVER AFTER. The toast surface is SINGLE-SLOT —
+   *  `useToast` (`use-toast.ts`) holds a `useState<Toast | null>` and `showToast`
+   *  is a bare `setToast(...)` — so of two calls in one stretch only the LAST is
+   *  ever seen, and an `await` in between does not help: the second still
+   *  replaces the first. Centralising the dropped-rows warning here put it in
+   *  FRONT of four call sites' own confirmations and every one of them
+   *  overwrote it; the toast was raised, discarded, and nothing was left. The
+   *  confirmation is the disposable half (it carries no remedy, and on a clean
+   *  load this call shows nothing, so it still paints) — the diagnostic is not.
+   *  ★ Ordering is the whole fix, so a test asserting `showToast` was CALLED
+   *  cannot see the defect. Assert on the LAST call. */
   reportFor: (
     backend: Pick<
       StorageBackend,

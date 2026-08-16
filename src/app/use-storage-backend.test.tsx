@@ -2900,8 +2900,22 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
 // five, so four load paths reported nothing however many rows vanished. It now
 // rides `truncationOps.reportFor`, which every load path already calls.
 //
-// ★★★ THE PROPERTY IS "THE USER WAS TOLD", NOT "reportFor RAN", and nothing in
-// this file pinned it before. The `reportFor`-per-`load()` census in
+// ★★★ THE PROPERTY IS "THE USER WAS TOLD", NOT "reportFor RAN" — AND THE FIRST
+// CUT OF THIS BLOCK STILL DID NOT PIN IT. Every test asserted on
+// `showToast.mock.calls`, which is a CALL LOG: it records toasts the single-slot
+// surface threw away. Four of the five load paths fire their own
+// "loaded"/"switched"/"reloaded" toast in the same synchronous stretch, and
+// `reportFor` ran FIRST at all four, so the diagnostic was raised and instantly
+// overwritten — invisible here, and green through thirteen gates. Fixed by
+// ordering the call sites (see the landmine on `TruncationOps.reportFor`) and by
+// asserting on `survivingToast()`, the LAST call, below. Mutation-checked: moving
+// each of the four toasts back after `reportFor` turns exactly its own test red
+// (4 planted / 4 killed).
+// ★★ THE THREE MOUNT-PATH TESTS CANNOT CARRY THAT PROPERTY and were not made to:
+// the mount load effect is the one `reportFor` site with no competing toast, so
+// there is nothing to be overwritten by. They pin instead that it STAYS
+// uncontended — a toast added after `reportFor` there turns the first one red.
+// The `reportFor`-per-`load()` census in
 // `use-load-truncation.test.ts` cannot close that gap: it SOURCE-SCANS
 // `OPS_FILES` — `use-storage-file-ops.ts` and `use-storage-turso-ops.ts` — for
 // `reportFor(` tokens, so it never reads `use-storage-backend.ts` at all, and a
@@ -2945,11 +2959,33 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
   /** Every error toast that carries either import sentence. Read as a LIST, not
    *  as `toHaveBeenCalledWith`, so a test can assert HOW MANY toasts were spent —
-   *  the single-slot surface makes the count part of the behaviour. */
+   *  the single-slot surface makes the count part of the behaviour.
+   *
+   *  ★★★ THIS IS A CALL LOG, NOT WHAT THE USER SAW, and reading it as the latter
+   *  is why the ordering defect below shipped green through thirteen gates. Use
+   *  it ONLY for the "how many calls" property; for "was the user told", use
+   *  {@link survivingToast}. */
   function importToasts(): string[] {
     return showToast.mock.calls
       .filter((c) => c[0] === "error" && /invalid row\(s\)|quotation mark/.test(String(c[1])))
       .map((c) => String(c[1]));
+  }
+
+  /** The toast the user actually SEES: the LAST `showToast` call, because the
+   *  surface is SINGLE-SLOT — `useToast` (`use-toast.ts`) holds a
+   *  `useState<Toast | null>` and `showToast` is a bare `setToast(...)`, so a
+   *  second call REPLACES the first with no queue and no stacking.
+   *
+   *  ★★★ EVERY TEST HERE USED TO ASSERT ON `importToasts()` ALONE, which records
+   *  calls the surface DISCARDED. Four of the five load paths fire their own
+   *  "loaded"/"switched"/"reloaded" toast in the same stretch, so the diagnostic
+   *  was raised and instantly overwritten — measured on the unfixed tree, this
+   *  path logged `[["error","9 invalid row(s) …"],["info","Loaded project f."]]`
+   *  and the user saw the second one. The old assertions passed on both, which
+   *  made them worthless for the only property that matters. */
+  function survivingToast(): string {
+    const calls = showToast.mock.calls;
+    return calls.length === 0 ? "" : String(calls[calls.length - 1][1]);
   }
 
   /** Register a switch TARGET in the registry (browser-kind → no file handle). */
@@ -2980,11 +3016,16 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
   // ── `use-storage-backend.ts` — the two paths this file owns ────────────────
 
   it("the MOUNT load effect tells the user rows were dropped", async () => {
+    // ★★ This is ALSO the guard that the mount path stays UNCONTENDED. It is the
+    //    one `reportFor` site with no success/info toast of its own, so nothing
+    //    in the file states that fact — `survivingToast` does: add a toast after
+    //    `reportFor` in the load effect and this assertion goes red.
     createBackendMock.mockReturnValue(makeImportBackend({ dropped: 3 }));
 
     renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
 
+    expect(survivingToast()).toContain("3 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("3 invalid row(s)")]);
   });
 
@@ -2996,22 +3037,27 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
 
-    const toasts = importToasts();
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0]).toContain("2 invalid row(s)");
-    expect(toasts[0]).toContain("unclosed quotation mark");
+    expect(importToasts()).toHaveLength(1);
+    const seen = survivingToast();
+    expect(seen).toContain("2 invalid row(s)");
+    expect(seen).toContain("unclosed quotation mark");
   });
 
   it("a CLEAN load says nothing — no '0 invalid row(s)' over a healthy file", async () => {
     // ★ The mirror of the blocks-only truncation test above: interpolating a
     //   count unconditionally reports a loss that did not happen, and this is the
     //   only assertion that can catch it (`>= 0` for `> 0` is one keystroke).
+    // ★★ THE ONE TEST HERE THAT IS ORDERING-BLIND BY CONSTRUCTION, and it cannot
+    //    be made otherwise: with no diagnostic raised there is nothing for a
+    //    competing toast to overwrite. Its job is the `> 0` guard below; the
+    //    six others carry the ordering property.
     createBackendMock.mockReturnValue(makeImportBackend());
 
     renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
 
     expect(importToasts()).toEqual([]);
+    expect(survivingToast()).not.toMatch(/invalid row\(s\)|quotation mark/);
     // POSITIVE CONTROL — without it, "no toast" is equally satisfied by a mount
     // whose load never ran at all.
     expect(createBackendMock).toHaveBeenCalled();
@@ -3032,6 +3078,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     });
     await act(async () => { await result.current.reloadCurrentProject(); });
 
+    // ★ The survivor, not the log: this path also fires `reloadProjectSuccess`.
+    expect(survivingToast()).toContain("5 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("5 invalid row(s)")]);
   });
 
@@ -3049,10 +3097,11 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
     await act(async () => { await result.current.switchToProject("imp-1"); });
 
-    const toasts = importToasts();
-    expect(toasts).toHaveLength(1);
-    expect(toasts[0]).toContain("4 invalid row(s)");
-    expect(toasts[0]).toContain("unclosed quotation mark");
+    expect(importToasts()).toHaveLength(1);
+    // ★ The survivor, not the log: this path also fires `projectSwitchedToast`.
+    const seen = survivingToast();
+    expect(seen).toContain("4 invalid row(s)");
+    expect(seen).toContain("unclosed quotation mark");
   });
 
   it("loadProjectFromFile still reports — the path the inline block was moved OFF", async () => {
@@ -3070,6 +3119,11 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
 
     await act(async () => { await result.current.loadProjectFromFile("json"); });
 
+    // ★★ The survivor, not the log. On main the inline block sat AFTER
+    //    `projectLoadedToast` and the count painted; centralising it into
+    //    `reportFor` moved it in FRONT and the count stopped painting — a true
+    //    regression, invisible to a call-log assertion.
+    expect(survivingToast()).toContain("9 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("9 invalid row(s)")]);
   });
 
@@ -3092,6 +3146,8 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     tursoImportDiag.unterminated = true;
     await act(async () => { await result.current.switchToTursoProject("imp-turso"); });
 
+    // ★ The survivor, not the log: this path also fires `projectSwitchedToast`.
+    expect(survivingToast()).toContain("unclosed quotation mark");
     expect(importToasts()).toEqual([expect.stringContaining("unclosed quotation mark")]);
   });
 });

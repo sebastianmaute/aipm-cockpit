@@ -90,12 +90,13 @@ export function useTursoProjectOps(deps: TursoProjectOpsDeps) {
       const target = new TursoBackend(cfg, id);
       const loaded = await target.load();
       deps.applyWorkspace(loaded);
+      // ★★ BEFORE `reportFor` — single-slot surface; see the landmine there.
+      deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", loaded.project?.name ?? id));
       deps.truncationOps.reportFor(target);
       deps.suppressNextLoadRef.current = true;
       deps.suppressNextSaveRef.current = true;
       deps.setTursoProjectId(id);
       saveCurrentTursoProjectId(id);
-      deps.showToast("info", t(deps.langRef.current, "projectSwitchedToast", loaded.project?.name ?? id));
     } catch (err) {
       deps.reportProjectError(err);
     }

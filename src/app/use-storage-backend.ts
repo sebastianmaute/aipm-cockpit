@@ -767,13 +767,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       // RAISE (not reset): this same-project reload may reflect a locally-deleted
       // max-id row; lowering the mark to the reloaded max would free that id.
       applyWorkspace(workspace, "raise", "merge"); // "merge": SAME project — a reload must not drop this device's entries.
+      // Confirm the manual recovery action succeeded (a bare re-render gives no feedback that the reload actually re-read the backend).
+      // ★★ BEFORE `reportFor`, not after — single-slot surface, see the landmine there. Safe to hoist past the await: `refreshBackendStatus` swallows every error, so this cannot report success over a status check that blew up.
+      emitToast("success", t(langRef.current, "reloadProjectSuccess"));
       truncationOps.reportFor(backend);
       suppressNextSaveRef.current = true;
       await refreshBackendStatus();
       emitOutcome(null);
-      // Confirm the manual recovery action succeeded (a bare re-render gives no
-      // feedback that the reload actually re-read the backend).
-      emitToast("success", t(langRef.current, "reloadProjectSuccess"));
     } catch (err) {
       // onStorageOutcome raises the sticky banner; the toast is the transient
       // acknowledgement of THIS click (reload has no other toast path).
