@@ -197,6 +197,21 @@ describe("renderDocumentHtml — the escaped/unescaped boundary", () => {
     expect(html).toContain("Intro");
     expect(html).not.toContain("&lt;strong");
   });
+
+  it("does not escape UPPERCASE legacy markup (open-followups §141(d))", () => {
+    // CONTAINS_TAG is case-INSENSITIVE. Dropping its /i leaves the whole suite
+    // green while <P>/<STRONG> get escaped into Word, PowerPoint, the HTML
+    // preview and the PDF — no fixture in any of those files carried an
+    // uppercase-markup value, so this is that fixture and the ONLY detector.
+    // POSITIVE form first: an absence assertion alone is satisfied by an empty
+    // string, which is exactly what the mutant must not be allowed to pass on.
+    // DOMPurify lower-cases the tag name it emits, so the surviving element is
+    // <strong> whatever case arrived.
+    const html = preview([{ type: "paragraph", html: "Intro <STRONG>bold</STRONG> tail" }]);
+    expect(html).toMatch(/<strong>bold<\/strong>/i);
+    expect(html).toContain("Intro");
+    expect(html).not.toMatch(/&lt;strong/i);
+  });
 });
 
 describe("renderDocumentHtml — data sections", () => {

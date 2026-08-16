@@ -69,6 +69,7 @@ import {
   htmlToRichLines,
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
+import { RENDER_SINK } from "./html-start";
 // ★★ `resolveDataSection` comes from the NEUTRAL doc-data-section module, NOT
 // from a sibling renderer. Importing it from doc-render-docx would typecheck
 // and work, and would also drag the DOCX OOXML builders into this graph and
@@ -212,7 +213,7 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
       // any tag at all, so an allow-list-derived classifier would escape the
       // whole value instead. Same composition as doc-render-docx's richParas;
       // the reasoning lives on html-start.ts's "render" member.
-      return [...htmlToRichLines(descriptionHtml(block.html, "render"))];
+      return [...htmlToRichLines(descriptionHtml(block.html, RENDER_SINK))];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);

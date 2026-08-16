@@ -10,6 +10,7 @@ import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-c
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor";
 import { capHtmlText, descriptionHtml } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 import { TEXTAREA_MAX } from "./sanitize";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useDraggable } from "./use-draggable";
@@ -107,7 +108,7 @@ export function MilestoneEditModal({
       // inside sanitizeRichText. This modal has no adjustment tracker (it never
       // had one and shows no "N fields adjusted" toast), so the cap is applied
       // silently — matching what the loader would have done anyway.
-      description: capHtmlText(descriptionHtml(draft.description, "rich"), TEXTAREA_MAX) || undefined,
+      description: capHtmlText(descriptionHtml(draft.description, RICH_SINK), TEXTAREA_MAX) || undefined,
     });
   }
 
@@ -209,7 +210,7 @@ export function MilestoneEditModal({
                   mounted would leave A's body in the field. */}
               <RichTextEditor
                 key={draft.id}
-                value={descriptionHtml(draft.description, "rich")}
+                value={descriptionHtml(draft.description, RICH_SINK)}
                 onChange={(html) => update("description", html || undefined)}
                 label={t(lang, "milestoneDescription")}
                 lang={lang}
