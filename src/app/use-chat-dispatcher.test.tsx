@@ -11,7 +11,7 @@ import { useTaskForm } from "./task-form-context";
 import { type Task } from "./types";
 import { ALL_MODULE_IDS, deriveMode } from "./feature-modules";
 import { type AppView } from "./nav-config";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { CALENDAR_SUMMARY_KEYS, runTool, type SettingsUpdateInput } from "./chat-tools";
 import { type DocumentUpdateResult } from "./chat-tools-documents";
 import { type DocOp } from "./document-mutations";
@@ -162,11 +162,11 @@ function renderDispatcher(
   isReadOnly = false,
   currentView: AppView = "open-points",
   // ★ Deliberately OPTIONAL and left undefined by every other call in this
-  // file: `logActivity` is an optional prop on ChatDispatcherArgs, so the ~60
+  // file: `logActivityAs` is an optional prop on ChatDispatcherArgs, so the ~60
   // callers below are the standing proof that omitting it does not throw
   // (the document-tool tests among them exercise every write path with it
-  // absent). Only the ai.documentWrite suite passes a spy.
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void,
+  // absent). Only the activity-row suites pass a spy.
+  logActivityAs?: LogActivityAsFn,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -188,7 +188,7 @@ function renderDispatcher(
         getDashboardModel: stubGetDashboardModel,
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
-        logActivity,
+        logActivityAs,
       }),
     { wrapper },
   );
@@ -1906,30 +1906,30 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
   const GOOD_BLOCK = { type: "paragraph" as const, html: "<p>keep me</p>" };
 
   function renderWithLog(isReadOnly = false) {
-    const logActivity = vi.fn();
-    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivity);
-    return { result, logActivity };
+    const logActivityAs = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), isReadOnly, "open-points", logActivityAs);
+    return { result, logActivityAs };
   }
 
   it("logs one ai.documentWrite row when the assistant creates a document", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
   });
 
   // ★ ONE row per WRITE, not per op — three ops in a single update_document
   // call are one thing the assistant did. A per-op emitter would report 3.
   it("logs exactly one row for a multi-op update", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     const ops: DocOp[] = [
       { op: "append", block: GOOD_BLOCK },
       { op: "append", block: GOOD_BLOCK },
@@ -1938,46 +1938,46 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
     act(() => {
       result.current.updateDocument(id, ops, undefined);
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
   });
 
   it("logs a row for a title-only rename, carrying the NEW title", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Old title", []).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     act(() => {
       result.current.updateDocument(id, [], "New title");
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "New title");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "New title");
   });
 
   // The title is read BEFORE the mutation — afterwards the row is gone from
   // result.documents, so a naive lookup would log an empty name.
   it("logs a row naming the document it deleted", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Doomed", []).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     act(() => {
       result.current.deleteDocument(id);
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Doomed");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Doomed");
   });
 
   it("logs NO row when a create is refused because a block failed the allow-list", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     expect(() => result.current.createDocument("Charter", [GOOD_BLOCK, DROPPED_BLOCK])).toThrow(
       /allow-list/,
     );
-    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
     // Nothing was created either — the refusal is total.
     expect(result.current.listDocuments()).toEqual([]);
     // POSITIVE CONTROL: the ONLY change is dropping the bad block. Same spy,
@@ -1987,21 +1987,21 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
     act(() => {
       id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
   });
 
   it("logs NO row when every op of an update was rejected", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Charter", [GOOD_BLOCK]).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     act(() => {
       result.current.updateDocument(id, [{ op: "delete", index: 42 }], undefined);
     });
-    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
     // The document really is untouched — the write was refused, not silently
     // applied with a missing row.
     expect(JSON.stringify(result.current.getDocument(id)!.blocks)).toContain("keep me");
@@ -2009,68 +2009,68 @@ describe("useChatDispatcher – ai.documentWrite activity rows", () => {
     act(() => {
       result.current.updateDocument(id, [{ op: "delete", index: 0 }], undefined);
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
   });
 
   it("logs NO row when a rename is a no-op (same title, no ops)", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Charter", []).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     act(() => {
       result.current.updateDocument(id, [], "Charter");
     });
-    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
     // POSITIVE CONTROL: a title that actually differs logs.
     act(() => {
       result.current.updateDocument(id, [], "Charter v2");
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter v2");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter v2");
   });
 
   it("logs NO row when deleting an id that does not exist", () => {
-    const { result, logActivity } = renderWithLog();
+    const { result, logActivityAs } = renderWithLog();
     let id!: number;
     act(() => {
       id = result.current.createDocument("Charter", []).id;
     });
-    logActivity.mockClear();
+    logActivityAs.mockClear();
     act(() => {
       result.current.deleteDocument(999);
     });
-    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
     // POSITIVE CONTROL: the id that DOES exist logs.
     act(() => {
       result.current.deleteDocument(id);
     });
-    expect(logActivity).toHaveBeenCalledTimes(1);
-    expect(logActivity).toHaveBeenCalledWith("ai.documentWrite", id, "Charter");
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "ai.documentWrite", id, "Charter");
   });
 
   // A popout refuses before mutateDocuments is reached, so there is nothing to
   // record. Positive control is the non-popout dispatcher in the same test.
   it("logs NO row for a write refused in a read-only popout", () => {
-    const { result, logActivity } = renderWithLog(true);
+    const { result, logActivityAs } = renderWithLog(true);
     expect(() => result.current.createDocument("Charter", [GOOD_BLOCK])).toThrow(/read-only/);
     expect(() => result.current.updateDocument(1, [], "New title")).toThrow(/read-only/);
     expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
-    expect(logActivity).not.toHaveBeenCalled();
+    expect(logActivityAs).not.toHaveBeenCalled();
     // POSITIVE CONTROL: identical create against a WRITABLE dispatcher.
-    const { result: writable, logActivity: writableLog } = renderWithLog(false);
+    const { result: writable, logActivityAs: writableLog } = renderWithLog(false);
     act(() => {
       writable.current.createDocument("Charter", [GOOD_BLOCK]);
     });
     expect(writableLog).toHaveBeenCalledTimes(1);
   });
 
-  // logActivity is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
+  // logActivityAs is OPTIONAL on ChatDispatcherArgs (every other ai.* emitter is
   // too, and a required prop would break task-manager.characterization's prop
   // contract). Omitting it must no-op, not throw.
-  it("does not throw when logActivity is omitted", () => {
+  it("does not throw when logActivityAs is omitted", () => {
     const { result } = renderDispatcher();
     let id!: number;
     expect(() => {
@@ -2349,5 +2349,219 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
     expect(out!.applied).toBe(1);
     expect(out!.rejected).toEqual(["op 0: replaceAll requires a blocks array"]);
     expect(result.current.getDocument(id)!.blocks).toHaveLength(1);
+  });
+});
+
+// ★★★ THE ARG COUNT IS UNTYPED AND NOTHING ELSE CHECKS IT. `logActivityAs`
+// ends in `...args: (string | number)[]`, so passing two args to a kind whose
+// EN string carries three placeholders typechecks, ships, and renders a
+// literal "{2}" in the Activity panel and in the model's own history feed.
+// These assertions are exact-arity on purpose: they are the only place the
+// per-kind contract is pinned. Counts verified against src/app/i18n.ts —
+// activityRaidUpdated "RAID #{0} updated ({1}): {2}" is the three-arg case,
+// activityMilestoneUpdated "Updated milestone #{0}" the one-arg case.
+describe("useChatDispatcher – AI entity writes reach the activity log", () => {
+  function renderWithLog(tasks: Task[] = seedTasks()) {
+    const logActivityAs = vi.fn();
+    const { result } = renderDispatcher(tasks, false, "open-points", logActivityAs);
+    return { result, logActivityAs };
+  }
+
+  it("logs task.created with actor ai", () => {
+    const { result, logActivityAs } = renderWithLog([]);
+    let created!: Task;
+    act(() => {
+      created = result.current.createTask({
+        taskName: "Cutover",
+        assignee: "Ada",
+        dueDate: "2026-09-01",
+      });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.created", created.id, "Cutover");
+  });
+
+  it("logs task.updated with actor ai", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.updateTask(1, { taskName: "Alpha renamed" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.updated", 1, "Alpha renamed");
+  });
+
+  it("logs task.deleted with actor ai", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.deleteTask(1);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.deleted", 1, "Alpha");
+  });
+
+  // ★★ A bulk op logs ONE summarising row, not N. ACTIVITY_MAX_ENTRIES is 500,
+  //    so N rows from one chat turn can age out a week of user history.
+  //    jira.sync already models the summarising shape.
+  it("logs delete-all as a single bulk.edit row, not one row per task", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.deleteAllTasks();
+    });
+    expect(logActivityAs).toHaveBeenCalledTimes(1);
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "bulk.edit", 3);
+  });
+
+  // ★ Deleting nothing is not an edit. A "Bulk edit applied to 0 task(s)" row
+  //   is noise in a 500-entry ring buffer, so the empty case logs nothing.
+  it("logs nothing when delete-all runs against an empty task list", () => {
+    const { result, logActivityAs } = renderWithLog([]);
+    act(() => {
+      expect(result.current.deleteAllTasks()).toBe(0);
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  it("does not log when the write is rejected", () => {
+    const { result, logActivityAs } = renderWithLog([]);
+    expect(result.current.updateTask(999, { taskName: "ghost" })).toBeNull();
+    expect(result.current.deleteTask(999)).toBe(false);
+    expect(result.current.updateRaid(999, { title: "ghost" })).toBeNull();
+    expect(result.current.deleteRaid(999)).toBe(false);
+    expect(result.current.updateChange(999, { title: "ghost" })).toBeNull();
+    expect(result.current.deleteChange(999)).toBe(false);
+    expect(result.current.updateMilestone(999, { name: "ghost" })).toBeNull();
+    expect(result.current.deleteMilestone(999)).toBe(false);
+    expect(result.current.updateStakeholder(999, { name: "ghost" })).toBeNull();
+    expect(result.current.deleteStakeholder(999)).toBe(false);
+    expect(result.current.updateResource(999, { firstName: "ghost" })).toBeNull();
+    expect(result.current.deleteResource(999)).toBe(false);
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  // THREE args — the EN string has {0} {1} {2}. Two would render "{2}".
+  it("logs raid.* with the three args its EN string interpolates", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.createRaid({ title: "Vendor slip", category: "R" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "raid.created", 1, "R", "Vendor slip");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.updateRaid(1, { title: "Vendor slip (revised)" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "ai",
+      "raid.updated",
+      1,
+      "R",
+      "Vendor slip (revised)",
+    );
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.deleteRaid(1);
+    });
+    // ★ The STORED title, not the one it was created with — the rename above
+    //   landed, so a delete row naming "Vendor slip" would be reading a stale
+    //   copy rather than the row it actually removed.
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "ai",
+      "raid.deleted",
+      1,
+      "R",
+      "Vendor slip (revised)",
+    );
+  });
+
+  // ONE arg for update/delete — "Updated milestone #{0}" has no {1}, and the
+  // user-side call sites in milestones-panel.tsx pass the id alone. CREATE is
+  // the two-arg outlier ("Created milestone #{0} – {1}").
+  it("logs milestone.* with the arity each EN string interpolates", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.createMilestone({ name: "Go-live", date: "2026-09-01" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.created", 1, "Go-live");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.updateMilestone(1, { name: "Go-live B" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.updated", 1);
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.deleteMilestone(1);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.deleted", 1);
+  });
+
+  it("logs change.* and stakeholder.* with (id, title|name)", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.createChange({ title: "Scope +1" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.created", 1, "Scope +1");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.createStakeholder({ name: "Ada Lovelace" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.created", 1, "Ada Lovelace");
+  });
+
+  // ★ The full name, mirroring task-manager.tsx's own resource.created row —
+  //   `${firstName} ${lastName}`.trim(), not the first name alone.
+  it("logs resource.* with the full name", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.createResource({ firstName: "Ada", lastName: "Lovelace" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.created", 1, "Ada Lovelace");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.deleteResource(1);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.deleted", 1, "Ada Lovelace");
+  });
+
+  // ★★ setTaskDependencies is the writer a `^(create|update|delete)[A-Z]` grep
+  //    over the dispatcher cannot see. It rewrites links and stamps
+  //    localModifiedAt, so it logs task.updated — but its two early returns
+  //    (a refused wholly-destructive write, and a true no-op) leave the task
+  //    untouched and must record nothing.
+  it("logs task.updated for a dependency write, and nothing for its no-ops", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "task.updated", 2, "Bravo");
+    logActivityAs.mockClear();
+    // TRUE NO-OP: the identical link set. Nothing added, nothing removed.
+    act(() => {
+      result.current.setTaskDependencies(2, [{ taskId: 1, type: "FS" }]);
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
+    // REFUSED: a self-dependency is rejected, nothing is applied, and task 2
+    // still holds a link — so the write is left undone entirely.
+    act(() => {
+      result.current.setTaskDependencies(2, [{ taskId: 2, type: "FS" }]);
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
+    // Positive observable: the refused call really did leave the link alone.
+    expect(result.current.getTask(2)?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+    // And an unknown id logs nothing either.
+    act(() => {
+      expect(result.current.setTaskDependencies(999, [])).toBeNull();
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
+  });
+
+  // No placeholders in "Settings updated" — no args.
+  it("logs settings.updated with no args, and only when something applied", () => {
+    const { result, logActivityAs } = renderWithLog();
+    act(() => {
+      result.current.updateSettings({ showViewHints: false });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+    logActivityAs.mockClear();
+    // A patch that applies nothing is not a settings change.
+    act(() => {
+      result.current.updateSettings({});
+    });
+    expect(logActivityAs).not.toHaveBeenCalled();
   });
 });

@@ -76,6 +76,17 @@ export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
   };
 }
 
+/** The `{1}` of `resource.created|updated|deleted` — "Resource #{0} created:
+ *  {1}". ★ The FULL name, mirroring task-manager.tsx's own `resource.created`
+ *  row, so an AI-written row and a user-written one name the same person the
+ *  same way. `.trim()` because `sanitizeResource` accepts a first name alone. */
+export function resourceLogName(item: {
+  firstName: string;
+  lastName: string;
+}): string {
+  return `${item.firstName} ${item.lastName}`.trim();
+}
+
 export function toResourceSummary(item: Resource): ResourceSummary {
   return {
     id: item.id,

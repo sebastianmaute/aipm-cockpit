@@ -2,7 +2,7 @@
 // use-chat-dispatcher.ts to keep that file under the file-size ratchet.
 
 import type { Dispatch, SetStateAction } from "react";
-import type { ActivityKind } from "./activity-log";
+import type { LogActivityAsFn } from "./activity-log-context";
 import type { AppView } from "./nav-config";
 import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
@@ -49,7 +49,20 @@ export interface ChatDispatcherArgs {
    *  would be written and never appear in the Activity panel (which renders
    *  task-manager's copy). Optional + called with `?.`, matching every other
    *  `ai.*` emitter (use-alloc-plan, use-raci-suggest, use-inline-entity-edit),
-   *  so a test harness or a future caller can omit it. Consumed by
-   *  `useDocumentTools` for the `ai.documentWrite` row. */
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+   *  so a test harness or a future caller can omit it.
+   *
+   *  ★★ ACTOR-AWARE, and it REPLACED the actor-less `logActivity` this file used
+   *  to carry rather than sitting beside it: every row the dispatcher writes is
+   *  the assistant's, so an actor-less variant here would have no caller left
+   *  and would only invite one. Consumed by the 20 entity writers AND by
+   *  `useDocumentTools` for the `ai.documentWrite` row — that one is redundant
+   *  with its kind and stamped anyway, since a consumer filtering on ACTOR must
+   *  not have to special-case a kind.
+   *
+   *  ★★★ THE ARG LIST IS UNTYPED (`...args`), so nothing in the type system
+   *  checks arity against the kind's i18n string. Passing two args to
+   *  `raid.updated` ("RAID #{0} updated ({1}): {2}") renders a literal "{2}" in
+   *  the Activity panel and in the model's own history feed. The per-kind
+   *  contract is pinned ONLY by `use-chat-dispatcher.test.tsx`. */
+  logActivityAs?: LogActivityAsFn;
 }

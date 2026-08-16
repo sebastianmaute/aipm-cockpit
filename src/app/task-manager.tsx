@@ -1685,7 +1685,7 @@ function TaskManagerInner() {
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,
-    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivity,
+    currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
