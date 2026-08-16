@@ -3,19 +3,13 @@ import {
   PRIORITIES,
   type Priority,
   type Task,
-  type RaidItem,
-  type ChangeItem,
-  type Milestone,
-  type Stakeholder,
-  type Resource,
   type TaskDependency,
-  type BudgetBucket,
   type BucketStatus,
 } from "./types";
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
-import { type KnowledgeItem, type KnowledgeLinkKind, linkKindOf } from "./document-link";
-import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
+import { type KnowledgeLinkKind } from "./document-link";
+import { type RecurrenceRule, type EventException } from "./calendar-event";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
@@ -425,102 +419,19 @@ function patchWithoutId<T>(input: Record<string, unknown>): Partial<T> {
   return patch as Partial<T>;
 }
 
-export function toRaidSummary(item: RaidItem): RaidSummary {
-  return {
-    id: item.id,
-    category: item.category,
-    title: item.title,
-    status: item.status,
-    severity: item.severity,
-    owner: item.owner,
-    stakeholderIds: item.stakeholderIds ?? [],
-  };
-}
-
-export function toChangeSummary(item: ChangeItem): ChangeSummary {
-  return {
-    id: item.id,
-    title: item.title,
-    status: item.status,
-    impact: item.impact,
-    decisionDate: item.decisionDate,
-    stakeholderIds: item.stakeholderIds ?? [],
-  };
-}
-
-export function toMilestoneSummary(item: Milestone): MilestoneSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    date: item.date,
-    achievedDate: item.achievedDate,
-  };
-}
-
-export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    influence: item.influence,
-    interest: item.interest,
-    organization: item.organization,
-    email: item.email,
-  };
-}
-
-export function toResourceSummary(item: Resource): ResourceSummary {
-  return {
-    id: item.id,
-    firstName: item.firstName,
-    lastName: item.lastName,
-    email: item.email,
-    emails: item.emails,
-    title: item.title,
-    department: item.department,
-    isExternal: item.isExternal,
-    roleId: item.roleId,
-  };
-}
-
-export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    url: item.url,
-    linkKind: linkKindOf(item),
-    taskIds: item.taskIds ?? [],
-  };
-}
-
-export function toCalendarEventSummary(event: CalendarEvent): CalendarEventSummary {
-  return {
-    id: event.id,
-    title: event.title,
-    startDate: event.startDate,
-    startTime: event.startTime,
-    durationMinutes: event.durationMinutes,
-    location: event.location,
-    notes: event.notes,
-    attendeeResourceIds: event.attendeeResourceIds ?? [],
-    recurrence: event.recurrence,
-    exceptions: event.exceptions ?? [],
-  };
-}
-
-export function toBudgetBucketSummary(bucket: BudgetBucket): BudgetBucketSummary {
-  return {
-    id: bucket.id,
-    name: bucket.name,
-    status: bucket.status,
-    startDate: bucket.startDate,
-    endDate: bucket.endDate,
-    allocations: bucket.allocations.map((a) => ({
-      roleId: a.roleId,
-      budgetHours: a.budgetHours,
-    })),
-  };
-}
+// ★ The eight entity → summary projections live in ./chat-tool-summaries (moved
+//   for the 800-line file-size ratchet). Re-exported here so no import changes.
+//   `runTool` calls none of them, so no value import is needed back.
+export {
+  toRaidSummary,
+  toChangeSummary,
+  toMilestoneSummary,
+  toStakeholderSummary,
+  toResourceSummary,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
+} from "./chat-tool-summaries";
 
 export async function runTool(
   d: ToolDispatcher,
