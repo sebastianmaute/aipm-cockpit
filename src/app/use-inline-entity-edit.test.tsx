@@ -19,7 +19,7 @@ function mkDeps(over: Partial<InlineAiEditDeps> = {}): InlineAiEditDeps {
     ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineAiEditDeps["ai"],
     apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
     isPopout: false, lang: "en-US",
-    logActivity: vi.fn(), showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
+    logActivityAs: vi.fn(), showToast: vi.fn(), ws, guides: [], recordUsage: vi.fn(),
     ...over,
   };
 }
@@ -176,7 +176,7 @@ it("apply routes each block through runTool and logs + toasts, then closes", asy
   await act(async () => { await result.current.submit("mark done"); });
   await act(async () => { await result.current.apply(); });
   expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_task", { id: 42, status: "Done" });
-  expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 42, "Fix login bug");
+  expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 42, "Fix login bug");
   expect(deps.showToast).toHaveBeenCalledWith("info", expect.stringContaining("Fix login bug"));
   expect(result.current.phase).toBe("idle");
 });
@@ -226,7 +226,7 @@ it("partial apply: a later op fails after the update committed -> partial toast 
   await act(async () => { await result.current.apply(); });
   expect(runToolSpy).toHaveBeenCalledTimes(2);
   expect(deps.showToast).toHaveBeenCalledWith("error", expect.any(String)); // partial notice
-  expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 42, "Fix login bug");
+  expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 42, "Fix login bug");
   expect(result.current.phase).toBe("idle"); // closed, not stranded in error
 });
 
@@ -268,7 +268,7 @@ describe("useInlineEntityEdit — raid", () => {
       ai: { enabled: true, apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", groundInGuides: false } as unknown as InlineEntityEditDeps["ai"],
       apiKey: "sk-ant-xxxxxxxxxxxxxxxx",
       isPopout: false, lang: "en-US",
-      logActivity: vi.fn(), showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
+      logActivityAs: vi.fn(), showToast: vi.fn(), ws: raidWs, guides: [], recordUsage: vi.fn(),
       ...over,
     };
   }
@@ -293,7 +293,7 @@ describe("useInlineEntityEdit — raid", () => {
     expect(result.current.plan?.updates).toEqual([{ field: "title", before: "Old", after: "New", raw: "New" }]);
     await act(async () => { await result.current.apply(); });
     expect(runToolSpy).toHaveBeenCalledWith(deps.dispatcher, "update_raid_item", { id: 7, title: "New" });
-    expect(deps.logActivity).toHaveBeenCalledWith("ai.inlineEdit", 7, "Old");
+    expect(deps.logActivityAs).toHaveBeenCalledWith("ai", "ai.inlineEdit", 7, "Old");
     expect(result.current.phase).toBe("idle");
   });
 

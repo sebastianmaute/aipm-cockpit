@@ -36,10 +36,36 @@ export function useActivityLog(): {
   /** ★★ ACTOR LEADS, and this is a settled precedent rather than a style
    *  choice: `logActivity` ends in a rest parameter, so nothing can follow it.
    *  That is the same constraint that forced `logActivityChanges` to exist as
-   *  its own function instead of an options argument. Keeping the plain
-   *  variants unchanged leaves ~150 existing call sites untouched, all
-   *  correctly defaulting to an ABSENT actor (which is not "user" — see the
-   *  `actor` field doc on `ActivityEntry`). */
+   *  its own function instead of an options argument.
+   *
+   *  ★★★ WHO NAMES THE ACTOR — the rule, because "just stamp every call site"
+   *  is the wrong answer and was tried first. **The actor is named where it is
+   *  KNOWN, and that is not always the leaf.**
+   *
+   *   - A leaf that hard-codes an `ai.*` kind KNOWS its actor (`use-tasks-dedup`,
+   *     `use-alloc-plan`, `use-raci-suggest`, `use-inline-entity-edit`), as does
+   *     `useChatDispatcher` / `useDocumentTools` / `useJiraSync` /
+   *     `useCalendarIntegrations`. Those take an actor-aware logger and stamp at
+   *     the call site.
+   *   - A leaf that logs a GENERIC entity kind (`task.updated`, `raid.created`)
+   *     does NOT know its actor: the chat dispatcher writes the very same kinds
+   *     for the same entities. Stamping `"user"` inside `useResourcePlanner`
+   *     would be a guess that happens to be right today. Those leaves keep the
+   *     plain `(kind, ...args)` shape and the WIRING decides — `task-manager`
+   *     threads `logActivityUser` / `logActivityChangesUser` (below) under the
+   *     plain prop names, so every threading site reads `logActivity:
+   *     logActivityUser` and the decision is auditable in one file.
+   *
+   *  ★★ The plain variants therefore still exist and still default to an ABSENT
+   *  actor (which is NOT "user" — see the `actor` field doc on `ActivityEntry`),
+   *  but after the actor-stamping slice exactly ONE production call site is left
+   *  on them: `task-manager`'s debounced `settings.updated` logger, which is
+   *  genuinely ambiguous (the AI's `update_settings` tool mutates the same state
+   *  and the same effect fires for it). Reproduce the survivors with
+   *  `grep -rnE "logActivity(Changes)?(Ref\.current)?\s*\??\.?\s*\(" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vE "logActivity(Changes)?As"`
+   *  — ★★ note the THREE call shapes in that pattern: a bare call, an optional
+   *  call (`args.logActivity?.(`) and a ref indirection (`logActivityRef.current(`).
+   *  A grep for only the first reported 27 sites when there were 65. */
   logActivityAs: (
     actor: ActivityActor,
     kind: ActivityKind,
@@ -47,6 +73,24 @@ export function useActivityLog(): {
   ) => void;
   logActivityChangesAs: (
     actor: ActivityActor,
+    kind: ActivityKind,
+    changes: readonly FieldChange[],
+    ...args: (string | number)[]
+  ) => void;
+  /** ★★★ PRE-STAMPED `"user"` — the loggers `task-manager` threads into every
+   *  entity hook, per the rule above. They live HERE rather than as a local
+   *  `useCallback` in task-manager for two reasons: that file sits under the
+   *  800-line ratchet at a baseline it cannot grow past, and the wrappers belong
+   *  beside the rule that explains them.
+   *
+   *  ★★ They are NOT a shortcut for "log something". Reach for one only when the
+   *  call path is a USER GESTURE all the way down — an effect over state cannot
+   *  know that (see the `settings.updated` logger in `task-manager`, the one
+   *  production site deliberately left actor-less). A wrongly-stamped entry
+   *  corrupts the audit record and nothing can detect it afterwards; an
+   *  actor-less one is merely unattributed, which is what absence MEANS. */
+  logActivityUser: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityChangesUser: (
     kind: ActivityKind,
     changes: readonly FieldChange[],
     ...args: (string | number)[]
@@ -96,6 +140,20 @@ export function useActivityLog(): {
     [setActivityLog],
   );
 
+  // The pre-stamped user pair. Thin wrappers, but they exist so the actor is
+  // decided ONCE: an inline `(k, ...a) => logActivityAs("user", k, ...a)` at
+  // each of the ~20 threading sites would be twenty places to get wrong, and a
+  // fresh identity every render at every one of them.
+  const logActivityUser = useCallback(
+    (kind: ActivityKind, ...args: (string | number)[]) => logActivityAs("user", kind, ...args),
+    [logActivityAs],
+  );
+  const logActivityChangesUser = useCallback(
+    (kind: ActivityKind, changes: readonly FieldChange[], ...args: (string | number)[]) =>
+      logActivityChangesAs("user", kind, changes, ...args),
+    [logActivityChangesAs],
+  );
+
   const handleClearActivityLog = useCallback(() => {
     // The Clear button (activity-log-panel) is the sole caller; it already
     // gates on entries.length > 0 and shows the branded confirm dialog. This
@@ -111,6 +169,8 @@ export function useActivityLog(): {
     logActivityChanges,
     logActivityAs,
     logActivityChangesAs,
+    logActivityUser,
+    logActivityChangesUser,
     handleClearActivityLog,
   };
 }

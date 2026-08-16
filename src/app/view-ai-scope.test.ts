@@ -147,6 +147,25 @@ describe("VIEW_AI_SCOPE", () => {
     expect(Object.keys(renderActivityEntry(base))).not.toContain("actor");
   });
 
+  // ★★★ THE FOURTH CLAIM IN THIS ENTRY, and the first one caught while it was
+  // still WRONG rather than after a slice falsified it. The shipped clause read
+  // "(entries written before this release have none)" — presented as the only
+  // reason an actor can be missing. It never was: the branch that wrote it had
+  // ZERO production call sites stamping `"user"`, so a human edit made seconds
+  // ago also had none, and the model was told to read it as historical. The
+  // actor-stamping slice closed that gap for 64 of 65 sites; the survivor is
+  // task-manager's debounced `settings.updated` effect, which cannot see its
+  // own cause. The sentence therefore states the PROPERTY, not a cause.
+  // ★ Fails in BOTH directions: reinstating the enumerated cause fails the
+  //   negation, and dropping the caution entirely fails the positive.
+  it("does not tell the model an absent actor means the entry is old", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ `reading` is optional — assert it exists or the negation is vacuous.
+    expect(typeof reading).toBe("string");
+    expect(reading).not.toContain("written before this release");
+    expect(reading).toContain("could not tell who acted");
+  });
+
   // ★ Documents is the only entry that hints at write tools at all (the
   // assistant authors there; every other register the user maintains by hand).
   // `delete_document` was left out on purpose — see the comment on that entry.

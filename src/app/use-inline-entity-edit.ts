@@ -12,7 +12,7 @@ import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
@@ -28,7 +28,9 @@ export interface InlineEntityEditDeps {
   apiKey: string;
   isPopout: boolean;
   lang: Lang;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
+   *  names its own actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
   showToast: (kind: "info" | "error", text: string) => void;
   ws: Workspace;
   guides: readonly OperatingGuide[];
@@ -198,12 +200,12 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       }
       for (const c of plan.creates) { await runTool(deps.dispatcher, c.toolName, c.input); applied++; }
       for (const del of plan.deletes) { await runTool(deps.dispatcher, del.toolName, { id: del.id }); applied++; }
-      deps.logActivity?.("ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
+      deps.logActivityAs?.("ai", "ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
       deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
       cancel();
     } catch {
       if (applied > 0) {
-        deps.logActivity?.("ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
+        deps.logActivityAs?.("ai", "ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
         deps.showToast("error", t(deps.lang, "inlineAiEditPartial"));
         cancel();
       } else {

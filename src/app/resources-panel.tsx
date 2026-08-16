@@ -53,7 +53,7 @@ const HIDE_EXTERNAL_KEY = "aipm-cockpit:resources-hide-external";
 import { isTaskClosed } from "./task-closed";
 import { useSettings } from "./use-settings";
 import { useAllocPlan } from "./use-alloc-plan";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useColumnResize } from "./use-column-resize";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
@@ -154,7 +154,9 @@ interface Props {
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
   onCaptureUndo?: UndoStackApi["capture"];
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
+   *  names its own actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
 }
 
 type AssigneeRow = {
@@ -221,7 +223,7 @@ function ResourcesPanelInner({
   isPopout,
   onLearnMore,
   onCaptureUndo,
-  logActivity,
+  logActivityAs,
 }: Props) {
   const planning = useColumnResize<PlanningCol>("planning", PLANNING_COL_WIDTHS);
   const rollup = useColumnResize<RollupCol>("rollup", ROLLUP_COL_WIDTHS);
@@ -295,7 +297,7 @@ function ResourcesPanelInner({
     workdayHours,
     holidaySet,
     capture: onCaptureUndo,
-    logActivity,
+    logActivityAs,
   });
 
   const [calendarMode, setCalendarMode] = useState<CalendarMode>("month");

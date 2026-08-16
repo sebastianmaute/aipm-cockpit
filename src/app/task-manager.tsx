@@ -205,12 +205,13 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  const { activityLog, logActivity, logActivityChanges, logActivityAs, handleClearActivityLog } =
+  // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries. Pinned by task-manager.activity-actor.test.tsx.
+  const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
-  // capture is threaded into each entity hook below; undo/control are surfaces.
-  const undoApi = useUndoStack({ lang, logActivity, showToast, showToastAction });
+  // capture is threaded into each entity hook below; undo/control are surfaces. ★ Undo/redo is ALWAYS user-caused — a chat tool write takes no undo capture.
+  const undoApi = useUndoStack({ lang, logActivity: logActivityUser, showToast, showToastAction });
   useUndoHotkey(undoApi.undo, undoApi.redo);
   // Stable identity so ToastProvider consumers don't re-render on every parent render.
   const toastApi = useMemo(() => ({ showToast, showToastAction }), [showToast, showToastAction]);
@@ -679,7 +680,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity, logActivityChanges, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit });
+  } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -696,13 +697,13 @@ function TaskManagerInner() {
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
+  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
-    useStakeholders({ today, lang, showToast, logActivity, logActivityChanges, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
+    useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
@@ -1116,7 +1117,7 @@ function TaskManagerInner() {
     retention: settings.versionHistoryRetention ?? DEFAULT_VERSION_RETENTION,
     getPayload: getVersionPayload,
     applyWorkspace: applyRestoredWorkspace,
-    logActivity,
+    logActivity: logActivityUser,
     onError: handleVersionError,
   });
   useEffect(() => { versionNotifyRef.current = versionHistory.notifySaved; }, [versionHistory.notifySaved]);
@@ -1140,10 +1141,10 @@ function TaskManagerInner() {
         ...prev,
         { id, firstName, lastName, email: email.trim() || undefined, roleId: null, utilizationMode: "percent", utilization: {}, localModifiedAt: new Date().toISOString() },
       ]);
-      logActivity("resource.created", id, `${firstName} ${lastName}`.trim());
+      logActivityUser("resource.created", id, `${firstName} ${lastName}`.trim());
       return id;
     },
-    [resources, setResources, logActivity],
+    [resources, setResources, logActivityUser],
   );
 
   const handleSaveResourceFromAnywhere = useCallback((next: Resource) => {
@@ -1322,9 +1323,9 @@ function TaskManagerInner() {
       const next = [...raidRef.current, clean];
       raidRef.current = next; // keep back-to-back flushes minting distinct ids
       setRaid(next);
-      logActivity("raid.created", clean.id, clean.title);
+      logActivityUser("raid.created", clean.id, clean.title);
     },
-    [setRaid, today, logActivity],
+    [setRaid, today, logActivityUser],
   );
   const applyLinkFromTask = useCallback(
     (parentId: number, spec: LinkSpec) => {
@@ -1332,7 +1333,7 @@ function TaskManagerInner() {
     },
     [setTasks],
   );
-  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity });
+  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser });
   const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
   const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
@@ -1371,7 +1372,7 @@ function TaskManagerInner() {
       const nextList = [...tasksRef.current, child];
       tasksRef.current = nextList;
       setTasks(nextList);
-      logActivity("task.created", childId, child.taskName);
+      logActivityUser("task.created", childId, child.taskName);
       const spec: LinkSpec = { childId, direction: draft.direction, type: "FS" };
       if (editingId !== null) applyLinkFromTask(editingId, spec);
       else stageEditorLink(spec);
@@ -1381,11 +1382,11 @@ function TaskManagerInner() {
       // is a real task the moment it's saved, independent of the parent's outcome.
       setLinkedTaskOpen(false);
     },
-    [today, setTasks, logActivity, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
+    [today, setTasks, logActivityUser, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
 
   // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
-  const { openTaskNotes, openRaidNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity });
+  const { openTaskNotes, openRaidNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -1400,8 +1401,8 @@ function TaskManagerInner() {
     tasksRef,
     setTasks,
     setContacts,
-    logActivity,
-    logActivityChanges,
+    logActivity: logActivityUser,
+    logActivityChanges: logActivityChangesUser,
     showToast,
     onPushToJiraRef,
     raid,
@@ -1477,7 +1478,7 @@ function TaskManagerInner() {
     setWorkspaceCollapsed,
     deselectIdRef,
     handleCancelEdit,
-    logActivity,
+    logActivity: logActivityUser,
     capture: undoApi.capture,
     captureFieldEdit: undoApi.captureFieldEdit,
     resolveTemplateBody: resolveCommBody,
@@ -1571,7 +1572,7 @@ function TaskManagerInner() {
     setSettings,
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
-    logActivity,
+    logActivity: logActivityUser,
     capture: undoApi.capture, commitBuckets,
     showToast, allowDestructiveSave,
     // Day-boundary context for the health filter, so the hook's idea of a
@@ -1610,13 +1611,8 @@ function TaskManagerInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bucketReminderKey]);
 
-  // Log a coarse, debounced "settings.updated" activity entry on every
-  // user-driven settings change. Guards:
-  //   1. Pre-hydration: `hydrated` is false until localStorage is loaded;
-  //      the effect skips all runs while false.
-  //   2. Initial mount: even after hydration the very first run reflects the
-  //      loaded value (not a user edit), so `settingsInitialRef` suppresses it.
-  //   3. Secrets: `logActivity("settings.updated")` emits no field values.
+  // Debounced coarse "settings.updated" entry. Guards: (1) pre-hydration — the effect skips every run while `hydrated` is false; (2) initial mount — the first post-hydration run reflects the LOADED value, so `settingsInitialRef` suppresses it; (3) secrets — the entry carries no field values.
+  // ★★★ THE ONE PRODUCTION SITE DELIBERATELY LEFT ON THE ACTOR-LESS `logActivity` — do NOT "finish the sweep" by stamping it `"user"`. It is an EFFECT over settings STATE, not a handler behind a gesture, so it cannot see its cause: the chat dispatcher's `update_settings` mutates the same state and fires this too, while ALREADY writing its own `settings.updated` stamped `"ai"`. A `"user"` stamp would sit contradicting that row. Absent is honest — nothing here knows who acted.
   const settingsLoggerRef = useRef(
     createSettingsLogger(() => logActivity("settings.updated"), SETTINGS_LOG_DEBOUNCE_MS),
   );
@@ -1889,12 +1885,12 @@ function TaskManagerInner() {
           : i,
       ),
     );
-    logActivity("ai.insightRecommendation", insight.id, rec.summary);
+    logActivityAs("ai", "ai.insightRecommendation", insight.id, rec.summary);
     showToast(
       failed > 0 ? "error" : "info",
       t(lang, failed > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
     );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivity, showToast, lang]);
+  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang]);
 
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);
@@ -2198,8 +2194,8 @@ function TaskManagerInner() {
     handleCreateMitigationTaskFromRaid: guardEdit(handleCreateMitigationTaskFromRaid),
     handleJumpToTaskFromRaid,
     activityLog,
-    logActivity,
-    logActivityChanges,
+    logActivity: logActivityUser,
+    logActivityChanges: logActivityChangesUser, logActivityAs,
     handleClearActivityLog: guardEdit(handleClearActivityLog),
     handleOpenAddAbsence: guardEdit(handleOpenAddAbsence),
     handleEditAbsence: guardEdit(handleEditAbsence),
@@ -2392,7 +2388,7 @@ function TaskManagerInner() {
       settingsProjectId={portfolioCurrentId ?? "default"}
       m365Configured={m365Enabled}
       dispatcher={dispatcher}
-      logActivity={logActivity}
+      logActivityAs={logActivityAs}
       captureFieldEdit={undoApi.captureFieldEdit}
       captureMerge={undoApi.capture}
       jiraSiteUrl={settings.jira.siteUrl}
@@ -2885,7 +2881,7 @@ function TaskManagerInner() {
 
   if (isPopout) {
     return (
-      <ActivityLogProvider value={logActivity}>
+      <ActivityLogProvider value={logActivityAs}>
         <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
           <ToastProvider value={toastApi}>
             <VoiceCommandProvider value={voiceHandlers}>
@@ -2936,7 +2932,7 @@ function TaskManagerInner() {
     hydrated && portfolioMode === "turso" && !tursoListLoaded && !showTursoUnlock && !storageError;
 
   return (
-    <ActivityLogProvider value={logActivity}>
+    <ActivityLogProvider value={logActivityAs}>
       <AiUsageProvider lang={lang} ai={settings.ai} showToast={showToast}>
         <ToastProvider value={toastApi}>
           <VoiceCommandProvider value={voiceHandlers}>

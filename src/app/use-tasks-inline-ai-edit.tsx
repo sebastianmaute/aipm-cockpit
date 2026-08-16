@@ -10,7 +10,7 @@ import { type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled } from "./settings-types";
 import { type ToolDispatcher } from "./chat-tools";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useToastContext } from "./toast-context";
@@ -25,7 +25,9 @@ export interface TasksInlineAiEditDeps {
   settings: Settings;
   isPopout: boolean;
   lang: Lang;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
+   *  names its own actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
   /** The live workspace context (structural superset of Workspace). */
   workspaceCtx: WorkspaceCtx;
 }
@@ -46,7 +48,7 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
     apiKey: aiKeyIfEnabled(deps.settings.ai),
     isPopout: deps.isPopout,
     lang: deps.lang,
-    logActivity: deps.logActivity,
+    logActivityAs: deps.logActivityAs,
     showToast,
     ws: deps.workspaceCtx,
     guides: [],

@@ -222,8 +222,23 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    here describing something the model or its tools cannot do is a
     //    liability with a fuse; pin it, in both directions, or do not write it.
     toolHints: ["search_history"],
+    // ★★★ FOURTH correction to this same sentence, and this one is a NARROWING
+    //    rather than a retraction — read it as the pattern the three notes above
+    //    describe, one turn later. The shipped clause was "(entries written
+    //    before this release have none)", a parenthetical that reads as an
+    //    exhaustive account of WHY an actor can be missing. It was false when
+    //    written for a bigger reason than it is now: at that commit NO
+    //    production call site wrote `actor: "user"` at all, so every human edit
+    //    ever made — including one from five minutes ago — had no actor, and the
+    //    sentence told the model those were pre-release entries.
+    //    The actor-stamping slice fixed the cause: 64 of the 65 actor-less call
+    //    sites now name an actor. The ONE survivor is `task-manager`'s debounced
+    //    `settings.updated` logger, which is an effect over settings STATE and
+    //    genuinely cannot see its cause. So "absent ⇒ pre-release" is still not
+    //    exhaustive, and the clause now states the PROPERTY (unattributable)
+    //    instead of enumerating a cause. Pinned in view-ai-scope.test.ts.
     reading:
-      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which, so never attribute an entry whose actor is absent (entries written before this release have none). It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
+      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which, so never attribute an entry whose actor is absent: it is either older than this field or was written by a path that could not tell who acted. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:
