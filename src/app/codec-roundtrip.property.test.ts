@@ -539,17 +539,46 @@ describe.skip("Markdown codec — one pass must be a fixed point on any string",
 });
 
 describe("csv-line-scan and parseCsv agree about quoting", () => {
+  // ★★★ THE ALPHABET IS THE PROPERTY. `fc.string()` in this project's
+  // fast-check (4.8.0) emits PRINTABLE ASCII ONLY. Measured by counting inside
+  // the property, not assumed: over 500 runs, 36 strings contained a `"` and
+  // NOT ONE contained `\n` or `\r`, so `splitCsvLines` returned a single line
+  // every time. Both properties below are about what happens at a line break
+  // inside a quoted cell, so on `fc.string()` the first degenerated to `s === s`
+  // and the second held trivially. Every generator here therefore builds its
+  // string from an explicit hostile alphabet; `fc.stringOf` does not exist in
+  // 4.8.0, so it is `fc.array(...).map(join)`.
+  const csvHostileString = fc
+    .array(fc.constantFrom("a", '"', ",", "\r\n", "\n", "\r", "#"), { maxLength: 40 })
+    .map((chars) => chars.join(""));
+
   // ★ The scanner and the tokenizer are separate loops. THIS is what
   // guarantees they cannot drift — not the shared `quoteStep` helper, which is
   // only a mitigation.
+  //
+  // ★★★ THE TRAILING `expect`s ARE NOT INSTRUMENTATION — they are the guard
+  // that keeps this property honest, and they replace a prose census that
+  // nothing could reproduce. A comment claiming "N runs split" rots silently the
+  // moment the alphabet is edited; a floor goes RED. No seed is pinned (see the
+  // note on the sibling property), so the floors sit far below what is actually
+  // observed — the tightest has ~5× headroom — and cannot flake on an unlucky
+  // seed. Re-measure by counting into a `console.log` if you change the
+  // alphabet; do not tighten a floor to the number you happen to see.
   it("splitCsvLines is lossless on any string", () => {
+    let multiLine = 0;
+    let quoted = 0;
     fc.assert(
-      fc.property(fc.string({ maxLength: 200 }), (s) => {
+      fc.property(csvHostileString, (s) => {
+        if (s.includes('"')) quoted++;
         const expected = s.replace(/\r?\n/g, "\r\n");
-        expect(splitCsvLines(s).lines.join("\r\n")).toBe(expected);
+        const { lines } = splitCsvLines(s);
+        if (lines.length > 1) multiLine++;
+        expect(lines.join("\r\n")).toBe(expected);
       }),
       { numRuns: 500 },
     );
+    expect(multiLine).toBeGreaterThan(50);
+    expect(quoted).toBeGreaterThan(50);
   });
 
   // ★★★ DO NOT write this one as `parseCsv(rejoined) === parseCsv(normalized)`.
@@ -560,25 +589,33 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
   // document as a whole is balanced — which is precisely what a naive splitter
   // violates.
   //
-  // ★★★ `fc.string({maxLength:200})` is ALSO vacuous here, measured, not
-  // assumed: of 500 runs, every string containing a `"` had unbalanced quotes
-  // and was discarded by `fc.pre` below, and the other 469 runs contained NO
-  // `"` at all — so `quoteStep` never returned non-null and the assertion held
-  // trivially on 100% of surviving runs. A quote-dense alphabet is required to
-  // exercise the property at all; `fc.stringOf` does not exist in this
-  // project's fast-check (4.8.0), so the string is built via
-  // `fc.array(...).map(join)`. Re-measured with this generator: 500 runs, 164
-  // discarded (unbalanced), 255 with no quote, and — the cases that matter —
-  // 81 balanced-and-quoted, 54 of which span more than one physical line
-  // (the exact shape §105 broke).
+  // ★★★ `fc.string({maxLength:200})` is ALSO vacuous here: every surviving run
+  // contained no `"` at all, so `quoteStep` never returned non-null and the
+  // assertion held trivially. Hence `csvHostileString` above.
+  //
+  // ★★★ THE CENSUS THAT USED TO SIT HERE WAS UNREPRODUCIBLE, AND ITS FRAMING
+  // WAS WRONG TWICE OVER. It read "of 500 runs, 164 were discarded". First,
+  // `fc.assert` is passed no `seed`, so fast-check picks a fresh one per run and
+  // those figures were never reachable again — two later instrumented runs
+  // measured 272/755 and 255/500. Second, `numRuns` counts SURVIVING runs;
+  // fast-check keeps generating past a `fc.pre` rejection, so the shape is "500
+  // survivors PLUS some number discarded", never "164 of 500".
+  // ★★ THE FIX IS THE FLOORS BELOW, NOT A PINNED SEED. A seed would make the
+  // prose reproducible while leaving it prose — and it would freeze this
+  // property on one 500-case sample forever, which this file's header warns
+  // against (every property here was stress-run at numRuns 1500 while being
+  // written, and that is how the second defect was found). An asserted floor
+  // holds under EVERY seed and goes red if the alphabet is ever edited back
+  // into vacuity. Do not reintroduce a number in prose here.
   it("never ends a line inside a quote when the document is balanced", () => {
-    const quoteDenseString = fc
-      .array(fc.constantFrom("a", '"', ",", "\r\n", "\n", "#"), { maxLength: 40 })
-      .map((chars) => chars.join(""));
+    let balancedAndQuoted = 0;
+    let multiLine = 0;
     fc.assert(
-      fc.property(quoteDenseString, (s) => {
+      fc.property(csvHostileString, (s) => {
         const { lines, unterminatedQuote } = splitCsvLines(s);
         fc.pre(!unterminatedQuote);
+        if (s.includes('"')) balancedAndQuoted++;
+        if (lines.length > 1) multiLine++;
         for (const line of lines) {
           let inQuotes = false;
           let i = 0;
@@ -594,5 +631,9 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
       }),
       { numRuns: 500 },
     );
+    // The cases that matter: a balanced quoted cell that spans physical lines is
+    // the exact shape §105 broke. Floors, not equalities — see above.
+    expect(balancedAndQuoted).toBeGreaterThan(10);
+    expect(multiLine).toBeGreaterThan(50);
   });
 });
