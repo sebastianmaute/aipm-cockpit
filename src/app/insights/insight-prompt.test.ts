@@ -1,6 +1,10 @@
 import { describe, it, expect } from "vitest";
 import type { Insight, InsightSeverity, InsightStatus, InsightType } from "./insight";
-import { buildInsightsPromptBlock, MAX_PROMPT_INSIGHTS } from "./insight-prompt";
+import {
+  buildInsightsPromptBlock,
+  MAX_PROMPT_INSIGHTS,
+  MAX_PROMPT_OUTCOMES,
+} from "./insight-prompt";
 
 function make(
   id: number,
@@ -19,6 +23,23 @@ function make(
     firstSeenAt: "2026-07-01",
     lastSeenAt: "2026-07-01",
     occurrences: 1,
+  };
+}
+
+/** An acted-on insight carrying a measured outcome. Builds on `make` rather
+ *  than duplicating it — only the outcome is new. */
+function acted(id: number, outcome?: Insight["outcome"]): Insight {
+  return {
+    ...make(id, "stalledWork", "high", "acted", { count: 4 }),
+    outcome: outcome ?? {
+      direction: "improved",
+      baseline: 9,
+      current: 3,
+      // ★ delta is `baseline − current` and POSITIVE means better (every
+      //   insight metric is lower-is-better) — see InsightOutcome.
+      delta: 6,
+      measuredAt: "2026-08-10",
+    },
   };
 }
 
@@ -89,5 +110,109 @@ describe("buildInsightsPromptBlock", () => {
       make(3, "overdueTrend", "low", "active", { current: 8, prior: 5, delta: 3 }),
     ];
     expect(buildInsightsPromptBlock(insights)).toBe(buildInsightsPromptBlock(insights));
+  });
+});
+
+describe("recent outcomes section", () => {
+  it("surfaces acted insights that carry an outcome, with the measured move", () => {
+    const out = buildInsightsPromptBlock([acted(1)]);
+    expect(out).toContain("Recent outcomes");
+    expect(out).toContain("- 4 tasks stalled or blocked → acted, improved (9 → 3, +6)");
+  });
+
+  // ★ Pins BOTH members of the status set: dropping "resolved" loses the first
+  //   line, and dropping the status check altogether admits the dismissed one.
+  it("includes a resolved insight with an outcome and excludes a dismissed one", () => {
+    const out = buildInsightsPromptBlock([
+      { ...acted(1), status: "resolved", data: { count: 7 } },
+      { ...acted(2), status: "dismissed", data: { count: 8 } },
+    ]);
+    expect(out).toContain("7 tasks stalled");
+    expect(out).not.toContain("8 tasks stalled");
+  });
+
+  it("renders both sections when active and acted insights coexist", () => {
+    const out = buildInsightsPromptBlock([
+      make(1, "stalledWork", "high", "active", { count: 2 }),
+      acted(2),
+    ]);
+    expect(out).toContain("Current project insights");
+    expect(out).toContain("Recent outcomes");
+    // The two sections are separated by a blank line.
+    expect(out).toContain("\n\nRecent outcomes");
+  });
+
+  it("omits the section entirely when no outcome exists", () => {
+    expect(buildInsightsPromptBlock([])).toBe("");
+    const activeOnly = buildInsightsPromptBlock([
+      make(1, "stalledWork", "high", "active", { count: 4 }),
+    ]);
+    expect(activeOnly).not.toContain("Recent outcomes");
+  });
+
+  // ★ 'unchanged' must be INCLUDED: a tried-it-and-nothing-moved result is what
+  //   stops the assistant re-recommending the same action. Filtering it would
+  //   bias the model's view toward things that worked.
+  it("includes unchanged outcomes", () => {
+    const out = buildInsightsPromptBlock([
+      acted(1, { direction: "unchanged", baseline: 5, measuredAt: "2026-08-10" }),
+    ]);
+    expect(out).toContain("unchanged");
+    // No `current`/`delta` measured (the detector is threshold-gated), so no
+    // magnitude is claimed.
+    expect(out).toContain("- 4 tasks stalled or blocked → acted, unchanged");
+    expect(out).not.toContain("(5 →");
+  });
+
+  // ★ TEST-VALIDITY NOTE: `measuredAt` never appears in the rendered line, so
+  //   asserting on the date would be VACUOUS — it would pass whatever the sort
+  //   does. The fixture varies `count`, which DOES render ("N tasks stalled"),
+  //   so ordering is observable.
+  it("caps at MAX_PROMPT_OUTCOMES, newest measuredAt first", () => {
+    const many = Array.from({ length: 9 }, (_, i) => ({
+      ...make(i + 1, "stalledWork", "high", "acted", { count: i + 1 }),
+      outcome: {
+        direction: "improved" as const,
+        baseline: 1,
+        measuredAt: `2026-08-0${i + 1}`,
+      },
+    }));
+    const block = buildInsightsPromptBlock(many);
+    const lines = block.split("\n").filter((l) => l.startsWith("- "));
+    expect(lines).toHaveLength(MAX_PROMPT_OUTCOMES);
+    // measuredAt 08-09 → 08-05 survive, i.e. counts 9 down to 5; count 4 is cut.
+    expect(lines[0]).toContain("9 tasks stalled");
+    expect(lines[4]).toContain("5 tasks stalled");
+    expect(block).not.toContain("4 tasks stalled");
+  });
+
+  // ★ Two outcomes measured on the SAME day must not order arbitrarily — the
+  //   comparator falls back to `id`, which keeps the block byte-stable.
+  // ★★ TEST-VALIDITY: asserting one fixed input's order is VACUOUS here, and
+  //   measurably so — a comparator that never returns 0 was mutated in and the
+  //   single-input version stayed GREEN, because V8 happens to reverse a
+  //   two-element pair under it, which matched the expected id order by luck.
+  //   The real property is INPUT-ORDER INDEPENDENCE, so both permutations are
+  //   fed in: a no-tiebreak comparator (`0`, stable) preserves each input order
+  //   and a never-0 one reverses each, and both then disagree across the two.
+  it("breaks a measuredAt tie by id, independent of input order", () => {
+    const same = (id: number, count: number): Insight => ({
+      ...make(id, "stalledWork", "high", "acted", { count }),
+      outcome: { direction: "improved" as const, baseline: 1, measuredAt: "2026-08-10" },
+    });
+    const linesOf = (input: readonly Insight[]) =>
+      buildInsightsPromptBlock(input)
+        .split("\n")
+        .filter((l) => l.startsWith("- "));
+    const descending = linesOf([same(9, 91), same(2, 22)]);
+    const ascending = linesOf([same(2, 22), same(9, 91)]);
+    expect(descending).toEqual(ascending);
+    expect(descending[0]).toContain("22 tasks stalled");
+    expect(descending[1]).toContain("91 tasks stalled");
+  });
+
+  it("ignores acted insights with no outcome measured yet", () => {
+    const noOutcome = { ...make(1, "stalledWork", "high", "acted", { count: 4 }) };
+    expect(buildInsightsPromptBlock([noOutcome])).not.toContain("Recent outcomes");
   });
 });

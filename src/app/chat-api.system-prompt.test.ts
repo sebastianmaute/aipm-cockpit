@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildSystemPrompt, CACHED_TOOLS } from "./chat-api";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import type { Insight } from "./insights/insight";
 
 function snapshot(over: Record<string, unknown> = {}) {
   return {
@@ -103,5 +104,61 @@ describe("buildSystemPrompt view scoping", () => {
   it("keeps the view scope when groundInGuides is off", () => {
     const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false);
     expect(volatile.text).toContain("VIEW SCOPE");
+  });
+});
+
+// ★★★ THE INSIGHTS BLOCK IS VOLATILE — detectors reconcile it, so anything it
+// contains would invalidate the cached prefix on every pass. `insight-prompt.ts`
+// says so in its header and `chat-api` says so at the call site, but until now
+// NOTHING enforced it: this file guarded the tools, view-scope and digest
+// breakpoints and was repeatedly cited as covering the insights block too. It
+// did not. Moving the block into `stableText` breaks nothing visible — exactly
+// like the digest above — which is why the assertion has to exist.
+describe("buildSystemPrompt insight block placement", () => {
+  // Both SECTIONS are probed, not just the header: the outcomes section was
+  // added later, and a growth-vs-move mistake would land it in the wrong block
+  // while the "Current project insights" header stayed put and green.
+  const insights: Insight[] = [
+    {
+      id: 1,
+      key: "k1",
+      type: "milestoneSlip",
+      severity: "high",
+      data: { name: "CACHEPROBE", daysOverdue: 5 },
+      status: "active",
+      firstSeenAt: "2026-08-01",
+      lastSeenAt: "2026-08-05",
+      occurrences: 1,
+    },
+    {
+      id: 2,
+      key: "k2",
+      type: "stalledWork",
+      severity: "high",
+      // A count no other block could emit, so a hit is proof of THIS section.
+      data: { count: 4242 },
+      status: "acted",
+      firstSeenAt: "2026-08-01",
+      lastSeenAt: "2026-08-05",
+      occurrences: 1,
+      outcome: { direction: "improved", baseline: 9, current: 3, delta: 6, measuredAt: "2026-08-04" },
+    },
+  ];
+
+  it("puts both insight sections in the UNCACHED block, never the cached one", () => {
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false);
+    expect(stable.cache_control).toEqual({ type: "ephemeral" });
+    expect(stable.text).not.toContain("Current project insights");
+    expect(stable.text).not.toContain("CACHEPROBE");
+    expect(stable.text).not.toContain("Recent outcomes");
+    expect(stable.text).not.toContain("4242 tasks stalled");
+    // Presence FIRST on the volatile side, for the same reason the ordering
+    // test above states it: a block dropped ENTIRELY satisfies every
+    // `not.toContain` here, so the negatives alone would pass vacuously.
+    expect(volatile.cache_control).toBeUndefined();
+    expect(volatile.text).toContain("Current project insights");
+    expect(volatile.text).toContain("CACHEPROBE");
+    expect(volatile.text).toContain("Recent outcomes");
+    expect(volatile.text).toContain("4242 tasks stalled");
   });
 });

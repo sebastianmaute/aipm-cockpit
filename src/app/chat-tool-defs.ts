@@ -18,6 +18,10 @@ import {
   TASK_STATUSES,
 } from "./types";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
+// ★ INTERPOLATED, never a literal number in the prose: search_history's
+//   description tells the model how many events the log retains, and a
+//   hardcoded copy would go quietly false the day the cap moves.
+import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
 
 /** Every RAID status across the four categories (deduped). The tool schema
  *  offers the whole union; `sanitizeRaidItem` enforces the per-category subset
@@ -388,6 +392,76 @@ export const TOOL_DEFS = [
     description:
       "List budget planner buckets with id, name, status, window (startDate/endDate), and per-role planned (budget) hours by period. This is PER-BUCKET detail. For project-level totals (hours, value, cost, margin, EV, CPI) call get_dashboard_snapshot instead — do NOT sum these buckets to derive a rollup, and do not report both as if they were independent figures. Read-only.",
     input_schema: { type: "object", properties: {} },
+  },
+  {
+    name: "search_history",
+    // ★★★ THE TWO BLIND-SPOT SENTENCES ARE LOAD-BEARING, NOT HEDGING BLOAT.
+    //  (1) COVERAGE: `logActivity` is threaded into `useChatDispatcher` and
+    //      handed to `useDocumentTools` ALONE, so the chat write handlers
+    //      (createTask/updateTask/deleteTask and every register write) mutate
+    //      state and log NOTHING. Verify with `grep -n logActivity
+    //      src/app/use-chat-dispatcher.ts` — one hit. Without the caveat the
+    //      model creates a task, is asked about it the next day, gets back
+    //      `{events: [], truncated: false}` and denies its own work.
+    //  (2) RETENTION: the log is capped at `ACTIVITY_MAX_ENTRIES`, so an empty
+    //      result for an OLD range is indistinguishable from a quiet period.
+    //      `truncated` cannot cover this — it reports what the CAPPED LOG held,
+    //      never what the cap already dropped.
+    //  Both are description-level on purpose: wiring the chat writes into the
+    //  log is a feature (which kinds, what args, undo interaction), not a
+    //  wording fix. If that feature lands, delete blind spot (1) here.
+    description:
+      "Search this project's activity history — the audit trail of changes made through the app's " +
+      "own UI and its integrations (creates, updates, deletes, status changes, syncs), newest " +
+      "first. Use it for questions about what CHANGED and WHEN (\"what happened last week\", \"who " +
+      "moved that milestone\", \"what did this field say before\"); use the list_* tools for " +
+      "current state. Each event has an ISO timestamp carrying the project's UTC offset — quote " +
+      "that wall clock, it is the one the user's own Activity view shows — an English summary, " +
+      "and an optional detail " +
+      "string carrying the field-level before/after diff. Answer confidently from the events you DO " +
+      "get back, but never read an empty result as proof that nothing happened — the log has two " +
+      "blind spots. First, your OWN tool calls are not recorded in it (document writes are the sole " +
+      "exception), so a task you created for the user will be missing from it. Second, it keeps " +
+      `only the most recent ${ACTIVITY_MAX_ENTRIES} events and drops the oldest beyond that, so an ` +
+      "older range can come back empty because those events aged out rather than because the period " +
+      "was quiet. Name whichever gap applies instead of asserting the change never happened. If " +
+      "`truncated` is true, more events matched than were returned — say so rather than implying " +
+      "the list is complete. Read-only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Case-insensitive substring matched against the summary and diff detail.",
+        },
+        // ★★ THE FRAME OF REFERENCE IS PART OF THE CONTRACT. These bounds are
+        //    resolved in the project's timezone — the same zone the `Today is`
+        //    date in the system prompt is computed in and the same one the
+        //    Activity panel renders in. Saying so is what lets the model treat
+        //    that date as a usable bound; without it, "today" is ambiguous
+        //    between two calendars that differ for hours of every day.
+        since: {
+          type: "string",
+          description:
+            "Inclusive lower bound as YYYY-MM-DD, in the project's timezone — the same " +
+            "calendar as the `Today is` date you were given. Convert relative phrasing yourself.",
+        },
+        until: {
+          type: "string",
+          description: "Inclusive upper bound as YYYY-MM-DD, in the project's timezone.",
+        },
+        kinds: {
+          type: "array",
+          items: { type: "string" },
+          description:
+            'Restrict to specific event kinds, e.g. ["task.updated", "milestone.deleted"].',
+        },
+        limit: {
+          type: "number",
+          description: "Max events to return. Defaults to 50, capped at 200.",
+        },
+      },
+    },
   },
   {
     name: "create_resource",

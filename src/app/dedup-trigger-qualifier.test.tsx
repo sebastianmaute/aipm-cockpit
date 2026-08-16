@@ -101,7 +101,43 @@ function resolveLocalBindingName(source: string): string | null {
   return bindingMatch[1] ?? HOOK_EXPORT_NAME;
 }
 
-function callSites(): CallSite[] {
+/**
+ * The scan reads EVERY non-test source file under src/app — 868 files, ~6.9MB —
+ * and that read is the entire cost of this file. All three tests below need the
+ * same result, so without this memo the tree is walked and re-read three times.
+ * Measured: file total 2.44s -> 0.83s, a ~3x cut in synchronous CPU-bound fs
+ * work, which is what a saturated full-suite run is short of.
+ *
+ * ★★ IT DOES NOT HELP AGAINST THE 20s PER-TEST TIMEOUT, and an earlier revision
+ * of this comment claimed it did. That cap is per TEST; the 2.44s was the FILE
+ * total across three of them. Per-test before: 828/683/968ms. After: 833/1/1ms.
+ * The worst single test is UNCHANGED — the first test still pays one full scan,
+ * and no memo can make the first scan cheaper. The win is whole-suite CPU, not
+ * headroom under the cap. Stated because the wrong reason invites the wrong fix:
+ * anyone chasing the cap here should split the scan, not cache it harder.
+ *
+ * ★ Safe to cache for the lifetime of the module: the files are read from disk
+ * and nothing in this suite writes to them, so a second scan is by construction
+ * identical to the first. Scoped to this file by vitest's per-file module
+ * registry, so it cannot leak across files under `--sequence.shuffle`, and
+ * whichever test runs first pays the scan under intra-file shuffle.
+ *
+ * ★★ The element type is `Readonly<CallSite>`, not just a `readonly` ARRAY, and
+ * the difference is the whole guarantee: `readonly CallSite[]` freezes the array
+ * while leaving `callSites()[0].file = "x"` typecheck-CLEAN — i.e. it would not
+ * prevent the one-test-corrupts-the-next failure this comment claims to prevent.
+ * With both, in-place `.sort()`/`.push()` AND element writes are typecheck
+ * errors, so that failure cannot be written silently. `.filter()`/`.map()` still
+ * hand callers ordinary mutable arrays, so nothing downstream is inconvenienced.
+ */
+let cachedCallSites: readonly Readonly<CallSite>[] | null = null;
+
+function callSites(): readonly Readonly<CallSite>[] {
+  if (cachedCallSites === null) cachedCallSites = scanCallSites();
+  return cachedCallSites;
+}
+
+function scanCallSites(): CallSite[] {
   const sites: CallSite[] = [];
   const files = listSourceFiles(__dirname)
     // The hook DEFINES useTasksDedup(deps); it does not call itself.

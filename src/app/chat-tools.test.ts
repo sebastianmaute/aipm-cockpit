@@ -10,6 +10,7 @@ import {
   type Filters,
 } from "./chat-tools";
 import { type Task, type RaidItem, type ChangeItem, type Milestone, type TaskDependency } from "./types";
+import { ACTIVITY_MAX_ENTRIES, type ActivityEntry } from "./activity-log";
 
 function makeTask(over: Partial<Task> = {}): Task {
   return {
@@ -159,6 +160,8 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       enabledModules: [] as import("./feature-modules").FeatureModuleId[],
       currentView: "chat" as import("./nav-config").AppView,
     })),
+    getActivityLog: vi.fn(() => []),
+    getTimezone: vi.fn(() => "UTC"),
     getDashboardSnapshot: vi.fn(
       () =>
         ({
@@ -509,6 +512,25 @@ describe("runTool — get_app_state and edge cases", () => {
     const d = makeDispatcher();
     const result = await runTool(d, "get_app_state", {});
     expect(result).toMatchObject({ taskCount: 1, storageKind: "browser" });
+  });
+
+  // ★★★ activityLog must NEVER reach getSnapshot(). runTool's `get_app_state`
+  //     case returns getSnapshot() VERBATIM, and the model calls that tool
+  //     freely. The log IS bounded — ACTIVITY_MAX_ENTRIES (500), enforced on
+  //     LOAD (sanitizeActivityLog), on WRITE (appendActivityEntry, which
+  //     appendActivity delegates to) and on MERGE (mergeActivityLogs) — so do
+  //     NOT read this guard as resting on an unbounded collection and delete it
+  //     once you notice the cap. 500 audit entries, each carrying up to
+  //     MAX_FIELD_CHANGES (12) field-level before/after diffs, is still far more
+  //     than belongs in the context window on every snapshot read. The one tool
+  //     that wants the log reads it through getActivityLog() instead.
+  //
+  //     This test exists because "completing the pattern" later is a natural,
+  //     plausible edit that every other test in the suite would stay green for.
+  it("keeps activityLog OFF the app-state snapshot", async () => {
+    const d = makeDispatcher();
+    const snapshot = (await runTool(d, "get_app_state", {})) as Record<string, unknown>;
+    expect("activityLog" in snapshot).toBe(false);
   });
 
   it("throws on an unknown tool name", async () => {
@@ -1075,5 +1097,130 @@ describe("runTool — document tool routing", () => {
     await expect(runTool(makeDispatcher(), "burn_everything", {})).rejects.toThrow(
       /unknown tool: burn_everything/,
     );
+  });
+});
+
+describe("search_history", () => {
+  // Deliberately NOT already in newest-first order, so the ordering assertion
+  // below is about the engine's sort and not about the fixture's own order.
+  const LOG: ActivityEntry[] = [
+    { id: "a", timestamp: "2026-08-10T09:00:00.000Z", kind: "task.created", args: [1, "Alpha"] },
+    { id: "b", timestamp: "2026-08-12T09:00:00.000Z", kind: "task.created", args: [2, "Beta"] },
+  ];
+
+  it("is registered in TOOL_DEFS", () => {
+    expect(TOOL_DEFS.some((d) => d.name === "search_history")).toBe(true);
+  });
+
+  // ★★ The description is the ONLY place the model learns what this log does
+  //    NOT cover, and NEITHER gap is visible in the return value: a task the
+  //    model created through chat and a June that aged out both come back as
+  //    `{events: [], truncated: false}`. `truncated` reports what the capped,
+  //    chat-blind log HELD — never what never entered it or what the cap
+  //    already dropped. A description "tightened" back to the original
+  //    "audit trail of every create, update, delete, status change, AI action
+  //    and integration sync" makes the model deny work it did itself.
+  // ★ The retention figure is derived from ACTIVITY_MAX_ENTRIES, not typed
+  //   here, so a moved cap cannot leave a stale number in the prompt.
+  it("discloses both blind spots to the model, not just `truncated`", () => {
+    const desc = TOOL_DEFS.find((d) => d.name === "search_history")?.description ?? "";
+    expect(desc).toContain(String(ACTIVITY_MAX_ENTRIES));
+    expect(desc).toMatch(/own tool calls are not recorded/i);
+    expect(desc).toMatch(/aged out/i);
+    // The claim that started this: the log does NOT cover chat tool calls, so
+    // the description must not advertise "every ... AI action" again.
+    expect(desc).not.toMatch(/every create, update, delete/i);
+  });
+
+  it("returns rendered events newest-first from the dispatcher's log", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", {})) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events.map((e) => e.summary)).toEqual([
+      "Task #2 created: Beta",
+      "Task #1 created: Alpha",
+    ]);
+    expect(r.truncated).toBe(false);
+  });
+
+  it("passes the model's filters through", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { query: "beta" })) as {
+      events: { summary: string }[];
+    };
+    expect(r.events).toHaveLength(1);
+  });
+
+  // ★ The model is untrusted input: a non-object/garbage arg must not throw.
+  it("ignores malformed arguments rather than throwing", async () => {
+    const d = makeDispatcher({ getActivityLog: () => [] });
+    await expect(
+      runTool(d, "search_history", { query: 42, kinds: "nope", limit: "ten" }),
+    ).resolves.toEqual({ events: [], truncated: false });
+  });
+
+  // ★★ PAIRED POSITIVE for the guard above, and the test that actually pins it.
+  //    On an EMPTY log the case above returns `{events: [], truncated: false}`
+  //    for several wrong reasons too — a guard that forwarded `"nope"` verbatim
+  //    would reach `new Set("nope")`, a set of four CHARACTERS matching no kind,
+  //    and still pass. With a real log that mistake returns zero events, so this
+  //    is the one that distinguishes "garbage treated as absent" from "garbage
+  //    treated as a filter that matches nothing".
+  it("treats garbage kinds/limit as absent, not as a filter matching nothing", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { kinds: "nope", limit: "ten" })) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events).toHaveLength(2);
+    expect(r.truncated).toBe(false);
+  });
+
+  // `truncated` is what the model reads to decide whether it may claim a
+  // complete answer, so it must cross the tool layer unaltered.
+  it("passes the engine's truncated flag through", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { limit: 1 })) as {
+      events: { summary: string }[];
+      truncated: boolean;
+    };
+    expect(r.events.map((e) => e.summary)).toEqual(["Task #2 created: Beta"]);
+    expect(r.truncated).toBe(true);
+  });
+
+  // ★★ The tool layer's own half of the timezone fix: the engine can filter in
+  //    any zone it is handed, but only this proves the dispatcher's zone is
+  //    what reaches it. A hardcoded "UTC" at the call site passes every engine
+  //    test in history-search.test.ts and fails here.
+  //    22:30Z on the 16th is 00:30 on the 17th in Berlin, so a Berlin project
+  //    must answer the 17th and not the 16th, and must quote the +02:00 clock.
+  it("filters and stamps in the dispatcher's timezone, not UTC", async () => {
+    const log: ActivityEntry[] = [
+      { id: "z", timestamp: "2026-08-16T22:30:00.000Z", kind: "task.created", args: [9, "Late"] },
+    ];
+    const d = makeDispatcher({
+      getActivityLog: () => log,
+      getTimezone: () => "Europe/Berlin",
+    });
+    const on = async (day: string) =>
+      (await runTool(d, "search_history", { since: day, until: day })) as {
+        events: { at: string }[];
+      };
+    expect((await on("2026-08-17")).events.map((e) => e.at)).toEqual([
+      "2026-08-17T00:30:00+02:00",
+    ]);
+    expect((await on("2026-08-16")).events).toHaveLength(0);
+  });
+
+  // A real kind filter must still WORK — otherwise "garbage becomes undefined"
+  // above is indistinguishable from "kinds is ignored entirely".
+  it("honours a well-formed kinds filter", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG });
+    const r = (await runTool(d, "search_history", { kinds: ["milestone.deleted"] })) as {
+      events: unknown[];
+    };
+    expect(r.events).toHaveLength(0);
   });
 });

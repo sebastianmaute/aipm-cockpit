@@ -1548,6 +1548,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
   `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
   audit detail that must never reach a document handed to a client. Do not add an export key.
+  ★★ **Nor an AI-snapshot field.** `runTool`'s `get_app_state` returns `getSnapshot()` verbatim, so the log
+  is reachable only through `getActivityLog()` on `ToolDispatcher`. It is CAPPED (`ACTIVITY_MAX_ENTRIES`),
+  and discovering that cap is not a licence to "complete the pattern" — the guard rests on per-call size,
+  not on unboundedness. Reasoning + the guard test:
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
   ★★★ **`isWorkspaceEmpty` deliberately EXCLUDES it, INVERTING the `documents` rule directly above.**
   The log is auto-appended by ordinary use, so counting it would make a project with log entries and no
   user records read as non-empty — letting a transient empty backend read replace a populated project,

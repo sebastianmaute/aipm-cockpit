@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.240.0";
-export const APP_BUILD_DATE = "2026-08-16"; // 0.240.0: dashboard tiles can be rearranged, resized and hidden, and drag-to-reorder works in Firefox across the app (Elliott)
+export const APP_VERSION = "0.241.0";
+export const APP_BUILD_DATE = "2026-08-16"; // 0.241.0: the assistant can search the project's activity history and knows which of its past recommendations measured well (Tuttle)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.240.x line is "Elliott" (Kate Elliott, prolific SF/fantasy author).
+ *  0.241.x line is "Tuttle" (Lisa Tuttle, SF/fantasy author).
+ *  0.240.x was "Elliott" (Kate Elliott, prolific SF/fantasy author).
  *  0.239.x was "Rusch" (Kristine Kathryn Rusch, prolific SF/fantasy author).
  *  0.238.x was "Attanasio" (A.A. Attanasio, SF/fantasy author).
  *  0.237.x was "Roberson" (Chris Roberson, SF/fantasy author).
@@ -28,7 +29,7 @@ export const APP_BUILD_DATE = "2026-08-16"; // 0.240.0: dashboard tiles can be r
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Elliott";
+export const APP_MILESTONE = "Tuttle";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -304,4 +305,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightTaskListAlign",
   "versionHighlightActivityWorkspace",
   "versionHighlightDashboardArrange",
+  "versionHighlightHistorySearch",
 ] as const;

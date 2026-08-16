@@ -36,6 +36,33 @@
   SUB-CHILD of `dashboard` in `nav-config.ts`, NOT Turso-gated, IS in axe `A11Y_VIEWS` as `#insights`). ★ severity
   rides a `RagDot` (non-text, AA-exempt), NEVER tinted small text. AI-aware: `buildInsightsPromptBlock` is appended
   AFTER the chat cache breakpoint (volatile — reflects the live record without busting prompt caching).
+- **Prompt block — TWO sections since B2a:** `buildInsightsPromptBlock` emits the ACTIVE/acknowledged set
+  (`SURFACED_STATUSES`, severity-sorted, capped at `MAX_PROMPT_INSIGHTS`) AND a "Recent outcomes" section over
+  insights that are `acted`/`resolved` AND carry a MEASURED `outcome` (newest `measuredAt` first, capped at the
+  new `MAX_PROMPT_OUTCOMES`). ★★ It therefore no longer returns `""` merely because the active set is empty —
+  it returns `""` only when BOTH sections are empty. A caller that reads an empty active list as "no block"
+  now drops real context. The second section is what stops the assistant re-recommending an action the user
+  already took, INCLUDING one that changed nothing: `unchanged` is deliberately kept, since filtering it
+  would bias the model toward things that worked.
+  ★★ **The status is not sufficient — the `outcome` must be present.** `isMeasured` requires both, because
+  `outcome` is only ever written against a `metricAtAction` baseline that reconcile captures at the first
+  transition to `acted`. That is what licenses the "→ acted" wording on a row whose status now reads
+  `resolved`.
+  ★ `outcome.current`/`outcome.delta` are ABSENT when an insight simply stopped firing (four of the five
+  detectors are threshold-gated, so "cleared" means below-threshold, not zero) — `outcomeLine` then prints the
+  direction with no magnitude rather than implying a measured move.
+  ★★★ **`delta` is `baseline − current`, so POSITIVE means BETTER** (every insight metric is
+  lower-is-better). A fixture pairing `direction: "improved"` with a NEGATIVE delta typechecks and would ship
+  teaching the inverse convention to every later reader — the B2a plan contained exactly that
+  (`baseline: 9, current: 3, delta: -6`, where the arithmetic gives `+6`). `insight.ts`'s own field doc is
+  the authority.
+  ★★ **The outcomes section rides EVERY turn**, which is why it is capped rather than windowed (the module is
+  deterministic and clock-free by contract, so "recent" is expressed as sort-then-cap). GROWING the cap is a
+  token-cost decision and fine to revisit; MOVING the block into the cached prefix is not — it would
+  invalidate the cached prefix on every reconcile pass. `chat-api.system-prompt.test.ts`'s "puts both insight
+  sections in the UNCACHED block, never the cached one" is what enforces that, and it did not exist until
+  B2a: that file guarded the tools, view-scope and digest breakpoints only, while being repeatedly cited as
+  covering this block too.
 - **SP2 — proactive AI recommendations (0.191.0):** an `Insight` gains an optional persisted
   `recommendation` (`{summary, proposedCalls[], generatedAt, status: proposed|applied|rejected, appliedSummary?,
   appliedAt?}`) that rides the SAME insights blob (no new backend path, byte-stable when empty). ★★ THREE landmines:
