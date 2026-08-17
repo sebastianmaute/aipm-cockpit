@@ -62,10 +62,20 @@ import type { KnowledgeLink } from "./document-link";
  *  the whole guarantee — a flat consumer can never accidentally receive markup,
  *  which is what a mode flag or a side-channel would have risked.
  *
- *  ★★ THIS MODULE STAYS DOM-FREE. The cell CARRIES html and never parses it —
- *  `htmlToRichLines` is DOMParser-bound, so every parse belongs in the
- *  DOM-bound renderers. Importing it here would put a DOM dependency in the
- *  pure section model. */
+ *  ★★ THE CELL IS CARRIED, NEVER PARSED, and that is the whole property.
+ *  `htmlToRichLines` is DOMParser-bound, so every parse of this html lives in
+ *  a DOM-bound renderer — which is exactly what lets ONE section model feed
+ *  both the structural consumers (DOCX runs, HTML markup) and the flat ones
+ *  (XLSX, PPTX). Parsing "helpfully" one level up here collapses that.
+ *
+ *  ★★★ IT IS NOT A DOM-FREE CLAIM ABOUT THIS MODULE, and an earlier revision of
+ *  this comment made one. `richCell` derives `text` through
+ *  `descriptionTextWithBreaks`, whose own module header states it goes through
+ *  DOMPurify and must never be imported by anything that can run under bare
+ *  node — so this file has had a DOM dependency since the day it gained that
+ *  import. The false claim was false in the PERMISSIVE direction: a reader
+ *  takes "DOM-free" as a rule about what may be ADDED here, when the only rule
+ *  is about what may be PARSED here. */
 export type RichCell = { html: string; text: string };
 
 export type ExportCell = string | number | RichCell;

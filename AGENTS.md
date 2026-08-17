@@ -1121,7 +1121,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★★ **THE SPLIT IS "CARRY vs PARSE", and it is easy to break by "helpfully" parsing one level
   up.** `export-sections.ts` CARRIES the html as an opaque string and never parses it — every parse
   lives in the DOM-bound renderers, which is what lets one section model feed both the structural and
-  the flat consumers. Keep a `DOMParser`/DOMPurify call out of it and add it to the renderer instead.
+  the flat consumers. Keep the PARSE out of it and put it in the renderer instead.
+  ★★★ THAT IS A RULE ABOUT PARSING, NOT A DOM-FREE RULE ABOUT THE MODULE, and this line used to say
+  "Keep a `DOMParser`/DOMPurify call out of it" — false in the permissive direction, because a reader
+  takes it as a constraint on what may be ADDED there. The module already reaches DOMPurify: `richCell`
+  derives its flat half through `descriptionTextWithBreaks`, and that module's own header states it is
+  browser-only for exactly that reason. Reproduce:
+  `grep -n "rich-text-projection" src/app/export-sections.ts`.
   ★ Deliberately NOT justified here by "it would throw under bare node in the sample generator" —
   that rationale is measured FALSE about the generator (which installs a JSDOM before importing
   `src/app`) and is tracked as `docs/open-followups.md` §151, which counts the places still asserting

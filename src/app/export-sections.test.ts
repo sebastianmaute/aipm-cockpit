@@ -676,16 +676,36 @@ describe("rich cells carry both representations (§141(b))", () => {
   });
 
   it("carries a RichCell in EVERY rich register column, not only tasks", () => {
+    // ★★ `changes` is in the sweep because it holds THREE of the seven rich
+    // fields — more than any other entity — and the tuple list below named only
+    // raid and milestones while the test claimed "EVERY".
+    // ★ THAT WAS A NAMING DEFECT, NOT A COVERAGE HOLE, and saying so is the
+    // point: swapping `changesSection`'s CHANGE_RICH_COLUMNS for an empty set
+    // already turned "emits no markup in raid, milestone or change rows" and
+    // "keeps the text content of a rich description" red (measured, 3 failures
+    // with this test counted). The list is completed so the NAME is true, and
+    // the entry buys no detection this file did not already have.
     const ws: Workspace = {
       ...makeBaseWorkspace(),
       raid: [{ ...makeRaidItem(1), description: html, mitigation: html }],
       milestones: [{ ...makeMilestone(1), description: html }],
+      changes: [
+        {
+          id: 1, title: "Change 1", type: "Scope", status: "Proposed",
+          impact: "Medium", impactDescription: html, scheduleImpactDays: 0,
+          costImpact: 0, requestedBy: "PM", raisedDate: "2025-01-01",
+          decisionBy: "", decisionDate: "", resolutionNotes: html,
+          description: html, linkedTaskIds: [], linkedRaidIds: [],
+          stakeholderIds: [], localModifiedAt: undefined,
+        },
+      ],
     };
-    const cfg: ExportConfig = { ...defaultExportConfig, milestones: true };
+    const cfg: ExportConfig = { ...defaultExportConfig, milestones: true, changes: true };
     const sections = buildExportSections(ws, cfg, "en-US");
     for (const [key, rich] of [
       ["raid", RAID_RICH_COLUMNS],
       ["milestones", MILESTONE_RICH_COLUMNS],
+      ["changes", CHANGE_RICH_COLUMNS],
     ] as const) {
       const section = sections.find((s) => s.key === key)!;
       for (const name of rich) {

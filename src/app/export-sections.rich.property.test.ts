@@ -275,8 +275,14 @@ const RICH_TARGETS: ReadonlyArray<{ section: RichSection; column: string }> = [
   ...[...CHANGE_RICH_COLUMNS].map((column) => ({ section: "changes" as const, column })),
 ];
 
-/** One rich column per entity, enough to exercise tasks AND raid (raid carries
- *  TWO rich columns, so it catches a per-column bug tasks structurally cannot). */
+/** ONE rich column per entity — the entity axis only.
+ *
+ *  ★★ It is `"description"` for all four, so nothing here can see a per-COLUMN
+ *  wiring slip: `mitigation`, `impactDescription` and `resolutionNotes` are
+ *  never selected by it. That axis is `RICH_TARGETS` above, swept by the
+ *  "EVERY rich column of EVERY entity" property and by the markup property. An
+ *  earlier revision of this comment claimed raid's second column made this
+ *  constant catch a per-column bug, which the map itself refutes. */
 const FIRST_RICH_COLUMN: Readonly<Record<RichSection, string>> = {
   tasks: "description",
   raid: "description",
@@ -328,18 +334,36 @@ describe("rich export cells preserve block boundaries", () => {
     // RAID's `mitigation` and Change's `impactDescription`/`resolutionNotes`
     // ride the same set as their `description`; a per-column wiring slip is
     // invisible to the property above.
-    fc.assert(
-      fc.property(fc.constantFrom(...RICH_TARGETS), paragraphTextsArb, (target, texts) => {
-        const html = texts.map((t) => `<p>${t}</p>`).join("");
-        const rich = richCellFor(
-          workspaceWithField(target.section, target.column, html),
-          target.section,
-          target.column,
-        );
-        expect(rich.text).toBe(texts.join("\n"));
-        expect(rich.html).toBe(html);
-      }),
-      { numRuns: 25 },
+    //
+    // ★★★ THE TARGET IS LOOPED, NOT DRAWN, and the test name is why. It used to
+    // be `fc.constantFrom(...RICH_TARGETS)` inside the property at 25 runs with
+    // no pinned seed: seven targets, 25 draws, so a measurable share of seeds
+    // left at least one rich column unvisited while the test went on claiming
+    // "EVERY". Drawing the axis a test asserts TOTALITY over is the one place a
+    // property generator cannot be used — and a coverage counter is no fix
+    // either, since it would turn those same seeds into a flake instead. Loop
+    // the axis, generate only the value.
+    for (const target of RICH_TARGETS) {
+      fc.assert(
+        fc.property(paragraphTextsArb, (texts) => {
+          const html = texts.map((t) => `<p>${t}</p>`).join("");
+          const rich = richCellFor(
+            workspaceWithField(target.section, target.column, html),
+            target.section,
+            target.column,
+          );
+          expect(rich.text).toBe(texts.join("\n"));
+          expect(rich.html).toBe(html);
+        }),
+        { numRuns: 25 },
+      );
+    }
+    // Anti-vacuity, and DERIVED so a new rich field widens the sweep instead of
+    // failing here: an empty RICH_TARGETS would leave the loop body unrun, and
+    // one-column-per-entity would make the "not just the first" half of the
+    // name empty even with the loop in place.
+    expect(RICH_TARGETS.length).toBeGreaterThan(
+      new Set(RICH_TARGETS.map((target) => target.section)).size,
     );
   });
 });

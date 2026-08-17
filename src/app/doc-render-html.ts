@@ -129,7 +129,16 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
     case "heading":
       return `<h${block.level}>${htmlEscape(block.text)}</h${block.level}>`;
 
-    // The ONE unescaped path: already-sanitized HTML, re-sanitized here.
+    // ★★ ONE OF TWO UNESCAPED PATHS IN THIS FILE, not the only one — this line
+    // said "The ONE unescaped path" and `document-preview.tsx` leans on that
+    // sentence to justify running no second pass of its own. The other is
+    // `tableHtml` → `exportCellHtml`, whose RICH branch emits markup too. It is
+    // guarded, by a DIFFERENT sanitizer in a DIFFERENT file: `sanitizeRichHtml`
+    // in `download.ts`, not `sanitizeDocumentHtml` here. So there is no hole —
+    // but a reader auditing "is every unescaped sink sanitized?" from the old
+    // wording would stop one sink short. Both must stay sanitized.
+    //
+    // Already-sanitized HTML, re-sanitized here.
     // ★★ Upgraded FIRST. A legacy plain-text value is not markup, and handing
     // it to the sanitizer raw dropped its line breaks (§118); descriptionHtml
     // escapes it into <p>/<br> instead — both of which sanitizeDocumentHtml

@@ -11,12 +11,14 @@
 
 import { describe, it, expect } from "vitest";
 import { renderDocumentDocx } from "./doc-render-docx";
+import { buildDocx } from "./export-docx";
 import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
+import type { ExportSection } from "./export-sections";
 import type { ProjectDocument, DocBlock } from "./document-model";
 import type { Workspace } from "./workspace";
 
@@ -869,21 +871,46 @@ describe("DOCX invariants Word fails silently on", () => {
     "<p><strong>b</strong><em>i</em><code>c</code></p>",
   ].join("");
 
-  /** The same fixture through BOTH emission paths, plus the styles part the
-   *  first invariant is measured against.
+  /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
    *
-   *  ★★ ONE fixture, TWO paths. A `paragraph` DocBlock and a rich table cell go
-   *  through the same `docxRichParagraph` builder — but that is a fact to PIN,
-   *  not to assume, and the two reached it by different routes (§141(b)). The
-   *  document also carries the block-level shapes only `renderBlock` emits, so
-   *  `Caption` and `TableHeader` are in the sweep too.
+   *  ★★★ IT SHARES `buildDocxTable` WITH THE DOCUMENT RENDERER BUT NOT ITS BODY.
+   *  `buildDocxSection` hand-writes the title and row-count paragraphs, and
+   *  those runs are unreachable from `renderDocumentDocx` at any input — so a
+   *  sweep built only from `renderDocumentDocx` + `buildDocxTable` cannot see
+   *  them. Two out-of-sequence `<w:rPr>`s lived there behind exactly that gap. */
+  async function exporterDocumentXml(): Promise<string> {
+    const section: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      // A rich cell, so the exporter's package carries the rich paragraph
+      // shapes too and not merely its own two hand-written runs.
+      columns: ["description"],
+      rows: [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]],
+    };
+    const entries = await readZipEntries(await buildDocx([section]).arrayBuffer());
+    const data = entries.get("word/document.xml");
+    if (data === undefined) throw new Error("word/document.xml missing from export package");
+    return decodeUtf8(data);
+  }
+
+  /** The same fixture through BOTH emission paths and the workspace exporter,
+   *  plus the styles part the first invariant is measured against.
+   *
+   *  ★★ ONE fixture, THREE emitting paths. A `paragraph` DocBlock and a rich
+   *  table cell go through the same `docxRichParagraph` builder — but that is a
+   *  fact to PIN, not to assume, and the two reached it by different routes
+   *  (§141(b)). The document also carries the block-level shapes only
+   *  `renderBlock` emits, so `Caption` and `TableHeader` are in the sweep too.
+   *  The third is the workspace exporter, whose body paragraphs no other path
+   *  reaches — see `exporterDocumentXml` above for why that gap mattered.
    *
    *  ★ It asserts its own output rather than trusting it: a helper that silently
-   *  returned "" would make all three invariants below vacuous at once. */
+   *  returned "" would make all four invariants below vacuous at once. */
   async function renderEverySupportedShape(): Promise<{
     block: string;
     cell: string;
     styles: string;
+    exported: string;
   }> {
     const blocks: DocBlock[] = [
       { type: "paragraph", html: EVERY_SHAPE_HTML },
@@ -900,29 +927,33 @@ describe("DOCX invariants Word fails silently on", () => {
     const cell = wrapWordXml(
       buildDocxTable(["description"], [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]]),
     );
-    for (const xml of [block, cell, styles]) {
+    const exported = await exporterDocumentXml();
+    for (const xml of [block, cell, styles, exported]) {
       expect(xml.length).toBeGreaterThan(0);
       expect(() => parseXml(xml)).not.toThrow();
     }
-    // Both paths must really have LAID OUT the fixture — one paragraph would
-    // mean it was flattened, and every sweep below would then be near-empty.
+    // All three emitting paths must really have LAID OUT the fixture — one
+    // paragraph would mean it was flattened, and every sweep below would then
+    // be near-empty.
     expect(parseXml(block).getElementsByTagName("w:p").length).toBeGreaterThan(15);
     expect(parseXml(cell).getElementsByTagName("w:p").length).toBeGreaterThan(15);
-    return { block, cell, styles };
+    expect(parseXml(exported).getElementsByTagName("w:p").length).toBeGreaterThan(15);
+    return { block, cell, styles, exported };
   }
 
-  it("declares every paragraph style either emission path can name", async () => {
+  it("declares every paragraph style any emission path can name", async () => {
     // ★★★ INVARIANT 1. `docxStyleFor` names Heading1-Heading4, ListParagraph,
     // Quote and CodeBlock; `renderBlock` adds Title and Caption; buildDocxTable
-    // adds TableHeader. An undeclared one is IGNORED by Word — the pStyle is
-    // still emitted, so every other assertion in this file about it passes.
-    const { block, cell, styles } = await renderEverySupportedShape();
+    // adds TableHeader; the workspace exporter re-uses Title. An undeclared one
+    // is IGNORED by Word — the pStyle is still emitted, so every other
+    // assertion in this file about it passes.
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
     const declared = new Set(
       Array.from(parseXml(styles).documentElement.children).map((el) =>
         el.getAttribute("w:styleId"),
       ),
     );
-    const used = [...pStyles(block), ...pStyles(cell)];
+    const used = [...pStyles(block), ...pStyles(cell), ...pStyles(exported)];
     expect(used.length).toBeGreaterThan(0);
     // ★ The exact DOMAIN, not just "some styles". Without this a shape dropped
     // from the fixture would narrow the sweep silently, and the loop below
@@ -952,10 +983,10 @@ describe("DOCX invariants Word fails silently on", () => {
     // drifted out of sequence independently of the emitters once already,
     // because nothing was looking at them.
     const ORDER = ["w:pStyle", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
-    const { block, cell, styles } = await renderEverySupportedShape();
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
     let seen = 0;
     let widest = 0;
-    for (const xml of [block, cell, styles]) {
+    for (const xml of [block, cell, styles, exported]) {
       for (const pPr of Array.from(parseXml(xml).getElementsByTagName("w:pPr"))) {
         const tags = Array.from(pPr.children).map((el) => el.tagName);
         // An element this list does not rank cannot be checked at all, so an
@@ -975,6 +1006,55 @@ describe("DOCX invariants Word fails silently on", () => {
     expect(widest).toBeGreaterThanOrEqual(3);
   });
 
+  it("orders every <w:rPr>'s children by the EG_RPrBase sequence", async () => {
+    // ★★★ INVARIANT 4, and the RUN-level twin of invariant 2. CT_RPr is an
+    // xsd:sequence exactly as CT_PPrBase is, which is the whole reason
+    // `DOCX_MARK_RPR` carries a `rank` — but that table governs the RICH path
+    // only. Every HAND-WRITTEN <w:rPr> (the style declarations, the table
+    // header run, and the exporter's title + row-count runs) was outside any
+    // sweep, and two of the exporter's carried <w:color/> before <w:i/>.
+    // Word opens such a file happily; the Open XML SDK and validators built on
+    // it reject it, so the cost is invalidity with nothing visible to notice.
+    //
+    // ★★ THE POSITIONS ARE EG_RPrBase's, NOT the rank table's 0..6. w:color
+    // (19) and w:sz (24) fall BETWEEN w:strike (9) and w:highlight (26), and no
+    // RunMark maps to either — so the rank table never ordered them against the
+    // marks, and copying its 0..6 here would rank two of the elements that
+    // actually appear in the wrong place.
+    const ORDER = [
+      "w:rFonts",
+      "w:b",
+      "w:i",
+      "w:strike",
+      "w:color",
+      "w:sz",
+      "w:highlight",
+      "w:u",
+      "w:vertAlign",
+    ];
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
+    let seen = 0;
+    let widest = 0;
+    for (const xml of [block, cell, styles, exported]) {
+      for (const rPr of Array.from(parseXml(xml).getElementsByTagName("w:rPr"))) {
+        const tags = Array.from(rPr.children).map((el) => el.tagName);
+        // An element this list does not rank cannot be checked at all, so an
+        // unknown one is a failure rather than a silent skip.
+        for (const tag of tags) expect(ORDER).toContain(tag);
+        const ranks = tags.map((tag) => ORDER.indexOf(tag));
+        expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+        seen += 1;
+        widest = Math.max(widest, tags.length);
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    // ★ A one-child <w:rPr> is sorted whatever the builder does, so the sweep
+    // only bites where several properties meet — Heading4 (b · i · color · sz)
+    // is the widest, and the exporter's italic-grey runs are the pair that was
+    // wrong.
+    expect(widest).toBeGreaterThanOrEqual(4);
+  });
+
   it("emits only legal ST_Jc values", async () => {
     // ★★★ INVARIANT 3, and the NEGATIVE, exhaustive form of "maps justify to
     // OOXML's `both`" above. Three of the four alignments spell the same in
@@ -982,9 +1062,9 @@ describe("DOCX invariants Word fails silently on", () => {
     // looks correct; Word silently drops the one that does not and renders the
     // paragraph left-aligned.
     const LEGAL = ["left", "center", "right", "both"];
-    const { block, cell } = await renderEverySupportedShape();
+    const { block, cell, exported } = await renderEverySupportedShape();
     const used: string[] = [];
-    for (const xml of [block, cell]) {
+    for (const xml of [block, cell, exported]) {
       for (const [, value] of xml.matchAll(/<w:jc w:val="([^"]*)"\/>/g)) used.push(value);
     }
     expect(used.length).toBeGreaterThan(0);

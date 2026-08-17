@@ -15,7 +15,16 @@ import { DOC_STYLES, buildDocxPackage, buildDocxTable } from "./ooxml-docx-primi
 // DOCX
 // ============================================================================
 
-/** Render one ExportSection as a DOCX heading paragraph + table. */
+/** Render one ExportSection as a DOCX heading paragraph + table.
+ *
+ *  ★★★ EVERY `<w:rPr>` BELOW IS IN EG_RPrBase SEQUENCE ORDER, and it is not
+ *  alphabetical or authoring order: `w:i` is position 5, `w:color` 19, `w:sz`
+ *  24 — so italic comes BEFORE colour, and colour before size. CT_RPr is an
+ *  `xsd:sequence`; a strict OOXML validator (the Open XML SDK and everything
+ *  built on it) REJECTS an out-of-sequence run-property list, while Word itself
+ *  is lenient, which is how `<w:color/><w:i/>` sat in both paragraphs here
+ *  unnoticed. This is the same rule `DOCX_MARK_RPR`'s `rank` table enforces for
+ *  the rich path — read its comment before reordering anything here. */
 function buildDocxSection(section: ExportSection): string {
   return `
     <w:p>
@@ -27,7 +36,7 @@ function buildDocxSection(section: ExportSection): string {
     </w:p>
     <w:p>
       <w:r>
-        <w:rPr><w:color w:val="${COLOR_MEDIUM_GREY}"/><w:i/></w:rPr>
+        <w:rPr><w:i/><w:color w:val="${COLOR_MEDIUM_GREY}"/></w:rPr>
         <w:t xml:space="preserve">${section.rows.length} row${section.rows.length === 1 ? "" : "s"}</w:t>
       </w:r>
     </w:p>
@@ -53,7 +62,7 @@ export function buildDocx(sections: ExportSection[]): Blob {
     </w:p>
     <w:p>
       <w:r>
-        <w:rPr><w:color w:val="${COLOR_MEDIUM_GREY}"/><w:i/></w:rPr>
+        <w:rPr><w:i/><w:color w:val="${COLOR_MEDIUM_GREY}"/></w:rPr>
         <w:t xml:space="preserve">Exported ${xmlEscape(todayHuman())}</w:t>
       </w:r>
     </w:p>
@@ -67,8 +76,21 @@ export function buildDocx(sections: ExportSection[]): Blob {
   // styles.xml does not declare is SILENTLY IGNORED by Word — the heading would
   // render as body text with every assertion about the emitted XML still green,
   // which is exactly the fidelity this slice exists to add.
-  // ★ It changes only `word/styles.xml` (declarations the previous export never
-  // used); `word/document.xml` is byte-identical for a workspace whose rich
-  // fields are empty or plain.
+  // ★★★ IT IS NOT ONLY `word/styles.xml`, and this line claimed it was —
+  // "`word/document.xml` is byte-identical for a workspace whose rich fields
+  // are empty or plain". Measured false in BOTH named cases, because a rich
+  // COLUMN routes through `docxRichParagraphs` whatever its value is:
+  //   • empty  — the old cell body was `<w:p>` around one empty run; the new
+  //     one is `<w:p/>` (`descriptionHtml("")` is "", `htmlToRichLines("")` is
+  //     [], and the builder's empty branch emits the self-closing paragraph).
+  //   • plain  — the runs match, but the old cell body was a multi-line
+  //     template carrying newlines and indentation inside `<w:p>`, and
+  //     `docxRichParagraphs` emits neither.
+  // Both outputs are valid and render identically, so nothing here is a
+  // FUNCTIONAL change — the byte claim was the defect. `word/document.xml` is
+  // byte-identical only for a workspace with no rows in any rich-column entity
+  // at all, i.e. no rich cell ever built. ★ Say what holds: a byte claim that
+  // is nearly true is worse than none, because it is what a reader reaches for
+  // when deciding whether a golden fixture needs regenerating.
   return buildDocxPackage(body, DOC_STYLES);
 }
