@@ -192,8 +192,8 @@ describe("jsonToWorkspace normalises every rich field, not only description", ()
         raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
         noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>kept</p>", text: "kept" }] }],
     }));
-    expect(ws.changes[0].noteLog).toHaveLength(1);
-    expect(ws.changes[0].noteLog?.[0].text).toBe("kept");
+    expect(ws.changes?.[0].noteLog).toHaveLength(1);
+    expect(ws.changes?.[0].noteLog?.[0].text).toBe("kept");
   });
 
   // ★★★ The ORDER half of the fix: the raw array is re-attached BEFORE the rich
@@ -206,8 +206,8 @@ describe("jsonToWorkspace normalises every rich field, not only description", ()
         raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
         noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<script>alert(1)</script><p>ok</p>", text: "ok" }] }],
     }));
-    expect(ws.changes[0].noteLog?.[0].html).not.toContain("script");
-    expectInert(ws.changes[0].noteLog?.[0].html ?? "", "ok");
+    expect(ws.changes?.[0].noteLog?.[0].html).not.toContain("script");
+    expectInert(ws.changes?.[0].noteLog?.[0].html ?? "", "ok");
   });
 });
 
