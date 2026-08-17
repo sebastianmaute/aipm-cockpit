@@ -1,7 +1,14 @@
 // src/app/export.test.ts
 //
 // Tests for buildPdfHtml — the pure HTML-building helper extracted from
-// exportPdf. Tests run in Node (no DOM); window.print() is never called here.
+// exportPdf. window.print() is never called here.
+//
+// ★ These run under jsdom, not bare node — vitest.config.ts sets
+// `environment: "jsdom"` globally. That is load-bearing since §141(b): a rich
+// cell goes through sanitizeRichHtml, which is DOMPurify-backed and binds
+// `window` at module eval. This header claimed "no DOM" until the rich-cell
+// tests below were added, which would have been a confusing thing to read
+// while debugging a DOMPurify failure.
 
 import { describe, it, expect } from "vitest";
 import { buildPdfHtml } from "./export";
@@ -255,5 +262,192 @@ describe("buildPdfHtml", () => {
     expect(html).toContain("Project Status");
     // Status field/value rows appear in the table
     expect(html).toContain("On track");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Rich cells in an HTML/PDF export table (§141(b))
+// ---------------------------------------------------------------------------
+
+/** One task with `description` set — `description` is the task section's only
+ *  member of TASK_RICH_COLUMNS, so this is the shortest route to a RichCell. */
+function wsWithDescription(description: string): Workspace {
+  return { ...makeBaseWorkspace(), tasks: [makeTask(1, { description })], raid: [] };
+}
+
+describe("buildPdfHtml — rich cells (§141(b))", () => {
+  // ★ The section header row emits the raw CSV column KEYS, so asserting the
+  //   <th> is what proves the column under test is real. A fixture aimed at a
+  //   column that does not exist asserts nothing at all, and that has already
+  //   happened once in this slice (a test written against "title", which is
+  //   spelled `taskName`).
+  it("the two columns under test are real columns of the tasks section", () => {
+    const html = buildPdfHtml(wsWithDescription("x"), defaultExportConfig, "en-US");
+    expect(html).toContain("<th>description</th>"); // rich
+    expect(html).toContain("<th>taskName</th>"); // NOT rich
+  });
+
+  it("emits markup for a rich column instead of escaping it", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<h2>Plan</h2>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<h2>Plan</h2>");
+    expect(html).not.toContain("&lt;h2&gt;");
+  });
+
+  // ★★ THE EDITOR'S REAL LIST SHAPE, not a bare <li>. Tiptap wraps each item's
+  // content in a <p>, and a bare-<li> fixture has already hidden a CRITICAL in
+  // this slice — it exercises a structure the app never actually stores.
+  it("keeps the editor's real list shape, <p> inside <li> included", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<ul><li><p>one</p></li><li><p>two</p></li></ul>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<ul>");
+    expect(html).toContain("<li><p>one</p></li>");
+    expect(html).not.toContain("&lt;ul&gt;");
+  });
+
+  it("keeps an ordered list ordered, so numbering survives the export", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<ol><li><p>first</p></li></ol>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("<ol>");
+    expect(html).not.toContain("<ul>");
+  });
+
+  it("carries data-align through to the printed cell", () => {
+    const html = buildPdfHtml(
+      wsWithDescription('<p data-align="center">middle</p>'),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain('data-align="center"');
+    // The rule that gives the attribute meaning ships in the same document.
+    expect(html).toContain('td [data-align="center"]');
+  });
+
+  // ★★★ The security-relevant one. The rich branch is the ONE unescaped path in
+  // the whole HTML export, and the six write paths behind these fields are not
+  // all allow-listed (the codec load paths are DOM-free and cannot be, §28), so
+  // a hostile value CAN reach storage. Re-sanitizing at the sink is what stops
+  // it becoming markup in a document the user hands to a client.
+  it("re-sanitizes at the sink", () => {
+    const html = buildPdfHtml(
+      wsWithDescription('<p onclick="x()">hi</p><script>bad()</script>'),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("hi");
+    expect(html).not.toContain("onclick");
+    expect(html).not.toContain("bad()");
+  });
+
+  it("still escapes a NON-rich cell", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1, { taskName: "<b>not markup</b>" })],
+      raid: [],
+    };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("&lt;b&gt;");
+    expect(html).not.toContain("<td><b>not markup</b></td>");
+  });
+
+  // ★★★ THE ESCAPE-THEN-SUBSTITUTE ORDER, on the boundary where it is still
+  // live. §141(b) moved rich columns onto the markup path, which retired the
+  // two `export-ooxml.test.ts` fixtures that used to pin this ordering on
+  // `description` (see the comment on `HTML export cells` there). Every NON-rich
+  // cell still goes escape-then-substitute through `htmlCellWithBreaks`, and
+  // that is most of them — so the guard needs a home on THIS path, not only on
+  // `renderDocumentHtml`'s table block in doc-render-html.test.ts.
+  //
+  // ★★ `blockers` was chosen by measurement: it is free text, sits in no
+  // *_RICH_COLUMNS set, and was probed to carry a "\n" through `fieldToString`
+  // all the way into the emitted cell. A column that DROPPED the newline would
+  // leave this passing for free with the substitution never running — the
+  // failure mode that makes an ordering test look alive while it is dead.
+  // (`status.value` is exactly such a column: `statusSection` splits on
+  // /\r?\n/, so a newline there becomes two rows and never reaches a cell.)
+  //
+  // ★ Each assertion kills a different wrong order: substitute-only leaves the
+  // user's "<br>" live; substitute-then-escape turns OUR boundary into a
+  // visible "&lt;br&gt;".
+  it("escapes a NON-rich cell BEFORE substituting its newline", () => {
+    const ws: Workspace = {
+      ...makeBaseWorkspace(),
+      tasks: [makeTask(1, { blockers: "a<br>b\nc" })],
+      raid: [],
+    };
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    expect(html).toContain("a&lt;br&gt;b<br>c");
+    expect(html).not.toContain("a<br>b");
+    expect(html).not.toContain("b&lt;br&gt;c");
+  });
+
+  // ★★★ A STORED ENTITY MUST SURVIVE THE RICH PATH AS AN ENTITY. Since §141(b)
+  // this property runs through `sanitizeRichHtml(descriptionHtml(...))` rather
+  // than through `htmlCellWithBreaks`, so none of the escaping guards on the
+  // NON-rich path cover it, and "DOMPurify preserves entities" is an assumption
+  // about a dependency that nothing else in this repo asserts. A user's literal
+  // "<br>" turning into a real line break in an exported PDF is a
+  // content-integrity bug that every other string assertion would stay green
+  // through.
+  //
+  // ★★ PARTIAL OVERLAP, stated so nobody deletes the wrong one: the "<br>" half
+  // is also pinned by `export-ooxml.test.ts`'s "escapes BEFORE substituting",
+  // which is the historical site of that assertion (see its describe comment).
+  // The "&amp;" half is pinned ONLY here — and the two halves have measurably
+  // different strength, which is the reason this test spells both out. A decode
+  // BEFORE the sanitizer breaks the "<br>" half but NOT the "&amp;" half,
+  // because DOMPurify re-escapes a bare "&" on serialize; only a decode AFTER
+  // the sanitizer breaks "&amp;". Do not fold the two into one assertion.
+  it("keeps a stored entity escaped through the rich path", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("<p>R&amp;D &lt;br&gt; done</p>"),
+      defaultExportConfig,
+      "en-US",
+    );
+    // The ampersand stays an entity — a decode here would corrupt "R&D" in
+    // every export, silently and permanently.
+    expect(html).toContain("R&amp;D");
+    expect(html).not.toContain("R&D");
+    // The user's literal "<br>" stays an entity and never becomes a real break.
+    expect(html).toContain("&lt;br&gt;");
+    expect(html).not.toContain("<br> done");
+  });
+
+  // ★★★ ORDER. `descriptionHtml` runs BEFORE `sanitizeRichHtml`, and this test
+  // is the only thing pinning it. Both wrong orders fail here, for two DIFFERENT
+  // reasons, which is why the fixture carries a newline AND a bare "<":
+  //   • dropping descriptionHtml — the sanitizer has no reason to invent a <br>
+  //     for a bare "\n", so the break is lost and the line runs on (§118);
+  //   • sanitize-then-upgrade — the sanitizer escapes the "<" to "&lt;", and
+  //     plainToHtml then escapes THAT "&", so the cell prints a visible "&lt;".
+  it("upgrades a legacy plain-text value BEFORE sanitizing it", () => {
+    const html = buildPdfHtml(
+      wsWithDescription("cost < 5k\nremainder"),
+      defaultExportConfig,
+      "en-US",
+    );
+    expect(html).toContain("cost &lt; 5k<br>remainder");
+    expect(html).not.toContain("&amp;lt;");
+  });
+
+  // ★ These are scoped to a DESCENDANT of a td, so they match nothing in a
+  // column that is not rich. `td p` is load-bearing rather than cosmetic: a
+  // plain legacy value is upgraded to <p>text</p>, and the UA default margin on
+  // a p is 1em top and bottom.
+  it("ships the td-scoped rules that keep the markup inside a table row", () => {
+    const html = buildPdfHtml(wsWithDescription("x"), defaultExportConfig, "en-US");
+    expect(html).toContain("td h1, td h2, td h3, td h4");
+    expect(html).toContain("td p { margin: 0 0 2pt; }");
+    expect(html).toContain("td ul, td ol");
+    expect(html).toContain('td li[data-type="taskItem"]::before');
   });
 });

@@ -16,6 +16,7 @@ import {
   markTaskItems,
   separateBlockBoundaries,
 } from "./rich-text-plain";
+import { PROJECTION_SINK } from "./html-start";
 
 /** Stored value -> plain text, upgrading a legacy plain value on the way so a
  *  never-edited record projects identically to an edited one.
@@ -42,7 +43,7 @@ import {
  *  precondition — it too composes in front of htmlToText. */
 export function descriptionText(stored: string | undefined): string {
   return htmlPlainProjection(
-    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, "projection")))),
+    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, PROJECTION_SINK)))),
   );
 }
 
@@ -65,7 +66,7 @@ export function descriptionText(stored: string | undefined): string {
  *  the two functions that were told to keep it. */
 export function descriptionTextWithBreaks(stored: string | undefined): string {
   return htmlPlainProjection(
-    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, "projection")), "\n"), {
+    htmlToText(separateBlockBoundaries(markTaskItems(descriptionHtml(stored, PROJECTION_SINK)), "\n"), {
       preserveBreaks: true,
     }),
     { preserveBreaks: true },

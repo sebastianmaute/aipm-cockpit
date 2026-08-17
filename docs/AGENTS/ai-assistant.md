@@ -271,7 +271,7 @@
   ★★★ **`truncated` COVERS ONE OF THREE WAYS AN ANSWER CAN BE INCOMPLETE, so the tool description carries
   the other two and they are NOT hedging bloat.** It reports what the CAPPED, CHAT-BLIND log held — never
   what never entered it, nor what the cap already dropped.
-  ★★★ (a) COVERAGE — **CLOSED IN 0.243.0, AND THIS PARAGRAPH SHIPPED ITS OWN REFUTATION FOR A RELEASE.**
+  ★★★ (a) COVERAGE — **CLOSED IN 0.244.0, AND THIS PARAGRAPH SHIPPED ITS OWN REFUTATION FOR A RELEASE.**
   It read: "`logActivity` is threaded … handed to `useDocumentTools` ALONE, so every chat entity write …
   mutates state and logs NOTHING. Reproduce with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` —
   **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
@@ -288,7 +288,7 @@
   because an inline "Ask Claude" edit was writing TWO entries — the per-`runTool` entity row this branch
   added (`actor: "ai"`) plus an `ai.inlineEdit` summary carrying the same entity id, title and actor, i.e. a
   strict subset. The kind survives in `ActivityKind` and in `activityMessageKey` because logs written before
-  0.243.0 still carry it and `sanitizeActivityEntry` keeps unknown kinds — removing it would render those
+  0.244.0 still carry it and `sanitizeActivityEntry` keeps unknown kinds — removing it would render those
   rows as `activityUnknownKind`. Verify there is no writer:
   `grep -rn '"ai.inlineEdit"' src/app --include=*.ts --include=*.tsx` → the union member, the key map and one
   test, **zero** call sites. `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
@@ -411,7 +411,7 @@
   `renderActivityEntry` this line has no UI counterpart to stay in step with and routing it through `t` would
   add dictionary entries that only a machine reads. `latestAt` renders in the PROJECT zone (`dayInZone` over
   the snapshot's branded `timezone`), matching every other instant the model is handed.
-  ★★ **`search_history` now returns an `actor` PER EVENT**, conditionally spread so a pre-0.243.0 entry's
+  ★★ **`search_history` now returns an `actor` PER EVENT**, conditionally spread so a pre-0.244.0 entry's
   rendered shape is byte-unchanged (`{actor: undefined}` on every row is not the same as an omitted key, and
   `toBeUndefined()` cannot tell them apart). `knownActor` narrows through an own-property check on
   `KNOWN_ACTORS` and returns `undefined` for anything else — REQUIRED, because `sanitizeActivityEntry` keeps

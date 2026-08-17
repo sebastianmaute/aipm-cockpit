@@ -7,6 +7,8 @@
 
 import { describe, it, expect, beforeAll } from "vitest";
 import { resolveDataSection } from "./doc-data-section";
+import { cellText, isRichCell } from "./export-sections";
+import { exportCellHtml } from "./download";
 import { loadI18n, t } from "./i18n";
 import type { Workspace } from "./workspace";
 
@@ -19,7 +21,18 @@ const populated = {
   tasks: [{ id: 9, taskName: "A task", status: "To Do" }],
   raid: [
     { id: 1, title: "Vendor delay", category: "Risk", status: "Open" },
-    { id: 2, title: "Budget & scope <risk>", category: "Risk", status: "Open" },
+    // ★ Row 1 carries BOTH shapes of cell in one row: `title` is a plain column
+    // whose value needs escaping, `description` is in RAID_RICH_COLUMNS and so
+    // arrives as a RichCell. The two-paragraph value is deliberate — the flat
+    // half must show the block boundary as a newline, which is the only thing
+    // that distinguishes the export projection from the collapsing one.
+    {
+      id: 2,
+      title: "Budget & scope <risk>",
+      description: "<p>alpha</p><p>beta</p>",
+      category: "Risk",
+      status: "Open",
+    },
   ],
 } as unknown as Workspace;
 
@@ -99,13 +112,72 @@ describe("resolveDataSection", () => {
     expect(de!.title).not.toBe(en!.title);
   });
 
-  it("returns cells as plain strings for the renderer to escape", () => {
-    // Values arrive UNESCAPED; each renderer escapes at its own sink. If this
-    // ever pre-escaped, every renderer would double-escape.
+  it("hands the renderer UNESCAPED values, in exactly two cell shapes", () => {
+    // ★★ THE OLD NAME HERE WAS "returns cells as plain strings for the renderer
+    // to escape", and BOTH halves of it stopped being true when ExportCell grew
+    // to `string | number | RichCell`. Cells are no longer all strings, and the
+    // renderer no longer escapes all of them — it escapes the flat ones and
+    // SANITIZES the rich ones. What survives unchanged, and is the part worth
+    // pinning here, is that this module pre-escapes NOTHING: it is the renderer
+    // that decides, and a value pre-escaped here would be double-escaped there.
     const section = resolveDataSection("raid", populated, "en-US");
     const flat = section!.rows.flat();
-    for (const cell of flat) expect(typeof cell).toBe("string");
+
+    for (const cell of flat) {
+      if (isRichCell(cell)) {
+        // A rich cell is well formed or it is a renderer crash — DOCX writes
+        // `undefined` and PPTX "[object Object]" for a missing half.
+        expect(typeof cell.html).toBe("string");
+        expect(typeof cell.text).toBe("string");
+      } else {
+        // No third shape: a bare object that is not a RichCell would reach
+        // every renderer as "[object Object]".
+        expect(["string", "number"]).toContain(typeof cell);
+      }
+    }
+
+    // The plain column arrives verbatim, ampersand and angle brackets intact.
     expect(flat).toContain("Budget & scope <risk>");
-    expect(flat.join(" ")).not.toContain("&amp;");
+    // Nothing anywhere in the section is pre-escaped — checked through the flat
+    // projection so rich cells are covered by this too, not just plain ones.
+    expect(flat.map(cellText).join(" ")).not.toContain("&amp;");
+    expect(flat.map(cellText).join(" ")).not.toContain("&lt;");
+  });
+
+  it("routes a rich cell to the markup path and a plain cell to the escaping path", () => {
+    // The CONSUMER-side half of the contract above, and the reason the rename
+    // was not just cosmetic: `exportCellHtml` is the ONE place HTML/PDF decides
+    // between markup and escaped text, and it decides on the CELL SHAPE this
+    // module chose. Asserting the shape alone would leave that decision — the
+    // thing a reader of this file actually cares about — untested.
+    const section = resolveDataSection("raid", populated, "en-US");
+    const titleIdx = section!.columns.indexOf("title");
+    const descIdx = section!.columns.indexOf("description");
+    expect(titleIdx).toBeGreaterThanOrEqual(0);
+    expect(descIdx).toBeGreaterThanOrEqual(0);
+
+    const row = section!.rows[1]; // the fixture row carrying both shapes
+    const titleCell = row[titleIdx];
+    const descCell = row[descIdx];
+
+    expect(isRichCell(titleCell)).toBe(false);
+    expect(isRichCell(descCell)).toBe(true);
+
+    // The flat half a non-layout renderer (PPTX) reads: tags gone, and the
+    // paragraph boundary kept as the "\n" each renderer maps to its own
+    // primitive. Hardcoded, NOT recomputed with the projection the code uses —
+    // an oracle derived from the same call would hold for any implementation.
+    expect(cellText(descCell)).toBe("alpha\nbeta");
+
+    // Plain cell -> escaped. This is the branch the old test name described.
+    expect(exportCellHtml(titleCell)).toBe("Budget &amp; scope &lt;risk&gt;");
+
+    // Rich cell -> markup, NOT escaped. A document embedding a register must
+    // render the description as paragraphs; escaping it here is what would put
+    // a literal "<p>" in front of the reader.
+    const descHtml = exportCellHtml(descCell);
+    expect(descHtml).toContain("<p>alpha</p>");
+    expect(descHtml).toContain("<p>beta</p>");
+    expect(descHtml).not.toContain("&lt;p&gt;");
   });
 });

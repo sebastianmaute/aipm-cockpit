@@ -73,7 +73,7 @@ const ACTOR_UNKNOWN = "—";
 /**
  * THE single answer to "which known actor is this?" — `null` means the row is
  * UNATTRIBUTED, covering BOTH shapes that reach here: an ABSENT actor (the
- * entire pre-0.243.0 trail) and an unknown-but-STRING one, which
+ * entire pre-0.244.0 trail) and an unknown-but-STRING one, which
  * `sanitizeActivityEntry` deliberately keeps so a newer release's actor value
  * is not destroyed by an older client.
  *
@@ -100,7 +100,7 @@ type SortKey = "timestamp" | "kind" | "message";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
-/** ★ `"unknown"` is a REAL member, not a fallback: the whole pre-0.243.0 trail
+/** ★ `"unknown"` is a REAL member, not a fallback: the whole pre-0.244.0 trail
  *  is actor-less, so "show me the entries nobody can attribute" is a first-class
  *  query — and without it every non-`all` option hides every historical row. */
 type ActorFilter = "all" | "user" | "ai" | "integration" | "unknown";

@@ -55,11 +55,57 @@ import type {
 } from "./types";
 import type { KnowledgeLink } from "./document-link";
 
+/** A cell whose stored value is rich HTML.
+ *
+ *  ★★ IT CARRIES BOTH REPRESENTATIONS, ALWAYS. A renderer that can lay out
+ *  paragraphs parses `html`; every other one reads `text`. That redundancy is
+ *  the whole guarantee — a flat consumer can never accidentally receive markup,
+ *  which is what a mode flag or a side-channel would have risked.
+ *
+ *  ★★ THE CELL IS CARRIED, NEVER PARSED, and that is the whole property.
+ *  `htmlToRichLines` is DOMParser-bound, so every parse of this html lives in
+ *  a DOM-bound renderer — which is exactly what lets ONE section model feed
+ *  both the structural consumers (DOCX runs, HTML markup) and the flat ones
+ *  (XLSX, PPTX). Parsing "helpfully" one level up here collapses that.
+ *
+ *  ★★★ IT IS NOT A DOM-FREE CLAIM ABOUT THIS MODULE, and an earlier revision of
+ *  this comment made one. `richCell` derives `text` through
+ *  `descriptionTextWithBreaks`, whose own module header states it goes through
+ *  DOMPurify and must never be imported by anything that can run under bare
+ *  node — so this file has had a DOM dependency since the day it gained that
+ *  import. The false claim was false in the PERMISSIVE direction: a reader
+ *  takes "DOM-free" as a rule about what may be ADDED here, when the only rule
+ *  is about what may be PARSED here. */
+export type RichCell = { html: string; text: string };
+
+export type ExportCell = string | number | RichCell;
+
+/** ★ Sound only because every NON-rich cell this module emits is a `string` or
+ *  a `number` — each one comes from a `*FieldToString` helper, an explicit
+ *  `String(...)`, or a string field. No section builder emits any other object,
+ *  so "is an object with an `html` key" cannot collide with a plain cell. */
+export function isRichCell(cell: ExportCell): cell is RichCell {
+  return typeof cell === "object" && cell !== null && "html" in cell;
+}
+
+/** The flat projection of any cell — the ONLY thing a renderer that cannot lay
+ *  out paragraphs should call.
+ *
+ *  ★★ Its parameter is `ExportCell`, which does NOT include `undefined`, and
+ *  `noUncheckedIndexedAccess` is off — so `row[i]` typechecks here while a
+ *  short row hands it `undefined` at RUNTIME. That is survivable rather than
+ *  accidental: `isRichCell(undefined)` is false, so the value passes through
+ *  unchanged to the caller's own `?? ""` / `String(… ?? "")` guard, exactly as
+ *  the raw cell did before this indirection existed. Keep those guards. */
+export function cellText(cell: ExportCell): string | number {
+  return isRichCell(cell) ? cell.text : cell;
+}
+
 export type ExportSection = {
   key: ExportSectionKey;
   title: string;       // localized section heading
   columns: string[];   // header row (display labels)
-  rows: (string | number)[][];  // body rows, one entry per entity
+  rows: ExportCell[][];  // body rows, one entry per entity
 };
 
 // ---------------------------------------------------------------------------
@@ -93,8 +139,9 @@ export const CHANGE_RICH_COLUMNS: ReadonlySet<string> = new Set([
   "resolutionNotes",
 ]);
 
-function richCell(value: string, column: string, rich: ReadonlySet<string>): string {
-  return rich.has(column) ? descriptionTextWithBreaks(value) : value;
+function richCell(value: string, column: string, rich: ReadonlySet<string>): ExportCell {
+  if (!rich.has(column)) return value;
+  return { html: value, text: descriptionTextWithBreaks(value) };
 }
 
 function raidSection(raid: readonly RaidItem[], lang: Lang): ExportSection {

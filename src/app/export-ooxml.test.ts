@@ -11,6 +11,8 @@ import { describe, it, expect } from "vitest";
 import { buildDocx, buildXlsx, buildPptx } from "./export-ooxml";
 import { buildPdfHtml } from "./export";
 import { buildExportSections } from "./export-sections";
+import type { ExportSection } from "./export-sections";
+import { descriptionTextWithBreaks } from "./rich-text-projection";
 import { defaultExportConfig } from "./settings-types";
 import type { ExportConfig } from "./settings-types";
 import type { Workspace } from "./storage";
@@ -72,6 +74,22 @@ function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
 async function unzipBlob(blob: Blob): Promise<Map<string, string>> {
   const buf = await blobToArrayBuffer(blob);
   return unzip(buf);
+}
+
+/**
+ * Every part of an OOXML package as ONE deterministic string.
+ *
+ * ★★ Do NOT byte-compare the Blob itself: `zip.ts` stamps `new Date()` into
+ * each local file header, so two packages built either side of a DOS-time tick
+ * (2-second resolution) differ in bytes while every rendered part is identical.
+ * The parts ARE the output; the container stamp is not.
+ */
+async function packageText(blob: Blob): Promise<string> {
+  const parts = await unzipBlob(blob);
+  return [...parts.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([name, xml]) => `=== ${name} ===\n${xml}`)
+    .join("\n");
 }
 
 // ---------------------------------------------------------------------------
@@ -609,38 +627,68 @@ describe("buildPptx", () => {
 // HTML/PDF renderer — the export projection's newline becomes a <br>
 // ---------------------------------------------------------------------------
 
+// ★★★ WHAT THESE TWO USED TO ASSERT, AND WHY THEY NOW ASSERT SOMETHING ELSE.
+// They arrived in 8c16c20f ("render a projected paragraph break as <br> in
+// HTML/PDF", §17 part 4b), when EVERY export cell was the flat text projection
+// and `htmlCellWithBreaks` mapped its "\n" to a <br>. On these same
+// `description` fixtures they asserted "one<br>two" and "a&lt;br&gt;b<br>c".
+//
+// §141(b) superseded that REPRESENTATION — for rich columns ONLY. `description`
+// is in TASK_RICH_COLUMNS, so its cell now emits sanitized MARKUP: two real
+// paragraphs instead of one <br>-joined line. That is the designed, specified
+// output of this slice, so the site that pinned the old representation is the
+// honest place to pin the new one.
+//
+// ★★★ THIS IS NOT "editing a test to match the output" — what makes it
+// legitimate is that the INVARIANT is re-asserted rather than dropped, and that
+// the guard the representation superseded is demonstrably still alive:
+//   • the escape-then-substitute ORDER on a NON-rich cell of this very
+//     `buildPdfHtml` path — export.test.ts, "escapes a NON-rich cell BEFORE
+//     substituting its newline";
+//   • the same ordering on `renderDocumentHtml`'s table block —
+//     doc-render-html.test.ts, "maps a newline in a table cell to <br> but
+//     escapes a literal <br>".
+// Both are green and both go red if the ordering is inverted. If you are here
+// because you want to delete or weaken one of these, check those two first.
 describe("HTML export cells", () => {
-  it("renders a projected newline as a <br>", () => {
+  it("renders a rich cell's paragraph break as real paragraphs", () => {
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
       tasks: [{ ...makeTask(1), description: "<p>one</p><p>two</p>" }],
     };
-    expect(buildPdfHtml(ws, defaultExportConfig, "en-US")).toContain("one<br>two");
+    const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
+    // The §141(b) representation. Pre-§141(b) this cell was "one<br>two"; the
+    // block boundary is still there, it is just carried by the markup now.
+    expect(html).toContain("<p>one</p><p>two</p>");
+    expect(html).not.toContain("&lt;p&gt;one&lt;/p&gt;");
   });
 
   it("escapes BEFORE substituting, so user markup cannot inject a break", () => {
-    // ★★ Order is the whole point. Substitute-then-escape turns our own <br>
-    // into a visible "&lt;br&gt;"; escape-then-substitute leaves a user's
-    // literal "<br>" escaped, which is what escaping is for.
+    // ★★★ THE SECURITY ASSERTION IS UNCHANGED FROM 8c16c20f AND MUST STAY THAT
+    // WAY. Only OUR block boundary changed representation (<br> → </p><p>); the
+    // USER's literal "<br>" — stored as the entity "&lt;br&gt;" — must still
+    // come out escaped and must still never become a real break. Both
+    // directions are asserted, exactly as they were before, and this test must
+    // fail if that ever stops being true.
     //
-    // ★★★ THE FIXTURE MUST CARRY BOTH, and an earlier version did not: with a
-    // value that has no newline, BOTH orderings emit "a&lt;br&gt;b" and the
-    // test passes either way — it named the ordering while proving only the
-    // escaping. This description projects to a literal "<br>" (the user's, from
-    // an escaped entity) AND a real block boundary (ours), so only
-    // escape-then-substitute yields the user's escaped and ours live.
+    // ★★ THE FIXTURE MUST CARRY BOTH, and the original did not at first: with a
+    // value that has no block boundary, escaping alone satisfies it and the
+    // test passes whatever happens to the boundary — it named the ordering
+    // while proving only the escaping. This value carries the user's escaped
+    // "<br>" AND a real boundary of ours.
     const base = makeBaseWorkspace();
     const ws: Workspace = {
       ...base,
       tasks: [{ ...makeTask(1), description: "<p>a&lt;br&gt;b</p><p>c</p>" }],
     };
     const html = buildPdfHtml(ws, defaultExportConfig, "en-US");
-    expect(html).toContain("a&lt;br&gt;b<br>c");
-    // Substitute-first would produce this instead — the user's markup live and
-    // our own boundary escaped away.
+    // VERBATIM from 8c16c20f: the user's markup stays escaped.
+    expect(html).toContain("a&lt;br&gt;b");
+    // VERBATIM from 8c16c20f: it must never become a real break.
     expect(html).not.toContain("a<br>b");
-    expect(html).not.toContain("b&lt;br&gt;c");
+    // Our own boundary, in its §141(b) representation.
+    expect(html).toContain("<p>a&lt;br&gt;b</p><p>c</p>");
   });
 });
 
@@ -701,6 +749,46 @@ describe("PPTX export text", () => {
     expect(xml).toMatch(/<a:t>description: one<\/a:t>[\s\S]*?<\/a:p>\s*<a:p>[\s\S]*?<a:t>two<\/a:t>/);
   });
 
+  it("emits the same package parts for a rich cell as for its flat projection (§141(b))", async () => {
+    // PPTX row slides cannot lay out paragraphs, so they read the rich cell's
+    // `text` — output must not move by one byte from the flat era.
+    //
+    // ★ ALL THREE cells are rich on purpose: buildPptxRowSlide reads row[0]
+    // (RowMeta), row[1] (RowTitle) and row[2..] (meta lines) through three
+    // SEPARATE expressions, so a fix applied to only one of them still passes
+    // a fixture whose rich column sits in the other.
+    // ★ The description uses the editor's REAL list shape (<li><p>…</p></li>),
+    // not the bare <li> form, so a projection defect that hides behind bare
+    // <li> cannot hide here either.
+    const cells = [
+      "<p>1</p>",
+      "<p>Task <strong>one</strong></p>",
+      "<h2>Plan</h2><ul><li><p>one</p></li></ul>",
+    ];
+    const columns = ["id", "taskName", "description"];
+    const rich: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [cells.map((html) => ({ html, text: descriptionTextWithBreaks(html) }))],
+    };
+    const flat: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [cells.map((html) => descriptionTextWithBreaks(html))],
+    };
+
+    const richText = await packageText(buildPptx([rich], "en-US"));
+    expect(richText).toBe(await packageText(buildPptx([flat], "en-US")));
+    // Positive observable — two identical EMPTY packages would satisfy the
+    // equality above while proving nothing about the projection.
+    expect(richText).toContain("<a:t>description: Plan</a:t>");
+    expect(richText).toContain("<a:t>one</a:t>");
+    expect(richText).toContain("<a:t>Task one</a:t>");
+    expect(richText).not.toContain("object Object");
+  });
+
   it("leaves a break-free paragraph as exactly one <a:p>", async () => {
     const blob = buildPptx([
       { key: "tasks", title: "Tasks", columns: ["id", "taskName"], rows: [[1, "Task one"]] },
@@ -743,5 +831,33 @@ describe("XLSX carries a projected paragraph break", () => {
     expect(styles).toContain(
       '<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0" applyAlignment="1"><alignment vertical="top" wrapText="1"/></xf>',
     );
+  });
+
+  it("emits the same package parts for a rich cell as for its flat projection (§141(b))", async () => {
+    // A worksheet cell cannot lay out paragraphs, so the XLSX builder reads the
+    // rich cell's `text` — output must not move by one byte from the flat era.
+    // ★ The editor's REAL list shape (<li><p>…</p></li>), not the bare <li>
+    // form: a projection defect that hides behind bare <li> must not hide here.
+    const html = "<h2>Plan</h2><ul><li><p>one</p></li></ul>";
+    const columns = ["description"];
+    const rich: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [[{ html, text: descriptionTextWithBreaks(html) }]],
+    };
+    const flat: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      columns,
+      rows: [[descriptionTextWithBreaks(html)]],
+    };
+
+    const richText = await packageText(buildXlsx([rich]));
+    expect(richText).toBe(await packageText(buildXlsx([flat])));
+    // Positive observable — two identical EMPTY packages would satisfy the
+    // equality above while proving nothing about the projection.
+    expect(richText).toContain('<t xml:space="preserve">Plan\none</t>');
+    expect(richText).not.toContain("object Object");
   });
 });

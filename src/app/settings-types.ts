@@ -150,7 +150,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     //   as ON. All three shipped enabled, and a coercion that read a stale
     //   value as falsy would silently remove a live capability on upgrade.
     // ★★ EVERY default-ON-by-absence flag MUST appear here. `actionSuggestions`
-    //   was MISSING until 0.243.0 — the field is optional, so its omission was a
+    //   was MISSING until 0.244.0 — the field is optional, so its omission was a
     //   typecheck-clean silent drop on load: `writeSettings` persisted the user's
     //   `false` correctly and this function threw it away on the next read, so the
     //   Action Center's "Analyze with AI" toggle reverted to ON at every reload.

@@ -24,6 +24,7 @@ import {
   TEXTAREA_MAX,
 } from "./sanitize";
 import { sanitizeRichText } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 import {
   DEPENDENCY_TYPES,
   RAID_CATEGORIES,
@@ -161,7 +162,7 @@ function sanitizeSeedTask(raw: unknown): Task | null {
     // -> human Save BYTE-IDENTICAL. The heading is now kept as a heading rather
     // than preserved as escaped text. Do not "restore" a narrower sink here — a
     // classifier narrower than its sink escapes the whole value (§107).
-    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, "rich"),
+    description: sanitizeRichText(raw.description || raw.notes, TEXTAREA_MAX, RICH_SINK),
   };
   const startDate = sanitizeIsoDate(raw.startDate);
   if (startDate) task.startDate = startDate;

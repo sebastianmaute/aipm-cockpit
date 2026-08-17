@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.243.0";
-export const APP_BUILD_DATE = "2026-08-17"; // 0.243.0: every activity entry records who made the change — you, the assistant, or an integration — and the assistant is told what changed recently (Waldrop)
+export const APP_VERSION = "0.244.0";
+export const APP_BUILD_DATE = "2026-08-17"; // 0.244.0: every activity entry records who made the change — you, the assistant, or an integration — and the assistant is told what changed recently (Waldrop)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.243.x line is "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).
+ *  0.244.x line is "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).
+ *  0.243.x was "Aaronovitch" (Ben Aaronovitch, urban-fantasy author).
  *  0.242.x was "Ashby" (Madeline Ashby, SF author).
  *  0.241.x was "Tuttle" (Lisa Tuttle, SF/fantasy author).
  *  0.240.x was "Elliott" (Kate Elliott, prolific SF/fantasy author).
@@ -309,5 +310,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightDashboardArrange",
   "versionHighlightHistorySearch",
   "versionHighlightCsvQuoting",
+  "versionHighlightRichExport",
   "versionHighlightActorAttribution",
 ] as const;

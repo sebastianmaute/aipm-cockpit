@@ -28,6 +28,7 @@
 // out of the DOM-free module is what preserves that guarantee.
 import { MAX_HTML_TEXT_CHARS } from "./document-model";
 import { sanitizeRichText } from "./rich-text-plain";
+import { DOCUMENT_SINK, RICH_SINK } from "./html-start";
 import { sanitizeDocumentHtml, sanitizeRichHtml } from "./sanitize-html";
 import { TEXTAREA_MAX } from "./sanitize";
 
@@ -65,13 +66,13 @@ import { TEXTAREA_MAX } from "./sanitize";
  *  defect — open-followups.md §32, plain prose that merely looks tag-shaped taken
  *  for HTML. Do not read §107's closure as closing it. */
 export function sanitizeAiRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, "rich");
+  const upgraded = sanitizeRichText(raw, TEXTAREA_MAX, RICH_SINK);
   if (!upgraded) return "";
   const clean = sanitizeRichHtml(upgraded);
   // The allow-list pass can empty a value whose only content was a disallowed
   // element (e.g. "<p><script>x</script></p>"), so re-apply the empty rule —
   // otherwise a phantom "<p></p>" reaches the `if (description)` gates.
-  return sanitizeRichText(clean, TEXTAREA_MAX, "rich");
+  return sanitizeRichText(clean, TEXTAREA_MAX, RICH_SINK);
 }
 
 /** The DOCUMENTS variant of the boundary above — model-supplied value -> stored
@@ -143,10 +144,10 @@ export function sanitizeAiRichText(raw: unknown): string {
  *  Per-sink derivation closed the false negative only. Do not read a fix for §32
  *  as closing that, and do not close §32 by pointing at §114. */
 export function sanitizeAiDocumentRichText(raw: unknown): string {
-  const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS, "document");
+  const upgraded = sanitizeRichText(raw, MAX_HTML_TEXT_CHARS, DOCUMENT_SINK);
   if (!upgraded) return "";
   const clean = sanitizeDocumentHtml(upgraded);
-  return sanitizeRichText(clean, MAX_HTML_TEXT_CHARS, "document");
+  return sanitizeRichText(clean, MAX_HTML_TEXT_CHARS, DOCUMENT_SINK);
 }
 
 /** The rich fields each AI-writable entity owns.
