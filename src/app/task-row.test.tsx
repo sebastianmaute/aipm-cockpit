@@ -796,21 +796,21 @@ describe("TaskActions", () => {
       </table>,
     );
 
-  test("the row verbs stay hidden until ⋮ opens", () => {
+  test("the menu-only row verbs stay hidden until ⋮ opens", () => {
+    // Send inquiry is deliberately NOT in this list — it is a visible button
+    // now, asserted by the "Send inquiry" describe below.
     const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
     const task = makeTask({ id: 99 });
     const { getByText, getByRole, queryByText } = renderActions(ctx, task);
 
     // Nothing renders while the overflow is closed.
     expect(queryByText("Edit")).toBeNull();
-    expect(queryByText("Send inquiry")).toBeNull();
     expect(queryByText("Push to Jira")).toBeNull();
     expect(queryByText("Delete")).toBeNull();
 
-    // Opening the ⋮ menu (row-unique accessible name) reveals all four actions.
+    // Opening the ⋮ menu (row-unique accessible name) reveals all three.
     fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
     expect(getByText("Edit")).toBeInTheDocument();
-    expect(getByText("Send inquiry")).toBeInTheDocument();
     expect(getByText("Push to Jira")).toBeInTheDocument();
     expect(getByText("Delete")).toBeInTheDocument();
   });
@@ -855,6 +855,82 @@ describe("TaskActions", () => {
     expect(ctx.onEdit).toHaveBeenCalledWith(task);
   });
 
+});
+
+describe("TaskActions Send inquiry", () => {
+  const renderActions = (ctx: RowContextValue, tasks: Task[]) =>
+    render(
+      <table>
+        <tbody>
+          <RowContextProvider value={ctx}>
+            {tasks.map((task) => (
+              <tr key={task.id}>
+                <td>
+                  <TaskActions task={task} isPushing={false} />
+                </td>
+              </tr>
+            ))}
+          </RowContextProvider>
+        </tbody>
+      </table>,
+    );
+
+  test("renders a row-unique Send inquiry button for an open task", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" });
+    const { getByRole } = renderActions(ctx, [task]);
+
+    fireEvent.click(getByRole("button", { name: "Send inquiry – Draft SOW" }));
+    expect(ctx.onSendInquiry).toHaveBeenCalledTimes(1);
+    expect(ctx.onSendInquiry).toHaveBeenCalledWith(
+      expect.objectContaining({ id: 7 }),
+    );
+  });
+
+  test("hides the button for a closed task", () => {
+    const ctx = makeContext();
+    const task = makeTask({
+      id: 8,
+      taskName: "Done thing",
+      status: "Done",
+      completedDate: "2026-08-01",
+    });
+    const { queryByRole } = renderActions(ctx, [task]);
+
+    expect(queryByRole("button", { name: /Send inquiry/ })).toBeNull();
+  });
+
+  // ★ Exactly ONE control per row. Two controls sharing an accessible name is
+  //   the WCAG 2.4.6 defect the axe gate provably cannot see, so keeping the
+  //   menu item alongside the button would create it silently.
+  test("no longer offers Send inquiry inside the overflow menu", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" });
+    const { getByRole, queryByRole } = renderActions(ctx, [task]);
+
+    fireEvent.click(getByRole("button", { name: "More actions – Draft SOW" }));
+    // Guard: the menu really is open, so the absence below means something.
+    expect(getByRole("menuitem", { name: "Edit" })).toBeInTheDocument();
+    expect(queryByRole("menuitem", { name: "Send inquiry" })).toBeNull();
+  });
+
+  // ★ One row cannot express a name collision at ANY assertion count, and axe
+  //   cannot see one at any seed size — this is the only possible detector.
+  test("two open rows get DIFFERENT Send inquiry accessible names", () => {
+    const ctx = makeContext();
+    const { getByRole, getAllByRole } = renderActions(ctx, [
+      makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" }),
+      makeTask({ id: 8, taskName: "Review budget", status: "To Do" }),
+    ]);
+
+    // Both render...
+    expect(getAllByRole("button", { name: /^Send inquiry/ })).toHaveLength(2);
+    // ...and each is reachable by its OWN name (getByRole throws on a tie).
+    expect(getByRole("button", { name: "Send inquiry – Draft SOW" })).toBeInTheDocument();
+    expect(
+      getByRole("button", { name: "Send inquiry – Review budget" }),
+    ).toBeInTheDocument();
+  });
 });
 
 describe("TaskRow Ask-Claude leading cell", () => {

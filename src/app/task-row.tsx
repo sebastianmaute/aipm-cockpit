@@ -26,6 +26,7 @@ import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { PopoverPanel } from "./popover-panel";
+import { TextButton } from "./text-button";
 import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
@@ -664,11 +665,23 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
   const showPushToJira =
     jiraEnabled && !!jiraProjectKey && !task.jiraKey && !isClosed;
 
-  // All row verbs (Edit / Send inquiry / Push to Jira / Delete) live in the
-  // ⋮ overflow menu. The trigger's aria-label is row-unique (WCAG 2.4.6) so
-  // N rows don't share an identical "More actions" name.
+  // Row verbs live in the ⋮ overflow menu, EXCEPT Send inquiry, which is a
+  // visible button — it is the one verb used often enough to be worth the
+  // width, and it matches the RAID row. It is deliberately NOT also a menu
+  // item: two controls with the same accessible name in one row is a WCAG
+  // 2.4.6 failure the axe gate cannot see.
+  // Every accessible name here is row-unique for the same reason.
   return (
     <div className="flex items-center whitespace-nowrap">
+      {showSendInquiry && (
+        <TextButton
+          onClick={(e) => { stop(e); onSendInquiry(task); }}
+          aria-label={`${t(lang, "sendInquiry")} – ${task.taskName}`}
+          className="mr-1 text-xs"
+        >
+          {t(lang, "sendInquiry")}
+        </TextButton>
+      )}
       <span className="relative">
         <button
           ref={menuBtnRef}
@@ -698,16 +711,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           >
             {t(lang, "edit")}
           </button>
-          {showSendInquiry && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={(e) => { stop(e); setMenuOpen(false); onSendInquiry(task); }}
-              className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
-            >
-              {t(lang, "sendInquiry")}
-            </button>
-          )}
           {showPushToJira && (
             <button
               type="button"
