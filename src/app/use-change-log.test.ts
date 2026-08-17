@@ -95,6 +95,53 @@ test("inline status change captures the status/decisionDate pair as ONE undo ent
   expect(logActivityChanges).toHaveBeenCalledTimes(1);
 });
 
+/** A stored row carrying a note the editor's draft never saw. The collision is
+ *  SEEDED on purpose: a save against an untouched log passes whichever way the
+ *  handler decides, so a realistic fixture cannot tell a correct implementation
+ *  from a reverted one. */
+function storedWithNote(): ChangeItem {
+  return {
+    id: 1, title: "Scope cut", status: "Proposed", type: "Scope", description: "",
+    raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+    noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>added mid-edit</p>", text: "added mid-edit" }],
+  };
+}
+
+test("keeps a note added while the editor was open (write-through, not the draft snapshot)", async () => {
+  const mod = await store();
+  const stored = storedWithNote();
+  mod.__seed([stored]);
+  const { result } = renderHook(() => useChangeLog({ today: "2026-08-17" }));
+  // The modal snapshotted its draft BEFORE the note existed, so it carries none.
+  act(() => result.current.handleSaveChange({ ...stored, title: "Scope cut v2", noteLog: undefined }, false));
+  expect(mod.__read()[0].noteLog).toHaveLength(1);
+  expect(mod.__read()[0].title).toBe("Scope cut v2");
+});
+
+test("does not put a stale note log into the undo capture", async () => {
+  const mod = await store();
+  const stored = storedWithNote();
+  mod.__seed([stored]);
+  const captureFieldEdit = vi.fn();
+  const { result } = renderHook(() => useChangeLog({ today: "2026-08-17", captureFieldEdit }));
+  act(() => result.current.handleSaveChange({ ...stored, title: "Scope cut v2", noteLog: undefined }, false));
+  // captureFieldChanges forwards {before, after} PATCHES (one per changed field
+  // group), never the whole row — so the observable is that no patch names
+  // noteLog at all. Restoring the log inside setChanges instead of on withStamp
+  // still yields the right array but leaves prev/next disagreeing here, so the
+  // stale value becomes undoable/redoable state. This is the ONLY assertion
+  // that separates the two fix sites.
+  expect(captureFieldEdit).toHaveBeenCalled();
+  const withNoteLog = captureFieldEdit.mock.calls.filter(
+    ([c]: [{ before: Record<string, unknown>; after: Record<string, unknown> }]) =>
+      "noteLog" in c.before || "noteLog" in c.after,
+  );
+  expect(withNoteLog).toEqual([]);
+  expect(captureFieldEdit.mock.calls[0][0]).toMatchObject({
+    before: { title: "Scope cut" }, after: { title: "Scope cut v2" },
+  });
+});
+
 test("inline status change on a missing id is a no-op", async () => {
   const mod = await store();
   mod.__seed([

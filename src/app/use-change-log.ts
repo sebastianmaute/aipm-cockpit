@@ -46,7 +46,6 @@ export function useChangeLog(args: UseChangeLogArgs) {
   // Non-modal callers (bulk edit) omit it → id-existence fallback (unchanged).
   const handleSaveChange = useCallback((item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => {
     const { create, id } = resolveEntitySave(changes, item.id, isNew, () => nextChangeId(changes));
-    const withStamp: ChangeItem = { ...item, id, localModifiedAt: new Date().toISOString() };
     const previous = create ? undefined : changes.find((c) => c.id === id);
     // Editing a row a concurrent writer already deleted: the map-replace below
     // would silently no-op. Surface it instead of dropping the edit in silence.
@@ -56,6 +55,21 @@ export function useChangeLog(args: UseChangeLogArgs) {
       }
       return;
     }
+    // The note log is WRITE-THROUGH and owns itself: the notes window commits
+    // straight to the workspace array, which the modal's edit-open snapshot
+    // never sees. This save REPLACES the row, so taking the draft's value would
+    // destroy any note added while the editor was open. Take it from the STORED
+    // row instead — NOT the task fix (omit it from the payload), which works
+    // only because the task save merges; an absent field erases the log here.
+    // It lands on withStamp rather than inside setChanges so the stale value
+    // never reaches captureFieldChanges and becomes undoable/redoable state.
+    // On a create there is no stored row and item.noteLog is the only truth.
+    const withStamp: ChangeItem = {
+      ...item,
+      ...(create ? {} : { noteLog: previous?.noteLog }),
+      id,
+      localModifiedAt: new Date().toISOString(),
+    };
     // Functional updater so N back-to-back saves in one tick (bulk edit) each
     // see the latest array and compose, instead of all reading the same stale
     // closure and the last write clobbering the rest.
