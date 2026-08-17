@@ -428,3 +428,23 @@ describe("branded sink constants (open-followups §143)", () => {
     expect(RENDER_SINK).toBe("render");
   });
 });
+
+describe("the document/projection sink pair is equivalent BY CONSTRUCTION (§143)", () => {
+  // No input distinguishes these two, permanently, for as long as they derive
+  // from one list — so no fixture-based test is possible and this pins the
+  // PREMISE instead. It goes red the moment they diverge, at which point a
+  // fixture becomes possible and should be written.
+  it("shares one tag array", () => {
+    // REFERENCE equality on purpose: they are literally ONE array, not two
+    // equal ones. Softening this to toEqual would keep passing across the very
+    // divergence it exists to catch.
+    expect(SINK_TAGS.projection).toBe(SINK_TAGS.document);
+  });
+
+  it("yields byte-identical regex source and flags", () => {
+    const d = htmlStartRe(SINK_TAGS.document);
+    const p = htmlStartRe(SINK_TAGS.projection);
+    expect(p.source).toBe(d.source);
+    expect(p.flags).toBe(d.flags);
+  });
+});

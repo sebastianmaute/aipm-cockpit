@@ -23,7 +23,7 @@ import { type Workspace, workspaceToCsv, workspaceToMarkdown } from "./storage";
 import type { ExportConfig } from "./settings-types";
 import { defaultExportConfig } from "./settings-types";
 import { buildExportSections } from "./export-sections";
-import { triggerDownload, PRINT_STYLES, htmlEscape, htmlCellWithBreaks } from "./download";
+import { triggerDownload, PRINT_STYLES, htmlEscape, exportCellHtml } from "./download";
 import type { ExportSection } from "./export-sections";
 import type { Lang } from "./i18n";
 
@@ -53,7 +53,14 @@ function defaultFilename(format: ExportFormat): string {
 
 // --- PDF via browser print -----------------------------------------------
 
-/** Render one ExportSection as an HTML heading + table block. */
+/** Render one ExportSection as an HTML heading + table block.
+ *
+ *  ★★ Cells go through `exportCellHtml`, which is the ONLY thing deciding
+ *  markup-vs-escaped-text. A rich column (§141(b)) emits sanitized markup so a
+ *  heading, list or alignment survives into the printed PDF; every other column
+ *  is escaped exactly as before. Do not reach past it to `htmlCellWithBreaks` —
+ *  that is the flat path, and calling it on a RichCell emits "[object Object]".
+ *  The `td`-scoped rules in PRINT_STYLES are what keep the markup inside a row. */
 function renderSectionHtml(section: ExportSection): string {
   const headerCells = section.columns
     .map((col) => `<th>${htmlEscape(col)}</th>`)
@@ -61,7 +68,7 @@ function renderSectionHtml(section: ExportSection): string {
   const bodyRows = section.rows
     .map(
       (row) =>
-        `<tr>${row.map((cell) => `<td>${htmlCellWithBreaks(cell)}</td>`).join("")}</tr>`
+        `<tr>${row.map((cell) => `<td>${exportCellHtml(cell)}</td>`).join("")}</tr>`
     )
     .join("\n      ");
   return `

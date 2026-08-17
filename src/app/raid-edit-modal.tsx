@@ -49,6 +49,7 @@ import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-m
 import { Input } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { Button } from "./button";
 import { useDictationMic } from "./dictation-mic";
@@ -233,7 +234,7 @@ export function RaidEditModal({
    *  first matches sanitizeRichText's own composition, so a legacy plain value
    *  is measured the way the loader will measure it rather than one tag short. */
   function capRich(html: string | undefined): string {
-    const upgraded = descriptionHtml(html, "rich");
+    const upgraded = descriptionHtml(html, RICH_SINK);
     adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
     return capHtmlText(upgraded, TEXTAREA_MAX);
   }
@@ -458,7 +459,7 @@ export function RaidEditModal({
                   every character and destroy the caret. */}
               <RichTextEditor
                 key={`${draft.id}:description`}
-                value={descriptionHtml(draft.description, "rich")}
+                value={descriptionHtml(draft.description, RICH_SINK)}
                 onChange={(html) => onChange({ ...draft, description: html || undefined })}
                 label={t(lang, "raidDescription")}
                 lang={lang}
@@ -471,7 +472,7 @@ export function RaidEditModal({
                 raw projection strips a "<b>" as inline markup the upgraded one
                 counts as three visible characters. */}
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.description, "rich"))}
+              value={htmlPlainProjection(descriptionHtml(draft.description, RICH_SINK))}
               max={TEXTAREA_MAX}
               id="raid-description-counter"
               lang={lang}
@@ -627,13 +628,13 @@ export function RaidEditModal({
                 registration wrapper — but the key is per-field all the same. */}
             <RichTextEditor
               key={`${draft.id}:mitigation`}
-              value={descriptionHtml(draft.mitigation, "rich")}
+              value={descriptionHtml(draft.mitigation, RICH_SINK)}
               onChange={(html) => onChange({ ...draft, mitigation: html || undefined })}
               label={t(lang, "raidMitigation")}
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.mitigation, "rich"))}
+              value={htmlPlainProjection(descriptionHtml(draft.mitigation, RICH_SINK))}
               max={TEXTAREA_MAX}
               id="raid-mitigation-counter"
               lang={lang}

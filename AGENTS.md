@@ -243,9 +243,13 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
                             # as such and deliberately NOT renumbered, because rewriting a signed
                             # record to match today's tree destroys the only thing it is good for.
-                            # A third bucket, `thirdParty` (10), holds cites into dompurify/
+                            # A third bucket, `thirdParty`, holds cites into dompurify/
                             # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
-                            # debt, classified so the debt number stays worth reading. ★★ Not
+                            # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS
+                            # DELIBERATELY NOT QUOTED HERE — this line said 10 and the gate printed 9
+                            # (disproved 2026-08-17 by a reviewer passing through). Read it off the
+                            # gate's own summary line, which prints every bucket:
+                            # `npm run docs:claims:check`. ★★ Not
                             # harmless though — they rot on any upgrade, and the vitest one carries a
                             # CONTENT HASH in its filename, so it WILL break and nothing will say so.
                             # Re-baseline ONLY after REMOVING citations or converting them to
@@ -283,7 +287,11 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
                             # rather than by a mutant — which is why that 4 sits under a 5. Details in
                             # open-followups §131. ★ Fixing them made the gate STRICTER and it found
-                            # more at once (537 → 541 cites, a second broken cite in the snapshot).
+                            # more at once (a second broken cite in the snapshot). ★★ The "537 → 541
+                            # cites" that used to sit here was a MOMENT'S total, not a property of
+                            # the fix, and it had drifted to 532 by 2026-08-17 — every citation
+                            # added or removed anywhere moves it. Quote the DIRECTION, never the
+                            # totals; `npm run docs:claims:check` prints today's.
                             # `vitest.config.ts` `include` now covers
                             # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
                             # coverage `include` deliberately stays `src/**`, so a script test raises
@@ -1081,15 +1089,132 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   by `doc-render-docx.ts` + `doc-render-pptx.ts` so the two OOXML renderers cannot drift. ★ It serves
   DOCUMENTS, not the register fields this bullet is named for; it sits here because the DOM axis
   governs it, and moving it out would put a second copy of that axis in another file.
-  ★★ **TWO projections, and exports use the SECOND one.** `descriptionText` COLLAPSES a block
-  boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an export
-  a human reads, where a three-paragraph description arrived as one run-on line.
-  `descriptionTextWithBreaks` keeps the boundary as `"\n"`, and `export-sections.ts`'s `richCell`
-  routes EVERY rich column through it (`TASK_RICH_COLUMNS` · `RAID_` · `MILESTONE_` · `CHANGE_`);
-  each renderer then maps that newline to its own primitive — `<br>` (HTML/PDF, escape FIRST),
-  `<w:br/>` (DOCX, several `<w:t>` in one `<w:r>`), one `<a:p>` per line (PPTX), and XLSX already
-  preserved it via `xml:space="preserve"` + `wrapText`. A new export column joins a `*_RICH_COLUMNS`
-  set; a new RENDERER must map the newline or it silently ships fused text.
+  ★★ **TWO projections, and the FLAT export paths use the SECOND one.** `descriptionText` COLLAPSES
+  a block boundary to a space — right for search, AI digests and the inline-AI preview, wrong for an
+  export a human reads, where a three-paragraph description arrived as one run-on line.
+  `descriptionTextWithBreaks` keeps the boundary as `"\n"`; each flat renderer then maps that
+  newline to its own primitive — one `<a:p>` per line (PPTX), and XLSX preserves it via
+  `xml:space="preserve"` + `wrapText`. A new RENDERER that consumes the flat text must map the
+  newline or it silently ships fused text.
+  ★★★ **A RICH COLUMN IS NO LONGER FLATTENED IN `export-sections.ts` — it carries BOTH
+  forms, and each renderer picks.** `richCell` emits `RichCell = { html; text }` (`ExportCell =
+  string | number | RichCell`, guard `isRichCell`, flattener `cellText`) for the columns named by
+  `TASK_RICH_COLUMNS` · `RAID_RICH_COLUMNS` · `MILESTONE_RICH_COLUMNS` · `CHANGE_RICH_COLUMNS`. The
+  two structural consumers reach the html by DIFFERENT routes and conflating them sends you to the
+  wrong file: DOCX parses it into styled runs (`ooxml-docx-primitives.ts` → `htmlToRichLines`),
+  while the HTML/PDF path emits markup directly (`download.ts` `exportCellHtml` →
+  `sanitizeRichHtml(descriptionHtml(…))`, no runs parse at all). XLSX (`export-xlsx.ts`) and BOTH
+  PPTX paths (`export-pptx.ts`, `doc-render-pptx.ts`) read `.text` and are byte-identical to
+  before. `RichLine`
+  (`rich-text-runs.ts`) carries the structure that makes this renderable: `kind: "heading"` with
+  `level` (h5/h6 CLAMPED to 4 — nothing declares a `Heading5`, and Word SILENTLY IGNORES a
+  `w:pStyle` it cannot resolve), `kind: "li"` with `ordered`/`depth`/`index`/`task`, and `align` on
+  every kind but `hr`. A new export column joins a `*_RICH_COLUMNS` set; a new RENDERER must decide
+  which half it reads.
+  ★★★ **A WRAPPED LIST ITEM IS SEVERAL `li` LINES, AND ONLY ONE OF THEM CARRIES A MARKER.** Anything
+  after an item's first line — the text after a `<br>` (Shift+Enter, which StarterKit leaves on), a
+  second `<p>` (Tiptap's `listItem` spec is `paragraph block*`, so it is schema-legal) — is an `li`
+  line carrying the item's OWN `ordered`/`depth`/`index`/`task` plus `continuation: true`. A renderer
+  keeps the indent (it derives from `depth`) and SUPPRESSES the marker. Before that field existed
+  those lines restarted as bare `p` at zero indent — an unmarked, unindented orphan BETWEEN two
+  bullets in a client-facing DOCX.
+  ★★★ **"ONLY THE FIRST" IS THE WRONG SPELLING AND IT COST A SECOND DEFECT.** The marked line is the
+  first `li` line the item PUT INTO THE OUTPUT, not the first one it opened. An item whose own line
+  starts empty and is closed before any text arrives — Shift+Enter as the FIRST keystroke
+  (`<ol><li><p><br>x</p></li>…`), a leading `<hr>`, a leading `<h2>` — has that line dropped by
+  `flush` for holding no text, and the text then re-opens as a CONTINUATION, which BOTH `RichLine`
+  renderers leave unmarked. (Not "every renderer", as this line said — the HTML/PDF export never
+  builds a `RichLine` at all and lets the browser mark the list natively, which the ★ note near the
+  end of this block records. Only two files suppress on the field:
+  `grep -rn "!line.continuation" src/app --include=*.ts | grep -v "\.test\."` → `doc-render-pptx.ts`
+  and `ooxml-docx-primitives.ts`.) The ordinal was spent regardless, so the list's first visible number was "2." with
+  an unmarked line above it. `promoteItemHead` (`rich-text-runs.ts`) fixes it by scanning the span
+  the LI arm already snapshots and promoting that first line back to a head — so a `continuation:
+  true` seen MID-WALK is provisional, and a reader tracing the walk alone will conclude the marker is
+  lost.
+  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item with no `li` line AT ITS OWN DEPTH has
+  none to promote, so it renders NO marker while still spending its ordinal —
+  `docs/open-followups.md` §157, which is §156 seen from the numbering side and has the same cause.
+  Say "per item that put an `li` line AT ITS OWN DEPTH into the output".
+  ★★★ **"EMITS ONLY LINES OF ANOTHER KIND" IS THE WRONG PREDICATE, AND THIS LINE SAID IT.** It is
+  true of `<li><h2>h</h2></li>`, whose only output is a heading — and FALSE of `<li><ul>…</ul></li>`,
+  whose output IS `li` lines. Those are the SUB-LIST's items, heads of their own one depth DEEPER,
+  and what skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind test. The
+  branch's own test proves it — `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` yields `[1, 0]`
+  then `[0, 1]` as `[depth, index]`, and the mapper that produced them emits an array only for a
+  line of kind `"li"`, so BOTH are `li` lines. Reproduce:
+  `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts`. Cover both shapes
+  when you restate this: only-another-kind AND only-a-sub-list. A reader handed the kind spelling
+  goes looking for a kind bug that is not there.
+  ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
+  `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
+  **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure
+  mode this file records elsewhere in the `sanitizeRaidItem` sweep, where passing the sanitizer by
+  REFERENCE into `buildList` hid a call site from a bare-name grep and under-counted it. The sweep it used to attach
+  (`grep -rn "continuation"` over the two files that already carry the guard) was scoped so it could
+  only ever CONFIRM the sentence; a sweep that cannot fail is not a sweep. Use:
+  `grep -rn "bulletMarker(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  — **five** lines, the fifth being the `export function bulletMarker(` declaration itself.
+  ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
+  their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
+  for an indent — so they lose the item's indent (`docs/open-followups.md` §156). ★★ A nested
+  `<ul>`/`<ol>` clears `item` too, and it belongs in a different list: its items are produced by the
+  LI arm at their OWN deeper depth, so nothing is lost. This is pinned — the test named "does not
+  let a nested list inherit the outer item's continuation state" asserts depth 0 then depth 1, with
+  the nested items NOT continuations
+  (`grep -n "nested list inherit the outer item" -A 14 src/app/rich-text-runs.test.ts`).
+  ★★ FOUR TAGS, THREE ARMS — this line said "a FOURTH arm" and there is no fourth. `<blockquote>`
+  and `<pre>` share ONE arm through `NESTED_KIND_BY_TAG`, so the arms clearing `item` are, in source
+  order, that shared one, then UL/OL, then the heading arm. The parenthetical it carried was right
+  about the code comment (`rich-text-runs.ts`'s docblock does name all four TAGS) and wrong about
+  the count of arms, and the nested list is the SECOND of the three, not the fourth of four.
+  Reproduce: `grep -n "walk(el, marks, .*null" src/app/rich-text-runs.ts` returns three lines.
+  ★★ The bespoke fixture string this line used to call "measured" —
+  a nested `<ul>` inside an `<li><p>` — appears NOWHERE in the suite (`grep -c` on it returns 0), so
+  nothing reproduced the word. The property is real and is pinned by the differently-shaped test
+  cited above; quote THAT, not a string you typed into a doc.
+  ★★ **AND THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN LINE SURVIVED.** An item
+  whose only child renders under some OTHER line — an `<h2>` keeping its own kind, a nested list
+  emitting its items one depth deeper — emits lines while its empty `li`
+  line is dropped; the counter therefore watches whether the item put ANYTHING into the output, so
+  `<ol><li><h2>H</h2></li><li><p>z</p></li></ol>` numbers `z` as **2**. It used to number it 1.
+  ★★ **DO NOT JUSTIFY THAT WITH "a browser numbers it too" — the rule DISAGREES with a browser in
+  the other direction and the justification proves too much.** An EMPTY `<li>` also occupies a
+  numbered slot in every browser, and this counter deliberately does NOT count one:
+  `<ol><li></li><li>a</li></ol>` numbers `a` as **1** where a browser says 2. Both halves are
+  pinned (`grep -n "spent only on an item that reaches" -A 28 src/app/rich-text-runs.test.ts` — the
+  window was `-A 20`, which stopped SHORT of the ordinal-spent assertion it was offered as proof of,
+  so it showed the describe and two of the three tests and none of the claim). The
+  real warrant is narrower — an item that put nothing in the output has no line for a reader to count
+  from, so numbering past it would strand the number.
+  ★ Consequence worth knowing before reporting a numbering bug: **the HTML/PDF export never touches
+  `RichLine` at all.** `download.ts` `exportCellHtml` emits the markup and lets the browser number
+  the list natively, so an empty `<li>` numbers DIFFERENTLY in the .docx and in the printed PDF of
+  one document. Reproduce: `grep -n "htmlToRichLines" src/app/download.ts src/app/doc-render-html.ts`
+  returns nothing.
+  ★★★ **THE SPLIT IS "CARRY vs PARSE", and it is easy to break by "helpfully" parsing one level
+  up.** `export-sections.ts` CARRIES the html as an opaque string and never parses it — every parse
+  lives in the DOM-bound renderers, which is what lets one section model feed both the structural and
+  the flat consumers. Keep the PARSE out of it and put it in the renderer instead.
+  ★★★ THAT IS A RULE ABOUT PARSING, NOT A DOM-FREE RULE ABOUT THE MODULE, and this line used to say
+  "Keep a `DOMParser`/DOMPurify call out of it" — false in the permissive direction, because a reader
+  takes it as a constraint on what may be ADDED there. The module already reaches DOMPurify: `richCell`
+  derives its flat half through `descriptionTextWithBreaks`, and that module's own header states it is
+  browser-only for exactly that reason. Reproduce:
+  `grep -n "rich-text-projection" src/app/export-sections.ts`.
+  ★ Deliberately NOT justified here by "it would throw under bare node in the sample generator" —
+  that rationale is measured FALSE about the generator (which installs a JSDOM before importing
+  `src/app`) and is tracked as `docs/open-followups.md` §151, which counts the places still asserting
+  it. The carry/parse split stands on the section model being shared, not on that mechanism.
+  ★★ **CSV AND MARKDOWN ARE OUTSIDE ALL OF THE ABOVE, AND NOT FOR THE REASON THE FLAT/RICH SPLIT
+  SUGGESTS.** `exportWorkspace` routes csv/md to `workspaceToCsv`/`workspaceToMarkdown` — the
+  STORAGE serializers — and calls `buildExportSections` only for docx/xlsx/pptx/pdf. So CSV export
+  never consumed the flat projection at ALL; it emits the STORED HTML, which is exactly what
+  `golden-workspace.test.ts` pins. Reproduce:
+  `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
+  ★ PPTX being flat is a STATED gap with a layout cause, not an oversight — `buildPptxRowSlide`
+  renders one slide per ROW and caps the meta lines, so three of the seven rich fields (including
+  `Task.description`) never reach a slide at any markup fidelity. `docs/open-followups.md` §153.
   ★★★ The break mode is OPT-IN at THREE points and all three are required:
   `separateBlockBoundaries(html, "\n")`, `htmlToText(html, {preserveBreaks:true})` and
   `htmlPlainProjection(html, {preserveBreaks:true})`. The middle one is the easy miss —
@@ -1219,8 +1344,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ **MIGRATION IS READ-TIME, NOT WRITE-TIME.** Storage is not normalised by the decoders — they
   hand-build entities and never call the entity sanitizer (`buildRaidItemFromObj`,
   `buildMilestoneFromObj`). EVERY reader upgrades instead: `descriptionHtml` at a DOM boundary,
-  `descriptionText` for search / AI digests / the inline-AI preview (exports use
-  `descriptionTextWithBreaks` — see above). A project therefore
+  `descriptionText` for search / AI digests / the inline-AI preview (the FLAT export paths use
+  `descriptionTextWithBreaks`; the structural ones upgrade the html instead — see above). A project therefore
   holds BOTH shapes at once, and that is fine — but a new consumer that reads one of the six fields
   raw ships escaped markup or fused text. Grep the six names before adding a reader.
   ★★ The projection is REGEX, and both of its obvious spellings are wrong: `<[^>]*>` deletes a tag

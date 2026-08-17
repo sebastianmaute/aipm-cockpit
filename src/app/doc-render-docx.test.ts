@@ -10,11 +10,15 @@
 // textContent, so they fail on both malformed output AND on double-escaping.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentDocx, DOC_STYLES } from "./doc-render-docx";
+import { renderDocumentDocx } from "./doc-render-docx";
+import { buildDocx } from "./export-docx";
+import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
+import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
+import type { ExportSection } from "./export-sections";
 import type { ProjectDocument, DocBlock } from "./document-model";
 import type { Workspace } from "./workspace";
 
@@ -84,6 +88,14 @@ function pStyles(xml: string): (string | null)[] {
   return Array.from(parseXml(xml).getElementsByTagName("w:pStyle")).map((n) =>
     n.getAttribute("w:val"),
   );
+}
+
+/** `buildDocxTable` returns a bare `<w:tbl>` FRAGMENT, whose `w:` prefix is
+ *  unbound — `parseXml` reports that as a parse error rather than parsing it.
+ *  Wrapping it in a namespace-declaring root is what lets every helper above
+ *  be reused against a table built in isolation. */
+function wrapWordXml(fragment: string): string {
+  return `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">${fragment}</w:document>`;
 }
 
 describe("renderDocumentDocx — package integrity", () => {
@@ -417,7 +429,13 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     // vertAlign. Word may reject or silently ignore a run whose properties are
     // out of sequence. The nesting below hands the parser the marks in almost
     // the reverse of that order, so an implementation that emits them in
-    // arrival order fails here and only here.
+    // arrival order fails here — on all seven marks at once, which is what
+    // makes this the test that says WHAT the order is.
+    // ★ It is no longer the ONLY test that fails on it. Invariant 4 ("orders
+    // every <w:rPr>'s children by the EG_RPrBase sequence") also goes red now
+    // that `EVERY_SHAPE_HTML` carries an out-of-rank-order two-mark run; it
+    // sweeps every part for the PROPERTY without naming the sequence, so the
+    // two are complements rather than duplicates.
     const xml = await documentXml(
       doc([
         {
@@ -482,8 +500,18 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     // Same contract as the block-level test above: a w:pStyle naming a style
     // that styles.xml does not declare is SILENTLY IGNORED by Word, so the
     // blockquote would render as body text while every assertion still passed.
+    //
+    // ★★ THE h4 AND THE <li> ARE LOAD-BEARING, not padding. §141(b) taught the
+    // rich paragraph path to emit `Heading1`-`Heading4` and `ListParagraph`,
+    // and `Heading4` had to be DECLARED for the first time. Every other
+    // assertion in this file about h4 passes on the emitted `w:pStyle` string
+    // alone, so THIS is the only test that goes red if the declaration is
+    // dropped — the pStyle is still emitted, it just resolves to nothing.
     const blocks: DocBlock[] = [
-      { type: "paragraph", html: "<blockquote>q</blockquote><pre>c</pre><p>p</p>" },
+      {
+        type: "paragraph",
+        html: "<blockquote>q</blockquote><pre>c</pre><p>p</p><h4>h</h4><ul><li><p>i</p></li></ul>",
+      },
     ];
     const declared = new Set(
       Array.from(
@@ -493,6 +521,8 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     const used = pStyles(await documentXml(doc(blocks)));
     expect(used).toContain("Quote");
     expect(used).toContain("CodeBlock");
+    expect(used).toContain("Heading4");
+    expect(used).toContain("ListParagraph");
     for (const id of used) expect(declared).toContain(id);
   });
 
@@ -609,5 +639,519 @@ describe("renderDocumentDocx — dataSection blocks", () => {
     const xml = await documentXml(doc([{ type: "dataSection", key: "raid" }]), both);
     expect(textNodes(xml)).toContain("Vendor delay");
     expect(textNodes(xml).join(" ")).not.toContain("A task");
+  });
+});
+
+// Rich entity cells in a table — open-followups §141(b). The seven rich entity
+// fields (Task.description, RAID description+mitigation, Change description+
+// impactDescription+resolutionNotes, Milestone description) reach a .docx as
+// TABLE CELLS, where there is no block model to carry heading level, list
+// numbering or alignment. These tests drive `buildDocxTable` directly, because
+// that is the boundary both the workspace exporter and a document's own
+// `table`/`dataSection` blocks go through.
+describe("rich entity cells in a DOCX table (§141(b))", () => {
+  const cellXml = (html: string): string =>
+    wrapWordXml(buildDocxTable(["description"], [[{ html, text: "ignored" }]]));
+
+  /** The BODY cell's paragraphs. The single header column contributes exactly
+   *  one paragraph, so dropping the first entry leaves the cell's own.
+   *
+   *  ★★ PARAGRAPH-SCOPED, and that is not a stylistic choice. The list marker
+   *  is its OWN `<w:r>` — it has to be, because it carries no marks while the
+   *  text after it may carry several — so the emitted XML reads
+   *  `…<w:t>1. </w:t></w:r><w:r><w:t>first</w:t>…` and a `toContain("1. first")`
+   *  over the raw string can NEVER pass. Concatenating the `<w:t>`s within one
+   *  `<w:p>` is what asserts the reader actually sees "1. first" on one line. */
+  const cellParas = (html: string): string[] => paraTexts(cellXml(html)).slice(1);
+
+  /** Every `<w:ind w:left>` in the fragment, in document order. */
+  const indents = (html: string): (string | null)[] =>
+    Array.from(parseXml(cellXml(html)).getElementsByTagName("w:ind")).map((n) =>
+      n.getAttribute("w:left"),
+    );
+
+  it("renders a heading with its level's style", () => {
+    expect(pStyles(cellXml("<h2>Plan</h2>"))).toContain("Heading2");
+    expect(cellParas("<h2>Plan</h2>")).toEqual(["Plan"]);
+  });
+
+  it("renders h4, whose style this slice had to declare", () => {
+    expect(pStyles(cellXml("<h4>Deep</h4>"))).toContain("Heading4");
+    expect(cellParas("<h4>Deep</h4>")).toEqual(["Deep"]);
+  });
+
+  it("numbers an ordered list as literal marker text", () => {
+    // ★★ THE EDITOR'S REAL SHAPE. Tiptap stores `<li><p>text</p></li>`; a
+    // fixture using a bare `<li>` cannot see a defect in the transparency arm,
+    // which is how a CRITICAL already hid in this slice.
+    expect(cellParas("<ol><li><p>first</p></li><li><p>second</p></li></ol>")).toEqual([
+      "1. first",
+      "2. second",
+    ]);
+  });
+
+  it("numbers a bare <li> the same way the editor's nested <p> is numbered", () => {
+    // The golden fixtures and legacy stored values carry this flatter form, so
+    // both shapes must reach the same bytes.
+    expect(cellParas("<ol><li>first</li><li>second</li></ol>")).toEqual([
+      "1. first",
+      "2. second",
+    ]);
+  });
+
+  it("bullets an unordered list instead of numbering it", () => {
+    expect(cellParas("<ul><li><p>one</p></li></ul>")).toEqual(["• one"]);
+  });
+
+  it("indents a nested list item one further step", () => {
+    const nested = "<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>";
+    expect(cellParas(nested)).toEqual(["• a", "• b"]);
+    expect(indents(nested)).toEqual(["720", "1440"]);
+  });
+
+  it("indents a wrapped item's continuation without repeating the marker", () => {
+    // ★★ Shift+Enter inside a bullet. The continuation keeps the item's indent
+    // — `<w:ind>` derives from `line.depth`, which it copies — and gets NO
+    // second "1."/"•", because a list item has one marker however many lines it
+    // wraps to. Before this it restarted as a bare `p`, so a client-facing DOCX
+    // showed an unmarked, unindented orphan BETWEEN two numbered items.
+    const wrapped = "<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>";
+    expect(cellParas(wrapped)).toEqual(["1. a", "b", "2. c"]);
+    expect(indents(wrapped)).toEqual(["720", "720", "720"]);
+  });
+
+  it("still numbers an item whose own line was dropped before any text arrived", () => {
+    // ★★★ Shift+Enter as the FIRST keystroke in a bullet. The item's own `li`
+    // line starts empty, the `<br>` closes it, `flush` drops it for holding no
+    // text, and the text re-opened as a CONTINUATION — which this renderer
+    // correctly leaves unmarked. The ordinal was spent regardless, so the
+    // exported list's first visible number was "2." with an unmarked line above
+    // it and no "1." anywhere. `promoteItemHead` makes the first line the item
+    // DID emit its head.
+    expect(cellParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
+      "1. x",
+      "2. y",
+    ]);
+  });
+
+  it("centres BOTH halves of a bullet split by a <br>", () => {
+    // ★★ A `<br>` breaks the LINE, not the paragraph, so both halves belong to
+    // the same `<p data-align="center">`. The continuation was built with its
+    // align hardcoded `undefined`, so para 2 carried no `<w:jc>` and Word
+    // rendered one bullet half centred, half left.
+    const xml = cellXml('<ul><li><p data-align="center">a<br>b</p></li></ul>');
+    expect(xml.match(/<w:jc w:val="center"\/>/g)).toHaveLength(2);
+  });
+
+  it("indents a second paragraph in the same item at the item's depth", () => {
+    const twoParas = "<ul><li><p>a</p><p>b</p></li></ul>";
+    expect(cellParas(twoParas)).toEqual(["• a", "b"]);
+    expect(indents(twoParas)).toEqual(["720", "720"]);
+  });
+
+  it("marks a task item with the flat projection's own constant", () => {
+    const xml = '<ul data-type="taskList"><li data-checked="true"><p>done</p></li></ul>';
+    expect(cellParas(xml)).toEqual([`${TASK_MARK_CHECKED.trim()} done`]);
+  });
+
+  it("maps justify to OOXML's `both`", () => {
+    // ST_Jc spells justified as "both". Passing "justify" through is a value
+    // Word does not recognise and silently drops.
+    expect(cellXml('<p data-align="justify">x</p>')).toContain(`<w:jc w:val="both"/>`);
+    expect(cellXml('<p data-align="center">x</p>')).toContain(`<w:jc w:val="center"/>`);
+  });
+
+  it("orders <w:pPr>'s children by the schema, not by the order they are added", () => {
+    // ★★★ CT_PPr's children are an xsd:sequence, exactly like the `<w:rPr>`
+    // ordering `DOCX_MARK_RPR`'s `rank` exists for: pStyle -> ind -> jc. Every
+    // string assertion in this describe passes whatever the order, so this is
+    // the only thing pinning it.
+    const li = '<ol><li><p data-align="center">x</p></li></ol>';
+    const pPr = Array.from(parseXml(cellXml(li)).getElementsByTagName("w:pPr")).find(
+      (n) => n.getElementsByTagName("w:jc").length > 0,
+    );
+    expect(pPr).toBeDefined();
+    expect(Array.from(pPr!.children).map((el) => el.tagName)).toEqual([
+      "w:pStyle",
+      "w:ind",
+      "w:jc",
+    ]);
+  });
+
+  it("emits several paragraphs in ONE table cell", () => {
+    const parsed = parseXml(cellXml("<p>one</p><p>two</p>"));
+    const cells = Array.from(parsed.getElementsByTagName("w:tc"));
+    expect(cells).toHaveLength(2); // header cell + body cell
+    expect(cells[1].getElementsByTagName("w:p")).toHaveLength(2);
+    expect(cellParas("<p>one</p><p>two</p>")).toEqual(["one", "two"]);
+  });
+
+  it("keeps an empty rich cell structurally valid", () => {
+    // A `<w:tc>` with no block-level child is INVALID and Word refuses the
+    // file. An empty rich value must still emit one paragraph.
+    const cells = Array.from(parseXml(cellXml("")).getElementsByTagName("w:tc"));
+    expect(cells[1].getElementsByTagName("w:p")).toHaveLength(1);
+    // ★ And it must be EMPTY. Without this the test passes on the pre-§141(b)
+    // code, which stringified the RichCell object into the cell as
+    // "[object Object]" — one paragraph, entirely wrong content.
+    expect(cellParas("")).toEqual([""]);
+  });
+
+  it("leaves a plain string cell byte-identical to what it always emitted", () => {
+    // The rich branch must not disturb the path every non-rich column takes —
+    // the workspace exporter's bytes ride on it.
+    expect(buildDocxTable(["a"], [["x"]])).toContain(
+      `<w:p>\n              <w:r><w:t xml:space="preserve">x</w:t></w:r>\n            </w:p>`,
+    );
+  });
+
+  it("carries marks through a rich cell", () => {
+    expect(cellXml("<p><strong>b</strong></p>")).toContain(
+      `<w:r><w:rPr><w:b/></w:rPr><w:t xml:space="preserve">b</w:t></w:r>`,
+    );
+  });
+
+  it("escapes rich cell text", () => {
+    const xml = cellXml("<p>A &amp; B &lt; C</p>");
+    expect(() => parseXml(xml)).not.toThrow();
+    expect(cellParas("<p>A &amp; B &lt; C</p>")).toEqual(["A & B < C"]);
+  });
+});
+
+// The MIRROR of the describe above, one level up. A `paragraph` DocBlock and a
+// rich table cell go through the SAME line builder now; before §141(b) the
+// block path had no `heading`/`li` style at all, so a list item inside a
+// document paragraph rendered with NO MARKER while the same document's .pptx
+// showed one.
+describe("renderDocumentDocx — headings and lists inside a paragraph block", () => {
+  it("marks and indents a list item in a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<ol><li><p>first</p></li><li><p>second</p></li></ol>" }]),
+    );
+    expect(paraTexts(xml)).toEqual(["Report", "1. first", "2. second"]);
+    expect(pStyles(xml)).toEqual(["Title", "ListParagraph", "ListParagraph"]);
+  });
+
+  it("styles a heading inside a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: "<h2>Plan</h2><p>body</p>" }]),
+    );
+    expect(pStyles(xml)).toEqual(["Title", "Heading2"]);
+    expect(paraTexts(xml)).toEqual(["Report", "Plan", "body"]);
+  });
+
+  it("aligns a paragraph inside a document paragraph block", async () => {
+    const xml = await documentXml(
+      doc([{ type: "paragraph", html: '<p data-align="right">r</p>' }]),
+    );
+    expect(xml).toContain(`<w:jc w:val="right"/>`);
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The three ways this renderer can be wrong that WORD NEVER TELLS ANYONE ABOUT.
+//
+// ★★★ NOTHING IN THIS REPO CAN PROVE WORD OPENS THE FILE, so these stand in for
+// it. Each failure mode below produces a document that opens, renders, and is
+// simply WRONG — and every string-comparison assertion elsewhere in this file
+// stays green through all three:
+//   1. A `w:pStyle` naming a style styles.xml does not declare is SILENTLY
+//      IGNORED; the line renders as body text in Word's palette, not AIPM's.
+//   2. `<w:pPr>`'s children are an `xsd:sequence` (CT_PPr). Out of sequence the
+//      part is schema-INVALID — rejected by strict validators, and the
+//      properties dropped by less forgiving consumers than Word.
+//   3. ST_Jc's vocabulary is `left | center | right | both`. "justify" is not a
+//      member; Word drops an unrecognised value and renders left-aligned.
+//
+// ★★ EVERY test here iterates over matches, and a loop over ZERO matches passes
+// vacuously — which would report coverage that does not exist, the one outcome
+// worse than having no test. So each asserts it found something FIRST, and two
+// of them pin the exact SET they expect so a shape silently dropped from the
+// fixture goes red rather than quietly narrowing the sweep.
+describe("DOCX invariants Word fails silently on", () => {
+  /** ONE fixture, every shape `htmlToRichLines` can produce: all four heading
+   *  levels, plain/blockquote/pre/hr, both list orderings, a nested list, both
+   *  task states, all four alignments, and marks.
+   *
+   *  ★★ Lists use the EDITOR'S REAL SHAPE (`<li><p>…</p></li>`) — Tiptap's
+   *  listItem spec is `paragraph block*`, and a fixture using a bare `<li>`
+   *  cannot see a defect in the transparency arm, which is how a CRITICAL
+   *  already hid in this slice. The bare form is here TOO, because the golden
+   *  fixtures and legacy stored values carry it. */
+  const EVERY_SHAPE_HTML = [
+    "<h1>H1</h1>",
+    '<h2 data-align="center">H2 centred</h2>',
+    "<h3>H3</h3>",
+    "<h4>H4</h4>",
+    "<p>plain</p>",
+    '<p data-align="left">left</p>',
+    '<p data-align="right">right</p>',
+    '<p data-align="justify">justified</p>',
+    '<blockquote data-align="right"><p>quoted</p></blockquote>',
+    "<pre>code1\ncode2</pre>",
+    "<hr>",
+    "<ul><li><p>bullet</p></li></ul>",
+    "<ol><li><p>first</p></li><li><p>second</p></li></ol>",
+    "<ul><li>bare</li></ul>",
+    "<ul><li><p>outer</p><ul><li><p>nested</p></li></ul></li></ul>",
+    '<ul data-type="taskList"><li data-checked="true"><p>done</p></li>' +
+      '<li data-checked="false"><p>todo</p></li></ul>',
+    '<ol><li><p data-align="center">centred item</p></li></ol>',
+    "<p><strong>b</strong><em>i</em><code>c</code></p>",
+    // ★★ A run carrying SEVERAL marks, and it is load-bearing for invariant 4.
+    // Every other marked shape here is a sequence of SINGLE-mark runs, and a
+    // one-child `<w:rPr>` is in sequence order whatever the builder does — so
+    // `DOCX_MARK_RPR`'s `rank` table, the only thing that orders mark elements
+    // against each other, was never exercised there. Measured, not assumed:
+    // dropping the `<em>` here turns invariant 4 red on `widestMarkRun`.
+    //
+    // ★★★ THE NESTING ORDER IS THE WHOLE POINT — `<em>` OUTSIDE, `<strong>`
+    // INSIDE. Marks arrive in NESTING order, so this run reaches `markedRun` as
+    // [italic, bold] = ranks [2, 1], which the sort has to REORDER. Written the
+    // other way round (`<strong><em>`) it arrives [bold, italic] = [1, 2],
+    // already sorted — `widestMarkRun` still reaches 2 and invariant 4 stays
+    // GREEN with `markedRun`'s `.sort(...)` deleted, i.e. the anti-vacuity guard
+    // is satisfied by a run that cannot fail the check it guards. Measured in
+    // both directions.
+    "<p><em><strong>bi</strong></em></p>",
+  ].join("");
+
+  /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
+   *
+   *  ★★★ IT SHARES `buildDocxTable` WITH THE DOCUMENT RENDERER BUT NOT ITS BODY.
+   *  `buildDocxSection` hand-writes the title and row-count paragraphs, and
+   *  those runs are unreachable from `renderDocumentDocx` at any input — so a
+   *  sweep built only from `renderDocumentDocx` + `buildDocxTable` cannot see
+   *  them. Two out-of-sequence `<w:rPr>`s lived there behind exactly that gap. */
+  async function exporterDocumentXml(): Promise<string> {
+    const section: ExportSection = {
+      key: "tasks",
+      title: "Tasks",
+      // A rich cell, so the exporter's package carries the rich paragraph
+      // shapes too and not merely its own two hand-written runs.
+      columns: ["description"],
+      rows: [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]],
+    };
+    const entries = await readZipEntries(await buildDocx([section]).arrayBuffer());
+    const data = entries.get("word/document.xml");
+    if (data === undefined) throw new Error("word/document.xml missing from export package");
+    return decodeUtf8(data);
+  }
+
+  /** The same fixture through BOTH emission paths and the workspace exporter,
+   *  plus the styles part the first invariant is measured against.
+   *
+   *  ★★ ONE fixture, THREE emitting paths. A `paragraph` DocBlock and a rich
+   *  table cell go through the same `docxRichParagraph` builder — but that is a
+   *  fact to PIN, not to assume, and the two reached it by different routes
+   *  (§141(b)). The document also carries the block-level shapes only
+   *  `renderBlock` emits, so `Caption` and `TableHeader` are in the sweep too.
+   *  The third is the workspace exporter, whose body paragraphs no other path
+   *  reaches — see `exporterDocumentXml` above for why that gap mattered.
+   *
+   *  ★ It asserts its own output rather than trusting it: a helper that silently
+   *  returned "" would make all four invariants below vacuous at once. */
+  async function renderEverySupportedShape(): Promise<{
+    block: string;
+    cell: string;
+    styles: string;
+    exported: string;
+  }> {
+    const blocks: DocBlock[] = [
+      { type: "paragraph", html: EVERY_SHAPE_HTML },
+      { type: "heading", level: 1, text: "block heading" },
+      { type: "bullets", items: ["unordered"] },
+      { type: "bullets", ordered: true, items: ["ordered"] },
+      { type: "table", caption: "Cap", columns: ["C"], rows: [["v"]] },
+      { type: "pageBreak" },
+    ];
+    const rendered = await parts(doc(blocks));
+    const block = rendered.get("word/document.xml");
+    const styles = rendered.get("word/styles.xml");
+    if (block === undefined || styles === undefined) throw new Error("package incomplete");
+    const cell = wrapWordXml(
+      buildDocxTable(["description"], [[{ html: EVERY_SHAPE_HTML, text: "ignored" }]]),
+    );
+    const exported = await exporterDocumentXml();
+    for (const xml of [block, cell, styles, exported]) {
+      expect(xml.length).toBeGreaterThan(0);
+      expect(() => parseXml(xml)).not.toThrow();
+    }
+    // All three emitting paths must really have LAID OUT the fixture — one
+    // paragraph would mean it was flattened, and every sweep below would then
+    // be near-empty.
+    expect(parseXml(block).getElementsByTagName("w:p").length).toBeGreaterThan(15);
+    expect(parseXml(cell).getElementsByTagName("w:p").length).toBeGreaterThan(15);
+    expect(parseXml(exported).getElementsByTagName("w:p").length).toBeGreaterThan(15);
+    return { block, cell, styles, exported };
+  }
+
+  it("declares every paragraph style any emission path can name", async () => {
+    // ★★★ INVARIANT 1. `docxStyleFor` names Heading1-Heading4, ListParagraph,
+    // Quote and CodeBlock; `renderBlock` adds Title and Caption; buildDocxTable
+    // adds TableHeader; the workspace exporter re-uses Title. An undeclared one
+    // is IGNORED by Word — the pStyle is still emitted, so every other
+    // assertion in this file about it passes.
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
+    const declared = new Set(
+      Array.from(parseXml(styles).documentElement.children).map((el) =>
+        el.getAttribute("w:styleId"),
+      ),
+    );
+    const used = [...pStyles(block), ...pStyles(cell), ...pStyles(exported)];
+    expect(used.length).toBeGreaterThan(0);
+    // ★ The exact DOMAIN, not just "some styles". Without this a shape dropped
+    // from the fixture would narrow the sweep silently, and the loop below
+    // would go on passing over whatever was left.
+    expect(new Set(used)).toEqual(
+      new Set([
+        "Title",
+        "Heading1",
+        "Heading2",
+        "Heading3",
+        "Heading4",
+        "ListParagraph",
+        "Quote",
+        "CodeBlock",
+        "Caption",
+        "TableHeader",
+      ]),
+    );
+    for (const id of used) expect(declared).toContain(id);
+  });
+
+  it("orders every <w:pPr>'s children by the CT_PPr sequence", async () => {
+    // ★★★ INVARIANT 2. CT_PPrBase is an xsd:sequence, so the RANK of each child
+    // is fixed by the schema and not by the order a builder happens to push
+    // them: pStyle · pBdr · spacing · ind · jc · outlineLvl. This sweeps EVERY
+    // <w:pPr> in both emission paths AND in styles.xml — the style declarations
+    // drifted out of sequence independently of the emitters once already,
+    // because nothing was looking at them.
+    const ORDER = ["w:pStyle", "w:pBdr", "w:spacing", "w:ind", "w:jc", "w:outlineLvl"];
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
+    let seen = 0;
+    let widest = 0;
+    for (const xml of [block, cell, styles, exported]) {
+      for (const pPr of Array.from(parseXml(xml).getElementsByTagName("w:pPr"))) {
+        const tags = Array.from(pPr.children).map((el) => el.tagName);
+        // An element this list does not rank cannot be checked at all, so an
+        // unknown one is a failure rather than a silent skip.
+        for (const tag of tags) expect(ORDER).toContain(tag);
+        const ranks = tags.map((tag) => ORDER.indexOf(tag));
+        expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+        seen += 1;
+        widest = Math.max(widest, tags.length);
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    // ★ A one-child <w:pPr> is sorted whatever the builder does, so the sweep
+    // above is only meaningful if something in it carries several children —
+    // the list item that is styled, indented AND aligned is the widest the rich
+    // path can emit, and it is what mutating the push order shows up in.
+    expect(widest).toBeGreaterThanOrEqual(3);
+  });
+
+  it("orders every <w:rPr>'s children by the EG_RPrBase sequence", async () => {
+    // ★★★ INVARIANT 4, and the RUN-level twin of invariant 2. CT_RPr is an
+    // xsd:sequence exactly as CT_PPrBase is, which is the whole reason
+    // `DOCX_MARK_RPR` carries a `rank` — but that table governs the RICH path
+    // only. Every HAND-WRITTEN <w:rPr> (the style declarations, the table
+    // header run, and the exporter's title + row-count runs) was outside any
+    // sweep, and two of the exporter's carried <w:color/> before <w:i/>.
+    // Word opens such a file happily; the Open XML SDK and validators built on
+    // it reject it, so the cost is invalidity with nothing visible to notice.
+    //
+    // ★★ THE POSITIONS ARE EG_RPrBase's, NOT the rank table's 0..6. w:color
+    // (19) and w:sz (24) fall BETWEEN w:strike (9) and w:highlight (26), and no
+    // RunMark maps to either — so the rank table never ordered them against the
+    // marks, and copying its 0..6 here would rank two of the elements that
+    // actually appear in the wrong place.
+    const ORDER = [
+      "w:rFonts",
+      "w:b",
+      "w:i",
+      "w:strike",
+      "w:color",
+      "w:sz",
+      "w:highlight",
+      "w:u",
+      "w:vertAlign",
+    ];
+    // Exactly `DOCX_MARK_RPR`'s elements — the ones a RUN's marks produce, as
+    // opposed to the `w:color`/`w:sz` that only a hand-written declaration
+    // carries.
+    // ★ It is a FILTER, not a provenance proof: an `<w:rPr>` whose children are
+    // all mark elements is one NO hand-written declaration in this fixture
+    // emits (every one of them carries `w:color` or `w:sz`), which is what makes
+    // it separate `markedRun`'s output from theirs TODAY. A hand-written run
+    // built solely from mark elements would satisfy it too; none exists, and if
+    // one is added this filter stops distinguishing the two and the guard below
+    // has to be narrowed some other way.
+    const MARK_TAGS = ["w:rFonts", "w:b", "w:i", "w:strike", "w:highlight", "w:u", "w:vertAlign"];
+    const { block, cell, styles, exported } = await renderEverySupportedShape();
+    let seen = 0;
+    let widest = 0;
+    let widestMarkRun = 0;
+    for (const xml of [block, cell, styles, exported]) {
+      for (const rPr of Array.from(parseXml(xml).getElementsByTagName("w:rPr"))) {
+        const tags = Array.from(rPr.children).map((el) => el.tagName);
+        // An element this list does not rank cannot be checked at all, so an
+        // unknown one is a failure rather than a silent skip.
+        for (const tag of tags) expect(ORDER).toContain(tag);
+        const ranks = tags.map((tag) => ORDER.indexOf(tag));
+        expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
+        seen += 1;
+        widest = Math.max(widest, tags.length);
+        if (tags.every((tag) => MARK_TAGS.includes(tag))) {
+          widestMarkRun = Math.max(widestMarkRun, tags.length);
+        }
+      }
+    }
+    expect(seen).toBeGreaterThan(0);
+    // ★ A one-child <w:rPr> is sorted whatever the builder does, so the sweep
+    // only bites where several properties meet — Heading4 (b · i · color · sz)
+    // is the widest, and the exporter's italic-grey runs are the pair that was
+    // wrong.
+    expect(widest).toBeGreaterThanOrEqual(4);
+    // ★★★ AND `widest` ALONE IS MET BY THE WRONG THING — it is `Heading4` in
+    // styles.xml, a HAND-WRITTEN declaration. Measured on the fixture: every
+    // multi-child `<w:rPr>` in the sweep came from a hand-written run (the
+    // table header's `w:b+w:color`, the exporter's `w:i+w:color`, the styles),
+    // and every run `markedRun` built carried exactly ONE mark — the case the
+    // sequence check above cannot fail on. So `DOCX_MARK_RPR`'s `rank` table,
+    // which is the only thing ordering the mark elements against each other,
+    // was never exercised by this invariant at all. This guard admits only an
+    // `<w:rPr>` whose children are ALL mark elements (see `MARK_TAGS`), so
+    // nothing but a real multi-mark run can satisfy it.
+    //
+    // ★★★ AND A MULTI-MARK RUN IS STILL NOT ENOUGH ON ITS OWN — the marks have
+    // to arrive OUT of rank order. `EVERY_SHAPE_HTML`'s multi-mark fixture was
+    // `<strong><em>` (arrival [bold, italic] = ranks [1, 2], already sorted)
+    // and this guard passed while `markedRun`'s `.sort(...)` was DELETED: two
+    // marks were present, and `[...ranks].sort()` had nothing to reorder. It is
+    // `<em><strong>` now (arrival [italic, bold] = [2, 1]). Measured in both
+    // directions: with the sort deleted this invariant is GREEN on the old
+    // nesting and RED on the new one.
+    expect(widestMarkRun).toBeGreaterThanOrEqual(2);
+  });
+
+  it("emits only legal ST_Jc values", async () => {
+    // ★★★ INVARIANT 3, and the NEGATIVE, exhaustive form of "maps justify to
+    // OOXML's `both`" above. Three of the four alignments spell the same in
+    // both vocabularies, which is exactly why passing the CSS name through
+    // looks correct; Word silently drops the one that does not and renders the
+    // paragraph left-aligned.
+    const LEGAL = ["left", "center", "right", "both"];
+    const { block, cell, exported } = await renderEverySupportedShape();
+    const used: string[] = [];
+    for (const xml of [block, cell, exported]) {
+      for (const [, value] of xml.matchAll(/<w:jc w:val="([^"]*)"\/>/g)) used.push(value);
+    }
+    expect(used.length).toBeGreaterThan(0);
+    for (const value of used) expect(LEGAL).toContain(value);
+    // ★ And all four are REACHED. Without this the sweep passes on a fixture
+    // that never drives `justify` — i.e. exactly the input the mapping exists
+    // for would go untested while the test claimed to sweep the domain.
+    expect(new Set(used)).toEqual(new Set(LEGAL));
   });
 });

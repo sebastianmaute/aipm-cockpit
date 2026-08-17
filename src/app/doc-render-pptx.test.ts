@@ -1007,3 +1007,96 @@ describe("renderDocumentPptx — palette", () => {
     expect(hexes).toContain(COLOR_GREEN);
   });
 });
+
+// ---------------------------------------------------------------------------
+// The RichLine kinds a rich paragraph block gained in §141(b)
+// ---------------------------------------------------------------------------
+
+describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
+  // ★★ Asserted through `paraInfos`, NOT `toContain("1. first")` over the raw
+  // part. The marker is its OWN <a:r> (it must inherit no marks), so the two
+  // strings are never contiguous in the XML and a substring assertion could
+  // only ever be weakened to "the digit appears somewhere" — which passes on a
+  // marker emitted into the WRONG paragraph. `paraInfos` joins the <a:t>s of
+  // ONE <a:p>, so it pins the pairing as well as the text.
+  // ★★ EVERY LIST FIXTURE BELOW IS <p>-WRAPPED, and that is the point. Tiptap's
+  // listItem spec is `paragraph block*`, so a real value reads
+  // "<ul><li><p>a</p></li></ul>" and the bare "<li>a</li>" these cases used to
+  // carry never reaches the parser's transparency arm at all — a shape no
+  // editor emits, which is how a CRITICAL already hid once in this slice. TWO
+  // bare companions are kept, since the golden fixtures and legacy stored
+  // values do carry that form and both must reach the same bytes — the
+  // numbering case below and the marker-marks case at the end of the block.
+  // ★ The count is stated because this comment's own warrant is "a shape no
+  // editor emits"; a reader auditing which fixtures are deliberately unreal
+  // needs the enumeration to be right. Reproduce:
+  // `grep -n "<li>" src/app/doc-render-pptx.test.ts | grep -v "<li><p>" | grep -v data-checked`
+  // returns three lines — the two fixtures plus the `it(...)` title above one
+  // of them. ★ No coverage rides on the second one being bare: both shapes
+  // measurably produce identical lines.
+  it("prefixes a list item with its marker and indents it", async () => {
+    const xml = await onlyContentSlide("<ol><li><p>first</p></li><li><p>second</p></li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. first", marL: "228600", indent: "0" },
+      { text: "2. second", marL: "228600", indent: "0" },
+    ]);
+  });
+
+  it("numbers a bare <li> the same way the editor's nested <p> is numbered", async () => {
+    const xml = await onlyContentSlide("<ol><li>first</li><li>second</li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. first", marL: "228600", indent: "0" },
+      { text: "2. second", marL: "228600", indent: "0" },
+    ]);
+  });
+
+  it("uses a bullet for an unordered list and indents deeper for nesting", async () => {
+    const xml = await onlyContentSlide(
+      "<ul><li><p>top</p><ul><li><p>nested</p></li></ul></li></ul>",
+    );
+    expect(paraInfos(xml)).toEqual([
+      { text: "• top", marL: "228600", indent: "0" },
+      { text: "• nested", marL: "457200", indent: "0" },
+    ]);
+  });
+
+  it("marks a task item with its checked state rather than a bullet", async () => {
+    const xml = await onlyContentSlide(
+      '<ul data-type="taskList"><li data-checked="true"><p>done</p></li>' +
+        '<li data-checked="false"><p>todo</p></li></ul>',
+    );
+    expect(paraInfos(xml).map((p) => p.text)).toEqual(["[x] done", "[ ] todo"]);
+  });
+
+  it("indents a wrapped item's continuation without repeating the marker", async () => {
+    // ★★ Shift+Enter inside a bullet. The continuation copies the item's depth,
+    // so `pptxIndentFor` gives it the SAME marL — and it must carry no second
+    // marker run, or a two-line bullet reads as two bullets.
+    const xml = await onlyContentSlide("<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. a", marL: "228600", indent: "0" },
+      { text: "b", marL: "228600", indent: "0" },
+      { text: "2. c", marL: "228600", indent: "0" },
+    ]);
+  });
+
+  it("does not indent a heading line", async () => {
+    // ★★★ THE DEFECT THIS BLOCK EXISTS FOR. Before the kinds widened, an <h2>
+    // inside a paragraph block parsed as `kind: "p"` and took no indent; it now
+    // parses as "heading", so a `kind === "p" ? undefined : RICH_INDENT_EMU`
+    // test silently starts indenting every section title to the blockquote
+    // depth. Nothing else in this suite can see that.
+    expect(paraInfos(await onlyContentSlide("<h2>Section</h2>"))).toEqual([
+      { text: "Section", marL: null, indent: null },
+    ]);
+  });
+
+  it("leaves a list item's own runs unstyled by the marker", async () => {
+    // The marker is a run, so it must not pick up the item's marks — and the
+    // item's text must keep them.
+    const xml = await onlyContentSlide("<ul><li><strong>bold item</strong></li></ul>");
+    const by = runsByText(xml);
+    expect(by.get("bold item")!.attrs.b).toBe("1");
+    expect(by.get("• ")!.attrs.b).toBeUndefined();
+  });
+});

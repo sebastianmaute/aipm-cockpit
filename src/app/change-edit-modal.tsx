@@ -43,6 +43,7 @@ import {
 import { Input, Select } from "./form-controls";
 import { RichTextEditor } from "./rich-text-editor";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
@@ -212,7 +213,7 @@ export function ChangeEditModal({
    *  first matches sanitizeRichText's own composition, so a legacy plain value
    *  is measured the way the loader will measure it rather than one tag short. */
   function capRich(html: string | undefined): string {
-    const upgraded = descriptionHtml(html, "rich");
+    const upgraded = descriptionHtml(html, RICH_SINK);
     adj.track(describeTextCap(htmlPlainProjection(upgraded), TEXTAREA_MAX));
     return capHtmlText(upgraded, TEXTAREA_MAX);
   }
@@ -379,7 +380,7 @@ export function ChangeEditModal({
                   every character and destroy the caret. */}
               <RichTextEditor
                 key={`${draft.id}:description`}
-                value={descriptionHtml(draft.description, "rich")}
+                value={descriptionHtml(draft.description, RICH_SINK)}
                 /* `description` is REQUIRED on ChangeItem (a plain string), so
                    an empty body stays "" here rather than collapsing to
                    undefined the way the two optional fields below do. */
@@ -395,7 +396,7 @@ export function ChangeEditModal({
                 raw projection strips a "<b>" as inline markup the upgraded one
                 counts as three visible characters. */}
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.description, "rich"))}
+              value={htmlPlainProjection(descriptionHtml(draft.description, RICH_SINK))}
               max={TEXTAREA_MAX}
               id="change-description-counter"
               lang={lang}
@@ -466,13 +467,13 @@ export function ChangeEditModal({
                 registration wrapper — but the key is per-field all the same. */}
             <RichTextEditor
               key={`${draft.id}:impactDescription`}
-              value={descriptionHtml(draft.impactDescription, "rich")}
+              value={descriptionHtml(draft.impactDescription, RICH_SINK)}
               onChange={(html) => update("impactDescription", html || undefined)}
               label={t(lang, "changeFieldImpactDescription")}
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.impactDescription, "rich"))}
+              value={htmlPlainProjection(descriptionHtml(draft.impactDescription, RICH_SINK))}
               max={TEXTAREA_MAX}
               id="change-impactDescription-counter"
               lang={lang}
@@ -594,13 +595,13 @@ export function ChangeEditModal({
             {/* No dictation mic here either — bare editor, per-field key. */}
             <RichTextEditor
               key={`${draft.id}:resolutionNotes`}
-              value={descriptionHtml(draft.resolutionNotes, "rich")}
+              value={descriptionHtml(draft.resolutionNotes, RICH_SINK)}
               onChange={(html) => update("resolutionNotes", html || undefined)}
               label={t(lang, "changeFieldResolution")}
               lang={lang}
             />
             <CharCounter
-              value={htmlPlainProjection(descriptionHtml(draft.resolutionNotes, "rich"))}
+              value={htmlPlainProjection(descriptionHtml(draft.resolutionNotes, RICH_SINK))}
               max={TEXTAREA_MAX}
               id="change-resolutionNotes-counter"
               lang={lang}

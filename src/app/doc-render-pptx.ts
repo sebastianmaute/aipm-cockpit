@@ -65,9 +65,11 @@ import {
   type RichLineKind,
   type RunMark,
   type TextRun,
+  bulletMarker,
   htmlToRichLines,
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
+import { RENDER_SINK } from "./html-start";
 // ★★ `resolveDataSection` comes from the NEUTRAL doc-data-section module, NOT
 // from a sibling renderer. Importing it from doc-render-docx would typecheck
 // and work, and would also drag the DOCX OOXML builders into this graph and
@@ -75,6 +77,8 @@ import { descriptionHtml } from "./rich-text-plain";
 // forbids it; the plan's `from "./doc-render-html"` is wrong for the same
 // reason (and that module never exported it — it kept a private copy).
 import { resolveDataSection } from "./doc-data-section";
+import type { ExportCell } from "./export-sections";
+import { cellText } from "./export-sections";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
@@ -148,13 +152,6 @@ export function segmentIntoSlides(blocks: readonly DocBlock[]): DocSlide[] {
   return slides.filter((s) => s.title !== "" || s.body.length > 0);
 }
 
-/** Marker text for a list item. A slide carries no numbering definition, so
- *  the marker is literal text — and `ordered` still has to be honoured, or the
- *  author's choice is silently discarded (the DOCX renderer honours it too). */
-function bulletMarker(ordered: boolean | undefined, index: number): string {
-  return ordered ? `${index + 1}.` : "•";
-}
-
 /**
  * Flatten one table cell onto a single line.
  *
@@ -174,8 +171,12 @@ function bulletMarker(ordered: boolean | undefined, index: number): string {
  * real DrawingML `<a:tbl>` primitive exists (the follow-up slice). Paragraph
  * blocks are unaffected and still keep every boundary.
  */
-function flattenCell(cell: string | number): string {
-  return String(cell).replace(/\s*[\r\n]+\s*/g, " ");
+function flattenCell(cell: ExportCell): string {
+  // ★ A rich cell is read through its flat text projection FIRST — this
+  // renderer lays out a row as one line of text and has no cell to put a
+  // second paragraph inside. Without it `String(cell)` yields "[object
+  // Object]" for every rich column a dataSection carries.
+  return String(cellText(cell)).replace(/\s*[\r\n]+\s*/g, " ");
 }
 
 /** ONE table layout for both the `table` block and a resolved dataSection —
@@ -183,7 +184,7 @@ function flattenCell(cell: string | number): string {
  *  jscpd gate flags and how the two drift apart on a later fix. */
 function tableLines(
   columns: readonly string[],
-  rows: readonly (readonly (string | number)[])[],
+  rows: readonly (readonly ExportCell[])[],
   caption?: string,
 ): string[] {
   const lines: string[] = [];
@@ -212,7 +213,7 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
       // any tag at all, so an allow-list-derived classifier would escape the
       // whole value instead. Same composition as doc-render-docx's richParas;
       // the reasoning lives on html-start.ts's "render" member.
-      return [...htmlToRichLines(descriptionHtml(block.html, "render"))];
+      return [...htmlToRichLines(descriptionHtml(block.html, RENDER_SINK))];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);
@@ -368,9 +369,10 @@ const SUBSCRIPT_PCT = -25000;
  *  was the alternative, and it loses to a gate that is actually enforced. */
 const HIGHLIGHT_RGB = COLOR_GREEN;
 
-/** Left indent for the two non-`p` line kinds, in EMUs. 228600 EMU = 0.25" =
- *  the 360 twips the DOCX `Quote` and `CodeBlock` styles indent by, so the same
- *  document is indented identically in both formats. */
+/** Left indent for one step of indentation, in EMUs. 228600 EMU = 0.25" = the
+ *  360 twips the DOCX `Quote` and `CodeBlock` styles indent by, so the same
+ *  document is indented identically in both formats. A nested list item takes a
+ *  MULTIPLE of it — see `pptxIndentFor`. */
 const RICH_INDENT_EMU = 228600;
 
 /** A horizontal rule, drawn as text.
@@ -423,11 +425,45 @@ function pptxRun(run: TextRun, kind: RichLineKind): PptxRun {
 function bodyParagraph(line: SlideLine): PptxParagraph {
   if (typeof line === "string") return { text: line, sizeHundredths: BODY_SIZE };
   if (line.kind === "hr") return { runs: [{ text: HR_TEXT }], sizeHundredths: BODY_SIZE };
+  const runs = line.runs.map((run) => pptxRun(run, line.kind));
+  // ★★ The marker is a RUN, not a paragraph property: this path emits no
+  // bullet properties at all (see `bulletMarker`), so the ordinal has to be
+  // text or it is lost outright. It is its OWN run so it inherits none of the
+  // item's marks — a bold list item must not get a bold "1.".
+  // ★★ `pptxIndentFor` below is deliberately NOT guarded on `continuation` — a
+  // wrapped line keeps the item's indent — but the marker is: one bullet per
+  // item that put an `li` line into the output, however many lines it wraps to.
+  // ★ NOT "one bullet per ITEM": an item that emits ONLY lines of another kind
+  // (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to mark, so
+  // it renders no bullet while still spending its ordinal — open-followups §157.
+  const marked =
+    line.kind === "li" && !line.continuation
+      ? [{ text: `${bulletMarker(line.ordered, line.index, line.task)} ` }, ...runs]
+      : runs;
   return {
-    runs: line.runs.map((run) => pptxRun(run, line.kind)),
+    runs: marked,
     sizeHundredths: BODY_SIZE,
-    indentEmu: line.kind === "p" ? undefined : RICH_INDENT_EMU,
+    indentEmu: pptxIndentFor(line),
   };
+}
+
+/**
+ * The left indent one line kind takes.
+ *
+ * ★★★ THE `heading` ARM IS A FIX, NOT A STYLE CHOICE. This was
+ * `kind === "p" ? undefined : RICH_INDENT_EMU`, written when the parser could
+ * only ever hand back p/blockquote/pre/hr. Widening `RichLine` to carry
+ * `heading` and `li` made that ternary silently indent every section title to
+ * the blockquote depth, with tsc, lint and the whole suite green — a heading is
+ * a structural marker, not an aside, and lining it up with a block quote is
+ * wrong. Pinned by "does not indent a heading line".
+ *
+ * ★ A list item indents PER DEPTH so nesting is visible; `p` stays flush.
+ */
+function pptxIndentFor(line: Exclude<SlideLine, string>): number | undefined {
+  if (line.kind === "p" || line.kind === "heading") return undefined;
+  if (line.kind === "li") return RICH_INDENT_EMU * (line.depth + 1);
+  return RICH_INDENT_EMU;
 }
 
 function buildContentSlide(title: string, lines: SlideLine[], lang: Lang): string {

@@ -3895,6 +3895,8 @@ const enUS = {
   versionHighlightDashboardArrange: "The dashboard is now arrangeable. Drag a tile by its handle to move it, resize it in either direction, or hide it — hidden tiles collect in a shelf you can restore from at any time, and one button resets the board to its default. Each project keeps its own arrangement. Separately, drag-to-reorder now works in Firefox everywhere it is offered — report sections, budget buckets and the two role lists — where it previously did nothing at all, and every reorder handle can now be operated from the keyboard as well as the mouse.",
   versionHighlightCsvQuoting: "Importing a CSV or Markdown project file is more robust. A cell containing a line break — a multi-line description or note — no longer causes the rest of the file to be misread: previously such a break could make the importer switch to the next section mid-row and discard every remaining row of the section it was reading, with nothing shown to say so. Files that end mid-quote are now reported instead of silently losing rows.",
 
+  versionHighlightRichExport: "Formatting in descriptions now survives an export. Headings, numbered and bulleted lists including nested ones, checklists with their tick marks, and centred or justified paragraphs are carried into Word (.docx), the printable HTML and the PDF made from it, instead of arriving as one flat block of text. This also fixes list structure being lost for every description actually typed into the editor, not just for hand-written markup. Excel and PowerPoint exports still read the plain text of these fields and are unchanged, and CSV and Markdown project files are untouched.",
+
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
   insightAcknowledge: "Acknowledge",

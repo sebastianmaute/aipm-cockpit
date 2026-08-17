@@ -5,8 +5,27 @@
 // Properties over export-sections.ts's rich-cell contract.
 //
 // `richCell(value, column, rich)` is PRIVATE, so everything here reaches it
-// through the public `buildExportSections`. The contract has three halves and a
-// property for each:
+// through the public `buildExportSections`.
+//
+// ★★★ A CELL IS NO LONGER A FLAT STRING. `ExportCell` is
+// `string | number | RichCell`, and a column IN its entity's rich set is emitted
+// as `{ html, text }` — UNCONDITIONALLY, empty value included. The flat
+// properties below did not go away with that change, they MOVED: they are now
+// properties of the `text` half, which `richCell` still fills with
+// descriptionTextWithBreaks for every rich cell. So each property reads through
+// `richCellFor` (which asserts the SHAPE before reading the text) rather than
+// coercing the cell with String(), which yields "[object Object]" and would make
+// every assertion here fail for a reason that has nothing to do with the
+// property it names.
+//
+// ★★ Asserting the shape is not ceremony around the real assertion — it IS half
+// the contract. A cell that silently degraded to a flat string would satisfy
+// every text assertion below while destroying the `html` half that the HTML and
+// DOCX renderers lay out as paragraphs; a cell that kept `html` and dropped
+// `text` renders "undefined" in DOCX and "[object Object]" in PPTX. Both halves
+// are pinned, on both sides of the rich/non-rich split.
+//
+// The contract has three halves and a property for each:
 //
 //   1. a column IN the entity's rich set is projected with
 //      descriptionTextWithBreaks — the BREAK-PRESERVING projection. Swapping in
@@ -32,11 +51,14 @@ import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import {
   buildExportSections,
+  cellText,
+  isRichCell,
   TASK_RICH_COLUMNS,
   RAID_RICH_COLUMNS,
   MILESTONE_RICH_COLUMNS,
   CHANGE_RICH_COLUMNS,
 } from "./export-sections";
+import type { ExportCell, RichCell } from "./export-sections";
 import { emptyWorkspace } from "./workspace";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import type { ExportConfig, ExportSectionKey } from "./settings-types";
@@ -148,17 +170,45 @@ function workspaceWithField(section: RichSection, column: string, value: string)
   }
 }
 
-/** The single cell at (section, column) of the first row. Fails loudly rather
- *  than returning "" when the section or column is missing — a silent "" would
- *  make every string assertion below vacuous. */
-function cellFor(ws: Workspace, section: ExportSectionKey, column: string): string {
+/** The single cell at (section, column) of the first row, in the shape the
+ *  builder emitted it. Fails loudly rather than returning "" when the section or
+ *  column is missing — a silent "" would make every string assertion below
+ *  vacuous. */
+function cellFor(ws: Workspace, section: ExportSectionKey, column: string): ExportCell {
   const sections = buildExportSections(ws, ALL_ON, "en-US");
   const found = sections.find((s) => s.key === section);
   expect(found, `section ${section} missing`).toBeDefined();
   const idx = found!.columns.indexOf(column);
   expect(idx, `column ${column} missing from ${section}`).toBeGreaterThanOrEqual(0);
   expect(found!.rows.length).toBeGreaterThan(0);
-  return String(found!.rows[0][idx]);
+  return found!.rows[0][idx];
+}
+
+/** The cell at a RICH column, with its shape pinned before anything reads it.
+ *
+ *  ★★ The `isRichCell` assertion is what keeps the properties below honest. A
+ *  richCell that stopped wrapping — returning the raw string for a rich column —
+ *  would still satisfy "no markup" and could still satisfy the boundary property
+ *  for a value that happens to have none, so the text assertions ALONE cannot
+ *  tell a rich cell from a flat one. This can. */
+function richCellFor(ws: Workspace, section: ExportSectionKey, column: string): RichCell {
+  const cell = cellFor(ws, section, column);
+  expect(isRichCell(cell), `${section}.${column} is not a rich cell`).toBe(true);
+  const rich = cell as RichCell;
+  // Both halves present and both strings: the redundancy IS the guarantee (see
+  // the RichCell docstring) — a missing half is a renderer crash, not a typo.
+  expect(typeof rich.html, `${section}.${column}.html`).toBe("string");
+  expect(typeof rich.text, `${section}.${column}.text`).toBe("string");
+  return rich;
+}
+
+/** The cell at a NON-rich column. Asserts it did NOT become rich — the control
+ *  property pins that the VALUE is untouched, and this pins that the SHAPE is
+ *  too, which the old String() coercion could not distinguish. */
+function plainCellFor(ws: Workspace, section: ExportSectionKey, column: string): string {
+  const cell = cellFor(ws, section, column);
+  expect(isRichCell(cell), `${section}.${column} unexpectedly became rich`).toBe(false);
+  return String(cell);
 }
 
 // ---------------------------------------------------------------------------
@@ -225,8 +275,14 @@ const RICH_TARGETS: ReadonlyArray<{ section: RichSection; column: string }> = [
   ...[...CHANGE_RICH_COLUMNS].map((column) => ({ section: "changes" as const, column })),
 ];
 
-/** One rich column per entity, enough to exercise tasks AND raid (raid carries
- *  TWO rich columns, so it catches a per-column bug tasks structurally cannot). */
+/** ONE rich column per entity — the entity axis only.
+ *
+ *  ★★ It is `"description"` for all four, so nothing here can see a per-COLUMN
+ *  wiring slip: `mitigation`, `impactDescription` and `resolutionNotes` are
+ *  never selected by it. That axis is `RICH_TARGETS` above, swept by the
+ *  "EVERY rich column of EVERY entity" property and by the markup property. An
+ *  earlier revision of this comment claimed raid's second column made this
+ *  constant catch a per-column bug, which the map itself refutes. */
 const FIRST_RICH_COLUMN: Readonly<Record<RichSection, string>> = {
   tasks: "description",
   raid: "description",
@@ -248,15 +304,26 @@ describe("rich export cells preserve block boundaries", () => {
         (section, texts, shape) => {
           const column = FIRST_RICH_COLUMN[section];
           const html = buildBlockHtml(texts, shape);
-          const cell = cellFor(workspaceWithField(section, column, html), section, column);
+          const rich = richCellFor(workspaceWithField(section, column, html), section, column);
 
           // Exact form: this is what a renderer maps to <br> / <w:br/> / <a:p>.
-          expect(cell).toBe(texts.join("\n"));
-          expect(cell.split("\n")).toHaveLength(texts.length);
+          expect(rich.text).toBe(texts.join("\n"));
+          expect(rich.text.split("\n")).toHaveLength(texts.length);
           // The shipped defect, stated directly: adjacent paragraphs fused.
           for (let i = 0; i + 1 < texts.length; i += 1) {
-            expect(cell).not.toContain(`${texts[i]}${texts[i + 1]}`);
+            expect(rich.text).not.toContain(`${texts[i]}${texts[i + 1]}`);
           }
+          // The flattener every non-layout renderer calls (PPTX, and DOCX for a
+          // non-rich cell) must agree with the half it flattens. Asserted
+          // against the SAME hardcoded oracle, not against rich.text, so a
+          // cellText that stopped reading `.text` cannot satisfy it by echoing
+          // whatever the cell happens to hold.
+          expect(cellText(rich)).toBe(texts.join("\n"));
+          // The `html` half is the STORED value, byte-identical. This is what
+          // the HTML/DOCX renderers parse into real paragraphs, and it is the
+          // half no flat assertion can see — without it, a richCell that put the
+          // projection in BOTH fields would pass every other check here.
+          expect(rich.html).toBe(html);
         },
       ),
       { numRuns: 25 },
@@ -267,17 +334,36 @@ describe("rich export cells preserve block boundaries", () => {
     // RAID's `mitigation` and Change's `impactDescription`/`resolutionNotes`
     // ride the same set as their `description`; a per-column wiring slip is
     // invisible to the property above.
-    fc.assert(
-      fc.property(fc.constantFrom(...RICH_TARGETS), paragraphTextsArb, (target, texts) => {
-        const html = texts.map((t) => `<p>${t}</p>`).join("");
-        const cell = cellFor(
-          workspaceWithField(target.section, target.column, html),
-          target.section,
-          target.column,
-        );
-        expect(cell).toBe(texts.join("\n"));
-      }),
-      { numRuns: 25 },
+    //
+    // ★★★ THE TARGET IS LOOPED, NOT DRAWN, and the test name is why. It used to
+    // be `fc.constantFrom(...RICH_TARGETS)` inside the property at 25 runs with
+    // no pinned seed: seven targets, 25 draws, so a measurable share of seeds
+    // left at least one rich column unvisited while the test went on claiming
+    // "EVERY". Drawing the axis a test asserts TOTALITY over is the one place a
+    // property generator cannot be used — and a coverage counter is no fix
+    // either, since it would turn those same seeds into a flake instead. Loop
+    // the axis, generate only the value.
+    for (const target of RICH_TARGETS) {
+      fc.assert(
+        fc.property(paragraphTextsArb, (texts) => {
+          const html = texts.map((t) => `<p>${t}</p>`).join("");
+          const rich = richCellFor(
+            workspaceWithField(target.section, target.column, html),
+            target.section,
+            target.column,
+          );
+          expect(rich.text).toBe(texts.join("\n"));
+          expect(rich.html).toBe(html);
+        }),
+        { numRuns: 25 },
+      );
+    }
+    // Anti-vacuity, and DERIVED so a new rich field widens the sweep instead of
+    // failing here: an empty RICH_TARGETS would leave the loop body unrun, and
+    // one-column-per-entity would make the "not just the first" half of the
+    // name empty even with the loop in place.
+    expect(RICH_TARGETS.length).toBeGreaterThan(
+      new Set(RICH_TARGETS.map((target) => target.section)).size,
     );
   });
 });
@@ -298,18 +384,23 @@ describe("rich export cells carry no markup", () => {
           const wordA = `${a}1`;
           const wordB = `${b}2`;
           const html = MARKUP_SHAPES[shapeIdx](wordA, wordB);
-          const cell = cellFor(
+          const rich = richCellFor(
             workspaceWithField(target.section, target.column, html),
             target.section,
             target.column,
           );
 
-          expect(cell).not.toContain("<");
-          expect(cell).not.toContain(">");
+          expect(rich.text).not.toContain("<");
+          expect(rich.text).not.toContain(">");
           // Anti-vacuity: an implementation that emitted "" would pass the two
           // negative assertions above and be catastrophically wrong.
-          expect(cell).toContain(wordA);
-          expect(cell).toContain(wordB);
+          expect(rich.text).toContain(wordA);
+          expect(rich.text).toContain(wordB);
+          // CONTROL for the two negatives: the markup was really there to strip.
+          // Every MARKUP_SHAPES entry opens with a tag, so a `text` free of "<"
+          // is the projection working and not the generator handing over a value
+          // that never had markup in it.
+          expect(rich.html).toContain("<");
         },
       ),
       { numRuns: 25 },
@@ -357,7 +448,7 @@ describe("non-rich export cells are byte-identical to the stored value", () => {
           // Deliberately the SAME shapes the rich properties use: if richCell
           // projected every column, this value would come back as "a\nb".
           const stored = buildBlockHtml(texts, shape);
-          const cell = cellFor(
+          const cell = plainCellFor(
             workspaceWithField(target.section, target.column, stored),
             target.section,
             target.column,
@@ -425,9 +516,10 @@ const messyWorkspaceArb: fc.Arbitrary<Workspace> = fc
   }));
 
 describe("buildExportSections is total", () => {
-  it("never throws and returns rectangular sections of string|number cells", () => {
+  it("never throws and returns rectangular sections of well-formed cells", () => {
     let sectionsSeen = 0;
-    let cellsSeen = 0;
+    let flatCellsSeen = 0;
+    let richCellsSeen = 0;
 
     fc.assert(
       fc.property(messyWorkspaceArb, cfgArb, (ws, cfg) => {
@@ -440,8 +532,23 @@ describe("buildExportSections is total", () => {
             // ragged row silently shifts data into the wrong column.
             expect(row).toHaveLength(section.columns.length);
             for (const cell of row) {
-              expect(["string", "number"]).toContain(typeof cell);
-              cellsSeen += 1;
+              // ★★ EVERY cell is checked against the shape it CLAIMS to be —
+              // widening this to accept "object" alongside string|number would
+              // be strictly weaker than what stood here before the cell type
+              // grew, because nothing would then constrain the object at all.
+              // A cell is one of exactly two things, and each is pinned fully.
+              if (isRichCell(cell)) {
+                expect(typeof cell.html).toBe("string");
+                expect(typeof cell.text).toBe("string");
+                // The flat half a non-layout renderer reads must never be the
+                // object itself: PPTX writes cellText() straight into <a:t>, so
+                // a broken flattener ships the literal "[object Object]".
+                expect(["string", "number"]).toContain(typeof cellText(cell));
+                richCellsSeen += 1;
+              } else {
+                expect(["string", "number"]).toContain(typeof cell);
+                flatCellsSeen += 1;
+              }
             }
           }
         }
@@ -452,6 +559,11 @@ describe("buildExportSections is total", () => {
     // Anti-vacuity: an all-false config or an all-empty workspace on every run
     // would make the loop body above execute zero times and pass regardless.
     expect(sectionsSeen).toBeGreaterThan(0);
-    expect(cellsSeen).toBeGreaterThan(0);
+    // ★ BOTH branches must actually run. The rich branch is the new one, and a
+    // run that never produced a rich cell would leave it unexecuted while the
+    // test still reported green — the exact shape of vacuity this file's other
+    // counters exist to rule out.
+    expect(flatCellsSeen).toBeGreaterThan(0);
+    expect(richCellsSeen).toBeGreaterThan(0);
   });
 });

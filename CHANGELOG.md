@@ -8,6 +8,58 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.243.0] - 2026-08-17 "Aaronovitch"
+
+### Added
+
+- **Headings, list structure and paragraph alignment now survive an export to Word, HTML and PDF.**
+  The seven formatted description fields — a task's description, a RAID item's description and
+  mitigation, a change's description, impact assessment and resolution notes, and a milestone's
+  description — could already hold headings, numbered and bulleted lists, checklists and centred or
+  justified text, but every export flattened all of it into one undifferentiated block. A numbered
+  impact assessment now arrives in Word as a numbered list; a nested list keeps its indentation and
+  its own numbering; a heading is a real heading rather than a bold-looking line; a checklist keeps
+  its ticked and unticked boxes; and a centred or justified paragraph stays centred or justified.
+  The printable HTML and the PDF made from it carry the same structure.
+
+### Fixed
+
+- **List structure was being lost for every description anyone had actually typed.** Text written in
+  a description editor is stored with each list item wrapping its text in a paragraph, and the
+  exporter's reader did not recognise that shape — so list numbering and nesting were inert for
+  every real value, not merely for hand-written markup. The reader now sees through that wrapper.
+- **A list item that ran to more than one line broke out of the list.** Pressing Shift+Enter inside
+  a bullet, or writing a second paragraph within one item, put the continuation on an unindented
+  line of its own with no bullet — sitting between two bulleted lines in the exported document. A
+  wrapped item now keeps one bullet and one indent however many lines it runs to.
+- **An item whose first line was a heading made the numbering run one low.** In a numbered list, an
+  item starting with a heading was not counted, so every item after it was numbered one too few —
+  the second item read "1.". Such an item is now counted. Note that an item whose *only* content is
+  a heading or a sub-list still shows no number of its own, because it prints no line of its own to
+  put a number on; the items after it are numbered correctly.
+- **A bullet could lose its own bullet when the first thing in it was a line break.** Pressing
+  Shift+Enter as the very first keystroke in a list item — or starting an item with a horizontal
+  rule or a heading — left that item's text unmarked while the item still used up its number, so a
+  numbered list began at "2." with an unnumbered line above it. Such an item now carries its marker
+  on the first line it prints — where it goes on to print a line of its own. The exception is the
+  one noted in the bullet above: an item whose *only* content is a heading or a sub-list prints no
+  line of its own to mark, so it still shows no number.
+- **Half of a centred bullet came out left-aligned.** Where a line break split a centred or
+  justified paragraph, only the text before the break kept the alignment. Both halves belong to one
+  paragraph and now stay aligned together. This affected ordinary paragraphs, quotes, headings and
+  preformatted blocks as well as list items.
+- **Two runs of Word formatting were written in an order the OOXML schema does not allow.** Word
+  itself is tolerant and rendered them correctly, but stricter tools built on the Open XML SDK
+  report such a document as schema-invalid. Long-standing; found while reviewing this release.
+
+### Notes
+
+- Excel (`.xlsx`) and PowerPoint (`.pptx`) exports deliberately continue to read the plain text of
+  these fields and are byte-for-byte unchanged.
+- CSV and Markdown project files are unaffected. They are the app's own storage format and carry a
+  description exactly as stored, markup included, so that exporting and re-importing a project
+  round-trips without loss.
+
 ## [0.242.0] - 2026-08-16 "Ashby"
 
 ### Fixed

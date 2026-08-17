@@ -15,6 +15,7 @@ import { diffFields, type ActivityKind, type FieldChange } from "./activity-log"
 import { useWorkspace } from "./workspace-context";
 import { isValidEmail } from "./sanitize";
 import { descriptionHtml } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 import { eventsToAbsences, type AbsenceImportTarget, type OutlookEvent } from "./outlook-calendar";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { captureFieldChanges } from "./undo/capture-field-changes";
@@ -448,7 +449,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
         // not merely classified against it — which is what one shared sanitizer
         // delivers. Re-measured 2026-08-11: BOTH A and B store as-is and save
         // BYTE-IDENTICAL, heading intact. §137 CLOSED, case B included.
-        description: descriptionHtml(item.mitigation ?? item.description ?? "", "rich"),
+        description: descriptionHtml(item.mitigation ?? item.description ?? "", RICH_SINK),
         inquiriesSent: 0,
         localModifiedAt: stamp,
       };

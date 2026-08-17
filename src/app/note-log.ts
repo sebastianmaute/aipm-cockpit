@@ -8,6 +8,7 @@
 import type { NoteLogEntry } from "./types";
 import { sanitizeRichHtml, htmlToText } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
+import { RICH_SINK } from "./html-start";
 
 /** Caps — keep a hand-edited or model-supplied blob bounded. */
 const MAX_NOTE_ENTRIES = 500;
@@ -175,7 +176,7 @@ function sanitizeRichFields<T extends RichFieldCarrier>(
   for (const field of fields) {
     const value = entity[field];
     if (typeof value !== "string") continue;
-    patch[field] = sanitizeRichHtml(descriptionHtml(value, "rich"));
+    patch[field] = sanitizeRichHtml(descriptionHtml(value, RICH_SINK));
     touched = true;
   }
   if (Array.isArray(entity.noteLog)) {

@@ -59,7 +59,8 @@ import { resolveDataSection } from "./doc-data-section";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
-import { htmlEscape, htmlCellWithBreaks, PRINT_STYLES } from "./download";
+import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
+import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
 
@@ -96,19 +97,29 @@ const DOCUMENT_PAGE_STYLES = `
  *  builders in one file is exactly the shape the BLOCKING jscpd duplication
  *  gate flags, and it is also how the two drift apart on a later escaping fix.
  *
- *  ★★ Every cell goes through htmlCellWithBreaks, which escapes FIRST and then
- *  maps "\n" to <br>. Do not reorder: substituting first turns our own <br>
- *  into a visible "&lt;br&gt;", and dropping the escape to avoid that lets a
- *  literal "<br>" in user content through as real markup. */
+ *  ★★ Every cell goes through `exportCellHtml`, which for a NON-rich cell is
+ *  htmlCellWithBreaks — escape FIRST, then map "\n" to <br>. Do not reorder:
+ *  substituting first turns our own <br> into a visible "&lt;br&gt;", and
+ *  dropping the escape to avoid that lets a literal "<br>" in user content
+ *  through as real markup.
+ *
+ *  ★★ THE TWO CALLERS DIFFER IN CELL TYPE, which is why `rows` is `ExportCell`
+ *  and not the `string | number` it was. A `table` BLOCK comes from the document
+ *  model and can only ever hold `string | number`; a `dataSection` is resolved
+ *  through the real `buildExportSections`, so since §141(b) its rich columns
+ *  arrive as `RichCell` and must render as markup — a document embedding the
+ *  RAID register gets the same fidelity as the register's own export. The
+ *  widening is safe in the other direction because `string | number` is a
+ *  member of `ExportCell`, so the block path is byte-identical. */
 function tableHtml(
   columns: readonly string[],
-  rows: readonly (readonly (string | number)[])[],
+  rows: readonly (readonly ExportCell[])[],
   caption?: string,
 ): string {
   const cap = caption ? `<caption>${htmlEscape(caption)}</caption>` : "";
   const head = columns.map((c) => `<th>${htmlEscape(c)}</th>`).join("");
   const body = rows
-    .map((r) => `<tr>${r.map((c) => `<td>${htmlCellWithBreaks(c)}</td>`).join("")}</tr>`)
+    .map((r) => `<tr>${r.map((c) => `<td>${exportCellHtml(c)}</td>`).join("")}</tr>`)
     .join("\n");
   return `<table>${cap}<thead><tr>${head}</tr></thead><tbody>\n${body}\n</tbody></table>`;
 }
@@ -118,7 +129,16 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
     case "heading":
       return `<h${block.level}>${htmlEscape(block.text)}</h${block.level}>`;
 
-    // The ONE unescaped path: already-sanitized HTML, re-sanitized here.
+    // ★★ ONE OF TWO UNESCAPED PATHS IN THIS FILE, not the only one — this line
+    // said "The ONE unescaped path" and `document-preview.tsx` leans on that
+    // sentence to justify running no second pass of its own. The other is
+    // `tableHtml` → `exportCellHtml`, whose RICH branch emits markup too. It is
+    // guarded, by a DIFFERENT sanitizer in a DIFFERENT file: `sanitizeRichHtml`
+    // in `download.ts`, not `sanitizeDocumentHtml` here. So there is no hole —
+    // but a reader auditing "is every unescaped sink sanitized?" from the old
+    // wording would stop one sink short. Both must stay sanitized.
+    //
+    // Already-sanitized HTML, re-sanitized here.
     // ★★ Upgraded FIRST. A legacy plain-text value is not markup, and handing
     // it to the sanitizer raw dropped its line breaks (§118); descriptionHtml
     // escapes it into <p>/<br> instead — both of which sanitizeDocumentHtml

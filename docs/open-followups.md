@@ -9075,7 +9075,7 @@ flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below,
 
 ---
 
-## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — open
+## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) CLOSED 2026-08-16; (a) and (c) still open
 
 Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
 values written from now on and repaired nothing already stored.
@@ -9094,7 +9094,7 @@ where both readings are legitimate. Price the option of doing nothing: the popul
 (only values that crossed an AI or import boundary between §107's closure and §137's), and it
 shrinks every time a human re-saves one.
 
-### (b) Export fidelity for the entity rich fields
+### (b) Export fidelity for the entity rich fields — CLOSED 2026-08-16
 
 `htmlToRichLines` (`rich-text-runs.ts`) is the shared HTML → styled-runs parse behind
 `doc-render-docx.ts` and `doc-render-pptx.ts`, but the seven rich ENTITY fields do not route through
@@ -9115,13 +9115,91 @@ neither renderer has a checkbox glyph today.
 **DOCX and PPTX are the stated gap, not a silent omission** — recorded here so the next reader does
 not assume export parity because the in-app and web fidelity landed.
 
+#### CLOSED 2026-08-16 by `feat/rich-text-export-fidelity-s2` (`c9f17120`…`31f9928d`)
+
+`buildExportSections` no longer flattens. A rich column now emits `RichCell = { html; text }`
+(`ExportCell = string | number | RichCell`, guard `isRichCell`, flattener `cellText`), so each
+renderer chooses: DOCX and the HTML/PDF path render `html` with full structure; XLSX and both PPTX
+paths read `.text` and are byte-identical to before. `RichLine` (`rich-text-runs.ts`) gained
+`kind: "heading"` with `level`, `kind: "li"` with `ordered`/`depth`/`index`/`task?`, and `align?` on
+every kind but `hr`. ★ The DOM-free boundary held — `export-sections.ts` CARRIES the html and never
+parses it; every parse stayed inside the DOM-bound renderers.
+
+★★★ **TWO CORRECTIONS TO THIS ENTRY'S OWN TEXT, both found by doing the work.**
+
+**(1) The loss was NEVER DOCX/PPTX-only.** This entry says the level and numbering "are lost **in
+DOCX and PPTX**" and that HTML/PDF fidelity "landed" with §140 — false for the ENTITY fields, which
+is the only thing this entry is about. §140's HTML/PDF fidelity is the DOCUMENT renderer's; the
+entity rich columns reached `doc-render-html.ts` through the same flat `descriptionTextWithBreaks`
+projection every other renderer got, so a task description's `<h2>` and `<ol>` arrived as plain
+lines in the HTML export and the PDF too. The scoping error is what made "wire the entity fields
+onto `htmlToRichLines`" read as a two-renderer job. Reproduce the shape of the old path on the
+pre-slice tree: `git show 2e2c8c00:src/app/export-sections.ts | grep -n descriptionTextWithBreaks`
+returns the import plus the single flattening site inside `richCell` that EVERY format consumed.
+
+**(2) The stated fix was insufficient AS WRITTEN.** "Wiring the entity fields onto
+`htmlToRichLines` is the fix" could not have worked, because `RichLine` had nowhere to put what was
+being lost: it carried no heading LEVEL, no list ordinal and no alignment. The parser had to gain
+those fields FIRST (`aca61bdc`), and only then could the wiring carry anything. A fix phrased as
+"route A through B" hides a missing field on B.
+
+★★★ **THE CRITICAL THIS SLICE FOUND, after the model work had already shipped — a fixture that made
+a whole feature untestable.** Tiptap's `listItem` content spec is `paragraph block*`, so the editor
+stores `<ul><li><p>a</p></li></ul>`. The parser's LI arm started an empty line, the child `<p>`
+flushed it, and `flush`'s whitespace rule DROPPED it — so the `li` kind was **inert for every value
+a real user typed**, discarding `ordered`, `depth`, `index`, `task` and `align`. The whole suite said
+nothing, because every fixture used the hand-authored `<li>text</li>` form, which appears nowhere
+but `golden-workspace.*`. **Measured on the commit that introduced the kind — 15 `<li>` fixtures,
+ZERO carrying an inner `<p>`:**
+`git show aca61bdc:src/app/rich-text-runs.test.ts | grep -oE '<li[^>]*>(<p[^>]*>)?' | sort | uniq -c`
+(★ a test COUNT is the wrong metric here and does not reproduce — an earlier draft of this paragraph
+said "nine green tests", where the same command shows 7 references to the `"li"` kind and 4
+list-named `it(` blocks depending on how you count. The FIXTURE SHAPE is the thing that was wrong,
+and it is exactly countable.) Corroborated independently by `markTaskItems`
+(`rich-text-plain.ts`), whose optional `<p>` group exists precisely because stored task items carry
+one. Fixed in `5fe0c2de` by making a `LINE_TAGS` child of an `<li>` transparent. **The
+generalisable lesson: a fixture can be unrealistic in a way that makes a whole feature untestable,
+and hand-authored golden data is exactly where that hides.** Reproduce the storage shape:
+`grep -n 'markTaskItems' -A6 src/app/rich-text-plain.ts` shows the optional-`<p>` group.
+
+★★ **Alignment could never have been read off the `<li>`.** `rich-text-editor.tsx` configures
+`TextAlign` with `types: ["heading", "paragraph"]`, so the editor writes `data-align` on the inner
+`<p>`, never on the list item. Reproduce:
+`grep -n 'types: \[' src/app/rich-text-editor.tsx` → `types: ["heading", "paragraph"]`.
+
+★★ **`buildDocx` passed NO styles before this slice.** `word/styles.xml` in the workspace export
+declared only `Title` and `TableHeader`, so every style a rich cell names — `Heading1`-`Heading4`,
+`ListParagraph`, `Quote`, `CodeBlock` — would have been undeclared **in the very export this slice
+exists for**, and Word SILENTLY IGNORES a `w:pStyle` naming a style the part does not carry. Fixed
+by hoisting `DOC_STYLES` beside the emitter and passing it from both `buildDocxPackage` callers.
+Reproduce the declarations: `grep -c 'w:styleId=' src/app/ooxml-docx-primitives.ts`.
+
+★★ Two more OOXML facts no string assertion can see, each pinned by a test in `73c17aa8`:
+**`ST_Jc` spells justified `both`, not `justify`** (emitting `justify` hands Word a value it drops
+and the paragraph renders left-aligned, every assertion green); and **`<w:pPr>`'s children are an
+`xsd:sequence`** (`CT_PPr`: `pStyle → pBdr → spacing → ind → jc → outlineLvl`) — wrong order makes
+Word reject the part or drop the properties.
+
+★★ h5/h6 are CLAMPED to `level: 4` for the same silent-ignore reason: nothing declares a `Heading5`.
+
+★ **DOMPurify re-escapes a bare `&` on serialize**, which is why the entity assertions in
+`11c8b82b` cannot be collapsed into one. Measured with two mutants: a decode placed BEFORE the
+sanitizer is self-healing for ampersands but not for tags; a decode placed AFTER it is the reverse.
+Neither mutant alone proves both halves.
+
+★★ **CSV and Markdown are outside all of this, and not for the reason a reader assumes.**
+`exportWorkspace` routes csv/md to `workspaceToCsv`/`workspaceToMarkdown` — the STORAGE serializers
+— and calls `buildExportSections` only for docx/xlsx/pptx/pdf. So CSV export never consumed the
+flat projection at all; it emits the STORED HTML, which is exactly what `golden-workspace.test.ts`
+pins. Reproduce: `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
+
 ### (c) §31's unbounded markup bytes
 
 Caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`, so markup bytes are unbounded.
 The 21-tag list makes a given amount of visible text able to carry more markup than the 8- or 11-tag
 lists did. Not a new defect — §31 — but its ceiling moved, so re-price it here.
 
-### (d) `CONTAINS_TAG`'s `/i` flag is unpinned — pre-existing, DO NOT fix opportunistically
+### (d) `CONTAINS_TAG`'s `/i` flag is unpinned — CLOSED 2026-08-16 by `31f9928d`
 
 The `render` sink's classifier is `CONTAINS_TAG` (`html-start.ts`), a case-INSENSITIVE tag match.
 Dropping its `/i` leaves `html-start.test.ts` **29/29 green** (this entry said 22/22 — a wrong count
@@ -9148,6 +9226,21 @@ input the suite lacks is a stored UPPERCASE-markup value, which no fixture in an
 carries. The one-line test is a `doc-render-html` case rendering `"Intro <STRONG>bold</STRONG> tail"`
 and asserting the markup is NOT escaped — cheap, but it belongs with §141(b)'s export-fidelity work,
 where the same three renderers are already being touched.
+
+**CLOSED 2026-08-16 — the test landed with (b), exactly where this entry said it belonged.**
+`31f9928d` adds the `doc-render-html` case, and it asserts the POSITIVE (the `<strong>` element
+SURVIVES as markup), not merely that an escaped form is absent — an absence assertion here would
+pass against a renderer that emitted nothing at all.
+
+★★ **It has exactly ONE detector in the repo, and that was re-measured on the CURRENT tree rather
+than carried over from this entry's 2026-08-11 figures.** Under a mutant dropping `/i` from
+`CONTAINS_TAG`, the new test is the single red; **237 tests across the five other candidate files
+stay green** — `html-start` 32 · `doc-render-docx` 61 · `doc-render-pptx` 75 · `export` 20 ·
+`rich-text-plain` 49, all exit 0. Note the file list and every count differ from this entry's
+earlier measurement (215 across six files), because the suites grew and the candidate set was
+re-derived; **do not read the old numbers as still current, and re-derive rather than trust these
+if you re-check.** Non-equivalence unchanged: `"Intro <STRONG>bold</STRONG> tail"` classifies
+`true` with `/i` and `false` without.
 
 ---
 
@@ -9217,7 +9310,7 @@ not, the cheapest correct move is to keep it at two and say so in the type.
 
 ---
 
-## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — HALF CLOSED 2026-08-12, highest-risk sites only
+## 143. The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open
 
 Opened 2026-08-11 out of a cold review of `unify-rich-text-s1`. `isHtmlStart(value, sink)` is that
 slice's design centre: one classifier per sink, each DERIVED from the allow-list its sink sanitizes
@@ -9336,6 +9429,51 @@ which point a fixture becomes possible and should be written; or (b) containment
 literal to one line per boundary behind named functions, so confusing the two requires editing one
 module rather than passing a different string at any of 33 sites. (a) is a handful of lines and is
 the honest minimum: it converts an untestable pair into a tested premise. Neither is done.
+
+### 2026-08-16 — the CONVERSION half is complete and (a) landed; the entry stays OPEN for the TYPE
+
+`31f9928d` converted the remaining raw literals and added the construction test. **Re-derived on the
+current tree with this entry's OWN two commands, not carried over from the commit message** — raw
+literals **24 → 0**, constant uses **11 → 35**, so the `8 + 25 = 33` identity above is now `35 + 0`:
+
+```bash
+# still raw literals: 0
+git grep -nE 'descriptionHtml\(|sanitizeRichText\(|isHtmlStart\(' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -E '"(rich|document|projection|render)"' | grep -vE ':[0-9]+: *\*' | grep -c .
+# converted to constants: 35
+git grep -nE 'RICH_SINK|DOCUMENT_SINK|PROJECTION_SINK|RENDER_SINK' -- 'src/app/*.ts' 'src/app/*.tsx' \
+  | grep -v '\.test\.' | grep -vE 'export const|import ' | grep -c .
+```
+
+So the two things this entry named as outstanding are done: every call site the "★★ MOST still pass
+a raw literal" paragraph enumerated now imports a constant — `doc-render-pptx.ts`,
+`ai-rich-text.ts`, `note-log.ts`, `templates.ts`, `use-resource-planner.ts`, the three edit modals
+and `rich-text-projection.ts`; and option (a)'s construction test for the `document`/`projection`
+pair landed (`html-start.test.ts`, `describe("the document/projection sink pair is equivalent BY
+CONSTRUCTION (§143)")`).
+
+★★ **`doc-render-docx.ts` is the one name in that enumeration you will not find converted — it no
+longer holds a sink call at all.** The DOCX render-sink call MOVED into `ooxml-docx-primitives.ts`
+during §141(b), and a second one appeared in `download.ts` (the HTML/PDF rich-cell path). Verify by
+NAME, never by the old file list: `grep -rn RENDER_SINK src/app --include=*.ts --include=*.tsx |
+grep -v '\.test\.'`. This is the `docs:claims:check` drift class one directory up — an enumeration
+of FILES rots on an extraction commit exactly the way a line number does, and the first draft of
+this very paragraph asserted `doc-render-docx.ts` had been converted.
+
+★★★ **NOT CLOSED, and the reason is the one this entry has stated since 2026-08-12: the conversion
+is option (1) in NAME only.** `RichTextSink` is still the plain union — verify with
+`grep -n 'export type RichTextSink' src/app/html-start.ts` → `DerivedSink | "render"` — so a bare
+string literal still typechecks at every one of the 35 sites, and a NEW call site can hand-write one
+or import the WRONG constant with nothing going red. Reaching 0 raw literals removed the typo
+failure mode and made the intended sink searchable; it did not make a wrong sink impossible, which
+is what the entry asked for. **Do not read `24 → 0` as closure** — it is the metric that is easy to
+move, not the guard.
+
+★ **Precisely what remains**, so the next reader does not re-derive the whole entry: make
+`RichTextSink` opaque/branded so only the four exported constants inhabit it (option (1) as
+originally scoped). Option (2)'s per-boundary table test is NOT an alternative for the whole entry —
+it cannot address the `document`/`projection` pair at all, and (a) has already covered that pair's
+premise.
 
 ---
 
@@ -10048,3 +10186,247 @@ node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts'
 ★ Deliberately NOT done on the branch that found it: that branch owns a CSV quoting fix, and the
 review round that surfaced this was a toast-ORDERING fix. Splitting a signal channel on the back of an
 ordering change is how an ordering change acquires a behavioural regression.
+
+---
+
+## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured
+
+Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
+the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
+That was the right call for that slice — but the reason PPTX is hard is NOT the missing bullet XML,
+and recording only "PPTX still flat" would send the next reader to the wrong file.
+
+**The layout is the binding constraint.** `buildPptxRowSlide` (`export-pptx.ts`) renders ONE SLIDE
+PER ROW, not a table: column 0 becomes the slide title, column 1 the subtitle, and the remaining
+columns become `"Label: value"` meta lines — capped at six by `columns.slice(2, 8)` with the comment
+"cap at 6 extra fields so text fits the slide". So a rich column at index ≥ 8 is not merely
+flattened, **it is not on the slide at all.**
+
+★★ Measured against the live column orders rather than assumed — **three of the seven rich fields
+never reach a slide**, including the single most-used one:
+
+| field | column index | on the slide? |
+|---|---|---|
+| `Task.description` | 11 (of 28) | **no** |
+| RAID `description` | 3 (of 23) | yes |
+| RAID `mitigation` | 11 | **no** |
+| Milestone `description` | 3 (of 9) | yes |
+| Change `description` | 2 (of 20) | yes |
+| Change `impactDescription` | 6 | yes |
+| Change `resolutionNotes` | 13 | **no** |
+
+Re-derive rather than trust the table — the indices move whenever a `*_CSV_COLUMNS` list gains an
+entry, and this table is exactly the kind of enumeration §143's own file list shows rotting:
+
+```bash
+grep -n 'slice(2, 8)' src/app/export-pptx.ts
+grep -n '_RICH_COLUMNS' src/app/export-sections.ts
+```
+
+### Scope, if this is picked up
+
+Two independent pieces, and the second is the larger one:
+
+1. **Native bullets and numbering.** PPTX needs NO new package part for this — the DrawingML
+   paragraph properties carry bullets as child elements (`a:buChar` for a literal bullet glyph,
+   `a:buAutoNum` for auto-numbering), so `RichLine`'s `ordered`/`depth`/`index` (added by §141(b))
+   already carry everything required. This is the cheap half. ★ Those two are ECMA-376 element
+   names, not repo symbols: there is no such `buChar` and no such `buAutoNum` identifier anywhere in
+   `src`, and a symbol probe that flags either one is reporting correctly.
+2. **A real table layout.** Until a section can render as a table, the per-row slide keeps
+   truncating at six meta fields and the three fields above stay invisible however well they are
+   marked up. Doing (1) alone would ship bullets for the four fields that happen to sit early in
+   their column list and change nothing for `Task.description`.
+
+★ Ordering matters: (1) before (2) is mostly wasted, because the field a user most wants formatted
+is the one (2) unblocks.
+
+---
+
+## 154. Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one — open
+
+Opened 2026-08-16 out of §141(b). DOCX list items render their marker as **literal text in its own
+`<w:r>`** rather than as Word numbering — `ooxml-docx-primitives.ts` says so at `bulletMarker`, which
+is deliberately the ONE place that decides the marker so DOCX and PPTX cannot spell it differently.
+Consequences: the list is not a real Word list (no continuation, no renumbering on edit, no
+list-style change), and a pasted-out list arrives as text with a bullet character in it.
+
+The real fix is a `numbering.xml` part plus an abstract-numbering definition, `[Content_Types].xml`
+and rels wiring, and `<w:numPr>` on each item's `<w:pPr>` in place of the marker run.
+
+★★★ **The blocker is NOT the XML — it is that nothing in this repo can tell you the package is
+valid.** Every DOCX assertion the suite owns is a STRING assertion over emitted markup, and §141(b)
+recorded three separate ways Word fails SILENTLY on input that passes every such assertion: an
+undeclared `w:pStyle` is ignored, a `w:jc` value of `justify` instead of `both` is dropped, and
+`<w:pPr>` children out of their `xsd:sequence` order make Word reject the properties or the part.
+A new package part multiplies that surface — a malformed `numbering.xml`, a missing content-type
+override or an unwired rel produces a file that either opens with the numbering silently absent or
+does not open at all, and **the suite is green in both cases**.
+
+### The entry must choose, and this is the actual decision
+
+* **(a) Package-level validation.** Bring in a real OOXML validator (or a minimal in-repo one that
+  checks content-types, rels resolution and the `CT_*` child sequences) so a malformed part goes red
+  in CI. Highest cost, and the only option that makes further OOXML work safe by default.
+* **(b) An accepted manual-open step.** Declare that a change touching DOCX package structure
+  requires opening the artifact in Word before merge, and say so where the emitter lives. Cheap and
+  honest, but it is a process guard with no gate behind it — this repo's own record is that an
+  ungated rule decays.
+
+★ Do NOT start the XML before picking one. Writing `numbering.xml` under (b)'s regime without
+actually performing the manual open is how a broken part ships behind a green pipeline, and the
+string assertions will read as coverage.
+
+---
+
+## 155. `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident
+
+Opened 2026-08-16 out of §141(b)'s styles work, which fixed the PARAGRAPH styles
+(`Heading1`-`Heading4`, `ListParagraph`, `Quote`, `CodeBlock` are now declared) and left this one.
+
+`buildDocxTable` emits `<w:tblStyle w:val="Grid"/>` inside `<w:tblPr>`, and **no `w:styleId="Grid"`
+exists anywhere in the emitted `word/styles.xml`** — so Word silently ignores it, the same
+failure mode §141(b) fixed for paragraph styles. Reproduce:
+
+```bash
+grep -n 'tblStyle' src/app/ooxml-docx-primitives.ts        # the reference
+grep -n 'w:styleId="Grid"' src/app/ooxml-docx-primitives.ts # no match
+```
+
+★★★ **It is harmless today ONLY BY ACCIDENT, and the accident is the danger.** The same `<w:tblPr>`
+sets an explicit `<w:tblBorders>` block (all six edges, `single`, `sz="4"`), so the table renders
+with rules regardless of whether the style resolves. **The table looks right because of the borders,
+not because the style is found.** Anyone who later deletes those explicit borders trusting the named
+style — a reasonable-looking cleanup, since naming a style and then hand-setting what it should
+provide reads as redundancy — gets a borderless table with **nothing going red**, because every
+assertion in the suite is a string assertion over the emitted XML and the `<w:tblStyle>` string is
+still there.
+
+★ Two ways to close, both cheap: declare a real `Grid` table style beside `DOC_STYLES` and let the
+explicit borders go; or DELETE the `<w:tblStyle>` reference and keep the borders as the single
+source of the table's appearance. The second is smaller and removes the trap outright — a reference
+to a style that does not exist has no upside. Either way, leave a comment at the borders saying they
+are load-bearing, because that is the fact no test can express.
+
+★ Related but distinct from §154: this one needs no new package part, only a declaration (or a
+deletion) in a part that already exists.
+
+## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
+
+Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
+wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that
+INHERITS its kind — the text after a `<br>`, a second `<p>`, a `<div>`. It deliberately does NOT
+cover the three elements inside an `<li>` that impose a kind of their OWN.
+
+```bash
+# the three shapes, and the assertions that pin each one keeping its own kind
+grep -n "imposes its own kind" -A 24 src/app/rich-text-runs.test.ts
+grep -n "keeps a <pre> inside an item" -A 10 src/app/rich-text-runs.test.ts
+```
+
+★★ **The trade is deliberate and it is the right way round.** Turning a `<pre>` into an `li`
+continuation would win the indent and lose the kind — and the kind is the whole point of a `<pre>`:
+verbatim whitespace and a monospace face. Same for a `<blockquote>`’s rule-and-italics and for an
+`<hN>`’s LEVEL, which a continuation has nowhere to carry. Losing an indent beats losing the kind.
+
+★ **Reachability is narrow but real.** Tiptap’s `listItem` spec is `paragraph block*`, so the editor
+always puts a `<p>` first and a user cannot type an `<h2>` as an item’s only child. AI-authored
+(`sanitizeAiRichText`) and imported HTML can, and nothing normalises either to the editor’s schema.
+
+★ **The fix, if it is ever wanted, is a second axis, not a fourth kind.** The line would need to
+carry the enclosing item’s `depth` WITHOUT becoming an `li` — i.e. an optional `listDepth` on
+`LineBase` that both renderers add to their indent. That is a wider change than the continuation
+slice needed, and it buys indentation only.
+
+★ A smaller cousin, also open: a DOCX continuation sits at the item’s `w:ind w:left`, so its text
+starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
+`numbering.xml` (§154), which would retire the literal marker text altogether.
+
+## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
+
+Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
+(`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
+whose own line was dropped — it started empty and a `<br>`, an `<hr>` or a heading closed it before
+any text arrived — no longer renders every line unmarked while spending its number. What is left is
+the case where the item puts **no `li` line AT ITS OWN DEPTH** into the output:
+
+```bash
+# both shapes, with the assertions that pin the ordinal being spent
+grep -n "SPENDS a number on an item whose only" -A 22 src/app/rich-text-runs.test.ts
+```
+
+`<ol><li><h2>h</h2></li><li>a</li></ol>` and `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>`. In
+both the item RENDERED — a heading, a sub-list — so it correctly occupies a numbered slot and `a`/`b`
+are item 2. Neither line can carry the outer item's marker, so nothing in the export shows a "1." —
+but **the two shapes miss it for DIFFERENT reasons, and only the first is a kind story**:
+
+- `<li><h2>h</h2></li>` emits a `heading` line, which keeps its own kind by §156. There is no `li`
+  line anywhere, at any depth.
+- `<li><ul>…</ul></li>` **does** emit `li` lines — the sub-list's items, heads of their own, one
+  depth DEEPER. What skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind
+  test. `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts` shows `[1, 0]`
+  then `[0, 1]` as `[depth, index]`, and that mapper emits an array only for a line of kind `"li"`.
+
+An earlier wording of this entry (and of `promoteItemHead`'s docblock, and of AGENTS.md) said "emits
+only lines of another kind", which is FALSE about the second shape and sends a reader hunting for a
+kind bug. The accurate predicate is the one in the title.
+
+★★ **This is §156 seen from the numbering side — but only the FIRST shape shares its cause.** An
+earlier wording here said both did ("a line that keeps its own kind cannot hold an `li`'s marker"),
+which contradicts the two bullets directly above it: the sub-list shape emits `li` lines and is
+skipped on DEPTH, not on kind. For the `<h2>` shape the §156 trade holds as written — promoting its
+line would destroy the level. The `listDepth`-on-`LineBase` second axis §156 proposes would want a
+`listMarker` beside it.
+
+★ **Deliberately NOT closed by widening `promoteItemHead`.** It filters to `line.depth === depth` so
+it cannot reach into a sub-list; dropping that filter would move an outer item's marker onto its
+first nested item, which reads as a numbering bug rather than a missing marker.
+
+★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
+the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.
+
+## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
+
+Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
+(`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
+`rich-text-runs.test.ts` covers that for four kinds. Two of the four fixtures are markup no editor
+can produce, and the blockquote one is the pair that matters:
+
+```bash
+# the hand-authored shape the suite covers, then the two blockquote shapes
+grep -n "keeps the alignment on BOTH halves" -A 25 src/app/rich-text-runs.test.ts
+grep -n "DROPS a blockquote's OWN align" -A 26 src/app/rich-text-runs.test.ts
+```
+
+`<blockquote data-align="right">q<br>r</blockquote>` keeps `"right"` on both halves.
+`<blockquote data-align="right"><p>q</p></blockquote>` projects to a single line with **no align at
+all**: the walk's NESTED arm opens a `blockquote` line carrying the align, the inner `<p>` takes the
+LINE_TAGS arm with `item === null` and opens a line of its own with its own (absent) align, and the
+still-empty outer line is dropped by `flush` for holding no text.
+
+★★★ **REACHABLE ONLY BY IMPORTED OR AI-AUTHORED HTML — the editor cannot produce either fixture.**
+An earlier title and body of this entry said the second one was "the shape the editor actually
+stores", which is false and inverted the severity. `TextAlign` is configured
+`types: ["heading", "paragraph"]` (`rich-text-editor.tsx`), so `data-align` never lands on a
+`<blockquote>` at all; a user aligning text inside a quote puts it on the inner `<p>`, and that shape
+**keeps** its alignment — pinned by "keeps the align the EDITOR stores on a quote". So no user of the
+editor can hit this, and the entry is a robustness gap in the import path, not a live data loss.
+Getting this wrong is the same hand-authored-fixture-as-real-input class the branch spent three
+rounds correcting, reproduced in the correction text itself.
+
+★★ **The fix is not "make LINE_TAGS inherit whatever align is in force".** That arm is the one this
+round just taught to fall back to the ITEM's align inside an `<li>`; giving it a blanket fallback to
+the enclosing block's would also change every `<p>` inside a `<div>` and inside a `<pre>`, which is a
+wider output change than this entry is worth. The narrow shape is for the NESTED arm to hand its
+align down as the alignment IN FORCE and for LINE_TAGS to consult THAT — the same `own ?? inherited`
+resolution, sourced from `walk`'s existing `align` parameter rather than from `item`.
+
+★ **Characterized, not merely recorded.** `rich-text-runs.test.ts` asserts the alignment is
+`undefined` today ("DROPS a blockquote's alignment in the shape the editor actually stores"), so that
+test goes RED when this is fixed and the fixer is told to update it. It is the §126 pattern: an
+assertion that the defect is still present, not a guarantee that it should be.
+
+★ Severity is cosmetic-but-silent, and it is the same class as the `<ul data-align>` residue the
+walk's docblock now names: an author's alignment choice is discarded with nothing to notice it by.
+`data-align` is value-guarded and not tag-guarded in `sanitize-html.ts`, so both shapes reach the
+renderer intact.

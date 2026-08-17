@@ -8,10 +8,19 @@
 // the pane shows an untitled body and reads as broken. That is the
 // fragment/standalone split working as intended, not a renderer bug to patch.
 //
-// ★★ NO SECOND SANITIZE PASS HERE. The renderer's paragraph sink already runs
-// sanitizeDocumentHtml on the one unescaped path — `renderBlock`'s `paragraph`
-// case in doc-render-html.ts. Adding another pass here would imply the sink is
-// optional; removing the sink's would be a stored-XSS hole. Leave both alone.
+// ★★ NO SECOND SANITIZE PASS HERE. The renderer sanitizes at every unescaped
+// sink it has, and there are TWO — `renderBlock`'s `paragraph` case runs
+// sanitizeDocumentHtml (doc-render-html.ts), and `tableHtml` reaches
+// `exportCellHtml`, whose rich branch runs sanitizeRichHtml (download.ts).
+// Adding another pass here would imply those are optional; removing either
+// would be a stored-XSS hole in THIS pane, which renders the result with
+// dangerouslySetInnerHTML. Leave all of it alone.
+// ★★ An earlier revision of this note named ONE sink and quoted the renderer's
+// own "the ONE unescaped path" comment as its warrant. That comment was stale:
+// the rich table cell is a second sink, guarded by a different sanitizer in a
+// different file. The safety argument here now rests on both, and both are
+// named, because a warrant that under-counts its sinks is how a new one gets
+// added with nobody checking it.
 // ★ It was the since-retired sanitizeTemplateHtml until S3a gave documents their
 // own, wider allow-list; naming the old one as if it were current would send a
 // reader to a list that no longer exists, let alone governs this pane.
