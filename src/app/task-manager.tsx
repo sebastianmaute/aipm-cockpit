@@ -205,8 +205,7 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  const { activityLog, logActivity, logActivityChanges, handleClearActivityLog } =
-    useActivityLog();
+  const { activityLog, logActivity, logActivityChanges, handleClearActivityLog } = useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
   // Local in-memory undo (deletes / clear-all / bulk-edit across every entity).
   // capture is threaded into each entity hook below; undo/control are surfaces.
@@ -317,8 +316,7 @@ function TaskManagerInner() {
     [setFeatures],
   );
 
-  const { setContacts, contactsList, handleRemoveContact } =
-    useContacts({ hydrated, tasks });
+  const { setContacts, contactsList, handleRemoveContact } = useContacts({ hydrated, tasks });
 
   // Form / modal state owned by TaskFormProvider (Slice 3 of the
   // task-manager decomposition; see
@@ -593,8 +591,7 @@ function TaskManagerInner() {
   // Prefer the live in-memory project meta name (set by the active backend's
   // load — file OR turso tenant); fall back to the file registry entry's stored
   // name (file mode only), then null (the switcher shows a "no project" label).
-  const currentProjectName =
-    project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
+  const currentProjectName = project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
   // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:

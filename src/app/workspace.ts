@@ -6,22 +6,11 @@
 // the storage layer — codecs and backends import from here, never the
 // reverse. Extracted from storage.ts (which re-exports everything).
 
-import {
-  backfillResourceFks,
-  backfillResources,
-  defaultResourcePlan,
-  seedDisciplines,
-  seedGrades,
-} from "./resource-foundation";
+import { backfillResourceFks, backfillResources, defaultResourcePlan, seedDisciplines, seedGrades } from "./resource-foundation";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { migrateTask } from "./task-status";
-import {
-  sanitizeNoteFields,
-  sanitizeRaidRichFields,
-  sanitizeChangeRichFields,
-  sanitizeMilestoneRichFields,
-} from "./note-log";
+import { sanitizeNoteFields, sanitizeRaidRichFields, sanitizeChangeRichFields, sanitizeMilestoneRichFields } from "./note-log";
 import { withStoredNoteLog } from "./change-log";
 import {
   sanitizeAbsence,
@@ -659,13 +648,10 @@ export function jsonToWorkspace(
       // -> descriptionHtml) but are DOM-free by contract, so they never run
       // DOMPurify. The whole-object load boundary is where that pass belongs.
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
-      // ★★★ `sanitizeChangeItem` DROPS `noteLog` (explicit field list, DOM-free),
-      //     so the log has to be carried across it. The rich pass that follows
-      //     runs `sanitizeNoteLog`, so attaching the RAW array HERE is correct —
-      //     it is sanitized one step later, exactly as tasks and RAID are.
-      //     Attaching it after that pass would store an untrusted file's HTML
-      //     verbatim. RAID needs none of this: its branch never calls
-      //     `sanitizeRaidItem`.
+      // ★★★ The RAW log is attached BEFORE `sanitizeChangeRichFields`, because
+      //     that pass is what sanitizes it; attaching it after would store an
+      //     untrusted file's HTML verbatim. Why it has to be carried across
+      //     `sanitizeChangeItem` at all: see `withStoredNoteLog`.
       changes: ((p.changes as unknown[]) ?? [])
         .map((c) => {
           const s = sanitizeChangeItem(c);

@@ -248,10 +248,7 @@ export function WorkspaceSection({
   // accepted cost of not threading the live sync state through here. Keyed the
   // same way TimelogPanel keys the cache it WRITES — a different fallback than
   // `"default"` would miss every entry and silently report "unknown".
-  const budgetActualsByBucket = useMemo(
-    () => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {},
-    [currentProjectId],
-  );
+  const budgetActualsByBucket = useMemo(() => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {}, [currentProjectId]);
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
@@ -276,10 +273,7 @@ export function WorkspaceSection({
   // Hoist the members to scalars — exhaustive-deps rejects `obj.member` deps.
   const trendsActive = trends.active;
   const trendsSnapshots = trends.snapshots;
-  const baselineMilestoneDates = useMemo(
-    () => (trendsActive ? baselineMilestoneTargets(trendsSnapshots) : undefined),
-    [trendsActive, trendsSnapshots],
-  );
+  const baselineMilestoneDates = useMemo(() => (trendsActive ? baselineMilestoneTargets(trendsSnapshots) : undefined), [trendsActive, trendsSnapshots]);
   const raidEnabledForChanges = isModuleEnabled("raid", features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", features);
 
