@@ -132,10 +132,10 @@ test("does not put a stale note log into the undo capture", async () => {
   // stale value becomes undoable/redoable state. This is the ONLY assertion
   // that separates the two fix sites.
   expect(captureFieldEdit).toHaveBeenCalled();
-  const withNoteLog = captureFieldEdit.mock.calls.filter(
-    ([c]: [{ before: Record<string, unknown>; after: Record<string, unknown> }]) =>
-      "noteLog" in c.before || "noteLog" in c.after,
-  );
+  const withNoteLog = captureFieldEdit.mock.calls.filter((call) => {
+    const c = call[0] as { before: Record<string, unknown>; after: Record<string, unknown> };
+    return "noteLog" in c.before || "noteLog" in c.after;
+  });
   expect(withNoteLog).toEqual([]);
   expect(captureFieldEdit.mock.calls[0][0]).toMatchObject({
     before: { title: "Scope cut" }, after: { title: "Scope cut v2" },
