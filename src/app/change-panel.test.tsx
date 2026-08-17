@@ -17,7 +17,7 @@ function ci(over: Partial<ChangeItem>): ChangeItem {
 const base = {
   lang: "en-US" as const, tasks: [], raid: [],
   changes: [ci({ id: 1, title: "Alpha scope", type: "Scope", status: "Proposed" }), ci({ id: 2, title: "Beta cost", type: "Cost", status: "Approved" })],
-  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(),
+  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(), onStatusChange: vi.fn(),
 };
 
 // The embedded ChangeEditModal renders ModalFieldControls, which reads
@@ -102,6 +102,53 @@ describe("ChangePanel", () => {
 
     fireEvent.change(box, { target: { value: "creep" } });
     expect(getByText("Widget rework")).toBeTruthy();
+  });
+});
+
+describe("ChangePanel — inline status select", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  // TWO rows, so a name that omitted the row qualifier would collide (WCAG
+  // 2.4.6) — axe has no rule for duplicate accessible names at any seed size,
+  // so a unit test rendering >=2 rows is the only possible detector.
+  const rowLabel = (title: string) => `${t("en-US", "changeFieldStatus")} – ${title}`;
+
+  it("renders a row-unique status select per row, showing that row's status", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    expect((getByRole("combobox", { name: rowLabel("Alpha scope") }) as HTMLSelectElement).value).toBe("Proposed");
+    expect((getByRole("combobox", { name: rowLabel("Beta cost") }) as HTMLSelectElement).value).toBe("Approved");
+  });
+
+  it("reports the picked status to onStatusChange with the row id", () => {
+    const onStatusChange = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} onStatusChange={onStatusChange} />,
+      { wrapper: Providers },
+    );
+    fireEvent.change(getByRole("combobox", { name: rowLabel("Alpha scope") }), {
+      target: { value: "Approved" },
+    });
+    expect(onStatusChange).toHaveBeenCalledWith(1, "Approved");
+  });
+
+  // The row's onClick opens the editor. A real user CLICKS the select to open
+  // it, so that click must not reach the row — hence stopPropagation on the
+  // <td>. Firing only `change` would never exercise the row handler at all and
+  // the assertion would hold with the guard deleted (mutation-checked: removing
+  // the handler turns this test red, the `change`-only variant stays green).
+  it("does not open the row editor when the status select is clicked", () => {
+    const { getByRole, queryByDisplayValue } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    const select = getByRole("combobox", { name: rowLabel("Alpha scope") });
+    fireEvent.click(select);
+    expect(queryByDisplayValue("Alpha scope")).toBeNull();
+    fireEvent.change(select, { target: { value: "Rejected" } });
+    expect(queryByDisplayValue("Alpha scope")).toBeNull();
   });
 });
 

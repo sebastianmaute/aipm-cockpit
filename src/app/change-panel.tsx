@@ -36,6 +36,7 @@ import {
   type ChangeSortKey,
 } from "./change-log";
 import { applyChangeStatus } from "./use-change-log";
+import { ChangeStatusSelect, changeStatusLabel } from "./change-status-select";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { DataTable } from "./data-table";
 import {
@@ -99,6 +100,9 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   today: string;
   onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, title: string) => void;
+  /** Inline status change from the row select. Must route through
+   *  `applyChangeStatus` (the sole writer of the status/decisionDate pair). */
+  onStatusChange: (id: number, next: ChangeStatus) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
@@ -130,15 +134,6 @@ const TYPE_KEY: Record<ChangeType, TranslationKey> = {
   Other: "changeTypeOther",
 };
 
-const STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
-  Proposed: "changeStatusProposed",
-  "Under Review": "changeStatusUnderReview",
-  Approved: "changeStatusApproved",
-  Rejected: "changeStatusRejected",
-  Implemented: "changeStatusImplemented",
-  Deferred: "changeStatusDeferred",
-};
-
 const IMPACT_KEY: Record<NonNullable<ChangeItem["impact"]>, TranslationKey> = {
   Low: "raidSeverityLow",
   Medium: "raidSeverityMedium",
@@ -148,9 +143,6 @@ const IMPACT_KEY: Record<NonNullable<ChangeItem["impact"]>, TranslationKey> = {
 
 function typeLabel(c: ChangeType, lang: Lang): string {
   return t(lang, TYPE_KEY[c]);
-}
-function statusLabel(s: ChangeStatus, lang: Lang): string {
-  return t(lang, STATUS_KEY[s]);
 }
 function impactLabel(i: NonNullable<ChangeItem["impact"]>, lang: Lang): string {
   return t(lang, IMPACT_KEY[i]);
@@ -166,6 +158,7 @@ function ChangePanelBody({
   today,
   onSave,
   onDelete,
+  onStatusChange,
   onCaptureBulk,
   raidEnabled = true,
   stakeholdersEnabled = true,
@@ -249,7 +242,7 @@ function ChangePanelBody({
       selectField(
         "status",
         t(lang, "changeFieldStatus"),
-        CHANGE_STATUSES.map((s) => ({ value: s, label: statusLabel(s, lang) })),
+        CHANGE_STATUSES.map((s) => ({ value: s, label: changeStatusLabel(s, lang) })),
       ),
       selectField(
         "type",
@@ -392,7 +385,7 @@ function ChangePanelBody({
         <option value="All">{t(lang, "changeFilterStatusAll")}</option>
         {CHANGE_STATUSES.map((st) => (
           <option key={st} value={st}>
-            {statusLabel(st, lang)}
+            {changeStatusLabel(st, lang)}
           </option>
         ))}
       </Select>
@@ -603,9 +596,11 @@ function ChangePanelBody({
                     </span>
                   </td>
                   )}
+                  {/* The row opens the editor on click; without stopPropagation
+                      picking a status would ALSO open the modal. */}
                   {!hiddenSet.has("status") && (
-                  <td className="px-3 py-2 text-foreground">
-                    {statusLabel(item.status, lang)}
+                  <td className="px-3 py-2 text-foreground" onClick={(e) => e.stopPropagation()}>
+                    <ChangeStatusSelect lang={lang} item={item} onStatusChange={onStatusChange} />
                   </td>
                   )}
                   {!hiddenSet.has("requestedBy") && (

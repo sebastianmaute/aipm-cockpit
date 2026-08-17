@@ -115,6 +115,7 @@ export function WorkspaceSection({
   documentsByEntity,
   handleSaveChange,
   handleDeleteChange,
+  handleChangeStatusChange,
   onCaptureChangeBulk,
   stakeholders,
   handleSaveStakeholder,
@@ -636,6 +637,7 @@ export function WorkspaceSection({
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
+              onStatusChange={handleChangeStatusChange}
               onCaptureBulk={onCaptureChangeBulk}
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}

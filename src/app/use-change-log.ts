@@ -81,6 +81,41 @@ export function useChangeLog(args: UseChangeLogArgs) {
     }
   }, [changes, setChanges, args]);
 
+  // Inline status change from the table row. Routes through applyChangeStatus —
+  // the SOLE writer of the status/decisionDate invariant — so the row cannot
+  // acquire a status without its matching decision date, or keep a stale one.
+  // Functional updater for the same reason handleSaveChange uses one: a bulk
+  // status sweep would otherwise have N saves in one tick all read the same
+  // stale closure and the last write clobber the rest.
+  const handleChangeStatusChange = useCallback((id: number, next: ChangeStatus) => {
+    const previous = changes.find((c) => c.id === id);
+    // Same concurrent-delete case handleSaveChange guards: the map-replace below
+    // would silently no-op. Surface it instead of dropping the edit in silence.
+    if (!previous) {
+      if (args.showToast && args.lang) {
+        reportSilentFailure(args.showToast, args.lang, "change.editVanished", "concurrent delete during inline status change", "guardEditVanished");
+      }
+      return;
+    }
+    const updated: ChangeItem = {
+      ...applyChangeStatus(previous, next, args.today),
+      localModifiedAt: new Date().toISOString(),
+    };
+    setChanges((prev) => prev.map((c) => (c.id === id ? updated : c)));
+    // CHANGE_UNDO_GROUPS pairs status with decisionDate, so one undo entry
+    // restores both halves of the invariant.
+    captureFieldChanges(args.captureFieldEdit, {
+      setter: setChanges, kind: "change.updated", id,
+      prev: previous, next: updated, groups: CHANGE_UNDO_GROUPS,
+      stampField: "localModifiedAt", name: previous.title,
+    });
+    if (args.logActivityChanges) {
+      args.logActivityChanges("change.updated", diffFields(previous, updated), id, previous.title);
+    } else {
+      args.logActivity?.("change.updated", id, previous.title);
+    }
+  }, [changes, setChanges, args]);
+
   const handleDeleteChange = useCallback((id: number, title: string) => {
     const doomed = changes.find((c) => c.id === id);
     if (doomed) args.capture?.({ setter: setChanges, kind: "change.deleted", removed: [doomed], fromArray: changes, name: title });
@@ -95,5 +130,5 @@ export function useChangeLog(args: UseChangeLogArgs) {
     if (edited.length) args.capture?.({ setter: setChanges, kind: "bulk.edit", edited, fromArray: changes, entityKey: "change" });
   }, [changes, setChanges, args]);
 
-  return { changes, handleSaveChange, handleDeleteChange, captureBulkUndo };
+  return { changes, handleSaveChange, handleChangeStatusChange, handleDeleteChange, captureBulkUndo };
 }

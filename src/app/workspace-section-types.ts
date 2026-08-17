@@ -23,6 +23,7 @@ import type {
   Absence,
   BudgetBucket,
   ChangeItem,
+  ChangeStatus,
   ProjectMeta,
   RaidItem,
   Resource,
@@ -155,6 +156,8 @@ export interface WorkspaceSectionProps {
   documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
+  /** Inline status change from a change row (routes through applyChangeStatus). */
+  handleChangeStatusChange: (id: number, next: ChangeStatus) => void;
   /** Capture the selected changes' pre-edit images for undo before a bulk apply. */
   onCaptureChangeBulk?: (ids: readonly number[]) => void;
   stakeholders: readonly Stakeholder[];
