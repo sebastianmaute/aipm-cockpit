@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { asTimeZoneForTests } from "./timezone";
+import { asTimeZoneForTests, createProjectClock } from "./timezone";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { act, renderHook } from "@testing-library/react";
 import { type ReactNode } from "react";
@@ -26,6 +26,32 @@ import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
  *  error rather than yielding a fake object, so a future test that reuses
  *  these fixtures and forgets to override it fails legibly instead of
  *  crashing deep inside buildDashboardSnapshot on an undefined property. */
+/**
+ * A `ProjectClock` reading as `day` in `tz`.
+ *
+ * ★★★ The fixture pins the day by choosing an INSTANT, never by supplying
+ * `today` — `createProjectClock` derives the date from the zone itself (§153),
+ * so not even a test can construct a `today` that disagrees with the `tz`
+ * beside it. That is the property the bag exists for; a helper taking both
+ * would hand the escape hatch straight back.
+ *
+ * ★★ The assertion is not paranoia. Midday UTC lands on the requested day for
+ * every zone this file uses today (UTC, Europe/Berlin, America/New_York), but
+ * an extreme-offset zone (UTC+14, UTC-11) would silently roll to the
+ * neighbouring day and quietly change what the test means. Failing loudly here
+ * is the difference between a fixture that is wrong and one that is wrong
+ * INVISIBLY.
+ */
+function testClock(day: string, tz: string) {
+  const clock = createProjectClock(asTimeZoneForTests(tz), new Date(`${day}T12:00:00.000Z`));
+  if (clock.today !== day) {
+    throw new Error(
+      `testClock: midday UTC on ${day} renders as ${clock.today} in ${tz}; pick an instant inside that zone's day.`,
+    );
+  }
+  return clock;
+}
+
 const stubGetDashboardModel = (): DashboardModel => {
   throw new Error("getDashboardModel not stubbed for this test");
 };
@@ -142,8 +168,7 @@ function renderRaidProbe() {
     () => ({
       d: useChatDispatcher({
         settings: makeSettings(),
-        today: "2026-05-19",
-        timezone: asTimeZoneForTests("UTC"),
+        clock: testClock("2026-05-19", "UTC"),
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
@@ -169,6 +194,7 @@ function renderDispatcher(
   // (the document-tool tests among them exercise every write path with it
   // absent). Only the activity-row suites pass a spy.
   logActivityAs?: LogActivityAsFn,
+  onSettingsLoggedByAi?: () => void,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -180,8 +206,7 @@ function renderDispatcher(
     () =>
       useChatDispatcher({
         settings,
-        today: "2026-05-19",
-        timezone: asTimeZoneForTests("UTC"),
+        clock: testClock("2026-05-19", "UTC"),
         setSelectedIds,
         setSettings,
         isReadOnly,
@@ -191,6 +216,7 @@ function renderDispatcher(
         getBudgetRollup: stubGetBudgetRollup,
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
         logActivityAs,
+        onSettingsLoggedByAi,
       }),
     { wrapper },
   );
@@ -691,8 +717,7 @@ describe("useChatDispatcher", () => {
       () =>
         useChatDispatcher({
           settings,
-          today: "2026-05-19",
-          timezone: asTimeZoneForTests("UTC"),
+          clock: testClock("2026-05-19", "UTC"),
           setSelectedIds,
           setSettings,
           isReadOnly: false,
@@ -751,8 +776,7 @@ describe("useChatDispatcher", () => {
     function useProbe() {
       const dispatcher = useChatDispatcher({
         settings: makeSettings(),
-        today: "2026-05-19",
-        timezone: asTimeZoneForTests("UTC"),
+        clock: testClock("2026-05-19", "UTC"),
         setSelectedIds: vi.fn(),
         setSettings: vi.fn(),
         isReadOnly: false,
@@ -2398,10 +2422,21 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
 // ends in `...args: (string | number)[]`, so passing two args to a kind whose
 // EN string carries three placeholders typechecks, ships, and renders a
 // literal "{2}" in the Activity panel and in the model's own history feed.
-// These assertions are exact-arity on purpose: they are the only place the
-// per-kind contract is pinned. Counts verified against src/app/i18n.ts —
-// activityRaidUpdated "RAID #{0} updated ({1}): {2}" is the three-arg case,
-// activityMilestoneUpdated "Updated milestone #{0}" the one-arg case.
+// These assertions are exact-arity on purpose: for the DISPATCHER's writers
+// they are the only place the per-kind contract is pinned. Counts verified
+// against src/app/i18n.ts — activityRaidUpdated "RAID #{0} updated ({1}): {2}"
+// is the three-arg case, activityMilestoneUpdated "Updated milestone #{0}" the
+// one-arg case.
+// ★★ "THE ONLY PLACE" IS ONLY WORTH SAYING IF THE COVERAGE IS COMPLETE, and it
+// was not: five emitted kinds — change.updated, change.deleted,
+// stakeholder.updated, stakeholder.deleted, resource.updated — had NO positive
+// assertion anywhere while this comment claimed the contract was pinned here.
+// Their arities happened to be right, so nothing was broken; the point is that
+// nothing would have SAID SO. Every kind the dispatcher emits now has one.
+// Re-derive that rather than trusting this sentence — enumerate the emit sites
+// with `grep -n 'logActivityAs?.("ai"' src/app/use-chat-dispatcher.ts` (23 on
+// 2026-08-16) and check each KIND against a toHaveBeenCalledWith below. A new
+// writer adds a row to that grep and nothing else forces a test — add one here.
 describe("useChatDispatcher – AI entity writes reach the activity log", () => {
   function renderWithLog(tasks: Task[] = seedTasks()) {
     const logActivityAs = vi.fn();
@@ -2535,7 +2570,14 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     expect(logActivityAs).toHaveBeenCalledWith("ai", "milestone.deleted", 1);
   });
 
-  it("logs change.* and stakeholder.* with (id, title|name)", () => {
+  // ★★ THE UPDATE/DELETE HALVES ARE NOT A FORMALITY — they were missing, and a
+  //    create-only test says nothing about them: the three kinds are separate
+  //    call sites with independently written arg lists (see raid.deleted above,
+  //    which had to be pinned on the STORED title rather than the created one).
+  //    While only the creates were pinned, `change.updated`/`change.deleted` and
+  //    `stakeholder.updated`/`stakeholder.deleted` had NO positive assertion
+  //    anywhere in the suite.
+  it("logs change.* and stakeholder.* with (id, title|name), on all three verbs", () => {
     const { result, logActivityAs } = renderWithLog();
     act(() => {
       result.current.createChange({ title: "Scope +1" });
@@ -2543,9 +2585,30 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     expect(logActivityAs).toHaveBeenCalledWith("ai", "change.created", 1, "Scope +1");
     logActivityAs.mockClear();
     act(() => {
+      result.current.updateChange(1, { title: "Scope +2" });
+    });
+    // The MERGED title, not the created one — same rule raid.deleted pins.
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.updated", 1, "Scope +2");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.deleteChange(1);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "change.deleted", 1, "Scope +2");
+    logActivityAs.mockClear();
+    act(() => {
       result.current.createStakeholder({ name: "Ada Lovelace" });
     });
     expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.created", 1, "Ada Lovelace");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.updateStakeholder(1, { name: "Ada King" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.updated", 1, "Ada King");
+    logActivityAs.mockClear();
+    act(() => {
+      result.current.deleteStakeholder(1);
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "stakeholder.deleted", 1, "Ada King");
   });
 
   // ★ The full name, mirroring task-manager.tsx's own resource.created row —
@@ -2557,10 +2620,18 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     });
     expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.created", 1, "Ada Lovelace");
     logActivityAs.mockClear();
+    // ★ `resource.updated` had no positive assertion at all until this line,
+    //   and it is the one of the three that reads `resourceLogName(merged)` —
+    //   a partial patch must still log the FULL merged name, not the patch.
+    act(() => {
+      result.current.updateResource(1, { lastName: "King" });
+    });
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.updated", 1, "Ada King");
+    logActivityAs.mockClear();
     act(() => {
       result.current.deleteResource(1);
     });
-    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.deleted", 1, "Ada Lovelace");
+    expect(logActivityAs).toHaveBeenCalledWith("ai", "resource.deleted", 1, "Ada King");
   });
 
   // ★★ setTaskDependencies is the writer a `^(create|update|delete)[A-Z]` grep
@@ -2620,6 +2691,84 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
       result.current.setLanguage("de");
     });
     expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+  });
+
+  // ★★★ §154 — an AI settings write produced TWO textually identical
+  //   "Settings updated" rows: this attributed one, and the debounced
+  //   actor-less one task-manager's settings effect adds ~1500ms later. The
+  //   effect cannot see its own cause, so the dispatcher tells it: one credit
+  //   per row it already wrote, consumed by the next run of that effect.
+  describe("credits the debounced settings row it already wrote (§154)", () => {
+    function renderWithCredit() {
+      const logActivityAs = vi.fn();
+      const onSettingsLoggedByAi = vi.fn();
+      const { result } = renderDispatcher(
+        seedTasks(), false, "open-points", logActivityAs, onSettingsLoggedByAi,
+      );
+      return { result, logActivityAs, onSettingsLoggedByAi };
+    }
+
+    it("credits once per applied updateSettings", () => {
+      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      act(() => {
+        result.current.updateSettings({ showViewHints: false });
+      });
+      expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
+      expect(onSettingsLoggedByAi).toHaveBeenCalledTimes(1);
+    });
+
+    it("credits once for setLanguage", () => {
+      const { result, onSettingsLoggedByAi } = renderWithCredit();
+      act(() => {
+        result.current.setLanguage("de");
+      });
+      expect(onSettingsLoggedByAi).toHaveBeenCalledTimes(1);
+    });
+
+    // ★★★ THE LOAD-BEARING ONE, and the reason a counter was chosen over the
+    //   suppression WINDOW that was rejected. A credit issued without a real
+    //   settings change is never consumed — the effect only runs when the
+    //   settings identity changes — so it would sit there and silently swallow
+    //   the NEXT genuine user row. A patch that applies nothing must therefore
+    //   credit nothing, exactly as it logs nothing.
+    it("credits NOTHING when the patch applied nothing", () => {
+      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      act(() => {
+        result.current.updateSettings({});
+      });
+      expect(logActivityAs).not.toHaveBeenCalled();
+      expect(onSettingsLoggedByAi).not.toHaveBeenCalled();
+    });
+
+    // ★★ The invariant stated as one assertion: credits and `"ai"`
+    //   settings rows are issued together, always, so the counter can never
+    //   drift from the number of rows it is meant to cancel.
+    it("issues exactly as many credits as settings rows across a burst", () => {
+      const { result, logActivityAs, onSettingsLoggedByAi } = renderWithCredit();
+      act(() => {
+        result.current.updateSettings({ showViewHints: false });
+        result.current.setLanguage("de");
+        result.current.updateSettings({});
+      });
+      const settingsRows = logActivityAs.mock.calls.filter(
+        (c) => c[1] === "settings.updated",
+      ).length;
+      expect(settingsRows).toBe(2);
+      expect(onSettingsLoggedByAi).toHaveBeenCalledTimes(settingsRows);
+    });
+
+    // ★ A refused (read-only) write logs nothing, so it must credit nothing.
+    it("credits nothing when the write is refused", () => {
+      const logActivityAs = vi.fn();
+      const onSettingsLoggedByAi = vi.fn();
+      const { result } = renderDispatcher(
+        seedTasks(), true, "open-points", logActivityAs, onSettingsLoggedByAi,
+      );
+      act(() => {
+        expect(() => result.current.updateSettings({ showViewHints: false })).toThrow();
+      });
+      expect(onSettingsLoggedByAi).not.toHaveBeenCalled();
+    });
   });
 
   // ★★ The OTHER grep-invisible writer. It increments `Task.inquiriesSent`, a
@@ -2744,8 +2893,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
       () => ({
         d: useChatDispatcher({
           settings: makeSettings(),
-          today: "2026-08-16",
-          timezone: asTimeZoneForTests(timezone),
+          clock: testClock("2026-08-16", timezone),
           setSelectedIds: vi.fn(),
           setSettings: vi.fn(),
           isReadOnly: false,
@@ -2816,8 +2964,7 @@ describe("useChatDispatcher – getSnapshot().activitySummary", () => {
       () => ({
         d: useChatDispatcher({
           settings: { ...makeSettings(), ai: { ...makeSettings().ai, activityRecap: false } },
-          today: "2026-08-16",
-          timezone: asTimeZoneForTests("Europe/Berlin"),
+          clock: testClock("2026-08-16", "Europe/Berlin"),
           setSelectedIds: vi.fn(),
           setSettings: vi.fn(),
           isReadOnly: false,

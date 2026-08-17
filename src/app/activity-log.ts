@@ -427,15 +427,56 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   if (typeof e.kind !== "string") return null;
   if (!Array.isArray(e.args)) return null;
 
-  // ★★ The early return guards on BOTH repairs. Keeping it at `changes ===
+  // ★★ The early return guards on ALL THREE repairs. Keeping it at `changes ===
   // undefined` alone would return a hostile actor untouched whenever `changes`
   // happened to be absent — the COMMON case, so the bug would be invisible in
-  // most fixtures.
+  // most fixtures. `argsBad` joined it for the same reason (§158): this branch
+  // returns the ORIGINAL object by reference, so a repair omitted here does not
+  // happen at all on the overwhelmingly common `changes === undefined` path.
   const actorBad = e.actor !== undefined && typeof e.actor !== "string";
-  if (e.changes === undefined && !actorBad) return v as ActivityEntry;
+  // ★★ DENSIFY FIRST. `Array.prototype.some`/`map` SKIP HOLES, so a sparse
+  //   `args` (`new Array(2)`) reported clean, took the by-reference fast path
+  //   below, and rendered "undefined" in the audit row — the same class of
+  //   silent wrongness the coercion exists to prevent, arriving through the one
+  //   shape neither method can see. `Array.from` turns each hole into an
+  //   explicit `undefined`, which then fails the type test and is coerced like
+  //   any other bad element.
+  // ★★ NOT FROM A HAND-EDITED JSON BLOB — an earlier wording cited `[1, , 3]`
+  //   "from a hand-edited blob" as the motivating case and that is impossible:
+  //   JSON has no hole literal, so no JSON/CSV/MD/Turso load path can produce
+  //   one. The only real producer is a structured-clone write into IndexedDB.
+  //   The guard is still worth its cost, but do not justify it with a source
+  //   that cannot reach it — that is how a guard gets deleted later by someone
+  //   who checks the stated reason and finds it false.
+  // ★ It trades an O(1) early exit for an O(n) materialisation on every entry:
+  //   `.some` short-circuits and skips holes, `Array.from` walks the whole
+  //   array first. Accepted — `args` is a handful of elements.
+  const args: unknown[] = Array.from(e.args);
+  const argsBad = args.some((a) => typeof a !== "string" && typeof a !== "number");
+  if (e.changes === undefined && !actorBad && !argsBad) return v as ActivityEntry;
 
   const repaired: Record<string, unknown> = { ...(v as object) };
   if (actorBad) delete repaired.actor;
+  // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§158).
+  //   `args` is POSITIONAL: renderers call `t(lang, key, ...entry.args)` and the
+  //   dict interpolates `{0}`/`{1}`. Removing a bad element therefore SHIFTS
+  //   every later argument into the wrong slot, turning a crash into silently
+  //   wrong audit text — which is worse, because nothing looks broken. Dropping
+  //   the whole ENTRY is also wrong: the log is shared workspace data that the
+  //   autosave writes straight back, the same reason an unknown-but-string
+  //   `kind` is KEPT above, so a client meeting one corrupt row would delete it
+  //   for everyone. Substituting "" preserves arity, the row, and every other
+  //   argument.
+  // ★★ Why this must exist at the LOAD boundary and not at the reader: `t()`
+  //   interpolates with `String(a)`, and a non-callable own `toString` makes
+  //   ToPrimitive fall through to `Object.prototype.valueOf`, which hands the
+  //   object back and THROWS "Cannot convert object to primitive value". The
+  //   Activity panel had a local guard; `renderActivityEntry` did not, and it
+  //   runs inside `runTool` — so one hand-edited JSON blob killed a chat turn
+  //   rather than failing to paint a table. Two consumers had to rediscover it.
+  if (argsBad) {
+    repaired.args = args.map((a) => (typeof a === "string" || typeof a === "number" ? a : ""));
+  }
   if (e.changes !== undefined) {
     const changes = sanitizeChanges(e.changes);
     if (changes) repaired.changes = changes;

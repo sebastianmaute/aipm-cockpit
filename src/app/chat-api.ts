@@ -11,6 +11,7 @@ import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
+import { historySearchEnabled } from "./settings-types";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -296,7 +297,7 @@ const CACHED_TOOLS_NO_HISTORY = withCacheBreakpoint(
  *   array identity.
  */
 export function toolsFor(historySearch: boolean | undefined) {
-  return historySearch === false ? CACHED_TOOLS_NO_HISTORY : CACHED_TOOLS;
+  return historySearchEnabled(historySearch) ? CACHED_TOOLS : CACHED_TOOLS_NO_HISTORY;
 }
 
 // ★★ DERIVED FROM THE ARRAYS `toolsFor` RETURNS, never listed by hand. These
@@ -314,7 +315,7 @@ const TOOL_NAMES_NO_HISTORY: ReadonlySet<string> = new Set(
 /** The names of the tools this request will actually carry. Same input and same
  *  `=== false` reading as `toolsFor` — they are two views of one decision. */
 export function toolNamesFor(historySearch: boolean | undefined): ReadonlySet<string> {
-  return historySearch === false ? TOOL_NAMES_NO_HISTORY : TOOL_NAMES;
+  return historySearchEnabled(historySearch) ? TOOL_NAMES : TOOL_NAMES_NO_HISTORY;
 }
 
 export async function callClaude(

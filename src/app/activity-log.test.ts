@@ -369,10 +369,18 @@ describe("sanitizeActivityEntry — actor", () => {
     expect((out as { actor?: string } | null)?.actor).toBe("reviewer");
   });
 
+  // ★★★ `"actor" in out`, NOT `toBeUndefined()` — STRIPPED means the KEY IS
+  //   GONE, and the two are not the same assertion. A mutant that writes
+  //   `repaired.actor = undefined` satisfies `toBeUndefined()` while leaving the
+  //   key present, and a present-but-undefined key is not free here: the entry
+  //   is serialised as JSON on the meta-blob write paths, so it changes the
+  //   stored bytes (and, on the paths that hand-build, can round-trip as a
+  //   literal `null`). Same shape the rest of this branch's absence assertions
+  //   use.
   test("strips a non-string actor but keeps the entry", () => {
     const out = sanitizeActivityEntry({ ...base, actor: { evil: true } });
     expect(out).not.toBeNull();
-    expect(out?.actor).toBeUndefined();
+    expect("actor" in (out as object)).toBe(false);
     expect(out?.kind).toBe("task.created");
   });
 
@@ -381,14 +389,89 @@ describe("sanitizeActivityEntry — actor", () => {
   //    user's, in the one record the model is told to trust.
   test("leaves an absent actor absent, never defaulting it to user", () => {
     const out = sanitizeActivityEntry(base);
-    expect(out?.actor).toBeUndefined();
+    expect(out).not.toBeNull();
+    expect("actor" in (out as object)).toBe(false);
   });
 
   test("strips a malformed actor while ALSO stripping malformed changes", () => {
     const out = sanitizeActivityEntry({ ...base, actor: 7, changes: "nope" });
     expect(out).not.toBeNull();
-    expect(out?.actor).toBeUndefined();
+    expect("actor" in (out as object)).toBe(false);
     expect(out?.changes).toBeUndefined();
+  });
+});
+
+describe("sanitizeActivityEntry — args elements (§158)", () => {
+  const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created" };
+  /** A non-callable own `toString` makes ToPrimitive fall through to
+   *  `Object.prototype.valueOf`, which hands the object back — so `String(x)`
+   *  THROWS rather than producing "[object Object]". */
+  const HOSTILE = { toString: 1 };
+
+  // ★★★ The CONTROL. Without it this whole block is unfalsifiable: if the
+  //   fixture were merely an ordinary object, `String()` would return
+  //   "[object Object]" and every assertion below would pass against code that
+  //   fixed nothing. Assert the fixture is actually lethal FIRST.
+  test("the fixture really is unstringifiable (control)", () => {
+    expect(() => String(HOSTILE)).toThrow(/convert object to primitive/i);
+  });
+
+  test("coerces a hostile element to \"\" and KEEPS the entry", () => {
+    const out = sanitizeActivityEntry({ ...base, args: [HOSTILE] });
+    expect(out).not.toBeNull();
+    expect(out?.args).toEqual([""]);
+    expect(() => out?.args.map(String)).not.toThrow();
+  });
+
+  // ★★★ THE LOAD-BEARING ONE. `args` is positional — renderers spread it into
+  //   `t(lang, key, ...args)` against `{0}`/`{1}` placeholders. A `filter`-based
+  //   fix passes the "no longer throws" assertion above while shifting "after"
+  //   into slot 0, turning a crash into silently wrong audit text.
+  test("preserves ARITY and position, never filtering the bad element out", () => {
+    const out = sanitizeActivityEntry({ ...base, args: ["before", HOSTILE, "after"] });
+    expect(out?.args).toEqual(["before", "", "after"]);
+  });
+
+  test("leaves a clean args array untouched", () => {
+    const args = [1, "x"];
+    const out = sanitizeActivityEntry({ ...base, args });
+    expect(out?.args).toEqual([1, "x"]);
+  });
+
+  // ★★★ The early-return trap, identical in shape to the `actorBad` one above:
+  //   the fast path returns the ORIGINAL object BY REFERENCE, and
+  //   `changes === undefined` is the overwhelmingly common case. A repair added
+  //   to the repair block but left out of that condition therefore does nothing
+  //   in practice while every fixture carrying `changes` still passes.
+  test("repairs args on the changes-absent fast path", () => {
+    const stored = { ...base, args: [HOSTILE] };
+    const out = sanitizeActivityEntry(stored);
+    expect(out?.args).toEqual([""]);
+    expect(out).not.toBe(stored);
+  });
+
+  // ★★★ HOLES ARE INVISIBLE TO `some`/`map`, so a sparse `args` was reported
+  //   clean, returned BY REFERENCE through the fast path, and rendered
+  //   "undefined" in the row — the exact silent-wrongness the coercion exists to
+  //   prevent, through the one shape neither method can see. The fix densifies
+  //   with `Array.from` first. Written with `new Array(2)` deliberately: a
+  //   literal `[undefined, undefined]` is DENSE and passes without the fix.
+  test("coerces HOLES in a sparse args array, not just bad values", () => {
+    const sparse = new Array(2);
+    sparse[1] = "tail";
+    const out = sanitizeActivityEntry({ ...base, args: sparse });
+    expect(out?.args).toEqual(["", "tail"]);
+  });
+
+  test("repairs args together with a malformed actor and changes", () => {
+    const out = sanitizeActivityEntry({ ...base, args: [HOSTILE], actor: 7, changes: "nope" });
+    expect(out?.args).toEqual([""]);
+    expect("actor" in (out as object)).toBe(false);
+    expect(out?.changes).toBeUndefined();
+  });
+
+  test("still rejects a non-array args outright", () => {
+    expect(sanitizeActivityEntry({ ...base, args: "nope" })).toBeNull();
   });
 });
 

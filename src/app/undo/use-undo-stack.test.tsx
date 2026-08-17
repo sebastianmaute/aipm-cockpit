@@ -73,7 +73,10 @@ describe("useUndoStack", () => {
     });
     act(() => result.current.undo());
     expect(arr).toEqual([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
-    expect(deps.logActivity).toHaveBeenCalledWith("undo", 1);
+    // Everything after the count is (kind, count) PAIRS (§160) — the completion
+    // trend reads them to undo its own subtraction; without them the row is a
+    // bare total and a restored delete is indistinguishable from a reverted edit.
+    expect(deps.logActivity).toHaveBeenCalledWith("undo", 1, "task.deleted", 1);
     expect(deps.showToast).toHaveBeenCalledWith("info", expect.any(String));
     expect(result.current.canUndo).toBe(false);
   });
@@ -150,7 +153,7 @@ describe("useUndoStack", () => {
     expect(result.current.canUndo).toBe(false);
     act(() => result.current.redo());
     expect(arr).toEqual([{ id: 1, name: "a" }]); // gone again
-    expect(deps.logActivity).toHaveBeenCalledWith("redo", 1);
+    expect(deps.logActivity).toHaveBeenCalledWith("redo", 1, "task.deleted", 1);
     expect(result.current.canRedo).toBe(false);
     expect(result.current.canUndo).toBe(true); // re-undoable
   });
@@ -607,8 +610,49 @@ describe("undoThrough", () => {
     act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
 
     expect(deps.logActivity).toHaveBeenCalledTimes(1);
-    expect(deps.logActivity).toHaveBeenCalledWith("undo", 3);   // 2 deleted + 1 edited
+    // 2 deleted + 1 edited. The batch is MIXED, and per-kind pairs describe it
+    // exactly: 2 rows under `task.deleted` (which moved the total) and 1 under
+    // `task.updated` (which did not). §160's first cut wrote a single "" here and
+    // the trend discarded the whole 2-row correction — see `reversedKindCounts`.
+    // ★★ PAIR ORDER IS EXECUTION ORDER, and undo runs NEWEST-FIRST — so the edit
+    //   captured second is emitted first. Measured, not predicted: this assertion
+    //   was first written delete-first and failed. The mirror `redoThrough` test
+    //   below emits delete-first, because redo replays oldest-first. Order carries
+    //   no meaning to the reader (`completion-trend.test.ts` pins that both orders
+    //   give the same answer); it is asserted here only to keep the test exact.
+    expect(deps.logActivity).toHaveBeenCalledWith("undo", 3, "task.updated", 1, "task.deleted", 2);
     expect(deps.showToast).toHaveBeenCalledTimes(1);
+  });
+
+  // The mixed-batch sibling above pins the `""` fallback; this pins the branch
+  // that actually corrects the trend, so a `batchReversedKind` that always
+  // returned `""` (the safe-looking simplification) fails one of the two.
+  it("names the reversed kind when every entry in the batch shares it", () => {
+    const deps = makeMockDeps();
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<readonly Row[]>([{ id: 1, name: "a" }]);
+      return { rows, setRows, api: useUndoStack(deps) };
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 2, name: "b" }, { id: 3, name: "c" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }],
+      });
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 4, name: "d" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 4, name: "d" }],
+      });
+    });
+    deps.logActivity.mockClear();
+
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+
+    expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    expect(deps.logActivity).toHaveBeenCalledWith("undo", 3, "task.deleted", 3);
   });
 
   it("is a no-op for an absent id", () => {
@@ -737,5 +781,71 @@ describe("redoThrough", () => {
     expect(result.current.rows).toEqual([{ id: 1, name: "c" }]);
     expect(result.current.api.redoStack).toHaveLength(0);
     expect(result.current.api.stack).toHaveLength(2);
+  });
+
+  // ★★★ THIS SITE WAS THE ONE OF FOUR WITH NO ASSERTION AT ALL, and a cold
+  //   review's mutant proved it: replacing `redoThrough`'s pair args with `""`
+  //   left the whole suite green. `redoThrough` reaches the app through exactly
+  //   one prop (`task-manager.tsx` `onRedoThrough`), so this file is its only
+  //   possible detector. A regression here reopens §157's inflation on the redo
+  //   side — the redone delete's rows are gone again, but the walk would not add
+  //   them back on the way down.
+  it("names the reversed kinds and counts, per kind, on a MIXED redo batch", () => {
+    const deps = makeMockDeps();
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<readonly Row[]>([{ id: 1, name: "a" }]);
+      return { rows, setRows, api: useUndoStack(deps) };
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 2, name: "b" }, { id: 3, name: "c" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }],
+      });
+    });
+    act(() => {
+      result.current.api.captureFieldEdit({
+        setter: result.current.setRows, kind: "task.updated", id: 1,
+        before: { name: "a" }, after: { name: "z" },
+      });
+    });
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+    deps.logActivity.mockClear();
+
+    act(() => { result.current.api.redoThrough(result.current.api.redoStack[0].id); });
+
+    expect(deps.logActivity).toHaveBeenCalledTimes(1);
+    expect(deps.logActivity).toHaveBeenCalledWith("redo", 3, "task.deleted", 2, "task.updated", 1);
+  });
+
+  // ★ The homogeneous branch on the redo side, mirroring undoThrough's pair of
+  //   cases — one test per branch, so a `reversedKindCounts` that collapsed to a
+  //   single kind fails one of them.
+  it("sums one kind across a homogeneous redo batch", () => {
+    const deps = makeMockDeps();
+    const { result } = renderHook(() => {
+      const [rows, setRows] = useState<readonly Row[]>([{ id: 1, name: "a" }]);
+      return { rows, setRows, api: useUndoStack(deps) };
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 2, name: "b" }, { id: 3, name: "c" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }],
+      });
+    });
+    act(() => {
+      result.current.api.capture({
+        setter: result.current.setRows, kind: "task.deleted",
+        removed: [{ id: 4, name: "d" }],
+        fromArray: [{ id: 1, name: "a" }, { id: 4, name: "d" }],
+      });
+    });
+    act(() => { result.current.api.undoThrough(result.current.api.stack[0].id); });
+    deps.logActivity.mockClear();
+
+    act(() => { result.current.api.redoThrough(result.current.api.redoStack[0].id); });
+
+    expect(deps.logActivity).toHaveBeenCalledWith("redo", 3, "task.deleted", 3);
   });
 });

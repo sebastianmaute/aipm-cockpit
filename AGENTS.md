@@ -1639,21 +1639,116 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   a `Function` prototype method, which is the crash shape the `activityMessageKey` `hasOwnProperty`
   check already exists to prevent. Nothing gates this and a green suite will not find it — the fixture
   has to carry the hostile string.
-  ★★★ **THE AI DISPATCHER'S ENTITY WRITERS NOW LOG** (`actor: "ai"`, reusing the EXISTING kinds). They
-  logged NOTHING before 0.243.0, so the trail was blind to every AI-made change and any older reasoning
-  that read the log as "what happened to this project" was wrong by omission. ONE kind was added —
-  `bulk.delete` — because recording an irreversible mass delete as `bulk.edit` misdescribed it.
+  ★★★ **THE AI DISPATCHER'S ENTITY WRITERS NOW LOG** (`actor: "ai"`, reusing the EXISTING kinds). Those
+  writers logged NOTHING before 0.243.0, so the trail was blind to every AI-made ENTITY change and any
+  older reasoning that read the log as "what the assistant did to my records" was wrong by omission.
+  ONE kind was added — `bulk.delete` — because recording an irreversible mass delete as `bulk.edit`
+  misdescribed it.
+  ★ **SCOPE IT TO ENTITY WRITES — it was NOT "every AI-made change", and an earlier revision of the line
+  above said it was.** Nine call sites in six files already logged `ai.*` kinds at base: `ai.documentWrite`
+  (`use-document-tools.ts`, ×3), `ai.inlineEdit` (`use-inline-entity-edit.ts`, ×2 — since REMOVED, see
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md)), `ai.insightRecommendation`
+  (`task-manager.tsx`), `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
+  (`use-raci-suggest.tsx`), `ai.taskDedup` (`use-tasks-dedup.tsx`). Re-derive against the merge base
+  rather than trusting the number:
+  `git grep -nE 'logActivity[A-Za-z]*\??\.?\(\s*"ai\.' 2e2c8c00 -- src/app | grep -v test` → **9**.
+  `CHANGELOG.md` got the scope right — it scopes the gap to the assistant's ENTITY WRITERS, not to
+  every AI-made change (`sed -n '20p' CHANGELOG.md`). One claim in three places, one correct.
   ★★ **The actor is stamped at the WIRING, not the leaf.** `useActivityLog` returns pre-stamped
   `logActivityUser`/`logActivityChangesUser`, because a leaf logging a generic kind cannot know whether
   a user, the assistant or a background pull reached it. **A call site's spelling is therefore NOT its
   actor** — never infer one by grepping for the kind; find which wrapper the site was handed.
   Integrations (Jira sync + the four calendar background auto-pulls) stamp `"integration"`.
-  ★ **`completion-trend.ts` counts `task.created`/`task.deleted`** (its `COUNT_KINDS` set), so tasks the
-  AI creates now move that trend. Intended, but it is a change to an EXISTING derived metric — the
-  trend can shift with no user action behind it.
-  ★ `bulk.delete` is deliberately NOT in `COUNT_KINDS`: that set's members each move the metric by ±1
-  per entry, while one `bulk.delete` entry carries a count of N — adding it would under-count by N−1.
-  Closing that needs the count read out of the entry, not another member in the set.
+  ★ **`completion-trend.ts`'s `COUNT_KINDS` set has FOUR members** — `task.created`, `task.completed`,
+  `task.reopened`, `task.deleted` — and the dispatcher writes exactly TWO of them, `task.created` and
+  `task.deleted`. So tasks the AI creates or deletes now move that trend. Intended, but it is a change to
+  an EXISTING derived metric — the trend can shift with no user action behind it.
+  `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
+  `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u` prints the 21
+  distinct kinds the dispatcher writes across its 23 sites, of which those two intersect the set.
+  ★★ **An AI status change to Done logs `task.updated`, NOT `task.completed`** — `update_task` stamps that
+  ONE kind whichever fields it touches, exactly as the form save does (`use-task-submit.ts`, which routes
+  the status through `logActivityChanges("task.updated", …)`), so a completion is invisible to the set. ★ The
+  INLINE status dropdown logs nothing at all — `use-task-row-handlers.ts` calls `logActivityRef.current`
+  on DELETE only: `grep -c "logActivityRef.current(" src/app/use-task-row-handlers.ts` → **1**, and the
+  `-n` form shows that one hit is the `"task.deleted"` call. A separate pre-existing coverage gap.
+  ★★ **SCOPE THE COMMAND TO THE CLAIM.** This was attached as `grep -n "logActivity"` on that file,
+  which returns **6** lines — the prop type, the destructure, the ref init, the ref assignment, a dep
+  array and the one call. The claim was TRUE and the command did not reproduce it, which is the exact
+  failure the rule at the top of this file exists to prevent; both reviewers flagged it independently.
+  Do not read the set's membership as "these four fire": `task.completed`
+  and `task.reopened` have **NO writer anywhere in the app**, only a union member, an
+  `activityMessageKey` row and their seat in this set. Verify before reasoning about either:
+  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` →
+  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch — but it
+  means the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals.
+  ★★ `bulk.delete` is STILL deliberately NOT in `COUNT_KINDS` — that set's members each move the metric
+  by ±1 per entry, while one `bulk.delete` entry carries a count of N, so adding it would under-count by
+  N−1. §157 closed the gap the OTHER way, as that entry said it had to be: a second set,
+  `BULK_TOTAL_KINDS`, whose members have their delta READ OUT OF THE ENTRY (`args[0]`) rather than
+  implied by the kind. ★ Do not "simplify" the two sets into one — they encode two different arithmetics,
+  and merging them silently reinstates the N−1 undercount.
+  ★★★ THERE IS A **THIRD** ARITHMETIC AND IT IS NEITHER SET — `reversedForwardDelta`, added by §160,
+  which reads `undo`/`redo` rows. Those two kinds belong to no set on purpose: their delta is neither
+  ±1 nor `args[0]` but the FORWARD delta of the ops they reverse, signed by the direction, so an `undo`
+  subtracts it and a `redo` re-applies it. `useUndoStack` appends `(kind, count)` PAIRS after the row's
+  total-rows arg — one per distinct kind, built by `reversedKindCounts` from `UndoMeta`, at all four
+  log sites. Before that the walk honoured a `bulk.delete −N` and ignored its undo, so an undone mass
+  delete left every reconstructed day's DENOMINATOR N too HIGH — which, since `percent` is
+  `done/total`, pushed the CURVE DOWN, the exact mirror of §157's inflation.
+  ★★★ PAIRS, AND THE FIRST CUT'S SINGLE-KIND FORM IS THE LESSON. That cut wrote one kind, or `""` for
+  a mixed batch, and defended `""` as an acceptable residual because "every single-entry undo is
+  homogeneous, i.e. the common case is exact". True and IRRELEVANT: a single-entry undo never reached
+  the batch helper (`commitUndo`/`redo` pass `meta.kind` directly), so the reassurance described the
+  one path on which the residual could not occur. `""` arose ONLY under the caret's
+  undo-through/redo-through — where a multi-entry batch is the whole point of the control — so
+  "delete 50, edit one field, undo through both" discarded the 50-row correction and reproduced §160
+  two clicks from its own fix. **A residual's justification must name the path the residual occurs
+  on.** Full reasoning in `docs/open-followups.md` §160.
+  ★★★ READING UNDO ROWS IS ONLY SOUND WHERE THE FORWARD SIDE IS READ TOO, and the first cut of §160
+  broke that: `use-tasks-dedup.tsx` captures `kind: "task.deleted"` but logs only `ai.taskDedup N`,
+  which was in neither set — so the reversal added +N against a forward side of ZERO and an undone
+  dedup inflated every earlier day. `ai.taskDedup` is now a `BULK_TOTAL_KINDS` member, which also
+  closes the pre-existing blind spot (its `args[0]` is `removedCount`, and `applyMerges` returns
+  `removedCount: removed.length`). ★★ ENUMERATE THE CAPTURE SITES before touching either set: grep
+  `src/app` for a `capture` call whose kind is the task-delete one, excluding tests AND
+  `completion-trend.ts`. There are FOUR, and only the dedup one was unpaired. ★★★ The pattern is
+  DESCRIBED, not quoted, and an earlier revision here quoted it and claimed "returns FOUR" — it
+  returns SIX, because `completion-trend.ts`'s own comment spells the same search string and is
+  matched by it. Third recorded instance of a self-matching grep in this repo; a cold review caught
+  it in both files at once. Every gate was green over the dedup defect.
+  ★★★ `bulk.delete` HAS THREE WRITERS NOW, and for one commit range on this branch it had ONE. (NOT "for
+  one release" — an earlier wording said that, and the kind has never shipped: `git grep -n '"bulk\.delete"' 2e2c8c00 -- src`
+  returns nothing at the merge base. It sends a reader hunting a released version that does not exist.) The kind arrived with the AI's
+  `delete_all_tasks`, so the first cut of §157 corrected the denominator for AI mass deletes while the USER
+  path — `handleClearAll` and `handleBulkDelete` in `use-bulk-operations.ts`, which took an undo capture and
+  logged NOTHING — stayed silent, INVERTING the asymmetry rather than removing it. Both user handlers now
+  log it. Re-derive rather than trusting this count — and note the command must be scoped to WRITERS:
+  `git grep -nE 'logActivity[A-Za-z]*(Ref\.current)?\??\.?\(("ai", )?"bulk\.delete"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` → **3**.
+  ★★ A bare `git grep -n '"bulk\.delete"'` does NOT reproduce the claim — it also matches the union
+  member, the `activityMessageKey` row, `BULK_TOTAL_KINDS` itself, and every test. That mistake was made
+  and caught while writing this very bullet — the same "scope the command to the claim" failure recorded
+  two paragraphs up for `use-task-row-handlers.ts` — which is why the wrong command is quoted here rather
+  than silently replaced.
+  ★★★ NO NUMBER IS QUOTED FOR THE BARE FORM ON PURPOSE, AND THIS IS THE **FOURTH** ROUND OF THIS ERROR.
+  Round one said the bare grep "returns 6" — wrong, because 6 is what you get only after
+  `| grep -v '\.test\.'`, which the quoted command does not have. Round two replaced it with "returns
+  **14**" and quoted **6** for the filtered form; a cold review measured **16** and **7**. So the
+  correction of a wrong number was itself a wrong number, twice over, inside a paragraph whose entire
+  subject is attaching a command that reproduces its claim. ★★ The filtered count had ALSO moved
+  underneath it: `reversedForwardDelta`'s own `kind === "bulk.delete"` comparison is a new non-writer
+  hit that this branch added, so any number written here is stale by the end of the commit that writes
+  it. Run whichever form you want the figure for; **do not restore a number.** ★★ The user
+  handlers count the rows REMOVED, never the ids requested — a stale selection can name ids no longer in
+  `tasks`, and the walk subtracts whatever the entry carries. ★ The general rule this cost: **a metric
+  corrected for one actor is a SCOPE, not a fix — check the other one in the same pass.**
+  ★ `bulkTaskCount`'s `Number.isFinite` guard is
+  load-bearing and its failure is SILENT: the walk does `total -= delta`, so one NaN propagates into every
+  EARLIER day, and `clampPctFromCounts` maps each non-finite result to 0 — the chart then reads a
+  plausible 0% across that whole earlier span rather than looking broken. ★ "Everywhere" is what an
+  earlier wording said and it overshoots: `endState[i]` is assigned BEFORE the subtraction, so days at
+  or after the bad entry keep their correct values. The preceding clause already says "every EARLIER
+  day" — the two halves of one sentence disagreed.
   ★ **`mergeActivityLogs` NARROWS the loss window, it does not close it.** An entry appended on device A
   between B's load and B's save is still lost; closing it needs append-level writes the meta-blob shape
   cannot express. Do not record as solved.

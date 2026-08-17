@@ -16,6 +16,7 @@ import {
   toBudgetBucketSummary,
 } from "./chat-tools";
 import { resourceLogName } from "./chat-tool-summaries";
+import { historySearchEnabled } from "./settings-types";
 import { summarizeForRecap } from "./activity-recap";
 import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
@@ -97,8 +98,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Refs seeded synchronously on first render; refreshed by the effects below.
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
-  const todayRef = useRef(args.today);
-  const timezoneRef = useRef(args.timezone);
+  // ★★★ ONE ref, not two (§153) — separate `today`/`timezone` refs are what let an inconsistent pair exist.
+  const clockRef = useRef(args.clock);
   const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
   const raidRef = useRef(raid);
@@ -113,7 +114,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const activityLogRef = useRef(activityLog);
   const viewDigest = useViewDigest({
     view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
-    resources, budgets, milestones, today: args.today, settings: args.settings,
+    resources, budgets, milestones, today: args.clock.today, settings: args.settings,
     settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
   });
   const viewDigestRef = useRef(viewDigest);
@@ -127,11 +128,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     settingsRef.current = args.settings;
   }, [args.settings]);
   useEffect(() => {
-    todayRef.current = args.today;
-  }, [args.today]);
-  useEffect(() => {
-    timezoneRef.current = args.timezone;
-  }, [args.timezone]);
+    clockRef.current = args.clock;
+  }, [args.clock]);
   useEffect(() => {
     viewRef.current = args.currentView;
   }, [args.currentView]);
@@ -286,7 +284,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           assigneeEmail: email,
           dueDate,
           lastUpdateDate:
-            sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
+            sanitizeIsoDate(input.lastUpdateDate) || clockRef.current.today,
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
@@ -300,7 +298,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // writer of status + completedDate) so e.g. Done stamps completedDate.
         // An invalid value falls back to the default.
         const newTask = isTaskStatus(input.status)
-          ? applyStatusChange(baseTask, input.status, todayRef.current)
+          ? applyStatusChange(baseTask, input.status, clockRef.current.today)
           : baseTask;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
@@ -324,7 +322,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // writer of status + completedDate (keeps the Done⟺completedDate
         // invariant). Invalid values are ignored (status left unchanged).
         const merged = isTaskStatus(patch.status)
-          ? applyStatusChange(mergedBase, patch.status, todayRef.current)
+          ? applyStatusChange(mergedBase, patch.status, clockRef.current.today)
           : mergedBase;
         const next = tasksRef.current.map((row) =>
           row.id === id ? merged : row,
@@ -452,6 +450,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // `updateSettings` does. NO ARGS — "Settings updated" has no
         // placeholder.
         args.logActivityAs?.("ai", "settings.updated");
+        args.onSettingsLoggedByAi?.(); // §154 — suppress the debounced duplicate.
       },
 
       updateSettings: (patch: SettingsUpdateInput) => {
@@ -468,6 +467,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // user-side row omits field values too (secrets). Inside the
           // `applied` guard: a patch that changed nothing is not a change.
           args.logActivityAs?.("ai", "settings.updated");
+          // ★ §154 — inside the SAME `applied` guard, so a credit is only ever issued
+          //   alongside a real settings-identity change (see its contract note).
+          args.onSettingsLoggedByAi?.();
         }
         return applied;
       },
@@ -482,7 +484,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const sanitized = sanitizeRaidItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.raid),
           id,
-          raisedDate: input.raisedDate || todayRef.current,
+          raisedDate: input.raisedDate || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
           causedByRaidIds: input.causedByRaidIds ?? [],
           stakeholderIds: input.stakeholderIds ?? [],
@@ -492,7 +494,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // fall back to today so a created item always carries a raised date.
         const item = sanitized.raisedDate
           ? sanitized
-          : { ...sanitized, raisedDate: todayRef.current };
+          : { ...sanitized, raisedDate: clockRef.current.today };
         const next = [...raidRef.current, item];
         raidRef.current = next;
         setRaid(next);
@@ -537,7 +539,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const sanitized = sanitizeChangeItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.change),
           id,
-          raisedDate: input.raisedDate || todayRef.current,
+          raisedDate: input.raisedDate || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
           linkedRaidIds: input.linkedRaidIds ?? [],
           stakeholderIds: input.stakeholderIds ?? [],
@@ -545,7 +547,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!sanitized) throw new Error("invalid change: title is required");
         const item = sanitized.raisedDate
           ? sanitized
-          : { ...sanitized, raisedDate: todayRef.current };
+          : { ...sanitized, raisedDate: clockRef.current.today };
         const next = [...changesRef.current, item];
         changesRef.current = next;
         setChanges(next);
@@ -725,7 +727,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           }
         }
         return {
-          today: todayRef.current,
+          today: clockRef.current.today,
           language: settingsRef.current.language,
           holidayCountries: settingsRef.current.holidayCountries,
           storageKind: settingsRef.current.storageConfig.kind,
@@ -747,25 +749,29 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // digest that predates that write. Not worth a synchronous mirror:
           // the digest describes the SCREEN, which has not repainted yet either.
           viewDigest: viewDigestRef.current,
-          timezone: timezoneRef.current,
+          timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
           // the not-yet-existing settings field it reads), so a switched-off
           // recap SKIPS the scan rather than hiding its result.
           activitySummary: summarizeForRecap(
-            settingsRef.current.ai, activityLogRef.current, todayRef.current, timezoneRef.current,
+            settingsRef.current.ai, activityLogRef.current, clockRef.current,
           ),
         };
       },
 
       getActivityLog: () => activityLogRef.current,
 
-      getTimezone: () => timezoneRef.current,
+      // ★ LIVE from the ref, never captured — a value snapshotted at construction would
+      //   keep serving for the whole session, the exact mid-conversation case §156 is about.
+      isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
+
+      getTimezone: () => clockRef.current.tz,
 
       getDashboardSnapshot: () =>
         buildDashboardSnapshot(
           getDashboardModelRef.current(),
           getBudgetRollupRef.current(),
-          todayRef.current,
+          clockRef.current.today,
         ),
 
       listAllocations: () => getAllocationsSnapshotRef.current(),

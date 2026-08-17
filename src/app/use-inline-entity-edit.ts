@@ -216,6 +216,12 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       // concurrent writer deleted, without throwing and without logging, while
       // `applied` still counted the call — so the summary asserted an edit
       // nothing had made. The kind stays in `ActivityKind` for stored rows.
+      // ★★ THE STRING "NO ACTIVITY ROW HERE" ABOVE IS LOAD-BEARING TEXT, NOT
+      // PROSE. `use-inline-entity-edit.test.tsx` strips comments from this file
+      // and then asserts that phrase is GONE — its anti-vacuity control that the
+      // strip actually ran. Delete or reword the sentinel and that control
+      // passes trivially, so a broken comment-strip would no longer be caught
+      // and the `ai.inlineEdit` ban beside it would be scanning nothing.
       deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
       cancel();
     } catch {

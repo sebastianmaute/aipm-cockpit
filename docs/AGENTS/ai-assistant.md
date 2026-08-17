@@ -238,6 +238,19 @@
   (12) field-level before/after diffs, is far more than belongs in the context window on every call.
   `chat-tools.test.ts`'s "keeps activityLog OFF the app-state snapshot" is the only test that would go red
   for that edit; the rest of the suite stays green, which is exactly why it exists.
+  ★★★ **A BOUNDED DERIVED SUMMARY IS NOT THE LOG, AND ONE IS ON THE SNAPSHOT NOW.** `getSnapshot()`'s
+  return type (inline on `ToolDispatcher`, `chat-tools.ts`) carries an optional `activitySummary`, produced
+  by `summarizeForRecap` (`activity-recap.ts`, called from `use-chat-dispatcher.ts`) — a fixed-shape
+  `ActivitySummary` (`total`, `byActor`, `latestAt`, `days`), i.e. five counts, one stamp and a window,
+  CONSTANT in the size of the log. The rule above is about SIZE, so
+  this does not violate it and the two must not be conflated: **the raw `activityLog` array never joins the
+  snapshot; a derived roll-up over it may, as long as its size does not grow with the log.** A reader
+  diffing this bullet against `chat-tools.ts` sees an activity-shaped field on the snapshot and needs that
+  distinction spelled out — the guard test still pins the array, not the summary. Reproduce the shape with
+  `grep -n "activitySummary" src/app/chat-tools.ts` and the builder with
+  `grep -rn "summarizeForRecap" src/app --include="*.ts" | grep -v "\.test\."`. ★ Adding a field carrying
+  per-ENTRY content (a list of recent summaries, the newest N entries) WOULD violate it, cap or no cap —
+  the test is "does this grow with the log", not "is it activity-derived".
   ★★ **THE LAYER SPLIT — `activity-prompt.ts` MAY import `t`; `history-search.ts` MAY NOT.**
   `renderActivityEntry(entry)` → `{at, summary, detail?}` is the RENDER layer and pins the locale to
   `"en-US"`: the model-facing view must not change when the UI switches to German (the EN dict is static —
@@ -258,28 +271,74 @@
   ★★★ **`truncated` COVERS ONE OF THREE WAYS AN ANSWER CAN BE INCOMPLETE, so the tool description carries
   the other two and they are NOT hedging bloat.** It reports what the CAPPED, CHAT-BLIND log held — never
   what never entered it, nor what the cap already dropped.
-  (a) COVERAGE: `logActivity` is threaded through `ChatDispatcherArgs` into `useChatDispatcher` and handed
-  to `useDocumentTools` ALONE, so every chat entity write — `createTask`, `updateTask`, `deleteTask` and the
-  raid/change/milestone/stakeholder/resource/budget handlers — mutates state and logs NOTHING. Reproduce
-  with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` — **one** hit, the `useDocumentTools` call.
-  So the model can create a task, be asked about it the next day, and read its own work's absence as proof
-  it never happened.
-  ★★ DOCUMENT WRITES ARE THE ONE CHAT PATH THAT DOES LOG (`ai.documentWrite`, from `use-document-tools.ts`),
-  which is why the tool description says "document writes are the sole exception" rather than a flat "your
-  tool calls are not recorded". Of the other five `ai.*` kinds, `ai.inlineEdit` fires from
-  `use-inline-entity-edit.ts` and `ai.allocationPlan` from `use-alloc-plan.tsx` — app AI FEATURES, reached
-  from a panel, never from a chat tool call. Do not read "the log has `ai.*` kinds" as "the log covers the
-  assistant".
+  ★★★ (a) COVERAGE — **CLOSED IN 0.243.0, AND THIS PARAGRAPH SHIPPED ITS OWN REFUTATION FOR A RELEASE.**
+  It read: "`logActivity` is threaded … handed to `useDocumentTools` ALONE, so every chat entity write …
+  mutates state and logs NOTHING. Reproduce with `grep -n "logActivity" src/app/use-chat-dispatcher.ts` —
+  **one** hit." That command now returns **28**, so the doc carried the command that disproves it — which is
+  the gate working in the only way an ungated doc can be gated, and only if somebody runs it. Every chat
+  entity writer now ends its SUCCESS path with `logActivityAs?.("ai", …)`: **23 call sites** spanning **21
+  distinct kinds** (tasks · raid · change · milestone · stakeholder · resource, plus `settings.updated`,
+  `bulk.inquiries` and the NEW `bulk.delete`). Re-derive both numbers rather than trusting them:
+  `grep -cE 'logActivityAs\?\.\("ai"' src/app/use-chat-dispatcher.ts` → 23, and
+  `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u | wc -l` → 21.
+  ★★ The coverage caveat therefore came OUT of the tool description in the same release, exactly as the
+  ★★ below required. RETENTION (b) is unchanged and stays in.
+  ★★ **`ai.inlineEdit` NO LONGER FIRES FROM ANYWHERE, and the kind is deliberately still in the union.**
+  This bullet used to say it "fires from `use-inline-entity-edit.ts`"; `0fc004c3` deleted both writers,
+  because an inline "Ask Claude" edit was writing TWO entries — the per-`runTool` entity row this branch
+  added (`actor: "ai"`) plus an `ai.inlineEdit` summary carrying the same entity id, title and actor, i.e. a
+  strict subset. The kind survives in `ActivityKind` and in `activityMessageKey` because logs written before
+  0.243.0 still carry it and `sanitizeActivityEntry` keeps unknown kinds — removing it would render those
+  rows as `activityUnknownKind`. Verify there is no writer:
+  `grep -rn '"ai.inlineEdit"' src/app --include=*.ts --include=*.tsx` → the union member, the key map and one
+  test, **zero** call sites. `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
+  (`use-raci-suggest.tsx`), `ai.taskDedup` (`use-tasks-dedup.tsx`) and `ai.insightRecommendation`
+  (`task-manager.tsx`) are still live and are app AI FEATURES reached from a panel, never from a chat tool
+  call — so "the log has `ai.*` kinds" still does not mean "the log covers the chat assistant"; the
+  `logActivityAs` sites above are what mean that.
   (b) RETENTION: `ACTIVITY_MAX_ENTRIES` drops the oldest, so an empty result for an OLD range is
   indistinguishable from a quiet period.
-  ★★ Both are fixed in the DESCRIPTION, not the wiring: logging chat writes is a feature with its own
-  design questions (which kinds, what args, how it interacts with the fact that chat writes take no undo
-  capture), and half-wiring it would produce a log that is wrong in a new way. If that feature lands, the
-  coverage caveat comes back OUT of the description in the same commit.
+  ★★ Both WERE fixed in the DESCRIPTION rather than the wiring, on the reasoning that logging chat writes
+  is a feature with its own design questions (which kinds, what args, how it interacts with the fact that
+  chat writes take no undo capture) and half-wiring it would produce a log that is wrong in a new way. That
+  feature landed, so the coverage caveat came out of the description in the same release and the description
+  now DISCLOSES the actor instead: its OPENING clause names all three sources of change in one breath (the
+  app's own UI, its integrations, and the user), and a later sentence tells the model never to attribute an
+  entry whose `actor` is absent — giving the causes as EXAMPLES, never as a closed list, because a THIRD
+  cause is already latent: `sanitizeActivityEntry` keeps an unknown-but-string `actor` for forward compat
+  while `renderActivityEntry`'s `knownActor` drops it, so an entry a newer client stamped with an actor
+  value this release does not know reaches the model with none. RETENTION is
+  still description-only and still true. ★★ `chat-tools.test.ts` pins the retired sentence's ABSENCE **and**
+  the actor disclosure's PRESENCE — an absence assertion alone is vacuous (it passes against an empty
+  description), so the pair is the guard; `chat-tool-defs.ts` carries the same note at the constant.
+  ★★★ **DESCRIBED, NOT QUOTED — AND THAT IS THE FIX, NOT A STYLE CHOICE.** This paragraph used to carry a
+  quotation of the description, and the very next slice rewrote the text out from under it: the fragment it
+  quoted began "It also records changes made by YOU" — a sentence a later rewrite DELETED outright when it
+  folded the three sources into the OPENING clause. Confirm with
+  `grep -rn "It also records changes made by" src` → no hits. ★ Scope that grep to `src`: run it over the
+  repo and it matches THIS line, which quotes the retired sentence in order to record its retirement. That is the SECOND time this one
+  description has moved, and **no gate can see a doc quoting a string literal** — `docs:symbols:check`
+  proves identifiers exist, not prose. Worse, the surviving half of that quotation was never byte-exact
+  either (it lower-cased a sentence-initial "Never"), so it would have failed a check nobody could run.
+  Read the live text rather than trusting any rendering of it here:
+  `sed -n '/name: "search_history"/,/input_schema/p' src/app/chat-tool-defs.ts`.
   ★ `view-ai-scope.ts`'s `activity` entry told the model "You cannot read this log — there is no tool for
-  it" until this was caught; it now hints at `search_history` and repeats both limits. Same rot the
-  `documents` entry had when `DOCUMENT_TOOL_DEFS` landed, and pinned by the same test shape in
-  `view-ai-scope.test.ts`.
+  it" until this was caught (a RETIRED string, quoted here deliberately — the source comment at the entry
+  quotes it too, for the same reason). It now points at `search_history` and mirrors the description's
+  actor caution and retention limit — the two live limits, which are NOT the coverage/retention pair (a)
+  and (b) named above, since (a) is closed. The mirroring is LITERAL, and the SPAN has to be stated exactly:
+  the shared run starts at "an absent actor is unattributable" and ends at "and it is " — the PARENTHESIS is
+  byte-identical in both — and the very next token DIVERGES in case, "not evidence" in `reading` against
+  "NOT evidence" in the description. So substring-test the parenthesis, never the sentence; that is what
+  "one claim, two surfaces" means at `chat-tool-defs.ts`. ★★★ An earlier revision of THIS line said the
+  "whole parenthetical clause" was byte-identical, which fails ~143 characters in — the identical over-claim
+  the retracted quotation two sentences up was retracted FOR, and a case drift both times. A doc sentence
+  asserting byte-identity is itself a claim to substring-test. ★★ THE TWO ARE NOT EQUALLY
+  GREPPABLE, and assuming they were is how this bullet got a claim wrong once already: `reading` is a SINGLE
+  one-line string literal, so `grep` finds any span of it, while the `search_history` description is a
+  multi-part `" +` concatenation, so no `grep` can match a span that crosses a join. Reconstruct that one
+  before comparing — join the parts, then substring-test. Same rot the `documents`
+  entry had when `DOCUMENT_TOOL_DEFS` landed, and pinned by the same test shape in `view-ai-scope.test.ts`.
   ★★ **THE `kinds` COERCION IS LOAD-BEARING AND AN EMPTY-LOG TEST CANNOT SEE IT.** A model may send a
   non-array — the string `"nope"`. A bare pass-through reaches the engine's `new Set(q.kinds)`, which
   iterates the STRING into a set of CHARACTERS matching no kind: zero events returned while reporting a
@@ -297,6 +356,72 @@
   `chat-panel.tsx`, which mounts BELOW `useChatDispatcher` (called in `task-manager.tsx`), so thread state
   cannot reach the dispatcher without restructuring that ownership. Recorded so nobody "completes" B2a by
   lifting thread state for the sake of one read tool.
+- **Ambient activity recap + the two recall toggles (B2b):** `buildActivityRecapBlock` (`activity-recap.ts`)
+  emits ONE sentence — "Recent project activity: N changes in the last D days (…; latest YYYY-MM-DD). Use
+  search_history to read them." — appended to `buildSystemPrompt`'s VOLATILE suffix beside the `Today is …`
+  line, never the cached prefix. ★★ That placement is the whole design: the counts change on every turn, so
+  in the cached prefix they would invalidate the Anthropic prompt-cache breakpoint on every message, which
+  costs far more than the ~20 tokens the block spends. `chat-api.ts` carries the reasoning at the call.
+  ★ It is a COUNT, not a recap of content — `search_history` fetches content when the model wants it — and
+  the actor split ("9 by the user, 3 by the AI assistant") is load-bearing rather than decorative: it is what
+  stops the model reading its OWN writes back as new user information and acting on them twice.
+  ★★ **TWO INDEPENDENT DEFAULT-ON TOGGLES, and their four combinations are all reachable.**
+  `settings.ai.activityRecap` decides whether the SENTENCE exists (gated upstream in `summarizeForRecap`, so
+  switching it off skips the scan rather than hiding its result); `settings.ai.historySearch` decides whether
+  the TOOL exists. Both read `!== false` because `sanitizeAiConfig` stores only an explicit `false` and
+  leaves every other value `undefined` — a truthiness test would switch the feature off for every user who
+  never opened Settings.
+  ★★ **THE SHAPE-MATE IS `actionSuggestions` ALONE — NOT `groundInGuides`,** and an earlier revision of
+  this bullet named both. `groundInGuides` is a different shape entirely: a REQUIRED `boolean` on
+  `AiConfig` with a real default, which `sanitizeAiConfig` ALWAYS fills (`obj.groundInGuides !== false`),
+  so it is never `undefined` post-sanitize and every read site is a plain truthy read — `checked={…}` in
+  both settings sections, `ai.groundInGuides && !guidesReady` in `chat-panel.tsx`, and a `boolean`
+  parameter into `buildSystemPrompt`/`inline-ai-edit-call.ts`. Citing it as precedent for a `!== false`
+  read is citing the wrong mechanism. Sweep with
+  `grep -rn "groundInGuides" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — 19 hits. Piping
+  that through `grep -- "!== false"` returns TWO, and neither is a read: one is the sanitizer's own fill
+  line, the other is the `activity-recap.ts` comment stating this very rule. No READ site compares it to
+  `false`. ★★ The sanitizer DOES store `actionSuggestions` — `actionSuggestions: obj.actionSuggestions
+  === false ? false : undefined`, verify with
+  `sed -n '/^export function sanitizeAiConfig/,/^}/p' src/app/settings-types.ts | grep -n actionSuggestions`.
+  It was MISSING from that literal for the field's whole life, so every explicit `false` was dropped on
+  load and the Action Center's AI toggle silently reverted to ON at the next reload — §159, now CLOSED.
+  ★★★ This sentence asserted that defect was LIVE while the commit fixing it sat in the same change set,
+  which is the failure mode this file warns about twice over: a correction is a new claim, and an entry
+  marked CLOSED does not update the prose that points at it. The loss was on READ, not write —
+  `writeSettings` persisted the `false` correctly — so a reader who trusts a stale "the sanitizer does not
+  store this" reaches the wrong diagnosis first. `activity-recap.ts`'s header carries the same three-way
+  split.
+  ★★★ **RECAP-ON + HISTORY-OFF IS THE COMBINATION THAT SHIPPED A LIE**, on every turn of every conversation:
+  a prompt whose closing clause named a tool the request did not carry. The fix is that the block's closing
+  sentence is emitted ONLY when `offeredTools.has("search_history")`, and `offeredTools` is
+  `toolNamesFor(historySearch)` — the set DERIVED from the very arrays `toolsFor` returns, resolved ONCE in
+  `buildSystemPrompt` and shared with `buildViewScopeBlock`. So "what the model is told it has" and "what the
+  request carries" come from one decision and cannot drift. The COUNTS survive the suppression — they still
+  orient the model when it cannot go read the rows. Reproduce the derivation with
+  `grep -n "toolNamesFor\|toolsFor" src/app/chat-api.ts`.
+  ★★ Turning `historySearch` off removes `search_history` from the request ENTIRELY (`toolsFor` returns a
+  second module-level array), and both arrays are module-level so the two live settings share ONE identity
+  and the cache breakpoint is stable. ★ **`activity-recap.ts` is its own module because of a RUNTIME CYCLE,
+  not tidiness** — it needs the VALUE `summarizeRecentActivity` from `history-search.ts`, which already
+  imports the VALUE `renderActivityEntry` from `activity-prompt.ts`; hosting it in `activity-prompt.ts` would
+  close the loop with values on both arcs. Its `offeredTools` is a plain `ReadonlySet` for the same reason:
+  importing from `chat-api.ts` (which imports this module) would close another.
+  ★ It is i18n-free on purpose — `ACTOR_PHRASE` holds English literals rather than i18n keys, because unlike
+  `renderActivityEntry` this line has no UI counterpart to stay in step with and routing it through `t` would
+  add dictionary entries that only a machine reads. `latestAt` renders in the PROJECT zone (`dayInZone` over
+  the snapshot's branded `timezone`), matching every other instant the model is handed.
+  ★★ **`search_history` now returns an `actor` PER EVENT**, conditionally spread so a pre-0.243.0 entry's
+  rendered shape is byte-unchanged (`{actor: undefined}` on every row is not the same as an omitted key, and
+  `toBeUndefined()` cannot tell them apart). `knownActor` narrows through an own-property check on
+  `KNOWN_ACTORS` and returns `undefined` for anything else — REQUIRED, because `sanitizeActivityEntry` keeps
+  an unknown-but-string actor, so `actor: "toString"` reaches this projection and a bare index resolves a
+  `Function.prototype` method. The tool description tells the model never to attribute an actor-less entry:
+  absence means "older than the field, or written by a path that could not tell", never "the user did it".
+  ★ **`inline-ai-edit-call.ts` deliberately carries NO `historySearch` field and blanks `activitySummary`**
+  (alongside `viewDigest`) out of the snapshot it forwards — an inline edit is a one-shot forced tool call,
+  so an ambient count of unrelated project churn is noise, and suppressing the sentence while still OFFERING
+  the tool would re-create the mismatch above from the other direction. The file's own comments state both.
 - **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
   `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
   `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·

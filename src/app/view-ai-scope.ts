@@ -248,17 +248,44 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    production call site wrote `actor: "user"` at all, so every human edit
     //    ever made — including one from five minutes ago — had no actor, and the
     //    sentence told the model those were pre-release entries.
-    //    The actor-stamping slice fixed the cause: of the 65 actor-less call
-    //    sites, 62 now carry an actor and 2 were deleted. The ONE survivor is
+    //    The actor-stamping slice fixed the cause. State the arithmetic, never
+    //    a bare number: of 65 actor-less call sites, 62 GAINED an actor, 2 were
+    //    DELETED outright, and 1 SURVIVES — 62 + 2 + 1 = 65. The survivor is
     //    `task-manager`'s debounced `settings.updated` logger, an effect over
-    //    settings STATE that cannot see its cause. (Most of the 62 still SPELL
-    //    `logActivity(...)` and are stamped by the wiring — see the "do not read
-    //    a call site's spelling as its actor" note on `useActivityLog`.)
+    //    settings STATE that cannot see its cause.
+    //    ★★ `view-ai-scope.test.ts` says the gap closed "for 64 of 65 sites",
+    //    which is the SAME fact counted differently — 64 = 62 stamped + 2
+    //    deleted, both being "no longer an unattributed writer". A reader
+    //    diffing 62 against 64 has found a difference in what is being counted,
+    //    not a defect; that is why the split is spelled out here.
+    //    ★★★ NONE OF THOSE THREE NUMBERS IS GREPPABLE, so do not "check" them
+    //    with a call-site count. Most of the 62 still SPELL `logActivity(...)`
+    //    and are stamped by the WIRING (the hook hands them a pre-stamped
+    //    `logActivityUser`) — see the "do not read a call site's spelling as
+    //    its actor" note on `useActivityLog`. Grepping the actor-less SPELLING
+    //    across `src/app` returns dozens of hits, and reading that as a
+    //    survivor count contradicts the "ONE survivor" claim for the wrong
+    //    reason. The one production site that genuinely writes no actor is
+    //    found by grepping `task-manager.tsx` alone.
     //    So "absent ⇒ pre-release" is still not
-    //    exhaustive, and the clause now states the PROPERTY (unattributable)
-    //    instead of enumerating a cause. Pinned in view-ai-scope.test.ts.
+    //    exhaustive, and the clause now leads with the PROPERTY
+    //    (unattributable) and demotes the causes to EXAMPLES ("for example").
+    //    ★★★ THE EXAMPLES ARE NOT A LIST, AND A THIRD CAUSE ALREADY EXISTS:
+    //    `sanitizeActivityEntry` KEEPS an unknown-but-string `actor` for
+    //    forward compatibility, but `renderActivityEntry`'s `knownActor` drops
+    //    it from the rendered payload — so an entry a NEWER client stamped
+    //    `actor: "scheduler"` reaches the model with no actor while being
+    //    neither older than the field nor written by a blind path. That is the
+    //    fifth revision of this sentence waiting to happen; state the property,
+    //    never the enumeration.
+    //    ★★ `view-ai-scope.test.ts` pins the SUBSTRING "could not tell who
+    //    acted" (positive) alongside the absence of "written before this
+    //    release", so the example cannot simply be deleted — it has to stay,
+    //    demoted. Keep the wording identical to `chat-tool-defs.ts`'s
+    //    `search_history` description, which carries no such pin and would
+    //    otherwise drift.
     reading:
-      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which, so never attribute an entry whose actor is absent: it is either older than this field or was written by a path that could not tell who acted. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
+      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which. Never attribute an entry whose actor is absent: an absent actor is unattributable (for example it may be older than this field, or written by a path that could not tell who acted), and it is not evidence the user did it. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:

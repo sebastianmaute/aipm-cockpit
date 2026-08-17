@@ -19,17 +19,23 @@ declare const TIME_ZONE_BRAND: unique symbol;
  * ★★★ EXPECT THE ERROR ON THE `tz` ARGUMENT, NEVER THE `today` ONE — a reader
  * who looks at the wrong argument concludes the brand is broken. `TimeZone` is
  * assignable to `string`, so a transposed tz slides into `today:` silently and
- * only the raw string arriving at `tz:` fails. The position therefore differs
- * per function: argument 4 for `summarizeForRecap`, argument 3 for
+ * only the raw string arriving at `tz:` fails. Today that is argument 3 of
  * `summarizeRecentActivity`.
+ * ★★ `summarizeForRecap` USED to be the other example here — "argument 4" — and
+ * that line was falsified by the same change set that wrote the paragraph three
+ * lines below it: the signature collapsed to `(ai, entries, clock)`, so it takes
+ * no bare `tz` at any position and the instruction was unexecutable for it.
+ * Nothing gates a stale argument index, and the round that broke it edited the
+ * adjacent hunk without re-reading this one. Re-derive rather than trust:
+ *   grep -A5 "export function summarizeForRecap" src/app/activity-recap.ts
  *
- * ★★ WHAT IT DOES **NOT** BUY. It does not catch an INCONSISTENT PAIR — `today`
- * computed in Berlin handed over beside a `tz` naming America/New_York. That is
- * well-typed under every branding scheme (measured), because `today` is a pure
- * function of `tz` (`task-manager.tsx` derives it one line after resolving the
- * zone) and they travel as two values. Only collapsing them into one
- * factory-built object removes that class — `docs/open-followups.md` §153.
- * Do not read the brand as covering more than a transposition.
+ * ★★ WHAT IT DOES **NOT** BUY, AND WHAT NOW DOES. This brand does not catch an
+ * INCONSISTENT PAIR — `today` computed in Berlin handed over beside a `tz`
+ * naming America/New_York — because `today` is a pure function of `tz` and the
+ * two travelled as separate values, which is well-typed under every branding
+ * scheme (measured). `ProjectClock` below closed that class (§153) by deriving
+ * the day from the zone inside one factory. Do not read THIS brand as covering
+ * more than a transposition; the pair guarantee lives on the clock.
  */
 export type TimeZone = string & { readonly [TIME_ZONE_BRAND]: true };
 
@@ -193,4 +199,64 @@ export function resolveTimezone(overrideTz: string | undefined, projectTz: strin
   if (overrideTz && isValidTimeZone(overrideTz)) return brandZone(overrideTz);
   if (projectTz && isValidTimeZone(projectTz)) return brandZone(projectTz);
   return brandZone(browserTimeZone());
+}
+
+declare const PROJECT_CLOCK_BRAND: unique symbol;
+
+/**
+ * The project's day and the zone that day was computed in, as ONE value.
+ *
+ * ★★★ WHY A BAG AND NOT TWO PARAMETERS (`docs/open-followups.md` §153). The
+ * `TimeZone` brand above makes a TRANSPOSITION unrepresentable but cannot see
+ * an INCONSISTENT PAIR — a `today` computed in Berlin handed over beside a `tz`
+ * naming America/New_York is well-typed under every branding scheme. They are
+ * not two independent inputs; `today` is a pure function of `tz`. Only carrying
+ * them as one factory-built object removes that class.
+ *
+ * ★★★ A PLAIN `{ today, tz }` OBJECT DOES NOT WORK, and it is the first fix
+ * anyone reaches for. Measured: with both fields typed as strings,
+ * `f({ today: tz, tz: today })` typechecks in silence. The bag has to carry a
+ * brand the caller cannot forge, which is why the field below exists and why
+ * `createProjectClock` is the only producer.
+ */
+export type ProjectClock = {
+  /** YYYY-MM-DD in `tz`, derived by the factory — never supplied by a caller. */
+  readonly today: string;
+  readonly tz: TimeZone;
+  readonly [PROJECT_CLOCK_BRAND]: true;
+};
+
+/**
+ * The ONLY producer. Derives `today` from `tz` INTERNALLY.
+ *
+ * ★★★ THE DERIVATION MUST HAPPEN IN HERE. A factory that ACCEPTED both values
+ * and packed them into the bag would rebuild the identical defect one level up
+ * — the caller could still compute `today` in the wrong zone, and the brand
+ * would then certify an inconsistent pair as authoritative, which is worse than
+ * no brand at all.
+ *
+ * ★★ There is deliberately no test-only mint beside `asTimeZoneForTests`. Tests
+ * pin the DAY by passing `now`, not by supplying `today` — so even a fixture
+ * cannot express a disagreeing pair, and no `asProjectClockForTests({today, tz})`
+ * escape hatch exists to let one back in.
+ *
+ * ★★ `now` is a PARAMETER, and that is not a hole in the guarantee: the caller
+ * chooses the INSTANT, never the rendered day. The zone→day conversion stays in
+ * here, which is the whole invariant. It also keeps this module to the rule its
+ * own header states — "`now`/`iso` are always passed in so the date-math
+ * functions stay pure + testable" — and lets the default cover the render-body
+ * case, where React's purity rule bans a `new Date()` call (`task-manager.tsx`
+ * relies on that default for the same reason its old `effectiveToday` was a
+ * module-level function).
+ */
+// ★★ THE `new Date()` DEFAULT IS THE ONE LIVE CLOCK READ IN THIS MODULE, and it is
+//    deliberate rather than an oversight in the module's pass-the-instant rule. This
+//    is the FACTORY, the one place a clock is allowed to be born; every function it
+//    feeds still takes its instant as an argument, so the date math stays pure and
+//    testable. The parameter is what keeps it so: a test pins a date by passing one,
+//    with no escape hatch that could forge a `today`/`tz` pair the type exists to
+//    prevent. Do not add a second producer — see the note at `task-manager.tsx`'s
+//    `createProjectClock` call for the one that already exists elsewhere.
+export function createProjectClock(tz: TimeZone, now: Date = new Date()): ProjectClock {
+  return { today: todayInZone(now, tz), tz } as ProjectClock;
 }

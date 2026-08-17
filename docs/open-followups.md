@@ -10049,10 +10049,29 @@ node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts'
 review round that surfaced this was a toast-ORDERING fix. Splitting a signal channel on the back of an
 ordering change is how an ordering change acquires a behavioural regression.
 
-## 153. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — narrowed by a brand, not closed
+## 153. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — CLOSED 2026-08-17 by `ProjectClock`
 
-Opened 2026-08-16 out of the AI Recall B2b test-validity review. **Partially closed in the same
-slice** by branding `TimeZone`; this entry records the half the brand does not reach.
+Opened 2026-08-16 out of the AI Recall B2b test-validity review. Partially closed in the same slice
+by branding `TimeZone`; **fully closed 2026-08-17** by `ProjectClock`.
+
+★★★ **CLOSED — and the shape below is exactly what "Closing it" specified, so read that section as
+the spec it turned out to be.** `timezone.ts` now exports an opaque `ProjectClock` (`{ today, tz }`
+plus an unforgeable brand) and a single producer `createProjectClock(tz, now = new Date())` that
+derives `today` from `tz` INTERNALLY. `ChatDispatcherArgs`' two fields (`today: string` +
+`timezone: TimeZone`) collapsed into one `clock: ProjectClock`; `use-chat-dispatcher` holds ONE
+`clockRef` instead of two; `summarizeForRecap(ai, entries, clock)` is the only place the pair is
+unpacked; and `task-manager.tsx`'s local `effectiveToday` was DELETED so there is no second producer
+of `today`.
+
+★★ **`now` is a parameter and that is not a hole.** The caller picks the INSTANT, never the rendered
+day — the zone→day conversion stays inside the factory, which is the entire invariant. It is also
+what lets tests pin a day without an `asProjectClockForTests({today, tz})` escape hatch, i.e. without
+handing back the exact ability the bag removes. `timezone.test.ts` pins the invariant directly: one
+instant, two zones, two different days.
+
+★ The engine `summarizeRecentActivity` deliberately KEEPS its two-string signature. It is pure and
+clock-free, and rewriting it would churn ~20 test call sites to move a guarantee already established
+one hop earlier. The residual is therefore one line, where both values come off one object.
 
 `use-chat-dispatcher.ts` builds the model-facing recap with
 `summarizeForRecap(settingsRef.current.ai, activityLogRef.current, todayRef.current, timezoneRef.current)`.
@@ -10105,12 +10124,69 @@ extending it. `days` is a `number` and collides with neither string — leave it
 `summarizeRecentActivity` — never on the `today` argument, because `TimeZone` is assignable to
 `string` and slides into `today:` silently. Only the raw string arriving at `tz:` errors.
 
-## 154. An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it
+## 154. An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it — CLOSED 2026-08-17
 
-Opened 2026-08-16 out of the AI Recall B2b actor-stamping slice. Found while stamping actors and
-**deliberately not fixed** — the cheap fixes are all worse than the defect. Not a regression: the
-second row predates the branch. What the branch changed is that the two rows are now visibly
-*different*, because one carries an actor and the other does not.
+Opened 2026-08-16 out of the AI Recall B2b actor-stamping slice, deferred as "the cheap fixes are all
+worse than the defect", and **CLOSED 2026-08-17**. Not a regression: the second row predates the
+branch. What the branch changed is that the two rows became visibly *different*, because one carries
+an actor and the other does not.
+
+★★★ **CLOSED WITH A CREDIT COUNTER, WHICH IS NOT THE SUPPRESSION FLAG THIS ENTRY REJECTED.** The
+rejected design set a "this burst came from the AI" flag before `setSettings` and cleared it after the
+debounce — a TIME WINDOW, which swallows any human change landing inside those
+`SETTINGS_LOG_DEBOUNCE_MS`, turning a duplicate row into a MISSING one. The shipped design has no
+window at all: the dispatcher calls `onSettingsLoggedByAi()` once per `"ai"` `settings.updated` row it
+writes, task-manager's settings effect consumes exactly ONE credit per run, and a human change
+immediately afterwards gets its own run, finds the counter at 0, and is logged normally.
+
+★★ **The correctness condition is "credit only alongside a real settings-identity change."** The
+effect only runs when the settings object changes, so a credit issued without one is never consumed
+and would sit there swallowing the NEXT genuine user row. Both call sites satisfy it unconditionally —
+`setLanguage` always spreads a fresh object, and `updateSettings` credits inside its `applied` guard.
+`use-chat-dispatcher.test.tsx` pins that a no-op patch credits nothing and that credits and rows are
+issued one-for-one across a burst.
+
+★★★ **THAT CONDITION IS NECESSARY AND WAS NOT SUFFICIENT, and the first cut of this fix shipped the
+gap.** Credits are issued PER TOOL CALL and consumed PER EFFECT RUN, and React batches every
+`setSettings` of one assistant turn into ONE render — `chat-panel.tsx` runs each `tool_use` block of a
+message in a `for … await runTool(…)` loop, and the awaits between them are microtasks, which React
+batches. So "switch to German and turn off view hints" issued TWO credits against ONE run. While the
+effect DECREMENTED, the surplus outlived the turn and silently ate the user's next settings row,
+whenever that came. **The effect now CLEARS the counter**, which bounds any leak to the render that
+created it. Found by a cold review of this very fix round; the entry as first closed asserted the
+wrong invariant in three places (here, `task-manager.tsx`, and `chat-dispatcher-types.ts`).
+
+★★ **Residual of the clear, deliberately accepted and the strictly better trade:** if two AI writes in
+one turn are separated by a real macrotask (an intervening tool doing I/O), React renders twice, the
+second run finds 0 and writes one actor-less row. An EXTRA honest row beats a MISSING user row — do
+not trade this back for a decrement.
+
+★★★ **THE SECOND DEFECT WAS THE EFFECT CLEANUP, and it failed in the opposite direction.** The
+cleanup was `return () => logger.cancel()` on the settings effect, so it ran BEFORE the next effect
+body: an AI write landing inside a user's 1500 ms debounce cancelled the user's pending row and then
+early-returned on the credit without re-arming — the user's change vanished outright, which is exactly
+the swallow this entry rejected the suppression-flag design for. The cleanup is now UNMOUNT-scoped, a
+behaviour-neutral change on the normal path because `notifyChange` already restarts the timer itself.
+
+★★★ **BOTH WERE INVISIBLE TO THE SUITE FOR ONE REASON: every §154 test asserted CREDITS, never ROWS.**
+`grep -rn "aiSettingsCredits" src/app --include=*.test.tsx --include=*.test.ts` returned **0** — the
+consumer had no coverage at all, and one issuer test pinned `credits === 2` after a three-call burst,
+i.e. the leak state asserted as an invariant. The guard now lives in
+`task-manager.activity-actor.test.tsx`, which mounts the real TaskManager and asserts ROWS: a user
+change after a two-write AI batch, a user row surviving an AI write inside the window, an
+anti-vacuity control that a plain user change logs one row, and the original suppression. Both fixes
+are mutation-proved, each caught by exactly its own test.
+
+★★ **`vi.useFakeTimers()` CANNOT test this debounce and a test using it passes vacuously** (measured:
+zero rows either way). `createSettingsLogger`'s `setTimeoutFn` parameter DEFAULTS at call time and the
+logger is built in a `useRef` initializer during first render, so it closes over the `setTimeout` that
+was global at MOUNT; installing fake timers afterwards swaps a global it no longer consults. The tests
+use real ~1.6 s waits.
+
+★ The debounced row stays ACTOR-LESS, and the credit counter does not change that. It does not teach
+the effect a cause; it only tells the effect that a particular change was already reported by someone
+who knew. Every row it still writes is one nothing can attribute — do NOT "finish the sweep" by
+stamping it `"user"`.
 
 An AI settings write produces:
 
@@ -10165,3 +10241,541 @@ collision handled explicitly, not assumed away.
 ★ The tractable shape is probably to give the debounced logger a cause channel that records the
 LAST writer per burst and emits nothing when that writer already logged — but that is a design
 slice, not a patch, which is why this is an entry rather than a commit.
+
+---
+
+★★★ **§155–§160 CARRY PROVISIONAL NUMBERS.** They were opened on the unpushed `feat/ai-recall-b2b`
+branch. A second unpushed branch off the SAME merge base, `feat/rich-text-export-fidelity-s2`, has
+already claimed **§153–§158** with entirely different content (and also claims version 0.243.0, under
+a different codename), so whichever merges second must renumber. Measure the overlap rather than
+trusting this line — it has been wrong once already:
+`git show feat/rich-text-export-fidelity-s2:docs/open-followups.md | grep -oE "^## 15[0-9]\."` → §150–§158.
+★★★ THAT IS **SIX** OF THIS BRANCH'S SEVEN NEW SECTIONS, NOT THREE. An earlier revision of this very
+banner said "§153/§154/§155" and so under-sized the renumber by half — in the one paragraph whose whole
+job is to size it correctly, and two paragraphs above a retraction of the same class of error ("first
+written as 'exactly three'"). §159 and §160 are the only free numbers. A banner that undercounts the
+collision is worse than no banner: it tells the operator the sweep is nearly done.
+★ This branch's own range is §153–§160; re-derive both sides before renumbering rather than trusting
+either figure here:
+`grep -oE "^## 1[5-9][0-9]\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` **Nothing gates this** — the register has no uniqueness check
+and `docs:claims:check` only range-checks `path:LINE` citations. ★★ A renumber must also follow the
+references that live in SOURCE COMMENTS, which no doc gate can see. Grep the NUMBER, then read each
+hit — a title grep finds none of them, because a source comment cites `§153`, never the heading text.
+
+★★★ **DO NOT USE A NUMBER PREFIX FOR THAT SWEEP.** `git grep -n "§15"` is wrong in BOTH directions
+at once: it OVER-matches (`file-picker-button.tsx` cites the unrelated `§15`, a decoy the range form
+excludes — `git grep -nE "§15" -- src/app/file-picker-button.tsx` returns that ONE line, and the
+prefix form over the whole tree returns 51 lines against the range form's 50) and it UNDER-matches
+the moment a renumber pushes past §159, which is
+the exact scenario this banner exists for — the sweep would then return the pre-renumber hits and
+nothing else, reading as "done". Use a bounded RANGE for today's numbers and the three-digit class
+for the durable form:
+
+```bash
+git grep -nE "§15[0-9]" -- src scripts e2e       # the moving numbers, no decoy
+git grep -nE "§1[0-9][0-9]" -- src scripts e2e   # survives any renumber inside §100–§199
+```
+Measured on the working tree, 2026-08-17: the narrow form returns **50 lines / 51 occurrences across
+23 files**, of which exactly ONE would not move (`csv-line-scan.ts` cites §151). The durable form
+returns **228 lines across 88 files** — mostly citations to long-closed sections, so it is a safety
+net to run ONCE after renumbering, not the working sweep.
+
+★★★ **DO NOT TRUST THOSE NUMBERS; RE-RUN THE COMMANDS.** They have already been wrong once in this
+very banner, and in the direction that defeats it. They were first written as "exactly three" and
+"181 hits across 69 files" — accurate readings of the MERGE BASE, taken while the branch's own
+uncommitted work added 38 more citations to the same files. A sweep sized from those numbers would
+have looked complete after fixing three of fifty. The banner's whole thesis is that a renumber must
+chase source-comment references, and its worked example undercounted them by an order of magnitude.
+Reproduce the merge-base reading to see the gap:
+`git grep -nE "§15[0-9]" beed4f8f -- src scripts e2e | wc -l` → **3**.
+
+★★ COUNT OCCURRENCES, NOT LINES, when sizing the work: `git grep -n` collapses a line carrying two
+citations into one hit, which is why the two figures above differ by one. Use
+`git grep -ohE "§15[0-9]" -- src scripts e2e | sort | uniq -c | sort -rn` for the per-section
+breakdown — it is what tells you which sections actually dominate the sweep.
+
+## 155. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
+
+Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing class, not introduced here** — B2b
+made it MODEL-VISIBLE by putting `latestAt` into the ambient recap sentence the assistant reads every
+turn.
+
+`summarizeRecentActivity` (`history-search.ts`) ends its scan with a bare
+`if (entry.timestamp > latestAt) latestAt = entry.timestamp;` — a string compare over a field that
+`sanitizeActivityEntry` only checks is a **string** (`typeof e.timestamp === "string"`; it never
+parses it, never checks the `Z` suffix, never normalises). `ActivityEntry.timestamp`'s docstring
+asserts "ISO 8601 UTC … always `toISOString()` shape", but that is an assumption held by the
+WRITERS, not a validated invariant.
+
+So an offset-bearing stamp can win the compare while being an EARLIER instant. Reproduce:
+
+```bash
+node -e '
+const a="2026-08-16T23:59:00+14:00", b="2026-08-16T10:00:00.000Z";
+console.log("lex a>b:", a>b, "| instant a<b:", new Date(a) < new Date(b));'
+```
+→ `lex a>b: true | instant a<b: true`. `latestAt` therefore holds `a` (instant `09:59Z`) while the
+real latest is `b` (`10:00Z`), so the recap dates the project's last change **EARLIER** than it
+happened. ★ The model never sees the minute — `activity-recap.ts` renders
+`dayInZone(summary.latestAt, tz)` and the emitted clause is `latest YYYY-MM-DD` — so the realised
+harm is a wrong DAY, and only in a zone where the two instants straddle midnight. In a `+14` project
+that pair reports `2026-08-16` when the true latest day is `2026-08-17`:
+
+```bash
+node -e '
+const f=(iso,tz)=>new Intl.DateTimeFormat("en-CA",{timeZone:tz,year:"numeric",month:"2-digit",day:"2-digit"}).format(new Date(iso));
+console.log(f("2026-08-16T23:59:00+14:00","Pacific/Kiritimati"), f("2026-08-16T10:00:00.000Z","Pacific/Kiritimati"));'
+```
+→ `2026-08-16 2026-08-17`. ★★★ **THE ZONE IS NOT THE PROPERTY — THE STRADDLE IS.** Both instants of
+THIS pair fall on the same UTC day, so this exact fixture is invisible in a UTC project. The BUG is
+not: pick a pair whose two instants straddle the fixture zone's own midnight, whatever that zone is.
+`a="2026-08-17T13:59:00+14:00"` / `b="2026-08-17T00:00:00.000Z"` is lexicographically greater,
+instantaneously earlier (`23:59:00Z` vs `00:00:00Z`), and renders `2026-08-16` against `2026-08-17`
+**in UTC**. ★★ An earlier revision of this line said a UTC fixture "CANNOT observe this" — false, and
+false in the expensive direction, since "Fixing it" below asks for exactly that test and the line
+would have sent its author hunting for an exotic zone the reproduction does not need.
+
+★★ **Watch the arithmetic on any example you write.** The first draft of this entry paired that
+stamp with `…T09:00:00.000Z`, which is a **counter-example**: `+14:00` at 23:59 is `09:59Z`, i.e.
+LATER than `09:00Z`, so the pair demonstrates the compare working. The offset has to be large enough
+to cross the compared field but not so large that it overshoots the instant. Run the node line; do
+not eyeball it.
+
+### Why it matters, and where it is worse
+
+`mergeActivityLogs` (`activity-log-merge.ts`) makes the IDENTICAL assumption and fails harder: it
+sorts with the same lexicographic comparator and then caps with `all.slice(-ACTIVITY_MAX_ENTRIES)`,
+which drops the HEAD. A stamp that sorts wrongly LOW is therefore **permanently deleted** on the
+next over-cap merge rather than merely misplaced. `ActivityEntry.timestamp`'s own docstring already
+records that consequence — what it does not record is that nothing enforces the precondition.
+
+### Entry vector
+
+Not reachable from normal use: every runtime append is `new Date().toISOString()`
+(`appendActivityEntry`). It arrives via an **imported or hand-edited workspace** — the activity log
+rides all six write paths as a JSON meta-blob, so a JSON/CSV/Markdown file or a Turso row can carry
+any string at all.
+
+### Fixing it
+
+Normalise at the load boundary: have `sanitizeActivityEntry` re-stamp a parseable-but-non-canonical
+timestamp through `new Date(v).toISOString()` and DROP an unparseable one (it already drops a
+non-string). That fixes both consumers at once and needs no change to either comparator. ★ It is a
+behaviour change on load, so it wants a fixture carrying a `+HH:MM` stamp and an assertion that both
+the merge order and `latestAt` follow the INSTANT — a fixture of canonical stamps cannot tell a
+fixed implementation from the current one.
+
+## 156. The `historySearch` kill switch is advertisement-scoped, not enforced at the executor — CLOSED 2026-08-17 (enforcement added)
+
+Opened 2026-08-16 out of the AI Recall B2b slice. Low severity; recorded because the setting is
+framed to the user as a switch that turns the capability off. **CLOSED 2026-08-17.**
+
+★★★ **CLOSED AS ENFORCEMENT, which is one of the two outcomes the ★ at the end of this entry asked
+for.** The entry's real complaint was that the code said nothing either way; it now says
+enforcement, in code rather than in a comment. `ToolDispatcher` gained
+`isHistorySearchEnabled()`, `runTool`'s `case "search_history"` refuses before touching the log, and
+`use-chat-dispatcher` reads the flag LIVE from `settingsRef` so a mid-conversation toggle takes
+effect immediately — the exact case that made the advertisement-only gate insufficient.
+
+★★★ **BOTH LAYERS READ ONE PREDICATE, `historySearchEnabled` (`settings-types.ts`), and that matters
+more than either layer.** Defence in depth is only worth having while the layers agree; two
+hand-spelled `=== false` checks are one config slip from a switch that advertises OFF and serves ON —
+which is this entry's own failure mode, arriving from the other direction. `toolsFor`/`toolNamesFor`
+were rewritten to call it too. `chat-api.test.ts` pins that the advertisement follows the predicate
+for every input shape the sanitizer can produce, garbage included.
+
+★★ Note what did NOT change: this is not a confidentiality boundary. The log is the user's own data
+in the user's own browser and there is no adversary, so the refusal is a plain error rather than a
+redaction. The fix is about a labelled switch telling the truth.
+
+★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current
+reading** — same convention as §159. Its probes now return the opposite of what they print
+(`grep -c historySearch src/app/chat-tools.ts` → **2**, not 0), and its closing ★ asks the reader to
+decide a question the closure block above already answered. Read it for the reasoning, never for the
+state.
+
+`settings.ai.historySearch === false` removes `search_history` from `toolsFor`'s array, from
+`toolNamesFor`'s set, and therefore from both prompt surfaces that advertise it — a clean, single-
+decision design (see [`docs/AGENTS/ai-assistant.md`](AGENTS/ai-assistant.md)). But `runTool`'s
+`case "search_history":` in `chat-tools.ts` executed unconditionally: the dispatcher would serve the
+log to anyone who named the tool. Reproduce (PRE-FIX):
+`grep -c historySearch src/app/chat-tools.ts` → **0**.
+
+### Why it is narrow, and why it is still worth an entry
+
+The model cannot invent a tool name from nothing — but it does not have to. Toggling the setting off
+**mid-conversation** leaves prior `tool_use`/`tool_result` pairs in the re-sent message history, and
+a model that has seen its own successful `search_history` call three turns ago has a strong template
+to mimic. There is no adversary here (the log is the user's own data, in the user's own browser), so
+the impact is "a switched-off feature can still answer once" rather than a leak.
+
+For anything framed as a kill switch the normal shape is defence in depth: the executor refuses too,
+so the guarantee does not rest on the request being well-formed. A two-line guard —
+`case "search_history":` returning a refusal when the flag is `=== false` — would need the flag
+threaded onto `ToolDispatcher` (it is not there today), which is why this is an entry rather than a
+patch.
+
+★ **Decide and record which it is.** If advertisement-scoping is the intended contract ("the setting
+controls what we offer, not what we can do"), say so at the setting and at the `case`, and this entry
+closes as by-design. If it is meant to be enforcement, it is a gap. Today the code says nothing
+either way, which is the actual defect.
+
+## 157. Completion-trend reconstruction under-counts the historical denominator after a mass delete — CLOSED 2026-08-17 (both actors); the `dDone` half stays OPEN
+
+★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
+`BULK_TOTAL_KINDS` corrected the denominator for `bulk.delete`, but that kind had exactly ONE writer —
+the AI's `delete_all_tasks` — so AI mass deletes counted and the far commoner USER path still did not:
+`use-bulk-operations.ts`'s `handleClearAll` and `handleBulkDelete` took an undo capture and wrote NO
+activity entry at all. Both now log `bulk.delete`, with the count taken from the rows actually removed
+(`removed.length`, never `ids.size` — a stale selection can name ids no longer present, and the walk
+subtracts whatever the entry carries). Found by a cold review of the fix round. **Check both actors
+whenever a metric is corrected for one of them** — "the AI half" is a scope, not a fix.
+
+Opened 2026-08-16 out of the AI Recall B2b slice. Only reachable when a project has **fewer than two
+snapshots** — `computeCompletionTrend` prefers snapshots and falls back to
+`reconstructFromActivity` otherwise — so this is the no-Turso / new-project path.
+
+`COUNT_KINDS` (`completion-trend.ts`) has four members; `bulk.delete` is deliberately **not** one of
+them, and that exclusion is right: every member moves the metric by ±1 per entry, while one
+`bulk.delete` entry carries a count of N, so including it would under-count by N−1. But this branch
+made the AI's `task.created` and `task.deleted` writes count. The result is an asymmetry that did not
+exist before, because the AI logged nothing at all:
+
+- an AI `create_task` **adds** to `dTotal`, so the backward walk subtracts it correctly;
+- an AI `delete_all_tasks` writes ONE `bulk.delete` carrying N, which the walk ignores entirely.
+
+`reconstructFromActivity` walks backward from the current counts subtracting each day's delta, so
+after a chat mass-delete the reconstructed historical `total` is understated by N — and since
+`percent` is `done/total`, every historical point's percentage **inflates**. Reproduce the set and
+the walk with `grep -n -A25 COUNT_KINDS src/app/completion-trend.ts`.
+
+★★ **A second, older asymmetry compounds it and is worth fixing in the same pass:** `dDone` is fed
+ONLY by `task.completed` and `task.reopened`, and **nothing in the app writes either kind**. Verify:
+`git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
+→ only `activity-log.ts` (the union member and its `activityMessageKey` row) and `completion-trend.ts`
+itself. A status change to Done logs `task.updated`, from every writer including the AI's
+`update_task`. So the numerator is CONSTANT across every reconstructed day and only the denominator
+moves — which means the reconstructed sparkline is already a curve about task count, not about
+completion. Pre-existing and independent of this branch.
+
+### Fixed 2026-08-17 — the denominator half
+
+Exactly as specified below: the count is read OUT OF THE ENTRY rather than by adding a member to
+`COUNT_KINDS`. A second set, `BULK_TOTAL_KINDS`, holds kinds whose delta comes from `args[0]`, and
+`bulkTaskCount` coerces it. ★★ Keep the two sets separate — they encode two different arithmetics
+(±1 per entry vs. N per entry), and merging them silently reinstates the N−1 undercount this entry
+opens with.
+
+★★ `bulkTaskCount`'s `Number.isFinite` guard is load-bearing and its failure mode is SILENT, not
+loud: the walk does `total -= delta`, so one NaN propagates into every EARLIER day, and
+`clampPctFromCounts` maps each non-finite result to 0 — the chart then reads a plausible 0% across
+that whole earlier span rather than looking broken. Nothing prompts anyone to look at a wrong number
+that looks like a number. ★ "Everywhere" is what an earlier wording said here and it overshoots:
+`endState[i]` is assigned BEFORE the subtraction, so the corrupt day and every day AFTER it keep
+their correct values. The same overshoot was corrected in `AGENTS.md` first and left standing here
+for a while — one claim, two files, fixed on different days.
+
+### The `dDone` half stays OPEN, and the obvious fix was measured and rejected
+
+Reading `changes` for a `status` diff is the natural closure — `diffFields` really does record
+`{field: "status", from: "To Do", to: "Done"}` with unlocalized raw values. **It does not work.** The
+AI's `update_task` logs with NO `changes` array (`use-chat-dispatcher.ts` calls
+`logActivityAs?.("ai", "task.updated", id, name)`), while a form save passes `diffFields(...)`. So a
+changes-based numerator would move for user edits and not for AI ones — reintroducing precisely the
+user/AI asymmetry this entry exists to remove, one metric over.
+
+★ A second reason it is not a patch: `diffFields` caps at `MAX_FIELD_CHANGES` keeping the FIRST
+fields ALPHABETICALLY, and "status" sorts late — a wide edit can drop it from the diff entirely.
+
+Closing it needs a real `task.completed` / `task.reopened` writer, which is a design slice. Until
+then the reconstruction is a curve about TASK COUNT, not completion, and `completion-trend.ts` says
+so at the top of `reconstructFromActivity`.
+
+## 158. `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop — CLOSED 2026-08-17
+
+Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing from 0.241.0** (B2a), not introduced
+here; B2b did not widen it.
+
+★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current
+reading** — same convention as §156 and §159. This banner was MISSING until a cold review caught it,
+so the section's present-tense diagnosis sat under a CLOSED heading and read as live state. Its
+central claim is now false by its own closure: the sanitizer DOES inspect the elements (`argsBad`,
+`src/app/activity-log.ts`). Read it for the reasoning, never for the current tree.
+
+`activity-prompt.ts`'s `renderActivityEntry` calls `t("en-US", key, ...entry.args)` with no guard on
+the elements. At the time, `sanitizeActivityEntry` checked only `Array.isArray(e.args)` and never
+inspected the elements, while the Activity panel had already added a per-element guard — the panel's
+comment described `args` as the one shape the load boundary did not cover. Reproduce the asymmetry
+against the PRE-FIX tree (`git show beed4f8f:src/app/activity-log.ts`), not the current one:
+`grep -n "Array.isArray(e.args)" src/app/activity-log.ts` against
+`grep -n "Array.isArray(e.args) ? e.args.map(changeText)" src/app/activity-log-panel.tsx` (the guard
+the panel added for exactly this).
+
+★★ THAT COMMENT IS **DESCRIBED, NOT QUOTED**, and the change is the point. An earlier revision quoted
+it as verbatim — "THE ONE SHAPE THE LOAD BOUNDARY **DOES** NOT COVER" — while the source says **DID**
+not cover, and opens with "used to be", which inverts the claim outright. So a section whose own
+closing ★ says the comment was rewritten precisely so nobody reads it as evidence of a live gap went
+on citing the rewritten comment as that evidence, thirty lines apart. This branch wrote the
+DESCRIBED-NOT-QUOTED rule one file over in `docs/AGENTS/ai-assistant.md` and then broke it here.
+Verify the source text rather than trusting either version:
+`git grep -n "THE ONE SHAPE THE LOAD BOUNDARY" -- src`
+
+`t()` interpolates with `String(a)`, and a non-callable own `toString` makes `ToPrimitive` fall
+through to `Object.prototype.valueOf`, which hands the object back:
+`node -e 'try{String({toString:1})}catch(e){console.log(e.message)}'` → `Cannot convert object to
+primitive value`.
+
+### Why the location matters
+
+The panel's guard fixed the UI. `searchHistory` calls `renderActivityEntry` itself — deliberately, so
+the substring filter can run over the rendered text — so the same stored shape throws **inside
+`runTool`**, on a fully sanitized log, from any of the six backends. That is a chat turn that dies
+rather than a table that fails to paint, and it is reachable from an imported workspace with no
+hostile intent required (a hand-edited JSON blob).
+
+### Fixed 2026-08-17 at the load boundary
+
+`sanitizeActivityEntry` now coerces each non-string/number `args` element to `""` — the field was
+already typed `(string | number)[]`, so the sanitizer was simply not enforcing its own type.
+
+★★★ **COERCE IN PLACE, never FILTER, and never drop the entry** — this entry's own "(or the
+element)" aside is the trap. `args` is POSITIONAL: renderers spread it into `t(lang, key, ...args)`
+against `{0}`/`{1}` placeholders, so removing a bad element SHIFTS every later argument into the
+wrong slot and turns a crash into silently wrong audit text. Dropping the whole entry is wrong for
+the reason an unknown-but-string `kind` is KEPT: the log is shared workspace data that autosave
+writes straight back, so one client meeting a corrupt row would delete it for everyone.
+`activity-log.test.ts` pins the arity case explicitly (`["before", "", "after"]`), and a `filter`
+mutant fails 4 tests.
+
+★★★ **The repair had to join the EARLY-RETURN condition, not just the repair block.** The fast path
+returns the ORIGINAL object by reference when `changes === undefined` — the overwhelmingly common
+case — so a repair added only to the block below it would do nothing in practice while every fixture
+carrying `changes` still passed. That is the identical trap the `actorBad` comment beside it already
+records; `argsBad` now guards the same early return.
+
+★ The panel's local guard is KEPT rather than shrunk to a comment: it also renders entries that never
+passed the load boundary, and `changeText` stringifies the row regardless. Its comment was rewritten
+so nobody reads its presence as evidence the boundary is still missing.
+
+## 159. `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload — CLOSED 2026-08-17
+
+Opened 2026-08-17 out of the AI Recall B2b review, found SIDEWAYS — the round was checking whether
+B2b's two new toggles matched the shape of their neighbours, and the neighbour turned out to be
+broken. **PRE-EXISTING, not introduced by this branch.**
+
+★★★ **CLOSED the same day, and the reversal is worth recording because the FIRST decision was to
+defer.** This section originally read "deliberately NOT fixed here … the one-line change cannot be
+verified without running the suite, which this round is not doing" — a gate-availability argument
+standing in for a blast-radius one. The blast radius is checkable WITHOUT the suite, and checking it
+took three greps: the field is OPTIONAL on `AiConfig` (so adding a key cannot fail tsc), there is
+exactly ONE caller (`use-settings.ts`), and NO test anywhere asserts this function's shape
+exhaustively — every `sanitizeAiConfig` assertion in `settings-snapshots.test.ts` and
+`settings-types.test.ts` reads a single named property, so a new key is invisible to all of them.
+★★ "I cannot run the gates" is not the same claim as "I cannot bound the change", and collapsing the
+two defers fixes that are provably safe. Ask which one you actually have.
+
+The fix is one line in the return literal, mirroring the two beside it, plus the comment above them
+(which said "Both features shipped enabled" and is now "All three").
+
+★★ **The regression pin lives in `settings-types.test.ts`'s "AiConfig recall toggles" block**, which
+is the wrong-sounding home for it — `actionSuggestions` is not a recall toggle — and the right one:
+the bug is a property of the object literal that block already covers, not of the feature the field
+belongs to. ★★★ **Its round-trip assertion is the only load-bearing one.** A dropped key reads
+`undefined` exactly as the ON default does, so a test asserting only "absent ⇒ ON" is green against
+the broken code — which is precisely why the two neighbouring toggles' own default test could never
+have caught this, and why the field went unpinned for its whole life.
+
+★ **The probes below describe the PRE-FIX tree and are kept as the diagnosis, not as current
+readings** — the first now returns a non-zero count and the reader sweep returns more than six.
+
+`sanitizeAiConfig` (`settings-types.ts`) builds an **explicit object literal** and had no
+`actionSuggestions` key at all, so the field was dropped on every load:
+
+```bash
+sed -n '/^export function sanitizeAiConfig/,/^}/p' src/app/settings-types.ts | grep -c actionSuggestions
+```
+→ `0`. ★ `grep -c` exits **1** on a zero count — read the printed number, not the exit code.
+
+That sanitizer runs over stored settings on the live load path — `use-settings.ts` builds `merged`
+with `ai: sanitizeAiConfig(...)` assigned AFTER the `...defaultSettings`/`...parsed` spreads, so its
+output wins outright (`grep -n "sanitizeAiConfig(" src/app/use-settings.ts` → one call site).
+`writeSettings` does NOT strip the field on the way out (it spreads
+`settings.ai` and blanks only `apiKey`), so `false` really is persisted — the loss is on READ.
+
+### The round trip that reverts
+
+`settings-sections/ai-section.tsx` writes `actionSuggestions: settings.ai.actionSuggestions === false`
+and renders `checked={settings.ai.actionSuggestions !== false}`; the consumer
+`use-ai-orchestration.ts` also reads `!== false` (its `aiEnabled`). Sweep every reader with
+`grep -rn "actionSuggestions" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` → six
+hits: the type declaration, two in the settings toggle, the consumer, and TWO doc-comment lines in
+`activity-recap.ts`. ★★ That count read **five** when this section was first written, and it was
+correct then — a SIBLING edit in the same review round gave `activity-recap.ts` its second mention.
+Neither author could have caught it alone, and no gate can see a count at all. **After any parallel
+fix round, re-derive every count that greps a file another agent touched.** So:
+
+switch OFF → `false` stored → reload → sanitizer drops the key → `undefined !== false` → **ON**.
+
+The user's only feedback is the checkbox, which re-ticks itself, so this reads as the setting never
+having been saved rather than as a defect with a name.
+
+### Contrast — the two B2b toggles are correct
+
+`historySearch` and `activityRecap` survive because the sanitizer carries an explicit line for each
+(`obj.X === false ? false : undefined`):
+
+```bash
+sed -n '/^export function sanitizeAiConfig/,/^}/p' src/app/settings-types.ts | grep -cE "historySearch|activityRecap"
+```
+→ `2`, and that reading is unchanged by the fix (neither name appears in the comment it added).
+`actionSuggestions` had no line at all and now has the third one. ★ `groundInGuides` is a THIRD shape and is also fine —
+a required `boolean` the sanitizer always fills (`obj.groundInGuides !== false`), never `undefined`
+post-sanitize, so its truthy reads are correct. Do not read it as a shape-mate of the optional two.
+
+### Why no gate caught it
+
+The tests stop one hop short — `ai-section.test.tsx` asserts what reaches `onChange`
+(`expect(last.ai.actionSuggestions).toBe(false)`) and nothing round-trips that value back through
+`sanitizeAiConfig`. Same class as the "test at the WRITE, not the tool call" landmine in AGENTS.md:
+an assertion at the producer cannot see a consumer that discards the value.
+
+### Fixing it
+
+One line, beside the other two:
+
+```ts
+actionSuggestions: obj.actionSuggestions === false ? false : undefined,
+```
+★ It wants a round-trip test (`sanitizeAiConfig({ actionSuggestions: false }).actionSuggestions`
+stays `false`), not another producer-side assertion — a fixture that never re-loads cannot tell the
+fixed sanitizer from the current one.
+
+### Pre-existing, verified
+
+```bash
+git show 2e2c8c00:src/app/settings-types.ts | sed -n '/^export function sanitizeAiConfig/,/^}/p' | grep -c actionSuggestions
+```
+→ `0` at the merge base, i.e. the field was already being dropped before this branch existed.
+
+---
+
+## 160. An UNDONE `bulk.delete` corrupted the completion trend permanently — CLOSED
+
+Opened 2026-08-17 by a cold review of the §157 fix round; **closed the same day**, in the round that
+found it. **Introduced by §157's user half**: the user path previously logged nothing at all, so
+there was no forward row for an undo to contradict. The AI path has emitted the same `bulk.delete`
+LOGGING shape since the kind was minted, but never the defect — the AI dispatcher takes no undo
+capture, so an AI mass delete can never be followed by an `undo` row (last bullet).
+
+`completion-trend.ts` reconstructs history by walking the activity log BACKWARD from the current
+total (`total -= dTotal`, with `dTotal -= bulkTaskCount(e.args)` for a `bulk.delete`). `undo` was a
+member of neither `COUNT_KINDS` nor `BULK_TOTAL_KINDS`, so the walk ignored it.
+
+Scenario, with 40 tasks:
+
+1. User bulk-deletes 10 → `bulk.delete 10` is logged, current total 30.
+2. User presses Undo → the 10 rows come back, current total is 40 again.
+3. The `undo` row was ignored by the walk, but the `bulk.delete 10` row was not.
+
+Every reconstructed day before that point read a total of **50** against a truth of 40 — silently,
+until the entry aged out of the 500-entry ring.
+
+★★★ **THE DIRECTION IN THE FIRST DRAFT OF THIS SECTION WAS BACKWARDS**, and it is recorded rather
+than quietly overwritten because it is the same slip in the same file twice. It said "the whole
+historical curve sits **above** the truth". `percent` is `done/total`, so a denominator reconstructed
+too HIGH pushes every point DOWN — the curve sat BELOW. §157's own defect is the mirror (an IGNORED
+`bulk.delete` leaves the total too LOW, which inflates), and the source comment for it states that
+correctly; this section reached for the same word without redoing the division.
+
+Measured, not reasoned — but NOT on the 40-task scenario above, which has only ONE event day and
+therefore returns `[]` (`days.length < 2`). The numbers come from the test's own fixture in
+`completion-trend.test.ts`: two `task.created` days, then `bulk.delete 8` and its `undo` on a third,
+against a live 2 done / 10 total. That reconstructs to `[12, 11, 20]` pre-fix and `[22, 20, 20]`
+after. ★ So the fix RAISES the two HISTORICAL points; the third is 20 either way, because the last
+event day's end state is `currentDone/currentTotal` by construction and no walk can move it. An
+earlier revision here said "every historical point" and attached the 40-task scenario as its source —
+both caught by a cold review, and the second is the worse error: a reader reproducing from the stated
+scenario gets an empty series and concludes the section is fiction.
+
+### How it was fixed
+
+The walk could not reverse the undo from what was stored: both writers logged a bare count and no
+kind. `useUndoStack` now appends `(kind, count)` PAIRS after the row's total-rows arg — one pair per
+distinct kind in the batch, built by `reversedKindCounts` from data the stack already held as
+`UndoMeta.kind`/`.count` — at all four sites (`commitUndo`, `undoThrough`, `redo`, `redoThrough`).
+`completion-trend.ts` decodes them in `reversedForwardDelta` and applies the sum with the direction's
+sign: an `undo` subtracts the reversed ops' forward delta, a `redo` re-applies it.
+
+Nothing else can see the new args. `activityUndo`/`activityRedo` interpolate `{0}` only, and `t()`'s
+`{1}` replacement is a no-op, so every rendered message is byte-identical — which covers the activity
+panel (`activity-log-panel.tsx`), the AI-facing `renderActivityEntry` (`activity-prompt.ts`), and
+`historySearch`, which searches that rendered text. The panel's own search matches `row.message` and
+`row.kind`, never the raw args. `sanitizeActivityEntry` preserves arity with per-element coercion and
+caps nothing. ★ Named individually because an earlier revision presented a shorter list as if it were
+exhaustive and omitted the two consumers THIS branch adds — the conclusion held, the audit did not.
+
+★★★ **THE FIRST CUT OF THIS FIX INTRODUCED A SECOND DEFECT, and it is recorded because the shape is
+the reason to enumerate call sites rather than reason from a kind.** Reading undo rows is only sound
+where the FORWARD side of the same op is also read. Four sites capture `kind: "task.deleted"` — two
+in `use-bulk-operations.ts`, one in `use-task-row-handlers.ts`, and `use-tasks-dedup.tsx`. The first
+three pair it with `bulk.delete N` or `task.deleted`; the dedup logs only **`ai.taskDedup N`**, which
+belonged to neither set. So the forward walk contributed 0 while the new reversal contributed +N, and
+an undone dedup inflated every earlier day — a NEW corruption on a path that had merely been
+incomplete, since before the reversal both halves were silent and cancelled. `ai.taskDedup` joined
+`BULK_TOTAL_KINDS`, which also closes the pre-existing blind spot: its `args[0]` is `removedCount`,
+and `applyMerges` returns `removedCount: removed.length`, so both directions are exact by
+construction. To re-derive the four, grep `src/app` for a `capture` call whose kind is the
+task-delete one, excluding tests AND `completion-trend.ts` — whose comment describes that search
+rather than quoting it, because a comment spelling its own search string is matched by it and reports
+two phantom sites. (That is the third recorded instance of a self-matching grep in this repo, and a
+cold review caught this one after the same trap had already been written into `AGENTS.md`.)
+
+★★ **EVERY GATE WAS GREEN OVER THAT DEFECT** — full suite, coverage, shuffled, dup — and four
+mutants had been killed. No test paired a dedup with an undo, and a mutation score says only that
+some assertion fired, never that a caller was fixtured at all. It was found by enumerating the
+capture sites while answering "should we run another review?", i.e. by the question rather than by
+the round.
+
+★ `jira.sync` and `history.restore` also move the total and stay out of both sets on purpose:
+`jira.sync`'s `args[0]` fuses creates and updates (`added + pulled`) and `history.restore` replaces a
+whole workspace, so neither carries a usable delta — and neither takes an undo capture, so the
+reversal cannot reach them.
+
+★★★ **THE FIRST CUT SHIPPED A THIRD DEFECT — a documented "acceptable residual" whose justification
+was false — and this is the one worth carrying.** That cut wrote a SINGLE kind per row, and `""` when
+the batch spanned several kinds, which the trend then ignored. The docstring called that acceptable
+because "every single-entry undo is homogeneous, i.e. the common case is exact". Both halves true;
+the inference worthless. **A single-entry undo never reached the batch helper at all** — `commitUndo`
+and `redo` pass `meta.kind` straight through — so the reassurance described a function in which the
+`""` case could not arise. The `""` case arises ONLY under the caret's undo-through/redo-through,
+where a multi-entry batch is the entire purpose of the control. Delete 50 tasks, edit one field, undo
+through both: one mixed row, the 50-row correction discarded, §160 reproduced two clicks from the fix
+meant to close it. Per-kind pairs are exact for every batch, so there is no mixed case and no `""`
+left. ★★ The lesson is not "pairs are better" — it is that a residual's justification must name the
+code path the residual actually occurs on. This one named the path it could not occur on, and the
+sentence read as reassurance precisely where it was least true.
+
+★★ **`redoThrough` was one of four log sites with NO assertion at all**, and a cold review's mutant
+proved it: regressing its args to `""` left the entire suite green. It reaches the app through a
+single prop (`task-manager.tsx` `onRedoThrough`), so `use-undo-stack.test.tsx` is its only possible
+detector. A regression there reopens §157's inflation on the redo side. Both branches — mixed and
+homogeneous — are now pinned on each of undo-through and redo-through. ★ Pair ORDER differs between
+them (undo runs newest-first, redo oldest-first) and carries no meaning; `completion-trend.test.ts`
+pins that both orders give the same answer.
+
+★ `task.created` and `bulk.delete` are both handled in the reversal table although **neither can
+appear in a pair today**: no `capture()` call passes either as its kind, since a delete captures
+`task.deleted` whatever kind its activity row uses. Leaving a total-moving kind out of that table is
+precisely the asymmetry §157 and §160 each cost a release to find. `task.created` is pinned by a
+synthetic-fixture test; `bulk.delete` is not, and a cold review flagged the earlier text for
+implying it was live when only `task.created` had been marked as speculative.
+
+★★ **DO NOT "FIX" THIS BY REVERTING §157's USER HALF** — the advice stands even though the defect is
+closed, because the temptation returns whenever a trend number looks wrong. Before §157 the user path
+logged nothing, so every user bulk delete made the curve wrong in the OTHER direction (−N on every
+prior day) and did so on EVERY delete, not only undone ones. Reverting trades a narrow error for a
+universal one.
+
+★ The AI's `delete_all_tasks` takes no undo capture at all, so it never reached this state — the user
+path inherited an undo route its mirror does not have, which is why mirroring the AI writer's logging
+was necessary but not sufficient.

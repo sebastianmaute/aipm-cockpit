@@ -426,9 +426,26 @@ describe("useBulkOperations", () => {
     });
 
     it("does nothing when tasks is empty", () => {
-      const { result } = renderBulk();
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
       act(() => { result.current.bulk.handleClearAll(); });
       expect(result.current.workspace.tasks).toHaveLength(0);
+      expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    // ★★ §157 — the USER half of the `bulk.delete` denominator fix. Before this the
+    // kind had exactly ONE writer (the AI's `delete_all_tasks`), so the completion
+    // trend corrected itself for AI mass deletes and not for the commoner user path.
+    // The count is read BEFORE the setter clears the array.
+    it("logs bulk.delete with the number of rows cleared", () => {
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
+      act(() => { result.current.workspace.setTasks([seedOne(), { ...seedOne(), id: 2 }]); });
+      act(() => { result.current.bulk.handleClearAll(); });
+      expect(logActivity).toHaveBeenCalledWith("bulk.delete", 2);
+      // ★ Pin the COUNT too — `toHaveBeenCalledWith` alone passes a double-log,
+      // and a duplicate row would double-subtract in the completion-trend walk.
+      expect(logActivity).toHaveBeenCalledTimes(1);
     });
 
     it("clears all tasks unconditionally (the caller owns confirmation)", () => {
@@ -510,12 +527,28 @@ describe("useBulkOperations", () => {
     it("does nothing when the id set is empty (no arm, no capture)", () => {
       const allowDestructiveSave = vi.fn();
       const capture = vi.fn();
-      const { result } = renderBulk({ allowDestructiveSave, capture });
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ allowDestructiveSave, capture, logActivity });
       act(() => { result.current.workspace.setTasks([seed(1)]); });
       act(() => { result.current.bulk.handleBulkDelete(new Set()); });
       expect(result.current.workspace.tasks).toHaveLength(1);
       expect(allowDestructiveSave).not.toHaveBeenCalled();
       expect(capture).not.toHaveBeenCalled();
+      expect(logActivity).not.toHaveBeenCalled();
+    });
+
+    // ★★ §157 — the completion trend subtracts `args[0]` of a `bulk.delete` entry
+    // from the reconstructed TOTAL, so the count must be the rows actually removed.
+    // `ids.size` would be wrong: a stale selection can name ids no longer present,
+    // and the trend would over-subtract by the difference.
+    it("logs bulk.delete with the rows REMOVED, not the ids requested", () => {
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ logActivity });
+      act(() => { result.current.workspace.setTasks([seed(1), seed(2)]); });
+      // id 9 is not present — the selection is stale by one.
+      act(() => { result.current.bulk.handleBulkDelete(new Set([1, 9])); });
+      expect(logActivity).toHaveBeenCalledWith("bulk.delete", 1);
+      expect(logActivity).toHaveBeenCalledTimes(1);
     });
 
     it("arms allowDestructiveSave and captures the removed rows for undo", () => {

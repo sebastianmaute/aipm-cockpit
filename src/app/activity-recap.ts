@@ -13,7 +13,7 @@
 import type { ActivityEntry } from "./activity-log";
 import { type ActivitySummary, summarizeRecentActivity } from "./history-search";
 import type { AiConfig } from "./settings-types";
-import { dayInZone, type TimeZone } from "./timezone";
+import { dayInZone, type TimeZone, type ProjectClock } from "./timezone";
 
 /** Bucket → the English noun phrase the model reads. ★ Plain literals, NOT
  *  i18n keys: unlike `renderActivityEntry` this line has no UI counterpart to
@@ -100,11 +100,21 @@ export function buildActivityRecapBlock(
  *   want it. Keeping it here rather than inline in `use-chat-dispatcher.ts`
  *   also makes it testable: that hook is coverage-excluded UI glue.
  *
- * ★★ The read is DEFAULT-ON (`!== false`, matching `groundInGuides`/
- *    `actionSuggestions`), and it has to be: `sanitizeAiConfig` stores only an
- *    explicit `false` and leaves every other value `undefined`, so a truthiness
- *    test here would switch the recap off for every user who never touched the
- *    setting.
+ * ★★ The read is DEFAULT-ON (`!== false`), and it has to be: `sanitizeAiConfig`
+ *    stores only an explicit `false` and leaves every other value `undefined`,
+ *    so a truthiness test here would switch the recap off for every user who
+ *    never touched the setting.
+ *
+ * ★★ `actionSuggestions` is the shape-mate — optional on `AiConfig`, read
+ *    `!== false` at its call sites. `groundInGuides` is NOT: it is a REQUIRED
+ *    boolean that `sanitizeAiConfig` always fills, so it is never `undefined`
+ *    and every read site is a plain truthy read. Do not cite it as precedent
+ *    for this shape. ★★ `sanitizeAiConfig` DOES store `actionSuggestions` — but it
+ *    did NOT until §159, so every explicit `false` was dropped on LOAD (not on
+ *    write) and the toggle reverted to ON at the next reload. Any default-ON-by-
+ *    absence flag must appear in that return literal; nothing gates it, and a
+ *    dropped key and a default read identically, so the only test that can catch
+ *    it is a round-trip.
  *
  * ★ Returns `undefined`, never `null`: the snapshot field is optional, and a
  *   literal `null` would read as "computed, and the answer is nothing" rather
@@ -113,9 +123,16 @@ export function buildActivityRecapBlock(
 export function summarizeForRecap(
   ai: AiConfig,
   entries: readonly ActivityEntry[],
-  today: string,
-  tz: TimeZone,
+  clock: ProjectClock,
 ): ActivitySummary | undefined {
   if (ai.activityRecap === false) return undefined;
-  return summarizeRecentActivity(entries, today, tz) ?? undefined;
+  // ★★★ THE ONE PLACE THE PAIR IS UNPACKED (§153). Everything upstream of here
+  //   carries the clock as a single unforgeable value, so an inconsistent
+  //   `today`/`tz` cannot be constructed by any caller. The engine below keeps
+  //   its two-string signature deliberately: it is pure and clock-free (its own
+  //   `★ NO CLOCK` note), and rewriting it would churn ~20 test call sites to
+  //   move a guarantee that is already established here. The residual risk is
+  //   therefore bounded to THIS LINE — where both values come off one object
+  //   and cannot disagree — rather than spread across every caller.
+  return summarizeRecentActivity(entries, clock.today, clock.tz) ?? undefined;
 }

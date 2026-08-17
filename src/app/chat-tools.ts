@@ -347,8 +347,9 @@ export type ToolDispatcher = {
      *  "completing the thread" by widening it back to `string` would be a
      *  regression rather than the tidy-up it looks like. */
     timezone: TimeZone;
-    /** Bounded counts for the ambient recap: four numbers, a window and one
-     *  timestamp.
+    /** Bounded counts for the ambient recap: five numbers, a window and one
+     *  timestamp — `total` plus the four `byActor` buckets (`user`, `ai`,
+     *  `integration`, `unknown`), then `days` and `latestAt`.
      *  ★★★ NOT the log. `get_app_state` returns the snapshot VERBATIM, which is
      *  precisely why `getActivityLog()` is a separate method — see its comment.
      *  A summary is safe here for the same reason `insights` and `viewDigest`
@@ -366,6 +367,21 @@ export type ToolDispatcher = {
    *  out of the snapshot everything else reads. See chat-tools.test.ts's guard
    *  test. */
   getActivityLog(): readonly ActivityEntry[];
+  /** Is `search_history` live? (`settings.ai.historySearch !== false`.)
+   *
+   *  ★★★ THE EXECUTOR MUST ASK, not just the prompt builder (§156). Dropping
+   *  the tool from `toolsFor`/`toolNamesFor` stops it being OFFERED, but
+   *  `runTool` is reached by NAME: toggling the setting off mid-conversation
+   *  leaves prior `tool_use`/`tool_result` pairs in the re-sent history, and a
+   *  model that watched its own `search_history` call succeed three turns ago
+   *  has a template to mimic. A switch framed to the user as turning a
+   *  capability OFF must not rest on the request being well-formed.
+   *
+   *  ★★ Not a confidentiality boundary — the log is the user's own data in the
+   *  user's own browser, and there is no adversary. This is honesty about what
+   *  a labelled switch does, which is why the refusal is a plain error and not
+   *  a redaction. */
+  isHistorySearchEnabled(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -617,6 +633,20 @@ export async function runTool(
     // the engine treats an absent field as "no filter", which is the honest
     // reading of garbage from a model that cannot be asked to try again.
     case "search_history":
+      // ★★★ ENFORCEMENT, not advertisement (§156). The prompt-side gate removes
+      //   this tool from the offered set; this one refuses to SERVE it. Both
+      //   read the same predicate (`historySearchEnabled`), so they cannot drift
+      //   into advertising off while serving on.
+      // ★ ENGLISH ON PURPOSE, and reviewed as a finding before being kept: every
+      //   `throw` in `runTool` is unlocalized, because these strings are primarily
+      //   MODEL-facing — they come back as a `tool_result` for the model to act on,
+      //   and only incidentally render in the tool block. Translating one of ~20
+      //   would be the inconsistency. Localize the whole layer or none of it.
+      if (!d.isHistorySearchEnabled()) {
+        throw new Error(
+          "search_history is switched off for this project (Settings → AI → activity history search).",
+        );
+      }
       return searchHistory(d.getActivityLog(), {
         query: typeof input.query === "string" ? input.query : undefined,
         since: typeof input.since === "string" ? input.since : undefined,

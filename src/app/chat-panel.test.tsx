@@ -1642,9 +1642,42 @@ describe("400 response message surfacing", () => {
 // ★★ Asserted on the REQUEST BODY rather than on a `callClaude` spy: the body
 //   is what the API actually receives, so this cannot pass while the tool
 //   schema still ships. It also survives a refactor of how the panel reaches
-//   the network, which a module spy would not.
+//   the network, which a module spy would not. ★ "The body" only became a
+//   complete claim when the helper started reading `system` as well as `tools`
+//   — see below; while it parsed one key it was one call site's worth of
+//   coverage wearing a whole-request name.
+// ★★★ READ *BOTH* HALVES OF THE BODY — `body.tools` ALONE IS HALF A TEST, and
+//   the half it misses is the defect this branch exists to fix. `ai.historySearch`
+//   reaches the request through TWO independent call sites in `chat-panel.tsx`:
+//   `buildSystemPrompt(..., ai.historySearch)` → `body.system` (the
+//   ADVERTISEMENT) and `callClaude(..., historySearch)` → `toolsFor()` →
+//   `body.tools` (the SCHEMA). Pinning only the second means passing a literal
+//   `undefined` as `buildSystemPrompt`'s fifth argument reinstates exactly the
+//   shipped bug — a system prompt naming `search_history` on every turn of every
+//   conversation while the request carries no such tool — with the whole suite
+//   green. `chat-api.test.ts` cannot cover it either: it calls
+//   `buildSystemPrompt` directly with an explicit argument, so it tests the
+//   BUILDER, never the WIRING. This describe block is the only place the two
+//   call sites are checked against ONE setting.
 describe("historySearch reaches the request body", () => {
   afterEach(() => vi.restoreAllMocks());
+
+  // ★★★ THE VIEW IS FIXTURE, NOT DECORATION. The system prompt only NAMES a
+  //   tool where something advertises it, and the shared `makeDispatcher()`
+  //   snapshot advertises nothing: `currentView: "open-points"` (whose scope
+  //   entry has no `search_history` hint) and no `activitySummary` (so
+  //   `buildActivityRecapBlock` returns ""). Against that fixture the `system`
+  //   assertions below would pass for BOTH settings and pin nothing. The
+  //   `activity` view's scope entry carries `toolHints: ["search_history"]` AND
+  //   `readingRequiresTool: "search_history"`, so `buildViewScopeBlock` names
+  //   the tool exactly when it is offered and drops it when it is not.
+  function activityViewDispatcher(): ToolDispatcher {
+    const base = makeDispatcher();
+    return {
+      ...base,
+      getSnapshot: vi.fn(() => ({ ...base.getSnapshot(), currentView: "activity" as const })),
+    } as unknown as ToolDispatcher;
+  }
 
   function okResponse() {
     return Promise.resolve({
@@ -1659,33 +1692,58 @@ describe("historySearch reaches the request body", () => {
     } as unknown as Response);
   }
 
-  async function toolNamesSentFor(ai: typeof AI_WITH_KEY) {
+  /** Both halves of the ONE request body: the tool schema list and the system
+   *  prompt text. `system` is `SystemBlock[]` (`{type:"text", text}`), joined
+   *  here because the block SPLIT (cached prefix / volatile suffix) is a
+   *  caching decision no assertion below should depend on. */
+  async function requestBodyFor(ai: typeof AI_WITH_KEY) {
     const fetchSpy = vi.spyOn(globalThis, "fetch").mockImplementation(okResponse);
     const view = render(
-      <ChatPanel lang="en-US" ai={ai} dispatcher={makeDispatcher()} onAcceptConsent={vi.fn()} />,
+      <ChatPanel
+        lang="en-US"
+        ai={ai}
+        dispatcher={activityViewDispatcher()}
+        onAcceptConsent={vi.fn()}
+      />,
     );
     const ta = screen.getByPlaceholderText("Ask Claude about your tasks…");
     fireEvent.change(ta, { target: { value: "what changed recently" } });
     fireEvent.click(screen.getByRole("button", { name: "Send" }));
     await waitFor(() => expect(fetchSpy).toHaveBeenCalledTimes(1));
     const init = fetchSpy.mock.calls[0][1] as RequestInit;
-    const body = JSON.parse(String(init.body)) as { tools: { name: string }[] };
+    const body = JSON.parse(String(init.body)) as {
+      tools: { name: string }[];
+      system: { text: string }[];
+    };
     view.unmount();
     fetchSpy.mockRestore();
-    return body.tools.map((tool) => tool.name);
+    return {
+      tools: body.tools.map((tool) => tool.name),
+      system: body.system.map((block) => block.text).join("\n"),
+    };
   }
 
-  it("ships the search_history schema by default", async () => {
-    expect(await toolNamesSentFor(AI_WITH_KEY)).toContain("search_history");
+  it("ships the search_history schema AND advertises it in the system prompt by default", async () => {
+    const { tools, system } = await requestBodyFor(AI_WITH_KEY);
+    expect(tools).toContain("search_history");
+    expect(system).toContain("search_history");
   });
 
-  it("omits the search_history schema when the toggle is off", async () => {
-    const off = await toolNamesSentFor({ ...AI_WITH_KEY, historySearch: false });
-    expect(off).not.toContain("search_history");
-    // ★ CONTROL for the negative above: `not.toContain` also passes on an empty
+  it("omits the search_history schema AND its advertisement when the toggle is off", async () => {
+    const off = await requestBodyFor({ ...AI_WITH_KEY, historySearch: false });
+    expect(off.tools).not.toContain("search_history");
+    // The half `body.tools` cannot see: a prompt naming a tool the request does
+    // not carry. This is the assertion that goes red if `chat-panel.tsx` stops
+    // threading `ai.historySearch` into `buildSystemPrompt`.
+    expect(off.system).not.toContain("search_history");
+    // ★ CONTROL for the negatives above: `not.toContain` also passes on an empty
     //   array, so pin that exactly ONE tool was dropped rather than the list
     //   being gutted — the same trap chat-api.test.ts guards for `toolsFor`.
-    const on = await toolNamesSentFor(AI_WITH_KEY);
-    expect(off).toHaveLength(on.length - 1);
+    const on = await requestBodyFor(AI_WITH_KEY);
+    expect(off.tools).toHaveLength(on.tools.length - 1);
+    // ★ And the mirror control for the prompt: the block itself must still be
+    //   there, only its tool-bearing lines gone — otherwise a prompt that lost
+    //   the whole view-scope block would satisfy the negative above.
+    expect(off.system).toContain("VIEW SCOPE");
   });
 });

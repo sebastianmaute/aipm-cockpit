@@ -207,8 +207,14 @@ export function summarizeRecentActivity(
   //   on every chat send, every `get_app_state` and every inline AI edit — and
   //   a per-entry `dayInZone` rebuilt its Intl formatter (twice, counting
   //   `isValidTimeZone`) each time. Measured on the real module, a full
-  //   500-entry ring buffer in Europe/Berlin: 160 ms → ~5 ms. Output is
-  //   unchanged by construction; `makeDayInZone` shares `dayInZone`'s
+  //   500-entry ring buffer in Europe/Berlin: 160 ms → ~2 ms — the same
+  //   measurement `timezone.ts` records beside `makeDayInZone`.
+  //   ★ THE 5 ms AT `searchHistory` ABOVE IS A DIFFERENT FUNCTION, NOT A
+  //   DISAGREEING NUMBER: a bounded search additionally RENDERS every entry
+  //   that survives the structural filters, and that render is the extra ~3 ms.
+  //   The two are SUPPOSED to differ; copying either over the other is how a
+  //   perf note stops being a measurement.
+  //   Output is unchanged by construction; `makeDayInZone` shares `dayInZone`'s
   //   formatter and formatting code, and the Berlin/New-York boundary tests
   //   are the guard that it stayed that way.
   const dayOf = makeDayInZone(tz);

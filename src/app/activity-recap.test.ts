@@ -3,7 +3,7 @@ import { buildActivityRecapBlock, summarizeForRecap } from "./activity-recap";
 import type { ActivityEntry } from "./activity-log";
 import { RECAP_WINDOW_DAYS, type ActivitySummary } from "./history-search";
 import type { AiConfig } from "./settings-types";
-import { asTimeZoneForTests } from "./timezone";
+import { asTimeZoneForTests, createProjectClock } from "./timezone";
 import { toolNamesFor } from "./chat-api";
 
 const UTC = asTimeZoneForTests("UTC");
@@ -147,6 +147,12 @@ describe("buildActivityRecapBlock", () => {
 });
 
 describe("summarizeForRecap", () => {
+  // ★★★ The day is pinned by the INSTANT, never by supplying `today` (§153).
+  //   `createProjectClock` derives the date from the zone itself, so there is
+  //   no way — even in a fixture — to hand it a date computed in a different
+  //   zone from the one beside it. That is the whole point of the bag: the
+  //   inconsistent pair is unrepresentable rather than merely discouraged.
+  const CLOCK = createProjectClock(UTC, new Date("2026-08-16T12:00:00.000Z"));
   const entry = (actor: string): ActivityEntry =>
     ({ id: `e-${actor}`, timestamp: "2026-08-16T10:00:00.000Z", kind: "task.updated",
        args: [1, "x"], actor }) as ActivityEntry;
@@ -155,14 +161,14 @@ describe("summarizeForRecap", () => {
   const ai = (over: object = {}): AiConfig => ({ ...over }) as AiConfig;
 
   it("summarises when the toggle is unset (default ON)", () => {
-    const out = summarizeForRecap(ai(), [entry("user")], "2026-08-16", UTC);
+    const out = summarizeForRecap(ai(), [entry("user")], CLOCK);
     expect(out?.total).toBe(1);
     expect(out?.days).toBe(RECAP_WINDOW_DAYS);
   });
 
   it("summarises when the toggle is explicitly on", () => {
     expect(
-      summarizeForRecap(ai({ activityRecap: true }), [entry("ai")], "2026-08-16", UTC)?.total,
+      summarizeForRecap(ai({ activityRecap: true }), [entry("ai")], CLOCK)?.total,
     ).toBe(1);
   });
 
@@ -170,13 +176,13 @@ describe("summarizeForRecap", () => {
   //   nothing here, so a gate that never fires cannot pass this.
   it("returns undefined when the toggle is off", () => {
     expect(
-      summarizeForRecap(ai({ activityRecap: false }), [entry("user")], "2026-08-16", UTC),
+      summarizeForRecap(ai({ activityRecap: false }), [entry("user")], CLOCK),
     ).toBeUndefined();
   });
 
   // ★ `undefined`, never `null`: the snapshot field is optional, and a literal
   //   null would read as "computed, and the answer is nothing".
   it("maps an empty window to undefined rather than null", () => {
-    expect(summarizeForRecap(ai(), [], "2026-08-16", UTC)).toBeUndefined();
+    expect(summarizeForRecap(ai(), [], CLOCK)).toBeUndefined();
   });
 });

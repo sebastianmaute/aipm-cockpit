@@ -170,6 +170,9 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
       },
     })),
     getActivityLog: vi.fn(() => []),
+    // ★ Defaults ENABLED so every pre-existing search_history test keeps
+    //   exercising the engine; the §156 refusal tests override it to false.
+    isHistorySearchEnabled: vi.fn(() => true),
     getTimezone: vi.fn(() => "UTC"),
     getDashboardSnapshot: vi.fn(
       () =>
@@ -1133,23 +1136,37 @@ describe("search_history", () => {
     expect(TOOL_DEFS.some((d) => d.name === "search_history")).toBe(true);
   });
 
-  // ★★ The description is the ONLY place the model learns what this log does
-  //    NOT cover, and NEITHER gap is visible in the return value: a task the
-  //    model created through chat and a June that aged out both come back as
-  //    `{events: [], truncated: false}`. `truncated` reports what the capped,
-  //    chat-blind log HELD — never what never entered it or what the cap
+  // ★★ The description is the ONLY place the model learns how to read an empty
+  //    or unattributed result, and NEITHER property is visible in the return
+  //    value: a June that aged out comes back as `{events: [], truncated:
+  //    false}`, and an actor-less entry looks exactly like a user-authored one.
+  //    `truncated` reports what the CAPPED log held — never what the cap
   //    already dropped. A description "tightened" back to the original
   //    "audit trail of every create, update, delete, status change, AI action
-  //    and integration sync" makes the model deny work it did itself.
+  //    and integration sync" drops both cautions at once.
+  // ★★★ THE ABSENCE ASSERTION IS THE POINT OF THIS TEST AND IT IS VACUOUS
+  //    ALONE. The description used to claim "your OWN tool calls are not
+  //    recorded in it (document writes are the sole exception)", which this
+  //    test PINNED — and which stopped being true the moment the chat
+  //    dispatcher started logging its own entity writes with `actor: "ai"`.
+  //    So the assertion is inverted: the retired claim must stay GONE. On its
+  //    own that passes against an empty description, so the actor-disclosure
+  //    assertions beside it are what make the test non-vacuous — never delete
+  //    one half and keep the other.
   // ★ The retention figure is derived from ACTIVITY_MAX_ENTRIES, not typed
   //   here, so a moved cap cannot leave a stale number in the prompt.
-  it("discloses both blind spots to the model, not just `truncated`", () => {
+  it("discloses retention and actor, and never re-claims the closed coverage gap", () => {
     const desc = TOOL_DEFS.find((d) => d.name === "search_history")?.description ?? "";
     expect(desc).toContain(String(ACTIVITY_MAX_ENTRIES));
-    expect(desc).toMatch(/own tool calls are not recorded/i);
     expect(desc).toMatch(/aged out/i);
-    // The claim that started this: the log does NOT cover chat tool calls, so
-    // the description must not advertise "every ... AI action" again.
+    // RETIRED CLAIM — the dispatcher logs its own entity writes now.
+    expect(desc).not.toMatch(/own tool calls are not recorded/i);
+    // POSITIVE half: the actor disclosure, without which the absence check
+    // above passes on a description that says nothing at all.
+    expect(desc).toMatch(/actor/i);
+    expect(desc).toMatch(/never attribute an entry whose actor is absent/i);
+    // The claim that started this: the description must not advertise
+    // "every ... AI action" again.
     expect(desc).not.toMatch(/every create, update, delete/i);
   });
 
@@ -1180,6 +1197,40 @@ describe("search_history", () => {
     await expect(
       runTool(d, "search_history", { query: 42, kinds: "nope", limit: "ten" }),
     ).resolves.toEqual({ events: [], truncated: false });
+  });
+
+  // ★★★ §156 — THE EXECUTOR REFUSES, not just the prompt builder. The tool is
+  //   reached by NAME, and toggling the setting off mid-conversation leaves
+  //   prior tool_use/tool_result pairs in the re-sent history for the model to
+  //   mimic, so the advertisement gate alone leaves a switched-off capability
+  //   able to answer.
+  it("refuses to execute when the kill switch is off", async () => {
+    const d = makeDispatcher({
+      getActivityLog: () => LOG,
+      isHistorySearchEnabled: () => false,
+    });
+    await expect(runTool(d, "search_history", {})).rejects.toThrow(/switched off/i);
+  });
+
+  // ★★ THE LOAD-BEARING HALF. "It threw" is satisfied by a guard that throws
+  //   for the wrong reason, or by one placed so late the log was already read.
+  //   Pin that the refusal happens BEFORE the log is touched — otherwise a
+  //   guard sitting after `getActivityLog()` passes the test above while doing
+  //   none of the work the entry asks for.
+  it("refuses WITHOUT reading the log", async () => {
+    const getActivityLog = vi.fn(() => LOG);
+    const d = makeDispatcher({ getActivityLog, isHistorySearchEnabled: () => false });
+    await expect(runTool(d, "search_history", {})).rejects.toThrow();
+    expect(getActivityLog).not.toHaveBeenCalled();
+  });
+
+  // ★ Absence is ON — the tool shipped enabled in 0.241.0, so only an explicit
+  //   false disables. Pinned at the executor because the predicate it shares
+  //   with `toolsFor` is the thing that must not drift.
+  it("serves normally when the switch is enabled", async () => {
+    const d = makeDispatcher({ getActivityLog: () => LOG, isHistorySearchEnabled: () => true });
+    const r = (await runTool(d, "search_history", {})) as { events: unknown[] };
+    expect(r.events).toHaveLength(2);
   });
 
   // ★★ PAIRED POSITIVE for the guard above, and the test that actually pins it.

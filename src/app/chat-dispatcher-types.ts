@@ -4,7 +4,7 @@
 import type { Dispatch, SetStateAction } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import type { AppView } from "./nav-config";
-import type { TimeZone } from "./timezone";
+import type { ProjectClock } from "./timezone";
 import { type Settings } from "./settings-types";
 import { type DashboardModel } from "./dashboard";
 import { type ProjectReport } from "./budget-report";
@@ -12,19 +12,43 @@ import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
-  today: string;
-  /** The effective IANA zone `today` was computed in (`resolveTimezone` of the
-   *  device override and the project's operating tz). Threaded rather than
-   *  re-derived: `settings.timezone` is only the FIRST candidate, so deriving
-   *  it here would silently ignore a project-level zone and the browser
-   *  fallback and put day bounds back out of step with `today`.
+  /** The project's day AND the zone it was computed in, as ONE value (§153).
    *
-   *  ★★ `TimeZone`, not `string`, and widening it back is what re-opens the
-   *  defect: this field and `today` above are the exact pair that transposed
-   *  silently into the recap engine. The brand only holds while every hop from
-   *  `resolveTimezone` to `buildActivityRecapBlock` carries it — a `string`
-   *  here lets a raw value in at precisely the point a future edit would. */
-  timezone: TimeZone;
+   *  ★★★ THIS WAS TWO FIELDS — `today: string` and `timezone: TimeZone` — and
+   *  they were the exact pair that transposed silently into the recap engine.
+   *  Branding the zone made a TRANSPOSITION unrepresentable but left an
+   *  INCONSISTENT PAIR (a `today` computed in one zone beside a `tz` naming
+   *  another) well-typed, because `today` is a pure function of `tz` and they
+   *  travelled as two independent fields. `ProjectClock` derives `today` from
+   *  `tz` inside its factory, so no caller can build a disagreeing pair.
+   *
+   *  ★★ Do NOT re-split this into two fields for call-site convenience, and do
+   *  not add a `today` alongside it: the value of the bag is precisely that
+   *  there is no second place to get the date from. Threaded rather than
+   *  re-derived here — `settings.timezone` is only the FIRST candidate, so
+   *  deriving it locally would ignore a project-level zone and the browser
+   *  fallback. */
+  clock: ProjectClock;
+  /** Called immediately after this dispatcher writes its own `"ai"`-stamped
+   *  `settings.updated` row, so the debounced settings-log effect can skip the
+   *  duplicate actor-less row it would otherwise add (§154).
+   *
+   *  ★★★ EVERY CALLER MUST HAVE JUST CREATED A NEW `settings` IDENTITY, or it
+   *  credits a run that will never happen. Both call sites satisfy this
+   *  unconditionally (`setLanguage` spreads a fresh object; `updateSettings`
+   *  credits only inside its `applied` guard).
+   *
+   *  ★★★ THAT IS NECESSARY BUT NOT SUFFICIENT, and an earlier version of this
+   *  note claimed it was enough. Credits are issued PER CALL and consumed PER
+   *  EFFECT RUN, and React batches every `setSettings` of one assistant turn
+   *  into ONE render — so N calls in a turn produce N credits against a single
+   *  run. The consumer therefore CLEARS the counter instead of decrementing it;
+   *  do not "fix" that back to a decrement, which leaves the surplus alive to
+   *  swallow an arbitrarily later user row. See `aiSettingsCreditsRef`.
+   *
+   *  ★ Optional so a fixture can omit it: a test that does not pass it simply
+   *  gets the old both-rows behaviour, which is the safe direction. */
+  onSettingsLoggedByAi?: () => void;
   setSelectedIds: Dispatch<SetStateAction<Set<number>>>;
   setSettings: Dispatch<SetStateAction<Settings>>;
   /** True in a popout/mirror window — mutating tools are refused so chat edits

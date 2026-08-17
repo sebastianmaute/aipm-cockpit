@@ -165,19 +165,14 @@ import { buildActionInput } from "./next-actions-input";
 import { buildWorkloadAlerts } from "./next-actions-workload";
 import type { SuggestedAction } from "./next-actions";
 import { computeActionTrends } from "./next-actions/trends";
-import { todayInZone, resolveTimezone } from "./timezone";
+import { resolveTimezone, createProjectClock } from "./timezone";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { ConfirmProvider } from "./confirm-dialog";
 
-// Today (YYYY-MM-DD) in the resolved effective zone. A module fn so the
-// `new Date()` read stays out of the render body (react-hooks purity rule).
+// ★ `effectiveToday(tz)` lived here until §153; `createProjectClock` (timezone.ts) now owns that derivation and keeps the day welded to its zone. Do NOT reintroduce a local one — a second producer of `today` is what let an inconsistent pair exist.
 // Connected display-timezone switcher. A module-level wrapper (static-components
 // rule) so it can read the DisplayTimezoneContext that wraps both shells — the
 // header element it produces is rendered inside the provider in both layouts.
-
-function effectiveToday(tz: string): string {
-  return todayInZone(new Date(), tz);
-}
 
 // Idle window before an auto version is captured after a save. Coalesces a
 // burst of saves into a single version.
@@ -205,7 +200,8 @@ const NO_JIRA_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
 function TaskManagerInner() {
   const { settings, setSettings, hydrated, i18nReady, lang } = useSettings();
   useApplyFavicon(settings.branding?.favicon ?? null);
-  // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries. Pinned by task-manager.activity-actor.test.tsx.
+  // ★★★ USER-ACTOR WIRING — every `logActivity:` below MUST read `logActivityUser`; see the "who names the actor" rule on useActivityLog. Threading the raw one shipped ZERO "user" entries.
+  // ★★ THE PIN COVERS TWO OF THE WIRING SITES, NOT ALL OF THEM — this line used to say "Pinned by task-manager.activity-actor.test.tsx" flat, which reads as coverage of the whole rule. That file drives exactly two threads through the real component: `useChangeLog` (via `handleSaveChange`) and `useStakeholders` (via `handleSaveStakeholder`), plus a control that `logActivityAs("ai")` stays distinct and the `logActivityChangesUser` field-diff variant on the change thread. Every OTHER site below — resource planner, budget buckets, notes window, undo stack, the inline `logActivityUser(...)` calls, and the remaining hook threads — is UNPINNED: swapping one back to the raw `logActivity` drops its actor silently and the suite stays green. ★ Count those by eye, not by grepping this file for `logActivityUser`: THIS COMMENT matches that grep, so the count comes back inflated by the line quoting it.
   const { activityLog, logActivity, logActivityAs, logActivityUser, logActivityChangesUser, handleClearActivityLog } =
     useActivityLog();
   const { toast, showToast, showToastAction, pause: pauseToast, resume: resumeToast } = useToast();
@@ -364,7 +360,11 @@ function TaskManagerInner() {
   const effectiveNotifications = effectiveSettings.notifications;
 
   const effectiveTz = resolveTimezone(effectiveSettings.timezone, project?.operatingTimezone);
-  const today = effectiveToday(effectiveTz);
+  // ★★★ THE SINGLE DERIVATION POINT FOR THIS CHAIN (§153): `createProjectClock` computes the day FROM the zone internally, so the two cannot be resolved independently and handed on as a disagreeing pair. `today` below is a READ off that one object — never reintroduce a separate `effectiveToday(...)` call.
+  // ★★ "FOR THIS CHAIN" IS LOAD-BEARING — it is NOT the only producer of a day in the app, and an earlier wording of this comment implied it was. `use-bulk-operations.ts` derives its own via `todayInZone(new Date(), tz)`; reproduce with `grep -rn "todayInZone(new Date()" src/app --include=*.ts | grep -v test` → one hit.
+  // ★★★ THAT SECOND PRODUCER AGREES WITH THIS ONE, and an earlier revision of this comment asserted the opposite — that it read RAW `settings.timezone` while this reads `effectiveSettings.timezone`, so the two "disagree" under a project override and a bulk edit could stamp `completedDate` in the wrong zone. FALSE, and invented whole: `useBulkOperations` is handed `settings: effectiveSettings` (see its call site below), so `args.settings.timezone` IS `effectiveSettings.timezone`, and both sites call `resolveTimezone` with identical arguments. They cannot diverge under an override or otherwise. Verify with `git grep -n "resolveTimezone(" -- src/app/task-manager.tsx src/app/use-bulk-operations.ts` — two hits, same two arguments. Recorded rather than deleted because the false version shipped a plausible-sounding data-integrity bug that no gate can see: `docs:symbols:check` proves every name in it exists, which was never the question.
+  const clock = createProjectClock(effectiveTz);
+  const today = clock.today;
 
   // Set the browser tab title in popout mode. The main-window title is
   // managed by `next/metadata` via layout.tsx; this only fires when
@@ -1323,7 +1323,8 @@ function TaskManagerInner() {
       const next = [...raidRef.current, clean];
       raidRef.current = next; // keep back-to-back flushes minting distinct ids
       setRaid(next);
-      logActivityUser("raid.created", clean.id, clean.title);
+      // ★★ THREE ARGS, ORDER (id, category, title) — matching `use-resource-planner.ts`. `activityRaidCreated` is "RAID #{0} created ({1}): {2}" and `logActivityUser` ends in `...args`, so a two-arg call typechecks; it shipped, putting the title in the CATEGORY slot and rendering a literal "{2}" to the user and (since search_history) to the model. Read the SANITIZED row, not `spec` — `sanitizeRaidItem` decides what was stored. ★★ THE ARITY HERE IS UNPINNED: no harness reaches this call site, so DELETING `clean.category` re-creates the defect and ships GREEN. `use-notes-window.test.tsx` pins only the sibling `raid.updated` sites, and `use-resource-planner.test.tsx` only its own `handleSaveRaidItem` — neither reaches here.
+      logActivityUser("raid.created", clean.id, clean.category, clean.title);
     },
     [setRaid, today, logActivityUser],
   );
@@ -1612,21 +1613,35 @@ function TaskManagerInner() {
   }, [bucketReminderKey]);
 
   // Debounced coarse "settings.updated" entry. Guards: (1) pre-hydration — the effect skips every run while `hydrated` is false; (2) initial mount — the first post-hydration run reflects the LOADED value, so `settingsInitialRef` suppresses it; (3) secrets — the entry carries no field values.
-  // ★★★ THE ONE PRODUCTION SITE DELIBERATELY LEFT ON THE ACTOR-LESS `logActivity` — do NOT "finish the sweep" by stamping it `"user"`. It is an EFFECT over settings STATE, not a handler behind a gesture, so it cannot see its cause: the chat dispatcher's `update_settings` mutates the same state and fires this too, while ALREADY writing its own `settings.updated` stamped `"ai"`. A `"user"` stamp would sit contradicting that row. Absent is honest — nothing here knows who acted.
+  // ★★★ THE ONE PRODUCTION SITE DELIBERATELY LEFT ON THE ACTOR-LESS `logActivity` — do NOT "finish the sweep" by stamping it `"user"`. It is an EFFECT over settings STATE, not a handler behind a gesture, so it cannot see its cause. A `"user"` stamp would be a guess. Absent is honest — nothing here knows who acted. ★★ STILL TRUE AFTER §154: the credit counter below does not teach this effect a cause, it only tells it that a change was ALREADY reported by someone who knew. Every row it still writes is one nothing can attribute, which is why it stays actor-less.
   const settingsLoggerRef = useRef(
     createSettingsLogger(() => logActivity("settings.updated"), SETTINGS_LOG_DEBOUNCE_MS),
   );
   const settingsInitialRef = useRef(true);
+  // ★★★ §154 — settings changes the AI already logged an `"ai"` row for, which this effect must not report twice. A counter, not the time-window suppression flag that entry rejected: a human change after an AI one gets its own run, finds 0, and is logged normally.
+  // ★★★ THE EFFECT CLEARS THE COUNTER, IT DOES NOT DECREMENT IT, and that asymmetry is the whole correctness argument. Credits are issued PER TOOL CALL but consumed PER EFFECT RUN, and React batches every `setSettings` of one assistant turn into ONE render — so "switch to German and turn off view hints" issues 2 credits against 1 run. Decrementing left the surplus alive indefinitely, and it silently ate the next genuine USER row, whenever that came. Clearing bounds the suppression to the turn that caused it: a leak cannot outlive the render it was created in.
+  // ★★ RESIDUAL 1 (safe), deliberately accepted: if two AI settings writes in one turn are separated by a real macrotask (an intervening tool doing I/O), React renders twice, the second run finds 0 and adds one actor-less row. An EXTRA honest row beats a MISSING user row — never trade this back. Reasoning: open-followups §154.
+  // ★★ RESIDUAL 2 (UNSAFE), and this comment used to claim to enumerate the residuals while listing only the harmless one: if a USER settings change and an AI write land in the SAME React batch, the single effect run consumes the credit and the USER's row is the one lost. That is §154's own failure mode, surviving at a much lower probability — the user would have to change a setting inside the same batch as an AI write, which needs a real concurrent interaction rather than an ordinary sequence. Not fixed because distinguishing the two writers inside one batch needs identity comparison, and both AI writers use functional setters (`setSettings(prev => …)`), so nothing the effect sees is reference-equal to what the dispatcher computed. Do not "close" it by switching those writers to direct-value setters: that walks into the documented "N saves in one tick" landmine.
+  const aiSettingsCreditsRef = useRef(0);
   useEffect(() => {
     if (!hydrated) return;
     if (settingsInitialRef.current) {
       settingsInitialRef.current = false;
       return;
     }
-    const logger = settingsLoggerRef.current;
-    logger.notifyChange();
-    return () => logger.cancel();
+    if (aiSettingsCreditsRef.current > 0) { aiSettingsCreditsRef.current = 0; return; }
+    settingsLoggerRef.current.notifyChange();
   }, [settings, hydrated]);
+
+  // ★★ Cancel only on UNMOUNT, never per run. A per-run cleanup fires BEFORE the
+  // next effect body, so an AI write landing within the debounce window cancelled
+  // the pending row and then early-returned without re-arming — the USER's change
+  // vanished entirely. Behaviour-neutral on the normal path, since `notifyChange`
+  // already restarts the timer itself.
+  useEffect(() => {
+    const logger = settingsLoggerRef.current;
+    return () => logger.cancel();
+  }, []);
 
   const absenceKnownAssignees = useMemo(
     () => [
@@ -1677,7 +1692,9 @@ function TaskManagerInner() {
 
   const dispatcher = useChatDispatcher({
     settings,
-    today, timezone: effectiveTz,
+    // ★ ONE field, not `today` + `timezone` (§153); `onSettingsLoggedByAi` is §154.
+    clock,
+    onSettingsLoggedByAi: () => { aiSettingsCreditsRef.current += 1; },
     setSelectedIds,
     setSettings,
     isReadOnly: isPopout,

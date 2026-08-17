@@ -73,10 +73,23 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
     // Resolve the display name from the LIVE closure array (event-handler scope),
     // never from inside the setState updater — reading an updater-assigned var
     // after the setter is the documented stale-read landmine.
+    // ★★★ THE RAID ROW IS LOOKED UP ONCE FOR *TWO* FIELDS, AND THE SECOND ONE IS
+    //   NOT OPTIONAL. `activityRaidUpdated` is "RAID #{0} updated ({1}): {2}" —
+    //   THREE placeholders — and `logActivity` ends in `...args`, so the arity is
+    //   untyped and a two-arg call compiles. It shipped: the title landed in the
+    //   CATEGORY slot and a literal "{2}" was rendered to the user in the
+    //   Activity panel and, since search_history, fed to the model as well. The
+    //   canonical order is (id, category, title) — see `use-resource-planner.ts`,
+    //   which is where the user-side raid rows are written.
+    const raidRow = kind === "raid" ? raid.find((r) => r.id === id) : undefined;
     const entityName =
       kind === "task"
         ? tasks.find((tk) => tk.id === id)?.taskName ?? ""
-        : raid.find((r) => r.id === id)?.title ?? "";
+        : raidRow?.title ?? "";
+    // ★ `?? ""` mirrors `entityName`'s own fallback rather than dropping the
+    //   argument: a row that vanished between opening the notes window and the
+    //   write must still log THREE args, or it re-creates the "{2}" defect.
+    const raidCategory = raidRow?.category ?? "";
     return {
       onAdd: (html: string, text: string) => {
         const ts = new Date().toISOString();
@@ -97,7 +110,7 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
                 : r,
             ),
           );
-          logActivity("raid.updated", id, entityName);
+          logActivity("raid.updated", id, raidCategory, entityName);
         }
       },
       onEdit: (noteId: number, html: string, text: string) => {
@@ -119,7 +132,7 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
                 : r,
             ),
           );
-          logActivity("raid.updated", id, entityName);
+          logActivity("raid.updated", id, raidCategory, entityName);
         }
       },
       onDelete: (noteId: number) => {
@@ -133,7 +146,7 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
           setRaid((prev) =>
             prev.map((r) => (r.id === id ? { ...r, noteLog: deleteNote(r.noteLog ?? [], noteId), localModifiedAt: ts } : r)),
           );
-          logActivity("raid.updated", id, entityName);
+          logActivity("raid.updated", id, raidCategory, entityName);
         }
       },
     };

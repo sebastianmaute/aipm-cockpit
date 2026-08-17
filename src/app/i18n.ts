@@ -1587,6 +1587,17 @@ const enUS = {
   activityActorUser: "User",
   activityActorAi: "AI assistant",
   activityActorIntegration: "Integration",
+  activityActorUnknown: "Unattributed",
+  // Accessible name for the actor filter's "All" radio. The group filter has an
+  // "All" radio too, and two radios sharing an accessible name is a WCAG 2.4.6
+  // failure no axe rule can detect. WCAG 2.5.3 (label-in-name) is CONTAINMENT,
+  // not prefix — axe ends in `curatedCompareWith.includes(curatedCompare)`,
+  // position-independent, so the visible "All" need only appear SOMEWHERE in
+  // "All actors". Front position is a non-normative NOTE attached to the SC (a
+  // best practice for speech input), not its normative text; this string
+  // happens to satisfy it, but do not enforce the prefix form as the rule —
+  // stating the stricter test flags conformant code later.
+  activityActorFilterAll: "All actors",
   activityActorFilterHint: "Show only entries caused by this actor",
   activityChangeFrom: "from",
   activityChangeTo: "to",
@@ -1901,6 +1912,7 @@ const enUS = {
   resourcesUtilModeHint: "Switch all resources between percent and hours; entered values are converted.",
   activitySearchHint: "Search the log by text, wildcard (* ?), or regular expression, depending on the mode.",
   activitySearchModeHint: "Choose how the search text is interpreted: literal text, wildcards, or regex.",
+  activityGroupFilterLabel: "Category",
   activityGroupFilterHint: "Show only log entries of the selected kind.",
   activityClearHint: "Delete all activity log entries. This cannot be undone.",
   timelogClearAllConfirm: "Clear all fetched Timelog data (people, projects and bookings)? This cannot be undone.",
@@ -3906,7 +3918,7 @@ const enUS = {
   versionHighlightHistorySearch: "The assistant can now look things up in the project's activity history. Ask it when a milestone moved, who was assigned a task, or what changed last week, and it searches the recorded activity rather than guessing from the current state. It reads the history in your project's timezone, so \"yesterday\" means what you mean by it. The assistant is also told which of its own past recommendations were followed and how they measured afterwards, so it can favour advice that worked on this project before. The activity log holds the most recent 500 entries; anything older has aged out and the assistant will say so rather than report it as nothing having happened.",
   versionHighlightDashboardArrange: "The dashboard is now arrangeable. Drag a tile by its handle to move it, resize it in either direction, or hide it — hidden tiles collect in a shelf you can restore from at any time, and one button resets the board to its default. Each project keeps its own arrangement. Separately, drag-to-reorder now works in Firefox everywhere it is offered — report sections, budget buckets and the two role lists — where it previously did nothing at all, and every reorder handle can now be operated from the keyboard as well as the mouse.",
   versionHighlightCsvQuoting: "Importing a CSV or Markdown project file is more robust. A cell containing a line break — a multi-line description or note — no longer causes the rest of the file to be misread: previously such a break could make the importer switch to the next section mid-row and discard every remaining row of the section it was reading, with nothing shown to say so. Files that end mid-quote are now reported instead of silently losing rows.",
-  versionHighlightActorAttribution: "Every entry in the project activity history now records who made the change — you, the assistant, or an integration such as Jira or the calendar sync. The assistant used to write nothing to the log at all, so its edits were invisible; they are now recorded like any other change, and the Activity view shows the author and can be filtered by it. The assistant is also given a short summary of the last seven days of activity, so it knows what has been going on before you ask. Entries recorded before this release carry no author, because it cannot be reconstructed after the fact — they are shown as unattributed rather than guessed at. Both the history search and the activity summary can be switched off in Settings.",
+  versionHighlightActorAttribution: "Entries in the project activity history now record who made the change — you, the assistant, or an integration such as Jira or the calendar sync. The assistant's edits to your registers (tasks, RAID items, changes, milestones, stakeholders and resources) used to go unrecorded and were invisible in the history; they are now recorded and attributed like any other change, and the Activity view shows the author and can be filtered by it. The assistant is also given a short summary of the last seven days of activity, so it knows what has been going on before you ask. Some entries carry no author and cannot be attributed — for example, they predate this release, or were recorded by a step that cannot tell who acted; those are shown as unattributed rather than guessed at. Both the history search and the activity summary can be switched off in Settings.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

@@ -5,9 +5,11 @@ import {
   closeDanglingToolUses,
   maxOutputTokensFor,
   toolsFor,
+  toolNamesFor,
   type ApiMessage,
   type ToolResultBlock,
 } from "./chat-api";
+import { historySearchEnabled } from "./settings-types";
 import type { ToolDispatcher } from "./chat-tools";
 import { RECAP_WINDOW_DAYS } from "./history-search";
 
@@ -282,5 +284,27 @@ describe("tool list gating", () => {
   it("returns a STABLE reference for the same setting", () => {
     expect(toolsFor(undefined)).toBe(toolsFor(true));
     expect(toolsFor(false)).toBe(toolsFor(false));
+  });
+
+  // ★★★ §156 DRIFT GUARD. The kill switch is now enforced in TWO places —
+  //   here (what the model is offered) and `runTool`'s `case "search_history"`
+  //   (what the executor will serve). Defence in depth is only worth having
+  //   while both layers agree, and two hand-spelled `=== false` checks are one
+  //   config slip from a switch that advertises OFF and serves ON. Both read
+  //   `historySearchEnabled`, and this pins that the advertisement follows it
+  //   for every input shape the sanitizer can produce — including the garbage
+  //   ones, where "only an explicit false disables" is the whole contract.
+  it("advertises exactly what historySearchEnabled says, for every input shape", () => {
+    const inputs = [undefined, true, false, null, 0, 1, "", "no", NaN];
+    for (const raw of inputs) {
+      const v = raw as boolean | undefined;
+      const enabled = historySearchEnabled(v);
+      expect(toolsFor(v).map((t) => t.name).includes("search_history")).toBe(enabled);
+      expect(toolNamesFor(v).has("search_history")).toBe(enabled);
+    }
+    // The control: the set really does split, so the loop is not asserting
+    // `true === true` nine times over.
+    expect(historySearchEnabled(false)).toBe(false);
+    expect(historySearchEnabled(undefined)).toBe(true);
   });
 });

@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
+  asTimeZoneForTests,
+  createProjectClock,
   todayInZone,
   isValidTimeZone,
   resolveTimezone,
@@ -110,5 +112,43 @@ describe("timezone", () => {
         "2026-08-16T22:30:00+00:00",
       );
     });
+  });
+});
+
+describe("createProjectClock (§153)", () => {
+  // Same INSTANT, two zones. 2026-08-16T22:30Z is 2026-08-17 in Berlin (+2) and
+  // still 2026-08-16 in New York (-4).
+  const INSTANT = new Date("2026-08-16T22:30:00.000Z");
+
+  // ★★★ THE INVARIANT THE WHOLE BAG EXISTS FOR: `today` is DERIVED FROM `tz`,
+  //   not carried alongside it. If the factory ever took a caller-supplied
+  //   date, these two clocks could report the same day for different zones —
+  //   which is exactly the inconsistent pair the brand alone could not catch.
+  it("derives the day from the zone, so one instant yields different days", () => {
+    const berlin = createProjectClock(asTimeZoneForTests("Europe/Berlin"), INSTANT);
+    const newYork = createProjectClock(asTimeZoneForTests("America/New_York"), INSTANT);
+    expect(berlin.today).toBe("2026-08-17");
+    expect(newYork.today).toBe("2026-08-16");
+    // The control: the zones really do straddle midnight here, so the
+    // assertions above are not two spellings of one value.
+    expect(berlin.today).not.toBe(newYork.today);
+  });
+
+  it("carries the zone it derived the day in", () => {
+    const tz = asTimeZoneForTests("Europe/Berlin");
+    expect(createProjectClock(tz, INSTANT).tz).toBe(tz);
+  });
+
+  it("agrees with todayInZone for the same instant and zone", () => {
+    const tz = asTimeZoneForTests("Asia/Tokyo");
+    expect(createProjectClock(tz, INSTANT).today).toBe(todayInZone(INSTANT, tz));
+  });
+
+  // ★ The default is what the render body relies on (React's purity rule bans a
+  //   `new Date()` there, so `task-manager.tsx` calls this instead). Assert only
+  //   the SHAPE — asserting the value would pin the suite to the wall clock.
+  it("defaults to now when no instant is given", () => {
+    const out = createProjectClock(asTimeZoneForTests("UTC"));
+    expect(out.today).toMatch(/^\d{4}-\d{2}-\d{2}$/);
   });
 });
