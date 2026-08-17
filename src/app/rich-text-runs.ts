@@ -314,9 +314,12 @@ export function htmlToRichLines(html: string): RichLine[] {
    *
    *  ★★★ THE DEFECT. An item whose own `li` line is DROPPED — it starts empty
    *  and a `<br>`, an `<hr>` or a heading closes it before any text arrives —
-   *  re-opens at `pushText` as a CONTINUATION, and every renderer suppresses the
-   *  marker on one. Its ordinal is still spent, so the exported list showed an
-   *  unmarked line and then "2.", with no "1." anywhere.
+   *  re-opens at `pushText` as a CONTINUATION, and BOTH `RichLine` renderers
+   *  suppress the marker on one. Its ordinal is still spent, so the exported
+   *  list showed an unmarked line and then "2.", with no "1." anywhere.
+   *  ★ "Both", not "every": the HTML/PDF export never builds a `RichLine` and
+   *  lets the browser mark the list natively. Exactly two files read the field
+   *  — `doc-render-pptx.ts` and `ooxml-docx-primitives.ts`.
    *
    *  ★★ It runs AFTER the item's walk because the question — "did the item's own
    *  head line survive `flush`?" — cannot be answered until that line has been
@@ -331,10 +334,16 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  ★ It promotes ONE line. Every later `li` line at this depth is a genuine
    *  continuation, and a second promoted line would put two bullets on one item.
    *
-   *  ★ AN ITEM WITH NO `li` LINE AT ALL IS LEFT ALONE, and that is the residue:
-   *  `<li><h2>h</h2></li>` and `<li><ul>…</ul></li>` emit only lines of another
-   *  kind, which keep that kind (and lose the indent) by §156 and cannot carry a
-   *  marker. Such an item still spends its ordinal and renders none —
+   *  ★★ AN ITEM WITH NO `li` LINE AT ITS OWN DEPTH IS LEFT ALONE, and that is
+   *  the residue. TWO shapes reach it, and the predicate is the DEPTH filter
+   *  above — NOT a kind one, which is how this docblock used to spell it:
+   *    • `<li><h2>h</h2></li>` emits only lines of ANOTHER KIND, which keep that
+   *      kind (and lose the indent) by §156 and cannot carry a marker;
+   *    • `<li><ul>…</ul></li>` emits `li` lines — but they are the SUB-LIST's
+   *      items, heads of their own one depth DEEPER, so `line.depth !== depth`
+   *      skips every one of them. "Only lines of another kind" is FALSE about
+   *      this shape and sends a reader hunting for a kind bug that is not there.
+   *  Either way the item still spends its ordinal and renders no marker —
    *  open-followups §157. */
   function promoteItemHead(from: number, depth: number): void {
     for (let i = from; i < lines.length; i += 1) {

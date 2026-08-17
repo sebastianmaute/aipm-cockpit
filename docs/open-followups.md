@@ -10342,13 +10342,13 @@ slice needed, and it buys indentation only.
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
 
-## 157. An item whose ONLY output is a line of another kind still spends an ordinal and renders no marker — open
+## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
 
 Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
 (`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
 whose own line was dropped — it started empty and a `<br>`, an `<hr>` or a heading closed it before
 any text arrived — no longer renders every line unmarked while spending its number. What is left is
-the case where the item emits **no `li` line at all**:
+the case where the item puts **no `li` line AT ITS OWN DEPTH** into the output:
 
 ```bash
 # both shapes, with the assertions that pin the ordinal being spent
@@ -10357,8 +10357,19 @@ grep -n "SPENDS a number on an item whose only" -A 22 src/app/rich-text-runs.tes
 
 `<ol><li><h2>h</h2></li><li>a</li></ol>` and `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>`. In
 both the item RENDERED — a heading, a sub-list — so it correctly occupies a numbered slot and `a`/`b`
-are item 2. But the heading and the nested item keep their own kind by §156, and neither can carry
-the outer item's marker, so nothing in the export shows a "1.".
+are item 2. Neither line can carry the outer item's marker, so nothing in the export shows a "1." —
+but **the two shapes miss it for DIFFERENT reasons, and only the first is a kind story**:
+
+- `<li><h2>h</h2></li>` emits a `heading` line, which keeps its own kind by §156. There is no `li`
+  line anywhere, at any depth.
+- `<li><ul>…</ul></li>` **does** emit `li` lines — the sub-list's items, heads of their own, one
+  depth DEEPER. What skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind
+  test. `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts` shows `[1, 0]`
+  then `[0, 1]` as `[depth, index]`, and that mapper emits an array only for a line of kind `"li"`.
+
+An earlier wording of this entry (and of `promoteItemHead`'s docblock, and of AGENTS.md) said "emits
+only lines of another kind", which is FALSE about the second shape and sends a reader hunting for a
+kind bug. The accurate predicate is the one in the title.
 
 ★★ **This is §156 seen from the numbering side, and it has the same cause and the same fix.** A
 line that keeps its own kind cannot hold an `li`'s marker any more than it can hold an `li`'s
@@ -10372,3 +10383,41 @@ first nested item, which reads as a numbering bug rather than a missing marker.
 
 ★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
 the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.
+
+## 158. A `<blockquote>`'s alignment is DROPPED in the shape the editor actually stores — open
+
+Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
+(`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
+`rich-text-runs.test.ts` covers that for four kinds. Two of the four fixtures are markup no editor
+can produce, and the blockquote one is the pair that matters:
+
+```bash
+# the hand-authored shape the suite covers, and the editor-real one that fails
+grep -n "keeps the alignment on BOTH halves" -A 4 src/app/rich-text-runs.test.ts
+grep -n "in the shape the editor actually stores" -A 14 src/app/rich-text-runs.test.ts
+```
+
+`<blockquote data-align="right">q<br>r</blockquote>` keeps `"right"` on both halves. Tiptap wraps
+blockquote content in a paragraph, so what is STORED is
+`<blockquote data-align="right"><p>q</p></blockquote>` — and that projects to a single line with
+**no align at all**. The walk's NESTED arm opens a `blockquote` line carrying the align, then the
+inner `<p>` takes the LINE_TAGS arm with `item === null`, opens a line of its own with its own
+(absent) align, and the still-empty outer line is dropped by `flush` for holding no text. The
+alignment the user set on the quote does not reach the .docx or the .pptx.
+
+★★ **The fix is not "make LINE_TAGS inherit whatever align is in force".** That arm is the one this
+round just taught to fall back to the ITEM's align inside an `<li>`; giving it a blanket fallback to
+the enclosing block's would also change every `<p>` inside a `<div>` and inside a `<pre>`, which is a
+wider output change than this entry is worth. The narrow shape is for the NESTED arm to hand its
+align down as the alignment IN FORCE and for LINE_TAGS to consult THAT — the same `own ?? inherited`
+resolution, sourced from `walk`'s existing `align` parameter rather than from `item`.
+
+★ **Characterized, not merely recorded.** `rich-text-runs.test.ts` asserts the alignment is
+`undefined` today ("DROPS a blockquote's alignment in the shape the editor actually stores"), so that
+test goes RED when this is fixed and the fixer is told to update it. It is the §126 pattern: an
+assertion that the defect is still present, not a guarantee that it should be.
+
+★ Severity is cosmetic-but-silent, and it is the same class as the `<ul data-align>` residue the
+walk's docblock now names: an author's alignment choice is discarded with nothing to notice it by.
+`data-align` is value-guarded and not tag-guarded in `sanitize-html.ts`, so both shapes reach the
+renderer intact.

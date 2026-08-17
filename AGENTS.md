@@ -1122,20 +1122,35 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   first `li` line the item PUT INTO THE OUTPUT, not the first one it opened. An item whose own line
   starts empty and is closed before any text arrives — Shift+Enter as the FIRST keystroke
   (`<ol><li><p><br>x</p></li>…`), a leading `<hr>`, a leading `<h2>` — has that line dropped by
-  `flush` for holding no text, and the text then re-opens as a CONTINUATION, which every renderer
-  leaves unmarked. The ordinal was spent regardless, so the list's first visible number was "2." with
+  `flush` for holding no text, and the text then re-opens as a CONTINUATION, which BOTH `RichLine`
+  renderers leave unmarked. (Not "every renderer", as this line said — the HTML/PDF export never
+  builds a `RichLine` at all and lets the browser mark the list natively, which the ★ note near the
+  end of this block records. Only two files suppress on the field:
+  `grep -rn "!line.continuation" src/app --include=*.ts | grep -v "\.test\."` → `doc-render-pptx.ts`
+  and `ooxml-docx-primitives.ts`.) The ordinal was spent regardless, so the list's first visible number was "2." with
   an unmarked line above it. `promoteItemHead` (`rich-text-runs.ts`) fixes it by scanning the span
   the LI arm already snapshots and promoting that first line back to a head — so a `continuation:
   true` seen MID-WALK is provisional, and a reader tracing the walk alone will conclude the marker is
   lost.
-  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item that emits ONLY lines of another kind
-  (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to promote, so it renders NO marker
-  while still spending its ordinal — `docs/open-followups.md` §157, which is §156 seen from the
-  numbering side and has the same cause. Say "per item that put an `li` line into the output".
+  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item with no `li` line AT ITS OWN DEPTH has
+  none to promote, so it renders NO marker while still spending its ordinal —
+  `docs/open-followups.md` §157, which is §156 seen from the numbering side and has the same cause.
+  Say "per item that put an `li` line AT ITS OWN DEPTH into the output".
+  ★★★ **"EMITS ONLY LINES OF ANOTHER KIND" IS THE WRONG PREDICATE, AND THIS LINE SAID IT.** It is
+  true of `<li><h2>h</h2></li>`, whose only output is a heading — and FALSE of `<li><ul>…</ul></li>`,
+  whose output IS `li` lines. Those are the SUB-LIST's items, heads of their own one depth DEEPER,
+  and what skips them is `promoteItemHead`'s `line.depth !== depth` filter, not any kind test. The
+  branch's own test proves it — `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>` yields `[1, 0]`
+  then `[0, 1]` as `[depth, index]`, and the mapper that produced them emits an array only for a
+  line of kind `"li"`, so BOTH are `li` lines. Reproduce:
+  `grep -n "only content is a nested list" -A 9 src/app/rich-text-runs.test.ts`. Cover both shapes
+  when you restate this: only-another-kind AND only-a-sub-list. A reader handed the kind spelling
+  goes looking for a kind bug that is not there.
   ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
   `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
   **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure
-  mode this file records elsewhere at 27-vs-65. The sweep it used to attach
+  mode this file records elsewhere in the `sanitizeRaidItem` sweep, where passing the sanitizer by
+  REFERENCE into `buildList` hid a call site from a bare-name grep and under-counted it. The sweep it used to attach
   (`grep -rn "continuation"` over the two files that already carry the guard) was scoped so it could
   only ever CONFIRM the sentence; a sweep that cannot fail is not a sweep. Use:
   `grep -rn "bulletMarker(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
@@ -1143,10 +1158,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
   their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
   for an indent — so they lose the item's indent (`docs/open-followups.md` §156). ★★ A nested
-  `<ul>`/`<ol>` is a FOURTH arm clearing `item` (`rich-text-runs.ts`'s own comment names all four),
-  and it belongs in a different list: its items are produced by the LI arm at their OWN deeper depth,
-  so nothing is lost — measured, `<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>` gives depth 0
-  then depth 1, neither a continuation.
+  `<ul>`/`<ol>` clears `item` too, and it belongs in a different list: its items are produced by the
+  LI arm at their OWN deeper depth, so nothing is lost. This is pinned — the test named "does not
+  let a nested list inherit the outer item's continuation state" asserts depth 0 then depth 1, with
+  the nested items NOT continuations
+  (`grep -n "nested list inherit the outer item" -A 14 src/app/rich-text-runs.test.ts`).
+  ★★ FOUR TAGS, THREE ARMS — this line said "a FOURTH arm" and there is no fourth. `<blockquote>`
+  and `<pre>` share ONE arm through `NESTED_KIND_BY_TAG`, so the arms clearing `item` are, in source
+  order, that shared one, then UL/OL, then the heading arm. The parenthetical it carried was right
+  about the code comment (`rich-text-runs.ts`'s docblock does name all four TAGS) and wrong about
+  the count of arms, and the nested list is the SECOND of the three, not the fourth of four.
+  Reproduce: `grep -n "walk(el, marks, .*null" src/app/rich-text-runs.ts` returns three lines.
+  ★★ The bespoke fixture string this line used to call "measured" —
+  a nested `<ul>` inside an `<li><p>` — appears NOWHERE in the suite (`grep -c` on it returns 0), so
+  nothing reproduced the word. The property is real and is pinned by the differently-shaped test
+  cited above; quote THAT, not a string you typed into a doc.
   ★★ **AND THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN LINE SURVIVED.** An item
   whose only child keeps its own kind (an `<h2>`, a nested list) emits lines while its empty `li`
   line is dropped; the counter therefore watches whether the item put ANYTHING into the output, so
@@ -1155,7 +1181,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the other direction and the justification proves too much.** An EMPTY `<li>` also occupies a
   numbered slot in every browser, and this counter deliberately does NOT count one:
   `<ol><li></li><li>a</li></ol>` numbers `a` as **1** where a browser says 2. Both halves are
-  pinned (`grep -n "spent only on an item that reaches" -A 20 src/app/rich-text-runs.test.ts`). The
+  pinned (`grep -n "spent only on an item that reaches" -A 28 src/app/rich-text-runs.test.ts` — the
+  window was `-A 20`, which stopped SHORT of the ordinal-spent assertion it was offered as proof of,
+  so it showed the describe and two of the three tests and none of the claim). The
   real warrant is narrower — an item that put nothing in the output has no line for a reader to count
   from, so numbering past it would strand the number.
   ★ Consequence worth knowing before reporting a numbering bug: **the HTML/PDF export never touches

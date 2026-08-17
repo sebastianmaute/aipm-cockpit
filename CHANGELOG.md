@@ -40,8 +40,10 @@ longer carries its own changelog comment.
 - **A bullet could lose its own bullet when the first thing in it was a line break.** Pressing
   Shift+Enter as the very first keystroke in a list item — or starting an item with a horizontal
   rule or a heading — left that item's text unmarked while the item still used up its number, so a
-  numbered list began at "2." with an unnumbered line above it. Every such item now carries its
-  marker on the first line it prints.
+  numbered list began at "2." with an unnumbered line above it. Such an item now carries its marker
+  on the first line it prints — where it goes on to print a line of its own. The exception is the
+  one noted in the bullet above: an item whose *only* content is a heading or a sub-list prints no
+  line of its own to mark, so it still shows no number.
 - **Half of a centred bullet came out left-aligned.** Where a line break split a centred or
   justified paragraph, only the text before the break kept the alignment. Both halves belong to one
   paragraph and now stay aligned together. This affected ordinary paragraphs, quotes, headings and
