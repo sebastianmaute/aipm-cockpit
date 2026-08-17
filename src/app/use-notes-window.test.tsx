@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from "vitest";
-import { renderHook } from "@testing-library/react";
+import { act, renderHook } from "@testing-library/react";
 import { useNotesWindow } from "./use-notes-window";
-import type { RaidItem, Resource, Task } from "./types";
+import type { ChangeItem, RaidItem, Resource, Task } from "./types";
 
 const RESOURCES: Resource[] = [
   { id: 1, firstName: "Alice", lastName: "Anders", roleId: null, utilizationMode: "percent", utilization: {} },
@@ -22,23 +22,37 @@ const TASKS = [
 
 const RAID = [{ id: 3, title: "Vendor delay" }] as unknown as RaidItem[];
 
+const CHANGES = [
+  {
+    id: 5,
+    title: "Scope cut",
+    noteLog: [
+      { id: 1, timestamp: "2026-02-01T09:00:00Z", html: "<p>CCB deferred</p>", text: "CCB deferred", authorResourceId: 1 },
+    ],
+  },
+  { id: 6, title: "Budget uplift" },
+] as unknown as ChangeItem[];
+
 function setup() {
   const setTasks = vi.fn();
   const setRaid = vi.fn();
+  const setChanges = vi.fn();
   const logActivity = vi.fn();
   const { result } = renderHook(() =>
     useNotesWindow({
       tasks: TASKS,
       raid: RAID,
+      changes: CHANGES,
       setTasks,
       setRaid,
+      setChanges,
       selfResourceId: 1,
       resources: RESOURCES,
       lang: "en-US",
       logActivity,
     }),
   );
-  return { result, setTasks, setRaid, logActivity };
+  return { result, setTasks, setRaid, setChanges, logActivity };
 }
 
 describe("useNotesWindow — notePanelPropsFor", () => {
@@ -85,5 +99,87 @@ describe("useNotesWindow — notePanelPropsFor", () => {
     expect(next.find((t) => t.id === 8)?.noteLog).toBeUndefined();
 
     expect(logActivity).toHaveBeenCalledWith("task.updated", 7, "Draft charter");
+  });
+});
+
+describe("useNotesWindow — the change arm", () => {
+  type ChangeUpdater = (prev: ChangeItem[]) => ChangeItem[];
+
+  it("opens, adds and edits a note on a change", () => {
+    const { result, setChanges, logActivity } = setup();
+    expect(result.current.notesTarget).toBeNull();
+
+    act(() => {
+      result.current.openChangeNotes(5);
+    });
+    expect(result.current.notesTarget).toEqual({ kind: "change", id: 5 });
+    // The floating window now resolves THIS change's log and its display name
+    // (`title`, not `name` — a change has no `name` field).
+    expect(result.current.notesWindowProps.entries).toHaveLength(1);
+    expect(result.current.notesWindowProps.entityLabel).toBe("Scope cut");
+
+    act(() => {
+      result.current.notesWindowProps.onAdd("<p>CCB approved</p>", "CCB approved");
+    });
+    expect(setChanges).toHaveBeenCalledTimes(1);
+    // Functional setter — the bulk "N saves in one tick" landmine.
+    expect(typeof setChanges.mock.calls[0][0]).toBe("function");
+
+    // ★★ APPLY the updater: asserting only that a function was passed accepts
+    // `setChanges(prev => prev)`, a no-op write that verifies nothing.
+    const added = (setChanges.mock.calls[0][0] as ChangeUpdater)(CHANGES as ChangeItem[]);
+    expect(added.find((c) => c.id === 5)?.noteLog).toHaveLength(2);
+    // ★ ID ROUTING. logActivity's label comes from a SEPARATE lookup, so a
+    // handler writing the note to the WRONG change still satisfies everything
+    // above — including the assertion naming "Scope cut".
+    expect(added.find((c) => c.id === 6)?.noteLog).toBeUndefined();
+    expect(logActivity).toHaveBeenCalledWith("change.updated", 5, "Scope cut");
+
+    act(() => {
+      result.current.notesWindowProps.onEdit(1, "<p>Amended</p>", "Amended");
+    });
+    const edited = (setChanges.mock.calls[1][0] as ChangeUpdater)(CHANGES as ChangeItem[]);
+    expect(edited.find((c) => c.id === 5)?.noteLog?.[0].text).toBe("Amended");
+    expect(edited.find((c) => c.id === 5)?.noteLog).toHaveLength(1);
+  });
+
+  it("deletes a note on a change through the same write path", () => {
+    const { result, setChanges } = setup();
+    act(() => {
+      result.current.openChangeNotes(5);
+    });
+    act(() => {
+      result.current.notesWindowProps.onDelete(1);
+    });
+    const next = (setChanges.mock.calls[0][0] as ChangeUpdater)(CHANGES as ChangeItem[]);
+    expect(next.find((c) => c.id === 5)?.noteLog).toEqual([]);
+  });
+
+  it("serves the in-editor panel from the live change while the window is SHUT", () => {
+    const { result } = setup();
+    expect(result.current.notesTarget).toBeNull();
+    expect(result.current.notePanelPropsFor("change", 5).entries).toHaveLength(1);
+    expect(result.current.notePanelPropsFor("change", 6).entries).toEqual([]);
+    // labelSuffix keeps a second mounted surface's per-entry controls unique.
+    expect(result.current.notePanelPropsFor("change", 5).labelSuffix).toBe("Scope cut");
+  });
+
+  // ★★★ WRITE-THROUGH. The log is owned by the notes window, NOT by the change
+  // editor's draft: `handleSaveChange` reads `noteLog` back from the STORED row
+  // (Task 5), so routing a note commit through it would read the note back out
+  // and LOSE it. This pins that the panel's onAdd lands in `changes` directly —
+  // `setChanges` is the only setter it touches.
+  it("writes a note straight into `changes`, never through a change-save handler", () => {
+    const { result, setChanges, setTasks, setRaid } = setup();
+    result.current.notePanelPropsFor("change", 5).onAdd("<p>From the editor</p>", "From the editor");
+
+    expect(setChanges).toHaveBeenCalledTimes(1);
+    expect(setTasks).not.toHaveBeenCalled();
+    expect(setRaid).not.toHaveBeenCalled();
+    const next = (setChanges.mock.calls[0][0] as ChangeUpdater)(CHANGES as ChangeItem[]);
+    const row = next.find((c) => c.id === 5);
+    expect(row?.noteLog?.map((n) => n.text)).toEqual(["CCB deferred", "From the editor"]);
+    // The write stamps localModifiedAt like every other note write.
+    expect(typeof row?.localModifiedAt).toBe("string");
   });
 });

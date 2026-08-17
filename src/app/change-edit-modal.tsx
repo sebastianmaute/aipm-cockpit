@@ -34,6 +34,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { IconButton } from "./icon-button";
+import { Button } from "./button";
 import {
   EditModalShell,
   ModalFieldError,
@@ -69,6 +70,10 @@ export interface ChangeEditModalProps {
   onSave: (item: ChangeItem) => void;
   onCancel: () => void;
   onDelete: () => void;
+  /** Open the floating notes window (running note log) for the change. Absent in
+   *  popouts; the button is also disabled for an unsaved (new) draft, which has
+   *  no persisted id to resolve. */
+  onOpenNotes?: (id: number) => void;
 }
 
 const TYPE_LABEL_KEYS: Record<ChangeType, TranslationKey> = {
@@ -109,6 +114,7 @@ export function ChangeEditModal({
   onSave,
   onCancel,
   onDelete,
+  onOpenNotes,
 }: ChangeEditModalProps) {
   const showToast = useToastContext();
   const { isVisible } = useModalVisibility("change");
@@ -404,6 +410,24 @@ export function ChangeEditModal({
             {descriptionDictationStatus}
           </div>
           )}
+
+          {/* Running note log — opens the shared floating notes window. Disabled
+              for an unsaved draft (no persisted id yet) or in popouts (no
+              handler threaded).
+              ★ The count reads the edit-open DRAFT snapshot, so it can
+              under-report while the notes window is open. Cosmetic and
+              deliberate: the log itself is write-through and safe, and RAID
+              behaves identically. */}
+          <div className="flex items-center gap-2 sm:col-span-2">
+            <Button
+              variant="secondary"
+              size="sm"
+              onClick={() => onOpenNotes?.(draft.id)}
+              disabled={!onOpenNotes || isNew}
+            >
+              {t(lang, "noteLogTitle")} ({draft.noteLog?.length ?? 0})
+            </Button>
+          </div>
 
           {/* Impact (level — part of the `impact` field group) */}
           {isVisible("impact") && (

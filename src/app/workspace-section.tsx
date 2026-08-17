@@ -126,6 +126,7 @@ export function WorkspaceSection({
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   onOpenNotes,
+  onOpenChangeNotes,
   activityLog,
   logActivity,
   logActivityChanges,
@@ -638,6 +639,7 @@ export function WorkspaceSection({
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
               onStatusChange={handleChangeStatusChange}
+              onOpenNotes={onOpenChangeNotes}
               onCaptureBulk={onCaptureChangeBulk}
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}

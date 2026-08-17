@@ -9,7 +9,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import type { ChangeItem } from "./types";
+import type { ChangeItem, NoteLogEntry } from "./types";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
   return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
@@ -17,7 +17,7 @@ function ci(over: Partial<ChangeItem>): ChangeItem {
 const base = {
   lang: "en-US" as const, tasks: [], raid: [],
   changes: [ci({ id: 1, title: "Alpha scope", type: "Scope", status: "Proposed" }), ci({ id: 2, title: "Beta cost", type: "Cost", status: "Approved" })],
-  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(), onStatusChange: vi.fn(),
+  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(), onStatusChange: vi.fn(), onOpenNotes: vi.fn(),
 };
 
 // The embedded ChangeEditModal renders ModalFieldControls, which reads
@@ -149,6 +149,70 @@ describe("ChangePanel — inline status select", () => {
     expect(queryByDisplayValue("Alpha scope")).toBeNull();
     fireEvent.change(select, { target: { value: "Rejected" } });
     expect(queryByDisplayValue("Alpha scope")).toBeNull();
+  });
+});
+
+describe("ChangePanel — note-log badge", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  function note(id: number): NoteLogEntry {
+    return { id, timestamp: "2026-06-01T09:00:00.000Z", html: `<p>n${id}</p>`, text: `n${id}` };
+  }
+  const notesLabel = (title: string) => `${t("en-US", "noteLogTitle")} – ${title}`;
+
+  // TWO rows on purpose, with DIFFERENT counts. axe-core has no rule flagging
+  // two controls that share an accessible name under any of the four WCAG tags
+  // the e2e gate requests, at any seed size — so a multi-row unit test is the
+  // ONLY possible detector of that WCAG 2.4.6 collision, and one row cannot
+  // express it at any assertion count. Differing counts also stop a hardcoded
+  // count from passing.
+  const changes = [
+    ci({ id: 1, title: "Scope cut", noteLog: [note(1), note(2)] }),
+    ci({ id: 2, title: "Budget uplift", noteLog: [note(1)] }),
+  ];
+
+  it("renders a row-unique notes badge carrying the entry count", () => {
+    const onOpenNotes = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} changes={changes} onOpenNotes={onOpenNotes} />,
+      { wrapper: Providers },
+    );
+    const btn = getByRole("button", { name: notesLabel("Scope cut") });
+    expect(btn.textContent).toContain("2");
+    fireEvent.click(btn);
+    expect(onOpenNotes).toHaveBeenCalledWith(1);
+
+    // The second row proves the names do not collide.
+    const other = getByRole("button", { name: notesLabel("Budget uplift") });
+    expect(other.textContent).toContain("1");
+    fireEvent.click(other);
+    expect(onOpenNotes).toHaveBeenCalledWith(2);
+  });
+
+  it("renders a zero badge for a change with no log", () => {
+    const { getByRole } = render(
+      <ChangePanel {...base} changes={[ci({ id: 9, title: "No notes yet" })]} />,
+      { wrapper: Providers },
+    );
+    expect(getByRole("button", { name: notesLabel("No notes yet") }).textContent).toContain("0");
+  });
+
+  // The row's onClick opens the editor. A real user CLICKS the badge, so that
+  // click must not reach the row — hence stopPropagation on the <td>, exactly
+  // as the status cell beside it does.
+  it("does not open the row editor when the notes badge is clicked", () => {
+    const { getByRole, queryByDisplayValue } = render(
+      <ChangePanel {...base} changes={changes} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: notesLabel("Scope cut") }));
+    expect(queryByDisplayValue("Scope cut")).toBeNull();
   });
 });
 

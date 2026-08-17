@@ -101,6 +101,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     handleCreateMitigationTaskFromRaid: vi.fn() as (raidId: number) => number | null,
     handleJumpToTaskFromRaid: vi.fn(),
     onOpenNotes: vi.fn(),
+    onOpenChangeNotes: vi.fn(),
     activityLog: [] as ActivityEntry[],
     logActivity: vi.fn(),
     logActivityChanges: vi.fn(),

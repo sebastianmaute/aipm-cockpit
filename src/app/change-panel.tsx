@@ -23,6 +23,7 @@ import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popov
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { DocumentBadge } from "./document-badge";
+import { NotesBadgeButton } from "./notes-badge-button";
 import { refKey } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { PanelTableScaffold } from "./panel-table-scaffold";
@@ -71,6 +72,7 @@ const CHANGE_COL_WIDTHS = {
   status: 130,
   requestedBy: 150,
   raisedDate: 110,
+  notesLog: 80,
 } as const;
 type ChangeCol = keyof typeof CHANGE_COL_WIDTHS;
 
@@ -84,6 +86,7 @@ const CHANGE_CONFIG_COLS = [
   { key: "status", labelKey: "changeFieldStatus" },
   { key: "requestedBy", labelKey: "changeFieldRequestedBy" },
   { key: "raisedDate", labelKey: "changeFieldRaisedDate" },
+  { key: "notesLog", labelKey: "noteLogTitle" },
 ] as const satisfies readonly ColumnConfigCol[];
 
 // Mirrors `requestedBy`'s sanitize cap (BUDGET_NAME_MAX in sanitize-entities).
@@ -103,6 +106,11 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   /** Inline status change from the row select. Must route through
    *  `applyChangeStatus` (the sole writer of the status/decisionDate pair). */
   onStatusChange: (id: number, next: ChangeStatus) => void;
+  /** Open the shared floating notes window (running note log) for a change.
+   *  ★ The log is WRITE-THROUGH: the window commits straight into the workspace
+   *  `changes` array, never through `onSave` — which reads `noteLog` back from
+   *  the stored row and would drop a note added while an editor was open. */
+  onOpenNotes: (id: number) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
@@ -159,6 +167,7 @@ function ChangePanelBody({
   onSave,
   onDelete,
   onStatusChange,
+  onOpenNotes,
   onCaptureBulk,
   raidEnabled = true,
   stakeholdersEnabled = true,
@@ -459,6 +468,7 @@ function ChangePanelBody({
             onSave={commitDraft}
             onCancel={closeModal}
             onDelete={commitDelete}
+            onOpenNotes={onOpenNotes}
           />
         )
       }
@@ -531,6 +541,12 @@ function ChangePanelBody({
                   {t(lang, "changeFieldRaisedDate")}{sortArrow("raisedDate")}
                 </button>
                 <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
+              </th>
+              )}
+              {!hiddenSet.has("notesLog") && (
+              <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
+                {t(lang, "noteLogTitle")}
+                <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
               </th>
               )}
             </tr>
@@ -611,6 +627,19 @@ function ChangePanelBody({
                   {!hiddenSet.has("raisedDate") && (
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {item.raisedDate}
+                  </td>
+                  )}
+                  {/* Cell-level stopPropagation so opening the notes window does
+                      not also fire the row click (which opens the edit modal) —
+                      same reason the status cell above does it. */}
+                  {!hiddenSet.has("notesLog") && (
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <NotesBadgeButton
+                      count={item.noteLog?.length ?? 0}
+                      entityName={item.title}
+                      lang={lang}
+                      onClick={() => onOpenNotes(item.id)}
+                    />
                   </td>
                   )}
                 </tr>
