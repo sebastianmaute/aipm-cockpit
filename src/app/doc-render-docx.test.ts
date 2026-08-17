@@ -429,7 +429,13 @@ describe("renderDocumentDocx — rich paragraph marks", () => {
     // vertAlign. Word may reject or silently ignore a run whose properties are
     // out of sequence. The nesting below hands the parser the marks in almost
     // the reverse of that order, so an implementation that emits them in
-    // arrival order fails here and only here.
+    // arrival order fails here — on all seven marks at once, which is what
+    // makes this the test that says WHAT the order is.
+    // ★ It is no longer the ONLY test that fails on it. Invariant 4 ("orders
+    // every <w:rPr>'s children by the EG_RPrBase sequence") also goes red now
+    // that `EVERY_SHAPE_HTML` carries an out-of-rank-order two-mark run; it
+    // sweeps every part for the PROPERTY without naming the sequence, so the
+    // two are complements rather than duplicates.
     const xml = await documentXml(
       doc([
         {
@@ -898,7 +904,16 @@ describe("DOCX invariants Word fails silently on", () => {
     // `DOCX_MARK_RPR`'s `rank` table, the only thing that orders mark elements
     // against each other, was never exercised there. Measured, not assumed:
     // dropping the `<em>` here turns invariant 4 red on `widestMarkRun`.
-    "<p><strong><em>bi</em></strong></p>",
+    //
+    // ★★★ THE NESTING ORDER IS THE WHOLE POINT — `<em>` OUTSIDE, `<strong>`
+    // INSIDE. Marks arrive in NESTING order, so this run reaches `markedRun` as
+    // [italic, bold] = ranks [2, 1], which the sort has to REORDER. Written the
+    // other way round (`<strong><em>`) it arrives [bold, italic] = [1, 2],
+    // already sorted — `widestMarkRun` still reaches 2 and invariant 4 stays
+    // GREEN with `markedRun`'s `.sort(...)` deleted, i.e. the anti-vacuity guard
+    // is satisfied by a run that cannot fail the check it guards. Measured in
+    // both directions.
+    "<p><em><strong>bi</strong></em></p>",
   ].join("");
 
   /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
@@ -1064,7 +1079,14 @@ describe("DOCX invariants Word fails silently on", () => {
     ];
     // Exactly `DOCX_MARK_RPR`'s elements — the ones a RUN's marks produce, as
     // opposed to the `w:color`/`w:sz` that only a hand-written declaration
-    // carries. An `<w:rPr>` built solely from these came from `markedRun`.
+    // carries.
+    // ★ It is a FILTER, not a provenance proof: an `<w:rPr>` whose children are
+    // all mark elements is one NO hand-written declaration in this fixture
+    // emits (every one of them carries `w:color` or `w:sz`), which is what makes
+    // it separate `markedRun`'s output from theirs TODAY. A hand-written run
+    // built solely from mark elements would satisfy it too; none exists, and if
+    // one is added this filter stops distinguishing the two and the guard below
+    // has to be narrowed some other way.
     const MARK_TAGS = ["w:rFonts", "w:b", "w:i", "w:strike", "w:highlight", "w:u", "w:vertAlign"];
     const { block, cell, styles, exported } = await renderEverySupportedShape();
     let seen = 0;
@@ -1091,12 +1113,6 @@ describe("DOCX invariants Word fails silently on", () => {
     // is the widest, and the exporter's italic-grey runs are the pair that was
     // wrong.
     expect(widest).toBeGreaterThanOrEqual(4);
-    // ★★★ AND THE GUARD ABOVE WAS MET BY THE WRONG THING. `widest` sweeps
-    // styles.xml too, where Heading4 is a HAND-WRITTEN declaration — so it hit
-    // 4 while every RENDERED <w:rPr> in the fixture had exactly one child, the
-    // case the sequence check cannot fail on. This second guard excludes
-    // styles.xml, so it can only be met by a multi-mark run the renderer
-    // actually built.
     // ★★★ AND `widest` ALONE IS MET BY THE WRONG THING — it is `Heading4` in
     // styles.xml, a HAND-WRITTEN declaration. Measured on the fixture: every
     // multi-child `<w:rPr>` in the sweep came from a hand-written run (the
@@ -1105,8 +1121,17 @@ describe("DOCX invariants Word fails silently on", () => {
     // sequence check above cannot fail on. So `DOCX_MARK_RPR`'s `rank` table,
     // which is the only thing ordering the mark elements against each other,
     // was never exercised by this invariant at all. This guard admits only an
-    // `<w:rPr>` whose children are ALL mark elements, so nothing but a real
-    // multi-mark run can satisfy it.
+    // `<w:rPr>` whose children are ALL mark elements (see `MARK_TAGS`), so
+    // nothing but a real multi-mark run can satisfy it.
+    //
+    // ★★★ AND A MULTI-MARK RUN IS STILL NOT ENOUGH ON ITS OWN — the marks have
+    // to arrive OUT of rank order. `EVERY_SHAPE_HTML`'s multi-mark fixture was
+    // `<strong><em>` (arrival [bold, italic] = ranks [1, 2], already sorted)
+    // and this guard passed while `markedRun`'s `.sort(...)` was DELETED: two
+    // marks were present, and `[...ranks].sort()` had nothing to reorder. It is
+    // `<em><strong>` now (arrival [italic, bold] = [2, 1]). Measured in both
+    // directions: with the sort deleted this invariant is GREEN on the old
+    // nesting and RED on the new one.
     expect(widestMarkRun).toBeGreaterThanOrEqual(2);
   });
 

@@ -310,8 +310,20 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     // ★★ Outside any list, the same defect as the list-item case below: a `<br>`
     // ENDS the line, and the one `pushText` re-opened was built from the kind
     // alone, so the second half of one centred paragraph exported unaligned.
-    // Every kind that can hold a break is covered — the block arms each declare
-    // their own align and must hand it down the same way.
+    //
+    // ★★★ THESE FOUR SHAPES ARE HAND-AUTHORED AND TWO OF THEM ARE NOT MARKUP
+    // THE EDITOR CAN PRODUCE, so read the claim narrowly. This comment used to
+    // say "every kind that can hold a break is covered", which reads as
+    // coverage of the real input and is the "hand-authored fixture no editor
+    // emits" class that cost this branch its worst defect. Tiptap wraps
+    // blockquote content in a `<p>`, so bare text directly inside a
+    // `<blockquote>` never occurs; and `TextAlign` is configured
+    // `types: ["heading", "paragraph"]` (rich-text-editor.tsx), so `data-align`
+    // never lands on a `<pre>` either. What the four DO cover is that each
+    // block arm hands its own align down to a line re-opened by a break —
+    // on inputs chosen to make that observable. The editor-real blockquote
+    // shape does NOT hold the property; it is characterized in the test below
+    // (open-followups §158).
     expect(htmlToRichLines('<p data-align="center">a<br>b</p>').map(alignOfLine)).toEqual([
       "center",
       "center",
@@ -330,6 +342,21 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
       "right",
       "right",
     ]);
+  });
+
+  it("DROPS a blockquote's alignment in the shape the editor actually stores", () => {
+    // ★★★ A CHARACTERIZATION OF A GAP, NOT A GUARANTEE — it asserts the defect
+    // is still there and is meant to go RED when open-followups §158 is fixed.
+    // The test above covers `<blockquote data-align="right">q<br>r</blockquote>`,
+    // which no editor emits: Tiptap wraps blockquote content in a `<p>`, and
+    // that `<p>` carries no align of its own (`TextAlign` is configured
+    // `types: ["heading", "paragraph"]`, and the align the user set lands on the
+    // paragraph only when the paragraph is the one they aligned). The inner
+    // `<p>` then takes the LINE_TAGS arm with `item === null`, so it opens a
+    // line with its OWN absent align and the blockquote's is gone.
+    expect(
+      htmlToRichLines('<blockquote data-align="right"><p>q</p></blockquote>').map(alignOfLine),
+    ).toEqual([undefined]);
   });
 
   it("keeps the alignment across a <br> nested inside an inline mark", () => {
@@ -692,9 +719,48 @@ describe("continuation lines inside a list item", () => {
     // declared one, this paragraph's otherwise" — the outer declaration wins.
     // The continuation must inherit that SAME resolution, not the paragraph's
     // half of it, or one item renders two alignments.
+    //
+    // ★★★ BOTH SIDES OF THE `??` MUST BE PRESENT AND DIFFERENT or this test
+    // cannot see the mutation it exists to catch: with the `<p>` declaring
+    // nothing, `host.align ?? align` and the swapped `align ?? host.align`
+    // produce the SAME two lines, and swapping the operands stays green.
     expect(
-      htmlToRichLines('<ul><li data-align="right"><p>a<br>b</p></li></ul>').map(alignOfLine),
+      htmlToRichLines(
+        '<ul><li data-align="right"><p data-align="center">a<br>b</p></li></ul>',
+      ).map(alignOfLine),
     ).toEqual(["right", "right"]);
+  });
+
+  it("lets a second <p>'s own alignment win, and inherits the item's when it declares none", () => {
+    // ★★★ BOTH HALVES, and they die on DIFFERENT mutations of the LINE_TAGS
+    // arm's `lineAlign ?? item?.align`, so neither one alone pins it:
+    //   • drop the `?? item?.align` (what the code did before this fix) and the
+    //     SECOND case becomes ["right", undefined] — an ABSENT paragraph align
+    //     ERASED the item's, so Word rendered the second paragraph left while a
+    //     browser, where `text-align` INHERITS, renders it right. The `<br>`
+    //     path already inherited, so the two disagreed on the same markup;
+    //   • swap it to `item?.align ?? lineAlign` and the FIRST case becomes
+    //     ["right", "right"] — a new paragraph's OWN declaration must win.
+    expect(
+      htmlToRichLines(
+        '<ul><li data-align="right"><p>a</p><p data-align="center">b</p></li></ul>',
+      ).map(alignOfLine),
+    ).toEqual(["right", "center"]);
+    expect(
+      htmlToRichLines('<ul><li data-align="right"><p>a</p><p>b</p></li></ul>').map(alignOfLine),
+    ).toEqual(["right", "right"]);
+  });
+
+  it("does not let the FIRST paragraph's alignment reach a later one", () => {
+    // ★★ What the item inherits FROM is the `<li>`'s own declaration, never the
+    // transparent paragraph's: that arm REPLACES `current` with a copy and
+    // leaves `item` alone, so the head can read "center" while `item.align`
+    // stays undefined. Without this the inheritance above would quietly turn
+    // into "the previous paragraph's align continues", which is the thing
+    // `continuationOf`'s docblock argues against.
+    expect(
+      htmlToRichLines('<ol><li><p data-align="center">a</p><p>a2</p></li></ol>').map(alignOfLine),
+    ).toEqual(["center", undefined]);
   });
 
   it("carries an alignment declared on the <li> itself across a <br>", () => {

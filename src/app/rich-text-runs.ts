@@ -112,15 +112,24 @@ type BlockKind = "p" | "blockquote" | "pre";
  *
  *  ★★★ `align` IS THE CALLER'S TO DECIDE AND OVERRIDES THE ITEM'S, INCLUDING
  *  WHEN IT IS ABSENT — because the answer differs between the two shapes that
- *  produce a continuation, and this helper cannot tell them apart:
- *    • a SECOND `<p>` is a NEW paragraph, so it declares its own alignment and a
- *      centred first paragraph must not centre a left-aligned second one
- *      (alignment is per-PARAGRAPH: TextAlign is configured
- *      `types: ["heading", "paragraph"]` in rich-text-editor.tsx);
+ *  produce a continuation, and this helper cannot tell them apart. Each caller
+ *  RESOLVES before calling; this helper stores whatever it is handed:
+ *    • a SECOND `<p>` is a NEW paragraph, so its OWN alignment wins where it
+ *      declares one — a centred first paragraph must not centre a left-aligned
+ *      second one (alignment is per-PARAGRAPH: TextAlign is configured
+ *      `types: ["heading", "paragraph"]` in rich-text-editor.tsx). Where it
+ *      declares NONE the caller passes the ITEM's, because `text-align`
+ *      inherits: `undefined` there erased an alignment the `<li>` had declared
+ *      and Word rendered the second half left while a browser renders it right;
  *    • a `<br>` is a break WITHIN one paragraph, so both halves belong to the
  *      SAME `<p data-align="…">` and the caller passes that paragraph's align —
  *      hardcoding `undefined` there rendered one bullet half centred, half left.
- *  Which is why `walk` carries the alignment in force beside the kind. */
+ *  Which is why `walk` carries the alignment in force beside the kind.
+ *
+ *  ★★ So an `align` of `undefined` reaching here means "resolved to nothing",
+ *  never "not asked" — a caller that has an item to inherit from has already
+ *  consulted it. Do NOT re-add a `?? item.align` fallback inside this helper:
+ *  it would make the first bullet unexpressible. */
 function continuationOf(item: LiLine, align: Align | undefined): LiLine {
   return { ...item, runs: [], align, continuation: true };
 }
@@ -392,9 +401,17 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  ★★ `align` is the alignment IN FORCE — the one declared by the block whose
    *  children these are. It travels for the same reason `kind` does: a `<br>`
    *  re-opens a line mid-paragraph, and that line has to be built from the
-   *  paragraph it is still inside. Every arm that OPENS a block declares its
-   *  own (`alignOf(el)`); an inline mark passes the one it was given straight
-   *  through, since `<em>` is not a paragraph. */
+   *  paragraph it is still inside. Every arm that OPENS A LINE declares its own
+   *  (`alignOf(el)`); an inline mark passes the one it was given straight
+   *  through, since `<em>` is not a paragraph.
+   *
+   *  ★★ THE UL/OL ARM IS THE EXCEPTION, and it opens no line of its own: it
+   *  recurses with NEITHER its own align nor the one in force, so an alignment
+   *  declared on a LIST reaches nothing and only one on the `<li>` or on its
+   *  paragraph is honoured. That markup is reachable — `data-align` is
+   *  value-guarded and NOT tag-guarded in `sanitize-html.ts` (`ATTR_VALUES`),
+   *  so `<ul data-align="center">` survives sanitisation. Pre-existing and
+   *  deliberately left alone: closing it changes exported output. */
   function walk(
     node: Node,
     marks: readonly RunMark[],
@@ -579,11 +596,31 @@ export function htmlToRichLines(html: string): RichLine[] {
       }
 
       if (LINE_TAGS.has(tag)) {
+        // ★★★ A SECOND `<p>` IN ONE `<li>` IS A NEW PARAGRAPH, NOT A NEW
+        // CONTEXT. Its own `data-align` wins — that is what makes alignment
+        // per-PARAGRAPH — but an ABSENT one INHERITS the item's instead of
+        // ERASING it. `text-align` inherits in a browser, so
+        // `<li data-align="right"><p>a</p><p>b</p></li>` renders both halves
+        // right there; passing this paragraph's absent align straight through
+        // rendered the second half LEFT in Word, and the `<br>` path (which
+        // does inherit, via `resolved` above) and this one then disagreed about
+        // the same markup.
+        //
+        // ★ `item?.align` and not `item.align`: outside a list `item` is null
+        // and there is nothing to inherit from, so a bare `<p>` keeps its own
+        // align or none — `??` on `undefined` leaves `lineAlign` untouched.
+        //
+        // ★★ THE HEAD LINE RESOLVES THE OTHER WAY ROUND (`host.align ?? align`,
+        // the transparent arm) and that asymmetry is deliberate rather than an
+        // oversight: the head's paragraph is the item's OWN text, so the li's
+        // outer declaration wins over it, while a second paragraph is a new
+        // declaration of its own. Both directions are pinned.
         const lineAlign = alignOf(el);
+        const resolved = lineAlign ?? item?.align;
         startLine(
-          item === null ? { kind, runs: [], align: lineAlign } : continuationOf(item, lineAlign),
+          item === null ? { kind, runs: [], align: resolved } : continuationOf(item, resolved),
         );
-        walk(el, marks, kind, false, item, lineAlign);
+        walk(el, marks, kind, false, item, resolved);
         flush();
         continue;
       }
