@@ -1019,7 +1019,22 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
   // only ever be weakened to "the digit appears somewhere" — which passes on a
   // marker emitted into the WRONG paragraph. `paraInfos` joins the <a:t>s of
   // ONE <a:p>, so it pins the pairing as well as the text.
+  // ★★ EVERY LIST FIXTURE BELOW IS <p>-WRAPPED, and that is the point. Tiptap's
+  // listItem spec is `paragraph block*`, so a real value reads
+  // "<ul><li><p>a</p></li></ul>" and the bare "<li>a</li>" these cases used to
+  // carry never reaches the parser's transparency arm at all — a shape no
+  // editor emits, which is how a CRITICAL already hid once in this slice. One
+  // bare companion is kept, since the golden fixtures and legacy stored values
+  // do carry that form and both must reach the same bytes.
   it("prefixes a list item with its marker and indents it", async () => {
+    const xml = await onlyContentSlide("<ol><li><p>first</p></li><li><p>second</p></li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. first", marL: "228600", indent: "0" },
+      { text: "2. second", marL: "228600", indent: "0" },
+    ]);
+  });
+
+  it("numbers a bare <li> the same way the editor's nested <p> is numbered", async () => {
     const xml = await onlyContentSlide("<ol><li>first</li><li>second</li></ol>");
     expect(paraInfos(xml)).toEqual([
       { text: "1. first", marL: "228600", indent: "0" },
@@ -1028,7 +1043,9 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
   });
 
   it("uses a bullet for an unordered list and indents deeper for nesting", async () => {
-    const xml = await onlyContentSlide("<ul><li>top<ul><li>nested</li></ul></li></ul>");
+    const xml = await onlyContentSlide(
+      "<ul><li><p>top</p><ul><li><p>nested</p></li></ul></li></ul>",
+    );
     expect(paraInfos(xml)).toEqual([
       { text: "• top", marL: "228600", indent: "0" },
       { text: "• nested", marL: "457200", indent: "0" },
@@ -1037,9 +1054,22 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
 
   it("marks a task item with its checked state rather than a bullet", async () => {
     const xml = await onlyContentSlide(
-      '<ul><li data-checked="true">done</li><li data-checked="false">todo</li></ul>',
+      '<ul data-type="taskList"><li data-checked="true"><p>done</p></li>' +
+        '<li data-checked="false"><p>todo</p></li></ul>',
     );
     expect(paraInfos(xml).map((p) => p.text)).toEqual(["[x] done", "[ ] todo"]);
+  });
+
+  it("indents a wrapped item's continuation without repeating the marker", async () => {
+    // ★★ Shift+Enter inside a bullet. The continuation copies the item's depth,
+    // so `pptxIndentFor` gives it the SAME marL — and it must carry no second
+    // marker run, or a two-line bullet reads as two bullets.
+    const xml = await onlyContentSlide("<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>");
+    expect(paraInfos(xml)).toEqual([
+      { text: "1. a", marL: "228600", indent: "0" },
+      { text: "b", marL: "228600", indent: "0" },
+      { text: "2. c", marL: "228600", indent: "0" },
+    ]);
   });
 
   it("does not indent a heading line", async () => {

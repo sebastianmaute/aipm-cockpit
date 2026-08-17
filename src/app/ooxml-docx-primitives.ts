@@ -294,8 +294,11 @@ export function docxRichParagraph(
   }
   if (line.align) parts.push(`<w:jc w:val="${JC_VALUE[line.align]}"/>`);
   const pPr = parts.length > 0 ? `<w:pPr>${parts.join("")}</w:pPr>` : "";
+  // ★★ `<w:ind>` above is deliberately NOT guarded on `continuation` — a wrapped
+  // line keeps the item's indent — but the MARKER is: a list item has one bullet
+  // however many lines it wraps to, and repeating it renders one item as two.
   const marker =
-    line.kind === "li"
+    line.kind === "li" && !line.continuation
       ? `<w:r>${docxCellRuns(`${bulletMarker(line.ordered, line.index, line.task)} `)}</w:r>`
       : "";
   return `<w:p>${pPr}${marker}${line.runs.map(markedRun).join("")}</w:p>`;

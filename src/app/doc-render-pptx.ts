@@ -430,8 +430,11 @@ function bodyParagraph(line: SlideLine): PptxParagraph {
   // bullet properties at all (see `bulletMarker`), so the ordinal has to be
   // text or it is lost outright. It is its OWN run so it inherits none of the
   // item's marks — a bold list item must not get a bold "1.".
+  // ★★ `pptxIndentFor` below is deliberately NOT guarded on `continuation` — a
+  // wrapped line keeps the item's indent — but the marker is: one bullet per
+  // ITEM, however many lines it wraps to.
   const marked =
-    line.kind === "li"
+    line.kind === "li" && !line.continuation
       ? [{ text: `${bulletMarker(line.ordered, line.index, line.task)} ` }, ...runs]
       : runs;
   return {

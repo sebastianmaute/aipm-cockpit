@@ -701,6 +701,23 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(indents(nested)).toEqual(["720", "1440"]);
   });
 
+  it("indents a wrapped item's continuation without repeating the marker", () => {
+    // ★★ Shift+Enter inside a bullet. The continuation keeps the item's indent
+    // — `<w:ind>` derives from `line.depth`, which it copies — and gets NO
+    // second "1."/"•", because a list item has one marker however many lines it
+    // wraps to. Before this it restarted as a bare `p`, so a client-facing DOCX
+    // showed an unmarked, unindented orphan BETWEEN two numbered items.
+    const wrapped = "<ol><li><p>a<br>b</p></li><li><p>c</p></li></ol>";
+    expect(cellParas(wrapped)).toEqual(["1. a", "b", "2. c"]);
+    expect(indents(wrapped)).toEqual(["720", "720", "720"]);
+  });
+
+  it("indents a second paragraph in the same item at the item's depth", () => {
+    const twoParas = "<ul><li><p>a</p><p>b</p></li></ul>";
+    expect(cellParas(twoParas)).toEqual(["• a", "b"]);
+    expect(indents(twoParas)).toEqual(["720", "720"]);
+  });
+
   it("marks a task item with the flat projection's own constant", () => {
     const xml = '<ul data-type="taskList"><li data-checked="true"><p>done</p></li></ul>';
     expect(cellParas(xml)).toEqual([`${TASK_MARK_CHECKED.trim()} done`]);

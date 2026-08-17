@@ -66,7 +66,25 @@ export type RichLine =
        *  property, and a single flat counter gets exactly that shape wrong. */
       index: number;
       task?: "checked" | "unchecked";
+      /** Set on a line that CONTINUES an item whose first line has already gone
+       *  out — the text after a `<br>`, or a second `<p>`.
+       *
+       *  ★★ It carries the FULL geometry, not a reduced one: a continuation is
+       *  built by spreading the item it belongs to, so `ordered`/`depth`/
+       *  `index`/`task` cannot drift from the line above and a renderer indents
+       *  the two identically. What it asks of a renderer is one thing only —
+       *  SUPPRESS the marker. A list item has one bullet however many lines it
+       *  wraps to.
+       *  ★ `true`, not `boolean`: `continuation: false` is unrepresentable, so
+       *  `if (line.continuation)` is the only test a renderer can write.
+       *  ★ It is OMITTED from a head line rather than set to `undefined` — the
+       *  same argument the `hr` member above makes about `align`, and the one
+       *  reason `align` gets away with breaking it is that it predates this. */
+      continuation?: true;
     });
+
+/** A list-item line — the shape a continuation is copied FROM. */
+type LiLine = Extract<RichLine, { kind: "li" }>;
 
 /** The kinds a line can INHERIT from an enclosing element.
  *
@@ -75,8 +93,25 @@ export type RichLine =
  *  each carries fields the walk cannot invent from an inherited kind alone (a
  *  level, a depth+index), so they are only ever produced by their OWN arm of
  *  the walk. Spelling this out rather than `Exclude<RichLineKind, "hr">` is
- *  what lets `pushText` build an inherited line with no cast. */
+ *  what lets `pushText` build an inherited line with no cast.
+ *
+ *  ★★ "li" stays excluded even though a CONTINUATION is one: the walk still
+ *  cannot invent a depth and an index, so it copies them off the live item
+ *  instead (`continuationOf`). The item travels beside the kind, never in it. */
 type BlockKind = "p" | "blockquote" | "pre";
+
+/** A line continuing `item`: the item's geometry, its own runs, no marker.
+ *
+ *  ★★ BUILT BY SPREADING THE ITEM rather than by copying four named fields, so
+ *  a field added to the `li` member is carried automatically and the two lines
+ *  cannot describe different geometry.
+ *  ★ `align` is the CONTINUATION's own and OVERRIDES the item's, including when
+ *  it is absent: alignment is a per-PARAGRAPH property (TextAlign is configured
+ *  `types: ["heading", "paragraph"]` in rich-text-editor.tsx), so a centred
+ *  first paragraph must not centre a left-aligned second one. */
+function continuationOf(item: LiLine, align: Align | undefined): LiLine {
+  return { ...item, runs: [], align, continuation: true };
+}
 
 /** Inline tags that contribute a mark to every run beneath them.
  *
@@ -224,19 +259,6 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  makes a nested list restart and the outer one resume. */
   const listCounters: { ordered: boolean }[] = [];
   const listIndex: number[] = [];
-  /** The line objects `flush` actually KEPT, by identity.
-   *
-   *  ★★ It exists so the LI arm can spend its list index only on an item that
-   *  reached the output. The increment used to happen at startLine, i.e. before
-   *  the item was known to survive, so an `<li>` that emitted nothing still
-   *  consumed a number and every later sibling rendered one too high
-   *  ("<ol><li></li><li>a</li></ol>" numbered a as 2).
-   *  ★ Identity, not a counter or a `lines.length` delta: the li line is not
-   *  always closed by the LI arm's own `flush` — a nested <ul> flushes it on the
-   *  way in — so "did the output grow across my walk" would credit this item
-   *  with its CHILDREN's lines. `flush` pushes a COPY, so the ORIGINAL is what
-   *  is recorded and what the arm holds. */
-  const emitted = new Set<RichLine>();
 
   /** Finish the line in progress, keeping it only if it carries visible text.
    *
@@ -253,16 +275,12 @@ export function htmlToRichLines(html: string): RichLine[] {
     if (!line) return;
     if (line.kind === "hr") {
       lines.push(line);
-      emitted.add(line);
       return;
     }
     // A <pre> line keeps its own indentation — trimming it would defeat the one
     // property that makes preformatted text worth a kind of its own.
     const runs = line.kind === "pre" ? line.runs : trimLineEdges(line.runs);
-    if (hasVisibleText(runs)) {
-      lines.push({ ...line, runs });
-      emitted.add(line);
-    }
+    if (hasVisibleText(runs)) lines.push({ ...line, runs });
   }
 
   function startLine(line: RichLine): void {
@@ -270,37 +288,57 @@ export function htmlToRichLines(html: string): RichLine[] {
     current = line;
   }
 
-  function pushText(text: string, marks: readonly RunMark[], kind: BlockKind): void {
+  /** ★ `item` is the list item this text belongs to, or null outside one. It is
+   *  what makes the text after a `<br>` re-open as a CONTINUATION of the item
+   *  rather than as a bare inherited line at zero indent. */
+  function pushText(
+    text: string,
+    marks: readonly RunMark[],
+    kind: BlockKind,
+    item: LiLine | null,
+  ): void {
     if (text === "") return;
-    if (!current) current = { kind, runs: [] };
+    if (!current) current = item === null ? { kind, runs: [] } : continuationOf(item, undefined);
     current.runs.push({ text, marks: [...marks] });
   }
 
   /** Preformatted text: whitespace is kept verbatim and a newline ENDS the line,
    *  so a multi-line code block stays multi-line instead of collapsing into one
    *  run-on paragraph. */
+  /** ★ No `item`: a `<pre>` is never walked with one (see the walk's nested
+   *  arm), so its line breaks always re-open as `pre` lines. */
   function pushPreText(raw: string, marks: readonly RunMark[]): void {
     const parts = raw.split("\n");
     for (let i = 0; i < parts.length; i += 1) {
       if (i > 0) flush();
-      pushText(parts[i], marks, "pre");
+      pushText(parts[i], marks, "pre", null);
     }
   }
 
   /** `inListItem` says the children being iterated are the DIRECT content of an
    *  `<li>`, which is what turns on the transparency arm below. Everywhere else
-   *  it is false, including inside a transparent element — see that arm. */
+   *  it is false, including inside a transparent element — see that arm.
+   *
+   *  ★★ `item` is a DIFFERENT question and the two are deliberately separate
+   *  parameters: `inListItem` is one level deep ("may this element BECOME the
+   *  item's own line?"), while `item` travels as far as the item's inherited
+   *  kind does ("does a line opened here CONTINUE the item?") — through the
+   *  transparent paragraph, through a `<span>`, through a second `<p>`. Every
+   *  element that imposes a kind of its OWN — `<blockquote>`, `<pre>`, `<hN>`,
+   *  and a nested `<ul>`/`<ol>` — clears it to null, which is what stops a
+   *  nested item or a quoted line from inheriting the outer item's geometry. */
   function walk(
     node: Node,
     marks: readonly RunMark[],
     kind: BlockKind,
     inListItem = false,
+    item: LiLine | null = null,
   ): void {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === TEXT_NODE) {
         const raw = (child as Text).data;
         if (kind === "pre") pushPreText(raw, marks);
-        else pushText(raw.replace(WS_RUN, " "), marks, kind);
+        else pushText(raw.replace(WS_RUN, " "), marks, kind, item);
         continue;
       }
       if (child.nodeType !== ELEMENT_NODE) continue;
@@ -317,10 +355,16 @@ export function htmlToRichLines(html: string): RichLine[] {
         continue;
       }
 
+      // ★★ A <blockquote> or <pre> inside an <li> KEEPS ITS OWN KIND and is
+      // therefore NOT a continuation — walked with `item` cleared. The kind is
+      // the point of both: a <pre>'s verbatim whitespace and monospace face are
+      // exactly what turning it into an `li` line to win the indent would throw
+      // away. The cost is that such a line loses the item's indent
+      // (open-followups §156); losing the indent beats losing the kind.
       const nested = NESTED_KIND_BY_TAG[tag];
       if (nested) {
         startLine({ kind: nested, runs: [], align: alignOf(el) });
-        walk(el, marks, nested);
+        walk(el, marks, nested, false, null);
         flush();
         continue;
       }
@@ -329,7 +373,10 @@ export function htmlToRichLines(html: string): RichLine[] {
         flush();
         listCounters.push({ ordered: tag === "OL" });
         listIndex.push(0);
-        walk(el, marks, kind);
+        // ★ `item` cleared: a nested list's items are produced by the LI arm at
+        // their OWN depth and index, and must inherit nothing from the item
+        // they are nested inside.
+        walk(el, marks, kind, false, null);
         listCounters.pop();
         listIndex.pop();
         continue;
@@ -340,7 +387,7 @@ export function htmlToRichLines(html: string): RichLine[] {
         const ordered = listCounters[depth]?.ordered ?? false;
         const index = listIndex[depth] ?? 0;
         const checked = el.getAttribute("data-checked");
-        const item: RichLine = {
+        const item: LiLine = {
           kind: "li",
           runs: [],
           align: alignOf(el),
@@ -354,12 +401,29 @@ export function htmlToRichLines(html: string): RichLine[] {
               : {}),
         };
         startLine(item);
-        walk(el, marks, kind, true);
+        // ★★★ THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN
+        // LINE SURVIVED. The question is "did this item put ANYTHING into
+        // `lines`", so the witness is the output's length across the item's
+        // walk — snapshotted AFTER `startLine`, which is the moment `current`
+        // is this item and nothing earlier can still be pending.
+        //
+        // ★★ It used to be the IDENTITY of the flushed li line, and that answered
+        // a NARROWER question: an item whose only child kept its own kind (an
+        // <h2>, a <blockquote>, a nested list) emitted lines while its own empty
+        // li line was dropped, so it spent no number and every later sibling
+        // rendered one too LOW — "1." on the second item of a client-facing DOCX.
+        // ★★ The comment that chose identity rejected a length delta for
+        // "crediting this item with its CHILDREN's lines". A delta does do that,
+        // and it is CORRECT that it does: an <li> holding only a sub-list still
+        // occupies a numbered slot in every browser and in Word. What the old
+        // reasoning was really protecting is the EMPTY item, which a delta gets
+        // right for the same reason — it contributes nothing, so nothing counts.
+        const outputBefore = lines.length;
+        walk(el, marks, kind, true, item);
         flush();
-        // ★★ AFTER the walk, and only for an item that reached the output — see
-        // `emitted`. The `listIndex.length` guard keeps a stray <li> with no
-        // enclosing list from writing a counter that does not exist.
-        if (listIndex.length > 0 && emitted.has(item)) listIndex[depth] = index + 1;
+        // ★ AFTER the walk. The `listIndex.length` guard keeps a stray <li> with
+        // no enclosing list from writing a counter that does not exist.
+        if (listIndex.length > 0 && lines.length > outputBefore) listIndex[depth] = index + 1;
         continue;
       }
 
@@ -368,7 +432,9 @@ export function htmlToRichLines(html: string): RichLine[] {
         // ★ CLAMPED, not widened — see HeadingLevel.
         const level = Math.min(4, Number(heading[1])) as HeadingLevel;
         startLine({ kind: "heading", runs: [], align: alignOf(el), level });
-        walk(el, marks, kind);
+        // ★ `item` cleared for the same reason as <blockquote>/<pre>: a heading
+        // inside an item keeps its LEVEL, which a continuation cannot carry.
+        walk(el, marks, kind, false, null);
         flush();
         continue;
       }
@@ -396,12 +462,13 @@ export function htmlToRichLines(html: string): RichLine[] {
       // puts a whitespace-only run between the <li> and its <p>, and that must
       // not count as the item already having text.
       //
-      // ★ A SECOND <p> in one <li> finds the item non-empty, falls through to
-      // LINE_TAGS below and becomes a plain continuation line — the same shape
-      // "<li>a<br>b</li>" has always produced.
+      // ★ A SECOND <p> in one <li> finds the item non-empty and falls through
+      // to LINE_TAGS below, which opens a CONTINUATION of the item rather than
+      // a bare `p` — the same shape "<li>a<br>b</li>" produces.
       //
       // ★ `inListItem` is NOT threaded into the transparent element: this is
-      // one level deep, matching "the direct content of an <li>".
+      // one level deep, matching "the direct content of an <li>". `item` IS,
+      // because a <br> inside this very paragraph must continue the item.
       const host = current;
       if (
         inListItem &&
@@ -415,21 +482,32 @@ export function htmlToRichLines(html: string): RichLine[] {
         // (rich-text-editor.tsx). So the item's own align is almost always
         // absent and the transparent paragraph's is the real one — but the li's
         // wins where both are present, since it is the outer declaration.
+        //
+        // ★ REPLACED, not mutated in place. `flush` pushes a copy, so an
+        // in-place `host.align = align` was safe by accident; a continuation is
+        // now built by spreading the live item, which makes "who else holds
+        // this object" a question worth not having to answer.
         const align = alignOf(el);
-        if (align !== undefined && host.align === undefined) host.align = align;
-        walk(el, marks, kind);
+        if (align !== undefined && host.align === undefined) current = { ...host, align };
+        walk(el, marks, kind, false, item);
         continue;
       }
 
       if (LINE_TAGS.has(tag)) {
-        startLine({ kind, runs: [], align: alignOf(el) });
-        walk(el, marks, kind);
+        startLine(
+          item === null ? { kind, runs: [], align: alignOf(el) } : continuationOf(item, alignOf(el)),
+        );
+        walk(el, marks, kind, false, item);
         flush();
         continue;
       }
 
+      // ★ `item` travels through an inline mark — "<li><p>a</p><em>x<br>y</em>"
+      // has to continue the item at `y`. `inListItem` deliberately does not:
+      // that would make a <p> wrapped in a <strong> transparent, which is not
+      // today's behaviour and is not what this change is about.
       const mark = MARK_BY_TAG[tag];
-      walk(el, mark ? addMark(marks, mark) : marks, kind);
+      walk(el, mark ? addMark(marks, mark) : marks, kind, false, item);
     }
   }
 

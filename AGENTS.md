@@ -1103,6 +1103,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `w:pStyle` it cannot resolve), `kind: "li"` with `ordered`/`depth`/`index`/`task`, and `align` on
   every kind but `hr`. A new export column joins a `*_RICH_COLUMNS` set; a new RENDERER must decide
   which half it reads.
+  ★★★ **A WRAPPED LIST ITEM IS SEVERAL `li` LINES, AND ONLY THE FIRST CARRIES A MARKER.** Anything
+  after an item's first line — the text after a `<br>` (Shift+Enter, which StarterKit leaves on), a
+  second `<p>` (Tiptap's `listItem` spec is `paragraph block*`, so it is schema-legal) — is an `li`
+  line carrying the item's OWN `ordered`/`depth`/`index`/`task` plus `continuation: true`. A renderer
+  keeps the indent (it derives from `depth`) and SUPPRESSES the marker: `bulletMarker` is called only
+  when `!line.continuation`, at both call sites. Before that field existed those lines restarted as
+  bare `p` at zero indent — an unmarked, unindented orphan BETWEEN two bullets in a client-facing
+  DOCX. Sweep the guard, don't trust this: `grep -rn "continuation" src/app/ooxml-docx-primitives.ts
+  src/app/doc-render-pptx.ts`. ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
+  their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
+  for an indent — so they lose the item's indent (`docs/open-followups.md` §156).
+  ★★ **AND THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN LINE SURVIVED.** An item
+  whose only child keeps its own kind (an `<h2>`, a nested list) emits lines while its empty `li`
+  line is dropped; the counter therefore watches whether the item put ANYTHING into the output, so
+  `<ol><li><h2>H</h2></li><li><p>z</p></li></ol>` numbers `z` as **2**. It used to number it 1.
   ★★★ **THE SPLIT IS "CARRY vs PARSE", and it is easy to break by "helpfully" parsing one level
   up.** `export-sections.ts` CARRIES the html as an opaque string and never parses it — every parse
   lives in the DOM-bound renderers, which is what lets one section model feed both the structural and

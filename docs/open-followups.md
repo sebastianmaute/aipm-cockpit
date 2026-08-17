@@ -10310,3 +10310,34 @@ are load-bearing, because that is the fact no test can express.
 
 ★ Related but distinct from §154: this one needs no new package part, only a declaration (or a
 deletion) in a part that already exists.
+
+## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
+
+Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
+wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that
+INHERITS its kind — the text after a `<br>`, a second `<p>`, a `<div>`. It deliberately does NOT
+cover the three elements inside an `<li>` that impose a kind of their OWN.
+
+```bash
+# the three shapes, and the assertions that pin each one keeping its own kind
+grep -n "imposes its own kind" -A 24 src/app/rich-text-runs.test.ts
+grep -n "keeps a <pre> inside an item" -A 10 src/app/rich-text-runs.test.ts
+```
+
+★★ **The trade is deliberate and it is the right way round.** Turning a `<pre>` into an `li`
+continuation would win the indent and lose the kind — and the kind is the whole point of a `<pre>`:
+verbatim whitespace and a monospace face. Same for a `<blockquote>`’s rule-and-italics and for an
+`<hN>`’s LEVEL, which a continuation has nowhere to carry. Losing an indent beats losing the kind.
+
+★ **Reachability is narrow but real.** Tiptap’s `listItem` spec is `paragraph block*`, so the editor
+always puts a `<p>` first and a user cannot type an `<h2>` as an item’s only child. AI-authored
+(`sanitizeAiRichText`) and imported HTML can, and nothing normalises either to the editor’s schema.
+
+★ **The fix, if it is ever wanted, is a second axis, not a fourth kind.** The line would need to
+carry the enclosing item’s `depth` WITHOUT becoming an `li` — i.e. an optional `listDepth` on
+`LineBase` that both renderers add to their indent. That is a wider change than the continuation
+slice needed, and it buys indentation only.
+
+★ A smaller cousin, also open: a DOCX continuation sits at the item’s `w:ind w:left`, so its text
+starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
+`numbering.xml` (§154), which would retire the literal marker text altogether.

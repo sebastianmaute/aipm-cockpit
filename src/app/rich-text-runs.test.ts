@@ -459,23 +459,6 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
   });
 
   // ── the decisions this made, each pinned so none of them is accidental ─────
-  it("ends the item at a SECOND paragraph, continuing on a plain line", () => {
-    // Only the paragraph that IS the item's text is transparent. A second one is
-    // a genuine second paragraph, so it takes the ordinary LINE_TAGS path — the
-    // same two-line shape "<li>a<br>b</li>" has always produced.
-    expect(htmlToRichLines("<ul><li><p>a</p><p>b</p></li></ul>")).toEqual([
-      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "b", marks: [] }] },
-    ]);
-  });
-
-  it("matches the <br> continuation shape it was modelled on", () => {
-    expect(htmlToRichLines("<ul><li>a<br>b</li></ul>")).toEqual([
-      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
-      { kind: "p", runs: [{ text: "b", marks: [] }] },
-    ]);
-  });
-
   it("keeps a blockquote inside an item as a blockquote, not as item text", () => {
     // NOT transparent, and deliberately: P and DIV carry no kind of their own,
     // so folding one into the item loses nothing. A blockquote carries a kind
@@ -492,14 +475,242 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
     ]);
   });
 
-  it("still folds a paragraph that FOLLOWS a nested list into no item", () => {
-    // The nested <ul> closes the item on the way in, so `current` is no longer
-    // the item and the trailing <p> is an ordinary line.
-    expect(htmlToRichLines("<ul><li><p>a</p><ul><li><p>a1</p></li></ul><p>t</p></li></ul>")).toEqual([
+  it("returns a paragraph that FOLLOWS a nested list to the OUTER item's depth", () => {
+    // The nested <ul> closes the item's line on the way in, so `current` is no
+    // longer the item — but the trailing <p> is still inside the OUTER <li>, so
+    // it continues it at depth 0 rather than restarting at depth 1 or as a bare
+    // `p`. This is the case that proves continuation state is scoped to the item
+    // being walked and not to "the last item seen".
+    expect(
+      htmlToRichLines("<ul><li><p>a</p><ul><li><p>a1</p></li></ul><p>t</p></li></ul>"),
+    ).toEqual([
       { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
       { kind: "li", ordered: false, depth: 1, index: 0, runs: [{ text: "a1", marks: [] }] },
-      { kind: "p", runs: [{ text: "t", marks: [] }] },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "t", marks: [] }],
+      },
     ]);
+  });
+});
+
+// ── a wrapped item stays one item ────────────────────────────────────────────
+//
+// ★★★ THE DEFECT THIS BLOCK EXISTS FOR. `BlockKind` had no notion of "still
+// inside the item", so everything after the item's FIRST line restarted as a
+// bare `p` at zero indent: an unmarked, unindented orphan sitting BETWEEN two
+// bullets. Row one below is an ordinary keystroke — StarterKit leaves HardBreak
+// on (rich-text-editor.tsx configures only `heading.levels`) and `br` is in
+// RICH_ALLOWED_TAGS, so Shift+Enter inside a bullet produces exactly it.
+//
+// ★ It only became WRONG when the item's first line gained a marker: before
+// that every line rendered flat and the output was uniform prose, so the orphan
+// was invisible. It is now internally contradictory, which is why it is fixed
+// here and not when the kinds widened.
+//
+// ★ A continuation carries the item's ordered/depth/index/task so a renderer
+// indents it identically, and `continuation: true` so the renderer suppresses
+// the marker — one bullet per ITEM, however many lines it wraps to.
+describe("continuation lines inside a list item", () => {
+  it("continues the item after a <br>, the shape Shift+Enter produces", () => {
+    expect(htmlToRichLines("<ul><li><p>a<br>b</p></li><li><p>c</p></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "b", marks: [] }],
+      },
+      { kind: "li", ordered: false, depth: 0, index: 1, runs: [{ text: "c", marks: [] }] },
+    ]);
+  });
+
+  it("continues the item after a <br> in the bare <li> form too", () => {
+    // The flatter form the golden fixtures and legacy stored values carry. Both
+    // shapes must reach the same lines, or a renderer's output depends on which
+    // editor wrote the value.
+    expect(htmlToRichLines("<ul><li>a<br>b</li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "b", marks: [] }],
+      },
+    ]);
+  });
+
+  it("continues the item on a SECOND paragraph, keeping the ordinal", () => {
+    // Only the paragraph that IS the item's text is transparent; a second one
+    // cannot fold into a line already flushed. It is still INSIDE the item, so
+    // it keeps `index` 0 — the sibling below is 1, not 2.
+    expect(htmlToRichLines("<ol><li><p>a</p><p>a2</p></li><li><p>b</p></li></ol>")).toEqual([
+      { kind: "li", ordered: true, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      {
+        kind: "li",
+        ordered: true,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "a2", marks: [] }],
+      },
+      { kind: "li", ordered: true, depth: 0, index: 1, runs: [{ text: "b", marks: [] }] },
+    ]);
+  });
+
+  it("continues a <div> inside the item, not just a <p>", () => {
+    expect(htmlToRichLines("<ul><li><p>a</p><div>d</div></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "d", marks: [] }],
+      },
+    ]);
+  });
+
+  it("copies the item's task state onto the continuation", () => {
+    // The whole geometry travels, not just the depth: a wrapped task item must
+    // not lose its checkbox row's indent, and must not gain a second "[ ]".
+    const lines = htmlToRichLines(
+      '<ul data-type="taskList"><li data-checked="false"><p>t<br>t2</p></li></ul>',
+    );
+    expect(lines).toEqual([
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        task: "unchecked",
+        runs: [{ text: "t", marks: [] }],
+      },
+      {
+        kind: "li",
+        ordered: false,
+        depth: 0,
+        index: 0,
+        task: "unchecked",
+        continuation: true,
+        runs: [{ text: "t2", marks: [] }],
+      },
+    ]);
+  });
+
+  it("gives the continuation its OWN alignment, not the item's", () => {
+    // TextAlign is per PARAGRAPH (`types: ["heading", "paragraph"]`), so a
+    // centred first paragraph must not centre a right-aligned second one.
+    expect(
+      htmlToRichLines(
+        '<ol><li><p data-align="center">a</p><p data-align="right">a2</p></li></ol>',
+      ),
+    ).toEqual([
+      {
+        kind: "li",
+        align: "center",
+        ordered: true,
+        depth: 0,
+        index: 0,
+        runs: [{ text: "a", marks: [] }],
+      },
+      {
+        kind: "li",
+        align: "right",
+        ordered: true,
+        depth: 0,
+        index: 0,
+        continuation: true,
+        runs: [{ text: "a2", marks: [] }],
+      },
+    ]);
+  });
+
+  it("does not put `continuation` on a head line at all", () => {
+    // Own-property-valued-undefined would read to a consumer as "sometimes
+    // set", the exact inconsistency the `hr` member's docblock argues against.
+    // `toEqual` cannot see the difference, so this is asserted directly.
+    const [head] = htmlToRichLines("<ul><li><p>a</p><p>b</p></li></ul>");
+    expect(Object.hasOwn(head, "continuation")).toBe(false);
+  });
+
+  it("does not let a nested list inherit the outer item's continuation state", () => {
+    // The nested items are produced by the LI arm at their OWN depth and index,
+    // so none of them is a continuation of anything.
+    const lines = htmlToRichLines(
+      "<ol><li><p>a</p><p>a2</p><ul><li><p>n1</p></li><li><p>n2</p></li></ul></li></ol>",
+    );
+    expect(
+      lines.map((l) => (l.kind === "li" ? [l.depth, l.index, l.continuation ?? false] : l.kind)),
+    ).toEqual([
+      [0, 0, false],
+      [0, 0, true], // a2 continues the outer item
+      [1, 0, false], // n1 is its own item, not a continuation
+      [1, 1, false],
+    ]);
+  });
+
+  it("keeps a <pre> inside an item preformatted rather than continuing the item", () => {
+    // ★ THE DELIBERATE NON-CONTINUATION. A <pre> carries a kind whose whole
+    // point is that whitespace and the monospace face survive; turning it into
+    // an `li` line to win the indent would trade that away. Same for
+    // <blockquote> and <hN> above. The cost is that those lines lose the item's
+    // indent — open-followups §156.
+    expect(htmlToRichLines("<ul><li><p>a</p><pre>x\ny</pre></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "pre", runs: [{ text: "x", marks: [] }] },
+      { kind: "pre", runs: [{ text: "y", marks: [] }] },
+    ]);
+  });
+
+  it("does not continue the item inside an element that imposes its own kind", () => {
+    // ★★ ONE TEST PER CLEARING ARM, and each needs the shape that makes the arm
+    // OBSERVABLE: the item only leaks in where a line is OPENED inside the
+    // element, which takes a <br> (or, for a list, stray text). Without these
+    // three inputs all three `null`s can be replaced by `item` with the rest of
+    // this file green — measured, not assumed.
+    expect(htmlToRichLines("<ul><li><p>a</p><blockquote>q<br>r</blockquote></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "blockquote", runs: [{ text: "q", marks: [] }] },
+      { kind: "blockquote", runs: [{ text: "r", marks: [] }] },
+    ]);
+    // A heading's own arm runs with the INHERITED kind, so the line after the
+    // break is a `p` — what matters is that it is not an `li`.
+    expect(htmlToRichLines("<ul><li><p>a</p><h2>h<br>h2</h2></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "heading", level: 2, runs: [{ text: "h", marks: [] }] },
+      { kind: "p", runs: [{ text: "h2", marks: [] }] },
+    ]);
+    // Text directly inside a <ul> is a parse error no editor makes, but this
+    // parser is handed AI-authored and imported markup, and it is the only
+    // input that can see the UL/OL arm's own clear.
+    expect(htmlToRichLines("<ul><li><p>a</p><ul>stray<li><p>n</p></li></ul></li></ul>")).toEqual([
+      { kind: "li", ordered: false, depth: 0, index: 0, runs: [{ text: "a", marks: [] }] },
+      { kind: "p", runs: [{ text: "stray", marks: [] }] },
+      { kind: "li", ordered: false, depth: 1, index: 0, runs: [{ text: "n", marks: [] }] },
+    ]);
+  });
+
+  it("does not continue the item across a <hr>, which has no runs to carry", () => {
+    const lines = htmlToRichLines("<ul><li><p>a</p><hr><p>b</p></li></ul>");
+    expect(lines.map((l) => l.kind)).toEqual(["li", "hr", "li"]);
+    expect(lines[2]).toEqual({
+      kind: "li",
+      ordered: false,
+      depth: 0,
+      index: 0,
+      continuation: true,
+      runs: [{ text: "b", marks: [] }],
+    });
   });
 });
 
@@ -520,9 +731,27 @@ describe("a list index is spent only on an item that reaches the output", () => 
     expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual([0]);
   });
 
-  it("does not skip a number for an item whose only child keeps its own kind", () => {
+  it("SPENDS a number on an item whose only child keeps its own kind", () => {
+    // ★★★ THIS ASSERTION IS THE REVERSE OF WHAT IT USED TO BE, and the old one
+    // was wrong. `<li><h2>h</h2></li>` puts a heading into the output, so the
+    // item RENDERED — it is item 1, and `a` is item 2. The old test read the
+    // <h2> taking its own arm as "this item emitted nothing", pinned `a` at
+    // index 0, and so certified a client-facing DOCX numbering the second item
+    // "1.". The question is "did this item put anything into `lines`", NOT "did
+    // the item's own li LINE survive".
     const lines = htmlToRichLines("<ol><li><h2>h</h2></li><li>a</li></ol>");
-    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual(["heading", 0]);
+    expect(lines.map((l) => (l.kind === "li" ? l.index : l.kind))).toEqual(["heading", 1]);
+  });
+
+  it("SPENDS a number on an item whose only content is a nested list", () => {
+    // Same rule, the other shape that reaches it: the outer item's own line is
+    // dropped for holding no text, but its sub-list rendered, so it occupies a
+    // numbered slot exactly as every browser and Word renders it.
+    const lines = htmlToRichLines("<ol><li><ul><li>n</li></ul></li><li>b</li></ol>");
+    expect(lines.map((l) => (l.kind === "li" ? [l.depth, l.index] : l.kind))).toEqual([
+      [1, 0], // n
+      [0, 1], // b <- item 2, because item 1 rendered a sub-list
+    ]);
   });
 
   it("numbers a run of mixed bare and paragraph-wrapped items consecutively", () => {
