@@ -1,17 +1,39 @@
 "use client";
 
 // src/app/chat-thread-sidebar.tsx — the Turso chat panel's sidebar COLUMN:
-// an optional save/fetch-failure banner (with retry) above the thread list.
-// PURE presentational leaf (gantt/documents-list panel-split pattern,
-// AGENTS.md "Extraction conventions" rule 5) — no hooks, no Turso IO. Kept
-// separate from chat-panel.tsx (already over the file-size ratchet) so
-// wiring the sidebar into the panel costs only an import + a few JSX lines.
+// an optional save/fetch-failure banner (with retry) above the thread list,
+// and the column's own drag-to-resize width. Presentational leaf
+// (gantt/documents-list panel-split pattern, AGENTS.md "Extraction
+// conventions" rule 5) — no data fetching and no Turso IO. Kept separate from
+// chat-panel.tsx (which sits EXACTLY at its file-size baseline, so it has zero
+// headroom) — which is also why `useResizable` is called HERE rather than in
+// the panel and threaded down as a ref: the width is this column's own
+// concern, it touches only the DOM and localStorage, and chat-panel.tsx cannot
+// take the extra lines.
+//
+// ★ LAYOUT, and the two halves must move together: `resize` has NO effect on
+// an element whose computed `overflow` is `visible` (CSS UI 4 §5.1), so the
+// wrapper's `overflow-hidden` is what makes the drag handle exist at all.
+// Clipping the wrapper then makes the list's own `overflow-y-auto` mandatory —
+// before this, NOTHING here scrolled (the list had `min-h-0 flex-1` and no
+// overflow), so a long thread list simply spilled out of the pane. Dropping
+// either class re-breaks the other. jsdom has no layout, so no unit test in
+// this repo can see the geometry — chat-thread-sidebar.test.tsx pins the
+// classes, and the pixels are eye-verify only (this surface is Turso-gated, so
+// the axe gate never renders it either).
 
 import { type Lang, t } from "./i18n";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { ChatThreadList } from "./chat-thread-list";
+import { ResetSizeButton } from "./task-manager-ui";
+import { useResizable } from "./use-resizable";
 import type { ChatThread } from "./chat-threads";
+
+/** localStorage key for the persisted column width. Distinct from the chat
+ *  PANE's own `aipm-cockpit:chat-size-v2` — resetting one must not clear the
+ *  other. */
+const CHAT_SIDEBAR_SIZE_KEY = "aipm-cockpit:chat-sidebar-size";
 
 export interface ChatThreadSidebarProps {
   lang: Lang;
@@ -37,8 +59,20 @@ export function ChatThreadSidebar({
   onRename,
   onDelete,
 }: ChatThreadSidebarProps) {
+  const { ref, reset } = useResizable(CHAT_SIDEBAR_SIZE_KEY);
   return (
-    <div className="flex w-56 shrink-0 flex-col gap-2 border-r border-line pr-3">
+    // `max-h-full` caps a persisted height: useResizable always saves BOTH
+    // dimensions, and with `resize-x` the height it records is whatever the
+    // flex row happened to stretch this column to, which is stale the moment
+    // the chat pane is resized taller.
+    //
+    // `pb-4` is for the drag handle, not for spacing: the browser paints the
+    // resize grabber in the bottom-right of the PADDING box, which without it
+    // lands on top of the reset button in the footer row below.
+    <div
+      ref={ref}
+      className="flex max-h-full w-56 min-w-[10rem] max-w-[24rem] shrink-0 resize-x flex-col gap-2 overflow-hidden border-r border-line pb-4 pr-3"
+    >
       {error && (
         <Banner severity="error" className="flex flex-col items-start gap-1.5">
           <p>{t(lang, "chatThreadSaveFailed")}</p>
@@ -55,8 +89,15 @@ export function ChatThreadSidebar({
         onNew={onNew}
         onRename={onRename}
         onDelete={onDelete}
-        className="min-h-0 flex-1"
+        className="min-h-0 flex-1 overflow-y-auto"
       />
+      {/* Its OWN label key, never ResetSizeButton's `tableResetSizeHint`
+          default: the chat pane already renders a reset-size button, and two
+          reset controls sharing an accessible name while doing different
+          things is a WCAG 2.4.6 failure that axe passes (a name exists). */}
+      <div className="flex shrink-0 justify-end">
+        <ResetSizeButton onClick={reset} lang={lang} labelKey="chatSidebarResetSize" />
+      </div>
     </div>
   );
 }

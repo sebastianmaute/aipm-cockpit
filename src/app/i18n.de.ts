@@ -654,6 +654,7 @@ export const de: Record<TranslationKey, string> = {
   chatThreadEmptyBody: "Starten Sie einen neuen Chat, um zu beginnen.",
   chatThreadSaveFailed: "Dieser Chat konnte nicht gespeichert werden.",
   chatThreadSaveRetry: "Erneut versuchen",
+  chatSidebarResetSize: "Breite der Chat-Seitenleiste zurücksetzen",
   chatStop: "Stopp",
   chatStopGenerating: "Generierung stoppen",
   chatStopped: "Abgebrochen",

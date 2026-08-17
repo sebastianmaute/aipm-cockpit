@@ -657,6 +657,7 @@ const enUS = {
   chatThreadEmptyBody: "Start a new chat to begin.",
   chatThreadSaveFailed: "Couldn't save this chat.",
   chatThreadSaveRetry: "Retry",
+  chatSidebarResetSize: "Reset the chat sidebar width",
   chatStop: "Stop",
   chatStopGenerating: "Stop generating",
   chatStopped: "Stopped",
