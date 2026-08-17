@@ -442,6 +442,31 @@ describe("useChatDispatcher", () => {
     expect(stored.description).toBe("<p>original <strong>detail</strong></p>");
   });
 
+  // ★★★ The same defect as §49, one register over: `sanitizeChangeItem` drops
+  //   `noteLog` for the same DOM-free reason, so `update_change` erased the log.
+  //   AI writes take no undo capture, so the loss is unrecoverable.
+  it("update_change preserves the stored note log", () => {
+    const { result } = renderRaidProbe();
+    const log = [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>keep me</p>", text: "keep me" }];
+    let id = 0;
+    act(() => {
+      id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id;
+    });
+    // The note exists on the STORED row — the notes window writes through, and
+    // `noteLog` is in no AI tool schema, so a patch can never carry one.
+    act(() => {
+      result.current.ws.setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, noteLog: log } : c)));
+    });
+    // A title-only patch: the model never mentions noteLog, so nothing but the
+    // sanitizer can be responsible if the log disappears.
+    act(() => {
+      result.current.d.updateChange(id, { title: "Scope cut v2" });
+    });
+    const stored = result.current.ws.changes[0];
+    expect(stored.title).toBe("Scope cut v2");
+    expect(stored.noteLog).toEqual(log);
+  });
+
   it("createTask defaults status to 'To Do' when omitted", () => {
     const { result } = renderDispatcher();
     const created = result.current.createTask({

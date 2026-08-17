@@ -114,11 +114,33 @@ export function selectTopChanges(changes: readonly ChangeItem[], limit: number):
  * (`sanitizeNoteLog` reaches DOMPurify). Every caller that sanitizes a row which
  * may already carry a log therefore has to re-attach it, or the log is destroyed.
  *
- * ★★ THREE call sites, and they are not obvious from a call-shaped grep:
- * `buildChangeFromObj` (CSV + Markdown + both Turso layouts), `jsonToWorkspace`,
- * and the AI dispatcher's `updateChange`. RAID does NOT need this at its decode
- * or JSON boundaries because neither calls `sanitizeRaidItem`; changes call
- * theirs, which is why this helper exists at all.
+ * ★★ SIX sites call the sanitizer, and the SPLIT is the useful fact — a flat
+ * count reads as rotten to anyone who greps. THREE hold an EXISTING row and so
+ * must carry the log across:
+ *   `buildChangeFromObj` (CSV + Markdown + both Turso layouts), `jsonToWorkspace`,
+ *   and the AI dispatcher's `updateChange`.
+ * THREE build a row from scratch, so there is no stored log to lose:
+ *   the dispatcher's `createChange` (a freshly minted id), `proposalToSeed`
+ *   (a model-authored proposal), and `sanitizeSeed` (template import).
+ *
+ * ★★ TWO of the safe three pass the sanitizer BY REFERENCE — into `buildList`
+ * and `sanitizeArr` — so a call-shaped `sanitizeChangeItem(` grep sees FOUR of
+ * the six and reports whatever list it produced as complete. Sweep the BARE
+ * name instead:
+ *   grep -rn sanitizeChangeItem src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+ * It also returns the imports, the declaration and every comment mentioning the
+ * name — this docblock's own included, which is the grep matching itself.
+ *
+ * ★ Template import DOES drop a captured log, deliberately: `templateFromWorkspace`
+ * assigns `seed.changes = ws.changes` verbatim, so a template captured from a live
+ * project carries real logs. Tasks and RAID drop theirs the same way
+ * (`sanitizeSeedTask` / `sanitizeSeedRaidItem` name no `noteLog`), and it must
+ * stay that way here: that path runs no rich pass, so a log re-attached there
+ * would be stored unsanitized.
+ *
+ * ★ RAID needs none of this at its decode or JSON boundaries because neither
+ * calls `sanitizeRaidItem`; changes call theirs, which is why this helper exists
+ * at all.
  *
  * ★ Takes `unknown` for the log because the JSON boundary hands it raw parsed
  * data. A non-array is dropped rather than trusted. Returns the SAME object

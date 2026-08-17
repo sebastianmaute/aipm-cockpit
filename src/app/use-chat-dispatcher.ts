@@ -43,6 +43,7 @@ import {
   sanitizeResource,
 } from "./sanitize";
 import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
+import { withStoredNoteLog } from "./change-log";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
@@ -576,7 +577,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
-        const next = changesRef.current.map((c) => (c.id === id ? merged : c));
+        // ★★★ Re-apply the STORED log — `sanitizeChangeItem` drops `noteLog` and
+        // cannot keep it (DOM-free). Same defect class as §49 on RAID, and AI
+        // writes take no undo capture, so the loss would be unrecoverable.
+        const next = changesRef.current.map((c) =>
+          (c.id === id ? withStoredNoteLog(merged, existing.noteLog) : c));
         changesRef.current = next;
         setChanges(next);
         return toChangeSummary(merged);

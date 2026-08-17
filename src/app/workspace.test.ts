@@ -180,6 +180,35 @@ describe("jsonToWorkspace normalises every rich field, not only description", ()
     expect(ws.raid[0].mitigation).toBe("<p>Escalate <strong>now</strong></p>");
     expect(ws.milestones?.[0].description).toBe("<p>Gate <em>two</em></p>");
   });
+
+  // ★★★ `sanitizeChangeItem` builds from an explicit field list and is DOM-free,
+  //   so it DROPS `noteLog`. RAID's JSON branch never calls its sanitizer and so
+  //   needs nothing; the changes branch does, and without `withStoredNoteLog`
+  //   every note on every change is destroyed by an ordinary file load.
+  it("preserves a change noteLog through jsonToWorkspace", () => {
+    const ws = jsonToWorkspace(JSON.stringify({
+      tasks: [], raid: [],
+      changes: [{ id: 1, title: "Scope cut", status: "Proposed", type: "Scope",
+        raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+        noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>kept</p>", text: "kept" }] }],
+    }));
+    expect(ws.changes[0].noteLog).toHaveLength(1);
+    expect(ws.changes[0].noteLog?.[0].text).toBe("kept");
+  });
+
+  // ★★★ The ORDER half of the fix: the raw array is re-attached BEFORE the rich
+  //   pass, so `sanitizeChangeRichFields` still runs `sanitizeNoteLog` over it.
+  //   Attaching after that pass would store an untrusted file's HTML verbatim.
+  it("sanitizes a change noteLog arriving through jsonToWorkspace", () => {
+    const ws = jsonToWorkspace(JSON.stringify({
+      tasks: [], raid: [],
+      changes: [{ id: 1, title: "x", status: "Proposed", type: "Scope",
+        raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+        noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<script>alert(1)</script><p>ok</p>", text: "ok" }] }],
+    }));
+    expect(ws.changes[0].noteLog?.[0].html).not.toContain("script");
+    expectInert(ws.changes[0].noteLog?.[0].html ?? "", "ok");
+  });
 });
 
 describe("jsonToWorkspace strict mode", () => {

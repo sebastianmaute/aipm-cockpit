@@ -22,6 +22,7 @@ import {
   sanitizeChangeRichFields,
   sanitizeMilestoneRichFields,
 } from "./note-log";
+import { withStoredNoteLog } from "./change-log";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -658,7 +659,20 @@ export function jsonToWorkspace(
       // -> descriptionHtml) but are DOM-free by contract, so they never run
       // DOMPurify. The whole-object load boundary is where that pass belongs.
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
-      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null).map(sanitizeChangeRichFields),
+      // ★★★ `sanitizeChangeItem` DROPS `noteLog` (explicit field list, DOM-free),
+      //     so the log has to be carried across it. The rich pass that follows
+      //     runs `sanitizeNoteLog`, so attaching the RAW array HERE is correct —
+      //     it is sanitized one step later, exactly as tasks and RAID are.
+      //     Attaching it after that pass would store an untrusted file's HTML
+      //     verbatim. RAID needs none of this: its branch never calls
+      //     `sanitizeRaidItem`.
+      changes: ((p.changes as unknown[]) ?? [])
+        .map((c) => {
+          const s = sanitizeChangeItem(c);
+          return s === null ? null : withStoredNoteLog(s, (c as { noteLog?: unknown } | null)?.noteLog);
+        })
+        .filter((c): c is ChangeItem => c !== null)
+        .map(sanitizeChangeRichFields),
       stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
     // Additive: sanitize an incoming project when present; otherwise leave the
