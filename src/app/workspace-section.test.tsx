@@ -94,6 +94,7 @@ function makeProps(overrides: Partial<WorkspaceSectionProps> = {}): WorkspaceSec
     changes: [],
     handleSaveChange: vi.fn(),
     handleDeleteChange: vi.fn(),
+    handleChangeStatusChange: vi.fn(),
     stakeholders: [],
     handleSaveStakeholder: vi.fn(),
     handleDeleteStakeholder: vi.fn(),
