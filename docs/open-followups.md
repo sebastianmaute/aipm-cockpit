@@ -10341,3 +10341,34 @@ slice needed, and it buys indentation only.
 ★ A smaller cousin, also open: a DOCX continuation sits at the item’s `w:ind w:left`, so its text
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
+
+## 157. An item whose ONLY output is a line of another kind still spends an ordinal and renders no marker — open
+
+Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
+(`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
+whose own line was dropped — it started empty and a `<br>`, an `<hr>` or a heading closed it before
+any text arrived — no longer renders every line unmarked while spending its number. What is left is
+the case where the item emits **no `li` line at all**:
+
+```bash
+# both shapes, with the assertions that pin the ordinal being spent
+grep -n "SPENDS a number on an item whose only" -A 22 src/app/rich-text-runs.test.ts
+```
+
+`<ol><li><h2>h</h2></li><li>a</li></ol>` and `<ol><li><ul><li>n</li></ul></li><li>b</li></ol>`. In
+both the item RENDERED — a heading, a sub-list — so it correctly occupies a numbered slot and `a`/`b`
+are item 2. But the heading and the nested item keep their own kind by §156, and neither can carry
+the outer item's marker, so nothing in the export shows a "1.".
+
+★★ **This is §156 seen from the numbering side, and it has the same cause and the same fix.** A
+line that keeps its own kind cannot hold an `li`'s marker any more than it can hold an `li`'s
+indent. Promoting one anyway would destroy the level (`<h2>`) or the depth (a nested item) — that is
+the trade §156 already argues, and it is still the right way round. The `listDepth`-on-`LineBase`
+second axis §156 proposes would want a `listMarker` beside it.
+
+★ **Deliberately NOT closed by widening `promoteItemHead`.** It filters to `line.depth === depth` so
+it cannot reach into a sub-list; dropping that filter would move an outer item's marker onto its
+first nested item, which reads as a numbering bug rather than a missing marker.
+
+★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
+the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.

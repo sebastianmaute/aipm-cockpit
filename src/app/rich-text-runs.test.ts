@@ -306,6 +306,40 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     expect(alignOfLine(htmlToRichLines("<p>plain</p>")[0])).toBeUndefined();
   });
 
+  it("keeps the alignment on BOTH halves of a paragraph split by a <br>", () => {
+    // ★★ Outside any list, the same defect as the list-item case below: a `<br>`
+    // ENDS the line, and the one `pushText` re-opened was built from the kind
+    // alone, so the second half of one centred paragraph exported unaligned.
+    // Every kind that can hold a break is covered — the block arms each declare
+    // their own align and must hand it down the same way.
+    expect(htmlToRichLines('<p data-align="center">a<br>b</p>').map(alignOfLine)).toEqual([
+      "center",
+      "center",
+    ]);
+    expect(
+      htmlToRichLines('<blockquote data-align="right">q<br>r</blockquote>').map(alignOfLine),
+    ).toEqual(["right", "right"]);
+    // A heading's own arm walks with the INHERITED kind, so the half after the
+    // break is a `p` — it is still the same declaration's text.
+    expect(htmlToRichLines('<h2 data-align="center">a<br>b</h2>').map(alignOfLine)).toEqual([
+      "center",
+      "center",
+    ]);
+    // In a <pre> the NEWLINE is what ends the line, not a <br>.
+    expect(htmlToRichLines('<pre data-align="right">x\ny</pre>').map(alignOfLine)).toEqual([
+      "right",
+      "right",
+    ]);
+  });
+
+  it("keeps the alignment across a <br> nested inside an inline mark", () => {
+    // An `<em>` is not a paragraph — it neither declares an alignment nor
+    // clears the one in force, so the line re-opened inside it keeps it.
+    expect(
+      htmlToRichLines('<p data-align="center">a<em>b<br>c</em></p>').map(alignOfLine),
+    ).toEqual(["center", "center"]);
+  });
+
   it("ignores an out-of-domain align value", () => {
     // sanitizeRichHtml's ATTR_VALUES predicate already admits only the four,
     // but htmlToRichLines is also called on values that did not come through
@@ -635,6 +669,36 @@ describe("continuation lines inside a list item", () => {
     ]);
   });
 
+  it("carries the PARAGRAPH's alignment across a <br> inside it", () => {
+    // ★★★ THE DISTINCTION THIS BLOCK TURNS ON. A second `<p>` is a NEW
+    // paragraph and gets its own align (the test above). A `<br>` is a break
+    // WITHIN one paragraph, so both halves belong to the same
+    // `<p data-align="center">` and must both be centred — the item rendered
+    // half centred and half left in Word otherwise.
+    expect(
+      htmlToRichLines('<ul><li><p data-align="center">a<br>b</p></li></ul>').map(alignOfLine),
+    ).toEqual(["center", "center"]);
+  });
+
+  it("carries the RESOLVED alignment across a <br>, the li's winning over the <p>'s", () => {
+    // The transparent arm resolves the head line's align as "the li's where it
+    // declared one, this paragraph's otherwise" — the outer declaration wins.
+    // The continuation must inherit that SAME resolution, not the paragraph's
+    // half of it, or one item renders two alignments.
+    expect(
+      htmlToRichLines('<ul><li data-align="right"><p>a<br>b</p></li></ul>').map(alignOfLine),
+    ).toEqual(["right", "right"]);
+  });
+
+  it("carries an alignment declared on the <li> itself across a <br>", () => {
+    // The bare form, where the align sits on the item rather than on a
+    // transparent paragraph. `data-align` on a bare `<li>` survives
+    // `sanitizeRichHtml`, so this is reachable from stored data.
+    expect(
+      htmlToRichLines('<ul><li data-align="right">a<br>b</li></ul>').map(alignOfLine),
+    ).toEqual(["right", "right"]);
+  });
+
   it("does not put `continuation` on a head line at all", () => {
     // Own-property-valued-undefined would read to a consumer as "sometimes
     // set", the exact inconsistency the `hr` member's docblock argues against.
@@ -711,6 +775,84 @@ describe("continuation lines inside a list item", () => {
       continuation: true,
       runs: [{ text: "b", marks: [] }],
     });
+  });
+});
+
+// ── an item's FIRST surviving line is its head, marker and all ───────────────
+//
+// ★★★ THE DEFECT THIS BLOCK EXISTS FOR. An item whose own `li` line is DROPPED
+// — it starts empty and a <br>, an <hr> or a heading closes it before any text
+// arrives — re-opened at `pushText` as a CONTINUATION, and every renderer
+// suppresses the marker on a continuation. The ordinal was still spent, so a
+// client-facing DOCX showed an unmarked line followed by "2." with no "1."
+// anywhere. All three inputs below are reachable: row one is Shift+Enter as the
+// first keystroke in a bullet.
+//
+// ★ What it does NOT fix, and cannot without giving up §156: an item that emits
+// ONLY lines of another kind (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has
+// no `li` line to promote, so it still spends an ordinal and renders no marker.
+// open-followups §157.
+describe("an item whose own line was dropped still carries its marker", () => {
+  it("marks the text after a leading <br>, the first-keystroke Shift+Enter shape", () => {
+    const lines = htmlToRichLines("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>");
+    expect(lines).toEqual([
+      { kind: "li", ordered: true, depth: 0, index: 0, runs: [{ text: "x", marks: [] }] },
+      { kind: "li", ordered: true, depth: 0, index: 1, runs: [{ text: "y", marks: [] }] },
+    ]);
+    expect(Object.hasOwn(lines[0], "continuation")).toBe(false);
+  });
+
+  it("marks the paragraph after a leading <hr>", () => {
+    const lines = htmlToRichLines("<ol><li><hr><p>x</p></li></ol>");
+    expect(lines.map((l) => l.kind)).toEqual(["hr", "li"]);
+    expect(lines[1]).toEqual({
+      kind: "li",
+      align: undefined,
+      ordered: true,
+      depth: 0,
+      index: 0,
+      runs: [{ text: "x", marks: [] }],
+    });
+    expect(Object.hasOwn(lines[1], "continuation")).toBe(false);
+  });
+
+  it("marks the paragraph after a leading heading, which keeps its own kind", () => {
+    // The <h2> renders unmarked — it carries a level a continuation cannot hold
+    // — but the item's first `li` line is its head, so the list still shows a
+    // "1." and its sibling a "2." rather than starting at "2.".
+    const lines = htmlToRichLines("<ol><li><h2>H</h2><p>x</p></li><li><p>z</p></li></ol>");
+    expect(
+      lines.map((l) => (l.kind === "li" ? [l.index, l.continuation ?? false] : l.kind)),
+    ).toEqual(["heading", [0, false], [1, false]]);
+  });
+
+  it("promotes only the FIRST of an item's lines, leaving the rest continuations", () => {
+    // Two dropped-head lines in one item: the first is the head, the second
+    // still continues it. A promotion that ran on every line would put a second
+    // bullet on one item.
+    const lines = htmlToRichLines("<ul><li><p><br>a</p><p>b</p></li></ul>");
+    const shape = lines.map((l) =>
+      l.kind === "li" ? [l.runs[0].text, l.continuation ?? false] : l.kind,
+    );
+    expect(shape).toEqual([
+      ["a", false],
+      ["b", true],
+    ]);
+  });
+
+  it("does not promote a NESTED item into the outer item's head", () => {
+    // The outer item's own line is dropped and its trailing paragraph is the
+    // first `li` line it owns AT ITS DEPTH — the sub-list's item is one deeper
+    // and is already a head of its own. Promoting that one would move the outer
+    // marker inside the sub-list.
+    const lines = htmlToRichLines("<ul><li><ul><li><p>n</p></li></ul><p>t</p></li></ul>");
+    const shape = lines.map((l) =>
+      l.kind === "li" ? [l.depth, l.runs[0].text, l.continuation ?? false] : l.kind,
+    );
+    expect(shape).toEqual([
+      [1, "n", false],
+      [0, "t", false],
+    ]);
   });
 });
 

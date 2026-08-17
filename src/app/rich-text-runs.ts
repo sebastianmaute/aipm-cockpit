@@ -105,10 +105,18 @@ type BlockKind = "p" | "blockquote" | "pre";
  *  ★★ BUILT BY SPREADING THE ITEM rather than by copying four named fields, so
  *  a field added to the `li` member is carried automatically and the two lines
  *  cannot describe different geometry.
- *  ★ `align` is the CONTINUATION's own and OVERRIDES the item's, including when
- *  it is absent: alignment is a per-PARAGRAPH property (TextAlign is configured
- *  `types: ["heading", "paragraph"]` in rich-text-editor.tsx), so a centred
- *  first paragraph must not centre a left-aligned second one. */
+ *
+ *  ★★★ `align` IS THE CALLER'S TO DECIDE AND OVERRIDES THE ITEM'S, INCLUDING
+ *  WHEN IT IS ABSENT — because the answer differs between the two shapes that
+ *  produce a continuation, and this helper cannot tell them apart:
+ *    • a SECOND `<p>` is a NEW paragraph, so it declares its own alignment and a
+ *      centred first paragraph must not centre a left-aligned second one
+ *      (alignment is per-PARAGRAPH: TextAlign is configured
+ *      `types: ["heading", "paragraph"]` in rich-text-editor.tsx);
+ *    • a `<br>` is a break WITHIN one paragraph, so both halves belong to the
+ *      SAME `<p data-align="…">` and the caller passes that paragraph's align —
+ *      hardcoding `undefined` there rendered one bullet half centred, half left.
+ *  Which is why `walk` carries the alignment in force beside the kind. */
 function continuationOf(item: LiLine, align: Align | undefined): LiLine {
   return { ...item, runs: [], align, continuation: true };
 }
@@ -288,17 +296,66 @@ export function htmlToRichLines(html: string): RichLine[] {
     current = line;
   }
 
+  /** Make the FIRST line an item put into the output its HEAD, so it carries
+   *  the marker.
+   *
+   *  ★★★ THE DEFECT. An item whose own `li` line is DROPPED — it starts empty
+   *  and a `<br>`, an `<hr>` or a heading closes it before any text arrives —
+   *  re-opens at `pushText` as a CONTINUATION, and every renderer suppresses the
+   *  marker on one. Its ordinal is still spent, so the exported list showed an
+   *  unmarked line and then "2.", with no "1." anywhere.
+   *
+   *  ★★ It runs AFTER the item's walk because the question — "did the item's own
+   *  head line survive `flush`?" — cannot be answered until that line has been
+   *  flushed. Asking it FORWARD needs a witness travelling beside every line in
+   *  progress, which is the identity Set 0.243.0 deliberately shed; asking it
+   *  BACKWARD needs only the span this arm already snapshots for the ordinal.
+   *
+   *  ★★ `depth` narrows to the lines this item OWNS. A nested list's items sit
+   *  one deeper and are heads of their own, so promoting one would move the
+   *  outer item's marker inside its sub-list.
+   *
+   *  ★ It promotes ONE line. Every later `li` line at this depth is a genuine
+   *  continuation, and a second promoted line would put two bullets on one item.
+   *
+   *  ★ AN ITEM WITH NO `li` LINE AT ALL IS LEFT ALONE, and that is the residue:
+   *  `<li><h2>h</h2></li>` and `<li><ul>…</ul></li>` emit only lines of another
+   *  kind, which keep that kind (and lose the indent) by §156 and cannot carry a
+   *  marker. Such an item still spends its ordinal and renders none —
+   *  open-followups §157. */
+  function promoteItemHead(from: number, depth: number): void {
+    for (let i = from; i < lines.length; i += 1) {
+      const line = lines[i];
+      if (line.kind !== "li" || line.depth !== depth) continue;
+      if (line.continuation) {
+        // ★ `delete` on a fresh copy, not a rest-destructure: the field must be
+        // ABSENT on a head, never own-and-undefined (see the `continuation`
+        // docblock), and this promoted head has to be indistinguishable from one
+        // the LI arm opened itself.
+        const head = { ...line };
+        delete head.continuation;
+        lines[i] = head;
+      }
+      return;
+    }
+  }
+
   /** ★ `item` is the list item this text belongs to, or null outside one. It is
    *  what makes the text after a `<br>` re-open as a CONTINUATION of the item
    *  rather than as a bare inherited line at zero indent. */
+  /** ★★ `align` is the alignment of the block this text sits in, which the
+   *  re-opened line has to inherit: `<br>` ends a line WITHOUT ending the
+   *  paragraph, so the half after it belongs to the same declaration as the half
+   *  before. Built from the kind alone, the second half exported unaligned. */
   function pushText(
     text: string,
     marks: readonly RunMark[],
     kind: BlockKind,
     item: LiLine | null,
+    align: Align | undefined,
   ): void {
     if (text === "") return;
-    if (!current) current = item === null ? { kind, runs: [] } : continuationOf(item, undefined);
+    if (!current) current = item === null ? { kind, runs: [], align } : continuationOf(item, align);
     current.runs.push({ text, marks: [...marks] });
   }
 
@@ -307,11 +364,11 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  run-on paragraph. */
   /** ★ No `item`: a `<pre>` is never walked with one (see the walk's nested
    *  arm), so its line breaks always re-open as `pre` lines. */
-  function pushPreText(raw: string, marks: readonly RunMark[]): void {
+  function pushPreText(raw: string, marks: readonly RunMark[], align: Align | undefined): void {
     const parts = raw.split("\n");
     for (let i = 0; i < parts.length; i += 1) {
       if (i > 0) flush();
-      pushText(parts[i], marks, "pre", null);
+      pushText(parts[i], marks, "pre", null, align);
     }
   }
 
@@ -326,19 +383,27 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  transparent paragraph, through a `<span>`, through a second `<p>`. Every
    *  element that imposes a kind of its OWN — `<blockquote>`, `<pre>`, `<hN>`,
    *  and a nested `<ul>`/`<ol>` — clears it to null, which is what stops a
-   *  nested item or a quoted line from inheriting the outer item's geometry. */
+   *  nested item or a quoted line from inheriting the outer item's geometry.
+   *
+   *  ★★ `align` is the alignment IN FORCE — the one declared by the block whose
+   *  children these are. It travels for the same reason `kind` does: a `<br>`
+   *  re-opens a line mid-paragraph, and that line has to be built from the
+   *  paragraph it is still inside. Every arm that OPENS a block declares its
+   *  own (`alignOf(el)`); an inline mark passes the one it was given straight
+   *  through, since `<em>` is not a paragraph. */
   function walk(
     node: Node,
     marks: readonly RunMark[],
     kind: BlockKind,
     inListItem = false,
     item: LiLine | null = null,
+    align: Align | undefined = undefined,
   ): void {
     for (const child of Array.from(node.childNodes)) {
       if (child.nodeType === TEXT_NODE) {
         const raw = (child as Text).data;
-        if (kind === "pre") pushPreText(raw, marks);
-        else pushText(raw.replace(WS_RUN, " "), marks, kind, item);
+        if (kind === "pre") pushPreText(raw, marks, align);
+        else pushText(raw.replace(WS_RUN, " "), marks, kind, item, align);
         continue;
       }
       if (child.nodeType !== ELEMENT_NODE) continue;
@@ -363,8 +428,9 @@ export function htmlToRichLines(html: string): RichLine[] {
       // (open-followups §156); losing the indent beats losing the kind.
       const nested = NESTED_KIND_BY_TAG[tag];
       if (nested) {
-        startLine({ kind: nested, runs: [], align: alignOf(el) });
-        walk(el, marks, nested, false, null);
+        const nestedAlign = alignOf(el);
+        startLine({ kind: nested, runs: [], align: nestedAlign });
+        walk(el, marks, nested, false, null, nestedAlign);
         flush();
         continue;
       }
@@ -400,6 +466,9 @@ export function htmlToRichLines(html: string): RichLine[] {
               ? { task: "unchecked" as const }
               : {}),
         };
+        // ★ The item's OWN align is what a break directly inside a bare
+        // `<li data-align="right">a<br>b</li>` inherits. Where the item's text
+        // sits in a transparent paragraph instead, that arm re-declares it.
         startLine(item);
         // ★★★ THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN
         // LINE SURVIVED. The question is "did this item put ANYTHING into
@@ -419,8 +488,9 @@ export function htmlToRichLines(html: string): RichLine[] {
         // reasoning was really protecting is the EMPTY item, which a delta gets
         // right for the same reason — it contributes nothing, so nothing counts.
         const outputBefore = lines.length;
-        walk(el, marks, kind, true, item);
+        walk(el, marks, kind, true, item, item.align);
         flush();
+        promoteItemHead(outputBefore, depth);
         // ★ AFTER the walk. The `listIndex.length` guard keeps a stray <li> with
         // no enclosing list from writing a counter that does not exist.
         if (listIndex.length > 0 && lines.length > outputBefore) listIndex[depth] = index + 1;
@@ -431,10 +501,11 @@ export function htmlToRichLines(html: string): RichLine[] {
       if (heading) {
         // ★ CLAMPED, not widened — see HeadingLevel.
         const level = Math.min(4, Number(heading[1])) as HeadingLevel;
-        startLine({ kind: "heading", runs: [], align: alignOf(el), level });
+        const headingAlign = alignOf(el);
+        startLine({ kind: "heading", runs: [], align: headingAlign, level });
         // ★ `item` cleared for the same reason as <blockquote>/<pre>: a heading
         // inside an item keeps its LEVEL, which a continuation cannot carry.
-        walk(el, marks, kind, false, null);
+        walk(el, marks, kind, false, null, headingAlign);
         flush();
         continue;
       }
@@ -488,16 +559,21 @@ export function htmlToRichLines(html: string): RichLine[] {
         // now built by spreading the live item, which makes "who else holds
         // this object" a question worth not having to answer.
         const align = alignOf(el);
+        // ★ The RESOLVED alignment — the li's own where it declared one, this
+        // paragraph's otherwise — travels on, so a <br> inside this very
+        // paragraph re-opens with the same alignment the head line got.
+        const resolved = host.align ?? align;
         if (align !== undefined && host.align === undefined) current = { ...host, align };
-        walk(el, marks, kind, false, item);
+        walk(el, marks, kind, false, item, resolved);
         continue;
       }
 
       if (LINE_TAGS.has(tag)) {
+        const lineAlign = alignOf(el);
         startLine(
-          item === null ? { kind, runs: [], align: alignOf(el) } : continuationOf(item, alignOf(el)),
+          item === null ? { kind, runs: [], align: lineAlign } : continuationOf(item, lineAlign),
         );
-        walk(el, marks, kind, false, item);
+        walk(el, marks, kind, false, item, lineAlign);
         flush();
         continue;
       }
@@ -506,8 +582,11 @@ export function htmlToRichLines(html: string): RichLine[] {
       // has to continue the item at `y`. `inListItem` deliberately does not:
       // that would make a <p> wrapped in a <strong> transparent, which is not
       // today's behaviour and is not what this change is about.
+      // ★ `align` passes straight through for the same reason `item` does: an
+      // inline mark is not a paragraph, so it neither declares an alignment nor
+      // ends the one in force.
       const mark = MARK_BY_TAG[tag];
-      walk(el, mark ? addMark(marks, mark) : marks, kind, false, item);
+      walk(el, mark ? addMark(marks, mark) : marks, kind, false, item, align);
     }
   }
 

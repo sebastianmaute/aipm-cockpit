@@ -714,6 +714,29 @@ describe("rich entity cells in a DOCX table (§141(b))", () => {
     expect(indents(wrapped)).toEqual(["720", "720", "720"]);
   });
 
+  it("still numbers an item whose own line was dropped before any text arrived", () => {
+    // ★★★ Shift+Enter as the FIRST keystroke in a bullet. The item's own `li`
+    // line starts empty, the `<br>` closes it, `flush` drops it for holding no
+    // text, and the text re-opened as a CONTINUATION — which this renderer
+    // correctly leaves unmarked. The ordinal was spent regardless, so the
+    // exported list's first visible number was "2." with an unmarked line above
+    // it and no "1." anywhere. `promoteItemHead` makes the first line the item
+    // DID emit its head.
+    expect(cellParas("<ol><li><p><br>x</p></li><li><p>y</p></li></ol>")).toEqual([
+      "1. x",
+      "2. y",
+    ]);
+  });
+
+  it("centres BOTH halves of a bullet split by a <br>", () => {
+    // ★★ A `<br>` breaks the LINE, not the paragraph, so both halves belong to
+    // the same `<p data-align="center">`. The continuation was built with its
+    // align hardcoded `undefined`, so para 2 carried no `<w:jc>` and Word
+    // rendered one bullet half centred, half left.
+    const xml = cellXml('<ul><li><p data-align="center">a<br>b</p></li></ul>');
+    expect(xml.match(/<w:jc w:val="center"\/>/g)).toHaveLength(2);
+  });
+
   it("indents a second paragraph in the same item at the item's depth", () => {
     const twoParas = "<ul><li><p>a</p><p>b</p></li></ul>";
     expect(cellParas(twoParas)).toEqual(["• a", "b"]);
