@@ -28,6 +28,16 @@ longer carries its own changelog comment.
   a description editor is stored with each list item wrapping its text in a paragraph, and the
   exporter's reader did not recognise that shape — so list numbering and nesting were inert for
   every real value, not merely for hand-written markup. The reader now sees through that wrapper.
+- **A list item that ran to more than one line broke out of the list.** Pressing Shift+Enter inside
+  a bullet, or writing a second paragraph within one item, put the continuation on an unindented
+  line of its own with no bullet — sitting between two bulleted lines in the exported document. A
+  wrapped item now keeps one bullet and one indent however many lines it runs to.
+- **An item whose first line was a heading made the numbering run one low.** In a numbered list, an
+  item starting with a heading was not counted, so every item after it was numbered one too few —
+  the second item read "1.". Such an item is now counted, as it is in a browser and in Word.
+- **Two runs of Word formatting were written in an order the OOXML schema does not allow.** Word
+  itself is tolerant and rendered them correctly, but stricter tools built on the Open XML SDK
+  reject a document containing them. Long-standing; found while reviewing this release.
 
 ### Notes
 
