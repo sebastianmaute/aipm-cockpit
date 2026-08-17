@@ -1174,7 +1174,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   nothing reproduced the word. The property is real and is pinned by the differently-shaped test
   cited above; quote THAT, not a string you typed into a doc.
   ★★ **AND THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN LINE SURVIVED.** An item
-  whose only child keeps its own kind (an `<h2>`, a nested list) emits lines while its empty `li`
+  whose only child renders under some OTHER line — an `<h2>` keeping its own kind, a nested list
+  emitting its items one depth deeper — emits lines while its empty `li`
   line is dropped; the counter therefore watches whether the item put ANYTHING into the output, so
   `<ol><li><h2>H</h2></li><li><p>z</p></li></ol>` numbers `z` as **2**. It used to number it 1.
   ★★ **DO NOT JUSTIFY THAT WITH "a browser numbers it too" — the rule DISAGREES with a browser in

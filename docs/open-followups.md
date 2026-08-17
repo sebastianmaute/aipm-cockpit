@@ -10371,11 +10371,12 @@ An earlier wording of this entry (and of `promoteItemHead`'s docblock, and of AG
 only lines of another kind", which is FALSE about the second shape and sends a reader hunting for a
 kind bug. The accurate predicate is the one in the title.
 
-★★ **This is §156 seen from the numbering side, and it has the same cause and the same fix.** A
-line that keeps its own kind cannot hold an `li`'s marker any more than it can hold an `li`'s
-indent. Promoting one anyway would destroy the level (`<h2>`) or the depth (a nested item) — that is
-the trade §156 already argues, and it is still the right way round. The `listDepth`-on-`LineBase`
-second axis §156 proposes would want a `listMarker` beside it.
+★★ **This is §156 seen from the numbering side — but only the FIRST shape shares its cause.** An
+earlier wording here said both did ("a line that keeps its own kind cannot hold an `li`'s marker"),
+which contradicts the two bullets directly above it: the sub-list shape emits `li` lines and is
+skipped on DEPTH, not on kind. For the `<h2>` shape the §156 trade holds as written — promoting its
+line would destroy the level. The `listDepth`-on-`LineBase` second axis §156 proposes would want a
+`listMarker` beside it.
 
 ★ **Deliberately NOT closed by widening `promoteItemHead`.** It filters to `line.depth === depth` so
 it cannot reach into a sub-list; dropping that filter would move an outer item's marker onto its
@@ -10384,7 +10385,7 @@ first nested item, which reads as a numbering bug rather than a missing marker.
 ★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
 the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.
 
-## 158. A `<blockquote>`'s alignment is DROPPED in the shape the editor actually stores — open
+## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
 (`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
@@ -10392,18 +10393,26 @@ Opened 2026-08-17 by the round that softened an overclaiming test comment. `html
 can produce, and the blockquote one is the pair that matters:
 
 ```bash
-# the hand-authored shape the suite covers, and the editor-real one that fails
-grep -n "keeps the alignment on BOTH halves" -A 4 src/app/rich-text-runs.test.ts
-grep -n "in the shape the editor actually stores" -A 14 src/app/rich-text-runs.test.ts
+# the hand-authored shape the suite covers, then the two blockquote shapes
+grep -n "keeps the alignment on BOTH halves" -A 25 src/app/rich-text-runs.test.ts
+grep -n "DROPS a blockquote's OWN align" -A 26 src/app/rich-text-runs.test.ts
 ```
 
-`<blockquote data-align="right">q<br>r</blockquote>` keeps `"right"` on both halves. Tiptap wraps
-blockquote content in a paragraph, so what is STORED is
-`<blockquote data-align="right"><p>q</p></blockquote>` — and that projects to a single line with
-**no align at all**. The walk's NESTED arm opens a `blockquote` line carrying the align, then the
-inner `<p>` takes the LINE_TAGS arm with `item === null`, opens a line of its own with its own
-(absent) align, and the still-empty outer line is dropped by `flush` for holding no text. The
-alignment the user set on the quote does not reach the .docx or the .pptx.
+`<blockquote data-align="right">q<br>r</blockquote>` keeps `"right"` on both halves.
+`<blockquote data-align="right"><p>q</p></blockquote>` projects to a single line with **no align at
+all**: the walk's NESTED arm opens a `blockquote` line carrying the align, the inner `<p>` takes the
+LINE_TAGS arm with `item === null` and opens a line of its own with its own (absent) align, and the
+still-empty outer line is dropped by `flush` for holding no text.
+
+★★★ **REACHABLE ONLY BY IMPORTED OR AI-AUTHORED HTML — the editor cannot produce either fixture.**
+An earlier title and body of this entry said the second one was "the shape the editor actually
+stores", which is false and inverted the severity. `TextAlign` is configured
+`types: ["heading", "paragraph"]` (`rich-text-editor.tsx`), so `data-align` never lands on a
+`<blockquote>` at all; a user aligning text inside a quote puts it on the inner `<p>`, and that shape
+**keeps** its alignment — pinned by "keeps the align the EDITOR stores on a quote". So no user of the
+editor can hit this, and the entry is a robustness gap in the import path, not a live data loss.
+Getting this wrong is the same hand-authored-fixture-as-real-input class the branch spent three
+rounds correcting, reproduced in the correction text itself.
 
 ★★ **The fix is not "make LINE_TAGS inherit whatever align is in force".** That arm is the one this
 round just taught to fall back to the ITEM's align inside an `<li>`; giving it a blanket fallback to

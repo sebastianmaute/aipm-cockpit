@@ -35,8 +35,8 @@ longer carries its own changelog comment.
 - **An item whose first line was a heading made the numbering run one low.** In a numbered list, an
   item starting with a heading was not counted, so every item after it was numbered one too few —
   the second item read "1.". Such an item is now counted. Note that an item whose *only* content is
-  a heading or a sub-list still shows no number of its own, because the heading keeps its own
-  formatting and cannot carry one; the items after it are numbered correctly.
+  a heading or a sub-list still shows no number of its own, because it prints no line of its own to
+  put a number on; the items after it are numbered correctly.
 - **A bullet could lose its own bullet when the first thing in it was a line break.** Pressing
   Shift+Enter as the very first keystroke in a list item — or starting an item with a horizontal
   rule or a heading — left that item's text unmarked while the item still used up its number, so a
