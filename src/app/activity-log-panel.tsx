@@ -239,7 +239,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // "timestamp" is the DEFAULT sortKey that threw on FIRST RENDER with ≥2
   // entries, no interaction required. Both cells below read the row too.
   // ★★ `args` used to be THE ONE SHAPE THE LOAD BOUNDARY DID NOT COVER, and
-  // this was the only guard against it anywhere. §158 moved the check to
+  // this was the only guard against it anywhere. §164 moved the check to
   // `sanitizeActivityEntry`, which now coerces each non-string/number element
   // to "" (in place — `args` is positional, so filtering would shift every
   // later argument into the wrong slot). The local guard below is KEPT as

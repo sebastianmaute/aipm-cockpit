@@ -82,7 +82,7 @@ describe("computeCompletionTrend", () => {
 });
 
 /** An entry carrying positional args — `bulk.delete` puts its task count in
- *  `args[0]`, which is the whole point of §157. */
+ *  `args[0]`, which is the whole point of §163. */
 function evArgs(
   timestamp: string,
   kind: ActivityEntry["kind"],
@@ -91,7 +91,7 @@ function evArgs(
   return { id: String(nextId++), timestamp, kind, args };
 }
 
-describe("bulk.delete counts against the denominator (§157)", () => {
+describe("bulk.delete counts against the denominator (§163)", () => {
   // The reconstruction only runs with FEWER THAN TWO snapshots, so every case
   // here passes `snapshots: []` — this is the no-Turso / new-project path.
   const BASE = { snapshots: [], currentDone: 2, currentTotal: 2, today: "2026-06-21" } as const;
@@ -171,7 +171,7 @@ describe("bulk.delete counts against the denominator (§157)", () => {
   });
 });
 
-describe("undo/redo reverse the denominator they moved (§160)", () => {
+describe("undo/redo reverse the denominator they moved (§166)", () => {
   // Two creates, a mass delete of 8, then the user presses Undo — so the 8 rows
   // are BACK and the live total is 10, not 2. Every case below shares that
   // prefix and differs only in what follows the delete.
@@ -182,7 +182,7 @@ describe("undo/redo reverse the denominator they moved (§160)", () => {
   ] as const;
   const RESTORED = { snapshots: [], currentDone: 2, currentTotal: 10, today: "2026-06-21" } as const;
 
-  // ★★★ THE REGRESSION ITSELF, and note the DIRECTION — §160's own prose said
+  // ★★★ THE REGRESSION ITSELF, and note the DIRECTION — §166's own prose said
   //   the curve "sits above the truth" and that is backwards (corrected there in
   //   the same commit as this test). `percent` is `done/total`, so a denominator
   //   reconstructed 8 too HIGH pushes every historical point DOWN. Pre-fix this
@@ -226,7 +226,7 @@ describe("undo/redo reverse the denominator they moved (§160)", () => {
 
   // ★★★ THE THREE WAYS A ROW CAN FAIL TO NAME A KIND, all of which must read as
   //   the PRE-FIX behaviour rather than as a guess: a row written before this
-  //   fix carries no pair at all; a row from §160's FIRST cut carries a kind but
+  //   fix carries no pair at all; a row from §166's FIRST cut carries a kind but
   //   no count, since that cut wrote one kind rather than `(kind, count)` pairs;
   //   and a reversed kind that never moved the task total must not move it here.
   //   Each must reproduce the no-undo-row series exactly.
@@ -253,7 +253,7 @@ describe("undo/redo reverse the denominator they moved (§160)", () => {
   //   `[3, "task.deleted", 2, "bulk.edit", 1]`: three rows reverted, but only TWO
   //   of them ever left the total. Three readings are distinguishable here, and
   //   only one is right — over-correcting on `args[0]` (+3) gives [25, 22, 20],
-  //   and §160's first cut, which wrote `""` for a mixed batch and ignored it,
+  //   and §166's first cut, which wrote `""` for a mixed batch and ignored it,
   //   gives [18, 17, 20]. Both are pinned below so this cannot pass by accident.
   test("a mixed batch reverses only the rows that moved the total", () => {
     const series = (undoArgs: (string | number)[]) =>
@@ -302,7 +302,7 @@ describe("undo/redo reverse the denominator they moved (§160)", () => {
 
   // ★ `task.created` has no undo-capture writer today, so this fixture is
   //   synthetic — it exists because the reversal table handling only the DELETE
-  //   kinds is precisely the asymmetry §157 and §160 each cost a release to
+  //   kinds is precisely the asymmetry §163 and §166 each cost a release to
   //   find. Undoing a create REMOVES a row, so the reversal is negative.
   test("undoing a create subtracts, the mirror of undoing a delete", () => {
     const activity = [

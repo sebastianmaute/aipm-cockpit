@@ -115,7 +115,7 @@ describe("timezone", () => {
   });
 });
 
-describe("createProjectClock (§153)", () => {
+describe("createProjectClock (§159)", () => {
   // Same INSTANT, two zones. 2026-08-16T22:30Z is 2026-08-17 in Berlin (+2) and
   // still 2026-08-16 in New York (-4).
   const INSTANT = new Date("2026-08-16T22:30:00.000Z");

@@ -33,7 +33,7 @@ declare const TIME_ZONE_BRAND: unique symbol;
  * INCONSISTENT PAIR — `today` computed in Berlin handed over beside a `tz`
  * naming America/New_York — because `today` is a pure function of `tz` and the
  * two travelled as separate values, which is well-typed under every branding
- * scheme (measured). `ProjectClock` below closed that class (§153) by deriving
+ * scheme (measured). `ProjectClock` below closed that class (§159) by deriving
  * the day from the zone inside one factory. Do not read THIS brand as covering
  * more than a transposition; the pair guarantee lives on the clock.
  */
@@ -206,7 +206,7 @@ declare const PROJECT_CLOCK_BRAND: unique symbol;
 /**
  * The project's day and the zone that day was computed in, as ONE value.
  *
- * ★★★ WHY A BAG AND NOT TWO PARAMETERS (`docs/open-followups.md` §153). The
+ * ★★★ WHY A BAG AND NOT TWO PARAMETERS (`docs/open-followups.md` §159). The
  * `TimeZone` brand above makes a TRANSPOSITION unrepresentable but cannot see
  * an INCONSISTENT PAIR — a `today` computed in Berlin handed over beside a `tz`
  * naming America/New_York is well-typed under every branding scheme. They are

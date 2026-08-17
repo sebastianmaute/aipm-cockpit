@@ -60,7 +60,7 @@ export type AiConfig = {
  *  the tool) and the EXECUTOR gate (`runTool`'s `case "search_history"`, via
  *  the dispatcher's `isHistorySearchEnabled()`). Two hand-spelled `=== false`
  *  checks would be a config slip away from a switch that advertises off and
- *  serves on — which is exactly the state §156 recorded, in the direction where
+ *  serves on — which is exactly the state §162 recorded, in the direction where
  *  only the advertisement existed.
  *
  *  ★★ Only an explicit `false` disables, matching `sanitizeAiConfig`: the tool
@@ -155,7 +155,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     //   `false` correctly and this function threw it away on the next read, so the
     //   Action Center's "Analyze with AI" toggle reverted to ON at every reload.
     //   The loss is on READ, not write, which is the wrong end to debug from.
-    //   (open-followups §159.)
+    //   (open-followups §165.)
     historySearch: obj.historySearch === false ? false : undefined,
     activityRecap: obj.activityRecap === false ? false : undefined,
     actionSuggestions: obj.actionSuggestions === false ? false : undefined,

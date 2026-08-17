@@ -12,7 +12,7 @@ import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 
 export interface ChatDispatcherArgs {
   settings: Settings;
-  /** The project's day AND the zone it was computed in, as ONE value (§153).
+  /** The project's day AND the zone it was computed in, as ONE value (§159).
    *
    *  ★★★ THIS WAS TWO FIELDS — `today: string` and `timezone: TimeZone` — and
    *  they were the exact pair that transposed silently into the recap engine.
@@ -31,7 +31,7 @@ export interface ChatDispatcherArgs {
   clock: ProjectClock;
   /** Called immediately after this dispatcher writes its own `"ai"`-stamped
    *  `settings.updated` row, so the debounced settings-log effect can skip the
-   *  duplicate actor-less row it would otherwise add (§154).
+   *  duplicate actor-less row it would otherwise add (§160).
    *
    *  ★★★ EVERY CALLER MUST HAVE JUST CREATED A NEW `settings` IDENTITY, or it
    *  credits a run that will never happen. Both call sites satisfy this

@@ -98,7 +98,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Refs seeded synchronously on first render; refreshed by the effects below.
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
-  // ★★★ ONE ref, not two (§153) — separate `today`/`timezone` refs are what let an inconsistent pair exist.
+  // ★★★ ONE ref, not two (§159) — separate `today`/`timezone` refs are what let an inconsistent pair exist.
   const clockRef = useRef(args.clock);
   const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
@@ -450,7 +450,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // `updateSettings` does. NO ARGS — "Settings updated" has no
         // placeholder.
         args.logActivityAs?.("ai", "settings.updated");
-        args.onSettingsLoggedByAi?.(); // §154 — suppress the debounced duplicate.
+        args.onSettingsLoggedByAi?.(); // §160 — suppress the debounced duplicate.
       },
 
       updateSettings: (patch: SettingsUpdateInput) => {
@@ -467,7 +467,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // user-side row omits field values too (secrets). Inside the
           // `applied` guard: a patch that changed nothing is not a change.
           args.logActivityAs?.("ai", "settings.updated");
-          // ★ §154 — inside the SAME `applied` guard, so a credit is only ever issued
+          // ★ §160 — inside the SAME `applied` guard, so a credit is only ever issued
           //   alongside a real settings-identity change (see its contract note).
           args.onSettingsLoggedByAi?.();
         }
@@ -762,7 +762,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       getActivityLog: () => activityLogRef.current,
 
       // ★ LIVE from the ref, never captured — a value snapshotted at construction would
-      //   keep serving for the whole session, the exact mid-conversation case §156 is about.
+      //   keep serving for the whole session, the exact mid-conversation case §162 is about.
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
 
       getTimezone: () => clockRef.current.tz,

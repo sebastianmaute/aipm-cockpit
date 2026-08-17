@@ -369,7 +369,7 @@ export type ToolDispatcher = {
   getActivityLog(): readonly ActivityEntry[];
   /** Is `search_history` live? (`settings.ai.historySearch !== false`.)
    *
-   *  ★★★ THE EXECUTOR MUST ASK, not just the prompt builder (§156). Dropping
+   *  ★★★ THE EXECUTOR MUST ASK, not just the prompt builder (§162). Dropping
    *  the tool from `toolsFor`/`toolNamesFor` stops it being OFFERED, but
    *  `runTool` is reached by NAME: toggling the setting off mid-conversation
    *  leaves prior `tool_use`/`tool_result` pairs in the re-sent history, and a
@@ -633,7 +633,7 @@ export async function runTool(
     // the engine treats an absent field as "no filter", which is the honest
     // reading of garbage from a model that cannot be asked to try again.
     case "search_history":
-      // ★★★ ENFORCEMENT, not advertisement (§156). The prompt-side gate removes
+      // ★★★ ENFORCEMENT, not advertisement (§162). The prompt-side gate removes
       //   this tool from the offered set; this one refuses to SERVE it. Both
       //   read the same predicate (`historySearchEnabled`), so they cannot drift
       //   into advertising off while serving on.

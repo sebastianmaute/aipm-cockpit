@@ -181,7 +181,7 @@ export interface ActivitySummary {
  *   assignable to `string`, so a transposed pair fails on the `tz` argument
  *   (here, the THIRD) while sliding into `today:` silently. Both were plain
  *   `string` and the swap compiled, silently returning null forever — see the
- *   `TimeZone` declaration in `timezone.ts` and open-followups §153, which also
+ *   `TimeZone` declaration in `timezone.ts` and open-followups §159, which also
  *   records the inconsistent-pair class the brand does NOT close.
  *
  * ★ Returns null rather than a zeroed summary when nothing matched, so the

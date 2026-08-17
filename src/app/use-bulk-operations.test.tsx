@@ -433,7 +433,7 @@ describe("useBulkOperations", () => {
       expect(logActivity).not.toHaveBeenCalled();
     });
 
-    // ★★ §157 — the USER half of the `bulk.delete` denominator fix. Before this the
+    // ★★ §163 — the USER half of the `bulk.delete` denominator fix. Before this the
     // kind had exactly ONE writer (the AI's `delete_all_tasks`), so the completion
     // trend corrected itself for AI mass deletes and not for the commoner user path.
     // The count is read BEFORE the setter clears the array.
@@ -537,7 +537,7 @@ describe("useBulkOperations", () => {
       expect(logActivity).not.toHaveBeenCalled();
     });
 
-    // ★★ §157 — the completion trend subtracts `args[0]` of a `bulk.delete` entry
+    // ★★ §163 — the completion trend subtracts `args[0]` of a `bulk.delete` entry
     // from the reconstructed TOTAL, so the count must be the rows actually removed.
     // `ids.size` would be wrong: a stale selection can name ids no longer present,
     // and the trend would over-subtract by the difference.

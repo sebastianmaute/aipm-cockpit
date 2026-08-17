@@ -219,7 +219,7 @@ describe("AiConfig recall toggles", () => {
     expect(ai.activityRecap).toBeUndefined();
   });
 
-  // ★★★ REGRESSION PIN for open-followups §159. `actionSuggestions` is NOT a
+  // ★★★ REGRESSION PIN for open-followups §165. `actionSuggestions` is NOT a
   //   recall toggle — it predates this branch — but it is the third field with
   //   the same default-ON-by-absence contract, and it was MISSING from
   //   `sanitizeAiConfig`'s return literal entirely. Because the field is
@@ -231,7 +231,7 @@ describe("AiConfig recall toggles", () => {
   //   ★★ The round-trip assertion is the load-bearing one — the absence case
   //   passed even with the key missing (a dropped key also reads `undefined`),
   //   so a test asserting ONLY the default would have been green throughout.
-  it("round-trips an explicit false for actionSuggestions (§159)", () => {
+  it("round-trips an explicit false for actionSuggestions (§165)", () => {
     expect(sanitizeAiConfig({ ...base, actionSuggestions: false }).actionSuggestions).toBe(false);
     expect(sanitizeAiConfig(base).actionSuggestions).toBeUndefined();
     // A stale non-boolean reads as ON, same rule as the two toggles above.

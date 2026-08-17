@@ -10049,7 +10049,7 @@ node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts'
 review round that surfaced this was a toast-ORDERING fix. Splitting a signal channel on the back of an
 ordering change is how an ordering change acquires a behavioural regression.
 
-## 153. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — CLOSED 2026-08-17 by `ProjectClock`
+## 159. `today` and `tz` are two adjacent `string` parameters on the recap path, so a transposition typechecks — CLOSED 2026-08-17 by `ProjectClock`
 
 Opened 2026-08-16 out of the AI Recall B2b test-validity review. Partially closed in the same slice
 by branding `TimeZone`; **fully closed 2026-08-17** by `ProjectClock`.
@@ -10124,7 +10124,7 @@ extending it. `days` is a `number` and collides with neither string — leave it
 `summarizeRecentActivity` — never on the `today` argument, because `TimeZone` is assignable to
 `string` and slides into `today:` silently. Only the raw string arriving at `tz:` errors.
 
-## 154. An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it — CLOSED 2026-08-17
+## 160. An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it — CLOSED 2026-08-17
 
 Opened 2026-08-16 out of the AI Recall B2b actor-stamping slice, deferred as "the cheap fixes are all
 worse than the defect", and **CLOSED 2026-08-17**. Not a regression: the second row predates the
@@ -10168,7 +10168,7 @@ early-returned on the credit without re-arming — the user's change vanished ou
 the swallow this entry rejected the suppression-flag design for. The cleanup is now UNMOUNT-scoped, a
 behaviour-neutral change on the normal path because `notifyChange` already restarts the timer itself.
 
-★★★ **BOTH WERE INVISIBLE TO THE SUITE FOR ONE REASON: every §154 test asserted CREDITS, never ROWS.**
+★★★ **BOTH WERE INVISIBLE TO THE SUITE FOR ONE REASON: every §160 test asserted CREDITS, never ROWS.**
 `grep -rn "aiSettingsCredits" src/app --include=*.test.tsx --include=*.test.ts` returned **0** — the
 consumer had no coverage at all, and one issuer test pinned `credits === 2` after a three-call burst,
 i.e. the leak state asserted as an invariant. The guard now lives in
@@ -10244,29 +10244,29 @@ slice, not a patch, which is why this is an entry rather than a commit.
 
 ---
 
-★★★ **§155–§160 CARRY PROVISIONAL NUMBERS.** They were opened on the unpushed `feat/ai-recall-b2b`
+★★★ **§161–§166 CARRY PROVISIONAL NUMBERS.** They were opened on the unpushed `feat/ai-recall-b2b`
 branch. A second unpushed branch off the SAME merge base, `feat/rich-text-export-fidelity-s2`, has
-already claimed **§153–§158** with entirely different content (and also claims version 0.243.0, under
+already claimed **§159–§164** with entirely different content (and also claims version 0.243.0, under
 a different codename), so whichever merges second must renumber. Measure the overlap rather than
 trusting this line — it has been wrong once already:
-`git show feat/rich-text-export-fidelity-s2:docs/open-followups.md | grep -oE "^## 15[0-9]\."` → §150–§158.
+`git show feat/rich-text-export-fidelity-s2:docs/open-followups.md | grep -oE "^## 15[0-9]\."` → §150–§164.
 ★★★ THAT IS **SIX** OF THIS BRANCH'S SEVEN NEW SECTIONS, NOT THREE. An earlier revision of this very
-banner said "§153/§154/§155" and so under-sized the renumber by half — in the one paragraph whose whole
+banner said "§159/§160/§161" and so under-sized the renumber by half — in the one paragraph whose whole
 job is to size it correctly, and two paragraphs above a retraction of the same class of error ("first
-written as 'exactly three'"). §159 and §160 are the only free numbers. A banner that undercounts the
+written as 'exactly three'"). §165 and §166 are the only free numbers. A banner that undercounts the
 collision is worse than no banner: it tells the operator the sweep is nearly done.
-★ This branch's own range is §153–§160; re-derive both sides before renumbering rather than trusting
+★ This branch's own range is §159–§166; re-derive both sides before renumbering rather than trusting
 either figure here:
 `grep -oE "^## 1[5-9][0-9]\." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` **Nothing gates this** — the register has no uniqueness check
 and `docs:claims:check` only range-checks `path:LINE` citations. ★★ A renumber must also follow the
 references that live in SOURCE COMMENTS, which no doc gate can see. Grep the NUMBER, then read each
-hit — a title grep finds none of them, because a source comment cites `§153`, never the heading text.
+hit — a title grep finds none of them, because a source comment cites `§159`, never the heading text.
 
 ★★★ **DO NOT USE A NUMBER PREFIX FOR THAT SWEEP.** `git grep -n "§15"` is wrong in BOTH directions
 at once: it OVER-matches (`file-picker-button.tsx` cites the unrelated `§15`, a decoy the range form
 excludes — `git grep -nE "§15" -- src/app/file-picker-button.tsx` returns that ONE line, and the
 prefix form over the whole tree returns 51 lines against the range form's 50) and it UNDER-matches
-the moment a renumber pushes past §159, which is
+the moment a renumber pushes past §165, which is
 the exact scenario this banner exists for — the sweep would then return the pre-renumber hits and
 nothing else, reading as "done". Use a bounded RANGE for today's numbers and the three-digit class
 for the durable form:
@@ -10294,7 +10294,7 @@ citations into one hit, which is why the two figures above differ by one. Use
 `git grep -ohE "§15[0-9]" -- src scripts e2e | sort | uniq -c | sort -rn` for the per-section
 breakdown — it is what tells you which sections actually dominate the sweep.
 
-## 155. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
+## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
 
 Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing class, not introduced here** — B2b
 made it MODEL-VISIBLE by putting `latestAt` into the ambient recap sentence the assistant reads every
@@ -10365,7 +10365,7 @@ behaviour change on load, so it wants a fixture carrying a `+HH:MM` stamp and an
 the merge order and `latestAt` follow the INSTANT — a fixture of canonical stamps cannot tell a
 fixed implementation from the current one.
 
-## 156. The `historySearch` kill switch is advertisement-scoped, not enforced at the executor — CLOSED 2026-08-17 (enforcement added)
+## 162. The `historySearch` kill switch is advertisement-scoped, not enforced at the executor — CLOSED 2026-08-17 (enforcement added)
 
 Opened 2026-08-16 out of the AI Recall B2b slice. Low severity; recorded because the setting is
 framed to the user as a switch that turns the capability off. **CLOSED 2026-08-17.**
@@ -10389,7 +10389,7 @@ in the user's own browser and there is no adversary, so the refusal is a plain e
 redaction. The fix is about a labelled switch telling the truth.
 
 ★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current
-reading** — same convention as §159. Its probes now return the opposite of what they print
+reading** — same convention as §165. Its probes now return the opposite of what they print
 (`grep -c historySearch src/app/chat-tools.ts` → **2**, not 0), and its closing ★ asks the reader to
 decide a question the closure block above already answered. Read it for the reasoning, never for the
 state.
@@ -10420,7 +10420,7 @@ controls what we offer, not what we can do"), say so at the setting and at the `
 closes as by-design. If it is meant to be enforcement, it is a gap. Today the code says nothing
 either way, which is the actual defect.
 
-## 157. Completion-trend reconstruction under-counts the historical denominator after a mass delete — CLOSED 2026-08-17 (both actors); the `dDone` half stays OPEN
+## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete — CLOSED 2026-08-17 (both actors); the `dDone` half stays OPEN
 
 ★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
 `BULK_TOTAL_KINDS` corrected the denominator for `bulk.delete`, but that kind had exactly ONE writer —
@@ -10491,13 +10491,13 @@ Closing it needs a real `task.completed` / `task.reopened` writer, which is a de
 then the reconstruction is a curve about TASK COUNT, not completion, and `completion-trend.ts` says
 so at the top of `reconstructFromActivity`.
 
-## 158. `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop — CLOSED 2026-08-17
+## 164. `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop — CLOSED 2026-08-17
 
 Opened 2026-08-16 out of the AI Recall B2b slice. **Pre-existing from 0.241.0** (B2a), not introduced
 here; B2b did not widen it.
 
 ★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE and is kept as the diagnosis, not as a current
-reading** — same convention as §156 and §159. This banner was MISSING until a cold review caught it,
+reading** — same convention as §162 and §165. This banner was MISSING until a cold review caught it,
 so the section's present-tense diagnosis sat under a CLOSED heading and read as live state. Its
 central claim is now false by its own closure: the sanitizer DOES inspect the elements (`argsBad`,
 `src/app/activity-log.ts`). Read it for the reasoning, never for the current tree.
@@ -10557,7 +10557,7 @@ records; `argsBad` now guards the same early return.
 passed the load boundary, and `changeText` stringifies the row regardless. Its comment was rewritten
 so nobody reads its presence as evidence the boundary is still missing.
 
-## 159. `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload — CLOSED 2026-08-17
+## 165. `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload — CLOSED 2026-08-17
 
 Opened 2026-08-17 out of the AI Recall B2b review, found SIDEWAYS — the round was checking whether
 B2b's two new toggles matched the shape of their neighbours, and the neighbour turned out to be
@@ -10659,10 +10659,10 @@ git show 2e2c8c00:src/app/settings-types.ts | sed -n '/^export function sanitize
 
 ---
 
-## 160. An UNDONE `bulk.delete` corrupted the completion trend permanently — CLOSED
+## 166. An UNDONE `bulk.delete` corrupted the completion trend permanently — CLOSED
 
-Opened 2026-08-17 by a cold review of the §157 fix round; **closed the same day**, in the round that
-found it. **Introduced by §157's user half**: the user path previously logged nothing at all, so
+Opened 2026-08-17 by a cold review of the §163 fix round; **closed the same day**, in the round that
+found it. **Introduced by §163's user half**: the user path previously logged nothing at all, so
 there was no forward row for an undo to contradict. The AI path has emitted the same `bulk.delete`
 LOGGING shape since the kind was minted, but never the defect — the AI dispatcher takes no undo
 capture, so an AI mass delete can never be followed by an `undo` row (last bullet).
@@ -10683,7 +10683,7 @@ until the entry aged out of the 500-entry ring.
 ★★★ **THE DIRECTION IN THE FIRST DRAFT OF THIS SECTION WAS BACKWARDS**, and it is recorded rather
 than quietly overwritten because it is the same slip in the same file twice. It said "the whole
 historical curve sits **above** the truth". `percent` is `done/total`, so a denominator reconstructed
-too HIGH pushes every point DOWN — the curve sat BELOW. §157's own defect is the mirror (an IGNORED
+too HIGH pushes every point DOWN — the curve sat BELOW. §163's own defect is the mirror (an IGNORED
 `bulk.delete` leaves the total too LOW, which inflates), and the source comment for it states that
 correctly; this section reached for the same word without redoing the division.
 
@@ -10749,7 +10749,7 @@ the inference worthless. **A single-entry undo never reached the batch helper at
 and `redo` pass `meta.kind` straight through — so the reassurance described a function in which the
 `""` case could not arise. The `""` case arises ONLY under the caret's undo-through/redo-through,
 where a multi-entry batch is the entire purpose of the control. Delete 50 tasks, edit one field, undo
-through both: one mixed row, the 50-row correction discarded, §160 reproduced two clicks from the fix
+through both: one mixed row, the 50-row correction discarded, §166 reproduced two clicks from the fix
 meant to close it. Per-kind pairs are exact for every batch, so there is no mixed case and no `""`
 left. ★★ The lesson is not "pairs are better" — it is that a residual's justification must name the
 code path the residual actually occurs on. This one named the path it could not occur on, and the
@@ -10758,7 +10758,7 @@ sentence read as reassurance precisely where it was least true.
 ★★ **`redoThrough` was one of four log sites with NO assertion at all**, and a cold review's mutant
 proved it: regressing its args to `""` left the entire suite green. It reaches the app through a
 single prop (`task-manager.tsx` `onRedoThrough`), so `use-undo-stack.test.tsx` is its only possible
-detector. A regression there reopens §157's inflation on the redo side. Both branches — mixed and
+detector. A regression there reopens §163's inflation on the redo side. Both branches — mixed and
 homogeneous — are now pinned on each of undo-through and redo-through. ★ Pair ORDER differs between
 them (undo runs newest-first, redo oldest-first) and carries no meaning; `completion-trend.test.ts`
 pins that both orders give the same answer.
@@ -10766,12 +10766,12 @@ pins that both orders give the same answer.
 ★ `task.created` and `bulk.delete` are both handled in the reversal table although **neither can
 appear in a pair today**: no `capture()` call passes either as its kind, since a delete captures
 `task.deleted` whatever kind its activity row uses. Leaving a total-moving kind out of that table is
-precisely the asymmetry §157 and §160 each cost a release to find. `task.created` is pinned by a
+precisely the asymmetry §163 and §166 each cost a release to find. `task.created` is pinned by a
 synthetic-fixture test; `bulk.delete` is not, and a cold review flagged the earlier text for
 implying it was live when only `task.created` had been marked as speculative.
 
-★★ **DO NOT "FIX" THIS BY REVERTING §157's USER HALF** — the advice stands even though the defect is
-closed, because the temptation returns whenever a trend number looks wrong. Before §157 the user path
+★★ **DO NOT "FIX" THIS BY REVERTING §163's USER HALF** — the advice stands even though the defect is
+closed, because the temptation returns whenever a trend number looks wrong. Before §163 the user path
 logged nothing, so every user bulk delete made the curve wrong in the OTHER direction (−N on every
 prior day) and did so on EVERY delete, not only undone ones. Reverting trades a narrow error for a
 universal one.

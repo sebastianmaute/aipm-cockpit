@@ -315,7 +315,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     if (tasks.length === 0) return;
     captureRef.current({ setter: setTasks, kind: "task.deleted", removed: tasks, fromArray: tasks });
     allowDestructiveSaveRef.current?.(); // arm the storage destructive-save bypass (button + voice)
-    // ★★ §157 — the USER half. `bulk.delete` had exactly ONE writer, the AI's
+    // ★★ §163 — the USER half. `bulk.delete` had exactly ONE writer, the AI's
     // `delete_all_tasks`, so `BULK_TOTAL_KINDS` corrected the completion trend's
     // denominator for AI mass deletes and left the far commoner user path silent —
     // inverting the asymmetry rather than removing it. Count BEFORE the setter: the
@@ -338,7 +338,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
       if (removed.length === 0) return;
       captureRef.current({ setter: setTasks, kind: "task.deleted", removed, fromArray: tasks });
       allowDestructiveSaveRef.current?.();
-      // §157 — same reasoning as `handleClearAll`. `removed.length`, NOT `ids.size`:
+      // §163 — same reasoning as `handleClearAll`. `removed.length`, NOT `ids.size`:
       // a stale selection can name ids no longer in `tasks`, and the trend subtracts
       // whatever this entry carries.
       logActivityRef.current("bulk.delete", removed.length);

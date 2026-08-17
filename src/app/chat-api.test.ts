@@ -286,7 +286,7 @@ describe("tool list gating", () => {
     expect(toolsFor(false)).toBe(toolsFor(false));
   });
 
-  // ★★★ §156 DRIFT GUARD. The kill switch is now enforced in TWO places —
+  // ★★★ §162 DRIFT GUARD. The kill switch is now enforced in TWO places —
   //   here (what the model is offered) and `runTool`'s `case "search_history"`
   //   (what the executor will serve). Defence in depth is only worth having
   //   while both layers agree, and two hand-spelled `=== false` checks are one

@@ -430,7 +430,7 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   // ★★ The early return guards on ALL THREE repairs. Keeping it at `changes ===
   // undefined` alone would return a hostile actor untouched whenever `changes`
   // happened to be absent — the COMMON case, so the bug would be invisible in
-  // most fixtures. `argsBad` joined it for the same reason (§158): this branch
+  // most fixtures. `argsBad` joined it for the same reason (§164): this branch
   // returns the ORIGINAL object by reference, so a repair omitted here does not
   // happen at all on the overwhelmingly common `changes === undefined` path.
   const actorBad = e.actor !== undefined && typeof e.actor !== "string";
@@ -457,7 +457,7 @@ export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
 
   const repaired: Record<string, unknown> = { ...(v as object) };
   if (actorBad) delete repaired.actor;
-  // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§158).
+  // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§164).
   //   `args` is POSITIONAL: renderers call `t(lang, key, ...entry.args)` and the
   //   dict interpolates `{0}`/`{1}`. Removing a bad element therefore SHIFTS
   //   every later argument into the wrong slot, turning a crash into silently

@@ -73,7 +73,7 @@ describe("useUndoStack", () => {
     });
     act(() => result.current.undo());
     expect(arr).toEqual([{ id: 1, name: "a" }, { id: 2, name: "b" }]);
-    // Everything after the count is (kind, count) PAIRS (§160) — the completion
+    // Everything after the count is (kind, count) PAIRS (§166) — the completion
     // trend reads them to undo its own subtraction; without them the row is a
     // bare total and a restored delete is indistinguishable from a reverted edit.
     expect(deps.logActivity).toHaveBeenCalledWith("undo", 1, "task.deleted", 1);
@@ -612,7 +612,7 @@ describe("undoThrough", () => {
     expect(deps.logActivity).toHaveBeenCalledTimes(1);
     // 2 deleted + 1 edited. The batch is MIXED, and per-kind pairs describe it
     // exactly: 2 rows under `task.deleted` (which moved the total) and 1 under
-    // `task.updated` (which did not). §160's first cut wrote a single "" here and
+    // `task.updated` (which did not). §166's first cut wrote a single "" here and
     // the trend discarded the whole 2-row correction — see `reversedKindCounts`.
     // ★★ PAIR ORDER IS EXECUTION ORDER, and undo runs NEWEST-FIRST — so the edit
     //   captured second is emitted first. Measured, not predicted: this assertion
@@ -787,7 +787,7 @@ describe("redoThrough", () => {
   //   review's mutant proved it: replacing `redoThrough`'s pair args with `""`
   //   left the whole suite green. `redoThrough` reaches the app through exactly
   //   one prop (`task-manager.tsx` `onRedoThrough`), so this file is its only
-  //   possible detector. A regression here reopens §157's inflation on the redo
+  //   possible detector. A regression here reopens §163's inflation on the redo
   //   side — the redone delete's rows are gone again, but the walk would not add
   //   them back on the way down.
   it("names the reversed kinds and counts, per kind, on a MIXED redo batch", () => {

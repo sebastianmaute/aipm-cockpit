@@ -171,7 +171,7 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     })),
     getActivityLog: vi.fn(() => []),
     // ★ Defaults ENABLED so every pre-existing search_history test keeps
-    //   exercising the engine; the §156 refusal tests override it to false.
+    //   exercising the engine; the §162 refusal tests override it to false.
     isHistorySearchEnabled: vi.fn(() => true),
     getTimezone: vi.fn(() => "UTC"),
     getDashboardSnapshot: vi.fn(
@@ -1199,7 +1199,7 @@ describe("search_history", () => {
     ).resolves.toEqual({ events: [], truncated: false });
   });
 
-  // ★★★ §156 — THE EXECUTOR REFUSES, not just the prompt builder. The tool is
+  // ★★★ §162 — THE EXECUTOR REFUSES, not just the prompt builder. The tool is
   //   reached by NAME, and toggling the setting off mid-conversation leaves
   //   prior tool_use/tool_result pairs in the re-sent history for the model to
   //   mimic, so the advertisement gate alone leaves a switched-off capability

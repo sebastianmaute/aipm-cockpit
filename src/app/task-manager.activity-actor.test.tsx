@@ -27,7 +27,7 @@
 // clock is module transform + import, paid once.
 // ★★ THE TESTS ARE NOT CHEAP THOUGH, and an earlier revision of this line claimed
 // "all four tests together run in well under a second" — false twice over. There
-// are EIGHT tests, not four, and the four §154 ones are dominated by REAL debounce
+// are EIGHT tests, not four, and the four §160 ones are dominated by REAL debounce
 // waits by construction (see the real-timers note below), with another full wait
 // added per test by the priming step in `beforeEach`. Measure before quoting a
 // number here; the last one was invented and survived review:
@@ -188,13 +188,13 @@ describe("task-manager stamps the actor on the loggers it threads", () => {
   });
 });
 
-// ★★★ THE CONSUMER SIDE OF §154, and its absence is why two defects shipped in the
+// ★★★ THE CONSUMER SIDE OF §160, and its absence is why two defects shipped in the
 // fix that closed it. `use-chat-dispatcher.test.tsx` pins that credits are ISSUED —
 // call counts on `onSettingsLoggedByAi` — and nothing anywhere pinned what the
 // counter is FOR: that a user's own settings change still reaches the log. Both
 // tests below assert ROWS, never credits, because the credit count was exactly the
 // thing that looked right while the behaviour was wrong.
-describe("§154 — an AI settings write suppresses its OWN duplicate row and no other", () => {
+describe("§160 — an AI settings write suppresses its OWN duplicate row and no other", () => {
   beforeEach(async () => {
     window.localStorage.clear();
     __resetMintStateForTests();
@@ -329,7 +329,7 @@ describe("§154 — an AI settings write suppresses its OWN duplicate row and no
   });
 
   // ★ THE CONTROL. Without it the tests above pass against an effect that ignores
-  // credits entirely and logs every change — which would reopen §154 itself.
+  // credits entirely and logs every change — which would reopen §160 itself.
   it("still suppresses the duplicate for a SINGLE AI settings write", async () => {
     const d = props().dispatcher as ToolDispatcher;
     const rows = await actorlessSettingsRows(() => {

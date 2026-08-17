@@ -110,7 +110,7 @@ export function buildActivityRecapBlock(
  *    boolean that `sanitizeAiConfig` always fills, so it is never `undefined`
  *    and every read site is a plain truthy read. Do not cite it as precedent
  *    for this shape. ★★ `sanitizeAiConfig` DOES store `actionSuggestions` — but it
- *    did NOT until §159, so every explicit `false` was dropped on LOAD (not on
+ *    did NOT until §165, so every explicit `false` was dropped on LOAD (not on
  *    write) and the toggle reverted to ON at the next reload. Any default-ON-by-
  *    absence flag must appear in that return literal; nothing gates it, and a
  *    dropped key and a default read identically, so the only test that can catch
@@ -126,7 +126,7 @@ export function summarizeForRecap(
   clock: ProjectClock,
 ): ActivitySummary | undefined {
   if (ai.activityRecap === false) return undefined;
-  // ★★★ THE ONE PLACE THE PAIR IS UNPACKED (§153). Everything upstream of here
+  // ★★★ THE ONE PLACE THE PAIR IS UNPACKED (§159). Everything upstream of here
   //   carries the clock as a single unforgeable value, so an inconsistent
   //   `today`/`tz` cannot be constructed by any caller. The engine below keeps
   //   its two-string signature deliberately: it is pure and clock-free (its own

@@ -30,10 +30,10 @@ export interface UndoMeta {
  * What a batch of undo entries reverses, as flat `(kind, count)` PAIRS — one
  * pair per distinct kind, counts summed. Spread into the `undo`/`redo` activity
  * row AFTER its total-rows arg, so a reader can tell what was reversed and by
- * how much, not merely how many rows moved in total. See §160.
+ * how much, not merely how many rows moved in total. See §166.
  *
  * ★★★ PAIRS BECAUSE A SINGLE KIND CANNOT DESCRIBE A BATCH, and the first cut of
- * §160 tried: it wrote one kind, or `""` when the batch was mixed, and its
+ * §166 tried: it wrote one kind, or `""` when the batch was mixed, and its
  * consumer then ignored a mixed row entirely. That looked acceptable — the
  * docstring even argued "every single-entry undo is homogeneous, i.e. the common
  * case is exact" — but the argument was irrelevant, because a single-entry undo
@@ -41,7 +41,7 @@ export interface UndoMeta {
  * straight through). The ONLY callers are the caret's undo-through/redo-through,
  * where a multi-entry batch is the entire purpose of the control. Delete 50
  * tasks, edit one field, undo through both, and the `""` row discarded the
- * 50-row correction — the very defect §160 exists to close, two clicks away. A
+ * 50-row correction — the very defect §166 exists to close, two clicks away. A
  * cold review found it; per-kind pairs are exact for every batch, so there is no
  * mixed case left to reason about.
  *

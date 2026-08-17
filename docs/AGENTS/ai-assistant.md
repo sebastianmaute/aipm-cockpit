@@ -385,7 +385,7 @@
   === false ? false : undefined`, verify with
   `sed -n '/^export function sanitizeAiConfig/,/^}/p' src/app/settings-types.ts | grep -n actionSuggestions`.
   It was MISSING from that literal for the field's whole life, so every explicit `false` was dropped on
-  load and the Action Center's AI toggle silently reverted to ON at the next reload — §159, now CLOSED.
+  load and the Action Center's AI toggle silently reverted to ON at the next reload — §165, now CLOSED.
   ★★★ This sentence asserted that defect was LIVE while the commit fixing it sat in the same change set,
   which is the failure mode this file warns about twice over: a correction is a new claim, and an entry
   marked CLOSED does not update the prose that points at it. The loss was on READ, not write —

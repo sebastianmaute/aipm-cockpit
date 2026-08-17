@@ -401,7 +401,7 @@ describe("sanitizeActivityEntry — actor", () => {
   });
 });
 
-describe("sanitizeActivityEntry — args elements (§158)", () => {
+describe("sanitizeActivityEntry — args elements (§164)", () => {
   const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created" };
   /** A non-callable own `toString` makes ToPrimitive fall through to
    *  `Object.prototype.valueOf`, which hands the object back — so `String(x)`

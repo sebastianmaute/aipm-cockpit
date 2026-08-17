@@ -30,7 +30,7 @@ import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
  * A `ProjectClock` reading as `day` in `tz`.
  *
  * ★★★ The fixture pins the day by choosing an INSTANT, never by supplying
- * `today` — `createProjectClock` derives the date from the zone itself (§153),
+ * `today` — `createProjectClock` derives the date from the zone itself (§159),
  * so not even a test can construct a `today` that disagrees with the `tz`
  * beside it. That is the property the bag exists for; a helper taking both
  * would hand the escape hatch straight back.
@@ -2693,12 +2693,12 @@ describe("useChatDispatcher – AI entity writes reach the activity log", () => 
     expect(logActivityAs).toHaveBeenCalledWith("ai", "settings.updated");
   });
 
-  // ★★★ §154 — an AI settings write produced TWO textually identical
+  // ★★★ §160 — an AI settings write produced TWO textually identical
   //   "Settings updated" rows: this attributed one, and the debounced
   //   actor-less one task-manager's settings effect adds ~1500ms later. The
   //   effect cannot see its own cause, so the dispatcher tells it: one credit
   //   per row it already wrote, consumed by the next run of that effect.
-  describe("credits the debounced settings row it already wrote (§154)", () => {
+  describe("credits the debounced settings row it already wrote (§160)", () => {
     function renderWithCredit() {
       const logActivityAs = vi.fn();
       const onSettingsLoggedByAi = vi.fn();

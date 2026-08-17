@@ -68,7 +68,7 @@ const COUNT_KINDS = new Set(["task.created", "task.completed", "task.reopened", 
 
 /** Kinds whose FIRST arg carries the NUMBER of tasks the entry accounts for.
  *
- *  ★★★ DELIBERATELY NOT MEMBERS OF `COUNT_KINDS` (§157). Every member of that
+ *  ★★★ DELIBERATELY NOT MEMBERS OF `COUNT_KINDS` (§163). Every member of that
  *  set moves the metric by exactly ±1 per entry; one `bulk.delete` carries a
  *  count of N. Adding it there would under-count by N−1 — which is why the
  *  original exclusion was right, and also why leaving it excluded was wrong
@@ -81,7 +81,7 @@ const COUNT_KINDS = new Set(["task.created", "task.completed", "task.reopened", 
  *  `task.created` (counted, ±1) while its mass delete writes `bulk.delete`
  *  (ignored) — before the AI logged anything at all, neither side existed.
  *
- *  ★★★ `ai.taskDedup` IS A MEMBER, and it is here because §160's reversal made
+ *  ★★★ `ai.taskDedup` IS A MEMBER, and it is here because §166's reversal made
  *  it load-bearing rather than merely nice to have. Task dedup removes N rows
  *  and logs only `ai.taskDedup N` — no `task.deleted`, no `bulk.delete` — so the
  *  forward walk saw nothing. That was a self-cancelling blind spot for as long
@@ -124,7 +124,7 @@ const BULK_TOTAL_KINDS = new Set(["bulk.delete", "ai.taskDedup"]);
  *  and everything after it keep correct values. A plausible
  *  wrong number is worse than a visibly broken one, because nothing prompts
  *  anyone to look. `args` is `(string | number)[]` and survives hostile input
- *  as `""` (see `sanitizeActivityEntry`, §158), and `Number("")` is 0, so a
+ *  as `""` (see `sanitizeActivityEntry`, §164), and `Number("")` is 0, so a
  *  damaged entry contributes nothing instead of zeroing the series.
  *
  *  ★ Negative and fractional values are floored away for the same reason: the
@@ -139,7 +139,7 @@ function bulkTaskCount(args: readonly (string | number)[]): number {
   return positiveCount(args[0]);
 }
 
-/** The FORWARD `total` delta of the ops an `undo`/`redo` row reverses (§160).
+/** The FORWARD `total` delta of the ops an `undo`/`redo` row reverses (§166).
  *
  *  ROW SHAPE: `args[0]` is the total row count (the i18n message's `{0}`), and
  *  everything after it is `(kind, count)` PAIRS written by `reversedKindCounts`
@@ -162,7 +162,7 @@ function bulkTaskCount(args: readonly (string | number)[]): number {
  *  could not arise in. The `""` case arises ONLY under the caret's
  *  undo-through/redo-through, where a multi-entry batch is the entire point of
  *  the control. Delete 50 tasks, edit one field, undo through both → one mixed
- *  row → the 50-row correction discarded → the original §160 defect, two clicks
+ *  row → the 50-row correction discarded → the original §166 defect, two clicks
  *  away. Per-kind pairs are exact for every batch, so there is no mixed case and
  *  no `""` to document.
  *
@@ -175,7 +175,7 @@ function bulkTaskCount(args: readonly (string | number)[]): number {
  *  anyway: no `capture()` call passes either as its kind (`task.deleted` is what
  *  a delete captures, whatever kind the matching activity row uses), so neither
  *  can appear in a pair. They are here because leaving a total-moving kind out of
- *  a reversal table is exactly the asymmetry §157 and §160 each cost a release to
+ *  a reversal table is exactly the asymmetry §163 and §166 each cost a release to
  *  find. `task.created` is pinned by a synthetic-fixture test; a `bulk.delete`
  *  capture kind would be a new writer's choice, and this branch means it would be
  *  correct rather than silent. */
@@ -208,7 +208,7 @@ function reconstructFromActivity(
   // assumed not done (documented approximation).
   //
   // ★★★ THE NUMERATOR IS STILL CONSTANT ACROSS EVERY RECONSTRUCTED DAY, and
-  //   §157's bulk-delete fix does not change that — only the denominator moves,
+  //   §163's bulk-delete fix does not change that — only the denominator moves,
   //   so this reconstruction is a curve about TASK COUNT, not about completion.
   //   `dDone` is fed solely by `task.completed` / `task.reopened`, and NOTHING
   //   in the app writes either kind: a status change to Done logs `task.updated`
@@ -221,8 +221,8 @@ function reconstructFromActivity(
   //   `logActivityAs?.("ai", "task.updated", id, name)`), while a form save
   //   passes `diffFields(...)`. So a changes-based numerator would move for user
   //   edits and not for AI ones — reintroducing exactly the user/AI asymmetry
-  //   §157 exists to remove, one metric over. Closing it needs a real
-  //   `task.completed` writer, which is a design slice. See open-followups §157.
+  //   §163 exists to remove, one metric over. Closing it needs a real
+  //   `task.completed` writer, which is a design slice. See open-followups §163.
   const byDay = new Map<string, { dDone: number; dTotal: number }>();
   for (const e of activity) {
     // ★★ An undo/redo whose reversal decodes to 0 must fall through to `continue`

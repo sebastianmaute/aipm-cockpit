@@ -476,13 +476,13 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const redoRun = entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
     // ★★ Everything after the count is `(kind, count)` pairs naming what this
-    //    reverses, and the completion trend needs them (§160): a `task.deleted`
+    //    reverses, and the completion trend needs them (§166): a `task.deleted`
     //    undo puts N rows back, so a walk that subtracted them on the way down
     //    has to add them again. Without them the row is a bare total and the
     //    walk cannot tell a restored delete from a reverted edit — so every
     //    reconstructed day's DENOMINATOR sat N above the truth, which (since
     //    `percent` is `done/total`) pushed the CURVE down. Say denominator, not
-    //    "the truth": an earlier wording here said the latter and §160 spends a
+    //    "the truth": an earlier wording here said the latter and §166 spends a
     //    paragraph on that exact conflation.
     logActivity("undo", entry.meta.count, ...reversedKindCounts([entry.meta]));
     showToast("info", t(lang, "undoneX", entry.meta.label));

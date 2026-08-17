@@ -1684,28 +1684,28 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   means the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals.
   ★★ `bulk.delete` is STILL deliberately NOT in `COUNT_KINDS` — that set's members each move the metric
   by ±1 per entry, while one `bulk.delete` entry carries a count of N, so adding it would under-count by
-  N−1. §157 closed the gap the OTHER way, as that entry said it had to be: a second set,
+  N−1. §163 closed the gap the OTHER way, as that entry said it had to be: a second set,
   `BULK_TOTAL_KINDS`, whose members have their delta READ OUT OF THE ENTRY (`args[0]`) rather than
   implied by the kind. ★ Do not "simplify" the two sets into one — they encode two different arithmetics,
   and merging them silently reinstates the N−1 undercount.
-  ★★★ THERE IS A **THIRD** ARITHMETIC AND IT IS NEITHER SET — `reversedForwardDelta`, added by §160,
+  ★★★ THERE IS A **THIRD** ARITHMETIC AND IT IS NEITHER SET — `reversedForwardDelta`, added by §166,
   which reads `undo`/`redo` rows. Those two kinds belong to no set on purpose: their delta is neither
   ±1 nor `args[0]` but the FORWARD delta of the ops they reverse, signed by the direction, so an `undo`
   subtracts it and a `redo` re-applies it. `useUndoStack` appends `(kind, count)` PAIRS after the row's
   total-rows arg — one per distinct kind, built by `reversedKindCounts` from `UndoMeta`, at all four
   log sites. Before that the walk honoured a `bulk.delete −N` and ignored its undo, so an undone mass
   delete left every reconstructed day's DENOMINATOR N too HIGH — which, since `percent` is
-  `done/total`, pushed the CURVE DOWN, the exact mirror of §157's inflation.
+  `done/total`, pushed the CURVE DOWN, the exact mirror of §163's inflation.
   ★★★ PAIRS, AND THE FIRST CUT'S SINGLE-KIND FORM IS THE LESSON. That cut wrote one kind, or `""` for
   a mixed batch, and defended `""` as an acceptable residual because "every single-entry undo is
   homogeneous, i.e. the common case is exact". True and IRRELEVANT: a single-entry undo never reached
   the batch helper (`commitUndo`/`redo` pass `meta.kind` directly), so the reassurance described the
   one path on which the residual could not occur. `""` arose ONLY under the caret's
   undo-through/redo-through — where a multi-entry batch is the whole point of the control — so
-  "delete 50, edit one field, undo through both" discarded the 50-row correction and reproduced §160
+  "delete 50, edit one field, undo through both" discarded the 50-row correction and reproduced §166
   two clicks from its own fix. **A residual's justification must name the path the residual occurs
-  on.** Full reasoning in `docs/open-followups.md` §160.
-  ★★★ READING UNDO ROWS IS ONLY SOUND WHERE THE FORWARD SIDE IS READ TOO, and the first cut of §160
+  on.** Full reasoning in `docs/open-followups.md` §166.
+  ★★★ READING UNDO ROWS IS ONLY SOUND WHERE THE FORWARD SIDE IS READ TOO, and the first cut of §166
   broke that: `use-tasks-dedup.tsx` captures `kind: "task.deleted"` but logs only `ai.taskDedup N`,
   which was in neither set — so the reversal added +N against a forward side of ZERO and an undone
   dedup inflated every earlier day. `ai.taskDedup` is now a `BULK_TOTAL_KINDS` member, which also
@@ -1720,7 +1720,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★★ `bulk.delete` HAS THREE WRITERS NOW, and for one commit range on this branch it had ONE. (NOT "for
   one release" — an earlier wording said that, and the kind has never shipped: `git grep -n '"bulk\.delete"' 2e2c8c00 -- src`
   returns nothing at the merge base. It sends a reader hunting a released version that does not exist.) The kind arrived with the AI's
-  `delete_all_tasks`, so the first cut of §157 corrected the denominator for AI mass deletes while the USER
+  `delete_all_tasks`, so the first cut of §163 corrected the denominator for AI mass deletes while the USER
   path — `handleClearAll` and `handleBulkDelete` in `use-bulk-operations.ts`, which took an undo capture and
   logged NOTHING — stayed silent, INVERTING the asymmetry rather than removing it. Both user handlers now
   log it. Re-derive rather than trusting this count — and note the command must be scoped to WRITERS:

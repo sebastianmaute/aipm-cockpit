@@ -147,7 +147,7 @@ describe("buildActivityRecapBlock", () => {
 });
 
 describe("summarizeForRecap", () => {
-  // ★★★ The day is pinned by the INSTANT, never by supplying `today` (§153).
+  // ★★★ The day is pinned by the INSTANT, never by supplying `today` (§159).
   //   `createProjectClock` derives the date from the zone itself, so there is
   //   no way — even in a fixture — to hand it a date computed in a different
   //   zone from the one beside it. That is the whole point of the bag: the

@@ -54,7 +54,7 @@ a valid zone).
   project?.operatingTimezone)` and the app's central `today` derives in it — `task-manager` builds
   `createProjectClock(effectiveTz)` and reads `clock.today` off it, so overdue/next-actions/reminders/
   due-date logic follow the zone. ★★★ That WAS a local `effectiveToday(tz)` = `todayInZone(new Date(), tz)`
-  in `task-manager.tsx`, REMOVED in §153 — do NOT reintroduce it. The pair `today` + `tz` travelled as two
+  in `task-manager.tsx`, REMOVED in §159 — do NOT reintroduce it. The pair `today` + `tz` travelled as two
   independent values, and a `TimeZone` brand can only make a TRANSPOSITION unrepresentable, never an
   INCONSISTENT PAIR (a day computed in one zone beside a tz naming another). `ProjectClock` derives the day
   from the zone INSIDE its factory, so a second producer of `today` is exactly what would reopen the class.
