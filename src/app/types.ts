@@ -337,6 +337,10 @@ export type ChangeItem = {
   /** Outlook calendar event id for this change's decision-date write-back
    *  (SP3). Set by the push; absent until first synced. */
   outlookEventId?: string;
+  /** Running note log — dated rich notes, the shared model Task/RaidItem use.
+   *  Optional + sparse; absent on legacy data. Persisted as a JSON-in-cell
+   *  array across the text backends. */
+  noteLog?: NoteLogEntry[];
 };
 
 // ----------------------------------------------------------------------------

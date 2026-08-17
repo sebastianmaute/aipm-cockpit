@@ -3,10 +3,10 @@ import { __resetMintStateForTests } from "./id-mint-session";
 import {
   buildChangeByTaskIndex, changeImpactRag, compareChange, computeScopeStatus, countByStatus, countByType,
   defaultChangeStatus, isPendingChange, isTerminalChangeStatus, nextChangeId,
-  SCOPE_PENDING_RED, selectTopChanges,
+  SCOPE_PENDING_RED, selectTopChanges, withStoredNoteLog,
   type ChangeSortKey,
 } from "./change-log";
-import type { ChangeItem } from "./types";
+import type { ChangeItem, NoteLogEntry } from "./types";
 
 function ci(over: Partial<ChangeItem> = {}): ChangeItem {
   return {
@@ -102,5 +102,27 @@ describe("selectTopChanges", () => {
     ];
     const top = selectTopChanges(items, 5);
     expect(top.map((c) => c.id)).toEqual([2, 1]);
+  });
+});
+
+describe("withStoredNoteLog", () => {
+  const base = ci();
+  const log: NoteLogEntry[] = [
+    { id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>a</p>", text: "a" },
+  ];
+
+  it("re-attaches a non-empty log", () => {
+    expect(withStoredNoteLog(base, log).noteLog).toEqual(log);
+  });
+
+  it("leaves the item untouched for an absent or empty log", () => {
+    expect(withStoredNoteLog(base, undefined)).toBe(base);
+    expect(withStoredNoteLog(base, [])).toBe(base);
+  });
+
+  // The JSON boundary hands it raw parsed data, so a non-array must never land
+  // on the entity as a noteLog.
+  it("ignores a non-array", () => {
+    expect(withStoredNoteLog(base, "nope")).toBe(base);
   });
 });

@@ -6,6 +6,7 @@ import { severityRag } from "./raid";
 import {
   CHANGE_STATUSES, CHANGE_TYPES,
   type ChangeImpact, type ChangeItem, type ChangeStatus, type ChangeType,
+  type NoteLogEntry,
 } from "./types";
 
 const PENDING: ReadonlySet<ChangeStatus> = new Set(["Proposed", "Under Review"]);
@@ -102,4 +103,32 @@ export function selectTopChanges(changes: readonly ChangeItem[], limit: number):
     .sort((a, b) => b.rank - a.rank || b.c.raisedDate.localeCompare(a.c.raisedDate) || a.c.id - b.c.id)
     .slice(0, limit)
     .map((x) => x.c);
+}
+
+/**
+ * Put a note log back onto a change that has just been through
+ * `sanitizeChangeItem`.
+ *
+ * ★★★ `sanitizeChangeItem` builds its output from an explicit field list and is
+ * DOM-free by contract, so it DROPS `noteLog` and CANNOT be taught to keep it
+ * (`sanitizeNoteLog` reaches DOMPurify). Every caller that sanitizes a row which
+ * may already carry a log therefore has to re-attach it, or the log is destroyed.
+ *
+ * ★★ THREE call sites, and they are not obvious from a call-shaped grep:
+ * `buildChangeFromObj` (CSV + Markdown + both Turso layouts), `jsonToWorkspace`,
+ * and the AI dispatcher's `updateChange`. RAID does NOT need this at its decode
+ * or JSON boundaries because neither calls `sanitizeRaidItem`; changes call
+ * theirs, which is why this helper exists at all.
+ *
+ * ★ Takes `unknown` for the log because the JSON boundary hands it raw parsed
+ * data. A non-array is dropped rather than trusted. Returns the SAME object
+ * identity when there is nothing to attach, so a caller can pass a sanitized
+ * row through unconditionally without churning it.
+ *
+ * ★ This module is DOM-FREE (it runs under bare node in the sample generator).
+ * The helper only MOVES an already-sanitized array; it must never call
+ * `sanitizeNoteLog` itself.
+ */
+export function withStoredNoteLog(item: ChangeItem, log: unknown): ChangeItem {
+  return Array.isArray(log) && log.length ? { ...item, noteLog: log as NoteLogEntry[] } : item;
 }

@@ -226,6 +226,7 @@ export const CHANGES_MD_COLUMNS: readonly { key: keyof ChangeItem; label: string
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "knowledgeLinks", label: "KnowledgeLinks" },
   { key: "outlookEventId", label: "OutlookEventId" },
+  { key: "noteLog", label: "NoteLog" },
 ];
 
 export const STAKEHOLDERS_MD_COLUMNS: readonly { key: keyof Stakeholder; label: string }[] = [
