@@ -35,7 +35,13 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
-import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import {
+  canClearAllFetched,
+  canFetchBookings,
+  canLoadManagedProjects,
+  canRefreshAndReapply,
+  canRefreshBookings,
+} from "./timelog-guards";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -398,11 +404,16 @@ export function TimelogPanel({
   const canRefresh =
     refreshCustomerId !== undefined && refreshProjectIds.length > 0;
 
+  // ★★ RETURNS the sync result rather than void so a caller can act on the
+  //    FRESH aggregate. Reading `sync.aggregates` after awaiting this would
+  //    read the PREVIOUS fetch's value — that state has not updated inside the
+  //    calling closure — which is precisely the attribution a re-fetch exists
+  //    to replace. See `handleRefreshAndReapply` below.
   async function handleRefreshBookings() {
     // ★★ SAME predicate the Refresh button's `disabled` evaluates — see
     //    timelog-guards.ts. This guard previously omitted `isMisconfigured`
     //    while the button included it (open-followups §74).
-    if (!canRefreshBookings({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
+    if (!canRefreshBookings({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return undefined;
     const { start, end } = fetchWindow();
     const result = await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
     // Surface a partial per-project failure the same way Fetch does — else a
@@ -411,6 +422,37 @@ export function TimelogPanel({
       logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
       showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
     }
+    return result;
+  }
+
+  // Refresh, then open the SAME confirm dialog the manual Apply uses. Nothing
+  // about the write path is new: `pendingApply` freezes the overlay,
+  // `pendingBudgets` freezes the baseline, and `applyToBudget` still refuses on
+  // a drifted baseline with `timelogApplyStale`. Money figures never gain a
+  // second write path.
+  //
+  // WHY this button exists at all: attribution is baked at FETCH time.
+  // `aggregateActuals` resolves BOTH dimensions (TimeLog user → resource,
+  // TimeLog project → bucket) while aggregating, and folds every miss into a
+  // dimensionless `unattributed` scalar carrying no resource/period/bucket. So
+  // a link fixed AFTERWARDS — adding a resource to a bucket, say — changes
+  // nothing in the cached aggregate, and re-applying it cannot recover those
+  // hours. Only a re-fetch re-resolves them.
+  //
+  // ★★ The fresh aggregate comes back from the CALL, not from `sync.aggregates`
+  //    — that state has not updated in this closure, so reading it here would
+  //    re-apply the stale attribution and silently reintroduce the very bug.
+  async function handleRefreshAndReapply() {
+    if (!canRefreshAndReapply({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
+    const result = await handleRefreshBookings();
+    const fresh = result?.aggregates?.byBucket;
+    // Absent on the no-projects-picked branch, on an abort, and on any error —
+    // in every one of those cases nothing was re-attributed, so there is no
+    // fresh diff to confirm and the dialog must not open on the stale one.
+    if (!fresh) return;
+    setPendingApply(fresh);
+    setPendingBudgets(budgets);
+    setConfirming(true);
   }
 
   // Fetch is gated on a customer + ≥1 picked project (button disabled otherwise).
@@ -483,6 +525,7 @@ export function TimelogPanel({
         onClearAll={clearAllFetched}
         onFetch={() => void handleFetchBookings()}
         onRefresh={() => void handleRefreshBookings()}
+        onRefreshAndReapply={() => void handleRefreshAndReapply()}
         canRefresh={canRefresh}
         onResetColWidths={resetColWidths}
         onResetPaneSize={resetPaneSize}

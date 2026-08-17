@@ -9,6 +9,7 @@ import { TimelogPanel } from "./timelog-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 
@@ -501,6 +502,116 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       expect(screen.queryByRole("button", { name: t("en-US", "timelogRefresh") })).toBeNull();
+    });
+  });
+
+  describe("Refresh & re-apply", () => {
+    /** Render the panel with a persisted scope and a caller-supplied sync mock. */
+    async function renderWithSync(over: Record<string, unknown>) {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), ...over } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Wait for ENABLED, not merely present — same §39 race as the Refresh
+      // tests above: the button renders before useSettings commits the stored
+      // config, and React drops onClick on a disabled <button>, so an early
+      // click is a silent no-op nothing retries.
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefreshReapply") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      return btn;
+    }
+
+    // ★★★ THE STALE-READ PIN, and it needs the seeded DIVERGENCE to mean
+    //     anything. `sync.aggregates` carries 8h and the refresh resolves 20h;
+    //     if the handler seeded the confirm from `sync.aggregates` — which has
+    //     NOT updated inside that closure — the dialog would itemize the 8h
+    //     row. Without two different values the test passes whichever source is
+    //     read, which is the vacuity trap this branch has hit repeatedly.
+    //     Verified by mutation: pointing the handler at `sync.aggregates` turns
+    //     this test RED on the "0 → 20" expectation.
+    it("seeds the confirm dialog from the FRESH aggregate, not the stale hook state", async () => {
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({
+        failedProjects: 0,
+        projectCount: 1,
+        aggregates: {
+          byBucket: {
+            10: { "2026-06": { hours: 20, billableHours: 20, byResource: { 1: { hours: 20, billableHours: 20 } } } },
+          },
+          byResource: { 1: { hours: 20, billableHours: 20 } },
+          unattributed: { hours: 0, billableHours: 0 },
+        },
+      });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      fireEvent.click(btn);
+
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String)));
+      // The SAME confirm dialog the manual Apply opens — reused, not a second
+      // write path — carrying the refetched figure.
+      await waitFor(() =>
+        expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument(),
+      );
+      const rows = screen.getAllByRole("listitem").map((li) => li.textContent);
+      expect(rows).toContain("Alpha Project · 2026-06: 0 → 20");
+      expect(rows).not.toContain("Alpha Project · 2026-06: 0 → 8");
+    });
+
+    // A refetch that produced no aggregate — no projects picked, an abort, an
+    // HTTP error — must NOT fall back to opening the dialog on the stale
+    // overlay. That fallback would look like a working button while re-applying
+    // exactly the attribution the refresh existed to replace.
+    it("does not open the confirm dialog when the refresh yields no aggregate", async () => {
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 0 });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      fireEvent.click(btn);
+
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled());
+      expect(screen.queryByText(t("en-US", "timelogApplyConfirm", "1"))).not.toBeInTheDocument();
+    });
+
+    it("hides the button before any bookings are read", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      expect(screen.queryByRole("button", { name: t("en-US", "timelogRefreshReapply") })).toBeNull();
+    });
+
+    // ★ Shared helper, never a hand-rolled walk: `buttonIndex` THROWS on a zero-
+    //   or multi-match, where a local `findIndex` silently takes the first and
+    //   lets an ordering assertion pass against the wrong control.
+    it("sits after Refresh and before the trailing Print / reset group", async () => {
+      await renderWithSync({});
+      // Plain ordering for the two leading controls — the convention only
+      // requires them to come BEFORE the trailing group.
+      expectButtonOrder([
+        "timelogRefresh",
+        "timelogRefreshReapply",
+        "printHint",
+        "colResetWidthsHint",
+        "tableResetSizeHint",
+      ]);
+      // `contiguous` for the group itself: plain ordering leaves the indices
+      // ascending when a stray control lands BETWEEN two members, which is the
+      // exact drift this repo has caught more than once.
+      expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
     });
   });
 

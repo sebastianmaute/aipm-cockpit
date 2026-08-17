@@ -1509,6 +1509,9 @@ export const de: Record<TranslationKey, string> = {
   timelogSync: "Buchungen abrufen",
   timelogRefresh: "Buchungen aktualisieren",
   timelogRefreshHint: "Ruft die aktuellen Buchungen für die ausgewählten Projekte erneut aus Timelog ab.",
+  timelogRefreshReapply: "Aktualisieren & übernehmen",
+  timelogRefreshReapplyHint:
+    "Ruft dieselben Buchungen erneut aus Timelog ab und zeigt die Übernahme in die Ist-Stunden des Budgets zur Prüfung an. Berücksichtigt Personen und Projekte, die seit dem letzten Abruf verknüpft wurden. Der Projektumfang bleibt unverändert.",
   timelogLoadPeople: "Personen laden",
   timelogLoadManagedProjects: "Meine Projekte laden",
   timelogIncludeClosed: "Abgeschlossene Projekte einbeziehen",

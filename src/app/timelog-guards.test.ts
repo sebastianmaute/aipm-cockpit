@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import {
+  canClearAllFetched,
+  canFetchBookings,
+  canLoadManagedProjects,
+  canRefreshAndReapply,
+  canRefreshBookings,
+} from "./timelog-guards";
 
 const loadOk = {
   isPopout: false,
@@ -42,6 +48,28 @@ describe("canRefreshBookings", () => {
     expect(canRefreshBookings({ ...refreshOk, syncBusy: true })).toBe(false);
     expect(canRefreshBookings({ ...refreshOk, confirming: true })).toBe(false);
     expect(canRefreshBookings({ ...refreshOk, canRefresh: false })).toBe(false);
+  });
+});
+
+describe("canRefreshAndReapply", () => {
+  it("allows the action when every precondition holds", () => {
+    expect(canRefreshAndReapply(refreshOk)).toBe(true);
+  });
+
+  // ★ Each arm gets its own case rather than one multi-expect block. This file
+  //   records FOUR instances of a handler guard drifting from its button's
+  //   predicate, and every one of them was a PARTIAL mirror reading as a
+  //   complete one — so a table that names each arm is the shape that makes a
+  //   dropped arm visible in the failure output.
+  it.each(["isPopout", "syncBusy", "confirming", "isMisconfigured"] as const)(
+    "refuses when %s is set",
+    (k) => {
+      expect(canRefreshAndReapply({ ...refreshOk, [k]: true })).toBe(false);
+    },
+  );
+
+  it("refuses when there is nothing to refresh", () => {
+    expect(canRefreshAndReapply({ ...refreshOk, canRefresh: false })).toBe(false);
   });
 });
 

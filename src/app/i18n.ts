@@ -1527,6 +1527,14 @@ const enUS = {
   timelogSync: "Fetch bookings",
   timelogRefresh: "Refresh bookings",
   timelogRefreshHint: "Re-fetch the current bookings for the selected projects from Timelog.",
+  timelogRefreshReapply: "Refresh & re-apply",
+  // ★ Deliberately says nothing about widening scope, because it does not widen
+  //   it: this re-fetches the SAME persisted project scope. Someone who booked
+  //   to a project that was never ticked in the picker is still not recovered,
+  //   and neither is an external resource. What it does recover is a link fixed
+  //   after the last fetch, which the cached aggregate cannot see.
+  timelogRefreshReapplyHint:
+    "Re-fetch the same bookings from Timelog and review applying them to budget actual hours. Picks up people and projects linked since the last fetch. The project scope is unchanged.",
   timelogLoadPeople: "Load people",
   timelogLoadManagedProjects: "Load my projects",
   timelogIncludeClosed: "Include closed projects",

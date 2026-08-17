@@ -5,12 +5,12 @@
 // passes values + handlers. Left group = fetch controls (customer scope, Clear,
 // Fetch, Refresh); right group = view utilities (Print, column/size resets).
 
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, ArrowPathRoundedSquareIcon } from "@heroicons/react/24/outline";
 import { t, type Lang } from "./i18n";
 import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { INTERACTIVE } from "./interaction-styles";
 import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { canClearAllFetched, canFetchBookings, canRefreshBookings } from "./timelog-guards";
+import { canClearAllFetched, canFetchBookings, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
 
 interface TimelogToolbarProps {
   lang: Lang;
@@ -29,6 +29,7 @@ interface TimelogToolbarProps {
   onClearAll: () => void;
   onFetch: () => void;
   onRefresh: () => void;
+  onRefreshAndReapply: () => void;
   canRefresh: boolean;
   onResetColWidths: () => void;
   onResetPaneSize: () => void;
@@ -51,6 +52,7 @@ export function TimelogToolbar({
   onClearAll,
   onFetch,
   onRefresh,
+  onRefreshAndReapply,
   canRefresh,
   onResetColWidths,
   onResetPaneSize,
@@ -103,6 +105,26 @@ export function TimelogToolbar({
           >
             <ArrowPathIcon aria-hidden="true" className="h-3.5 w-3.5" />
             {t(lang, "timelogRefresh")}
+          </button>
+        )}
+        {/* Refresh & re-apply — the same re-fetch, then the SAME apply confirm
+            dialog, seeded with the fresh diff. It exists because attribution is
+            baked at fetch time: a person or project linked AFTER a fetch is
+            invisible to the cached aggregate, so re-applying that cache cannot
+            recover their hours. Sits beside Refresh (whose scope it shares) and
+            BEFORE the trailing Print / reset group, which it is not a member
+            of. Gated on `fetchedAt` for the same reason Refresh is — with
+            nothing fetched there is no persisted scope to re-pull. */}
+        {fetchedAt && (
+          <button
+            type="button"
+            disabled={!canRefreshAndReapply({ isPopout, syncBusy, confirming, isMisconfigured, canRefresh })}
+            onClick={onRefreshAndReapply}
+            title={t(lang, "timelogRefreshReapplyHint")}
+            className={`inline-flex items-center gap-1.5 rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-50 ${INTERACTIVE}`}
+          >
+            <ArrowPathRoundedSquareIcon aria-hidden="true" className="h-3.5 w-3.5" />
+            {t(lang, "timelogRefreshReapply")}
           </button>
         )}
       </div>

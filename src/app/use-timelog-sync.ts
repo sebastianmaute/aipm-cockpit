@@ -186,7 +186,15 @@ export function useTimelogSync(args: Args) {
   // aggregateActuals, and persist the per-project cache. Plain function reading
   // live render-scope (users/resources/budgets/links/granularity) — same
   // non-memoized pattern as the other handlers.
-  function finish(items: readonly TimelogTimeItem[], usersOverride?: readonly TimelogUser[]): void {
+  // ★★ RETURNS the aggregate it just computed, and callers that need the fresh
+  // value MUST take it from here rather than reading the `aggregates` STATE
+  // after awaiting: that state has not updated inside the caller's closure, so
+  // a post-await read yields the PREVIOUS fetch's attribution. That matters
+  // because attribution is baked HERE — `autoMatchUsers`/`autoMatchProjects`
+  // resolve people and projects at this moment, and every miss folds into a
+  // dimensionless `unattributed` scalar. A caller acting on the stale value
+  // re-applies exactly the attribution the re-fetch existed to replace.
+  function finish(items: readonly TimelogTimeItem[], usersOverride?: readonly TimelogUser[]): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
     // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
@@ -217,6 +225,7 @@ export function useTimelogSync(args: Args) {
     setProjectRefs(refs);
     setFetchedAt(at);
     saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs });
+    return agg;
   }
 
   // STEP 2 — fetch bookings + aggregate. Org scope iterates ONLY `userIds` when
@@ -276,7 +285,11 @@ export function useTimelogSync(args: Args) {
     projectIds: readonly number[],
     startDate: string,
     endDate: string,
-  ): Promise<{ failedProjects: number; projectCount: number } | undefined> {
+    // `aggregates` is ABSENT when no projects were picked — that branch
+    // deliberately does not call `finish()` (clobbering good aggregates with an
+    // empty result is silent data loss), so there is no fresh value to hand
+    // back and a caller must not invent one.
+  ): Promise<{ failedProjects: number; projectCount: number; aggregates?: ActualsAggregate } | undefined> {
     return runGuarded(async (signal) => {
       const ids = [...new Set(projectIds.filter((id) => Number.isInteger(id) && id > 0))];
       // No projects picked: do NOT run finish() — clobbering prior good aggregates
@@ -312,8 +325,8 @@ export function useTimelogSync(args: Args) {
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
       const bookers = directory.filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
-      finish(inWindow, bookers);
-      return { failedProjects, projectCount: ids.length };
+      const agg = finish(inWindow, bookers);
+      return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
 

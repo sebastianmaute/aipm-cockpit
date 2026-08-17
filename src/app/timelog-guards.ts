@@ -67,6 +67,24 @@ export function canRefreshBookings(state: TimelogRefreshState): boolean {
 }
 
 /**
+ * Refresh the booking window and immediately open the apply confirm dialog.
+ *
+ * ★★ Identical preconditions to `canRefreshBookings` — it IS a refresh, plus a
+ * confirm-open afterwards. Expressed as its own export rather than an alias so
+ * the button and the handler share ONE predicate: this file records four
+ * separate instances of a handler guard drifting from its button's `disabled`,
+ * and a fifth is not wanted.
+ *
+ * ★ It exists as a distinct NAME for the same reason `canLoadManagedProjects`
+ * does — the day this action grows a precondition of its own (a cache the
+ * confirm step needs, say) there is one place to add it, and the delegation
+ * below becomes a real body without touching either call site.
+ */
+export function canRefreshAndReapply(state: TimelogRefreshState): boolean {
+  return canRefreshBookings(state);
+}
+
+/**
  * Loading the managed-project list has NO precondition beyond the shared
  * blockers, so this is `isBlocked` negated and nothing more.
  *
