@@ -1023,9 +1023,17 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
   // listItem spec is `paragraph block*`, so a real value reads
   // "<ul><li><p>a</p></li></ul>" and the bare "<li>a</li>" these cases used to
   // carry never reaches the parser's transparency arm at all — a shape no
-  // editor emits, which is how a CRITICAL already hid once in this slice. One
-  // bare companion is kept, since the golden fixtures and legacy stored values
-  // do carry that form and both must reach the same bytes.
+  // editor emits, which is how a CRITICAL already hid once in this slice. TWO
+  // bare companions are kept, since the golden fixtures and legacy stored
+  // values do carry that form and both must reach the same bytes — the
+  // numbering case below and the marker-marks case at the end of the block.
+  // ★ The count is stated because this comment's own warrant is "a shape no
+  // editor emits"; a reader auditing which fixtures are deliberately unreal
+  // needs the enumeration to be right. Reproduce:
+  // `grep -n "<li>" src/app/doc-render-pptx.test.ts | grep -v "<li><p>" | grep -v data-checked`
+  // returns three lines — the two fixtures plus the `it(...)` title above one
+  // of them. ★ No coverage rides on the second one being bare: both shapes
+  // measurably produce identical lines.
   it("prefixes a list item with its marker and indents it", async () => {
     const xml = await onlyContentSlide("<ol><li><p>first</p></li><li><p>second</p></li></ol>");
     expect(paraInfos(xml)).toEqual([

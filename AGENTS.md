@@ -243,9 +243,13 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # in docs/security/findings-2026-07.md — a DATED AUDIT SNAPSHOT, bannered
                             # as such and deliberately NOT renumbered, because rewriting a signed
                             # record to match today's tree destroys the only thing it is good for.
-                            # A third bucket, `thirdParty` (10), holds cites into dompurify/
+                            # A third bucket, `thirdParty`, holds cites into dompurify/
                             # prosemirror/vitest/eslint internals: unresolvable BY DESIGN, not repo
-                            # debt, classified so the debt number stays worth reading. ★★ Not
+                            # debt, classified so the debt number stays worth reading. ★★ ITS SIZE IS
+                            # DELIBERATELY NOT QUOTED HERE — this line said 10 and the gate printed 9
+                            # (disproved 2026-08-17 by a reviewer passing through). Read it off the
+                            # gate's own summary line, which prints every bucket:
+                            # `npm run docs:claims:check`. ★★ Not
                             # harmless though — they rot on any upgrade, and the vitest one carries a
                             # CONTENT HASH in its filename, so it WILL break and nothing will say so.
                             # Re-baseline ONLY after REMOVING citations or converting them to
@@ -283,7 +287,11 @@ npm run docs:claims:check   # doc-claims RATCHET (BLOCKING in CI) — fails when
                             # mutation-proved (4/4), the `stripFencedBlocks` rewrite by its own cases
                             # rather than by a mutant — which is why that 4 sits under a 5. Details in
                             # open-followups §131. ★ Fixing them made the gate STRICTER and it found
-                            # more at once (537 → 541 cites, a second broken cite in the snapshot).
+                            # more at once (a second broken cite in the snapshot). ★★ The "537 → 541
+                            # cites" that used to sit here was a MOMENT'S total, not a property of
+                            # the fix, and it had drifted to 532 by 2026-08-17 — every citation
+                            # added or removed anywhere moves it. Quote the DIRECTION, never the
+                            # totals; `npm run docs:claims:check` prints today's.
                             # `vitest.config.ts` `include` now covers
                             # `scripts/**/*.{test,spec}.mjs` so the CI gates themselves are testable;
                             # coverage `include` deliberately stays `src/**`, so a script test raises
@@ -1103,21 +1111,58 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `w:pStyle` it cannot resolve), `kind: "li"` with `ordered`/`depth`/`index`/`task`, and `align` on
   every kind but `hr`. A new export column joins a `*_RICH_COLUMNS` set; a new RENDERER must decide
   which half it reads.
-  ★★★ **A WRAPPED LIST ITEM IS SEVERAL `li` LINES, AND ONLY THE FIRST CARRIES A MARKER.** Anything
+  ★★★ **A WRAPPED LIST ITEM IS SEVERAL `li` LINES, AND ONLY ONE OF THEM CARRIES A MARKER.** Anything
   after an item's first line — the text after a `<br>` (Shift+Enter, which StarterKit leaves on), a
   second `<p>` (Tiptap's `listItem` spec is `paragraph block*`, so it is schema-legal) — is an `li`
   line carrying the item's OWN `ordered`/`depth`/`index`/`task` plus `continuation: true`. A renderer
-  keeps the indent (it derives from `depth`) and SUPPRESSES the marker: `bulletMarker` is called only
-  when `!line.continuation`, at both call sites. Before that field existed those lines restarted as
-  bare `p` at zero indent — an unmarked, unindented orphan BETWEEN two bullets in a client-facing
-  DOCX. Sweep the guard, don't trust this: `grep -rn "continuation" src/app/ooxml-docx-primitives.ts
-  src/app/doc-render-pptx.ts`. ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
+  keeps the indent (it derives from `depth`) and SUPPRESSES the marker. Before that field existed
+  those lines restarted as bare `p` at zero indent — an unmarked, unindented orphan BETWEEN two
+  bullets in a client-facing DOCX.
+  ★★★ **"ONLY THE FIRST" IS THE WRONG SPELLING AND IT COST A SECOND DEFECT.** The marked line is the
+  first `li` line the item PUT INTO THE OUTPUT, not the first one it opened. An item whose own line
+  starts empty and is closed before any text arrives — Shift+Enter as the FIRST keystroke
+  (`<ol><li><p><br>x</p></li>…`), a leading `<hr>`, a leading `<h2>` — has that line dropped by
+  `flush` for holding no text, and the text then re-opens as a CONTINUATION, which every renderer
+  leaves unmarked. The ordinal was spent regardless, so the list's first visible number was "2." with
+  an unmarked line above it. `promoteItemHead` (`rich-text-runs.ts`) fixes it by scanning the span
+  the LI arm already snapshots and promoting that first line back to a head — so a `continuation:
+  true` seen MID-WALK is provisional, and a reader tracing the walk alone will conclude the marker is
+  lost.
+  ★★ **AND EVEN NOW IT IS NOT "one bullet per ITEM".** An item that emits ONLY lines of another kind
+  (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to promote, so it renders NO marker
+  while still spending its ordinal — `docs/open-followups.md` §157, which is §156 seen from the
+  numbering side and has the same cause. Say "per item that put an `li` line into the output".
+  ★★ **`bulletMarker` HAS FOUR PRODUCTION CALL SITES, NOT TWO**, and this line said two. The two in
+  `doc-render-docx.ts` and `doc-render-pptx.ts` that read `block.items` take a `bullets`
+  **`DocBlock`**, which has no `continuation` to guard on — no defect, but an under-counted call-site enumeration is the failure
+  mode this file records elsewhere at 27-vs-65. The sweep it used to attach
+  (`grep -rn "continuation"` over the two files that already carry the guard) was scoped so it could
+  only ever CONFIRM the sentence; a sweep that cannot fail is not a sweep. Use:
+  `grep -rn "bulletMarker(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  — **five** lines, the fifth being the `export function bulletMarker(` declaration itself.
+  ★ `<blockquote>`, `<pre>` and `<hN>` inside an item deliberately KEEP
   their own kind rather than becoming continuations — a `<pre>` would trade its verbatim whitespace
-  for an indent — so they lose the item's indent (`docs/open-followups.md` §156).
+  for an indent — so they lose the item's indent (`docs/open-followups.md` §156). ★★ A nested
+  `<ul>`/`<ol>` is a FOURTH arm clearing `item` (`rich-text-runs.ts`'s own comment names all four),
+  and it belongs in a different list: its items are produced by the LI arm at their OWN deeper depth,
+  so nothing is lost — measured, `<ul><li><p>a</p><ul><li><p>b</p></li></ul></li></ul>` gives depth 0
+  then depth 1, neither a continuation.
   ★★ **AND THE ORDINAL IS SPENT WHEN THE ITEM RENDERED, NOT WHEN ITS OWN LINE SURVIVED.** An item
   whose only child keeps its own kind (an `<h2>`, a nested list) emits lines while its empty `li`
   line is dropped; the counter therefore watches whether the item put ANYTHING into the output, so
   `<ol><li><h2>H</h2></li><li><p>z</p></li></ol>` numbers `z` as **2**. It used to number it 1.
+  ★★ **DO NOT JUSTIFY THAT WITH "a browser numbers it too" — the rule DISAGREES with a browser in
+  the other direction and the justification proves too much.** An EMPTY `<li>` also occupies a
+  numbered slot in every browser, and this counter deliberately does NOT count one:
+  `<ol><li></li><li>a</li></ol>` numbers `a` as **1** where a browser says 2. Both halves are
+  pinned (`grep -n "spent only on an item that reaches" -A 20 src/app/rich-text-runs.test.ts`). The
+  real warrant is narrower — an item that put nothing in the output has no line for a reader to count
+  from, so numbering past it would strand the number.
+  ★ Consequence worth knowing before reporting a numbering bug: **the HTML/PDF export never touches
+  `RichLine` at all.** `download.ts` `exportCellHtml` emits the markup and lets the browser number
+  the list natively, so an empty `<li>` numbers DIFFERENTLY in the .docx and in the printed PDF of
+  one document. Reproduce: `grep -n "htmlToRichLines" src/app/download.ts src/app/doc-render-html.ts`
+  returns nothing.
   ★★★ **THE SPLIT IS "CARRY vs PARSE", and it is easy to break by "helpfully" parsing one level
   up.** `export-sections.ts` CARRIES the html as an opaque string and never parses it — every parse
   lives in the DOM-bound renderers, which is what lets one section model feed both the structural and

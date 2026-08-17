@@ -548,7 +548,14 @@ describe("list items in the form the editor stores (listItem = `paragraph block*
 //
 // ★ A continuation carries the item's ordered/depth/index/task so a renderer
 // indents it identically, and `continuation: true` so the renderer suppresses
-// the marker — one bullet per ITEM, however many lines it wraps to.
+// the marker — one bullet per item that put an `li` line into the output,
+// however many lines it wraps to.
+//
+// ★★ NOT "one bullet per ITEM". Two shapes fall outside it, and they are not
+// the same thing: an item whose own line was dropped BEFORE any text arrived
+// now has its first surviving line promoted to head (the block below), while an
+// item that emits ONLY lines of another kind has no `li` line to promote and
+// renders no marker at all — open-followups §157.
 describe("continuation lines inside a list item", () => {
   it("continues the item after a <br>, the shape Shift+Enter produces", () => {
     expect(htmlToRichLines("<ul><li><p>a<br>b</p></li><li><p>c</p></li></ul>")).toEqual([

@@ -89,8 +89,25 @@ export function buildDocx(sections: ExportSection[]): Blob {
   // Both outputs are valid and render identically, so nothing here is a
   // FUNCTIONAL change — the byte claim was the defect. `word/document.xml` is
   // byte-identical only for a workspace with no rows in any rich-column entity
-  // at all, i.e. no rich cell ever built. ★ Say what holds: a byte claim that
-  // is nearly true is worse than none, because it is what a reader reaches for
-  // when deciding whether a golden fixture needs regenerating.
+  // at all, i.e. no rich cell ever built — AND only against a baseline that
+  // already carries the `<w:i/>`-before-`<w:color/>` reorder above.
+  // ★★★ THAT SECOND CLAUSE IS THE CORRECTION'S OWN CORRECTION, and it was
+  // falsified by the SAME COMMIT that wrote the sentence: that commit also put
+  // the two `<w:rPr>`s into schema order, and one of them is in THIS function's
+  // unconditional header — the "Exported <date>" run, emitted for a workspace
+  // with no sections at all. So against a pre-reorder baseline `document.xml`
+  // differs for EVERY workspace, empty ones included, and the sentence was
+  // wrong about precisely the decision it names below. Reproduce:
+  //   git show dbe3723b:src/app/export-docx.ts | grep -n "w:rPr"   # old order
+  //   grep -nE "^ +<w:rPr><w:i/>" src/app/export-docx.ts           # new, 2 hits
+  // ★ The second pattern is ANCHORED for a reason a first cut got wrong: a grep
+  // quoted inside the file it scans MATCHES ITSELF, so the unanchored form
+  // returned 3 — two real hits plus this comment — and the count beside it was
+  // already stale when it was written.
+  // ★ Say what holds: a byte claim that is nearly true is worse than none,
+  // because it is what a reader reaches for when deciding whether a golden
+  // fixture needs regenerating. ★ A correction inherits none of the
+  // verification of the thing it corrects — run a command against the
+  // REPLACEMENT, which is why the two above are here rather than described.
   return buildDocxPackage(body, DOC_STYLES);
 }

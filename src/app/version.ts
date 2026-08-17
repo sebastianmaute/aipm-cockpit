@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.243.0";
-export const APP_BUILD_DATE = "2026-08-16"; // 0.243.0: heading level, list numbering and nesting, task-list markers and text alignment in the seven rich entity fields now survive export to DOCX, HTML and PDF (Aaronovitch)
+export const APP_BUILD_DATE = "2026-08-17"; // 0.243.0: heading level, list numbering and nesting, task-list markers and text alignment in the seven rich entity fields now survive export to DOCX, HTML and PDF (Aaronovitch)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.243.x line is "Aaronovitch" (Ben Aaronovitch, urban-fantasy author).
  *  0.242.x was "Ashby" (Madeline Ashby, SF author).

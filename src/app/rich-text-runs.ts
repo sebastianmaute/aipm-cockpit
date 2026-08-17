@@ -75,6 +75,10 @@ export type RichLine =
        *  the two identically. What it asks of a renderer is one thing only —
        *  SUPPRESS the marker. A list item has one bullet however many lines it
        *  wraps to.
+       *  ★★ Which line is the head is decided AFTER the item's walk, by
+       *  `promoteItemHead`: an item whose own line was dropped re-opens here as
+       *  a continuation, and the first one it emitted is promoted back. So a
+       *  `continuation: true` seen mid-walk is provisional.
        *  ★ `true`, not `boolean`: `continuation: false` is unrepresentable, so
        *  `if (line.continuation)` is the only test a renderer can write.
        *  ★ It is OMITTED from a head line rather than set to `undefined` — the
@@ -483,10 +487,16 @@ export function htmlToRichLines(html: string): RichLine[] {
         // rendered one too LOW — "1." on the second item of a client-facing DOCX.
         // ★★ The comment that chose identity rejected a length delta for
         // "crediting this item with its CHILDREN's lines". A delta does do that,
-        // and it is CORRECT that it does: an <li> holding only a sub-list still
-        // occupies a numbered slot in every browser and in Word. What the old
-        // reasoning was really protecting is the EMPTY item, which a delta gets
-        // right for the same reason — it contributes nothing, so nothing counts.
+        // and it is CORRECT that it does: the item put something a reader can
+        // see at its position into the output, so the number belongs to it.
+        // ★★★ DO NOT justify that with "a browser numbers it too" — the rule
+        // DISAGREES with a browser in the other direction, so that argument
+        // proves too much. An EMPTY <li> also occupies a numbered slot in every
+        // browser, and this counter deliberately does not count one
+        // ("<ol><li></li><li>a</li></ol>" numbers `a` 1 where a browser says 2;
+        // both halves are pinned). The warrant is narrower: an item that put
+        // nothing into the output has no line for a reader to count from, so
+        // numbering past it would strand the number.
         const outputBefore = lines.length;
         walk(el, marks, kind, true, item, item.align);
         flush();

@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.243.0] - 2026-08-16 "Aaronovitch"
+## [0.243.0] - 2026-08-17 "Aaronovitch"
 
 ### Added
 
@@ -34,10 +34,21 @@ longer carries its own changelog comment.
   wrapped item now keeps one bullet and one indent however many lines it runs to.
 - **An item whose first line was a heading made the numbering run one low.** In a numbered list, an
   item starting with a heading was not counted, so every item after it was numbered one too few —
-  the second item read "1.". Such an item is now counted, as it is in a browser and in Word.
+  the second item read "1.". Such an item is now counted. Note that an item whose *only* content is
+  a heading or a sub-list still shows no number of its own, because the heading keeps its own
+  formatting and cannot carry one; the items after it are numbered correctly.
+- **A bullet could lose its own bullet when the first thing in it was a line break.** Pressing
+  Shift+Enter as the very first keystroke in a list item — or starting an item with a horizontal
+  rule or a heading — left that item's text unmarked while the item still used up its number, so a
+  numbered list began at "2." with an unnumbered line above it. Every such item now carries its
+  marker on the first line it prints.
+- **Half of a centred bullet came out left-aligned.** Where a line break split a centred or
+  justified paragraph, only the text before the break kept the alignment. Both halves belong to one
+  paragraph and now stay aligned together. This affected ordinary paragraphs, quotes, headings and
+  preformatted blocks as well as list items.
 - **Two runs of Word formatting were written in an order the OOXML schema does not allow.** Word
   itself is tolerant and rendered them correctly, but stricter tools built on the Open XML SDK
-  reject a document containing them. Long-standing; found while reviewing this release.
+  report such a document as schema-invalid. Long-standing; found while reviewing this release.
 
 ### Notes
 

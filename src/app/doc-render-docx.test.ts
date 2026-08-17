@@ -892,6 +892,13 @@ describe("DOCX invariants Word fails silently on", () => {
       '<li data-checked="false"><p>todo</p></li></ul>',
     '<ol><li><p data-align="center">centred item</p></li></ol>',
     "<p><strong>b</strong><em>i</em><code>c</code></p>",
+    // ★★ A run carrying SEVERAL marks, and it is load-bearing for invariant 4.
+    // Every other marked shape here is a sequence of SINGLE-mark runs, and a
+    // one-child `<w:rPr>` is in sequence order whatever the builder does — so
+    // `DOCX_MARK_RPR`'s `rank` table, the only thing that orders mark elements
+    // against each other, was never exercised there. Measured, not assumed:
+    // dropping the `<em>` here turns invariant 4 red on `widestMarkRun`.
+    "<p><strong><em>bi</em></strong></p>",
   ].join("");
 
   /** `buildDocx`'s own `word/document.xml` — the WORKSPACE exporter's package.
@@ -1055,9 +1062,14 @@ describe("DOCX invariants Word fails silently on", () => {
       "w:u",
       "w:vertAlign",
     ];
+    // Exactly `DOCX_MARK_RPR`'s elements — the ones a RUN's marks produce, as
+    // opposed to the `w:color`/`w:sz` that only a hand-written declaration
+    // carries. An `<w:rPr>` built solely from these came from `markedRun`.
+    const MARK_TAGS = ["w:rFonts", "w:b", "w:i", "w:strike", "w:highlight", "w:u", "w:vertAlign"];
     const { block, cell, styles, exported } = await renderEverySupportedShape();
     let seen = 0;
     let widest = 0;
+    let widestMarkRun = 0;
     for (const xml of [block, cell, styles, exported]) {
       for (const rPr of Array.from(parseXml(xml).getElementsByTagName("w:rPr"))) {
         const tags = Array.from(rPr.children).map((el) => el.tagName);
@@ -1068,6 +1080,9 @@ describe("DOCX invariants Word fails silently on", () => {
         expect(ranks).toEqual([...ranks].sort((a, b) => a - b));
         seen += 1;
         widest = Math.max(widest, tags.length);
+        if (tags.every((tag) => MARK_TAGS.includes(tag))) {
+          widestMarkRun = Math.max(widestMarkRun, tags.length);
+        }
       }
     }
     expect(seen).toBeGreaterThan(0);
@@ -1076,6 +1091,23 @@ describe("DOCX invariants Word fails silently on", () => {
     // is the widest, and the exporter's italic-grey runs are the pair that was
     // wrong.
     expect(widest).toBeGreaterThanOrEqual(4);
+    // ★★★ AND THE GUARD ABOVE WAS MET BY THE WRONG THING. `widest` sweeps
+    // styles.xml too, where Heading4 is a HAND-WRITTEN declaration — so it hit
+    // 4 while every RENDERED <w:rPr> in the fixture had exactly one child, the
+    // case the sequence check cannot fail on. This second guard excludes
+    // styles.xml, so it can only be met by a multi-mark run the renderer
+    // actually built.
+    // ★★★ AND `widest` ALONE IS MET BY THE WRONG THING — it is `Heading4` in
+    // styles.xml, a HAND-WRITTEN declaration. Measured on the fixture: every
+    // multi-child `<w:rPr>` in the sweep came from a hand-written run (the
+    // table header's `w:b+w:color`, the exporter's `w:i+w:color`, the styles),
+    // and every run `markedRun` built carried exactly ONE mark — the case the
+    // sequence check above cannot fail on. So `DOCX_MARK_RPR`'s `rank` table,
+    // which is the only thing ordering the mark elements against each other,
+    // was never exercised by this invariant at all. This guard admits only an
+    // `<w:rPr>` whose children are ALL mark elements, so nothing but a real
+    // multi-mark run can satisfy it.
+    expect(widestMarkRun).toBeGreaterThanOrEqual(2);
   });
 
   it("emits only legal ST_Jc values", async () => {

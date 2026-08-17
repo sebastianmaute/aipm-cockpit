@@ -295,8 +295,14 @@ export function docxRichParagraph(
   if (line.align) parts.push(`<w:jc w:val="${JC_VALUE[line.align]}"/>`);
   const pPr = parts.length > 0 ? `<w:pPr>${parts.join("")}</w:pPr>` : "";
   // ★★ `<w:ind>` above is deliberately NOT guarded on `continuation` — a wrapped
-  // line keeps the item's indent — but the MARKER is: a list item has one bullet
-  // however many lines it wraps to, and repeating it renders one item as two.
+  // line keeps the item's indent — but the MARKER is: one bullet per item that
+  // put an `li` line into the output, however many lines it wraps to, and
+  // repeating it renders one item as two.
+  // ★ NOT "one bullet per ITEM": an item that emits ONLY lines of another kind
+  // (`<li><h2>h</h2></li>`, `<li><ul>…</ul></li>`) has no `li` line to mark, so
+  // it renders no bullet at all while still spending its ordinal —
+  // open-followups §157. `promoteItemHead` (rich-text-runs.ts) covers the case
+  // where the item does emit one but its FIRST attempt was dropped.
   const marker =
     line.kind === "li" && !line.continuation
       ? `<w:r>${docxCellRuns(`${bulletMarker(line.ordered, line.index, line.task)} `)}</w:r>`
