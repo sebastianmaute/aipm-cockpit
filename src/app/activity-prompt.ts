@@ -29,6 +29,7 @@
 //     Function.prototype method, after which t() throws on undefined.replace
 //     and takes the app down through the top-level ErrorBoundary.
 import {
+  type ActivityActor,
   type ActivityEntry,
   MAX_FIELD_CHANGES,
   activityMessageKey,
@@ -40,8 +41,54 @@ export interface RenderedActivity {
   at: string;
   /** English message with positional args interpolated. */
   summary: string;
+  /** Who caused the entry. OMITTED — not defaulted — when the entry carries no
+   *  actor, so a pre-B2b entry's rendered shape is byte-unchanged and costs the
+   *  model nothing. ★★ Load-bearing rather than decoration: the kinds are the
+   *  SAME for a user write and a model write, so without this a `search_history`
+   *  result cannot tell the model its own edits from the user's, and it can read
+   *  its own work back as new information and act on it twice. */
+  actor?: ActivityActor;
   /** Field-diff suffix; omitted when the entry carries no changes. */
   detail?: string;
+}
+
+/** ★★★ A `Record<ActivityActor, …>`, NOT a string array, and that is the point:
+ *  a member added to the union makes this object literal a TYPE ERROR, so the
+ *  projection cannot silently start dropping a new actor. `hasOwnProperty`, never
+ *  a bare index — `sanitizeActivityEntry` KEEPS an unknown-but-string actor, so
+ *  `actor: "toString"` reaches here and a bare lookup resolves a
+ *  Function.prototype method (the same trap `activityMessageKey` guards for
+ *  `kind`, and `summarizeRecentActivity` for its own buckets). */
+const KNOWN_ACTORS: Record<ActivityActor, true> = {
+  user: true,
+  ai: true,
+  integration: true,
+};
+
+/**
+ * An actor this release recognises, or `undefined`.
+ *
+ * ★★ AN UNRECOGNISED STRING IS OMITTED, NOT PASSED THROUGH, and the reason is
+ *    agreement with the other surface rather than distrust of the value:
+ *    `summarizeRecentActivity` already folds both the ABSENT and the
+ *    unknown-but-string actor into its `unknown` bucket, so passing the raw
+ *    string through here would let the recap and the read path describe the same
+ *    entry differently. It also keeps this field a closed set of one-word values
+ *    — it rides every one of up to MAX_HISTORY_LIMIT results.
+ *
+ * ★ STORAGE IS UNTOUCHED. The sanitizer still keeps the string and an older
+ *   client's load+save round trip still preserves it; only the model-facing
+ *   PROJECTION narrows. Do not read this as licence to drop it at rest.
+ *
+ * ★ Takes `unknown` deliberately: the declared type is the closed union, but the
+ *   runtime value is whatever the sanitizer let through, and a parameter typed
+ *   `ActivityActor` would make the guard below look redundant to a future reader.
+ */
+function knownActor(raw: unknown): ActivityActor | undefined {
+  return typeof raw === "string" &&
+    Object.prototype.hasOwnProperty.call(KNOWN_ACTORS, raw)
+    ? (raw as ActivityActor)
+    : undefined;
 }
 
 export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
@@ -50,8 +97,18 @@ export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
     ? t("en-US", key, ...entry.args)
     : t("en-US", "activityUnknownKind", entry.kind);
 
+  // ★ Conditional spread, mirroring `appendActivityEntry`: `{ actor }` with an
+  //   undefined value puts an `actor: undefined` KEY on every rendered entry,
+  //   which `toBeUndefined()` cannot tell from an omitted one.
+  const actor = knownActor(entry.actor);
+  const base: RenderedActivity = {
+    at: entry.timestamp,
+    summary,
+    ...(actor ? { actor } : {}),
+  };
+
   const changes = entry.changes ?? [];
-  if (changes.length === 0) return { at: entry.timestamp, summary };
+  if (changes.length === 0) return base;
 
   // ★ `||`, not `??`, mirroring the panel's `c.from || "—"`: the EMPTY STRING
   //   is the case being caught (a field set from blank), and `??` passes it
@@ -61,5 +118,5 @@ export function renderActivityEntry(entry: ActivityEntry): RenderedActivity {
     .slice(0, MAX_FIELD_CHANGES)
     .map((c) => `${c.field}: ${c.from || "—"} → ${c.to || "—"}`)
     .join("; ");
-  return { at: entry.timestamp, summary, detail };
+  return { ...base, detail };
 }

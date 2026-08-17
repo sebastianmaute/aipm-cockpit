@@ -15,6 +15,10 @@ import {
   toCalendarEventSummary,
   toBudgetBucketSummary,
 } from "./chat-tools";
+import { resourceLogName } from "./chat-tool-summaries";
+import { historySearchEnabled } from "./settings-types";
+import { summarizeForRecap } from "./activity-recap";
+import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-patch";
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
@@ -33,7 +37,6 @@ import {
   sanitizeGroup,
   sanitizeIsoDate,
   sanitizeLabels,
-  sanitizeNonNegInt,
   sanitizePriority,
   sanitizeTaskName,
   sanitizeRaidItem,
@@ -95,8 +98,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Refs seeded synchronously on first render; refreshed by the effects below.
   const tasksRef = useRef(tasks);
   const settingsRef = useRef(args.settings);
-  const todayRef = useRef(args.today);
-  const timezoneRef = useRef(args.timezone);
+  // ★★★ ONE ref, not two (§159) — separate `today`/`timezone` refs are what let an inconsistent pair exist.
+  const clockRef = useRef(args.clock);
   const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
   const raidRef = useRef(raid);
@@ -111,7 +114,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const activityLogRef = useRef(activityLog);
   const viewDigest = useViewDigest({
     view: args.currentView, tasks, filteredSortedTasks, effectiveFilters,
-    resources, budgets, milestones, today: args.today, settings: args.settings,
+    resources, budgets, milestones, today: args.clock.today, settings: args.settings,
     settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
   });
   const viewDigestRef = useRef(viewDigest);
@@ -125,11 +128,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     settingsRef.current = args.settings;
   }, [args.settings]);
   useEffect(() => {
-    todayRef.current = args.today;
-  }, [args.today]);
-  useEffect(() => {
-    timezoneRef.current = args.timezone;
-  }, [args.timezone]);
+    clockRef.current = args.clock;
+  }, [args.clock]);
   useEffect(() => {
     viewRef.current = args.currentView;
   }, [args.currentView]);
@@ -182,6 +182,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   // Helpers live inside the hook — they're not consumed anywhere else.
   // Stubbed for now; filled in by later tasks.
   // (Hoisted as useCallback for Tasks 3/5 ergonomics; other stubs stay inline.)
+  // ★ Hoisted to a local const: exhaustive-deps demands the whole `args` object
+  // once a callback reads TWO of its members, so depend on the member itself.
+  const logActivityAs = args.logActivityAs;
   const sendInquiry = useCallback(
     (id: number): { sent: boolean; reason?: string } => {
       if (args.isReadOnly) return { sent: false, reason: "read-only" };
@@ -215,9 +218,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       );
       tasksRef.current = next;
       setTasks(next);
+      // ★ Same kind the USER-side path emits for this operation
+      // (`use-bulk-operations.ts` handleSendInquiries), so the AI row and the
+      // user row describe the same event identically. The EN string's plural
+      // wording reads oddly at a count of 1 — that quirk is inherited from the
+      // shared kind deliberately; a singular-only kind is not worth minting.
+      logActivityAs?.("ai", "bulk.inquiries", 1);
       return { sent: true };
     },
-    [args.isReadOnly, setTasks],
+    [args.isReadOnly, logActivityAs, setTasks],
   );
   const applyFilters = useCallback(
     (f: Filters): void => {
@@ -243,7 +252,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
-  const documentTools = useDocumentTools(args.isReadOnly, args.logActivity);
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAs);
+
+  // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
+  // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
+  // the type system and is NOT uniform across kinds — read `logActivityAs` on
+  // `ChatDispatcherArgs` before adding or editing one.
 
   const dispatcher = useMemo<ToolDispatcher>(
     () => ({
@@ -270,7 +284,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           assigneeEmail: email,
           dueDate,
           lastUpdateDate:
-            sanitizeIsoDate(input.lastUpdateDate) || todayRef.current,
+            sanitizeIsoDate(input.lastUpdateDate) || clockRef.current.today,
           priority: sanitizePriority(input.priority),
           status: DEFAULT_TASK_STATUS,
           blockers: sanitizeBlockers(input.blockers),
@@ -284,83 +298,20 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // writer of status + completedDate) so e.g. Done stamps completedDate.
         // An invalid value falls back to the default.
         const newTask = isTaskStatus(input.status)
-          ? applyStatusChange(baseTask, input.status, todayRef.current)
+          ? applyStatusChange(baseTask, input.status, clockRef.current.today)
           : baseTask;
         const next = [...list, newTask];
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         setTasks(next);
+        args.logActivityAs?.("ai", "task.created", newTask.id, newTask.taskName);
         return newTask;
       },
       updateTask: (id, patch) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
         const existing = tasksRef.current.find((row) => row.id === id);
         if (!existing) return null;
-        // Jira-managed fields can't be changed locally on linked tasks.
-        if (existing.jiraKey) {
-          if (
-            patch.assignee !== undefined &&
-            sanitizeAssignee(patch.assignee) !==
-              sanitizeAssignee(existing.assignee)
-          ) {
-            throw new Error(
-              `Assignee for ${existing.jiraKey} is managed in Jira. Change it in Jira and re-sync.`,
-            );
-          }
-          if (
-            patch.completedDate === undefined &&
-            "completedDate" in patch &&
-            existing.completedDate
-          ) {
-            throw new Error(
-              `Reopening ${existing.jiraKey} must be done in Jira (workflow transition required).`,
-            );
-          }
-          if (
-            patch.status !== undefined &&
-            patch.status !== existing.status
-          ) {
-            throw new Error(
-              `Status for ${existing.jiraKey} is managed in Jira; change it via the Jira workflow and re-sync.`,
-            );
-          }
-        }
-        const cleanPatch: Partial<Task> = {};
-        if (patch.taskName !== undefined)
-          cleanPatch.taskName = sanitizeTaskName(patch.taskName);
-        if (patch.assignee !== undefined)
-          cleanPatch.assignee = sanitizeAssignee(patch.assignee);
-        if (patch.assigneeEmail !== undefined) {
-          const e = sanitizeEmail(patch.assigneeEmail);
-          if (e && !isValidEmail(e))
-            throw new Error("assigneeEmail is invalid");
-          cleanPatch.assigneeEmail = e;
-        }
-        if (patch.dueDate !== undefined) {
-          const d = sanitizeIsoDate(patch.dueDate);
-          if (!d) throw new Error("dueDate must be YYYY-MM-DD");
-          cleanPatch.dueDate = d;
-        }
-        if (patch.lastUpdateDate !== undefined) {
-          const d = sanitizeIsoDate(patch.lastUpdateDate);
-          if (d) cleanPatch.lastUpdateDate = d;
-        }
-        if (patch.priority !== undefined)
-          cleanPatch.priority = sanitizePriority(
-            patch.priority,
-            existing.priority,
-          );
-        if (patch.blockers !== undefined)
-          cleanPatch.blockers = sanitizeBlockers(patch.blockers);
-        // ★★★ Accepts BOTH shapes: `plainToHtml` escapes & < >, so HTML stored as
-        // "<p>&lt;p&gt;…". Landmine: AGENTS.md "Rich-text register descriptions".
-        if (patch.description !== undefined)
-          cleanPatch.description = sanitizeAiRichText(patch.description);
-        if (patch.inquiriesSent !== undefined)
-          cleanPatch.inquiriesSent = sanitizeNonNegInt(patch.inquiriesSent);
-        if (patch.group !== undefined)
-          cleanPatch.group = sanitizeGroup(patch.group);
-        if (patch.labels !== undefined)
-          cleanPatch.labels = sanitizeLabels(patch.labels);
+        assertJiraManagedUnchanged(existing, patch);
+        const cleanPatch = buildTaskCleanPatch(patch, existing);
         const mergedBase: Task = {
           ...existing,
           ...cleanPatch,
@@ -371,13 +322,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // writer of status + completedDate (keeps the Done⟺completedDate
         // invariant). Invalid values are ignored (status left unchanged).
         const merged = isTaskStatus(patch.status)
-          ? applyStatusChange(mergedBase, patch.status, todayRef.current)
+          ? applyStatusChange(mergedBase, patch.status, clockRef.current.today)
           : mergedBase;
         const next = tasksRef.current.map((row) =>
           row.id === id ? merged : row,
         );
         tasksRef.current = next;
         setTasks(next);
+        args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
         return merged;
       },
       setTaskDependencies: (id, raw) => {
@@ -429,12 +381,19 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         );
         tasksRef.current = next; // keep ref in sync for back-to-back tool calls
         setTasks(next);
+        // ★★ THE 21st WRITER — the one a `^(create|update|delete)[A-Z]` grep
+        // over this file structurally cannot find. Past BOTH early returns
+        // above: each leaves the task untouched, so a row would claim an edit
+        // that never landed.
+        args.logActivityAs?.("ai", "task.updated", id, target.taskName);
         return { id, dependencies: applied, rejected, removed };
       },
       deleteTask: (id) => {
         if (args.isReadOnly) throw new Error(t(settingsRef.current.language, "popoutReadOnly"));
-        const exists = tasksRef.current.some((row) => row.id === id);
-        if (!exists) return false;
+        // `find`, not `some`: the activity row names the task, and after the
+        // filter below there is nothing left to read the name off.
+        const doomed = tasksRef.current.find((row) => row.id === id);
+        if (!doomed) return false;
         // Mirror handleDelete's cascade: strip references to the deleted id
         // from every other task's dependency list.
         const next = tasksRef.current
@@ -462,6 +421,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           setEditingId(null);
           setForm(emptyForm());
         }
+        args.logActivityAs?.("ai", "task.deleted", doomed.id, doomed.taskName);
         return true;
       },
       deleteAllTasks: () => {
@@ -472,12 +432,26 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         args.setSelectedIds(new Set());
         setEditingId(null);
         setForm(emptyForm());
+        // ★★ ONE summarising row, never one per task: the log is a 500-entry
+        // ring buffer, so N rows from one chat turn age out a week of the
+        // user's own history (`jira.sync` models this shape). ★ Deleting
+        // nothing is not a delete — a "0 task(s)" row is pure noise there.
+        // ★★ `bulk.delete`, NOT `bulk.edit`: chat tool writes take no undo
+        // capture, so this row is the only account of an irreversible mass
+        // deletion and must not read as an edit.
+        if (count > 0) args.logActivityAs?.("ai", "bulk.delete", count);
         return count;
       },
       sendInquiry,
       setFilters: applyFilters,
-      setLanguage: (l) =>
-        args.setSettings((s) => ({ ...s, language: l })),
+      setLanguage: (l) => {
+        args.setSettings((s) => ({ ...s, language: l }));
+        // A persisted `settings.language` write, so it logs the same kind
+        // `updateSettings` does. NO ARGS — "Settings updated" has no
+        // placeholder.
+        args.logActivityAs?.("ai", "settings.updated");
+        args.onSettingsLoggedByAi?.(); // §160 — suppress the debounced duplicate.
+      },
 
       updateSettings: (patch: SettingsUpdateInput) => {
         if (args.isReadOnly) throw readOnlyError();
@@ -489,6 +463,13 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // run in the settings-save effect, exactly as for setLanguage.
           settingsRef.current = { ...cur, ...changes };
           args.setSettings((prev) => ({ ...prev, ...changes }));
+          // ★ NO ARGS — "Settings updated" has no placeholder, and the
+          // user-side row omits field values too (secrets). Inside the
+          // `applied` guard: a patch that changed nothing is not a change.
+          args.logActivityAs?.("ai", "settings.updated");
+          // ★ §160 — inside the SAME `applied` guard, so a credit is only ever issued
+          //   alongside a real settings-identity change (see its contract note).
+          args.onSettingsLoggedByAi?.();
         }
         return applied;
       },
@@ -503,7 +484,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const sanitized = sanitizeRaidItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.raid),
           id,
-          raisedDate: input.raisedDate || todayRef.current,
+          raisedDate: input.raisedDate || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
           causedByRaidIds: input.causedByRaidIds ?? [],
           stakeholderIds: input.stakeholderIds ?? [],
@@ -513,10 +494,12 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // fall back to today so a created item always carries a raised date.
         const item = sanitized.raisedDate
           ? sanitized
-          : { ...sanitized, raisedDate: todayRef.current };
+          : { ...sanitized, raisedDate: clockRef.current.today };
         const next = [...raidRef.current, item];
         raidRef.current = next;
         setRaid(next);
+        // THREE args — "RAID #{0} created ({1}): {2}".
+        args.logActivityAs?.("ai", "raid.created", item.id, item.category, item.title);
         return toRaidSummary(item);
       },
       updateRaid: (id, patch) => {
@@ -534,14 +517,19 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r));
         raidRef.current = next;
         setRaid(next);
+        args.logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
         return toRaidSummary(merged);
       },
       deleteRaid: (id) => {
         if (args.isReadOnly) throw readOnlyError();
-        if (!raidRef.current.some((r) => r.id === id)) return false;
+        // `find`, not `some` — the row names the item, and the filter below
+        // destroys the only copy of its category and title.
+        const doomed = raidRef.current.find((r) => r.id === id);
+        if (!doomed) return false;
         const next = raidRef.current.filter((r) => r.id !== id);
         raidRef.current = next;
         setRaid(next);
+        args.logActivityAs?.("ai", "raid.deleted", doomed.id, doomed.category, doomed.title);
         return true;
       },
 
@@ -551,7 +539,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const sanitized = sanitizeChangeItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.change),
           id,
-          raisedDate: input.raisedDate || todayRef.current,
+          raisedDate: input.raisedDate || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
           linkedRaidIds: input.linkedRaidIds ?? [],
           stakeholderIds: input.stakeholderIds ?? [],
@@ -559,10 +547,11 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         if (!sanitized) throw new Error("invalid change: title is required");
         const item = sanitized.raisedDate
           ? sanitized
-          : { ...sanitized, raisedDate: todayRef.current };
+          : { ...sanitized, raisedDate: clockRef.current.today };
         const next = [...changesRef.current, item];
         changesRef.current = next;
         setChanges(next);
+        args.logActivityAs?.("ai", "change.created", item.id, item.title);
         return toChangeSummary(item);
       },
       updateChange: (id, patch) => {
@@ -579,14 +568,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = changesRef.current.map((c) => (c.id === id ? merged : c));
         changesRef.current = next;
         setChanges(next);
+        args.logActivityAs?.("ai", "change.updated", merged.id, merged.title);
         return toChangeSummary(merged);
       },
       deleteChange: (id) => {
         if (args.isReadOnly) throw readOnlyError();
-        if (!changesRef.current.some((c) => c.id === id)) return false;
+        const doomed = changesRef.current.find((c) => c.id === id);
+        if (!doomed) return false;
         const next = changesRef.current.filter((c) => c.id !== id);
         changesRef.current = next;
         setChanges(next);
+        args.logActivityAs?.("ai", "change.deleted", doomed.id, doomed.title);
         return true;
       },
 
@@ -602,6 +594,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = [...milestonesRef.current, item];
         milestonesRef.current = next;
         setMilestones(next);
+        // ★ CREATE is the two-arg outlier ("Created milestone #{0} – {1}");
+        // update and delete take the id ALONE — see below.
+        args.logActivityAs?.("ai", "milestone.created", item.id, item.name);
         return toMilestoneSummary(item);
       },
       updateMilestone: (id, patch) => {
@@ -618,6 +613,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = milestonesRef.current.map((m) => (m.id === id ? merged : m));
         milestonesRef.current = next;
         setMilestones(next);
+        // ★★ ONE arg. "Updated milestone #{0}" has no {1}, and
+        // milestones-panel.tsx passes the id alone — a name would be dropped
+        // silently and make the AI row and the user row disagree.
+        args.logActivityAs?.("ai", "milestone.updated", merged.id);
         return toMilestoneSummary(merged);
       },
       deleteMilestone: (id) => {
@@ -626,6 +625,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = milestonesRef.current.filter((m) => m.id !== id);
         milestonesRef.current = next;
         setMilestones(next);
+        // ★★ ONE arg — "Deleted milestone #{0}", same as the panel's own row.
+        args.logActivityAs?.("ai", "milestone.deleted", id);
         return true;
       },
 
@@ -637,6 +638,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = [...stakeholdersRef.current, item];
         stakeholdersRef.current = next;
         setStakeholders(next);
+        args.logActivityAs?.("ai", "stakeholder.created", item.id, item.name);
         return toStakeholderSummary(item);
       },
       updateStakeholder: (id, patch) => {
@@ -653,14 +655,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = stakeholdersRef.current.map((s) => (s.id === id ? merged : s));
         stakeholdersRef.current = next;
         setStakeholders(next);
+        args.logActivityAs?.("ai", "stakeholder.updated", merged.id, merged.name);
         return toStakeholderSummary(merged);
       },
       deleteStakeholder: (id) => {
         if (args.isReadOnly) throw readOnlyError();
-        if (!stakeholdersRef.current.some((s) => s.id === id)) return false;
+        const doomed = stakeholdersRef.current.find((s) => s.id === id);
+        if (!doomed) return false;
         const next = stakeholdersRef.current.filter((s) => s.id !== id);
         stakeholdersRef.current = next;
         setStakeholders(next);
+        args.logActivityAs?.("ai", "stakeholder.deleted", doomed.id, doomed.name);
         return true;
       },
 
@@ -675,6 +680,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = [...resourcesRef.current, item];
         resourcesRef.current = next;
         setResources(next);
+        args.logActivityAs?.("ai", "resource.created", item.id, resourceLogName(item));
         return toResourceSummary(item);
       },
       getResource: (id: number) => {
@@ -695,14 +701,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const next = resourcesRef.current.map((r) => (r.id === id ? merged : r));
         resourcesRef.current = next;
         setResources(next);
+        args.logActivityAs?.("ai", "resource.updated", merged.id, resourceLogName(merged));
         return toResourceSummary(merged);
       },
       deleteResource: (id: number) => {
         if (args.isReadOnly) throw readOnlyError();
-        if (!resourcesRef.current.some((r) => r.id === id)) return false;
+        const doomed = resourcesRef.current.find((r) => r.id === id);
+        if (!doomed) return false;
         const next = resourcesRef.current.filter((r) => r.id !== id);
         resourcesRef.current = next;
         setResources(next);
+        args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));
         return true;
       },
 
@@ -718,7 +727,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           }
         }
         return {
-          today: todayRef.current,
+          today: clockRef.current.today,
           language: settingsRef.current.language,
           holidayCountries: settingsRef.current.holidayCountries,
           storageKind: settingsRef.current.storageConfig.kind,
@@ -740,18 +749,29 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           // digest that predates that write. Not worth a synchronous mirror:
           // the digest describes the SCREEN, which has not repainted yet either.
           viewDigest: viewDigestRef.current,
+          timezone: clockRef.current.tz,
+          // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
+          // the not-yet-existing settings field it reads), so a switched-off
+          // recap SKIPS the scan rather than hiding its result.
+          activitySummary: summarizeForRecap(
+            settingsRef.current.ai, activityLogRef.current, clockRef.current,
+          ),
         };
       },
 
       getActivityLog: () => activityLogRef.current,
 
-      getTimezone: () => timezoneRef.current,
+      // ★ LIVE from the ref, never captured — a value snapshotted at construction would
+      //   keep serving for the whole session, the exact mid-conversation case §162 is about.
+      isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
+
+      getTimezone: () => clockRef.current.tz,
 
       getDashboardSnapshot: () =>
         buildDashboardSnapshot(
           getDashboardModelRef.current(),
           getBudgetRollupRef.current(),
-          todayRef.current,
+          clockRef.current.today,
         ),
 
       listAllocations: () => getAllocationsSnapshotRef.current(),

@@ -51,7 +51,7 @@ export function GanttView({
   const { settings, lang } = useSettings();
   const { tasks, setTasks, absences, resources, milestones } = useWorkspace();
   const { isPopout, requestHelpConcept } = useWorkspaceTab();
-  const logActivity = useActivityLogger();
+  const logActivityAs = useActivityLogger();
   // Deliberately a SECOND derivation rather than a prop threaded from
   // workspace-section. Safe here only because nothing in the Gantt shares a
   // derived value that two holiday sets could disagree about — the set drives
@@ -72,7 +72,7 @@ export function GanttView({
     tasks,
     setTasks,
     capture: onCaptureUndo,
-    logActivity: logActivity ?? undefined,
+    logActivityAs: logActivityAs ?? undefined,
     triggerQualifier: t(lang, "tabGantt"),
   });
 

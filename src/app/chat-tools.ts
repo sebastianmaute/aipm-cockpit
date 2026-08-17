@@ -3,25 +3,20 @@ import {
   PRIORITIES,
   type Priority,
   type Task,
-  type RaidItem,
-  type ChangeItem,
-  type Milestone,
-  type Stakeholder,
-  type Resource,
   type TaskDependency,
-  type BudgetBucket,
   type BucketStatus,
 } from "./types";
 import type { Lang } from "./i18n";
 import { type DepRejection } from "./task-dependency-write";
-import { type KnowledgeItem, type KnowledgeLinkKind, linkKindOf } from "./document-link";
-import { type CalendarEvent, type RecurrenceRule, type EventException } from "./calendar-event";
+import { type KnowledgeLinkKind } from "./document-link";
+import { type RecurrenceRule, type EventException } from "./calendar-event";
 
 import type { AppMode, FeatureModuleId } from "./feature-modules";
 import type { AppView } from "./nav-config";
 import type { Insight } from "./insights/insight";
 import type { ActivityEntry } from "./activity-log";
-import { searchHistory } from "./history-search";
+import { searchHistory, type ActivitySummary } from "./history-search";
+import type { TimeZone } from "./timezone";
 import { type DashboardSnapshot } from "./ai-dashboard-snapshot";
 import { type AllocationsSnapshot } from "./alloc-plan/alloc-plan";
 import {
@@ -334,6 +329,34 @@ export type ToolDispatcher = {
      *  user's filters. Only 4 views contribute one; absent elsewhere. Lands in
      *  the VOLATILE prompt suffix — see buildSystemPrompt. */
     viewDigest?: string;
+    /** The project's effective IANA zone — the SAME value `getTimezone()`
+     *  returns. On the snapshot because `buildSystemPrompt` gets a snapshot and
+     *  nothing else, and it must render `activitySummary.latestAt` in the
+     *  project's day without reaching for a clock.
+     *
+     *  ★★ `TimeZone`, not `string` — this is the LAST hop of the brand thread
+     *  (`resolveTimezone` → `ChatDispatcherArgs.timezone` → here →
+     *  `buildActivityRecapBlock`). Widening it to `string` compiles everywhere
+     *  except that final call and would be "fixed" by widening that too, which
+     *  discards the guarantee at the one hop a future edit would inject a raw
+     *  value into. See the `TimeZone` declaration in `timezone.ts`.
+     *
+     *  ★ NO SEVENTH SITE: `getSnapshot()` is a STRUCTURAL return type, so
+     *  `inline-ai-edit-call.ts`'s `ReturnType<ToolDispatcher["getSnapshot"]>`
+     *  inherits the brand automatically. Nothing there needs branding, and
+     *  "completing the thread" by widening it back to `string` would be a
+     *  regression rather than the tidy-up it looks like. */
+    timezone: TimeZone;
+    /** Bounded counts for the ambient recap: five numbers, a window and one
+     *  timestamp — `total` plus the four `byActor` buckets (`user`, `ai`,
+     *  `integration`, `unknown`), then `days` and `latestAt`.
+     *  ★★★ NOT the log. `get_app_state` returns the snapshot VERBATIM, which is
+     *  precisely why `getActivityLog()` is a separate method — see its comment.
+     *  A summary is safe here for the same reason `insights` and `viewDigest`
+     *  are: bounded and small, whatever the log's size. Do NOT "complete the
+     *  pattern" by hanging the matching entries off it.
+     *  ★ Absent when the recap toggle is off or the window is empty. */
+    activitySummary?: ActivitySummary;
   };
   /** The project's activity log. ★★★ Deliberately a METHOD rather than a
    *  `getSnapshot()` field: `get_app_state` returns the snapshot VERBATIM and
@@ -344,6 +367,21 @@ export type ToolDispatcher = {
    *  out of the snapshot everything else reads. See chat-tools.test.ts's guard
    *  test. */
   getActivityLog(): readonly ActivityEntry[];
+  /** Is `search_history` live? (`settings.ai.historySearch !== false`.)
+   *
+   *  ★★★ THE EXECUTOR MUST ASK, not just the prompt builder (§162). Dropping
+   *  the tool from `toolsFor`/`toolNamesFor` stops it being OFFERED, but
+   *  `runTool` is reached by NAME: toggling the setting off mid-conversation
+   *  leaves prior `tool_use`/`tool_result` pairs in the re-sent history, and a
+   *  model that watched its own `search_history` call succeed three turns ago
+   *  has a template to mimic. A switch framed to the user as turning a
+   *  capability OFF must not rest on the request being well-formed.
+   *
+   *  ★★ Not a confidentiality boundary — the log is the user's own data in the
+   *  user's own browser, and there is no adversary. This is honesty about what
+   *  a labelled switch does, which is why the refusal is a plain error and not
+   *  a redaction. */
+  isHistorySearchEnabled(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -425,102 +463,19 @@ function patchWithoutId<T>(input: Record<string, unknown>): Partial<T> {
   return patch as Partial<T>;
 }
 
-export function toRaidSummary(item: RaidItem): RaidSummary {
-  return {
-    id: item.id,
-    category: item.category,
-    title: item.title,
-    status: item.status,
-    severity: item.severity,
-    owner: item.owner,
-    stakeholderIds: item.stakeholderIds ?? [],
-  };
-}
-
-export function toChangeSummary(item: ChangeItem): ChangeSummary {
-  return {
-    id: item.id,
-    title: item.title,
-    status: item.status,
-    impact: item.impact,
-    decisionDate: item.decisionDate,
-    stakeholderIds: item.stakeholderIds ?? [],
-  };
-}
-
-export function toMilestoneSummary(item: Milestone): MilestoneSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    date: item.date,
-    achievedDate: item.achievedDate,
-  };
-}
-
-export function toStakeholderSummary(item: Stakeholder): StakeholderSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    category: item.category,
-    influence: item.influence,
-    interest: item.interest,
-    organization: item.organization,
-    email: item.email,
-  };
-}
-
-export function toResourceSummary(item: Resource): ResourceSummary {
-  return {
-    id: item.id,
-    firstName: item.firstName,
-    lastName: item.lastName,
-    email: item.email,
-    emails: item.emails,
-    title: item.title,
-    department: item.department,
-    isExternal: item.isExternal,
-    roleId: item.roleId,
-  };
-}
-
-export function toKnowledgeSummary(item: KnowledgeItem): KnowledgeSummary {
-  return {
-    id: item.id,
-    name: item.name,
-    url: item.url,
-    linkKind: linkKindOf(item),
-    taskIds: item.taskIds ?? [],
-  };
-}
-
-export function toCalendarEventSummary(event: CalendarEvent): CalendarEventSummary {
-  return {
-    id: event.id,
-    title: event.title,
-    startDate: event.startDate,
-    startTime: event.startTime,
-    durationMinutes: event.durationMinutes,
-    location: event.location,
-    notes: event.notes,
-    attendeeResourceIds: event.attendeeResourceIds ?? [],
-    recurrence: event.recurrence,
-    exceptions: event.exceptions ?? [],
-  };
-}
-
-export function toBudgetBucketSummary(bucket: BudgetBucket): BudgetBucketSummary {
-  return {
-    id: bucket.id,
-    name: bucket.name,
-    status: bucket.status,
-    startDate: bucket.startDate,
-    endDate: bucket.endDate,
-    allocations: bucket.allocations.map((a) => ({
-      roleId: a.roleId,
-      budgetHours: a.budgetHours,
-    })),
-  };
-}
+// ★ The eight entity → summary projections live in ./chat-tool-summaries (moved
+//   for the 800-line file-size ratchet). Re-exported here so no import changes.
+//   `runTool` calls none of them, so no value import is needed back.
+export {
+  toRaidSummary,
+  toChangeSummary,
+  toMilestoneSummary,
+  toStakeholderSummary,
+  toResourceSummary,
+  toKnowledgeSummary,
+  toCalendarEventSummary,
+  toBudgetBucketSummary,
+} from "./chat-tool-summaries";
 
 export async function runTool(
   d: ToolDispatcher,
@@ -678,6 +633,20 @@ export async function runTool(
     // the engine treats an absent field as "no filter", which is the honest
     // reading of garbage from a model that cannot be asked to try again.
     case "search_history":
+      // ★★★ ENFORCEMENT, not advertisement (§162). The prompt-side gate removes
+      //   this tool from the offered set; this one refuses to SERVE it. Both
+      //   read the same predicate (`historySearchEnabled`), so they cannot drift
+      //   into advertising off while serving on.
+      // ★ ENGLISH ON PURPOSE, and reviewed as a finding before being kept: every
+      //   `throw` in `runTool` is unlocalized, because these strings are primarily
+      //   MODEL-facing — they come back as a `tool_result` for the model to act on,
+      //   and only incidentally render in the tool block. Translating one of ~20
+      //   would be the inconsistency. Localize the whole layer or none of it.
+      if (!d.isHistorySearchEnabled()) {
+        throw new Error(
+          "search_history is switched off for this project (Settings → AI → activity history search).",
+        );
+      }
       return searchHistory(d.getActivityLog(), {
         query: typeof input.query === "string" ? input.query : undefined,
         since: typeof input.since === "string" ? input.since : undefined,

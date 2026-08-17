@@ -47,9 +47,28 @@ export type AiConfig = {
   insightRecommendations?: boolean; // Background insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls.
   insightRecommendationIntervalMinutes?: number; // Background recommendation cadence (SP4). Integer minutes 15–1440. Default 60.
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
+  historySearch?: boolean; // The search_history tool. Default ON (undefined = on) — it shipped ON in 0.241.0.
+  activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
   tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
 };
+
+/** Is the `search_history` tool live?
+ *
+ *  ★★★ ONE definition, read by BOTH the advertisement gate (`toolsFor` /
+ *  `toolNamesFor` in `chat-api.ts`, which decide whether the model is offered
+ *  the tool) and the EXECUTOR gate (`runTool`'s `case "search_history"`, via
+ *  the dispatcher's `isHistorySearchEnabled()`). Two hand-spelled `=== false`
+ *  checks would be a config slip away from a switch that advertises off and
+ *  serves on — which is exactly the state §162 recorded, in the direction where
+ *  only the advertisement existed.
+ *
+ *  ★★ Only an explicit `false` disables, matching `sanitizeAiConfig`: the tool
+ *  shipped ON in 0.241.0, so a stale non-boolean must read as ON rather than
+ *  silently removing a live capability on upgrade. */
+export function historySearchEnabled(historySearch: boolean | undefined): boolean {
+  return historySearch !== false;
+}
 
 export const DEFAULT_MAX_CHAT_TURNS = 12;
 
@@ -126,6 +145,20 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     insightRecommendations: obj.insightRecommendations === true,
     insightRecommendationIntervalMinutes: clampInsightRecInterval(obj.insightRecommendationIntervalMinutes),
     suggestAllNextActionThresholds: obj.suggestAllNextActionThresholds === true,
+    // ★ `=== false`, never `Boolean(...)`: only an explicit false turns these
+    //   off, so any other stored value (a string, a number, a stale null) reads
+    //   as ON. All three shipped enabled, and a coercion that read a stale
+    //   value as falsy would silently remove a live capability on upgrade.
+    // ★★ EVERY default-ON-by-absence flag MUST appear here. `actionSuggestions`
+    //   was MISSING until 0.244.0 — the field is optional, so its omission was a
+    //   typecheck-clean silent drop on load: `writeSettings` persisted the user's
+    //   `false` correctly and this function threw it away on the next read, so the
+    //   Action Center's "Analyze with AI" toggle reverted to ON at every reload.
+    //   The loss is on READ, not write, which is the wrong end to debug from.
+    //   (open-followups §165.)
+    historySearch: obj.historySearch === false ? false : undefined,
+    activityRecap: obj.activityRecap === false ? false : undefined,
+    actionSuggestions: obj.actionSuggestions === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
     tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),
   };

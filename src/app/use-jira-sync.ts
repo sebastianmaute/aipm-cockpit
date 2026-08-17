@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useRef, useState } from "react";
-import type { ActivityKind } from "./activity-log";
+import type { LogActivityAsFn } from "./activity-log-context";
 import { formatExpiryDate } from "./date-format";
 import { type Lang, t } from "./i18n";
 import type { ConflictItem } from "./jira-api";
@@ -26,7 +26,14 @@ export interface UseJiraSyncArgs {
   today: string;
   lang: Lang;
   showToast: (kind: "info" | "error", text: string) => void;
-  logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** Actor-aware logger. The sync summary is stamped `"integration"`: `actor`
+   *  names the subsystem that AUTHORED the data, not whether a gesture started
+   *  the run. Jira sync writes fields the user never typed, so it is an
+   *  integration write even though a "Sync with Jira" button triggers it — the
+   *  gesture-origin reading would also make `"ai"` unreachable, since every AI
+   *  write descends from the user typing a chat message. The plain `logActivity`
+   *  is deliberately NOT threaded here: this hook logs nothing else. */
+  logActivityAs: LogActivityAsFn;
   /** Called false when a sync hits a 401/403 (token rejected), true on a successful sync. */
   onJiraAuthResult?: (ok: boolean) => void;
 }
@@ -285,7 +292,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       tasksRef.current = next;
       setTasks(next);
 
-      args.logActivity("jira.sync", added + pulled, pushed, conflictItems.length);
+      args.logActivityAs("integration", "jira.sync", added + pulled, pushed, conflictItems.length);
 
       const summary = t(
         langRef.current,
@@ -320,8 +327,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       jiraSyncingRef.current = false;
       setJiraSyncing(false);
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivity are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
-  }, [args.showToast, args.logActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
+  }, [args.showToast, args.logActivityAs]);
 
   const handleResolveConflicts = useCallback(async (resolutions: ConflictResolution[]) => {
     const jiraCfg = settingsRef.current.jira;
@@ -414,8 +421,8 @@ export function useJiraSync(args: UseJiraSyncArgs) {
       "info",
       t(langRef.current, "jiraConflictResolved", resolutions.length, pulled, pushed),
     );
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivity are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
-  }, [args.showToast, args.logActivity]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- args is a new object each render; showToast/logActivityAs are called directly but are stable callbacks; setTasks is a stable WorkspaceContext setter
+  }, [args.showToast, args.logActivityAs]);
 
   const clearConflicts = useCallback(() => setJiraConflicts([]), []);
 

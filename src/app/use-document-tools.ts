@@ -22,7 +22,7 @@
 // own per-tool `isReadOnly` guards) — chat tool writes have no undo capture,
 // so a popout mirror must never be able to reach mutateDocuments at all.
 import { useMemo, useRef, useEffect } from "react";
-import type { ActivityKind } from "./activity-log";
+import type { LogActivityAsFn } from "./activity-log-context";
 import { sanitizeAiDocBlocks } from "./ai-document-blocks";
 import { MAX_BLOCKS_PER_DOC } from "./document-model";
 import type { DocOp } from "./document-mutations";
@@ -107,7 +107,7 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
   return `op ${callerIndex}:${entry.slice(match[0].length)}`;
 }
 
-/** ★★★ `logActivity` is THREADED (ChatDispatcherArgs → useChatDispatcher →
+/** ★★★ `logActivityAs` is THREADED (ChatDispatcherArgs → useChatDispatcher →
  *  here), never obtained by calling `useActivityLog()` in this file: that hook
  *  owns its own `useState`, so a second call would build an independent log
  *  that the Activity panel — which renders task-manager's instance — never
@@ -132,10 +132,15 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
  *  need. ★ `dashboard-activity-nav.ts`'s `activityViewOf("ai.documentWrite") ->
  *  "documents"` has NO production caller at all (only its own test), so the
  *  deep-link stays unreachable until something renders it — writing the row does
- *  not by itself light that path up. */
+ *  not by itself light that path up.
+ *
+ *  ★ THE ACTOR IS STAMPED EVEN THOUGH `ai.documentWrite` ALREADY SAYS "ai". A
+ *  consumer filtering the log by actor — "show me only what the assistant did"
+ *  — must not have to carry a list of which kinds happen to imply an actor;
+ *  that list would silently go stale the next time an `ai.*` kind is added. */
 export function useDocumentTools(
   isReadOnly: boolean,
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void,
+  logActivityAs?: LogActivityAsFn,
 ): DocumentToolDispatcher {
   const { documents, documentVersions, mutateDocuments } = useWorkspace();
 
@@ -224,7 +229,7 @@ export function useDocumentTools(
         // trimmed title before calling this, so this is a defensive invariant
         // check, not an expected path.
         if (!doc) throw new Error("title is required");
-        logActivity?.("ai.documentWrite", doc.id, doc.title);
+        logActivityAs?.("ai", "ai.documentWrite", doc.id, doc.title);
         return { id: doc.id, title: doc.title, blockCount: doc.blocks.length };
       },
 
@@ -395,7 +400,7 @@ export function useDocumentTools(
         // the title it already has — returns `changed:false` and mutates
         // nothing, so a row here would assert an edit that did not occur.
         if (result.changed) {
-          logActivity?.("ai.documentWrite", id, after?.title ?? before.title);
+          logActivityAs?.("ai", "ai.documentWrite", id, after?.title ?? before.title);
         }
         return {
           id,
@@ -422,7 +427,7 @@ export function useDocumentTools(
         // `changed:false` here means the id did not exist — nothing was
         // deleted, so nothing is logged.
         if (result.changed) {
-          logActivity?.("ai.documentWrite", id, before?.title ?? "");
+          logActivityAs?.("ai", "ai.documentWrite", id, before?.title ?? "");
         }
         const newest = result.versions[result.versions.length - 1];
         return {
@@ -431,6 +436,6 @@ export function useDocumentTools(
         };
       },
     }),
-    [isReadOnly, mutateDocuments, logActivity],
+    [isReadOnly, mutateDocuments, logActivityAs],
   );
 }

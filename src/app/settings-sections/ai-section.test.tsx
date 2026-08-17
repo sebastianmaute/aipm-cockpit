@@ -184,6 +184,117 @@ describe("AiSection", () => {
     expect(last.ai.actionSuggestions).toBe(false);
   });
 
+  // --- the two AI-recall kill switches (B2a/B2b) ---
+  //
+  // Both are DEFAULT ON BY ABSENCE: `sanitizeAiConfig` stores only an explicit
+  // `false`, so `undefined` must render CHECKED. A `checked={!!flag}` binding
+  // would render an unchecked box over a live feature, and clicking it would
+  // then write `true` — a no-op the user reads as "I just turned this on".
+  // That is why each pair asserts the undefined case explicitly rather than
+  // relying on `defaultSettings`.
+
+  it("history-search toggle is checked by default (undefined = on)", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, historySearch: undefined } }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(t("en-US", "settingsAiHistorySearch"))).toBeChecked();
+  });
+
+  it("toggling history search calls onChange with historySearch false", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, historySearch: undefined } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(t("en-US", "settingsAiHistorySearch")));
+    expect(onChange.mock.calls.at(-1)?.[0].ai.historySearch).toBe(false);
+  });
+
+  it("re-enabling history search from an explicit false clears the flag", () => {
+    // The other direction of the same binding: from `false` the click must
+    // write `true`, not `false` again. A `=== false` typo on the WRITE side
+    // (rather than the read side) leaves the box permanently off.
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, historySearch: false } }}
+        onChange={onChange}
+      />,
+    );
+    const toggle = screen.getByLabelText(t("en-US", "settingsAiHistorySearch"));
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange.mock.calls.at(-1)?.[0].ai.historySearch).toBe(true);
+  });
+
+  it("activity-recap toggle is checked by default (undefined = on)", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, activityRecap: undefined } }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(t("en-US", "settingsAiActivityRecap"))).toBeChecked();
+  });
+
+  it("toggling the activity recap calls onChange with activityRecap false", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, activityRecap: undefined } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(t("en-US", "settingsAiActivityRecap")));
+    expect(onChange.mock.calls.at(-1)?.[0].ai.activityRecap).toBe(false);
+  });
+
+  it("re-enabling the activity recap from an explicit false clears the flag", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, activityRecap: false } }}
+        onChange={onChange}
+      />,
+    );
+    const toggle = screen.getByLabelText(t("en-US", "settingsAiActivityRecap"));
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange.mock.calls.at(-1)?.[0].ai.activityRecap).toBe(true);
+  });
+
+  it("hides both recall toggles while the AI master switch is off", () => {
+    // They sit inside the `settings.ai.enabled === true` fragment; a copy placed
+    // outside it would leak AI settings onto a collapsed panel.
+    render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
+    expect(screen.queryByLabelText(t("en-US", "settingsAiHistorySearch"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "settingsAiActivityRecap"))).toBeNull();
+  });
+
+  it("gives each recall toggle a visible label matching its accessible name", () => {
+    // WCAG 2.5.3 (label-in-name). The axe gate CANNOT see a violation here —
+    // `label-content-name-mismatch` is tagged `experimental` and axe's default
+    // tagExclude drops it, so a tag-only runOnly never runs the rule. Matching
+    // the two strings at write time is the only protection, and this is the
+    // only thing that pins it.
+    render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
+    for (const key of ["settingsAiHistorySearch", "settingsAiActivityRecap"] as const) {
+      const label = screen.getByLabelText(t("en-US", key)).closest("label");
+      expect(label?.textContent).toBe(t("en-US", key));
+    }
+  });
+
   // --- background recommendation cadence (SP4) ---
 
   function withRecs(ai: Partial<Settings["ai"]>): Settings {

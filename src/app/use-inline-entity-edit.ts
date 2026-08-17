@@ -12,7 +12,6 @@ import { type Workspace } from "./workspace";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type AiConfig, isAiEnabled } from "./settings-types";
 import { type OperatingGuide } from "./operating-guide";
-import { type ActivityKind } from "./activity-log";
 import { callInlineEdit } from "./inline-ai-edit-call";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { describeEntityCalls, isEmptyPlan, type EditPlan } from "./inline-ai-edit/plan";
@@ -28,7 +27,6 @@ export interface InlineEntityEditDeps {
   apiKey: string;
   isPopout: boolean;
   lang: Lang;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   showToast: (kind: "info" | "error", text: string) => void;
   ws: Workspace;
   guides: readonly OperatingGuide[];
@@ -157,6 +155,10 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
         entity: deps.entity, item: target, itemLabel: d.titleOf(target),
         instruction, snapshot: deps.dispatcher.getSnapshot(),
         guides: deps.guides, groundInGuides: deps.ai.groundInGuides,
+        // ★ `historySearch` is NOT forwarded: `callInlineEdit` drops
+        //   `search_history` unconditionally, because this path is single-shot
+        //   and a search here can only yield an empty plan. Its own comment
+        //   carries the reasoning.
         signal: controller.signal,
       });
       if (reqId !== reqIdRef.current) return; // superseded — discard
@@ -197,12 +199,33 @@ export function useInlineEntityEdit(deps: InlineEntityEditDeps): InlineEntityEdi
       }
       for (const c of plan.creates) { await runTool(deps.dispatcher, c.toolName, c.input); applied++; }
       for (const del of plan.deletes) { await runTool(deps.dispatcher, del.toolName, { id: del.id }); applied++; }
-      deps.logActivity?.("ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
+      // ★★★ NO ACTIVITY ROW HERE — and re-adding one is a regression, not a
+      // completion. Every `runTool` above already logs its own entity row
+      // stamped `actor: "ai"` (`use-chat-dispatcher`), so an `ai.inlineEdit`
+      // summary sat on top of them carrying the SAME id, the SAME title and
+      // the SAME actor: a strict subset of what the per-entity rows say, in a
+      // 500-entry ring buffer, counted a second time by the AI recap.
+      // ★★ MEASURED before deciding, because "N rows per operation" would have
+      // been an argument the other way: every field diff folds into ONE
+      // `update_*` call, so a realistic inline edit makes N=1 tool calls and
+      // the summary DOUBLED the log for the common case. (The insight-
+      // recommendation summary is kept, because it names the insight — content
+      // that appears in no per-entity row. Redundancy, not row count, is the
+      // criterion.)
+      // ★ It could also be FALSE: `updateTask` returns null on an id a
+      // concurrent writer deleted, without throwing and without logging, while
+      // `applied` still counted the call — so the summary asserted an edit
+      // nothing had made. The kind stays in `ActivityKind` for stored rows.
+      // ★★ THE STRING "NO ACTIVITY ROW HERE" ABOVE IS LOAD-BEARING TEXT, NOT
+      // PROSE. `use-inline-entity-edit.test.tsx` strips comments from this file
+      // and then asserts that phrase is GONE — its anti-vacuity control that the
+      // strip actually ran. Delete or reword the sentinel and that control
+      // passes trivially, so a broken comment-strip would no longer be caught
+      // and the `ai.inlineEdit` ban beside it would be scanning nothing.
       deps.showToast("info", t(deps.lang, "inlineAiEditApplied", d.titleOf(activeItem)));
       cancel();
     } catch {
       if (applied > 0) {
-        deps.logActivity?.("ai.inlineEdit", activeItem.id, d.titleOf(activeItem));
         deps.showToast("error", t(deps.lang, "inlineAiEditPartial"));
         cancel();
       } else {

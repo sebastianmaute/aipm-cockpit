@@ -43,9 +43,52 @@ import { useConfirm } from "./confirm-dialog";
 const ACTIVITY_LOG_COL_WIDTHS = {
   timestamp: 160,
   kind: 110,
+  actor: 110,
   message: 320,
 } as const;
 type ActivityLogCol = keyof typeof ACTIVITY_LOG_COL_WIDTHS;
+
+/**
+ * Actor → i18n key. ★★ READ IT WITH AN OWN-PROPERTY GUARD, NEVER A BARE INDEX.
+ * `ActivityActor` is a closed TS union but `sanitizeActivityEntry` admits ANY
+ * string (the same trade `kind: ActivityKind` already makes), so a stored
+ * `actor: "toString"` reaches this map on a FULLY SANITIZED log, from every
+ * backend. A bare lookup resolves `Function.prototype.toString`, `t()` then
+ * misses it in the dictionary and throws on `undefined.replace` — and a throw
+ * in this panel is not a blank table, it is the full-screen ErrorBoundary page
+ * on every Activity visit until the project data is repaired by hand. Same
+ * reasoning as `activityMessageKey`'s own `hasOwnProperty` check.
+ */
+const ACTOR_KEYS = {
+  user: "activityActorUser",
+  ai: "activityActorAi",
+  integration: "activityActorIntegration",
+} as const;
+
+/** An unknown OR absent actor both render this. Absence is genuinely unknown —
+ *  every entry written before the B2b release has no actor — so it must never
+ *  be defaulted to "user" at read time. */
+const ACTOR_UNKNOWN = "—";
+
+/**
+ * THE single answer to "which known actor is this?" — `null` means the row is
+ * UNATTRIBUTED, covering BOTH shapes that reach here: an ABSENT actor (the
+ * entire pre-0.244.0 trail) and an unknown-but-STRING one, which
+ * `sanitizeActivityEntry` deliberately keeps so a newer release's actor value
+ * is not destroyed by an older client.
+ *
+ * ★★ The rendered cell and the "unattributed" FILTER both read this, so a row
+ * displayed as "—" is exactly a row that filter returns. Writing the filter as
+ * `actor === undefined` instead would be a SECOND predicate that drifts on the
+ * unknown-string case the moment a forward-compatible value shows up: the row
+ * would render "—" and the filter claiming to select unattributed rows would
+ * not return it.
+ */
+function actorKeyOf(actor: unknown): (typeof ACTOR_KEYS)[keyof typeof ACTOR_KEYS] | null {
+  return typeof actor === "string" && Object.prototype.hasOwnProperty.call(ACTOR_KEYS, actor)
+    ? ACTOR_KEYS[actor as keyof typeof ACTOR_KEYS]
+    : null;
+}
 
 interface Props {
   lang: Lang;
@@ -57,6 +100,10 @@ type SortKey = "timestamp" | "kind" | "message";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
+/** ★ `"unknown"` is a REAL member, not a fallback: the whole pre-0.244.0 trail
+ *  is actor-less, so "show me the entries nobody can attribute" is a first-class
+ *  query — and without it every non-`all` option hides every historical row. */
+type ActorFilter = "all" | "user" | "ai" | "integration" | "unknown";
 
 // Escape regex special characters except `*` and `?` (which we substitute
 // for wildcard semantics). Used only by wildcard mode.
@@ -155,6 +202,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   const [searchQuery, setSearchQuery] = useState("");
   const [searchMode, setSearchMode] = useState<SearchMode>("literal");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
+  const [actorFilter, setActorFilter] = useState<ActorFilter>("all");
   const [sortKey, setSortKey] = useState<SortKey>("timestamp");
   const [sortDir, setSortDir] = useState<SortDir>("desc");
 
@@ -190,15 +238,16 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
   // the comparator read `a.entry.timestamp.localeCompare(...)` raw, and since
   // "timestamp" is the DEFAULT sortKey that threw on FIRST RENDER with ≥2
   // entries, no interaction required. Both cells below read the row too.
-  // ★★★ `args` IS THE ONE SHAPE THE LOAD BOUNDARY DOES NOT COVER, so this is
-  // the only guard it has anywhere. `sanitizeActivityEntry` drops an entry whose
-  // `kind`/`timestamp` is not a string and strips a malformed `changes`, but for
-  // args it checks `Array.isArray(e.args)` ALONE and never inspects the
-  // ELEMENTS. `t()` interpolates with `String(a)`, so a stored
-  // `args: [{toString: 1}]` threw "Cannot convert object to primitive value"
-  // (a non-callable own `toString` makes ToPrimitive fall through to
-  // Object.prototype.valueOf, which hands back the object) on a FULLY SANITIZED
-  // log, from every backend — not merely on a bypassed boundary like the rest.
+  // ★★ `args` used to be THE ONE SHAPE THE LOAD BOUNDARY DID NOT COVER, and
+  // this was the only guard against it anywhere. §164 moved the check to
+  // `sanitizeActivityEntry`, which now coerces each non-string/number element
+  // to "" (in place — `args` is positional, so filtering would shift every
+  // later argument into the wrong slot). The local guard below is KEPT as
+  // defence in depth: this panel also renders entries that never passed the
+  // load boundary, and `changeText` is doing the row's own stringification
+  // regardless. ★ Do not read its presence as evidence the boundary is still
+  // missing — it is not, and re-adding a reader-side guard elsewhere on that
+  // belief is the mistake this note exists to stop.
   const enriched = useMemo(
     () =>
       entries.map((e) => {
@@ -206,11 +255,16 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         const timestamp = typeof e.timestamp === "string" ? e.timestamp : "";
         const key = activityMessageKey(kind);
         const args = Array.isArray(e.args) ? e.args.map(changeText) : [];
+        // The own-property guard is load-bearing — see ACTOR_KEYS. Kept on the
+        // row so the filter reads the SAME derivation the cell renders from.
+        const actorKey = actorKeyOf(e.actor);
         return {
           entry: e,
           kind,
           timestamp,
           changes: normalizeChanges(e.changes),
+          actorKey,
+          actorLabel: actorKey ? t(lang, actorKey) : ACTOR_UNKNOWN,
           message: key ? t(lang, key, ...args) : t(lang, "activityUnknownKind", kind),
           group: activityGroupOf(kind as ActivityKind),
         };
@@ -227,6 +281,19 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     let result = enriched;
     if (groupFilter !== "all") {
       result = result.filter((row) => row.group === groupFilter);
+    }
+    // ★ Narrows `result`, never re-reads `enriched` — the two filters COMPOSE.
+    // ★★ Compared against the DERIVED `row.actorKey`, never the raw
+    //   `entry.actor`: that is the same value the cell renders from, so the
+    //   "unattributed" option returns exactly the rows shown as "—" — including
+    //   the unknown-but-string ones the load boundary deliberately keeps. See
+    //   `actorKeyOf`.
+    if (actorFilter !== "all") {
+      result = result.filter((row) =>
+        actorFilter === "unknown"
+          ? row.actorKey === null
+          : row.actorKey === ACTOR_KEYS[actorFilter],
+      );
     }
     if (matcher && !matcher.invalid) {
       result = result.filter(
@@ -246,7 +313,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
       return sortDir === "asc" ? cmp : -cmp;
     });
     return sorted;
-  }, [enriched, groupFilter, matcher, sortKey, sortDir]);
+  }, [enriched, groupFilter, actorFilter, matcher, sortKey, sortDir]);
 
   function toggleSort(key: SortKey) {
     if (sortKey === key) {
@@ -261,6 +328,18 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     if (sortKey !== key) return "";
     return sortDir === "asc" ? " ↑" : " ↓";
   }
+
+  /** ONE source for the actor filter's option text — read both as the visible
+   *  label and (for every radio but "all") as its accessible name, so the two
+   *  cannot drift apart. `optionAriaLabel` is typed to return a `string`, so
+   *  the non-colliding radios must name themselves rather than opt out. */
+  const actorFilterLabels: Record<ActorFilter, string> = {
+    all: t(lang, "activityFilterAll"),
+    user: t(lang, "activityActorUser"),
+    ai: t(lang, "activityActorAi"),
+    integration: t(lang, "activityActorIntegration"),
+    unknown: t(lang, "activityActorUnknown"),
+  };
 
   return (
     <section ref={actRef} className={`print-root ${VIEW_PANE_RESIZABLE_CLASS}`}>
@@ -335,9 +414,14 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
           ]}
           onChange={setSearchMode}
         />
+        {/* ★★ The radiogroup name is `activityGroupFilterLabel` ("Category"),
+            NOT `activityFilterAll`. It used to be the latter, so a screen
+            reader announced "All, radiogroup" and then "All, radio" — a group
+            named after one of its own options, which names nothing, and which
+            collided with the actor group beside it. */}
         <SegmentedControl<GroupFilter>
           value={groupFilter}
-          ariaLabel={t(lang, "activityFilterAll")}
+          ariaLabel={t(lang, "activityGroupFilterLabel")}
           title={t(lang, "activityGroupFilterHint")}
           options={[
             { value: "all", label: t(lang, "activityFilterAll") },
@@ -348,6 +432,40 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
             { value: "general", label: t(lang, "activityFilterGeneral") },
           ]}
           onChange={setGroupFilter}
+        />
+        {/* ★★ ONE toolbar control, never a per-row one. Per-row controls in a
+            list need row-unique accessible names, and NO axe rule can catch a
+            collision — of axe-core 4.12.1's 105 rules, the 69 carrying one of
+            the four tags e2e/a11y.spec.ts requests include none that flags two
+            controls sharing an accessible name. */}
+        {/* ★★ `optionAriaLabel` re-names the "All" radio ONLY, and it is the
+            right lever rather than a second group name: the group filter beside
+            this one has an "All" radio too, and naming the two CONTAINERS
+            differently only disambiguates for AT that announces the container,
+            whereas a per-radio name is distinct in every announcement and in
+            every rotor. That is exactly what the prop is documented for.
+            ★ The visible label stays at the FRONT of the accessible name
+            ("All" ⊆ "All actors"), so WCAG 2.5.3 label-in-name holds — and no
+            axe rule would tell us if it did not (`label-content-name-mismatch`
+            is tagged `experimental`, which axe's default tagExclude drops, and
+            it cannot see a role that lacks name-from-content anyway).
+            ★ The other three radios keep their plain labels — they collide with
+            nothing, and qualifying them would only add noise. */}
+        <SegmentedControl<ActorFilter>
+          value={actorFilter}
+          ariaLabel={t(lang, "activityHeaderActor")}
+          title={t(lang, "activityActorFilterHint")}
+          options={[
+            { value: "all", label: actorFilterLabels.all },
+            { value: "user", label: actorFilterLabels.user },
+            { value: "ai", label: actorFilterLabels.ai },
+            { value: "integration", label: actorFilterLabels.integration },
+            { value: "unknown", label: actorFilterLabels.unknown },
+          ]}
+          optionAriaLabel={(v) =>
+            v === "all" ? t(lang, "activityActorFilterAll") : actorFilterLabels[v]
+          }
+          onChange={setActorFilter}
         />
       </div>
 
@@ -396,6 +514,18 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   </button>
                   <ColumnResizeHandle col="kind" onMouseDown={startResize} />
                 </th>
+                {/* ★★ Deliberately NOT sortable. The three headers around it are
+                    raw <th>s with hand-rolled sort buttons and no `aria-sort` —
+                    a known gap. A fourth sort button deepens that debt; a plain
+                    cell does not. Folding this table into `SortResizeTh` (which
+                    carries aria-sort for free) is a separate follow-up. */}
+                <th
+                  className="relative px-3 py-2 font-medium text-xs uppercase tracking-wide"
+                  style={{ width: colWidths.actor, minWidth: colWidths.actor }}
+                >
+                  {t(lang, "activityHeaderActor")}
+                  <ColumnResizeHandle col="actor" onMouseDown={startResize} />
+                </th>
                 <th
                   className="relative px-3 py-2 font-medium"
                   style={{ width: colWidths.message, minWidth: colWidths.message }}
@@ -414,7 +544,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
               </tr>
             </>}
           >
-              {visible.map(({ entry, kind, timestamp, message, changes }) => (
+              {visible.map(({ entry, kind, timestamp, actorKey, actorLabel, message, changes }) => (
                 <tr key={entry.id} className="align-top">
                   <td className="whitespace-nowrap px-3 py-2 font-mono text-[11px] tabular-nums text-muted-foreground">
                     {/* The COERCED timestamp, not `entry.timestamp` — same rule
@@ -428,6 +558,17 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                     {/* The COERCED kind, not `entry.kind` — a stored object
                         renders as "Objects are not valid as a React child". */}
                     {kind}
+                  </td>
+                  <td className="whitespace-nowrap px-3 py-2 text-[11px] text-muted-foreground">
+                    {/* An unknown OR absent actor is an em dash — absence is
+                        genuinely unknown, never "user". ★ The dash carries the
+                        filter option's own wording as a `title`, so a user who
+                        picked "Unattributed" can see which rows it meant; the
+                        cell's accessible NAME still comes from its content
+                        ("—"), since `title` is the DESCRIPTION. Scoped to the
+                        unknown branch — a titled "You"/"AI" would describe a
+                        row as unattributed when it is not. */}
+                    {actorKey ? actorLabel : <span title={t(lang, "activityActorUnknown")}>{actorLabel}</span>}
                   </td>
                   <td className="px-3 py-2 text-foreground">
                     {message}

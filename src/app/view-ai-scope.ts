@@ -19,6 +19,13 @@ export interface ViewScope {
   toolHints?: string[];
   /** Domain gloss: how to read what the view displays. */
   reading?: string;
+  /** ★★ Names a tool this `reading` is ABOUT, so the formatter can drop the
+   *  gloss when that tool is not offered on this request. A TOOL name, never a
+   *  setting: this registry must never learn what `settings.ai` holds (see the
+   *  OperatingGuide note above — the same "a user preference must not reach
+   *  shipped product data" line). `buildViewScopeBlock` resolves it against the
+   *  tools the wire will actually send. Also pinned by the dead-hint guard. */
+  readingRequiresTool?: string;
 }
 
 /** Total by construction: adding an AppView is a typecheck error until it is
@@ -200,9 +207,85 @@ export const VIEW_AI_SCOPE: Record<AppView, ViewScope> = {
     //    would now talk the model out of the one tool that answers this view's
     //    questions. Same failure the documents entry had; pinned the same way
     //    in view-ai-scope.test.ts.
+    // ★★★ SECOND false claim in this SAME entry, so treat the pattern as the
+    //    hazard rather than either sentence. Its replacement said the log
+    //    records changes made in the app and by its integrations — "not your
+    //    own tool calls" — which was true until the chat dispatcher started
+    //    logging its own entity writes, and false from that commit on. Both
+    //    claims described a CAPABILITY GAP that a later slice closed, and
+    //    nothing in the build can see prose going stale: every sentence here
+    //    asserting what the model or its tools CANNOT do needs a pinned test,
+    //    in both directions, or it will outlive the limitation it describes.
+    // ★★★ THIRD false claim, and THIS ONE THE PINNED TEST CAUGHT — which is the
+    //    only reason it is a footnote rather than a fourth incident. The
+    //    replacement for the second said a result "does not say which, so never
+    //    attribute an entry to anyone", true of `RenderedActivity` while it was
+    //    `{at, summary, detail?}`. Task 7 put `actor` on it, the guard in
+    //    view-ai-scope.test.ts went red on the SAME commit, and the sentence
+    //    moved with the code instead of six weeks later. The caution survives in
+    //    NARROWED form — an entry whose actor is absent is still unattributable,
+    //    and pre-B2b entries all are. Note the shape of all three: each stated a
+    //    LIMITATION, and each was retired by a slice that closed it. A sentence
+    //    here describing something the model or its tools cannot do is a
+    //    liability with a fuse; pin it, in both directions, or do not write it.
     toolHints: ["search_history"],
+    // ★★ THE WHOLE `reading` IS ABOUT `search_history`, so it goes when the tool
+    //    does. `settings.ai.historySearch === false` removes the tool from the
+    //    request (`toolsFor`) while this entry went on telling the model to call
+    //    it — a fifth false claim in this entry, of the mirror-image kind to the
+    //    four below: those described a limitation that a slice REMOVED, this one
+    //    described a capability a SETTING removes. Dropping the gloss wholesale
+    //    is the honest end state, not a loss: with no tool the model cannot see
+    //    an activity entry at all, so an actor caution about results it can
+    //    never receive is noise.
+    readingRequiresTool: "search_history",
+    // ★★★ FOURTH correction to this same sentence, and this one is a NARROWING
+    //    rather than a retraction — read it as the pattern the three notes above
+    //    describe, one turn later. The shipped clause was "(entries written
+    //    before this release have none)", a parenthetical that reads as an
+    //    exhaustive account of WHY an actor can be missing. It was false when
+    //    written for a bigger reason than it is now: at that commit NO
+    //    production call site wrote `actor: "user"` at all, so every human edit
+    //    ever made — including one from five minutes ago — had no actor, and the
+    //    sentence told the model those were pre-release entries.
+    //    The actor-stamping slice fixed the cause. State the arithmetic, never
+    //    a bare number: of 65 actor-less call sites, 62 GAINED an actor, 2 were
+    //    DELETED outright, and 1 SURVIVES — 62 + 2 + 1 = 65. The survivor is
+    //    `task-manager`'s debounced `settings.updated` logger, an effect over
+    //    settings STATE that cannot see its cause.
+    //    ★★ `view-ai-scope.test.ts` says the gap closed "for 64 of 65 sites",
+    //    which is the SAME fact counted differently — 64 = 62 stamped + 2
+    //    deleted, both being "no longer an unattributed writer". A reader
+    //    diffing 62 against 64 has found a difference in what is being counted,
+    //    not a defect; that is why the split is spelled out here.
+    //    ★★★ NONE OF THOSE THREE NUMBERS IS GREPPABLE, so do not "check" them
+    //    with a call-site count. Most of the 62 still SPELL `logActivity(...)`
+    //    and are stamped by the WIRING (the hook hands them a pre-stamped
+    //    `logActivityUser`) — see the "do not read a call site's spelling as
+    //    its actor" note on `useActivityLog`. Grepping the actor-less SPELLING
+    //    across `src/app` returns dozens of hits, and reading that as a
+    //    survivor count contradicts the "ONE survivor" claim for the wrong
+    //    reason. The one production site that genuinely writes no actor is
+    //    found by grepping `task-manager.tsx` alone.
+    //    So "absent ⇒ pre-release" is still not
+    //    exhaustive, and the clause now leads with the PROPERTY
+    //    (unattributable) and demotes the causes to EXAMPLES ("for example").
+    //    ★★★ THE EXAMPLES ARE NOT A LIST, AND A THIRD CAUSE ALREADY EXISTS:
+    //    `sanitizeActivityEntry` KEEPS an unknown-but-string `actor` for
+    //    forward compatibility, but `renderActivityEntry`'s `knownActor` drops
+    //    it from the rendered payload — so an entry a NEWER client stamped
+    //    `actor: "scheduler"` reaches the model with no actor while being
+    //    neither older than the field nor written by a blind path. That is the
+    //    fifth revision of this sentence waiting to happen; state the property,
+    //    never the enumeration.
+    //    ★★ `view-ai-scope.test.ts` pins the SUBSTRING "could not tell who
+    //    acted" (positive) alongside the absence of "written before this
+    //    release", so the example cannot simply be deleted — it has to stay,
+    //    demoted. Keep the wording identical to `chat-tool-defs.ts`'s
+    //    `search_history` description, which carries no such pin and would
+    //    otherwise drift.
     reading:
-      "search_history reads this log. It records changes made in the app and by its integrations — not your own tool calls — and keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
+      "search_history reads this log. It records changes made in the app, by its integrations, and by you — and each result carries an actor saying which. Never attribute an entry whose actor is absent: an absent actor is unattributable (for example it may be older than this field, or written by a path that could not tell who acted), and it is not evidence the user did it. It keeps only the most recent entries, so an empty result can mean the events aged out rather than that nothing happened.",
   },
   "open-points": {
     purpose:

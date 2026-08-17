@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import { TURSO_ONLY_VIEWS } from "./nav-config";
 import { TOOL_DEFS } from "./chat-tool-defs";
+import { renderActivityEntry } from "./activity-prompt";
 
 const TOOL_NAMES = new Set(TOOL_DEFS.map((d) => d.name));
 
@@ -88,6 +89,81 @@ describe("VIEW_AI_SCOPE", () => {
     // named where the model will actually look for it.
     expect(reading).toContain("search_history");
     expect(VIEW_AI_SCOPE.activity.toolHints ?? []).toContain("search_history");
+  });
+
+  // ★★ SECOND false claim in the SAME entry. After the "cannot read this log"
+  // line was retired the replacement said the log records changes made in the
+  // app and by its integrations — "not your own tool calls". True until the
+  // chat dispatcher started logging its own entity writes; false now.
+  it("tells the model the activity log includes its OWN writes", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ Assert the field EXISTS before the negation below — `reading` is
+    // optional on ViewScope, and `expect(undefined).not.toContain(...)` passes
+    // vacuously, so a deleted entry would read as a fixed one.
+    expect(typeof reading).toBe("string");
+    expect(reading).toContain("and by you");
+    // ★ The pre-B2b prose claimed the opposite and was true until the dispatcher
+    //   started logging. Pin the negation so it cannot silently return.
+    expect(reading).not.toContain("not your own tool calls");
+  });
+
+  // ★★★ THE THIRD CLAIM IN THIS ENTRY, PINNED AGAINST THE CODE RATHER THAN
+  // AGAINST ITSELF — AND THE PIN FIRED. This test used to assert the OPPOSITE:
+  // that `reading` said a result "does not say which", and that
+  // renderActivityEntry's output carried NO actor key. Both were true while
+  // `RenderedActivity` was {at, summary, detail?}. Task 7 put `actor` on it and
+  // this test went RED on that commit — which is the whole mechanism working:
+  // the two earlier claims in this entry outlived their limitations for weeks
+  // because nothing tied the prose to the code. The direction is inverted; the
+  // tie is not weakened, and it still fails in BOTH directions — dropping the
+  // actor from the render path fails the third assertion, and reinstating the
+  // retired sentence fails the second.
+  it("promises exactly the attribution search_history delivers", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ Assert the field EXISTS before the negation — `reading` is optional, and
+    //   `expect(undefined).not.toContain(...)` passes vacuously.
+    expect(typeof reading).toBe("string");
+    expect(reading).toContain("actor");
+    // ★ Pin the RETIRED claim so it cannot silently return once the code that
+    //   falsified it is a year old.
+    expect(reading).not.toContain("does not say which");
+
+    const base = {
+      id: "device-nonce-1",
+      timestamp: "2026-08-16T10:00:00.000Z",
+      kind: "task.updated" as const,
+      args: ["Draft the plan"],
+    };
+    const rendered = renderActivityEntry({ ...base, actor: "ai" });
+    // ★ The truthy summary is ANTI-VACUITY, not decoration: a render that threw
+    //   its way to `{}` would satisfy the key check for the wrong reason.
+    expect(rendered.summary).toBeTruthy();
+    expect(rendered.actor).toBe("ai");
+
+    // ★ The other half of the shipped sentence — "entries written before this
+    //   release have none". An actor-less entry must OMIT the key rather than
+    //   default it, or the disclosure is false in the direction that invites a
+    //   wrong attribution.
+    expect(Object.keys(renderActivityEntry(base))).not.toContain("actor");
+  });
+
+  // ★★★ THE FOURTH CLAIM IN THIS ENTRY, and the first one caught while it was
+  // still WRONG rather than after a slice falsified it. The shipped clause read
+  // "(entries written before this release have none)" — presented as the only
+  // reason an actor can be missing. It never was: the branch that wrote it had
+  // ZERO production call sites stamping `"user"`, so a human edit made seconds
+  // ago also had none, and the model was told to read it as historical. The
+  // actor-stamping slice closed that gap for 64 of 65 sites; the survivor is
+  // task-manager's debounced `settings.updated` effect, which cannot see its
+  // own cause. The sentence therefore states the PROPERTY, not a cause.
+  // ★ Fails in BOTH directions: reinstating the enumerated cause fails the
+  //   negation, and dropping the caution entirely fails the positive.
+  it("does not tell the model an absent actor means the entry is old", () => {
+    const reading = VIEW_AI_SCOPE.activity.reading;
+    // ★ `reading` is optional — assert it exists or the negation is vacuous.
+    expect(typeof reading).toBe("string");
+    expect(reading).not.toContain("written before this release");
+    expect(reading).toContain("could not tell who acted");
   });
 
   // ★ Documents is the only entry that hints at write tools at all (the

@@ -34,7 +34,7 @@ describe("KnowledgeLinksFieldGated", () => {
     expect(screen.getByRole("button", { name: /add from sharepoint/i })).toBeInTheDocument();
   });
 
-  it("calls logActivity with doc.linkRemoved when a link is removed inside ActivityLogProvider", () => {
+  it("stamps the USER actor on doc.linkRemoved when a link is removed inside ActivityLogProvider", () => {
     mockM365 = { enabled: true, sharepoint: true };
     const mockLog = vi.fn();
     render(
@@ -47,7 +47,10 @@ describe("KnowledgeLinksFieldGated", () => {
       </ActivityLogProvider>,
     );
     fireEvent.click(screen.getByRole("button", { name: /remove link/i }));
-    expect(mockLog).toHaveBeenCalledWith("doc.linkRemoved", "Spec.docx");
+    // ★ The actor is the first argument now: this field only ever fires from a
+    //   user gesture, and it is one of the few leaves that may name its own
+    //   actor because no AI tool or background writer touches a KnowledgeLink.
+    expect(mockLog).toHaveBeenCalledWith("user", "doc.linkRemoved", "Spec.docx");
   });
 });
 

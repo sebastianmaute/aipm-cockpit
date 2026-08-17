@@ -24,7 +24,7 @@
 //   vanished from the same question — silently, with `truncated: false`.
 import type { ActivityEntry } from "./activity-log";
 import { type RenderedActivity, renderActivityEntry } from "./activity-prompt";
-import { dayInZone, isoInZone } from "./timezone";
+import { isoInZone, makeDayInZone, type TimeZone } from "./timezone";
 
 export const DEFAULT_HISTORY_LIMIT = 50;
 export const MAX_HISTORY_LIMIT = 200;
@@ -101,18 +101,25 @@ export function searchHistory(
   const kinds = q.kinds && q.kinds.length > 0 ? new Set(q.kinds) : null;
   const needle = q.query?.trim().toLowerCase();
   const bounded = !!(q.since || q.until);
+  // ★★ Built ONCE, and only when a bound was asked for — the lazy half is what
+  //   the comment in the loop below is about, but the per-entry `dayInZone`
+  //   rebuilt its Intl formatter every time and cost as much as the recap did.
+  //   Measured on the real module, 500 entries: bounded search 160 ms → ~5 ms.
+  //   ★ `searchHistory` "refusing this cost" was only ever true UNBOUNDED
+  //   (21.9 ms); a bounded search paid exactly what the recap paid.
+  const dayOf = bounded ? makeDayInZone(tz) : null;
 
   const matched: RenderedActivity[] = [];
   for (const entry of entries) {
     if (kinds && !kinds.has(entry.kind)) continue;
-    if (bounded) {
+    if (dayOf) {
       // ★ Only converted when a bound was asked for — an Intl format per entry
       //   over a 500-entry log is not worth paying for an unbounded search.
       //   ★★ An unparseable timestamp has NO day, so it cannot satisfy a bound
       //   and is dropped rather than compared as a raw string: `"whenever"`
       //   sorts above every `2026-…` date, so the old prefix compare silently
       //   admitted it to any `since` range.
-      const day = dayInZone(entry.timestamp, tz);
+      const day = dayOf(entry.timestamp);
       if (day === null) continue;
       if (q.since && day < q.since) continue;
       if (q.until && day > q.until) continue;
@@ -141,4 +148,98 @@ export function searchHistory(
   //   is about to discard.
   const page = matched.slice(0, limit).map((e) => ({ ...e, at: isoInZone(e.at, tz) }));
   return { events: page, truncated: matched.length > limit };
+}
+
+export const RECAP_WINDOW_DAYS = 7;
+
+export interface ActivitySummary {
+  total: number;
+  byActor: { user: number; ai: number; integration: number; unknown: number };
+  /** The newest matching entry's RAW UTC timestamp. ★ Never the offset-bearing
+   *  form — the renderer converts. Comparing offset strings across a DST
+   *  transition orders them wrongly, which is the trap `searchHistory`
+   *  documents at length. */
+  latestAt: string;
+  /** The window this summary actually counted, in days.
+   *  ★★ CARRIED, NOT RE-DERIVED BY THE RENDERER. `days` below is overridable,
+   *  so a renderer importing `RECAP_WINDOW_DAYS` would tell the model "in the
+   *  last 7 days" about a 30-day count the moment any caller passed something
+   *  else. One value, one source — the drift is impossible rather than merely
+   *  unlikely (no caller passes a non-default window today). */
+  days: number;
+}
+
+/**
+ * Counts activity in the trailing `days`-day window ending on `today`,
+ * inclusive of today, split by actor.
+ *
+ * ★ NO CLOCK. `today` and `tz` are parameters, matching `searchHistory` — so
+ *   this is immune to the calendar-rollover class that detonates date-dependent
+ *   tests on the morning the fixture date arrives (open-followups §149).
+ *
+ * ★★ `tz` IS BRANDED, `today` IS NOT, and one side is enough: `TimeZone` is
+ *   assignable to `string`, so a transposed pair fails on the `tz` argument
+ *   (here, the THIRD) while sliding into `today:` silently. Both were plain
+ *   `string` and the swap compiled, silently returning null forever — see the
+ *   `TimeZone` declaration in `timezone.ts` and open-followups §159, which also
+ *   records the inconsistent-pair class the brand does NOT close.
+ *
+ * ★ Returns null rather than a zeroed summary when nothing matched, so the
+ *   caller omits the prompt block entirely and a quiet project costs nothing.
+ */
+export function summarizeRecentActivity(
+  entries: readonly ActivityEntry[],
+  today: string,
+  tz: TimeZone,
+  days: number = RECAP_WINDOW_DAYS,
+): ActivitySummary | null {
+  // ★ `days - 1`: the window INCLUDES today, so 7 days is today plus 6 prior.
+  const start = new Date(`${today}T00:00:00Z`);
+  if (Number.isNaN(start.getTime())) return null;
+  start.setUTCDate(start.getUTCDate() - (days - 1));
+  const since = start.toISOString().slice(0, 10);
+
+  const byActor = { user: 0, ai: 0, integration: 0, unknown: 0 };
+  let total = 0;
+  let latestAt = "";
+
+  // ★★ ONE formatter for the whole scan. This runs inside `getSnapshot()` — so
+  //   on every chat send, every `get_app_state` and every inline AI edit — and
+  //   a per-entry `dayInZone` rebuilt its Intl formatter (twice, counting
+  //   `isValidTimeZone`) each time. Measured on the real module, a full
+  //   500-entry ring buffer in Europe/Berlin: 160 ms → ~2 ms — the same
+  //   measurement `timezone.ts` records beside `makeDayInZone`.
+  //   ★ THE 5 ms AT `searchHistory` ABOVE IS A DIFFERENT FUNCTION, NOT A
+  //   DISAGREEING NUMBER: a bounded search additionally RENDERS every entry
+  //   that survives the structural filters, and that render is the extra ~3 ms.
+  //   The two are SUPPOSED to differ; copying either over the other is how a
+  //   perf note stops being a measurement.
+  //   Output is unchanged by construction; `makeDayInZone` shares `dayInZone`'s
+  //   formatter and formatting code, and the Berlin/New-York boundary tests
+  //   are the guard that it stayed that way.
+  const dayOf = makeDayInZone(tz);
+
+  for (const entry of entries) {
+    // ★★ The entry's day IN THE PROJECT ZONE, not UTC's. In Berlin an edit at
+    //    00:30 local is stamped 22:30Z the previous day; filing it under UTC's
+    //    day disagrees with both the Activity panel and the `Today is …` date
+    //    the model is given.
+    const day = dayOf(entry.timestamp);
+    if (day === null || day < since || day > today) continue;
+    total += 1;
+    // ★ Own-property guard, never a bare index: the sanitizer KEEPS an
+    //   unknown-but-string actor, so `actor: "toString"` reaches here and a
+    //   bare `byActor[actor]` would resolve a Function.prototype method.
+    const actor = entry.actor;
+    if (actor !== undefined && Object.prototype.hasOwnProperty.call(byActor, actor)) {
+      byActor[actor as keyof typeof byActor] += 1;
+    } else {
+      byActor.unknown += 1;
+    }
+    // ★ Seeded `""`, which every real `toISOString()` stamp sorts above — so a
+    //   positive `total` can never carry an empty `latestAt`.
+    if (entry.timestamp > latestAt) latestAt = entry.timestamp;
+  }
+
+  return total === 0 ? null : { total, byActor, latestAt, days };
 }

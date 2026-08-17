@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
 import type { ActivityEntry, ActivityKind } from "./activity-log";
-import { DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT, searchHistory } from "./history-search";
+import { asTimeZoneForTests } from "./timezone";
+import {
+  DEFAULT_HISTORY_LIMIT,
+  MAX_HISTORY_LIMIT,
+  RECAP_WINDOW_DAYS,
+  searchHistory,
+  summarizeRecentActivity,
+} from "./history-search";
 
 const at = (day: string, over: Partial<ActivityEntry> = {}): ActivityEntry => ({
   id: `dev-1-${day}`,
@@ -231,6 +238,124 @@ describe("searchHistory", () => {
         searchHistory([broken], { since: "2026-08-01" }, "Europe/Berlin").events,
       ).toHaveLength(0);
     });
+  });
+});
+
+describe("summarizeRecentActivity", () => {
+  const UTC = asTimeZoneForTests("UTC");
+  const BERLIN = asTimeZoneForTests("Europe/Berlin");
+  const NEW_YORK = asTimeZoneForTests("America/New_York");
+  const at = (iso: string, actor?: string): ActivityEntry =>
+    ({ id: `e-${iso}`, timestamp: iso, kind: "task.updated", args: [1, "x"],
+       ...(actor ? { actor } : {}) }) as ActivityEntry;
+
+  it("returns null for an empty window rather than a zeroed summary", () => {
+    expect(summarizeRecentActivity([], "2026-08-16", UTC)).toBeNull();
+    expect(summarizeRecentActivity([at("2026-01-01T10:00:00.000Z")], "2026-08-16", UTC)).toBeNull();
+  });
+
+  it("tallies by actor, bucketing an absent actor as unknown", () => {
+    const out = summarizeRecentActivity(
+      [at("2026-08-16T10:00:00.000Z", "user"), at("2026-08-15T10:00:00.000Z", "ai"),
+       at("2026-08-14T10:00:00.000Z", "integration"), at("2026-08-13T10:00:00.000Z")],
+      "2026-08-16", UTC,
+    );
+    expect(out).toEqual({
+      total: 4,
+      byActor: { user: 1, ai: 1, integration: 1, unknown: 1 },
+      latestAt: "2026-08-16T10:00:00.000Z",
+      days: RECAP_WINDOW_DAYS,
+    });
+  });
+
+  it("buckets an UNKNOWN-BUT-STRING actor as unknown, never crashing", () => {
+    const out = summarizeRecentActivity([at("2026-08-16T10:00:00.000Z", "reviewer")], "2026-08-16", UTC);
+    expect(out?.byActor.unknown).toBe(1);
+  });
+
+  // ★★ A prototype-method name is the case the own-property guard exists for:
+  //    the sanitizer KEEPS an unknown-but-string actor, so `"toString"` reaches
+  //    the tally and a bare index would resolve a Function and produce NaN.
+  it("buckets a Function.prototype method name as unknown, never NaN", () => {
+    const out = summarizeRecentActivity([at("2026-08-16T10:00:00.000Z", "toString")], "2026-08-16", UTC);
+    expect(out).toEqual({
+      total: 1,
+      byActor: { user: 0, ai: 0, integration: 0, unknown: 1 },
+      latestAt: "2026-08-16T10:00:00.000Z",
+      days: RECAP_WINDOW_DAYS,
+    });
+  });
+
+  // ★★ THE SUMMARY CARRIES ITS OWN WINDOW. `days` is overridable, so a renderer
+  //    that re-stated `RECAP_WINDOW_DAYS` would misstate the window to the model
+  //    the moment any caller passed something else — one value, one source.
+  //    ★ The 30 case is the one a constant-importing renderer cannot pass.
+  it("reports the window it actually counted, default and overridden", () => {
+    const e = [at("2026-08-16T10:00:00.000Z", "user")];
+    expect(summarizeRecentActivity(e, "2026-08-16", UTC)?.days).toBe(RECAP_WINDOW_DAYS);
+    expect(summarizeRecentActivity(e, "2026-08-16", UTC, 30)?.days).toBe(30);
+    expect(summarizeRecentActivity(e, "2026-08-16", UTC, 1)?.days).toBe(1);
+  });
+
+  // ★★★ THE ZONE TEST. A UTC-only fixture CANNOT fail this — the entry sits on
+  //    the boundary and its inclusion flips with the project zone.
+  it("classifies the window bound in the PROJECT zone, not UTC", () => {
+    const boundary = [at("2026-08-09T23:30:00.000Z", "user")];
+    // Berlin (UTC+2): local day is 2026-08-10, the window's first day → IN.
+    expect(summarizeRecentActivity(boundary, "2026-08-16", BERLIN)?.total).toBe(1);
+    // New York (UTC-4): local day is 2026-08-09, one day before → OUT.
+    expect(summarizeRecentActivity(boundary, "2026-08-16", NEW_YORK)).toBeNull();
+  });
+
+  // ★ Pins the EXACT window bound: with `today` 2026-08-16 and the default
+  //   7 days, `since` is 2026-08-10 — today plus six prior days, inclusive of
+  //   both ends. An off-by-one here silently widens or narrows every recap.
+  it("spans exactly `days` days INCLUDING today", () => {
+    const inWindow = at("2026-08-10T00:00:00.000Z", "user");
+    const outOfWindow = at("2026-08-09T23:59:59.000Z", "user");
+    expect(summarizeRecentActivity([inWindow], "2026-08-16", UTC)?.total).toBe(1);
+    expect(summarizeRecentActivity([outOfWindow], "2026-08-16", UTC)).toBeNull();
+    // ★ And a non-default `days` moves the bound with it: 1 day is today alone.
+    expect(summarizeRecentActivity([inWindow], "2026-08-16", UTC, 1)).toBeNull();
+    expect(
+      summarizeRecentActivity([at("2026-08-16T00:00:00.000Z", "user")], "2026-08-16", UTC, 1)?.total,
+    ).toBe(1);
+  });
+
+  // ★ A future-dated entry is outside the window too — the upper bound is
+  //   `today`, not "unbounded above".
+  it("excludes an entry dated after today", () => {
+    expect(
+      summarizeRecentActivity([at("2026-08-17T00:00:00.000Z", "user")], "2026-08-16", UTC),
+    ).toBeNull();
+  });
+
+  it("excludes an unparseable timestamp instead of inflating the total", () => {
+    const out = summarizeRecentActivity(
+      [at("2026-08-16T10:00:00.000Z", "user"), at("whenever", "user")], "2026-08-16", UTC,
+    );
+    expect(out?.total).toBe(1);
+  });
+
+  it("reports latestAt as the RAW UTC stamp, not an offset form", () => {
+    const out = summarizeRecentActivity([at("2026-08-16T10:00:00.000Z", "user")], "2026-08-16", BERLIN);
+    expect(out?.latestAt).toBe("2026-08-16T10:00:00.000Z");
+  });
+
+  // ★ `latestAt` seeds as "" — every real stamp sorts above it, so a positive
+  //   total can never be reported alongside an empty stamp. Pinned because the
+  //   caller renders it and an empty string would render as a broken date.
+  it("never reports an empty latestAt alongside a positive total", () => {
+    const out = summarizeRecentActivity(
+      [at("2026-08-14T10:00:00.000Z", "ai"), at("2026-08-16T10:00:00.000Z", "user")],
+      "2026-08-16", UTC,
+    );
+    expect(out?.total).toBe(2);
+    expect(out?.latestAt).toBe("2026-08-16T10:00:00.000Z");
+  });
+
+  it("returns null for an unparseable today rather than throwing", () => {
+    expect(summarizeRecentActivity([at("2026-08-16T10:00:00.000Z")], "not-a-date", UTC)).toBeNull();
   });
 });
 

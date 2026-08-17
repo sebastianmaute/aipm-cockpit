@@ -10,7 +10,6 @@ import { type ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled } from "./settings-types";
 import { type ToolDispatcher } from "./chat-tools";
-import { type ActivityKind } from "./activity-log";
 import { type Task } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useToastContext } from "./toast-context";
@@ -25,7 +24,6 @@ export interface TasksInlineAiEditDeps {
   settings: Settings;
   isPopout: boolean;
   lang: Lang;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** The live workspace context (structural superset of Workspace). */
   workspaceCtx: WorkspaceCtx;
 }
@@ -46,7 +44,6 @@ export function useTasksInlineAiEdit(deps: TasksInlineAiEditDeps): TasksInlineAi
     apiKey: aiKeyIfEnabled(deps.settings.ai),
     isPopout: deps.isPopout,
     lang: deps.lang,
-    logActivity: deps.logActivity,
     showToast,
     ws: deps.workspaceCtx,
     guides: [],

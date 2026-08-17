@@ -17,6 +17,7 @@ import {
   popUndo,
   takeThrough,
   dropEntry,
+  reversedKindCounts,
   type BeforeImage,
   type UndoMeta,
 } from "./undo-stack";
@@ -474,7 +475,16 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const commitUndo = useCallback((entry: StackEntry, nextStack: readonly StackEntry[], pushRedo: boolean) => {
     const redoRun = entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("undo", entry.meta.count);
+    // ★★ Everything after the count is `(kind, count)` pairs naming what this
+    //    reverses, and the completion trend needs them (§166): a `task.deleted`
+    //    undo puts N rows back, so a walk that subtracted them on the way down
+    //    has to add them again. Without them the row is a bare total and the
+    //    walk cannot tell a restored delete from a reverted edit — so every
+    //    reconstructed day's DENOMINATOR sat N above the truth, which (since
+    //    `percent` is `done/total`) pushed the CURVE down. Say denominator, not
+    //    "the truth": an earlier wording here said the latter and §166 spends a
+    //    paragraph on that exact conflation.
+    logActivity("undo", entry.meta.count, ...reversedKindCounts([entry.meta]));
     showToast("info", t(lang, "undoneX", entry.meta.label));
     setStack(nextStack);
     if (pushRedo) {
@@ -510,7 +520,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("undo", summed);
+    logActivity("undo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
     // ★ A through-undo of ONE entry is the same user-visible act as a plain
     //   undo(), so it says the same thing — "Undone: Edit task X", not the
     //   count-shaped "Undid 1 action(s)". Both keys already exist.
@@ -530,7 +540,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     const inverses = taken.entries.map((e) => ({ meta: e.meta, run: e.run() }));
     const summed = taken.entries.reduce((n, e) => n + e.meta.count, 0);
     const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("redo", summed);
+    logActivity("redo", summed, ...reversedKindCounts(taken.entries.map((e) => e.meta)));
     // Mirror of undoThrough's single-entry fallback above.
     showToast("info", inverses.length === 1
       ? t(lang, "redoneX", inverses[0].meta.label)
@@ -546,7 +556,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     if (!popped) return;
     const undoRun = popped.entry.run();
     const { lang, logActivity, showToast } = depsRef.current;
-    logActivity("redo", popped.entry.meta.count);
+    logActivity("redo", popped.entry.meta.count, ...reversedKindCounts([popped.entry.meta]));
     showToast("info", t(lang, "redoneX", popped.entry.meta.label));
     setRedoStack(popped.rest);
     setStack((s) => pushUndo(s, { meta: popped.entry.meta, run: undoRun }, UNDO_CAP));
