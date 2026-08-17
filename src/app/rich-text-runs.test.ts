@@ -344,19 +344,33 @@ describe("heading, list, alignment and task structure (open-followups §141(b))"
     ]);
   });
 
-  it("DROPS a blockquote's alignment in the shape the editor actually stores", () => {
+  it("DROPS a blockquote's OWN align when its content is wrapped in a paragraph", () => {
     // ★★★ A CHARACTERIZATION OF A GAP, NOT A GUARANTEE — it asserts the defect
     // is still there and is meant to go RED when open-followups §158 is fixed.
-    // The test above covers `<blockquote data-align="right">q<br>r</blockquote>`,
-    // which no editor emits: Tiptap wraps blockquote content in a `<p>`, and
-    // that `<p>` carries no align of its own (`TextAlign` is configured
-    // `types: ["heading", "paragraph"]`, and the align the user set lands on the
-    // paragraph only when the paragraph is the one they aligned). The inner
-    // `<p>` then takes the LINE_TAGS arm with `item === null`, so it opens a
-    // line with its OWN absent align and the blockquote's is gone.
+    //
+    // ★★★ THIS FIXTURE IS IMPORTED/AI HTML, NOT EDITOR OUTPUT, and an earlier
+    // name for this test ("in the shape the editor actually stores") claimed the
+    // opposite — the same hand-authored-fixture-as-real-input class the comment
+    // above warns about, reintroduced by the round that wrote that warning.
+    // `TextAlign` is configured `types: ["heading", "paragraph"]`
+    // (rich-text-editor.tsx), so `data-align` never lands on a `<blockquote>`
+    // any more than it lands on a `<pre>`. The align the user sets inside a
+    // quote lands on the inner `<p>`, and THAT shape is fine — pinned below.
+    // The inner `<p>` takes the LINE_TAGS arm with `item === null`, so it opens
+    // a line with its OWN align; here that is absent and the blockquote's is
+    // gone, which is why only imported markup can reach this.
     expect(
       htmlToRichLines('<blockquote data-align="right"><p>q</p></blockquote>').map(alignOfLine),
     ).toEqual([undefined]);
+  });
+
+  it("keeps the align the EDITOR stores on a quote — on the inner paragraph", () => {
+    // The positive half of the pair above, and the reason §158 is scoped to
+    // imported HTML: this is what Tiptap actually writes when a user aligns
+    // text inside a blockquote, and the alignment survives to the renderer.
+    expect(
+      htmlToRichLines('<blockquote><p data-align="right">q</p></blockquote>').map(alignOfLine),
+    ).toEqual(["right"]);
   });
 
   it("keeps the alignment across a <br> nested inside an inline mark", () => {

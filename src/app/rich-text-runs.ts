@@ -128,8 +128,15 @@ type BlockKind = "p" | "blockquote" | "pre";
  *
  *  ★★ So an `align` of `undefined` reaching here means "resolved to nothing",
  *  never "not asked" — a caller that has an item to inherit from has already
- *  consulted it. Do NOT re-add a `?? item.align` fallback inside this helper:
- *  it would make the first bullet unexpressible. */
+ *  consulted it. Keep the resolution in the CALLERS rather than adding a
+ *  `?? item.align` fallback here: every path that reaches this helper with a
+ *  non-null `item` already hands in an align at least as defined as
+ *  `item.align` (the LI arm seeds `walk(…, item, item.align)`; the transparent
+ *  arm widens it `host.align ?? align`; LINE_TAGS resolves `own ?? item.align`;
+ *  the mark arm passes it through), so such a fallback would be a silent no-op
+ *  that reads like a safety net. An earlier version of this note claimed it
+ *  "would make the first bullet unexpressible" — it would not, and a false
+ *  reason is worse than none. */
 function continuationOf(item: LiLine, align: Align | undefined): LiLine {
   return { ...item, runs: [], align, continuation: true };
 }
@@ -403,9 +410,13 @@ export function htmlToRichLines(html: string): RichLine[] {
    *  item's own line?"), while `item` travels as far as the item's inherited
    *  kind does ("does a line opened here CONTINUE the item?") — through the
    *  transparent paragraph, through a `<span>`, through a second `<p>`. Every
-   *  element that imposes a kind of its OWN — `<blockquote>`, `<pre>`, `<hN>`,
-   *  and a nested `<ul>`/`<ol>` — clears it to null, which is what stops a
-   *  nested item or a quoted line from inheriting the outer item's geometry.
+   *  element that opens a STRUCTURE of its own — `<blockquote>`, `<pre>`,
+   *  `<hN>`, and a nested `<ul>`/`<ol>` — clears it to null, which is what stops
+   *  a nested item or a quoted line from inheriting the outer item's geometry.
+   *  ★★ "imposes a kind of its OWN" is what this said, and it is true of only
+   *  ONE of the four: `grep -n "walk(el, marks, .*null" ` shows the nested arm
+   *  passing a NEW kind while the UL/OL and heading arms both forward the
+   *  INHERITED one. The shared property is clearing `item`, not the kind.
    *
    *  ★★ `align` is the alignment IN FORCE — the one declared by the block whose
    *  children these are. It travels for the same reason `kind` does: a `<br>`
@@ -624,6 +635,10 @@ export function htmlToRichLines(html: string): RichLine[] {
         // oversight: the head's paragraph is the item's OWN text, so the li's
         // outer declaration wins over it, while a second paragraph is a new
         // declaration of its own. Both directions are pinned.
+        // ★★ SO DO NOT CARRY THE BROWSER ARGUMENT ABOVE ACROSS TO THAT ARM. It
+        // justifies only the ABSENT-align case here; applied to the resolution
+        // ORDER it argues the opposite of what the head arm does, since a
+        // browser would let an inner `<p data-align>` beat the outer `<li>`.
         const lineAlign = alignOf(el);
         const resolved = lineAlign ?? item?.align;
         startLine(
