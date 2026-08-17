@@ -42,6 +42,7 @@ longer carries its own changelog comment.
   under the file-size ratchet, the timezone a date is resolved in is now a distinct type so a date
   and a timezone cannot be passed in each other's place, and the recap's date formatting is built
   once instead of per entry — an activity scan of 500 entries went from roughly 160 ms to 2 ms.
+
 ## [0.243.0] - 2026-08-17 "Aaronovitch"
 
 ### Added

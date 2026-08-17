@@ -10628,42 +10628,48 @@ slice, not a patch, which is why this is an entry rather than a commit.
 
 ★★★ **§159–§166 WERE RENUMBERED ON THE WAY IN, AND THE COLLISION IS RESOLVED.** This
 branch and `feat/rich-text-export-fidelity-s2` both opened entries off a merge base whose register
-ended at §152. That branch merged first and took §153–§158, so this branch's eight entries shifted
-by six: §153–§160 → §159–§166. ★★ The shift ran **descending** (160 first, 153 last) because the
-source and target ranges OVERLAP — a low-to-high pass re-shifts values it has just written, and
-lands silently on somebody else's entry rather than erroring.
+ended at §152. That branch merged first and took §153–§158, so this branch's entries shifted by
+six: §153–§160 —> §159–§166. ★★ Run the shift **descending**, because the source and target ranges
+OVERLAP — a low-to-high pass re-shifts values it has just written, producing DUPLICATES:
+`node -e 'let s=[153,154,155,156,157,158,159,160];for(const v of s.slice())s=s.map(x=>x===v?x+6:x);console.log(s.join(","))'`
+—> `165,166,161,162,163,164,165,166`. ★ Note what that is and is NOT: the duplicates land inside
+this branch's OWN range and never reach main's §153–§158, so the damage is a colliding register,
+not a reference silently retargeted at a stranger's entry.
 
-★★★ **THE BANNER THAT USED TO STAND HERE WAS RENUMBERED BY THE VERY SWEEP IT DESCRIBED, and that
-is the durable lesson.** It sized the collision in § numbers, so a mechanical `§NNN` sweep rewrote
-its own figures: it emerged claiming this branch held "§161–§166" and the other one "§159–§164",
-describing a collision that no longer existed, in the one paragraph whose job was to size the work.
-Both readings were true when written. **Text that quantifies a renumber cannot survive that
-renumber** — write the outcome, not the plan, and re-read any surviving banner AFTER the sweep.
+★★★ **THE BANNER THAT USED TO STAND HERE WAS RENUMBERED BY THE VERY SWEEP IT DESCRIBED.** It sized
+the collision in § numbers, so a mechanical `§NNN` sweep rewrote its own figures and it emerged
+claiming this branch held "§161–§166" and the other one "§159–§164" — a collision that no longer
+existed, in the one paragraph whose job was to size the work. **Text that quantifies a renumber
+cannot survive that renumber.** Write the outcome, not the plan, and re-read any surviving banner
+AFTER the sweep. ★★ Its predecessor was ALSO wrong, and in the other direction: it headlined six
+entries (`§155–§160`) while the branch held eight. Verify:
+`git show 3b6adfc0:docs/open-followups.md | grep -oE "§1[0-9]+–§1[0-9]+ CARRY PROVISIONAL"`
+★★★ So do NOT read this as "each was true when written". Two successive versions of this banner
+carried wrong numbers — one staled by the sweep, one wrong on arrival — and a cold review of the
+REPLACEMENT text is what found both.
 
 ★★ **NOTHING GATES ANY OF THIS.** The register has no uniqueness check, and `docs:claims:check`
 range-checks `path:LINE` citations only — it cannot see a § reference at all, so a missed one stays
 green while pointing at a stranger's entry. The references that matter most live in SOURCE COMMENTS,
 which no doc gate reads; a title grep finds none of them, because a comment cites `§159`, never the
-heading text. This sweep moved 35 references inside the register and 80 across 28 other files.
+heading text.
 
 ★★★ **DO NOT USE A NUMBER PREFIX FOR THAT SWEEP.** `git grep -n "§15"` is wrong in BOTH directions
 at once: it OVER-matches (`file-picker-button.tsx` cites the unrelated §15, a decoy the range form
-excludes) and it UNDER-matches the moment a renumber pushes past §199. Use a bounded RANGE for
-today's numbers and the three-digit class for the durable form:
+excludes) and it goes BLIND at `§160`, because a prefix cannot match a longer number — so after a
+renumber past it the sweep returns the pre-renumber hits and nothing else, reading as "done". Use a
+bounded RANGE for today's numbers and the three-digit class for the durable form:
 
 ```bash
 git grep -nE "§1[5-6][0-9]" -- src scripts e2e   # the moving numbers, no decoy
 git grep -nE "§1[0-9][0-9]" -- src scripts e2e   # survives any renumber inside §100–§199
 ```
 
-★★ **COUNT OCCURRENCES, NOT LINES**, when sizing the work — `git grep -n` collapses a line carrying
+★★ **COUNT OCCURRENCES, NOT LINES** when sizing the work — `git grep -n` collapses a line carrying
 two citations into one hit. Use
 `git grep -ohE "§1[0-9][0-9]" -- src scripts e2e | sort | uniq -c | sort -rn` for the per-section
-breakdown; it is what tells you which sections actually dominate the sweep. ★★★ **RUN IT — do not
-read a count from this paragraph.** Every figure the old banner carried was measured, and every one
-of them was wrong by the time it was read: one pair was taken against the merge base while the
-branch's own uncommitted work added 38 more citations to the same files, sizing a fifty-hit sweep as
-three.
+breakdown. ★★★ **RUN IT — no count is quoted here, deliberately.** Every figure the two previous
+banners carried was measured, and every one of them was wrong by the time it was read.
 
 ## 161. `latestAt` picks the "latest" activity entry by raw lexicographic string compare
 
