@@ -98,7 +98,15 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
         primaryCount: meta.primaryCount ?? (deleted.length + editedBefore.length),
         parts: [meta.tasksPart, budgetsPart],
         name,
-        entityKey: "budget",
+        // ★ "task", NOT "budget": this branch is reachable only from a caller
+        // that supplies a `tasksPart`, and the one that does
+        // (`use-bulk-operations.ts`) passes its TASK count as `primaryCount`.
+        // Naming the entity "budget" would label a task count with the wrong
+        // noun ("Bulk edit 3 budget buckets" for 3 edited tasks). The
+        // bucket-count fallback beside it applies only if a future caller
+        // supplies a tasksPart WITHOUT a primaryCount — if one ever does, the
+        // entity has to become a parameter rather than this literal.
+        entityKey: "task",
       });
     } else if (budgetsPart !== null) {
       capture<BudgetBucket>({
