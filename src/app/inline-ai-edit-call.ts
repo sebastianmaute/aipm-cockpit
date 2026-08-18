@@ -83,6 +83,17 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // delete tools — a searching model therefore yields an EMPTY plan, i.e. an
   // edit that silently does nothing. An instruction to call it is an
   // instruction to fail.
+  // ★★★ AND THE CHAT POINTER, WHICH IS THE SAME SPREAD BUG A THIRD TIME:
+  // `chatPointer` joined the snapshot in a later slice and rode through a strip
+  // list naming only the two blocks known when that list was written. Milder
+  // than the recap and still pure loss — `buildChatPointerBlock` filters its
+  // closing "Use search_chats to read them." against the tools this request
+  // carries, so `NO_RECALL_TOOLS` already suppresses the instruction, and what
+  // survives is "There are N earlier conversations in this project; most
+  // recent: …": tokens naming conversations the model is then given no tool to
+  // open. A pointer at unreachable content is a distraction, not context.
+  // ★ A FOURTH ambient block will ride this same spread — extend the list, do
+  // not trust it.
   // ★★★ AND THE TOOL ITSELF IS DROPPED, unconditionally — `NO_RECALL_TOOLS`,
   // not `args`. Suppressing the sentence while still OFFERING the
   // tool leaves the trap armed for any instruction that invites a look
@@ -106,7 +117,12 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   const system: SystemBlock[] = [
     ...buildSystemPrompt(
       args.lang,
-      { ...args.snapshot, viewDigest: undefined, activitySummary: undefined },
+      {
+        ...args.snapshot,
+        viewDigest: undefined,
+        activitySummary: undefined,
+        chatPointer: undefined,
+      },
       args.guides,
       args.groundInGuides,
       NO_RECALL_TOOLS,
