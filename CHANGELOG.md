@@ -42,6 +42,42 @@ longer carries its own changelog comment.
   cached hours stayed unattributed, which read as the link being broken. There is now a Refresh &
   re-apply action that re-fetches and re-attributes in one step, and the Budget page shows a
   notice when fetched hours are sitting unapplied or could not be attributed to anyone.
+
+## [0.244.0] - 2026-08-17 "Waldrop"
+
+### Added
+
+- **Every activity entry now records who made the change.** An entry carries an actor — you, the
+  assistant, or an integration such as Jira or the calendar sync — so the history says not just what
+  happened but who did it. The Activity view shows the actor in its own column and can be filtered by
+  it, and `search_history` returns the actor with each result, so the assistant can tell its own past
+  edits apart from yours.
+- **The assistant's own edits are recorded at last.** Its entity writers previously logged *nothing*,
+  so every change it made to a task, milestone, RAID item, change or resource was invisible to the
+  audit trail. They now write the same entry kinds a manual edit does, marked as the assistant's.
+- **The assistant knows what has been going on.** A one-sentence recap of the last seven days of
+  activity, counted by actor, is included with each question you ask, so it does not have to be told
+  what changed recently. The recap is assembled fresh for every turn and deliberately kept out of the
+  cached part of the prompt.
+- **Two switches in Settings.** History search and the activity recap can each be turned off; both
+  are on unless you turn them off. With history search off the tool is removed entirely rather than
+  merely discouraged, and nothing in the prompt offers it.
+- **A `bulk.delete` entry kind**, so an irreversible mass delete is no longer recorded as a bulk edit.
+
+### Notes
+
+- Entries written before this release carry **no** actor, and absence is deliberately not read as
+  "you" — their author is genuinely unknown and is shown as unattributed rather than guessed at.
+- The completion trend counts task creations and deletions, so tasks the assistant creates now move
+  that trend. This is intended, but it is a change to an existing derived metric.
+
+### Changed
+
+- `chat-tool-summaries.ts` and `chat-task-patch.ts` were split out of the chat dispatcher to stay
+  under the file-size ratchet, the timezone a date is resolved in is now a distinct type so a date
+  and a timezone cannot be passed in each other's place, and the recap's date formatting is built
+  once instead of per entry — an activity scan of 500 entries went from roughly 160 ms to 2 ms.
+
 ## [0.243.0] - 2026-08-17 "Aaronovitch"
 
 ### Added

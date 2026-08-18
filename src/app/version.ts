@@ -312,5 +312,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightHistorySearch",
   "versionHighlightCsvQuoting",
   "versionHighlightRichExport",
+  "versionHighlightActorAttribution",
   "versionHighlightChangeNotesTimelog",
 ] as const;

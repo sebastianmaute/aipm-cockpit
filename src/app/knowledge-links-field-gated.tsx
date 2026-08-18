@@ -23,10 +23,15 @@ export function KnowledgeLinksFieldGated({ value, onChange, lang }: KnowledgeLin
   const m365Enabled = m365?.enabled ?? false;
   const spEnabled = m365Enabled && (m365?.sharepoint ?? false);
   const auth = useMsAuth(m365Enabled);
-  const logActivity = useActivityLogger();
-  const onLog = logActivity
+  const logActivityAs = useActivityLogger();
+  // ★ `"user"` is safe to hard-code here in a way it is NOT at most entity
+  //   call sites: this field only ever fires from the ✕ / Add buttons inside an
+  //   entity editor, and no AI tool or background writer touches `KnowledgeLink`
+  //   at all. A leaf may name its actor when it knows it — see the rule on
+  //   `useActivityLog`.
+  const onLog = logActivityAs
     ? (action: "added" | "removed", name: string) =>
-        logActivity(action === "added" ? "doc.linkAdded" : "doc.linkRemoved", name)
+        logActivityAs("user", action === "added" ? "doc.linkAdded" : "doc.linkRemoved", name)
     : undefined;
 
   if (!spEnabled) {

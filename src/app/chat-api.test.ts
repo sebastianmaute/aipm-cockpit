@@ -1,10 +1,158 @@
 import { describe, it, expect } from "vitest";
+import { asTimeZoneForTests } from "./timezone";
 import {
+  buildSystemPrompt,
   closeDanglingToolUses,
   maxOutputTokensFor,
+  toolsFor,
+  toolNamesFor,
   type ApiMessage,
   type ToolResultBlock,
 } from "./chat-api";
+import { historySearchEnabled } from "./settings-types";
+import type { ToolDispatcher } from "./chat-tools";
+import { RECAP_WINDOW_DAYS } from "./history-search";
+
+type Snapshot = ReturnType<ToolDispatcher["getSnapshot"]>;
+
+const snapshotFixture = (over: Partial<Snapshot> = {}): Snapshot => ({
+  today: "2026-08-16",
+  language: "en-US",
+  holidayCountries: [],
+  storageKind: "browser",
+  taskCount: 3,
+  mode: "advanced",
+  enabledModules: [],
+  currentView: "chat",
+  timezone: asTimeZoneForTests("UTC"),
+  ...over,
+});
+
+describe("buildSystemPrompt — the activity recap block", () => {
+  const summary: NonNullable<Snapshot["activitySummary"]> = {
+    total: 3,
+    byActor: { user: 3, ai: 0, integration: 0, unknown: 0 },
+    latestAt: "2026-08-16T09:00:00.000Z",
+    days: RECAP_WINDOW_DAYS,
+  };
+
+  // ★★★ THE PLACEMENT TEST. Asserting the text appears "somewhere in the
+  //    prompt" PASSES with the block in the CACHED prefix — which is the
+  //    defect, since activity changes every turn and would invalidate the
+  //    prompt cache on every message. Assert the BLOCK INDEX.
+  it("puts the activity recap in the VOLATILE block, never the cached prefix", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: summary }), [], false,undefined);
+    expect(blocks[0].text).not.toContain("Recent project activity");
+    expect(blocks[1].text).toContain("Recent project activity");
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
+  it("omits the recap entirely when there is no summary", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: undefined }), [], false,undefined);
+    expect(blocks[1].text).not.toContain("Recent project activity");
+  });
+
+  // ★ ANTI-VACUITY for the zone hand-off: 23:30Z on the 16th is 01:30 on the
+  //   17th in Berlin, so a wiring that passed a hardcoded "UTC" — or reached
+  //   for a clock — would still say 2026-08-16 here.
+  it("renders latestAt in the SNAPSHOT's zone", () => {
+    const blocks = buildSystemPrompt(
+      "en-US",
+      snapshotFixture({
+        timezone: asTimeZoneForTests("Europe/Berlin"),
+        activitySummary: { ...summary, latestAt: "2026-08-16T23:30:00.000Z" },
+      }),
+      [],
+      false,
+      undefined,
+    );
+    expect(blocks[1].text).toContain("2026-08-17");
+  });
+});
+
+// ★★★ THE WHOLE-PROMPT INVARIANT, and the reason it is stated over the ASSEMBLED
+// text rather than per-surface: `historySearch: false` correctly dropped
+// `search_history` from the tools array while THREE separate surfaces went on
+// instructing the model to call it — the recap sentence, Activity's `reading`,
+// and its `toolHints` line. Each had its own unit test and each was green. Only
+// a test that reads what actually ships can catch the fourth surface someone
+// adds next, so assert over the concatenated blocks and never narrow this to a
+// single builder.
+describe("buildSystemPrompt never advertises a tool the request will not carry", () => {
+  // ★ TWO non-zero buckets, deliberately: `buildActivityRecapBlock` omits the
+  //   breakdown when only one bucket is populated (it would restate the total),
+  //   so a single-actor fixture cannot show that the actor split survives the
+  //   switch — which is the assertion that matters below.
+  const summary: NonNullable<Snapshot["activitySummary"]> = {
+    total: 3,
+    byActor: { user: 2, ai: 1, integration: 0, unknown: 0 },
+    latestAt: "2026-08-16T09:00:00.000Z",
+    days: RECAP_WINDOW_DAYS,
+  };
+  // The Activity view is where all three surfaces coincide, so it is the one
+  // that can fail for three different reasons.
+  const onActivity = (historySearch: boolean | undefined) =>
+    buildSystemPrompt(
+      "en-US",
+      snapshotFixture({ currentView: "activity", activitySummary: summary }),
+      [],
+      false,
+      historySearch,
+    )
+      .map((b) => b.text)
+      .join("\n");
+
+  // ★★ THE POSITIVE CONTROL, and it carries this pair. Without it the negative
+  // below passes against a prompt that lost the recap, the reading and the hint
+  // line outright — i.e. against a regression, not a fix. All three phrasings
+  // are asserted separately so a partial suppression cannot hide.
+  it("names search_history on all three surfaces while the tool is offered", () => {
+    const text = onActivity(undefined);
+    expect(text).toContain("Use search_history to read them.");
+    expect(text).toContain("search_history reads this log");
+    expect(text).toContain("Relevant tools here: search_history.");
+  });
+
+  it("names it nowhere at all once the kill switch is thrown", () => {
+    expect(onActivity(false)).not.toContain("search_history");
+  });
+
+  // ★★ `true` and `undefined` are the two LIVE on-states (`sanitizeAiConfig`
+  //    stores only an explicit false), so an implementation that tested
+  //    truthiness would suppress the tool for every user who never opened the
+  //    setting — the default-on-by-absence trap this repo hits repeatedly.
+  it("treats an explicit true and an absent setting identically", () => {
+    expect(onActivity(true)).toBe(onActivity(undefined));
+    expect(onActivity(true)).toContain("search_history");
+  });
+
+  // ★★★ SUPPRESSION, NOT AMPUTATION — the counts are the part worth keeping.
+  // A "fix" that emitted "" for the whole recap satisfies the negative above
+  // while deleting the actor split, which is what stops the model reading its
+  // own edits back as new user information.
+  it("keeps the recap's counts and actor split without the tool", () => {
+    const text = onActivity(false);
+    expect(text).toContain("Recent project activity: 3 changes");
+    expect(text).toContain("2 by the user");
+    expect(text).toContain("1 by the AI assistant");
+  });
+
+  // ★ The invariant is about ONE tool's advertisement, not about muting the
+  //   prompt. Every other view's hints must survive the switch.
+  it("leaves the tools every other view names untouched", () => {
+    const text = buildSystemPrompt(
+      "en-US",
+      snapshotFixture({ currentView: "open-points" }),
+      [],
+      false,
+      false,
+    )
+      .map((b) => b.text)
+      .join("\n");
+    expect(text).toContain("Relevant tools here: list_tasks, get_task.");
+  });
+});
 
 describe("maxOutputTokensFor", () => {
   it("floors the legacy Claude 3.0 trio at 4096 (their hard cap)", () => {
@@ -95,5 +243,68 @@ describe("closeDanglingToolUses", () => {
       { role: "assistant", content: [{ type: "text", text: "hello" }] },
     ];
     expect(closeDanglingToolUses(input)).toEqual(input);
+  });
+});
+
+describe("tool list gating", () => {
+  it("includes search_history by default", () => {
+    expect(toolsFor(undefined).map((t) => t.name)).toContain("search_history");
+  });
+
+  it("removes search_history when the toggle is off", () => {
+    // ★ REMOVED, not refused: a refused tool still costs its schema on every
+    //   turn, which is most of what the toggle is for.
+    expect(toolsFor(false).map((t) => t.name)).not.toContain("search_history");
+  });
+
+  it("drops exactly one tool and keeps every other name", () => {
+    // ★ CONTROL for the test above: `not.toContain` also passes on an empty
+    //   array, so pin that the filter removed one entry rather than gutting the
+    //   list.
+    const on = toolsFor(undefined).map((t) => t.name);
+    const off = toolsFor(false).map((t) => t.name);
+    expect(off).toHaveLength(on.length - 1);
+    expect(off).toEqual(on.filter((n) => n !== "search_history"));
+  });
+
+  // ★★ The cache breakpoint rides the LAST element. Removing a tool must not
+  //    leave the marker on an element that is no longer last, or the tools
+  //    segment stops caching.
+  it("keeps the cache breakpoint on the last element of BOTH variants", () => {
+    for (const variant of [toolsFor(undefined), toolsFor(false)]) {
+      expect(variant[variant.length - 1]).toHaveProperty("cache_control", { type: "ephemeral" });
+      // `in` rather than `t.cache_control === undefined`: the unmarked entries
+      // have no such key on their type at all, so the property read is a tsc
+      // error even though vitest would run it.
+      expect(variant.slice(0, -1).every((t) => !("cache_control" in t))).toBe(true);
+    }
+  });
+
+  // ★ Referential stability: the arrays are module-level, not rebuilt per call.
+  it("returns a STABLE reference for the same setting", () => {
+    expect(toolsFor(undefined)).toBe(toolsFor(true));
+    expect(toolsFor(false)).toBe(toolsFor(false));
+  });
+
+  // ★★★ §162 DRIFT GUARD. The kill switch is now enforced in TWO places —
+  //   here (what the model is offered) and `runTool`'s `case "search_history"`
+  //   (what the executor will serve). Defence in depth is only worth having
+  //   while both layers agree, and two hand-spelled `=== false` checks are one
+  //   config slip from a switch that advertises OFF and serves ON. Both read
+  //   `historySearchEnabled`, and this pins that the advertisement follows it
+  //   for every input shape the sanitizer can produce — including the garbage
+  //   ones, where "only an explicit false disables" is the whole contract.
+  it("advertises exactly what historySearchEnabled says, for every input shape", () => {
+    const inputs = [undefined, true, false, null, 0, 1, "", "no", NaN];
+    for (const raw of inputs) {
+      const v = raw as boolean | undefined;
+      const enabled = historySearchEnabled(v);
+      expect(toolsFor(v).map((t) => t.name).includes("search_history")).toBe(enabled);
+      expect(toolNamesFor(v).has("search_history")).toBe(enabled);
+    }
+    // The control: the set really does split, so the loop is not asserting
+    // `true === true` nine times over.
+    expect(historySearchEnabled(false)).toBe(false);
+    expect(historySearchEnabled(undefined)).toBe(true);
   });
 });

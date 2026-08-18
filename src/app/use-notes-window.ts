@@ -95,29 +95,31 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
   /** ONE write path for all three registers and all three operations. Each
    *  setter is FUNCTIONAL (a note change is a single-item entity edit; the
    *  functional form avoids the stale-closure trap), stamps `localModifiedAt`,
-   *  and logs the entity's own `*.updated` activity kind. */
+   *  and logs the entity's own `*.updated` activity kind. `activityArgs` are
+   *  the message arguments AFTER the id; their COUNT differs per kind, so it is
+   *  decided in `noteHandlersFor` and merely forwarded here. */
   const commitNoteLog = (
     kind: NotesTargetKind,
     id: number,
     ts: string,
-    entityName: string,
+    activityArgs: readonly (string | number)[],
     next: (log: readonly NoteLogEntry[]) => NoteLogEntry[],
   ) => {
     if (kind === "task") {
       setTasks((prev) =>
         prev.map((tk) => (tk.id === id ? { ...tk, noteLog: next(tk.noteLog ?? []), localModifiedAt: ts } : tk)),
       );
-      logActivity("task.updated", id, entityName);
+      logActivity("task.updated", id, ...activityArgs);
     } else if (kind === "raid") {
       setRaid((prev) =>
         prev.map((r) => (r.id === id ? { ...r, noteLog: next(r.noteLog ?? []), localModifiedAt: ts } : r)),
       );
-      logActivity("raid.updated", id, entityName);
+      logActivity("raid.updated", id, ...activityArgs);
     } else {
       setChanges((prev) =>
         prev.map((c) => (c.id === id ? { ...c, noteLog: next(c.noteLog ?? []), localModifiedAt: ts } : c)),
       );
-      logActivity("change.updated", id, entityName);
+      logActivity("change.updated", id, ...activityArgs);
     }
   };
 
@@ -127,23 +129,42 @@ export function useNotesWindow(deps: NotesWindowDeps): UseNotesWindowResult {
     // Resolve the display name from the LIVE closure array (event-handler scope),
     // never from inside the setState updater — reading an updater-assigned var
     // after the setter is the documented stale-read landmine.
-    const entityName = nameOf(kind, id);
+    // ★★★ THE RAID ROW IS LOOKED UP ONCE FOR *TWO* FIELDS, AND THE SECOND ONE IS
+    //   NOT OPTIONAL. `activityRaidUpdated` is "RAID #{0} updated ({1}): {2}" —
+    //   THREE placeholders — and `logActivity` ends in `...args`, so the arity is
+    //   untyped and a two-arg call compiles. It shipped: the title landed in the
+    //   CATEGORY slot and a literal "{2}" was rendered to the user in the
+    //   Activity panel and, since search_history, fed to the model as well. The
+    //   canonical order is (id, category, title) — see `use-resource-planner.ts`,
+    //   which is where the user-side raid rows are written.
+    const raidRow = kind === "raid" ? raid.find((r) => r.id === id) : undefined;
+    const entityName = kind === "raid" ? raidRow?.title ?? "" : nameOf(kind, id);
+    // ★ `?? ""` mirrors `entityName`'s own fallback rather than dropping the
+    //   argument: a row that vanished between opening the notes window and the
+    //   write must still log THREE args, or it re-creates the "{2}" defect.
+    const raidCategory = raidRow?.category ?? "";
+    // ★ The arity lives HERE, in the one place that already knows the kind, so
+    //   `commitNoteLog` cannot re-create the defect for a fourth register:
+    //   `activityTaskUpdated`/`activityChangeUpdated` are "…: {1}" (ONE arg after
+    //   the id), `activityRaidUpdated` is "({1}): {2}" (TWO).
+    const activityArgs: readonly (string | number)[] =
+      kind === "raid" ? [raidCategory, entityName] : [entityName];
     return {
       onAdd: (html: string, text: string) => {
         const ts = new Date().toISOString();
-        commitNoteLog(kind, id, ts, entityName, (log) =>
+        commitNoteLog(kind, id, ts, activityArgs, (log) =>
           addNote(log, { html, text, timestamp: ts, self: notesSelf, authorName: notesAuthorName }),
         );
       },
       onEdit: (noteId: number, html: string, text: string) => {
         const ts = new Date().toISOString();
-        commitNoteLog(kind, id, ts, entityName, (log) =>
+        commitNoteLog(kind, id, ts, activityArgs, (log) =>
           editNote(log, noteId, { html, text, editedAt: ts, self: notesSelf, authorName: notesAuthorName }),
         );
       },
       onDelete: (noteId: number) => {
         const ts = new Date().toISOString();
-        commitNoteLog(kind, id, ts, entityName, (log) => deleteNote(log, noteId));
+        commitNoteLog(kind, id, ts, activityArgs, (log) => deleteNote(log, noteId));
       },
     };
   };

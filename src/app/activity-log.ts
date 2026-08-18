@@ -28,6 +28,11 @@ export type ActivityKind =
   | "raid.statusChanged"
   | "raid.autoIssue"
   | "bulk.edit"
+  // ★★ SEPARATE FROM `bulk.edit` ON PURPOSE. A mass delete is irreversible on
+  // the chat path (tool writes take no undo capture), so the log is the ONLY
+  // account of it — describing it as an "edit" understates what happened. Same
+  // `bulk.` prefix, so `activityGroupOf` files it under the same group.
+  | "bulk.delete"
   | "bulk.inquiries"
   | "jira.sync"
   | "absence.created"
@@ -64,6 +69,19 @@ export type ActivityKind =
   | "doc.linkRemoved"
   | "history.restore"
   | "calendar.autoPulled"
+  /** ★★★ NO LONGER WRITTEN — historical only, and it must STAY in this union.
+   *  `use-inline-entity-edit` wrote one of these ON TOP of the per-`runTool`
+   *  row the chat dispatcher already logs for the same entity, with the same
+   *  id, the same title and the same `actor: "ai"`. Dropping the redundant
+   *  summary left the change fully recorded and removed a row that could be
+   *  FALSE: `updateTask` silently `return null`s on an id a concurrent writer
+   *  deleted, while the caller still counted the call as applied, so the
+   *  summary claimed an edit nothing had made.
+   *  ★★ Removing the member would not be a cleanup: the log is shared workspace
+   *  data, entries persist, and `sanitizeActivityEntry` deliberately KEEPS an
+   *  unknown-but-string kind so an older client cannot delete a newer client's
+   *  rows. Delete this and every stored row renders as `activityUnknownKind`.
+   *  Do NOT write it again — the per-entity rows are the audit trail. */
   | "ai.inlineEdit"
   | "ai.taskDedup"
   | "ai.insightRecommendation"
@@ -82,6 +100,17 @@ export interface FieldChange {
   /** New value, stringified + length-capped. */
   to: string;
 }
+
+/** Who caused an entry.
+ *
+ *  ★★★ There is deliberately no "system" member. No writer could produce one
+ *  today, and a value nothing emits is a value nothing tests — the same
+ *  objection that makes a decorative field worse than no field.
+ *
+ *  ★★ The TS type is a closed union while `sanitizeActivityEntry` admits ANY
+ *  string, exactly as `kind: ActivityKind` already does. Any lookup keyed on
+ *  actor therefore needs an own-property guard, never a bare index. */
+export type ActivityActor = "user" | "ai" | "integration";
 
 export interface ActivityEntry {
   /** Globally unique: `"<deviceId>-<sessionNonce>-<counter>"`. Was a number,
@@ -102,6 +131,10 @@ export interface ActivityEntry {
   kind: ActivityKind;
   /** Positional args interpolated into the i18n message at render time. */
   args: (string | number)[];
+  /** Who caused this entry. ABSENT on every entry written before the B2b
+   *  release, and absence is NOT "user" — those entries have a genuinely
+   *  unknown actor. Never default it at read time. */
+  actor?: ActivityActor;
   /** Optional per-field diff for UPDATE events (audit detail). Omitted when the
    *  update produced no field changes. */
   changes?: readonly FieldChange[];
@@ -266,6 +299,7 @@ export const ACTIVITY_KIND_TO_KEY: Record<ActivityKind, TranslationKey> = {
   "raid.statusChanged": "activityRaidStatusChanged",
   "raid.autoIssue": "activityRaidAutoIssue",
   "bulk.edit": "activityBulkEdit",
+  "bulk.delete": "activityBulkDelete",
   "bulk.inquiries": "activityBulkInquiries",
   "jira.sync": "activityJiraSync",
   "absence.created": "activityAbsenceCreated",
@@ -374,6 +408,8 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  * IS dropped — `activityGroupOf` calls `kind.startsWith`, and there is nothing
  * honest to display. A malformed `changes` payload is stripped while the entry
  * itself is kept: the audit record is still real, only its diff detail is not.
+ * A non-string `actor` makes the same trade for the same reason, while a string
+ * one this release does not know is KEPT, exactly as an unknown `kind` is.
  *
  * ★ An untouched entry is returned BY REFERENCE and a repaired one is built by
  * SPREAD, never from a known-field list — a field a newer release adds to
@@ -382,17 +418,71 @@ export function sanitizeActivityLog(v: unknown): ActivityEntry[] {
  */
 export function sanitizeActivityEntry(v: unknown): ActivityEntry | null {
   if (!v || typeof v !== "object") return null;
-  const e = v as { id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown; changes?: unknown };
+  const e = v as {
+    id?: unknown; timestamp?: unknown; kind?: unknown; args?: unknown;
+    changes?: unknown; actor?: unknown;
+  };
   if (typeof e.id !== "string" || e.id.length === 0) return null;
   if (typeof e.timestamp !== "string") return null;
   if (typeof e.kind !== "string") return null;
   if (!Array.isArray(e.args)) return null;
-  if (e.changes === undefined) return v as ActivityEntry;
-  const changes = sanitizeChanges(e.changes);
-  if (changes) return { ...(v as ActivityEntry), changes };
-  const stripped: Record<string, unknown> = { ...(v as object) };
-  delete stripped.changes;
-  return stripped as unknown as ActivityEntry;
+
+  // ★★ The early return guards on ALL THREE repairs. Keeping it at `changes ===
+  // undefined` alone would return a hostile actor untouched whenever `changes`
+  // happened to be absent — the COMMON case, so the bug would be invisible in
+  // most fixtures. `argsBad` joined it for the same reason (§164): this branch
+  // returns the ORIGINAL object by reference, so a repair omitted here does not
+  // happen at all on the overwhelmingly common `changes === undefined` path.
+  const actorBad = e.actor !== undefined && typeof e.actor !== "string";
+  // ★★ DENSIFY FIRST. `Array.prototype.some`/`map` SKIP HOLES, so a sparse
+  //   `args` (`new Array(2)`) reported clean, took the by-reference fast path
+  //   below, and rendered "undefined" in the audit row — the same class of
+  //   silent wrongness the coercion exists to prevent, arriving through the one
+  //   shape neither method can see. `Array.from` turns each hole into an
+  //   explicit `undefined`, which then fails the type test and is coerced like
+  //   any other bad element.
+  // ★★ NOT FROM A HAND-EDITED JSON BLOB — an earlier wording cited `[1, , 3]`
+  //   "from a hand-edited blob" as the motivating case and that is impossible:
+  //   JSON has no hole literal, so no JSON/CSV/MD/Turso load path can produce
+  //   one. The only real producer is a structured-clone write into IndexedDB.
+  //   The guard is still worth its cost, but do not justify it with a source
+  //   that cannot reach it — that is how a guard gets deleted later by someone
+  //   who checks the stated reason and finds it false.
+  // ★ It trades an O(1) early exit for an O(n) materialisation on every entry:
+  //   `.some` short-circuits and skips holes, `Array.from` walks the whole
+  //   array first. Accepted — `args` is a handful of elements.
+  const args: unknown[] = Array.from(e.args);
+  const argsBad = args.some((a) => typeof a !== "string" && typeof a !== "number");
+  if (e.changes === undefined && !actorBad && !argsBad) return v as ActivityEntry;
+
+  const repaired: Record<string, unknown> = { ...(v as object) };
+  if (actorBad) delete repaired.actor;
+  // ★★★ COERCE IN PLACE — never FILTER, and never drop the entry (§164).
+  //   `args` is POSITIONAL: renderers call `t(lang, key, ...entry.args)` and the
+  //   dict interpolates `{0}`/`{1}`. Removing a bad element therefore SHIFTS
+  //   every later argument into the wrong slot, turning a crash into silently
+  //   wrong audit text — which is worse, because nothing looks broken. Dropping
+  //   the whole ENTRY is also wrong: the log is shared workspace data that the
+  //   autosave writes straight back, the same reason an unknown-but-string
+  //   `kind` is KEPT above, so a client meeting one corrupt row would delete it
+  //   for everyone. Substituting "" preserves arity, the row, and every other
+  //   argument.
+  // ★★ Why this must exist at the LOAD boundary and not at the reader: `t()`
+  //   interpolates with `String(a)`, and a non-callable own `toString` makes
+  //   ToPrimitive fall through to `Object.prototype.valueOf`, which hands the
+  //   object back and THROWS "Cannot convert object to primitive value". The
+  //   Activity panel had a local guard; `renderActivityEntry` did not, and it
+  //   runs inside `runTool` — so one hand-edited JSON blob killed a chat turn
+  //   rather than failing to paint a table. Two consumers had to rediscover it.
+  if (argsBad) {
+    repaired.args = args.map((a) => (typeof a === "string" || typeof a === "number" ? a : ""));
+  }
+  if (e.changes !== undefined) {
+    const changes = sanitizeChanges(e.changes);
+    if (changes) repaired.changes = changes;
+    else delete repaired.changes;
+  }
+  return repaired as unknown as ActivityEntry;
 }
 
 /**
@@ -424,16 +514,26 @@ export function appendActivity(
 }
 
 /**
- * Like `appendActivity` but with an explicit `args` array and an optional
- * per-field `changes` diff (UPDATE audit detail). An empty/absent `changes`
- * list omits the key entirely, keeping changes-less entries byte-identical to
- * the plain `appendActivity` path.
+ * Like `appendActivity` but with an explicit `args` array, an optional per-field
+ * `changes` diff (UPDATE audit detail) and an optional `actor`.
+ *
+ * ★★ BOTH OPTIONALS ARE CONDITIONAL SPREADS, NOT PLAIN PROPERTIES, and that is
+ * load-bearing rather than tidiness: `{ actor }` with an undefined `actor` puts
+ * an `actor: undefined` key on EVERY entry, which changes the JSON bytes on all
+ * six write paths and breaks the byte-stability fixtures. The tests assert
+ * `"actor" in entry === false` precisely because `toBeUndefined()` cannot tell
+ * an omitted key from a present-and-undefined one.
+ *
+ * ★ `appendActivity` gets no actor parameter: it ends in a rest parameter, so
+ * nothing can follow it. A caller wanting an actor uses this function (or the
+ * `logActivityAs` hook variant, where the actor LEADS for the same reason).
  */
 export function appendActivityEntry(
   current: readonly ActivityEntry[],
   kind: ActivityKind,
   args: (string | number)[],
   changes?: readonly FieldChange[],
+  actor?: ActivityActor,
 ): ActivityEntry[] {
   const entry: ActivityEntry = {
     id: `${getDeviceId()}-${getSessionNonce()}-${++counter}`,
@@ -441,6 +541,7 @@ export function appendActivityEntry(
     kind,
     args,
     ...(changes && changes.length > 0 ? { changes } : {}),
+    ...(actor ? { actor } : {}),
   };
   const next = [...current, entry];
   return next.length > ACTIVITY_MAX_ENTRIES

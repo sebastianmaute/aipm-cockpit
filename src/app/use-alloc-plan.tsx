@@ -20,7 +20,7 @@ import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Resource, type ResourcePlan, type Role } from "./types";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { type UndoStackApi } from "./undo/use-undo-stack";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
@@ -52,7 +52,9 @@ export interface AllocPlanDeps {
   workdayHours: number;
   holidaySet: ReadonlySet<string>;
   capture?: UndoStackApi["capture"];
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
+   *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
 }
 
 export interface AllocPlan {
@@ -63,7 +65,7 @@ export interface AllocPlan {
 }
 
 export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
-  const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, capture, logActivity } = deps;
+  const { settings, isPopout, lang, resources, setResources, roles, disciplines, grades, plan, absences, workdayHours, holidaySet, capture, logActivityAs } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -250,10 +252,10 @@ export function useAllocPlan(deps: AllocPlanDeps): AllocPlan {
     // Report what was ACTUALLY applied (`fresh.length`), not the original
     // selection count (`chosen.length`) — the two diverge exactly when the
     // stale-cell guard above dropped one or more cells.
-    logActivity?.("ai.allocationPlan", fresh.length);
+    logActivityAs?.("ai", "ai.allocationPlan", fresh.length);
     showToast("info", t(lang, "allocPlanApplied", fresh.length));
     reset();
-  }, [phase, cells, selected, resources, setResources, capture, logActivity, showToast, lang, reset]);
+  }, [phase, cells, selected, resources, setResources, capture, logActivityAs, showToast, lang, reset]);
 
   const stage: "input" | "preview" = phase === "preview" || phase === "applying" ? "preview" : "input";
   // The `"applying"` phase never actually commits a render (see the NOTE in

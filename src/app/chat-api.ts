@@ -10,6 +10,8 @@ import type { AttachmentBlock } from "./chat-attachments";
 import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
+import { buildActivityRecapBlock } from "./activity-recap";
+import { historySearchEnabled } from "./settings-types";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -98,7 +100,14 @@ export function buildSystemPrompt(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
+  /** `settings.ai.historySearch` — the SAME value `callClaude` is given, so the
+   *  prompt advertises exactly the tools the request carries. See
+   *  `toolNamesFor`; only an explicit false drops one. */
+  historySearch: boolean | undefined,
 ): SystemBlock[] {
+  // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
+  //    independent reads of the setting is how they drifted apart before.
+  const offeredTools = toolNamesFor(historySearch);
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
   // STABLE prefix (cached): fixed instructions that never interpolate per-call
@@ -144,7 +153,17 @@ export function buildSystemPrompt(
   // do not re-derive a per-message cost argument here (one was written, priced
   // against a baseline that did not exist, and retracted). Sits before VIEW
   // STATE so the model reads "what this surface is" before "what is on it".
-  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView);
+  const viewScopeBlock = buildViewScopeBlock(snapshot.currentView, offeredTools);
+  // Activity changes on EVERY turn, so this block MUST stay in the uncached
+  // suffix — in the cached prefix it would invalidate the prompt cache on every
+  // message, which costs far more than the ~20 tokens it saves.
+  // ★ The zone comes off the SNAPSHOT: this file is i18n- and clock-free, and
+  // the recap's day must agree with the `Today is …` line built beside it.
+  const activityBlock = buildActivityRecapBlock(
+    snapshot.activitySummary ?? null,
+    snapshot.timezone,
+    offeredTools,
+  );
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
@@ -152,6 +171,7 @@ export function buildSystemPrompt(
     viewScopeBlock,
     viewStateBlock,
     insightsBlock,
+    activityBlock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -243,17 +263,68 @@ export function closeDanglingToolUses(messages: ApiMessage[]): ApiMessage[] {
  *  end of `tools` so the guide swap re-caches only the smaller system slice.
  *  ★ Marking the LAST tool is how a tools-block breakpoint is expressed — the
  *  segment covers everything up to and including the marked element. */
-export const CACHED_TOOLS = TOOL_DEFS.map((def, i) =>
-  i === TOOL_DEFS.length - 1
-    ? { ...def, cache_control: { type: "ephemeral" as const } }
-    : def,
+function withCacheBreakpoint(defs: typeof TOOL_DEFS) {
+  return defs.map((def, i) =>
+    i === defs.length - 1
+      ? { ...def, cache_control: { type: "ephemeral" as const } }
+      : def,
+  );
+}
+
+export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
+
+const CACHED_TOOLS_NO_HISTORY = withCacheBreakpoint(
+  TOOL_DEFS.filter((d) => d.name !== "search_history"),
 );
+
+/**
+ * The tool list for this user's settings.
+ *
+ * ★★ TWO FROZEN MODULE-LEVEL VARIANTS, never a filter at the call site. The
+ *    list is passed to every request, so rebuilding it per call would destroy
+ *    referential stability for no benefit — the setting is constant for the
+ *    whole conversation.
+ *
+ * ★ The breakpoint is RECOMPUTED per variant rather than assumed. Measured
+ *   2026-08-16: `search_history` is index 21 of 44 and the last tool is
+ *   `delete_document`, so removing it happens not to move the marker today —
+ *   but a tool appended after it later would make that assumption silently
+ *   wrong, and a lost breakpoint is invisible except as a bill.
+ *
+ * ★ `=== false`, matching `sanitizeAiConfig`: only an explicit false removes
+ *   the tool, so an absent/garbage setting keeps the shipped behaviour. It is
+ *   also what makes the two live settings (`undefined` and `true`) share ONE
+ *   array identity.
+ */
+export function toolsFor(historySearch: boolean | undefined) {
+  return historySearchEnabled(historySearch) ? CACHED_TOOLS : CACHED_TOOLS_NO_HISTORY;
+}
+
+// ★★ DERIVED FROM THE ARRAYS `toolsFor` RETURNS, never listed by hand. These
+//    feed the prompt surfaces that ADVERTISE tools (`buildViewScopeBlock`,
+//    `buildActivityRecapBlock`), so "what the model is told it has" and "what
+//    the request carries" come from ONE place and cannot disagree. A hand-kept
+//    second list is the drift this closes.
+// ★ Module-level for the same reason as the arrays: the setting is constant for
+//   a conversation, and `buildSystemPrompt` runs once per send.
+const TOOL_NAMES: ReadonlySet<string> = new Set(CACHED_TOOLS.map((d) => d.name));
+const TOOL_NAMES_NO_HISTORY: ReadonlySet<string> = new Set(
+  CACHED_TOOLS_NO_HISTORY.map((d) => d.name),
+);
+
+/** The names of the tools this request will actually carry. Same input and same
+ *  `=== false` reading as `toolsFor` — they are two views of one decision. */
+export function toolNamesFor(historySearch: boolean | undefined): ReadonlySet<string> {
+  return historySearchEnabled(historySearch) ? TOOL_NAMES : TOOL_NAMES_NO_HISTORY;
+}
 
 export async function callClaude(
   apiKey: string,
   model: string,
   system: SystemBlock[],
   messages: ApiMessage[],
+  /** `settings.ai.historySearch` — only an explicit false drops the tool. */
+  historySearch: boolean | undefined,
   signal?: AbortSignal,
 ): Promise<{
   content: ContentBlock[];
@@ -273,7 +344,7 @@ export async function callClaude(
       max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
-      tools: CACHED_TOOLS,
+      tools: toolsFor(historySearch),
     }),
     signal,
   });

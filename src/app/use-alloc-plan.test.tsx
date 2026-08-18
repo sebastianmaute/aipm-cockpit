@@ -83,7 +83,7 @@ function Harness({
     workdayHours: 8,
     holidaySet: new Set<string>(),
     capture: captureSpy as never,
-    logActivity: logActivitySpy as never,
+    logActivityAs: logActivitySpy as never,
   });
   return (
     <div>
@@ -295,7 +295,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     // The pre-edit image — the resource as it was BEFORE the write.
     expect(arg.edited[0].id).toBe(1);
     expect(arg.edited[0].utilization).toEqual({});
-    expect(logActivitySpy).toHaveBeenCalledWith("ai.allocationPlan", 1);
+    expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
     expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("1"));
   });
 
@@ -342,7 +342,7 @@ describe("useAllocPlan (plan-then-apply)", () => {
     expect(showToast).toHaveBeenCalledWith("info", t("en-US", "allocPlanApplied", 1));
     // The applied count (1) — not the original selection count (2) — is what
     // gets logged, since the two diverge exactly in this window.
-    expect(logActivitySpy).toHaveBeenCalledWith("ai.allocationPlan", 1);
+    expect(logActivitySpy).toHaveBeenCalledWith("ai", "ai.allocationPlan", 1);
   });
 
   it("confirm applies nothing and stays quiet on capture/logActivity when every chosen cell went stale", async () => {

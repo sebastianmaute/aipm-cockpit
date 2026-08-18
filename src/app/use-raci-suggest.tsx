@@ -34,7 +34,7 @@ import { SparklesIcon } from "@heroicons/react/24/outline";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Milestone, type Stakeholder } from "./types";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { useToastContext } from "./toast-context";
 import { AiHttpError, classifyAiError } from "./ai-errors";
 import { runRaciSuggestion } from "./raci-suggest-call";
@@ -68,7 +68,9 @@ export interface RaciSuggestDeps {
    *  gets one correctly-ordered undo entry for free instead of re-deriving
    *  the low-level `capture()` before/after-image contract itself. */
   onCaptureBulk?: (ids: readonly number[]) => void;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
+   *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
 }
 
 export interface RaciSuggest {
@@ -103,7 +105,7 @@ export function foldCellsByStakeholder(
 }
 
 export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
-  const { settings, isPopout, lang, stakeholders, milestones, onSave, onCaptureBulk, logActivity } = deps;
+  const { settings, isPopout, lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs } = deps;
   const showToast = useToastContext();
 
   const [phase, setPhase] = useState<Phase>("idle");
@@ -236,9 +238,9 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     // Report the number of CELL assignments applied (chosen.length), not the
     // number of stakeholders touched (updated.length) — the activity string
     // reads "N RACI assignments".
-    logActivity?.("ai.raciSuggest", chosen.length);
+    logActivityAs?.("ai", "ai.raciSuggest", chosen.length);
     reset();
-  }, [phase, cells, selected, stakeholders, onSave, onCaptureBulk, logActivity, reset]);
+  }, [phase, cells, selected, stakeholders, onSave, onCaptureBulk, logActivityAs, reset]);
 
   const busy = phase === "thinking" || phase === "applying";
 

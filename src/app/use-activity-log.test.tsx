@@ -79,6 +79,44 @@ describe("useActivityLog", () => {
     });
   });
 
+  describe("actor-aware variants", () => {
+    it("logActivityAs stamps the actor, and the plain variant omits the key", () => {
+      const { result } = renderLog();
+      act(() => {
+        result.current.logActivityAs("ai", "task.created", 1, "Task A");
+      });
+      act(() => {
+        result.current.logActivity("task.created", 2, "Task B");
+      });
+      expect(result.current.activityLog[0].actor).toBe("ai");
+      // ★ `in` rather than toBeUndefined(): the key must be OMITTED so the ~150
+      // untouched call sites keep writing byte-identical entries.
+      expect("actor" in result.current.activityLog[1]).toBe(false);
+    });
+
+    it("logActivityChangesAs appends an entry carrying BOTH the diff and the actor", () => {
+      const { result } = renderLog();
+      const changes = [{ field: "status", from: "Open", to: "Closed" }];
+      act(() => {
+        result.current.logActivityChangesAs("ai", "raid.updated", changes, 5, "R", "Risk");
+      });
+      expect(result.current.activityLog).toHaveLength(1);
+      expect(result.current.activityLog[0].changes).toEqual(changes);
+      expect(result.current.activityLog[0].actor).toBe("ai");
+      expect(result.current.activityLog[0].args).toEqual([5, "R", "Risk"]);
+    });
+
+    it("logActivityAs produces a NEW array (reference-equality dirty check)", () => {
+      const { result } = renderLog();
+      const before = result.current.activityLog;
+      act(() => {
+        result.current.logActivityAs("integration", "task.created", "T-1");
+      });
+      expect(result.current.activityLog).not.toBe(before);
+      expect(result.current.activityLog).toHaveLength(before.length + 1);
+    });
+  });
+
   describe("handleClearActivityLog", () => {
     it("clears logged entries", () => {
       const { result } = renderLog();

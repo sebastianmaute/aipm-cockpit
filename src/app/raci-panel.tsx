@@ -17,7 +17,7 @@ import {
   setRaciRole,
 } from "./stakeholders";
 import { type RaciRole, type Stakeholder, type Milestone } from "./types";
-import { type ActivityKind } from "./activity-log";
+import { type LogActivityAsFn } from "./activity-log-context";
 import { RaciChipPicker, RaciLegend } from "./raci-chip-picker";
 import { useResizable } from "./use-resizable";
 import { useSettings } from "./use-settings";
@@ -39,7 +39,9 @@ export interface RaciPanelProps {
    *  `onCaptureStakeholderBulk` (the same capture the manual bulk-edit panel
    *  uses). Omitted -> AI apply proceeds without an undo entry. */
   onCaptureBulk?: (ids: readonly number[]) => void;
-  logActivity?: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
+   *  names its own actor — see the rule on `useActivityLog`. */
+  logActivityAs?: LogActivityAsFn;
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
@@ -49,7 +51,7 @@ export interface RaciPanelProps {
 // Component
 // ---------------------------------------------------------------------------
 
-export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivity, showHints, isPopout, onLearnMore }: RaciPanelProps) {
+export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBulk, logActivityAs, showHints, isPopout, onLearnMore }: RaciPanelProps) {
   const { settings } = useSettings();
 
   // AI-assisted "Suggest RACI" (Stakeholders → RACI toolbar only). Called
@@ -65,7 +67,7 @@ export function RaciPanel({ lang, stakeholders, milestones, onSave, onCaptureBul
     milestones,
     onSave,
     onCaptureBulk,
-    logActivity,
+    logActivityAs,
   });
 
   const rows = useMemo(

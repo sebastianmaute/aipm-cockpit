@@ -51,9 +51,15 @@ Pure i18n-free `timezone.ts` (Intl only, NO dep): `todayInZone(now,tz)` (uses
 `resolveTimezone(overrideTz, projectTz)` = override ?? project ?? browser (each validity-gated, always returns
 a valid zone).
 - **Model + logic (TZ-1):** ★★ the effective tz = `resolveTimezone(settings.timezone,
-  project?.operatingTimezone)` and the app's central `today` derives in it — `task-manager` `todayISO()` →
-  `effectiveToday(tz)` = `todayInZone(new Date(), tz)` (a MODULE fn so `new Date()` isn't in a render body),
-  so overdue/next-actions/reminders/due-date logic follow the zone. Secondary derivations:
+  project?.operatingTimezone)` and the app's central `today` derives in it — `task-manager` builds
+  `createProjectClock(effectiveTz)` and reads `clock.today` off it, so overdue/next-actions/reminders/
+  due-date logic follow the zone. ★★★ That WAS a local `effectiveToday(tz)` = `todayInZone(new Date(), tz)`
+  in `task-manager.tsx`, REMOVED in §159 — do NOT reintroduce it. The pair `today` + `tz` travelled as two
+  independent values, and a `TimeZone` brand can only make a TRANSPOSITION unrepresentable, never an
+  INCONSISTENT PAIR (a day computed in one zone beside a tz naming another). `ProjectClock` derives the day
+  from the zone INSIDE its factory, so a second producer of `today` is exactly what would reopen the class.
+  ★ The factory still keeps `new Date()` out of the render body — it takes an optional `now` and defaults
+  it, which is also what lets tests pin a day by choosing the INSTANT rather than supplying the date. Secondary derivations:
   `use-resource-planner` takes `today` as a PARAM (fed the effective today); `use-bulk-operations` resolves tz
   in a callback. ★ The ~30 OTHER `new Date().toISOString().slice(0,10)` sites (export/codec/backend stamps,
   plan-start defaults, gantt/calendar DISPLAY) STAY UTC by design — none compares a UTC-today against the

@@ -16,6 +16,7 @@ import type {
   ActivityKind,
   FieldChange,
 } from "./activity-log";
+import type { LogActivityAsFn } from "./activity-log-context";
 import type { CalendarEvent } from "./calendar-event";
 import type { ProjectDocument } from "./document-model";
 import type { BucketCommitMeta } from "./use-budget-buckets";
@@ -182,12 +183,22 @@ export interface WorkspaceSectionProps {
   // readonly there so an updater must replace the array rather than mutate it
   // (the save effect's dirty check is reference equality).
   activityLog: readonly ActivityEntry[];
+  /** ★★ THESE TWO ARE ALREADY USER-STAMPED and `MilestonesPanel` is their only
+   *  consumer on this contract. `task-manager` threads its `logActivityUser` /
+   *  `logActivityChangesUser` wrappers here (see the "who names the actor" rule
+   *  on `useActivityLog`) — the panel logs generic `milestone.*` kinds that the
+   *  chat dispatcher also writes, so it cannot name its own actor. Anything on
+   *  this contract that writes an `ai.*` kind takes `logActivityAs` instead. */
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   logActivityChanges: (
     kind: ActivityKind,
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
+  /** Actor-aware logger for the AI-writing surfaces this section mounts
+   *  (`RaciPanel` → `useRaciSuggest`, `ResourcesPanel` → `useAllocPlan`, and the
+   *  inline "Ask Claude" editor). Each stamps `"ai"` at its own call site. */
+  logActivityAs: LogActivityAsFn;
   handleClearActivityLog: () => void;
   handleOpenAddAbsence: (seed?: Partial<Absence>) => void;
   handleEditAbsence: (absence: Absence) => void;

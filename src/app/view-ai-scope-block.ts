@@ -5,18 +5,40 @@
 import { VIEW_AI_SCOPE } from "./view-ai-scope";
 import type { AppView } from "./nav-config";
 
-/** What this surface IS. Emitted into the VOLATILE suffix — see `chat-api.ts`
- *  for why (the cache saving comes from `CACHED_TOOLS`, not from this
- *  placement). Keep it SHORT: it is paid on every message. */
-export function buildViewScopeBlock(view: AppView): string {
+/**
+ * What this surface IS. Emitted into the VOLATILE suffix — see `chat-api.ts`
+ * for why (the cache saving comes from `CACHED_TOOLS`, not from this
+ * placement). Keep it SHORT: it is paid on every message.
+ *
+ * ★★★ `offeredTools` IS THE SET THE WIRE WILL ACTUALLY SEND, derived from the
+ *     same `toolsFor` that builds the request's `tools` array — NOT a re-read of
+ *     `settings.ai`. That is the whole point: a hint and the tool list cannot
+ *     drift, because one filters against the other. `historySearch === false`
+ *     dropped `search_history` from the request while three prompt surfaces went
+ *     on instructing the model to call it; passing the SETTING down instead
+ *     would have fixed those three and left the next gated tool to repeat it.
+ *
+ * ★★ REQUIRED, never an "all tools" default. An optional parameter makes a new
+ *    call site advertise tools it may not be sending, silently — which is the
+ *    defect this argument exists to close. Make tsc ask the question.
+ */
+export function buildViewScopeBlock(
+  view: AppView,
+  offeredTools: ReadonlySet<string>,
+): string {
   const scope = VIEW_AI_SCOPE[view];
   const lines = [
     `VIEW SCOPE — the user is looking at the "${view}" view.`,
     scope.purpose,
   ];
-  if (scope.reading) lines.push(scope.reading);
-  if (scope.toolHints && scope.toolHints.length > 0) {
-    lines.push(`Relevant tools here: ${scope.toolHints.join(", ")}.`);
+  // ★ A `reading` that is ABOUT a tool goes when the tool does — the registry
+  //   declares the dependency, this decides it against the live tool set.
+  const readingApplies =
+    !scope.readingRequiresTool || offeredTools.has(scope.readingRequiresTool);
+  if (scope.reading && readingApplies) lines.push(scope.reading);
+  const hints = (scope.toolHints ?? []).filter((h) => offeredTools.has(h));
+  if (hints.length > 0) {
+    lines.push(`Relevant tools here: ${hints.join(", ")}.`);
   }
   // Precedence, stated so the model can act on it. This is the INVERSE of the
   // guide-vs-guide rule in assembleGuideBlock ("earlier wins"), so it has to be

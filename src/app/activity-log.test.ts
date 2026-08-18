@@ -168,6 +168,7 @@ describe("ACTIVITY_KIND_TO_KEY — new kinds have non-empty labels in both local
     "settings.updated",
     "calendar.autoPulled",
     "ai.documentWrite",
+    "bulk.delete",
   ];
 
   test.each(NEW_KINDS)("%s has a non-empty en-US label", (kind) => {
@@ -285,35 +286,192 @@ describe("appendActivityEntry + changes round-trip (#22)", () => {
   // stripped it on the localStorage one.
 });
 
+describe("appendActivityEntry + actor", () => {
+  test("stamps the actor and omits the key when absent", () => {
+    const withActor = appendActivityEntry([], "task.created", [1, "x"], undefined, "ai");
+    expect(withActor[0].actor).toBe("ai");
+
+    // ★ `"actor" in entry` rather than `toBeUndefined()`: the key must be
+    // OMITTED, not present-and-undefined, so an actor-less entry stays
+    // byte-identical through JSON.stringify on all six storage paths. A plain
+    // `actor` property would put `actor: undefined` on every entry — invisible
+    // to a `toBeUndefined()` assertion and visible to the byte-stability
+    // fixtures.
+    const without = appendActivityEntry([], "task.created", [1, "x"]);
+    expect("actor" in without[0]).toBe(false);
+  });
+
+  test("carries both changes and actor when given both", () => {
+    const changes = [{ field: "status", from: "Open", to: "Closed" }];
+    const [e] = appendActivityEntry([], "raid.updated", [5, "R", "Risk"], changes, "ai");
+    expect(e.changes).toEqual(changes);
+    expect(e.actor).toBe("ai");
+  });
+
+  test("appendActivity produces an actor-less entry", () => {
+    const [e] = appendActivity([], "task.created", 1, "T");
+    expect("actor" in e).toBe(false);
+  });
+});
+
 describe("sanitizeActivityEntry — forward compatibility", () => {
   // ★★★ THE STRIP PATH IS A SPREAD-AND-DELETE, NEVER A REBUILD, and only this
   // test can tell the two apart: rebuilding `{id, timestamp, kind, args}` from
   // the known-field list passes every other assertion in the suite while
   // silently DROPPING any field a newer release added. Concretely — release N+1
-  // adds `ActivityEntry.actor`; an N client loads a shared project whose entry
-  // carries `actor` AND a malformed `changes`; the rebuild drops `actor` and
-  // the next autosave writes the truncated entry back over everyone's copy.
-  // Same reasoning as the unknown-`kind` rule on the same function: an older
-  // client must never delete what it does not understand.
+  // adds a field; an N client loads a shared project whose entry carries it AND
+  // a malformed `changes`; the rebuild drops the field and the next autosave
+  // writes the truncated entry back over everyone's copy. That is not
+  // hypothetical: `actor` shipped exactly this way, and this test is what made
+  // an older client keep it. Same reasoning as the unknown-`kind` rule on the
+  // same function: an older client must never delete what it does not
+  // understand.
+  //
+  // ★★ The probe field must be one NO release knows. It used to be `actor`,
+  // which stopped proving anything the moment `actor` joined `ActivityEntry`:
+  // a rebuild-from-field-list would then have listed it, and the test would
+  // have passed against the very mutant it exists to kill.
   test("keeps an unknown field while stripping a malformed `changes`", () => {
     const stored = {
       id: "e1",
       timestamp: "2026-06-02T00:00:00.000Z",
       kind: "task.updated",
       args: ["T"],
-      actor: "a-future-field",
+      futureField: "a-future-field",
       changes: "not-an-array",
     };
-    const out = sanitizeActivityEntry(stored) as ActivityEntry & { actor?: string };
+    const out = sanitizeActivityEntry(stored) as ActivityEntry & { futureField?: string };
     expect(out).not.toBeNull();
     // The forward-compat half: the unknown field survives the repair.
-    expect(out.actor).toBe("a-future-field");
+    expect(out.futureField).toBe("a-future-field");
     // The repair half: the malformed payload is gone, not merely falsy.
     expect("changes" in out).toBe(false);
     // The known fields are untouched by the spread.
     expect(out.id).toBe("e1");
     expect(out.kind).toBe("task.updated");
     expect(out.args).toEqual(["T"]);
+  });
+});
+
+describe("sanitizeActivityEntry — actor", () => {
+  const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created", args: [1, "x"] };
+
+  test("round-trips a known actor", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: "ai" });
+    expect(out?.actor).toBe("ai");
+  });
+
+  // ★ The forward-compat rule: the log is SHARED workspace data and autosave
+  //   writes loaded state straight back, so an older client that dropped an
+  //   actor a newer release wrote would strip it from the shared project.
+  test("KEEPS an unknown-but-string actor", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: "reviewer" });
+    expect((out as { actor?: string } | null)?.actor).toBe("reviewer");
+  });
+
+  // ★★★ `"actor" in out`, NOT `toBeUndefined()` — STRIPPED means the KEY IS
+  //   GONE, and the two are not the same assertion. A mutant that writes
+  //   `repaired.actor = undefined` satisfies `toBeUndefined()` while leaving the
+  //   key present, and a present-but-undefined key is not free here: the entry
+  //   is serialised as JSON on the meta-blob write paths, so it changes the
+  //   stored bytes (and, on the paths that hand-build, can round-trip as a
+  //   literal `null`). Same shape the rest of this branch's absence assertions
+  //   use.
+  test("strips a non-string actor but keeps the entry", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: { evil: true } });
+    expect(out).not.toBeNull();
+    expect("actor" in (out as object)).toBe(false);
+    expect(out?.kind).toBe("task.created");
+  });
+
+  // ★★ Absence is NOT "user". Pre-field entries have a genuinely unknown
+  //    actor; defaulting them would assert the AI's past writes were the
+  //    user's, in the one record the model is told to trust.
+  test("leaves an absent actor absent, never defaulting it to user", () => {
+    const out = sanitizeActivityEntry(base);
+    expect(out).not.toBeNull();
+    expect("actor" in (out as object)).toBe(false);
+  });
+
+  test("strips a malformed actor while ALSO stripping malformed changes", () => {
+    const out = sanitizeActivityEntry({ ...base, actor: 7, changes: "nope" });
+    expect(out).not.toBeNull();
+    expect("actor" in (out as object)).toBe(false);
+    expect(out?.changes).toBeUndefined();
+  });
+});
+
+describe("sanitizeActivityEntry — args elements (§164)", () => {
+  const base = { id: "d-1-1", timestamp: "2026-08-16T10:00:00.000Z", kind: "task.created" };
+  /** A non-callable own `toString` makes ToPrimitive fall through to
+   *  `Object.prototype.valueOf`, which hands the object back — so `String(x)`
+   *  THROWS rather than producing "[object Object]". */
+  const HOSTILE = { toString: 1 };
+
+  // ★★★ The CONTROL. Without it this whole block is unfalsifiable: if the
+  //   fixture were merely an ordinary object, `String()` would return
+  //   "[object Object]" and every assertion below would pass against code that
+  //   fixed nothing. Assert the fixture is actually lethal FIRST.
+  test("the fixture really is unstringifiable (control)", () => {
+    expect(() => String(HOSTILE)).toThrow(/convert object to primitive/i);
+  });
+
+  test("coerces a hostile element to \"\" and KEEPS the entry", () => {
+    const out = sanitizeActivityEntry({ ...base, args: [HOSTILE] });
+    expect(out).not.toBeNull();
+    expect(out?.args).toEqual([""]);
+    expect(() => out?.args.map(String)).not.toThrow();
+  });
+
+  // ★★★ THE LOAD-BEARING ONE. `args` is positional — renderers spread it into
+  //   `t(lang, key, ...args)` against `{0}`/`{1}` placeholders. A `filter`-based
+  //   fix passes the "no longer throws" assertion above while shifting "after"
+  //   into slot 0, turning a crash into silently wrong audit text.
+  test("preserves ARITY and position, never filtering the bad element out", () => {
+    const out = sanitizeActivityEntry({ ...base, args: ["before", HOSTILE, "after"] });
+    expect(out?.args).toEqual(["before", "", "after"]);
+  });
+
+  test("leaves a clean args array untouched", () => {
+    const args = [1, "x"];
+    const out = sanitizeActivityEntry({ ...base, args });
+    expect(out?.args).toEqual([1, "x"]);
+  });
+
+  // ★★★ The early-return trap, identical in shape to the `actorBad` one above:
+  //   the fast path returns the ORIGINAL object BY REFERENCE, and
+  //   `changes === undefined` is the overwhelmingly common case. A repair added
+  //   to the repair block but left out of that condition therefore does nothing
+  //   in practice while every fixture carrying `changes` still passes.
+  test("repairs args on the changes-absent fast path", () => {
+    const stored = { ...base, args: [HOSTILE] };
+    const out = sanitizeActivityEntry(stored);
+    expect(out?.args).toEqual([""]);
+    expect(out).not.toBe(stored);
+  });
+
+  // ★★★ HOLES ARE INVISIBLE TO `some`/`map`, so a sparse `args` was reported
+  //   clean, returned BY REFERENCE through the fast path, and rendered
+  //   "undefined" in the row — the exact silent-wrongness the coercion exists to
+  //   prevent, through the one shape neither method can see. The fix densifies
+  //   with `Array.from` first. Written with `new Array(2)` deliberately: a
+  //   literal `[undefined, undefined]` is DENSE and passes without the fix.
+  test("coerces HOLES in a sparse args array, not just bad values", () => {
+    const sparse = new Array(2);
+    sparse[1] = "tail";
+    const out = sanitizeActivityEntry({ ...base, args: sparse });
+    expect(out?.args).toEqual(["", "tail"]);
+  });
+
+  test("repairs args together with a malformed actor and changes", () => {
+    const out = sanitizeActivityEntry({ ...base, args: [HOSTILE], actor: 7, changes: "nope" });
+    expect(out?.args).toEqual([""]);
+    expect("actor" in (out as object)).toBe(false);
+    expect(out?.changes).toBeUndefined();
+  });
+
+  test("still rejects a non-array args outright", () => {
+    expect(sanitizeActivityEntry({ ...base, args: "nope" })).toBeNull();
   });
 });
 

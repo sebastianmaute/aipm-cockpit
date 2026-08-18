@@ -186,3 +186,55 @@ describe("aiAssistantOpener", () => {
     expect(opener).toBe(open);
   });
 });
+
+describe("AiConfig recall toggles", () => {
+  const base = { apiKey: "", model: "claude-sonnet-4-6", consentAccepted: false, groundInGuides: false };
+
+  it("defaults BOTH to ON when absent", () => {
+    const ai = sanitizeAiConfig(base);
+    // ★ ON by absence: search_history shipped ON in 0.241.0, so defaulting off
+    //   would silently remove a live capability on upgrade.
+    expect(ai.historySearch).not.toBe(false);
+    expect(ai.activityRecap).not.toBe(false);
+  });
+
+  it("round-trips an explicit false", () => {
+    const ai = sanitizeAiConfig({ ...base, historySearch: false, activityRecap: false });
+    expect(ai.historySearch).toBe(false);
+    expect(ai.activityRecap).toBe(false);
+  });
+
+  it("coerces a non-boolean to the ON default rather than storing garbage", () => {
+    // ★ A stale string / number / null must read as ON, not as "off by accident".
+    const ai = sanitizeAiConfig({ ...base, historySearch: "no", activityRecap: 0 });
+    // ★★★ `toBeUndefined`, NOT `not.toBe(false)` — the loose form was VACUOUS
+    //   here and passed on the very mutant it exists to catch. The sanitizer is
+    //   `obj.historySearch === false ? false : undefined`, so a pass-through
+    //   mutant (`obj.historySearch`) stores `"no"` and `0` VERBATIM — and
+    //   `"no" !== false` and `0 !== false`, so the old assertions were green
+    //   either way. `undefined` is the ONE value the ON default is spelled as
+    //   (see the `historySearch?: boolean` field comment: undefined = on), so
+    //   pinning it is what makes the mutant fail.
+    expect(ai.historySearch).toBeUndefined();
+    expect(ai.activityRecap).toBeUndefined();
+  });
+
+  // ★★★ REGRESSION PIN for open-followups §165. `actionSuggestions` is NOT a
+  //   recall toggle — it predates this branch — but it is the third field with
+  //   the same default-ON-by-absence contract, and it was MISSING from
+  //   `sanitizeAiConfig`'s return literal entirely. Because the field is
+  //   OPTIONAL, dropping it is typecheck-clean: `writeSettings` persisted the
+  //   user's `false` correctly and the sanitizer discarded it on the next read,
+  //   so the Action Center's "Analyze with AI" toggle re-ticked itself at every
+  //   reload. It lives in THIS describe block because the bug is a property of
+  //   the literal the block already covers, not of the feature it belongs to.
+  //   ★★ The round-trip assertion is the load-bearing one — the absence case
+  //   passed even with the key missing (a dropped key also reads `undefined`),
+  //   so a test asserting ONLY the default would have been green throughout.
+  it("round-trips an explicit false for actionSuggestions (§165)", () => {
+    expect(sanitizeAiConfig({ ...base, actionSuggestions: false }).actionSuggestions).toBe(false);
+    expect(sanitizeAiConfig(base).actionSuggestions).toBeUndefined();
+    // A stale non-boolean reads as ON, same rule as the two toggles above.
+    expect(sanitizeAiConfig({ ...base, actionSuggestions: "no" }).actionSuggestions).toBeUndefined();
+  });
+});

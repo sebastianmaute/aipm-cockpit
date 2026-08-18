@@ -20,7 +20,11 @@ const TASKS = [
   { id: 8, taskName: "Other task" },
 ] as unknown as Task[];
 
-const RAID = [{ id: 3, title: "Vendor delay" }] as unknown as RaidItem[];
+// ★ `category` is REAL here, not left to default blank: the raid activity call
+//   logs (id, category, title), and against a blank category the arity
+//   assertion below could not tell slot 1 from slot 2 — a "wrong field in slot
+//   1" mutation would still pass.
+const RAID = [{ id: 3, category: "R", title: "Vendor delay" }] as unknown as RaidItem[];
 
 const CHANGES = [
   {
@@ -99,6 +103,33 @@ describe("useNotesWindow — notePanelPropsFor", () => {
     expect(next.find((t) => t.id === 8)?.noteLog).toBeUndefined();
 
     expect(logActivity).toHaveBeenCalledWith("task.updated", 7, "Draft charter");
+  });
+
+  it("logs a RAID note write with ALL THREE template arguments", () => {
+    const { result, setRaid, logActivity } = setup();
+    result.current.notePanelPropsFor("raid", 3).onAdd("<p>New</p>", "New");
+
+    expect(setRaid).toHaveBeenCalledTimes(1);
+    const next = (setRaid.mock.calls[0][0] as (p: RaidItem[]) => RaidItem[])(RAID);
+    expect(next.find((r) => r.id === 3)?.noteLog).toHaveLength(1);
+
+    // ★★★ ARITY, and nothing else pins it. `activityRaidUpdated` is
+    //   "RAID #{0} updated ({1}): {2}" — THREE placeholders — while
+    //   `logActivity` ends in `...args`, so a two-arg call COMPILES and the
+    //   suite stays green. It shipped exactly that way: the title landed in the
+    //   CATEGORY slot and a literal "{2}" was rendered to the user in the
+    //   Activity panel and, since search_history, fed to the model too.
+    //   `use-resource-planner.test.tsx` pins its OWN raid path — a different
+    //   function with a different arg list — so it is not coverage for this one.
+    expect(logActivity).toHaveBeenCalledWith("raid.updated", 3, "R", "Vendor delay");
+
+    // ★ THREE call sites share this shape, and onAdd alone leaves two unpinned;
+    //   the arity was dropped independently at each one.
+    result.current.notePanelPropsFor("raid", 3).onEdit(1, "<p>Edited</p>", "Edited");
+    result.current.notePanelPropsFor("raid", 3).onDelete(1);
+    expect(logActivity).toHaveBeenCalledTimes(3);
+    expect(logActivity.mock.calls[1]).toEqual(["raid.updated", 3, "R", "Vendor delay"]);
+    expect(logActivity.mock.calls[2]).toEqual(["raid.updated", 3, "R", "Vendor delay"]);
   });
 });
 

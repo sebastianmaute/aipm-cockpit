@@ -395,36 +395,61 @@ export const TOOL_DEFS = [
   },
   {
     name: "search_history",
-    // ★★★ THE TWO BLIND-SPOT SENTENCES ARE LOAD-BEARING, NOT HEDGING BLOAT.
-    //  (1) COVERAGE: `logActivity` is threaded into `useChatDispatcher` and
-    //      handed to `useDocumentTools` ALONE, so the chat write handlers
-    //      (createTask/updateTask/deleteTask and every register write) mutate
-    //      state and log NOTHING. Verify with `grep -n logActivity
-    //      src/app/use-chat-dispatcher.ts` — one hit. Without the caveat the
-    //      model creates a task, is asked about it the next day, gets back
-    //      `{events: [], truncated: false}` and denies its own work.
+    // ★★★ THE DESCRIPTION CARRIES ONE BLIND SPOT AND ONE ACTOR DISCLOSURE, AND
+    //  BOTH ARE LOAD-BEARING, NOT HEDGING BLOAT.
+    //  (1) ACTOR: this used to be a COVERAGE blind spot — `logActivity` was
+    //      handed to `useDocumentTools` ALONE, so every chat write handler
+    //      (createTask/updateTask/deleteTask and every register write) mutated
+    //      state and logged NOTHING, and the description had to say so or the
+    //      model would deny its own work. THAT GAP IS CLOSED: the dispatcher's
+    //      entity writers now log with `actor: "ai"` — verify with
+    //      `grep -c logActivity src/app/use-chat-dispatcher.ts`, which returns
+    //      28 (it returned 1 when the caveat was written). What replaced it is
+    //      the ACTOR caution, and it is the narrower true claim: `actor` is
+    //      OPTIONAL, an absent one means the entry is UNATTRIBUTABLE (older
+    //      than the field, or written by a path that cannot see its own cause —
+    //      `task-manager`'s debounced `settings.updated` logger is the one
+    //      surviving production example), and reading absence as "the user did
+    //      this" attributes work to a person who may not have done it.
+    //      ★★★ THE CAUSES ARE EXAMPLES, NEVER A LIST — the description says "for
+    //      example" for that reason. There is already a THIRD cause and it is
+    //      the one a FUTURE release creates: `sanitizeActivityEntry` KEEPS an
+    //      unknown-but-string `actor` (forward-compat, same reason it keeps an
+    //      unknown `kind`), but `renderActivityEntry`'s `knownActor` then drops
+    //      it from the rendered payload. So an entry a newer client stamped
+    //      `actor: "scheduler"` reaches the model with NO actor while being
+    //      neither older than the field nor written by a blind path. State the
+    //      PROPERTY; enumerate nothing.
+    //      Wording deliberately mirrors `view-ai-scope.ts`'s `activity.reading`
+    //      — one claim, two surfaces, so they cannot drift apart.
     //  (2) RETENTION: the log is capped at `ACTIVITY_MAX_ENTRIES`, so an empty
     //      result for an OLD range is indistinguishable from a quiet period.
     //      `truncated` cannot cover this — it reports what the CAPPED LOG held,
-    //      never what the cap already dropped.
-    //  Both are description-level on purpose: wiring the chat writes into the
-    //  log is a feature (which kinds, what args, undo interaction), not a
-    //  wording fix. If that feature lands, delete blind spot (1) here.
+    //      never what the cap already dropped. STILL TRUE; do not delete it.
+    //  ★★ Note the shape of the retired claim: it stated a LIMITATION, and a
+    //  later slice closed it while nothing in the build could see the prose go
+    //  stale. `chat-tools.test.ts` now pins the retired sentence's ABSENCE as
+    //  well as the actor disclosure's PRESENCE — an absence assertion alone is
+    //  vacuous (it passes on an empty description), so the pair is the guard.
     description:
-      "Search this project's activity history — the audit trail of changes made through the app's " +
-      "own UI and its integrations (creates, updates, deletes, status changes, syncs), newest " +
+      "Search this project's activity history — the audit trail of changes made in this project: " +
+      "through the app's own UI, by its integrations, and by you (creates, updates, deletes, " +
+      "status changes, syncs), newest " +
       "first. Use it for questions about what CHANGED and WHEN (\"what happened last week\", \"who " +
       "moved that milestone\", \"what did this field say before\"); use the list_* tools for " +
       "current state. Each event has an ISO timestamp carrying the project's UTC offset — quote " +
       "that wall clock, it is the one the user's own Activity view shows — an English summary, " +
       "and an optional detail " +
-      "string carrying the field-level before/after diff. Answer confidently from the events you DO " +
-      "get back, but never read an empty result as proof that nothing happened — the log has two " +
-      "blind spots. First, your OWN tool calls are not recorded in it (document writes are the sole " +
-      "exception), so a task you created for the user will be missing from it. Second, it keeps " +
+      "string carrying the field-level before/after diff. Each " +
+      "event may carry an `actor` (`user`, `ai` or `integration`) saying which. Never attribute " +
+      "an entry whose actor is absent: an absent actor is unattributable (for example it may be " +
+      "older than this field, or written by a path that could not tell who acted), and it is NOT " +
+      "evidence the user did it. Answer confidently " +
+      "from the events you DO get back, but never read an empty result as proof that nothing " +
+      "happened: the log keeps " +
       `only the most recent ${ACTIVITY_MAX_ENTRIES} events and drops the oldest beyond that, so an ` +
       "older range can come back empty because those events aged out rather than because the period " +
-      "was quiet. Name whichever gap applies instead of asserting the change never happened. If " +
+      "was quiet. Say so instead of asserting the change never happened. If " +
       "`truncated` is true, more events matched than were returned — say so rather than implying " +
       "the list is complete. Read-only.",
     input_schema: {

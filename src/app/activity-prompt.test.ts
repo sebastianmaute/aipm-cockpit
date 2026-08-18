@@ -63,12 +63,52 @@ describe("renderActivityEntry", () => {
     }
   });
 
+  it("renders the entry's actor", () => {
+    expect(renderActivityEntry(entry({ actor: "ai" })).actor).toBe("ai");
+    expect(renderActivityEntry(entry({ actor: "integration" })).actor).toBe("integration");
+  });
+
+  // ★★ `"actor" in r === false`, NOT `toBeUndefined()` — the latter cannot tell
+  //    an omitted key from a present-and-undefined one, and the whole point of
+  //    the conditional spread is that a pre-B2b entry's rendered shape is
+  //    UNCHANGED. `appendActivityEntry` is pinned the same way for the same
+  //    reason.
+  it("omits the actor key entirely for an entry that carries none", () => {
+    const r = renderActivityEntry(entry());
+    expect("actor" in r).toBe(false);
+    expect(Object.keys(r)).toEqual(["at", "summary"]);
+  });
+
+  it("keeps the actor key omitted on an entry that also carries changes", () => {
+    const r = renderActivityEntry(
+      entry({ kind: "task.updated", changes: [{ field: "status", from: "a", to: "b" }] }),
+    );
+    expect("actor" in r).toBe(false);
+    expect(r.detail).toBe("status: a → b");
+  });
+
+  // ★★ `sanitizeActivityEntry` KEEPS an unknown-but-string actor (forward-compat
+  //    with a newer release), so a value outside the union reaches the renderer —
+  //    including "toString", where a bare lookup would resolve a
+  //    Function.prototype method. DELIBERATE CHOICE: an unrecognised actor is
+  //    OMITTED rather than passed through, matching `summarizeRecentActivity`,
+  //    which folds both the absent and the unrecognised actor into its `unknown`
+  //    bucket — so the recap and the read path cannot describe one entry two
+  //    ways. Storage is untouched; only this projection narrows.
+  it("omits an unknown-but-string actor without crashing, including 'toString'", () => {
+    for (const bogus of ["system", "toString", "constructor", "hasOwnProperty", ""]) {
+      const r = renderActivityEntry(entry({ actor: bogus as ActivityEntry["actor"] }));
+      expect(r.summary, bogus).toBeTruthy();
+      expect("actor" in r, bogus).toBe(false);
+    }
+  });
+
   // ★ Table-driven over the WHOLE union: proves the render path resolves for
   //   every kind and leaves no unfilled {N} placeholder. It deliberately does
   //   NOT assert wording — the i18n string IS the wording.
   it("renders every ActivityKind with no placeholder left unfilled", () => {
     const kinds = Object.keys(ACTIVITY_KIND_TO_KEY) as ActivityKind[];
-    expect(kinds).toHaveLength(55);
+    expect(kinds).toHaveLength(56);
     for (const kind of kinds) {
       const r = renderActivityEntry(entry({ kind, args: ["A", "B", "C", "D"] }));
       expect(r.summary, kind).not.toBe("");
