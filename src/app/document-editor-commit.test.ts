@@ -57,6 +57,29 @@ describe("shouldCoalesce", () => {
     expect(shouldCoalesce([version({ savedAt: "not a date" })], 7, NOW)).toBe(false);
   });
 
+  it("breaks a savedAt tie by the HIGHER id, not array order", () => {
+    const shared = "2026-08-18T10:00:00.000Z";
+    const higherId = version({ id: 2, documentId: 99, source: "ai", op: "rename", savedAt: shared });
+    const lowerId = version({ id: 1, documentId: 7, source: "user", op: "update", savedAt: shared });
+    // higherId is listed FIRST on purpose: "return the last array element" and
+    // "return the higher id" must disagree here, or the fixture can't tell them
+    // apart. Last-element would read lowerId (documentId 7, user/update — would
+    // coalesce); the correct tie-break reads higherId (documentId 99 — does not).
+    expect(shouldCoalesce([higherId, lowerId], 7, NOW)).toBe(false);
+  });
+
+  it("coalesces exactly at the window boundary (inclusive)", () => {
+    const savedAt = "2026-08-18T10:00:00.000Z";
+    const atBoundary = new Date(Date.parse(savedAt) + COALESCE_WINDOW_MS).toISOString();
+    expect(shouldCoalesce([version({ savedAt })], 7, atBoundary)).toBe(true);
+  });
+
+  it("does not coalesce one millisecond past the window boundary", () => {
+    const savedAt = "2026-08-18T10:00:00.000Z";
+    const pastBoundary = new Date(Date.parse(savedAt) + COALESCE_WINDOW_MS + 1).toISOString();
+    expect(shouldCoalesce([version({ savedAt })], 7, pastBoundary)).toBe(false);
+  });
+
   it("exposes the window as a named constant", () => {
     expect(COALESCE_WINDOW_MS).toBeGreaterThan(0);
   });
