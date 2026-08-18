@@ -148,6 +148,52 @@ describe("ParagraphBlockEditor", () => {
     editable.blur();
     expect(onCommit).not.toHaveBeenCalled();
   });
+
+  // ★★★ Shared useBlockDraft behaviour, pinned here because a hook change
+  //  affects every block editor. A pending edit with no blur used to be
+  //  silently discarded on unmount (leaving edit mode, navigating away, a
+  //  block-list re-render dropping the block — none of those fire the DOM
+  //  blur event `commit` relies on). These three pin the fix's full
+  //  contract: something to flush, nothing to flush, and no double-flush
+  //  of an edit a blur already committed.
+  it("flushes a pending edit on unmount when there was no blur", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <ParagraphBlockEditor lang={LANG} index={4} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
+    );
+    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    editable.focus();
+    await userEvent.type(editable, "y");
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const [index, block] = onCommit.mock.calls[0];
+    expect(index).toBe(4);
+    expect(block.type).toBe("paragraph");
+    expect(block.html).toContain("y");
+  });
+
+  it("commits nothing on unmount when the draft was never touched", () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <ParagraphBlockEditor lang={LANG} index={5} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
+    );
+    unmount();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("does not double-commit on unmount after a blur already committed the edit", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <ParagraphBlockEditor lang={LANG} index={6} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
+    );
+    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    editable.focus();
+    await userEvent.type(editable, "y");
+    editable.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+  });
 });
 
 describe("HeadingBlockEditor", () => {
@@ -205,7 +251,11 @@ describe("HeadingBlockEditor", () => {
     expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 2, text: "New" });
   });
 
-  it("commits a level change together with the current text on blur", () => {
+  // ★ NOT a combined-commit test — it blurs the select alone, with the text
+  //  field never focused, so this only exercises a single control's own
+  //  blur firing the group's onBlur. Tabbing to the text field afterward
+  //  fires a SECOND, independent commit (see HeadingBlockEditor's docstring).
+  it("commits a level change on its own blur", () => {
     const onCommit = vi.fn();
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "Title" }} onCommit={onCommit} />,

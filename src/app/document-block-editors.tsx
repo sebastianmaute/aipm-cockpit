@@ -11,7 +11,7 @@
 //  factored out so the duplication-gate (a BLOCKING total-duplicated-lines
 //  check, not per-file) doesn't have to be paid down after four more siblings
 //  copy this shape. Keep new editors thin consumers of both.
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor";
 import { paragraphHasImage, blockChanged } from "./document-editor-commit";
 import { sanitizeDocumentHtml } from "./sanitize-html";
@@ -29,17 +29,36 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
 /**
  * Shared draft/dirty-check/commit wiring for a block editor whose full
  * editable state fits in one value of type `T` (the paragraph editor's is a
- * plain `string`; a future table editor's could be its row array). Holds the
- * draft in state, and on `commit()` converts it to a `DocBlock` via `toBlock`
- * and calls `onCommit` only if it actually differs from the stored block
- * (`blockChanged` — required, not an optimisation: without it, focusing a
- * block and leaving it would write a version whose before-image equals its
- * after-image).
+ * plain `string`; the heading editor's is the composite `{ level; text }`;
+ * a future table editor's could be its row array). Holds the draft in
+ * state, and on `commit()` converts it to a `DocBlock` via `toBlock` and
+ * calls `onCommit` only if it actually differs from the last block this
+ * hook told the caller about (`blockChanged` — required, not an
+ * optimisation: without it, focusing a block and leaving it would write a
+ * version whose before-image equals its after-image).
  *
  * `commit` is a plain closure recreated every render (never memoized), so it
  * always reads the LATEST draft value with no ref — setting a ref's
  * `.current` during render is itself a fatal lint error
  * (react-hooks/refs: "Cannot access refs during render").
+ *
+ * ★★★ UNMOUNT FLUSH — a pending, genuinely-changed draft with no blur is a
+ *  real data-loss bug, not a hypothetical: leaving edit mode, navigating
+ *  away, or a block-list re-render dropping this block all skip the DOM
+ *  blur event `commit` relies on, discarding the user's edit with no
+ *  warning. The mount-only effect below flushes such a draft on teardown.
+ *  It reads through `latestRef` (kept current by the OTHER effect, which
+ *  runs after every render) rather than closing over `value`/`toBlock`/
+ *  `onCommit`/`index` directly, because those four are only ever fresh at
+ *  MOUNT time inside an empty-deps effect — react-hooks/refs bans reading
+ *  OR writing a ref during render, so "keep it current" can only happen
+ *  inside an effect, never the render body.
+ *
+ * `lastKnownRef` is what makes a blur-commit and the unmount flush mutually
+ * exclusive for the SAME edit: it starts at the block this hook was seeded
+ * with and advances to `next` every time `commit` actually fires, so a
+ * flush computed from an already-committed draft diffs to "no change" and
+ * is correctly skipped.
  */
 function useBlockDraft<T>(
   initialValue: T,
@@ -50,10 +69,34 @@ function useBlockDraft<T>(
 ) {
   const [value, setValue] = useState(initialValue);
 
+  const lastKnownRef = useRef(storedBlock);
+
+  const latestRef = useRef({ value, toBlock, onCommit, index });
+  useEffect(() => {
+    latestRef.current = { value, toBlock, onCommit, index };
+  });
+
   const commit = () => {
     const next = toBlock(value);
-    if (blockChanged(storedBlock, next)) onCommit(index, next);
+    if (blockChanged(lastKnownRef.current, next)) {
+      lastKnownRef.current = next;
+      onCommit(index, next);
+    }
   };
+
+  useEffect(() => {
+    return () => {
+      const latest = latestRef.current;
+      const next = latest.toBlock(latest.value);
+      if (blockChanged(lastKnownRef.current, next)) {
+        latest.onCommit(latest.index, next);
+      }
+    };
+    // Deliberately mount-only: the effect body does nothing, and only its
+    // cleanup — which fires exactly once, at real unmount — matters. No
+    // exhaustive-deps disable needed: everything the cleanup reads comes
+    // through a ref, which the rule does not treat as a dependency.
+  }, []);
 
   return { value, setValue, commit };
 }
@@ -94,10 +137,19 @@ type HeadingDraft = { level: HeadingLevel; text: string };
  * draft's `T` is simply the composite `{ level; text }` object, so this
  * editor is still a THIN consumer of the shared hook (no second copy of the
  * dirty-check/commit logic): one `commit` closure, wired to the wrapping
- * div's `onBlur` exactly like `ParagraphEditorBody` — changing the level
- * updates the draft immediately (so the select always shows the live value)
- * but the actual commit still waits for blur, same as the text field. That
- * also means level+text changes make ONE combined commit, not two.
+ * div's `onBlur` exactly like `ParagraphEditorBody`.
+ *
+ * ★ THIS DOES NOT MEAN level+text always land in ONE combined commit.
+ *  React's `onBlur` is a delegated `focusout`, which BUBBLES — so moving
+ *  focus from the `<select>` to the sibling `<input>` (a tab-through, the
+ *  realistic workflow) already fires the group's `onBlur` once, for the
+ *  select alone, before the text field is even touched. Each control
+ *  commits independently as focus LEAVES it; the two only land in one
+ *  commit when the SAME blur is the first one either control has fired
+ *  (e.g. editing only the level, or only the text, then leaving the whole
+ *  group). Two close-together commits are not a problem in themselves —
+ *  Task 2's `shouldCoalesce` exists precisely so they fold into one
+ *  document version rather than each minting one.
  */
 export function HeadingBlockEditor({
   lang,
