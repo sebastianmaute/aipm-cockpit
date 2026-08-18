@@ -1,4 +1,6 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { applyDocMutation, type DocState } from "./document-mutations";
 import { deletedDocumentVersions } from "./document-versions";
 import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type DocBlock, type ProjectDocument } from "./document-model";
@@ -139,6 +141,34 @@ describe("applyDocMutation — ops", () => {
     const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replaceAll", blocks: [{ type: "pageBreak" }] }] }, ctx());
     expect(out.documents[0].blocks).toEqual([{ type: "pageBreak" }]);
     expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  it("coalesce: true suppresses the before-image but still applies the edit", () => {
+    const mark: DocBlock = { type: "paragraph", html: "<p>new</p>" };
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: mark }], coalesce: true }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(mark);
+    // The edit landed; no history entry was created for it.
+    expect(out.versions).toHaveLength(0);
+  });
+
+  it("coalesce absent writes the before-image, byte-identical to today", () => {
+    const mark: DocBlock = { type: "paragraph", html: "<p>new</p>" };
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: mark }] }, ctx());
+    expect(out.versions).toHaveLength(1);
+    expect(out.versions[0].op).toBe("update");
+    // The before-image holds the PRE-edit blocks, not the post-edit ones.
+    expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  it("the AI tool path cannot set coalesce — it builds the mutation field by field", () => {
+    // use-document-tools.ts constructs `{ kind: "ops", id, ops: cleanOps, title }`
+    // with explicit fields and no spread of model-supplied args, so a model
+    // cannot suppress version history. This pins that shape: if someone
+    // refactors it to spread raw args, this goes red.
+    const src = readFileSync(join(import.meta.dirname, "use-document-tools.ts"), "utf8");
+    const opsCall = src.slice(src.indexOf('kind: "ops"'));
+    expect(opsCall.slice(0, 80)).not.toMatch(/\.\.\./);
   });
 });
 

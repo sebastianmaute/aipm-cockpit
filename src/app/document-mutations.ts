@@ -53,7 +53,7 @@ export type DocMutation =
   | { kind: "rename"; id: number; title: string }
   | { kind: "duplicate"; id: number; title: string }
   | { kind: "delete"; id: number }
-  | { kind: "ops"; id: number; ops: readonly DocOp[]; title?: string }
+  | { kind: "ops"; id: number; ops: readonly DocOp[]; title?: string; coalesce?: boolean }
   | { kind: "restore"; versionId: number }
   | { kind: "link"; id: number; ref: DocEntityRef }
   | { kind: "unlink"; id: number; ref: Pick<DocEntityRef, "kind" | "id"> };
@@ -685,7 +685,16 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         }
       }
       if (nextBlocks === null && !titleChanged) return unchanged(state, rejected);
-      const before = snapshot(target, "update", ctx);
+      // ★★ `coalesce` SUPPRESSES THE BEFORE-IMAGE AND NOTHING ELSE. The edit
+      //  still lands and retention still re-runs — `withVersions` already takes
+      //  an optional `added`, so passing `undefined` is the whole mechanism.
+      //  Set by the hand editor when the newest version for this document is
+      //  already a `user`/`update` inside the coalescing window, so that a
+      //  20-block editing session cannot evict the document's own history
+      //  against MAX_VERSIONS_PER_DOC. See document-editor-commit.ts.
+      // ★ The AI path never sets it: use-document-tools.ts builds this mutation
+      //  field by field, so a model cannot suppress its own audit trail.
+      const before = m.coalesce ? undefined : snapshot(target, "update", ctx);
       const updated: ProjectDocument = { ...target, title: nextTitle, blocks: nextBlocks ?? target.blocks, updatedAt: ctx.now };
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? updated : d));
       return {
