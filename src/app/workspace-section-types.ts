@@ -24,6 +24,7 @@ import type {
   Absence,
   BudgetBucket,
   ChangeItem,
+  ChangeStatus,
   ProjectMeta,
   RaidItem,
   Resource,
@@ -156,6 +157,8 @@ export interface WorkspaceSectionProps {
   documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
+  /** Inline status change from a change row (routes through applyChangeStatus). */
+  handleChangeStatusChange: (id: number, next: ChangeStatus) => void;
   /** Capture the selected changes' pre-edit images for undo before a bulk apply. */
   onCaptureChangeBulk?: (ids: readonly number[]) => void;
   stakeholders: readonly Stakeholder[];
@@ -172,6 +175,10 @@ export interface WorkspaceSectionProps {
   /** Open the floating notes window (running note log) for a RAID item. Threaded
    *  to the RAID panel (row badge + edit modal). */
   onOpenNotes: (id: number) => void;
+  /** Same, for a change request — threaded to the Changes panel (row badge +
+   *  edit modal). Separate from `onOpenNotes` because the two ids live in
+   *  different registers and collide numerically. */
+  onOpenChangeNotes: (id: number) => void;
   // ★ `readonly` since the log became a WorkspaceProvider slice — the state is
   // readonly there so an updater must replace the array rather than mutate it
   // (the save effect's dirty check is reference equality).

@@ -21,6 +21,7 @@ vi.mock("./timelog-api", () => ({
 import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
 import type { TimelogLinks } from "./timelog-types";
+import type { ActualsAggregate } from "./timelog-actuals";
 
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
@@ -201,7 +202,7 @@ it("fetchBookingsForProjects fetches each SELECTED project (no customer resolve)
     .mockResolvedValueOnce([item(5, 4)])
     .mockResolvedValueOnce([{ ...item(5, 3), projectId: 12 }]);
   const { result } = renderHook(() => useTimelogSync(args()));
-  let out: { failedProjects: number; projectCount: number } | undefined;
+  let out: { failedProjects: number; projectCount: number; aggregates?: ActualsAggregate } | undefined;
   await act(async () => { out = await result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
   // Fetches the given ids directly — does NOT resolve the customer's project list.
   expect(api.listProjectsForCustomer).not.toHaveBeenCalled();
@@ -209,7 +210,12 @@ it("fetchBookingsForProjects fetches each SELECTED project (no customer resolve)
   expect(calledIds).toEqual([9, 12]);
   // Booking on project 9 attributes to bucket 7 via the persisted manual link.
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
-  expect(out).toEqual({ failedProjects: 0, projectCount: 2 });
+  expect(out?.failedProjects).toBe(0);
+  expect(out?.projectCount).toBe(2);
+  // The aggregate now comes back FROM the call: reading sync.aggregates after the
+  // await is stale state in the same closure, which would re-apply the old
+  // overlay. Pinned here so the widened return cannot be quietly narrowed again.
+  expect(out?.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
   // No per-user / org path touched.
   expect(api.listEmployeeTimeItems).not.toHaveBeenCalled();
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
@@ -252,6 +258,46 @@ it("fetchBookingsForProjects is fail-soft: one project error does not abort the 
   await act(async () => { out = await result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
   expect(out?.failedProjects).toBe(1);
+});
+
+// §172 — a fail-soft fetch produces a well-formed aggregate that is simply
+// SHORT, and apply owns the period it routes, so applying it erases the missing
+// project's hours. The flag is the only thing that knows, and it must outlive
+// the render: it is what every apply path gates on.
+it("flags the cached aggregate PARTIAL after a failed project, and a clean re-fetch clears it", async () => {
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>)
+    .mockResolvedValueOnce([item(5, 4)])
+    .mockRejectedValueOnce(new MockTimelogError(500));
+  const first = renderHook(() => useTimelogSync(args()));
+  await act(async () => { await first.result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
+  expect(first.result.current.partial).toBe(true);
+  // Persisted — else a view remount silently re-enables Apply on the short data.
+  first.unmount();
+  const second = renderHook(() => useTimelogSync(args()));
+  expect(second.result.current.partial).toBe(true);
+  // A clean re-fetch is the recovery path (Clear all is the other one).
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>).mockResolvedValue([item(5, 4)]);
+  await act(async () => { await second.result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
+  expect(second.result.current.partial).toBe(false);
+});
+
+// The cache entry is rewritten WHOLE by four different savers, so a saver that
+// omits `partial` does not leave it alone — it clears it, re-opening §172
+// through a path that has nothing to do with fetching.
+it("keeps the partial flag when a non-fetch save rewrites the cache entry", async () => {
+  (api.listUsers as ReturnType<typeof vi.fn>).mockResolvedValue([
+    { userId: 5, firstName: "Ada", lastName: "L", initials: "AL", email: "a@x.com", isActive: true },
+  ]);
+  (api.listProjectTimeRegistrations as ReturnType<typeof vi.fn>)
+    .mockResolvedValueOnce([item(5, 4)])
+    .mockRejectedValueOnce(new MockTimelogError(500));
+  const first = renderHook(() => useTimelogSync(args()));
+  await act(async () => { await first.result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
+  expect(first.result.current.partial).toBe(true);
+  act(() => { first.result.current.removeUsers([5]); }); // display-only cleanup → re-saves the entry
+  first.unmount();
+  const second = renderHook(() => useTimelogSync(args()));
+  expect(second.result.current.partial).toBe(true);
 });
 
 it("loadCustomerProjects discards an out-of-order (superseded) response", async () => {

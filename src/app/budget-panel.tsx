@@ -37,6 +37,7 @@ import { ToggleButton } from "./toggle-button";
 import { AddButton } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
+import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { useConfirm } from "./confirm-dialog";
 import {
   DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketColumnTotals,
@@ -149,6 +150,11 @@ export interface BudgetPanelProps {
   showHints?: boolean;
   isPopout?: boolean;
   onLearnMore?: (conceptId: string) => void;
+  /** Cache key for the per-device TimeLog actuals the unapplied notice reads —
+   *  the SAME one `TimelogPanel` writes under. Both it and `onGoToTimelog` are
+   *  needed before the notice renders at all. */
+  timelogProjectId?: string;
+  onGoToTimelog?: () => void;
 }
 
 function Cci({ label, hint, value, currency, locale, lang, rag, primary = "amount", unknown = false }: { label: string; hint?: string; value: CciValue; currency: string; locale: string; lang: Lang; rag?: Health | null; primary?: "amount" | "percent"; unknown?: boolean }) {
@@ -201,7 +207,7 @@ function blankBucket(id: number, plan: ResourcePlan): BudgetBucket {
 }
 
 export function BudgetPanel(props: BudgetPanelProps) {
-  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, tasks = [], actualsByBucket = NO_ACTUALS } = props;
+  const { lang, buckets, roles, resources, plan, fxRates, absences, holidaySet, workdayHours, showHints, isPopout, onLearnMore, onSetBudgetFollowsPlan, timelogProjectId, onGoToTimelog, tasks = [], actualsByBucket = NO_ACTUALS } = props;
   const locale = localeFor(lang);
   const confirm = useConfirm();
 
@@ -361,6 +367,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
     <div ref={budgetRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       {onLearnMore && (
         <ViewCallout view="budget" lang={lang} showHints={showHints !== false} isPopout={!!isPopout} onLearnMore={onLearnMore} />
+      )}
+      {/* Above the bucket cards deliberately: editing allocations here is what
+          makes cached bookings applicable, and this view otherwise points at
+          Timelog nowhere at all. Read-only — it never writes a money figure. */}
+      {timelogProjectId !== undefined && onGoToTimelog && (
+        <BudgetUnappliedNotice
+          lang={lang} projectId={timelogProjectId} buckets={buckets} roles={roles}
+          resources={resources} onGoToTimelog={onGoToTimelog}
+        />
       )}
       <div className="mb-2 flex shrink-0 items-center justify-between gap-2">
         <h2 className="text-lg font-medium text-foreground">

@@ -1009,7 +1009,7 @@ export function TasksSection({
                 {!hiddenCols.has("estimate") && <SortResizeTh label={t(lang, "colEstimate")} sortCol="estimate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
                 {!hiddenCols.has("spent") && <SortResizeTh label={t(lang, "colSpent")} sortCol="spent" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colSpent"))} />}
                 <Th>
-                  <span className="sr-only">Actions</span>
+                  <span className="sr-only">{t(lang, "colActions")}</span>
                 </Th>
               </tr>
             </thead>

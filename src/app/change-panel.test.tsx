@@ -9,7 +9,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import type { ChangeItem } from "./types";
+import type { ChangeItem, ChangeStatus, NoteLogEntry } from "./types";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
   return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
@@ -17,7 +17,7 @@ function ci(over: Partial<ChangeItem>): ChangeItem {
 const base = {
   lang: "en-US" as const, tasks: [], raid: [],
   changes: [ci({ id: 1, title: "Alpha scope", type: "Scope", status: "Proposed" }), ci({ id: 2, title: "Beta cost", type: "Cost", status: "Approved" })],
-  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(),
+  today: "2026-06-10", onSave: vi.fn(), onDelete: vi.fn(), onStatusChange: vi.fn(), onOpenNotes: vi.fn(),
 };
 
 // The embedded ChangeEditModal renders ModalFieldControls, which reads
@@ -102,6 +102,117 @@ describe("ChangePanel", () => {
 
     fireEvent.change(box, { target: { value: "creep" } });
     expect(getByText("Widget rework")).toBeTruthy();
+  });
+});
+
+describe("ChangePanel — inline status select", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  // TWO rows, so a name that omitted the row qualifier would collide (WCAG
+  // 2.4.6) — axe has no rule for duplicate accessible names at any seed size,
+  // so a unit test rendering >=2 rows is the only possible detector.
+  const rowLabel = (title: string) => `${t("en-US", "changeFieldStatus")} – ${title}`;
+
+  it("renders a row-unique status select per row, showing that row's status", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    expect((getByRole("combobox", { name: rowLabel("Alpha scope") }) as HTMLSelectElement).value).toBe("Proposed");
+    expect((getByRole("combobox", { name: rowLabel("Beta cost") }) as HTMLSelectElement).value).toBe("Approved");
+  });
+
+  it("reports the picked status to onStatusChange with the row id", () => {
+    const onStatusChange = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} onStatusChange={onStatusChange} />,
+      { wrapper: Providers },
+    );
+    fireEvent.change(getByRole("combobox", { name: rowLabel("Alpha scope") }), {
+      target: { value: "Approved" },
+    });
+    expect(onStatusChange).toHaveBeenCalledWith(1, "Approved");
+  });
+
+  // The row's onClick opens the editor. A real user CLICKS the select to open
+  // it, so that click must not reach the row — hence stopPropagation on the
+  // <td>. Firing only `change` would never exercise the row handler at all and
+  // the assertion would hold with the guard deleted (mutation-checked: removing
+  // the handler turns this test red, the `change`-only variant stays green).
+  it("does not open the row editor when the status select is clicked", () => {
+    const { getByRole, queryByDisplayValue } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    const select = getByRole("combobox", { name: rowLabel("Alpha scope") });
+    fireEvent.click(select);
+    expect(queryByDisplayValue("Alpha scope")).toBeNull();
+    fireEvent.change(select, { target: { value: "Rejected" } });
+    expect(queryByDisplayValue("Alpha scope")).toBeNull();
+  });
+});
+
+describe("ChangePanel — note-log badge", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  function note(id: number): NoteLogEntry {
+    return { id, timestamp: "2026-06-01T09:00:00.000Z", html: `<p>n${id}</p>`, text: `n${id}` };
+  }
+  const notesLabel = (title: string) => `${t("en-US", "noteLogTitle")} – ${title}`;
+
+  // TWO rows on purpose, with DIFFERENT counts. axe-core has no rule flagging
+  // two controls that share an accessible name under any of the four WCAG tags
+  // the e2e gate requests, at any seed size — so a multi-row unit test is the
+  // ONLY possible detector of that WCAG 2.4.6 collision, and one row cannot
+  // express it at any assertion count. Differing counts also stop a hardcoded
+  // count from passing.
+  const changes = [
+    ci({ id: 1, title: "Scope cut", noteLog: [note(1), note(2)] }),
+    ci({ id: 2, title: "Budget uplift", noteLog: [note(1)] }),
+  ];
+
+  it("renders a row-unique notes badge carrying the entry count", () => {
+    const onOpenNotes = vi.fn();
+    const { getByRole } = render(
+      <ChangePanel {...base} changes={changes} onOpenNotes={onOpenNotes} />,
+      { wrapper: Providers },
+    );
+    const btn = getByRole("button", { name: notesLabel("Scope cut") });
+    expect(btn.textContent).toContain("2");
+    fireEvent.click(btn);
+    expect(onOpenNotes).toHaveBeenCalledWith(1);
+
+    // The second row proves the names do not collide.
+    const other = getByRole("button", { name: notesLabel("Budget uplift") });
+    expect(other.textContent).toContain("1");
+    fireEvent.click(other);
+    expect(onOpenNotes).toHaveBeenCalledWith(2);
+  });
+
+  it("renders a zero badge for a change with no log", () => {
+    const { getByRole } = render(
+      <ChangePanel {...base} changes={[ci({ id: 9, title: "No notes yet" })]} />,
+      { wrapper: Providers },
+    );
+    expect(getByRole("button", { name: notesLabel("No notes yet") }).textContent).toContain("0");
+  });
+
+  // The row's onClick opens the editor. A real user CLICKS the badge, so that
+  // click must not reach the row — hence stopPropagation on the <td>, exactly
+  // as the status cell beside it does.
+  it("does not open the row editor when the notes badge is clicked", () => {
+    const { getByRole, queryByDisplayValue } = render(
+      <ChangePanel {...base} changes={changes} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("button", { name: notesLabel("Scope cut") }));
+    expect(queryByDisplayValue("Scope cut")).toBeNull();
   });
 });
 
@@ -288,6 +399,46 @@ describe("Changes bulk edit", () => {
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  /** Sets `status` on the bulk panel and applies it to the one selected row. */
+  function bulkSetStatus(
+    changes: readonly ChangeItem[],
+    value: ChangeStatus,
+    onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void,
+  ) {
+    const { getByRole, getAllByRole } = render(
+      <ChangePanel {...base} changes={changes} onSave={onSave} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", changes[0].title) }));
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
+  }
+
+  // The bulk patch used to set `status` RAW, so a bulk approve stored Approved
+  // with NO decisionDate — and `use-calendar-integrations` filters the Outlook
+  // decision-date push on `!!c.decisionDate`, silently excluding those rows.
+  it("bulk status change stamps decisionDate (routes through applyChangeStatus)", () => {
+    const onSave = vi.fn();
+    bulkSetStatus([ci({ id: 1, title: "Alpha scope", status: "Proposed" })], "Approved", onSave);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: 1, status: "Approved", decisionDate: base.today });
+  });
+
+  // The reverse half of the same invariant: the row select clears the date on a
+  // return to pending, and a raw bulk patch left it stale.
+  it("bulk status change back to a pending status clears a stale decisionDate", () => {
+    const onSave = vi.fn();
+    const seeded = ci({ id: 1, title: "Alpha scope", status: "Approved", decisionDate: "2026-06-05" });
+    bulkSetStatus([seeded], "Under Review", onSave);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].status).toBe("Under Review");
+    expect(onSave.mock.calls[0][0].decisionDate).toBeUndefined();
   });
 });
 

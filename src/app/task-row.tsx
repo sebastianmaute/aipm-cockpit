@@ -1,7 +1,7 @@
 "use client";
 
 import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon, SparklesIcon } from "@heroicons/react/24/outline";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { descriptionText } from "./rich-text-projection";
@@ -26,6 +26,7 @@ import { useInlineCellEdit, type InlineField } from "./use-inline-cell-edit";
 import { effectiveAssignee } from "./resource-foundation";
 import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { PopoverPanel } from "./popover-panel";
+import { IconButton } from "./icon-button";
 import type { Contact } from "./contacts";
 import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
 
@@ -664,11 +665,34 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
   const showPushToJira =
     jiraEnabled && !!jiraProjectKey && !task.jiraKey && !isClosed;
 
-  // All row verbs (Edit / Send inquiry / Push to Jira / Delete) live in the
-  // ⋮ overflow menu. The trigger's aria-label is row-unique (WCAG 2.4.6) so
-  // N rows don't share an identical "More actions" name.
+  // Row verbs live in the ⋮ overflow menu, EXCEPT Send inquiry, which is a
+  // visible button — it is the one verb used often enough to be worth the
+  // width. ★ RAID renders the SAME verb as TEXT and that is not drift to
+  // "fix": raid-panel-rows.tsx puts it in an `auto`-width owner column, where
+  // text costs nothing; this column is fixed-width and non-resizable, so text
+  // here had a zero-width box. It is deliberately NOT also a menu
+  // item: two controls with the same accessible name in one row is a WCAG
+  // 2.4.6 failure the axe gate cannot see.
+  // Every accessible name here is row-unique for the same reason.
   return (
     <div className="flex items-center whitespace-nowrap">
+      {/* ICON-ONLY, and that is geometry rather than taste: this cell sits in a
+          `table-layout: fixed` column with a DECLARED width and a header that
+          carries no `onResize`, so a text label overflows and the user has no
+          way to widen it. `sendInquiry` opens a `mailto:`, hence the envelope.
+          ★ WCAG 2.5.3 (label in name) does NOT apply — it constrains a control
+          that HAS a visible label, and an icon-only button has none — so do not
+          "fix" the row qualifier out of the accessible name. */}
+      {showSendInquiry && (
+        <IconButton
+          label={`${t(lang, "sendInquiry")} – ${task.taskName}`}
+          title={t(lang, "sendInquiry")}
+          onClick={(e) => { stop(e); onSendInquiry(task); }}
+          className="mr-1"
+        >
+          <EnvelopeIcon aria-hidden className="h-4 w-4" />
+        </IconButton>
+      )}
       <span className="relative">
         <button
           ref={menuBtnRef}
@@ -698,16 +722,6 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           >
             {t(lang, "edit")}
           </button>
-          {showSendInquiry && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={(e) => { stop(e); setMenuOpen(false); onSendInquiry(task); }}
-              className="px-3 py-1 text-left text-xs text-foreground hover:bg-surface-muted"
-            >
-              {t(lang, "sendInquiry")}
-            </button>
-          )}
           {showPushToJira && (
             <button
               type="button"

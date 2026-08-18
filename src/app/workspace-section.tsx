@@ -115,6 +115,7 @@ export function WorkspaceSection({
   documentsByEntity,
   handleSaveChange,
   handleDeleteChange,
+  handleChangeStatusChange,
   onCaptureChangeBulk,
   stakeholders,
   handleSaveStakeholder,
@@ -125,6 +126,7 @@ export function WorkspaceSection({
   handleCreateMitigationTaskFromRaid,
   handleJumpToTaskFromRaid,
   onOpenNotes,
+  onOpenChangeNotes,
   activityLog,
   logActivity,
   logActivityChanges, logActivityAs,
@@ -246,10 +248,7 @@ export function WorkspaceSection({
   // accepted cost of not threading the live sync state through here. Keyed the
   // same way TimelogPanel keys the cache it WRITES — a different fallback than
   // `"default"` would miss every entry and silently report "unknown".
-  const budgetActualsByBucket = useMemo(
-    () => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {},
-    [currentProjectId],
-  );
+  const budgetActualsByBucket = useMemo(() => loadActualsCache(currentProjectId ?? "default")?.aggregates?.byBucket ?? {}, [currentProjectId]);
   // Inline "Ask Claude" per-row edit glue (SP2). One instance per entity pane;
   // each yields the row handlers threaded into the panel + its active-edit
   // popover element. Called unconditionally (hook rules); the popover only
@@ -274,10 +273,7 @@ export function WorkspaceSection({
   // Hoist the members to scalars — exhaustive-deps rejects `obj.member` deps.
   const trendsActive = trends.active;
   const trendsSnapshots = trends.snapshots;
-  const baselineMilestoneDates = useMemo(
-    () => (trendsActive ? baselineMilestoneTargets(trendsSnapshots) : undefined),
-    [trendsActive, trendsSnapshots],
-  );
+  const baselineMilestoneDates = useMemo(() => (trendsActive ? baselineMilestoneTargets(trendsSnapshots) : undefined), [trendsActive, trendsSnapshots]);
   const raidEnabledForChanges = isModuleEnabled("raid", features);
   const stakeholdersEnabled = isModuleEnabled("stakeholders", features);
 
@@ -636,6 +632,8 @@ export function WorkspaceSection({
               today={today}
               onSave={handleSaveChange}
               onDelete={handleDeleteChange}
+              onStatusChange={handleChangeStatusChange}
+              onOpenNotes={onOpenChangeNotes}
               onCaptureBulk={onCaptureChangeBulk}
               raidEnabled={raidEnabledForChanges}
               stakeholdersEnabled={stakeholdersEnabled}
@@ -732,6 +730,7 @@ export function WorkspaceSection({
               today={today}
               tasks={tasks}
               actualsByBucket={budgetActualsByBucket}
+              timelogProjectId={currentProjectId ?? "default"} onGoToTimelog={() => setActiveTab("timelog")}
               onChangeBuckets={onChangeBudgets}
               onSetBudgetFollowsPlan={onSetBudgetFollowsPlan}
               onRefreshFx={onRefreshFx}
@@ -952,7 +951,7 @@ export function WorkspaceSection({
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>
-            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} />
+            <TimelogPanel lang={lang} isPopout={isPopout} projectKey={currentProjectId ?? "default"} onConfigureTimelog={!isPopout && onOpenSettingsSection ? () => onOpenSettingsSection("integrations") : undefined} />
           </div>
         )}
 

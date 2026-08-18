@@ -904,10 +904,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   state. Don't drop it back to colour-only. ★ the ✕ renders whenever there is something to clear — including a
   FREE-TEXT name (`!!display`), not just a linked/dangling one, since the control is labelled "Clear"; its
   colour/title fall back to neutral + `clear` when there is no link state.
-- **Rich-text note log (Tasks + RAID, v0.196.0 "Emrys"):** dated note LOG on `Task.noteLog?` +
-  `RaidItem.noteLog?` (`NoteLogEntry[]` = `{id;authorResourceId?;authorName?;timestamp;editedAt?;html;text}`),
+- **Rich-text note log — THREE registers (Tasks + RAID 0.196.0 "Emrys"; Changes 0.245.0 "Buckell"):**
+  dated note LOG on `Task.noteLog?` + `RaidItem.noteLog?` + `ChangeItem.noteLog?`
+  (`NoteLogEntry[]` = `{id;authorResourceId?;authorName?;timestamp;editedAt?;html;text}`),
   surfaced by ONE shared draggable NON-modal floating CRUD window `notes-window.tsx` (+ `🗒 N` badge
-  `notes-badge-button.tsx` on Open Points + RAID rows, "Notes (N)" button in the editors). Author =
+  `notes-badge-button.tsx` on Open Points + RAID + Changes rows, "Notes (N)" button in all three
+  editors). ★★ **THE LANDMINES BELOW ARE NOT UNIFORM ACROSS THE THREE** — each carries its own note
+  saying which register it is about, and two of them (the save path, and the sanitizer that drops the
+  field) are fixed by DIFFERENT mechanisms per register. Re-derive the population rather than trusting
+  this line: `grep -cF 'noteLog?: NoteLogEntry[]' src/app/types.ts` → **3**, and
+  `grep -rn "<NotesBadgeButton" src/app --include=*.tsx | grep -v "\.test\."` → three rows
+  (`change-panel.tsx` · `raid-panel-rows.tsx` · `task-row.tsx`). The window is owned ABOVE every panel
+  by `useNotesWindow`, which returns one opener per register
+  (`grep -n "openTaskNotes\|openRaidNotes\|openChangeNotes" src/app/use-notes-window.ts`). Author =
   per-device `settings.selfResourceId` (honor-system, NO dropdown/auth); `canEditNote` gates edit/delete
   (`authorResourceId == null || === self`; edit CLAIMS an authorless note). Pure model in `note-log.ts`
   (`addNote`/`editNote`/`deleteNote` immutable; `sanitizeNoteLog`; `encodeNoteLog`/`decodeNoteLog`
@@ -956,6 +965,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   redoable state. `NEVER_CAPTURE` is only `{id, localModifiedAt}`, so nothing else suppresses it.
   ★ The modal's `draft.noteLog?.length ?? 0` count still reads the stale snapshot, so it can
   under-report while the notes window is open. Cosmetic (the log itself is safe now) — left open.
+  ★★ **CHANGES COPIED RAID'S SAVE FIX, NOT THE TASK ONE, AND THAT IS THE CORRECT CHOICE.** The change
+  editor has the same shape as the RAID one — a full-row draft snapshotted at edit-open, a notes window
+  owned above the panel (`openChangeNotes`), and a save that REPLACES the row — so omitting the field
+  from the payload (the task fix) would ERASE the log rather than preserve it. `useChangeLog`
+  (`use-change-log.ts`) therefore builds `withStamp` with `noteLog` taken from the STORED `previous`
+  row, and only on an UPDATE: `grep -n "const withStamp" -A 6 src/app/use-change-log.ts` shows the
+  `...(create ? {} : { noteLog: previous?.noteLog })` spread. ★ Unlike RAID, `CHANGE_UNDO_GROUPS` is
+  NON-empty (`["status","decisionDate"]`), but the reason the carry must land on `withStamp` rather
+  than inside `setChanges` is unchanged — `changedFieldGroups` still emits a capture per changed key
+  outside that one group, so a stale `noteLog` would become undoable state.
+  ★ The change modal's `draft.noteLog?.length ?? 0` count reads the edit-open snapshot and can
+  under-report exactly as RAID's does; its own comment says so, and it is left open for the same reason.
   ★★★ **`sanitizeRaidItem` DROPS `noteLog` and CANNOT be taught to keep it.** It builds from an
   explicit field list, and `sanitizeNoteLog` → `sanitizeRichHtml` → DOMPurify is DOM-BOUND while the
   entity sanitizers must stay DOM-free (they run under bare node in the sample generator — same
@@ -967,8 +988,31 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the BARE name — `ai-project-proposal.ts:287` passes the sanitizer by REFERENCE into `buildList`, so
   `grep 'sanitizeRaidItem('` misses it (that trap produced a wrong count here first time round, and it
   applies to any sanitizer used as a `.map`/`buildList` callback).
+  ★★★ **`sanitizeChangeItem` HAS THE IDENTICAL HAZARD AND IS CLOSED BY A DIFFERENT MECHANISM — do NOT
+  "complete the pattern" by copying RAID's.** It is DOM-free and built from an explicit field list too,
+  so it drops the log the same way (`grep -c "noteLog" src/app/sanitize-records.ts` → **0**). But
+  changes DO call their sanitizer at the decode and JSON boundaries where RAID does not, so the carry
+  could not live in one save handler: it is the dedicated helper **`withStoredNoteLog`**
+  (`change-log.ts`), applied at three sites — `buildChangeFromObj` (CSV + Markdown + both Turso
+  layouts), `jsonToWorkspace`, and the AI dispatcher's `updateChange`. Sweep it with
+  `grep -rn "withStoredNoteLog" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
+  ★★ RAID's fix (take the log from the stored `previous` row inside the save handler) would not reach
+  a decoder, and this helper would be wrong for RAID, which has no sanitizer call on those paths.
+  ★★ SAME SWEEP TRAP, WORSE: `sanitizeChangeItem` is called at SIX sites and **TWO pass it BY
+  REFERENCE** — `buildList` in `ai-project-proposal.ts` and `sanitizeArr` in `templates.ts` — so a
+  call-shaped `sanitizeChangeItem(` grep sees FOUR of the six and reports its list as complete. Sweep
+  the BARE name: `grep -rn sanitizeChangeItem src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  (which also returns the imports, the declaration, and every source COMMENT naming it — including the
+  copy of this same grep inside `withStoredNoteLog`'s docblock, i.e. the grep matching itself. It is
+  scoped to `src/app`, so it does NOT return this file). ★ The three that do NOT carry a log are CREATES with
+  nothing stored to lose; the full split, and why template import deliberately drops a captured log,
+  live in `withStoredNoteLog`'s own docblock — read it rather than restating it here.
   ★★ STILL OPEN (§50): whole-row `capture()` undo restores a stale row, so undoing a BULK edit reverts
   the note log. Shared engine (`undo-stack.ts:89`), so tasks are likely affected too — unverified.
+  ★★ CHANGES INHERIT §50 TOO, and that is NEW with `ChangeItem.noteLog`: `useChangeLog`'s
+  `captureBulkUndo` snapshots whole rows (`changes.filter((c) => ids.includes(c.id))`) into the same
+  shared `capture()`, so the RAID sequence reproduces one register over —
+  `grep -n "captureBulkUndo" -A 4 src/app/use-change-log.ts`.
   ★★ SSR landmine: `plainToHtml` must NOT run DOMPurify at module-eval (no DOM under Next SSR → 500) — it
   escapes `&<>` + wraps `<p>`/`<br>`, a provable no-op vs the sanitizer. ★ Enter-commit IME guard:
   `!event.isComposing && keyCode !== 229`. `use-notes-window.ts` = deps-object glue hook (coverage-excluded).

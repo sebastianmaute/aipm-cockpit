@@ -6,22 +6,12 @@
 // the storage layer — codecs and backends import from here, never the
 // reverse. Extracted from storage.ts (which re-exports everything).
 
-import {
-  backfillResourceFks,
-  backfillResources,
-  defaultResourcePlan,
-  seedDisciplines,
-  seedGrades,
-} from "./resource-foundation";
+import { backfillResourceFks, backfillResources, defaultResourcePlan, seedDisciplines, seedGrades } from "./resource-foundation";
 import { sanitizeFieldVisibility, type FieldVisibilityConfig } from "./field-visibility";
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
 import { migrateTask } from "./task-status";
-import {
-  sanitizeNoteFields,
-  sanitizeRaidRichFields,
-  sanitizeChangeRichFields,
-  sanitizeMilestoneRichFields,
-} from "./note-log";
+import { sanitizeNoteFields, sanitizeRaidRichFields, sanitizeChangeRichFields, sanitizeMilestoneRichFields } from "./note-log";
+import { withStoredNoteLog } from "./change-log";
 import {
   sanitizeAbsence,
   sanitizeBudgetBucket,
@@ -658,7 +648,17 @@ export function jsonToWorkspace(
       // -> descriptionHtml) but are DOM-free by contract, so they never run
       // DOMPurify. The whole-object load boundary is where that pass belongs.
       milestones: ((p.milestones as unknown[]) ?? []).map((m) => sanitizeMilestone(m)).filter((m): m is Milestone => m !== null).map(sanitizeMilestoneRichFields),
-      changes: ((p.changes as unknown[]) ?? []).map((c) => sanitizeChangeItem(c)).filter((c): c is ChangeItem => c !== null).map(sanitizeChangeRichFields),
+      // ★★★ The RAW log is attached BEFORE `sanitizeChangeRichFields`, because
+      //     that pass is what sanitizes it; attaching it after would store an
+      //     untrusted file's HTML verbatim. Why it has to be carried across
+      //     `sanitizeChangeItem` at all: see `withStoredNoteLog`.
+      changes: ((p.changes as unknown[]) ?? [])
+        .map((c) => {
+          const s = sanitizeChangeItem(c);
+          return s === null ? null : withStoredNoteLog(s, (c as { noteLog?: unknown } | null)?.noteLog);
+        })
+        .filter((c): c is ChangeItem => c !== null)
+        .map(sanitizeChangeRichFields),
       stakeholders: ((p.stakeholders as unknown[]) ?? []).map((s) => sanitizeStakeholder(s)).filter((s): s is Stakeholder => s !== null),
     };
     // Additive: sanitize an incoming project when present; otherwise leave the

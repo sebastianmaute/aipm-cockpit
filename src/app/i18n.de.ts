@@ -286,6 +286,7 @@ export const de: Record<TranslationKey, string> = {
   fieldViewLabel: "Feldansicht",
   colEstimate: "Schätzung",
   colSpent: "Aufgewandt",
+  colActions: "Aktionen",
   workspaceResizeHint:
     "Ziehe die untere rechte Ecke, um diesen Arbeitsbereich zu vergrößern.",
   workspaceCollapse: "Arbeitsbereich einklappen",
@@ -654,6 +655,7 @@ export const de: Record<TranslationKey, string> = {
   chatThreadEmptyBody: "Starten Sie einen neuen Chat, um zu beginnen.",
   chatThreadSaveFailed: "Dieser Chat konnte nicht gespeichert werden.",
   chatThreadSaveRetry: "Erneut versuchen",
+  chatSidebarResetSize: "Breite der Chat-Seitenleiste zurücksetzen",
   chatStop: "Stopp",
   chatStopGenerating: "Generierung stoppen",
   chatStopped: "Abgebrochen",
@@ -1483,6 +1485,11 @@ export const de: Record<TranslationKey, string> = {
   timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",
   timelogTitle: "Timelog-Zeitbuchungen",
   timelogEnable: "Timelog-Integration aktivieren",
+  timelogNotConfigured:
+    "Die Timelog-Integration ist ausgeschaltet, daher gibt es keine Zeitbuchungen anzuzeigen. Schalten Sie sie unter Einstellungen → Integrationen ein.",
+  timelogConfigure: "Timelog konfigurieren",
+  timelogCachedWhileOff:
+    "Früher abgerufene Buchungen sind auf diesem Gerät weiterhin zwischengespeichert. Sie lassen sich bei ausgeschalteter Integration nicht aktualisieren, aber Sie können sie entfernen.",
   timelogTokenHelpBefore: "Bei Timelog anmelden, dann zu",
   timelogTokenHelpAfter: "navigieren, um ein persönliches Zugriffstoken zu erzeugen.",
   timelogHost: "Host",
@@ -1508,6 +1515,9 @@ export const de: Record<TranslationKey, string> = {
   timelogSync: "Buchungen abrufen",
   timelogRefresh: "Buchungen aktualisieren",
   timelogRefreshHint: "Ruft die aktuellen Buchungen für die ausgewählten Projekte erneut aus Timelog ab.",
+  timelogRefreshReapply: "Aktualisieren & übernehmen",
+  timelogRefreshReapplyHint:
+    "Ruft dieselben Buchungen erneut aus Timelog ab und zeigt die Übernahme in die Ist-Stunden des Budgets zur Prüfung an. Berücksichtigt Personen und Projekte, die seit dem letzten Abruf verknüpft wurden. Der Projektumfang bleibt unverändert.",
   timelogLoadPeople: "Personen laden",
   timelogLoadManagedProjects: "Meine Projekte laden",
   timelogIncludeClosed: "Abgeschlossene Projekte einbeziehen",
@@ -1532,10 +1542,14 @@ export const de: Record<TranslationKey, string> = {
     "Die Stunden einer Ressource werden nur als gebucht angezeigt, wenn ihr Timelog-Benutzer mit dieser Ressource verknüpft ist und das Projekt der Buchung mit einem Budget-Bucket verknüpft ist.",
   timelogApply: "Auf Budget anwenden",
   timelogApplyConfirm: "{0} Bucket-Änderungen auf die Ist-Stunden des Budgets anwenden?",
+  timelogApplyPartial:
+    "Einige Projekte konnten nicht geladen werden, daher sind diese Buchungen unvollständig. Ein Übernehmen würde die Stunden der fehlenden Projekte auf null setzen — deshalb ist das Übernehmen deaktiviert. Laden Sie die Buchungen erneut.",
   timelogApplyNoAllocation:
     "Gebuchte Stunden können für {0} verknüpfte(n) Bucket(s) nicht übernommen werden: keine Rollen- oder Disziplinzeile vorhanden. Fügen Sie zuerst in der Budget-Ansicht eine Rolle hinzu.",
   timelogApplyUnmatched:
     "Einige gebuchte Stunden in {0} Bucket(s) konnten keiner Rollenzeile zugeordnet werden. {1} Stunden wurden nicht übernommen, die vorhandenen Werte bleiben unverändert — diese Buckets weisen entsprechend zu wenig aus. Verknüpfen Sie die Person mit einer Ressource, setzen Sie deren Rolle im Verzeichnis, fügen Sie die Rolle dem Bucket hinzu — oder laden Sie die Buchungen erneut, falls sie aus einer älteren Version stammen.",
+  timelogNothingToApply:
+    "Buchungen aktualisiert – die Budget-Buckets enthalten bereits alle zuordenbaren Stunden, es gibt nichts Neues zu übernehmen.",
   timelogApplyStale:
     "Das Budget hat sich geändert, während diese Vorschau geöffnet war, und stimmt nicht mehr mit dem überein, was geschrieben würde. Bitte prüfen Sie die Änderungen erneut.",
   timelogKpiBooked: "Gebuchte Stunden",
@@ -3090,6 +3104,11 @@ export const de: Record<TranslationKey, string> = {
   budgetNoAllocations: "Noch keine Zuordnungen vorhanden, daher können Kosten, Marge und Kostenverbrauch nicht berechnet werden. Fügen Sie eine Rollen- oder Disziplinzeile hinzu.",
   budgetUnratedHours: "Es sind Stunden auf Rollen ohne internen Satz gebucht, daher wären Kosten, Marge und Kostenverbrauch zu niedrig. Pflegen Sie die fehlenden Sätze in der Ratecard unter Ressourcen → Rollen.",
   budgetUnpricedBlend: "Mischsätze können nicht berechnet werden — Stufen ohne internen Satz in: {0}. Pflegen Sie sie in der Ratecard unter Ressourcen → Rollen.",
+  budgetUnappliedActuals:
+    "Abgerufene TimeLog-Buchungen warten darauf, auf {0} Budgetblock/Budgetblöcke angewendet zu werden — die Ist-Stunden dieser Blöcke ändern sich erst, wenn Sie sie unter Zeitbuchungen anwenden.",
+  budgetUnattributedActuals:
+    "{0} Stunden aus abgerufenen TimeLog-Buchungen konnten beim Abruf keiner Budgetzeile zugeordnet werden. Die Zuordnung entsteht beim Abruf, daher stellt eine jetzt korrigierte Personen- oder Projektverknüpfung sie NICHT wieder her — die Buchungen müssen erneut abgerufen werden.",
+  budgetUnappliedActualsGo: "Zeitbuchungen öffnen",
   budgetReportColWinLossHint: "Differenz zwischen Erlös und Kosten in EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.",
   budgetWinLossHint: "Stunden über oder unter Plan.",
   budgetSpilloverInHint: "Aus einem anderen Bereich übertragene Stunden.",
@@ -3872,6 +3891,7 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightActorAttribution: "Einträge im Aktivitätsverlauf des Projekts halten jetzt fest, wer die Änderung vorgenommen hat — Sie, der Assistent oder eine Integration wie Jira oder der Kalenderabgleich. Was der Assistent an Ihren Registern ändert (Aufgaben, RAID-Einträge, Änderungen, Meilensteine, Stakeholder und Ressourcen), wurde bisher nicht protokolliert und war im Verlauf unsichtbar; es wird jetzt wie jede andere Änderung aufgezeichnet und zugeordnet, und die Aktivitätsansicht zeigt den Urheber an und lässt sich danach filtern. Der Assistent erhält außerdem eine kurze Zusammenfassung der Aktivitäten der letzten sieben Tage und weiß so, was zuletzt geschehen ist, bevor Sie fragen. Manche Einträge tragen keinen Urheber und lassen sich nicht zuordnen — etwa weil sie aus der Zeit vor dieser Version stammen oder von einem Schritt aufgezeichnet wurden, der nicht erkennen kann, wer gehandelt hat; sie werden als nicht zugeordnet ausgewiesen und nicht geraten. Sowohl die Verlaufssuche als auch die Aktivitätszusammenfassung lassen sich in den Einstellungen abschalten.",
 
   versionHighlightRichExport: "Formatierungen in Beschreibungen bleiben jetzt beim Export erhalten. Überschriften, nummerierte und verschachtelte Aufzählungen, Checklisten mit ihren Häkchen sowie zentrierte Absätze und Blocksatz werden nach Word (.docx) sowie in das druckbare HTML und das daraus erzeugte PDF übernommen, statt als ein flacher Textblock anzukommen. Damit ist auch behoben, dass die Listenstruktur bei jeder tatsächlich im Editor eingegebenen Beschreibung verloren ging und nicht nur bei von Hand geschriebenem Markup. Excel- und PowerPoint-Exporte verwenden weiterhin den reinen Text dieser Felder und bleiben unverändert; CSV- und Markdown-Projektdateien sind nicht betroffen.",
+  versionHighlightChangeNotesTimelog: "Das Änderungsregister zieht mit Offene Punkte und RAID gleich. Der Status einer Änderung lässt sich jetzt direkt in der Tabelle setzen, ohne sie zu öffnen, und jede Änderung hat ein datiertes Notizprotokoll — ein Notiz-Abzeichen in der Zeile und eine Schaltfläche „Notizen“ im Editor —, das über alle Speicher-Backends hinweg mit dem Projekt wandert. In Offene Punkte ist „Anfrage senden“ jetzt eine sichtbare Schaltfläche in der Zeile, statt im Überlaufmenü verborgen zu sein — wie in RAID. Die Thread-Seitenleiste des KI-Assistenten lässt sich auf die gewünschte Breite ziehen; die Breite wird auf diesem Gerät gemerkt, und eine Schaltfläche stellt sie wieder her. Zeitbuchungen haben „Aktualisieren & übernehmen“ erhalten, was eine echte Falle behebt: Zu welcher Person und zu welchem Budget-Block eine Stunde gehört, wird beim Abruf der Buchungen entschieden — eine erst danach angelegte Verknüpfung blieb daher bis zum nächsten Abruf wirkungslos, während die Timelog-Seite diese Verknüpfungen als in Ordnung anzeigte und die zwischengespeicherten Stunden unzugeordnet blieben. Die Budget-Seite weist jetzt darauf hin, wenn abgerufene Stunden unangewendet liegen oder gar nicht zugeordnet werden konnten. Ist die Timelog-Integration abgeschaltet, erklärt die Seite Zeitbuchungen das und bietet eine Schaltfläche „Timelog einrichten“ an — bereits zwischengespeicherte Buchungen lassen sich weiterhin löschen.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",

@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import {
+  canApplyToBudget,
+  canClearAllFetched,
+  canFetchBookings,
+  canLoadManagedProjects,
+  canRefreshAndReapply,
+  canRefreshBookings,
+} from "./timelog-guards";
 
 const loadOk = {
   isPopout: false,
@@ -42,6 +49,28 @@ describe("canRefreshBookings", () => {
     expect(canRefreshBookings({ ...refreshOk, syncBusy: true })).toBe(false);
     expect(canRefreshBookings({ ...refreshOk, confirming: true })).toBe(false);
     expect(canRefreshBookings({ ...refreshOk, canRefresh: false })).toBe(false);
+  });
+});
+
+describe("canRefreshAndReapply", () => {
+  it("allows the action when every precondition holds", () => {
+    expect(canRefreshAndReapply(refreshOk)).toBe(true);
+  });
+
+  // ★ Each arm gets its own case rather than one multi-expect block. This file
+  //   records FOUR instances of a handler guard drifting from its button's
+  //   predicate, and every one of them was a PARTIAL mirror reading as a
+  //   complete one — so a table that names each arm is the shape that makes a
+  //   dropped arm visible in the failure output.
+  it.each(["isPopout", "syncBusy", "confirming", "isMisconfigured"] as const)(
+    "refuses when %s is set",
+    (k) => {
+      expect(canRefreshAndReapply({ ...refreshOk, [k]: true })).toBe(false);
+    },
+  );
+
+  it("refuses when there is nothing to refresh", () => {
+    expect(canRefreshAndReapply({ ...refreshOk, canRefresh: false })).toBe(false);
   });
 });
 
@@ -121,4 +150,37 @@ describe("canLoadManagedProjects", () => {
     expect(canLoadManagedProjects({ ...loadOk, isPopout: true })).toBe(false);
     expect(canLoadManagedProjects({ ...loadOk, syncBusy: true })).toBe(false);
   });
+});
+
+describe("canApplyToBudget", () => {
+  const applyOk = { isPopout: false, rowCount: 3, isPartial: false };
+
+  it("allows the write when a plan exists and the aggregate is complete", () => {
+    expect(canApplyToBudget(applyOk)).toBe(true);
+  });
+
+  // ★★★ §172. A fetch that lost a project still produces a well-formed,
+  //     non-empty aggregate — so "present and non-empty" cannot be the test.
+  //     Applying it rewrites the bucket WITHOUT the missing project's hours,
+  //     and apply owns the period, so the difference is erased outright.
+  it("REFUSES a partial aggregate even when the plan has rows", () => {
+    expect(canApplyToBudget({ ...applyOk, isPartial: true })).toBe(false);
+  });
+
+  it("blocks an empty plan and a popout", () => {
+    expect(canApplyToBudget({ ...applyOk, rowCount: 0 })).toBe(false);
+    expect(canApplyToBudget({ ...applyOk, isPopout: true })).toBe(false);
+  });
+
+  // ★ NO "ignores TimeLog config state" TEST HERE, deliberately. That decision
+  //   (apply reaches no network, so a broken token must not block writing data
+  //   the device already holds) is real, and it is expressed by the state type
+  //   OMITTING the field — which is a typecheck-time property no runtime
+  //   assertion can reach. The obvious test casts an object with extra keys to
+  //   the narrower type, and the cast erases the very claim it names: the
+  //   function cannot see properties it does not read, so it passes whether or
+  //   not the decision still holds, and would still compile if someone widened
+  //   `TimelogApplyState` to extend `TimelogActionState`. A test that cannot
+  //   fail is worse than none, because it is counted as coverage. The
+  //   `canApplyToBudget` docblock carries the reasoning instead.
 });

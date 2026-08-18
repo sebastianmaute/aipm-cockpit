@@ -19,6 +19,7 @@ import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
 import { buildApplyPlan, applyActualsToBuckets, bucketsMissingAllocations, describeApplyRows } from "./timelog-apply";
+import { pickMatchableResources } from "./timelog-matchable";
 import { TimelogApplyConfirm } from "./timelog-apply-confirm";
 import { TimelogPeopleTable } from "./timelog-people-table";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
@@ -35,7 +36,10 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
-import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshBookings } from "./timelog-guards";
+import { TimelogNotConfigured } from "./timelog-not-configured";
+import { canApplyToBudget, canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
+import { TimelogApplyNotices } from "./timelog-apply-notices";
+import { decideReapply } from "./timelog-reapply";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -52,15 +56,17 @@ export function TimelogPanel({
   lang,
   isPopout = false,
   projectKey = "default",
+  onConfigureTimelog,
 }: {
   lang: Lang;
   isPopout?: boolean;
+  onConfigureTimelog?: () => void; // Settings → Integrations deep-link, mirroring ChatPanel's `onConfigureAi`. See TimelogNotConfigured.
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). Keys
    *  BOTH per-device Timelog stores (picker scope and actuals cache). */
   projectKey?: string;
 }) {
   const ws = useWorkspace();
-  const { settings, setSettings } = useSettings();
+  const { settings, setSettings, hydrated } = useSettings();
   const showToast = useToastContext();
   const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
@@ -80,13 +86,10 @@ export function TimelogPanel({
   const grades = ws.grades;
   const planGranularity = ws.plan?.granularity ?? "month";
 
-  // Only INTERNAL resources are linkable to TimeLog people — external resources
-  // are capacity-only (excluded from cost) and never book time as an internal
-  // user, so they're dropped from the auto-match pool, the aggregation engine
-  // (byResource/byBucket), AND the picker below. Filter at the SOURCE (before the
-  // hook) so display and cost attribution agree — filtering only the dropdown
-  // would still let a name-colliding external soak up hours in apply-to-budget.
-  const matchableResources = useMemo(() => resources.filter((r) => !r.isExternal), [resources]);
+  // Externals are excluded from the auto-match pool, the aggregation engine, the
+  // picker below AND the apply plan — the reasoning lives in `timelog-matchable`
+  // beside the filter, which the Budget-side notice shares.
+  const matchableResources = useMemo(() => pickMatchableResources(resources), [resources]);
 
   const links: TimelogLinks = useMemo(
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },
@@ -300,8 +303,14 @@ export function TimelogPanel({
   // withheld rather than costed at another role's rate, so say so.
   const unmatchedApplyBuckets = applyPlan.unmatchedBuckets;
 
+  // ONE predicate for the handler AND the button — see timelog-guards.ts. The
+  // `isPartial` arm is the §172 data-loss guard: a fetch that lost a project
+  // still yields a well-formed aggregate, and applying it ERASES that project's
+  // hours, because apply writes every line it did not route to `0`.
+  const applyState = { isPopout, rowCount: applyDiff.length, isPartial: sync.partial };
+
   function openConfirm() {
-    if (!overlay) return;
+    if (!overlay || !canApplyToBudget(applyState)) return;
     setPendingApply(overlay);
     setPendingBudgets(budgets);
     setConfirming(true);
@@ -398,11 +407,16 @@ export function TimelogPanel({
   const canRefresh =
     refreshCustomerId !== undefined && refreshProjectIds.length > 0;
 
+  // ★★ RETURNS the sync result rather than void so a caller can act on the
+  //    FRESH aggregate. Reading `sync.aggregates` after awaiting this would
+  //    read the PREVIOUS fetch's value — that state has not updated inside the
+  //    calling closure — which is precisely the attribution a re-fetch exists
+  //    to replace. See `handleRefreshAndReapply` below.
   async function handleRefreshBookings() {
     // ★★ SAME predicate the Refresh button's `disabled` evaluates — see
     //    timelog-guards.ts. This guard previously omitted `isMisconfigured`
     //    while the button included it (open-followups §74).
-    if (!canRefreshBookings({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
+    if (!canRefreshBookings({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return undefined;
     const { start, end } = fetchWindow();
     const result = await sync.fetchBookingsForProjects([...refreshProjectIds], start, end);
     // Surface a partial per-project failure the same way Fetch does — else a
@@ -411,6 +425,33 @@ export function TimelogPanel({
       logDiag("warn", "timelog.partialProjectFetch", { failedProjects: result.failedProjects });
       showToast("error", t(lang, "guardTimelogPartialProjectFetch", result.failedProjects));
     }
+    return result;
+  }
+
+  // Refresh, then open the SAME confirm dialog the manual Apply uses. Nothing
+  // about the write path is new: `pendingApply` freezes the overlay,
+  // `pendingBudgets` freezes the baseline, and `applyToBudget` still refuses on
+  // a drifted baseline with `timelogApplyStale`. Money figures never gain a
+  // second write path.
+  //
+  // ★★ EVERY branch of the decision lives in pure `timelog-reapply.ts` — incl.
+  //    the partial-fetch abort that stops a half-fetched aggregate from erasing
+  //    real hours, and WHY this button has to exist at all (which two link maps
+  //    a re-fetch re-resolves, and what it does NOT freeze).
+  // ★★ The fresh aggregate comes back from the CALL, not from `sync.aggregates`
+  //    — that state has not updated in this closure, so reading it here would
+  //    re-apply the stale attribution and silently reintroduce the very bug.
+  async function handleRefreshAndReapply() {
+    if (!canRefreshAndReapply({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
+    const outcome = decideReapply(await handleRefreshBookings(), budgets, matchableResources, roles);
+    if (outcome.kind === "abort") return;
+    if (outcome.kind === "nothing") {
+      showToast("info", t(lang, "timelogNothingToApply"));
+      return;
+    }
+    setPendingApply(outcome.overlay);
+    setPendingBudgets(budgets);
+    setConfirming(true);
   }
 
   // Fetch is gated on a customer + ≥1 picked project (button disabled otherwise).
@@ -460,6 +501,13 @@ export function TimelogPanel({
   }, [fetchedUsers, peopleFilter]);
   const visibleFilteredIds = useMemo(() => filteredUsers.map((u) => u.userId), [filteredUsers]);
 
+  // Integration switched OFF → the whole page goes, network actions included. ★ On
+  //   `cfg.enabled` ALONE, never `isMisconfigured`: an ENABLED-but-broken Timelog keeps the
+  //   full page, the §74 guards AND Clear-all (why that last one is not optional: the header
+  //   of timelog-not-configured.tsx). ★★ And on `hydrated` — settings load in an EFFECT, so a
+  //   bare gate flashes "switched off", Clear-all included, at every CONFIGURED user.
+  if (hydrated && !cfg.enabled) return <TimelogNotConfigured lang={lang} paneRef={paneRef} onConfigure={onConfigureTimelog} hasFetched={!!sync.fetchedAt} canClearAll={canClearAllFetched({ isPopout, syncBusy: sync.busy, confirming, hasFetched: !!sync.fetchedAt })} onClearAll={() => void clearAllFetched()} />;
+
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <TimelogToolbar
@@ -483,13 +531,12 @@ export function TimelogPanel({
         onClearAll={clearAllFetched}
         onFetch={() => void handleFetchBookings()}
         onRefresh={() => void handleRefreshBookings()}
+        onRefreshAndReapply={() => void handleRefreshAndReapply()}
         canRefresh={canRefresh}
         onResetColWidths={resetColWidths}
         onResetPaneSize={resetPaneSize}
       />
-      {isMisconfigured && (
-        <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>
-      )}
+      {isMisconfigured && <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>}
 
       {/* Customer-scope note — makes the reduced fetch explicit. */}
       {projectCustomerId !== "" && (
@@ -695,25 +742,17 @@ export function TimelogPanel({
       />
 
       {/* Apply to budget */}
-      {skippedApplyBuckets.length > 0 && (
-        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
-          {t(lang, "timelogApplyNoAllocation", String(skippedApplyBuckets.length))}
-        </p>
-      )}
-      {unmatchedApplyBuckets.length > 0 && (
-        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
-          {/* Gated on the bucket LIST, not the hour total: a +40/-40 credit
-              correction nets to zero while hours are still withheld. */}
-          {/* 1dp, not Math.round: a net of -0.4 rounded to "0 hours withheld",
-              so the notice contradicted itself. Trailing ".0" is trimmed. */}
-          {t(lang, "timelogApplyUnmatched", String(unmatchedApplyBuckets.length),
-             applyPlan.unmatchedHours.toFixed(1).replace(/\.0$/, ""))}
-        </p>
-      )}
+      <TimelogApplyNotices
+        lang={lang}
+        partial={sync.partial}
+        skippedCount={skippedApplyBuckets.length}
+        unmatchedCount={unmatchedApplyBuckets.length}
+        unmatchedHours={applyPlan.unmatchedHours}
+      />
       {!confirming ? (
         <button
           type="button"
-          disabled={applyDiff.length === 0 || isPopout}
+          disabled={!canApplyToBudget(applyState)}
           onClick={openConfirm}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 print:hidden ${INTERACTIVE}`}
         >

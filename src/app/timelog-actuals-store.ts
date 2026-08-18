@@ -21,6 +21,21 @@ export type ActualsCacheEntry = {
   aggregates?: ActualsAggregate;
   users?: TimelogUser[];
   projectRefs?: TimelogProjectRef[];
+  // ★★★ TRUE when the fetch that produced `aggregates` LOST at least one TimeLog
+  // project (or, on the per-user path, at least one employee) to an error.
+  // Apply OWNS every allocation line of a period it routes and writes the lines
+  // it did NOT route to `0`, so applying a short aggregate ERASES the missing
+  // project's real booked hours. Every apply path gates on it via
+  // `canApplyToBudget` (timelog-guards.ts); a later CLEAN fetch clears it.
+  // ★★ ABSENT MEANS COMPLETE, which is what makes the field back-compatible: an
+  // entry written before it existed — on a device an older client may still
+  // read — keeps exactly its old meaning, and an older client ignores it.
+  // ★★ Read it as `=== true`, never truthiness. `isEntry` deliberately does not
+  // reject a malformed value: rejecting would drop the whole entry (losing good
+  // aggregates over a flag), and treating a hand-edited `"false"` as partial
+  // would disable Apply with no way back but Clear all. Failing OPEN on garbage
+  // only restores the pre-existing behaviour. See open-followups §172.
+  partial?: boolean;
 };
 type CacheMap = Record<string, ActualsCacheEntry>;
 

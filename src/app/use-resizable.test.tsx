@@ -90,6 +90,42 @@ describe("useResizable — drag persistence", () => {
   });
 });
 
+describe("useResizable — axis: \"x\"", () => {
+  // ★ WHY THIS OPTION EXISTS. The hook arms `dragging` on any pointerdown in
+  //   the corner square and writes BOTH dimensions on pointerup, with no check
+  //   that anything moved. On a `resize-x` element the height it records is not
+  //   a user choice at all — it is whatever the parent flex row happened to
+  //   stretch the column to at that instant — and replaying it later freezes
+  //   the column short of its container. Opt-in, so the 40-odd `resize`
+  //   (both-axis) call sites keep byte-identical behaviour.
+  function XHarness() {
+    const { ref, reset } = useResizable(KEY, { axis: "x" });
+    return (
+      <div>
+        <div ref={ref} data-testid="box" />
+        <button onClick={reset}>reset</button>
+      </div>
+    );
+  }
+
+  it("persists the width only, leaving height null", () => {
+    const box = render(<XHarness />).getByTestId("box");
+    stubRect(box, { right: 200, bottom: 200, width: 512, height: 333 });
+    box.dispatchEvent(pointer("pointerdown", { clientX: 195, clientY: 195 }));
+    window.dispatchEvent(pointer("pointerup"));
+    expect(JSON.parse(window.localStorage.getItem(KEY)!)).toEqual({ width: 512, height: null });
+  });
+
+  it("ignores a saved height on restore, including one written by an older build", () => {
+    // The stale entry a both-axis save left behind on this key before the
+    // option existed: a real width beside a height nobody ever dragged.
+    window.localStorage.setItem(KEY, JSON.stringify({ width: 320, height: 333 }));
+    const box = render(<XHarness />).getByTestId("box");
+    expect(box.style.width).toBe("320px");
+    expect(box.style.height).toBe("");
+  });
+});
+
 describe("useResizable — reset", () => {
   it("clears inline styles and the saved entry", () => {
     window.localStorage.setItem(KEY, JSON.stringify({ width: 500, height: 300 }));

@@ -56,6 +56,12 @@ export function useTimelogSync(args: Args) {
 
   const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId)?.aggregates);
   const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId)?.fetchedAt);
+  // ★★★ The cached aggregate is SHORT — at least one project (or employee) was
+  // lost to an error on the fetch that produced it. Every apply path must
+  // refuse it: apply writes the lines it did not route to `0`, so applying a
+  // short aggregate ERASES the missing project's hours. `=== true` because a
+  // hand-edited cache may carry anything; absent means complete (§172).
+  const [partial, setPartial] = useState<boolean>(() => loadActualsCache(projectId)?.partial === true);
   // Displayable directory users + distinct projects seen in the latest fetch.
   // Seeded from the per-project cache so the matching tables survive a view
   // remount (the KPIs already restore from `aggregates` — keep them in sync).
@@ -133,8 +139,11 @@ export function useTimelogSync(args: Args) {
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
       // seeds a misleading "Last synced" line on the next remount.
+      // ★★ `partial` rides along on EVERY save, not just `finish`'s. Omitting it
+      // here would silently CLEAR the flag and re-open §172 through a directory
+      // reload — an entry is rewritten whole, so a dropped field is a cleared one.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial });
       }
     });
   }
@@ -176,7 +185,7 @@ export function useTimelogSync(args: Args) {
           : await listManagedProjects(creds, (await getMe(creds, signal)).userId, signal, includeClosed);
       setProjectRefs(refs);
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial });
       }
     });
   }
@@ -186,7 +195,27 @@ export function useTimelogSync(args: Args) {
   // aggregateActuals, and persist the per-project cache. Plain function reading
   // live render-scope (users/resources/budgets/links/granularity) — same
   // non-memoized pattern as the other handlers.
-  function finish(items: readonly TimelogTimeItem[], usersOverride?: readonly TimelogUser[]): void {
+  // ★★ RETURNS the aggregate it just computed, and callers that need the fresh
+  // value MUST take it from here rather than reading the `aggregates` STATE
+  // after awaiting: that state has not updated inside the caller's closure, so
+  // a post-await read yields the PREVIOUS fetch's attribution. That matters
+  // because attribution is baked HERE — `autoMatchUsers`/`autoMatchProjects`
+  // resolve people and projects at this moment, and every miss folds into a
+  // dimensionless `unattributed` scalar. A caller acting on the stale value
+  // re-applies exactly the attribution the re-fetch existed to replace.
+  // ★★ `isPartial` is the caller's, not something derivable here — a short
+  //    fetch produces a perfectly well-formed aggregate, so nothing about
+  //    `items` can reveal that a project was lost. Only the loop that swallowed
+  //    it knows, which is why it must be passed in.
+  // ★★★ REQUIRED, with no default, and that is deliberate: a default would let
+  //    a future third caller silently persist `partial: false` and CLEAR the
+  //    flag — the same wholesale-rewrite hazard the savers carry a note about,
+  //    one layer up. Required makes that a typecheck error instead.
+  function finish(
+    items: readonly TimelogTimeItem[],
+    usersOverride: readonly TimelogUser[] | undefined,
+    isPartial: boolean,
+  ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
     // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
@@ -216,7 +245,9 @@ export function useTimelogSync(args: Args) {
     setAggregates(agg);
     setProjectRefs(refs);
     setFetchedAt(at);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs });
+    setPartial(isPartial);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial });
+    return agg;
   }
 
   // STEP 2 — fetch bookings + aggregate. Org scope iterates ONLY `userIds` when
@@ -259,7 +290,11 @@ export function useTimelogSync(args: Args) {
         }
       }
 
-      finish(items);
+      // ★★ `signal.aborted` is part of the predicate, not decoration. The loop
+      //    above `break`s on a cancel and falls through to here, so a run
+      //    cancelled BETWEEN employees reaches `finish` with `failedEmployees`
+      //    still 0 — a truncated aggregate that would persist as complete.
+      finish(items, undefined, failedEmployees > 0 || signal.aborted);
       return { failedEmployees };
     });
   }
@@ -276,7 +311,11 @@ export function useTimelogSync(args: Args) {
     projectIds: readonly number[],
     startDate: string,
     endDate: string,
-  ): Promise<{ failedProjects: number; projectCount: number } | undefined> {
+    // `aggregates` is ABSENT when no projects were picked — that branch
+    // deliberately does not call `finish()` (clobbering good aggregates with an
+    // empty result is silent data loss), so there is no fresh value to hand
+    // back and a caller must not invent one.
+  ): Promise<{ failedProjects: number; projectCount: number; aggregates?: ActualsAggregate } | undefined> {
     return runGuarded(async (signal) => {
       const ids = [...new Set(projectIds.filter((id) => Number.isInteger(id) && id > 0))];
       // No projects picked: do NOT run finish() — clobbering prior good aggregates
@@ -312,8 +351,10 @@ export function useTimelogSync(args: Args) {
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
       const bookers = directory.filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
-      finish(inWindow, bookers);
-      return { failedProjects, projectCount: ids.length };
+      // `signal.aborted` for the same reason as the per-user path above: the
+      // loop `break`s on a cancel and still reaches this line.
+      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted);
+      return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
 
@@ -332,7 +373,7 @@ export function useTimelogSync(args: Args) {
     const next = users.filter((u) => !drop.has(u.userId));
     setUsers(next);
     if (fetchedAt && aggregates) {
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs });
+      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial });
     }
   }
 
@@ -340,11 +381,12 @@ export function useTimelogSync(args: Args) {
     if (isPopout) return;
     setAggregates(undefined);
     setFetchedAt(undefined);
+    setPartial(false);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }

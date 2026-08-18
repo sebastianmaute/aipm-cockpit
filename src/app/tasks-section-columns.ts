@@ -36,5 +36,15 @@ export const DEFAULT_COL_WIDTHS: Record<string, number> = {
   depRelations: 80, // an em-dash, or read-only chips (the edit pencil is gone)
   estimate: 80,
   spent: 80,
-  actions: 32, // one ⋮ icon button
+  // Two icon buttons — Send inquiry (an `IconButton`, `p-1` + `h-4 w-4` = 24px)
+  // and the ⋮ overflow trigger (`border` + `px-2` + a ~4px glyph ≈ 22px, budgeted
+  // at 24) — plus the `mr-1` between them: 24 + 4 + 24 = 52px of content, plus
+  // the `<Td>`'s default `px-4` = 32px of padding = 84, rounded up to 88 for the
+  // ⋮ glyph's font-metric variance and the focus ring.
+  // ★ This width is a HARD limit, not a minimum: the column is `table-layout:
+  //   fixed` and its `<Th>` has NO `onResize`, so content overflows and a user
+  //   can never widen it. Under-declaring it here (it was 32, i.e. the padding
+  //   alone, so the content box was exactly ZERO) makes the cell unusable with
+  //   every gate green. Pinned by open-points-table-geometry.test.ts.
+  actions: 88,
 };
