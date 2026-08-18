@@ -18,6 +18,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
+import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 
 export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   lang: Lang;
@@ -474,3 +475,71 @@ export function BulletsBlockEditor({
 // per-kind editor bodies stay one file each. Re-exported so callers (and this
 // file's own test imports) don't need to know it moved.
 export { TableBlockEditor } from "./document-table-editor";
+
+/**
+ * A `select` over the fifteen `ExportSectionKey`s — never free text. An
+ * arbitrary key would resolve to no section at render time
+ * (`resolveDataSection` looks it up by exact match) and render as nothing —
+ * a silently missing section rather than a visible error — so free text
+ * would be actively worse than no editor at all.
+ *
+ * `EXPORT_SECTION_KEYS` is imported directly from `./settings-types` — the
+ * SAME way `document-model.ts`'s own `isSectionKey` reads it, and NOT
+ * through `document-model.ts`, which documents a runtime import cycle
+ * through this exact pair of modules ("There is a runtime import cycle
+ * around this module: settings-types.ts imports [...], and this file
+ * imports EXPORT_SECTION_KEYS back from ./settings-types" — its own header
+ * comment). A direct top-level import here sits OUTSIDE that cycle and is
+ * read fresh at CALL time on every render (a plain module-level array,
+ * never memoized into a derived `Set` this component owns) — the shape
+ * that cycle's own comment warns against freezing.
+ *
+ * A `<select>` has no meaningful "finished editing" blur to hang a deferred
+ * commit off — picking an option IS the finished edit — so it commits
+ * synchronously via `commitValue`, exactly like the bullets/table editors'
+ * structural (add/remove/move) controls do.
+ */
+export function DataSectionBlockEditor({
+  lang,
+  index,
+  block,
+  onCommit,
+}: BlockEditorProps<Extract<DocBlock, { type: "dataSection" }>>) {
+  const { value, commitValue } = useBlockDraft<ExportSectionKey>(
+    block.key,
+    block,
+    index,
+    (key): DocBlock => ({ type: "dataSection", key }),
+    onCommit,
+  );
+
+  // ★ Qualified with the block position via `documentsBlockN`, joined with
+  //  an en dash — never a bare trailing digit (rejected in review). Unlike
+  //  HeadingBlockEditor's per-block `<select>`, whose bare index already
+  //  disambiguates because a heading block has only ONE such control, this
+  //  select has no item/row/column-local number of its own to fall back on,
+  //  so it follows the bullets/table editors' qualifier pattern instead.
+  const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
+
+  return (
+    <select
+      aria-label={`${t(lang, "documentsDataSectionKey")} – ${blockQualifier}`}
+      className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+      value={value}
+      onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
+    >
+      {EXPORT_SECTION_KEYS.map((k) => (
+        <option key={k} value={k}>{k}</option>
+      ))}
+    </select>
+  );
+}
+
+/** A page break has no editable content. It still renders a row in the block
+ *  list so it stays reachable and announced — a block that silently vanishes
+ *  in edit mode reads as data loss. */
+export function PageBreakBlockEditor({
+  lang,
+}: BlockEditorProps<Extract<DocBlock, { type: "pageBreak" }>>) {
+  return <p className="text-xs text-muted-foreground">{t(lang, "documentsBlockNoEditor")}</p>;
+}

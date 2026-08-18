@@ -85,6 +85,11 @@ export function TableBlockEditor({
     }));
   };
 
+  // ★ The two remove buttons below are DISABLED (a real `disabled` attribute,
+  //  never `aria-disabled` — that lookalike still fires `onClick`, which
+  //  this repo has been bitten by) once only one row/column remains, mirroring
+  //  the bullets editor's move-up/down boundary disable. Nothing else in this
+  //  file stops a table shrinking to 0×0.
   const removeRow = (r: number) => {
     commitValue((prev) => ({ ...prev, rows: prev.rows.filter((_, j) => j !== r) }));
   };
@@ -123,7 +128,8 @@ export function TableBlockEditor({
                   <button
                     type="button"
                     aria-label={qualify(t(lang, "documentsRemoveColumn", String(c + 1)))}
-                    className="ml-1 rounded-md border border-line px-2 py-1 text-xs"
+                    disabled={value.columns.length <= 1}
+                    className="ml-1 rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => removeColumn(c)}
                   >
                     <span aria-hidden="true">{"✕"}</span>
@@ -150,7 +156,8 @@ export function TableBlockEditor({
                   <button
                     type="button"
                     aria-label={qualify(t(lang, "documentsRemoveRow", String(r + 1)))}
-                    className="rounded-md border border-line px-2 py-1 text-xs"
+                    disabled={value.rows.length <= 1}
+                    className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => removeRow(r)}
                   >
                     <span aria-hidden="true">{"✕"}</span>

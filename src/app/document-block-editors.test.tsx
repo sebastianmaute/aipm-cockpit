@@ -2,9 +2,17 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ParagraphBlockEditor, HeadingBlockEditor, BulletsBlockEditor, TableBlockEditor } from "./document-block-editors";
+import {
+  ParagraphBlockEditor,
+  HeadingBlockEditor,
+  BulletsBlockEditor,
+  TableBlockEditor,
+  DataSectionBlockEditor,
+  PageBreakBlockEditor,
+} from "./document-block-editors";
 import { t } from "./i18n";
 import type { DocBlock } from "./document-model";
+import { EXPORT_SECTION_KEYS } from "./settings-types";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
 // Mirrors rich-text-editor.test.tsx's beforeAll — without it userEvent.type
@@ -707,11 +715,12 @@ describe("TableBlockEditor", () => {
 
   // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
   //  (AGENTS.md) — this is the only possible detector, and it needs TWO
-  //  blocks to express the collision at all. Covers all three repeating
+  //  blocks to express the collision at all. Covers all five repeating
   //  families at once: a cell (already row/column-unique WITHIN a block, but
-  //  collides ACROSS blocks without the qualifier), Add-row (no `{0}` to
-  //  fall back on), and Remove-row (varies by row number, still collides
-  //  across blocks without the qualifier).
+  //  collides ACROSS blocks without the qualifier), Add-row and Add-column
+  //  (neither has a `{0}` to fall back on), Remove-row and Remove-column
+  //  (vary by row/column number, still collide across blocks without the
+  //  qualifier), and the column-header input (varies by column number only).
   it("gives block-position-dependent controls DISTINCT names across sibling table blocks", () => {
     render(
       <>
@@ -731,8 +740,120 @@ describe("TableBlockEditor", () => {
     // aria-label differs. That is the point of keeping it unqualified.
     expect(new Set(adds.map((b) => b.textContent)).size).toBe(1);
 
+    const addCols = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsAddColumn")}`) });
+    expect(addCols).toHaveLength(2);
+    expect(new Set(addCols.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+    expect(new Set(addCols.map((b) => b.textContent)).size).toBe(1);
+
     const removeRow1 = screen.getAllByRole("button", { name: /^Remove row 1/ });
     expect(removeRow1).toHaveLength(2);
     expect(new Set(removeRow1.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+
+    const removeCol1 = screen.getAllByRole("button", { name: /^Remove column 1/ });
+    expect(removeCol1).toHaveLength(2);
+    expect(new Set(removeCol1.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+
+    const colHeader1 = screen.getAllByRole("textbox", { name: /^Column 1 heading/ });
+    expect(colHeader1).toHaveLength(2);
+    expect(new Set(colHeader1.map((c) => c.getAttribute("aria-label"))).size).toBe(2);
+  });
+
+  // ★ Real `disabled`, not `aria-disabled` — the lookalike still fires
+  //  `onClick`. Mirrors the bullets editor's move-up/down boundary disable.
+  it("disables Remove-row once only one row remains", () => {
+    const single = { ...block, rows: [block.rows[0]] };
+    render(<TableBlockEditor lang={LANG} index={0} block={single} onCommit={vi.fn()} />);
+    const removeRow = screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveRow", "1")) });
+    expect(removeRow).toBeDisabled();
+  });
+
+  it("disables Remove-column once only one column remains", () => {
+    const single = { ...block, columns: ["Name"], rows: block.rows.map((r) => [r[0]]) };
+    render(<TableBlockEditor lang={LANG} index={0} block={single} onCommit={vi.fn()} />);
+    const removeColumn = screen.getByRole("button", {
+      name: qualified(t(LANG, "documentsRemoveColumn", "1")),
+    });
+    expect(removeColumn).toBeDisabled();
+  });
+
+  it("does not disable Remove-row/Remove-column while more than one remains", () => {
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const removeRow = screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveRow", "1")) });
+    const removeColumn = screen.getByRole("button", {
+      name: qualified(t(LANG, "documentsRemoveColumn", "1")),
+    });
+    expect(removeRow).not.toBeDisabled();
+    expect(removeColumn).not.toBeDisabled();
+  });
+});
+
+describe("DataSectionBlockEditor", () => {
+  const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
+  const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
+
+  it("offers every export section key and no free text", () => {
+    render(
+      <DataSectionBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+        onCommit={vi.fn()}
+      />,
+    );
+    const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey")) });
+    expect(within(select).getAllByRole("option")).toHaveLength(EXPORT_SECTION_KEYS.length);
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("commits the chosen key", async () => {
+    const onCommit = vi.fn();
+    render(
+      <DataSectionBlockEditor
+        lang={LANG}
+        index={4}
+        block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+        onCommit={onCommit}
+      />,
+    );
+    const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey"), 5) });
+    await userEvent.selectOptions(select, EXPORT_SECTION_KEYS[1]);
+    expect(onCommit).toHaveBeenCalledWith(4, { type: "dataSection", key: EXPORT_SECTION_KEYS[1] });
+  });
+
+  // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
+  //  (AGENTS.md) — a `<select>` doubly so, since axe's `label-content-name-
+  //  mismatch` rule cannot even MATCH a combobox role. This multi-block test
+  //  is the only possible detector.
+  it("gives sibling dataSection blocks DISTINCT accessible names", () => {
+    render(
+      <>
+        <DataSectionBlockEditor
+          lang={LANG}
+          index={0}
+          block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+          onCommit={vi.fn()}
+        />
+        <DataSectionBlockEditor
+          lang={LANG}
+          index={1}
+          block={{ type: "dataSection", key: EXPORT_SECTION_KEYS[0] }}
+          onCommit={vi.fn()}
+        />
+      </>,
+    );
+    const selects = screen.getAllByRole("combobox", {
+      name: new RegExp(`^${t(LANG, "documentsDataSectionKey")}`),
+    });
+    expect(selects).toHaveLength(2);
+    expect(new Set(selects.map((s) => s.getAttribute("aria-label"))).size).toBe(2);
+  });
+});
+
+describe("PageBreakBlockEditor", () => {
+  it("states that there is nothing to edit rather than rendering an empty box", () => {
+    render(<PageBreakBlockEditor lang={LANG} index={0} block={{ type: "pageBreak" }} onCommit={vi.fn()} />);
+    expect(screen.getByText(t(LANG, "documentsBlockNoEditor"))).toBeInTheDocument();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.queryByRole("combobox")).toBeNull();
   });
 });
