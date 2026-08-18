@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.245.0] - 2026-08-18 "Buckell"
+
+### Added
+
+- **A change's status can be set straight from the changes table.** The status column is now an
+  editable dropdown on each row, the way Open Points already worked, so moving a change to
+  Approved or Rejected no longer means opening the editor. It routes through the same helper the
+  editor uses, so the decision date is set and cleared exactly as it is from inside the change.
+- **The changes register has a dated note log.** The running note log that tasks and RAID items
+  already had is now on changes too: a note badge on each row showing how many notes it carries,
+  and a Notes button in the change editor. Notes are stamped with the date and the author, can be
+  edited and deleted by whoever wrote them, and are saved with the project on every storage
+  backend — JSON, CSV, Markdown, both Turso layouts and the in-browser database.
+- **The AI Assistant's thread sidebar can be resized.** Drag its edge to the width you want. The
+  width is remembered on this device, and a button restores the default.
+
+### Changed
+
+- **Send inquiry is a visible button on an Open Points row** instead of being hidden in the row's
+  overflow menu, matching how RAID already presented it.
+- **The Time bookings page now explains itself when the Timelog integration is switched off.**
+  Rather than showing an empty table, it says the integration is not configured and offers a
+  Configure Timelog button that takes you to the setting. If bookings were fetched before the
+  integration was turned off, the control to clear them is still reachable from that screen.
+
+### Fixed
+
+- **Linking a person or a project in Timelog had no effect on hours that were already fetched.**
+  Which resource and which budget bucket an hour belongs to is worked out at the moment the
+  bookings are fetched and then cached, so a link created afterwards changed nothing until the
+  next fetch — and nothing said so. The Timelog page listed the new link as healthy while the
+  cached hours stayed unattributed, which read as the link being broken. There is now a Refresh &
+  re-apply action that re-fetches and re-attributes in one step, and the Budget page shows a
+  notice when fetched hours are sitting unapplied or could not be attributed to anyone.
 ## [0.243.0] - 2026-08-17 "Aaronovitch"
 
 ### Added

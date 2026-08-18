@@ -10430,3 +10430,113 @@ assertion that the defect is still present, not a guarantee that it should be.
 walk's docblock now names: an author's alignment choice is discarded with nothing to notice it by.
 `data-align` is value-guarded and not tag-guarded in `sanitize-html.ts`, so both shapes reach the
 renderer intact.
+
+## 167. Bulk edit on the changes register bypasses `applyChangeStatus` — open, pre-existing
+
+Found by review during the 0.245.0 slice; NOT introduced by it and deliberately not fixed by it.
+The inline status dropdown added in that slice routes through `applyChangeStatus`, the sole writer
+of the status/`decisionDate` pair. The BULK path does not:
+
+```bash
+# applyBulk spreads the raw status onto the row and hands it straight to onSave
+grep -n "const applyBulk" -A 14 src/app/change-panel.tsx
+# the receiving handler stamps only id + localModifiedAt; nothing touches decisionDate
+grep -n "const withStamp" -A 6 src/app/use-change-log.ts
+```
+
+So a bulk sweep to a DECIDED status (Approved/Rejected) leaves `decisionDate` **unset**, and a
+sweep back to a pending status leaves a **stale** decision date behind. The invariant the editor and
+the inline dropdown both hold is simply absent on this one path.
+
+★★ **The slice SHARPENED this without causing it.** Before 0.245.0 the only in-table way to change a
+change's status was bulk edit, so the register was uniformly wrong. Now two entry points on the same
+table disagree: change one row and the decision date is correct; select that row and change it via
+bulk edit and it is not. A user has no way to tell which path they are on.
+
+★ One-line fix, deliberately not taken here so the slice stayed reviewable: in `applyBulk`, replace
+the status spread with `applyChangeStatus(patched, patch.status as ChangeStatus, today)`. The panel
+already imports the helper and already holds `today`, so nothing else has to move.
+
+## 168. Template import drops every register's note log — open, pre-existing
+
+Capturing a template from a workspace assigns the live entity arrays verbatim
+(`templateFromWorkspace` does `seed.changes = ws.changes`, and the same for `tasks` and `raid`),
+so a captured template really does carry the note logs. Import then throws them away, because the
+entity sanitizers it runs are DOM-free and therefore cannot carry rich HTML:
+
+```bash
+grep -n "seed.changes = \|seed.raid = \|seed.tasks = " src/app/templates.ts
+grep -n "sanitizeArr<" src/app/templates.ts
+# the sanitizers themselves never mention the field, so it is dropped by construction
+grep -c "noteLog" src/app/sanitize-records.ts
+```
+
+Changes, tasks and RAID all behave the same way. Same class as the `sanitizeRaidItem` behaviour
+AGENTS.md already records, reached through a different door.
+
+★★★ **It CANNOT be fixed by re-attaching the log after sanitizing** — the shortcut that fixed the
+AI-write path. That path runs no rich pass at all, so a re-attached log would be stored
+UN-SANITISED, and `rich-text-plain.test.ts`'s import-graph guard bans `templates.ts` from importing
+the DOMPurify-bearing modules precisely so this cannot be done by reflex. A real fix needs a
+sanitised carry that stays DOM-free — the same shape as the open item on `sanitizeSeedTask`
+(§36(a)), and it should probably be solved once for both.
+
+## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
+
+`aggregateActuals` takes `granularity` as a required argument and buckets each booking with
+`periodKeyForDate(it.date, granularity)`; `use-timelog-sync.ts` calls it during the fetch and
+persists the resulting aggregate. Changing the plan granularity between the fetch and the apply
+therefore lands applied hours under period keys the budget report never reads.
+
+```bash
+grep -n "granularity" src/app/timelog-actuals.ts
+grep -n "aggregateActuals(" src/app/use-timelog-sync.ts
+```
+
+★★ **This is NOT the symptom 0.245.0 fixed and must not be recorded as covered by it.** The
+attribution trap that slice addressed made hours land under `unattributed`; this one attributes them
+correctly and files them under an unreadable key. It also does not suppress plan rows, which is why
+it was invisible during that investigation. It is a live corruption path in the same cache, and the
+Refresh & re-apply action added in 0.245.0 happens to clear it — which makes it easy to mistake for
+fixed when a user stumbles onto the workaround.
+
+★ The argument is required rather than defaulted (a missing one is a tsc error, and the declaration
+carries a comment saying so), so the hazard is a STALE cache, never a wrong call.
+
+## 170. The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do — open, pre-existing
+
+The comment above `memo(ChangePanelBody)` says the memo "relies on handler props being stable refs
+(the parent wraps them in `useCallback`)". It does not: `task-manager.tsx` builds `guardEdit(handler)`
+unmemoized during render, so a fresh identity arrives on every parent render and the memo cannot
+bail.
+
+```bash
+grep -n "memo(ChangePanelBody)" -B 4 src/app/change-panel.tsx
+grep -n "guardEdit" src/app/task-manager.tsx | head
+```
+
+Same class as the `ResourcesPanel` memo AGENTS.md already documents as aspirational — but that one
+is honestly labelled and this one is not, so a reader takes the comment as a live guarantee and may
+"preserve" an optimisation that has never run. Either correct the comment or delete the memo; do
+NOT cite it as a reason anything is fast. ★ Memoizing `guardEdit` is not the fix on its own — it is
+one unstable family among several, the same finding recorded for `ResourcesPanel`.
+
+## 171. The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted
+
+`e2e/seed.ts` seeds file mode and never enables the Timelog integration, and 0.245.0 gated the page
+on `cfg.enabled`, returning `TimelogNotConfigured` when it is off. "Time bookings" is in
+`A11Y_VIEWS`, so the view is still scanned — it just renders the not-configured screen from now on.
+
+```bash
+grep -n "enabled" e2e/seed.ts            # no timelog settings are seeded
+grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx
+```
+
+★★ The table's own controls — the per-row link pickers, the fetch/apply toolbar, the clear-all
+action — are therefore no longer covered by ANY gate. That is the seeded-empty-state blind spot
+AGENTS.md warns about, newly created rather than merely inherited: this view USED to render a real
+table under the scan.
+
+★ Two ways out, and the choice has not been made: seed Timelog settings in `e2e/seed.ts` so the
+table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
+the acceptance is deliberate rather than silent.
