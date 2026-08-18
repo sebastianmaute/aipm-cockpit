@@ -971,22 +971,41 @@ describe("useChatThreads — registry publication", () => {
     //   `published.threads` and never reads `available`, so the prompt then
     //   advertised those conversations and `search_chats` answered
     //   `coverage: "unavailable"` over rows sitting in memory.
+    // ★★★ THE SECOND RENAME IS WHAT MAKES THIS KILL THE ONE-TOKEN REVERT.
+    //   Measured: reverting ONLY the expression to `tursoMode && !threadsError`
+    //   while leaving `loadFailed` in the publish effect's dep array left this
+    //   test GREEN — `setThreadsError(true)` alone does not re-run that effect,
+    //   so the already-published `available: true` simply survived. Any LATER
+    //   change to `threads` or `activeThreadId` DOES re-run it, and the mutant
+    //   then publishes `false` over a populated list. So this drives one more
+    //   publish before reading the slot; without it only the two-token revert
+    //   (expression AND dep) goes red.
+    // ★ That second rename SUCCEEDS and the banner still reads true: runPersist
+    //   clears it only once the retry map empties, and t1's failed write is
+    //   still in it. The re-publish therefore happens with the save failure
+    //   still on record, which is the state the mutant gets wrong.
     // ★ The banner assertion is load-bearing in BOTH directions: it proves the
     //   save really did fail (without it a passing `available: true` could just
     //   mean nothing went wrong) AND that this fix did not silently disarm the
     //   sidebar's error affordance.
     const t1 = thread("t1", { projectId: "p1" });
-    loadThreadsMock.mockResolvedValue([t1]);
+    const t2 = thread("t2", { projectId: "p1" });
+    loadThreadsMock.mockResolvedValue([t1, t2]);
     const { result } = renderChatThreads({ tursoMode: true, projectId: "p1" });
-    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+    await waitFor(() => expect(result.current.threads).toHaveLength(2));
 
     saveThreadMock.mockRejectedValueOnce(new Error("network down"));
     act(() => result.current.renameThread("t1", "Renamed"));
     await waitFor(() => expect(result.current.threadsError).toBe(true));
 
+    await act(async () => {
+      result.current.renameThread("t2", "Renamed too");
+    });
+    expect(result.current.threadsError).toBe(true);
+
     const published = readChatThreads("p1");
     expect(published.available).toBe(true);
-    expect(published.threads.map((th) => th.id)).toEqual(["t1"]);
+    expect(published.threads.map((th) => th.id)).toEqual(["t1", "t2"]);
   });
 
   it("clears the slot on unmount, so a withdrawn AI consent leaves nothing readable", async () => {
