@@ -11303,3 +11303,52 @@ table under the scan.
 ★ Two ways out, and the choice has not been made: seed Timelog settings in `e2e/seed.ts` so the
 table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
 the acceptance is deliberate rather than silent.
+
+## 172. A partial TimeLog fetch still overwrites the cached aggregate — open, pre-existing
+
+Found while FIXING the reapply half of this hazard in 0.245.0, by the implementer rather than by any
+reviewer, and deliberately not closed there because the fix changes the persisted cache shape.
+
+`fetchBookingsForProjects` calls `finish()` — which writes both `sync.aggregates` and the persisted
+`aipm-cockpit:timelog-actuals` entry — with **only the projects that succeeded**. `failedProjects` is
+reported to the caller and surfaced as a toast, but nothing marks the stored aggregate as partial.
+
+Apply OWNS every allocation line of a routed period: `buildApplyPlan` emits a row for every line whose
+`next` differs from `current`, and a line TimeLog did not route to this time gets `next = 0`. So a
+bucket fed by two TimeLog projects, refreshed while the second project's fetch throws, re-applies at
+the first project's hours alone and **erases the second's** — a silent write of real booked hours to a
+lower number.
+
+```bash
+# finish() is reached on the partial path too; failedProjects is reported, not gated on
+grep -n "failedProjects\|finish()" src/app/use-timelog-sync.ts
+# the panel's overlay is the cached aggregate, which the manual Apply button reads
+grep -n "const overlay" src/app/timelog-panel.tsx
+```
+
+★★★ **0.245.0 CLOSED ONE OF THE TWO DOORS, AND CLOSING ONE IS WHAT MAKES THIS WORTH AN ENTRY.**
+`decideReapply` (`timelog-reapply.ts`) aborts when `failedProjects > 0`, so **Refresh & re-apply** can
+no longer seed a confirm dialog from a partial aggregate. The **manual "Apply to budget"** button is
+one control away and reads the same poisoned `overlay` with no such guard. A reader who sees the
+reapply guard and stops will conclude the hazard is handled.
+
+★★ It is PRE-EXISTING — the partial-overwrite behaviour predates 0.245.0, which only added a second
+control that could reach it. Do not read the fix commit as having introduced it.
+
+★ Two shapes of fix, both beyond a bug-fix slice: refuse to let `finish()` overwrite when any project
+failed (simplest, but loses the successful projects' fresh data), or mark the cache entry partial and
+gate every apply path on that flag (correct, but changes `ActualsCacheEntry`, which is persisted per
+project under one device key and must stay readable by an older client).
+
+★★ Whichever is chosen, the gate belongs at the APPLY paths, not at the one button that has it today
+— `grep -n "setPendingApply" src/app/timelog-panel.tsx` enumerates them, and a new one must inherit it.
+★★★ **THE SAME FUNCTION ALREADY REFUSES TO CLOBBER ON THE ADJACENT BRANCH, WHICH IS THE TELL.** When
+`ids.length === 0` it returns early with an explicit comment — "do NOT run `finish()` — clobbering
+prior good aggregates with an empty result would be silent data loss" — and the return type's own
+docblock repeats it. The partial branch is the same hazard in weaker form (some projects rather than
+none), and it falls through to an UNCONDITIONAL `finish(inWindow, bookers)` at the end of the
+fail-soft loop. The reasoning was done; it just was not carried the last few lines.
+
+★ So this is not a gap nobody thought about — it is a guard applied to the total case and not the
+partial one. Anyone fixing it should reuse that branch's wording rather than re-deriving the argument.
+
