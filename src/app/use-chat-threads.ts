@@ -123,16 +123,40 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // with p2's id and p1's still-populated rows, and `readChatThreads("p2")`
   // handed the dispatcher another project's conversation text — searchable, and
   // marked available. Publishing an EMPTY list until the load for the LIVE
-  // project has settled is the fix; `available` stays driven by mode alone,
-  // because a project whose load is still in flight IS searchable, it just has
-  // nothing to show yet. ★★ A "have we loaded at all" boolean would NOT do —
-  // it is true from p1's load onward, which is exactly the leaking state.
+  // project has settled is the fix. ★★ A "have we loaded at all" boolean
+  // would NOT do — it is true from p1's load onward, which is exactly the
+  // leaking state.
+  //
+  // ★★★ `available` IS A THREE-WAY SPLIT, NOT A RESTATEMENT OF `tursoMode`.
+  // chat-search.ts turns it into `coverage`, and chat-tool-defs.ts tells the
+  // model that `turso` means past conversations WERE searched — so under that
+  // flag an empty result reads as "this was never discussed". The three states
+  // do not make the same claim:
+  //   in flight       → available. We CAN look; there is simply nothing to
+  //                     show YET, and the empty list above keeps this render's
+  //                     answer honest on its own.
+  //   load FAILED     → NOT available. The load's .catch() settles
+  //                     `loadedProjectId` too, so `threadsMatchProject` is true
+  //                     and a mode-only flag makes a failed fetch
+  //                     indistinguishable from a project that really has no
+  //                     threads — the model then asserts a topic was never
+  //                     raised while the user is looking at the failure banner.
+  //                     That is precisely the "an empty result is NOT evidence"
+  //                     reading chat-search-tool.ts and chat-tool-defs.ts exist
+  //                     to prevent, defeated one layer upstream of both.
+  //   settled, empty  → available. "We looked and there is nothing" is true.
+  // ★★ `threadsError` is ALSO raised by runPersist when a SAVE or DELETE
+  // fails, where the list we hold may still be a fine read — so this is
+  // deliberately slightly over-broad rather than missed. Erring toward "I
+  // could not look" is the safe direction: the failure mode it forecloses is
+  // the model inventing an answer, and the cost is a search the user can
+  // retry. Do not add a second flag to reclaim it.
   const threadsMatchProject = loadedProjectId === projectId;
   useEffect(() => {
     publishChatThreads(projectId, {
       threads: tursoMode && threadsMatchProject ? threads : [],
       activeThreadId: tursoMode && threadsMatchProject ? activeThreadId : null,
-      available: tursoMode,
+      available: tursoMode && !threadsError,
     });
     // ★★ Clearing on unmount is not optional: withdrawing AI consent unmounts
     // the chat panel (it renders a consent screen instead) and nothing else in
@@ -141,7 +165,14 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     // re-publish (cleanup runs, then the body re-publishes, in one commit) and
     // a project switch both end with the live value in the slot.
     return () => clearChatThreadsFor(projectId);
-  }, [projectId, threads, activeThreadId, tursoMode, threadsMatchProject]);
+  }, [
+    projectId,
+    threads,
+    activeThreadId,
+    tursoMode,
+    threadsMatchProject,
+    threadsError,
+  ]);
   // Latest committed activeThreadId, read by the in-flight send to detect a
   // mid-send THREAD switch — same shape/purpose as ChatPanel's own
   // projectIdRef, which only ever covered a project switch. Without this,

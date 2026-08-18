@@ -868,8 +868,9 @@ describe("useChatThreads — registry publication", () => {
     rerender({ ...initialProps, projectId: "p2" });
     await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
 
-    // `available` still tracks MODE, not emptiness: a project whose load is in
-    // flight IS searchable, it just has nothing to show yet.
+    // `available` tracks REACHABILITY, not emptiness: a project whose load is
+    // still in flight IS searchable, it just has nothing to show yet. (A load
+    // that FAILED is the other side of that split — the test below.)
     expect(readChatThreads("p2")).toEqual({
       threads: [],
       activeThreadId: null,
@@ -929,6 +930,35 @@ describe("useChatThreads — registry publication", () => {
       threads: [],
       activeThreadId: null,
       available: true,
+    });
+  });
+  it("publishes available:false when the Turso load FAILED, not an empty-but-searched list", async () => {
+    // ★★★ THIS AND THE TEST ABOVE ARE ONE PAIR — neither pins the split alone.
+    //   A failed fetch settles `loadedProjectId` in its .catch() exactly as a
+    //   success does, so the PAYLOAD it publishes is byte-identical to the
+    //   empty-but-succeeded case above and `available` is the only field left
+    //   that can tell "we looked and there is nothing" from "we could not
+    //   look". Downstream a true flag becomes `coverage: "turso"`, which
+    //   chat-tool-defs.ts tells the model means past conversations WERE
+    //   searched — so the assistant asserts a topic was never discussed while
+    //   the user is looking at the failure banner.
+    // ★ Seed a stale Turso-shaped value first: `readChatThreads`'s miss-path
+    //   default for an unwritten slot is byte-identical to what this asserts,
+    //   so without the seed it would pass with the publish effect DELETED.
+    publishChatThreads("p1", {
+      threads: [thread("stale")],
+      activeThreadId: "stale",
+      available: true,
+    });
+    loadThreadsMock.mockRejectedValue(new Error("turso down"));
+    const { result } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+
+    expect(readChatThreads("p1")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: false,
     });
   });
 
