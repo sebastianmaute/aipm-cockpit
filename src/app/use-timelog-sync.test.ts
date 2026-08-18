@@ -21,6 +21,7 @@ vi.mock("./timelog-api", () => ({
 import * as api from "./timelog-api";
 import { useTimelogSync } from "./use-timelog-sync";
 import type { TimelogLinks } from "./timelog-types";
+import type { ActualsAggregate } from "./timelog-actuals";
 
 const creds = { host: "app2.timelog.com", tenant: "Acme", token: "tok" };
 // Persisted links are always MANUAL pins in production (auto-matches are never
@@ -201,7 +202,7 @@ it("fetchBookingsForProjects fetches each SELECTED project (no customer resolve)
     .mockResolvedValueOnce([item(5, 4)])
     .mockResolvedValueOnce([{ ...item(5, 3), projectId: 12 }]);
   const { result } = renderHook(() => useTimelogSync(args()));
-  let out: { failedProjects: number; projectCount: number } | undefined;
+  let out: { failedProjects: number; projectCount: number; aggregates?: ActualsAggregate } | undefined;
   await act(async () => { out = await result.current.fetchBookingsForProjects([9, 12], "2026-06-01", "2026-06-30"); });
   // Fetches the given ids directly — does NOT resolve the customer's project list.
   expect(api.listProjectsForCustomer).not.toHaveBeenCalled();
@@ -209,7 +210,12 @@ it("fetchBookingsForProjects fetches each SELECTED project (no customer resolve)
   expect(calledIds).toEqual([9, 12]);
   // Booking on project 9 attributes to bucket 7 via the persisted manual link.
   expect(result.current.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
-  expect(out).toEqual({ failedProjects: 0, projectCount: 2 });
+  expect(out?.failedProjects).toBe(0);
+  expect(out?.projectCount).toBe(2);
+  // The aggregate now comes back FROM the call: reading sync.aggregates after the
+  // await is stale state in the same closure, which would re-apply the old
+  // overlay. Pinned here so the widened return cannot be quietly narrowed again.
+  expect(out?.aggregates?.byBucket[7]["2026-06"].hours).toBe(4);
   // No per-user / org path touched.
   expect(api.listEmployeeTimeItems).not.toHaveBeenCalled();
   expect(api.listTimeItemsSelf).not.toHaveBeenCalled();
