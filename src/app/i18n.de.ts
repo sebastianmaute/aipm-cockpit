@@ -2618,6 +2618,7 @@ export const de: Record<TranslationKey, string> = {
   documentsBlockTable: "Tabelle",
   documentsBlockDataSection: "Projektdaten",
   documentsBlockPageBreak: "Seitenumbruch",
+  documentsBlockN: "Block {0}",
   documentsHeadingLevel: "Überschriftsebene",
   documentsHeadingText: "Überschriftstext",
   documentsParagraphLabel: "Absatz {0}",

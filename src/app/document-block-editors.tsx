@@ -68,11 +68,32 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *    write.
  *
  * Reads at unmount go through `latestRef` (kept current by the effect that
- * runs after every render) rather than closing over `value`/`toBlock`/
- * `onCommit`/`index`/`storedBlock` directly, because those are only ever
- * fresh at MOUNT time inside an empty-deps effect — react-hooks/refs bans
- * reading OR writing a ref during render, so "keep it current" can only
- * happen inside an effect, never the render body.
+ * runs after every render) rather than closing over `toBlock`/`onCommit`/
+ * `index`/`storedBlock` directly, because those are only ever fresh at
+ * MOUNT time inside an empty-deps effect — react-hooks/refs bans reading OR
+ * writing a ref during render, so "keep it current" can only happen inside
+ * an effect, never the render body. The draft VALUE itself is read from
+ * `liveValueRef` instead (see its own comment) — not from `latestRef`,
+ * which can lag a render behind.
+ *
+ * ★★★ `commitValue(next)` — for a control with no blur event to hang a
+ *  deferred commit off (add/remove/reorder buttons, a toggle), NOT a text
+ *  field. It commits `next` SYNCHRONOUSLY, in the caller's own event
+ *  handler, exactly like `commit()` does on a real blur — no effect, no
+ *  round trip, so an immediate `unmount()` right after a click can never
+ *  race a commit that hasn't happened yet (a bare `setValue` + a later
+ *  effect calling `commit()` COULD, and did: bullets shipped that shape
+ *  first and a raw-`dispatchEvent`-then-`unmount()` probe lost the edit
+ *  outright, because `dirtyRef` was set but the value the effect would
+ *  read hadn't landed in `latestRef` yet). Resolves a functional updater
+ *  against `liveValueRef.current`, never the render-scope `value` — the
+ *  "N saves in one tick" landmine (AGENTS.md) applies here exactly as it
+ *  does to any other save handler: two `commitValue(prev => ...)` calls
+ *  batched into one event (two clicks, or a double-click) must each see
+ *  the OTHER's effect, and a plain `{...value, ...}` spread reading the
+ *  render's `value` cannot — both calls would close over the SAME
+ *  pre-batch value and the second commit would silently overwrite the
+ *  first's change instead of building on it.
  */
 function useBlockDraft<T>(
   initialValue: T,
@@ -92,33 +113,60 @@ function useBlockDraft<T>(
   // the two would make an untouched editor's unmount flush try to commit
   // content nobody typed.
   const dirtyRef = useRef(false);
+
+  // A SYNCHRONOUS mirror of the draft's true current value. `rawValue`
+  // (React state) is only EVENTUALLY consistent — a `setRawValue` call does
+  // not update what a later line in the SAME tick reads, let alone what a
+  // second handler invoked later in the same batched event reads. Every
+  // value-producing call (`setValue`, `commitValue`) resolves a functional
+  // updater against this ref and updates it immediately, so calls stack
+  // correctly regardless of render timing.
+  const liveValueRef = useRef(initialValue);
+
+  const resolveValue = (next: T | ((prev: T) => T)): T =>
+    typeof next === "function" ? (next as (prev: T) => T)(liveValueRef.current) : next;
+
   const setValue = (next: T | ((prev: T) => T)) => {
     dirtyRef.current = true;
-    setRawValue(next);
+    const resolved = resolveValue(next);
+    liveValueRef.current = resolved;
+    setRawValue(resolved);
   };
 
   // The block this draft is currently derived from. Starts at the block
   // this hook was seeded with; advances to `next` on every successful
-  // `commit()`; and is RE-SEEDED to the live `storedBlock` prop on every
-  // render where the draft is NOT dirty (an untouched editor should track
-  // a concurrent write rather than go stale). It is deliberately FROZEN
-  // the moment `dirtyRef` goes true, so a concurrent write arriving WHILE
-  // the user has a pending edit stays visible as a mismatch between this
-  // ref and the live `storedBlock` — that mismatch is the concurrent-write
-  // guard's whole signal.
+  // `commit()`/`commitValue()`; and is RE-SEEDED to the live `storedBlock`
+  // prop on every render where the draft is NOT dirty (an untouched editor
+  // should track a concurrent write rather than go stale). It is
+  // deliberately FROZEN the moment `dirtyRef` goes true, so a concurrent
+  // write arriving WHILE the user has a pending edit stays visible as a
+  // mismatch between this ref and the live `storedBlock` — that mismatch
+  // is the concurrent-write guard's whole signal.
   const baselineRef = useRef(storedBlock);
 
-  const latestRef = useRef({ value: rawValue, toBlock, onCommit, index, storedBlock });
+  const latestRef = useRef({ toBlock, onCommit, index, storedBlock });
   useEffect(() => {
     if (!dirtyRef.current) baselineRef.current = storedBlock;
-    latestRef.current = { value: rawValue, toBlock, onCommit, index, storedBlock };
+    latestRef.current = { toBlock, onCommit, index, storedBlock };
   });
 
   const commit = () => {
-    const next = toBlock(rawValue);
+    const next = toBlock(liveValueRef.current);
     if (blockChanged(baselineRef.current, next)) {
       baselineRef.current = next;
       onCommit(index, next);
+    }
+    dirtyRef.current = false;
+  };
+
+  const commitValue = (next: T | ((prev: T) => T)) => {
+    const resolved = resolveValue(next);
+    liveValueRef.current = resolved;
+    setRawValue(resolved);
+    const nextBlock = toBlock(resolved);
+    if (blockChanged(baselineRef.current, nextBlock)) {
+      baselineRef.current = nextBlock;
+      onCommit(index, nextBlock);
     }
     dirtyRef.current = false;
   };
@@ -127,7 +175,7 @@ function useBlockDraft<T>(
     return () => {
       if (!dirtyRef.current) return; // never edited (or already committed) — nothing pending
       const latest = latestRef.current;
-      const next = latest.toBlock(latest.value);
+      const next = latest.toBlock(liveValueRef.current);
       if (!blockChanged(baselineRef.current, next)) return; // dirty flag set, but content is a no-op (e.g. reverted)
       if (blockChanged(baselineRef.current, latest.storedBlock)) return; // concurrent write since baseline froze — abandon
       latest.onCommit(latest.index, next);
@@ -138,7 +186,7 @@ function useBlockDraft<T>(
     // through a ref, which the rule does not treat as a dependency.
   }, []);
 
-  return { value: rawValue, setValue, commit };
+  return { value: rawValue, setValue, commit, commitValue };
 }
 
 /**
@@ -285,16 +333,22 @@ type BulletsDraft = { items: readonly string[]; ordered: boolean };
  * unique on TWO axes at once: across sibling bullets blocks (like every other
  * editor here) AND across items within one block. Two of its labels have no
  * `{0}` placeholder to carry the item number at all (`documentsListOrdered`,
- * `documentsAddItem`), so EVERY control here gets the block-position suffix,
- * and the per-item ones additionally get their `{0}` item number — the
- * cross-product is what makes "Remove item 1" in block 1 distinct from
- * "Remove item 1" in block 2.
+ * `documentsAddItem`), so EVERY control here is qualified with the block
+ * position via `documentsBlockN` ("Block {0}"), joined onto the base label
+ * with an en dash — never a bare trailing digit, which reads as part of the
+ * label's OWN number ("Remove item 1 1" looks like two item numbers, not an
+ * item-in-a-block). The qualifier goes in `aria-label`, never the visible
+ * text: the Add button's VISIBLE label stays the plain "Add item" a sighted
+ * user reads, exactly as `ToggleButton`'s WCAG 4.1.2 contract already keeps
+ * the toggle's visible label unqualified below.
  *
- * ★ Still a THIN consumer of `useBlockDraft` — see the mismatch note on
- *  `pendingCommit` below for the one place this editor does more than
- *  heading/paragraph, and why that extra piece is a bridge INTO the hook's
- *  own commit, not a second copy of its dirty-check/baseline/unmount-flush
- *  logic.
+ * ★ Still a THIN consumer of `useBlockDraft`: every action (typing, add,
+ *  remove, move, toggle) goes through the hook's own `setValue`/`commit`/
+ *  `commitValue` — no second copy of the dirty-check/baseline/unmount-flush/
+ *  concurrent-write logic. `commitValue` is what add/remove/move/toggle use,
+ *  since a button click has no blur event to hang a deferred `commit()`
+ *  off; see its doc comment on `useBlockDraft` for why that has to be a
+ *  synchronous commit rather than a `setValue` + a later effect.
  */
 export function BulletsBlockEditor({
   lang,
@@ -302,7 +356,7 @@ export function BulletsBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "bullets" }>>) {
-  const { value, setValue, commit } = useBlockDraft<BulletsDraft>(
+  const { value, setValue, commit, commitValue } = useBlockDraft<BulletsDraft>(
     { items: block.items, ordered: block.ordered === true },
     block,
     index,
@@ -313,53 +367,42 @@ export function BulletsBlockEditor({
     onCommit,
   );
 
-  // ★★★ MISMATCH WITH THE SHARED HOOK, AND WHY THIS IS A BRIDGE RATHER THAN A
-  //  FORK. `commit` (from useBlockDraft) is a plain closure recreated every
-  //  render that reads `rawValue` from the render that CREATED it — exactly
-  //  as its own doc comment describes. Add/remove/move/toggle need to commit
-  //  IMMEDIATELY (there is no blur event on a button click to hang the commit
-  //  off, unlike per-item TEXT edits), so calling `setValue(next)` then
-  //  `commit()` in the same handler would read the value from BEFORE the
-  //  update — a real stale-closure bug, not a hypothetical one.
-  //
-  //  The fix is to let the render `setValue` TRIGGERS supply the fresh
-  //  `commit`, via a flag a post-render effect (no deps — mirrors the
-  //  pattern the hook itself uses for `latestRef`) checks and clears. This
-  //  reuses the hook's OWN dirty/baseline/unmount-flush/concurrent-write
-  //  machinery completely unmodified: the value that lands in `onCommit` is
-  //  the same `blockChanged(baselineRef.current, next)`-gated one every
-  //  other editor gets, and the concurrent-write guard still protects a
-  //  structural action that arrives while another client's write is in
-  //  flight. What is NOT reused is `commit`'s call TIMING — bridged via this
-  //  ref+effect rather than a DOM blur event.
-  const pendingCommit = useRef(false);
-  useEffect(() => {
-    if (!pendingCommit.current) return;
-    pendingCommit.current = false;
-    commit();
-  });
+  const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
+  const qualify = (label: string) => `${label} – ${blockQualifier}`;
 
-  const setValueNow = (next: BulletsDraft) => {
-    setValue(next);
-    pendingCommit.current = true;
+  // Functional updaters throughout: `commitValue` resolves each against the
+  // shared `liveValueRef`, not this render's `value`, so two of these fired
+  // in one batched event (a real double-click, or `act(() => { a.click();
+  // b.click() })`) each see the OTHER's already-applied change instead of
+  // both reading the same pre-batch snapshot and one clobbering the other.
+  const moveItem = (from: number, to: number) => {
+    commitValue((prev) => {
+      const items = [...prev.items];
+      const [moved] = items.splice(from, 1);
+      items.splice(to, 0, moved);
+      return { ...prev, items };
+    });
   };
 
-  const suffix = ` ${index + 1}`;
+  const removeItem = (i: number) => {
+    commitValue((prev) => ({ ...prev, items: prev.items.filter((_, j) => j !== i) }));
+  };
 
-  const moveItem = (from: number, to: number) => {
-    const items = [...value.items];
-    const [moved] = items.splice(from, 1);
-    items.splice(to, 0, moved);
-    setValueNow({ ...value, items });
+  const addItem = () => {
+    commitValue((prev) => ({ ...prev, items: [...prev.items, ""] }));
+  };
+
+  const toggleOrdered = () => {
+    commitValue((prev) => ({ ...prev, ordered: !prev.ordered }));
   };
 
   return (
     <div className="flex flex-col gap-2" onBlur={commit}>
       <ToggleButton
         pressed={value.ordered}
-        onToggle={() => setValueNow({ ...value, ordered: !value.ordered })}
+        onToggle={toggleOrdered}
         lang={lang}
-        ariaLabel={t(lang, "documentsListOrdered") + suffix}
+        ariaLabel={qualify(t(lang, "documentsListOrdered"))}
       >
         {t(lang, "documentsListOrdered")}
       </ToggleButton>
@@ -369,18 +412,21 @@ export function BulletsBlockEditor({
           <li key={i} className="flex items-center gap-1">
             <input
               type="text"
-              aria-label={t(lang, "documentsListItem", String(i + 1)) + suffix}
+              aria-label={qualify(t(lang, "documentsListItem", String(i + 1)))}
               className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
               value={item}
               onChange={(e) => {
-                const items = [...value.items];
-                items[i] = e.target.value;
-                setValue({ ...value, items });
+                const text = e.target.value;
+                setValue((prev) => {
+                  const items = [...prev.items];
+                  items[i] = text;
+                  return { ...prev, items };
+                });
               }}
             />
             <button
               type="button"
-              aria-label={t(lang, "documentsMoveItemUp", String(i + 1)) + suffix}
+              aria-label={qualify(t(lang, "documentsMoveItemUp", String(i + 1)))}
               disabled={i === 0}
               className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => moveItem(i, i - 1)}
@@ -389,7 +435,7 @@ export function BulletsBlockEditor({
             </button>
             <button
               type="button"
-              aria-label={t(lang, "documentsMoveItemDown", String(i + 1)) + suffix}
+              aria-label={qualify(t(lang, "documentsMoveItemDown", String(i + 1)))}
               disabled={i === value.items.length - 1}
               className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => moveItem(i, i + 1)}
@@ -398,9 +444,9 @@ export function BulletsBlockEditor({
             </button>
             <button
               type="button"
-              aria-label={t(lang, "documentsRemoveItem", String(i + 1)) + suffix}
+              aria-label={qualify(t(lang, "documentsRemoveItem", String(i + 1)))}
               className="rounded-md border border-line px-2 py-1 text-xs"
-              onClick={() => setValueNow({ ...value, items: value.items.filter((_, j) => j !== i) })}
+              onClick={() => removeItem(i)}
             >
               <span aria-hidden="true">{"✕"}</span>
             </button>
@@ -411,10 +457,11 @@ export function BulletsBlockEditor({
       <div>
         <button
           type="button"
+          aria-label={qualify(t(lang, "documentsAddItem"))}
           className="rounded-md border border-line px-2 py-1 text-xs"
-          onClick={() => setValueNow({ ...value, items: [...value.items, ""] })}
+          onClick={addItem}
         >
-          {t(lang, "documentsAddItem") + suffix}
+          {t(lang, "documentsAddItem")}
         </button>
       </div>
     </div>

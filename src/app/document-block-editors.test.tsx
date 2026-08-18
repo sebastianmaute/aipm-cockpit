@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrictMode } from "react";
-import { render, screen, within, fireEvent } from "@testing-library/react";
+import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ParagraphBlockEditor, HeadingBlockEditor, BulletsBlockEditor } from "./document-block-editors";
 import { t } from "./i18n";
@@ -358,12 +358,16 @@ describe("HeadingBlockEditor", () => {
 describe("BulletsBlockEditor", () => {
   const block: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two"] };
 
-  // ★★★ Every label here carries the BLOCK-position suffix (` ${index+1}`) on
-  //  top of whatever `{0}` item number the key already interpolates —
-  //  `documentsListOrdered` and `documentsAddItem` have NO placeholder at
-  //  all, so without the suffix two sibling bullets blocks would render
-  //  identically-named controls (see the block-uniqueness test below, the
-  //  only thing that can catch that collision — axe cannot).
+  // ★★★ Every label here is qualified with the block position via
+  //  `documentsBlockN` ("Block {0}"), joined onto the base label with an en
+  //  dash — `documentsListOrdered` and `documentsAddItem` have NO `{0}`
+  //  placeholder at all, so without a qualifier two sibling bullets blocks
+  //  would render identically-named controls (see the block-uniqueness test
+  //  below, the only thing that can catch that collision — axe cannot). A
+  //  bare trailing digit ("Remove item 1 1") was tried and rejected — it
+  //  reads as a second item number, not a stated block relationship.
+  const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
+  const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
 
   it("gives every per-item control an ITEM-UNIQUE accessible name", () => {
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
@@ -375,15 +379,27 @@ describe("BulletsBlockEditor", () => {
   it("adds an item", async () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsAddItem")} 1` }));
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
     expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] });
+  });
+
+  // ★ The visible label stays the plain, unqualified "Add item" — only the
+  //  accessible name carries the block qualifier (mirrors ToggleButton's
+  //  WCAG 4.1.2 contract: visible text vs. aria-label are allowed to differ,
+  //  never the visible text alone growing a number that misreads as part of
+  //  the label). WCAG 2.5.3 still holds: the accessible name CONTAINS the
+  //  visible text.
+  it("keeps the Add-item VISIBLE label unqualified", () => {
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const addButton = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
+    expect(addButton.textContent).toBe(t(LANG, "documentsAddItem"));
   });
 
   it("removes an item", async () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
     await userEvent.click(
-      screen.getByRole("button", { name: `${t(LANG, "documentsRemoveItem", "1")} 1` }),
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveItem", "1")) }),
     );
     expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two"] });
   });
@@ -392,7 +408,7 @@ describe("BulletsBlockEditor", () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
     await userEvent.click(
-      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemDown", "1")} 1` }),
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsMoveItemDown", "1")) }),
     );
     expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two", "one"] });
   });
@@ -400,17 +416,19 @@ describe("BulletsBlockEditor", () => {
   it("cannot move the first item up or the last item down", () => {
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
     expect(
-      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemUp", "1")} 1` }),
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsMoveItemUp", "1")) }),
     ).toBeDisabled();
     expect(
-      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemDown", "2")} 1` }),
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsMoveItemDown", "2")) }),
     ).toBeDisabled();
   });
 
   it("toggles ordered", async () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsListOrdered")} 1` }));
+    await userEvent.click(
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsListOrdered")) }),
+    );
     expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two"], ordered: true });
   });
 
@@ -419,7 +437,7 @@ describe("BulletsBlockEditor", () => {
   //  detector, and it needs TWO blocks to express the collision at all.
   //  Covers BOTH axes at once: the toggle and Add-item labels (no `{0}` to
   //  fall back on) and a per-item control (which already varies by item
-  //  number WITHIN a block but collides ACROSS blocks without the suffix).
+  //  number WITHIN a block but collides ACROSS blocks without the qualifier).
   it("gives block-position-dependent controls DISTINCT names across sibling bullets blocks", () => {
     render(
       <>
@@ -433,7 +451,10 @@ describe("BulletsBlockEditor", () => {
 
     const adds = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsAddItem")}`) });
     expect(adds).toHaveLength(2);
-    expect(new Set(adds.map((b) => b.textContent)).size).toBe(2);
+    expect(new Set(adds.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+    // Visible text is deliberately IDENTICAL across blocks — only the
+    // aria-label differs. That is the point of keeping it unqualified.
+    expect(new Set(adds.map((b) => b.textContent)).size).toBe(1);
 
     const removeItem1 = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsRemoveItem", "1")}`) });
     expect(removeItem1).toHaveLength(2);
@@ -443,7 +464,7 @@ describe("BulletsBlockEditor", () => {
   it("does not commit when nothing changed", () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    const text = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
     text.focus();
     text.blur();
     expect(onCommit).not.toHaveBeenCalled();
@@ -456,7 +477,7 @@ describe("BulletsBlockEditor", () => {
   it("commits the LATEST item text on blur after two separate edits", async () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    const text = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
     await userEvent.clear(text);
     await userEvent.type(text, "on");
     await userEvent.type(text, "e2");
@@ -465,13 +486,63 @@ describe("BulletsBlockEditor", () => {
     expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one2", "two"] });
   });
 
+  // ★★★ CRITICAL regression test. Add/remove/move/toggle commit via the
+  //  shared hook's `commitValue`, which fires `onCommit` SYNCHRONOUSLY
+  //  inside this very click handler — not via a `setValue` + a later effect
+  //  reading the value back out. The prior shape (a `pendingCommit` ref
+  //  drained by a post-render effect) had a real window: `dirtyRef` was set
+  //  synchronously, but the VALUE the effect would commit only became
+  //  visible to it once a render had completed, so an unmount that
+  //  preempted that render read a stale, unchanged value, saw no diff, and
+  //  dropped the edit — the item vanished with `onCommit` never called.
+  //  A raw `.click()` (bypassing RTL/userEvent's automatic `act()` flush, so
+  //  no render or effect is guaranteed before the very next line) followed
+  //  by an immediate `unmount()` is exactly the shape that exposed it.
+  it("commits an add-then-immediate-unmount with NO intervening render", () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const addButton = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
+    addButton.click();
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] });
+  });
+
+  // ★★★ The "N saves in one tick" landmine (AGENTS.md), for a block editor:
+  //  `commitValue` resolves its functional updater against the hook's own
+  //  `liveValueRef`, never this render's `value`, so two structural actions
+  //  batched into ONE event (a real double-click, or React 18 batching two
+  //  `.click()` calls inside one `act`) each build on the OTHER's already-
+  //  applied change. A `{...value, ...}` spread reading the render-scope
+  //  `value` would have both handlers close over the SAME pre-batch
+  //  snapshot, and the second commit would silently overwrite the first's
+  //  addition instead of removing from the grown list.
+  it("keeps BOTH intentions when add and remove are batched into one event", () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const addButton = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
+    const removeItem1 = screen.getByRole("button", {
+      name: qualified(t(LANG, "documentsRemoveItem", "1")),
+    });
+    act(() => {
+      addButton.click();
+      removeItem1.click();
+    });
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenNthCalledWith(1, 0, { type: "bullets", items: ["one", "two", ""] });
+    // The remove acts on the POST-ADD list (3 items), not the stale 2-item
+    // render-scope snapshot — dropping index 0 ("one") leaves the new blank
+    // item in place.
+    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["two", ""] });
+  });
+
   // ★★★ Shared useBlockDraft behaviour, pinned here for the SAME reason the
   //  paragraph editor pins it: a pending edit with no blur must still be
-  //  flushed on unmount. Bullets is the one editor where a STRUCTURAL action
-  //  (add/remove/move/toggle) is bridged into the hook's own `commit` rather
-  //  than calling it directly (see the docstring on the effect above) — this
-  //  proves that bridge lands in the SAME baseline/dirty state a normal
-  //  blur-commit would, so the unmount-flush guard still works afterward.
+  //  flushed on unmount. Bullets is the one editor whose structural actions
+  //  (add/remove/move/toggle) commit through `commitValue` instead of a
+  //  blur — this proves that path leaves the SAME baseline/dirty state a
+  //  normal blur-commit would, so the unmount-flush guard for a LATER,
+  //  genuinely pending text edit still works afterward.
   //  ★ The `rerender` with the post-add block mirrors what a real parent
   //   does after `onCommit` fires (apply the op, pass the new block back
   //   down) — without it `storedBlock` never advances past the ORIGINAL
@@ -483,12 +554,12 @@ describe("BulletsBlockEditor", () => {
     const { rerender, unmount } = render(
       <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />,
     );
-    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsAddItem")} 1` }));
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
     expect(onCommit).toHaveBeenCalledTimes(1);
     const afterAdd: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two", ""] };
     expect(onCommit).toHaveBeenCalledWith(0, afterAdd);
     rerender(<BulletsBlockEditor lang={LANG} index={0} block={afterAdd} onCommit={onCommit} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    const text = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
     await userEvent.type(text, "!");
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(2);

@@ -2680,6 +2680,7 @@ const enUS = {
   documentsBlockTable: "Table",
   documentsBlockDataSection: "Project data",
   documentsBlockPageBreak: "Page break",
+  documentsBlockN: "Block {0}",
   documentsHeadingLevel: "Heading level",
   documentsHeadingText: "Heading text",
   documentsParagraphLabel: "Paragraph {0}",
