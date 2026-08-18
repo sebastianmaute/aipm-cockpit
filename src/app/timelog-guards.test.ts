@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  canApplyToBudget,
   canClearAllFetched,
   canFetchBookings,
   canLoadManagedProjects,
@@ -148,5 +149,35 @@ describe("canLoadManagedProjects", () => {
   it("blocks the load in a popout and while busy", () => {
     expect(canLoadManagedProjects({ ...loadOk, isPopout: true })).toBe(false);
     expect(canLoadManagedProjects({ ...loadOk, syncBusy: true })).toBe(false);
+  });
+});
+
+describe("canApplyToBudget", () => {
+  const applyOk = { isPopout: false, rowCount: 3, isPartial: false };
+
+  it("allows the write when a plan exists and the aggregate is complete", () => {
+    expect(canApplyToBudget(applyOk)).toBe(true);
+  });
+
+  // ★★★ §172. A fetch that lost a project still produces a well-formed,
+  //     non-empty aggregate — so "present and non-empty" cannot be the test.
+  //     Applying it rewrites the bucket WITHOUT the missing project's hours,
+  //     and apply owns the period, so the difference is erased outright.
+  it("REFUSES a partial aggregate even when the plan has rows", () => {
+    expect(canApplyToBudget({ ...applyOk, isPartial: true })).toBe(false);
+  });
+
+  it("blocks an empty plan and a popout", () => {
+    expect(canApplyToBudget({ ...applyOk, rowCount: 0 })).toBe(false);
+    expect(canApplyToBudget({ ...applyOk, isPopout: true })).toBe(false);
+  });
+
+  // ★ Apply reaches no network, so a broken token must not block writing data
+  //   the device already holds — the same call the clear guard makes. Expressed
+  //   as a test because the state type simply omits the field, and an omission
+  //   reads as an oversight unless something pins it as a decision.
+  it("ignores TimeLog config state entirely", () => {
+    const withExtra = { ...applyOk, isMisconfigured: true, syncBusy: true } as typeof applyOk;
+    expect(canApplyToBudget(withExtra)).toBe(true);
   });
 });

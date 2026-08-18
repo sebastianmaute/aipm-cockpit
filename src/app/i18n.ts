@@ -1565,6 +1565,8 @@ const enUS = {
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
+  timelogApplyPartial:
+    "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
   timelogApplyNoAllocation:
     "Booked hours can't be applied to {0} linked bucket(s): no role or discipline line to hold them. Add a role in the Budget view first.",
   timelogApplyUnmatched:

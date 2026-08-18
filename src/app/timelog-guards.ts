@@ -72,8 +72,8 @@ export function canRefreshBookings(state: TimelogRefreshState): boolean {
  * ★★ Identical preconditions to `canRefreshBookings` — it IS a refresh, plus a
  * confirm-open afterwards. Expressed as its own export rather than an alias so
  * the button and the handler share ONE predicate: this file records four
- * separate instances of a handler guard drifting from its button's `disabled`,
- * and a fifth is not wanted.
+ * separate instances of a handler guard drifting from its button's `disabled`.
+ * A FIFTH was found afterwards, on apply — see `canApplyToBudget`.
  *
  * ★ It exists as a distinct NAME for the same reason `canLoadManagedProjects`
  * does — the day this action grows a precondition of its own (a cache the
@@ -100,6 +100,47 @@ export function canRefreshAndReapply(state: TimelogRefreshState): boolean {
  */
 export function canLoadManagedProjects(state: TimelogActionState): boolean {
   return !isBlocked(state);
+}
+
+export interface TimelogApplyState {
+  /** Popout windows are read-only. */
+  isPopout: boolean;
+  /** Rows `buildApplyPlan` would write. Zero = nothing to apply. */
+  rowCount: number;
+  /** The cached aggregate lost at least one project to a fetch error. */
+  isPartial: boolean;
+}
+
+/**
+ * Write the cached actuals overlay onto the budget buckets.
+ *
+ * ★★★ `isPartial` IS A DATA-LOSS GUARD, not a tidiness one. Apply OWNS every
+ * allocation line of a period it routes: `buildApplyPlan` emits a row for every
+ * line whose `next` differs from `current`, and a line this fetch did not route
+ * to gets `next = 0`. That ownership is what lets an apply clear a stale total
+ * — and it is why a SHORT aggregate is poison. When one of several TimeLog
+ * projects feeding a bucket throws, `finish()` still runs on whatever arrived,
+ * so the aggregate is well-formed, yields rows, and is simply missing that
+ * project's hours; applying it rewrites the bucket at the smaller figure and
+ * the difference is ERASED. "Present and non-empty" is NOT the test — a partial
+ * aggregate passes both. See open-followups §172.
+ *
+ * ★★ It is the FIFTH instance of the §74 asymmetry this file exists to end, and
+ * the one that had teeth: `openConfirm` returned early on `!overlay` alone
+ * while its button carried `applyDiff.length === 0 || isPopout`, so a non-button
+ * caller could apply from a popout, or with an empty plan. Both call sites now
+ * evaluate THIS.
+ *
+ * ★ Deliberately NOT extending `TimelogActionState`: apply reaches no network,
+ * so `isMisconfigured` must not block it — same reasoning as
+ * `canClearAllFetched` below, and expressed the same way (its own state type,
+ * so adding a blocker later is a typecheck error rather than a silent change).
+ * `syncBusy`/`confirming` are likewise absent: a fetch in flight cannot change
+ * the FROZEN snapshot the dialog writes, and `confirming` is the state this
+ * action ENTERS.
+ */
+export function canApplyToBudget(state: TimelogApplyState): boolean {
+  return !state.isPopout && state.rowCount > 0 && !state.isPartial;
 }
 
 export interface TimelogClearState {

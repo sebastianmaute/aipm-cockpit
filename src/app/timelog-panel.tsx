@@ -37,7 +37,8 @@ import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
 import { TimelogNotConfigured } from "./timelog-not-configured";
-import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
+import { canApplyToBudget, canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
+import { TimelogApplyNotices } from "./timelog-apply-notices";
 import { decideReapply } from "./timelog-reapply";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
@@ -302,8 +303,14 @@ export function TimelogPanel({
   // withheld rather than costed at another role's rate, so say so.
   const unmatchedApplyBuckets = applyPlan.unmatchedBuckets;
 
+  // ONE predicate for the handler AND the button — see timelog-guards.ts. The
+  // `isPartial` arm is the §172 data-loss guard: a fetch that lost a project
+  // still yields a well-formed aggregate, and applying it ERASES that project's
+  // hours, because apply writes every line it did not route to `0`.
+  const applyState = { isPopout, rowCount: applyDiff.length, isPartial: sync.partial };
+
   function openConfirm() {
-    if (!overlay) return;
+    if (!overlay || !canApplyToBudget(applyState)) return;
     setPendingApply(overlay);
     setPendingBudgets(budgets);
     setConfirming(true);
@@ -735,25 +742,17 @@ export function TimelogPanel({
       />
 
       {/* Apply to budget */}
-      {skippedApplyBuckets.length > 0 && (
-        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
-          {t(lang, "timelogApplyNoAllocation", String(skippedApplyBuckets.length))}
-        </p>
-      )}
-      {unmatchedApplyBuckets.length > 0 && (
-        <p className="mb-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs text-muted-foreground print:hidden">
-          {/* Gated on the bucket LIST, not the hour total: a +40/-40 credit
-              correction nets to zero while hours are still withheld. */}
-          {/* 1dp, not Math.round: a net of -0.4 rounded to "0 hours withheld",
-              so the notice contradicted itself. Trailing ".0" is trimmed. */}
-          {t(lang, "timelogApplyUnmatched", String(unmatchedApplyBuckets.length),
-             applyPlan.unmatchedHours.toFixed(1).replace(/\.0$/, ""))}
-        </p>
-      )}
+      <TimelogApplyNotices
+        lang={lang}
+        partial={sync.partial}
+        skippedCount={skippedApplyBuckets.length}
+        unmatchedCount={unmatchedApplyBuckets.length}
+        unmatchedHours={applyPlan.unmatchedHours}
+      />
       {!confirming ? (
         <button
           type="button"
-          disabled={applyDiff.length === 0 || isPopout}
+          disabled={!canApplyToBudget(applyState)}
           onClick={openConfirm}
           className={`rounded-md border border-line px-3 py-1.5 text-sm font-medium text-foreground disabled:opacity-40 print:hidden ${INTERACTIVE}`}
         >

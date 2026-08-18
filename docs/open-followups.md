@@ -11304,51 +11304,74 @@ table under the scan.
 table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
 the acceptance is deliberate rather than silent.
 
-## 172. A partial TimeLog fetch still overwrites the cached aggregate — open, pre-existing
+## 172. A partial TimeLog fetch overwrote the cached aggregate, and every apply path could write it — CLOSED 2026-08-18
 
 Found while FIXING the reapply half of this hazard in 0.245.0, by the implementer rather than by any
-reviewer, and deliberately not closed there because the fix changes the persisted cache shape.
+reviewer, and deliberately not closed there because the fix changes the persisted cache shape. Closed
+in the same unreleased version once the shape change was scoped.
 
-`fetchBookingsForProjects` calls `finish()` — which writes both `sync.aggregates` and the persisted
-`aipm-cockpit:timelog-actuals` entry — with **only the projects that succeeded**. `failedProjects` is
-reported to the caller and surfaced as a toast, but nothing marks the stored aggregate as partial.
+### The hazard
+
+`fetchBookingsForProjects` is fail-soft per project: a project whose fetch throws increments
+`failedProjects` and the loop continues. It then called `finish()` — which writes both
+`sync.aggregates` and the persisted `aipm-cockpit:timelog-actuals` entry — with **only the projects
+that succeeded**. `failedProjects` was reported to the caller and surfaced as a toast, but nothing
+marked the stored aggregate as short.
 
 Apply OWNS every allocation line of a routed period: `buildApplyPlan` emits a row for every line whose
 `next` differs from `current`, and a line TimeLog did not route to this time gets `next = 0`. So a
-bucket fed by two TimeLog projects, refreshed while the second project's fetch throws, re-applies at
-the first project's hours alone and **erases the second's** — a silent write of real booked hours to a
+bucket fed by two TimeLog projects, refreshed while the second project's fetch throws, re-applied at
+the first project's hours alone and **erased the second's** — a silent write of real booked hours to a
 lower number.
 
+★★ "Present and non-empty" was never the test. A partial aggregate is well-formed, yields plan rows,
+and reads exactly like a good one; only the loop that swallowed the error knows.
+
+### What shipped
+
+The register offered two shapes. **Shape (b) — mark the entry partial and gate every apply path on the
+flag — was taken**, because shape (a) (refuse the overwrite outright) throws away the successful
+projects' fresh data, which is a second loss to avoid a first.
+
+- `ActualsCacheEntry.partial?: boolean` (`timelog-actuals-store.ts`). ★★ **ABSENT MEANS COMPLETE**,
+  which is what makes it back-compatible: an entry written before the field existed keeps its old
+  meaning, and an older client on the same device ignores an unknown key. Read `=== true`, never
+  truthiness — `isEntry` deliberately does NOT reject a malformed value, because rejecting would drop
+  the whole entry over a flag and treating a hand-edited `"false"` as partial would disable Apply with
+  no way back but Clear all. Failing OPEN on garbage only restores the pre-existing behaviour.
+- `finish(items, usersOverride, isPartial)` sets the state and persists the flag. ★★ It is a
+  PARAMETER because nothing about `items` can reveal that a project threw.
+- ★★★ **All FOUR savers carry it, not just `finish`'s.** The entry is rewritten WHOLE, so a saver that
+  omits the field CLEARS it — `loadDirectory`, `loadManagedProjects` and `removeUsers` would each have
+  re-opened this through a path with nothing to do with fetching. Pinned by a test that flags the
+  cache partial, calls `removeUsers`, remounts, and asserts the flag survived.
+- `canApplyToBudget` (`timelog-guards.ts`), evaluated by BOTH the Apply button's `disabled` and
+  `openConfirm`.
+- `timelogApplyPartial` EN/DE, rendered by `TimelogApplyNotices` — extracted from `timelog-panel.tsx`
+  (which sat one line under the 800-line ratchet) and leading the two existing notices, because it is
+  the only one that DISABLES Apply rather than explaining a partial write.
+- The per-user `fetchBookings` path got the same treatment off `failedEmployees > 0`. It is not wired
+  into the panel today; leaving it unflagged would have been a trap for whoever wires it back.
+
+★★ **It was also the FIFTH instance of §74**, found only because the fix forced a reading of both call
+sites: `openConfirm` returned early on `!overlay` alone while its button carried
+`applyDiff.length === 0 || isPopout`. A non-button caller could have applied from a popout, or with an
+empty plan. Both now evaluate the one predicate.
+
+★ Recovery is a CLEAN re-fetch (which sets the flag false) or Clear all. There is deliberately no
+"apply anyway" — the whole point is that the aggregate is unfit to write.
+
 ```bash
-# finish() is reached on the partial path too; failedProjects is reported, not gated on
-grep -n "failedProjects\|finish()" src/app/use-timelog-sync.ts
-# the panel's overlay is the cached aggregate, which the manual Apply button reads
-grep -n "const overlay" src/app/timelog-panel.tsx
+# the flag is threaded, and every saver carries it (expect 4 saveActualsCache sites, all with `partial`)
+grep -n "partial" src/app/use-timelog-sync.ts
+# one predicate, two call sites
+grep -n "canApplyToBudget" src/app/timelog-panel.tsx src/app/timelog-guards.ts
 ```
 
-★★★ **0.245.0 CLOSED ONE OF THE TWO DOORS, AND CLOSING ONE IS WHAT MAKES THIS WORTH AN ENTRY.**
-`decideReapply` (`timelog-reapply.ts`) aborts when `failedProjects > 0`, so **Refresh & re-apply** can
-no longer seed a confirm dialog from a partial aggregate. The **manual "Apply to budget"** button is
-one control away and reads the same poisoned `overlay` with no such guard. A reader who sees the
-reapply guard and stops will conclude the hazard is handled.
+### Residual, deliberately not closed here
 
-★★ It is PRE-EXISTING — the partial-overwrite behaviour predates 0.245.0, which only added a second
-control that could reach it. Do not read the fix commit as having introduced it.
-
-★ Two shapes of fix, both beyond a bug-fix slice: refuse to let `finish()` overwrite when any project
-failed (simplest, but loses the successful projects' fresh data), or mark the cache entry partial and
-gate every apply path on that flag (correct, but changes `ActualsCacheEntry`, which is persisted per
-project under one device key and must stay readable by an older client).
-
-★★ Whichever is chosen, the gate belongs at the APPLY paths, not at the one button that has it today
-— `grep -n "setPendingApply" src/app/timelog-panel.tsx` enumerates them, and a new one must inherit it.
-★★★ **THE SAME FUNCTION ALREADY REFUSES TO CLOBBER ON THE ADJACENT BRANCH, WHICH IS THE TELL.** When
-`ids.length === 0` it returns early with an explicit comment — "do NOT run `finish()` — clobbering
-prior good aggregates with an empty result would be silent data loss" — and the return type's own
-docblock repeats it. The partial branch is the same hazard in weaker form (some projects rather than
-none), and it falls through to an UNCONDITIONAL `finish(inWindow, bookers)` at the end of the
-fail-soft loop. The reasoning was done; it just was not carried the last few lines.
-
-★ So this is not a gap nobody thought about — it is a guard applied to the total case and not the
-partial one. Anyone fixing it should reuse that branch's wording rather than re-deriving the argument.
-
+★★ `BudgetUnappliedNotice` reads the same cache and does NOT mention partiality — it still invites the
+user to Timelog with "N buckets have unapplied actuals". That invitation stays TRUE (the buckets do
+hold unapplied hours) and the Timelog panel explains the block on arrival, so the journey is coherent;
+adding a fifth signal to a component whose four-signal split was itself a 0.245.0 fix was judged more
+churn than the confusion is worth. Revisit if a user reports the round trip.

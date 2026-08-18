@@ -57,12 +57,15 @@ longer carries its own changelog comment.
   changes carrying a decision date. The same gap applied to changes the assistant decided for you;
   a status the assistant does not recognise now leaves the change alone instead of quietly moving
   it back to Proposed.
-- **A Timelog refresh that only partly succeeded could reduce hours that were already booked.**
+- **A Timelog fetch that only partly succeeded could reduce hours that were already booked.**
   When several Timelog projects feed one budget bucket and one of them fails to fetch, only the
-  hours that arrived are applied, so applying them would overwrite the missing project's hours
-  with a smaller number. Refresh & re-apply now stops after reporting the failure instead of
-  offering to apply an incomplete result, and it no longer opens a confirmation asking you to
-  approve nothing when there is nothing new to apply.
+  hours that arrived are stored — and applying those to the budget overwrites the missing
+  project's hours with a smaller number, because applying owns the whole period it touches.
+  Fetched bookings are now marked as incomplete whenever a project was lost, and applying them to
+  the budget is blocked, with a notice saying why. The mark survives a page reload and is cleared
+  by a clean fetch or by clearing the fetched bookings. Refresh & re-apply likewise stops after
+  reporting the failure instead of offering to apply an incomplete result, and it no longer opens
+  a confirmation asking you to approve nothing when there is nothing new to apply.
 
 ## [0.244.0] - 2026-08-17 "Waldrop"
 

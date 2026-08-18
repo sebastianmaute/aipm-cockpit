@@ -73,6 +73,7 @@ function defaultSyncReturn() {
       { userId: 42, firstName: "Alice", lastName: "Smith", initials: "AS", email: "alice@example.com", isActive: true },
     ],
     projectRefs: [{ id: 9, name: "ForgeOps", no: "PO-1" }],
+    partial: false,
     customers: [],
     customerProjects: [],
     busy: false,
@@ -1652,6 +1653,33 @@ describe("TimelogPanel", () => {
       // FIXED_AGGREGATE.byBucket has bucket 10 with period "2026-06" → diff row
       const applyBtn = screen.getByRole("button", { name: t("en-US", "timelogApply") });
       expect(applyBtn).not.toBeDisabled();
+    });
+
+    // ★★★ §172. The aggregate here is the DEFAULT one — well-formed, non-empty,
+    //     and it yields a diff row (the test directly above asserts the button
+    //     is enabled on exactly this data). Only `partial` differs, so nothing
+    //     about the plan's shape can be doing the work: this pins the flag
+    //     itself. Applying a short aggregate rewrites bucket 10 without the
+    //     failed project's hours and apply owns the period, so they are erased.
+    it("disables Apply and says why when the cached aggregate is PARTIAL", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), partial: true } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByRole("button", { name: t("en-US", "timelogApply") })).toBeDisabled();
+      // A disabled button with no reason beside it is the failure mode the two
+      // sibling notices already exist to avoid — this one leads them, because
+      // it is the only one that DISABLES rather than explains a partial write.
+      expect(screen.getByText(t("en-US", "timelogApplyPartial"))).toBeInTheDocument();
     });
 
     // `Resource.isExternal` means "capacity-tracked but excluded from ALL cost

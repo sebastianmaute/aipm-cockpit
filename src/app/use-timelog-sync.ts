@@ -56,6 +56,12 @@ export function useTimelogSync(args: Args) {
 
   const [aggregates, setAggregates] = useState<ActualsAggregate | undefined>(() => loadActualsCache(projectId)?.aggregates);
   const [fetchedAt, setFetchedAt] = useState<string | undefined>(() => loadActualsCache(projectId)?.fetchedAt);
+  // ★★★ The cached aggregate is SHORT — at least one project (or employee) was
+  // lost to an error on the fetch that produced it. Every apply path must
+  // refuse it: apply writes the lines it did not route to `0`, so applying a
+  // short aggregate ERASES the missing project's hours. `=== true` because a
+  // hand-edited cache may carry anything; absent means complete (§172).
+  const [partial, setPartial] = useState<boolean>(() => loadActualsCache(projectId)?.partial === true);
   // Displayable directory users + distinct projects seen in the latest fetch.
   // Seeded from the per-project cache so the matching tables survive a view
   // remount (the KPIs already restore from `aggregates` — keep them in sync).
@@ -133,8 +139,11 @@ export function useTimelogSync(args: Args) {
       // Persist alongside EXISTING bookings only. A directory-only load (no prior
       // fetchedAt) stays in-memory — caching it would fabricate a `fetchedAt` that
       // seeds a misleading "Last synced" line on the next remount.
+      // ★★ `partial` rides along on EVERY save, not just `finish`'s. Omitting it
+      // here would silently CLEAR the flag and re-open §172 through a directory
+      // reload — an entry is rewritten whole, so a dropped field is a cleared one.
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users: shown, projectRefs, partial });
       }
     });
   }
@@ -176,7 +185,7 @@ export function useTimelogSync(args: Args) {
           : await listManagedProjects(creds, (await getMe(creds, signal)).userId, signal, includeClosed);
       setProjectRefs(refs);
       if (fetchedAt) {
-        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs });
+        saveActualsCache(projectId, { fetchedAt, aggregates, users, projectRefs: refs, partial });
       }
     });
   }
@@ -194,7 +203,15 @@ export function useTimelogSync(args: Args) {
   // resolve people and projects at this moment, and every miss folds into a
   // dimensionless `unattributed` scalar. A caller acting on the stale value
   // re-applies exactly the attribution the re-fetch existed to replace.
-  function finish(items: readonly TimelogTimeItem[], usersOverride?: readonly TimelogUser[]): ActualsAggregate {
+  // ★★ `isPartial` is the caller's fail-soft count, not something derivable
+  //    here — a short fetch produces a perfectly well-formed aggregate, so
+  //    nothing about `items` can reveal that a project threw. Only the loop
+  //    that swallowed the error knows, which is why it must be passed in.
+  function finish(
+    items: readonly TimelogTimeItem[],
+    usersOverride?: readonly TimelogUser[],
+    isPartial = false,
+  ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
     // Skip ProjectID 0 (absence / non-project time): it has an empty name, can't
@@ -224,7 +241,8 @@ export function useTimelogSync(args: Args) {
     setAggregates(agg);
     setProjectRefs(refs);
     setFetchedAt(at);
-    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs });
+    setPartial(isPartial);
+    saveActualsCache(projectId, { fetchedAt: at, aggregates: agg, users: [...u], projectRefs: refs, partial: isPartial });
     return agg;
   }
 
@@ -268,7 +286,7 @@ export function useTimelogSync(args: Args) {
         }
       }
 
-      finish(items);
+      finish(items, undefined, failedEmployees > 0);
       return { failedEmployees };
     });
   }
@@ -325,7 +343,7 @@ export function useTimelogSync(args: Args) {
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
       const bookers = directory.filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
-      const agg = finish(inWindow, bookers);
+      const agg = finish(inWindow, bookers, failedProjects > 0);
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }
@@ -345,7 +363,7 @@ export function useTimelogSync(args: Args) {
     const next = users.filter((u) => !drop.has(u.userId));
     setUsers(next);
     if (fetchedAt && aggregates) {
-      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs });
+      saveActualsCache(projectId, { fetchedAt, aggregates, users: next, projectRefs, partial });
     }
   }
 
@@ -353,11 +371,12 @@ export function useTimelogSync(args: Args) {
     if (isPopout) return;
     setAggregates(undefined);
     setFetchedAt(undefined);
+    setPartial(false);
     setUsers([]);
     setProjectRefs([]);
     fullDirectoryRef.current = null; // force a fresh directory on the next fetch
     clearActualsCache(projectId);
   }
 
-  return { aggregates, fetchedAt, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
+  return { aggregates, fetchedAt, partial, users, projectRefs, customers, customerProjects, busy, error, loadDirectory, loadManagedProjects, loadCustomers, loadCustomerProjects, fetchBookings, fetchBookingsForProjects, cancel, removeUsers, clearAll };
 }
