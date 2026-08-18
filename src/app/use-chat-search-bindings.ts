@@ -13,7 +13,7 @@
 //   read fails CLOSED — no cross-project leak — but `search_chats` would then
 //   report "cannot look" for the rest of the session and the ambient pointer
 //   would silently vanish. Ref-routing is the same answer that file gives every
-//   other reactive value it reads — which is why the dispatcher's empty-deps
+//   other reactive value it reads — which is why the dispatcher's
 //   `useMemo` needs no entry for the object this hook returns, and why its
 //   "every reactive value is read via a ref" note stays true. It lives HERE
 //   because that file has two lines of headroom against the 800-line ratchet

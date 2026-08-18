@@ -517,7 +517,7 @@ export const TOOL_DEFS = [
       "was last updated (carrying the project's UTC offset), and the messages that matched. " +
       "The conversation you are in right now is NEVER returned — you already have it in full. " +
       "Check `coverage` before you answer: `turso` means past conversations were searched, and " +
-      "`unavailable` means this project does not store them at all, so an empty result is NOT " +
+      "`unavailable` means they were not, so an empty result is NOT " +
       "evidence that nothing was discussed — say you cannot look rather than that you found " +
       "nothing. If `truncated` is true, or a hit's `moreMessages` is above zero, more matched " +
       "than you were given — say so rather than implying the list is complete. A long message is " +

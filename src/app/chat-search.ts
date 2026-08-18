@@ -66,7 +66,7 @@ export interface ChatHitMessage {
    * quote a fragment as if it were the whole thing.
    *
    * ★ Present only when true, so the common case costs nothing on the wire
-   * (`JSON.stringify` drops an `undefined` key) — absent means complete.
+   * — absent means complete.
    */
   clipped?: boolean;
 }

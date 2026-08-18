@@ -136,7 +136,7 @@
   and **169** through two features).
   ★★★ **AND "WOULD HAVE FIT COMFORTABLY INLINE" IS NOW HISTORY, NOT ADVICE — the split was not
   ratchet-forced when it was made and IS load-bearing today.** The `DOCUMENT_TOOL_DEFS` block measures
-  **73** lines, and 766 + 73 = **839**, over the 800 cap: the defs file can no longer absorb the schemas it
+  **73** lines, over the 800 cap: the defs file can no longer absorb the schemas it
   gave away. A reader acting on the old sentence would fold them back and break the gate.
   ★★ Those two numbers were **763** and
   **596** when measured on 2026-08-07 and both had drifted by the next feature — B2a's `search_history`
@@ -463,8 +463,7 @@
   the session and the pointer would silently vanish. Ref-routing every reactive value is the answer that
   file already gives, which is why its `useMemo` needs no entry for the object this hook returns.
   ★ `use-chat-search-bindings.ts`'s own header says that file has TWO lines of headroom while
-  `chat-recap.ts`'s says ONE; **799** is what the counter returns today, so read the code comments as
-  dated, not as disagreeing about the cap.
+  `chat-recap.ts`'s says ONE; **799** is what the counter returns today.
   ★★ **NO `useSyncExternalStore`, no listener set, no equality function** — the `project-appearance-prefs.ts`
   precedent needs all of that because components RENDER from it. Nothing renders from chat search: the
   dispatcher reads the slot at SEND time. Adding reactivity here would be machinery with no consumer.
@@ -525,7 +524,7 @@
   between recall and ~200 KB of verbatim conversation in one `tool_result` — inside an agentic loop free to
   call again, and then PERSISTED into this thread's own row. `CHAT_EXCERPT_MAX` caps each message BODY,
   `DEFAULT_CHAT_LIMIT`/`MAX_CHAT_LIMIT` cap MESSAGES (never threads — a thread cap would let one chatty
-  thread hide every other match), and `CHAT_POINTER_MAX` caps the pointer's titles. `search_history`'s
+  thread hide every other match). `search_history`'s
   identical count-only cap is safe only because its page items are short RENDERED summaries; these are raw
   message bodies. ★ Read the numbers off the exported constants in `chat-search.ts` — the tool description
   INTERPOLATES them, so a literal in prose here is the one copy that can go quietly false.

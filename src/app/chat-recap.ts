@@ -61,13 +61,9 @@ import { sanitizeMultiline } from "./sanitize-core";
  *   (`chat-threads-schema.ts`) reads `r.name ?? ""` with no clamp — uncapped end
  *   to end. Those strings ride the UNCACHED half of the system prompt on EVERY
  *   turn, and `get_app_state` returns the pointer verbatim on top of that.
- *   Applying `THREAD_NAME_MAX` HERE caps both branches at one point, which is
- *   what makes `buildChatPointer`'s "bounded pointer" docstring true.
+ *   Applying `THREAD_NAME_MAX` HERE caps both branches at one point.
  *
- *   ★★ THE ELLIPSIS IS DELIBERATE: `deriveThreadName` appends `…` when it
- *   truncates, so omitting it here would let the model tell a clipped USER-SET
- *   name (reads complete) from a clipped DERIVED one (visibly trails off) — the
- *   distinction this cap exists to erase. It also makes the clip IDEMPOTENT on
+ *   ★★ It also makes the clip IDEMPOTENT on
  *   an already-derived title: 60 characters + `…` is 61 units, clips back to
  *   the same 60 and re-gains the same `…`, byte-identical.
  *   ★ The two caps count DIFFERENT UNITS — `clipText` counts UTF-16 code units,

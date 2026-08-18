@@ -92,7 +92,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // survives is "There are N earlier conversations in this project; most
   // recent: …": tokens naming conversations the model is then given no tool to
   // open. A pointer at unreachable content is a distraction, not context.
-  // ★ A FOURTH ambient block will ride this same spread — extend the list, do
+  // ★ extend the list, do
   // not trust it.
   // ★★★ AND THE TOOL ITSELF IS DROPPED, unconditionally — `NO_RECALL_TOOLS`,
   // not `args`. Suppressing the sentence while still OFFERING the
