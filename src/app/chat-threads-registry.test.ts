@@ -1,6 +1,7 @@
 import { afterEach, describe, expect, it } from "vitest";
 import {
   clearChatThreads,
+  clearChatThreadsFor,
   publishChatThreads,
   readChatThreads,
 } from "./chat-threads-registry";
@@ -51,6 +52,41 @@ describe("chat threads registry", () => {
     publishChatThreads("p2", { threads: [], activeThreadId: null, available: true });
     expect(readChatThreads("p1").available).toBe(false);
     expect(readChatThreads("p2").available).toBe(true);
+  });
+
+  it("returns a FROZEN miss value, so one consumer cannot corrupt every later miss", () => {
+    // ★★ The same object answers every miss for the process lifetime, and
+    //   `readonly` on `threads` is a TYPE-level guarantee only — `available`
+    //   and `activeThreadId` never had even that. A single stray assignment
+    //   would therefore make every subsequent miss report the wrong answer,
+    //   with nothing in the type system to catch it. Mutating a frozen object
+    //   is a silent no-op outside strict mode and a TypeError inside it (ES
+    //   modules are always strict, which is why this is wrapped).
+    const miss = readChatThreads("nobody");
+    expect(Object.isFrozen(miss)).toBe(true);
+    expect(Object.isFrozen(miss.threads)).toBe(true);
+    try {
+      (miss as { available: boolean }).available = true;
+      (miss as { activeThreadId: string | null }).activeThreadId = "hijacked";
+      (miss.threads as ChatThread[]).push(T);
+    } catch {
+      // strict-mode TypeError — the assignment was rejected, which is the point.
+    }
+    expect(readChatThreads("someone-else")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: false,
+    });
+  });
+
+  it("clearChatThreadsFor drops only its OWN project's slot", () => {
+    // ★ The unmount cleanup is scoped so a late teardown for a project the
+    //   publisher has already left cannot wipe the CURRENT project's value.
+    publishChatThreads("p2", { threads: [T], activeThreadId: "t1", available: true });
+    clearChatThreadsFor("p1");
+    expect(readChatThreads("p2").available).toBe(true);
+    clearChatThreadsFor("p2");
+    expect(readChatThreads("p2").available).toBe(false);
   });
 
   it("clears", () => {

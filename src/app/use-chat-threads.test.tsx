@@ -846,4 +846,132 @@ describe("useChatThreads — registry publication", () => {
     expect(readChatThreads("p1").threads).toEqual([]);
     expect(readChatThreads("p1").activeThreadId).toBeNull();
   });
+  it("never publishes the OLD project's threads under the NEW project's id", async () => {
+    // ★★★ THE LEAK. The store's single slot stops a stale KEY being read; it
+    //   cannot stop a stale PAYLOAD being written under a fresh key, and
+    //   `threads` is NOT reset synchronously when `projectId` changes — the
+    //   reset lives in the async settle of the load effect. So in the render
+    //   where the id flips p1 -> p2 the publish effect fired with p2's id and
+    //   p1's still-populated rows, and the dispatcher could search another
+    //   project's conversation text.
+    // ★ The second load deliberately NEVER settles: the window this pins is
+    //   exactly the one before it does, and a settling fetch would self-heal it.
+    const p1Thread = thread("t1", {
+      projectId: "p1",
+      history: [{ role: "user", content: "P1 SECRET" }],
+    });
+    loadThreadsMock.mockResolvedValueOnce([p1Thread]);
+    loadThreadsMock.mockReturnValueOnce(new Promise<ChatThread[]>(() => {}));
+    const { rerender, initialProps } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(readChatThreads("p1").threads).toEqual([p1Thread]));
+
+    rerender({ ...initialProps, projectId: "p2" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+
+    // `available` still tracks MODE, not emptiness: a project whose load is in
+    // flight IS searchable, it just has nothing to show yet.
+    expect(readChatThreads("p2")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: true,
+    });
+    expect(JSON.stringify(readChatThreads("p2"))).not.toContain("P1 SECRET");
+  });
+
+  it("holds on the mid-flight-adoption MERGE branch too, where `prev` is deliberately kept", async () => {
+    // ★★ The merge branch is the amplifier: it KEEPS `prev` on purpose (so a
+    //   thread minted while the fetch was in flight is not dropped), so the
+    //   previous project's rows do not self-heal there — they are merged into
+    //   the new project's list and then marked loaded.
+    const p1Thread = thread("t1", {
+      projectId: "p1",
+      history: [{ role: "user", content: "P1 SECRET" }],
+    });
+    const p2Thread = thread("t-p2", { projectId: "p2" });
+    loadThreadsMock.mockResolvedValueOnce([p1Thread]);
+    let resolveP2!: (threads: ChatThread[]) => void;
+    loadThreadsMock.mockReturnValueOnce(
+      new Promise<ChatThread[]>((res) => {
+        resolveP2 = res;
+      }),
+    );
+    const { result, rerender, initialProps } = renderChatThreads({
+      tursoMode: true,
+      projectId: "p1",
+    });
+    await waitFor(() => expect(result.current.threads).toEqual([p1Thread]));
+
+    rerender({ ...initialProps, projectId: "p2" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(2));
+    // Adopting a thread while p2's fetch is in flight is what routes its settle
+    // down the merge branch rather than the replace branch.
+    act(() => result.current.newThread());
+
+    resolveP2([p2Thread]);
+    await waitFor(() => expect(readChatThreads("p2").threads).toEqual([p2Thread]));
+    expect(JSON.stringify(readChatThreads("p2"))).not.toContain("P1 SECRET");
+    // The sidebar's own list is scoped too — the leak was never registry-only.
+    expect(result.current.threads).toEqual([p2Thread]);
+  });
+
+  it("publishes available:true with an EMPTY list for a Turso project that has no threads yet", async () => {
+    // ★★★ THE INVARIANT THIS STORE EXISTS FOR. `available` answers "can this
+    //   project's chats be searched at all", never "do any exist" — the
+    //   engine's coverage field depends on the difference. Every other test
+    //   here is either Turso-WITH-threads or file mode, so collapsing the flag
+    //   to `tursoMode && threads.length > 0` is invisible without this case.
+    loadThreadsMock.mockResolvedValue([]);
+    const { result } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(loadThreadsMock).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(result.current.threadsError).toBe(false));
+
+    expect(readChatThreads("p1")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: true,
+    });
+  });
+
+  it("clears the slot on unmount, so a withdrawn AI consent leaves nothing readable", async () => {
+    // ★★ Withdrawing consent unmounts this hook (chat-panel renders a consent
+    //   screen instead) and nothing else in the app clears the store, so the
+    //   last payload stayed readable with `available: true`.
+    // ★ The fixture is NON-EMPTY first on purpose: against an empty one,
+    //   "cleared" and "never published" are the same observable and this test
+    //   would pass with the cleanup deleted.
+    const t1 = thread("t1", {
+      projectId: "p1",
+      history: [{ role: "user", content: "P1 SECRET" }],
+    });
+    loadThreadsMock.mockResolvedValue([t1]);
+    const { unmount } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(readChatThreads("p1").threads).toEqual([t1]));
+
+    unmount();
+
+    expect(readChatThreads("p1")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: false,
+    });
+  });
+
+  it("an ordinary re-publish leaves the live value in the slot, never a cleared one", async () => {
+    // ★ The cleanup runs BEFORE the next effect body in the same commit, so a
+    //   re-render must end with the fresh value published — a cleanup that
+    //   outlived its re-publish would silently blank chat search for a panel
+    //   that is still mounted.
+    const t1 = thread("t1", { projectId: "p1" });
+    loadThreadsMock.mockResolvedValue([t1]);
+    const { rerender, initialProps } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(readChatThreads("p1").threads).toEqual([t1]));
+
+    rerender({ ...initialProps, busy: true });
+
+    expect(readChatThreads("p1")).toEqual({
+      threads: [t1],
+      activeThreadId: "t1",
+      available: true,
+    });
+  });
 });
