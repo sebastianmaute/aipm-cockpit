@@ -701,7 +701,7 @@ function TaskManagerInner() {
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
-    useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
+    useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same

@@ -48,6 +48,7 @@ import {
 import { setRaciRole } from "./stakeholders";
 import { RaciSuggestModal } from "./raci-suggest-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 
 type Phase = "idle" | "thinking" | "preview" | "applying";
 
@@ -62,12 +63,12 @@ export interface RaciSuggestDeps {
    *  the per-field undo capture (this hook records ONE bulk undo entry
    *  instead, via `onCaptureBulk`). */
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
-  /** Snapshot the touched stakeholders' pre-edit images for undo, called
+  /** Snapshot the touched stakeholders' field patches for undo, called
    *  BEFORE the save loop mutates them — mirrors `onCaptureStakeholderBulk`
    *  (the same capture the manual bulk-edit panel uses), so this feature
    *  gets one correctly-ordered undo entry for free instead of re-deriving
    *  the low-level `capture()` before/after-image contract itself. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
    *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
@@ -232,8 +233,16 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     }
     setPhase("applying");
     // Snapshot BEFORE the save loop mutates — mirrors captureBulkUndo's own
-    // "call BEFORE the loop" contract.
-    onCaptureBulk?.(updated.map((s) => s.id));
+    // "call BEFORE the loop" contract. Field patches rather than whole rows,
+    // same as the manual bulk-edit panel — see open-followups #50.
+    const originalById = new Map(stakeholders.map((s) => [s.id, s]));
+    const rows = updated
+      .map((after) => {
+        const before = originalById.get(after.id);
+        return before ? { before, after } : null;
+      })
+      .filter((row): row is { before: Stakeholder; after: Stakeholder } => row !== null);
+    onCaptureBulk?.(buildBulkFieldEdits(rows));
     for (const s of updated) onSave(s, false, { suppressFieldUndo: true });
     // Report the number of CELL assignments applied (chosen.length), not the
     // number of stakeholders touched (updated.length) — the activity string

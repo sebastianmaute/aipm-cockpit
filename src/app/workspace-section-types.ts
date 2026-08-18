@@ -164,8 +164,8 @@ export interface WorkspaceSectionProps {
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder, isNew?: boolean) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
-  /** Capture the selected stakeholders' pre-edit images for undo before a bulk apply. */
-  onCaptureStakeholderBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected stakeholders' field patches for undo before a bulk apply. */
+  onCaptureStakeholderBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */

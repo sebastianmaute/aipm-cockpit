@@ -39,6 +39,7 @@ import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, type BulkField } from "./bulk-edit-panel";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
@@ -77,8 +78,8 @@ export interface StakeholdersPanelProps extends EntityPaneHintsProps {
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, name: string) => void;
-  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected rows' field patches for undo before a bulk apply. */
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */
@@ -195,16 +196,22 @@ function StakeholdersPanelBody({
   );
 
   const applyBulk = (changes: Record<string, string>) => {
-    onCaptureBulk?.(Array.from(sel.selectedIds));
-    for (const id of sel.selectedIds) {
-      const item = stakeholderById.get(id);
-      if (!item) continue;
+    const patch = (item: Stakeholder): Stakeholder => {
       let patched: Stakeholder = { ...item };
       if (changes.category !== undefined) patched = { ...patched, category: changes.category as StakeholderCategory };
       if (changes.influence !== undefined) patched = { ...patched, influence: changes.influence as InfluenceInterest };
       if (changes.interest !== undefined) patched = { ...patched, interest: changes.interest as InfluenceInterest };
-      onSave(patched, undefined, { suppressFieldUndo: true });
-    }
+      return patched;
+    };
+    const rows = Array.from(sel.selectedIds)
+      .map((id) => stakeholderById.get(id))
+      .filter((item): item is Stakeholder => item !== undefined)
+      .map((item) => ({ before: item, after: patch(item) }));
+
+    // Capture BEFORE the saves — a capture built from the post-save rows would
+    // record the already-patched value as `before`, making the undo a no-op.
+    onCaptureBulk?.(buildBulkFieldEdits(rows));
+    for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
     setBulkOpen(false);
     sel.clear();
   };

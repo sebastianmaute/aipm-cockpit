@@ -73,7 +73,7 @@ const milestones: Milestone[] = [
 ];
 
 interface HarnessProps {
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   // Forwards the FULL argument list, not just the item. A harness that accepts
   // only `item` cannot observe the undo-suppression flag, so dropping that flag
   // in the hook would fail no test here.
@@ -255,7 +255,9 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     // ONE save for the one touched stakeholder, not one per cell.
     expect(onSaves).toHaveBeenCalledTimes(1);
     expect(onCaptureBulk).toHaveBeenCalledTimes(1);
-    expect(onCaptureBulk).toHaveBeenCalledWith([1]);
+    expect(onCaptureBulk).toHaveBeenCalledWith([
+      { id: 1, before: { raci: {} }, after: { raci: { "10": "R", "11": "C" } } },
+    ]);
     // The bulk capture above is the ONLY undo entry this apply may create, so
     // the save must suppress the per-field one. Dropping this option is
     // invisible to every other assertion here — the write still lands, and the
