@@ -9,8 +9,16 @@ import {
   type ApiUsage,
   type ContentBlock,
   type SystemBlock,
+  type ToolFlags,
   type ToolUseBlock,
 } from "./chat-api";
+
+/** ★★ BOTH RECALL TOOLS OFF for the inline editor, spelled by NAME so the two
+ *  same-typed flags cannot be transposed (§159). The inline path edits ONE item
+ *  from a scoped prompt; searching prior chat history or prior threads is out of
+ *  scope for it, and every tool it does not carry is schema it does not pay for
+ *  on each keystroke-sized request. */
+const NO_RECALL_TOOLS: ToolFlags = { historySearch: false, chatSearch: false };
 import { type ToolDispatcher } from "./chat-tools";
 import { type Lang } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";
@@ -75,12 +83,12 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // delete tools — a searching model therefore yields an EMPTY plan, i.e. an
   // edit that silently does nothing. An instruction to call it is an
   // instruction to fail.
-  // ★★★ AND THE TOOL ITSELF IS DROPPED, unconditionally — `false`, not
-  // `args.historySearch`. Suppressing the sentence while still OFFERING the
+  // ★★★ AND THE TOOL ITSELF IS DROPPED, unconditionally — `NO_RECALL_TOOLS`,
+  // not `args`. Suppressing the sentence while still OFFERING the
   // tool leaves the trap armed for any instruction that invites a look
   // backwards ("put this back the way it was last week"). The kill switch is
   // honoured a fortiori: off stays off, and on is off HERE too. ★ The cost is
-  // real and accepted — this path now always sends `CACHED_TOOLS_NO_HISTORY`,
+  // real and accepted — this path always sends its own `toolsFor` variant,
   // so it no longer shares a prompt-cache prefix with the chat panel, costing
   // one extra cache write per 5-minute window in an interleaved chat/inline-edit
   // session. A silent no-op edit is worse than a cache miss. ★ There is
@@ -92,7 +100,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
   // `toolHints` do name broad tools the scope block then forbids acting on
   // beyond this item; that tension is accepted because the scope block is
   // adjacent and explicit, where a list of real neighbouring ids is not.
-  // ★ Passing the same `false` to `buildSystemPrompt` is what keeps that block
+  // ★ Passing the same `NO_RECALL_TOOLS` to `buildSystemPrompt` keeps that block
   // honest: it filters its hints against the tools this request carries, so
   // Activity's `search_history` hint disappears with the tool.
   const system: SystemBlock[] = [
@@ -101,7 +109,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
       { ...args.snapshot, viewDigest: undefined, activitySummary: undefined },
       args.guides,
       args.groundInGuides,
-      false,
+      NO_RECALL_TOOLS,
     ),
     scopeBlock(args.entity, args.item, args.itemLabel),
   ];
@@ -110,7 +118,7 @@ export async function callInlineEdit(args: InlineEditArgs): Promise<InlineEditRe
     args.model,
     system,
     [{ role: "user", content: args.instruction }],
-    false,
+    NO_RECALL_TOOLS,
     args.signal,
   );
   const blocks = res.content.filter(

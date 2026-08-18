@@ -48,7 +48,7 @@ describe("buildSystemPrompt view scoping", () => {
   // rather than a large win. Moving it back breaks nothing visible and
   // silently raises cost, exactly like the digest below.
   it("puts the view scope in the UNCACHED block, never the cached one", () => {
-    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false,undefined);
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("VIEW SCOPE");
     expect(stable.text).not.toContain("capacity versus allocation");
@@ -65,7 +65,7 @@ describe("buildSystemPrompt view scoping", () => {
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
       false,
-      undefined,
+      {},
     );
     // Presence FIRST: `indexOf` returns -1 for an absent block, and -1 is less
     // than any real index, so the ordering assertion alone passes vacuously
@@ -86,7 +86,7 @@ describe("buildSystemPrompt view scoping", () => {
       snapshot({ viewDigest: "3 people over capacity" }),
       [],
       false,
-      undefined,
+      {},
     );
     expect(stable.text).not.toContain("3 people over capacity");
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
@@ -96,7 +96,7 @@ describe("buildSystemPrompt view scoping", () => {
   });
 
   it("omits the VIEW STATE block when the view contributes no digest", () => {
-    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false,undefined);
+    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).not.toContain("VIEW STATE");
   });
 
@@ -104,7 +104,7 @@ describe("buildSystemPrompt view scoping", () => {
   // gate, or a user preference would silently switch off shipped behaviour.
   // Unchanged by the move to the volatile suffix — only the block it lands in.
   it("keeps the view scope when groundInGuides is off", () => {
-    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false,undefined);
+    const [, volatile] = buildSystemPrompt("en-US", snapshot(), [], false, {});
     expect(volatile.text).toContain("VIEW SCOPE");
   });
 });
@@ -148,7 +148,7 @@ describe("buildSystemPrompt insight block placement", () => {
   ];
 
   it("puts both insight sections in the UNCACHED block, never the cached one", () => {
-    const [stable, volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false,undefined);
+    const [stable, volatile] = buildSystemPrompt("en-US", snapshot({ insights }), [], false, {});
     expect(stable.cache_control).toEqual({ type: "ephemeral" });
     expect(stable.text).not.toContain("Current project insights");
     expect(stable.text).not.toContain("CACHEPROBE");

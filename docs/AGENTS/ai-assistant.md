@@ -395,13 +395,13 @@
   ★★★ **RECAP-ON + HISTORY-OFF IS THE COMBINATION THAT SHIPPED A LIE**, on every turn of every conversation:
   a prompt whose closing clause named a tool the request did not carry. The fix is that the block's closing
   sentence is emitted ONLY when `offeredTools.has("search_history")`, and `offeredTools` is
-  `toolNamesFor(historySearch)` — the set DERIVED from the very arrays `toolsFor` returns, resolved ONCE in
+  `toolNamesFor(toolFlags)` — the set DERIVED from the very arrays `toolsFor` returns, resolved ONCE in
   `buildSystemPrompt` and shared with `buildViewScopeBlock`. So "what the model is told it has" and "what the
   request carries" come from one decision and cannot drift. The COUNTS survive the suppression — they still
   orient the model when it cannot go read the rows. Reproduce the derivation with
   `grep -n "toolNamesFor\|toolsFor" src/app/chat-api.ts`.
   ★★ Turning `historySearch` off removes `search_history` from the request ENTIRELY (`toolsFor` returns a
-  second module-level array), and both arrays are module-level so the two live settings share ONE identity
+  different memoized array), and the memo yields ONE array per flag combination so the two live settings share ONE identity
   and the cache breakpoint is stable. ★ **`activity-recap.ts` is its own module because of a RUNTIME CYCLE,
   not tidiness** — it needs the VALUE `summarizeRecentActivity` from `history-search.ts`, which already
   imports the VALUE `renderActivityEntry` from `activity-prompt.ts`; hosting it in `activity-prompt.ts` would

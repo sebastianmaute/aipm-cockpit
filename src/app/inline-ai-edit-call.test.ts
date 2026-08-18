@@ -133,7 +133,7 @@ describe("callInlineEdit", () => {
     //    vacuity a "nothing happened" assertion invites.
     it("CONTROL: the same snapshot does produce a recap on the chat path", () => {
       const chatText = chatApi
-        .buildSystemPrompt("en-US", withActivity, [], false, undefined)
+        .buildSystemPrompt("en-US", withActivity, [], false, {})
         .map((b) => b.text)
         .join("\n");
       expect(chatText).toContain("Recent project activity: 4 changes");
@@ -153,18 +153,24 @@ describe("callInlineEdit", () => {
     // ★★★ AND THE TOOL ITSELF IS GONE, unconditionally. Suppressing the
     // sentence while still OFFERING the tool leaves the trap armed for any
     // instruction that invites a look backwards ("put this back the way it was
-    // last week"). `false` is passed literally — this must NOT track
-    // `settings.ai.historySearch`, so there is no argument to vary here.
-    it("passes historySearch=false to callClaude", async () => {
+    // last week"). The flags are passed literally — this must NOT track
+    // `settings.ai`, so there is no argument to vary here.
+    // ★★ READ BY NAME, never positionally: both flags are `boolean | undefined`,
+    //    so an assertion on "the false one" cannot tell a transposition apart.
+    it("passes both recall flags off to callClaude", async () => {
       const spy = await callWith(withActivity);
-      expect(spy.mock.calls[0][4]).toBe(false);
+      const flags = spy.mock.calls[0][4];
+      expect(flags.historySearch).toBe(false);
+      expect(flags.chatSearch).toBe(false);
     });
 
     // ★ The unconditional claim, from the other end: a snapshot with NO activity
     //   at all must reach the wire the same way.
-    it("passes false even when the snapshot carries no activity", async () => {
+    it("passes them off even when the snapshot carries no activity", async () => {
       const spy = await callWith(snapshot);
-      expect(spy.mock.calls[0][4]).toBe(false);
+      const flags = spy.mock.calls[0][4];
+      expect(flags.historySearch).toBe(false);
+      expect(flags.chatSearch).toBe(false);
     });
   });
 });

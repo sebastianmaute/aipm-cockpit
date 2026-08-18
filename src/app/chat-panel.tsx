@@ -352,7 +352,7 @@ function ChatPanelInner({
     const stale = () =>
       cancelledRef.current || projectIdRef.current !== sendProjectId || chatThreads.threadIdRef.current !== sendThreadId;
 
-    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides, ai.historySearch);
+    const system = buildSystemPrompt(lang, dispatcher.getSnapshot(), guides, ai.groundInGuides, ai);
     const messages = newHistory.slice();
 
     try {
@@ -380,7 +380,7 @@ function ChatPanelInner({
           ai.model,
           system,
           messages,
-          ai.historySearch, controller.signal,
+          ai, controller.signal,
         );
         // A cancel or a project switch may have landed while awaiting — bail
         // before writing this turn onto (possibly) another project's state.
