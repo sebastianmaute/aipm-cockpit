@@ -1,8 +1,10 @@
 // src/app/use-task-row-handlers.test.ts
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect, useRef, useState } from "react";
 import { useTaskRowHandlers } from "./use-task-row-handlers";
 import { loadJiraApi } from "./use-jira-sync";
+import { useUndoStack } from "./undo/use-undo-stack";
 import type { Task, Resource } from "./types";
 
 vi.mock("./workspace-tab-context", () => ({
@@ -685,5 +687,86 @@ describe("onSwimlaneDrop — explicit assign from a card", () => {
     );
     act(() => result.current.onSwimlaneDrop(1, ownLane, "To Do", "assign"));
     expect(setTasks).not.toHaveBeenCalled();
+  });
+});
+
+// open-followups §50: deleting a task also strips that id from other tasks'
+// dependencies[], and those dependents are captured as whole-row EDIT-IMAGES
+// (`onDelete`'s `edited: dependents`) — a path Part B's bulk-edit→field-patch
+// conversion never touches, so it keeps exercising the engine-level
+// `WRITE_THROUGH_FIELDS` backstop after that conversion lands. Wires the REAL
+// `useUndoStack` (not the `vi.fn()` `capture` the rest of this file mocks) so an
+// undo actually walks `applyUndoRestore`/`applyPreserved` — mirrors the
+// real-undo-stack pattern in `absence-move-handler.test.ts`.
+describe("useTaskRowHandlers — the preserve backstop survives a real undo", () => {
+  function harness(initial: readonly Task[]) {
+    return renderHook(() => {
+      const [tasks, setTasks] = useState<readonly Task[]>(initial);
+      const tasksRef = useRef<readonly Task[]>(tasks);
+      useEffect(() => {
+        tasksRef.current = tasks;
+      }, [tasks]);
+      const undo = useUndoStack({
+        lang: "en-US",
+        logActivity: vi.fn(),
+        showToast: vi.fn(),
+        showToastAction: vi.fn(),
+      });
+      const handlers = useTaskRowHandlers(
+        makeArgs({ tasksRef, setTasks, capture: undo.capture }),
+      );
+      return { tasks, setTasks, undo, handlers };
+    });
+  }
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("undoing a delete keeps a note added to a DEPENDENT since the delete", () => {
+    const blocker = makeTask({ id: 1, taskName: "blocker" });
+    const dependent = makeTask({
+      id: 2,
+      taskName: "dependent",
+      dependencies: [{ taskId: 1, type: "FS" }],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = harness([blocker, dependent]);
+
+    act(() => result.current.handlers.onDelete(1));
+    rerender();
+    expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
+
+    // Stand-in for the notes window: writes through to the live row directly,
+    // exactly as the real notes window does, with no knowledge of the undo
+    // stack. Seeded AFTER the delete — seeding it before is the §48 trap this
+    // repo has already paid for twice, and it would pass against unfixed code.
+    act(() => {
+      result.current.setTasks((prev) =>
+        prev.map((tk) =>
+          tk.id === 2
+            ? {
+                ...tk,
+                noteLog: [
+                  {
+                    id: 1,
+                    timestamp: "2030-01-02T00:00:00.000Z",
+                    html: "<p>added after the delete</p>",
+                    text: "added after the delete",
+                  },
+                ],
+              }
+            : tk,
+        ),
+      );
+    });
+    rerender();
+
+    act(() => result.current.undo.undo());
+    rerender();
+
+    const restored = result.current.tasks.find((tk) => tk.id === 2);
+    expect(restored?.noteLog?.map((n) => n.text)).toEqual(["added after the delete"]);
+    // Anti-vacuity anchor: the dependency strip WAS reverted — without this a
+    // harness reverting nothing at all would also pass.
+    expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 });
