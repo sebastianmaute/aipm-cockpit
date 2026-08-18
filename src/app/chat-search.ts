@@ -146,3 +146,47 @@ export function searchChats(
 
   return { hits, truncated, coverage: "turso" };
 }
+
+export const CHAT_POINTER_MAX = 3;
+
+export interface ChatPointerEntry {
+  title: string;
+  /** Rendered in the project zone. */
+  at: string;
+}
+
+export interface ChatPointer {
+  /** Threads other than the active one. */
+  count: number;
+  recent: readonly ChatPointerEntry[];
+}
+
+/**
+ * A bounded pointer at past conversations — a count and up to three titles.
+ *
+ * ★★ COSTS NOTHING. `threadTitle` already supplies each thread's title — the
+ *    user's own name when set, else one derived from its first user message —
+ *    so this needs no model call and no durable write, which is what removed
+ *    summaries, the staleness rule and the cost-per-summary decision from this
+ *    slice entirely.
+ *
+ * ★ Returns `null` when there is nothing to point at, so a project with one
+ *   conversation costs zero tokens.
+ */
+export function summarizeChatThreads(
+  threads: readonly ChatThread[],
+  activeThreadId: string | null,
+  tz: string,
+): ChatPointer | null {
+  const others = threads
+    .filter((th) => th.id !== activeThreadId)
+    .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
+  if (others.length === 0) return null;
+  return {
+    count: others.length,
+    recent: others.slice(0, CHAT_POINTER_MAX).map((th) => ({
+      title: threadTitle(th),
+      at: isoInZone(th.updatedAt, tz),
+    })),
+  };
+}

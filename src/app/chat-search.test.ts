@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { searchChats } from "./chat-search";
+import { searchChats, summarizeChatThreads } from "./chat-search";
 import type { ChatThread } from "./chat-threads";
 
 const UTC = "UTC";
@@ -207,5 +207,41 @@ describe("searchChats", () => {
     ];
     const res = searchChats(threads, null, {}, "Europe/Berlin", true);
     expect(res.hits[0].updatedAt).toContain("+02:00");
+  });
+});
+
+describe("summarizeChatThreads", () => {
+  const many = (n: number) =>
+    Array.from({ length: n }, (_, i) =>
+      thread({
+        id: `t${i}`,
+        updatedAt: `2026-08-${String(i + 1).padStart(2, "0")}T00:00:00.000Z`,
+        display: [{ kind: "user", text: `topic ${i}` }],
+      }),
+    );
+
+  it("returns null when there are no other threads", () => {
+    expect(summarizeChatThreads([], null, UTC)).toBeNull();
+    const only = [thread({ id: "active", display: [{ kind: "user", text: "a" }] })];
+    expect(summarizeChatThreads(only, "active", UTC)).toBeNull();
+  });
+
+  it("counts every other thread but names at most three, newest first", () => {
+    const res = summarizeChatThreads(many(5), null, UTC);
+    expect(res?.count).toBe(5);
+    expect(res?.recent).toHaveLength(3);
+    expect(res?.recent.map((r) => r.title)).toEqual(["topic 4", "topic 3", "topic 2"]);
+  });
+
+  it("excludes the active thread from the count", () => {
+    const res = summarizeChatThreads(many(3), "t0", UTC);
+    expect(res?.count).toBe(2);
+  });
+
+  it("renders the timestamp in the project zone", () => {
+    const one = [
+      thread({ id: "t1", updatedAt: "2026-08-05T12:00:00.000Z", display: [{ kind: "user", text: "a" }] }),
+    ];
+    expect(summarizeChatThreads(one, null, "Europe/Berlin")?.recent[0].at).toContain("+02:00");
   });
 });

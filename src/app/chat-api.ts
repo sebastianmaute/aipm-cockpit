@@ -11,6 +11,7 @@ import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
+import { buildChatPointerBlock } from "./chat-recap";
 import { chatSearchEnabled, historySearchEnabled, type AiConfig } from "./settings-types";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
@@ -164,6 +165,10 @@ export function buildSystemPrompt(
     snapshot.timezone,
     offeredTools,
   );
+  // Thread state changes every turn, so this block MUST stay in the uncached
+  // suffix — in the cached prefix it would invalidate the prompt cache on every
+  // message, which costs far more than the ~40 tokens it saves.
+  const chatBlock = buildChatPointerBlock(snapshot.chatPointer ?? null, offeredTools);
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
@@ -172,6 +177,7 @@ export function buildSystemPrompt(
     viewStateBlock,
     insightsBlock,
     activityBlock,
+    chatBlock,
   ]
     .filter(Boolean)
     .join("\n");
