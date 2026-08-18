@@ -27,7 +27,8 @@ longer carries its own changelog comment.
 ### Changed
 
 - **Send inquiry is a visible button on an Open Points row** instead of being hidden in the row's
-  overflow menu, matching how RAID already presented it.
+  overflow menu, matching how RAID already presented it. It is an icon button, because the actions
+  column is a fixed width that a text label does not fit in at any translation.
 - **The Time bookings page now explains itself when the Timelog integration is switched off.**
   Rather than showing an empty table, it says the integration is not configured and offers a
   Configure Timelog button that takes you to the setting. If bookings were fetched before the
@@ -47,7 +48,21 @@ longer carries its own changelog comment.
   next fetch — and nothing said so. The Timelog page listed the new link as healthy while the
   cached hours stayed unattributed, which read as the link being broken. There is now a Refresh &
   re-apply action that re-fetches and re-attributes in one step, and the Budget page shows a
-  notice when fetched hours are sitting unapplied or could not be attributed to anyone.
+  notice when fetched hours are sitting unapplied, could not be attributed to anyone, or landed on
+  a bucket that has no matching role line to receive them.
+- **Setting a change's status in bulk did not record a decision date.** Approving or rejecting
+  several changes at once left them without the date, and moving them back to a pending status
+  left a stale one behind, while doing the same thing to a single change from the editor got it
+  right. Changes decided in bulk were then left out of the calendar write-back, which only sends
+  changes carrying a decision date. The same gap applied to changes the assistant decided for you;
+  a status the assistant does not recognise now leaves the change alone instead of quietly moving
+  it back to Proposed.
+- **A Timelog refresh that only partly succeeded could reduce hours that were already booked.**
+  When several Timelog projects feed one budget bucket and one of them fails to fetch, only the
+  hours that arrived are applied, so applying them would overwrite the missing project's hours
+  with a smaller number. Refresh & re-apply now stops after reporting the failure instead of
+  offering to apply an incomplete result, and it no longer opens a confirmation asking you to
+  approve nothing when there is nothing new to apply.
 
 ## [0.244.0] - 2026-08-17 "Waldrop"
 
