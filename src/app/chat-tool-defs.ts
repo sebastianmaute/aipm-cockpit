@@ -489,6 +489,64 @@ export const TOOL_DEFS = [
     },
   },
   {
+    name: "search_chats",
+    // ★★★ THE COVERAGE DISCLOSURE IS LOAD-BEARING, NOT HEDGING. Threads are
+    //  Turso-only by construction, so in file mode there is nothing to search —
+    //  and an empty `hits` array looks identical either way. Without the
+    //  `coverage` field and this sentence, the model reports "I searched your
+    //  past conversations and found nothing" to every file-mode user, forever.
+    // ★★ The ACTIVE thread is deliberately absent from results: it is already
+    //  verbatim in this request, so saying so stops the model concluding its own
+    //  conversation has gone missing.
+    // ★★ A hit's `title` is `threadTitle` — the thread name the USER set whenever
+    //  they set one, and only otherwise the one derived from the first user
+    //  message. The description therefore says "its title" and never "its first
+    //  message": a renamed thread would otherwise be described to the model under
+    //  a title that appears nowhere in the user's sidebar.
+    description:
+      "Search this project's PAST chat conversations — the threads you and the user have had " +
+      "before this one, newest first. Use it when the user refers to something you discussed " +
+      "earlier (\"did we already decide…\", \"what did I tell you about…\", \"we talked about this\"), " +
+      "or when you need a decision or piece of context that is not in the project's current " +
+      "state. Use the list_* tools for current state and search_history for what CHANGED. " +
+      "Each hit is one thread: its id, its title, the time it " +
+      "was last updated (carrying the project's UTC offset), and the messages that matched. " +
+      "The conversation you are in right now is NEVER returned — you already have it in full. " +
+      "Check `coverage` before you answer: `turso` means past conversations were searched, and " +
+      "`unavailable` means this project does not store them at all, so an empty result is NOT " +
+      "evidence that nothing was discussed — say you cannot look rather than that you found " +
+      "nothing. If `truncated` is true, or a hit's `moreMessages` is above zero, more matched " +
+      "than you were given — say so rather than implying the list is complete. Read-only.",
+    input_schema: {
+      type: "object",
+      properties: {
+        query: {
+          type: "string",
+          description: "Case-insensitive substring matched against message text.",
+        },
+        // ★★ Same frame-of-reference contract as search_history: these bounds
+        //    resolve in the project's timezone, the same calendar as the
+        //    `Today is` date in the system prompt.
+        since: {
+          type: "string",
+          description:
+            "Inclusive lower bound as YYYY-MM-DD, in the project's timezone — the same " +
+            "calendar as the `Today is` date you were given. Convert relative phrasing yourself.",
+        },
+        until: {
+          type: "string",
+          description: "Inclusive upper bound as YYYY-MM-DD, in the project's timezone.",
+        },
+        limit: {
+          type: "number",
+          description:
+            "Maximum MESSAGES to return across all threads (default 20, maximum 50). " +
+            "Threads are not capped — every thread holding a match is eligible.",
+        },
+      },
+    },
+  },
+  {
     name: "create_resource",
     description:
       "Add a person to the resource directory. Provide firstName and lastName, OR a single full `name` (it is split). At least one of these is required — a call with no name is rejected. Use this when a document describes a team/resource plan — assigning a task to a name alone does NOT create a directory entry. Discipline/grade are assigned in the app, not here.",

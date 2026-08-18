@@ -349,10 +349,34 @@ describe("tool variants", () => {
 
   it("recomputes the cache breakpoint per variant", () => {
     // A lost breakpoint is invisible except as a bill.
-    for (const flags of [ALL, NO_HISTORY, NO_CHAT, NEITHER]) {
+    // ★★ THE EXPECTED LENGTH IS WHAT MAKES THE LOOP FOUR CASES. Until
+    //   `search_chats` existed, bit 2 removed nothing, so NO_CHAT and NEITHER
+    //   built the SAME list as ALL and NO_HISTORY — the loop ran four times over
+    //   two variants and would have stayed green with the whole chat bit gone.
+    //   `full` is read from the default variant so the numbers track TOOL_DEFS.
+    const full = toolsFor(ALL).length;
+    for (const [flags, expected] of [
+      [ALL, full],
+      [NO_HISTORY, full - 1],
+      [NO_CHAT, full - 1],
+      [NEITHER, full - 2],
+    ] as const) {
       const defs = toolsFor(flags);
+      expect(defs).toHaveLength(expected);
       expect(defs.filter((d) => "cache_control" in d)).toHaveLength(1);
       expect(defs[defs.length - 1]).toHaveProperty("cache_control");
     }
+  });
+
+  it("offers search_chats by default and drops it when disabled", () => {
+    expect(toolNamesFor(ALL).has("search_chats")).toBe(true);
+    expect(toolNamesFor(NO_CHAT).has("search_chats")).toBe(false);
+  });
+
+  it("drops each tool independently", () => {
+    // The combination that matters: one off, one on, in both directions.
+    expect(toolNamesFor(NO_HISTORY).has("search_chats")).toBe(true);
+    expect(toolNamesFor(NO_CHAT).has("search_history")).toBe(true);
+    expect(toolNamesFor(NEITHER).has("search_chats")).toBe(false);
   });
 });
