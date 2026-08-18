@@ -24,21 +24,11 @@
 // ★ Deliberately a plain `ReadonlySet`, not an import from `chat-api.ts`: that
 //   module imports this one, and a value import back would close a runtime cycle.
 import type { ChatPointer } from "./chat-search";
-// ★ Imported, never copied: a hardcoded 60 here would drift from the cap
-//   `deriveThreadName` applies, and the two branches must stay in step.
-import { THREAD_NAME_MAX } from "./chat-threads";
-// ★★ `sanitizeMultiline` is the EXPORTED spelling of `sanitize-core`'s private
-//   `clipText` for a string input — cap only, whitespace preserved. Deliberately
-//   NOT a hand-rolled `.slice()`: `clipText` backs a cut off a lone HIGH
-//   SURROGATE, so a cap landing inside an astral character drops it WHOLE rather
-//   than keeping half of one (the backend-dependent U+FFFD corruption of §22).
-//   `chat-search.ts` states the same rule at its own import of this helper —
-//   follow that precedent rather than inventing a second spelling.
-import { sanitizeMultiline } from "./sanitize-core";
 
 /**
- * ★★★ A TITLE IS USER-AUTHORED TEXT ENTERING THE SYSTEM PROMPT — sanitise it
- *   HERE, at the interpolation, and nowhere upstream.
+ * ★★★ A TITLE IS USER-AUTHORED TEXT ENTERING THE SYSTEM PROMPT — flatten it
+ *   HERE, at the interpolation, because this is the sink whose SYNTAX it can
+ *   break.
  *
  *   `threadTitle` falls back to `deriveThreadName`, which only `.trim()`s the
  *   first user message, so INTERIOR newlines survive. `volatileText` is joined
@@ -52,32 +42,15 @@ import { sanitizeMultiline } from "./sanitize-core";
  *   by `project_id` with no per-user or per-device column, so on a shared Turso
  *   project this text belongs to another collaborator.
  *
- *   ★★★ SIZE IS THE THIRD HAZARD, and it is the one that survived review.
- *   The pointer is bounded in COUNT (`CHAT_POINTER_MAX` entries) but was
- *   UNBOUNDED IN SIZE, because `threadTitle` PREFERS the user-set
- *   `ChatThread.name` and only the DERIVED fallback is capped: the rename
- *   `Input` in `chat-thread-list.tsx` sets no `maxLength`, `renameThread`
- *   (`use-chat-threads.ts`) writes the value verbatim, and the loader
- *   (`chat-threads-schema.ts`) reads `r.name ?? ""` with no clamp — uncapped end
- *   to end. Those strings ride the UNCACHED half of the system prompt on EVERY
- *   turn, and `get_app_state` returns the pointer verbatim on top of that.
- *   Applying `THREAD_NAME_MAX` HERE caps both branches at one point.
- *
- *   ★★ It also makes the clip IDEMPOTENT on
- *   an already-derived title: 60 characters + `…` is 61 units, clips back to
- *   the same 60 and re-gains the same `…`, byte-identical.
- *   ★ The two caps count DIFFERENT UNITS — `clipText` counts UTF-16 code units,
- *   `deriveThreadName` counts code points — so an astral-heavy derived title
- *   clips SHORTER here than it did upstream. Bounded either way; do not "fix"
- *   that by hand-rolling a code-point slice (see the import note above).
- *
- *   ★ Deliberately NOT done in `threadTitle`: the sidebar renders that value and
- *   wants the raw name. This is a rendering concern of THIS sink.
+ *   ★★ SIZE is a THIRD hazard and it is deliberately NOT handled here.
+ *   Clipping at this sink is opt-in per call site and left the other two
+ *   emitters of the same value uncapped (`searchChats`' `ChatHit.title` and
+ *   `summarizeChatThreads`, whose output `get_app_state` returns verbatim).
+ *   The cap therefore lives at the PRODUCER, `threadTitle` in `chat-search.ts`
+ *   — one point, both branches, nothing to forget. Do not re-add a clip here.
  */
 function inlineTitle(title: string): string {
-  const flat = title.replace(/\s+/g, " ").replace(/"/g, "'").trim();
-  const clipped = sanitizeMultiline(flat, THREAD_NAME_MAX);
-  return clipped === flat ? clipped : `${clipped}…`;
+  return title.replace(/\s+/g, " ").replace(/"/g, "'").trim();
 }
 
 export function buildChatPointerBlock(

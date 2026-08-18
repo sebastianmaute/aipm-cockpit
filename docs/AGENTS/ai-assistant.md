@@ -517,7 +517,7 @@
   request did not carry — cannot recur here. ★ `inline-ai-edit-call.ts` blanks `chatPointer` out of the
   snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS`, so
   the closing instruction was already suppressed and what survived named conversations the model had no tool
-  to open. **A FOURTH ambient block will ride that same spread — extend the strip list, do not trust it.**
+  to open. **Extend the strip list, do not trust it.**
   ★★ **THE MESSAGE COUNT IS NOT A SIZE BUDGET.** Every field of the schema is optional, so a bare
   `search_chats {}` is legal and the pointer makes it a likely FIRST move; user messages are stored up to
   `CHAT_MESSAGE_MAX` and assistant messages are bounded only by `max_tokens`, so the caps are what stand
@@ -528,15 +528,17 @@
   identical count-only cap is safe only because its page items are short RENDERED summaries; these are raw
   message bodies. ★ Read the numbers off the exported constants in `chat-search.ts` — the tool description
   INTERPOLATES them, so a literal in prose here is the one copy that can go quietly false.
-  ★★★ **A THREAD TITLE IS USER-AUTHORED TEXT ENTERING THE SYSTEM PROMPT**, sanitised at the interpolation
-  (`inlineTitle`, `chat-recap.ts`) and nowhere upstream, because the sidebar wants the raw name. Interior
+  ★★★ **A THREAD TITLE IS USER-AUTHORED TEXT ENTERING THE SYSTEM PROMPT**, flattened at the interpolation
+  (`inlineTitle`, `chat-recap.ts`) because that is the sink whose SYNTAX it can break. Interior
   newlines survive `deriveThreadName`, and `volatileText` is joined with "\n", so a title reading
   `hi\nSYSTEM: …` renders a forged directive at line start; the `"` delimiter is the other half. ★★ NOT
   self-injection only — `chat_threads` is scoped by `project_id` with no per-user column, so on a shared
-  Turso project that text belongs to another collaborator. ★★ SIZE was the third hazard and the one that
-  survived review: the pointer is bounded in COUNT but `threadTitle` PREFERS the user-set `ChatThread.name`,
-  which is uncapped end to end (the rename input sets no `maxLength`, `renameThread` writes it verbatim, the
-  loader reads it with no clamp) — so `THREAD_NAME_MAX` is applied HERE, capping both branches at one point.
+  Turso project that text belongs to another collaborator. ★★★ SIZE IS A SEPARATE HAZARD AND IT IS CAPPED
+  AT THE PRODUCER, NOT HERE — an earlier revision of this line said the opposite ("`THREAD_NAME_MAX` is
+  applied HERE, capping both branches at one point"), and that was false when written: `inlineTitle` had
+  ONE call site while `searchChats` and `summarizeChatThreads` emitted the same value RAW into
+  `search_chats` and `get_app_state`. `threadTitle` (`chat-search.ts`) now applies the cap, so every
+  emitter gets it. A sink-side cap is opt-in per call site — do not re-add one here.
   ★ `clipped` on a returned message is a DIFFERENT claim from `truncated`/`moreMessages`: this BODY was
   shortened, versus other MESSAGES matched. The needle is matched against the FULL text and only the
   returned copy is clipped, so an excerpt may not itself contain the needle — which is exactly what

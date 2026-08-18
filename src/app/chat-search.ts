@@ -9,7 +9,10 @@
 //   no chats yet" and "file mode, cannot look" both arrive as an empty array,
 //   and collapsing them makes the model tell every file-mode user it searched
 //   their past conversations and found nothing.
-import { deriveThreadName, type ChatThread } from "./chat-threads";
+// ★ `THREAD_NAME_MAX` is imported, never re-spelled as 60 here: a copy would
+//   drift from the cap `deriveThreadName` applies, and the derived branch and
+//   the user-set branch must stay in step.
+import { deriveThreadName, THREAD_NAME_MAX, type ChatThread } from "./chat-threads";
 import { resolveLimit } from "./resolve-limit";
 // ★★ `sanitizeMultiline` is the EXPORTED spelling of `sanitize-core`'s private
 //   `clipText` for a string input — cap only, whitespace preserved. Deliberately
@@ -97,13 +100,45 @@ export interface ChatSearchResult {
   coverage: ChatCoverage;
 }
 
-/** A thread's display title: the user's own name when they have set one, else
- *  the name derived from the first user message. `ChatThread.name` is "" until
- *  the first save AND is user-editable via `renameThread` — deriving
- *  unconditionally would cite a renamed thread under a title that appears
- *  nowhere in the sidebar. */
+/**
+ * A thread's display title: the user's own name when they have set one, else
+ * the name derived from the first user message. `ChatThread.name` is "" until
+ * the first save AND is user-editable via `renameThread` — deriving
+ * unconditionally would cite a renamed thread under a title that appears
+ * nowhere in the sidebar.
+ *
+ * ★★★ THE CAP LIVES HERE, at the PRODUCER, because only the DERIVED branch is
+ *   capped upstream: the rename `Input` in `chat-thread-list.tsx` sets no
+ *   `maxLength`, `renameThread` (`use-chat-threads.ts`) writes the value
+ *   verbatim, and the loader (`chat-threads-schema.ts`) reads `r.name ?? ""`
+ *   with no clamp — a user-set name is uncapped end to end. Capping at a SINK
+ *   instead is opt-in per call site and was already missed twice: both
+ *   `searchChats` (what `search_chats` hands the model) and
+ *   `summarizeChatThreads` (`getSnapshot().chatPointer`, returned verbatim by
+ *   `get_app_state`) emitted this value raw.
+ *
+ *   ★★ Safe to cap here because NOTHING renders this to a human — the sidebar
+ *   has its own `displayName` over `ChatThread.name` (`chat-thread-list.tsx`)
+ *   and never calls this. Verify before adding a UI caller:
+ *   `grep -rn "threadTitle" src --include=*.ts --include=*.tsx`. A new
+ *   UI consumer must read `th.name`, not this.
+ *
+ *   ★★ NOT self-injection only — `chat-threads-schema.ts` scopes `chat_threads`
+ *   by `project_id` with no per-user or per-device column, so on a shared Turso
+ *   project this text belongs to another collaborator.
+ *
+ *   ★ IDEMPOTENT on an already-derived title: `deriveThreadName` emits
+ *   THREAD_NAME_MAX characters + `…` (61 units), which clips back to the same
+ *   60 and re-gains the same `…`, byte-identical.
+ *   ★ The two caps count DIFFERENT UNITS — `clipText` counts UTF-16 code units,
+ *   `deriveThreadName` counts code points — so an astral-heavy derived title
+ *   clips SHORTER here than it did upstream. Bounded either way; do not "fix"
+ *   that by hand-rolling a code-point slice (see the import note above).
+ */
 export function threadTitle(th: ChatThread): string {
-  return th.name.trim() || deriveThreadName(th.display);
+  const raw = th.name.trim() || deriveThreadName(th.display);
+  const clipped = sanitizeMultiline(raw, THREAD_NAME_MAX);
+  return clipped === raw ? clipped : `${clipped}…`;
 }
 
 /**

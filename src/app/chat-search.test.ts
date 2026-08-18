@@ -5,8 +5,11 @@ import {
   MAX_CHAT_LIMIT,
   searchChats,
   summarizeChatThreads,
+  threadTitle,
 } from "./chat-search";
-import type { ChatThread } from "./chat-threads";
+// ★ Imported, never hardcoded as 60 — a copy of the constant here stops
+//   tracking its subject the moment the cap moves.
+import { deriveThreadName, THREAD_NAME_MAX, type ChatThread } from "./chat-threads";
 
 const UTC = "UTC";
 
@@ -200,6 +203,15 @@ describe("searchChats", () => {
     expect(searchChats(threads, null, {}, UTC, true).hits[0].title).toBe("Q3 sourcing");
   });
 
+  it("caps the over-long name it hands the model in a hit", () => {
+    // `search_chats` returns this verbatim, so the cap has to survive the
+    // producer -> hit hop, not merely exist inside `threadTitle`.
+    const name = "q".repeat(THREAD_NAME_MAX * 3);
+    const threads = [thread({ id: "t1", name, display: [{ kind: "user", text: "vendor choice" }] })];
+    expect(name.length).toBeGreaterThan(THREAD_NAME_MAX);
+    expect(searchChats(threads, null, {}, UTC, true).hits[0].title).toHaveLength(THREAD_NAME_MAX + 1);
+  });
+
   it("falls back to the derived name when the stored name is only whitespace", () => {
     const threads = [
       thread({ id: "t1", name: "   ", display: [{ kind: "user", text: "vendor choice" }] }),
@@ -304,6 +316,50 @@ describe("searchChats", () => {
   });
 });
 
+// ★★★ SIZE is a hazard the DERIVED branch never exposes: `deriveThreadName`
+//   caps its own output, so a fixture that leaves `name` blank CANNOT express
+//   this bug at any assertion count. Every over-long fixture below therefore
+//   sets `name` — the user-set branch, which nothing upstream clamps (the
+//   rename Input has no maxLength, the rename writer stores it verbatim, and
+//   the loader reads it with no cap).
+describe("threadTitle", () => {
+  it("clips an over-long USER-SET name to THREAD_NAME_MAX and marks the cut with an ellipsis", () => {
+    const name = "x".repeat(THREAD_NAME_MAX * 3);
+    const th = thread({ id: "t1", name, display: [{ kind: "user", text: "short first message" }] });
+    // Anti-vacuity, both halves: the fixture is over the cap, AND its derived
+    // fallback is under it — so the clipped length below can only have come
+    // from the `name` branch.
+    expect(name.length).toBeGreaterThan(THREAD_NAME_MAX);
+    expect(deriveThreadName(th.display).length).toBeLessThanOrEqual(THREAD_NAME_MAX);
+
+    const out = threadTitle(th);
+    expect(out).toHaveLength(THREAD_NAME_MAX + 1);
+    expect(out.endsWith("…")).toBe(true);
+    // The same shape `deriveThreadName` produces, so the two branches read
+    // alike to the model.
+    expect(out.slice(0, THREAD_NAME_MAX)).toBe("x".repeat(THREAD_NAME_MAX));
+  });
+
+  it("leaves a name at exactly the cap untouched and adds no ellipsis", () => {
+    const exact = "y".repeat(THREAD_NAME_MAX);
+    const out = threadTitle(thread({ id: "t1", name: exact }));
+    expect(out).toBe(exact);
+    expect(out).not.toContain("…");
+  });
+
+  it("is a fixed point on the DERIVED branch, which already carries an ellipsis", () => {
+    // `deriveThreadName` emits THREAD_NAME_MAX characters + "…" (61 units);
+    // clipping that drops the ellipsis and re-appends the same one.
+    const display = [{ kind: "user" as const, text: "z".repeat(THREAD_NAME_MAX * 2) }];
+    const derived = deriveThreadName(display);
+    expect(derived).toHaveLength(THREAD_NAME_MAX + 1);
+
+    const out = threadTitle(thread({ id: "t1", display }));
+    expect(out).toBe(derived);
+    expect(out).not.toContain("……");
+  });
+});
+
 describe("summarizeChatThreads", () => {
   const many = (n: number) =>
     Array.from({ length: n }, (_, i) =>
@@ -337,5 +393,15 @@ describe("summarizeChatThreads", () => {
       thread({ id: "t1", updatedAt: "2026-08-05T12:00:00.000Z", display: [{ kind: "user", text: "a" }] }),
     ];
     expect(summarizeChatThreads(one, null, "Europe/Berlin")?.recent[0].at).toContain("+02:00");
+  });
+
+  it("caps the over-long name it puts in the pointer", () => {
+    // The pointer rides the UNCACHED half of the system prompt on every turn
+    // and `get_app_state` returns it verbatim, so an uncapped title is billed
+    // twice over.
+    const name = "p".repeat(THREAD_NAME_MAX * 3);
+    const one = [thread({ id: "t1", name, display: [{ kind: "user", text: "a" }] })];
+    expect(name.length).toBeGreaterThan(THREAD_NAME_MAX);
+    expect(summarizeChatThreads(one, null, UTC)?.recent[0].title).toHaveLength(THREAD_NAME_MAX + 1);
   });
 });
