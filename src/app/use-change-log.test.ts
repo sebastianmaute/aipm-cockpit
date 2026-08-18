@@ -52,8 +52,14 @@ test("suppressFieldUndo skips the per-field capture (bulk edit path)", async () 
 
 test("inline status change routes through applyChangeStatus and fills decisionDate", async () => {
   const mod = await store();
+  // The note log is seeded ON the stored row: it is WRITE-THROUGH (the notes
+  // window commits straight to the workspace array) and no status change ever
+  // carries one, so it is here purely to be preserved. `updated` is built by
+  // SPREADING `previous`; rebuilding it from a field list instead would destroy
+  // the log — the defect class this register already shipped twice.
+  const noteLog = [{ id: 1, timestamp: "2026-08-02T09:00:00.000Z", html: "<p>keep me</p>", text: "keep me" }];
   mod.__seed([
-    { id: 1, title: "Scope cut", status: "Proposed", raisedDate: "2026-08-01",
+    { id: 1, title: "Scope cut", status: "Proposed", raisedDate: "2026-08-01", noteLog,
       description: "", type: "Scope", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [] },
   ]);
   const { result } = renderHook(() => useChangeLog({ today: "2026-08-17" }));
@@ -61,6 +67,7 @@ test("inline status change routes through applyChangeStatus and fills decisionDa
   const row = mod.__read()[0];
   expect(row.status).toBe("Approved");
   expect(row.decisionDate).toBe("2026-08-17");
+  expect(row.noteLog).toEqual(noteLog);
 });
 
 test("clears decisionDate when an inline status change returns the item to pending", async () => {

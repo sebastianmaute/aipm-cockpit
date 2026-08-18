@@ -1,7 +1,7 @@
 "use client";
 import { useCallback } from "react";
 import { useWorkspace } from "./workspace-context";
-import { isPendingChange, nextChangeId } from "./change-log";
+import { applyChangeStatus, nextChangeId } from "./change-log";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import { resolveEntitySave } from "./entity-id-mint";
 import { reportSilentFailure } from "./guard-feedback";
@@ -10,17 +10,6 @@ import type { ChangeItem, ChangeStatus } from "./types";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { CHANGE_UNDO_GROUPS } from "./undo/field-groups";
 import type { UndoStackApi } from "./undo/use-undo-stack";
-
-/** Status transition: auto-fill decisionDate the first time the item leaves the
- *  pending set; clear it if it returns to pending. Pure + exported for testing. */
-export function applyChangeStatus(item: ChangeItem, status: ChangeStatus, today: string): ChangeItem {
-  if (isPendingChange(status)) {
-    const next = { ...item, status };
-    delete next.decisionDate;
-    return next;
-  }
-  return { ...item, status, decisionDate: item.decisionDate ?? today };
-}
 
 export interface UseChangeLogArgs {
   today: string;
@@ -96,11 +85,15 @@ export function useChangeLog(args: UseChangeLogArgs) {
   }, [changes, setChanges, args]);
 
   // Inline status change from the table row. Routes through applyChangeStatus —
-  // the SOLE writer of the status/decisionDate invariant — so the row cannot
-  // acquire a status without its matching decision date, or keep a stale one.
-  // Functional updater for the same reason handleSaveChange uses one: a bulk
-  // status sweep would otherwise have N saves in one tick all read the same
-  // stale closure and the last write clobber the rest.
+  // where every status TRANSITION in the app stamps or clears decisionDate — so
+  // the row cannot acquire a status without its matching decision date, or keep
+  // a stale one. (That helper is not the only writer of decisionDate itself;
+  // its docblock in change-log.ts scopes what is actually exclusive.)
+  // Functional updater, but note what it does and does not buy: `updated` is
+  // built OUTSIDE it from the closure's `previous`, so a concurrent write to
+  // THIS row is still overwritten. What it protects is the rest of the array —
+  // N status changes in one tick each see the latest one and compose, instead
+  // of all mapping over the same stale closure and the last write winning.
   const handleChangeStatusChange = useCallback((id: number, next: ChangeStatus) => {
     const previous = changes.find((c) => c.id === id);
     // Same concurrent-delete case handleSaveChange guards: the map-replace below

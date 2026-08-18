@@ -9,7 +9,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
-import type { ChangeItem, NoteLogEntry } from "./types";
+import type { ChangeItem, ChangeStatus, NoteLogEntry } from "./types";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
   return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
@@ -399,6 +399,46 @@ describe("Changes bulk edit", () => {
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  /** Sets `status` on the bulk panel and applies it to the one selected row. */
+  function bulkSetStatus(
+    changes: readonly ChangeItem[],
+    value: ChangeStatus,
+    onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void,
+  ) {
+    const { getByRole, getAllByRole } = render(
+      <ChangePanel {...base} changes={changes} onSave={onSave} />,
+      { wrapper: Providers },
+    );
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", changes[0].title) }));
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "1") }));
+  }
+
+  // The bulk patch used to set `status` RAW, so a bulk approve stored Approved
+  // with NO decisionDate — and `use-calendar-integrations` filters the Outlook
+  // decision-date push on `!!c.decisionDate`, silently excluding those rows.
+  it("bulk status change stamps decisionDate (routes through applyChangeStatus)", () => {
+    const onSave = vi.fn();
+    bulkSetStatus([ci({ id: 1, title: "Alpha scope", status: "Proposed" })], "Approved", onSave);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0]).toMatchObject({ id: 1, status: "Approved", decisionDate: base.today });
+  });
+
+  // The reverse half of the same invariant: the row select clears the date on a
+  // return to pending, and a raw bulk patch left it stale.
+  it("bulk status change back to a pending status clears a stale decisionDate", () => {
+    const onSave = vi.fn();
+    const seeded = ci({ id: 1, title: "Alpha scope", status: "Approved", decisionDate: "2026-06-05" });
+    bulkSetStatus([seeded], "Under Review", onSave);
+    expect(onSave).toHaveBeenCalledTimes(1);
+    expect(onSave.mock.calls[0][0].status).toBe("Under Review");
+    expect(onSave.mock.calls[0][0].decisionDate).toBeUndefined();
   });
 });
 

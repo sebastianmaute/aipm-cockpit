@@ -15,11 +15,71 @@ const TERMINAL: ReadonlySet<ChangeStatus> = new Set(["Rejected", "Implemented", 
 export function defaultChangeStatus(): ChangeStatus {
   return "Proposed";
 }
+/** True when `v` is one of the known change statuses. The AI write paths take
+ *  the model's raw JSON, so they narrow with this before applying a status. */
+export function isChangeStatus(v: unknown): v is ChangeStatus {
+  return typeof v === "string" && (CHANGE_STATUSES as readonly string[]).includes(v);
+}
 export function isPendingChange(status: ChangeStatus): boolean {
   return PENDING.has(status);
 }
 export function isTerminalChangeStatus(status: ChangeStatus): boolean {
   return TERMINAL.has(status);
+}
+
+/**
+ * Status transition: auto-fill `decisionDate` the first time the item leaves the
+ * pending set; clear it if it returns to pending.
+ *
+ * ★★ EVERY path that CHANGES a change's status routes through here — the row
+ * select and the edit modal (`use-change-log` / `change-panel`), bulk edit, and
+ * the AI dispatcher's create + update (via `applyModelChangeStatus`). Setting
+ * `status` raw leaves the pair inconsistent in BOTH directions: a decided row
+ * with no date is silently dropped from the Outlook decision-date push
+ * (`use-calendar-integrations` filters on `!!c.decisionDate`), and a row sent
+ * back to pending keeps a stale date the select would have cleared.
+ *
+ * ★ It is NOT the only writer of `decisionDate` itself, and reading it that way
+ * sends you hunting a bug that is not there: the Outlook two-way pull writes the
+ * date alone (`withDate`), and a user or the model may set it directly on an
+ * otherwise unchanged row. What is exclusive is the TRANSITION.
+ *
+ * ★ Nor do the seed/import paths use it — `proposalToSeed` and template import
+ * build rows through `sanitizeChangeItem` alone, so a model-authored proposal
+ * can still carry a decided status with no date. Deliberate: those rebuild a
+ * whole register from an untrusted blob rather than transitioning a live row.
+ *
+ * ★ Lives in this pure module rather than beside the hook that used to own it
+ * so the AI dispatcher can reach it without importing a React module.
+ */
+export function applyChangeStatus(item: ChangeItem, status: ChangeStatus, today: string): ChangeItem {
+  if (isPendingChange(status)) {
+    const next = { ...item, status };
+    delete next.decisionDate;
+    return next;
+  }
+  return { ...item, status, decisionDate: item.decisionDate ?? today };
+}
+
+/**
+ * A MODEL-supplied status on an update: apply it through `applyChangeStatus`
+ * when it is a real status, otherwise keep `stored` and leave the pair alone.
+ *
+ * ★★ The guard is not belt-and-braces. `sanitizeChangeItem` falls back to
+ * "Proposed" for anything off the enum, so an unrecognised value DEMOTES a
+ * decided change — and routing that merged status would then clear its decision
+ * date on the way out. Ignoring it keeps both halves of the stored pair.
+ *
+ * ★ Gate on the model's RAW field, never on the merged row: a patch that never
+ * mentions status must not stamp today's date onto a stored row that carries a
+ * decided status with none (every pre-fix AI approval left one behind).
+ * Mirrors the task dispatcher's `isTaskStatus(patch.status) ?
+ * applyStatusChange(...) : merged`.
+ */
+export function applyModelChangeStatus(
+  item: ChangeItem, raw: unknown, stored: ChangeStatus, today: string,
+): ChangeItem {
+  return isChangeStatus(raw) ? applyChangeStatus(item, raw, today) : { ...item, status: stored };
 }
 
 /** Impact rating → RAG, reusing the RAID severity palette. */

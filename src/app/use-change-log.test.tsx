@@ -3,7 +3,8 @@ import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
-import { applyChangeStatus, useChangeLog } from "./use-change-log";
+import { applyChangeStatus } from "./change-log";
+import { useChangeLog } from "./use-change-log";
 import type { ChangeItem } from "./types";
 import type { ActivityKind } from "./activity-log";
 

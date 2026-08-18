@@ -30,13 +30,13 @@ import { PanelTableScaffold } from "./panel-table-scaffold";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
+  applyChangeStatus,
   changeImpactRag,
   compareChange,
   defaultChangeStatus,
   nextChangeId,
   type ChangeSortKey,
 } from "./change-log";
-import { applyChangeStatus } from "./use-change-log";
 import { ChangeStatusSelect, changeStatusLabel } from "./change-status-select";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { DataTable } from "./data-table";
@@ -104,7 +104,9 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, title: string) => void;
   /** Inline status change from the row select. Must route through
-   *  `applyChangeStatus` (the sole writer of the status/decisionDate pair). */
+   *  `applyChangeStatus`, where every status TRANSITION in the app stamps or
+   *  clears `decisionDate` — not the only writer of that field, see its
+   *  docblock in `change-log.ts`. */
   onStatusChange: (id: number, next: ChangeStatus) => void;
   /** Open the shared floating notes window (running note log) for a change.
    *  ★ The log is WRITE-THROUGH: the window commits straight into the workspace
@@ -273,7 +275,11 @@ function ChangePanelBody({
       const item = changesById.get(id);
       if (!item) continue;
       let patched: ChangeItem = { ...item };
-      if (patch.status !== undefined) patched = { ...patched, status: patch.status as ChangeStatus };
+      // Through applyChangeStatus, exactly like the row select and the modal:
+      // setting `status` raw left a bulk-approved row with NO decisionDate (so
+      // the Outlook decision-date push skipped it) and a bulk-reopened one with
+      // a stale date. The bulk <select> only offers CHANGE_STATUSES values.
+      if (patch.status !== undefined) patched = applyChangeStatus(patched, patch.status as ChangeStatus, today);
       if (patch.type !== undefined) patched = { ...patched, type: patch.type as ChangeType };
       if (patch.impact !== undefined)
         patched = { ...patched, impact: patch.impact ? (patch.impact as ChangeImpact) : undefined };
