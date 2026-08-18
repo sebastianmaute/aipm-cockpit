@@ -159,8 +159,8 @@ export interface WorkspaceSectionProps {
   handleDeleteChange: (id: number, title: string) => void;
   /** Inline status change from a change row (routes through applyChangeStatus). */
   handleChangeStatusChange: (id: number, next: ChangeStatus) => void;
-  /** Capture the selected changes' pre-edit images for undo before a bulk apply. */
-  onCaptureChangeBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected changes' field patches for undo before a bulk apply. */
+  onCaptureChangeBulk?: (edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => void;
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder, isNew?: boolean) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;

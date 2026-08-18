@@ -2,10 +2,12 @@ import { describe, expect, it, vi } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { applyChangeStatus } from "./change-log";
 import { useChangeLog } from "./use-change-log";
+import { useUndoStack } from "./undo/use-undo-stack";
 import type { ChangeItem } from "./types";
+import type { Lang } from "./i18n";
 import type { ActivityKind } from "./activity-log";
 
 function Wrapper({ children }: { children: ReactNode }) {
@@ -14,6 +16,35 @@ function Wrapper({ children }: { children: ReactNode }) {
       <WorkspaceProvider>{children}</WorkspaceProvider>
     </FiltersProvider>
   );
+}
+
+// Mounts a REAL useUndoStack beside the feature hook (rather than a mocked
+// capture/captureFieldRows) so a bulk-edit undo actually reverts through the
+// live setter — needed to prove a concurrent write survives it, not merely
+// that the right args were passed. Mirrors use-resource-planner.undo.test.tsx.
+function renderChangeLogWithRealUndo() {
+  const logActivity = vi.fn();
+  const showToast = vi.fn();
+  const { result } = renderHook(
+    () => {
+      const undoApi = useUndoStack({
+        lang: "en-US" as Lang,
+        logActivity,
+        showToast,
+        showToastAction: vi.fn(),
+      });
+      const changeLog = useChangeLog({
+        today: "2026-06-09",
+        logActivity,
+        showToast,
+        captureFieldRows: undoApi.captureFieldRows,
+      });
+      const workspace = useWorkspace();
+      return { changeLog, workspace, undo: undoApi.undo };
+    },
+    { wrapper: Wrapper },
+  );
+  return { result };
 }
 
 function ci(over: Partial<ChangeItem> = {}): ChangeItem {
@@ -167,5 +198,52 @@ describe("useChangeLog — logActivity", () => {
       .sort((a, b) => a.id - b.id)
       .map((c) => c.title);
     expect(titles).toEqual(["A2", "B2"]);
+  });
+
+  // ★★ open-followups §50, changes half. ChangeItem gained a note log in
+  //   0.245.0, putting the changes register inside the whole-row bulk-edit
+  //   clobber the RAID register already had. captureBulkUndo now takes field
+  //   patches and routes through captureFieldRows, which merges only the
+  //   captured keys back onto the LIVE row on undo.
+  //   ★★★ The note is seeded AFTER the bulk apply, not before — seeding it
+  //   first would pass against the unfixed whole-row capture too (§48 trap).
+  it("undoing a changes bulk edit keeps a note added since the apply", () => {
+    const { result } = renderChangeLogWithRealUndo();
+    const item1 = ci({ id: 1, title: "Change one", impact: "Low" });
+    const item2 = ci({ id: 2, title: "Change two", impact: "Low" });
+    act(() => { result.current.workspace.setChanges([item1, item2]); });
+
+    act(() => {
+      result.current.changeLog.captureBulkUndo([
+        { id: 1, before: { impact: "Low" }, after: { impact: "High" } },
+        { id: 2, before: { impact: "Low" }, after: { impact: "High" } },
+      ]);
+      result.current.changeLog.handleSaveChange({ ...item1, impact: "High" }, undefined, { suppressFieldUndo: true });
+      result.current.changeLog.handleSaveChange({ ...item2, impact: "High" }, undefined, { suppressFieldUndo: true });
+    });
+
+    // A note lands through the write-through notes window AFTER the bulk apply.
+    act(() => {
+      result.current.workspace.setChanges((prev) =>
+        prev.map((c) =>
+          c.id === 1
+            ? {
+                ...c,
+                noteLog: [
+                  ...(c.noteLog ?? []),
+                  { id: 1, timestamp: "2026-06-10T00:00:00.000Z", html: "<p>added after the bulk edit</p>", text: "added after the bulk edit" },
+                ],
+              }
+            : c,
+        ),
+      );
+    });
+
+    act(() => { result.current.undo(); });
+
+    const changeById = (id: number) => result.current.workspace.changes.find((c) => c.id === id)!;
+    expect(changeById(1).impact).toBe("Low");
+    expect(changeById(1).noteLog?.map((n) => n.text)).toEqual(["added after the bulk edit"]);
+    expect(changeById(2).impact).toBe("Low");
   });
 });
