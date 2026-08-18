@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, within, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ParagraphBlockEditor, HeadingBlockEditor, BulletsBlockEditor } from "./document-block-editors";
+import { ParagraphBlockEditor, HeadingBlockEditor, BulletsBlockEditor, TableBlockEditor } from "./document-block-editors";
 import { t } from "./i18n";
 import type { DocBlock } from "./document-model";
 
@@ -113,6 +113,21 @@ describe("ParagraphBlockEditor", () => {
     expect(onCommit).not.toHaveBeenCalled();
 
     editable.focus();
+    // ★ Pin the caret to end-of-content before typing. A prior ProseMirror
+    //  mount/unmount elsewhere in the suite can leave async selection
+    //  residue in jsdom, and `.focus()` alone does not set a caret position —
+    //  without this, the first typed chunk sometimes lands at the START
+    //  ("yxz" instead of "xyz"), an intermittent flake (~24% of runs) that
+    //  happens inside ProseMirror before `onChange` even fires, not a
+    //  product bug. Keep the TWO separate `userEvent.type` calls below (see
+    //  the comment above this test) — collapsing them to one call would stop
+    //  exercising the stale-closure shape this test exists to catch.
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    range.collapse(false); // end
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
     await userEvent.type(editable, "y");
     await userEvent.type(editable, "z");
     editable.blur();
@@ -564,5 +579,160 @@ describe("BulletsBlockEditor", () => {
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(2);
     expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["one!", "two", ""] });
+  });
+});
+
+describe("TableBlockEditor", () => {
+  const block: Extract<DocBlock, { type: "table" }> = {
+    type: "table",
+    columns: ["Name", "Owner"],
+    rows: [
+      ["Alpha", "Ada"],
+      ["Beta", "Bob"],
+    ],
+  };
+
+  // ★★★ Table repeats controls on THREE axes (block, row, column), so every
+  //  label here carries the bullets editor's block qualifier ON TOP of
+  //  whatever row/column number its own placeholder already carries — see
+  //  document-table-editor.tsx's header comment. Row/column numbers alone
+  //  only disambiguate WITHIN one table block.
+  const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
+  const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
+
+  it("gives every cell a ROW-AND-COLUMN-unique accessible name", () => {
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const cells = screen.getAllByRole("textbox", { name: /^Row \d+, column \d+/ });
+    expect(cells).toHaveLength(4);
+    expect(new Set(cells.map((c) => c.getAttribute("aria-label"))).size).toBe(4);
+  });
+
+  it("gives every remove-row and remove-column control a unique name", () => {
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const rows = screen.getAllByRole("button", { name: /^Remove row/ });
+    const cols = screen.getAllByRole("button", { name: /^Remove column/ });
+    expect(new Set(rows.map((b) => b.getAttribute("aria-label"))).size).toBe(rows.length);
+    expect(new Set(cols.map((b) => b.getAttribute("aria-label"))).size).toBe(cols.length);
+  });
+
+  // ★ Mirrors the bullets editor's "keeps the Add-item VISIBLE label
+  //  unqualified" test: only the accessible name carries the block
+  //  qualifier, never the text a sighted user reads.
+  it("keeps the Add-row/Add-column VISIBLE labels unqualified", () => {
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const addRow = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) });
+    const addCol = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) });
+    expect(addRow.textContent).toBe(t(LANG, "documentsAddRow"));
+    expect(addCol.textContent).toBe(t(LANG, "documentsAddColumn"));
+  });
+
+  it("adds a row with the right number of cells", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) }));
+    expect(onCommit).toHaveBeenCalledWith(0, {
+      type: "table",
+      columns: ["Name", "Owner"],
+      rows: [
+        ["Alpha", "Ada"],
+        ["Beta", "Bob"],
+        ["", ""],
+      ],
+    });
+  });
+
+  it("adds a column to the header AND every row", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) }));
+    expect(onCommit).toHaveBeenCalledWith(0, {
+      type: "table",
+      columns: ["Name", "Owner", ""],
+      rows: [
+        ["Alpha", "Ada", ""],
+        ["Beta", "Bob", ""],
+      ],
+    });
+  });
+
+  it("removes a column from the header AND every row", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveColumn", "1")) }),
+    );
+    expect(onCommit).toHaveBeenCalledWith(0, {
+      type: "table",
+      columns: ["Owner"],
+      rows: [["Ada"], ["Bob"]],
+    });
+  });
+
+  it("removes a row", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveRow", "1")) }));
+    expect(onCommit).toHaveBeenCalledWith(0, {
+      type: "table",
+      columns: ["Name", "Owner"],
+      rows: [["Beta", "Bob"]],
+    });
+  });
+
+  it("keeps an existing caption when editing structurally", async () => {
+    const onCommit = vi.fn();
+    render(
+      <TableBlockEditor lang={LANG} index={0} block={{ ...block, caption: "Q3" }} onCommit={onCommit} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddRow")) }));
+    expect(onCommit.mock.calls[0][1].caption).toBe("Q3");
+  });
+
+  it("commits a cell edit on blur", async () => {
+    const onCommit = vi.fn();
+    render(<TableBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const cell = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsTableCell", "1", "1")) });
+    await userEvent.clear(cell);
+    await userEvent.type(cell, "Gamma");
+    cell.blur();
+    expect(onCommit).toHaveBeenCalledWith(0, {
+      type: "table",
+      columns: ["Name", "Owner"],
+      rows: [
+        ["Gamma", "Ada"],
+        ["Beta", "Bob"],
+      ],
+    });
+  });
+
+  // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
+  //  (AGENTS.md) — this is the only possible detector, and it needs TWO
+  //  blocks to express the collision at all. Covers all three repeating
+  //  families at once: a cell (already row/column-unique WITHIN a block, but
+  //  collides ACROSS blocks without the qualifier), Add-row (no `{0}` to
+  //  fall back on), and Remove-row (varies by row number, still collides
+  //  across blocks without the qualifier).
+  it("gives block-position-dependent controls DISTINCT names across sibling table blocks", () => {
+    render(
+      <>
+        <TableBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />
+        <TableBlockEditor lang={LANG} index={1} block={block} onCommit={vi.fn()} />
+      </>,
+    );
+
+    const cells = screen.getAllByRole("textbox", { name: /^Row 1, column 1/ });
+    expect(cells).toHaveLength(2);
+    expect(new Set(cells.map((c) => c.getAttribute("aria-label"))).size).toBe(2);
+
+    const adds = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsAddRow")}`) });
+    expect(adds).toHaveLength(2);
+    expect(new Set(adds.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+    // Visible text is deliberately IDENTICAL across blocks — only the
+    // aria-label differs. That is the point of keeping it unqualified.
+    expect(new Set(adds.map((b) => b.textContent)).size).toBe(1);
+
+    const removeRow1 = screen.getAllByRole("button", { name: /^Remove row 1/ });
+    expect(removeRow1).toHaveLength(2);
+    expect(new Set(removeRow1.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
   });
 });

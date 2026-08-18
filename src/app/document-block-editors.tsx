@@ -95,7 +95,7 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *  pre-batch value and the second commit would silently overwrite the
  *  first's change instead of building on it.
  */
-function useBlockDraft<T>(
+export function useBlockDraft<T>(
   initialValue: T,
   storedBlock: DocBlock,
   index: number,
@@ -467,3 +467,10 @@ export function BulletsBlockEditor({
     </div>
   );
 }
+
+// The table editor repeats controls on THREE axes (block, row, column) and
+// pushed this file past the file-size gate's headroom — split out to keep
+// `useBlockDraft`/`BlockReadOnlyNotice` here as the shared template while the
+// per-kind editor bodies stay one file each. Re-exported so callers (and this
+// file's own test imports) don't need to know it moved.
+export { TableBlockEditor } from "./document-table-editor";
