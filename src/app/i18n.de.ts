@@ -1484,6 +1484,11 @@ export const de: Record<TranslationKey, string> = {
   timelogModuleDesc: "Ist-Zeitbuchungen aus Timelog abrufen und mit deinem Budget vergleichen",
   timelogTitle: "Timelog-Zeitbuchungen",
   timelogEnable: "Timelog-Integration aktivieren",
+  timelogNotConfigured:
+    "Die Timelog-Integration ist ausgeschaltet, daher gibt es keine Zeitbuchungen anzuzeigen. Schalten Sie sie unter Einstellungen → Integrationen ein.",
+  timelogConfigure: "Timelog konfigurieren",
+  timelogCachedWhileOff:
+    "Früher abgerufene Buchungen sind auf diesem Gerät weiterhin zwischengespeichert. Sie lassen sich bei ausgeschalteter Integration nicht aktualisieren, aber Sie können sie entfernen.",
   timelogTokenHelpBefore: "Bei Timelog anmelden, dann zu",
   timelogTokenHelpAfter: "navigieren, um ein persönliches Zugriffstoken zu erzeugen.",
   timelogHost: "Host",

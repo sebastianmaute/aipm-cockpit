@@ -1502,6 +1502,11 @@ const enUS = {
   timelogModuleDesc: "Pull actual time bookings from Timelog and compare them against your budget",
   timelogTitle: "Timelog time bookings",
   timelogEnable: "Enable Timelog integration",
+  timelogNotConfigured:
+    "The Timelog integration is switched off, so there are no time bookings to show. Turn it on under Settings → Integrations.",
+  timelogConfigure: "Configure Timelog",
+  timelogCachedWhileOff:
+    "Bookings fetched earlier are still cached on this device. They cannot be refreshed while the integration is off, but you can remove them.",
   timelogTokenHelpBefore: "Log into Timelog, then navigate to",
   timelogTokenHelpAfter: "to generate a personal access token.",
   timelogHost: "Host",

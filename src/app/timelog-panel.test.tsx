@@ -209,6 +209,29 @@ function enableTimelog() {
   );
 }
 
+/** Timelog switched ON but the token is gone — the "device that once configured
+ *  TimeLog and later lost its token" state the §74 tests below describe. They
+ *  need `isMisconfigured` true (so every guard's `isMisconfigured` arm is live)
+ *  while `cfg.enabled` stays true, because the not-configured GATE keys on
+ *  `enabled` ALONE: a bare default config now hides the very toolbar they
+ *  assert against, behind the Configure Timelog empty state. */
+function enableTimelogBrokenToken() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant: "test",
+        email: "admin@example.com",
+        apiToken: "",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
@@ -264,7 +287,9 @@ describe("TimelogPanel", () => {
   //   unrelated condition that disables the button anyway.
   describe("action buttons while TimeLog is unconfigured (§74)", () => {
     it("disables Fetch and Load-managed-projects with no TimeLog config", () => {
-      // Deliberately NO enableTimelog() — this is the misconfigured state.
+      // Enabled but tokenless — the misconfigured state that still renders the
+      // page. A bare default config is GATED behind Configure Timelog now.
+      enableTimelogBrokenToken();
       render(
         <>
           <SeedWorkspace />
@@ -295,7 +320,8 @@ describe("TimelogPanel", () => {
     // the button half went unpinned. "Impossible" is a much more expensive thing
     // to write down than "not done".
     it("keeps Fetch and Refresh disabled while unconfigured even with a full selection seeded (§74)", () => {
-      // Deliberately NO enableTimelog(); links seed a customer + one project.
+      // Enabled but tokenless (see above); links seed a customer + one project.
+      enableTimelogBrokenToken();
       render(
         <>
           <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
@@ -368,6 +394,169 @@ describe("TimelogPanel", () => {
           screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
         ).toBeEnabled(),
       );
+    });
+  });
+
+  // ★★★ The gate hides the whole page when the integration is switched OFF, so
+  // every network action goes with it. The escape hatch is NOT decoration:
+  // `canClearAllFetched` deliberately omits `isMisconfigured` because the cache
+  // is local data the user already has, and a state you cannot refresh is
+  // exactly when you want to clear stale bookings. Hiding the page without
+  // carrying Clear-all forward would re-create the trap that omission prevents.
+  // ★ The gate keys on `cfg.enabled` alone, NOT `isMisconfigured` — an ENABLED
+  //   integration with broken credentials keeps the full page (and its
+  //   Clear-all), which is why the §74 tests above can still reach the toolbar.
+  describe("TimelogPanel — not configured", () => {
+    /** The gate is `hydrated && !cfg.enabled`: `useSettings` starts at
+     *  `defaultSettings` and reads localStorage in an EFFECT, so the panel
+     *  renders the FULL page for one commit before the empty state appears.
+     *  Every assertion about the gated state has to wait for that. */
+    function awaitGate() {
+      return waitFor(() =>
+        screen.getByRole("button", { name: t("en-US", "timelogConfigure") }),
+      );
+    }
+
+    it("shows a Configure Timelog button instead of the page", async () => {
+      // No enableTimelog*(): defaults carry `timelog.enabled === false`.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      await awaitGate();
+      expect(screen.getByText(t("en-US", "timelogNotConfigured"))).toBeInTheDocument();
+
+      // Every fetch action is gone, not merely disabled. "timelogSync" is the
+      // FETCH button's label key (it gains a ` (N)` suffix when a selection
+      // exists, hence the RegExp); "timelogRefreshReapply" is the Refresh &
+      // re-apply button Task 11 added — it reaches the network too, so it must
+      // not survive the gate either.
+      expect(
+        screen.queryByRole("button", { name: new RegExp(t("en-US", "timelogSync")) }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogRefresh") }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogRefreshReapply") }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeNull();
+    });
+
+    it("keeps Clear-all reachable when a cached fetch exists", async () => {
+      // defaultSyncReturn() supplies a `fetchedAt`, i.e. a cache is present.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      await awaitGate();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "clearAll") }),
+      ).toBeEnabled();
+      expect(screen.getByText(t("en-US", "timelogCachedWhileOff"))).toBeInTheDocument();
+    });
+
+    it("clears the cache when the escape-hatch Clear-all is confirmed", async () => {
+      const clearAll = vi.fn();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // ★ Wait for the GATE first, not just for a Clear-all button: the full
+      //   page renders a Clear-all of its own pre-hydration, so clicking without
+      //   this would exercise the toolbar's button and pass either way.
+      await awaitGate();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+      });
+      expect(clearAll).toHaveBeenCalled();
+    });
+
+    it("offers no Clear-all when there is nothing cached", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // Positive control FIRST: it proves the gate is rendered, so the absences
+      // below are the `hasFetched` branch and not an unrendered empty state.
+      await awaitGate();
+      expect(screen.queryByRole("button", { name: t("en-US", "clearAll") })).toBeNull();
+      expect(screen.queryByText(t("en-US", "timelogCachedWhileOff"))).toBeNull();
+    });
+
+    it("renders the full page when configured", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // Settings hydrate async, so wait for the page to become live before
+      // asserting the gate never appeared — a t=0 assertion would pass off the
+      // pre-hydration full page whether or not the gate is wired at all.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogConfigure") }),
+      ).toBeNull();
+    });
+
+    // ★★★ The `hydrated` half of the gate, which nothing above can see: the two
+    // tests either side of this one both settle AFTER hydration, so a bare
+    // `!cfg.enabled` gate passes them while flashing "Timelog is switched off"
+    // — Clear-all included — at every CONFIGURED user, on every mount of this
+    // view. Only a t=0 assertion catches it, so this one deliberately does not
+    // await anything.
+    it("never flashes the empty state at a configured user before settings load", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogConfigure") }),
+      ).toBeNull();
+      // Positive control: the full page IS what rendered in that first commit,
+      // so the absence above is the gate holding off and not an empty render.
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeInTheDocument();
     });
   });
 

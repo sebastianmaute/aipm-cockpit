@@ -36,13 +36,8 @@ import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
-import {
-  canClearAllFetched,
-  canFetchBookings,
-  canLoadManagedProjects,
-  canRefreshAndReapply,
-  canRefreshBookings,
-} from "./timelog-guards";
+import { TimelogNotConfigured } from "./timelog-not-configured";
+import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -59,15 +54,17 @@ export function TimelogPanel({
   lang,
   isPopout = false,
   projectKey = "default",
+  onConfigureTimelog,
 }: {
   lang: Lang;
   isPopout?: boolean;
+  onConfigureTimelog?: () => void; // Settings → Integrations deep-link, mirroring ChatPanel's `onConfigureAi`. See TimelogNotConfigured.
   /** Canonical per-device store key (`portfolioCurrentId ?? "default"`). Keys
    *  BOTH per-device Timelog stores (picker scope and actuals cache). */
   projectKey?: string;
 }) {
   const ws = useWorkspace();
-  const { settings, setSettings } = useSettings();
+  const { settings, setSettings, hydrated } = useSettings();
   const showToast = useToastContext();
   const confirm = useConfirm();
   const cfg = settings.timelog ?? defaultTimelogConfig;
@@ -500,6 +497,13 @@ export function TimelogPanel({
   }, [fetchedUsers, peopleFilter]);
   const visibleFilteredIds = useMemo(() => filteredUsers.map((u) => u.userId), [filteredUsers]);
 
+  // Integration switched OFF → the whole page goes, network actions included. ★ On
+  //   `cfg.enabled` ALONE, never `isMisconfigured`: an ENABLED-but-broken Timelog keeps the
+  //   full page, the §74 guards AND Clear-all (why that last one is not optional: the header
+  //   of timelog-not-configured.tsx). ★★ And on `hydrated` — settings load in an EFFECT, so a
+  //   bare gate flashes "switched off", Clear-all included, at every CONFIGURED user.
+  if (hydrated && !cfg.enabled) return <TimelogNotConfigured lang={lang} paneRef={paneRef} onConfigure={onConfigureTimelog} hasFetched={!!sync.fetchedAt} onClearAll={() => void clearAllFetched()} />;
+
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>
       <TimelogToolbar
@@ -528,9 +532,7 @@ export function TimelogPanel({
         onResetColWidths={resetColWidths}
         onResetPaneSize={resetPaneSize}
       />
-      {isMisconfigured && (
-        <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>
-      )}
+      {isMisconfigured && <p className="mb-3 text-sm text-muted-foreground print:hidden">{t(lang, "timelogEnable")}</p>}
 
       {/* Customer-scope note — makes the reduced fetch explicit. */}
       {projectCustomerId !== "" && (
