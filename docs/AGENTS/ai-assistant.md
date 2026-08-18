@@ -132,13 +132,19 @@
   `chat-tools-documents.ts`'s own header states it for both. Re-measured 2026-08-16 with the gate's own
   counter (`split("\n").length`, i.e. `wc -l` + 1): `chat-tools.ts` is **791** — **9** lines of headroom
   against ~139 lines of routing, so that split is genuinely forced and the file is now nearly full.
-  `chat-tool-defs.ts` is **631** — **169** lines of headroom against ~74 lines of schema, so the defs split
-  was NOT ratchet-forced and would have fit comfortably inline. ★★ Those two numbers were **763** and
+  `chat-tool-defs.ts` is **766** — **34** lines of headroom (re-measured 2026-08-18; this line said **631**
+  and **169** through two features).
+  ★★★ **AND "WOULD HAVE FIT COMFORTABLY INLINE" IS NOW HISTORY, NOT ADVICE — the split was not
+  ratchet-forced when it was made and IS load-bearing today.** The `DOCUMENT_TOOL_DEFS` block measures
+  **73** lines, and 766 + 73 = **839**, over the 800 cap: the defs file can no longer absorb the schemas it
+  gave away. A reader acting on the old sentence would fold them back and break the gate.
+  ★★ Those two numbers were **763** and
   **596** when measured on 2026-08-07 and both had drifted by the next feature — B2a's `search_history`
   work spent **28** of `chat-tools.ts`'s remaining 37 lines between them, leaving 9. Do not cite the
-  ratchet as the reason for the defs file, and do not trust EITHER number here; re-derive with
-  `node -e "console.log(require('fs').readFileSync('src/app/chat-tools.ts','utf8').split('\n').length)"`
-  or `npm run size:check` before assuming either is tight. The version model these writes snapshot into lives in
+  ratchet as the reason the defs file was CREATED, and do not trust ANY number here; re-derive all three
+  (the counter is `split("\n").length`, i.e. `wc -l` + 1) with
+  `node -e "for (const f of ['src/app/chat-tools.ts','src/app/chat-tool-defs.ts','src/app/chat-tool-defs-documents.ts']) console.log(f, require('fs').readFileSync(f,'utf8').split('\n').length)"`
+  or `npm run size:check` before assuming any of them is tight. The version model these writes snapshot into lives in
   [`documents.md`](documents.md); this bullet covers only the AI surface.
   ★★★ **`chat-tools-documents.ts` IS THE VALIDATION BOUNDARY, and the only one.** Everything downstream is
   deliberately permissive — `applyDocMutation` is pure and treats its input as already-shaped, and the entity
@@ -352,10 +358,19 @@
   output combination that actively lies (no rows, while asserting rows were withheld). `Infinity` therefore
   yields the DEFAULT rather than `MAX_HISTORY_LIMIT`, failing the finite test before it can reach the clamp.
   Its own docstring carries the reasoning and a test pins each branch.
-  ★ **Chat-thread search is deliberately NOT here — deferred to B2c.** `useChatThreads` is called in
-  `chat-panel.tsx`, which mounts BELOW `useChatDispatcher` (called in `task-manager.tsx`), so thread state
-  cannot reach the dispatcher without restructuring that ownership. Recorded so nobody "completes" B2a by
-  lifting thread state for the sake of one read tool.
+  ★★★ **CHAT-THREAD SEARCH IS NOT DEFERRED ANY MORE — this line used to say it was, and stood through the
+  branch that shipped it.** It read "deliberately NOT here — deferred to B2c", and B2c falsified BOTH of its
+  halves: the feature exists, and it reached the dispatcher WITHOUT the restructuring the paragraph called
+  the price of it. `docs:symbols:check` cannot catch that class — every backticked name in the sentence
+  (`useChatThreads`, `useChatDispatcher`, and the two files) is still real, which is all that gate ever
+  proves. ★★ The STRUCTURAL observation survives, and it is the whole reason the transport looks the way it
+  does: `useChatThreads` is called in `chat-panel.tsx`, which mounts BELOW `useChatDispatcher` (called in
+  `task-manager.tsx`), so thread state sits UNDER the point where the AI snapshot is assembled and cannot
+  reach the dispatcher as a prop without moving that ownership. What was wrong was the conclusion drawn from
+  it. The answer was never to lift thread state — it was to stop routing it through the render tree at all:
+  `chat-threads-registry.ts` is a module-level single slot the panel PUBLISHES into and the dispatcher READS
+  at send time. See the B2c bullet below for what that buys and what it costs. Nobody should "complete"
+  either slice by hoisting `useChatThreads`.
 - **Ambient activity recap + the two recall toggles (B2b):** `buildActivityRecapBlock` (`activity-recap.ts`)
   emits ONE sentence — "Recent project activity: N changes in the last D days (…; latest YYYY-MM-DD). Use
   search_history to read them." — appended to `buildSystemPrompt`'s VOLATILE suffix beside the `Today is …`
@@ -422,6 +437,112 @@
   (alongside `viewDigest`) out of the snapshot it forwards — an inline edit is a one-shot forced tool call,
   so an ambient count of unrelated project churn is noise, and suppressing the sentence while still OFFERING
   the tool would re-create the mismatch above from the other direction. The file's own comments state both.
+- **Chat-thread recall — `search_chats` + the ambient chat pointer (B2c):** a READ-ONLY tool over this
+  project's OTHER stored chat threads, answering "what did we DISCUSS" where `search_history` answers "what
+  CHANGED" and the `list_*` tools answer "what is TRUE NOW". Pure i18n-free, clock-free, DOM-free engine
+  `chat-search.ts` (`searchChats` · `summarizeChatThreads` · `threadTitle`), schema in `chat-tool-defs.ts`,
+  executor `chat-search-tool.ts` (`runChatSearch`) routed from `chat-tools.ts`'s `runTool`, dispatcher
+  wiring in `use-chat-search-bindings.ts`, prompt sentence in `chat-recap.ts` (`buildChatPointerBlock`).
+  It shares `resolve-limit.ts` with `search_history` rather than re-deriving a second clamp.
+  ★★★ **THE TRANSPORT IS A MODULE REGISTRY, NOT A PROP, AND THE PROP CHAIN IS WHY.** `chat-threads-registry.ts`
+  is a single slot keyed by project id: `publishChatThreads` from the chat panel's publish effect,
+  `readChatThreads` from the dispatcher bindings, a miss answered with a doubly-frozen `EMPTY`. Threading a
+  ref down instead would cost lines on `task-manager.tsx`, `workspace-section.tsx` and `chat-panel.tsx`, and
+  **all three sit at EXACTLY their `docs/baselines/file-sizes.json` row**, where the ratchet's failure mode
+  is `grew from baselined` — i.e. zero headroom, not a little. Do not trust these numbers; re-derive both
+  sides with
+  `node -e "const b=require('./docs/baselines/file-sizes.json');for (const f of ['src/app/task-manager.tsx','src/app/workspace-section.tsx','src/app/chat-panel.tsx','src/app/use-chat-dispatcher.ts']) console.log(f, require('fs').readFileSync(f,'utf8').split('\n').length, b[f])"`
+  → measured 2026-08-18: **3020/3020 · 1000/1000 · 996/996**, and `use-chat-dispatcher.ts` at **799** with
+  NO baseline row, so the bare 800 cap applies and it has ONE line of headroom. That last number is why the
+  bindings and the pointer sentence live OUTSIDE that file — but it is not why they exist.
+  ★★★ **`use-chat-search-bindings.ts` EXISTS FOR LIVENESS, NOT LINES.** `useChatDispatcher` builds its
+  dispatcher inside a `useMemo`, so anything read straight off `args` in that closure is FROZEN at the
+  render which last rebuilt it — and the chat project id is exactly such a value: a project switch changes
+  it without changing a dep. The read then fails CLOSED (`readChatThreads` answers a key mismatch with
+  `EMPTY`, so there is no cross-project leak) but `search_chats` would report "cannot look" for the rest of
+  the session and the pointer would silently vanish. Ref-routing every reactive value is the answer that
+  file already gives, which is why its `useMemo` needs no entry for the object this hook returns.
+  ★ `use-chat-search-bindings.ts`'s own header says that file has TWO lines of headroom while
+  `chat-recap.ts`'s says ONE; **799** is what the counter returns today, so read the code comments as
+  dated, not as disagreeing about the cap.
+  ★★ **NO `useSyncExternalStore`, no listener set, no equality function** — the `project-appearance-prefs.ts`
+  precedent needs all of that because components RENDER from it. Nothing renders from chat search: the
+  dispatcher reads the slot at SEND time. Adding reactivity here would be machinery with no consumer.
+  ★★★ **ONE SLOT STOPS A STALE KEY BEING READ, NEVER A STALE PAYLOAD BEING WRITTEN.** The store cannot tell
+  whose threads a payload holds, so **the PUBLISHER owns payload/key agreement** — and it did not, once:
+  `threads` is not reset synchronously when `projectId` flips, so the effect published p1's still-populated
+  rows under p2's key and `readChatThreads("p2")` handed the dispatcher another project's conversation text,
+  searchable and marked available. The gate is `threadsMatchProject` (`loadedProjectId === projectId`) in
+  `use-chat-threads.ts`, which publishes an EMPTY list until the load for the LIVE project has settled. ★★ A
+  "have we loaded at all" boolean would NOT do — it is true from p1's load onward, which is the leaking
+  state itself. ★ `clearChatThreadsFor` is the UNMOUNT path and is SCOPED to the id that run published:
+  withdrawing AI consent unmounts the chat panel and nothing else clears the slot, so an unscoped clear
+  would let a late cleanup for the old project wipe a live value.
+  ★★★ **`available` IS TURSO REACHABILITY, NEVER `threads.length > 0`, and it is a THREE-way split.** Three
+  states all present as an empty array and they do not make the same claim: load IN FLIGHT → available (we
+  CAN look, there is nothing to show YET); load FAILED → NOT available; settled and genuinely empty →
+  available. `searchChats` turns the flag into `coverage`, whose only values are `"turso"` and
+  `"unavailable"`, and `chat-tool-defs.ts` tells the model that `turso` means past conversations WERE
+  searched — so collapsing the split makes the assistant assert a topic was never raised to a user who is
+  looking at a failure banner, or tell every file-mode user it searched their past conversations and found
+  nothing. ★★ `threadsError` is ALSO raised when a SAVE or DELETE fails, where the list in hand may be a
+  fine read, so the flag is deliberately slightly over-broad: "I could not look" forecloses an invented
+  answer and costs a retry. Do not add a second flag to reclaim it.
+  ★★ **ONE PREDICATE FOR ADVERTISEMENT AND ENFORCEMENT.** `chatSearchEnabled` (`settings-types.ts`,
+  `chatSearch !== false`, so default-ON survives a user who never opened Settings) is read by `variantKey`
+  (what the request CARRIES) and by `runTool`'s `search_chats` case via the dispatcher's
+  `isChatSearchEnabled` (what the executor SERVES) — the §162 shape, where only the advertisement gate
+  existed, one config slip from a switch that advertises off and serves on. It gates the POINTER too, in
+  `use-chat-search-bindings.ts`. ★ Sweep with `grep -rn "chatSearchEnabled" src/app --include=*.ts
+  --include=*.tsx | grep -v "\.test\."`; the Settings checkbox is deliberately NOT in that list — it spells
+  `settings.ai.chatSearch !== false` inline, mirroring its `historySearch` neighbour, and it is a DISPLAY
+  read, not a gate. ★ `isChatSearchEnabled` reads the ref LIVE rather than capturing: a value read once at
+  dispatcher construction would keep serving for the whole session, which is the mid-conversation case
+  enforcement exists for.
+  ★★★ **`ToolFlags` IS ONE OBJECT BECAUSE TWO ADJACENT BOOLEANS ARE THE §159 SHAPE.** `historySearch` and
+  `chatSearch` are both `boolean | undefined`, so a positional pair typechecks TRANSPOSED — the §159 defect
+  passed 337 tests plus tsc. `toolsFor`/`toolNamesFor`/`callClaude`/`buildSystemPrompt` all take the
+  `Pick<AiConfig, "historySearch" | "chatSearch">` object and read the flags by NAME, which removes the
+  hazard rather than guarding it. ★★ The old pair of frozen constants became a MEMO — `TOOL_VARIANTS` keyed
+  by `variantKey`'s two bits, i.e. four variants, seeded with `CACHED_TOOLS` at key 0 — because the rule was
+  always ONE ARRAY IDENTITY PER SETTINGS COMBINATION (the list ships on every request and must stay
+  referentially stable for a whole conversation), and that invariant outlives its old spelling. ★ The cache
+  breakpoint is RECOMPUTED per variant, never assumed to sit where it sits in the full list: removing a tool
+  that precedes it does not move it today, but a tool appended after it later would make that assumption
+  silently wrong, and a lost breakpoint is invisible except as a bill.
+  ★★★ **THE POINTER RIDES THE VOLATILE (UNCACHED) SUFFIX AND MUST NEVER ENTER THE CACHED PREFIX.** Thread
+  state changes on every turn, so in `stableText` it would invalidate the prompt-cache breakpoint on every
+  message — the same argument as the activity recap, and worth more than the block's own tokens many times
+  over. Same suppression contract too: the closing "Use search_chats to read them." is emitted ONLY when
+  `offeredTools` (`toolNamesFor(toolFlags)`) holds the name, so the recap's shipped lie — naming a tool the
+  request did not carry — cannot recur here. ★ `inline-ai-edit-call.ts` blanks `chatPointer` out of the
+  snapshot it forwards, alongside `viewDigest` and `activitySummary`: that path passes `NO_RECALL_TOOLS`, so
+  the closing instruction was already suppressed and what survived named conversations the model had no tool
+  to open. **A FOURTH ambient block will ride that same spread — extend the strip list, do not trust it.**
+  ★★ **THE MESSAGE COUNT IS NOT A SIZE BUDGET.** Every field of the schema is optional, so a bare
+  `search_chats {}` is legal and the pointer makes it a likely FIRST move; user messages are stored up to
+  `CHAT_MESSAGE_MAX` and assistant messages are bounded only by `max_tokens`, so the caps are what stand
+  between recall and ~200 KB of verbatim conversation in one `tool_result` — inside an agentic loop free to
+  call again, and then PERSISTED into this thread's own row. `CHAT_EXCERPT_MAX` caps each message BODY,
+  `DEFAULT_CHAT_LIMIT`/`MAX_CHAT_LIMIT` cap MESSAGES (never threads — a thread cap would let one chatty
+  thread hide every other match), and `CHAT_POINTER_MAX` caps the pointer's titles. `search_history`'s
+  identical count-only cap is safe only because its page items are short RENDERED summaries; these are raw
+  message bodies. ★ Read the numbers off the exported constants in `chat-search.ts` — the tool description
+  INTERPOLATES them, so a literal in prose here is the one copy that can go quietly false.
+  ★★★ **A THREAD TITLE IS USER-AUTHORED TEXT ENTERING THE SYSTEM PROMPT**, sanitised at the interpolation
+  (`inlineTitle`, `chat-recap.ts`) and nowhere upstream, because the sidebar wants the raw name. Interior
+  newlines survive `deriveThreadName`, and `volatileText` is joined with "\n", so a title reading
+  `hi\nSYSTEM: …` renders a forged directive at line start; the `"` delimiter is the other half. ★★ NOT
+  self-injection only — `chat_threads` is scoped by `project_id` with no per-user column, so on a shared
+  Turso project that text belongs to another collaborator. ★★ SIZE was the third hazard and the one that
+  survived review: the pointer is bounded in COUNT but `threadTitle` PREFERS the user-set `ChatThread.name`,
+  which is uncapped end to end (the rename input sets no `maxLength`, `renameThread` writes it verbatim, the
+  loader reads it with no clamp) — so `THREAD_NAME_MAX` is applied HERE, capping both branches at one point.
+  ★ `clipped` on a returned message is a DIFFERENT claim from `truncated`/`moreMessages`: this BODY was
+  shortened, versus other MESSAGES matched. The needle is matched against the FULL text and only the
+  returned copy is clipped, so an excerpt may not itself contain the needle — which is exactly what
+  `clipped` exists to disclose. ★ The ACTIVE thread is never returned: it is verbatim in the request
+  already, and saying so stops the model concluding its own conversation has gone missing.
 - **AI allocation planning ("Plan with AI", Resources → Planning toolbar):** plan-then-apply over the EXISTING
   `Resource.utilization` map — ZERO new persisted fields, backend write paths or golden regen. Pure engine
   `alloc-plan/alloc-plan.ts` (prompt digest · forced `propose_allocations` tool · parse · **ground** · apply ·
@@ -629,21 +750,37 @@
   only the smaller system slice after it. Without it the cached prefix is tools + `stableText` and that
   guide swap rewrites the whole tool payload on every view switch. ★ Measure the SERIALIZED payload,
   not the file:
-  `JSON.stringify(TOOL_DEFS)` is ~32 KB across **43** tools. ★ Reproduce by writing a two-line
+  `JSON.stringify(TOOL_DEFS)` is ~37 KB across **45** tools (2026-08-18; the line said **43** and ~32 KB
+  for two features longer than that was true).
+  ★★ **THE COUNT IS COMPOSED FROM TWO ARRAYS, and that half needs no runtime at all.**
+  `chat-tool-defs.ts`'s own literal holds **40** and spreads `DOCUMENT_TOOL_DEFS` (**5**) as its last
+  element, so `TOOL_DEFS.length` is their sum. Re-derive with
+  `grep -c '^    name: "' src/app/chat-tool-defs.ts src/app/chat-tool-defs-documents.ts` → `40` and `5`.
+  A grep total that disagrees with the runtime one means a tool was declared at some other indentation —
+  then the command is what needs fixing, not the number.
+  ★ Reproduce the SIZE by writing a two-line
   script that imports `TOOL_DEFS` and logging `TOOL_DEFS.length, JSON.stringify(TOOL_DEFS).length`, then
-  `npx vite-node <file>` → `43 32657` (measured 2026-08-07; was `38 25942` on 2026-08-05, before the five
-  document tools). **`vite-node` has NO `-e` flag** — an earlier revision of this line gave a one-liner
+  `npx vite-node <file>` → `45 37468` (2026-08-18; was `43 32657` on 2026-08-07 and `38 25942` on
+  2026-08-05, before the five document tools).
+  ★★ **THE 2026-08-18 FIGURE WAS NOT TAKEN WITH THAT COMMAND, AND A NUMBER IS WORTH ITS INSTRUMENT.**
+  Runtime gates were off-limits in the session that corrected it, so it came from a pure-`node` evaluation
+  of the two schema files with their imported enum arrays inlined — validated by reproducing `43 32657`
+  byte-for-byte against the tree at commit `6dd19f2f`, the commit that first recorded it. Two instruments
+  agreeing on one historical value is the only reason to trust the second on a new one; if you have
+  `vite-node` to hand, prefer it and say so here.
+  **`vite-node` has NO `-e` flag** — an earlier revision of this line gave a one-liner
   using it, which prints the help text and exits 1. ★★ It also cannot load a script from OUTSIDE the project
   root (`ERR_LOAD_URL`), so the temp file has to sit in the repo — write it, run it, delete it, and never
   `git add` it.
   ★★ The token figure here is DERIVED, not measured: the 2026-08-05 revision paired 25942 bytes with
-  "~6.5k tokens" (≈4 bytes/token), which scales to **~8k tokens** today. Nothing in this repo counts tokens,
-  so treat it as an estimate of that shape and do not quote it as measured.
+  "~6.5k tokens" (≈4 bytes/token), which scales to **~9k tokens** at 37468 bytes. Nothing in this repo counts
+  tokens, so treat it as an estimate of that shape and do not quote it as measured.
   ★★ **A coincidence this bullet used to rest on is now BROKEN.** It read "`chat-tool-defs.ts` on disk is
-  ~24.8 KB — the two land close by coincidence". The file is still ~24.9 KB, but the serialized payload is
-  now ~32 KB, because the five document schemas live in a SEPARATE file (`chat-tool-defs-documents.ts`,
-  ~5.9 KB). Comparing the payload against one defs file no longer approximates anything — measure
-  `TOOL_DEFS` itself, which is what actually ships.
+  ~24.8 KB — the two land close by coincidence". On 2026-08-18 the file is ~36 KB, its document sibling
+  ~8.8 KB and the serialized payload ~37 KB — three numbers that no longer approximate one another in any
+  direction (`node -e "for (const f of ['src/app/chat-tool-defs.ts','src/app/chat-tool-defs-documents.ts']) console.log(f, require('fs').statSync(f).size)"`).
+  Comparing the payload against one defs file stopped meaning anything the day the five document schemas
+  moved to `chat-tool-defs-documents.ts` — measure `TOOL_DEFS` itself, which is what actually ships.
   Both `buildViewScopeBlock` and `buildViewStateBlock` output sit in the **volatile, uncached suffix**,
   scope before state — which is now a readability choice (what the surface IS, then what is on it), not
   a cost one, since the tools breakpoint is where the saving comes from.
