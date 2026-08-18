@@ -579,7 +579,7 @@ import type { ChatThread } from "./chat-threads";
 const T: ChatThread = {
   id: "t1",
   projectId: "p1",
-  title: "",
+  name: "",
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-01T00:00:00.000Z",
   history: [],
@@ -1263,7 +1263,7 @@ import type { ChatThread } from "./chat-threads";
 const T: ChatThread = {
   id: "t1",
   projectId: "p1",
-  title: "",
+  name: "",
   createdAt: "2026-08-01T00:00:00.000Z",
   updatedAt: "2026-08-01T00:00:00.000Z",
   history: [],
