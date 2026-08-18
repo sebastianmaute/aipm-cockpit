@@ -769,4 +769,37 @@ describe("useTaskRowHandlers — the preserve backstop survives a real undo", ()
     // harness reverting nothing at all would also pass.
     expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
+
+  it("undoing a delete keeps an outlookEventId stamped on a dependent since the delete", () => {
+    const blocker = makeTask({ id: 1, taskName: "blocker" });
+    const dependent = makeTask({
+      id: 2,
+      taskName: "dependent",
+      dependencies: [{ taskId: 1, type: "FS" }],
+    });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    const { result, rerender } = harness([blocker, dependent]);
+
+    act(() => result.current.handlers.onDelete(1));
+    rerender();
+    expect(result.current.tasks.map((tk) => tk.id)).toEqual([2]);
+
+    // Stand-in for the background Outlook push: stamps the id Graph returned
+    // for this task, with no knowledge of the undo stack. Seeded AFTER delete.
+    act(() => {
+      result.current.setTasks((prev) =>
+        prev.map((tk) => (tk.id === 2 ? { ...tk, outlookEventId: "AAMkAG-evt-1" } : tk)),
+      );
+    });
+    rerender();
+
+    act(() => result.current.undo.undo());
+    rerender();
+
+    const restored = result.current.tasks.find((tk) => tk.id === 2);
+    // Reverting this is how the next push creates a SECOND event for the same
+    // task in the user's real calendar.
+    expect(restored?.outlookEventId).toBe("AAMkAG-evt-1");
+    expect(restored?.dependencies).toEqual([{ taskId: 1, type: "FS" }]);
+  });
 });
