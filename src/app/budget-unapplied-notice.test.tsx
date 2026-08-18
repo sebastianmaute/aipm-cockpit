@@ -110,6 +110,41 @@ describe("BudgetUnappliedNotice", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  // ★★★ THE REPORTED STATE, and the one the notice was SILENT in. Hours DID
+  //     resolve to a bucket at fetch time, so nothing is unattributed — they
+  //     just match no allocation line, which `buildApplyPlan` records only in
+  //     `unmatchedBuckets`. Reading `.rows` alone yields NOTHING here, so the
+  //     notice appeared only AFTER the user added the missing line, i.e. after
+  //     they had fixed the thing it existed to warn them about.
+  // ★★ ANTI-VACUITY: the ready-to-apply half must be ABSENT. If the fixture
+  //     also produced plan rows, the existing `.rows` branch would render the
+  //     notice and this test would pass with the new signal deleted.
+  test("warns when booked hours match no allocation line in their bucket", () => {
+    // Ina holds role 3; the only line on the bucket is role 9 → no line fits.
+    const mismatched: BudgetBucket = {
+      ...bucket(1, "PAM"),
+      allocations: [{ roleId: 9, resourceIds: [], budgetHours: {}, actualHours: {} }],
+    };
+    seed(aggregate({ byBucket: { 1: { "2026-01": cell(1, 10) } } }));
+    render(<BudgetUnappliedNotice {...props} buckets={[mismatched]} />);
+    expect(screen.getByText(/couldn't be matched to a role line/i)).toBeInTheDocument();
+    expect(screen.queryByText(/waiting to be applied/i)).toBeNull();
+    expect(screen.queryByText(/could not be placed on any budget line/i)).toBeNull();
+  });
+
+  // ★★★ The OTHER silent state, and it is silent for a different reason:
+  //     `routeBucket` returns null for a bucket with no target allocations and
+  //     `buildApplyPlan` `continue`s, so such a bucket is not even recorded as
+  //     unmatched. Only `bucketsMissingAllocations` sees it.
+  test("warns when a bucket carrying booked hours has no allocation line at all", () => {
+    const empty: BudgetBucket = { ...bucket(1, "PAM"), allocations: [] };
+    seed(aggregate({ byBucket: { 1: { "2026-01": cell(1, 6) } } }));
+    render(<BudgetUnappliedNotice {...props} buckets={[empty]} />);
+    expect(screen.getByText(/no role or discipline line to hold them/i)).toBeInTheDocument();
+    expect(screen.queryByText(/waiting to be applied/i)).toBeNull();
+    expect(screen.queryByText(/couldn't be matched to a role line/i)).toBeNull();
+  });
+
   // ★★★ An external must never reach buildApplyPlan — it would resolve a roleId
   //     and cost their hours at an internal rate. A fixture with no externals
   //     cannot express this, so seed one, and give the run a POSITIVE observable

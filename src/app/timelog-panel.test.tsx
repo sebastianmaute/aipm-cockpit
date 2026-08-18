@@ -490,6 +490,27 @@ describe("TimelogPanel", () => {
       expect(clearAll).toHaveBeenCalled();
     });
 
+    // ★★★ THE WIRING, and it is where the dead control came from: the panel
+    //     rendered this empty state without threading `isPopout`, so
+    //     `canClearAllFetched`'s popout arm never reached the button while
+    //     `hasFetched` — seeded from the CACHE — still rendered the block. The
+    //     sibling test above asserts the SAME button ENABLED outside a popout,
+    //     so this cannot pass by the button being disabled for any other reason.
+    it("disables the escape-hatch Clear-all in a popout", async () => {
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" isPopout />
+        </>,
+        { wrapper },
+      );
+
+      // Gate on the cache explanation, not on Configure: a popout renders no
+      // Configure button at all, so `awaitGate` would never resolve here.
+      await screen.findByText(t("en-US", "timelogCachedWhileOff"));
+      expect(screen.getByRole("button", { name: t("en-US", "clearAll") })).toBeDisabled();
+    });
+
     it("offers no Clear-all when there is nothing cached", async () => {
       const { useTimelogSync } = await import("./use-timelog-sync");
       vi.mocked(useTimelogSync).mockReturnValue(
@@ -757,14 +778,51 @@ describe("TimelogPanel", () => {
     // HTTP error — must NOT fall back to opening the dialog on the stale
     // overlay. That fallback would look like a working button while re-applying
     // exactly the attribution the refresh existed to replace.
+    // ★★ TWO WAYS THIS USED TO BE VACUOUS, both fixed here. (1) It asserted
+    //    SYNCHRONOUSLY right after a `waitFor` on the mock, so a regression that
+    //    opened the dialog one microtask later passed; the click is flushed
+    //    inside `act` and awaited instead. (2) It keyed on `timelogApplyConfirm`
+    //    interpolated with "1", so it could only ever catch a fallback yielding
+    //    EXACTLY one row — the dialog's Cancel button is row-count-independent.
     it("does not open the confirm dialog when the refresh yields no aggregate", async () => {
       const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 0 });
       const btn = await renderWithSync({ fetchBookingsForProjects });
 
-      fireEvent.click(btn);
+      await act(async () => {
+        fireEvent.click(btn);
+      });
+      await act(async () => {});
 
-      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalled());
-      expect(screen.queryByText(t("en-US", "timelogApplyConfirm", "1"))).not.toBeInTheDocument();
+      expect(fetchBookingsForProjects).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: t("en-US", "cancel") })).toBeNull();
+    });
+
+    // ★★★ THE DATA-LOSS PIN, and the aggregate here is DELIBERATELY well-formed
+    //     and row-yielding — the only thing wrong with it is that one of two
+    //     TimeLog projects failed, so it is MISSING that project's hours.
+    //     `finish()` still overwrote the cache with it, and apply OWNS every
+    //     allocation line of a routed period (non-booking lines are written to
+    //     0) — so confirming this re-applies the bucket at the smaller figure
+    //     and the difference is ERASED. A "present and non-empty" test cannot
+    //     see that; only `failedProjects` knows.
+    it("does NOT open the confirm dialog when some projects failed to fetch", async () => {
+      const aggregates = {
+        byBucket: {
+          10: { "2026-06": { hours: 24, billableHours: 24, byResource: { 1: { hours: 24, billableHours: 24 } } } },
+        },
+        byResource: { 1: { hours: 24, billableHours: 24 } },
+        unattributed: { hours: 0, billableHours: 0 },
+      };
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 1, projectCount: 2, aggregates });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      await act(async () => {
+        fireEvent.click(btn);
+      });
+      await act(async () => {});
+
+      expect(fetchBookingsForProjects).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: t("en-US", "cancel") })).toBeNull();
     });
 
     it("hides the button before any bookings are read", async () => {
@@ -780,6 +838,11 @@ describe("TimelogPanel", () => {
         </>,
         { wrapper },
       );
+      // POSITIVE CONTROL FIRST: without it this passes off a toolbar that
+      // rendered nothing at all. "Load my projects" is unconditional.
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeInTheDocument();
       expect(screen.queryByRole("button", { name: t("en-US", "timelogRefreshReapply") })).toBeNull();
     });
 

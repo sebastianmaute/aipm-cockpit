@@ -1568,6 +1568,8 @@ const enUS = {
     "Booked hours can't be applied to {0} linked bucket(s): no role or discipline line to hold them. Add a role in the Budget view first.",
   timelogApplyUnmatched:
     "Some booked hours in {0} bucket(s) couldn't be matched to a role line, so {1}h were not applied and the existing values were left unchanged — those buckets will read low by that much. Link the person to a resource, set their role in the Directory, add that role to the bucket — or re-fetch bookings if they were loaded by an older version.",
+  timelogNothingToApply:
+    "Bookings refreshed — the budget buckets already hold every hour that could be attributed, so there is nothing new to apply.",
   timelogApplyStale:
     "The budget changed while this preview was open, so it no longer matches what would be written. Review the changes again.",
   timelogKpiBooked: "Booked hours",

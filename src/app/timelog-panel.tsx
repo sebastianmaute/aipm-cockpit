@@ -38,6 +38,7 @@ import { TimelogToolbar } from "./timelog-panel-toolbar";
 import { TimelogProjectsTable } from "./timelog-projects-table";
 import { TimelogNotConfigured } from "./timelog-not-configured";
 import { canClearAllFetched, canFetchBookings, canLoadManagedProjects, canRefreshAndReapply, canRefreshBookings } from "./timelog-guards";
+import { decideReapply } from "./timelog-reapply";
 
 // People-table column widths (px) — drag-resizable, persisted per device.
 const PEOPLE_COL_WIDTHS = {
@@ -426,26 +427,22 @@ export function TimelogPanel({
   // a drifted baseline with `timelogApplyStale`. Money figures never gain a
   // second write path.
   //
-  // WHY this button exists at all: attribution is baked at FETCH time.
-  // `aggregateActuals` resolves BOTH dimensions (TimeLog user → resource,
-  // TimeLog project → bucket) while aggregating, and folds every miss into a
-  // dimensionless `unattributed` scalar carrying no resource/period/bucket. So
-  // a link fixed AFTERWARDS — adding a resource to a bucket, say — changes
-  // nothing in the cached aggregate, and re-applying it cannot recover those
-  // hours. Only a re-fetch re-resolves them.
-  //
+  // ★★ EVERY branch of the decision lives in pure `timelog-reapply.ts` — incl.
+  //    the partial-fetch abort that stops a half-fetched aggregate from erasing
+  //    real hours, and WHY this button has to exist at all (which two link maps
+  //    a re-fetch re-resolves, and what it does NOT freeze).
   // ★★ The fresh aggregate comes back from the CALL, not from `sync.aggregates`
   //    — that state has not updated in this closure, so reading it here would
   //    re-apply the stale attribution and silently reintroduce the very bug.
   async function handleRefreshAndReapply() {
     if (!canRefreshAndReapply({ isPopout, syncBusy: sync.busy, confirming, isMisconfigured, canRefresh })) return;
-    const result = await handleRefreshBookings();
-    const fresh = result?.aggregates?.byBucket;
-    // Absent on the no-projects-picked branch, on an abort, and on any error —
-    // in every one of those cases nothing was re-attributed, so there is no
-    // fresh diff to confirm and the dialog must not open on the stale one.
-    if (!fresh) return;
-    setPendingApply(fresh);
+    const outcome = decideReapply(await handleRefreshBookings(), budgets, matchableResources, roles);
+    if (outcome.kind === "abort") return;
+    if (outcome.kind === "nothing") {
+      showToast("info", t(lang, "timelogNothingToApply"));
+      return;
+    }
+    setPendingApply(outcome.overlay);
     setPendingBudgets(budgets);
     setConfirming(true);
   }
@@ -502,7 +499,7 @@ export function TimelogPanel({
   //   full page, the §74 guards AND Clear-all (why that last one is not optional: the header
   //   of timelog-not-configured.tsx). ★★ And on `hydrated` — settings load in an EFFECT, so a
   //   bare gate flashes "switched off", Clear-all included, at every CONFIGURED user.
-  if (hydrated && !cfg.enabled) return <TimelogNotConfigured lang={lang} paneRef={paneRef} onConfigure={onConfigureTimelog} hasFetched={!!sync.fetchedAt} onClearAll={() => void clearAllFetched()} />;
+  if (hydrated && !cfg.enabled) return <TimelogNotConfigured lang={lang} paneRef={paneRef} onConfigure={onConfigureTimelog} hasFetched={!!sync.fetchedAt} canClearAll={canClearAllFetched({ isPopout, syncBusy: sync.busy, confirming, hasFetched: !!sync.fetchedAt })} onClearAll={() => void clearAllFetched()} />;
 
   return (
     <div ref={paneRef} className={`print-root print-landscape ${VIEW_PANE_RESIZABLE_CLASS}`}>

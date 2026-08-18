@@ -25,6 +25,7 @@ export function TimelogNotConfigured({
   paneRef,
   onConfigure,
   hasFetched,
+  canClearAll,
   onClearAll,
 }: {
   lang: Lang;
@@ -36,8 +37,21 @@ export function TimelogNotConfigured({
    *  Settings to navigate to — mirrors `chat-panel.tsx`'s `onConfigureAi`,
    *  where a button with nowhere to go is simply not rendered. */
   onConfigure?: () => void;
-  /** A cached fetch exists, so there is something to clear. */
+  /** A cached fetch exists, so there is something to clear — and something to
+   *  EXPLAIN. Gates the block; whether the button works is `canClearAll`. */
   hasFetched: boolean;
+  /**
+   * `canClearAllFetched(...)` as the panel evaluates it, threaded in rather than
+   * re-derived here.
+   *
+   * ★★★ IT IS FALSE IN A POPOUT, and this prop exists because the button was
+   * rendered without it: the block is gated on `hasFetched`, which is seeded
+   * from the CACHE, so a popout over a project with cached bookings drew a
+   * fully live-looking Clear-all whose click the handler's own guard silently
+   * swallowed. Disabled (not hidden) mirrors the full page's toolbar, which
+   * evaluates this same predicate for the same button.
+   */
+  canClearAll: boolean;
   onClearAll: () => void;
 }) {
   return (
@@ -47,7 +61,7 @@ export function TimelogNotConfigured({
       {hasFetched && (
         <div className="space-y-2 border-t border-line pt-3">
           <p className="text-sm text-muted-foreground">{t(lang, "timelogCachedWhileOff")}</p>
-          <Button variant="secondary" onClick={onClearAll}>{t(lang, "clearAll")}</Button>
+          <Button variant="secondary" disabled={!canClearAll} onClick={onClearAll}>{t(lang, "clearAll")}</Button>
         </div>
       )}
     </div>

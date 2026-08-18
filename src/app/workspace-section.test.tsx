@@ -63,6 +63,16 @@ vi.mock("./activity-log-panel", () => ({ ActivityLogPanel: () => <div data-testi
 // above every const in this file — a bare module-level array is in its TDZ when
 // the factory runs. Still renders the same stub div, so every other test that
 // only looks for the testid is unaffected.
+// Same capture pattern for TimelogPanel — the cache-key agreement test below
+// needs the key BOTH panels were handed, and only a prop capture can compare
+// the WRITER's key against the READER's.
+const timelogPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
+vi.mock("./timelog-panel", () => ({
+  TimelogPanel: (p: Record<string, unknown>) => {
+    timelogPanelMock.props.push(p);
+    return <div data-testid="timelog-panel" />;
+  },
+}));
 const budgetPanelMock = vi.hoisted(() => ({ props: [] as Record<string, unknown>[] }));
 vi.mock("./budget-panel", () => ({
   BudgetPanel: (p: Record<string, unknown>) => {
@@ -657,5 +667,73 @@ describe("WorkspaceSection — Turso config wiring into ChatPanel", () => {
     const secondConfig = chatPanelMock.props.at(-1)!.tursoConfig;
 
     expect(secondConfig).not.toBe(firstConfig);
+  });
+});
+
+// ★★★ THREE HAND-SPELLED COPIES OF ONE KEY, and nothing tested that they
+//     agree. `workspace-section` writes `currentProjectId ?? "default"` into
+//     BudgetPanel's `timelogProjectId`, into TimelogPanel's `projectKey`, and
+//     into the `loadActualsCache(...)` call behind `actualsByBucket`. TimelogPanel
+//     is the WRITER of that cache; the other two are READERS. Drift any one of
+//     them and the reader silently reads an EMPTY cache — the Budget notice says
+//     nothing, the people rows read "—", and no error is raised anywhere.
+// ★★ The existing wiring test above runs at `currentProjectId: null`, where all
+//     three spellings collapse onto the literal "default" and agreement is
+//     unfalsifiable. A NON-null id is what makes the mutation observable.
+describe("WorkspaceSection — Timelog cache key agreement", () => {
+  const PROJECT = "proj-7";
+
+  function TabProbe() {
+    const { setActiveTab } = useWorkspaceTab();
+    return (
+      <>
+        <button data-testid="goto-budget" onClick={() => setActiveTab("budget")} />
+        <button data-testid="goto-timelog" onClick={() => setActiveTab("timelog")} />
+      </>
+    );
+  }
+
+  beforeEach(() => {
+    budgetPanelMock.props.length = 0;
+    timelogPanelMock.props.length = 0;
+    localStorage.clear();
+  });
+
+  it("hands the WRITER and both READERS the same key, and it reads that cache", async () => {
+    // Seeded under the real project id — NOT "default". A reader that fell back
+    // to "default" would find nothing here, which is the whole failure mode.
+    saveActualsCache(PROJECT, {
+      fetchedAt: "2026-06-23T10:00:00Z",
+      aggregates: {
+        byBucket: { 7: { "2026-06": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } } },
+        byResource: {},
+        unattributed: { hours: 0, billableHours: 0 },
+      },
+    });
+
+    render(
+      <>
+        <TabProbe />
+        <WorkspaceSection {...makeProps({ currentProjectId: PROJECT })} />
+      </>,
+      { wrapper: Wrapper },
+    );
+
+    fireEvent.click(screen.getByTestId("goto-timelog"));
+    await screen.findByTestId("timelog-panel");
+    const timelogProps = timelogPanelMock.props.at(-1)!;
+
+    fireEvent.click(screen.getByTestId("goto-budget"));
+    await screen.findByTestId("budget-panel");
+    const budgetProps = budgetPanelMock.props.at(-1)!;
+
+    expect(timelogProps.projectKey).toBe(PROJECT);
+    expect(budgetProps.timelogProjectId).toBe(PROJECT);
+    expect(budgetProps.timelogProjectId).toBe(timelogProps.projectKey);
+    // The third spelling, asserted through what it RESOLVED rather than as a
+    // string: a drifted key here yields `{}` and nothing else would notice.
+    expect(budgetProps.actualsByBucket).toEqual({
+      7: { "2026-06": { hours: 6, billableHours: 6, byResource: { 5: { hours: 6, billableHours: 6 } } } },
+    });
   });
 });
