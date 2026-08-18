@@ -283,6 +283,7 @@ const enUS = {
   fieldViewLabel: "Field view",
   colEstimate: "Est.",
   colSpent: "Spent",
+  colActions: "Actions",
   workspaceResizeHint:
     "Drag the bottom-right corner to resize this workspace pane.",
   workspaceCollapse: "Collapse workspace",
@@ -657,6 +658,7 @@ const enUS = {
   chatThreadEmptyBody: "Start a new chat to begin.",
   chatThreadSaveFailed: "Couldn't save this chat.",
   chatThreadSaveRetry: "Retry",
+  chatSidebarResetSize: "Reset the chat sidebar width",
   chatStop: "Stop",
   chatStopGenerating: "Stop generating",
   chatStopped: "Stopped",
@@ -1501,6 +1503,11 @@ const enUS = {
   timelogModuleDesc: "Pull actual time bookings from Timelog and compare them against your budget",
   timelogTitle: "Timelog time bookings",
   timelogEnable: "Enable Timelog integration",
+  timelogNotConfigured:
+    "The Timelog integration is switched off, so there are no time bookings to show. Turn it on under Settings → Integrations.",
+  timelogConfigure: "Configure Timelog",
+  timelogCachedWhileOff:
+    "Bookings fetched earlier are still cached on this device. They cannot be refreshed while the integration is off, but you can remove them.",
   timelogTokenHelpBefore: "Log into Timelog, then navigate to",
   timelogTokenHelpAfter: "to generate a personal access token.",
   timelogHost: "Host",
@@ -1526,6 +1533,14 @@ const enUS = {
   timelogSync: "Fetch bookings",
   timelogRefresh: "Refresh bookings",
   timelogRefreshHint: "Re-fetch the current bookings for the selected projects from Timelog.",
+  timelogRefreshReapply: "Refresh & re-apply",
+  // ★ Deliberately says nothing about widening scope, because it does not widen
+  //   it: this re-fetches the SAME persisted project scope. Someone who booked
+  //   to a project that was never ticked in the picker is still not recovered,
+  //   and neither is an external resource. What it does recover is a link fixed
+  //   after the last fetch, which the cached aggregate cannot see.
+  timelogRefreshReapplyHint:
+    "Re-fetch the same bookings from Timelog and review applying them to budget actual hours. Picks up people and projects linked since the last fetch. The project scope is unchanged.",
   timelogLoadPeople: "Load people",
   timelogLoadManagedProjects: "Load my projects",
   timelogIncludeClosed: "Include closed projects",
@@ -1550,10 +1565,14 @@ const enUS = {
     "A resource's hours show as booked only when its Timelog user is linked to that resource and the booking's project is linked to a bucket.",
   timelogApply: "Apply to budget",
   timelogApplyConfirm: "Apply {0} bucket changes to budget actual hours?",
+  timelogApplyPartial:
+    "Some projects could not be fetched, so these bookings are incomplete. Applying them would overwrite the missing projects' hours with zero, so applying is disabled — refresh the bookings and try again.",
   timelogApplyNoAllocation:
     "Booked hours can't be applied to {0} linked bucket(s): no role or discipline line to hold them. Add a role in the Budget view first.",
   timelogApplyUnmatched:
     "Some booked hours in {0} bucket(s) couldn't be matched to a role line, so {1}h were not applied and the existing values were left unchanged — those buckets will read low by that much. Link the person to a resource, set their role in the Directory, add that role to the bucket — or re-fetch bookings if they were loaded by an older version.",
+  timelogNothingToApply:
+    "Bookings refreshed — the budget buckets already hold every hour that could be attributed, so there is nothing new to apply.",
   timelogApplyStale:
     "The budget changed while this preview was open, so it no longer matches what would be written. Review the changes again.",
   timelogKpiBooked: "Booked hours",
@@ -3162,6 +3181,11 @@ const enUS = {
   budgetNoAllocations: "No allocations yet, so cost, margin and burn cannot be calculated. Add a role or discipline line.",
   budgetUnratedHours: "Some hours are booked against roles with no internal rate, so cost, margin and burn would be understated. Set the missing rates on the rate card under Resources → Roles.",
   budgetUnpricedBlend: "Blended rates cannot be calculated — grades with no internal rate in: {0}. Set them on the rate card under Resources → Roles.",
+  budgetUnappliedActuals:
+    "Fetched TimeLog bookings are waiting to be applied to {0} budget bucket(s) — those buckets' actual hours will not change until you apply them in Time bookings.",
+  budgetUnattributedActuals:
+    "{0}h of fetched TimeLog bookings could not be placed on any budget line when they were fetched. Attribution is decided at fetch time, so correcting a person or project link now will NOT recover them — the bookings have to be fetched again.",
+  budgetUnappliedActualsGo: "Open Time bookings",
   budgetReportColWinLossHint: "Difference between revenue and cost in EUR; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Hours won or lost versus plan.",
   budgetSpilloverInHint: "Hours carried in from another bucket.",
@@ -3926,6 +3950,7 @@ const enUS = {
   versionHighlightActorAttribution: "Entries in the project activity history now record who made the change — you, the assistant, or an integration such as Jira or the calendar sync. The assistant's edits to your registers (tasks, RAID items, changes, milestones, stakeholders and resources) used to go unrecorded and were invisible in the history; they are now recorded and attributed like any other change, and the Activity view shows the author and can be filtered by it. The assistant is also given a short summary of the last seven days of activity, so it knows what has been going on before you ask. Some entries carry no author and cannot be attributed — for example, they predate this release, or were recorded by a step that cannot tell who acted; those are shown as unattributed rather than guessed at. Both the history search and the activity summary can be switched off in Settings.",
 
   versionHighlightRichExport: "Formatting in descriptions now survives an export. Headings, numbered and bulleted lists including nested ones, checklists with their tick marks, and centred or justified paragraphs are carried into Word (.docx), the printable HTML and the PDF made from it, instead of arriving as one flat block of text. This also fixes list structure being lost for every description actually typed into the editor, not just for hand-written markup. Excel and PowerPoint exports still read the plain text of these fields and are unchanged, and CSV and Markdown project files are untouched.",
+  versionHighlightChangeNotesTimelog: "The changes register catches up with Open Points and RAID. A change's status can be set straight from the table without opening it, and every change now has a dated note log — a note badge on the row and a Notes button in the editor — that travels with the project across every storage backend. On Open Points, Send inquiry is a visible button on the row instead of being hidden in the overflow menu, matching RAID. The AI Assistant's thread sidebar can be dragged to the width you want; the width is remembered on this device and one button puts it back. Time bookings gained Refresh & re-apply, which fixes a real trap: which person and which budget bucket an hour belongs to is decided when the bookings are fetched, so linking a person or a project afterwards changed nothing until the next fetch — and the Timelog page showed those links as healthy while the cached hours stayed unplaced. The Budget page now says so when fetched hours are sitting unapplied or could not be attributed at all. Finally, when the Timelog integration is switched off the Time bookings page explains that and offers a Configure Timelog button, while still letting you clear any bookings already cached.",
 
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",

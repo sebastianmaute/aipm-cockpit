@@ -470,6 +470,120 @@ describe("useChatDispatcher", () => {
     expect(stored.description).toBe("<p>original <strong>detail</strong></p>");
   });
 
+  // ★★★ The same defect as §49, one register over: `sanitizeChangeItem` drops
+  //   `noteLog` for the same DOM-free reason, so `update_change` erased the log.
+  //   AI writes take no undo capture, so the loss is unrecoverable.
+  it("update_change preserves the stored note log", () => {
+    const { result } = renderRaidProbe();
+    const log = [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>keep me</p>", text: "keep me" }];
+    let id = 0;
+    act(() => {
+      id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id;
+    });
+    // The note exists on the STORED row — the notes window writes through, and
+    // `noteLog` is in no AI tool schema, so a patch can never carry one.
+    act(() => {
+      result.current.ws.setChanges((prev) => prev.map((c) => (c.id === id ? { ...c, noteLog: log } : c)));
+    });
+    // A title-only patch: the model never mentions noteLog, so nothing but the
+    // sanitizer can be responsible if the log disappears.
+    act(() => {
+      result.current.d.updateChange(id, { title: "Scope cut v2" });
+    });
+    const stored = result.current.ws.changes[0];
+    expect(stored.title).toBe("Scope cut v2");
+    expect(stored.noteLog).toEqual(log);
+  });
+
+  // `changeFields` exposes the full CHANGE_STATUSES enum on create_change AND
+  // update_change, so "approve change #3" stored Approved with NO decisionDate
+  // — and `use-calendar-integrations` filters the Outlook decision-date push on
+  // `!!c.decisionDate`, silently excluding every AI-approved row.
+  describe("AI change writes hold the status/decisionDate invariant", () => {
+    /** renderRaidProbe's clock. */
+    const TODAY = "2026-05-19";
+
+    it("createChange stamps decisionDate for a decided status", () => {
+      const { result } = renderRaidProbe();
+      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Approved" }); });
+      expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", decisionDate: TODAY });
+    });
+
+    // The other branch: stamping unconditionally would date a proposal that has
+    // not been decided, so a pending create must stay dateless.
+    it("createChange leaves a pending status dateless", () => {
+      const { result } = renderRaidProbe();
+      act(() => { result.current.d.createChange({ title: "Scope cut", status: "Under Review" }); });
+      expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
+    });
+
+    // The date is defaulted BEFORE the sanitizer now (it used to be patched up
+    // after), so this pins the branch that collapse removed: the sanitizer
+    // stores "" for an unparseable date, and a dateless change sorts oddly and
+    // reads as never raised.
+    it("createChange falls back to today for an unparseable raisedDate", () => {
+      const { result } = renderRaidProbe();
+      act(() => { result.current.d.createChange({ title: "Scope cut", raisedDate: "13/07/26" }); });
+      expect(result.current.ws.changes[0].raisedDate).toBe(TODAY);
+    });
+
+    it("updateChange stamps decisionDate when the model decides a pending change", () => {
+      const { result } = renderRaidProbe();
+      let id = 0;
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id; });
+      expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
+      let summary: ReturnType<typeof result.current.d.updateChange> = null;
+      act(() => { summary = result.current.d.updateChange(id, { status: "Approved" }); });
+      expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", decisionDate: TODAY });
+      // The tool RESULT is what the model reads back. Summarising the pre-stamp
+      // row would report the change as decided with no date — and on the
+      // ignored-status branch below it would report a status we did not store.
+      expect(summary).toMatchObject({ status: "Approved", decisionDate: TODAY });
+    });
+
+    it("updateChange clears decisionDate when the model returns a change to pending", () => {
+      const { result } = renderRaidProbe();
+      let id = 0;
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" })!.id; });
+      expect(result.current.ws.changes[0].decisionDate).toBe(TODAY);
+      act(() => { result.current.d.updateChange(id, { status: "Under Review" }); });
+      expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
+    });
+
+    // Routing on the merged status alone would fabricate a decision date for a
+    // stored row that never had one, on a patch that never mentioned status.
+    it("updateChange does not date a decided row when the patch omits status", () => {
+      const { result } = renderRaidProbe();
+      let id = 0;
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Proposed" })!.id; });
+      // A row carrying a decided status with NO date — what every pre-fix AI
+      // approval left behind, and what a legacy import can still carry.
+      act(() => {
+        result.current.ws.setChanges((prev) =>
+          prev.map((c) => (c.id === id ? { ...c, status: "Approved" as const } : c)));
+      });
+      act(() => { result.current.d.updateChange(id, { title: "Scope cut v2" }); });
+      expect(result.current.ws.changes[0]).toMatchObject({ status: "Approved", title: "Scope cut v2" });
+      expect(result.current.ws.changes[0].decisionDate).toBeUndefined();
+    });
+
+    // `sanitizeChangeItem` falls back to "Proposed" for anything off the enum,
+    // so an unrecognised value would DEMOTE a decided change — and the status
+    // routing would then clear its decision date too. Ignore it instead, the
+    // way the task dispatcher's isTaskStatus gate does.
+    it("updateChange ignores an unrecognised status instead of demoting the row", () => {
+      const { result } = renderRaidProbe();
+      let id = 0;
+      act(() => { id = result.current.d.createChange({ title: "Scope cut", status: "Approved" })!.id; });
+      let summary: ReturnType<typeof result.current.d.updateChange> = null;
+      act(() => { summary = result.current.d.updateChange(id, { status: "approved", title: "Scope cut v2" }); });
+      expect(result.current.ws.changes[0]).toMatchObject({
+        status: "Approved", decisionDate: TODAY, title: "Scope cut v2",
+      });
+      expect(summary).toMatchObject({ status: "Approved", decisionDate: TODAY });
+    });
+  });
+
   it("createTask defaults status to 'To Do' when omitted", () => {
     const { result } = renderDispatcher();
     const created = result.current.createTask({

@@ -8,6 +8,65 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.245.0] - 2026-08-18 "Buckell"
+
+### Added
+
+- **A change's status can be set straight from the changes table.** The status column is now an
+  editable dropdown on each row, the way Open Points already worked, so moving a change to
+  Approved or Rejected no longer means opening the editor. It routes through the same helper the
+  editor uses, so the decision date is set and cleared exactly as it is from inside the change.
+- **The changes register has a dated note log.** The running note log that tasks and RAID items
+  already had is now on changes too: a note badge on each row showing how many notes it carries,
+  and a Notes button in the change editor. Notes are stamped with the date and the author, can be
+  edited and deleted by whoever wrote them, and are saved with the project on every storage
+  backend — JSON, CSV, Markdown, both Turso layouts and the in-browser database.
+- **The AI Assistant's thread sidebar can be resized.** Drag its edge to the width you want. The
+  width is remembered on this device, and a button restores the default.
+
+### Changed
+
+- **Send inquiry is a visible button on an Open Points row** instead of being hidden in the row's
+  overflow menu, matching how RAID already presented it. It is an icon button, because the actions
+  column is a fixed width that a text label does not fit in at any translation.
+- **The Time bookings page now explains itself when the Timelog integration is switched off.**
+  Rather than showing an empty table, it says the integration is not configured and offers a
+  Configure Timelog button that takes you to the setting. If bookings were fetched before the
+  integration was turned off, the control to clear them is still reachable from that screen.
+- `task-manager.tsx`, `workspace-section.tsx` and `workspace.ts` were brought back under the
+  file-size ratchet — the first two past their baselines and the third over the 800-line cap —
+  rather than re-baselined, since a ratchet updated to make itself pass measures nothing. No
+  behaviour and no comment content changed: the reduction removes one duplicated explanation whose
+  full version lives on the helper it calls, and collapses some import lists and short assignments
+  onto single lines in the form their immediate neighbours already use.
+
+### Fixed
+
+- **Linking a person or a project in Timelog had no effect on hours that were already fetched.**
+  Which resource and which budget bucket an hour belongs to is worked out at the moment the
+  bookings are fetched and then cached, so a link created afterwards changed nothing until the
+  next fetch — and nothing said so. The Timelog page listed the new link as healthy while the
+  cached hours stayed unattributed, which read as the link being broken. There is now a Refresh &
+  re-apply action that re-fetches and re-attributes in one step, and the Budget page shows a
+  notice when fetched hours are sitting unapplied, could not be attributed to anyone, or landed on
+  a bucket that has no matching role line to receive them.
+- **Setting a change's status in bulk did not record a decision date.** Approving or rejecting
+  several changes at once left them without the date, and moving them back to a pending status
+  left a stale one behind, while doing the same thing to a single change from the editor got it
+  right. Changes decided in bulk were then left out of the calendar write-back, which only sends
+  changes carrying a decision date. The same gap applied to changes the assistant decided for you;
+  a status the assistant does not recognise now leaves the change alone instead of quietly moving
+  it back to Proposed.
+- **A Timelog fetch that only partly succeeded could reduce hours that were already booked.**
+  When several Timelog projects feed one budget bucket and one of them fails to fetch, only the
+  hours that arrived are stored — and applying those to the budget overwrites the missing
+  project's hours with a smaller number, because applying owns the whole period it touches.
+  Fetched bookings are now marked as incomplete whenever a project was lost, and applying them to
+  the budget is blocked, with a notice saying why. The mark survives a page reload and is cleared
+  by a clean fetch or by clearing the fetched bookings. Refresh & re-apply likewise stops after
+  reporting the failure instead of offering to apply an incomplete result, and it no longer opens
+  a confirmation asking you to approve nothing when there is nothing new to apply.
+
 ## [0.244.0] - 2026-08-17 "Waldrop"
 
 ### Added

@@ -23,19 +23,21 @@ import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popov
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { DocumentBadge } from "./document-badge";
+import { NotesBadgeButton } from "./notes-badge-button";
 import { refKey } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash";
 import {
+  applyChangeStatus,
   changeImpactRag,
   compareChange,
   defaultChangeStatus,
   nextChangeId,
   type ChangeSortKey,
 } from "./change-log";
-import { applyChangeStatus } from "./use-change-log";
+import { ChangeStatusSelect, changeStatusLabel } from "./change-status-select";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { DataTable } from "./data-table";
 import {
@@ -70,6 +72,7 @@ const CHANGE_COL_WIDTHS = {
   status: 130,
   requestedBy: 150,
   raisedDate: 110,
+  notesLog: 80,
 } as const;
 type ChangeCol = keyof typeof CHANGE_COL_WIDTHS;
 
@@ -83,6 +86,7 @@ const CHANGE_CONFIG_COLS = [
   { key: "status", labelKey: "changeFieldStatus" },
   { key: "requestedBy", labelKey: "changeFieldRequestedBy" },
   { key: "raisedDate", labelKey: "changeFieldRaisedDate" },
+  { key: "notesLog", labelKey: "noteLogTitle" },
 ] as const satisfies readonly ColumnConfigCol[];
 
 // Mirrors `requestedBy`'s sanitize cap (BUDGET_NAME_MAX in sanitize-entities).
@@ -99,6 +103,16 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
   today: string;
   onSave: (item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, title: string) => void;
+  /** Inline status change from the row select. Must route through
+   *  `applyChangeStatus`, where every status TRANSITION in the app stamps or
+   *  clears `decisionDate` — not the only writer of that field, see its
+   *  docblock in `change-log.ts`. */
+  onStatusChange: (id: number, next: ChangeStatus) => void;
+  /** Open the shared floating notes window (running note log) for a change.
+   *  ★ The log is WRITE-THROUGH: the window commits straight into the workspace
+   *  `changes` array, never through `onSave` — which reads `noteLog` back from
+   *  the stored row and would drop a note added while an editor was open. */
+  onOpenNotes: (id: number) => void;
   /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
   onCaptureBulk?: (ids: readonly number[]) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
@@ -130,15 +144,6 @@ const TYPE_KEY: Record<ChangeType, TranslationKey> = {
   Other: "changeTypeOther",
 };
 
-const STATUS_KEY: Record<ChangeStatus, TranslationKey> = {
-  Proposed: "changeStatusProposed",
-  "Under Review": "changeStatusUnderReview",
-  Approved: "changeStatusApproved",
-  Rejected: "changeStatusRejected",
-  Implemented: "changeStatusImplemented",
-  Deferred: "changeStatusDeferred",
-};
-
 const IMPACT_KEY: Record<NonNullable<ChangeItem["impact"]>, TranslationKey> = {
   Low: "raidSeverityLow",
   Medium: "raidSeverityMedium",
@@ -148,9 +153,6 @@ const IMPACT_KEY: Record<NonNullable<ChangeItem["impact"]>, TranslationKey> = {
 
 function typeLabel(c: ChangeType, lang: Lang): string {
   return t(lang, TYPE_KEY[c]);
-}
-function statusLabel(s: ChangeStatus, lang: Lang): string {
-  return t(lang, STATUS_KEY[s]);
 }
 function impactLabel(i: NonNullable<ChangeItem["impact"]>, lang: Lang): string {
   return t(lang, IMPACT_KEY[i]);
@@ -166,6 +168,8 @@ function ChangePanelBody({
   today,
   onSave,
   onDelete,
+  onStatusChange,
+  onOpenNotes,
   onCaptureBulk,
   raidEnabled = true,
   stakeholdersEnabled = true,
@@ -249,7 +253,7 @@ function ChangePanelBody({
       selectField(
         "status",
         t(lang, "changeFieldStatus"),
-        CHANGE_STATUSES.map((s) => ({ value: s, label: statusLabel(s, lang) })),
+        CHANGE_STATUSES.map((s) => ({ value: s, label: changeStatusLabel(s, lang) })),
       ),
       selectField(
         "type",
@@ -271,7 +275,11 @@ function ChangePanelBody({
       const item = changesById.get(id);
       if (!item) continue;
       let patched: ChangeItem = { ...item };
-      if (patch.status !== undefined) patched = { ...patched, status: patch.status as ChangeStatus };
+      // Through applyChangeStatus, exactly like the row select and the modal:
+      // setting `status` raw left a bulk-approved row with NO decisionDate (so
+      // the Outlook decision-date push skipped it) and a bulk-reopened one with
+      // a stale date. The bulk <select> only offers CHANGE_STATUSES values.
+      if (patch.status !== undefined) patched = applyChangeStatus(patched, patch.status as ChangeStatus, today);
       if (patch.type !== undefined) patched = { ...patched, type: patch.type as ChangeType };
       if (patch.impact !== undefined)
         patched = { ...patched, impact: patch.impact ? (patch.impact as ChangeImpact) : undefined };
@@ -392,7 +400,7 @@ function ChangePanelBody({
         <option value="All">{t(lang, "changeFilterStatusAll")}</option>
         {CHANGE_STATUSES.map((st) => (
           <option key={st} value={st}>
-            {statusLabel(st, lang)}
+            {changeStatusLabel(st, lang)}
           </option>
         ))}
       </Select>
@@ -466,6 +474,7 @@ function ChangePanelBody({
             onSave={commitDraft}
             onCancel={closeModal}
             onDelete={commitDelete}
+            onOpenNotes={onOpenNotes}
           />
         )
       }
@@ -540,6 +549,12 @@ function ChangePanelBody({
                 <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
               </th>
               )}
+              {!hiddenSet.has("notesLog") && (
+              <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
+                {t(lang, "noteLogTitle")}
+                <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
+              </th>
+              )}
             </tr>
           </>}
         >
@@ -603,9 +618,11 @@ function ChangePanelBody({
                     </span>
                   </td>
                   )}
+                  {/* The row opens the editor on click; without stopPropagation
+                      picking a status would ALSO open the modal. */}
                   {!hiddenSet.has("status") && (
-                  <td className="px-3 py-2 text-foreground">
-                    {statusLabel(item.status, lang)}
+                  <td className="px-3 py-2 text-foreground" onClick={(e) => e.stopPropagation()}>
+                    <ChangeStatusSelect lang={lang} item={item} onStatusChange={onStatusChange} />
                   </td>
                   )}
                   {!hiddenSet.has("requestedBy") && (
@@ -616,6 +633,19 @@ function ChangePanelBody({
                   {!hiddenSet.has("raisedDate") && (
                   <td className="px-3 py-2 font-mono text-xs text-muted-foreground">
                     {item.raisedDate}
+                  </td>
+                  )}
+                  {/* Cell-level stopPropagation so opening the notes window does
+                      not also fire the row click (which opens the edit modal) —
+                      same reason the status cell above does it. */}
+                  {!hiddenSet.has("notesLog") && (
+                  <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                    <NotesBadgeButton
+                      count={item.noteLog?.length ?? 0}
+                      entityName={item.title}
+                      lang={lang}
+                      onClick={() => onOpenNotes(item.id)}
+                    />
                   </td>
                   )}
                 </tr>

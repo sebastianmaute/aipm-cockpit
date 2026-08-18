@@ -1,7 +1,7 @@
 import React from "react";
 import { describe, it, expect, vi, beforeEach } from "vitest";
 import { render, screen, fireEvent, act, within } from "@testing-library/react";
-import { t } from "./i18n";
+import { t, loadI18n } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { expectButtonOrder } from "../test/toolbar-order";
 
@@ -1203,6 +1203,21 @@ describe("TasksSection", () => {
       const narrow = (c2.querySelector("table") as HTMLTableElement).style.minWidth;
 
       expect(parseInt(wide, 10) - parseInt(narrow, 10)).toBe(DEFAULT_COL_WIDTHS.priority);
+    });
+
+    // ★ DE, not EN, and that is the whole point: the actions header's
+    //   screen-reader label was a hardcoded English "Actions" string. An EN
+    //   assertion cannot tell the dictionary lookup from the literal — both
+    //   render "Actions" — so this renders the pane in German instead. Open
+    //   Points is an axe-scanned view, so the label is real AT surface.
+    it("translates the actions column's screen-reader header", async () => {
+      await loadI18n("de");
+      const { container } = renderTable({ lang: "de" });
+      const headers = Array.from(container.querySelectorAll("thead th"));
+      const labels = headers.map((th) => th.textContent ?? "");
+      expect(labels).toContain(t("de", "colActions"));
+      expect(t("de", "colActions")).toBe("Aktionen");
+      expect(labels).not.toContain("Actions");
     });
 
     it("no longer relies on width:max-content", () => {

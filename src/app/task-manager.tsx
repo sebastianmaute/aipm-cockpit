@@ -314,8 +314,7 @@ function TaskManagerInner() {
     [setFeatures],
   );
 
-  const { setContacts, contactsList, handleRemoveContact } =
-    useContacts({ hydrated, tasks });
+  const { setContacts, contactsList, handleRemoveContact } = useContacts({ hydrated, tasks });
 
   // Form / modal state owned by TaskFormProvider (Slice 3 of the
   // task-manager decomposition; see
@@ -594,8 +593,7 @@ function TaskManagerInner() {
   // Prefer the live in-memory project meta name (set by the active backend's
   // load — file OR turso tenant); fall back to the file registry entry's stored
   // name (file mode only), then null (the switcher shows a "no project" label).
-  const currentProjectName =
-    project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
+  const currentProjectName = project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
   // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:
@@ -697,7 +695,7 @@ function TaskManagerInner() {
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
+  const { handleSaveChange, handleDeleteChange, handleChangeStatusChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
@@ -1386,8 +1384,8 @@ function TaskManagerInner() {
     [today, setTasks, logActivityUser, editingId, applyLinkFromTask, stageEditorLink, setLinkedTaskOpen],
   );
 
-  // Shared floating note-log window (tasks + RAID), popout-gated at the mount below (see use-notes-window.ts).
-  const { openTaskNotes, openRaidNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, setTasks, setRaid, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser });
+  // Shared floating note-log window (tasks + RAID + changes), popout-gated at the mount below (see use-notes-window.ts).
+  const { openTaskNotes, openRaidNotes, openChangeNotes, notesWindowProps, notePanelPropsFor } = useNotesWindow({ tasks, raid, changes, setTasks, setRaid, setChanges, selfResourceId: settings.selfResourceId, resources, lang, logActivity: logActivityUser });
 
   const { fieldErrors, submitted, saveDisabled, handleSubmit, handleCancelEdit, openEditModal } = useTaskSubmit({
     form,
@@ -2168,6 +2166,7 @@ function TaskManagerInner() {
     onCreateResource: handleCreateResource,
     handleClearRaidTaskFilter,
     onOpenNotes: openRaidNotes,
+    onOpenChangeNotes: openChangeNotes,
     handleSaveRaidItem: guardEdit(handleSaveRaidItem),
     handleDeleteRaidItem: guardEdit(handleDeleteRaidItem),
     onSendRaidInquiry: isPopout ? undefined : handleSendRaidInquiry,
@@ -2203,6 +2202,7 @@ function TaskManagerInner() {
     documentsByEntity,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
+    handleChangeStatusChange: guardEdit(handleChangeStatusChange),
     onCaptureChangeBulk: captureChangeBulk,
     stakeholders,
     handleSaveStakeholder: guardEdit(handleSaveStakeholder),

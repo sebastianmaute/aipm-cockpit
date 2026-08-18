@@ -190,9 +190,17 @@ export function markdownToKnowledgeItems(md: string): KnowledgeItem[] | undefine
 
 /** Documents persist as a fenced json blob, the knowledgeItems/insights
  *  precedent — NOT a table. A document holds a nested block array, which
- *  cannot survive a pipe-delimited row, and noteLog (the only JSON-in-cell
- *  precedent in this repo) is deliberately absent from the markdown columns
- *  entirely, so there is no table pattern to copy.
+ *  cannot survive a pipe-delimited row.
+ *
+ *  ★★ This used to add "and noteLog (the only JSON-in-cell precedent in this
+ *  repo) is deliberately absent from the markdown columns entirely, so there is
+ *  no table pattern to copy". That was FALSE WHEN WRITTEN: `TASKS_MD_COLUMNS`
+ *  and `RAID_MD_COLUMNS` already carried a `NoteLog` column at that commit
+ *  (`git show a26ed59c:src/app/markdown-columns.ts | grep -c 'label: "NoteLog"'`
+ *  → 2), and `CHANGES_MD_COLUMNS` has since become a third. So a JSON-in-cell
+ *  table pattern does exist and IS what the note logs use. It is simply not
+ *  applicable here — the reason documents are a fenced blob is the nested block
+ *  array above, not an absence of precedent.
  *
  *  ★★ FENCE COLLISION is harmless BY CONSTRUCTION, not by luck. JSON.stringify
  *  does not escape a backtick, so a user's title or paragraph HTML can carry a
@@ -532,6 +540,7 @@ const CHANGE_ALIASES: Record<string, string> = {
   stakeholderids: "stakeholderIds", stakeholders: "stakeholderIds",
   localmodified: "localModifiedAt", localmodifiedat: "localModifiedAt",
   documentlinks: "knowledgeLinks", knowledgelinks: "knowledgeLinks", outlookeventid: "outlookEventId",
+  notelog: "noteLog",
 };
 
 export function markdownToChanges(md: string, diag?: ImportDiag): ChangeItem[] {

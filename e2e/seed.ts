@@ -143,16 +143,21 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       firstSeenAt: "2026-06-03T00:00:00.000Z", lastSeenAt: "2026-06-08T00:00:00.000Z", occurrences: 1,
     },
   ],
-  // ★★ ONLY `projectLinks` reaches the scan. timelog-panel.tsx merges linked-but-
-  // unfetched projects into `knownProjectRefs` with a synthetic name (the id), so
-  // these two produce two real rows with row-qualified per-row controls even
-  // though no Timelog fetch has happened. `userLinks` does NOT: the People table
-  // renders `sync.users`, which comes from the network, so it stays on its empty
-  // state here. They are seeded anyway because the round-trip through
-  // sanitizeTimelogLinks is what the kv key is being proved by — do not read a
-  // green Time bookings scan as covering the People table.
-  // ★ `bucketId: 1` is a real budget id in the master, so the row's <select>
-  // resolves to a named option instead of falling back to "none".
+  // ★★★ NEITHER TABLE REACHES THE axe SCAN ANY MORE, and this comment used to say
+  // the Projects one did. 0.245.0 gated timelog-panel.tsx on `cfg.enabled`,
+  // returning `TimelogNotConfigured` when the integration is off — and nothing
+  // here seeds any timelog SETTINGS, so `defaultTimelogConfig.enabled` (false)
+  // stands and "Time bookings" is scanned on the not-configured empty state.
+  // The Projects table's per-row link <select>s and the People table alike are
+  // now covered by NO gate. Recorded, with the two ways out (seed the settings,
+  // or pin those controls with unit tests), in docs/open-followups.md §171.
+  //   grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx
+  //   grep -n "enabled: false" src/app/timelog-types.ts
+  // ★ These links are still seeded, and the reason never depended on the scan:
+  // the round-trip through sanitizeTimelogLinks is what proves the kv key.
+  // ★ `bucketId: 1` is a real budget id in the master, so once the table does
+  // render again the row's <select> resolves to a named option rather than
+  // falling back to "none".
   timelogLinks: {
     userLinks: [
       { timelogUserId: 501, resourceId: 1, manual: true },

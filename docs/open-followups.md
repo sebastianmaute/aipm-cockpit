@@ -2158,6 +2158,22 @@ whether write-through fields are preserved engine-wide (needs a per-entity list 
 are) or whether RAID/task bulk edits capture field-wise instead. Either is a design slice, and patching
 shared undo machinery in the fourth review round of an unrelated batch is how a regression ships.
 
+★★ **THE CHANGES REGISTER NOW INHERITS THIS, as of 0.245.0.** `ChangeItem` gained `noteLog` in that
+slice, and `useChangeLog`'s `captureBulkUndo` snapshots whole rows into the same shared `capture()`:
+
+```bash
+# whole-row snapshot, same shape as captureRaidBulkUndo
+grep -n "const captureBulkUndo" -A 4 src/app/use-change-log.ts
+# the field it now carries
+grep -cF 'noteLog?: NoteLogEntry[]' src/app/types.ts   # 3 entities: Task, RaidItem, ChangeItem
+```
+
+So the RAID sequence reproduces one register over: select 3 changes → bulk-set impact → open the notes
+window on one → add a note → Ctrl+Z. Not a new defect and not caused by that slice — the engine was
+already like this; the slice added a third entity to its blast radius. ★ It also means the
+per-entity field list a fix would need is now three entries, not two, and it grows silently every time
+a write-through field is added to an entity — which is an argument for the field-wise capture option.
+
 **Fix when taken:** either preserve the live row's write-through fields in the edit branch
 (`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
 capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
@@ -7678,6 +7694,12 @@ Four ways they diverge in ordinary use:
    reads "—" while the role row shows real hours.
 4. Multi-device Turso: the workspace carries another device's applied actuals while this device's
    cache holds an older fetch, so the people rows are OLDER than the row above them.
+5. ★★ **A PARTIAL fetch (§172).** When a TimeLog project is lost to a fetch error, the cached
+   aggregate is short, so every person who booked on that project reads LOW here — while the role
+   row above shows the last applied total, which is complete. Added by the §172 slice, which marks
+   such an entry `partial` and blocks APPLYING it; these rows are display-only and are deliberately
+   NOT suppressed, because case 3 above is what suppression looks like and a missing figure is not
+   better than a short one. §172's own enumeration of cache consumers names this as the third one.
 
 ★ The read is memoised on `projectId` alone, so it does not refresh while the Budget view stays
 mounted — a fetch in the Timelog panel does not move these figures until the view remounts. That is
@@ -11156,6 +11178,288 @@ universal one.
 ★ The AI's `delete_all_tasks` takes no undo capture at all, so it never reached this state — the user
 path inherited an undo route its mirror does not have, which is why mirroring the AI writer's logging
 was necessary but not sufficient.
+
+## 167. Bulk edit on the changes register bypassed `applyChangeStatus` — CLOSED 2026-08-18
+
+Found by review during the 0.245.0 slice, and CLOSED in the same slice after a second review round.
+Recorded because the shape recurs: a register grew a new entry point that held an invariant while an
+OLDER entry point on the SAME table did not, so the two disagreed and a user could not tell which
+path they were on.
+
+The defect: `applyBulk` spread the raw status onto the row, so a bulk sweep to a DECIDED status
+(Approved/Rejected) left `decisionDate` unset, and a sweep back to a pending status left a stale one.
+`pushableChanges` filters on `!!c.decisionDate`, so bulk-decided changes were silently dropped from
+the Outlook decision-date write-back — not a cosmetic gap.
+
+★★★ **THE FIX WAS NOT THE ONE-LINE FIX THIS ENTRY ORIGINALLY PRESCRIBED, and the difference is the
+lesson.** The entry said: "in `applyBulk`, replace the status spread with `applyChangeStatus(...)`;
+the panel already imports the helper and already holds `today`, so nothing else has to move." That
+was true of `applyBulk` and MISSED the second bypass entirely — the AI dispatcher wrote `status`
+raw on both `create_change` and `update_change`, with the full enum exposed to the model. Taking the
+one-line fix would have left the register half-correct while this entry read as closed.
+
+★★ And the dispatcher could not take that same line. `sanitizeChangeItem` falls back to `"Proposed"`
+for anything off the enum, so a mistyped status silently DEMOTED a decided change; routing the MERGED
+status would then have cleared its `decisionDate` as well. It needed a gate on the model's RAW value
+— `applyModelChangeStatus` — mirroring the task dispatcher's `isTaskStatus` shape. `applyChangeStatus`
+also had to MOVE to `change-log.ts`, because the dispatcher cannot import a React module.
+
+★★★ **"SOLE WRITER" WAS NEVER TRUE AND IS STILL NOT — what is exclusive is the TRANSITION, not the
+field.** This entry asserted `applyChangeStatus` was "the sole writer of the status/`decisionDate`
+pair", and two prose sites in the code said the same. Four writers of `decisionDate` remain by design
+and are enumerated in `change-log.ts`'s docblock: the Outlook two-way pull writes the date ALONE
+(`use-calendar-integrations.ts`, `withDate`), `chat-tool-defs.ts` exposes `decisionDate` as its own
+model-writable field, and `ai-project-proposal.ts` + `templates.ts` build rows through the sanitizer
+alone — both passing it BY REFERENCE, so a call-shaped grep misses them. Those two rebuild a register
+from an untrusted blob rather than transitioning a live row, which is why they are exempt.
+
+```bash
+# every routing site, bare name so by-reference passes are visible too
+grep -rn "applyChangeStatus\|applyModelChangeStatus" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ The status/`decisionDate` invariant is now held at all four transition points (row select, modal,
+bulk, dispatcher), matching what the task register does through `applyStatusChange`.
+
+## 168. Template import drops every register's note log — open, pre-existing
+
+Capturing a template from a workspace assigns the live entity arrays verbatim
+(`templateFromWorkspace` does `seed.changes = ws.changes`, and the same for `tasks` and `raid`),
+so a captured template really does carry the note logs. Import then throws them away, because the
+entity sanitizers it runs are DOM-free and therefore cannot carry rich HTML:
+
+```bash
+grep -n "seed.changes = \|seed.raid = \|seed.tasks = " src/app/templates.ts
+grep -n "sanitizeArr<" src/app/templates.ts
+# ★★ THE THREE SANITIZERS DO NOT LIVE IN ONE FILE, and an earlier revision of this entry cited only
+# sanitize-records.ts — evidence for one third of the sentence below. Changes route to
+# `sanitizeChangeItem` (sanitize-records.ts); tasks and RAID route to `sanitizeSeedTask` /
+# `sanitizeSeedRaidItem`, which are LOCAL to templates.ts. Both files must be checked:
+grep -n "function sanitizeSeedTask\|function sanitizeSeedRaidItem" src/app/templates.ts
+# the sanitizers themselves never mention the field, so it is dropped by construction — 0 for BOTH
+grep -c "noteLog" src/app/sanitize-records.ts src/app/templates.ts
+```
+
+Changes, tasks and RAID all behave the same way. Same class as the `sanitizeRaidItem` behaviour
+AGENTS.md already records, reached through a different door.
+
+★★★ **It CANNOT be fixed by re-attaching the log after sanitizing** — the shortcut that fixed the
+AI-write path. That path runs no rich pass at all, so a re-attached log would be stored
+UN-SANITISED, and `rich-text-plain.test.ts`'s import-graph guard bans `templates.ts` from importing
+the DOMPurify-bearing modules precisely so this cannot be done by reflex. A real fix needs a
+sanitised carry that stays DOM-free — the same shape as the open item on `sanitizeSeedTask`
+(§36(a)), and it should probably be solved once for both.
+
+## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
+
+`aggregateActuals` takes `granularity` as a required argument and buckets each booking with
+`periodKeyForDate(it.date, granularity)`; `use-timelog-sync.ts` calls it during the fetch and
+persists the resulting aggregate. Changing the plan granularity between the fetch and the apply
+therefore lands applied hours under period keys the budget report never reads.
+
+```bash
+grep -n "granularity" src/app/timelog-actuals.ts
+grep -n "aggregateActuals(" src/app/use-timelog-sync.ts
+```
+
+★★ **This is NOT the symptom 0.245.0 fixed and must not be recorded as covered by it.** The
+attribution trap that slice addressed made hours land under `unattributed`; this one attributes them
+correctly and files them under an unreadable key. It also does not suppress plan rows, which is why
+it was invisible during that investigation. It is a live corruption path in the same cache, and the
+Refresh & re-apply action added in 0.245.0 happens to clear it — which makes it easy to mistake for
+fixed when a user stumbles onto the workaround.
+
+★ The argument is required rather than defaulted (a missing one is a tsc error, and the declaration
+carries a comment saying so), so the hazard is a STALE cache, never a wrong call.
+
+## 170. The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do — open, pre-existing
+
+The comment above `memo(ChangePanelBody)` says the memo "relies on handler props being stable refs
+(the parent wraps them in `useCallback`)". It does not: `task-manager.tsx` builds `guardEdit(handler)`
+unmemoized during render, so a fresh identity arrives on every parent render and the memo cannot
+bail.
+
+```bash
+grep -n "memo(ChangePanelBody)" -B 4 src/app/change-panel.tsx
+grep -n "guardEdit" src/app/task-manager.tsx | head
+```
+
+Same class as the `ResourcesPanel` memo AGENTS.md already documents as aspirational — but that one
+is honestly labelled and this one is not, so a reader takes the comment as a live guarantee and may
+"preserve" an optimisation that has never run. Either correct the comment or delete the memo; do
+NOT cite it as a reason anything is fast. ★ Memoizing `guardEdit` is not the fix on its own — it is
+one unstable family among several, the same finding recorded for `ResourcesPanel`.
+
+## 171. The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted
+
+`e2e/seed.ts` seeds file mode and never enables the Timelog integration, and 0.245.0 gated the page
+on `cfg.enabled`, returning `TimelogNotConfigured` when it is off. "Time bookings" is in
+`A11Y_VIEWS`, so the view is still scanned — it just renders the not-configured screen from now on.
+
+```bash
+grep -n "enabled" e2e/seed.ts            # no timelog settings are seeded
+grep -n "TimelogNotConfigured" src/app/timelog-panel.tsx
+```
+
+★★ The table's own controls — the per-row link pickers, the fetch/apply toolbar, the clear-all
+action — are therefore no longer covered by ANY gate. That is the seeded-empty-state blind spot
+AGENTS.md warns about, newly created rather than merely inherited: this view USED to render a real
+table under the scan.
+
+★ Two ways out, and the choice has not been made: seed Timelog settings in `e2e/seed.ts` so the
+table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
+the acceptance is deliberate rather than silent.
+
+★★★ IT ALSO KILLED AN e2e ASSERTION, AND NOTHING LOCAL SAW IT. `e2e/seed-content.spec.ts` carried
+"seeded timelog project links reach the app, not just IndexedDB", which asserted `Clear link – 701`
+and `– 702` — rows that the gate makes unrenderable. The entry above reasoned about the axe scan and
+stopped there, so the second consumer of the same render went unexamined until pipeline #6179 went
+red on it. The test is now the INVERSE: it pins the not-configured screen, and says in its own body
+that restoring the old lines requires seeding the settings FIRST.
+
+★★ So the blind spot is one step worse than this entry first said: the projects and people tables
+have no e2e coverage of ANY kind now, not merely no axe coverage. What survives is
+`timelog-panel.test.tsx`, which pins the row-qualified `${timelogMatchClear} – 99` label in two
+places — the row-UNIQUENESS rule, not the rendering path.
+
+★ General shape, worth more than this instance: a render gate has as many consumers as there are
+suites that render the view. Enumerate them (`grep -rn "Time bookings" e2e/`) rather than reasoning
+about the one that came to mind.
+
+## 172. A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it — CLOSED 2026-08-18
+
+Opened while fixing the reapply half of this hazard in 0.245.0 and deliberately not closed there,
+because the fix changes the persisted cache shape. Closed in the same unreleased version.
+
+### The hazard
+
+`fetchBookingsForProjects` is fail-soft per project: a project whose fetch throws increments
+`failedProjects` and the loop continues. It then called `finish()` — which writes both
+`sync.aggregates` and the persisted `aipm-cockpit:timelog-actuals` entry — with **only the projects
+that succeeded**. `failedProjects` was reported to the caller and surfaced as a toast, but nothing
+marked the stored aggregate as short.
+
+Apply OWNS every allocation line of a routed period: `buildApplyPlan` emits a row for every line whose
+`next` differs from `current`, and a line TimeLog did not route to this time gets `next = 0`. So a
+bucket fed by two TimeLog projects, refreshed while the second project's fetch throws, re-applied at
+the first project's hours alone and **erased the second's** — a silent write of real booked hours to a
+lower number.
+
+★★ "Present and non-empty" was never the test. A partial aggregate is well-formed, yields plan rows,
+and reads exactly like a good one; only the loop that swallowed the error knows.
+
+### What shipped
+
+The register offered two shapes. **Shape (b) — mark the entry partial and gate every apply path on the
+flag — was taken**, because shape (a) (refuse the overwrite outright) throws away the successful
+projects' fresh data, which is a second loss to avoid a first.
+
+- `ActualsCacheEntry.partial?: boolean` (`timelog-actuals-store.ts`). ★★ **ABSENT MEANS COMPLETE**,
+  which is what makes it back-compatible: an entry written before the field existed keeps its old
+  meaning, and an older client on the same device ignores an unknown key. Read `=== true`, never
+  truthiness — `isEntry` deliberately does NOT reject a malformed value, because rejecting would drop
+  the whole entry over a flag and treating a hand-edited `"false"` as partial would disable Apply with
+  no way back but Clear all. Failing OPEN on garbage only restores the pre-existing behaviour.
+- `finish(items, usersOverride, isPartial)` sets the state and persists the flag. ★★ It is a
+  PARAMETER because nothing about `items` can reveal that a project threw.
+- ★★★ **All FOUR savers carry it, not just `finish`'s.** The entry is rewritten WHOLE, so a saver that
+  omits the field CLEARS it — `loadDirectory`, `loadManagedProjects` and `removeUsers` would each have
+  re-opened this through a path with nothing to do with fetching. Pinned by a test that flags the
+  cache partial, calls `removeUsers`, remounts, and asserts the flag survived.
+- `canApplyToBudget` (`timelog-guards.ts`), evaluated by BOTH the Apply button's `disabled` and
+  `openConfirm`.
+- `timelogApplyPartial` EN/DE, rendered by `TimelogApplyNotices` — extracted from `timelog-panel.tsx`,
+  which was close enough to the 800-line ratchet that a third inline notice was not worth spending on.
+  It LEADS the two existing notices, because it is the only one that DISABLES Apply rather than
+  explaining a partial write.
+- The per-user `fetchBookings` path got the same treatment off `failedEmployees > 0`. It is not wired
+  into the panel today; leaving it unflagged would have been a trap for whoever wires it back.
+
+★★ **It was also the FIFTH instance of §74, and a LATENT one.** `openConfirm` returned early on
+`!overlay` alone while its button carried `applyDiff.length === 0 || isPopout` — but `openConfirm` has
+exactly ONE caller, that button, so nothing could reach the gap. An earlier revision of this entry
+called it "the one that had teeth" and named a non-button caller that does not exist; a cold review
+refuted it. Both sites now evaluate the one predicate, which is worth doing for a latent drift — just
+do not sell it as a live one.
+
+★ Recovery is a CLEAN re-fetch (which sets the flag false) or Clear all. There is deliberately no
+"apply anyway" — the whole point is that the aggregate is unfit to write.
+
+★★ Both commands below are SCOPED to the sentence they settle, and the first cut of this entry got
+that wrong in the way this repo keeps recording: it ran a bare `grep -n "partial"` over the hook
+(**9** hits — a `useState`, three comments and the return object alongside the four savers) under a
+comment telling the reader to expect four, and a bare `grep -n "canApplyToBudget"` over two files
+(**5** hits) under "two call sites". Neither was false; both handed the reader the filtering the
+command was supposed to have done.
+
+```bash
+# every saver carries the flag — four sites, each passing `partial`
+grep -n "saveActualsCache(projectId" src/app/use-timelog-sync.ts
+# one predicate, exactly two call sites
+grep -n "canApplyToBudget(applyState)" src/app/timelog-panel.tsx
+```
+
+### The second surface — missed on the first cut, and the reason to enumerate by DATA, not by CONTROL
+
+★★★ **`BudgetUnappliedNotice` reads the same cache entry and the first cut did not gate it.** It was
+left open deliberately, on the reasoning that its invitation stayed true and the Timelog panel would
+explain the block on arrival. **That reasoning was wrong, and two independent cold reviews said so from
+opposite directions.** The string it renders is not a statement that hours exist — it is an
+instruction: "those buckets' actual hours will not change until you apply them in Time bookings"
+(`budgetUnappliedActuals`) — and applying in Time bookings is precisely what `canApplyToBudget` now
+refuses. Worse, all FOUR of its signals are DERIVED from the short overlay (`affected`/`withheld` by
+running `buildApplyPlan` over it, `missing` by `bucketsMissingAllocations`, `unattributed` by having
+been summed during the same short fetch), so it reported the erasure this entry exists to prevent as
+though it were work waiting to be done. It also broke an invariant stated in that file's own source:
+"the two surfaces cannot describe one cache differently."
+
+A partial entry now SUPPRESSES all four and renders one line, keeping the "Go to Time bookings →"
+button because that is where the Refresh that repairs it lives.
+
+★★★ **THE LESSON IS THE ENUMERATION.** This entry told the fixer to gate "every apply path" and handed
+them `grep -n "setPendingApply" src/app/timelog-panel.tsx` to find them. That command finds every
+control that WRITES — and this surface writes nothing, so it was structurally invisible to the
+instruction while being the first thing a user actually reads. **Enumerate every consumer of the
+POISONED DATA, not every caller of the dangerous FUNCTION**, and reach for a command over the STORE
+rather than the writer:
+
+```bash
+# consumers OUTSIDE the sync hook that owns the cache — the surfaces that can
+# render or act on a short aggregate. Excluding the hook is what makes the
+# output readable: it seeds five slices from the same loader.
+grep -rn "loadActualsCache" src/app --include=*.ts --include=*.tsx \
+  | grep -v "\.test\." | grep -v use-timelog-sync
+```
+
+★★★ **IT RETURNS SIX LINES ACROSS THREE FILES BESIDES THE STORE ITSELF — TWO OF THEM REAL READS, AND
+THE FIRST CUT OF THIS SECTION GATED ONE.** (Six because two are the `import` lines and one is the
+`export function` declaration; read the file names, not the line count.) The command was written
+into this entry as the lesson and then not run against it — the same "attach a command and run it"
+failure the entry above it is about, one section later, by the same hand:
+
+1. `budget-unapplied-notice.tsx` — the CTA described above. Gated: all four signals suppressed.
+2. `workspace-section.tsx` → `budget-panel`'s per-person breakdown rows (`actualsByBucket`).
+   Display-only, no CTA and no write, and deliberately **NOT** suppressed: `docs/open-followups.md`
+   §122 already records that these rows disagree with the role row above them for four other
+   reasons, and its case 3 is precisely what suppression would look like — a missing figure is not
+   better than a short one. A partial fetch is now case 5 there.
+3. `budget-panel.tsx` — a comment, not a read.
+
+### Two narrower gaps closed at the same time
+
+★★ **The flag was wired to "a call threw" while it documents itself as "the aggregate is short".** Both
+fail-soft loops `break` on a cancel and fall through to `finish`, so a run cancelled BETWEEN iterations
+reached it with `failedProjects`/`failedEmployees` still 0 and persisted a truncated aggregate as
+complete. The predicate is now `... > 0 || signal.aborted` on both paths.
+
+★ `finish`'s `isPartial` parameter is REQUIRED, with no default. A default would let a future third
+caller silently persist `partial: false` and CLEAR the flag — the same wholesale-rewrite hazard the
+four savers carry a note about. Required makes it a typecheck error instead.
+
+★ STILL OPEN, and not this entry's to fix: `callPaged`'s `MAX_PAGES` cap (100 × 500 rows per project)
+short-returns with no error and no `failedProjects`, so it is the same "short aggregate reads as
+complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
+recorded because nothing anywhere else says it.
 
 ## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow
 

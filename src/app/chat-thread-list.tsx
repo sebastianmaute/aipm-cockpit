@@ -31,6 +31,12 @@ export interface ChatThreadListProps {
   onRename: (id: string, name: string) => void;
   onDelete: (id: string) => void;
   className?: string;
+  /** Classes for the SCROLL wrapper around the thread list itself — never the
+   *  root. `overflow-y-auto` on the root would put the New-chat button INSIDE
+   *  the scroller, so paging down to an older thread scrolls the column's
+   *  primary action out of view. Split into its own prop precisely so a caller
+   *  cannot make that mistake by passing `className`. */
+  listClassName?: string;
 }
 
 /** A blank OR whitespace-only `ChatThread.name` (not yet auto-derived — see
@@ -54,6 +60,7 @@ export function ChatThreadList({
   onRename,
   onDelete,
   className,
+  listClassName,
 }: ChatThreadListProps) {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [draftName, setDraftName] = useState("");
@@ -100,79 +107,84 @@ export function ChatThreadList({
 
   return (
     <div className={`flex flex-col gap-2${className ? ` ${className}` : ""}`}>
-      <Button variant="secondary" size="sm" onClick={onNew} className="w-full justify-center gap-1.5">
+      {/* `shrink-0` keeps the primary action at full height when the list below
+          it is long; it sits OUTSIDE the scroll wrapper so it can never be
+          scrolled away (see `listClassName`). */}
+      <Button variant="secondary" size="sm" onClick={onNew} className="w-full shrink-0 justify-center gap-1.5">
         <PlusIcon aria-hidden className="h-4 w-4" />
         {t(lang, "chatThreadNew")}
       </Button>
 
-      {threads.length === 0 ? (
-        <EmptyState title={t(lang, "chatThreadEmptyTitle")} description={t(lang, "chatThreadEmptyBody")} compact />
-      ) : (
-        // Tailwind v4 Preflight sets `list-style: none` on every ul/ol, which
-        // makes Safari/VoiceOver drop list/listitem semantics — role="list"
-        // restores them (precedent: sidebar-nav.tsx, comm-template-diff-view.tsx).
-        <ul role="list" className="flex flex-col gap-0.5">
-          {threads.map((th) => {
-            const name = displayName(lang, th.name);
-            const isActive = th.id === activeThreadId;
-            const isRenaming = renamingId === th.id;
-            const renameLabel = t(lang, "chatThreadRename", name);
+      <div className={listClassName}>
+        {threads.length === 0 ? (
+          <EmptyState title={t(lang, "chatThreadEmptyTitle")} description={t(lang, "chatThreadEmptyBody")} compact />
+        ) : (
+          // Tailwind v4 Preflight sets `list-style: none` on every ul/ol, which
+          // makes Safari/VoiceOver drop list/listitem semantics — role="list"
+          // restores them (precedent: sidebar-nav.tsx, comm-template-diff-view.tsx).
+          <ul role="list" className="flex flex-col gap-0.5">
+            {threads.map((th) => {
+              const name = displayName(lang, th.name);
+              const isActive = th.id === activeThreadId;
+              const isRenaming = renamingId === th.id;
+              const renameLabel = t(lang, "chatThreadRename", name);
 
-            return (
-              <li key={th.id}>
-                {isRenaming ? (
-                  <Input
-                    autoFocus
-                    size="xs"
-                    aria-label={renameLabel}
-                    value={draftName}
-                    onChange={(e) => setDraftName(e.target.value)}
-                    onBlur={() => commitRename(th.id)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.nativeEvent.isComposing) {
-                        commitRename(th.id);
-                      } else if (e.key === "Escape") {
-                        cancelRename();
-                      }
-                    }}
-                    className="w-full"
-                  />
-                ) : (
-                  <div className="flex items-center gap-1 rounded-md hover:bg-surface-muted">
-                    <button
-                      type="button"
-                      onClick={() => onSelect(th.id)}
-                      aria-label={t(lang, "chatThreadOpen", name)}
-                      aria-current={isActive ? "true" : undefined}
-                      className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm text-foreground ${INTERACTIVE}`}
-                    >
-                      {/* Non-colour active-state cue (WCAG 1.4.1) — always
-                          rendered so the row's layout doesn't shift; toggled
-                          via `invisible` (mirrors ToggleButton's own pressed
-                          marker, AGENTS.md). aria-hidden by default (Dot with
-                          no `label`), so it never pollutes the accessible
-                          name above. */}
-                      <Dot color="bg-ui-dark-blue" size="xs" className={isActive ? "" : "invisible"} />
-                      <span className="truncate">{name}</span>
-                    </button>
-                    <IconButton label={renameLabel} onClick={() => startRename(th)} className="shrink-0">
-                      <PencilIcon aria-hidden className="h-4 w-4" />
-                    </IconButton>
-                    <IconButton
-                      label={t(lang, "chatThreadDelete", name)}
-                      variant="danger"
-                      onClick={() => onDelete(th.id)}
-                      className="shrink-0"
-                    >
-                      <TrashIcon aria-hidden className="h-4 w-4" />
-                    </IconButton>
-                  </div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+              return (
+                <li key={th.id}>
+                  {isRenaming ? (
+                    <Input
+                      autoFocus
+                      size="xs"
+                      aria-label={renameLabel}
+                      value={draftName}
+                      onChange={(e) => setDraftName(e.target.value)}
+                      onBlur={() => commitRename(th.id)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" && !e.nativeEvent.isComposing) {
+                          commitRename(th.id);
+                        } else if (e.key === "Escape") {
+                          cancelRename();
+                        }
+                      }}
+                      className="w-full"
+                    />
+                  ) : (
+                    <div className="flex items-center gap-1 rounded-md hover:bg-surface-muted">
+                      <button
+                        type="button"
+                        onClick={() => onSelect(th.id)}
+                        aria-label={t(lang, "chatThreadOpen", name)}
+                        aria-current={isActive ? "true" : undefined}
+                        className={`flex min-w-0 flex-1 items-center gap-1.5 rounded-md px-2 py-1.5 text-left text-sm text-foreground ${INTERACTIVE}`}
+                      >
+                        {/* Non-colour active-state cue (WCAG 1.4.1) — always
+                            rendered so the row's layout doesn't shift; toggled
+                            via `invisible` (mirrors ToggleButton's own pressed
+                            marker, AGENTS.md). aria-hidden by default (Dot with
+                            no `label`), so it never pollutes the accessible
+                            name above. */}
+                        <Dot color="bg-ui-dark-blue" size="xs" className={isActive ? "" : "invisible"} />
+                        <span className="truncate">{name}</span>
+                      </button>
+                      <IconButton label={renameLabel} onClick={() => startRename(th)} className="shrink-0">
+                        <PencilIcon aria-hidden className="h-4 w-4" />
+                      </IconButton>
+                      <IconButton
+                        label={t(lang, "chatThreadDelete", name)}
+                        variant="danger"
+                        onClick={() => onDelete(th.id)}
+                        className="shrink-0"
+                      >
+                        <TrashIcon aria-hidden className="h-4 w-4" />
+                      </IconButton>
+                    </div>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+        )}
+      </div>
     </div>
   );
 }

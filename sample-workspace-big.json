@@ -3819,7 +3819,25 @@
       "costImpact": 18000,
       "requestedBy": "Morgan Standin",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-21T09:00:00.000Z"
+      "localModifiedAt": "2026-05-21T09:00:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-22T11:15:00.000Z",
+          "html": "<p>CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.</p>",
+          "text": "CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-05-26T09:40:00.000Z",
+          "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
+          "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
+          "authorResourceId": 2,
+          "authorName": "Sam Placeholder"
+        }
+      ]
     },
     {
       "id": 2,
@@ -3842,7 +3860,17 @@
       "costImpact": 6000,
       "requestedBy": "Alex Example",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-28T14:30:00.000Z"
+      "localModifiedAt": "2026-05-28T14:30:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-29T13:05:00.000Z",
+          "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
+          "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
+          "authorResourceId": 1,
+          "authorName": "Alex Example"
+        }
+      ]
     },
     {
       "id": 100001,
@@ -3867,7 +3895,25 @@
       "costImpact": 18000,
       "requestedBy": "Morgan Standin",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-21T09:00:00.000Z"
+      "localModifiedAt": "2026-05-21T09:00:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-22T11:15:00.000Z",
+          "html": "<p>CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.</p>",
+          "text": "CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-05-26T09:40:00.000Z",
+          "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
+          "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
+          "authorResourceId": 2,
+          "authorName": "Sam Placeholder"
+        }
+      ]
     },
     {
       "id": 100002,
@@ -3890,7 +3936,17 @@
       "costImpact": 6000,
       "requestedBy": "Alex Example",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-28T14:30:00.000Z"
+      "localModifiedAt": "2026-05-28T14:30:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-29T13:05:00.000Z",
+          "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
+          "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
+          "authorResourceId": 1,
+          "authorName": "Alex Example"
+        }
+      ]
     },
     {
       "id": 200001,
@@ -3915,7 +3971,25 @@
       "costImpact": 18000,
       "requestedBy": "Morgan Standin",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-21T09:00:00.000Z"
+      "localModifiedAt": "2026-05-21T09:00:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-22T11:15:00.000Z",
+          "html": "<p>CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.</p>",
+          "text": "CAB slot booked for 2026-06-03; InfoSec will present the revised policy alongside this request.",
+          "authorResourceId": 4,
+          "authorName": "Morgan Standin"
+        },
+        {
+          "id": 2,
+          "timestamp": "2026-05-26T09:40:00.000Z",
+          "html": "<p>Backend estimate confirmed at <strong>13 days</strong>; the recovery-code screen is the open question.</p>",
+          "text": "Backend estimate confirmed at 13 days; the recovery-code screen is the open question.",
+          "authorResourceId": 2,
+          "authorName": "Sam Placeholder"
+        }
+      ]
     },
     {
       "id": 200002,
@@ -3938,7 +4012,17 @@
       "costImpact": 6000,
       "requestedBy": "Alex Example",
       "decisionBy": "Elena Fischer",
-      "localModifiedAt": "2026-05-28T14:30:00.000Z"
+      "localModifiedAt": "2026-05-28T14:30:00.000Z",
+      "noteLog": [
+        {
+          "id": 1,
+          "timestamp": "2026-05-29T13:05:00.000Z",
+          "html": "<p>Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.</p>",
+          "text": "Customer comms draft circulated; the maintenance-window notice needs re-issuing once the date is agreed.",
+          "authorResourceId": 1,
+          "authorName": "Alex Example"
+        }
+      ]
     }
   ],
   "stakeholders": [

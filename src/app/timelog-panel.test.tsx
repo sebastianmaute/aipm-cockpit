@@ -9,6 +9,7 @@ import { TimelogPanel } from "./timelog-panel";
 import { SETTINGS_KEY } from "./use-settings";
 import { defaultSettings } from "./settings-types";
 import { t } from "./i18n";
+import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
 
@@ -72,6 +73,7 @@ function defaultSyncReturn() {
       { userId: 42, firstName: "Alice", lastName: "Smith", initials: "AS", email: "alice@example.com", isActive: true },
     ],
     projectRefs: [{ id: 9, name: "ForgeOps", no: "PO-1" }],
+    partial: false,
     customers: [],
     customerProjects: [],
     busy: false,
@@ -208,6 +210,29 @@ function enableTimelog() {
   );
 }
 
+/** Timelog switched ON but the token is gone — the "device that once configured
+ *  TimeLog and later lost its token" state the §74 tests below describe. They
+ *  need `isMisconfigured` true (so every guard's `isMisconfigured` arm is live)
+ *  while `cfg.enabled` stays true, because the not-configured GATE keys on
+ *  `enabled` ALONE: a bare default config now hides the very toolbar they
+ *  assert against, behind the Configure Timelog empty state. */
+function enableTimelogBrokenToken() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({
+      ...defaultSettings,
+      timelog: {
+        enabled: true,
+        host: "app2.timelog.com",
+        tenant: "test",
+        email: "admin@example.com",
+        apiToken: "",
+        scopeMode: "self",
+      },
+    }),
+  );
+}
+
 afterEach(() => {
   window.localStorage.clear();
   vi.clearAllMocks();
@@ -263,7 +288,9 @@ describe("TimelogPanel", () => {
   //   unrelated condition that disables the button anyway.
   describe("action buttons while TimeLog is unconfigured (§74)", () => {
     it("disables Fetch and Load-managed-projects with no TimeLog config", () => {
-      // Deliberately NO enableTimelog() — this is the misconfigured state.
+      // Enabled but tokenless — the misconfigured state that still renders the
+      // page. A bare default config is GATED behind Configure Timelog now.
+      enableTimelogBrokenToken();
       render(
         <>
           <SeedWorkspace />
@@ -294,7 +321,8 @@ describe("TimelogPanel", () => {
     // the button half went unpinned. "Impossible" is a much more expensive thing
     // to write down than "not done".
     it("keeps Fetch and Refresh disabled while unconfigured even with a full selection seeded (§74)", () => {
-      // Deliberately NO enableTimelog(); links seed a customer + one project.
+      // Enabled but tokenless (see above); links seed a customer + one project.
+      enableTimelogBrokenToken();
       render(
         <>
           <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
@@ -367,6 +395,190 @@ describe("TimelogPanel", () => {
           screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
         ).toBeEnabled(),
       );
+    });
+  });
+
+  // ★★★ The gate hides the whole page when the integration is switched OFF, so
+  // every network action goes with it. The escape hatch is NOT decoration:
+  // `canClearAllFetched` deliberately omits `isMisconfigured` because the cache
+  // is local data the user already has, and a state you cannot refresh is
+  // exactly when you want to clear stale bookings. Hiding the page without
+  // carrying Clear-all forward would re-create the trap that omission prevents.
+  // ★ The gate keys on `cfg.enabled` alone, NOT `isMisconfigured` — an ENABLED
+  //   integration with broken credentials keeps the full page (and its
+  //   Clear-all), which is why the §74 tests above can still reach the toolbar.
+  describe("TimelogPanel — not configured", () => {
+    /** The gate is `hydrated && !cfg.enabled`: `useSettings` starts at
+     *  `defaultSettings` and reads localStorage in an EFFECT, so the panel
+     *  renders the FULL page for one commit before the empty state appears.
+     *  Every assertion about the gated state has to wait for that. */
+    function awaitGate() {
+      return waitFor(() =>
+        screen.getByRole("button", { name: t("en-US", "timelogConfigure") }),
+      );
+    }
+
+    it("shows a Configure Timelog button instead of the page", async () => {
+      // No enableTimelog*(): defaults carry `timelog.enabled === false`.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      await awaitGate();
+      expect(screen.getByText(t("en-US", "timelogNotConfigured"))).toBeInTheDocument();
+
+      // Every fetch action is gone, not merely disabled. "timelogSync" is the
+      // FETCH button's label key (it gains a ` (N)` suffix when a selection
+      // exists, hence the RegExp); "timelogRefreshReapply" is the Refresh &
+      // re-apply button Task 11 added — it reaches the network too, so it must
+      // not survive the gate either.
+      expect(
+        screen.queryByRole("button", { name: new RegExp(t("en-US", "timelogSync")) }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogRefresh") }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogRefreshReapply") }),
+      ).toBeNull();
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeNull();
+    });
+
+    it("keeps Clear-all reachable when a cached fetch exists", async () => {
+      // defaultSyncReturn() supplies a `fetchedAt`, i.e. a cache is present.
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      await awaitGate();
+      expect(
+        screen.getByRole("button", { name: t("en-US", "clearAll") }),
+      ).toBeEnabled();
+      expect(screen.getByText(t("en-US", "timelogCachedWhileOff"))).toBeInTheDocument();
+    });
+
+    it("clears the cache when the escape-hatch Clear-all is confirmed", async () => {
+      const clearAll = vi.fn();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), clearAll } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // ★ Wait for the GATE first, not just for a Clear-all button: the full
+      //   page renders a Clear-all of its own pre-hydration, so clicking without
+      //   this would exercise the toolbar's button and pass either way.
+      await awaitGate();
+      await act(async () => {
+        fireEvent.click(screen.getByRole("button", { name: t("en-US", "clearAll") }));
+      });
+      expect(clearAll).toHaveBeenCalled();
+    });
+
+    // ★★★ THE WIRING, and it is where the dead control came from: the panel
+    //     rendered this empty state without threading `isPopout`, so
+    //     `canClearAllFetched`'s popout arm never reached the button while
+    //     `hasFetched` — seeded from the CACHE — still rendered the block. The
+    //     sibling test above asserts the SAME button ENABLED outside a popout,
+    //     so this cannot pass by the button being disabled for any other reason.
+    it("disables the escape-hatch Clear-all in a popout", async () => {
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" isPopout />
+        </>,
+        { wrapper },
+      );
+
+      // Gate on the cache explanation, not on Configure: a popout renders no
+      // Configure button at all, so `awaitGate` would never resolve here.
+      await screen.findByText(t("en-US", "timelogCachedWhileOff"));
+      expect(screen.getByRole("button", { name: t("en-US", "clearAll") })).toBeDisabled();
+    });
+
+    it("offers no Clear-all when there is nothing cached", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // Positive control FIRST: it proves the gate is rendered, so the absences
+      // below are the `hasFetched` branch and not an unrendered empty state.
+      await awaitGate();
+      expect(screen.queryByRole("button", { name: t("en-US", "clearAll") })).toBeNull();
+      expect(screen.queryByText(t("en-US", "timelogCachedWhileOff"))).toBeNull();
+    });
+
+    it("renders the full page when configured", async () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      // Settings hydrate async, so wait for the page to become live before
+      // asserting the gate never appeared — a t=0 assertion would pass off the
+      // pre-hydration full page whether or not the gate is wired at all.
+      await waitFor(() =>
+        expect(
+          screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+        ).toBeEnabled(),
+      );
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogConfigure") }),
+      ).toBeNull();
+    });
+
+    // ★★★ The `hydrated` half of the gate, which nothing above can see: the two
+    // tests either side of this one both settle AFTER hydration, so a bare
+    // `!cfg.enabled` gate passes them while flashing "Timelog is switched off"
+    // — Clear-all included — at every CONFIGURED user, on every mount of this
+    // view. Only a t=0 assertion catches it, so this one deliberately does not
+    // await anything.
+    it("never flashes the empty state at a configured user before settings load", () => {
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" onConfigureTimelog={() => {}} />
+        </>,
+        { wrapper },
+      );
+
+      expect(
+        screen.queryByRole("button", { name: t("en-US", "timelogConfigure") }),
+      ).toBeNull();
+      // Positive control: the full page IS what rendered in that first commit,
+      // so the absence above is the gate holding off and not an empty render.
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeInTheDocument();
     });
   });
 
@@ -501,6 +713,158 @@ describe("TimelogPanel", () => {
         { wrapper },
       );
       expect(screen.queryByRole("button", { name: t("en-US", "timelogRefresh") })).toBeNull();
+    });
+  });
+
+  describe("Refresh & re-apply", () => {
+    /** Render the panel with a persisted scope and a caller-supplied sync mock. */
+    async function renderWithSync(over: Record<string, unknown>) {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), ...over } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace links={{ ...INITIAL_LINKS, customerId: 5, projectIds: [9] }} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // Wait for ENABLED, not merely present — same §39 race as the Refresh
+      // tests above: the button renders before useSettings commits the stored
+      // config, and React drops onClick on a disabled <button>, so an early
+      // click is a silent no-op nothing retries.
+      const btn = await screen.findByRole("button", { name: t("en-US", "timelogRefreshReapply") });
+      await waitFor(() => expect(btn).toBeEnabled());
+      return btn;
+    }
+
+    // ★★★ THE STALE-READ PIN, and it needs the seeded DIVERGENCE to mean
+    //     anything. `sync.aggregates` carries 8h and the refresh resolves 20h;
+    //     if the handler seeded the confirm from `sync.aggregates` — which has
+    //     NOT updated inside that closure — the dialog would itemize the 8h
+    //     row. Without two different values the test passes whichever source is
+    //     read, which is the vacuity trap this branch has hit repeatedly.
+    //     Verified by mutation: pointing the handler at `sync.aggregates` turns
+    //     this test RED on the "0 → 20" expectation.
+    it("seeds the confirm dialog from the FRESH aggregate, not the stale hook state", async () => {
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({
+        failedProjects: 0,
+        projectCount: 1,
+        aggregates: {
+          byBucket: {
+            10: { "2026-06": { hours: 20, billableHours: 20, byResource: { 1: { hours: 20, billableHours: 20 } } } },
+          },
+          byResource: { 1: { hours: 20, billableHours: 20 } },
+          unattributed: { hours: 0, billableHours: 0 },
+        },
+      });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      fireEvent.click(btn);
+
+      await waitFor(() => expect(fetchBookingsForProjects).toHaveBeenCalledWith([9], expect.any(String), expect.any(String)));
+      // The SAME confirm dialog the manual Apply opens — reused, not a second
+      // write path — carrying the refetched figure.
+      await waitFor(() =>
+        expect(screen.getByText(t("en-US", "timelogApplyConfirm", "1"))).toBeInTheDocument(),
+      );
+      const rows = screen.getAllByRole("listitem").map((li) => li.textContent);
+      expect(rows).toContain("Alpha Project · 2026-06: 0 → 20");
+      expect(rows).not.toContain("Alpha Project · 2026-06: 0 → 8");
+    });
+
+    // A refetch that produced no aggregate — no projects picked, an abort, an
+    // HTTP error — must NOT fall back to opening the dialog on the stale
+    // overlay. That fallback would look like a working button while re-applying
+    // exactly the attribution the refresh existed to replace.
+    // ★★ TWO WAYS THIS USED TO BE VACUOUS, both fixed here. (1) It asserted
+    //    SYNCHRONOUSLY right after a `waitFor` on the mock, so a regression that
+    //    opened the dialog one microtask later passed; the click is flushed
+    //    inside `act` and awaited instead. (2) It keyed on `timelogApplyConfirm`
+    //    interpolated with "1", so it could only ever catch a fallback yielding
+    //    EXACTLY one row — the dialog's Cancel button is row-count-independent.
+    it("does not open the confirm dialog when the refresh yields no aggregate", async () => {
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 0, projectCount: 0 });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      await act(async () => {
+        fireEvent.click(btn);
+      });
+      await act(async () => {});
+
+      expect(fetchBookingsForProjects).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: t("en-US", "cancel") })).toBeNull();
+    });
+
+    // ★★★ THE DATA-LOSS PIN, and the aggregate here is DELIBERATELY well-formed
+    //     and row-yielding — the only thing wrong with it is that one of two
+    //     TimeLog projects failed, so it is MISSING that project's hours.
+    //     `finish()` still overwrote the cache with it, and apply OWNS every
+    //     allocation line of a routed period (non-booking lines are written to
+    //     0) — so confirming this re-applies the bucket at the smaller figure
+    //     and the difference is ERASED. A "present and non-empty" test cannot
+    //     see that; only `failedProjects` knows.
+    it("does NOT open the confirm dialog when some projects failed to fetch", async () => {
+      const aggregates = {
+        byBucket: {
+          10: { "2026-06": { hours: 24, billableHours: 24, byResource: { 1: { hours: 24, billableHours: 24 } } } },
+        },
+        byResource: { 1: { hours: 24, billableHours: 24 } },
+        unattributed: { hours: 0, billableHours: 0 },
+      };
+      const fetchBookingsForProjects = vi.fn().mockResolvedValue({ failedProjects: 1, projectCount: 2, aggregates });
+      const btn = await renderWithSync({ fetchBookingsForProjects });
+
+      await act(async () => {
+        fireEvent.click(btn);
+      });
+      await act(async () => {});
+
+      expect(fetchBookingsForProjects).toHaveBeenCalled();
+      expect(screen.queryByRole("button", { name: t("en-US", "cancel") })).toBeNull();
+    });
+
+    it("hides the button before any bookings are read", async () => {
+      enableTimelog();
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), fetchedAt: null } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      render(
+        <>
+          <SeedWorkspace />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+      // POSITIVE CONTROL FIRST: without it this passes off a toolbar that
+      // rendered nothing at all. "Load my projects" is unconditional.
+      expect(
+        screen.getByRole("button", { name: t("en-US", "timelogLoadManagedProjects") }),
+      ).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: t("en-US", "timelogRefreshReapply") })).toBeNull();
+    });
+
+    // ★ Shared helper, never a hand-rolled walk: `buttonIndex` THROWS on a zero-
+    //   or multi-match, where a local `findIndex` silently takes the first and
+    //   lets an ordering assertion pass against the wrong control.
+    it("sits after Refresh and before the trailing Print / reset group", async () => {
+      await renderWithSync({});
+      // Plain ordering for the two leading controls — the convention only
+      // requires them to come BEFORE the trailing group.
+      expectButtonOrder([
+        "timelogRefresh",
+        "timelogRefreshReapply",
+        "printHint",
+        "colResetWidthsHint",
+        "tableResetSizeHint",
+      ]);
+      // `contiguous` for the group itself: plain ordering leaves the indices
+      // ascending when a stray control lands BETWEEN two members, which is the
+      // exact drift this repo has caught more than once.
+      expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
     });
   });
 
@@ -1289,6 +1653,33 @@ describe("TimelogPanel", () => {
       // FIXED_AGGREGATE.byBucket has bucket 10 with period "2026-06" → diff row
       const applyBtn = screen.getByRole("button", { name: t("en-US", "timelogApply") });
       expect(applyBtn).not.toBeDisabled();
+    });
+
+    // ★★★ §172. The aggregate here is the DEFAULT one — well-formed, non-empty,
+    //     and it yields a diff row (the test directly above asserts the button
+    //     is enabled on exactly this data). Only `partial` differs, so nothing
+    //     about the plan's shape can be doing the work: this pins the flag
+    //     itself. Applying a short aggregate rewrites bucket 10 without the
+    //     failed project's hours and apply owns the period, so they are erased.
+    it("disables Apply and says why when the cached aggregate is PARTIAL", async () => {
+      const { useTimelogSync } = await import("./use-timelog-sync");
+      vi.mocked(useTimelogSync).mockReturnValue(
+        { ...defaultSyncReturn(), partial: true } as unknown as ReturnType<typeof useTimelogSync>,
+      );
+      enableTimelog();
+      render(
+        <>
+          <SeedWorkspace links={INITIAL_LINKS} />
+          <TimelogPanel lang="en-US" />
+        </>,
+        { wrapper },
+      );
+
+      expect(screen.getByRole("button", { name: t("en-US", "timelogApply") })).toBeDisabled();
+      // A disabled button with no reason beside it is the failure mode the two
+      // sibling notices already exist to avoid — this one leads them, because
+      // it is the only one that DISABLES rather than explains a partial write.
+      expect(screen.getByText(t("en-US", "timelogApplyPartial"))).toBeInTheDocument();
     });
 
     // `Resource.isExternal` means "capacity-tracked but excluded from ALL cost

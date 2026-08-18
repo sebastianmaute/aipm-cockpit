@@ -1,6 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { jsonToWorkspace, workspaceToJson, emptyWorkspace, CHANGES_CSV_COLUMNS, changeFieldToString, buildChangeFromObj } from "./storage";
-import type { ChangeItem } from "./types";
+import {
+  jsonToWorkspace, workspaceToJson, emptyWorkspace, CHANGES_CSV_COLUMNS, changeFieldToString,
+  buildChangeFromObj, workspaceToMarkdown, markdownToWorkspace,
+} from "./storage";
+import type { ChangeItem, NoteLogEntry } from "./types";
+
+const noteLog: NoteLogEntry[] = [
+  { id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "<p>note</p>", text: "note" },
+];
 
 const change: ChangeItem = {
   id: 1, title: "Widen scope", description: "add module", type: "Scope", status: "Approved",
@@ -32,7 +39,13 @@ describe("change CSV column encode/decode", () => {
       "id","title","description","type","status","impact","impactDescription","scheduleImpactDays",
       "costImpact","requestedBy","raisedDate","decisionBy","decisionDate","resolutionNotes",
       "linkedTaskIds","linkedRaidIds","stakeholderIds","localModifiedAt","knowledgeLinks","outlookEventId",
+      "noteLog",
     ]);
+  });
+  it("round-trips a change noteLog through CSV", () => {
+    const obj: Record<string, string> = {};
+    for (const c of CHANGES_CSV_COLUMNS) obj[c] = changeFieldToString({ ...change, noteLog }, c);
+    expect(buildChangeFromObj(obj)?.noteLog).toEqual(noteLog);
   });
   it("changeFieldToString encodes id-lists pipe-joined; buildChangeFromObj round-trips", () => {
     const obj: Record<string, string> = {};
@@ -46,5 +59,18 @@ describe("change CSV column encode/decode", () => {
   it("buildChangeFromObj defaults missing stakeholderIds to []", () => {
     const back = buildChangeFromObj({ id: "5", title: "no stk", type: "Other", status: "Proposed", raisedDate: "2026-06-01" });
     expect(back?.stakeholderIds).toEqual([]);
+  });
+});
+
+describe("change Markdown round-trip", () => {
+  // Markdown is its own write path: it shares changeFieldToString /
+  // buildChangeFromObj with CSV, but carries a SEPARATE column registry
+  // (CHANGES_MD_COLUMNS) and header-alias map, either of which can drop the
+  // column on its own.
+  it("round-trips a change noteLog through Markdown", () => {
+    const md = workspaceToMarkdown({ ...emptyWorkspace(), changes: [{ ...change, noteLog }] });
+    const back = markdownToWorkspace(md).changes ?? [];
+    expect(back).toHaveLength(1);
+    expect(back[0].noteLog).toEqual(noteLog);
   });
 });

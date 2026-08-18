@@ -12,6 +12,7 @@
 // `from "./csv-codecs-core"` import of a marker keeps working unchanged.
 
 import { riskSeverityFromMatrix } from "./raid";
+import { withStoredNoteLog } from "./change-log";
 // `export *` does not bind names locally, so the two markers this module USES
 // are imported explicitly as well.
 import { CSV_SECTION_FXRATES, CSV_SECTION_PLAN } from "./csv-codecs-sections";
@@ -402,6 +403,7 @@ export const CHANGES_CSV_COLUMNS: Array<keyof ChangeItem> = [
   "id", "title", "description", "type", "status", "impact", "impactDescription", "scheduleImpactDays",
   "costImpact", "requestedBy", "raisedDate", "decisionBy", "decisionDate", "resolutionNotes",
   "linkedTaskIds", "linkedRaidIds", "stakeholderIds", "localModifiedAt", "knowledgeLinks", "outlookEventId",
+  "noteLog",
 ];
 
 export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): string {
@@ -409,12 +411,13 @@ export function changeFieldToString(c: ChangeItem, col: keyof ChangeItem): strin
   if (col === "linkedRaidIds") return Array.isArray(c.linkedRaidIds) ? c.linkedRaidIds.join("|") : "";
   if (col === "stakeholderIds") return Array.isArray(c.stakeholderIds) ? c.stakeholderIds.join("|") : "";
   if (col === "knowledgeLinks") return encodeKnowledgeLinks(c.knowledgeLinks);
+  if (col === "noteLog") return encodeNoteLog(c.noteLog);
   const v = c[col];
   return v === undefined || v === null ? "" : String(v);
 }
 
 export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | null {
-  return sanitizeChangeItem({
+  const item = sanitizeChangeItem({
     ...obj,
     id: obj.id ? Number(obj.id) : undefined,
     scheduleImpactDays: obj.scheduleImpactDays ? Number(obj.scheduleImpactDays) : undefined,
@@ -424,6 +427,10 @@ export function buildChangeFromObj(obj: Record<string, string>): ChangeItem | nu
     stakeholderIds: parseLinkedTaskIds(obj.stakeholderIds),
     knowledgeLinks: decodeKnowledgeLinks(obj.knowledgeLinks ?? obj.documentLinks),
   });
+  // sanitizeChangeItem drops noteLog (it is DOM-free and cannot run
+  // sanitizeNoteLog), so re-attach it here. decodeNoteLog has ALREADY
+  // sanitized the entries, which is what makes re-attaching safe.
+  return item === null ? null : withStoredNoteLog(item, decodeNoteLog(obj.noteLog));
 }
 
 export const STAKEHOLDERS_CSV_COLUMNS: Array<keyof Stakeholder> = [

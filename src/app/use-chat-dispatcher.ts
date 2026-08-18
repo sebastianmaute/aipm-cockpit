@@ -47,6 +47,7 @@ import {
   sanitizeResource,
 } from "./sanitize";
 import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
+import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
@@ -537,19 +538,18 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
 
       createChange: (input) => {
         if (args.isReadOnly) throw readOnlyError();
-        const id = mintId("change", changesRef.current);
         const sanitized = sanitizeChangeItem({
           ...withAiRichFields(input, AI_RICH_FIELDS.change),
-          id,
-          raisedDate: input.raisedDate || clockRef.current.today,
+          id: mintId("change", changesRef.current),
+          // Defaulted BEFORE the sanitizer, so an unparseable date lands on today rather than on the empty string the sanitizer stores for one.
+          raisedDate: sanitizeIsoDate(input.raisedDate) || clockRef.current.today,
           linkedTaskIds: input.linkedTaskIds ?? [],
           linkedRaidIds: input.linkedRaidIds ?? [],
           stakeholderIds: input.stakeholderIds ?? [],
         });
         if (!sanitized) throw new Error("invalid change: title is required");
-        const item = sanitized.raisedDate
-          ? sanitized
-          : { ...sanitized, raisedDate: clockRef.current.today };
+        // The status routes through applyChangeStatus, where every status transition stamps or clears decisionDate — so a model-created "Approved" carries a decision date instead of shipping without one.
+        const item = applyChangeStatus(sanitized, sanitized.status, clockRef.current.today);
         const next = [...changesRef.current, item];
         changesRef.current = next;
         setChanges(next);
@@ -563,15 +563,17 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         const merged = sanitizeChangeItem({
           ...existing,
           ...withAiRichFields(patch, AI_RICH_FIELDS.change),
-          id,
-          localModifiedAt: new Date().toISOString(),
+          id, localModifiedAt: new Date().toISOString(),
         });
         if (!merged) throw new Error("invalid change update");
-        const next = changesRef.current.map((c) => (c.id === id ? merged : c));
+        // Same transition, gated on the model's RAW status: absent leaves the stored pair alone, unrecognised is IGNORED rather than sanitized to "Proposed" (which would demote a decided change and clear its date). Why, in full: applyModelChangeStatus in change-log.ts.
+        const stamped = applyModelChangeStatus(merged, patch.status, existing.status, clockRef.current.today);
+        // ★★★ Re-apply the STORED log — §49's defect class, one register over. WHY, and which of the sanitizer's six call sites must do this: `withStoredNoteLog`'s docblock in `change-log.ts`. Local to HERE: an AI write takes NO undo capture, so a log lost on this path is unrecoverable.
+        const next = changesRef.current.map((c) => (c.id === id ? withStoredNoteLog(stamped, existing.noteLog) : c));
         changesRef.current = next;
         setChanges(next);
-        args.logActivityAs?.("ai", "change.updated", merged.id, merged.title);
-        return toChangeSummary(merged);
+        args.logActivityAs?.("ai", "change.updated", stamped.id, stamped.title);
+        return toChangeSummary(stamped);
       },
       deleteChange: (id) => {
         if (args.isReadOnly) throw readOnlyError();
@@ -740,16 +742,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
           insights: insightsRef.current ?? [],
-          // Assembled by useViewDigest — it needs pane state this hook does not
-          // hold (health filter, debounced search, effective view mode) to name
-          // the rows the pane is ACTUALLY rendering. See use-view-digest.ts.
-          // ★ Unlike the entity refs above — which tool handlers update
-          // SYNCHRONOUSLY so back-to-back calls see fresh data — this one is
-          // written by an effect, so it can lag one render. Harmless for the
-          // system prompt (built once per send, well after effects flush); a
-          // `get_app_state` called mid-turn right after a create can return a
-          // digest that predates that write. Not worth a synchronous mirror:
-          // the digest describes the SCREEN, which has not repainted yet either.
+          // Assembled by useViewDigest — needs pane state this hook lacks (health
+          // filter, debounced search, view mode) to name the rows the pane ACTUALLY
+          // renders. See use-view-digest.ts. ★ Unlike the entity refs above, which
+          // tool handlers update SYNCHRONOUSLY, this is written by an effect and can
+          // lag a render. Harmless for the system prompt (built once per send, after
+          // effects flush); a mid-turn `get_app_state` right after a create can
+          // return a digest predating that write. Not worth a synchronous mirror: the
+          // digest describes the SCREEN, which has not repainted either.
           viewDigest: viewDigestRef.current,
           timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns

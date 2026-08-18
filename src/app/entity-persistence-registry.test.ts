@@ -139,9 +139,13 @@ describe("entity persistence registry — outlookEventId survives every text bac
   }
 });
 
-// New heavy fields: RaidItem.inquiriesSent (mirrors Task.inquiriesSent) and
-// Task.noteLog (structured JSON-in-cell). CSV column presence also covers Turso
-// single+tenant; the round-trip covers CSV + Markdown.
+// New heavy fields: RaidItem.inquiriesSent (mirrors Task.inquiriesSent) and the
+// noteLog (structured JSON-in-cell) now carried by Task, RaidItem AND ChangeItem.
+// CSV column presence also covers Turso single+tenant; the round-trip covers CSV
+// + Markdown. The remaining two write paths are covered elsewhere and are
+// deliberately NOT re-asserted here: JSON by workspace.test.ts ("preserves a
+// change noteLog through jsonToWorkspace"), IndexedDB by sanitizeChangeRichFields
+// (browser-backend.ts never calls sanitizeChangeItem).
 describe("entity persistence registry — inquiriesSent + noteLog survive every text backend", () => {
   it("inquiriesSent is in the RAID CSV column registry (drives CSV + Turso single/tenant)", () => {
     expect(RAID_CSV_COLUMNS as readonly string[]).toContain("inquiriesSent");
@@ -151,6 +155,9 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
   });
   it("noteLog is in the RAID CSV column registry (drives CSV + Turso single/tenant)", () => {
     expect(RAID_CSV_COLUMNS as readonly string[]).toContain("noteLog");
+  });
+  it("noteLog is in the Change CSV column registry (drives CSV + Turso single/tenant)", () => {
+    expect(CHANGES_CSV_COLUMNS as readonly string[]).toContain("noteLog");
   });
 
   const seedRaid = (): Workspace => ({
@@ -178,6 +185,15 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
     }],
   });
 
+  const seedChangeNote = (): Workspace => ({
+    ...emptyWorkspace(),
+    changes: [{
+      id: 1, title: "C", description: "", type: "Scope", status: "Proposed",
+      raisedDate: "2026-01-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [],
+      noteLog: [{ id: 1, authorName: "Ann", timestamp: "2026-07-16T10:00:00.000Z", html: "<p>hi</p>", text: "hi" }],
+    }],
+  });
+
   it("raid inquiriesSent survives the CSV round-trip", () => {
     expect(csvToWorkspace(workspaceToCsv(seedRaid())).raid[0]?.inquiriesSent).toBe(5);
   });
@@ -195,6 +211,12 @@ describe("entity persistence registry — inquiriesSent + noteLog survive every 
   });
   it("raid noteLog survives the Markdown round-trip", () => {
     expect(markdownToWorkspace(workspaceToMarkdown(seedRaidNote())).raid[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+  it("change noteLog survives the CSV round-trip", () => {
+    expect(csvToWorkspace(workspaceToCsv(seedChangeNote())).changes?.[0]?.noteLog?.[0]?.text).toBe("hi");
+  });
+  it("change noteLog survives the Markdown round-trip", () => {
+    expect(markdownToWorkspace(workspaceToMarkdown(seedChangeNote())).changes?.[0]?.noteLog?.[0]?.text).toBe("hi");
   });
 });
 

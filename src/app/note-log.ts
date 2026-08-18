@@ -211,7 +211,7 @@ export function sanitizeRaidRichFields<T extends RichFieldCarrier>(entity: T): T
   return sanitizeRichFields(entity, RAID_RICH_FIELDS);
 }
 
-/** Changes: `description` + `impactDescription` + `resolutionNotes` (no noteLog). */
+/** Changes: `description` + `impactDescription` + `resolutionNotes` + `noteLog`. */
 export function sanitizeChangeRichFields<T extends RichFieldCarrier>(entity: T): T {
   return sanitizeRichFields(entity, CHANGE_RICH_FIELDS);
 }
