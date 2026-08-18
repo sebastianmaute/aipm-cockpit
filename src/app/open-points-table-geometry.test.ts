@@ -124,3 +124,28 @@ describe("colWidthStyle", () => {
     expect(colWidthStyle("status", { status: 77 })).toBe(77);
   });
 });
+
+describe("the actions column fits its content", () => {
+  // ★ This is the ONE column whose declared width can be silently wrong with
+  //   every gate green. Under `table-layout: fixed` a declared width is not a
+  //   minimum — content overflows rather than growing the column — and the
+  //   actions `<Th>` is the only header in the table with NO `onResize`, so a
+  //   user can never store a wider width to work around it. jsdom has no
+  //   layout, so nothing can MEASURE the overflow; this asserts the arithmetic
+  //   instead. It went red at the shipped-then-fixed width of 32, where the
+  //   `px-4` padding alone consumed the whole column and the content box was
+  //   exactly zero.
+
+  /** `<Td>`'s default `px-4` — 1rem each side at the 16px root. */
+  const CELL_PADDING_PX = 32;
+  /** `IconButton` at size "sm": `p-1` (4px) each side around an `h-4 w-4`
+   *  (16px) glyph. Two of them — Send inquiry and the ⋮ overflow trigger. */
+  const ICON_BUTTON_PX = 24;
+  /** The `mr-1` between them. */
+  const BUTTON_GAP_PX = 4;
+
+  it("leaves a content box wide enough for both row buttons", () => {
+    const contentBox = DEFAULT_COL_WIDTHS.actions - CELL_PADDING_PX;
+    expect(contentBox).toBeGreaterThanOrEqual(ICON_BUTTON_PX * 2 + BUTTON_GAP_PX);
+  });
+});

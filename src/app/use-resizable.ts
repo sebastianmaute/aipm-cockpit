@@ -32,7 +32,28 @@ type SavedSize = {
   height: number | null;
 };
 
-export function useResizable(storageKey: string) {
+/** Which dimensions this key owns.
+ *
+ *  ★ `"x"` is for an element whose CSS is `resize-x`. Step 2 above arms on any
+ *  pointerdown in the corner square and saves on the matching pointerup with no
+ *  check that anything MOVED — which is harmless for a dimension the drag can
+ *  change, and wrong for one it cannot: on an x-only element the recorded height
+ *  is whatever the parent flex row had stretched the element to at that instant,
+ *  and replaying it later pins the element to a stale height its container has
+ *  since outgrown. `"x"` neither saves nor restores a height, so a stale entry
+ *  written before the caller opted in is ignored too.
+ *
+ *  Default `"both"` — every existing call site keeps byte-identical behaviour,
+ *  which is why this is a per-key option rather than a fix inside the drag
+ *  bookkeeping. */
+export type ResizableAxis = "both" | "x";
+
+export interface ResizableOptions {
+  axis?: ResizableAxis;
+}
+
+export function useResizable(storageKey: string, options?: ResizableOptions) {
+  const axis: ResizableAxis = options?.axis ?? "both";
   const ref = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
@@ -48,7 +69,7 @@ export function useResizable(storageKey: string) {
           if (typeof parsed.width === "number" && parsed.width > 0) {
             el.style.width = `${parsed.width}px`;
           }
-          if (typeof parsed.height === "number" && parsed.height > 0) {
+          if (axis === "both" && typeof parsed.height === "number" && parsed.height > 0) {
             el.style.height = `${parsed.height}px`;
           }
         }
@@ -78,7 +99,7 @@ export function useResizable(storageKey: string) {
       const rect = el.getBoundingClientRect();
       const size: SavedSize = {
         width: Math.round(rect.width),
-        height: Math.round(rect.height),
+        height: axis === "both" ? Math.round(rect.height) : null,
       };
       try {
         window.localStorage.setItem(storageKey, JSON.stringify(size));
@@ -93,7 +114,7 @@ export function useResizable(storageKey: string) {
       el.removeEventListener("pointerdown", onPointerDown);
       window.removeEventListener("pointerup", onPointerUp);
     };
-  }, [storageKey]);
+  }, [storageKey, axis]);
 
   const reset = useCallback(() => {
     const el = ref.current;

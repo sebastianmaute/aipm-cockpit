@@ -59,12 +59,18 @@ export function ChatThreadSidebar({
   onRename,
   onDelete,
 }: ChatThreadSidebarProps) {
-  const { ref, reset } = useResizable(CHAT_SIDEBAR_SIZE_KEY);
+  // ★ `axis: "x"` — this column is `resize-x`, so height is not a dimension the
+  // drag can change. Without it the hook records whatever height the flex row
+  // had stretched the column to at pointerup (a stray click on the grabber is
+  // enough) and replays it forever, so once the chat pane grows taller the
+  // sidebar's `border-r` stops short of the pane bottom. The option neither
+  // saves nor restores a height, so entries written before it existed are
+  // ignored too. First and only x-only consumer of the hook.
+  const { ref, reset } = useResizable(CHAT_SIDEBAR_SIZE_KEY, { axis: "x" });
   return (
-    // `max-h-full` caps a persisted height: useResizable always saves BOTH
-    // dimensions, and with `resize-x` the height it records is whatever the
-    // flex row happened to stretch this column to, which is stale the moment
-    // the chat pane is resized taller.
+    // `max-h-full` is now belt-and-braces rather than the primary guard (the
+    // hook no longer restores a height for this key) — it still keeps the
+    // column from outgrowing the chat pane on any future layout change.
     //
     // `pb-4` is for the drag handle, not for spacing: the browser paints the
     // resize grabber in the bottom-right of the PADDING box, which without it
@@ -89,7 +95,12 @@ export function ChatThreadSidebar({
         onNew={onNew}
         onRename={onRename}
         onDelete={onDelete}
-        className="min-h-0 flex-1 overflow-y-auto"
+        // ★ TWO classes, and the split is the point: `overflow-y-auto` belongs
+        // on the wrapper around the <ul> ONLY. On the list component's ROOT it
+        // would put the New-chat button inside the scroller, so scrolling down
+        // to an older thread pushes the column's primary action off the top.
+        className="min-h-0 flex-1"
+        listClassName="min-h-0 flex-1 overflow-y-auto"
       />
       {/* Its OWN label key, never ResetSizeButton's `tableResetSizeHint`
           default: the chat pane already renders a reset-size button, and two

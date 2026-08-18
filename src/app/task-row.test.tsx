@@ -821,13 +821,17 @@ describe("TaskActions", () => {
     // `!task.completedDate` guard kept both verbs on offer.
     const ctx = makeContext({ jiraEnabled: true, jiraProjectKey: "MCP" });
     const task = makeTask({ id: 99, status: "Cancelled" });
-    const { getByText, getByRole, queryByText } = renderActions(ctx, task);
+    const { getByText, getByRole, queryByText, queryByRole } = renderActions(ctx, task);
 
     fireEvent.click(getByRole("button", { name: "More actions – Sample task" }));
     // Guard: the menu really is open, so the two absences below mean something.
     expect(getByText("Edit")).toBeInTheDocument();
     expect(getByText("Delete")).toBeInTheDocument();
-    expect(queryByText("Send inquiry")).toBeNull();
+    // ★ By ROLE+NAME, never by TEXT. Send inquiry is icon-only, so it has no
+    //   visible text at all — a `queryByText("Send inquiry")` assertion here
+    //   passes for an OPEN task too, i.e. it cannot distinguish the guard
+    //   working from the guard deleted. (It did exactly that until 0.245.0.)
+    expect(queryByRole("button", { name: /^Send inquiry/ })).toBeNull();
     expect(queryByText("Push to Jira")).toBeNull();
   });
 
@@ -885,6 +889,26 @@ describe("TaskActions Send inquiry", () => {
     expect(ctx.onSendInquiry).toHaveBeenCalledWith(
       expect.objectContaining({ id: 7 }),
     );
+  });
+
+  // ★ ICON-ONLY, and that is a geometry constraint, not a style choice: the
+  //   actions column is `table-layout: fixed` with a declared width and a
+  //   non-resizable header, so a text label there had a zero-width content box
+  //   and rendered unusable. WCAG 2.5.3 (label in name) does NOT apply — it
+  //   constrains a control that HAS a visible label, and this one has none —
+  //   so the row-unique `aria-label` is conformant as written.
+  test("is icon-only: no visible text, a hover title, and the glyph stays out of the name", () => {
+    const ctx = makeContext();
+    const task = makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" });
+    const { getByRole } = renderActions(ctx, [task]);
+
+    const btn = getByRole("button", { name: "Send inquiry – Draft SOW" });
+    // No visible text: the accessible name above therefore comes from the
+    // aria-label alone, and the SVG glyph contributes nothing to it.
+    expect(btn.textContent).toBe("");
+    // Mouse users still get the verb (the accessible name carries the row
+    // qualifier; the tooltip is the bare verb, matching the ⋮ button).
+    expect(btn).toHaveAttribute("title", "Send inquiry");
   });
 
   test("hides the button for a closed task", () => {

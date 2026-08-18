@@ -283,6 +283,7 @@ const enUS = {
   fieldViewLabel: "Field view",
   colEstimate: "Est.",
   colSpent: "Spent",
+  colActions: "Actions",
   workspaceResizeHint:
     "Drag the bottom-right corner to resize this workspace pane.",
   workspaceCollapse: "Collapse workspace",

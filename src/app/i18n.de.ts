@@ -286,6 +286,7 @@ export const de: Record<TranslationKey, string> = {
   fieldViewLabel: "Feldansicht",
   colEstimate: "Schätzung",
   colSpent: "Aufgewandt",
+  colActions: "Aktionen",
   workspaceResizeHint:
     "Ziehe die untere rechte Ecke, um diesen Arbeitsbereich zu vergrößern.",
   workspaceCollapse: "Arbeitsbereich einklappen",

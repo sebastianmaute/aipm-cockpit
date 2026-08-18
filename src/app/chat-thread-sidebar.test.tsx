@@ -80,6 +80,20 @@ describe("ChatThreadSidebar", () => {
     expect(el.style.height).toBe("");
   });
 
+  it("ignores a saved HEIGHT — the column is x-only", () => {
+    // ★ The width above uses `height: null`, which the hook would skip anyway,
+    //   so it cannot tell `axis: "x"` from the default. This one writes a real
+    //   height — the shape a pre-`axis` build persisted on any pointerup in the
+    //   corner grabber, dragged or not — and pins that it is not replayed. A
+    //   frozen height leaves the column's `border-r` short of the chat pane's
+    //   bottom once the pane is grown.
+    window.localStorage.setItem(SIZE_KEY, JSON.stringify({ width: 320, height: 333 }));
+    const { container } = renderSidebar();
+    const el = container.firstChild as HTMLElement;
+    expect(el.style.width).toBe("320px");
+    expect(el.style.height).toBe("");
+  });
+
   it("is horizontally resizable and bounded", () => {
     const { container } = renderSidebar();
     const el = container.firstChild as HTMLElement;
@@ -93,12 +107,22 @@ describe("ChatThreadSidebar", () => {
     expect(el.className).toMatch(/max-w-/);
   });
 
-  it("gives the thread list its own scroll container", () => {
+  it("scrolls the thread list WITHOUT the New-chat button inside the scroller", () => {
     // Pairs with the `overflow-hidden` above: the wrapper clips, so the list
     // must scroll itself or a long thread list becomes unreachable.
+    //
+    // ★ The second assertion is the whole test. The scroll container must start
+    //   BELOW the primary action — with the scroller wrapped around both, paging
+    //   down to an older thread pushes "New chat" off the top of the column. The
+    //   scroller is located by walking UP from the <ul> rather than by naming a
+    //   parent depth, so this cannot be satisfied by the broken arrangement:
+    //   `closest` finds whichever ancestor actually scrolls, and if that is the
+    //   list component's root the button IS inside it.
     renderSidebar();
     const list = screen.getByRole("list");
-    expect(list.parentElement?.className).toMatch(/overflow-y-auto/);
+    const scroller = list.closest(".overflow-y-auto");
+    expect(scroller).not.toBeNull();
+    expect(scroller!.contains(screen.getByRole("button", { name: "New chat" }))).toBe(false);
   });
 
   it("resets the saved width from a button with its own accessible name", () => {
