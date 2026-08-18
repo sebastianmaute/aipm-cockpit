@@ -149,6 +149,10 @@ export interface WorkspaceSectionProps {
   onCaptureUndo?: import("./undo/use-undo-stack").UndoStackApi["capture"];
   /** Per-field edit undo capture (milestone panel diffs prev/next itself). */
   onCaptureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
+  /** Bulk field-patch undo capture (milestone panel builds its own edits via
+   *  buildBulkFieldEdits, unlike the other bulk-edit registers, which route
+   *  it through a feature hook). */
+  onCaptureFieldRows?: import("./undo/use-undo-stack").UndoStackApi["captureFieldRows"];
   changes: readonly ChangeItem[];
   /** `refKey(kind, id)` → the documents referencing that entity, for the
    *  linked-documents row badge. Built ONCE in task-manager and threaded down:

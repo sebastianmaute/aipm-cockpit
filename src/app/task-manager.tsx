@@ -2173,6 +2173,7 @@ function TaskManagerInner() {
     onCaptureRaidBulk: captureRaidBulkUndo,
     onCaptureUndo: undoApi.capture,
     onCaptureFieldEdit: undoApi.captureFieldEdit,
+    onCaptureFieldRows: undoApi.captureFieldRows,
     m365Configured: m365Enabled,
     raidCalendar: {
       enabled: calendarRaidEnabled,

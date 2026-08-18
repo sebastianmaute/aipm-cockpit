@@ -111,6 +111,7 @@ export function WorkspaceSection({
   onCaptureRaidBulk,
   onCaptureUndo,
   onCaptureFieldEdit,
+  onCaptureFieldRows,
   changes,
   documentsByEntity,
   handleSaveChange,
@@ -774,6 +775,7 @@ export function WorkspaceSection({
               logActivityChanges={logActivityChanges}
               capture={onCaptureUndo}
               captureFieldEdit={onCaptureFieldEdit}
+              captureFieldRows={onCaptureFieldRows}
               openCreateNonce={milestoneCreateNonce}
               onCreateConsumed={() => setMilestoneCreateNonce(0)}
               onPushToOutlook={onPushMilestonesToOutlook}

@@ -55,7 +55,7 @@ import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { diffFields, type ActivityKind, type FieldChange } from "./activity-log";
 import type { Milestone } from "./types";
 import { captureFieldChanges } from "./undo/capture-field-changes";
-import { MILESTONE_UNDO_GROUPS } from "./undo/field-groups";
+import { MILESTONE_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 
 const MILESTONE_COL_WIDTHS = { name: 220, date: 130, status: 140, achieved: 130 } as const;
 type MilestoneCol = keyof typeof MILESTONE_COL_WIDTHS;
@@ -92,10 +92,15 @@ type MilestonesPanelProps = {
     changes: readonly FieldChange[],
     ...args: (string | number)[]
   ) => void;
-  /** Capture a pre-op snapshot for undo (delete / bulk-edit). */
+  /** Capture a pre-op snapshot for undo (delete). */
   capture?: import("./undo/use-undo-stack").UndoStackApi["capture"];
   /** Capture a per-field undo entry for a save-triggered edit. */
   captureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
+  /** Capture a bulk field-patch edit for undo (bulk apply) — immune by
+   *  construction to a concurrent write on a written-through field
+   *  (`outlookEventId`, stamped by the calendar sync) landing on a selected
+   *  row between the apply and the undo (open-followups #50). */
+  captureFieldRows?: import("./undo/use-undo-stack").UndoStackApi["captureFieldRows"];
   openCreateNonce?: number;
   /** Called after an `openCreateNonce` create-request has been honoured so the
    *  parent can reset the nonce. Without it a stale nonce re-opens the create
@@ -131,6 +136,7 @@ function MilestonesPanelBody({
   lang,
   capture,
   captureFieldEdit,
+  captureFieldRows,
   today,
   holidaySet,
   logActivity,
@@ -212,18 +218,23 @@ function MilestonesPanelBody({
   );
 
   const applyBulk = (changes: Record<string, string>) => {
-    const beforeRows = milestones.filter((m) => sel.selectedIds.has(m.id));
-    if (beforeRows.length) capture?.({ setter: setMilestones, kind: "bulk.edit", edited: beforeRows, fromArray: milestones, entityKey: "milestone" });
-    for (const id of sel.selectedIds) {
-      const item = milestoneById.get(id);
-      if (!item) continue;
+    const patch = (item: Milestone): Milestone => {
       const patched: Milestone = { ...item };
       // `date` is required — only overwrite when the user supplied a value.
       if (changes.date !== undefined && changes.date) patched.date = changes.date;
-      if (changes.achievedDate !== undefined)
-        patched.achievedDate = changes.achievedDate || undefined;
-      save(patched, undefined, { suppressFieldUndo: true });
-    }
+      if (changes.achievedDate !== undefined) patched.achievedDate = changes.achievedDate || undefined;
+      return patched;
+    };
+    const rows = Array.from(sel.selectedIds)
+      .map((id) => milestoneById.get(id))
+      .filter((item): item is Milestone => item !== undefined)
+      .map((item) => ({ before: item, after: patch(item) }));
+
+    // Capture BEFORE the saves — a capture built from the post-save rows would
+    // record the already-patched value as `before`, making the undo a no-op.
+    const edits = buildBulkFieldEdits(rows);
+    if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
+    for (const { after } of rows) save(after, undefined, { suppressFieldUndo: true });
     setBulkOpen(false);
     sel.clear();
   };

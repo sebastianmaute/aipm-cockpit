@@ -9,6 +9,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { ToastProvider } from "./toast-context";
 import { MilestonesPanel } from "./milestones-panel";
+import { useUndoStack } from "./undo/use-undo-stack";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
 
@@ -525,5 +526,105 @@ describe("MilestonesPanel linked-documents badge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha gate" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
     expect(screen.getByTestId("pending-doc-filter").textContent).toBe("milestone:1");
+  });
+});
+
+// --- bulk-edit undo (open-followups §50, milestones half) -------------------
+
+describe("Milestones bulk edit undo", () => {
+  // Reads live workspace state directly rather than the rendered table — the
+  // table never shows `outlookEventId`, and reading it off DOM text would
+  // also depend on row order, which the date change can perturb.
+  function MilestoneProbe({ id }: { id: number }) {
+    const { milestones } = useWorkspace();
+    const ms = milestones.find((x) => x.id === id);
+    return (
+      <>
+        <span data-testid={`date-${id}`}>{ms?.date ?? ""}</span>
+        <span data-testid={`event-${id}`}>{ms?.outlookEventId ?? ""}</span>
+      </>
+    );
+  }
+
+  // Mounts a REAL useUndoStack beside the panel (rather than a mocked
+  // capture/captureFieldRows) so undo actually reverts through the live
+  // setter — needed to prove a concurrent write survives it, not merely that
+  // the right args were passed. Mirrors use-change-log.test.tsx's
+  // renderChangeLogWithRealUndo.
+  function RealUndoHarness({ milestones }: { milestones: readonly Milestone[] }) {
+    const logActivity = vi.fn();
+    const showToast = vi.fn();
+    const showToastAction = vi.fn();
+    const undoApi = useUndoStack({ lang: "en-US", logActivity, showToast, showToastAction });
+    const { setMilestones } = useWorkspace();
+    return (
+      <>
+        <Seed milestones={milestones} />
+        <MilestonesPanel
+          {...baseProps}
+          capture={undoApi.capture}
+          captureFieldRows={undoApi.captureFieldRows}
+        />
+        <MilestoneProbe id={1} />
+        <MilestoneProbe id={2} />
+        {/* Stands in for the background calendar push stamping the id Graph
+            handed back — fired AFTER the bulk apply, through the same
+            `setMilestones` setter a real push would use. Seeding it before
+            the apply would pass against the unfixed whole-row capture too
+            (the §48 trap use-change-log.test.tsx also calls out). */}
+        <button
+          type="button"
+          onClick={() =>
+            setMilestones((prev) =>
+              prev.map((ms) => (ms.id === 1 ? { ...ms, outlookEventId: "AAMkAG-evt-9" } : ms)),
+            )
+          }
+        >
+          TEST_STAMP_EVENT_ID
+        </button>
+        <button type="button" onClick={() => undoApi.undo()}>
+          TEST_UNDO
+        </button>
+      </>
+    );
+  }
+
+  // ★★★ open-followups §50, milestones half. Milestones carry no note log, but
+  //   they DO carry `outlookEventId`, stamped by the milestone calendar sync
+  //   (use-milestone-calendar-pull.ts). A whole-row bulk-edit undo would make
+  //   the row forget an event that still exists in Outlook, and the next push
+  //   would then create a SECOND meeting for the same milestone.
+  it("undoing a milestone bulk edit keeps an outlookEventId stamped since the apply", () => {
+    render(
+      <RealUndoHarness
+        milestones={[m("Alpha", "2026-01-01", { id: 1 }), m("Beta", "2026-01-01", { id: 2 })]}
+      />,
+      { wrapper },
+    );
+
+    // select both rows
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Beta") }));
+    // open the bulk panel and apply a target-date change to both
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "milestoneDate") }));
+    const dateInput = document.getElementById("bulk-date") as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-02-01" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "2") }));
+
+    // sanity: the bulk apply actually landed before we stamp/undo it
+    expect(screen.getByTestId("date-1").textContent).toBe("2026-02-01");
+    expect(screen.getByTestId("date-2").textContent).toBe("2026-02-01");
+
+    // THEN — after the apply — the background calendar push stamps an event id.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_STAMP_EVENT_ID" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "TEST_UNDO" }));
+
+    // the bulk date edit WAS reverted...
+    expect(screen.getByTestId("date-1").textContent).toBe("2026-01-01");
+    expect(screen.getByTestId("date-2").textContent).toBe("2026-01-01");
+    // ...but the event id stamped since the apply survived the undo.
+    expect(screen.getByTestId("event-1").textContent).toBe("AAMkAG-evt-9");
   });
 });
