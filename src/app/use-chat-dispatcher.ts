@@ -22,6 +22,7 @@ import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-pat
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
+import { useChatSearchBindings } from "./use-chat-search-bindings";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
@@ -119,6 +120,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
   });
   const viewDigestRef = useRef(viewDigest);
+  const chatBindings = useChatSearchBindings(args.settingsProjectId, args.settings, args.clock);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -740,16 +742,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           enabledModules: settingsRef.current.features as FeatureModuleId[],
           currentView: viewRef.current,
           insights: insightsRef.current ?? [],
-          // Assembled by useViewDigest — it needs pane state this hook does not
-          // hold (health filter, debounced search, effective view mode) to name
-          // the rows the pane is ACTUALLY rendering. See use-view-digest.ts.
-          // ★ Unlike the entity refs above — which tool handlers update
-          // SYNCHRONOUSLY so back-to-back calls see fresh data — this one is
-          // written by an effect, so it can lag one render. Harmless for the
-          // system prompt (built once per send, well after effects flush); a
-          // `get_app_state` called mid-turn right after a create can return a
-          // digest that predates that write. Not worth a synchronous mirror:
-          // the digest describes the SCREEN, which has not repainted yet either.
+          // Assembled by useViewDigest — needs pane state this hook lacks (health
+          // filter, debounced search, view mode) to name the rows the pane ACTUALLY
+          // renders. See use-view-digest.ts. ★ Unlike the entity refs above, which
+          // tool handlers update SYNCHRONOUSLY, this is written by an effect and can
+          // lag a render. Harmless for the system prompt (built once per send, after
+          // effects flush); a mid-turn `get_app_state` right after a create can
+          // return a digest predating that write. Not worth a synchronous mirror: the
+          // digest describes the SCREEN, which has not repainted either.
           viewDigest: viewDigestRef.current,
           timezone: clockRef.current.tz,
           // ★ The toggle gate lives INSIDE summarizeForRecap (which also owns
@@ -758,6 +758,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           activitySummary: summarizeForRecap(
             settingsRef.current.ai, activityLogRef.current, clockRef.current,
           ),
+          chatPointer: chatBindings.chatPointer(),
         };
       },
 
@@ -766,6 +767,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // ★ LIVE from the ref, never captured — a value snapshotted at construction would
       //   keep serving for the whole session, the exact mid-conversation case §162 is about.
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
+      ...chatBindings.tools,
 
       getTimezone: () => clockRef.current.tz,
 
@@ -788,9 +790,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // when isReadOnly/mutateDocuments change, and the spread above captures it
     // by closure; omitting it here would freeze the FIRST render's document
     // tools into every later dispatcher even after a popout toggled read-only.
-    // Note: when Task 6 lands, audit whether any captured value still needs
-    // ref-routing; the eslint-disable stays as long as the empty-deps approach
-    // is intentional for everything else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [args.isReadOnly, documentTools],
   );

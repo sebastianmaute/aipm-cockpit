@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener } from "./settings-types";
+import { sanitizeAiConfig, defaultAiConfig, sanitizeBranding, BRANDING_LOGO_MAX_LEN, sanitizeSelfResourceId, clampInsightRecInterval, DEFAULT_INSIGHT_REC_INTERVAL_MIN, aiAssistantOpener, chatSearchEnabled } from "./settings-types";
 
 describe("sanitizeSelfResourceId", () => {
   it("keeps a positive integer id", () => {
@@ -236,5 +236,32 @@ describe("AiConfig recall toggles", () => {
     expect(sanitizeAiConfig(base).actionSuggestions).toBeUndefined();
     // A stale non-boolean reads as ON, same rule as the two toggles above.
     expect(sanitizeAiConfig({ ...base, actionSuggestions: "no" }).actionSuggestions).toBeUndefined();
+  });
+});
+
+describe("chatSearch", () => {
+  const base = { apiKey: "", model: "claude-sonnet-4-6", consentAccepted: false, groundInGuides: false };
+
+  it("is enabled by absence and by true", () => {
+    expect(chatSearchEnabled(undefined)).toBe(true);
+    expect(chatSearchEnabled(true)).toBe(true);
+  });
+
+  it("is disabled only by an explicit false", () => {
+    expect(chatSearchEnabled(false)).toBe(false);
+  });
+
+  it("ROUND-TRIPS an explicit false through sanitizeAiConfig", () => {
+    // ★★★ THE ONLY LOAD-BEARING ASSERTION. A dropped key and a default read
+    //   IDENTICALLY — both are `undefined`, both mean ON — so "absent implies
+    //   enabled" is green against a sanitizer that omits the field entirely.
+    //   That is exactly how `actionSuggestions` went unpinned for its whole life
+    //   while every reload silently reverted the user's `false` (§165).
+    const out = sanitizeAiConfig({ ...base, chatSearch: false });
+    expect(out.chatSearch).toBe(false);
+  });
+
+  it("normalises a non-false stored value to undefined", () => {
+    expect(sanitizeAiConfig({ ...base, chatSearch: "yes" }).chatSearch).toBeUndefined();
   });
 });

@@ -13,8 +13,8 @@ const BERLIN = asTimeZoneForTests("Europe/Berlin");
 //    `new Set(["search_history"])` would keep the suppression test green after
 //    the tool was renamed or detached from the toggle — i.e. it would assert
 //    about the fixture rather than about the app.
-const ALL = toolNamesFor(undefined); // history search ON (the default)
-const NO_HISTORY = toolNamesFor(false); // the kill switch thrown
+const ALL = toolNamesFor({}); // history search ON (the default)
+const NO_HISTORY = toolNamesFor({ historySearch: false }); // the kill switch thrown
 
 const s = (
   over: Partial<ActivitySummary["byActor"]>,

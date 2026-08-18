@@ -24,6 +24,9 @@ import {
   runDocumentTool,
   type DocumentToolDispatcher,
 } from "./chat-tools-documents";
+import { runChatSearch } from "./chat-search-tool";
+import type { ChatPointer } from "./chat-search";
+import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
 type TaskInput = {
@@ -357,6 +360,10 @@ export type ToolDispatcher = {
      *  pattern" by hanging the matching entries off it.
      *  ★ Absent when the recap toggle is off or the window is empty. */
     activitySummary?: ActivitySummary;
+    /** Bounded pointer at past conversations — a count and up to three titles.
+     *  ★★★ NOT the threads; see `getChatThreads()`. Safe here for the same
+     *  reason `activitySummary` is: bounded and small. */
+    chatPointer?: ChatPointer;
   };
   /** The project's activity log. ★★★ Deliberately a METHOD rather than a
    *  `getSnapshot()` field: `get_app_state` returns the snapshot VERBATIM and
@@ -382,6 +389,16 @@ export type ToolDispatcher = {
    *  a labelled switch does, which is why the refusal is a plain error and not
    *  a redaction. */
   isHistorySearchEnabled(): boolean;
+  /** The project's stored chat threads, as published by the chat panel.
+   *  ★ A METHOD, not a `getSnapshot()` field — same reason as
+   *  `getActivityLog()`: `get_app_state` returns the snapshot VERBATIM, and
+   *  50 threads of full conversation text is not something every call should
+   *  carry. */
+  getChatThreads(): PublishedThreads;
+  /** Is `search_chats` live? (`settings.ai.chatSearch !== false`.) Same
+   *  enforcement-not-advertisement reasoning as `isHistorySearchEnabled`
+   *  above — `runTool` is reached by NAME. */
+  isChatSearchEnabled(): boolean;
   /** The project's effective IANA zone — the SAME value behind `getSnapshot().today`,
    *  so a day bound and the `Today is …` date the model is given cannot disagree.
    *  ★ NOT the ephemeral display-tz override the top bar can set: that is a
@@ -644,7 +661,7 @@ export async function runTool(
       //   would be the inconsistency. Localize the whole layer or none of it.
       if (!d.isHistorySearchEnabled()) {
         throw new Error(
-          "search_history is switched off for this project (Settings → AI → activity history search).",
+          "search_history is switched off for this project (Settings → AI).",
         );
       }
       return searchHistory(d.getActivityLog(), {
@@ -659,6 +676,14 @@ export async function runTool(
           : undefined,
         limit: typeof input.limit === "number" ? input.limit : undefined,
       }, d.getTimezone());
+
+    case "search_chats":
+      return runChatSearch(
+        input,
+        d.getChatThreads(),
+        d.getTimezone(),
+        d.isChatSearchEnabled(),
+      );
 
     case "create_raid_item":
       return d.createRaid(input as RaidInput);

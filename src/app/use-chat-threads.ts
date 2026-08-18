@@ -29,6 +29,7 @@ import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
+import { publishChatThreads, clearChatThreadsFor } from "./chat-threads-registry";
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -66,6 +67,19 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // Read by ChatThreadSidebar to show a fetch/save/rename/delete failure
   // banner.
   const [threadsError, setThreadsError] = useState(false);
+  // LOAD-scoped failure, narrower than `threadsError` on purpose: raised only
+  // by the two fetch paths (the load effect and retryLoad's reload), cleared by
+  // either succeeding. `threadsError` also covers a failed SAVE or DELETE,
+  // where the list we hold is still a perfectly good READ — see the publish
+  // effect for why conflating the two advertised threads and then denied them
+  // in the same turn.
+  const [loadFailed, setLoadFailed] = useState(false);
+  // Which project the CURRENT `threads` value was loaded for — null until the
+  // first load settles. Written only where `threads` is settled from a load
+  // (the load effect's four settle branches and retryLoad's two), so it can
+  // never claim ownership of rows some other project put there. See the publish
+  // effect below for why a plain "have we loaded yet" boolean is not enough.
+  const [loadedProjectId, setLoadedProjectId] = useState<string | null>(null);
   // Holds a thunk that re-issues whatever Turso WRITE (save or delete) last
   // failed, keyed by the thread id the write targets — see runPersist.
   // retryLoad() prefers this over a fresh fetch: clicking "Retry" after a
@@ -96,6 +110,82 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+
+  // Publish to the module registry the AI dispatcher reads. See
+  // chat-threads-registry.ts for why this is not a prop.
+  //
+  // ★★★ `tursoMode` GATES THE PAYLOAD, not just the flag. This hook never
+  // unmounts on navigation — `panel-chat` is one of the two tabpanels
+  // workspace-section mounts unconditionally — so a Turso→File switch has no
+  // remount to clear stale threads, and publishing them beside
+  // `available: false` would leave real conversation text readable by a path
+  // that has just been told it cannot reach any. Same shape as the
+  // `threadIdRef` regression documented at ensureThreadForSend below.
+  //
+  // ★★★ AND `projectId` GATES IT A SECOND TIME — the store's single slot stops
+  // a stale KEY being read back, and nothing there can stop a stale PAYLOAD
+  // being written under a FRESH key. `threads` is not reset synchronously when
+  // `projectId` changes (the reset lives in the async settle of the load effect
+  // below), so in the very render where the id flips p1→p2 this effect fired
+  // with p2's id and p1's still-populated rows, and `readChatThreads("p2")`
+  // handed the dispatcher another project's conversation text — searchable, and
+  // marked available. Publishing an EMPTY list until the load for the LIVE
+  // project has settled is the fix. ★★ A "have we loaded at all" boolean
+  // would NOT do — it is true from p1's load onward, which is exactly the
+  // leaking state.
+  //
+  // ★★★ `available` IS A THREE-WAY SPLIT, NOT A RESTATEMENT OF `tursoMode`.
+  // chat-search.ts turns it into `coverage`, and chat-tool-defs.ts tells the
+  // model that `turso` means past conversations WERE searched — so under that
+  // flag an empty result reads as "this was never discussed". The three states
+  // do not make the same claim:
+  //   in flight       → available. We CAN look; there is simply nothing to
+  //                     show YET, and the empty list above keeps this render's
+  //                     answer honest on its own.
+  //   load FAILED     → NOT available. The load's .catch() settles
+  //                     `loadedProjectId` too, so `threadsMatchProject` is true
+  //                     and a mode-only flag makes a failed fetch
+  //                     indistinguishable from a project that really has no
+  //                     threads — the model then asserts a topic was never
+  //                     raised while the user is looking at the failure banner.
+  //                     That is precisely the "an empty result is NOT evidence"
+  //                     reading chat-search-tool.ts and chat-tool-defs.ts exist
+  //                     to prevent, defeated one layer upstream of both.
+  //   settled, empty  → available. "We looked and there is nothing" is true.
+  // ★★★ IT READS `loadFailed`, NOT `threadsError`, AND THE DIFFERENCE IS AN
+  // ADVERTISE-THEN-DENY CONTRADICTION. `threadsError` is ALSO raised by
+  // runPersist when a SAVE or DELETE fails, and on a failed WRITE the list is
+  // still populated and perfectly readable — while `use-chat-search-bindings.ts`
+  // builds the ambient chat pointer from `published.threads` and never consults
+  // `available` (`grep -n available src/app/use-chat-search-bindings.ts` exits
+  // 1). So the system prompt said "There are N earlier conversations in this
+  // project … Use search_chats to read them", the model obeyed, and
+  // `search_chats` answered `coverage: "unavailable"` — over threads sitting in
+  // memory. Erring toward "I could not look" is the safe direction only for a
+  // failure that actually stopped us looking. `threadsError` is unchanged and
+  // still drives the sidebar banner and its Retry affordance.
+  const threadsMatchProject = loadedProjectId === projectId;
+  useEffect(() => {
+    publishChatThreads(projectId, {
+      threads: tursoMode && threadsMatchProject ? threads : [],
+      activeThreadId: tursoMode && threadsMatchProject ? activeThreadId : null,
+      available: tursoMode && !loadFailed,
+    });
+    // ★★ Clearing on unmount is not optional: withdrawing AI consent unmounts
+    // the chat panel (it renders a consent screen instead) and nothing else in
+    // the app ever clears the slot, so the last payload stayed readable with
+    // `available: true`. Scoped to the id THIS run published, so an ordinary
+    // re-publish (cleanup runs, then the body re-publishes, in one commit) and
+    // a project switch both end with the live value in the slot.
+    return () => clearChatThreadsFor(projectId);
+  }, [
+    projectId,
+    threads,
+    activeThreadId,
+    tursoMode,
+    threadsMatchProject,
+    loadFailed,
+  ]);
   // Latest committed activeThreadId, read by the in-flight send to detect a
   // mid-send THREAD switch — same shape/purpose as ChatPanel's own
   // projectIdRef, which only ever covered a project switch. Without this,
@@ -184,6 +274,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .then((loaded) => {
         if (cancelled) return;
         setThreadsError(false);
+        setLoadFailed(false);
         if (threadIdRef.current !== startedOn) {
           // MERGE, not bail. `loaded` cannot contain a thread minted after the
           // fetch was issued, so assigning it verbatim would drop that row from
@@ -195,13 +286,26 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
           // one. So keep the locally-held rows (newest — they were created just
           // now) ahead of the fetched ones, and leave the active thread and its
           // history/display exactly as the adopting caller set them.
+          //
+          // ★★★ SCOPED TO THIS PROJECT. `prev` is whatever the previous project
+          // left behind — nothing resets it on a switch — so an unfiltered
+          // merge keeps ANOTHER project's rows in the sidebar and, since this
+          // branch does mark the list loaded, republishes them under this
+          // project's id. Every row carries the `projectId` it was minted or
+          // fetched under (`loadThreads` is per-project; ensureThreadForSend and
+          // the busy-persist effect both stamp it), so the ownership test is
+          // exact rather than heuristic.
           setThreads((prev) => [
-            ...prev.filter((th) => !loaded.some((l) => l.id === th.id)),
+            ...prev.filter(
+              (th) => th.projectId === projectId && !loaded.some((l) => l.id === th.id),
+            ),
             ...loaded,
           ]);
+          setLoadedProjectId(projectId);
           return;
         }
         setThreads(loaded);
+        setLoadedProjectId(projectId);
         const next = loaded[0] ?? null;
         setActiveThreadId(next?.id ?? null);
         setHistory(next?.history ?? []);
@@ -210,13 +314,22 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         if (cancelled) return;
         setThreadsError(true);
+        setLoadFailed(true);
         // Same mid-flight adoption guard as the success branch, and the reset
         // here is the MORE destructive of the two: `setThreads([])` would drop
         // the just-minted row from the list outright while its save is already
         // on its way to Turso. A failed FETCH says nothing about a thread this
         // client just created, so leave it — and the send it belongs to — alone.
-        if (threadIdRef.current !== startedOn) return;
+        if (threadIdRef.current !== startedOn) {
+          // Same project scoping as the success branch's merge, and for the
+          // same reason: "leave the minted row alone" must not also mean
+          // "leave the PREVIOUS project's rows alone".
+          setThreads((prev) => prev.filter((th) => th.projectId === projectId));
+          setLoadedProjectId(projectId);
+          return;
+        }
         setThreads([]);
+        setLoadedProjectId(projectId);
         setActiveThreadId(null);
         setHistory([]);
         setDisplay([]);
@@ -254,7 +367,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         setThreadsError(false);
+        setLoadFailed(false);
         setThreads(loaded);
+        setLoadedProjectId(projectId);
         const next = loaded[0] ?? null;
         setActiveThreadId(next?.id ?? null);
         setHistory(next?.history ?? []);
@@ -262,7 +377,9 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       })
       .catch(() => {
         setThreadsError(true);
+        setLoadFailed(true);
         setThreads([]);
+        setLoadedProjectId(projectId);
         setActiveThreadId(null);
         setHistory([]);
         setDisplay([]);

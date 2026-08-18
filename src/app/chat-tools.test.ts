@@ -173,6 +173,16 @@ function makeDispatcher(over: Partial<ToolDispatcher> = {}): ToolDispatcher {
     // ★ Defaults ENABLED so every pre-existing search_history test keeps
     //   exercising the engine; the §162 refusal tests override it to false.
     isHistorySearchEnabled: vi.fn(() => true),
+    // ★ Same default-enabled reasoning for search_chats.
+    isChatSearchEnabled: vi.fn(() => true),
+    // Same "throw a named error" convention as listAllocations: no test using
+    // this fixture drives search_chats by default, and a silent
+    // `{available: false}` default would answer a forgotten override with
+    // `coverage: "unavailable"` — the one value that is a lie about what was
+    // searched rather than an obvious stub.
+    getChatThreads: vi.fn(() => {
+      throw new Error("getChatThreads not stubbed");
+    }),
     getTimezone: vi.fn(() => "UTC"),
     getDashboardSnapshot: vi.fn(
       () =>
@@ -1294,5 +1304,58 @@ describe("search_history", () => {
       events: unknown[];
     };
     expect(r.events).toHaveLength(0);
+  });
+});
+
+describe("runTool — search_chats", () => {
+  const THREAD = {
+    id: "t1",
+    projectId: "p1",
+    name: "",
+    createdAt: "2026-08-01T00:00:00.000Z",
+    updatedAt: "2026-08-01T00:00:00.000Z",
+    history: [],
+    display: [{ kind: "user" as const, text: "the vendor decision" }],
+  };
+  const LIVE = { threads: [THREAD], activeThreadId: null, available: true };
+
+  // ★★★ THE WIRING, which `chat-search-tool.test.ts` cannot see. That file
+  //   pins the executor in isolation; this one pins that the CASE hands it the
+  //   dispatcher's threads and the dispatcher's ZONE. A case wired to a
+  //   hardcoded "UTC" passes every isolated test and silently moves the
+  //   model's day boundaries away from the `Today is …` date it reasons from.
+  it("routes to the engine with the dispatcher's threads and timezone", async () => {
+    const d = makeDispatcher({
+      getChatThreads: () => LIVE,
+      getTimezone: () => "Europe/Berlin",
+    });
+    const r = (await runTool(d, "search_chats", {})) as {
+      hits: { updatedAt: string }[];
+      coverage: string;
+    };
+    expect(r.hits).toHaveLength(1);
+    expect(r.coverage).toBe("turso");
+    expect(r.hits[0].updatedAt).toContain("+02:00");
+  });
+
+  // ★★★ THE PREDICATE, not merely a refusal. `isHistorySearchEnabled` is left
+  //   ON, so a case that copy-pasted the neighbouring guard would serve here
+  //   and this test is the only thing that would notice — the two switches are
+  //   separate settings, and reading the wrong one advertises off while
+  //   serving on.
+  it("refuses on its OWN kill switch, not the history one", async () => {
+    // ★ No `getChatThreads` not-called assertion, deliberately, and the
+    //   asymmetry with search_history's is real: `runChatSearch` takes
+    //   `enabled` as an argument, so the case evaluates every argument before
+    //   the guard can run. That is affordable here and is not there — the
+    //   registry read is a module-slot pointer, while `getActivityLog()`
+    //   materialises up to 500 audit entries. Asserting it would pin a
+    //   property this wiring does not have.
+    const d = makeDispatcher({
+      getChatThreads: () => LIVE,
+      isChatSearchEnabled: () => false,
+      isHistorySearchEnabled: () => true,
+    });
+    await expect(runTool(d, "search_chats", {})).rejects.toThrow(/switched off/i);
   });
 });

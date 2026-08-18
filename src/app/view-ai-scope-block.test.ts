@@ -7,8 +7,8 @@ import { toolNamesFor } from "./chat-api";
 //    assertion below a statement about the fixture: the suppression test would
 //    stay green after `search_history` was renamed, dropped from TOOL_DEFS, or
 //    detached from the toggle, which is the whole class this file now guards.
-const ALL = toolNamesFor(undefined); // history search ON (the default)
-const NO_HISTORY = toolNamesFor(false); // the kill switch thrown
+const ALL = toolNamesFor({}); // history search ON (the default)
+const NO_HISTORY = toolNamesFor({ historySearch: false }); // the kill switch thrown
 
 describe("buildViewScopeBlock", () => {
   it("names the view and states its purpose", () => {

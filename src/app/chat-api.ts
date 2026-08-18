@@ -11,7 +11,8 @@ import { officeKindOf, extractOfficeMarkdown } from "./office-extract";
 import { buildInsightsPromptBlock } from "./insights/insight-prompt";
 import { buildViewScopeBlock, buildViewStateBlock } from "./view-ai-scope-block";
 import { buildActivityRecapBlock } from "./activity-recap";
-import { historySearchEnabled } from "./settings-types";
+import { buildChatPointerBlock } from "./chat-recap";
+import { chatSearchEnabled, historySearchEnabled, type AiConfig } from "./settings-types";
 
 // Re-export so chat consumers can catch the typed HTTP failure without a second import.
 export { AiHttpError } from "./ai-errors";
@@ -100,14 +101,14 @@ export function buildSystemPrompt(
   snapshot: ReturnType<ToolDispatcher["getSnapshot"]>,
   guides: readonly OperatingGuide[],
   groundInGuides: boolean,
-  /** `settings.ai.historySearch` — the SAME value `callClaude` is given, so the
+  /** `settings.ai`'s tool flags — the SAME value `callClaude` is given, so the
    *  prompt advertises exactly the tools the request carries. See
    *  `toolNamesFor`; only an explicit false drops one. */
-  historySearch: boolean | undefined,
+  toolFlags: ToolFlags,
 ): SystemBlock[] {
   // ★★ Resolved ONCE and shared by both advertising surfaces below. Two
   //    independent reads of the setting is how they drifted apart before.
-  const offeredTools = toolNamesFor(historySearch);
+  const offeredTools = toolNamesFor(toolFlags);
   const groups = (snapshot.knownGroups ?? []).join(", ") || "(none)";
   const labels = (snapshot.knownLabels ?? []).join(", ") || "(none)";
   // STABLE prefix (cached): fixed instructions that never interpolate per-call
@@ -164,6 +165,10 @@ export function buildSystemPrompt(
     snapshot.timezone,
     offeredTools,
   );
+  // Thread state changes every turn, so this block MUST stay in the uncached
+  // suffix — in the cached prefix it would invalidate the prompt cache on every
+  // message, which costs far more than the ~40 tokens it saves.
+  const chatBlock = buildChatPointerBlock(snapshot.chatPointer ?? null, offeredTools);
   const volatileText = [
     `Today is ${snapshot.today}. UI language is ${snapshot.language}. Respond in the user's language. Storage backend: ${snapshot.storageKind}. Current task count: ${snapshot.taskCount}.`,
     `Known groups: ${groups}. Known labels: ${labels}. When the user mentions a category, prefer reusing an existing group or label rather than creating near-duplicates.`,
@@ -172,6 +177,7 @@ export function buildSystemPrompt(
     viewStateBlock,
     insightsBlock,
     activityBlock,
+    chatBlock,
   ]
     .filter(Boolean)
     .join("\n");
@@ -273,49 +279,88 @@ function withCacheBreakpoint(defs: typeof TOOL_DEFS) {
 
 export const CACHED_TOOLS = withCacheBreakpoint(TOOL_DEFS);
 
-const CACHED_TOOLS_NO_HISTORY = withCacheBreakpoint(
-  TOOL_DEFS.filter((d) => d.name !== "search_history"),
-);
+/** The flags that select a tool-list variant.
+ *
+ *  ★★★ ONE OBJECT, NOT TWO ADJACENT BOOLEANS. Both flags are
+ *  `boolean | undefined`, so a positional pair typechecks when transposed —
+ *  the §159 shape, where two adjacent same-typed arguments silently swapped
+ *  and passed 337 tests plus tsc. Reading them by NAME off the config removes
+ *  the hazard rather than guarding it. */
+export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch">;
+
+/** Tool names removed by each bit of the variant key. */
+const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
+  [1, "search_history"],
+  [2, "search_chats"],
+];
+
+/** ★★ ADVERTISEMENT AND ENFORCEMENT READ THE SAME PREDICATE. Never spell an
+ *  inline `=== false` here. `search_history` is gated in TWO places — this list
+ *  (what the model is OFFERED) and `runTool`'s `search_history` case (what the
+ *  executor will SERVE, via `use-chat-dispatcher`'s `isHistorySearchEnabled`) —
+ *  and both call the exported `historySearchEnabled`. Two hand-spelled `=== false`
+ *  copies are one config slip from a switch that advertises OFF and serves ON.
+ *  ★ `search_chats` is gated identically: this list plus `runTool`'s
+ *    `search_chats` case, via `use-chat-dispatcher`'s `isChatSearchEnabled`. */
+function variantKey(flags: ToolFlags): number {
+  return (
+    (historySearchEnabled(flags.historySearch) ? 0 : 1) |
+    (chatSearchEnabled(flags.chatSearch) ? 0 : 2)
+  );
+}
+
+// ★★ A MEMO, not four frozen constants. The rule the old pair encoded was ONE
+//   ARRAY IDENTITY PER SETTINGS COMBINATION — stable for a whole conversation,
+//   because the list ships on every request. Two toggles make four combinations
+//   and a third would make eight, so the invariant outlives its old spelling.
+const TOOL_VARIANTS = new Map<number, ReturnType<typeof withCacheBreakpoint>>([[0, CACHED_TOOLS]]);
+const NAME_VARIANTS = new Map<number, ReadonlySet<string>>();
+
+function variantFor(key: number) {
+  const cached = TOOL_VARIANTS.get(key);
+  if (cached) return cached;
+  const removed = new Set(
+    DISABLED_BY_BIT.filter(([bit]) => (key & bit) !== 0).map(([, name]) => name),
+  );
+  // ★ The breakpoint is RECOMPUTED per variant, never assumed to sit where it
+  //   sits in the full list — removing a tool that happens to precede it does
+  //   not move it TODAY, but a tool appended after it later would make that
+  //   assumption silently wrong, and a lost breakpoint is invisible except as a
+  //   bill.
+  const built = withCacheBreakpoint(TOOL_DEFS.filter((d) => !removed.has(d.name)));
+  TOOL_VARIANTS.set(key, built);
+  return built;
+}
 
 /**
  * The tool list for this user's settings.
  *
- * ★★ TWO FROZEN MODULE-LEVEL VARIANTS, never a filter at the call site. The
- *    list is passed to every request, so rebuilding it per call would destroy
- *    referential stability for no benefit — the setting is constant for the
+ * ★★ ONE ARRAY PER COMBINATION, never a filter at the call site. The list is
+ *    passed to every request, so rebuilding it per call would destroy
+ *    referential stability for no benefit — the settings are constant for the
  *    whole conversation.
  *
- * ★ The breakpoint is RECOMPUTED per variant rather than assumed. Measured
- *   2026-08-16: `search_history` is index 21 of 44 and the last tool is
- *   `delete_document`, so removing it happens not to move the marker today —
- *   but a tool appended after it later would make that assumption silently
- *   wrong, and a lost breakpoint is invisible except as a bill.
- *
- * ★ `=== false`, matching `sanitizeAiConfig`: only an explicit false removes
- *   the tool, so an absent/garbage setting keeps the shipped behaviour. It is
- *   also what makes the two live settings (`undefined` and `true`) share ONE
- *   array identity.
+ * ★ Only an explicit `false` disables, matching `sanitizeAiConfig`, so an
+ *   absent/garbage setting keeps the shipped behaviour. It is also what makes
+ *   the two live settings (`undefined` and `true`) share ONE array identity.
  */
-export function toolsFor(historySearch: boolean | undefined) {
-  return historySearchEnabled(historySearch) ? CACHED_TOOLS : CACHED_TOOLS_NO_HISTORY;
+export function toolsFor(flags: ToolFlags) {
+  return variantFor(variantKey(flags));
 }
 
-// ★★ DERIVED FROM THE ARRAYS `toolsFor` RETURNS, never listed by hand. These
-//    feed the prompt surfaces that ADVERTISE tools (`buildViewScopeBlock`,
-//    `buildActivityRecapBlock`), so "what the model is told it has" and "what
-//    the request carries" come from ONE place and cannot disagree. A hand-kept
-//    second list is the drift this closes.
-// ★ Module-level for the same reason as the arrays: the setting is constant for
-//   a conversation, and `buildSystemPrompt` runs once per send.
-const TOOL_NAMES: ReadonlySet<string> = new Set(CACHED_TOOLS.map((d) => d.name));
-const TOOL_NAMES_NO_HISTORY: ReadonlySet<string> = new Set(
-  CACHED_TOOLS_NO_HISTORY.map((d) => d.name),
-);
-
-/** The names of the tools this request will actually carry. Same input and same
- *  `=== false` reading as `toolsFor` — they are two views of one decision. */
-export function toolNamesFor(historySearch: boolean | undefined): ReadonlySet<string> {
-  return historySearchEnabled(historySearch) ? TOOL_NAMES : TOOL_NAMES_NO_HISTORY;
+/** The names of the tools this request will actually carry.
+ *
+ *  ★★ DERIVED FROM THE ARRAYS `toolsFor` RETURNS, never listed by hand. These
+ *  feed the prompt surfaces that ADVERTISE tools (`buildViewScopeBlock`,
+ *  `buildActivityRecapBlock`), so "what the model is told it has" and "what the
+ *  request carries" come from ONE place and cannot disagree. */
+export function toolNamesFor(flags: ToolFlags): ReadonlySet<string> {
+  const key = variantKey(flags);
+  const cached = NAME_VARIANTS.get(key);
+  if (cached) return cached;
+  const built: ReadonlySet<string> = new Set(variantFor(key).map((d) => d.name));
+  NAME_VARIANTS.set(key, built);
+  return built;
 }
 
 export async function callClaude(
@@ -323,8 +368,8 @@ export async function callClaude(
   model: string,
   system: SystemBlock[],
   messages: ApiMessage[],
-  /** `settings.ai.historySearch` — only an explicit false drops the tool. */
-  historySearch: boolean | undefined,
+  /** `settings.ai`'s tool flags — only an explicit false drops a tool. */
+  toolFlags: ToolFlags,
   signal?: AbortSignal,
 ): Promise<{
   content: ContentBlock[];
@@ -344,7 +389,7 @@ export async function callClaude(
       max_tokens: maxOutputTokensFor(model),
       system: system,
       messages,
-      tools: toolsFor(historySearch),
+      tools: toolsFor(toolFlags),
     }),
     signal,
   });
