@@ -23,7 +23,7 @@ export function runChatSearch(
   //   tool block. Translating one of ~20 would be the inconsistency.
   if (!enabled) {
     throw new Error(
-      "search_chats is switched off for this project (Settings → AI → chat history search).",
+      "search_chats is switched off for this project (Settings → AI).",
     );
   }
   // ★★★ `coverage` derives from the registry's `available` flag, NEVER from

@@ -285,8 +285,6 @@ export type ToolFlags = Pick<AiConfig, "historySearch" | "chatSearch">;
 /** Tool names removed by each bit of the variant key. */
 const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
   [1, "search_history"],
-  // ★ Task 7 lands the definition; the row is inert until a tool carries the
-  //   name, so the bit and the tool cannot ship out of step.
   [2, "search_chats"],
 ];
 
@@ -296,8 +294,8 @@ const DISABLED_BY_BIT: ReadonlyArray<readonly [number, string]> = [
  *  executor will SERVE, via `use-chat-dispatcher`'s `isHistorySearchEnabled`) —
  *  and both call the exported `historySearchEnabled`. Two hand-spelled `=== false`
  *  copies are one config slip from a switch that advertises OFF and serves ON.
- *  ★ `chatSearchEnabled` has NO executor gate yet: its tool does not exist until
- *    the `search_chats` slice, which owns adding the matching `runTool` check. */
+ *  ★ `search_chats` is gated identically: this list plus `runTool`'s
+ *    `search_chats` case, via `use-chat-dispatcher`'s `isChatSearchEnabled`. */
 function variantKey(flags: ToolFlags): number {
   return (
     (historySearchEnabled(flags.historySearch) ? 0 : 1) |
