@@ -8,6 +8,37 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.246.0] - 2026-08-18 "Bodard"
+
+### Added
+
+- **Chat history recall.** The assistant can search this project's earlier chat
+  threads with a `search_chats` tool, and an ambient pointer in the prompt tells
+  it those threads exist so it knows there is something to search. Turso-backed
+  projects only.
+- **A kill switch, default on.** Turning chat search off removes the tool from
+  the request entirely rather than discouraging its use, and the same predicate
+  is enforced at the executor — so advertisement and enforcement cannot drift
+  apart.
+
+### Changed
+
+- Search results are size-bounded per message, and any excerpt that was
+  shortened carries a `clipped` flag, so the assistant can never quote a
+  fragment as though it were the whole message.
+- Thread titles are capped where they are produced rather than at one place
+  that renders them, so every payload carrying a title is bounded — including
+  the one `get_app_state` returns.
+
+### Fixed
+
+- A failed thread load reported as a successful empty search. The assistant
+  could tell you a topic had never been discussed while a failure banner was on
+  screen; it now says it cannot look. A failed *save* no longer suppresses
+  search, because the threads are still readable.
+- The inline-edit prompt announced earlier conversations while withholding the
+  tool needed to open them.
+
 ## [0.245.0] - 2026-08-18 "Buckell"
 
 ### Added
