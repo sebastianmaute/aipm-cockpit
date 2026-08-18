@@ -849,3 +849,102 @@ describe("redoThrough", () => {
     expect(deps.logActivity).toHaveBeenCalledWith("redo", 3, "task.deleted", 3);
   });
 });
+
+function mountRows<T extends { id: number }>(initial: readonly T[]) {
+  const deps = makeDeps();
+  const { result } = renderHook(() => useUndoStack(deps));
+  let arr: readonly T[] = initial;
+  const setRows = (u: SetStateAction<readonly T[]>) => { arr = typeof u === "function" ? u(arr) : u; };
+  return { result, deps, setRows, rows: () => arr };
+}
+
+describe("captureFieldRows", () => {
+  type Row = { id: number; sev: string; noteLog?: string[] };
+
+  it("reverts only the captured fields and keeps a concurrent write", () => {
+    const { result, rows, setRows } = mountRows<Row>([
+      { id: 1, sev: "Low" },
+      { id: 2, sev: "Low" },
+    ]);
+
+    act(() => {
+      result.current.captureFieldRows<Row>({
+        setter: setRows,
+        kind: "bulk.edit",
+        entityKey: "raid",
+        edits: [
+          { id: 1, before: { sev: "Low" }, after: { sev: "High" } },
+          { id: 2, before: { sev: "Low" }, after: { sev: "High" } },
+        ],
+      });
+      setRows((prev) => prev.map((r) => ({ ...r, sev: "High" })));
+    });
+
+    // The concurrent write the undo must not revert.
+    act(() => { setRows((prev) => prev.map((r) => (r.id === 1 ? { ...r, noteLog: ["added"] } : r))); });
+    act(() => { result.current.undo(); });
+
+    expect(rows().find((r) => r.id === 1)).toEqual({ id: 1, sev: "Low", noteLog: ["added"] });
+    expect(rows().find((r) => r.id === 2)).toEqual({ id: 2, sev: "Low" });
+  });
+
+  it("pushes ONE entry for N rows, counted by rows", () => {
+    const { result, setRows } = mountRows<Row>([{ id: 1, sev: "Low" }, { id: 2, sev: "Low" }]);
+    act(() => {
+      result.current.captureFieldRows<Row>({
+        setter: setRows, kind: "bulk.edit", entityKey: "raid",
+        edits: [
+          { id: 1, before: { sev: "Low" }, after: { sev: "High" } },
+          { id: 2, before: { sev: "Low" }, after: { sev: "High" } },
+        ],
+      });
+    });
+    expect(result.current.stack).toHaveLength(1);
+    expect(result.current.stack[0].count).toBe(2);
+  });
+
+  it("names the entity in the label, so a bulk edit does not degrade to a generic one", () => {
+    const { result, setRows } = mountRows<Row>([{ id: 1, sev: "Low" }, { id: 2, sev: "Low" }]);
+    act(() => {
+      result.current.captureFieldRows<Row>({
+        setter: setRows, kind: "bulk.edit", entityKey: "raid",
+        edits: [
+          { id: 1, before: { sev: "Low" }, after: { sev: "High" } },
+          { id: 2, before: { sev: "Low" }, after: { sev: "High" } },
+        ],
+      });
+    });
+    // Exact string, and TWO rows on purpose: this is the label the whole-row path
+    // already produces for the same input, pinned by the neighbouring test
+    // "labels a bulk edit via the explicit entityKey". Asserting the identical
+    // string is what proves the conversion changed the mechanism and not the UI.
+    // A `not.toMatch(/item\(s\)/)` would also pass on a label naming the wrong entity.
+    expect(result.current.stack[0].label).toBe("Bulk edit 2 RAID items");
+  });
+
+  it("pushes nothing for an empty edit list", () => {
+    const { result, setRows } = mountRows<Row>([{ id: 1, sev: "Low" }]);
+    act(() => {
+      result.current.captureFieldRows<Row>({ setter: setRows, kind: "bulk.edit", entityKey: "raid", edits: [] });
+    });
+    expect(result.current.stack).toHaveLength(0);
+  });
+
+  it("redo re-applies the edit and keeps a note added since the undo", () => {
+    const { result, rows, setRows } = mountRows<Row>([{ id: 1, sev: "Low" }]);
+    act(() => {
+      result.current.captureFieldRows<Row>({
+        setter: setRows, kind: "bulk.edit", entityKey: "raid",
+        edits: [{ id: 1, before: { sev: "Low" }, after: { sev: "High" } }],
+      });
+      setRows((prev) => prev.map((r) => ({ ...r, sev: "High" })));
+    });
+    act(() => { setRows((prev) => prev.map((r) => ({ ...r, noteLog: ["note A"] }))); });
+    act(() => { result.current.undo(); });
+    act(() => { setRows((prev) => prev.map((r) => ({ ...r, noteLog: [...(r.noteLog ?? []), "note B"] }))); });
+    act(() => { result.current.redo(); });
+
+    expect(rows()[0].sev).toBe("High");
+    expect(rows()[0].noteLog).toEqual(["note A", "note B"]);
+  });
+});

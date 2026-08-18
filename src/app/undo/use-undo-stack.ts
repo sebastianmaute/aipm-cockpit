@@ -253,6 +253,18 @@ export interface CompositeFragment {
   restore: (primaryRemap: { current: ReadonlyMap<number, number> }, isPrimary: boolean) => () => void;
 }
 
+/** Drive ONE `captureFieldPart` fragment as a standalone undo↔redo runner. The
+ *  fragment publishes no id-remap (it removes nothing), so the empty box and
+ *  `isPrimary: false` are the only correct arguments here. */
+function fieldRowsRunner(part: CompositeFragment): Runner {
+  const runUndo: Runner = () => {
+    const redo = part.restore({ current: EMPTY_REMAP }, false);
+    const runRedo: Runner = () => { redo(); return runUndo; };
+    return runRedo;
+  };
+  return runUndo;
+}
+
 /**
  * Build a REUSABLE undo↔redo runner for a composite (multi-array) op, threading
  * the PRIMARY delete's id-remap to every cascade fragment so a re-minted primary
@@ -451,10 +463,30 @@ export interface CaptureCompositeOpts {
   name?: string;
 }
 
+/** A single-array bulk field edit: N rows, each reverted by MERGING a field
+ *  patch onto the live row (not a whole-row replace) — so a concurrent write
+ *  through a DIFFERENT field (a note added, a background calendar stamp)
+ *  survives the undo. Thin wrapper over `captureFieldPart` for the common case
+ *  of one array and no cascade, which is why it needs neither `isPrimary` nor
+ *  an id-remap (see `captureFieldPart`'s own doc for why passing it as a
+ *  composite's first fragment would be unsafe). */
+export interface CaptureFieldRowsOpts<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  kind: ActivityKind;
+  /** One entry per affected row; `before`/`after` hold ONLY the written fields. */
+  edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
+  /** Required in practice for `bulk.edit`, which is entity-ambiguous — without it
+   *  the label degrades to the generic "Edited N item(s)". */
+  entityKey?: UndoEntityKey;
+  name?: string;
+  stampField?: keyof T & string;
+}
+
 export interface UndoStackApi {
   capture: <T extends { id: number }>(opts: CaptureOpts<T>) => void;
   captureFieldEdit: <T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => void;
   captureComposite: (opts: CaptureCompositeOpts) => void;
+  captureFieldRows: <T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => void;
   undo: () => void;
   undoById: (id: number) => void;
   /** Undo every entry from `id` up to the top, newest-first, as ONE commit. */
@@ -634,6 +666,12 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name });
   }, [pushEntry]);
 
+  const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {
+    const part = captureFieldPart<T>({ setter: opts.setter, edits: opts.edits, stampField: opts.stampField });
+    if (part === null) return;
+    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey });
+  }, [pushEntry]);
+
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);
   const redoMetas = useMemo(() => redoStack.map((e) => e.meta), [redoStack]);
 
@@ -641,6 +679,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     capture,
     captureFieldEdit,
     captureComposite,
+    captureFieldRows,
     undo,
     undoById,
     undoThrough,
