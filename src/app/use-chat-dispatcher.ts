@@ -22,6 +22,7 @@ import { assertJiraManagedUnchanged, buildTaskCleanPatch } from "./chat-task-pat
 import { deriveMode, type FeatureModuleId } from "./feature-modules";
 import { computeSettingsPatch } from "./chat-settings-patch";
 import { useViewDigest } from "./use-view-digest";
+import { useChatSearchBindings } from "./use-chat-search-bindings";
 import { buildDashboardSnapshot } from "./ai-dashboard-snapshot";
 import { greetingName } from "./contacts";
 import { mintId } from "./id-mint-session";
@@ -118,6 +119,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     settingsProjectId: args.settingsProjectId, holidaySet: args.holidaySet,
   });
   const viewDigestRef = useRef(viewDigest);
+  const chatBindings = useChatSearchBindings(args.settingsProjectId, args.settings, args.clock);
   const getDashboardModelRef = useRef(args.getDashboardModel);
   const getBudgetRollupRef = useRef(args.getBudgetRollup);
   const getAllocationsSnapshotRef = useRef(args.getAllocationsSnapshot);
@@ -756,6 +758,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           activitySummary: summarizeForRecap(
             settingsRef.current.ai, activityLogRef.current, clockRef.current,
           ),
+          chatPointer: chatBindings.chatPointer(),
         };
       },
 
@@ -764,6 +767,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       // ★ LIVE from the ref, never captured — a value snapshotted at construction would
       //   keep serving for the whole session, the exact mid-conversation case §162 is about.
       isHistorySearchEnabled: () => historySearchEnabled(settingsRef.current.ai.historySearch),
+      ...chatBindings.tools,
 
       getTimezone: () => clockRef.current.tz,
 
@@ -786,9 +790,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     // when isReadOnly/mutateDocuments change, and the spread above captures it
     // by closure; omitting it here would freeze the FIRST render's document
     // tools into every later dispatcher even after a popout toggled read-only.
-    // Note: when Task 6 lands, audit whether any captured value still needs
-    // ref-routing; the eslint-disable stays as long as the empty-deps approach
-    // is intentional for everything else.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [args.isReadOnly, documentTools],
   );

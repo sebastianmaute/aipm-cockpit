@@ -25,6 +25,7 @@ import {
   type DocumentToolDispatcher,
 } from "./chat-tools-documents";
 import { runChatSearch } from "./chat-search-tool";
+import type { ChatPointer } from "./chat-search";
 import type { PublishedThreads } from "./chat-threads-registry";
 export { TOOL_DEFS } from "./chat-tool-defs";
 
@@ -359,6 +360,10 @@ export type ToolDispatcher = {
      *  pattern" by hanging the matching entries off it.
      *  ★ Absent when the recap toggle is off or the window is empty. */
     activitySummary?: ActivitySummary;
+    /** Bounded pointer at past conversations — a count and up to three titles.
+     *  ★★★ NOT the threads; see `getChatThreads()`. Safe here for the same
+     *  reason `activitySummary` is: bounded and small. */
+    chatPointer?: ChatPointer;
   };
   /** The project's activity log. ★★★ Deliberately a METHOD rather than a
    *  `getSnapshot()` field: `get_app_state` returns the snapshot VERBATIM and
