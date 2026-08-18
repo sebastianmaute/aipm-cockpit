@@ -84,6 +84,62 @@ function BlockReadOnlyNotice({ html, reason }: { html: string; reason: string })
   );
 }
 
+const HEADING_LEVELS = [1, 2, 3] as const;
+type HeadingLevel = (typeof HEADING_LEVELS)[number];
+type HeadingDraft = { level: HeadingLevel; text: string };
+
+/**
+ * `heading.level` + `heading.text` are TWO editable fields, not one — this is
+ * why `useBlockDraft` is generic over `T` rather than fixed to `string`. The
+ * draft's `T` is simply the composite `{ level; text }` object, so this
+ * editor is still a THIN consumer of the shared hook (no second copy of the
+ * dirty-check/commit logic): one `commit` closure, wired to the wrapping
+ * div's `onBlur` exactly like `ParagraphEditorBody` — changing the level
+ * updates the draft immediately (so the select always shows the live value)
+ * but the actual commit still waits for blur, same as the text field. That
+ * also means level+text changes make ONE combined commit, not two.
+ */
+export function HeadingBlockEditor({
+  lang,
+  index,
+  block,
+  onCommit,
+}: BlockEditorProps<Extract<DocBlock, { type: "heading" }>>) {
+  const { value, setValue, commit } = useBlockDraft<HeadingDraft>(
+    { level: block.level, text: block.text },
+    block,
+    index,
+    (v): DocBlock => ({ type: "heading", level: v.level, text: v.text }),
+    onCommit,
+  );
+
+  // ★ Every label carries the 1-based block position. N identical "Heading
+  //  level" labels is a 2.4.6 failure the axe gate cannot see.
+  const suffix = ` ${index + 1}`;
+
+  return (
+    <div className="flex flex-wrap items-center gap-2" onBlur={commit}>
+      <select
+        aria-label={t(lang, "documentsHeadingLevel") + suffix}
+        className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+        value={String(value.level)}
+        onChange={(e) => setValue({ ...value, level: Number(e.target.value) as HeadingLevel })}
+      >
+        {HEADING_LEVELS.map((l) => (
+          <option key={l} value={String(l)}>{`H${l}`}</option>
+        ))}
+      </select>
+      <input
+        type="text"
+        aria-label={t(lang, "documentsHeadingText") + suffix}
+        className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+        value={value.text}
+        onChange={(e) => setValue({ ...value, text: e.target.value })}
+      />
+    </div>
+  );
+}
+
 export function ParagraphBlockEditor({
   lang,
   index,

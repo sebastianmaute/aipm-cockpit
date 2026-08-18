@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ParagraphBlockEditor } from "./document-block-editors";
+import { ParagraphBlockEditor, HeadingBlockEditor } from "./document-block-editors";
 import { t } from "./i18n";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
@@ -147,5 +147,73 @@ describe("ParagraphBlockEditor", () => {
     await userEvent.type(editable, "{Backspace}");
     editable.blur();
     expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe("HeadingBlockEditor", () => {
+  it("offers only levels 1-3", () => {
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "H" }} onCommit={vi.fn()} />,
+    );
+    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
+    expect(within(select).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["1", "2", "3"]);
+  });
+
+  it("gives two sibling headings ROW-UNIQUE control names", () => {
+    // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed
+    //  size — this test is the only possible detector, and it needs TWO
+    //  blocks (at different indices) to express the property at all.
+    render(
+      <>
+        <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "A" }} onCommit={vi.fn()} />
+        <HeadingBlockEditor lang={LANG} index={1} block={{ type: "heading", level: 2, text: "B" }} onCommit={vi.fn()} />
+      </>,
+    );
+    const selectNames = screen.getAllByRole("combobox").map((el) => el.getAttribute("aria-label"));
+    expect(new Set(selectNames).size).toBe(2);
+    const textNames = screen.getAllByRole("textbox").map((el) => el.getAttribute("aria-label"));
+    expect(new Set(textNames).size).toBe(2);
+  });
+
+  it("does not commit when nothing changed", () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Same" }} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    text.focus();
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★ Strengthened from a single-chunk type per the paragraph editor's own
+  //  precedent: one chunk cannot distinguish a live closure from one
+  //  captured once at first render. Two separate `userEvent.type` calls
+  //  force an intervening re-render — the only shape that could catch a
+  //  stale-closure regression.
+  it("commits the LATEST text value on blur after two separate edits", async () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.clear(text);
+    await userEvent.type(text, "Ne");
+    await userEvent.type(text, "w");
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 2, text: "New" });
+  });
+
+  it("commits a level change together with the current text on blur", () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "Title" }} onCommit={onCommit} />,
+    );
+    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
+    select.focus();
+    fireEvent.change(select, { target: { value: "3" } });
+    select.blur();
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
   });
 });
