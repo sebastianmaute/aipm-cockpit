@@ -29,6 +29,7 @@ import type { TursoConfig } from "./turso-config";
 import type { ConfirmFn } from "./confirm-dialog";
 import { loadThreads, saveThread, deleteThread as deleteThreadRow } from "./chat-threads-store";
 import { type ChatThread, newThreadId, deriveThreadName, stripAttachmentsForPersistence } from "./chat-threads";
+import { publishChatThreads } from "./chat-threads-registry";
 
 /** Live render-scope values the Turso thread flows read each render. */
 export interface UseChatThreadsDeps {
@@ -96,6 +97,24 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   useEffect(() => {
     threadsRef.current = threads;
   }, [threads]);
+
+  // Publish to the module registry the AI dispatcher reads. See
+  // chat-threads-registry.ts for why this is not a prop.
+  //
+  // ★★★ `tursoMode` GATES THE PAYLOAD, not just the flag. This hook never
+  // unmounts on navigation — `panel-chat` is one of the two tabpanels
+  // workspace-section mounts unconditionally — so a Turso→File switch has no
+  // remount to clear stale threads, and publishing them beside
+  // `available: false` would leave real conversation text readable by a path
+  // that has just been told it cannot reach any. Same shape as the
+  // `threadIdRef` regression documented at ensureThreadForSend below.
+  useEffect(() => {
+    publishChatThreads(projectId, {
+      threads: tursoMode ? threads : [],
+      activeThreadId: tursoMode ? activeThreadId : null,
+      available: tursoMode,
+    });
+  }, [projectId, threads, activeThreadId, tursoMode]);
   // Latest committed activeThreadId, read by the in-flight send to detect a
   // mid-send THREAD switch — same shape/purpose as ChatPanel's own
   // projectIdRef, which only ever covered a project switch. Without this,

@@ -5,12 +5,13 @@
 // persistence/CRUD logic: newThread/selectThread/renameThread/
 // requestDeleteThread/retryLoad/ensureThreadForSend and the busy-persist
 // effect's existing-thread name reuse.
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
 import { useChatThreads, type UseChatThreadsDeps } from "./use-chat-threads";
 import { loadThreads, saveThread, deleteThread } from "./chat-threads-store";
 import type { ChatThread } from "./chat-threads";
 import type { ApiMessage, DisplayItem } from "./chat-api";
+import { clearChatThreads, publishChatThreads, readChatThreads } from "./chat-threads-registry";
 
 vi.mock("./chat-threads-store", () => ({
   loadThreads: vi.fn(async () => []),
@@ -60,7 +61,10 @@ function renderChatThreads(overrides: Partial<UseChatThreadsDeps> = {}) {
   const hook = renderHook((props: UseChatThreadsDeps) => useChatThreads(props), {
     initialProps,
   });
-  return { ...hook, setHistory, setDisplay, confirm };
+  // `initialProps` is returned so a test can `rerender({ ...initialProps, x })`
+  // — rerender needs the WHOLE deps object, and rebuilding it by hand in a test
+  // would let the two copies drift.
+  return { ...hook, setHistory, setDisplay, confirm, initialProps };
 }
 
 beforeEach(() => {
@@ -766,4 +770,80 @@ describe("useChatThreads — only the latest write for a key may settle it (Find
     await waitFor(() => expect(result.current.threadsError).toBe(false));
   });
 
+});
+
+describe("useChatThreads — registry publication", () => {
+  afterEach(() => {
+    // Module state survives RTL cleanup and vi.clearAllMocks(), so it would
+    // otherwise leak into whatever file the shuffled run schedules next.
+    clearChatThreads();
+  });
+
+  it("publishes availability false in file mode", async () => {
+    // ★ SEED A DIFFERENT VALUE FIRST. `readChatThreads`'s miss-path default for
+    //   an empty slot is byte-identical to what file mode publishes, so the
+    //   obvious version of this test passes with the effect DELETED (measured —
+    //   it was the one of these three that went green on the red run).
+    //   Overwriting a stale Turso-shaped value is the only observable that can
+    //   tell a real publish from a never-written slot.
+    publishChatThreads("p1", {
+      threads: [thread("stale")],
+      activeThreadId: "stale",
+      available: true,
+    });
+    renderChatThreads({ tursoMode: false, projectId: "p1" });
+    await waitFor(() =>
+      expect(readChatThreads("p1")).toEqual({
+        threads: [],
+        activeThreadId: null,
+        available: false,
+      }),
+    );
+    expect(loadThreadsMock).not.toHaveBeenCalled();
+  });
+
+  it("publishes the live threads and active id in Turso mode", async () => {
+    const t1 = thread("t1", { updatedAt: "2026-02-02T00:00:00.000Z" });
+    const t2 = thread("t2");
+    loadThreadsMock.mockResolvedValue([t1, t2]);
+    renderChatThreads({ tursoMode: true, projectId: "p1" });
+
+    await waitFor(() =>
+      expect(readChatThreads("p1")).toEqual({
+        threads: [t1, t2],
+        activeThreadId: "t1",
+        available: true,
+      }),
+    );
+    // The slot is keyed — another project must not read this one's threads.
+    expect(readChatThreads("p2")).toEqual({
+      threads: [],
+      activeThreadId: null,
+      available: false,
+    });
+  });
+
+  it("clears the published threads when tursoMode goes false", async () => {
+    // ★★★ THE LANDMINE. `panel-chat` is one of only two tabpanels
+    //   `workspace-section` mounts unconditionally, so this hook NEVER remounts
+    //   on navigation and nothing resets `threads` for you. The fixture loads
+    //   REAL threads first precisely so that failing to gate the payload leaves
+    //   observably wrong data — a `available: false` publish that still carries
+    //   two conversations is the bug this test exists to catch.
+    const t1 = thread("t1", { history: [{ role: "user", content: "secret" }] });
+    const t2 = thread("t2");
+    loadThreadsMock.mockResolvedValue([t1, t2]);
+    const { rerender, initialProps } = renderChatThreads({
+      tursoMode: true,
+      projectId: "p1",
+    });
+    await waitFor(() => expect(readChatThreads("p1").threads).toEqual([t1, t2]));
+    expect(readChatThreads("p1").activeThreadId).toBe("t1");
+
+    rerender({ ...initialProps, tursoMode: false });
+
+    await waitFor(() => expect(readChatThreads("p1").available).toBe(false));
+    expect(readChatThreads("p1").threads).toEqual([]);
+    expect(readChatThreads("p1").activeThreadId).toBeNull();
+  });
 });
