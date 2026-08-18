@@ -25,6 +25,26 @@ import {
 // Retention: how many destructive ops stay undoable/redoable at once.
 const UNDO_CAP = 25;
 
+/**
+ * Fields written to a live row by something OTHER than the op that captured it.
+ * A whole-row undo lets the LIVE value win on these, or it reverts a write the
+ * user's undo was never about (open-followups §50).
+ *
+ * ★★ MEMBERSHIP RULE, not a list of "important" fields: a field belongs here iff
+ * some writer OTHER than an entity's own save handler can change it on a row that
+ * is not being edited. Today that is the notes window (`noteLog`, on Task, RaidItem
+ * and ChangeItem) and the background calendar push/pull (`outlookEventId`, on every
+ * calendar-capable entity).
+ *
+ * ★★ THIS LIST IS THE BACKSTOP, NOT THE PRIMARY FIX. The bulk-edit sites capture
+ * FIELD PATCHES and are immune by construction; what this protects is the paths
+ * that genuinely replace whole rows — reference-data cascades, the resource
+ * directory, task dedup, the alloc plan, and dependency stripping on delete. A new
+ * write-through field silently escapes it, which is why the patch capture is
+ * preferred wherever the op is a field edit.
+ */
+const WRITE_THROUGH_FIELDS: readonly string[] = ["noteLog", "outlookEventId"];
+
 /** The entities an undo label can name. `bulk.edit` is entity-AMBIGUOUS (one
  *  shared kind across tasks/raid/change/…), so its capture site passes an explicit
  *  `entityKey`; every other kind derives the entity from its `entity.op` prefix. */
@@ -196,14 +216,14 @@ function fragmentUndoRunner<T extends { id: number }>(
   const runUndo: Runner = () => {
     let forward: BeforeImage<T>[] = [];
     setter((prev) => {
-      const { result, remap } = applyUndoRestoreWithRemap(prev, before);
+      const { result, remap } = applyUndoRestoreWithRemap(prev, before, WRITE_THROUGH_FIELDS);
       // Build the redo images from the SAME prev + the remap, so a re-minted
       // delete removes the recovered row on redo, not the live reused-id row.
       forward = buildForwardImages(before, prev, remap);
       return result;
     });
     const runRedo: Runner = () => {
-      setter((prev) => applyUndoForward(prev, forward));
+      setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
       return runUndo;
     };
     return runRedo;
@@ -296,14 +316,14 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
       const restoreImages = fkRemapField
         ? remapImageField(images, fkRemapField, primaryRemap.current)
         : images;
-      const { result, remap } = applyUndoRestoreWithRemap(prev, restoreImages);
+      const { result, remap } = applyUndoRestoreWithRemap(prev, restoreImages, WRITE_THROUGH_FIELDS);
       if (isPrimary) primaryRemap.current = remap; // publish for cascades (idempotent)
       // Redo images from the SAME prev + this fragment's own remap, so a re-minted
       // delete removes the recovered row on redo, not a live reused-id row.
       forward = buildForwardImages(restoreImages, prev, remap);
       return result;
     });
-    return () => { setter((prev) => applyUndoForward(prev, forward)); };
+    return () => { setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS)); };
   };
   return { isPrimary: isPrimary === true, restore };
 }
