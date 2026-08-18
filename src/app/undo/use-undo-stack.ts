@@ -350,11 +350,14 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  `capturePart` builds WHOLE-ROW before-images, so undoing restores every field
  *  as it stood at capture time and silently discards anything a concurrent
  *  writer changed on those rows meanwhile (open-followups §50 — the shape that
- *  reverts a RAID item's note log; §50 says the same sequence "very likely"
- *  loses TASK notes too but marks that half UNVERIFIED, so do not cite this as
- *  a known task defect). A patch merge touches only the fields the op
- *  actually wrote. Use this whenever the op edited FIELDS; use `capturePart`
- *  when it removed or replaced whole rows. */
+ *  reverts a RAID item's note log; §50 also flagged the same sequence on TASK
+ *  notes, at the time marked "very likely" but UNVERIFIED. That half was
+ *  measured true on 2026-08-18 — `use-bulk-operations.ts` captured whole
+ *  `beforeRows` exactly like RAID and changes — and both are now CLOSED: every
+ *  `bulk.edit` site was converted to a field patch. Residual whole-row paths
+ *  outside `bulk.edit` are tracked as open-followups §173, not here). A patch
+ *  merge touches only the fields the op actually wrote. Use this whenever the
+ *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
   /** One entry per affected row. `before`/`after` hold ONLY the written fields. */
@@ -405,10 +408,14 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `capturePart` cascade to an existing single-fragment field composite is
  * therefore a live hazard, not a future one: flag the cascade `isPrimary: true`
  * in the same edit.
- * ★★ Same trap waiting in `use-budget-buckets.ts`: its `parts[0]` is
- * `use-bulk-operations`' whole-row `tasksPart`, an open-followups §50 candidate,
- * and the obvious §50 fix swaps it for a `captureFieldPart` — reproducing this
- * shape beside a real `capturePart`. Flag the remaining part in that same edit.
+ * ★★ The matching trap in `use-budget-buckets.ts` HAS BEEN TAKEN, not merely
+ * waiting: its `parts[0]` — `use-bulk-operations`' `tasksPart` — was the
+ * open-followups §50 candidate this paragraph warned about, and the §50 fix
+ * swapped it for a `captureFieldPart`, reproducing this shape beside a real
+ * `capturePart` (the `budgetsPart` cascade). The remaining part was flagged in
+ * the same edit — `budgetsPart` carries `isPrimary: true` in
+ * `use-budget-buckets.ts`, so the field part sitting in `parts[0]` never
+ * becomes the nominal primary. See open-followups §50 (closed 2026-08-18).
  */
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,

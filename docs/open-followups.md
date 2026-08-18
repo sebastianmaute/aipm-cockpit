@@ -2130,7 +2130,7 @@ write-through field; whether any other entity sanitizer drops a field its caller
 
 ---
 
-## 50. Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS
+## 50. Undo of a BULK edit reverts write-through fields — CLOSED 2026-08-18
 
 `undo-stack.ts:89` restores an edit-image with `out[findIndex(...)] = item` — a **whole-row replace**
 using the before-image captured at bulk-apply time. `use-resource-planner.ts` `captureRaidBulkUndo`
@@ -2174,10 +2174,42 @@ already like this; the slice added a third entity to its blast radius. ★ It al
 per-entity field list a fix would need is now three entries, not two, and it grows silently every time
 a write-through field is added to an entity — which is an argument for the field-wise capture option.
 
-**Fix when taken:** either preserve the live row's write-through fields in the edit branch
-(`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
-capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
-a fixture that adds it before passes either way (the §48 trap, restated).
+### Resolution
+
+Closed by **two complementary mechanisms**, not one, because they cover different shapes of writer:
+
+- **The engine backstop.** `applyPreserved(image, live, preserve)` in `src/app/undo/undo-stack.ts`
+  merges an edit-image over the LIVE row, letting the live row win on a named `preserve` list, and
+  never invents a key neither row carries. `applyUndoRestore` / `applyUndoRestoreWithRemap` /
+  `applyUndoForward` all take a REQUIRED `preserve: readonly string[]` — required so a future call
+  site that forgets it is a typecheck error, not a silent regression. `use-undo-stack.ts` declares
+  `WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId"]` and passes it at all four runner sites. This
+  is the backstop for paths that genuinely still replace a whole row (e.g. dependency stripping on
+  delete, which captures dependents as whole-row edit-images) — it preserves exactly the two named
+  fields and nothing else.
+- **Field-patch capture.** `buildBulkFieldEdits` in `src/app/undo/field-groups.ts` diffs
+  `{before, after}` row pairs into field PATCHES (excluding `id`, `localModifiedAt` and the
+  write-through keys), and `captureFieldRows` turns N such patches into one undo entry. All five
+  `bulk.edit` sites (RAID, changes, stakeholders, milestones, tasks) were converted, plus two consumers
+  the original plan never named — `raci-panel.tsx` / `use-raci-suggest.tsx`, which share the
+  stakeholders capture prop. A field-patch undo merges only the fields the op actually touched, which
+  preserves EVERY concurrent edit on that row, not just the two named write-through fields — strictly
+  stronger than the backstop, wherever it applies.
+
+**The task half is now verified, not suspected.** This entry said the same sequence "very likely" lost
+task notes too, but marked that half UNVERIFIED. It was measured true: `use-bulk-operations.ts`
+captured whole `beforeRows`, exactly like RAID and changes, before this slice converted it to a field
+part.
+
+**`outlookEventId` was a second member of the class this entry never named.** Everything above was
+written about note logs. But the background calendar push stamps `outlookEventId` on live rows, so the
+same shape had a second, worse trigger: bulk-edit → auto-sync fires → Ctrl+Z restores
+`outlookEventId: undefined` → the next push creates a DUPLICATE event in the user's real Outlook
+calendar. Worse than the note case two ways — no user race is needed (a background timer supplies the
+concurrent write on its own schedule), and it reaches entities that carry no note log at all.
+
+Residual scope — the whole-row paths this slice deliberately left untouched, and the duplicated
+write-through field list — is recorded separately as §173, not folded in here.
 
 ---
 
@@ -4910,7 +4942,22 @@ chip there would be a dead prompt.
 
 ---
 
-## 87. AI cannot read the activity log — deliberate, no tool exposes it
+## 87. AI cannot read the activity log — CORRECTED 2026-08-18, stale
+
+★★★ **STALE — a read tool now exists, and this entry's own reasoning is what the fix had to solve.**
+`chat-tool-defs.ts` declares a `search_history` tool, and `chat-tools.ts` exposes
+`getActivityLog(): readonly ActivityEntry[]` on the dispatcher, consumed inside `chat-tools.ts` to
+serve it. The "not part of `Workspace`, so there is nothing for a read tool to query without new
+plumbing" claim below is no longer true — the plumbing was built.
+
+The *reasoning* that `task-manager.tsx` is the Phase-3 baselined orchestrator and is deliberately kept
+from growing new responsibilities is worth keeping, not deleting — it is exactly the constraint the
+`search_history`/`getActivityLog` slice (part of the AI-recall work referenced in the memory index as
+B2a) had to design around, rather than route the log through the orchestrator the way §86's reasoning
+originally implied a fix would. Do not re-open this as a gap; if the tool is ever removed, that is a
+new entry, not a revival of this one.
+
+Original text, kept for the reasoning:
 
 `activity-log-context.tsx` exposes a WRITER only — `LogActivityFn`, delivered through
 `ActivityLogProvider`/`useActivityLogger()` — and the log itself is not part of `Workspace`, so there is
@@ -4919,7 +4966,10 @@ nothing for a read tool to query without new plumbing. Reading it would mean thr
 above) and is deliberately kept from growing new responsibilities.
 
 Same handling as §86: `VIEW_AI_SCOPE.activity.reading` states the model cannot read the log, and
-`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together).
+`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together). ★ That guard
+pairing may itself be stale now that a read tool exists — not re-verified as part of this correction;
+check `VIEW_AI_SCOPE.activity.reading` and the `ASK_CLAUDE_PROMPTS` `activity` entry before relying on
+either claim.
 
 ---
 
@@ -11460,3 +11510,45 @@ four savers carry a note about. Required makes it a typecheck error instead.
 short-returns with no error and no `failedProjects`, so it is the same "short aggregate reads as
 complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
 recorded because nothing anywhere else says it.
+
+## 173. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
+
+§50's field-patch conversion (closed 2026-08-18) made the five `bulk.edit` sites immune to the
+write-through clobber BY CONSTRUCTION — a field patch merges only what the op itself touched, so
+every concurrent edit on the row survives, not just `noteLog`/`outlookEventId`. That property does not
+extend to every writer in the app, and this entry records what was deliberately left out.
+
+★★ **The whole-row paths that remain still revert every concurrent change OUTSIDE
+`WRITE_THROUGH_FIELDS`.** Reference-data cascades, the resource directory, task dedup
+(`use-tasks-dedup.tsx`), the alloc plan (`use-alloc-plan.tsx`), and dependency stripping on delete
+(pinned against, not fixed, by the two `use-task-row-handlers.test.ts` tests §50 added) all still
+capture whole rows via `capturePart`. Undoing any of them reverts every field the row carried at
+capture time, including one a background writer changed in the meantime — the exact §50 shape, just
+not on a `bulk.edit` site. A NEW write-through field added to an entity escapes
+`WRITE_THROUGH_FIELDS`/`WRITE_THROUGH_KEYS` on these paths silently: nothing fails, the field is simply
+reverted on undo like any other.
+
+Two ways out, neither taken here:
+- Convert the remaining sites to field patches where the op is genuinely field-shaped (most of the
+  list above edits, rather than restructures, the row).
+- Derive `WRITE_THROUGH_FIELDS`/`WRITE_THROUGH_KEYS` from something structural (a per-entity
+  "concurrently-writable" field list on the type, or similar) rather than hand-maintaining two copies
+  — see the duplication note below, which is the sharper version of this same risk.
+
+This slice deliberately scoped these sites out — converting every whole-row capture in the app was not
+in §50's blast radius, and doing it inside the fix round that closed §50 is how a regression ships (the
+same reasoning §50 itself gave in 0.211.1 for not touching shared undo machinery mid-batch).
+
+★★ **The write-through field list is duplicated, and that duplication is itself residue.**
+`WRITE_THROUGH_FIELDS` (`src/app/undo/use-undo-stack.ts`) governs what a whole-row undo PRESERVES;
+`WRITE_THROUGH_KEYS` (`src/app/undo/field-groups.ts`) governs what a bulk-edit field patch CAPTURES.
+Both are hardcoded to the same two names, `["noteLog", "outlookEventId"]`. They are deliberately
+SEPARATE constants — different layers, and `field-groups.ts` must not import the hook — and each
+carries a doc comment cross-referencing the other, but a third write-through field means editing BOTH
+by hand. Nothing enforces they stay in sync; a future field added to one and not the other would fail
+silently in exactly the shape this whole entry is about.
+
+```bash
+grep -n "WRITE_THROUGH_FIELDS" src/app/undo/use-undo-stack.ts
+grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
+```
