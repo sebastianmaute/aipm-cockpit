@@ -11310,6 +11310,22 @@ table under the scan.
 table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
 the acceptance is deliberate rather than silent.
 
+★★★ IT ALSO KILLED AN e2e ASSERTION, AND NOTHING LOCAL SAW IT. `e2e/seed-content.spec.ts` carried
+"seeded timelog project links reach the app, not just IndexedDB", which asserted `Clear link – 701`
+and `– 702` — rows that the gate makes unrenderable. The entry above reasoned about the axe scan and
+stopped there, so the second consumer of the same render went unexamined until pipeline #6179 went
+red on it. The test is now the INVERSE: it pins the not-configured screen, and says in its own body
+that restoring the old lines requires seeding the settings FIRST.
+
+★★ So the blind spot is one step worse than this entry first said: the projects and people tables
+have no e2e coverage of ANY kind now, not merely no axe coverage. What survives is
+`timelog-panel.test.tsx`, which pins the row-qualified `${timelogMatchClear} – 99` label in two
+places — the row-UNIQUENESS rule, not the rendering path.
+
+★ General shape, worth more than this instance: a render gate has as many consumers as there are
+suites that render the view. Enumerate them (`grep -rn "Time bookings" e2e/`) rather than reasoning
+about the one that came to mind.
+
 ## 172. A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it — CLOSED 2026-08-18
 
 Opened while fixing the reapply half of this hazard in 0.245.0 and deliberately not closed there,

@@ -50,12 +50,14 @@ test("seeded documents reach the app, not just IndexedDB", async ({ page }) => {
   await expect(page.getByText("No documents yet.")).toHaveCount(0);
 });
 
-// ★★ Insights and Time bookings are BOTH in A11Y_VIEWS and both were scanned
-// against their empty state until 2026-08-08, because neither slice exists in
-// the sample master AND neither was in the seed's kv map. They are authored in
-// seed.ts now, so the scans finally see rows — and this spec is what keeps that
-// true. Without it, dropping either kv row turns five axe scans green again by
-// deleting the rows they are supposed to be checking.
+// ★★ INSIGHTS ONLY — and this comment named Time bookings alongside it until
+// 0.245.0. Both were in A11Y_VIEWS and both were scanned against their empty
+// state until 2026-08-08, because neither slice exists in the sample master AND
+// neither was in the seed's kv map. Authoring them in seed.ts fixed both; the
+// `cfg.enabled` gate then put Time bookings BACK on its empty state (§171), so
+// only Insights still has rows under the scan. This spec is what keeps that
+// true: without it, dropping the `insights` kv row turns those axe scans green
+// again by deleting the rows they are supposed to be checking.
 test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await gotoApp(page);
   await openView(page, "Insights");
@@ -123,17 +125,36 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   await expect(page.getByText("No insights yet")).toHaveCount(0);
 });
 
-test("seeded timelog project links reach the app, not just IndexedDB", async ({ page }) => {
+test("Time bookings renders the not-configured gate, so its tables reach NO e2e assertion", async ({ page }) => {
   await gotoApp(page);
   await openView(page, "Time bookings");
 
-  // ★ Only the PROJECT links surface without a network fetch: timelog-panel.tsx
-  // merges linked-but-unfetched projects into `knownProjectRefs` under a
-  // synthetic name (the id), so 701/702 render as real rows with row-qualified
-  // controls. The People table renders `sync.users`, which is network-only, so
-  // it stays empty here — do NOT extend this test to assert people rows.
-  await expect(page.getByRole("button", { name: "Clear link – 701", exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: "Clear link – 702", exact: true })).toBeVisible();
+  // ★★★ THIS TEST IS THE INVERSE OF THE ONE IT REPLACES, AND THE FLIP IS THE
+  // POINT. It used to assert `Clear link – 701`/`– 702`, because the seeded
+  // `timelogLinks` kv key surfaced as real rows: timelog-panel.tsx merges
+  // linked-but-unfetched projects into `knownProjectRefs` under a synthetic
+  // name. 0.245.0 gated the whole view on `cfg.enabled` (timelog-panel.tsx,
+  // `TimelogNotConfigured`), and NOTHING in e2e/seed.ts seeds timelog SETTINGS
+  // — so `defaultTimelogConfig.enabled` (false) stands and those rows can no
+  // longer render at all. The old assertion did not go stale gradually; it
+  // became unsatisfiable in one commit, and only CI said so.
+  // ★★★ SO THE PROJECTS AND PEOPLE TABLES NOW HAVE NO e2e COVERAGE OF ANY KIND
+  // — not this spec, and not the axe scan either (Time bookings is in
+  // A11Y_VIEWS, and what it scans is the empty state below). Their row-unique
+  // control names survive ONLY in `timelog-panel.test.tsx`, which pins
+  // `${timelogMatchClear} – 99` in two places. Recorded as open-followups §171
+  // WITH the two ways out; seeding the settings is the one that would restore
+  // both this assertion and the scan in a single change.
+  // ★★ Do NOT "restore" the old lines without doing that seeding first — they
+  // cannot pass, and a red run here means the gate is working.
+  await expect(page.getByText("The Timelog integration is switched off", { exact: false })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Configure Timelog", exact: true })).toBeVisible();
+
+  // ★ The Clear-all escape hatch is gated on `hasFetched`, which reads the
+  // per-device actuals CACHE — a network fetch this run never performs. Its
+  // ABSENCE is the assertion: it proves the empty state is the unfetched one,
+  // which is what makes the two positives above meaningful.
+  await expect(page.getByRole("button", { name: "Clear all", exact: true })).toHaveCount(0);
 });
 
 // ★★ The Dashboard's board is the newest instance of this file's whole premise.
