@@ -24,6 +24,7 @@
 //   vanished from the same question — silently, with `truncated: false`.
 import type { ActivityEntry } from "./activity-log";
 import { type RenderedActivity, renderActivityEntry } from "./activity-prompt";
+import { resolveLimit } from "./resolve-limit";
 import { isoInZone, makeDayInZone, type TimeZone } from "./timezone";
 
 export const DEFAULT_HISTORY_LIMIT = 50;
@@ -55,35 +56,6 @@ export interface HistoryResult {
    * answer, so a cap that happened to cut nothing must report false.
    */
   truncated: boolean;
-}
-
-/**
- * Absent / non-numeric / non-finite → the default; anything above the hard
- * maximum is clamped down to it. Fractional limits FLOOR, so `2.9` caps at 2.
- *
- * ★★★ THE FLOOR HAPPENS BEFORE THE NON-POSITIVE TEST, NOT AFTER, and the order
- * is the whole point. `limit` is model-supplied untrusted input, so `0.5` is
- * reachable — and testing `raw <= 0` first lets it through, after which the
- * floor yields a cap of ZERO. The result is `{ events: [], truncated: true }`:
- * no rows, while asserting that rows were withheld. That is the one output
- * combination that actively misleads the caller, since `truncated` is the field
- * the model reads to decide whether it may claim a complete answer.
- *
- * ★ Falling back to the DEFAULT rather than clamping up to 1: a limit that
- * floors to nothing is a nonsense request, and every other nonsense value here
- * (absent, NaN, -1, 0) already answers with the default. Returning a
- * single-event page instead would make `0.5` the only input whose garbage-ness
- * is silently reinterpreted as a real, very specific instruction.
- *
- * ★ `Infinity` therefore yields the DEFAULT, not MAX_HISTORY_LIMIT — it fails
- * the finite test before it can reach the clamp. Defensible (it is not a
- * number the caller meant) and pinned by a test so it cannot change silently.
- */
-function resolveLimit(raw: number | undefined): number {
-  if (typeof raw !== "number" || !Number.isFinite(raw)) return DEFAULT_HISTORY_LIMIT;
-  const whole = Math.floor(raw);
-  if (whole <= 0) return DEFAULT_HISTORY_LIMIT;
-  return Math.min(whole, MAX_HISTORY_LIMIT);
 }
 
 /**
@@ -143,7 +115,7 @@ export function searchHistory(
   //   that: Berlin's 2026-10-25 renders 00:30Z as `02:30:00+02:00` and the
   //   LATER 01:30Z as `02:30:00+01:00`, which sorts the older one first.
   matched.sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-  const limit = resolveLimit(q.limit);
+  const limit = resolveLimit(q.limit, DEFAULT_HISTORY_LIMIT, MAX_HISTORY_LIMIT);
   // ★ Converting only the surviving page keeps the cost off the entries the cap
   //   is about to discard.
   const page = matched.slice(0, limit).map((e) => ({ ...e, at: isoInZone(e.at, tz) }));
