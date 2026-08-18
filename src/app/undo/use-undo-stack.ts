@@ -461,6 +461,11 @@ export interface CaptureCompositeOpts {
   parts: readonly (CompositeFragment | null)[];
   /** Entity name/title for the undo label (e.g. the deleted resource's name). */
   name?: string;
+  /** Names the entity for the undo LABEL. Required in practice for `bulk.edit`,
+   *  which is entity-ambiguous: `buildUndoLabel` resolves the entity from the
+   *  kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, and without this the
+   *  label degrades to the generic "Edited N item(s)". */
+  entityKey?: UndoEntityKey;
 }
 
 /** A single-array bulk field edit: N rows, each reverted by MERGING a field
@@ -663,7 +668,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name });
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name, entityKey: opts.entityKey });
   }, [pushEntry]);
 
   const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {

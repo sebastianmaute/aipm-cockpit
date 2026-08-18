@@ -138,6 +138,22 @@ describe("useUndoStack", () => {
     expect(result.current.canUndo).toBe(false);
   });
 
+  it("captureComposite names the entity in its label when given an entityKey", () => {
+    const rows = [{ id: 1, sev: "Low" }, { id: 2, sev: "Low" }];
+    const { result, setRows } = mountRows<{ id: number; sev: string }>(rows);
+    act(() => {
+      result.current.captureComposite({
+        kind: "bulk.edit",
+        primaryCount: 2,
+        entityKey: "task",
+        parts: [capturePart({ setter: setRows, edited: rows, fromArray: rows })],
+      });
+    });
+    // Before this change the composite path had no way to say "task", so the label
+    // fell through buildUndoLabel's `if (!key)` line to the generic form.
+    expect(result.current.stack[0].label).toBe("Bulk edit 2 tasks");
+  });
+
   it("delete → undo → redo round-trips (gone → restored → gone)", () => {
     const deps = makeDeps();
     const { result } = renderHook(() => useUndoStack(deps));

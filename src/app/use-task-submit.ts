@@ -320,8 +320,8 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
             // from the kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, so it
             // returns at the `if (!key)` line with `undoToastEdit` BEFORE the
             // `isBulk` branch is reached. That branch needs an explicit
-            // `entityKey`, and `CaptureCompositeOpts` has no such field —
-            // `captureComposite` forwards only `{ name }`. Do not "fix" the
+            // `entityKey`, which `CaptureCompositeOpts` now carries —
+            // `captureComposite` forwards it alongside `name`. Do not "fix" the
             // label by changing the kind; it would misreport the op in the
             // activity feed and buy nothing.
             name: targets.length === 1 ? firstName : undefined,
