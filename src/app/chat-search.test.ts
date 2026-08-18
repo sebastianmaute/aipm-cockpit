@@ -347,15 +347,19 @@ describe("threadTitle", () => {
     expect(out).not.toContain("…");
   });
 
-  it("is a fixed point on the DERIVED branch, which already carries an ellipsis", () => {
-    // `deriveThreadName` emits THREAD_NAME_MAX characters + "…" (61 units);
-    // clipping that drops the ellipsis and re-appends the same one.
-    const display = [{ kind: "user" as const, text: "z".repeat(THREAD_NAME_MAX * 2) }];
-    const derived = deriveThreadName(display);
-    expect(derived).toHaveLength(THREAD_NAME_MAX + 1);
+  it("does not double the ellipsis when the clip LANDS ON one", () => {
+    // ★★ The fixture this assertion used to carry was a repeated single
+    //   character, in which the 60th unit can never BE an ellipsis — so its
+    //   `not.toContain("……")` could not fail at any assertion count. Only a
+    //   name already carrying `…` at the cut reaches the doubling branch.
+    const name = `${"z".repeat(THREAD_NAME_MAX - 1)}… and more text`;
+    // Anti-vacuity, both halves: the clip really fires (the name is over the
+    // cap) AND the clipped result really ends on the ellipsis the guard tests.
+    expect(name.length).toBeGreaterThan(THREAD_NAME_MAX);
+    expect(name.slice(0, THREAD_NAME_MAX).endsWith("…")).toBe(true);
 
-    const out = threadTitle(thread({ id: "t1", display }));
-    expect(out).toBe(derived);
+    const out = threadTitle(thread({ id: "t1", name }));
+    expect(out).toHaveLength(THREAD_NAME_MAX);
     expect(out).not.toContain("……");
   });
 });

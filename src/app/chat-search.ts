@@ -127,9 +127,10 @@ export interface ChatSearchResult {
  *   by `project_id` with no per-user or per-device column, so on a shared Turso
  *   project this text belongs to another collaborator.
  *
- *   ★ IDEMPOTENT on an already-derived title: `deriveThreadName` emits
- *   THREAD_NAME_MAX characters + `…` (61 units), which clips back to the same
- *   60 and re-gains the same `…`, byte-identical.
+ *   ★ A clip that LANDS ON an ellipsis gains no second one: a user-set name of
+ *   59 characters + `…` + more text clips to 60 units already ending in `…`,
+ *   and appending the cut marker unconditionally emitted `……`.
+ *
  *   ★ The two caps count DIFFERENT UNITS — `clipText` counts UTF-16 code units,
  *   `deriveThreadName` counts code points — so an astral-heavy derived title
  *   clips SHORTER here than it did upstream. Bounded either way; do not "fix"
@@ -138,7 +139,7 @@ export interface ChatSearchResult {
 export function threadTitle(th: ChatThread): string {
   const raw = th.name.trim() || deriveThreadName(th.display);
   const clipped = sanitizeMultiline(raw, THREAD_NAME_MAX);
-  return clipped === raw ? clipped : `${clipped}…`;
+  return clipped === raw || clipped.endsWith("…") ? clipped : `${clipped}…`;
 }
 
 /**
