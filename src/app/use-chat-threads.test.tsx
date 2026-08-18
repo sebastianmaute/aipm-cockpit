@@ -961,6 +961,33 @@ describe("useChatThreads — registry publication", () => {
       available: false,
     });
   });
+  it("keeps available:true over a populated list when a SAVE failed, not just the load", async () => {
+    // ★★★ THIS AND THE FAILED-LOAD TEST ABOVE ARE THE PAIR THAT STOPS A FUTURE
+    //   EDITOR COLLAPSING THE TWO FAILURES BACK INTO ONE FLAG. `threadsError`
+    //   is raised by a failed SAVE as well as a failed LOAD, and a failed save
+    //   leaves the list populated and perfectly readable — so deriving
+    //   `available` from it published `false` beside real, searchable threads.
+    //   `use-chat-search-bindings.ts` builds the ambient chat pointer from
+    //   `published.threads` and never reads `available`, so the prompt then
+    //   advertised those conversations and `search_chats` answered
+    //   `coverage: "unavailable"` over rows sitting in memory.
+    // ★ The banner assertion is load-bearing in BOTH directions: it proves the
+    //   save really did fail (without it a passing `available: true` could just
+    //   mean nothing went wrong) AND that this fix did not silently disarm the
+    //   sidebar's error affordance.
+    const t1 = thread("t1", { projectId: "p1" });
+    loadThreadsMock.mockResolvedValue([t1]);
+    const { result } = renderChatThreads({ tursoMode: true, projectId: "p1" });
+    await waitFor(() => expect(result.current.threads).toHaveLength(1));
+
+    saveThreadMock.mockRejectedValueOnce(new Error("network down"));
+    act(() => result.current.renameThread("t1", "Renamed"));
+    await waitFor(() => expect(result.current.threadsError).toBe(true));
+
+    const published = readChatThreads("p1");
+    expect(published.available).toBe(true);
+    expect(published.threads.map((th) => th.id)).toEqual(["t1"]);
+  });
 
   it("clears the slot on unmount, so a withdrawn AI consent leaves nothing readable", async () => {
     // ★★ Withdrawing consent unmounts this hook (chat-panel renders a consent

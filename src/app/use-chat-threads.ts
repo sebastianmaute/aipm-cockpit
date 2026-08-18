@@ -67,6 +67,13 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   // Read by ChatThreadSidebar to show a fetch/save/rename/delete failure
   // banner.
   const [threadsError, setThreadsError] = useState(false);
+  // LOAD-scoped failure, narrower than `threadsError` on purpose: raised only
+  // by the two fetch paths (the load effect and retryLoad's reload), cleared by
+  // either succeeding. `threadsError` also covers a failed SAVE or DELETE,
+  // where the list we hold is still a perfectly good READ — see the publish
+  // effect for why conflating the two advertised threads and then denied them
+  // in the same turn.
+  const [loadFailed, setLoadFailed] = useState(false);
   // Which project the CURRENT `threads` value was loaded for — null until the
   // first load settles. Written only where `threads` is settled from a load
   // (the load effect's four settle branches and retryLoad's two), so it can
@@ -145,18 +152,24 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
   //                     reading chat-search-tool.ts and chat-tool-defs.ts exist
   //                     to prevent, defeated one layer upstream of both.
   //   settled, empty  → available. "We looked and there is nothing" is true.
-  // ★★ `threadsError` is ALSO raised by runPersist when a SAVE or DELETE
-  // fails, where the list we hold may still be a fine read — so this is
-  // deliberately slightly over-broad rather than missed. Erring toward "I
-  // could not look" is the safe direction: the failure mode it forecloses is
-  // the model inventing an answer, and the cost is a search the user can
-  // retry. Do not add a second flag to reclaim it.
+  // ★★★ IT READS `loadFailed`, NOT `threadsError`, AND THE DIFFERENCE IS AN
+  // ADVERTISE-THEN-DENY CONTRADICTION. `threadsError` is ALSO raised by
+  // runPersist when a SAVE or DELETE fails, and on a failed WRITE the list is
+  // still populated and perfectly readable — while `use-chat-search-bindings.ts`
+  // builds the ambient chat pointer from `published.threads` and never consults
+  // `available` (`grep -n available src/app/use-chat-search-bindings.ts` exits
+  // 1). So the system prompt said "There are N earlier conversations in this
+  // project … Use search_chats to read them", the model obeyed, and
+  // `search_chats` answered `coverage: "unavailable"` — over threads sitting in
+  // memory. Erring toward "I could not look" is the safe direction only for a
+  // failure that actually stopped us looking. `threadsError` is unchanged and
+  // still drives the sidebar banner and its Retry affordance.
   const threadsMatchProject = loadedProjectId === projectId;
   useEffect(() => {
     publishChatThreads(projectId, {
       threads: tursoMode && threadsMatchProject ? threads : [],
       activeThreadId: tursoMode && threadsMatchProject ? activeThreadId : null,
-      available: tursoMode && !threadsError,
+      available: tursoMode && !loadFailed,
     });
     // ★★ Clearing on unmount is not optional: withdrawing AI consent unmounts
     // the chat panel (it renders a consent screen instead) and nothing else in
@@ -171,7 +184,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     activeThreadId,
     tursoMode,
     threadsMatchProject,
-    threadsError,
+    loadFailed,
   ]);
   // Latest committed activeThreadId, read by the in-flight send to detect a
   // mid-send THREAD switch — same shape/purpose as ChatPanel's own
@@ -261,6 +274,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .then((loaded) => {
         if (cancelled) return;
         setThreadsError(false);
+        setLoadFailed(false);
         if (threadIdRef.current !== startedOn) {
           // MERGE, not bail. `loaded` cannot contain a thread minted after the
           // fetch was issued, so assigning it verbatim would drop that row from
@@ -300,6 +314,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       .catch(() => {
         if (cancelled) return;
         setThreadsError(true);
+        setLoadFailed(true);
         // Same mid-flight adoption guard as the success branch, and the reset
         // here is the MORE destructive of the two: `setThreads([])` would drop
         // the just-minted row from the list outright while its save is already
@@ -352,6 +367,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
     loadThreads(tursoConfig, projectId)
       .then((loaded) => {
         setThreadsError(false);
+        setLoadFailed(false);
         setThreads(loaded);
         setLoadedProjectId(projectId);
         const next = loaded[0] ?? null;
@@ -361,6 +377,7 @@ export function useChatThreads(deps: UseChatThreadsDeps) {
       })
       .catch(() => {
         setThreadsError(true);
+        setLoadFailed(true);
         setThreads([]);
         setLoadedProjectId(projectId);
         setActiveThreadId(null);
