@@ -1,5 +1,5 @@
 import { describe, test, it, expect } from "vitest";
-import { pick, changedFieldGroups, type FieldGroup } from "./field-groups";
+import { pick, changedFieldGroups, buildBulkFieldEdits, type FieldGroup } from "./field-groups";
 
 interface Row { id: number; a: string; b: string; c: string; tags: string[]; localModifiedAt?: string }
 
@@ -105,5 +105,53 @@ describe("CALENDAR_EVENT_UNDO_GROUPS", () => {
     const out = changedFieldGroups(base, { ...base, title: "Renamed" }, CALENDAR_EVENT_UNDO_GROUPS);
     expect(out).toHaveLength(1);
     expect(out[0].before).toEqual({ title: "Standup" });
+  });
+});
+
+describe("buildBulkFieldEdits", () => {
+  type Row = { id: number; sev: string; owner?: string; localModifiedAt?: string; noteLog?: string[] };
+
+  it("emits one edit per row carrying only the CHANGED keys", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", owner: "ann" }, after: { id: 1, sev: "High", owner: "ann" } },
+    ]);
+    expect(edits).toEqual([{ id: 1, before: { sev: "Low" }, after: { sev: "High" } }]);
+  });
+
+  it("skips a row nothing changed on", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low" } },
+      { before: { id: 2, sev: "Low" }, after: { id: 2, sev: "High" } },
+    ]);
+    expect(edits.map((e) => e.id)).toEqual([2]);
+  });
+
+  it("never captures id or localModifiedAt", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", localModifiedAt: "t0" }, after: { id: 1, sev: "High", localModifiedAt: "t1" } },
+    ]);
+    expect(Object.keys(edits[0].before)).toEqual(["sev"]);
+  });
+
+  it("does NOT capture a write-through field even when it differs", () => {
+    // A note added between the panel reading the row and building the patch must
+    // not become part of what undo reverts — that is the whole defect this closes.
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", noteLog: ["a"] }, after: { id: 1, sev: "High", noteLog: ["a", "b"] } },
+    ]);
+    expect(Object.keys(edits[0].before)).toEqual(["sev"]);
+  });
+
+  it("captures a field set from undefined and one cleared to undefined", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low", owner: "ann" } },
+      { before: { id: 2, sev: "Low", owner: "bo" }, after: { id: 2, sev: "Low" } },
+    ]);
+    expect(edits[0]).toEqual({ id: 1, before: { owner: undefined }, after: { owner: "ann" } });
+    expect(edits[1]).toEqual({ id: 2, before: { owner: "bo" }, after: { owner: undefined } });
+  });
+
+  it("returns an empty array for an empty input", () => {
+    expect(buildBulkFieldEdits<Row>([])).toEqual([]);
   });
 });

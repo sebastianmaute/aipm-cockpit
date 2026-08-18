@@ -42,6 +42,10 @@ const UNDO_CAP = 25;
  * directory, task dedup, the alloc plan, and dependency stripping on delete. A new
  * write-through field silently escapes it, which is why the patch capture is
  * preferred wherever the op is a field edit.
+ *
+ * See also `WRITE_THROUGH_KEYS` in `field-groups.ts` — that constant decides
+ * what a bulk-edit patch CAPTURES; this one decides what a whole-row undo
+ * PRESERVES.
  */
 const WRITE_THROUGH_FIELDS: readonly string[] = ["noteLog", "outlookEventId"];
 

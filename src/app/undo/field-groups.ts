@@ -96,3 +96,47 @@ export const RESOURCE_UNDO_GROUPS: readonly FieldGroup<Resource>[] = [];
 export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = [
   ["startDate", "recurrence", "exceptions"],
 ];
+
+/**
+ * Build the `{id, before, after}` field patches a bulk edit needs, by diffing
+ * each row against the row the op is about to write.
+ *
+ * ★★★ WHY A PATCH AND NOT THE ROW. `capturePart` captures WHOLE rows, so undoing
+ * a bulk edit also reverts whatever a concurrent writer changed on those rows —
+ * a note added through the notes window, an `outlookEventId` stamped by the
+ * background calendar push (open-followups §50). A patch reverts only what the op
+ * itself wrote.
+ *
+ * ★★ `WRITE_THROUGH_KEYS` is excluded even when the two rows DISAGREE on it. The
+ * panel reads its rows from a render snapshot, so a note committed between that
+ * read and the save legitimately shows up as a difference — and capturing it would
+ * reintroduce the very clobber this exists to prevent, one layer up.
+ *
+ * ★ A key set on a row that lacked it (and one cleared to `undefined`) is captured
+ * with an explicit `undefined` on the other side, so a bulk edit that CLEARS a
+ * field is undoable. `captureFieldPart` merges the patch, and merging an explicit
+ * `undefined` is what restores "absent".
+ *
+ * See also `WRITE_THROUGH_FIELDS` in `use-undo-stack.ts` — that constant decides
+ * what a whole-row undo PRESERVES; this one decides what a patch CAPTURES.
+ */
+const WRITE_THROUGH_KEYS: ReadonlySet<string> = new Set(["noteLog", "outlookEventId"]);
+
+export function buildBulkFieldEdits<T extends { id: number }>(
+  rows: readonly { before: T; after: T }[],
+): { id: number; before: Partial<T>; after: Partial<T> }[] {
+  const out: { id: number; before: Partial<T>; after: Partial<T> }[] = [];
+  for (const { before, after } of rows) {
+    const keys = new Set<string>([...Object.keys(before), ...Object.keys(after)]);
+    const changed: (keyof T & string)[] = [];
+    for (const k of keys) {
+      if (NEVER_CAPTURE.has(k) || WRITE_THROUGH_KEYS.has(k)) continue;
+      if (differs((before as Record<string, unknown>)[k], (after as Record<string, unknown>)[k])) {
+        changed.push(k as keyof T & string);
+      }
+    }
+    if (changed.length === 0) continue;
+    out.push({ id: before.id, before: pick(before, changed), after: pick(after, changed) });
+  }
+  return out;
+}
