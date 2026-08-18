@@ -139,6 +139,46 @@ export function applyUndoRestoreWithRemap<T extends { id: number }>(
 }
 
 /**
+ * Merge one edit-image over the LIVE row, letting the live row win on the
+ * `preserve` keys.
+ *
+ * ★★★ WHY THIS EXISTS. An edit-image is a whole-row snapshot taken when the op
+ * ran, so restoring it verbatim also reverts anything a DIFFERENT writer changed
+ * on that row meanwhile — a note added through the notes window, an
+ * `outlookEventId` stamped by a background calendar push. See open-followups §50.
+ *
+ * ★★ IT MUST NOT INVENT A KEY. `{ ...image, noteLog: live.noteLog }` adds an
+ * explicit `undefined` when NEITHER row carries one, which changes
+ * `Object.keys` — and `rowsEqual` below compares key COUNT to confirm a row's
+ * identity before redo removes it. No reachable break through that guard has
+ * been demonstrated (a fresh capture clears the redo stack, and an id claimed by
+ * a delete-image never reaches the edit branch), so this is hazard avoidance in
+ * shared machinery rather than a fix for a known defect — do not write a test
+ * claiming to reproduce one. The rule: the result carries exactly the keys one of
+ * the two rows had.
+ *
+ * ★ Returns `image` BY REFERENCE when nothing applies, so the common
+ * `preserve: []` case allocates nothing. Pure.
+ */
+export function applyPreserved<T extends { id: number }>(
+  image: T,
+  live: T,
+  preserve: readonly string[],
+): T {
+  let out: T | null = null;
+  for (const key of preserve) {
+    const liveHas = Object.prototype.hasOwnProperty.call(live, key);
+    const imageHas = Object.prototype.hasOwnProperty.call(image, key);
+    if (!liveHas && !imageHas) continue;
+    if (out === null) out = { ...image };
+    const rec = out as unknown as Record<string, unknown>;
+    if (liveHas) rec[key] = (live as unknown as Record<string, unknown>)[key];
+    else delete rec[key];
+  }
+  return out ?? image;
+}
+
+/**
  * Re-apply the destructive op (REDO) — the exact inverse of `applyUndoRestore`,
  * driven by FORWARD images (the post-op / after values, built by
  * `buildForwardImages` at undo time):

@@ -3,6 +3,7 @@ import {
   applyUndoRestore,
   applyUndoRestoreWithRemap,
   applyUndoForward,
+  applyPreserved,
   buildBeforeImages,
   buildForwardImages,
   remapImageField,
@@ -372,5 +373,61 @@ describe("pushUndoMany", () => {
   it("is a no-op copy for an empty entry list", () => {
     const got = pushUndoMany([e(1)], [], 25);
     expect(got.map((x) => x.meta.id)).toEqual([1]);
+  });
+});
+
+describe("applyPreserved", () => {
+  type Row = { id: number; name: string; noteLog?: string[]; outlookEventId?: string };
+
+  it("returns the image unchanged when there is nothing to preserve", () => {
+    const image: Row = { id: 1, name: "before" };
+    const live: Row = { id: 1, name: "after" };
+    expect(applyPreserved(image, live, [])).toBe(image); // same reference
+  });
+
+  it("takes the LIVE value when the live row has the key", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["old"] };
+    const live: Row = { id: 1, name: "after", noteLog: ["old", "added since"] };
+    expect(applyPreserved(image, live, ["noteLog"])).toEqual({
+      id: 1, name: "before", noteLog: ["old", "added since"],
+    });
+  });
+
+  it("lets an EMPTIER live value win — a cleared field stays cleared", () => {
+    const image: Row = { id: 1, name: "before", outlookEventId: "evt-1" };
+    const live: Row = { id: 1, name: "after", outlookEventId: undefined };
+    const out = applyPreserved(image, live, ["outlookEventId"]);
+    expect(out.outlookEventId).toBeUndefined();
+    expect(out.name).toBe("before"); // the non-preserved field still reverts
+  });
+
+  it("DELETES the key when only the image has it, rather than leaving the stale value", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["stale"] };
+    const live: Row = { id: 1, name: "after" };
+    const out = applyPreserved(image, live, ["noteLog"]);
+    expect("noteLog" in out).toBe(false); // NOT toBeUndefined — that passes against a spread
+  });
+
+  it("never INVENTS a key that neither row carries", () => {
+    const image: Row = { id: 1, name: "before" };
+    const live: Row = { id: 1, name: "after" };
+    const out = applyPreserved(image, live, ["noteLog", "outlookEventId"]);
+    expect(Object.keys(out).sort()).toEqual(["id", "name"]);
+  });
+
+  it("preserves several keys independently in one pass", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["a"], outlookEventId: "evt-1" };
+    const live: Row = { id: 1, name: "after", noteLog: ["a", "b"] };
+    const out = applyPreserved(image, live, ["noteLog", "outlookEventId"]);
+    expect(out.noteLog).toEqual(["a", "b"]);
+    expect("outlookEventId" in out).toBe(false);
+  });
+
+  it("does not mutate either input", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["a"] };
+    const live: Row = { id: 1, name: "after", noteLog: ["a", "b"] };
+    applyPreserved(image, live, ["noteLog"]);
+    expect(image.noteLog).toEqual(["a"]);
+    expect(live.noteLog).toEqual(["a", "b"]);
   });
 });
