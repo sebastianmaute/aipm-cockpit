@@ -661,7 +661,7 @@ export async function runTool(
       //   would be the inconsistency. Localize the whole layer or none of it.
       if (!d.isHistorySearchEnabled()) {
         throw new Error(
-          "search_history is switched off for this project (Settings → AI → activity history search).",
+          "search_history is switched off for this project (Settings → AI).",
         );
       }
       return searchHistory(d.getActivityLog(), {
