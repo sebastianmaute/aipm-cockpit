@@ -17,6 +17,7 @@ import { paragraphHasImage, blockChanged } from "./document-editor-commit";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
+import { ToggleButton } from "./toggle-button";
 
 export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   lang: Lang;
@@ -272,6 +273,150 @@ function ParagraphEditorBody({
         label={t(lang, "documentsParagraphLabel", String(index + 1))}
         lang={lang}
       />
+    </div>
+  );
+}
+
+type BulletsDraft = { items: readonly string[]; ordered: boolean };
+
+/**
+ * The first editor with N controls of the SAME kind per block (per-item move/
+ * remove, plus add) — so unlike heading/paragraph, its labels need to be
+ * unique on TWO axes at once: across sibling bullets blocks (like every other
+ * editor here) AND across items within one block. Two of its labels have no
+ * `{0}` placeholder to carry the item number at all (`documentsListOrdered`,
+ * `documentsAddItem`), so EVERY control here gets the block-position suffix,
+ * and the per-item ones additionally get their `{0}` item number — the
+ * cross-product is what makes "Remove item 1" in block 1 distinct from
+ * "Remove item 1" in block 2.
+ *
+ * ★ Still a THIN consumer of `useBlockDraft` — see the mismatch note on
+ *  `pendingCommit` below for the one place this editor does more than
+ *  heading/paragraph, and why that extra piece is a bridge INTO the hook's
+ *  own commit, not a second copy of its dirty-check/baseline/unmount-flush
+ *  logic.
+ */
+export function BulletsBlockEditor({
+  lang,
+  index,
+  block,
+  onCommit,
+}: BlockEditorProps<Extract<DocBlock, { type: "bullets" }>>) {
+  const { value, setValue, commit } = useBlockDraft<BulletsDraft>(
+    { items: block.items, ordered: block.ordered === true },
+    block,
+    index,
+    (v): DocBlock =>
+      v.ordered
+        ? { type: "bullets", items: [...v.items], ordered: true }
+        : { type: "bullets", items: [...v.items] },
+    onCommit,
+  );
+
+  // ★★★ MISMATCH WITH THE SHARED HOOK, AND WHY THIS IS A BRIDGE RATHER THAN A
+  //  FORK. `commit` (from useBlockDraft) is a plain closure recreated every
+  //  render that reads `rawValue` from the render that CREATED it — exactly
+  //  as its own doc comment describes. Add/remove/move/toggle need to commit
+  //  IMMEDIATELY (there is no blur event on a button click to hang the commit
+  //  off, unlike per-item TEXT edits), so calling `setValue(next)` then
+  //  `commit()` in the same handler would read the value from BEFORE the
+  //  update — a real stale-closure bug, not a hypothetical one.
+  //
+  //  The fix is to let the render `setValue` TRIGGERS supply the fresh
+  //  `commit`, via a flag a post-render effect (no deps — mirrors the
+  //  pattern the hook itself uses for `latestRef`) checks and clears. This
+  //  reuses the hook's OWN dirty/baseline/unmount-flush/concurrent-write
+  //  machinery completely unmodified: the value that lands in `onCommit` is
+  //  the same `blockChanged(baselineRef.current, next)`-gated one every
+  //  other editor gets, and the concurrent-write guard still protects a
+  //  structural action that arrives while another client's write is in
+  //  flight. What is NOT reused is `commit`'s call TIMING — bridged via this
+  //  ref+effect rather than a DOM blur event.
+  const pendingCommit = useRef(false);
+  useEffect(() => {
+    if (!pendingCommit.current) return;
+    pendingCommit.current = false;
+    commit();
+  });
+
+  const setValueNow = (next: BulletsDraft) => {
+    setValue(next);
+    pendingCommit.current = true;
+  };
+
+  const suffix = ` ${index + 1}`;
+
+  const moveItem = (from: number, to: number) => {
+    const items = [...value.items];
+    const [moved] = items.splice(from, 1);
+    items.splice(to, 0, moved);
+    setValueNow({ ...value, items });
+  };
+
+  return (
+    <div className="flex flex-col gap-2" onBlur={commit}>
+      <ToggleButton
+        pressed={value.ordered}
+        onToggle={() => setValueNow({ ...value, ordered: !value.ordered })}
+        lang={lang}
+        ariaLabel={t(lang, "documentsListOrdered") + suffix}
+      >
+        {t(lang, "documentsListOrdered")}
+      </ToggleButton>
+
+      <ul className="flex flex-col gap-1">
+        {value.items.map((item, i) => (
+          <li key={i} className="flex items-center gap-1">
+            <input
+              type="text"
+              aria-label={t(lang, "documentsListItem", String(i + 1)) + suffix}
+              className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+              value={item}
+              onChange={(e) => {
+                const items = [...value.items];
+                items[i] = e.target.value;
+                setValue({ ...value, items });
+              }}
+            />
+            <button
+              type="button"
+              aria-label={t(lang, "documentsMoveItemUp", String(i + 1)) + suffix}
+              disabled={i === 0}
+              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => moveItem(i, i - 1)}
+            >
+              <span aria-hidden="true">{"↑"}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={t(lang, "documentsMoveItemDown", String(i + 1)) + suffix}
+              disabled={i === value.items.length - 1}
+              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+              onClick={() => moveItem(i, i + 1)}
+            >
+              <span aria-hidden="true">{"↓"}</span>
+            </button>
+            <button
+              type="button"
+              aria-label={t(lang, "documentsRemoveItem", String(i + 1)) + suffix}
+              className="rounded-md border border-line px-2 py-1 text-xs"
+              onClick={() => setValueNow({ ...value, items: value.items.filter((_, j) => j !== i) })}
+            >
+              <span aria-hidden="true">{"✕"}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+
+      <div>
+        <button
+          type="button"
+          className="rounded-md border border-line px-2 py-1 text-xs"
+          onClick={() => setValueNow({ ...value, items: [...value.items, ""] })}
+        >
+          {t(lang, "documentsAddItem") + suffix}
+        </button>
+      </div>
     </div>
   );
 }

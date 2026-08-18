@@ -2,8 +2,9 @@ import { describe, it, expect, beforeAll, vi } from "vitest";
 import { StrictMode } from "react";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { ParagraphBlockEditor, HeadingBlockEditor } from "./document-block-editors";
+import { ParagraphBlockEditor, HeadingBlockEditor, BulletsBlockEditor } from "./document-block-editors";
 import { t } from "./i18n";
+import type { DocBlock } from "./document-model";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
 // Mirrors rich-text-editor.test.tsx's beforeAll — without it userEvent.type
@@ -351,5 +352,146 @@ describe("HeadingBlockEditor", () => {
     text.focus(); // tab-through: blurs the select, which bubbles to the group's onBlur
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
+  });
+});
+
+describe("BulletsBlockEditor", () => {
+  const block: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two"] };
+
+  // ★★★ Every label here carries the BLOCK-position suffix (` ${index+1}`) on
+  //  top of whatever `{0}` item number the key already interpolates —
+  //  `documentsListOrdered` and `documentsAddItem` have NO placeholder at
+  //  all, so without the suffix two sibling bullets blocks would render
+  //  identically-named controls (see the block-uniqueness test below, the
+  //  only thing that can catch that collision — axe cannot).
+
+  it("gives every per-item control an ITEM-UNIQUE accessible name", () => {
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const removes = screen.getAllByRole("button", { name: /^Remove item/ });
+    expect(removes).toHaveLength(2);
+    expect(new Set(removes.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+  });
+
+  it("adds an item", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsAddItem")} 1` }));
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] });
+  });
+
+  it("removes an item", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: `${t(LANG, "documentsRemoveItem", "1")} 1` }),
+    );
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two"] });
+  });
+
+  it("moves an item down", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(
+      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemDown", "1")} 1` }),
+    );
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two", "one"] });
+  });
+
+  it("cannot move the first item up or the last item down", () => {
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemUp", "1")} 1` }),
+    ).toBeDisabled();
+    expect(
+      screen.getByRole("button", { name: `${t(LANG, "documentsMoveItemDown", "2")} 1` }),
+    ).toBeDisabled();
+  });
+
+  it("toggles ordered", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsListOrdered")} 1` }));
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two"], ordered: true });
+  });
+
+  // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
+  //  (measured against axe 4.12.1 in AGENTS.md) — this is the only possible
+  //  detector, and it needs TWO blocks to express the collision at all.
+  //  Covers BOTH axes at once: the toggle and Add-item labels (no `{0}` to
+  //  fall back on) and a per-item control (which already varies by item
+  //  number WITHIN a block but collides ACROSS blocks without the suffix).
+  it("gives block-position-dependent controls DISTINCT names across sibling bullets blocks", () => {
+    render(
+      <>
+        <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />
+        <BulletsBlockEditor lang={LANG} index={1} block={block} onCommit={vi.fn()} />
+      </>,
+    );
+    const toggles = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsListOrdered")}`) });
+    expect(toggles).toHaveLength(2);
+    expect(new Set(toggles.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+
+    const adds = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsAddItem")}`) });
+    expect(adds).toHaveLength(2);
+    expect(new Set(adds.map((b) => b.textContent)).size).toBe(2);
+
+    const removeItem1 = screen.getAllByRole("button", { name: new RegExp(`^${t(LANG, "documentsRemoveItem", "1")}`) });
+    expect(removeItem1).toHaveLength(2);
+    expect(new Set(removeItem1.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
+  });
+
+  it("does not commit when nothing changed", () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    text.focus();
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★ Strengthened from a single-chunk type per the paragraph/heading
+  //  editors' own precedent: one chunk cannot distinguish a live closure
+  //  from one captured once at first render. Two separate `userEvent.type`
+  //  calls force an intervening re-render.
+  it("commits the LATEST item text on blur after two separate edits", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    await userEvent.clear(text);
+    await userEvent.type(text, "on");
+    await userEvent.type(text, "e2");
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one2", "two"] });
+  });
+
+  // ★★★ Shared useBlockDraft behaviour, pinned here for the SAME reason the
+  //  paragraph editor pins it: a pending edit with no blur must still be
+  //  flushed on unmount. Bullets is the one editor where a STRUCTURAL action
+  //  (add/remove/move/toggle) is bridged into the hook's own `commit` rather
+  //  than calling it directly (see the docstring on the effect above) — this
+  //  proves that bridge lands in the SAME baseline/dirty state a normal
+  //  blur-commit would, so the unmount-flush guard still works afterward.
+  //  ★ The `rerender` with the post-add block mirrors what a real parent
+  //   does after `onCommit` fires (apply the op, pass the new block back
+  //   down) — without it `storedBlock` never advances past the ORIGINAL
+  //   prop, and the concurrent-write guard would (correctly, for an
+  //   isolated fixture that never re-feeds its own commits) read that gap
+  //   as a concurrent write and abandon the flush.
+  it("flushes a pending item-text edit on unmount after a structural action already committed", async () => {
+    const onCommit = vi.fn();
+    const { rerender, unmount } = render(
+      <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: `${t(LANG, "documentsAddItem")} 1` }));
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    const afterAdd: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two", ""] };
+    expect(onCommit).toHaveBeenCalledWith(0, afterAdd);
+    rerender(<BulletsBlockEditor lang={LANG} index={0} block={afterAdd} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsListItem", "1")} 1` });
+    await userEvent.type(text, "!");
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(2);
+    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["one!", "two", ""] });
   });
 });
