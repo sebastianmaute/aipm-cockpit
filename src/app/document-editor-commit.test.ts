@@ -1,6 +1,13 @@
 import { describe, it, expect } from "vitest";
-import { shouldCoalesce, COALESCE_WINDOW_MS } from "./document-editor-commit";
+import {
+  shouldCoalesce,
+  COALESCE_WINDOW_MS,
+  paragraphHasImage,
+  blockChanged,
+  replaceBlockOp,
+} from "./document-editor-commit";
 import type { DocVersion } from "./document-versions";
+import type { DocBlock } from "./document-model";
 
 const version = (over: Partial<DocVersion> = {}): DocVersion => ({
   id: 1,
@@ -82,5 +89,93 @@ describe("shouldCoalesce", () => {
 
   it("exposes the window as a named constant", () => {
     expect(COALESCE_WINDOW_MS).toBeGreaterThan(0);
+  });
+});
+
+describe("paragraphHasImage", () => {
+  it("detects an image element in stored paragraph HTML", () => {
+    expect(paragraphHasImage('<p>a</p><img src="x.png">')).toBe(true);
+    expect(paragraphHasImage('<p>a <img src="x.png"> b</p>')).toBe(true);
+  });
+
+  it("is false for HTML with no image", () => {
+    expect(paragraphHasImage("<p>a</p>")).toBe(false);
+    expect(paragraphHasImage("")).toBe(false);
+  });
+
+  it("does not match a word that merely starts with img", () => {
+    // The tag boundary matters: "imgur" is not an <img>.
+    expect(paragraphHasImage("<p>see imgur.com</p>")).toBe(false);
+    expect(paragraphHasImage('<p><a href="https://imgur.com">x</a></p>')).toBe(false);
+  });
+
+  it("disagrees with a naive includes('<img') check on a longer tag name", () => {
+    // "<imgcaption>" contains the literal substring "<img", so a naive
+    // `.includes("<img")` would wrongly say yes. The real predicate requires
+    // a tag BOUNDARY right after "img" (whitespace, "/" or ">") and correctly
+    // says no — this fixture is where the two implementations disagree.
+    const html = "<p>a <imgcaption> b</p>";
+    expect(html.includes("<img")).toBe(true);
+    expect(paragraphHasImage(html)).toBe(false);
+  });
+
+  it("does not match escaped text that only looks like a tag", () => {
+    // Stored HTML is already sanitized, so this is literal text, not an element.
+    expect(paragraphHasImage("<p>&lt;img&gt;</p>")).toBe(false);
+  });
+
+  it("matches a self-closing image tag", () => {
+    expect(paragraphHasImage('<p>a</p><img src="x.png"/>')).toBe(true);
+  });
+});
+
+describe("blockChanged", () => {
+  it("is false for a block that was focused and left untouched", () => {
+    const a: DocBlock = { type: "paragraph", html: "<p>x</p>" };
+    expect(blockChanged(a, { type: "paragraph", html: "<p>x</p>" })).toBe(false);
+  });
+
+  it("is true when content differs", () => {
+    const a: DocBlock = { type: "paragraph", html: "<p>x</p>" };
+    expect(blockChanged(a, { type: "paragraph", html: "<p>y</p>" })).toBe(true);
+  });
+
+  it("compares nested content, not identity", () => {
+    const a: DocBlock = { type: "bullets", items: ["one", "two"] };
+    expect(blockChanged(a, { type: "bullets", items: ["one", "two"] })).toBe(false);
+    expect(blockChanged(a, { type: "bullets", items: ["one", "three"] })).toBe(true);
+  });
+
+  it("treats an absent optional field and an omitted one as equal", () => {
+    const a: DocBlock = { type: "bullets", items: ["one"] };
+    expect(blockChanged(a, { type: "bullets", items: ["one"], ordered: undefined })).toBe(false);
+  });
+
+  it("catches a difference nested deep inside a table's rows", () => {
+    const a: DocBlock = {
+      type: "table",
+      columns: ["A", "B"],
+      rows: [
+        ["1", "2"],
+        ["3", "4"],
+      ],
+    };
+    const sameShapeDifferentCell: DocBlock = {
+      type: "table",
+      columns: ["A", "B"],
+      rows: [
+        ["1", "2"],
+        ["3", "5"],
+      ],
+    };
+    expect(blockChanged(a, { ...a, rows: a.rows.map((r) => [...r]) })).toBe(false);
+    expect(blockChanged(a, sameShapeDifferentCell)).toBe(true);
+  });
+});
+
+describe("replaceBlockOp", () => {
+  it("builds a replace op at the given index", () => {
+    const block: DocBlock = { type: "heading", level: 2, text: "H" };
+    expect(replaceBlockOp(3, block)).toEqual({ op: "replace", index: 3, block });
   });
 });
