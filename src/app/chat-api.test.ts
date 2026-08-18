@@ -71,6 +71,35 @@ describe("buildSystemPrompt — the activity recap block", () => {
   });
 });
 
+describe("buildSystemPrompt — the chat pointer block", () => {
+  const pointer: NonNullable<Snapshot["chatPointer"]> = {
+    count: 4,
+    recent: [
+      { title: "vendor decision", at: "2026-08-09T10:00:00Z" },
+      { title: "budget review", at: "2026-08-07T10:00:00Z" },
+    ],
+  };
+
+  // ★★★ THE PLACEMENT TEST, mirroring the activity recap's above. Asserting the
+  //    text appears "somewhere in the prompt" PASSES with the block in the
+  //    CACHED prefix — which is the defect, since thread state changes every
+  //    turn and moving it there would invalidate the prompt cache on every
+  //    message. That failure is SILENT: it shows up only as a cost regression,
+  //    never as a wrong answer. Assert the BLOCK INDEX.
+  it("puts the chat pointer in the VOLATILE block, never the cached prefix", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ chatPointer: pointer }), [], false, {});
+    expect(blocks[0].text).not.toContain("earlier conversations in this project");
+    expect(blocks[1].text).toContain("earlier conversations in this project");
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
+  it("omits the pointer entirely when there is none", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ chatPointer: undefined }), [], false, {});
+    expect(blocks[1].text).not.toContain("earlier conversations in this project");
+  });
+});
+
 // ★★★ THE WHOLE-PROMPT INVARIANT, and the reason it is stated over the ASSEMBLED
 // text rather than per-surface: `historySearch: false` correctly dropped
 // `search_history` from the tools array while THREE separate surfaces went on
