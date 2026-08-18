@@ -488,6 +488,29 @@ export function AiSection({ lang, settings, onChange, hideUsage }: AiSectionProp
           {t(lang, "settingsAiActivityRecapHelp")}
         </FieldHint>
 
+        {/* Chat-thread search + the ambient pointer (B2c). Default ON (undefined = on). */}
+        <label className="mt-3 flex items-center gap-2">
+          <Checkbox
+            aria-label={t(lang, "settingsAiChatSearch")}
+            checked={settings.ai.chatSearch !== false}
+            onChange={() =>
+              onChange({
+                ...settings,
+                ai: {
+                  ...settings.ai,
+                  chatSearch: settings.ai.chatSearch === false,
+                },
+              })
+            }
+          />
+          <span className="text-xs text-foreground">
+            {t(lang, "settingsAiChatSearch")}
+          </span>
+        </label>
+        <FieldHint className="mt-1">
+          {t(lang, "settingsAiChatSearchHelp")}
+        </FieldHint>
+
         {/* Proactive insight recommendations (SP2). Default OFF (opt-in) — recurring billed calls. */}
         <label className="mt-3 flex items-center gap-2">
           <Checkbox

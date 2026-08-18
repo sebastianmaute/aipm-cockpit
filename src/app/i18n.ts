@@ -2855,6 +2855,11 @@ const enUS = {
   settingsAiActivityRecap: "Tell the assistant how much changed recently",
   settingsAiActivityRecapHelp:
     "Adds one line to every message with a count of the last 7 days' changes, so the assistant knows history exists.",
+  settingsAiChatSearch: "Let the assistant search past conversations",
+  settingsAiChatSearchHelp:
+    "The assistant can search this project's earlier chat threads and is told how many exist. " +
+    "Past conversations are only stored on Turso projects; with this off, the tool is removed " +
+    "from the assistant entirely rather than merely discouraged.",
   aiInsightRecommendations: "Proactive insight recommendations",
   aiInsightRecommendationsDesc: "Let Claude propose fixes for detected insights in the background. Opt-in — uses billed API calls.",
   aiInsightRecInterval: "Check every (minutes)",
