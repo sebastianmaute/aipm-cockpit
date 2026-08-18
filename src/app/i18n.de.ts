@@ -3079,6 +3079,11 @@ export const de: Record<TranslationKey, string> = {
   budgetNoAllocations: "Noch keine Zuordnungen vorhanden, daher können Kosten, Marge und Kostenverbrauch nicht berechnet werden. Fügen Sie eine Rollen- oder Disziplinzeile hinzu.",
   budgetUnratedHours: "Es sind Stunden auf Rollen ohne internen Satz gebucht, daher wären Kosten, Marge und Kostenverbrauch zu niedrig. Pflegen Sie die fehlenden Sätze in der Ratecard unter Ressourcen → Rollen.",
   budgetUnpricedBlend: "Mischsätze können nicht berechnet werden — Stufen ohne internen Satz in: {0}. Pflegen Sie sie in der Ratecard unter Ressourcen → Rollen.",
+  budgetUnappliedActuals:
+    "Abgerufene TimeLog-Buchungen warten darauf, auf {0} Budgetblock/Budgetblöcke angewendet zu werden — die Ist-Stunden dieser Blöcke ändern sich erst, wenn Sie sie unter Zeitbuchungen anwenden.",
+  budgetUnattributedActuals:
+    "{0} Stunden aus abgerufenen TimeLog-Buchungen konnten beim Abruf keiner Budgetzeile zugeordnet werden. Die Zuordnung entsteht beim Abruf, daher stellt eine jetzt korrigierte Personen- oder Projektverknüpfung sie NICHT wieder her — die Buchungen müssen erneut abgerufen werden.",
+  budgetUnappliedActualsGo: "Zeitbuchungen öffnen",
   budgetReportColWinLossHint: "Differenz zwischen Erlös und Kosten in EUR; negativ bedeutet, dass der Bucket mit Verlust läuft.",
   budgetWinLossHint: "Stunden über oder unter Plan.",
   budgetSpilloverInHint: "Aus einem anderen Bereich übertragene Stunden.",

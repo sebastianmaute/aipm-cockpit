@@ -19,6 +19,7 @@ import { TimelogProjectScope } from "./timelog-project-scope";
 import { useRowSelection } from "./use-row-selection";
 import { Modal } from "./modal";
 import { buildApplyPlan, applyActualsToBuckets, bucketsMissingAllocations, describeApplyRows } from "./timelog-apply";
+import { pickMatchableResources } from "./timelog-matchable";
 import { TimelogApplyConfirm } from "./timelog-apply-confirm";
 import { TimelogPeopleTable } from "./timelog-people-table";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
@@ -86,13 +87,10 @@ export function TimelogPanel({
   const grades = ws.grades;
   const planGranularity = ws.plan?.granularity ?? "month";
 
-  // Only INTERNAL resources are linkable to TimeLog people — external resources
-  // are capacity-only (excluded from cost) and never book time as an internal
-  // user, so they're dropped from the auto-match pool, the aggregation engine
-  // (byResource/byBucket), AND the picker below. Filter at the SOURCE (before the
-  // hook) so display and cost attribution agree — filtering only the dropdown
-  // would still let a name-colliding external soak up hours in apply-to-budget.
-  const matchableResources = useMemo(() => resources.filter((r) => !r.isExternal), [resources]);
+  // Externals are excluded from the auto-match pool, the aggregation engine, the
+  // picker below AND the apply plan — the reasoning lives in `timelog-matchable`
+  // beside the filter, which the Budget-side notice shares.
+  const matchableResources = useMemo(() => pickMatchableResources(resources), [resources]);
 
   const links: TimelogLinks = useMemo(
     () => timelogLinks ?? { userLinks: [], projectLinks: [] },

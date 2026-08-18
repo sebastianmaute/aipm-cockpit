@@ -3142,6 +3142,11 @@ const enUS = {
   budgetNoAllocations: "No allocations yet, so cost, margin and burn cannot be calculated. Add a role or discipline line.",
   budgetUnratedHours: "Some hours are booked against roles with no internal rate, so cost, margin and burn would be understated. Set the missing rates on the rate card under Resources → Roles.",
   budgetUnpricedBlend: "Blended rates cannot be calculated — grades with no internal rate in: {0}. Set them on the rate card under Resources → Roles.",
+  budgetUnappliedActuals:
+    "Fetched TimeLog bookings are waiting to be applied to {0} budget bucket(s) — those buckets' actual hours will not change until you apply them in Time bookings.",
+  budgetUnattributedActuals:
+    "{0}h of fetched TimeLog bookings could not be placed on any budget line when they were fetched. Attribution is decided at fetch time, so correcting a person or project link now will NOT recover them — the bookings have to be fetched again.",
+  budgetUnappliedActualsGo: "Open Time bookings",
   budgetReportColWinLossHint: "Difference between revenue and cost in EUR; negative means the bucket runs at a loss.",
   budgetWinLossHint: "Hours won or lost versus plan.",
   budgetSpilloverInHint: "Hours carried in from another bucket.",
