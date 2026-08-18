@@ -19,7 +19,8 @@ import {
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
 import { applyStatusChange } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
-import { capturePart, type UndoStackApi } from "./undo/use-undo-stack";
+import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 import { visibleTaskRows } from "./visible-task-rows";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
@@ -45,6 +46,11 @@ export interface UseBulkOperationsArgs {
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
   /** Capture a pre-op snapshot for undo (clear-all deletes, bulk-edit changes). */
   capture: UndoStackApi["capture"];
+  /** Capture a bulk field-patch edit for undo (the tasks bulk apply) — reverts
+   *  only the fields the apply wrote, so a note added through the notes window
+   *  or an outlookEventId stamped by a background Outlook push survives the
+   *  undo (open-followups #50). */
+  captureFieldRows: UndoStackApi["captureFieldRows"];
   /** The budget-bucket commit boundary. A bulk bucket change writes `budgets`,
    *  never `tasks` — the link lives on the bucket. */
   commitBuckets: (next: readonly BudgetBucket[], meta?: BucketCommitMeta) => void;
@@ -98,6 +104,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   const allowDestructiveSaveRef = useRef(args.allowDestructiveSave);
   const requestClearAllConfirmRef = useRef(args.requestClearAllConfirm);
   const captureRef = useRef(args.capture);
+  const captureFieldRowsRef = useRef(args.captureFieldRows);
   useEffect(() => { langRef.current = args.lang; }, [args.lang]);
   useEffect(() => { showToastRef.current = args.showToast; }, [args.showToast]);
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
@@ -107,6 +114,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
   useEffect(() => { allowDestructiveSaveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
   useEffect(() => { requestClearAllConfirmRef.current = args.requestClearAllConfirm; }, [args.requestClearAllConfirm]);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
+  useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
 
   const [selectedIds, setSelectedIds] = useState<Set<number>>(new Set());
 
@@ -243,6 +251,24 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const count = targetIds.length - untouchedSynced;
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => targetSet.has(r.id));
+    // ONE definition of the row patch, used to derive the undo patches AND to
+    // write the rows. Two copies would let the undo revert something other than
+    // what was applied.
+    const patchRow = (row: Task): Task => {
+      if (row.jiraKey) {
+        if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
+        // Only managed fields (incl. status) were enabled → nothing local to
+        // change; leave the row untouched (no spurious localModifiedAt that a
+        // pull would revert).
+        if (noLocalForSynced) return row;
+        return { ...row, ...jiraSafeUpdates, localModifiedAt: stamp };
+      }
+      // Non-synced: apply the flat field patch, then the status transition (via
+      // applyStatusChange so status + completedDate stay in sync).
+      const next = { ...row, ...updates };
+      const withStatus = statusEnabled ? applyStatusChange(next, newStatus, editToday) : next;
+      return { ...withStatus, localModifiedAt: stamp };
+    };
     // Bucket links live on the BUCKET, so this writes `budgets`. A task-field
     // patch and a bucket change in the same apply must be ONE undo entry.
     const nextBuckets = fields.budgetBucket
@@ -253,33 +279,22 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // edit must behave the same way, or every selected row gets a spurious
     // localModifiedAt that a Jira pull would revert.
     const taskFieldsEnabled = statusEnabled || Object.keys(updates).length > 0;
-    const tasksPart = taskFieldsEnabled && beforeRows.length > 0
-      ? capturePart<Task>({ setter: setTasks, edited: beforeRows, fromArray: tasks })
+    // Field PATCHES, not whole rows — so undo reverts only what this apply
+    // wrote, and a note added through the notes window (or an outlookEventId
+    // stamped by a background Outlook push) survives the undo (§50).
+    const taskEdits = taskFieldsEnabled
+      ? buildBulkFieldEdits(beforeRows.map((row) => ({ before: row, after: patchRow(row) })))
+      : [];
+    const tasksPart = taskEdits.length > 0
+      ? captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" })
       : null;
     if (tasksPart !== null && !bucketsChanged) {
-      captureRef.current({ setter: setTasks, kind: "bulk.edit", edited: beforeRows, fromArray: tasks, entityKey: "task" });
+      captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
     }
     // `targetIds.length > 0` also keeps a fully-hidden selection from producing a
     // fresh (identical) tasks array, which would dirty the workspace for nothing.
     if (taskFieldsEnabled && targetIds.length > 0) {
-    setTasks((prev) =>
-      prev.map((row) => {
-        if (!targetSet.has(row.id)) return row;
-        if (row.jiraKey) {
-          if (!managedEnabled) return { ...row, ...updates, localModifiedAt: stamp };
-          // Only managed fields (incl. status) were enabled → nothing local to
-          // change; leave the row untouched (no spurious localModifiedAt that a
-          // pull would revert).
-          if (noLocalForSynced) return row;
-          return { ...row, ...jiraSafeUpdates, localModifiedAt: stamp };
-        }
-        // Non-synced: apply the flat field patch, then the status transition (via
-        // applyStatusChange so status + completedDate stay in sync).
-        const next = { ...row, ...updates };
-        const withStatus = statusEnabled ? applyStatusChange(next, newStatus, editToday) : next;
-        return { ...withStatus, localModifiedAt: stamp };
-      }),
-    );
+      setTasks((prev) => prev.map((row) => (targetSet.has(row.id) ? patchRow(row) : row)));
     }
     if (bucketsChanged) {
       commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });

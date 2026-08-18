@@ -8,6 +8,9 @@ import { defaultSettings } from "./settings-types";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { FiltersProvider, useFilters } from "./filters-context";
 import { TaskFormProvider, useTaskForm } from "./task-form-context";
+import { useUndoStack } from "./undo/use-undo-stack";
+import { useBudgetBuckets } from "./use-budget-buckets";
+import { bucketIdForTask } from "./budget-task-link";
 import {
   useBulkOperations,
   type UseBulkOperationsArgs,
@@ -38,6 +41,7 @@ function makeArgs(
     onCancelEdit: vi.fn(),
     logActivity: vi.fn(),
     capture: vi.fn(),
+    captureFieldRows: vi.fn(),
     commitBuckets: vi.fn(),
     showToast: vi.fn(),
     today: "2026-08-03",
@@ -58,6 +62,52 @@ function renderBulk(overrides?: Partial<UseBulkOperationsArgs>) {
     { wrapper: Wrapper },
   );
   return { result, args };
+}
+
+// Mounts a REAL useUndoStack (and, for the bucket-composite case, a REAL
+// useBudgetBuckets) beside the hook under test, rather than mocked
+// capture/captureFieldRows — needed to prove a concurrent write (a note
+// landed through the notes window) actually survives an undo, not merely
+// that the right args were passed. Mirrors use-change-log.test.tsx's
+// renderChangeLogWithRealUndo.
+function renderBulkWithRealUndo(overrides?: Partial<UseBulkOperationsArgs>) {
+  const logActivity = vi.fn();
+  const showToast = vi.fn();
+  const { result } = renderHook(
+    () => {
+      const undoApi = useUndoStack({
+        lang: "en-US" as Lang,
+        logActivity,
+        showToast,
+        showToastAction: vi.fn(),
+      });
+      const workspace = useWorkspace();
+      const { commitBuckets } = useBudgetBuckets({
+        budgets: workspace.budgets,
+        setBudgets: workspace.setBudgets,
+        capture: undoApi.capture,
+        captureComposite: undoApi.captureComposite,
+        logActivity,
+      });
+      const args = makeArgs({
+        logActivity,
+        showToast,
+        capture: undoApi.capture,
+        captureFieldRows: undoApi.captureFieldRows,
+        commitBuckets,
+        ...overrides,
+      });
+      return {
+        bulk: useBulkOperations(args),
+        workspace,
+        taskForm: useTaskForm(),
+        filters: useFilters(),
+        undo: undoApi.undo,
+      };
+    },
+    { wrapper: Wrapper },
+  );
+  return { result };
 }
 
 describe("useBulkOperations", () => {
@@ -179,8 +229,8 @@ describe("useBulkOperations", () => {
     it("applyBulkEdit patches selected tasks with enabled fields, logs bulk.edit, clears selection", () => {
       const logActivity = vi.fn();
       const showToast = vi.fn();
-      const capture = vi.fn();
-      const { result } = renderBulk({ logActivity, showToast, capture });
+      const captureFieldRows = vi.fn();
+      const { result } = renderBulk({ logActivity, showToast, captureFieldRows });
       act(() => {
         result.current.workspace.setTasks([
           {
@@ -211,11 +261,17 @@ describe("useBulkOperations", () => {
       expect(result.current.workspace.tasks[0].priority).toBe("High");
       expect(logActivity).toHaveBeenCalledWith("bulk.edit", 1);
       expect(result.current.bulk.selectedIds.size).toBe(0);
-      // Undo captured the selected row's PRE-edit image (priority still Medium).
-      expect(capture).toHaveBeenCalledTimes(1);
-      const capOpts = capture.mock.calls[0][0] as { kind: string; edited: { id: number; priority: string }[] };
+      // Undo captured the selected row's field PATCH, not a whole-row image —
+      // undoing it must revert only what this apply wrote (open-followups #50).
+      expect(captureFieldRows).toHaveBeenCalledTimes(1);
+      const capOpts = captureFieldRows.mock.calls[0][0] as {
+        kind: string;
+        edits: { id: number; before: Partial<Task>; after: Partial<Task> }[];
+      };
       expect(capOpts.kind).toBe("bulk.edit");
-      expect(capOpts.edited).toEqual([expect.objectContaining({ id: 1, priority: "Medium" })]);
+      expect(capOpts.edits).toEqual([
+        { id: 1, before: { priority: "Medium" }, after: { priority: "High" } },
+      ]);
     });
 
     // GUARD 2 of 2 — what a STALE selection can REACH. Guard 1 stops select-all
@@ -406,6 +462,138 @@ describe("useBulkOperations", () => {
       expect(synced.localModifiedAt).toBe("STAMP");
       expect(local.status).toBe("Done");          // non-synced applied
       expect(local.completedDate).toBeTruthy();
+    });
+
+    // ★★ open-followups §50, tasks half. A whole-row bulk-edit undo used to
+    //   revert whatever a concurrent writer changed on those rows meanwhile —
+    //   here, a note added through the write-through notes window. The row
+    //   patch is now derived and captured as FIELD edits (buildBulkFieldEdits +
+    //   captureFieldRows), which merge only the captured keys back onto the
+    //   LIVE row on undo.
+    //   ★★★ The note is seeded AFTER the bulk apply, not before — seeding it
+    //   first would pass against the unfixed whole-row capture too (§48 trap).
+    //   ★★★ ANTI-VACUITY: `noteLog` is ALSO shielded under the OLD whole-row
+    //   capture by the separate WRITE_THROUGH_FIELDS backstop
+    //   (use-undo-stack.ts), which landed before this conversion — so a
+    //   noteLog-only assertion here passes against BOTH the fixed and the
+    //   unfixed code (measured; see the task report). `group` is a normal
+    //   field, NOT on that backstop list, so it is reverted by a whole-row
+    //   undo and survives ONLY under the field-patch capture this fix adds —
+    //   it is what actually makes this test RED on unfixed code.
+    it("undoing a task bulk edit keeps a note (and any other concurrent field write) added since the apply", () => {
+      const { result } = renderBulkWithRealUndo();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+          { id: 2, taskName: "Task B", assignee: "", assigneeEmail: "", dueDate: "",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      // The apply landed before we touch the undo path.
+      expect(result.current.workspace.tasks.find((r) => r.id === 1)!.priority).toBe("High");
+
+      // Two concurrent writes land on row 1 AFTER the apply — a note through
+      // the write-through notes window, and a plain field edit (group) that
+      // has no backstop at all. Neither is something the bulk edit's undo
+      // wrote, so neither should be reverted by it.
+      act(() => {
+        result.current.workspace.setTasks((prev) =>
+          prev.map((r) =>
+            r.id === 1
+              ? {
+                  ...r,
+                  group: "Alpha",
+                  noteLog: [
+                    ...(r.noteLog ?? []),
+                    { id: 1, timestamp: "2026-06-10T00:00:00.000Z", html: "<p>added after the bulk edit</p>", text: "added after the bulk edit" },
+                  ],
+                }
+              : r,
+          ),
+        );
+      });
+
+      act(() => { result.current.undo(); });
+
+      const taskById = (id: number) => result.current.workspace.tasks.find((r) => r.id === id)!;
+      expect(taskById(1).priority).toBe("Low");
+      expect(taskById(1).noteLog?.map((n) => n.text)).toEqual(["added after the bulk edit"]);
+      expect(taskById(1).group).toBe("Alpha");
+      expect(taskById(2).priority).toBe("Low");
+    });
+
+    // The composite half of §50: a bulk apply that ALSO moves a budget bucket
+    // link produces ONE composite undo entry spanning tasks + budgets
+    // (use-budget-buckets.ts commitBuckets). The bucket link lives on the
+    // BUCKET (BudgetBucket.taskIds), not on the task, so the revert is
+    // asserted via bucketIdForTask rather than a task field.
+    // ★★★ Same anti-vacuity note as above: `group` (not on the write-through
+    // backstop) is what actually distinguishes this from unfixed code.
+    it("undoing a bulk edit that ALSO moved buckets keeps concurrent writes and reverts both arrays", () => {
+      const { result } = renderBulkWithRealUndo();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+        result.current.workspace.setBudgets([
+          { id: 10, name: "Design", taskIds: [1] },
+          { id: 20, name: "Build", taskIds: [] },
+        ] as unknown as BudgetBucket[]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev,
+          enabled: { ...prev.enabled, priority: true, budgetBucket: true },
+          priority: "High",
+          budgetBucket: "20",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      expect(result.current.workspace.tasks[0].priority).toBe("High");
+      expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(20);
+
+      // A note lands through the notes window AFTER the composite apply, and a
+      // plain field (group) is edited concurrently too.
+      act(() => {
+        result.current.workspace.setTasks((prev) =>
+          prev.map((r) =>
+            r.id === 1
+              ? {
+                  ...r,
+                  group: "Alpha",
+                  noteLog: [
+                    { id: 1, timestamp: "2026-06-10T00:00:00.000Z", html: "<p>added after the bulk edit</p>", text: "added after the bulk edit" },
+                  ],
+                }
+              : r,
+          ),
+        );
+      });
+
+      act(() => { result.current.undo(); });
+
+      const task = result.current.workspace.tasks[0];
+      expect(task.priority).toBe("Low");
+      expect(task.noteLog?.map((n) => n.text)).toEqual(["added after the bulk edit"]);
+      expect(task.group).toBe("Alpha");
+      // The bucket move WAS reverted — this is a real composite undo, not just
+      // the field patch half.
+      expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(10);
     });
   });
 

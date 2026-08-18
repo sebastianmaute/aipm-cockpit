@@ -1572,7 +1572,7 @@ function TaskManagerInner() {
     handlers: { onEdit, onDelete, onSendInquiry },
     onCancelEdit: handleCancelEdit,
     logActivity: logActivityUser,
-    capture: undoApi.capture, commitBuckets,
+    capture: undoApi.capture, captureFieldRows: undoApi.captureFieldRows, commitBuckets,
     showToast, allowDestructiveSave,
     // Day-boundary context for the health filter, so the hook's idea of a
     // visible row matches the Open Points pane's exactly.

@@ -79,11 +79,17 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
     // ★ `edited` carries the PREVIOUS images (they are the restore payload), and
     // created rows are excluded entirely — there is no before-image for a row
     // that did not exist, and no entity in the app captures a create.
+    // `isPrimary: true` — a composite's `tasksPart` (when present) is now a
+    // FIELD part (`captureFieldPart`), which publishes no id-remap and would
+    // otherwise become the nominal primary by position, silently leaving any
+    // `fkRemapField` cascade pointed at stale ids. Flagging this one keeps the
+    // real primary here regardless of which slot `tasksPart` occupies.
     const budgetsPart = capturePart<BudgetBucket>({
       setter: setBudgets,
       removed: deleted,
       edited: editedBefore,
       fromArray: prev,
+      isPrimary: true,
     });
 
     if (meta?.tasksPart !== undefined && meta.tasksPart !== null) {
@@ -92,6 +98,7 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
         primaryCount: meta.primaryCount ?? (deleted.length + editedBefore.length),
         parts: [meta.tasksPart, budgetsPart],
         name,
+        entityKey: "budget",
       });
     } else if (budgetsPart !== null) {
       capture<BudgetBucket>({
