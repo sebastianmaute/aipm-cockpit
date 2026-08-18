@@ -7694,6 +7694,12 @@ Four ways they diverge in ordinary use:
    reads "—" while the role row shows real hours.
 4. Multi-device Turso: the workspace carries another device's applied actuals while this device's
    cache holds an older fetch, so the people rows are OLDER than the row above them.
+5. ★★ **A PARTIAL fetch (§172).** When a TimeLog project is lost to a fetch error, the cached
+   aggregate is short, so every person who booked on that project reads LOW here — while the role
+   row above shows the last applied total, which is complete. Added by the §172 slice, which marks
+   such an entry `partial` and blocks APPLYING it; these rows are display-only and are deliberately
+   NOT suppressed, because case 3 above is what suppression looks like and a missing figure is not
+   better than a short one. §172's own enumeration of cache consumers names this as the third one.
 
 ★ The read is memoised on `projectId` alone, so it does not refresh while the Budget view stays
 mounted — a fetch in the Timelog panel does not move these figures until the view remounts. That is
@@ -11402,8 +11408,26 @@ POISONED DATA, not every caller of the dangerous FUNCTION**, and reach for a com
 rather than the writer:
 
 ```bash
-grep -rn "loadActualsCache" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+# consumers OUTSIDE the sync hook that owns the cache — the surfaces that can
+# render or act on a short aggregate. Excluding the hook is what makes the
+# output readable: it seeds five slices from the same loader.
+grep -rn "loadActualsCache" src/app --include=*.ts --include=*.tsx \
+  | grep -v "\.test\." | grep -v use-timelog-sync
 ```
+
+★★★ **IT RETURNS SIX LINES ACROSS THREE FILES BESIDES THE STORE ITSELF — TWO OF THEM REAL READS, AND
+THE FIRST CUT OF THIS SECTION GATED ONE.** (Six because two are the `import` lines and one is the
+`export function` declaration; read the file names, not the line count.) The command was written
+into this entry as the lesson and then not run against it — the same "attach a command and run it"
+failure the entry above it is about, one section later, by the same hand:
+
+1. `budget-unapplied-notice.tsx` — the CTA described above. Gated: all four signals suppressed.
+2. `workspace-section.tsx` → `budget-panel`'s per-person breakdown rows (`actualsByBucket`).
+   Display-only, no CTA and no write, and deliberately **NOT** suppressed: `docs/open-followups.md`
+   §122 already records that these rows disagree with the role row above them for four other
+   reasons, and its case 3 is precisely what suppression would look like — a missing figure is not
+   better than a short one. A partial fetch is now case 5 there.
+3. `budget-panel.tsx` — a comment, not a read.
 
 ### Two narrower gaps closed at the same time
 
