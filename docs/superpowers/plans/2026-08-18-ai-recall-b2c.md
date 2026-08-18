@@ -421,7 +421,8 @@ export interface ChatHitMessage {
 
 export interface ChatHit {
   threadId: string;
-  /** `deriveThreadName`, or "" when the thread holds no user message yet. */
+  /** `threadTitle` — the user's own thread name when set, else the derived one
+   *  (and "" when the thread holds no user message yet either). */
   title: string;
   /** Rewritten into the project zone's offset-bearing form. */
   updatedAt: string;
@@ -442,6 +443,15 @@ export interface ChatSearchResult {
    */
   truncated: boolean;
   coverage: ChatCoverage;
+}
+
+/** A thread's display title: the user's own name when they have set one, else
+ *  the name derived from the first user message. `ChatThread.name` is "" until
+ *  the first save AND is user-editable via `renameThread` — deriving
+ *  unconditionally would cite a renamed thread under a title that appears
+ *  nowhere in the sidebar. */
+export function threadTitle(th: ChatThread): string {
+  return th.name.trim() || deriveThreadName(th.display);
 }
 
 /**
@@ -480,7 +490,6 @@ export function searchChats(
   //   older one first.
   const ordered = threads
     .filter((th) => th.id !== activeThreadId)
-    .slice()
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
 
   const hits: ChatHit[] = [];
@@ -508,14 +517,15 @@ export function searchChats(
 
     const take = Math.min(budget, matched.length);
     if (take < matched.length) truncated = true;
-    // ★ Budget exhausted: the thread matched but nothing of it fits. Keep
-    //   scanning so `truncated` stays honest about later threads too.
-    if (take === 0) continue;
+    // ★ Budget exhausted: this thread matched but nothing of it fits, and the
+    //   line above has already set `truncated`. `budget` only ever decreases,
+    //   so no later thread could contribute a message either — stop.
+    if (take === 0) break;
     budget -= take;
 
     hits.push({
       threadId: th.id,
-      title: deriveThreadName(th.display),
+      title: threadTitle(th),
       updatedAt: isoInZone(th.updatedAt, tz),
       messages: matched.slice(0, take),
       moreMessages: matched.length - take,
@@ -1151,7 +1161,7 @@ Append to `TOOL_DEFS` in `src/app/chat-tool-defs.ts`, immediately after the `sea
       "earlier (\"did we already decide…\", \"what did I tell you about…\", \"we talked about this\"), " +
       "or when you need a decision or piece of context that is not in the project's current " +
       "state. Use the list_* tools for current state and search_history for what CHANGED. " +
-      "Each hit is one thread: its id, a title derived from its first user message, the time it " +
+      "Each hit is one thread: its id, its title, the time it " +
       "was last updated (carrying the project's UTC offset), and the messages that matched. " +
       "The conversation you are in right now is NEVER returned — you already have it in full. " +
       "Check `coverage` before you answer: `turso` means past conversations were searched, and " +
@@ -1510,10 +1520,11 @@ export interface ChatPointer {
 /**
  * A bounded pointer at past conversations — a count and up to three titles.
  *
- * ★★ COSTS NOTHING. `deriveThreadName` already derives a title from each
- *    thread's first user message, so this needs no model call and no durable
- *    write — which is what removed summaries, the staleness rule and the
- *    cost-per-summary decision from this slice entirely.
+ * ★★ COSTS NOTHING. `threadTitle` already supplies each thread's title — the
+ *    user's own name when set, else one derived from its first user message —
+ *    so this needs no model call and no durable write, which is what removed
+ *    summaries, the staleness rule and the cost-per-summary decision from this
+ *    slice entirely.
  *
  * ★ Returns `null` when there is nothing to point at, so a project with one
  *   conversation costs zero tokens.
@@ -1525,13 +1536,12 @@ export function summarizeChatThreads(
 ): ChatPointer | null {
   const others = threads
     .filter((th) => th.id !== activeThreadId)
-    .slice()
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
   if (others.length === 0) return null;
   return {
     count: others.length,
     recent: others.slice(0, CHAT_POINTER_MAX).map((th) => ({
-      title: deriveThreadName(th.display),
+      title: threadTitle(th),
       at: isoInZone(th.updatedAt, tz),
     })),
   };
@@ -1677,7 +1687,7 @@ and add `chatBlock` to the `volatileText` array immediately after `activityBlock
 git add src/app/chat-search.ts src/app/chat-search.test.ts src/app/chat-recap.ts src/app/chat-recap.test.ts src/app/chat-api.ts
 git commit -m "feat(chat): ambient pointer at past conversations
 
-Free — deriveThreadName already supplies the titles. Names search_chats only
+Free — threadTitle already supplies the titles. Names search_chats only
 when that tool is actually offered."
 ```
 

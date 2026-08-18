@@ -33,7 +33,8 @@ export interface ChatHitMessage {
 
 export interface ChatHit {
   threadId: string;
-  /** `deriveThreadName`, or "" when the thread holds no user message yet. */
+  /** `threadTitle` — the user's own thread name when set, else the derived one
+   *  (and "" when the thread holds no user message yet either). */
   title: string;
   /** Rewritten into the project zone's offset-bearing form. */
   updatedAt: string;
@@ -54,6 +55,15 @@ export interface ChatSearchResult {
    */
   truncated: boolean;
   coverage: ChatCoverage;
+}
+
+/** A thread's display title: the user's own name when they have set one, else
+ *  the name derived from the first user message. `ChatThread.name` is "" until
+ *  the first save AND is user-editable via `renameThread` — deriving
+ *  unconditionally would cite a renamed thread under a title that appears
+ *  nowhere in the sidebar. */
+export function threadTitle(th: ChatThread): string {
+  return th.name.trim() || deriveThreadName(th.display);
 }
 
 /**
@@ -92,7 +102,6 @@ export function searchChats(
   //   older one first.
   const ordered = threads
     .filter((th) => th.id !== activeThreadId)
-    .slice()
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : a.updatedAt > b.updatedAt ? -1 : 0));
 
   const hits: ChatHit[] = [];
@@ -120,14 +129,15 @@ export function searchChats(
 
     const take = Math.min(budget, matched.length);
     if (take < matched.length) truncated = true;
-    // ★ Budget exhausted: the thread matched but nothing of it fits. Keep
-    //   scanning so `truncated` stays honest about later threads too.
-    if (take === 0) continue;
+    // ★ Budget exhausted: this thread matched but nothing of it fits, and the
+    //   line above has already set `truncated`. `budget` only ever decreases,
+    //   so no later thread could contribute a message either — stop.
+    if (take === 0) break;
     budget -= take;
 
     hits.push({
       threadId: th.id,
-      title: deriveThreadName(th.display),
+      title: threadTitle(th),
       updatedAt: isoInZone(th.updatedAt, tz),
       messages: matched.slice(0, take),
       moreMessages: matched.length - take,

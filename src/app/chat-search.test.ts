@@ -9,8 +9,11 @@ function thread(over: Partial<ChatThread> & { id: string }): ChatThread {
     id: over.id,
     projectId: "default",
     // ★ `name`, not `title` — `ChatThread`'s stored label is `name`, and it is
-    //   inert here: `searchChats` derives a hit's title from the display list
-    //   via `deriveThreadName`, never from this field.
+    //   the PRIMARY source of a hit's title (see `threadTitle`). Defaulting it
+    //   to "" here matches a thread that has never been saved or renamed, which
+    //   is the fallback branch; a fixture that only ever leaves it "" cannot
+    //   express the renamed-thread case, so set it explicitly when that is what
+    //   is under test.
     name: over.name ?? "",
     createdAt: over.createdAt ?? "2026-08-01T00:00:00.000Z",
     updatedAt: over.updatedAt ?? "2026-08-01T00:00:00.000Z",
@@ -84,6 +87,19 @@ describe("searchChats", () => {
     expect(res.hits.map((h) => h.threadId).sort()).toEqual(["late", "mid"]);
   });
 
+  it("resolves a bound in the PROJECT zone, not UTC", () => {
+    // ★★ The case above cannot pin the zone: its stamps are all 12:00:00Z, and
+    //    no zone within ±12h moves a midday instant to another calendar day, so
+    //    `makeDayInZone(tz)` → `makeDayInZone("UTC")` survives it. 22:00Z is
+    //    2026-08-06 in Berlin and 2026-08-05 in UTC, so a since of 2026-08-06
+    //    must INCLUDE it — and EXCLUDES it the moment the zone is ignored.
+    const threads = [
+      thread({ id: "berlin", updatedAt: "2026-08-05T22:00:00.000Z", display: [{ kind: "user", text: "a" }] }),
+    ];
+    const res = searchChats(threads, null, { since: "2026-08-06" }, "Europe/Berlin", true);
+    expect(res.hits.map((h) => h.threadId)).toEqual(["berlin"]);
+  });
+
   it("excludes a thread whose updatedAt has no parseable day when a bound is set", () => {
     const threads = [
       thread({ id: "bad", updatedAt: "whenever", display: [{ kind: "user", text: "a" }] }),
@@ -102,6 +118,19 @@ describe("searchChats", () => {
     ];
     expect(searchChats(threads, null, {}, UTC, true).hits.map((h) => h.threadId))
       .toEqual(["new", "old"]);
+  });
+
+  it("orders on the RAW UTC stamp, so a DST fall-back cannot reorder results", () => {
+    // ★★ Berlin renders 00:30Z as `02:30:00+02:00` and the LATER 01:30Z as
+    //    `02:30:00+01:00` on 2026-10-25, so a comparator sorting the ZONE-
+    //    rewritten strings puts the older thread first. Sorting the raw stamps
+    //    is the only spelling that survives this.
+    const threads = [
+      thread({ id: "older", updatedAt: "2026-10-25T00:30:00.000Z", display: [{ kind: "user", text: "a" }] }),
+      thread({ id: "newer", updatedAt: "2026-10-25T01:30:00.000Z", display: [{ kind: "user", text: "a" }] }),
+    ];
+    expect(searchChats(threads, null, {}, "Europe/Berlin", true).hits.map((h) => h.threadId))
+      .toEqual(["newer", "older"]);
   });
 
   it("reports truncated false when the cap cut nothing", () => {
@@ -143,9 +172,31 @@ describe("searchChats", () => {
     expect(res.truncated).toBe(false);
   });
 
-  it("derives the title from the first user message", () => {
+  it("derives the title from the first user message when the thread has no name", () => {
     const threads = [
       thread({ id: "t1", display: [{ kind: "assistant", text: "hi" }, { kind: "user", text: "vendor choice" }] }),
+    ];
+    expect(searchChats(threads, null, {}, UTC, true).hits[0].title).toBe("vendor choice");
+  });
+
+  it("prefers the user's own thread name over the derived one", () => {
+    // ★ `name` and the first user message DIFFER on purpose: a fixture where
+    //   they agree — or where `name` is "" — passes whichever field the code
+    //   reads, so it cannot tell a renamed thread being cited correctly from
+    //   one cited under a title that appears nowhere in the sidebar.
+    const threads = [
+      thread({
+        id: "t1",
+        name: "Q3 sourcing",
+        display: [{ kind: "user", text: "vendor choice" }],
+      }),
+    ];
+    expect(searchChats(threads, null, {}, UTC, true).hits[0].title).toBe("Q3 sourcing");
+  });
+
+  it("falls back to the derived name when the stored name is only whitespace", () => {
+    const threads = [
+      thread({ id: "t1", name: "   ", display: [{ kind: "user", text: "vendor choice" }] }),
     ];
     expect(searchChats(threads, null, {}, UTC, true).hits[0].title).toBe("vendor choice");
   });
