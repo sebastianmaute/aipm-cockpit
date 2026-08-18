@@ -63,6 +63,8 @@ export interface UseResourcePlannerArgs {
   captureComposite?: UndoStackApi["captureComposite"];
   /** Capture per-field edits for undo (RAID/resource modal save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a bulk field-patch edit for undo (RAID bulk apply). */
+  captureFieldRows?: UndoStackApi["captureFieldRows"];
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -89,6 +91,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   const captureFieldEditRef = useRef(args.captureFieldEdit);
   useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
+  const captureFieldRowsRef = useRef(args.captureFieldRows);
+  useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
   const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
@@ -257,12 +261,17 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [resources, setRaid],
   );
 
-  // Snapshot the selected RAID rows' pre-edit images before a bulk apply loops
-  // the per-row save handler; call BEFORE the loop mutates them.
-  const captureRaidBulkUndo = useCallback((ids: readonly number[]) => {
-    const edited = raid.filter((r) => ids.includes(r.id));
-    if (edited.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", edited, fromArray: raid, entityKey: "raid" });
-  }, [raid, setRaid]);
+  // Called by raid-panel BEFORE its save loop, with the field patches the bulk
+  // form is about to write. Field patches rather than whole rows: a whole-row
+  // capture reverts anything a concurrent writer changed on these rows meanwhile
+  // — a note added through the notes window, an outlookEventId stamped by the
+  // background calendar push (open-followups §50).
+  const captureRaidBulkUndo = useCallback(
+    (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => {
+      if (edits.length) captureFieldRowsRef.current?.({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid" });
+    },
+    [setRaid],
+  );
 
   const handleOpenAddAbsence = useCallback(
     (seed?: Partial<Absence>) => {
