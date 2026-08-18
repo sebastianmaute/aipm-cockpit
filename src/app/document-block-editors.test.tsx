@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeAll, vi } from "vitest";
+import { StrictMode } from "react";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ParagraphBlockEditor, HeadingBlockEditor } from "./document-block-editors";
@@ -194,6 +195,72 @@ describe("ParagraphBlockEditor", () => {
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
   });
+
+  // ★★★ THE CONCURRENT-WRITE GUARD. Losing an unblurred keystroke burst is
+  //  recoverable — silently overwriting a concurrent AI write is not (AI
+  //  writes carry no undo). `storedBlock` moves to "concurrent-write" WHILE
+  //  the draft is dirty, so baselineRef must have frozen at "base" instead
+  //  of tracking the move — the unmount flush has to see that mismatch and
+  //  abandon rather than commit the stale pre-conflict draft over it.
+  it("abandons the unmount flush when storedBlock changed underneath a dirty draft", async () => {
+    const onCommit = vi.fn();
+    const { rerender, unmount } = render(
+      <ParagraphBlockEditor lang={LANG} index={7} block={{ type: "paragraph", html: "<p>base</p>" }} onCommit={onCommit} />,
+    );
+    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    editable.focus();
+    await userEvent.type(editable, "X");
+    rerender(
+      <ParagraphBlockEditor
+        lang={LANG}
+        index={7}
+        block={{ type: "paragraph", html: "<p>concurrent-write</p>" }}
+        onCommit={onCommit}
+      />,
+    );
+    unmount();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // The other half of the same guard: an UNTOUCHED editor's baseline tracks
+  // a live storedBlock change (so a LATER edit starts from the right
+  // place), but that must never be mistaken for something to flush — no
+  // local edit ever happened.
+  it("commits nothing on unmount when untouched but storedBlock changed underneath", () => {
+    const onCommit = vi.fn();
+    const { rerender, unmount } = render(
+      <ParagraphBlockEditor lang={LANG} index={8} block={{ type: "paragraph", html: "<p>base</p>" }} onCommit={onCommit} />,
+    );
+    rerender(
+      <ParagraphBlockEditor lang={LANG} index={8} block={{ type: "paragraph", html: "<p>changed</p>" }} onCommit={onCommit} />,
+    );
+    unmount();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★★★ StrictMode PINNED, not merely probed. `render(<StrictMode>{ui}</StrictMode>)`
+  //  literally wraps the root's child in StrictMode — nothing else sits
+  //  between them, satisfying strictmode.meta.test.tsx's Corollary 1 for the
+  //  MOUNT commit (a wrapper FUNCTION composing <StrictMode> inside it would
+  //  NOT satisfy this and would make the test vacuous-but-green). React
+  //  therefore double-invokes this editor's mount effects (mount → cleanup →
+  //  mount) BEFORE the edit below ever happens, while the draft is still
+  //  clean — that synthetic cleanup must flush nothing, and only the REAL
+  //  unmount (after the edit) may flush, exactly once total.
+  it("flushes exactly once on unmount under StrictMode (double-invoked mount effects)", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <StrictMode>
+        <ParagraphBlockEditor lang={LANG} index={9} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />
+      </StrictMode>,
+    );
+    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    editable.focus();
+    await userEvent.type(editable, "y");
+    unmount();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit.mock.calls[0][1].html).toContain("y");
+  });
 });
 
 describe("HeadingBlockEditor", () => {
@@ -264,6 +331,25 @@ describe("HeadingBlockEditor", () => {
     select.focus();
     fireEvent.change(select, { target: { value: "3" } });
     select.blur();
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
+  });
+
+  // ★★★ Pins the docstring's corrected claim: onBlur is a bubbling
+  //  focusout, so moving focus from the select to the text field (a real
+  //  tab-through) already fires ONE commit for the select alone, before
+  //  the text field is even touched — it does NOT wait for a combined
+  //  commit that never happens on this path.
+  it("fires an independent commit for the level change when focus moves to the text field", () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "Title" }} onCommit={onCommit} />,
+    );
+    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    select.focus();
+    fireEvent.change(select, { target: { value: "3" } });
+    text.focus(); // tab-through: blurs the select, which bubbles to the group's onBlur
+    expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
   });
 });
