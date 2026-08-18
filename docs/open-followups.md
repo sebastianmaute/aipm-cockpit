@@ -2158,6 +2158,22 @@ whether write-through fields are preserved engine-wide (needs a per-entity list 
 are) or whether RAID/task bulk edits capture field-wise instead. Either is a design slice, and patching
 shared undo machinery in the fourth review round of an unrelated batch is how a regression ships.
 
+★★ **THE CHANGES REGISTER NOW INHERITS THIS, as of 0.245.0.** `ChangeItem` gained `noteLog` in that
+slice, and `useChangeLog`'s `captureBulkUndo` snapshots whole rows into the same shared `capture()`:
+
+```bash
+# whole-row snapshot, same shape as captureRaidBulkUndo
+grep -n "const captureBulkUndo" -A 4 src/app/use-change-log.ts
+# the field it now carries
+grep -cF 'noteLog?: NoteLogEntry[]' src/app/types.ts   # 3 entities: Task, RaidItem, ChangeItem
+```
+
+So the RAID sequence reproduces one register over: select 3 changes → bulk-set impact → open the notes
+window on one → add a note → Ctrl+Z. Not a new defect and not caused by that slice — the engine was
+already like this; the slice added a third entity to its blast radius. ★ It also means the
+per-entity field list a fix would need is now three entries, not two, and it grows silently every time
+a write-through field is added to an entity — which is an argument for the field-wise capture option.
+
 **Fix when taken:** either preserve the live row's write-through fields in the edit branch
 (`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
 capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
@@ -11157,31 +11173,47 @@ universal one.
 path inherited an undo route its mirror does not have, which is why mirroring the AI writer's logging
 was necessary but not sufficient.
 
-## 167. Bulk edit on the changes register bypasses `applyChangeStatus` — open, pre-existing
+## 167. Bulk edit on the changes register bypassed `applyChangeStatus` — CLOSED 2026-08-18
 
-Found by review during the 0.245.0 slice; NOT introduced by it and deliberately not fixed by it.
-The inline status dropdown added in that slice routes through `applyChangeStatus`, the sole writer
-of the status/`decisionDate` pair. The BULK path does not:
+Found by review during the 0.245.0 slice, and CLOSED in the same slice after a second review round.
+Recorded because the shape recurs: a register grew a new entry point that held an invariant while an
+OLDER entry point on the SAME table did not, so the two disagreed and a user could not tell which
+path they were on.
+
+The defect: `applyBulk` spread the raw status onto the row, so a bulk sweep to a DECIDED status
+(Approved/Rejected) left `decisionDate` unset, and a sweep back to a pending status left a stale one.
+`pushableChanges` filters on `!!c.decisionDate`, so bulk-decided changes were silently dropped from
+the Outlook decision-date write-back — not a cosmetic gap.
+
+★★★ **THE FIX WAS NOT THE ONE-LINE FIX THIS ENTRY ORIGINALLY PRESCRIBED, and the difference is the
+lesson.** The entry said: "in `applyBulk`, replace the status spread with `applyChangeStatus(...)`;
+the panel already imports the helper and already holds `today`, so nothing else has to move." That
+was true of `applyBulk` and MISSED the second bypass entirely — the AI dispatcher wrote `status`
+raw on both `create_change` and `update_change`, with the full enum exposed to the model. Taking the
+one-line fix would have left the register half-correct while this entry read as closed.
+
+★★ And the dispatcher could not take that same line. `sanitizeChangeItem` falls back to `"Proposed"`
+for anything off the enum, so a mistyped status silently DEMOTED a decided change; routing the MERGED
+status would then have cleared its `decisionDate` as well. It needed a gate on the model's RAW value
+— `applyModelChangeStatus` — mirroring the task dispatcher's `isTaskStatus` shape. `applyChangeStatus`
+also had to MOVE to `change-log.ts`, because the dispatcher cannot import a React module.
+
+★★★ **"SOLE WRITER" WAS NEVER TRUE AND IS STILL NOT — what is exclusive is the TRANSITION, not the
+field.** This entry asserted `applyChangeStatus` was "the sole writer of the status/`decisionDate`
+pair", and two prose sites in the code said the same. Four writers of `decisionDate` remain by design
+and are enumerated in `change-log.ts`'s docblock: the Outlook two-way pull writes the date ALONE
+(`use-calendar-integrations.ts`, `withDate`), `chat-tool-defs.ts` exposes `decisionDate` as its own
+model-writable field, and `ai-project-proposal.ts` + `templates.ts` build rows through the sanitizer
+alone — both passing it BY REFERENCE, so a call-shaped grep misses them. Those two rebuild a register
+from an untrusted blob rather than transitioning a live row, which is why they are exempt.
 
 ```bash
-# applyBulk spreads the raw status onto the row and hands it straight to onSave
-grep -n "const applyBulk" -A 14 src/app/change-panel.tsx
-# the receiving handler stamps only id + localModifiedAt; nothing touches decisionDate
-grep -n "const withStamp" -A 6 src/app/use-change-log.ts
+# every routing site, bare name so by-reference passes are visible too
+grep -rn "applyChangeStatus\|applyModelChangeStatus" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
 ```
 
-So a bulk sweep to a DECIDED status (Approved/Rejected) leaves `decisionDate` **unset**, and a
-sweep back to a pending status leaves a **stale** decision date behind. The invariant the editor and
-the inline dropdown both hold is simply absent on this one path.
-
-★★ **The slice SHARPENED this without causing it.** Before 0.245.0 the only in-table way to change a
-change's status was bulk edit, so the register was uniformly wrong. Now two entry points on the same
-table disagree: change one row and the decision date is correct; select that row and change it via
-bulk edit and it is not. A user has no way to tell which path they are on.
-
-★ One-line fix, deliberately not taken here so the slice stayed reviewable: in `applyBulk`, replace
-the status spread with `applyChangeStatus(patched, patch.status as ChangeStatus, today)`. The panel
-already imports the helper and already holds `today`, so nothing else has to move.
+★ The status/`decisionDate` invariant is now held at all four transition points (row select, modal,
+bulk, dispatcher), matching what the task register does through `applyStatusChange`.
 
 ## 168. Template import drops every register's note log — open, pre-existing
 
@@ -11193,8 +11225,13 @@ entity sanitizers it runs are DOM-free and therefore cannot carry rich HTML:
 ```bash
 grep -n "seed.changes = \|seed.raid = \|seed.tasks = " src/app/templates.ts
 grep -n "sanitizeArr<" src/app/templates.ts
-# the sanitizers themselves never mention the field, so it is dropped by construction
-grep -c "noteLog" src/app/sanitize-records.ts
+# ★★ THE THREE SANITIZERS DO NOT LIVE IN ONE FILE, and an earlier revision of this entry cited only
+# sanitize-records.ts — evidence for one third of the sentence below. Changes route to
+# `sanitizeChangeItem` (sanitize-records.ts); tasks and RAID route to `sanitizeSeedTask` /
+# `sanitizeSeedRaidItem`, which are LOCAL to templates.ts. Both files must be checked:
+grep -n "function sanitizeSeedTask\|function sanitizeSeedRaidItem" src/app/templates.ts
+# the sanitizers themselves never mention the field, so it is dropped by construction — 0 for BOTH
+grep -c "noteLog" src/app/sanitize-records.ts src/app/templates.ts
 ```
 
 Changes, tasks and RAID all behave the same way. Same class as the `sanitizeRaidItem` behaviour
