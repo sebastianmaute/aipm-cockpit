@@ -11156,3 +11156,92 @@ universal one.
 ★ The AI's `delete_all_tasks` takes no undo capture at all, so it never reached this state — the user
 path inherited an undo route its mirror does not have, which is why mirroring the AI writer's logging
 was necessary but not sufficient.
+
+## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow
+
+Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
+
+`useChatThreads`' load effect has a `catch` branch that adopts a project switch which landed while
+the fetch was in flight. It sets the load-failure flag, but deliberately KEEPS the rows it already
+had (filtering `prev` down to the adopted `projectId`) and sets `loadedProjectId`, so
+`threadsMatchProject` is true. The registry publish therefore emits a POPULATED `threads` array
+alongside `available: false`.
+
+★★ That is the advertise-then-deny contradiction the load-scoped `available` narrowing was
+written to remove, INVERTED and surviving it.
+`useChatSearchBindings` builds the ambient chat pointer from `published.threads` and never consults
+`available` — so the system prompt still says "There are N earlier conversations in this project
+— Use search_chats to read them", the model obeys, and `runChatSearch` answers
+`coverage: "unavailable"`. Reproduce the blindness, which is the load-bearing half:
+
+```bash
+grep -n available src/app/use-chat-search-bindings.ts   # exit 1 — never reads it
+sed -n '/const adopt/,/^      }/p' src/app/use-chat-threads.ts
+```
+
+★ REACHABILITY IS NARROW AND THE PRODUCTION IMPACT IS **UNVERIFIED**: it needs a project switch
+landing mid-flight AND at least two same-project rows in `prev`, since `summarizeChatThreads`
+excludes the active thread and a one-row pointer renders nothing. The code path is verified by
+READING, not by reproducing it — do not record it as observed.
+
+★★ TWO REPAIRS, and the obvious one is wrong. Clearing `threads` in that branch would make the
+pair consistent by DISCARDING rows the user can still read in the sidebar, which is a worse outcome
+than an inconsistent hint. The honest fixes are either (a) leave the load-failure flag unset on the
+adoption branch — nothing stopped us looking, we merely looked at a different project — or
+(b) gate the ambient pointer on `available` so both surfaces speak with one voice. (b) also closes
+§174.
+
+## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing
+
+Same review, same day. NOT a regression — it predates the `available` work and is recorded here
+only because that work reasoned carefully about the opposite error and never mentioned this one.
+
+The load-failure flag starts `false`, so the first registry publish in Turso mode is
+`{threads: [], available: true}` — which downstream becomes `coverage: "turso"`, and
+`chat-tool-defs.ts` defines that to the model as "past conversations WERE searched". The fetch has
+not returned. So a `search_chats` racing the first load can tell the user a topic was never
+discussed, which is the exact failure mode the load-failure branch was added to prevent, arrived at
+from the other side.
+
+★★ "Not yet looked" is a THIRD state and the boolean cannot hold it. `available` today conflates
+"looked, nothing there" with "have not looked yet". A fix means either seeding the flag so the slot
+reads unavailable until the first load SETTLES (either way), or widening `ChatCoverage` past its two
+members — the second changes a tool-visible contract and needs its description updated in the same
+commit, or the model is handed a value the prose does not define.
+
+★ Window is small but not theoretical: the pointer and the tool are both reachable on the first
+turn after a project opens.
+
+## 175. `buildChatPointerBlock` is no longer bounded by any test — open, safe by single-producer accident
+
+Same review. Introduced BY the fix that moved the thread-title cap to its producer: that commit
+deleted the four size tests from `chat-recap.test.ts` because their subject (`inlineTitle`'s clip)
+no longer existed.
+
+`buildChatPointerBlock` accepts an arbitrary `ChatPointer` and does no clipping of its own. Every
+value it can receive is bounded TODAY because `summarizeChatThreads` is its only producer and caps
+each title at `THREAD_NAME_MAX` via `threadTitle`. Nothing enforces that. A second producer — a
+test helper, a replay path, a future digest — reaches the system prompt unguarded, on the UNCACHED
+half of the prompt, with the whole suite green.
+
+```bash
+grep -rn "ChatPointer\b" src --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ The cap belongs where it is; this is not an argument to put a second one in the renderer. It is
+an argument for ONE test that feeds `buildChatPointerBlock` an over-long title directly and asserts
+the block stays bounded — the guard that makes the single-producer property checkable instead of
+merely true.
+
+## 176. The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order — open, cosmetic
+
+Same review. Behaviour delta, deliberately shipped, recorded so it is not mistaken for a bug later.
+
+Before the cap moved, `inlineTitle` collapsed interior whitespace (`\s+` —> " ") and THEN clipped.
+Now `threadTitle` clips first and `inlineTitle` flattens what survives. A title carrying a long run
+of interior whitespace therefore yields FEWER visible characters in the prompt block than it used to,
+because the run is counted against the cap before it is collapsed.
+
+★ Bounded either way (the cap plus one ellipsis), model-facing only, and no storage or export path
+is involved ★★ but NO test pins either ordering, so a future edit can reverse it silently in
+either direction. If it is ever worth pinning, pin it at `threadTitle`, where the clip now lives.
