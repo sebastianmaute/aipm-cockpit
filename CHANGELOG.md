@@ -8,6 +8,21 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.246.0] - 2026-08-18 "Butcher"
+
+### Fixed
+
+- **Undoing a bulk edit could destroy notes written on a task, RAID item or change since the edit
+  was applied.** Undo restored a snapshot of the whole row taken at the moment the bulk edit ran,
+  so a note added afterwards — through the notes window, which writes straight to the live row —
+  was wiped out along with the edit. The note came back only if you immediately redid the bulk
+  edit, which also brought the edit itself back. Undo now leaves any note log added since alone.
+- **Undoing a bulk edit could make a task or milestone forget which Outlook event it was synced
+  to.** The background calendar sync stamps the linked event onto the row after a sync, but undo
+  reverted that stamp to empty even though the event still existed in Outlook — so the next sync
+  created a second, duplicate meeting for the same item instead of recognising the one already
+  there. Undo now leaves the calendar link alone too.
+
 ## [0.245.0] - 2026-08-18 "Buckell"
 
 ### Added
