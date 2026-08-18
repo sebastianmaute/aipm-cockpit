@@ -28,6 +28,55 @@ const ctx = () => ({
   mintVersionId: () => nextVer++,
 });
 
+// Returns the FULL object-literal text (braces balanced from the opening `{`)
+// that encloses the first occurrence of `anchor`, rather than a fixed-width
+// forward slice — a forward slice misses a spread placed BEFORE the anchor
+// (`{ ...rawArgs, kind: "ops", ... }`, the more idiomatic refactor shape) and
+// silently passes on a reformatted anchor it can no longer find (indexOf
+// returns -1, and a bare `.slice(-1)` would then read the LAST character of
+// the file). Throws — loudly, not a passing assertion — when the anchor or
+// its enclosing braces cannot be located, so a broken anchor fails the test
+// instead of vacuously passing it.
+function findEnclosingObjectLiteral(src: string, anchor: string): string {
+  const anchorIndex = src.indexOf(anchor);
+  if (anchorIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: anchor ${JSON.stringify(anchor)} not found`);
+  }
+  let depth = 0;
+  let openIndex = -1;
+  for (let i = anchorIndex; i >= 0; i--) {
+    const ch = src[i];
+    if (ch === "}") depth++;
+    else if (ch === "{") {
+      if (depth === 0) {
+        openIndex = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (openIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: no enclosing "{" found before ${JSON.stringify(anchor)}`);
+  }
+  depth = 0;
+  let closeIndex = -1;
+  for (let i = openIndex; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        closeIndex = i;
+        break;
+      }
+    }
+  }
+  if (closeIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: no matching "}" found after ${JSON.stringify(anchor)}`);
+  }
+  return src.slice(openIndex, closeIndex + 1);
+}
+
 describe("applyDocMutation — versions", () => {
   it("create writes no version — nothing was replaced", () => {
     const out = applyDocMutation(state(), { kind: "create", title: "New" }, ctx());
@@ -164,11 +213,26 @@ describe("applyDocMutation — ops", () => {
   it("the AI tool path cannot set coalesce — it builds the mutation field by field", () => {
     // use-document-tools.ts constructs `{ kind: "ops", id, ops: cleanOps, title }`
     // with explicit fields and no spread of model-supplied args, so a model
-    // cannot suppress version history. This pins that shape: if someone
-    // refactors it to spread raw args, this goes red.
+    // cannot suppress version history. Scans the WHOLE enclosing object
+    // literal (brace-balanced, not a fixed-width forward window), so a
+    // spread BEFORE `kind: "ops"` is caught too, not just one placed after.
     const src = readFileSync(join(import.meta.dirname, "use-document-tools.ts"), "utf8");
-    const opsCall = src.slice(src.indexOf('kind: "ops"'));
-    expect(opsCall.slice(0, 80)).not.toMatch(/\.\.\./);
+    const opsLiteral = findEnclosingObjectLiteral(src, 'kind: "ops"');
+    expect(opsLiteral).not.toMatch(/\.\.\./);
+  });
+});
+
+describe("findEnclosingObjectLiteral (test-helper guard)", () => {
+  it("returns the whole object literal, not a fixed-width window", () => {
+    const src = 'const x = mutateDocuments({ kind: "ops", id, ops: cleanOps, title }, "ai");';
+    expect(findEnclosingObjectLiteral(src, 'kind: "ops"')).toBe(
+      '{ kind: "ops", id, ops: cleanOps, title }',
+    );
+  });
+
+  it("throws — loudly, not a passing assertion — when the anchor is not found", () => {
+    const src = 'const x = mutateDocuments({ kind: \'ops\', id, ops: cleanOps, title }, "ai");';
+    expect(() => findEnclosingObjectLiteral(src, 'kind: "ops"')).toThrow();
   });
 });
 

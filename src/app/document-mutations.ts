@@ -691,7 +691,8 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       //  Set by the hand editor when the newest version for this document is
       //  already a `user`/`update` inside the coalescing window, so that a
       //  20-block editing session cannot evict the document's own history
-      //  against MAX_VERSIONS_PER_DOC. See document-editor-commit.ts.
+      //  against MAX_VERSIONS_PER_DOC. See document-editor-commit.ts — not yet
+      //  built as of this commit; it lands in Task 2 of this slice.
       // ★ The AI path never sets it: use-document-tools.ts builds this mutation
       //  field by field, so a model cannot suppress its own audit trail.
       const before = m.coalesce ? undefined : snapshot(target, "update", ctx);
