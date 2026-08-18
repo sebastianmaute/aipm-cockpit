@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { searchChats, summarizeChatThreads } from "./chat-search";
+import {
+  CHAT_EXCERPT_MAX,
+  DEFAULT_CHAT_LIMIT,
+  MAX_CHAT_LIMIT,
+  searchChats,
+  summarizeChatThreads,
+} from "./chat-search";
 import type { ChatThread } from "./chat-threads";
 
 const UTC = "UTC";
@@ -207,6 +213,94 @@ describe("searchChats", () => {
     ];
     const res = searchChats(threads, null, {}, "Europe/Berlin", true);
     expect(res.hits[0].updatedAt).toContain("+02:00");
+  });
+
+  // ★★★ THE MESSAGE COUNT IS NOT A SIZE BUDGET, and nothing else in this file
+  //    can see that: every other fixture holds messages a few characters long,
+  //    so the cap is invisible to them whether it is applied or not. A user
+  //    message is stored up to CHAT_MESSAGE_MAX (10 000) and an assistant one is
+  //    bounded only by the model's max_tokens, so an unclipped default call
+  //    returns hundreds of KB into one tool_result.
+  it("clips a long message to CHAT_EXCERPT_MAX and flags it as clipped", () => {
+    const long = "x".repeat(CHAT_EXCERPT_MAX + 500);
+    const threads = [
+      thread({
+        id: "t1",
+        display: [
+          { kind: "user", text: long },
+          { kind: "assistant", text: "short" },
+        ],
+      }),
+    ];
+    const msgs = searchChats(threads, null, {}, UTC, true).hits[0].messages;
+    expect(msgs[0].text).toHaveLength(CHAT_EXCERPT_MAX);
+    expect(msgs[0].clipped).toBe(true);
+    // ★ The SHORT message is the anti-vacuity half. Without it a flag hardcoded
+    //   to `true` — or a clip that shortened every message — passes the two
+    //   assertions above, and the model would be told a complete message was an
+    //   excerpt, which is the same disclosure defect pointing the other way.
+    expect(msgs[1].text).toBe("short");
+    expect(msgs[1].clipped).toBeUndefined();
+  });
+
+  it("still returns a hit whose only match sits past the excerpt cap", () => {
+    // ★★ The needle is matched against the FULL text; only the returned copy is
+    //   clipped. Clipping FIRST would silently drop this thread — the excerpt
+    //   would then not contain the needle either, which is what `clipped`
+    //   discloses.
+    const threads = [
+      thread({ id: "t1", display: [{ kind: "user", text: "y".repeat(CHAT_EXCERPT_MAX) + " vendor" }] }),
+    ];
+    const res = searchChats(threads, null, { query: "vendor" }, UTC, true);
+    expect(res.hits.map((h) => h.threadId)).toEqual(["t1"]);
+    expect(res.hits[0].messages[0].clipped).toBe(true);
+  });
+
+  it("backs the clip off a lone surrogate instead of splitting an astral character", () => {
+    // ★★ "\u{10000}" is TWO UTF-16 code units and the cap lands BETWEEN them. A
+    //   hand-rolled `.slice(0, CHAT_EXCERPT_MAX)` keeps the lone HIGH surrogate,
+    //   which UTF-8 encoding replaces with U+FFFD — so CSV/Markdown corrupt
+    //   while JSON/IndexedDB survive, a backend-dependent silent corruption this
+    //   repo already fixed once in `clipText`. This pins that we reuse it.
+    const text = "a".repeat(CHAT_EXCERPT_MAX - 1) + "\u{10000}" + "tail";
+    const threads = [thread({ id: "t1", display: [{ kind: "user", text }] })];
+    const out = searchChats(threads, null, {}, UTC, true).hits[0].messages[0];
+    expect(out.text).toHaveLength(CHAT_EXCERPT_MAX - 1);
+    expect(out.text.charCodeAt(out.text.length - 1)).toBe("a".charCodeAt(0));
+    expect(out.clipped).toBe(true);
+  });
+
+  // ★★★ `resolveLimit(q.limit, DEFAULT_CHAT_LIMIT, MAX_CHAT_LIMIT)` passes two
+  //    ADJACENT same-typed numbers. Transposed, the default silently becomes 50
+  //    and the ceiling 20 — contradicting the tool description while `tsc` and
+  //    every other test in this file stay green, because the largest fixture
+  //    elsewhere is three messages. Only a fixture holding MORE matched messages
+  //    than MAX_CHAT_LIMIT, asserting BOTH positions, can tell them apart.
+  //    Mirrors the `MAX_HISTORY_LIMIT` guard in `history-search.test.ts`.
+  it("defaults to DEFAULT_CHAT_LIMIT and clamps to MAX_CHAT_LIMIT", () => {
+    // ★ Equal constants would make the two assertions below indistinguishable,
+    //   so the fixture's own premise is pinned first.
+    expect(DEFAULT_CHAT_LIMIT).toBeLessThan(MAX_CHAT_LIMIT);
+    const threads = [
+      thread({
+        id: "many",
+        display: Array.from({ length: MAX_CHAT_LIMIT + 10 }, (_, i) => ({
+          kind: "user" as const,
+          text: `m${i}`,
+        })),
+      }),
+    ];
+    expect(searchChats(threads, null, {}, UTC, true).hits[0].messages).toHaveLength(
+      DEFAULT_CHAT_LIMIT,
+    );
+    expect(
+      searchChats(threads, null, { limit: 9999 }, UTC, true).hits[0].messages,
+    ).toHaveLength(MAX_CHAT_LIMIT);
+    // ★ A rejected limit falls back to the DEFAULT, not the ceiling — the third
+    //   position the transposition also moves.
+    expect(searchChats(threads, null, { limit: 0 }, UTC, true).hits[0].messages).toHaveLength(
+      DEFAULT_CHAT_LIMIT,
+    );
   });
 });
 

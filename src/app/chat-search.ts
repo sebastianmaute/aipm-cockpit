@@ -11,10 +11,39 @@
 //   their past conversations and found nothing.
 import { deriveThreadName, type ChatThread } from "./chat-threads";
 import { resolveLimit } from "./resolve-limit";
+// ★★ `sanitizeMultiline` is the EXPORTED spelling of `sanitize-core`'s private
+//   `clipText` for a string input — cap only, whitespace preserved. Deliberately
+//   NOT a hand-rolled `.slice()`: `clipText` backs a cut off a lone HIGH
+//   SURROGATE, so a cap landing inside an astral character drops it WHOLE. A
+//   raw slice keeps the half-character, which the CSV/Markdown backends encode
+//   to U+FFFD while JSON/IndexedDB survive it — a backend-dependent corruption
+//   this repo already fixed once (§22). Do not re-hand-roll it here.
+import { sanitizeMultiline } from "./sanitize-core";
 import { isoInZone, makeDayInZone } from "./timezone";
 
 export const DEFAULT_CHAT_LIMIT = 20;
 export const MAX_CHAT_LIMIT = 50;
+
+/**
+ * Per-MESSAGE character cap on a returned excerpt.
+ *
+ * ★★★ THE MESSAGE COUNT IS NOT A SIZE BUDGET. Every field of the tool's schema
+ * is optional, so a bare `search_chats {}` is a legal call — and the ambient
+ * chat pointer makes it a likely FIRST move. User messages are stored up to
+ * `CHAT_MESSAGE_MAX` (10 000) and assistant messages are bounded only by the
+ * model's `max_tokens`, so an uncapped default call could return ~200 KB of
+ * verbatim conversation into one `tool_result`, inside an agentic loop free to
+ * call again, and the result is then PERSISTED into this thread's own row.
+ * `search_history`'s identical count-only cap is safe only because its page
+ * items are short RENDERED summaries; these are raw message bodies.
+ *
+ * ★ 1 000 characters ≈ 150 words ≈ ~250 tokens — enough to carry a decision and
+ * the reasoning immediately around it, which is the whole point of recall —
+ * while bounding a bare call (20 messages) at ~20 KB and the worst LEGAL call
+ * (`MAX_CHAT_LIMIT`) at ~50 KB, against ~500 KB unbounded. It is also the value
+ * `sanitize-core` already uses for a voice transcript, i.e. one utterance.
+ */
+export const CHAT_EXCERPT_MAX = 1000;
 
 export interface ChatQuery {
   query?: string;
@@ -28,7 +57,18 @@ export interface ChatQuery {
 
 export interface ChatHitMessage {
   role: "user" | "assistant";
+  /** Clipped to `CHAT_EXCERPT_MAX` — see `clipped`. */
   text: string;
+  /**
+   * ★★ "This message BODY was shortened" — a different claim from
+   * `moreMessages`/`truncated`, which only ever say that other MESSAGES matched.
+   * Without it the model cannot tell an excerpt from a complete message and will
+   * quote a fragment as if it were the whole thing.
+   *
+   * ★ Present only when true, so the common case costs nothing on the wire
+   * (`JSON.stringify` drops an `undefined` key) — absent means complete.
+   */
+  clipped?: boolean;
 }
 
 export interface ChatHit {
@@ -123,7 +163,17 @@ export function searchChats(
     for (const item of th.display) {
       if (item.kind !== "user" && item.kind !== "assistant") continue;
       if (needle && !item.text.toLowerCase().includes(needle)) continue;
-      matched.push({ role: item.kind, text: item.text });
+      // ★★ The needle is matched against the FULL text and only the RETURNED
+      //   copy is clipped — the alternative silently drops a thread whose only
+      //   mention sits past the cap. The consequence is deliberate: an excerpt
+      //   may not itself contain the needle, which is exactly what `clipped`
+      //   exists to disclose.
+      const text = sanitizeMultiline(item.text, CHAT_EXCERPT_MAX);
+      matched.push(
+        text.length < item.text.length
+          ? { role: item.kind, text, clipped: true }
+          : { role: item.kind, text },
+      );
     }
     if (matched.length === 0) continue;
 

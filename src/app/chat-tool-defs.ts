@@ -22,6 +22,10 @@ import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 //   description tells the model how many events the log retains, and a
 //   hardcoded copy would go quietly false the day the cap moves.
 import { ACTIVITY_MAX_ENTRIES } from "./activity-log";
+// ★ Same rule for search_chats: its default, ceiling and per-message excerpt
+//   caps are EXPORTED constants, so the prose interpolates them rather than
+//   restating numbers that go quietly false the day one of them moves.
+import { CHAT_EXCERPT_MAX, DEFAULT_CHAT_LIMIT, MAX_CHAT_LIMIT } from "./chat-search";
 
 /** Every RAID status across the four categories (deduped). The tool schema
  *  offers the whole union; `sanitizeRaidItem` enforces the per-category subset
@@ -516,7 +520,10 @@ export const TOOL_DEFS = [
       "`unavailable` means this project does not store them at all, so an empty result is NOT " +
       "evidence that nothing was discussed — say you cannot look rather than that you found " +
       "nothing. If `truncated` is true, or a hit's `moreMessages` is above zero, more matched " +
-      "than you were given — say so rather than implying the list is complete. Read-only.",
+      "than you were given — say so rather than implying the list is complete. A long message is " +
+      `shortened to its first ${CHAT_EXCERPT_MAX} characters; such a message carries \`clipped\`: ` +
+      "true, so treat its text as a partial excerpt — quote it as one, never as the message " +
+      "in full. Read-only.",
     input_schema: {
       type: "object",
       properties: {
@@ -531,16 +538,22 @@ export const TOOL_DEFS = [
           type: "string",
           description:
             "Inclusive lower bound as YYYY-MM-DD, in the project's timezone — the same " +
-            "calendar as the `Today is` date you were given. Convert relative phrasing yourself.",
+            "calendar as the `Today is` date you were given. Convert relative phrasing yourself. " +
+            "It filters on when the THREAD was last updated, NOT on when individual messages " +
+            "were sent: a conversation held earlier but touched since will not match an earlier " +
+            "bound, and one matching a recent bound may be months old inside.",
         },
         until: {
           type: "string",
-          description: "Inclusive upper bound as YYYY-MM-DD, in the project's timezone.",
+          description:
+            "Inclusive upper bound as YYYY-MM-DD, in the project's timezone. Like `since`, it " +
+            "filters on the THREAD's last-update time, not on individual message times.",
         },
         limit: {
           type: "number",
           description:
-            "Maximum MESSAGES to return across all threads (default 20, maximum 50). " +
+            `Maximum MESSAGES to return across all threads (default ${DEFAULT_CHAT_LIMIT}, ` +
+            `maximum ${MAX_CHAT_LIMIT}). ` +
             "Threads are not capped — every thread holding a match is eligible.",
         },
       },
