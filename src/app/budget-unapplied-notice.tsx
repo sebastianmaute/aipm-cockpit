@@ -67,11 +67,27 @@ function formatHours(hours: number): string {
  *
  * Renders nothing when all four are zero, and never nags an untouched project:
  * a missing, empty or malformed cache is the empty state.
+ *
+ * ★★★ A PARTIAL cache entry REPLACES all four with a single line — see the
+ *     `partial` const below for why suppressing them is the honest answer and
+ *     annotating them is not.
  */
 export function BudgetUnappliedNotice({
   lang, projectId, buckets, roles, resources, onGoToTimelog,
 }: BudgetUnappliedNoticeProps) {
-  const aggregates = useMemo(() => loadActualsCache(projectId)?.aggregates, [projectId]);
+  const entry = useMemo(() => loadActualsCache(projectId), [projectId]);
+  const aggregates = entry?.aggregates;
+  // ★★★ A PARTIAL FETCH SUPPRESSES ALL FOUR SIGNALS — not just the first one.
+  // Every one of them is DERIVED from this overlay (`affected` and `withheld`
+  // by running `buildApplyPlan` over it, `missing` by
+  // `bucketsMissingAllocations`, `unattributed` by having been summed during
+  // the same short fetch), so on a partial entry all four describe hours that
+  // the Timelog panel refuses to write. Reporting any of them here would send
+  // the user down a "Go to Time bookings →" that ends on a disabled Apply, and
+  // would surface the very erasure §172 exists to prevent as though it were
+  // work waiting to be done. One honest line instead, and the Go button still
+  // reaches the Refresh that repairs it. See open-followups §172.
+  const partial = entry?.partial === true;
   // Keep the WHOLE plan. Discarding everything but `.rows` is what made this
   // notice silent in the reported state — see the WITHHELD bullet above.
   const plan = useMemo(
@@ -100,21 +116,22 @@ export function BudgetUnappliedNotice({
     ? rawUnattributed
     : 0;
 
-  if (affected === 0 && unattributed === 0 && withheld === 0 && missing === 0) return null;
+  if (!partial && affected === 0 && unattributed === 0 && withheld === 0 && missing === 0) return null;
 
   return (
     <div className="mb-2 flex shrink-0 items-start gap-2 rounded-md border border-line bg-surface-muted px-3 py-2 text-xs print:hidden">
       <ExclamationTriangleIcon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0 text-ui-dark-blue dark:text-ui-light-grey" />
       <div className="flex-1 space-y-1">
-        {affected > 0 && (
+        {partial && <p className="text-foreground">{t(lang, "timelogApplyPartial")}</p>}
+        {!partial && affected > 0 && (
           <p className="text-foreground">{t(lang, "budgetUnappliedActuals", String(affected))}</p>
         )}
-        {missing > 0 && (
+        {!partial && missing > 0 && (
           <p className="text-muted-foreground">
             {t(lang, "timelogApplyNoAllocation", String(missing))}
           </p>
         )}
-        {withheld > 0 && (
+        {!partial && withheld > 0 && (
           // Gated on the bucket LIST, not the hour total — a +40/-40 credit
           // correction nets to zero while hours are still withheld. Same
           // wording and same 1dp formatting the Timelog panel uses, so the two
@@ -123,7 +140,7 @@ export function BudgetUnappliedNotice({
             {t(lang, "timelogApplyUnmatched", String(withheld), formatHours(plan?.unmatchedHours ?? 0))}
           </p>
         )}
-        {unattributed !== 0 && (
+        {!partial && unattributed !== 0 && (
           <p className="text-muted-foreground">
             {t(lang, "budgetUnattributedActuals", formatHours(unattributed))}
           </p>

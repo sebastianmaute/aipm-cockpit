@@ -203,14 +203,18 @@ export function useTimelogSync(args: Args) {
   // resolve people and projects at this moment, and every miss folds into a
   // dimensionless `unattributed` scalar. A caller acting on the stale value
   // re-applies exactly the attribution the re-fetch existed to replace.
-  // ★★ `isPartial` is the caller's fail-soft count, not something derivable
-  //    here — a short fetch produces a perfectly well-formed aggregate, so
-  //    nothing about `items` can reveal that a project threw. Only the loop
-  //    that swallowed the error knows, which is why it must be passed in.
+  // ★★ `isPartial` is the caller's, not something derivable here — a short
+  //    fetch produces a perfectly well-formed aggregate, so nothing about
+  //    `items` can reveal that a project was lost. Only the loop that swallowed
+  //    it knows, which is why it must be passed in.
+  // ★★★ REQUIRED, with no default, and that is deliberate: a default would let
+  //    a future third caller silently persist `partial: false` and CLEAR the
+  //    flag — the same wholesale-rewrite hazard the savers carry a note about,
+  //    one layer up. Required makes that a typecheck error instead.
   function finish(
     items: readonly TimelogTimeItem[],
-    usersOverride?: readonly TimelogUser[],
-    isPartial = false,
+    usersOverride: readonly TimelogUser[] | undefined,
+    isPartial: boolean,
   ): ActualsAggregate {
     const u = usersOverride ?? users;
     // Distinct projects seen — lets the matching UI bootstrap never-linked ones.
@@ -286,7 +290,11 @@ export function useTimelogSync(args: Args) {
         }
       }
 
-      finish(items, undefined, failedEmployees > 0);
+      // ★★ `signal.aborted` is part of the predicate, not decoration. The loop
+      //    above `break`s on a cancel and falls through to here, so a run
+      //    cancelled BETWEEN employees reaches `finish` with `failedEmployees`
+      //    still 0 — a truncated aggregate that would persist as complete.
+      finish(items, undefined, failedEmployees > 0 || signal.aborted);
       return { failedEmployees };
     });
   }
@@ -343,7 +351,9 @@ export function useTimelogSync(args: Args) {
       const bookerIds = new Set(inWindow.map((it) => it.userId).filter((id) => id > 0));
       const bookers = directory.filter((u) => bookerIds.has(u.userId));
       setUsers(bookers);
-      const agg = finish(inWindow, bookers, failedProjects > 0);
+      // `signal.aborted` for the same reason as the per-user path above: the
+      // loop `break`s on a cancel and still reaches this line.
+      const agg = finish(inWindow, bookers, failedProjects > 0 || signal.aborted);
       return { failedProjects, projectCount: ids.length, aggregates: agg };
     });
   }

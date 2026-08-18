@@ -11304,11 +11304,10 @@ table under the scan.
 table renders again, or accept the loss and pin those controls with unit tests instead. Recorded so
 the acceptance is deliberate rather than silent.
 
-## 172. A partial TimeLog fetch overwrote the cached aggregate, and every apply path could write it — CLOSED 2026-08-18
+## 172. A partial TimeLog fetch overwrote the cached aggregate, and the manual Apply path would write it — CLOSED 2026-08-18
 
-Found while FIXING the reapply half of this hazard in 0.245.0, by the implementer rather than by any
-reviewer, and deliberately not closed there because the fix changes the persisted cache shape. Closed
-in the same unreleased version once the shape change was scoped.
+Opened while fixing the reapply half of this hazard in 0.245.0 and deliberately not closed there,
+because the fix changes the persisted cache shape. Closed in the same unreleased version.
 
 ### The hazard
 
@@ -11347,31 +11346,77 @@ projects' fresh data, which is a second loss to avoid a first.
   cache partial, calls `removeUsers`, remounts, and asserts the flag survived.
 - `canApplyToBudget` (`timelog-guards.ts`), evaluated by BOTH the Apply button's `disabled` and
   `openConfirm`.
-- `timelogApplyPartial` EN/DE, rendered by `TimelogApplyNotices` — extracted from `timelog-panel.tsx`
-  (which sat one line under the 800-line ratchet) and leading the two existing notices, because it is
-  the only one that DISABLES Apply rather than explaining a partial write.
+- `timelogApplyPartial` EN/DE, rendered by `TimelogApplyNotices` — extracted from `timelog-panel.tsx`,
+  which was close enough to the 800-line ratchet that a third inline notice was not worth spending on.
+  It LEADS the two existing notices, because it is the only one that DISABLES Apply rather than
+  explaining a partial write.
 - The per-user `fetchBookings` path got the same treatment off `failedEmployees > 0`. It is not wired
   into the panel today; leaving it unflagged would have been a trap for whoever wires it back.
 
-★★ **It was also the FIFTH instance of §74**, found only because the fix forced a reading of both call
-sites: `openConfirm` returned early on `!overlay` alone while its button carried
-`applyDiff.length === 0 || isPopout`. A non-button caller could have applied from a popout, or with an
-empty plan. Both now evaluate the one predicate.
+★★ **It was also the FIFTH instance of §74, and a LATENT one.** `openConfirm` returned early on
+`!overlay` alone while its button carried `applyDiff.length === 0 || isPopout` — but `openConfirm` has
+exactly ONE caller, that button, so nothing could reach the gap. An earlier revision of this entry
+called it "the one that had teeth" and named a non-button caller that does not exist; a cold review
+refuted it. Both sites now evaluate the one predicate, which is worth doing for a latent drift — just
+do not sell it as a live one.
 
 ★ Recovery is a CLEAN re-fetch (which sets the flag false) or Clear all. There is deliberately no
 "apply anyway" — the whole point is that the aggregate is unfit to write.
 
+★★ Both commands below are SCOPED to the sentence they settle, and the first cut of this entry got
+that wrong in the way this repo keeps recording: it ran a bare `grep -n "partial"` over the hook
+(**9** hits — a `useState`, three comments and the return object alongside the four savers) under a
+comment telling the reader to expect four, and a bare `grep -n "canApplyToBudget"` over two files
+(**5** hits) under "two call sites". Neither was false; both handed the reader the filtering the
+command was supposed to have done.
+
 ```bash
-# the flag is threaded, and every saver carries it (expect 4 saveActualsCache sites, all with `partial`)
-grep -n "partial" src/app/use-timelog-sync.ts
-# one predicate, two call sites
-grep -n "canApplyToBudget" src/app/timelog-panel.tsx src/app/timelog-guards.ts
+# every saver carries the flag — four sites, each passing `partial`
+grep -n "saveActualsCache(projectId" src/app/use-timelog-sync.ts
+# one predicate, exactly two call sites
+grep -n "canApplyToBudget(applyState)" src/app/timelog-panel.tsx
 ```
 
-### Residual, deliberately not closed here
+### The second surface — missed on the first cut, and the reason to enumerate by DATA, not by CONTROL
 
-★★ `BudgetUnappliedNotice` reads the same cache and does NOT mention partiality — it still invites the
-user to Timelog with "N buckets have unapplied actuals". That invitation stays TRUE (the buckets do
-hold unapplied hours) and the Timelog panel explains the block on arrival, so the journey is coherent;
-adding a fifth signal to a component whose four-signal split was itself a 0.245.0 fix was judged more
-churn than the confusion is worth. Revisit if a user reports the round trip.
+★★★ **`BudgetUnappliedNotice` reads the same cache entry and the first cut did not gate it.** It was
+left open deliberately, on the reasoning that its invitation stayed true and the Timelog panel would
+explain the block on arrival. **That reasoning was wrong, and two independent cold reviews said so from
+opposite directions.** The string it renders is not a statement that hours exist — it is an
+instruction: "those buckets' actual hours will not change until you apply them in Time bookings"
+(`budgetUnappliedActuals`) — and applying in Time bookings is precisely what `canApplyToBudget` now
+refuses. Worse, all FOUR of its signals are DERIVED from the short overlay (`affected`/`withheld` by
+running `buildApplyPlan` over it, `missing` by `bucketsMissingAllocations`, `unattributed` by having
+been summed during the same short fetch), so it reported the erasure this entry exists to prevent as
+though it were work waiting to be done. It also broke an invariant stated in that file's own source:
+"the two surfaces cannot describe one cache differently."
+
+A partial entry now SUPPRESSES all four and renders one line, keeping the "Go to Time bookings →"
+button because that is where the Refresh that repairs it lives.
+
+★★★ **THE LESSON IS THE ENUMERATION.** This entry told the fixer to gate "every apply path" and handed
+them `grep -n "setPendingApply" src/app/timelog-panel.tsx` to find them. That command finds every
+control that WRITES — and this surface writes nothing, so it was structurally invisible to the
+instruction while being the first thing a user actually reads. **Enumerate every consumer of the
+POISONED DATA, not every caller of the dangerous FUNCTION**, and reach for a command over the STORE
+rather than the writer:
+
+```bash
+grep -rn "loadActualsCache" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+### Two narrower gaps closed at the same time
+
+★★ **The flag was wired to "a call threw" while it documents itself as "the aggregate is short".** Both
+fail-soft loops `break` on a cancel and fall through to `finish`, so a run cancelled BETWEEN iterations
+reached it with `failedProjects`/`failedEmployees` still 0 and persisted a truncated aggregate as
+complete. The predicate is now `... > 0 || signal.aborted` on both paths.
+
+★ `finish`'s `isPartial` parameter is REQUIRED, with no default. A default would let a future third
+caller silently persist `partial: false` and CLEAR the flag — the same wholesale-rewrite hazard the
+four savers carry a note about. Required makes it a typecheck error instead.
+
+★ STILL OPEN, and not this entry's to fix: `callPaged`'s `MAX_PAGES` cap (100 × 500 rows per project)
+short-returns with no error and no `failedProjects`, so it is the same "short aggregate reads as
+complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
+recorded because nothing anywhere else says it.

@@ -172,12 +172,15 @@ describe("canApplyToBudget", () => {
     expect(canApplyToBudget({ ...applyOk, isPopout: true })).toBe(false);
   });
 
-  // ★ Apply reaches no network, so a broken token must not block writing data
-  //   the device already holds — the same call the clear guard makes. Expressed
-  //   as a test because the state type simply omits the field, and an omission
-  //   reads as an oversight unless something pins it as a decision.
-  it("ignores TimeLog config state entirely", () => {
-    const withExtra = { ...applyOk, isMisconfigured: true, syncBusy: true } as typeof applyOk;
-    expect(canApplyToBudget(withExtra)).toBe(true);
-  });
+  // ★ NO "ignores TimeLog config state" TEST HERE, deliberately. That decision
+  //   (apply reaches no network, so a broken token must not block writing data
+  //   the device already holds) is real, and it is expressed by the state type
+  //   OMITTING the field — which is a typecheck-time property no runtime
+  //   assertion can reach. The obvious test casts an object with extra keys to
+  //   the narrower type, and the cast erases the very claim it names: the
+  //   function cannot see properties it does not read, so it passes whether or
+  //   not the decision still holds, and would still compile if someone widened
+  //   `TimelogApplyState` to extend `TimelogActionState`. A test that cannot
+  //   fail is worse than none, because it is counted as coverage. The
+  //   `canApplyToBudget` docblock carries the reasoning instead.
 });

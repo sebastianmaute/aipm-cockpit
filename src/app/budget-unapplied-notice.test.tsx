@@ -2,6 +2,7 @@ import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { TIMELOG_ACTUALS_KEY, saveActualsCache } from "./timelog-actuals-store";
+import { t } from "./i18n";
 import type { ActualsAggregate } from "./timelog-actuals";
 import type { BudgetBucket, Resource, Role } from "./types";
 
@@ -32,6 +33,11 @@ function seed(agg: ActualsAggregate): void {
   saveActualsCache(PROJECT, { fetchedAt: "2026-02-01T00:00:00.000Z", aggregates: agg });
 }
 
+/** The same entry, marked as having lost a project to a fetch error (§172). */
+function seedPartial(agg: ActualsAggregate): void {
+  saveActualsCache(PROJECT, { fetchedAt: "2026-02-01T00:00:00.000Z", aggregates: agg, partial: true });
+}
+
 const props = {
   lang: "en-US" as const,
   projectId: PROJECT,
@@ -54,6 +60,30 @@ describe("BudgetUnappliedNotice", () => {
     seed(aggregate({ byBucket: { 1: { "2026-01": cell(1, 10) } } }));
     render(<BudgetUnappliedNotice {...props} />);
     expect(screen.getByText(/1 budget bucket/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /time bookings/i })).toBeInTheDocument();
+  });
+
+  // ★★★ §172. The fixture is DELIBERATELY the union of the two tests around it
+  //     — a routable bucket cell AND unattributed hours — so both of the signals
+  //     those tests assert are provably present on this data. `partial: true` is
+  //     the only difference, which is what makes each suppression assertion
+  //     below observable: drop the `!partial` guard on either branch and the
+  //     matching `queryByText` goes non-null.
+  //     Why suppress rather than annotate: every signal here is DERIVED from the
+  //     short overlay, so on a partial entry all of them describe hours the
+  //     Timelog panel now refuses to write. Reporting them would send the user
+  //     down a "Go to Time bookings →" that ends on a disabled Apply.
+  test("suppresses every derived signal when the cached fetch lost a project", () => {
+    seedPartial(aggregate({
+      byBucket: { 1: { "2026-01": cell(1, 10) } },
+      unattributed: { hours: 12, billableHours: 12 },
+    }));
+    render(<BudgetUnappliedNotice {...props} />);
+    expect(screen.getByText(t("en-US", "timelogApplyPartial"))).toBeInTheDocument();
+    expect(screen.queryByText(/budget bucket/i)).toBeNull();
+    expect(screen.queryByText(/12h/i)).toBeNull();
+    // The Go button STAYS — Time bookings is where the Refresh that repairs
+    // this lives, so the one action still worth offering must not be removed.
     expect(screen.getByRole("button", { name: /time bookings/i })).toBeInTheDocument();
   });
 

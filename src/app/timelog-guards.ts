@@ -126,10 +126,12 @@ export interface TimelogApplyState {
  * aggregate passes both. See open-followups §172.
  *
  * ★★ It is the FIFTH instance of the §74 asymmetry this file exists to end, and
- * the one that had teeth: `openConfirm` returned early on `!overlay` alone
- * while its button carried `applyDiff.length === 0 || isPopout`, so a non-button
- * caller could apply from a popout, or with an empty plan. Both call sites now
- * evaluate THIS.
+ * a LATENT one: `openConfirm` returned early on `!overlay` alone while its
+ * button carried `applyDiff.length === 0 || isPopout`. `openConfirm` has exactly
+ * one caller — that button — so nothing could reach the gap
+ * (`git grep -n "openConfirm" -- "src/app/*.tsx" "src/app/*.ts"` returns the
+ * declaration, the `onClick`, and this comment). It would have opened the moment
+ * a second caller appeared, which is the whole reason this file exists.
  *
  * ★ Deliberately NOT extending `TimelogActionState`: apply reaches no network,
  * so `isMisconfigured` must not block it — same reasoning as
