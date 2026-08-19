@@ -12088,3 +12088,35 @@ commit — re-measure the spec's test total with
 Deliberately deferred out of the S3b fix round: the surface was being
 restructured by that round's docked-toolbar task, and the count could not be
 measured under its constraints.
+
+## 185. An over-long document paragraph is flattened to plain text at commit
+
+**Status:** open. **Severity:** low (bounded, visible, and only past 20 000
+visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE
+rather than silent by the S3b normalise-at-commit change.
+
+`document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
+characters) via `capHtmlText`, whose truncation branch returns
+`plainToHtml(text.slice(0, cut))` — so on overflow the paragraph loses **every
+mark**, not merely its tail. Bold, links, lists and headings inside it become
+escaped plain text.
+
+Before the block editor normalised at commit this happened on the next LOAD,
+with nothing on screen to connect it to anything the user did. It now happens at
+the commit, and the draft's seed nonce remounts the editor with the flattened
+result, so the user at least SEES it — but there is no warning before it, no
+notice explaining it, and no way to recover the markup once the commit lands
+(the before-image holds the pre-edit paragraph, so version history is the only
+recovery, and only until it is evicted).
+
+★ It is deliberately NOT fixed by refusing the commit: the user's text would
+then be unsaveable, which is worse. Nor by a per-editor `maxLength`: the cap is
+measured on VISIBLE text, and a `maxLength` counts markup too, so the two
+disagree on any formatted paragraph — that mismatch is exactly what the
+normalise-at-commit change removed.
+
+**To close:** either (a) count visible characters live in `RichTextEditor` and
+warn as the cap approaches, so overflow is a choice rather than a surprise, or
+(b) teach `capHtmlText` a mark-preserving truncation. (b) is the real fix and is
+the larger one — it needs a DOM-free HTML truncator, and `rich-text-plain.ts` may
+never call DOMPurify.
