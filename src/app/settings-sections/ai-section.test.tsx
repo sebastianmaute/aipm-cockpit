@@ -274,12 +274,52 @@ describe("AiSection", () => {
     expect(onChange.mock.calls.at(-1)?.[0].ai.activityRecap).toBe(true);
   });
 
-  it("hides both recall toggles while the AI master switch is off", () => {
+  it("chat-search toggle is checked by default (undefined = on)", () => {
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, chatSearch: undefined } }}
+        onChange={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText(t("en-US", "settingsAiChatSearch"))).toBeChecked();
+  });
+
+  it("toggling chat search calls onChange with chatSearch false", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, chatSearch: undefined } }}
+        onChange={onChange}
+      />,
+    );
+    fireEvent.click(screen.getByLabelText(t("en-US", "settingsAiChatSearch")));
+    expect(onChange.mock.calls.at(-1)?.[0].ai.chatSearch).toBe(false);
+  });
+
+  it("re-enabling chat search from an explicit false clears the flag", () => {
+    const onChange = vi.fn();
+    render(
+      <AiSection
+        lang="en-US"
+        settings={{ ...defaultSettings, ai: { ...defaultSettings.ai, chatSearch: false } }}
+        onChange={onChange}
+      />,
+    );
+    const toggle = screen.getByLabelText(t("en-US", "settingsAiChatSearch"));
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(onChange.mock.calls.at(-1)?.[0].ai.chatSearch).toBe(true);
+  });
+
+  it("hides all three recall toggles while the AI master switch is off", () => {
     // They sit inside the `settings.ai.enabled === true` fragment; a copy placed
     // outside it would leak AI settings onto a collapsed panel.
     render(<AiSection lang="en-US" settings={baseSettings} onChange={vi.fn()} />);
     expect(screen.queryByLabelText(t("en-US", "settingsAiHistorySearch"))).toBeNull();
     expect(screen.queryByLabelText(t("en-US", "settingsAiActivityRecap"))).toBeNull();
+    expect(screen.queryByLabelText(t("en-US", "settingsAiChatSearch"))).toBeNull();
   });
 
   it("gives each recall toggle a visible label matching its accessible name", () => {
@@ -289,7 +329,11 @@ describe("AiSection", () => {
     // the two strings at write time is the only protection, and this is the
     // only thing that pins it.
     render(<AiSection lang="en-US" settings={defaultSettings} onChange={vi.fn()} />);
-    for (const key of ["settingsAiHistorySearch", "settingsAiActivityRecap"] as const) {
+    for (const key of [
+      "settingsAiHistorySearch",
+      "settingsAiActivityRecap",
+      "settingsAiChatSearch",
+    ] as const) {
       const label = screen.getByLabelText(t("en-US", key)).closest("label");
       expect(label?.textContent).toBe(t("en-US", key));
     }

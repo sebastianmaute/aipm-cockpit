@@ -49,6 +49,7 @@ export type AiConfig = {
   suggestAllNextActionThresholds?: boolean; // AI weight suggestions (SP-C). Default OFF (opt-in).
   historySearch?: boolean; // The search_history tool. Default ON (undefined = on) — it shipped ON in 0.241.0.
   activityRecap?: boolean; // The ambient activity recap sentence. Default ON (undefined = on).
+  chatSearch?: boolean; // The search_chats tool + the ambient chat pointer. Default ON (undefined = on).
   maxChatTurns?: number; // Max assistant round-trips per user message (integer 1–50). Default 12.
   tokenMultiplier?: number; // Multiplier applied to counted tokens before caps (>0, decimals ok). Default 5.
 };
@@ -68,6 +69,17 @@ export type AiConfig = {
  *  silently removing a live capability on upgrade. */
 export function historySearchEnabled(historySearch: boolean | undefined): boolean {
   return historySearch !== false;
+}
+
+/** Is `search_chats` live? (`settings.ai.chatSearch !== false`.)
+ *
+ *  ★★★ ONE definition, read by BOTH the advertisement gate (`toolsFor` /
+ *  `toolNamesFor`) and the EXECUTOR gate (`runTool`'s `case "search_chats"`).
+ *  Two hand-spelled `=== false` checks are a config slip away from a switch that
+ *  advertises off and serves on — the state §162 recorded, in the direction
+ *  where only the advertisement existed. */
+export function chatSearchEnabled(chatSearch: boolean | undefined): boolean {
+  return chatSearch !== false;
 }
 
 export const DEFAULT_MAX_CHAT_TURNS = 12;
@@ -159,6 +171,7 @@ export function sanitizeAiConfig(raw: unknown): AiConfig {
     historySearch: obj.historySearch === false ? false : undefined,
     activityRecap: obj.activityRecap === false ? false : undefined,
     actionSuggestions: obj.actionSuggestions === false ? false : undefined,
+    chatSearch: obj.chatSearch === false ? false : undefined,
     maxChatTurns: coerceTurns(obj.maxChatTurns),
     tokenMultiplier: coerceMultiplier(obj.tokenMultiplier),
   };

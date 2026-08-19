@@ -133,7 +133,7 @@ describe("callInlineEdit", () => {
     //    vacuity a "nothing happened" assertion invites.
     it("CONTROL: the same snapshot does produce a recap on the chat path", () => {
       const chatText = chatApi
-        .buildSystemPrompt("en-US", withActivity, [], false, undefined)
+        .buildSystemPrompt("en-US", withActivity, [], false, {})
         .map((b) => b.text)
         .join("\n");
       expect(chatText).toContain("Recent project activity: 4 changes");
@@ -153,18 +153,73 @@ describe("callInlineEdit", () => {
     // ★★★ AND THE TOOL ITSELF IS GONE, unconditionally. Suppressing the
     // sentence while still OFFERING the tool leaves the trap armed for any
     // instruction that invites a look backwards ("put this back the way it was
-    // last week"). `false` is passed literally — this must NOT track
-    // `settings.ai.historySearch`, so there is no argument to vary here.
-    it("passes historySearch=false to callClaude", async () => {
+    // last week"). The flags are passed literally — this must NOT track
+    // `settings.ai`, so there is no argument to vary here.
+    // ★★ READ BY NAME, never positionally: both flags are `boolean | undefined`,
+    //    so an assertion on "the false one" cannot tell a transposition apart.
+    it("passes both recall flags off to callClaude", async () => {
       const spy = await callWith(withActivity);
-      expect(spy.mock.calls[0][4]).toBe(false);
+      const flags = spy.mock.calls[0][4];
+      expect(flags.historySearch).toBe(false);
+      expect(flags.chatSearch).toBe(false);
     });
 
     // ★ The unconditional claim, from the other end: a snapshot with NO activity
     //   at all must reach the wire the same way.
-    it("passes false even when the snapshot carries no activity", async () => {
+    it("passes them off even when the snapshot carries no activity", async () => {
       const spy = await callWith(snapshot);
-      expect(spy.mock.calls[0][4]).toBe(false);
+      const flags = spy.mock.calls[0][4];
+      expect(flags.historySearch).toBe(false);
+      expect(flags.chatSearch).toBe(false);
+    });
+  });
+
+  // ★★★ THE SAME SPREAD, A THIRD TIME. `chatPointer` joined the snapshot in a
+  // later slice and rode straight through a strip list that named only
+  // `viewDigest` and `activitySummary`. Milder than the recap — the closing
+  // "Use search_chats to read them." is already suppressed by NO_RECALL_TOOLS —
+  // but what survives names past conversations the model has no tool to open.
+  describe("the chat pointer cannot be acted on from this single-shot path", () => {
+    const emptyResponse: Awaited<ReturnType<typeof chatApi.callClaude>> = {
+      content: [],
+      stop_reason: "end_turn",
+      usage: { input_tokens: 0, output_tokens: 0 },
+    };
+    const withPointer = {
+      ...snapshot,
+      chatPointer: {
+        count: 2,
+        recent: [{ title: "Budget rework thread", at: "2026-07-02T10:00:00.000Z" }],
+      },
+    };
+
+    // ★★ THE CONTROL, built the same hard way as the recap's above: prove this
+    //    very fixture DOES render a pointer through the chat path. Without it
+    //    the negatives below pass against a fixture that never produced the
+    //    sentence — and stay green with `buildChatPointerBlock` deleted outright.
+    it("CONTROL: the same snapshot does produce a pointer on the chat path", () => {
+      const chatText = chatApi
+        .buildSystemPrompt("en-US", withPointer, [], false, {})
+        .map((b) => b.text)
+        .join("\n");
+      expect(chatText).toContain("There are 2 earlier conversations in this project");
+      expect(chatText).toContain("Budget rework thread");
+      expect(chatText).toContain("Use search_chats to read them.");
+    });
+
+    it("strips the chat pointer, so no past conversation is named", async () => {
+      const spy = vi.spyOn(chatApi, "callClaude").mockResolvedValue(emptyResponse);
+      await callInlineEdit({
+        apiKey: "sk-ant-xxxxxxxxxxxxxxxx", model: "claude-x", lang: "en-US",
+        entity: "task", item, itemLabel: "Fix login bug", instruction: "mark done",
+        snapshot: withPointer, guides: [], groundInGuides: false,
+      });
+      const systemText = spy.mock.calls[0][2].map((b) => b.text).join("\n");
+      expect(systemText).not.toContain("earlier conversations in this project");
+      expect(systemText).not.toContain("Budget rework thread");
+      // Same control as the digest/recap tests: prove buildSystemPrompt still ran.
+      expect(systemText).toContain("VIEW SCOPE");
+      expect(systemText).toContain("Today is 2026-07-03");
     });
   });
 });

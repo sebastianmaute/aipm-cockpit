@@ -607,7 +607,7 @@ const guide: OperatingGuide = {
 
 describe("buildSystemPrompt app-context + guides", () => {
   it("includes an APP CONTEXT block with mode/modules/view", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true,undefined));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [], true, {}));
     expect(s).toContain("APP CONTEXT");
     expect(s).toContain("Mode: advanced");
     expect(s).toContain("Current view: milestones");
@@ -615,24 +615,24 @@ describe("buildSystemPrompt app-context + guides", () => {
   });
 
   it("includes in-scope guides when grounding is ON", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true,undefined));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], true, {}));
     expect(s).toContain("Be decisive.");
     expect(s).toContain("priority order");
   });
 
   it("omits the guide block when grounding is OFF", () => {
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false,undefined));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [guide], false, {}));
     expect(s).not.toContain("Be decisive.");
   });
 
   it("omits the guide block when no guide is in scope", () => {
     const off: OperatingGuide = { ...guide, scope: { views: ["budget" as const] } };
-    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true,undefined));
+    const s = systemBlocksText(buildSystemPrompt("en-US", snap, [off], true, {}));
     expect(s).not.toContain("Be decisive.");
   });
 
   it("caches the stable prefix (incl. guide) and leaves volatile state uncached", () => {
-    const blocks = buildSystemPrompt("en-US", snap, [guide], true,undefined);
+    const blocks = buildSystemPrompt("en-US", snap, [guide], true, {});
     // Block 0 = cached stable prefix, contains the guide text.
     expect(blocks[0].cache_control?.type).toBe("ephemeral");
     expect(blocks[0].text).toContain("Be decisive.");
@@ -1649,8 +1649,8 @@ describe("400 response message surfacing", () => {
 // ★★★ READ *BOTH* HALVES OF THE BODY — `body.tools` ALONE IS HALF A TEST, and
 //   the half it misses is the defect this branch exists to fix. `ai.historySearch`
 //   reaches the request through TWO independent call sites in `chat-panel.tsx`:
-//   `buildSystemPrompt(..., ai.historySearch)` → `body.system` (the
-//   ADVERTISEMENT) and `callClaude(..., historySearch)` → `toolsFor()` →
+//   `buildSystemPrompt(..., ai)` → `body.system` (the
+//   ADVERTISEMENT) and `callClaude(..., ai)` → `toolsFor()` →
 //   `body.tools` (the SCHEMA). Pinning only the second means passing a literal
 //   `undefined` as `buildSystemPrompt`'s fifth argument reinstates exactly the
 //   shipped bug — a system prompt naming `search_history` on every turn of every

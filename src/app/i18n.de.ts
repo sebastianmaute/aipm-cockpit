@@ -2745,6 +2745,11 @@ export const de: Record<TranslationKey, string> = {
   settingsAiActivityRecap: "Assistent über den Umfang der letzten Änderungen informieren",
   settingsAiActivityRecapHelp:
     "Fügt jeder Nachricht eine Zeile mit der Anzahl der Änderungen der letzten 7 Tage hinzu, damit der Assistent weiß, dass ein Verlauf existiert.",
+  settingsAiChatSearch: "Assistent darf frühere Unterhaltungen durchsuchen",
+  settingsAiChatSearchHelp:
+    "Der Assistent kann frühere Chatverläufe dieses Projekts durchsuchen und erfährt, wie viele es gibt. " +
+    "Frühere Unterhaltungen werden nur in Turso-Projekten gespeichert; ist die Option aus, wird das " +
+    "Werkzeug vollständig entfernt und nicht nur eingeschränkt.",
   aiInsightRecInterval: "Prüfintervall (Minuten)",
   aiInsightRecIntervalHint: "Wie oft bei geöffneter App nach neuen Empfehlungen gesucht wird. Jede Prüfung kann kostenpflichtige API-Aufrufe auslösen. Minimum 15, Maximum 1440.",
   aiInsightRecommendations: "Proaktive Insight-Empfehlungen",

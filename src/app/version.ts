@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.246.0";
-export const APP_BUILD_DATE = "2026-08-18"; // 0.246.0: undoing a bulk edit no longer destroys a note written since, or forgets a task/milestone's synced calendar event (Butcher)
+export const APP_VERSION = "0.247.0";
+export const APP_BUILD_DATE = "2026-08-19"; // 0.247.0: undoing a bulk edit no longer destroys a note written since, or forgets a task/milestone’s synced calendar event (Butcher)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.246.x line is "Butcher" (Jim Butcher, fantasy author).
+ *  0.247.x line is "Butcher" (Jim Butcher, fantasy author).
+ *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
  *  0.245.x was "Buckell" (Tobias S. Buckell, SF author).
  *  0.244.x was "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).
  *  0.243.x was "Aaronovitch" (Ben Aaronovitch, urban-fantasy author).

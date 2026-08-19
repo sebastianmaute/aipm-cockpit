@@ -41,7 +41,7 @@ describe("buildSystemPrompt — the activity recap block", () => {
   //    defect, since activity changes every turn and would invalidate the
   //    prompt cache on every message. Assert the BLOCK INDEX.
   it("puts the activity recap in the VOLATILE block, never the cached prefix", () => {
-    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: summary }), [], false,undefined);
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: summary }), [], false, {});
     expect(blocks[0].text).not.toContain("Recent project activity");
     expect(blocks[1].text).toContain("Recent project activity");
     expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
@@ -49,7 +49,7 @@ describe("buildSystemPrompt — the activity recap block", () => {
   });
 
   it("omits the recap entirely when there is no summary", () => {
-    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: undefined }), [], false,undefined);
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ activitySummary: undefined }), [], false, {});
     expect(blocks[1].text).not.toContain("Recent project activity");
   });
 
@@ -65,9 +65,38 @@ describe("buildSystemPrompt — the activity recap block", () => {
       }),
       [],
       false,
-      undefined,
+      {},
     );
     expect(blocks[1].text).toContain("2026-08-17");
+  });
+});
+
+describe("buildSystemPrompt — the chat pointer block", () => {
+  const pointer: NonNullable<Snapshot["chatPointer"]> = {
+    count: 4,
+    recent: [
+      { title: "vendor decision", at: "2026-08-09T10:00:00Z" },
+      { title: "budget review", at: "2026-08-07T10:00:00Z" },
+    ],
+  };
+
+  // ★★★ THE PLACEMENT TEST, mirroring the activity recap's above. Asserting the
+  //    text appears "somewhere in the prompt" PASSES with the block in the
+  //    CACHED prefix — which is the defect, since thread state changes every
+  //    turn and moving it there would invalidate the prompt cache on every
+  //    message. That failure is SILENT: it shows up only as a cost regression,
+  //    never as a wrong answer. Assert the BLOCK INDEX.
+  it("puts the chat pointer in the VOLATILE block, never the cached prefix", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ chatPointer: pointer }), [], false, {});
+    expect(blocks[0].text).not.toContain("earlier conversations in this project");
+    expect(blocks[1].text).toContain("earlier conversations in this project");
+    expect(blocks[0].cache_control).toEqual({ type: "ephemeral" });
+    expect(blocks[1].cache_control).toBeUndefined();
+  });
+
+  it("omits the pointer entirely when there is none", () => {
+    const blocks = buildSystemPrompt("en-US", snapshotFixture({ chatPointer: undefined }), [], false, {});
+    expect(blocks[1].text).not.toContain("earlier conversations in this project");
   });
 });
 
@@ -98,7 +127,7 @@ describe("buildSystemPrompt never advertises a tool the request will not carry",
       snapshotFixture({ currentView: "activity", activitySummary: summary }),
       [],
       false,
-      historySearch,
+      { historySearch },
     )
       .map((b) => b.text)
       .join("\n");
@@ -146,7 +175,7 @@ describe("buildSystemPrompt never advertises a tool the request will not carry",
       snapshotFixture({ currentView: "open-points" }),
       [],
       false,
-      false,
+      { historySearch: false },
     )
       .map((b) => b.text)
       .join("\n");
@@ -248,21 +277,21 @@ describe("closeDanglingToolUses", () => {
 
 describe("tool list gating", () => {
   it("includes search_history by default", () => {
-    expect(toolsFor(undefined).map((t) => t.name)).toContain("search_history");
+    expect(toolsFor({}).map((t) => t.name)).toContain("search_history");
   });
 
   it("removes search_history when the toggle is off", () => {
     // ★ REMOVED, not refused: a refused tool still costs its schema on every
     //   turn, which is most of what the toggle is for.
-    expect(toolsFor(false).map((t) => t.name)).not.toContain("search_history");
+    expect(toolsFor({ historySearch: false }).map((t) => t.name)).not.toContain("search_history");
   });
 
   it("drops exactly one tool and keeps every other name", () => {
     // ★ CONTROL for the test above: `not.toContain` also passes on an empty
     //   array, so pin that the filter removed one entry rather than gutting the
     //   list.
-    const on = toolsFor(undefined).map((t) => t.name);
-    const off = toolsFor(false).map((t) => t.name);
+    const on = toolsFor({}).map((t) => t.name);
+    const off = toolsFor({ historySearch: false }).map((t) => t.name);
     expect(off).toHaveLength(on.length - 1);
     expect(off).toEqual(on.filter((n) => n !== "search_history"));
   });
@@ -271,7 +300,7 @@ describe("tool list gating", () => {
   //    leave the marker on an element that is no longer last, or the tools
   //    segment stops caching.
   it("keeps the cache breakpoint on the last element of BOTH variants", () => {
-    for (const variant of [toolsFor(undefined), toolsFor(false)]) {
+    for (const variant of [toolsFor({}), toolsFor({ historySearch: false })]) {
       expect(variant[variant.length - 1]).toHaveProperty("cache_control", { type: "ephemeral" });
       // `in` rather than `t.cache_control === undefined`: the unmarked entries
       // have no such key on their type at all, so the property read is a tsc
@@ -282,8 +311,8 @@ describe("tool list gating", () => {
 
   // ★ Referential stability: the arrays are module-level, not rebuilt per call.
   it("returns a STABLE reference for the same setting", () => {
-    expect(toolsFor(undefined)).toBe(toolsFor(true));
-    expect(toolsFor(false)).toBe(toolsFor(false));
+    expect(toolsFor({})).toBe(toolsFor({ historySearch: true }));
+    expect(toolsFor({ historySearch: false })).toBe(toolsFor({ historySearch: false }));
   });
 
   // ★★★ §162 DRIFT GUARD. The kill switch is now enforced in TWO places —
@@ -299,12 +328,84 @@ describe("tool list gating", () => {
     for (const raw of inputs) {
       const v = raw as boolean | undefined;
       const enabled = historySearchEnabled(v);
-      expect(toolsFor(v).map((t) => t.name).includes("search_history")).toBe(enabled);
-      expect(toolNamesFor(v).has("search_history")).toBe(enabled);
+      expect(toolsFor({ historySearch: v }).map((t) => t.name).includes("search_history")).toBe(enabled);
+      expect(toolNamesFor({ historySearch: v }).has("search_history")).toBe(enabled);
     }
     // The control: the set really does split, so the loop is not asserting
     // `true === true` nine times over.
     expect(historySearchEnabled(false)).toBe(false);
     expect(historySearchEnabled(undefined)).toBe(true);
+  });
+});
+
+describe("tool variants", () => {
+  const ALL = {};
+  const NO_HISTORY = { historySearch: false };
+  const NO_CHAT = { chatSearch: false };
+  const NEITHER = { historySearch: false, chatSearch: false };
+
+  it("offers search_history by default and drops it when disabled", () => {
+    expect(toolNamesFor(ALL).has("search_history")).toBe(true);
+    expect(toolNamesFor(NO_HISTORY).has("search_history")).toBe(false);
+  });
+
+  // ★★★ THE TRANSPOSITION GUARD (§159). Two same-typed `boolean | undefined`
+  //   predicates side by side is the shape that silently swapped and passed 337
+  //   tests plus tsc. The flags travel as a NAMED slice so a swap cannot be
+  //   spelled — and this asserts each flag INDEPENDENTLY, so if the two names
+  //   were ever read into each other's slot the first line here goes red.
+  it("leaves search_history alone when only the chat flag is off", () => {
+    expect(toolNamesFor(NO_CHAT).has("search_history")).toBe(true);
+    expect(toolNamesFor(NEITHER).has("search_history")).toBe(false);
+  });
+
+  it("returns ONE array identity per settings combination", () => {
+    // ★ The property the two frozen constants used to provide. The list ships on
+    //   every request, so a fresh array per call would destroy referential
+    //   stability for a value that is constant for the whole conversation.
+    expect(toolsFor(ALL)).toBe(toolsFor({}));
+    expect(toolsFor({ historySearch: true })).toBe(toolsFor(ALL));
+    expect(toolsFor(NO_HISTORY)).toBe(toolsFor({ historySearch: false }));
+    expect(toolsFor(NO_HISTORY)).not.toBe(toolsFor(ALL));
+  });
+
+  it("returns ONE name-set identity per settings combination", () => {
+    // Same rule for the derived sets: `buildSystemPrompt` reads one per send.
+    expect(toolNamesFor(ALL)).toBe(toolNamesFor({}));
+    expect(toolNamesFor(NO_HISTORY)).toBe(toolNamesFor({ historySearch: false }));
+    expect(toolNamesFor(NO_HISTORY)).not.toBe(toolNamesFor(ALL));
+  });
+
+  it("recomputes the cache breakpoint per variant", () => {
+    // A lost breakpoint is invisible except as a bill.
+    // ★★ THE EXPECTED LENGTH IS WHAT MAKES THE LOOP FOUR CASES. Until
+    //   `search_chats` existed, bit 2 removed nothing, so NO_CHAT and NEITHER
+    //   built the SAME list as ALL and NO_HISTORY — the loop ran four times over
+    //   two variants and would have stayed green with the whole chat bit gone.
+    //   `full` is read from the default variant so the numbers track TOOL_DEFS.
+    const full = toolsFor(ALL).length;
+    for (const [flags, expected] of [
+      [ALL, full],
+      [NO_HISTORY, full - 1],
+      [NO_CHAT, full - 1],
+      [NEITHER, full - 2],
+    ] as const) {
+      const defs = toolsFor(flags);
+      expect(defs).toHaveLength(expected);
+      expect(defs.filter((d) => "cache_control" in d)).toHaveLength(1);
+      expect(defs[defs.length - 1]).toHaveProperty("cache_control");
+    }
+  });
+
+  it("offers search_chats by default and drops it when disabled", () => {
+    expect(toolNamesFor(ALL).has("search_chats")).toBe(true);
+    expect(toolNamesFor(NO_CHAT).has("search_chats")).toBe(false);
+  });
+
+  it("drops each tool independently", () => {
+    // The combination that matters: one off, one on, in both directions.
+    expect(toolNamesFor(NO_HISTORY).has("search_chats")).toBe(true);
+    expect(toolNamesFor(NO_CHAT).has("search_history")).toBe(true);
+    expect(toolNamesFor(NEITHER).has("search_chats")).toBe(false);
   });
 });

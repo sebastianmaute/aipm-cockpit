@@ -2211,7 +2211,7 @@ Closed by **two complementary mechanisms**, not one, because they cover differen
   that row", which is what this entry claimed.** `buildBulkFieldEdits` captures whole FIELD VALUES
   (`pick(before, changed)`) and the restore merges them wholesale (`{ ...r, ...patch }`, the field
   runner in `use-undo-stack.ts`), so a concurrent write to a DIFFERENT KEY of the same
-  object-valued field is still reverted. Reachable today on `Stakeholder.raci`. Filed as §174.
+  object-valued field is still reverted. Reachable today on `Stakeholder.raci`. Filed as §178.
   Within that limit it is still strictly stronger than the backstop, wherever it applies.
 
 **The task half is now verified, not suspected.** This entry said the same sequence "very likely" lost
@@ -2227,7 +2227,7 @@ calendar. Worse than the note case two ways — no user race is needed (a backgr
 concurrent write on its own schedule), and it reaches entities that carry no note log at all.
 
 Residual scope — the whole-row paths this slice deliberately left untouched, and the duplicated
-write-through field list — is recorded separately as §173, not folded in here.
+write-through field list — is recorded separately as §177, not folded in here.
 
 ---
 
@@ -11529,15 +11529,104 @@ short-returns with no error and no `failedProjects`, so it is the same "short ag
 complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
 recorded because nothing anywhere else says it.
 
+## 173. The load `catch`'s mid-flight-adoption branch publishes a POPULATED thread list with `available: false` — open, narrow
+
+Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
+
+`useChatThreads`' load effect has a `catch` branch that adopts a project switch which landed while
+the fetch was in flight. It sets the load-failure flag, but deliberately KEEPS the rows it already
+had (filtering `prev` down to the adopted `projectId`) and sets `loadedProjectId`, so
+`threadsMatchProject` is true. The registry publish therefore emits a POPULATED `threads` array
+alongside `available: false`.
+
+★★ That is the advertise-then-deny contradiction the load-scoped `available` narrowing was
+written to remove, INVERTED and surviving it.
+`useChatSearchBindings` builds the ambient chat pointer from `published.threads` and never consults
+`available` — so the system prompt still says "There are N earlier conversations in this project
+— Use search_chats to read them", the model obeys, and `runChatSearch` answers
+`coverage: "unavailable"`. Reproduce the blindness, which is the load-bearing half:
+
+```bash
+grep -n available src/app/use-chat-search-bindings.ts   # exit 1 — never reads it
+sed -n '/const adopt/,/^      }/p' src/app/use-chat-threads.ts
+```
+
+★ REACHABILITY IS NARROW AND THE PRODUCTION IMPACT IS **UNVERIFIED**: it needs a project switch
+landing mid-flight AND at least two same-project rows in `prev`, since `summarizeChatThreads`
+excludes the active thread and a one-row pointer renders nothing. The code path is verified by
+READING, not by reproducing it — do not record it as observed.
+
+★★ TWO REPAIRS, and the obvious one is wrong. Clearing `threads` in that branch would make the
+pair consistent by DISCARDING rows the user can still read in the sidebar, which is a worse outcome
+than an inconsistent hint. The honest fixes are either (a) leave the load-failure flag unset on the
+adoption branch — nothing stopped us looking, we merely looked at a different project — or
+(b) gate the ambient pointer on `available` so both surfaces speak with one voice. (b) also closes
+§174.
+
+## 174. The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing
+
+Same review, same day. NOT a regression — it predates the `available` work and is recorded here
+only because that work reasoned carefully about the opposite error and never mentioned this one.
+
+The load-failure flag starts `false`, so the first registry publish in Turso mode is
+`{threads: [], available: true}` — which downstream becomes `coverage: "turso"`, and
+`chat-tool-defs.ts` defines that to the model as "past conversations WERE searched". The fetch has
+not returned. So a `search_chats` racing the first load can tell the user a topic was never
+discussed, which is the exact failure mode the load-failure branch was added to prevent, arrived at
+from the other side.
+
+★★ "Not yet looked" is a THIRD state and the boolean cannot hold it. `available` today conflates
+"looked, nothing there" with "have not looked yet". A fix means either seeding the flag so the slot
+reads unavailable until the first load SETTLES (either way), or widening `ChatCoverage` past its two
+members — the second changes a tool-visible contract and needs its description updated in the same
+commit, or the model is handed a value the prose does not define.
+
+★ Window is small but not theoretical: the pointer and the tool are both reachable on the first
+turn after a project opens.
+
+## 175. `buildChatPointerBlock` is no longer bounded by any test — open, safe by single-producer accident
+
+Same review. Introduced BY the fix that moved the thread-title cap to its producer: that commit
+deleted the four size tests from `chat-recap.test.ts` because their subject (`inlineTitle`'s clip)
+no longer existed.
+
+`buildChatPointerBlock` accepts an arbitrary `ChatPointer` and does no clipping of its own. Every
+value it can receive is bounded TODAY because `summarizeChatThreads` is its only producer and caps
+each title at `THREAD_NAME_MAX` via `threadTitle`. Nothing enforces that. A second producer — a
+test helper, a replay path, a future digest — reaches the system prompt unguarded, on the UNCACHED
+half of the prompt, with the whole suite green.
+
+```bash
+grep -rn "ChatPointer\b" src --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ The cap belongs where it is; this is not an argument to put a second one in the renderer. It is
+an argument for ONE test that feeds `buildChatPointerBlock` an over-long title directly and asserts
+the block stays bounded — the guard that makes the single-producer property checkable instead of
+merely true.
+
+## 176. The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order — open, cosmetic
+
+Same review. Behaviour delta, deliberately shipped, recorded so it is not mistaken for a bug later.
+
+Before the cap moved, `inlineTitle` collapsed interior whitespace (`\s+` —> " ") and THEN clipped.
+Now `threadTitle` clips first and `inlineTitle` flattens what survives. A title carrying a long run
+of interior whitespace therefore yields FEWER visible characters in the prompt block than it used to,
+because the run is counted against the cap before it is collapsed.
+
+★ Bounded either way (the cap plus one ellipsis), model-facing only, and no storage or export path
+is involved ★★ but NO test pins either ordering, so a future edit can reverse it silently in
+either direction. If it is ever worth pinning, pin it at `threadTitle`, where the clip now lives.
+
 ---
 
-## 173. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
+## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
 
 §50's field-patch conversion (closed 2026-08-18) made the five converted PANEL bulk-edit sites immune
 to the write-through clobber BY CONSTRUCTION — a field patch merges only the fields the op itself
 touched, so a concurrent edit to a DIFFERENT FIELD of the row survives, not just
 `noteLog`/`outlookEventId`. ★ It does NOT preserve a concurrent write to a different KEY of the same
-object-valued field (§174), and the five are not the only `bulk.edit` emitters (§50's Resolution
+object-valued field (§178), and the five are not the only `bulk.edit` emitters (§50's Resolution
 carries both corrections and the greps). That property does not extend to every writer in the app,
 and this entry records what was deliberately left out.
 
@@ -11591,14 +11680,7 @@ grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
 
 ---
 
-> ★★ **NUMBERING — §173 (above) and §174–§176 (below) are PENDING RENUMBER against `origin/main`.**
-> Main already holds its own §173–§176, so all four of this branch's numbers collide on merge; the
-> whole block gets renumbered together in a later step. Do not cite these numbers from anywhere
-> outside this file until that lands.
-
----
-
-## 174. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
+## 178. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
 
 §50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
 this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
@@ -11638,7 +11720,7 @@ runner. That is a design slice, not a fix-round edit to shared undo machinery �
 
 ---
 
-## 175. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
+## 179. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
 
 §50's Part A backstop is wired into the EDIT branch only. Both `applyPreserved(item, …)` call sites
 sit inside an `op === "edit"` loop — one in `applyUndoRestoreWithRemap`, one in `applyUndoForward`:
@@ -11678,7 +11760,7 @@ nor id alone. Scoping that inside the fix round that closed §50 is how a regres
 
 ---
 
-## 176. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+## 180. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
 
 `changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
 `TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),

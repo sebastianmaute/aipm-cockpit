@@ -373,7 +373,7 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  measured true on 2026-08-18 — `use-bulk-operations.ts` captured whole
  *  `beforeRows` exactly like RAID and changes — and both are now CLOSED: every
  *  `bulk.edit` site was converted to a field patch. Residual whole-row paths
- *  outside `bulk.edit` are tracked as open-followups §173, not here). A patch
+ *  outside `bulk.edit` are tracked as open-followups §177, not here). A patch
  *  merge touches only the fields the op actually wrote. Use this whenever the
  *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
