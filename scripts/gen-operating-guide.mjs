@@ -46,7 +46,14 @@ export function parseFeatureGuide(md, validViews) {
 /** The AppView ids a feature guide section may scope to. Exported so the
  *  sync-guard test can parse the source md with the same valid-view list the
  *  generator uses (DRY). Script-only — not part of the generated output. */
-export const VALID_VIEWS = ["projects","open-points","dashboard","actions","trends","history","chat","gantt","milestones","resources","directory","workload","calendar","planning","manage-roles","budget","budget-report","raid","raid-report","changes","change-report","stakeholders","raci","stakeholder-map","knowledge","reports","activity","settings","learning-insights","steering-committee","timelog","portfolio-health"];
+/** MUST mirror `AppView` in src/app/nav-config.ts. It is duplicated rather than
+ *  imported because this script is .mjs and AppView is a TS type — nothing
+ *  gates the two against each other. This list silently omitted `insights`,
+ *  `documents` and `help` for as long as those views existed, which does not
+ *  fail: it makes a guide section for them THROW as an unknown view id, so the
+ *  view simply goes undocumented. Re-derive after adding a view:
+ *    grep -A40 'export type AppView' src/app/nav-config.ts */
+export const VALID_VIEWS = ["projects","open-points","dashboard","actions","insights","trends","history","chat","gantt","milestones","resources","directory","workload","calendar","planning","manage-roles","budget","budget-report","raid","raid-report","changes","change-report","stakeholders","raci","stakeholder-map","knowledge","documents","reports","activity","settings","help","learning-insights","steering-committee","timelog","portfolio-health"];
 
 const isMain = process.argv[1] ? process.argv[1].replace(/\\/g, "/").endsWith("gen-operating-guide.mjs") : false;
 if (isMain) {

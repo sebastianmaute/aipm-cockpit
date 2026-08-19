@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.247.0";
-export const APP_BUILD_DATE = "2026-08-19"; // 0.247.0: undoing a bulk edit no longer destroys a note written since, or forgets a task/milestone’s synced calendar event (Butcher)
+export const APP_VERSION = "0.248.0";
+export const APP_BUILD_DATE = "2026-08-19"; // 0.248.0: the docs and in-app Help now match the app — the activity log is project data, not browser-local (Bujold)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.247.x line is "Butcher" (Jim Butcher, fantasy author).
+ *  0.248.x line is "Bujold" (Lois McMaster Bujold, SF/fantasy author).
+ *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
  *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
  *  0.245.x was "Buckell" (Tobias S. Buckell, SF author).
  *  0.244.x was "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).

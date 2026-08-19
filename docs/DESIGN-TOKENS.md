@@ -8,6 +8,12 @@ block). The token **values** come from the active colour scheme, applied at runt
 properties by `use-style`'s `syncScheme` — the sole apply path. What is in `globals.css :root` is the
 no-JS / pre-boot fallback only. So: rely on the role, never on a specific hex.
 
+Four schemes ship built in (`builtin-schemes.ts`): **Harbor**, **Meridian** and **Umber**, each with a
+light and a dark variant, and **Beacon**, which is light-only. ★★ `DEFAULT_SCHEME_ID` is **`beacon`**,
+but the `globals.css :root` fallback below is **Harbor light** — so the pre-boot paint and the applied
+default are deliberately different palettes. Do not read a hex in the table below as "what a fresh
+install shows"; it is what shows before `syncScheme` runs, and nothing more.
+
 > The brand tokens were renamed `--AIPM-*` → `--ui-*` in 0.190.23 (Release B). `AIPM` survives as the
 > company/theme *name* and in asset classes (`AIPM-logo`), but no token carries that prefix.
 
@@ -129,11 +135,20 @@ never reference them directly.
 - **Severity ramp (Low→Critical)** — 4-step cold→hot: Low=`ui-green`, Medium=`ui-blue`, High=`ui-purple`, Critical=`ui-pink`. Alpha escalates with severity (`/20` Low/Medium → `/25` High → `/30` Critical).
 - **RAG health dots (R/A/G)** — solid dots: R=`bg-ui-pink`, A=`bg-ui-purple`, G=`bg-ui-green` (same triple as the task-form-modal RAG indicator and the reports legend).
 
-## RAG role tokens (dual-CI) — text-on-surface caveat
+## RAG role tokens — text-on-surface caveat
 
-The dual-CI style system adds `--rag-red/amber/green` role tokens (+ `-text` AA companions) so RAG semantics switch across the Acme / Dashboard / Custom styles.
+`--rag-red/amber/green` (+ their `-text` AA companions) carry RAG semantics as their own role family, so
+a scheme can move them without moving the brand hues.
 
-- ★ **`--rag-amber-text` is AA only on the LIGHT AIPM surface** — it maps to `ui-purple` (a brown under the Dashboard style). As **small text on `bg-surface`** it falls below WCAG AA on the dark and Dashboard styles (3.5:1 and 4.4:1). `--rag-red-text` / `--rag-green-text` pass.
+★★★ The two named styles this section used to describe — "Acme" and "Dashboard" — **no longer
+exist in the app in any form**; a theme is a file the user loads, and the built-ins are the four schemes
+named at the top of this file. `data-style` is the constant `"custom"`. The measured numbers below were
+taken against those retired styles and are kept only because the RULE they support is unchanged; do not
+quote the ratios as current, and re-measure against the scheme you are actually shipping on.
+
+- ★ **`--rag-amber-text` was AA on a light surface and below it on a dark one** — as **small text on
+  `bg-surface`** it measured 3.5:1 and 4.4:1 on the two styles that then existed. `--rag-red-text` /
+  `--rag-green-text` passed.
 - **Carry tier colour on a NON-text element** — a solid dot or a left stripe (`bg-[var(--rag-amber)]` / `border-l-[var(--rag-amber)]`), which are exempt from text-contrast rules — never as small tinted text. (This bit the Next-actions tier counts + hero eyebrow; both were moved to a dot/stripe.)
 
 ## Migration status (sub-project E)

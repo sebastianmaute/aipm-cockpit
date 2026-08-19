@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.247.0 "Butcher" | Files scanned: 318 .tsx + 518 .ts under src/app (excl. 852 test files) | Token estimate: ~1050 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.248.0 "Bujold" | Files scanned: 336 .tsx + 548 .ts under src/app (excl. 893 test files) | Token estimate: ~1050 -->
 
 # Frontend
 
@@ -9,11 +9,12 @@ client-side.
 src/proxy.ts              middleware — per-request CSP nonce
 src/app/layout.tsx        root layout, security headers, globals.css,
                           no-flash boot theme script
-  └── task-manager.tsx    ROOT ORCHESTRATOR (2975 lines)
+  └── task-manager.tsx    ROOT ORCHESTRATOR (the largest file in the repo; read its
+                          baseline from `docs/baselines/file-sizes.json`)
         ├── ModernShell   default — sidebar, off-canvas drawer <1024px, topBarMenus
         ├── legacyTree    classic (AppHeader + tab strip) and popout (no header)
         ├── workspace-section.tsx   view router → tabpanel switch
-        │     └── workspace-panels.tsx  ~20 lazy dynamic(ssr:false) panels
+        │     └── workspace-panels.tsx  24 lazy dynamic(ssr:false) panels
         └── app-modals.tsx  modal stack + fixed footer
 ```
 
@@ -22,7 +23,8 @@ src/app/layout.tsx        root layout, security headers, globals.css,
 `projects` · `open-points` · `dashboard` · `actions` · `insights` · `trends` · `history` · `chat` ·
 `gantt` · `milestones` · `resources` (`directory` · `workload` · `calendar` · `planning`) ·
 `manage-roles` · `budget` · `budget-report` · `raid` · `raid-report` · `changes` · `change-report` ·
-`stakeholders` · `raci` · `stakeholder-map` · `knowledge` · `reports` · `activity` · `settings` ·
+`stakeholders` · `raci` · `stakeholder-map` · `knowledge` · `documents` · `reports` · `activity` ·
+`settings` ·
 `help` · `learning-insights` · `steering-committee` · `timelog` · `portfolio-health`
 
 ★ Adding a member forces four exhaustive-`Record` edits or tsc/runtime breaks: `CORE_VIEWS`
@@ -102,7 +104,12 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 ## a11y
 
-16 views × 5 scheme combos = 85 axe checks (harbor light+dark, meridian light+dark, umber light — umber
-dark is deliberately unscanned to hold the count at five). **Not scanned:** Projects, Knowledge, Resources→Calendar,
-Kanban board, Help, tour, chat, and anything inside a closed modal. Axe also has no rule for
+The 17 views of `A11Y_VIEWS` × 6 scheme combos, plus one Kanban scan per combo and one notes-window
+toolbar scan. The combos are harbor light+dark, meridian light+dark, umber light and beacon light —
+umber dark is deliberately unscanned, and beacon is light-only by design. ★ Read the totals off
+`npx playwright test e2e/a11y.spec.ts --list`, never off a doc: the spec is the only place that
+recomputes them, and two successive drafts of its own comment were wrong. **Not scanned:** Projects,
+Knowledge, Resources→Calendar, Help, tour, and anything inside a closed modal. ★★ Being IN the list
+is not the same as being covered — the scan only sees what `e2e/seed.ts` seeds, so an unseeded slice
+renders its empty state and passes over a panel with no rows. Axe also has no rule for
 `aria-modal`-without-a-trap or a missing `aria-sort` — see `open-followups.md` §8–§10.

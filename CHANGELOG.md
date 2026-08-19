@@ -8,6 +8,49 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.248.0] - 2026-08-19 "Bujold"
+
+### Fixed
+
+- **Help said the activity log lives only in your browser and is never saved with the project.** The
+  opposite has been true since 0.239.0: the log belongs to the project, is written on every storage
+  backend, and travels with the project to whoever opens it. It is still deliberately kept out of every
+  export, because an entry's diff carries the old and new values — that part was right, and is now
+  stated as the reason rather than as a consequence of being browser-local. The Help text also now
+  covers change and document entries, and the actor recorded on each one.
+- **Help did not mention saved chat threads or the assistant's recall tools.** The AI section now
+  describes the thread sidebar on a Turso project, the two tools that search this project's earlier
+  chats and its activity history, the seven-day recap, and the three switches that turn each of them
+  off. Both the English and German texts were corrected.
+
+### Documentation
+
+- **The reference the assistant reads about each view was 31 releases behind.** It described no
+  Documents view and no Insights view at all — and could not have, because the generator's list of
+  valid view ids had never gained `insights`, `documents` or `help`, so a section for one would have
+  thrown rather than shipped. Both views are now documented, the id list matches `AppView`, and it
+  carries a note saying what happens when the two drift.
+- **Twelve measured claims across the five codemaps were corrected**, among them: the activity log
+  listed as a per-device browser store; the runtime dependency count given as nine when it is fifteen;
+  the AI tool count as 35 when it is 45; undo as "~10-step" when `UNDO_CAP` is 25; the axe gate as
+  "16 views × 5 combos = 85 checks"; the `Workspace` optional-field list missing three fields that had
+  been added since; and the view list missing `documents`. Where a number rots on every release the
+  number is now replaced by the command that measures it.
+- **The runbook said credentials live in `localStorage`.** They are sealed in their own IndexedDB
+  database under a non-extractable device key; what is in `localStorage` unencrypted is the
+  identifying half (site URLs, emails, tenant). It also now names all twelve proxy routes rather than
+  two, including the two with unusual guard postures.
+- **`CONTRIBUTING.md`'s export rule predated the rich-export work.** A rich column is a `RichCell`, not
+  a flattened string: Word, HTML and PDF render real headings, lists and alignment, while XLSX and
+  PowerPoint read the flattened text. The note-log rule now says that the three registers close the
+  same defect by three different mechanisms, which is the part that has caused repeat bugs.
+- **`docs/DESIGN-TOKENS.md` described two colour styles the app no longer has**, and did not say that
+  the default scheme (Beacon) and the pre-boot CSS fallback (Harbor light) are deliberately different
+  palettes.
+- **`AGENTS.md` gave back a third of the context it costs every session.** Rich text and the activity
+  log moved to `docs/AGENTS/`, and the file now records that the same split regressed by 111% in the
+  fifteen days after it was made, with the commands to measure it — because no gate watches doc size.
+
 ## [0.247.0] - 2026-08-19 "Butcher"
 
 ### Fixed

@@ -1,19 +1,22 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.247.0 "Butcher" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.248.0 "Bujold" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
 No traditional database. One logical document — `Workspace` — persisted through a facade to whichever
 backend is configured. Storage namespace is `aipm-cockpit`.
 
-## `Workspace` — `workspace.ts:72` (SCHEMA_VERSION 11)
+## `Workspace` — the `Workspace` type in `workspace.ts` (SCHEMA_VERSION 11)
 
 **Required:** `tasks` · `raid` · `absences` · `shifts` (dormant) · `resources` · `roles` ·
 `disciplines` · `grades` · `plan`
 
 **Optional/additive** (each defaults on load; absent ⇒ byte-identical output): `budgets` · `fxRates` ·
 `status` · `milestones` · `changes` · `stakeholders` · `project` · `fieldVisibility` · `features` ·
-`steeringCommittee` · `timelogLinks` · `knowledgeItems` · `insights` · `settingsOverrides` ·
-`calendarEvents`
+`steeringCommittee` · `timelogLinks` · `knowledgeItems` · `insights` · `activityLog` · `documents` ·
+`documentVersions` · `settingsOverrides` · `calendarEvents`
+
+★ Do not quote that list from here — read it off the `Workspace` type, which is the only place it
+cannot rot. Four of these were added after this file was first written and three went unrecorded.
 
 Entity shapes live in `types.ts`; every one has exactly one validator in the `sanitize.ts` barrel
 (`sanitize-core` primitives ← `sanitize-entities` ← `sanitize-records`). Validators never throw.
@@ -66,8 +69,11 @@ Sample data is **JSON-only and tiered**: `-small` is the hand-curated master; `-
 
 Seven fields hold rich HTML, not plain text: `Task.description` · RAID `description` + `mitigation` ·
 Change `description` + `impactDescription` + `resolutionNotes` · `Milestone.description`. Separately,
-`Task.noteLog` / `RaidItem.noteLog` hold a dated `NoteLogEntry[]` encoded as JSON-in-cell
-(`encodeNoteLog` / `decodeNoteLog`, mirroring `document-link.ts`).
+`Task.noteLog` / `RaidItem.noteLog` / `ChangeItem.noteLog` hold a dated `NoteLogEntry[]` encoded as
+JSON-in-cell (`encodeNoteLog` / `decodeNoteLog`, mirroring `document-link.ts`) — THREE registers now,
+changes having joined in 0.245.0. ★★★ Each closes the write-through defect by a DIFFERENT mechanism;
+[`docs/AGENTS/rich-text.md`](../AGENTS/rich-text.md) owns that and copying one register's fix to
+another is how two of them broke.
 
 ★★ **Migration is read-time, not write-time.** The decoders hand-build entities and never call the
 entity sanitizer, so storage holds both the plain-text and the HTML shape at once — legitimately,
@@ -114,10 +120,17 @@ there. Nothing sanitizes the six register description fields on those three path
 
 ## Per-device stores (NOT workspace data)
 
-localStorage `aipm-cockpit:*` — settings, activity log, saved views (tasks / panel / reports),
+localStorage `aipm-cockpit:*` — settings, saved views (tasks / panel / reports),
 landing state, search recents, timelog actuals cache, calendar-sync baseline, view hints, tip state,
 diagnostics ring, project appearance, color schemes. Plus IndexedDB config DBs
 `aipm-cockpit-secrets` and `aipm-cockpit-project-handles`.
+
+★★ The ACTIVITY LOG is no longer one of them. It moved out of localStorage and into the workspace in
+0.239.0 (`Workspace.activityLog`, a meta-blob on all six write paths) — this line listed it as a
+per-device store for eight releases after that, which is exactly the inversion that gets it swept by a
+reset. It is storage-only rather than per-device: written everywhere, deliberately absent from every
+export, because an entry's `changes` carries old/new values.
+[`docs/AGENTS/activity-log.md`](../AGENTS/activity-log.md) owns it.
 
 All of these are excluded from exports and Turso, and swept by `clearAppConfig()`.
 ★ `clearAppConfig` must **never** delete the workspace IndexedDB DB `aipm-cockpit` — reset is

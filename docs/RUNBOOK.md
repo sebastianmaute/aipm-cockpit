@@ -6,15 +6,24 @@ this file covers what to do when the app needs to ship or starts misbehaving.
 
 ## What this app is, operationally
 
-- **Pure client-side app** with thin Next.js route handlers for Jira and
-  Confluence CORS proxying. No database, no auth middleware, no session store,
+- **Pure client-side app** with twelve thin Next.js route handlers that exist
+  only to add CORS/SSRF/auth guards to calls the browser cannot make directly:
+  `jira/*` (eight), `confluence/page`, `timelog`, `stt` and `ecb`. No database,
+  no auth middleware, no session store,
   and no _server_ background jobs. "Scheduled jobs" (recurring Claude analyses,
   0.105.0+) run entirely in the browser while the app is open — there is no
   server cron; missed runs catch up on next open. They are opt-in and off by
   default (see "Disable / reset scheduled jobs" below).
-- **All user data lives in the browser** (`IndexedDB` for tasks/RAID,
-  `localStorage` for settings + credentials). Losing the server tier loses
-  nothing about the users; losing the browser profile loses the user's data.
+- **All user data lives in the browser** (`IndexedDB` for the workspace,
+  `localStorage` for settings). Losing the server tier loses nothing about the
+  users; losing the browser profile loses the user's data.
+- **Credentials are NOT in `localStorage` in the clear.** The five secrets
+  (Anthropic key, Turso auth token, Jira, Timelog and STT tokens) are
+  AES-256-GCM sealed in their own IndexedDB database under a non-extractable
+  device key; `writeSettings` is the only writer of the settings key and blanks
+  those fields before it writes. What stays in `localStorage` unencrypted is the
+  identifying half — Jira site URL and email, Timelog host, tenant and email —
+  which is identifying rather than secret.
 - **Outbound calls** from the server are only to `api.atlassian.com` from
   `/api/jira/*` and `/api/confluence/page` (both Atlassian — the Confluence
   route reuses the Jira proxy helpers, the same SSRF allowlist, and the
@@ -22,7 +31,13 @@ this file covers what to do when the app needs to ship or starts misbehaving.
   `*.timelog.com` host from `/api/timelog` (the Timelog time-booking proxy —
   its own SSRF allowlist, private-IP block, `/v1/` path allowlist, Bearer auth,
   and per-IP rate limit; reads are forwarded with the user-supplied token from
-  the request). All go out only with credentials forwarded from the request
+  the request; the path allowlist is `/v1/` **and** `/v2/`, the second for the
+  per-project time-registrations endpoint). Two more: `/api/stt` reaches a
+  **user-supplied** OpenAI-compatible host — the one route with no vendor apex
+  to pin, compensating with a private-IP block, https-only, `redirect:
+  "manual"` and a size cap — and `/api/ecb` reaches one hard-coded ECB URL with
+  no user input and no secret, which is why it is the only route that needs no
+  SSRF guard. All go out only with credentials forwarded from the request
   body. The browser calls `api.anthropic.com` (Claude), `api.turso.io` (Turso),
   `graph.microsoft.com` (M365 Graph), and `login.microsoftonline.com` (MSAL)
   directly (no server proxy).
