@@ -12054,3 +12054,37 @@ independently of the date. Re-deriving `status` inside the merge from the resolv
 silently overrides a local status the user was never asked about. Routing the merged row through
 `applyStatusChange` would stamp `today` over Jira's resolution date — which is the exact reason the
 Jira path bypasses that engine everywhere else, so it is the one option that is already known wrong.
+
+---
+
+## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — open, deferred out of the S3b fix round
+
+"Documents" is in `A11Y_VIEWS` (`e2e/a11y.spec.ts`), but nothing in `e2e/`
+enters edit mode — `grep -rn "Edit blocks\|documentsEditBlocks" e2e/` returns
+nothing. Every axe scan of that view therefore renders the read-only
+`DocumentPreview`. The block editor is entirely unscanned: five per-kind
+editors, the table grid, every per-block control, N rich-text toolbars, and
+the narrow-pane docked toolbar.
+
+★★ Same blind-spot CLASS as the Turso-gated views and the Resources →
+Calendar sub-tab: the view is listed, so a green run reads as coverage, and
+the empty/preview state is what the gate actually sees. Compounding it,
+`e2e/seed.ts` seeds `documents` from the sample workspace, so even an
+edit-mode scan would only cover the block KINDS that sample happens to carry.
+
+★★★ AND THE GATE COULD NOT CATCH THE DOMINANT RISK HERE ANYWAY. This surface
+repeats controls across sibling blocks (and across rows and columns inside a
+table block), and axe 4.12.1 has NO rule under the four tags the spec requests
+that flags two controls sharing an accessible name, at any seed size — see
+AGENTS.md's a11y hard-constraint section for the measurement. The multi-block
+unit tests in `document-block-editors.test.tsx` and `document-editor.test.tsx`
+are the only detector that exists for that class, and closing this item would
+not change that.
+
+**To close:** seed a document carrying every `DocBlock` kind, click the
+"Edit blocks" toggle before the scan in `e2e/a11y.spec.ts`, and — in the SAME
+commit — re-measure the spec's test total with
+`npx playwright test e2e/a11y.spec.ts --list` and update AGENTS.md's count.
+Deliberately deferred out of the S3b fix round: the surface was being
+restructured by that round's docked-toolbar task, and the count could not be
+measured under its constraints.
