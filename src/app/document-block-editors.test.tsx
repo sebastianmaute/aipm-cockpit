@@ -1391,7 +1391,7 @@ describe("blocks the loader would discard", () => {
     render(<HeadingBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
     const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.clear(text);
-    // ★ act-wrapped: the assertion below needs the `setDropped(true)` render
+    // ★ act-wrapped: the assertion below needs the `setRefusal("empty")` render
     //  that the refusal schedules — a bare `.blur()` runs the handler (so
     //  onCommit not being called is observable either way) but leaves that
     //  follow-up render unflushed, per this file's own note above.
@@ -1491,15 +1491,17 @@ describe("an unmount flush cannot clobber a concurrent write", () => {
   });
 });
 
-describe("the unmount flush honours blockSurvivesLoad", () => {
+describe("the unmount flush honours the loader's drop rule", () => {
   // ★★★ REACHABLE WITH NO CONCURRENT WRITER AT ALL: empty a paragraph or
   //  heading you are not focused on, then narrow the pane below NARROW_PANE_PX
   //  so the row collapses and unmounts. A resize moves no focus, so nothing
-  //  blurs — and `tryCommit`'s `blockSurvivesLoad` refusal (its ONLY call site
-  //  before this fix) is on the blur path, not this one. The draft would have
+  //  blurs — and `tryCommit`'s drop-rule refusal is on the BLUR path, not this
+  //  one. (`blockSurvivesLoad` named that rule when this was written; the hook
+  //  now calls `normalizeBlockForStorage` directly, at three sites, and
+  //  `blockSurvivesLoad` has no production caller left.) The draft would have
   //  committed, rendered for the rest of the session and been GONE on the next
   //  load, with no add-block control to recreate it.
-  //  ★ It cannot call `setDropped` — the component is unmounting — so refusing
+  //  ★ It cannot call `setRefusal` — the component is unmounting — so refusing
   //   to write IS the whole fix; there is no notice to assert.
   it("commits nothing when an emptied draft unmounts without a blur", async () => {
     const onCommit = vi.fn();

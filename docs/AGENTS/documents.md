@@ -240,14 +240,26 @@ this file stops at the version-model decision, per the header note above.
 
 ## What the commit path stores, and the second guard
 
-Two properties of the hand block editor that `useBlockDraft`'s own docstring does not carry, because
-neither lives in the component.
+Two properties of the hand block editor that `useBlockDraft`'s own docstring does not carry. ★ Not
+because "neither lives in the component" — an earlier revision said that and it was wrong in both halves:
+`tryCommit` IS inside `useBlockDraft`, and the hook's own header already announces the guard "IN TWO
+LAYERS". They are here because neither is a property of the DRAFT: the first belongs to the loader, whose
+rule the commit borrows, and the second to the engine.
 
 ### The commit NORMALISES; it does not merely validate
 
 `tryCommit` runs the draft through **`normalizeBlockForStorage`** — the loader's own per-block rule,
-exported from `document-model.ts` — and commits the RESULT. Stored and loaded bytes are therefore
-identical by construction.
+exported from `document-model.ts` — and commits the RESULT, so a stored block survives the STRUCTURAL
+half of a load unchanged.
+
+★★★ **NOT "identical by construction", and the overclaim is the dangerous direction.** A load is TWO
+passes: `sanitizeProjectDocuments` (structural, DOM-free) and THEN `sanitizeDocumentRichFields` →
+`sanitizeDocumentHtml` (the DOMPurify allow-list) — see `browser-backend.ts`'s documents branch, which
+composes them in that order. `normalizeBlockForStorage` is the first pass only. Paragraph HTML round-trips
+today because everything the editor can PRODUCE already sits inside `DOCUMENT_ALLOWED_TAGS`, which is a
+fact about the editor's toolbar, not a guarantee from this function. A slice that lets a block carry markup
+the allow-list strips — the images slice is the live candidate — breaks the round-trip while this call goes
+on returning a non-null block. Reading it as covering both passes is how that would ship unnoticed.
 
 ★★★ **Validating instead let the two disagree, silently, in three measured ways.** A paragraph over
 `MAX_HTML_TEXT_CHARS` came back with every mark flattened to plain text (`capHtmlText`'s truncation

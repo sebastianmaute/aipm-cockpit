@@ -388,7 +388,7 @@ export function useBlockDraft<T, B extends DocBlock>(
       //  list reaches THIS path with no blur at all: narrowing the pane below
       //  NARROW_PANE_PX collapses a non-selected row and unmounts it, and a
       //  resize moves no focus. Committing it would render for the session and
-      //  be GONE on the next load. ★ It cannot `setDropped` (the component is
+      //  be GONE on the next load. ★ It cannot `setRefusal` (the component is
       //  unmounting), so refusing to write IS the fix — do not fake a notice.
       // ★★ NORMALISED FIRST for the same reason `tryCommit` does it, and the
       //  ORDER matters: comparing the RAW draft against the baseline would call

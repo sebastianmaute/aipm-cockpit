@@ -12098,16 +12098,31 @@ rather than silent by the S3b normalise-at-commit change.
 `document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
 characters) via `capHtmlText`, whose truncation branch returns
 `plainToHtml(text.slice(0, cut))` — so on overflow the paragraph loses **every
-mark**, not merely its tail. Bold, links, lists and headings inside it become
-escaped plain text.
+mark**, not merely its tail. Bold, links, lists and headings inside it are
+REMOVED: what remains is the paragraph's plain-text projection.
+
+★★ **Not "escaped", and an earlier revision of this entry said escaped.** `text`
+is already the projection, with the tags stripped; `plainToHtml` then escapes
+`& < >` so that any such character the user actually TYPED still renders as
+itself. No tag text becomes visible — the markup is simply gone. The distinction
+matters because "escaped" describes a corruption a reader would go hunting for
+in the sanitizers, and this is not one.
 
 Before the block editor normalised at commit this happened on the next LOAD,
 with nothing on screen to connect it to anything the user did. It now happens at
-the commit, and the draft's seed nonce remounts the editor with the flattened
-result, so the user at least SEES it — but there is no warning before it, no
-notice explaining it, and no way to recover the markup once the commit lands
-(the before-image holds the pre-edit paragraph, so version history is the only
-recovery, and only until it is evicted).
+the COMMIT — but it is still invisible until a reload. ★★★ An earlier revision
+said "the draft's seed nonce remounts the editor with the flattened result, so
+the user at least SEES it", and that stopped being true in the same branch: the
+reconcile now re-seeds only when storage holds content the draft does not
+already say, and after our own commit the two agree, so there is no re-seed and
+no remount. That was the deliberate trade — the remount also destroyed DOM focus
+and the editor's undo history mid-session — but it means the ONLY signal today
+is the paragraph coming back flattened on the next load.
+
+There is no warning before the cap, no notice explaining it, and nothing in the
+editor that can restore the markup afterwards. Version history is the only
+recovery: the before-image holds the pre-edit paragraph, and only until it is
+evicted.
 
 ★ It is deliberately NOT fixed by refusing the commit: the user's text would
 then be unsaveable, which is worse. Nor by a per-editor `maxLength`: the cap is
@@ -12120,3 +12135,78 @@ warn as the cap approaches, so overflow is a choice rather than a surprise, or
 (b) teach `capHtmlText` a mark-preserving truncation. (b) is the real fix and is
 the larger one — it needs a DOM-free HTML truncator, and `rich-text-plain.ts` may
 never call DOMPurify.
+
+## 186. The block-editor conflict reason reaches users untranslated
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round.
+
+`applyOps` rejects a guarded `replace` with the engine string
+`op {i}: replace index {n} was changed by another writer`, and
+`documents-panel.tsx` surfaces `restoreRejected` by joining those reasons into
+one banner. The string is raw English with an op index in it, and it is not an
+i18n key.
+
+★★ The panel already concedes untranslated engine reasons, but that concession
+was made for RESTORE failures, which are rare and operator-facing. This one
+fires on an ordinary two-writer editing race — an AI write or a second tab
+landing while someone is typing — so a German user editing a document is now a
+plausible audience for it. Whether that is acceptable is a product call, not a
+bug: the banner is better than the silent abandon it replaced either way.
+
+**To close:** give the rejection a code the panel maps to an i18n key, keeping
+the engine string as the diagnostic detail. Do NOT translate inside the engine —
+`document-mutations.ts` is i18n-free by contract.
+
+## 187. `useDocumentTools` has no test file, and one guard there is unpinned
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round; the guard was added in the same round.
+
+Nothing under `src/app` imports `useDocumentTools` from a test, and there is no
+`use-document-tools.test.ts` — reproduce with
+`grep -rln "useDocumentTools\|document_ops" src/app/*.test.*`, which returns
+nothing. The whole model-facing document write path is therefore covered only
+indirectly, by the engine tests underneath it.
+
+That matters now because the round added a guard there: `keepOp` strips
+`expect` from every op before it reaches `applyOps`. The field is the HAND
+editor's concurrency guard, carrying a draft's baseline, and an AI op resolves
+no draft — but the `document_ops` schema sets no `additionalProperties: false`
+(verified: `grep -n additionalProperties src/app/chat-tool-defs-documents.ts`
+returns nothing), so a model can emit it and the `{ ...op, block }` spreads
+would have carried it through. Worst case was never data loss — the model's own
+op self-rejects with a reason the model sees — but model-supplied data should
+not decide whether a write applies.
+
+★★ The strip is UNTESTED, and this entry exists so that is on the record rather
+than inferred from a confident comment. It is placed in `keepOp` because every
+op funnels through there, so no later branch can reintroduce the field; that is
+an argument about placement, not evidence that it works.
+
+**To close:** stand up `use-document-tools.test.ts` with a `mutateDocuments`
+spy, and assert (a) an op carrying `expect` reaches the engine without it, and
+(b) the hand editor's own guarded `replace` still carries its `expect` — the
+second half is what stops a future "just drop expect everywhere" simplification.
+
+## 188. A block refusal notice outlives the attempt it describes
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round. **Deliberately not fixed.**
+
+`useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
+pink "Not saved" line clears on the next COMMIT attempt and not before.
+`commit()` early-returns while the draft is undirty, so blurring the field again
+does not clear it — only a further edit-and-commit does.
+
+★★ Recorded rather than fixed because the notice is arguably still TRUE for the
+whole of that window, and for `"conflict"` it is actively useful: it is the only
+explanation the user gets for their text having been replaced on screen by the
+external write the reconcile adopted. Clearing it on adoption would delete the
+explanation at the exact moment it becomes relevant.
+
+★ The case for changing it is the stale-context one: a user who walks away and
+returns sees a refusal referring to an attempt they no longer remember. If that
+is judged to matter, clear it when the draft next goes DIRTY (the user has moved
+on) rather than on adoption — and note `document-block-editors.tsx` currently
+sits at exactly 800 of the 800-line cap, so it needs headroom first.
