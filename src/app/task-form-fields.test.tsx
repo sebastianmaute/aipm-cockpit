@@ -177,10 +177,16 @@ describe("TaskFormFields", () => {
 });
 
 describe("TaskFormFields description + notes button", () => {
-  it("renders the rich Description editor (a labelled textbox)", () => {
+  it("renders the rich Description editor (a labelled textbox)", async () => {
     render(<Harness />, { wrapper: TestProviders });
     // NoteEditor mounts a contenteditable with role=textbox + aria-label "Description".
-    expect(screen.getByRole("textbox", { name: "Description" })).toBeTruthy();
+    // ★ MUST be findBy, not getBy: the editor loads through the
+    //   rich-text-editor-lazy next/dynamic boundary, so the FIRST render paints
+    //   the Skeleton fallback and a synchronous getBy sees no textbox at all.
+    //   The skeleton carries no role, so this query still cannot be satisfied by
+    //   the placeholder -- swapping the render site for RichTextEditorFallback
+    //   still fails this test.
+    expect(await screen.findByRole("textbox", { name: "Description" })).toBeTruthy();
   });
 
   it("no longer renders the in-form note-log composer (author select + note input + add button)", () => {
