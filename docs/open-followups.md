@@ -12337,3 +12337,95 @@ until rebased. Deliberately left to whoever runs the slice.
 
 **To close:** run it as its own branch — answer the citation question first,
 then config + reformat + cap + baseline in one reviewable change set.
+
+## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract
+
+**Status:** open. **Severity:** low (an announcement that may not fire, on a
+surface that already shows the reason visually). **Found by:** cold code review
+of the S3b fix round, 2026-08-19.
+
+`BlockRefusalNotice` (`document-block-notices.tsx`) renders
+`<p role="status" className="text-xs text-ui-pink">`, and all four call sites in
+`document-block-editors.tsx` spell it `{refusal && <BlockRefusalNotice … />}`.
+So the live region and its content enter the DOM in the SAME commit.
+
+The reliable shape is the opposite one: a region already sitting in the
+accessibility tree whose TEXT then changes. Inserting the region itself is where
+AT support diverges — it is the case screen readers historically handle worst,
+and the one this repo already avoids everywhere it cares: `dashboard-panel.tsx`,
+`modern-shell.tsx` and `resource-calendar.tsx` all keep an always-mounted
+`sr-only` region and write into it.
+
+★★ **THIS CANNOT BE GATED, IN EITHER LAYER, AND THAT IS THE REASON TO WRITE IT
+DOWN.** axe cannot see it: `p` carries `allowedRoles: true` in axe 4.12.1
+(`node -e "const s=require('fs').readFileSync('node_modules/axe-core/axe.js','utf8');const i=s.indexOf('      p: {');console.log(s.slice(i,i+120))"`),
+a MISSING live region is an absence rather than a violation, and the notice only
+renders after an interaction the scan never performs. jsdom cannot see it
+either: no assertion can distinguish "region inserted with content" from "text
+changed inside an existing region", so the two tests added for this in
+`document-block-editors.test.tsx` pin the ROLE and can never pin the
+ANNOUNCEMENT.
+
+★★ Consequently the component's own docstring is over-broad where it says that
+unit test "is the only detector there will be" — true of the role, false of the
+announcement, which has no detector at all.
+
+### Two changes, and the primitive swap is NOT the one that fixes this
+
+★★★ **`FieldNotice` ALONE DOES NOT FIX THE ANNOUNCEMENT.** The obvious remedy
+is to stop hand-rolling and use the shared primitive — `FieldNotice` in
+`field-feedback.tsx` is `<p id role="status" aria-live="polite">`, exactly this
+shape, and the house rule says do not hand-roll what a primitive covers. But
+`FieldNotice` opens with `if (!children) return null`, so it is conditionally
+mounted too. Swapping to it buys the explicit `aria-live`, shared styling and
+one less hand-rolled control; it leaves the insertion problem exactly where it
+is. Do not close this item by swapping the primitive and calling it done.
+
+What actually fixes it is an always-mounted region: widen the prop to
+`BlockRefusal | null`, render the `<p>` unconditionally with empty text when
+null, and drop the `&&` at the four call sites. ★ That is line-count neutral in
+`document-block-editors.tsx`, which matters because that file sits at exactly
+800 of the 800-line cap (§189) — `{refusal && <X … />}` and `<X … />` are one
+line either way, at all four sites.
+
+### Costs and open questions, so the next person does not rediscover them
+
+- ★ The swap is NOT cosmetically neutral. `FieldNotice` hardcodes
+  `mt-1 text-xs text-ui-pink-strong`; the block notice is `text-xs text-ui-pink`.
+  Different palette token and an added margin — both need an eye check against
+  the block editors' spacing, and the token change needs a contrast read on the
+  surfaces it lands on. jsdom cannot judge either.
+- ★ `FieldNotice` takes an `id` for `aria-describedby` wiring. The block notice
+  has no such wiring today. Adding the primitive without the association gets a
+  prop that does nothing.
+- ★ An always-mounted empty `<p>` still occupies layout unless it collapses.
+  Check that an empty notice does not add permanent vertical space under every
+  block editor — four per block, in a list.
+
+★★ **A REVIEWER CLAIM THAT DOES NOT SURVIVE, recorded so it is not repeated:**
+the review said this is "the only live region in `src/app` relying on the
+implicit `aria-live` of `role="status"` rather than stating it". It is not —
+ELEVEN other non-test files do the same. Derive rather than trust either number:
+
+```bash
+for f in $(grep -rl 'role="status"' src/app --include=*.tsx | grep -v "\.test\."); do
+  grep -q 'aria-live="' "$f" || echo "$f"
+done
+```
+
+So making this one explicit is a consistency argument at best, not a
+correction of a lone outlier — and if implicit-vs-explicit is judged to matter,
+it is a sweep, not a one-file fix.
+
+★ One more over-broad premise in the same docstring: "This element mounts AFTER
+a blur has already moved focus elsewhere" holds for the BLUR path only. On the
+`commitValue` paths — bullets add/remove/move/toggle, table add/remove, the
+dataSection `<select>` — it mounts with focus still on the control just
+operated. The conclusion (the mount alone announces nothing to a screen-reader
+user) is unchanged either way, so this is a wording fix, not a defect.
+
+**To close:** make the region always-mounted, decide the `FieldNotice`-vs-local
+question on the styling and `id` questions above rather than on the
+announcement, and correct the two over-broad docstring sentences in the same
+commit. Nothing will catch a regression here afterwards, so whatever is decided
+belongs in the docstring rather than in a test.
