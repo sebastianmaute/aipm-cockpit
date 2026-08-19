@@ -936,6 +936,167 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     expect(container.textContent).not.toContain("Alpha");
   });
 
+  // ★★★ THE F1 CLOBBER, ONE KEYSTROKE LATER — the shape the first cut of this
+  //  task shipped. Abandoning the blur is only half the job: if the draft never
+  //  ADOPTS the write it abandoned for, the after-render effect re-syncs
+  //  `baselineRef` to the external write while the draft still holds the stale
+  //  text, and the very next edit commits that stale text over it. The
+  //  assertion that matters is the LAST one — the committed text must be built
+  //  on "Restored", not on "Alpha!".
+  //
+  //  ★ It also states the user-visible trade plainly: the typed "!" is GONE
+  //   from the field. That is the correct side of the policy — retyping a
+  //   keystroke burst is recoverable, destroying a committed write is not.
+  it("adopts the external write after abandoning, so the next edit cannot resurrect the stale draft", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.type(text, "!");
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+    // ★ act-wrapped because the ASSERTION below needs the re-render that the
+    //  abandon's own `setDirty(false)` schedules. A bare `.blur()` runs the
+    //  handler — so the abandon itself is observable without act, which is
+    //  what the test above does — but leaves the follow-up render unflushed.
+    act(() => {
+      text.blur();
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    // The abandon cleared the dirty flag, so the reconcile adopts on the very
+    // next render — the field shows the restore, not the abandoned draft.
+    expect(text).toHaveValue("Restored");
+
+    await userEvent.type(text, "x");
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 1, text: "Restoredx" });
+  });
+
+  // ★★★ THE COMMIT-TO-ECHO WINDOW MUST NOT OUTLIVE ONE BATCH. `preCommitStoredRef`
+  //  makes a stored block equal to the value it held BEFORE this hook's own
+  //  commit read as unmoved — necessary, because `onCommit` cannot change
+  //  `storedBlock` inside one batched event. The after-render effect closes
+  //  that window by re-syncing BOTH refs on the undirty path. If it did not,
+  //  a restore to the version immediately PRECEDING this hook's last commit
+  //  would equal the stale `preCommitStoredRef` and be waved through as "our
+  //  own write", clobbering it.
+  //
+  //  ★ The fixture has to COMMIT first (so the two refs diverge at all), then
+  //   let the echo render (so the effect can close the window), and only then
+  //   restore to the pre-commit content. Skip the echo and the window is still
+  //   legitimately open, so the test would pass with the re-sync deleted.
+  it("treats a restore to the version before its own last commit as an external write", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.type(text, "!");
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+
+    // The parent echoes what we committed (applyOps stores op.block verbatim).
+    const echoed: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Alpha!" };
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={echoed} onCommit={onCommit} />);
+
+    await userEvent.type(text, "x");
+    // A restore to the PRE-commit content — a distinct object with the content
+    // preCommitStoredRef held before the commit above.
+    rerender(
+      <HeadingBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ type: "heading", level: 1, text: "Alpha" }}
+        onCommit={onCommit}
+      />,
+    );
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1); // still just the first commit — the restore stands
+  });
+
+  // ★★★ A REMOUNT IS NOT FREE. The nonce keys a remount of the paragraph's
+  //  Tiptap surface, and `onBlur` here is a bubbling `focusout` — so
+  //  Shift+Tab from the text into this editor's OWN toolbar commits, and
+  //  `applyOps` echoes that block back verbatim. Bumping the nonce on object
+  //  IDENTITY therefore remounted on the editor's own commit and left
+  //  `document.activeElement` at `<body>`, every time a keyboard user reached
+  //  for the toolbar after typing. No gate in this repo can see that: Edit
+  //  blocks is not in A11Y_VIEWS, and axe has no rule for it regardless.
+  //
+  //  ★ The fixture passes a DISTINCT object with IDENTICAL content, which is
+  //   exactly what the echo is. An object-identical rerender would not enter
+  //   the reconcile at all and could not express the bug.
+  it("keeps the paragraph editor mounted, and keyboard focus alive, across a content-identical replacement", () => {
+    const html = "<p>Alpha</p>";
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html }} onCommit={onCommit} />,
+    );
+    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const toolbarButton = within(screen.getByRole("toolbar")).getAllByRole("button")[0];
+    toolbarButton.focus();
+    expect(document.activeElement).toBe(toolbarButton);
+
+    rerender(
+      <ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html }} onCommit={onCommit} />,
+    );
+
+    expect(document.querySelector('[contenteditable="true"]')).toBe(editable);
+    expect(document.activeElement).toBe(toolbarButton);
+  });
+
+  // ★★ A WITHDRAWN EXTERNAL WRITE — the abandon path run twice. The write
+  //  arrives under a dirty draft (abandoned), then the parent hands the
+  //  ORIGINAL block back, and the reconcile adopts a second time. Nothing may
+  //  be committed at either blur: the user's "!" was abandoned, and the revert
+  //  is not an edit.
+  //
+  //  ★★★ THIS TEST DOES **NOT** SEPARATE THE DIRTY GUARD FROM THE ABANDON
+  //   GUARD, and it was written believing it would — recorded here because the
+  //   reasoning is the interesting part. Deleting `if (!dirtyRef.current)
+  //   return;` from `commit()` leaves all 56 tests GREEN (measured, twice: once
+  //   before this test existed and once after). The predicted separating state
+  //   was "abandon leaves a stale draft that a later bare blur commits", and
+  //   the reconcile makes it unreachable — the abandon clears the dirty flag,
+  //   which is itself the render on which the draft ADOPTS. Whenever the draft
+  //   diverges from `baselineRef` while undirty, `externallyWritten()` is
+  //   already true. Keep the guard anyway: it is what makes "no edit since the
+  //   last commit or abandon" mean "write nothing" LOCALLY, rather than by
+  //   three other mechanisms happening to agree. A surviving mutant is a
+  //   question, not a licence to delete the line.
+  //
+  //  ★ The revert deliberately hands back the SAME object. The reconcile
+  //   triggers on IDENTITY, so a fresh object holding "Alpha" would take a
+  //   different branch than the one this test is about. (Reachable either way:
+  //   `applyOps` assigns `op.block` verbatim, so an undo restoring a retained
+  //   document object hands the original block identity straight back.)
+  //
+  //  ★ It is not vacuous — it dies with the `tryCommit` abandon guard removed
+  //   (the first blur then commits "Alpha!"), the same mutant the dirty-draft
+  //   test above kills.
+  it("commits nothing across an external write that is then withdrawn", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.type(text, "!");
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+    act(() => {
+      text.blur();
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+
+    // The external write is withdrawn — the SAME object the editor mounted on.
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />);
+    act(() => {
+      text.blur();
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   // ★ A blur on an editor nobody touched must not even ASK the toBlock/
   //  blockChanged pair — and, more importantly, must not be able to commit.
   it("commits nothing on a blur with no edit", () => {

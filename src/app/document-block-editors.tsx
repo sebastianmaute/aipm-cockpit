@@ -183,6 +183,16 @@ export function useBlockDraft<T, B extends DocBlock>(
   //  it read the first one's un-echoed write as a concurrent one
   //  ("keeps BOTH intentions when add and remove are batched into one event"
   //  went red). A stored block equal to EITHER value is therefore unmoved.
+  //
+  //  ★★★ THE INVARIANT THIS RESTS ON: every `tryCommit` caller must clear the
+  //   dirty flag in the SAME statement, so the divergence window stays inside
+  //   one synchronous batch and the after-render effect closes it (that effect
+  //   re-syncs BOTH refs on the undirty path). A future commit path that left
+  //   the draft dirty would hold the window open ACROSS renders, and an
+  //   external write restoring the block to the version immediately PRECEDING
+  //   this hook's last commit would then equal `preCommitStoredRef` and read
+  //   as unmoved — a clobber. Pinned by "treats a restore to the version
+  //   before its own last commit as an external write".
   const preCommitStoredRef = useRef<DocBlock>(storedBlock);
 
   // ★★★ RENDER-TIME RECONCILE, NOT AN EFFECT. `react-hooks/set-state-in-effect`
@@ -197,23 +207,49 @@ export function useBlockDraft<T, B extends DocBlock>(
   //  draft back over the restored content — silent data loss (F1).
   //
   //  ★ Only while UNDIRTY. A pending user edit is not discarded by a
-  //   concurrent write; it is abandoned at commit time instead (see below), so
-  //   the user still sees what they typed and can re-apply it.
+  //   concurrent write; the COMMIT is abandoned instead (see below), and the
+  //   draft then adopts the external write on the first render after the
+  //   abandon clears the dirty flag. ★★★ THE ADOPTION IS THE POINT, NOT A
+  //   SIDE EFFECT: an earlier cut let `setHandledBlock` advance while dirty,
+  //   so once the reconcile had SEEN the write, `storedBlock === handledBlock`
+  //   forever and it could never adopt. The blur abandoned correctly, the
+  //   effect then re-synced `baselineRef` to the external write while the
+  //   draft still held the stale text, and the user's NEXT keystroke + blur
+  //   committed that stale text over the restore — the F1 loss, one keystroke
+  //   later. So the user's unblurred text IS replaced on screen, deliberately:
+  //   retyping a keystroke burst is recoverable, destroying a committed write
+  //   is not.
   //  ★ `fromBlock` cannot receive a wrong-kind block: `BlockEditor` (in
   //   document-editor.tsx) switches on `block.type` and returns a different
   //   component per kind, so a kind change at one position unmounts this
   //   editor rather than re-rendering it with a mismatched prop.
   const [handledBlock, setHandledBlock] = useState<DocBlock>(storedBlock);
   const [seedNonce, setSeedNonce] = useState(0);
-  if (storedBlock !== handledBlock) {
+  if (storedBlock !== handledBlock && !dirty) {
+    // ★ `setHandledBlock` is INSIDE the undirty guard. Advancing it while
+    //  dirty makes the adoption unreachable forever after — see the ★★★ note
+    //  above. No render loop: while dirty this branch sets no state at all,
+    //  and the `setDirty(false)` in commit/commitValue is itself the render
+    //  that lets the adoption run.
     setHandledBlock(storedBlock);
-    if (!dirty) {
-      setRawValue(fromBlock(storedBlock));
-      // Bumped so a consumer whose child binds its content ONCE at mount (the
-      // paragraph editor's Tiptap surface) can key a remount off it. A plain
-      // value prop cannot reach a mounted editor.
-      setSeedNonce((n) => n + 1);
-    }
+    const seeded = fromBlock(storedBlock);
+    setRawValue(seeded);
+    // ★★★ BUMPED ON A CONTENT CHANGE, NEVER ON IDENTITY — the nonce keys a
+    //  REMOUNT of the paragraph's Tiptap surface (a plain value prop cannot
+    //  reach a mounted editor), and a remount destroys DOM focus and the
+    //  editor's undo history. `applyOps` stores `op.block` verbatim, so this
+    //  hook's OWN commit comes straight back as a new object holding the same
+    //  content; bumping on identity therefore remounted after every commit.
+    //  Measured: React's `onBlur` is `focusout`, which BUBBLES and carries no
+    //  relatedTarget check, so moving focus from the contenteditable to this
+    //  editor's own toolbar (which renders BEFORE `EditorContent`, i.e. one
+    //  Shift+Tab away) fires `commit` — and the remount then dropped the
+    //  focused toolbar button on the floor, leaving `document.activeElement`
+    //  at `<body>`. Mouse users were spared only because `preventFocusSteal`
+    //  suppresses the mousedown default. Comparing through `toBlock` reuses
+    //  the hook's one deep comparison rather than adding a second notion of
+    //  equality — every other check here is CONTENT, and this one now is too.
+    if (blockChanged(toBlock(rawValue), toBlock(seeded))) setSeedNonce((n) => n + 1);
   }
 
   const latestRef = useRef({ toBlock, onCommit, index, storedBlock: storedBlock as DocBlock });
@@ -438,9 +474,16 @@ function ParagraphEditorBody({
           (`useEditor({ content: value })` in rich-text-editor.tsx), so a
           changed `value` prop CANNOT reach a mounted editor — the only two
           ways in are the imperative handle (which offers `appendText` alone,
-          and cannot replace content) and a remount. The nonce bumps only when
-          the hook adopts an external write while undirty, so ordinary typing
-          never remounts and never loses the caret. */}
+          and cannot replace content) and a remount.
+          ★★ A REMOUNT IS EXPENSIVE, NOT FREE: it drops DOM focus and wipes
+          ProseMirror's undo history. The nonce therefore bumps only when the
+          adopted CONTENT differs from the draft on screen — not merely when a
+          new block object arrives. An earlier revision of this comment said
+          "ordinary typing never remounts and never loses the caret", which was
+          true of typing and false of the blur that follows it: `onBlur` here is
+          a bubbling `focusout`, so Shift+Tab from the text into this editor's
+          OWN toolbar commits, and the commit echoed a content-identical block
+          straight back. See the nonce's own comment in `useBlockDraft`. */}
       <RichTextEditor
         key={seedNonce}
         value={html}
