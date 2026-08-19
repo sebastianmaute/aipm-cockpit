@@ -110,8 +110,13 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * ★★ `WRITE_THROUGH_KEYS` is excluded even when the two rows DISAGREE on it —
  * and NO CURRENT CALLER CAN REACH THAT BRANCH. All six build `after` out of
  * `before` (a spread, or a helper that spreads), so any key the op did not write
- * holds the SAME REFERENCE on both sides, `differs` short-circuits on `Object.is`,
- * and the filter is never consulted. It is forward-proofing for a caller that
+ * holds the SAME REFERENCE on both sides — there is no difference for the filter
+ * to suppress. ★ Do NOT read that as "the filter is never consulted": the filter
+ * line runs FIRST on every key of every row, and `differs` runs only on the keys
+ * it lets through (`NEVER_CAPTURE` is short-circuited ahead of it, so the
+ * `WRITE_THROUGH_KEYS` half is skipped for `id`/`localModifiedAt` alone). Its
+ * `continue` is unreachable-as-a-SUPPRESSOR, not unreachable as a branch. It is
+ * forward-proofing for a caller that
  * builds `after` INDEPENDENTLY — a row rebuilt from a form draft, an AI or
  * integration writer — where a bulk op writing a write-through field would be
  * captured and then reverted by the undo. ★ That is also the cost of keeping it,
@@ -123,9 +128,10 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * quotes the very pattern it searches for (the declaration and the import lines do
  * not match this form and need no filter):
  *   grep -rn "buildBulkFieldEdits(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "undo/field-groups"
- * Six lines today; the count moves with any new caller, so run it rather than
- * trusting this one. It proves the SET only — read each site's argument to
- * confirm `after` is still derived from `before`.
+ * No count is quoted: the output carries a COMMENT line in `raid-panel.tsx` as
+ * well as the real call sites, so it must be read rather than counted — and the
+ * self-exclusion above does not catch that one. It proves the SET only — read
+ * each site's argument to confirm `after` is still derived from `before`.
  *
  * ★ A key set on a row that lacked it (and one cleared to `undefined`) is captured
  * with an explicit `undefined` on the other side, so a bulk edit that CLEARS a

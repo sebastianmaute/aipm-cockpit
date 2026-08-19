@@ -66,13 +66,20 @@ export interface UseResourcePlannerArgs {
   /** Capture a bulk field-patch edit for undo (RAID bulk apply).
    *  ★★ REQUIRED while its three siblings above stay OPTIONAL, and that split is
    *  deliberate: it is driven by TEST-HARNESS SHAPE, not by importance. Both
-   *  test files for this hook build their args through ONE `makeArgs` factory, so
-   *  requiring it costs a single stub in each while making a dropped wire — which
-   *  silently un-does the RAID bulk edit — a typecheck failure. The equivalent
-   *  change on `use-change-log` / `use-stakeholders` was deliberately REJECTED:
-   *  their ~26 sites are inline object literals, and a required prop that every
-   *  site satisfies with a no-op stub LOOKS wired and is not — worse than an
-   *  honest optional. Do NOT "harmonise" the two directions in either sense. */
+   *  test files for this hook build their args through a `makeArgs` factory —
+   *  one per file, not one shared:
+   *    grep -n "function makeArgs" src/app/use-resource-planner.test.tsx src/app/use-resource-planner.undo.test.tsx
+   *  so requiring it costs one stub per FILE rather than one per call site, while
+   *  making a dropped wire — which silently un-does the RAID bulk edit — a
+   *  typecheck failure. The equivalent change on `use-change-log` /
+   *  `use-stakeholders` was deliberately REJECTED: their call sites are inline
+   *  object literals, and a required prop that every site satisfies with a no-op
+   *  stub LOOKS wired and is not — worse than an honest optional. Do NOT
+   *  "harmonise" the two directions in either sense. Enumerate those call sites
+   *  with the following — no count is quoted because the output also carries
+   *  comment lines naming either hook, so read it rather than counting it:
+   *    grep -rn "useChangeLog(\|useStakeholders(" src/app --include=*.ts --include=*.tsx | grep -v "export function"
+   */
   captureFieldRows: UndoStackApi["captureFieldRows"];
 }
 
@@ -277,14 +284,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // background calendar push (open-followups §50).
   const captureRaidBulkUndo = useCallback(
     (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => {
-      // No `stampField` here, deliberately: the tasks bulk path
-      // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"` and
-      // these four converted registers do not, so undoing a bulk edit reverts
-      // the values and leaves the apply's `localModifiedAt` standing.
-      // `stampField` does NOT restore the prior stamp; it writes a FRESH
-      // `new Date().toISOString()` on undo AND redo, the reversal being itself
-      // a local modification the backends must push. Adding it here would be a
-      // behaviour change, not a consistency fix.
+      // No `stampField` here: this register omits it while the tasks bulk edit
+      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
+      // undo that does not restamp may not propagate to a backend that syncs on
+      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
+      // four registers without reading it.
       if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid" });
     },
     [setRaid],
