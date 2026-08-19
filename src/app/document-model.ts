@@ -102,6 +102,89 @@ function isoOr(v: unknown, fallback: string): string {
   return Number.isFinite(t) ? v : fallback;
 }
 
+/**
+ * The loader's per-block rule, exposed for the ONE consumer that must agree
+ * with it exactly: the block editor's commit path.
+ *
+ * ★★★ WHY IT IS EXPORTED. `sanitizeBlock` does more than accept or reject —
+ *  it TRIMS a heading, CAPS a paragraph at MAX_HTML_TEXT_CHARS, drops empty
+ *  bullet items and clamps table extents. An editor that committed the raw
+ *  draft therefore stored bytes the next load would silently rewrite: a
+ *  >20 000-character paragraph came back with every mark flattened to plain
+ *  text (capHtmlText's truncation branch returns `plainToHtml(slice)`), and a
+ *  freshly added empty bullet item vanished after burning one of the
+ *  document's MAX_VERSIONS_PER_DOC (20) history slots. Normalising at the
+ *  commit instead makes a stored block survive the STRUCTURAL half of a load
+ *  unchanged. ★★ NOT "identical by construction", which this comment claimed
+ *  until a review caught it: a load runs `sanitizeProjectDocuments` and THEN
+ *  the DOMPurify allow-list, and this function is the FIRST pass only. Nothing
+ *  the editor can emit trips the second one today — a fact about the editor's
+ *  own schema, not a guarantee from here, and one the images slice would end.
+ *  It is still a property no per-editor `maxLength` can hold — there would be
+ *  one copy of each rule per editor, free to drift from this one.
+ *
+ * ★ Returns `null` for a block the loader DROPS, which is what
+ *  `blockSurvivesLoad` is now defined in terms of — one implementation, not
+ *  two that can disagree.
+ */
+export function normalizeBlockForStorage(block: DocBlock): DocBlock | null {
+  return sanitizeBlock(block);
+}
+
+/** True when `normalizeBlockForStorage` would TRUNCATE this block rather than
+ *  merely drop empties from it.
+ *
+ *  ★★★ THE RECONCILE NEEDS THIS AND THE NORMALISER CANNOT ANSWER IT. A draft
+ *   that normalises ONTO the stored block is usually harmless — "Add item"
+ *   appends an empty row storage drops, and that row becomes committable the
+ *   moment the user types into it, which is why the reconcile keeps it. A draft
+ *   that normalises onto the stored block because a CAP ATE THE DIFFERENCE
+ *   cannot commit WHILE IT STAYS OVER THE CAP. `tryCommit` normalises, finds
+ *   no change against the baseline, and returns false WITHOUT a notice, so a
+ *   31st column or a 201st bullet sits on screen swallowing every keystroke
+ *   typed into it. Re-seed from storage instead.
+ *  ★★★ NOT "can never commit", which this said until a review refuted it in
+ *   one command: removing ANY item or column routes the WHOLE draft through
+ *   `commitValue`, which then fits and SAVES the over-cap text. So re-seeding
+ *   does discard something the user could have rescued by deleting a row
+ *   first. That trade restores the pre-branch behaviour rather than adding a
+ *   new one — the identity-keyed re-seed it replaced dropped the same text on
+ *   the same trigger — but it is the WRONG fix for the real defect: the cap
+ *   path shows no refusal notice and the Add controls are not disabled at the
+ *   cap, so nothing tells the user any of it. `docs/open-followups.md` §191.
+ *   Measured before this existed: add a column to a 30-column table, edit any
+ *   other cell, and the phantom column survived every subsequent commit.
+ *  ★★ Length checks only — a TRIM or an empty-drop is not truncation, and
+ *   treating it as one would re-seed away the very row the reconcile exists to
+ *   protect. Keep this in step with `sanitizeBlock`'s slices above; nothing
+ *   gates the pairing, so a new cap there needs a new arm here. */
+export function exceedsStorageCaps(block: DocBlock): boolean {
+  switch (block.type) {
+    case "heading":
+      return block.text.length > MAX_TEXT_CHARS;
+    case "paragraph":
+      return htmlTextLength(block.html) > MAX_HTML_TEXT_CHARS;
+    case "bullets":
+      return (
+        block.items.length > MAX_BULLET_ITEMS ||
+        block.items.some((i) => i.length > MAX_TEXT_CHARS)
+      );
+    case "table":
+      return (
+        block.columns.length > MAX_TABLE_COLUMNS ||
+        block.rows.length > MAX_TABLE_ROWS ||
+        block.columns.some((c) => c.length > MAX_TEXT_CHARS) ||
+        (block.caption ?? "").length > MAX_TEXT_CHARS ||
+        block.rows.some(
+          (r) =>
+            r.length > block.columns.length || r.some((c) => c.length > MAX_TEXT_CHARS),
+        )
+      );
+    default:
+      return false;
+  }
+}
+
 function sanitizeBlock(raw: unknown): DocBlock | null {
   if (!raw || typeof raw !== "object") return null;
   const b = raw as Record<string, unknown>;
@@ -276,4 +359,45 @@ export function sanitizeProjectDocuments(
     out.push(doc);
   }
   return out;
+}
+
+/** Did the edited block actually differ from the stored one?
+ *
+ *  ★ REQUIRED, not an optimisation, at both of its call sites: without it, a
+ *   block editor focusing a block and leaving it writes a version whose
+ *   before-image equals its after-image; and `document-mutations.ts` compares
+ *   a `replace` op's `expect` against the block currently at that index.
+ *
+ *  ★★★ IT LIVES HERE, NOT BESIDE EITHER CALLER, because both of them need it:
+ *   `document-editor-commit.ts` (the block editors' decision layer, which
+ *   re-exports it) and `document-mutations.ts` (the engine). Putting it in the
+ *   first and importing it into the second would point the ENGINE at the
+ *   EDITOR's helper — a backwards dependency, and a type cycle, since
+ *   document-editor-commit.ts already imports `DocOp` back from the engine.
+ *   This module owns `DocBlock`, is imported by both, and imports neither.
+ *   ★ DOM-free, like everything else here — a structural comparison only. */
+export function blockChanged(stored: DocBlock, edited: DocBlock): boolean {
+  return !deepEqual(stored, edited);
+}
+
+/** ★ An OMITTED optional field and one explicitly set to `undefined` are the
+ *  same block — a form control that clears `ordered` must not read as a change. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined || a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
+  for (const k of keys) {
+    // ★ No both-undefined short-circuit here, deliberately: the recursive call
+    //  starts with `a === b`, which is already true for two `undefined`s. A
+    //  guard for it existed and could never change an outcome.
+    if (!deepEqual(ao[k], bo[k])) return false;
+  }
+  return true;
 }

@@ -21,6 +21,11 @@ import { downloadDocument } from "./document-download";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
+/** The heading editor's accessible names, 0-based block index in, en-dash
+ *  qualified name out. Spelled once so a convention change is one edit. */
+const headingTextName = (index: number) =>
+  `${t("en-US", "documentsHeadingText")} – ${t("en-US", "documentsBlockN", String(index + 1))}`;
+
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
 // with the right document and format.
@@ -115,6 +120,7 @@ const inertMutate = (): DocResult => ({
   changed: false,
   rejected: [],
   documentId: null,
+  minted: null,
 });
 
 type Box = { docs: readonly ProjectDocument[]; versions: readonly DocVersion[] };
@@ -1908,5 +1914,172 @@ describe("DocumentsPanel — entity filter", () => {
     // matching /R#3/ (the chip body and its remove control), so a loose matcher
     // throws "found multiple elements" rather than asserting anything.
     expect(screen.getByRole("button", { name: `${t("en-US", "documentsLinkedRemove")} R#3` })).toBeTruthy();
+  });
+});
+
+describe("DocumentsPanel — edit mode toggle", () => {
+  // ★ The toggle's accessible name is PINNED to "Edit blocks" in both states
+  // (see documents-toolbar.tsx) — it does NOT flip to "Preview" — so this
+  // asserts on `aria-pressed` plus the block editor's own textbox, not on a
+  // second button name. The fixture carries its own heading block: the shared
+  // `doc()` builder only mints `pageBreak` blocks. The row-selection button
+  // shares its accessible name with the preview's own `<h2>` title, so the
+  // selection click is scoped to `{ name: ..., }` on a BUTTON role, not
+  // `getByText`, which would match both.
+  it("toggles between preview and the block editor", async () => {
+    const headingDoc: ProjectDocument = {
+      id: 9,
+      title: "Charter",
+      blocks: [{ type: "heading", level: 2, text: "Scope" }],
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    renderPanel([headingDoc]);
+    await userEvent.click(screen.getByRole("button", { name: headingDoc.title }));
+
+    // Preview is the default — no block editor textbox mounted yet.
+    expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(toggle);
+
+    expect(await screen.findByRole("textbox", { name: /Heading text/ })).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(toggle);
+    expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+// ★★★ Pins the FULL fix — the doc-id-keyed rows in document-editor.tsx AND
+// the currentDocIdRef guard in use-document-editor.ts — through the REAL
+// panel wiring (`useDocumentEditMode` → `useDocumentEditor` → `commitBlock`),
+// not just `DocumentEditor` in isolation. `document-editor.test.tsx` already
+// pins that a switch remounts and shows the right content; these two pin
+// that a commit reaching this far EITHER never fires on a switch, OR — if
+// it does — can never land against the newly-selected document's id.
+describe("DocumentsPanel — document-switch commit guard", () => {
+  const docA: ProjectDocument = {
+    id: 301,
+    title: "Doc A",
+    blocks: [{ type: "heading", level: 1, text: "Alpha" }],
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+  const docB: ProjectDocument = {
+    id: 302,
+    title: "Doc B",
+    blocks: [{ type: "heading", level: 1, text: "Beta" }],
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+
+  /** A spied `mutateDocuments` backed by the REAL `applyDocMutation` (via
+   *  `boxMutator`), so a call that DOES land still behaves like production —
+   *  the point is to observe WHICH id it lands against, not to fake the
+   *  write. */
+  function renderWithSpy() {
+    const box: Box = { docs: [docA, docB], versions: [] };
+    const realMutate = boxMutator(box);
+    const mutateDocuments = vi.fn(
+      (m: DocMutation, source: DocVersionSource): DocResult => realMutate(m, source),
+    );
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={box.docs}
+          mutateDocuments={mutateDocuments}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    return { mutateDocuments };
+  }
+
+  it("shows the new document and commits nothing when switching without editing", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    expect(
+      await screen.findByRole("textbox", { name: headingTextName(0) }),
+    ).toHaveValue("Alpha");
+
+    await userEvent.click(screen.getByRole("button", { name: docB.title }));
+    const textAfterSwitch = await screen.findByRole("textbox", {
+      name: headingTextName(0),
+    });
+    expect(textAfterSwitch).toHaveValue("Beta");
+
+    textAfterSwitch.focus();
+    textAfterSwitch.blur();
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+
+  // ★★★ ASSERT THE POSITIVE. `.not.toContain` passes on an EMPTY array, so the
+  //  first cut of this test stayed green with the unmount flush deleted, with
+  //  `key={index}` restored, AND with use-document-editor's document-switch
+  //  guard deleted. The flush MUST happen, and it must land on doc A.
+  //  ★★ `fireEvent.click`, never `userEvent.click`: userEvent moves focus, so
+  //   it blurs the input BEFORE the switch and commits through the ordinary
+  //   blur path — the "pending unblurred edit" this test is named for never
+  //   exists. fireEvent dispatches the click alone and leaves focus put.
+  it("flushes a pending unblurred edit to the OLD document on a switch, never the new one", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!"); // dirty, unblurred — and still focused
+
+    fireEvent.click(screen.getByRole("button", { name: docB.title }));
+
+    const committed = mutateDocuments.mock.calls.map(([m]) => m as { id?: number; ops?: unknown[] });
+    const ids = committed.map((m) => m.id);
+    expect(ids).toContain(docA.id);
+    expect(ids).not.toContain(docB.id);
+    // ...and it carried the EDITED text, not docA's stored text — otherwise a
+    // flush that wrote the wrong content would still satisfy the id assertions.
+    const op = committed.find((m) => m.id === docA.id)?.ops?.[0] as
+      | { block?: { text?: string } }
+      | undefined;
+    expect(op?.block?.text).toBe("Alpha!");
+  });
+
+  // ★★★ A REFUSAL MUST REACH THE USER. The panel funnel (`mutate`) is the ONE
+  //  place that renders one — its own comment says so — and the block editor
+  //  was wired straight past it to `mutateDocuments`. A concurrent delete then
+  //  refused the commit with "document #N not found" and the user's typing
+  //  vanished in silence.
+  it("shows the refusal when a block commit is rejected", async () => {
+    const box: Box = { docs: [docA], versions: [] };
+    const realMutate = boxMutator(box);
+    const mutateDocuments = vi.fn((m: DocMutation, source: DocVersionSource): DocResult => {
+      // The document is deleted out from under the open editor, exactly as a
+      // second tab or an AI delete would do it.
+      if (m.kind === "ops") box.docs = [];
+      return realMutate(m, source);
+    });
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[docA]}
+          mutateDocuments={mutateDocuments}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+    text.blur();
+
+    expect(await screen.findByText(/not found/i)).toBeInTheDocument();
   });
 });

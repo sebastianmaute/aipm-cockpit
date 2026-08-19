@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.249.0] - 2026-08-19 "McAuley"
+## [0.250.0] - 2026-08-19 "McAuley"
 
 ### Changed
 
@@ -53,12 +53,6 @@ longer carries its own changelog comment.
   editor is ready. The window was always non-zero — the editor defers construction
   to mount — and loading it over the network widened it.
 
-- **The version popover, Settings and the top bar showed the wrong codename.**
-  0.248.0 shipped with `APP_MILESTONE` still set to the 0.247.x name, so the app
-  displayed `0.248.0 "Butcher"` while the changelog, README badge and codemaps all
-  said "Bujold". Both constants are bumped together, and the file now records that
-  this is a version site the release checklist does not count.
-
 ### Internal
 
 - `RichTextEditorHandle.appendText` returns whether the text landed. Holding a
@@ -73,6 +67,61 @@ longer carries its own changelog comment.
 - Corrected two claims in source comments that this change inverted: `next/dynamic`
   does forward `ref` at the installed React/Next versions, and the `typeof document`
   guard in `csp-nonce.ts` is now defensive rather than load-bearing. The guard stays.
+
+## [0.249.0] - 2026-08-19 "Modesitt"
+
+### Added
+
+- **Hand editing for generated documents.** An "Edit blocks" toggle turns the
+  document preview into one editable row per block: paragraphs with the usual
+  rich-text toolbar, headings, bullet and numbered lists, and tables with add
+  and remove controls for rows and columns. A field commits when it loses
+  focus, and structural changes commit immediately.
+- **Every hand edit is versioned like an authored one.** Block edits go through
+  the same mutation path as the assistant's writes, so they mint a version with
+  a before-image and can be restored. Edits made in one sitting coalesce onto a
+  single before-image rather than burning a history slot each.
+- **A narrow pane collapses to the selected block**, with that block's
+  formatting toolbar docked once above the list instead of one toolbar per
+  paragraph. The pane is measured, not the viewport, so a wide window with a
+  narrow documents pane behaves correctly.
+- **An empty document explains itself** and offers a control that adds a first
+  paragraph, instead of rendering nothing.
+
+### Fixed
+
+- **A hand edit can no longer overwrite a write that arrived while you were
+  typing.** If the assistant, a version restore, or a second tab wrote to the
+  block first, the edit is abandoned instead of applied on top, and the block
+  says why rather than refusing silently. The guard holds on blur as well as on
+  unmount, and the engine carries a second check for the path the component
+  cannot see.
+- **A block edit now stores exactly what the next load produces.** The commit
+  runs the loader's own normalisation rather than merely validating, so a
+  stored block and a loaded one no longer disagree — previously an over-long
+  paragraph came back with its formatting flattened, and an added empty list
+  item burned a version slot for content the next load discarded.
+- **A draft the storage caps cannot hold is no longer stranded on screen.**
+  Adding a column past the table's limit produced a control that could never be
+  saved and silently swallowed everything typed into it; such a draft is now
+  cleared from storage instead of kept.
+- **Leaving edit mode or switching document no longer loses a pending edit.**
+  An unblurred change is flushed on unmount, and each row is keyed to its
+  document so a switch cannot write one document's text into another.
+- **The version popover reported the wrong codename.** It read "Butcher" while
+  the shipped release was 0.248.0 "Bujold"; the milestone constant had not been
+  updated with the version.
+
+### Notes
+
+- The documents surface is not covered by the accessibility gate, which scans
+  neither this panel's edit mode nor its block controls. Its accessible names
+  and keyboard behaviour are held by unit tests only — see
+  `docs/open-followups.md` §184.
+- Known and recorded rather than fixed: the refusal notice persists until the
+  next commit attempt (§188), a block refusal announces via a live region that
+  is inserted with its text rather than mounted empty (§190), and a paragraph
+  over the storage cap is still flattened without warning (§185).
 
 ## [0.248.0] - 2026-08-19 "Bujold"
 

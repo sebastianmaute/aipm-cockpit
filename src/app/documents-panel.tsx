@@ -24,7 +24,7 @@ import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from 
 import type { Workspace } from "./workspace";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
-import { DocumentPreview } from "./document-preview";
+import { useDocumentEditMode, DocumentEditModeBody } from "./document-edit-mode";
 import { DocumentsHistoryModal } from "./documents-history-modal";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
@@ -41,7 +41,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
-import { INTERACTIVE } from "./interaction-styles";
+import { Input } from "./form-controls";
 
 // --- pure presentation helpers --------------------------------------------
 // i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
@@ -357,6 +357,7 @@ export function DocumentsPanel({
   // and with no undo on document writes.
   const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
   const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
+  const { editing, narrowPane, paneRef, commitBlock, appendBlock, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -575,8 +576,9 @@ export function DocumentsPanel({
         onShowDeletedChange={handleShowDeletedChange}
         deletedCount={deleted.length}
         isReadOnly={isReadOnly}
+        editToolbar={editToolbar}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div ref={paneRef} className="flex min-h-0 flex-1 flex-col gap-3">
         {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
             must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
         {entityFilter && (
@@ -699,7 +701,7 @@ export function DocumentsPanel({
           onUnlink={(docId, ref) => mutate({ kind: "unlink", id: docId, ref })}
           onOpenView={requestOpen}
         />
-        <DocumentPreview lang={lang} doc={selected} ws={ws} />
+        <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} onAppendBlock={appendBlock} />
       </div>
 
       <DocumentsHistoryModal
@@ -763,25 +765,19 @@ export function DocumentsPanel({
                     not, and a placeholder-only input fails the axe gate even
                     though it looks labeled. */}
                 {t(lang, "documentsTitleLabel")}
-                <input
-                  type="text"
+                <Input
                   autoFocus
                   value={renaming.draft}
                   onChange={(e) => setRenaming((prev) => (prev ? { ...prev, draft: e.target.value } : prev))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.nativeEvent.isComposing) commitRename();
                   }}
-                  className={`rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${INTERACTIVE}`}
                 />
               </label>
               <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRenaming(null)}
-                  className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-                >
+                <Button variant="secondary" size="sm" onClick={() => setRenaming(null)}>
                   {t(lang, "cancel")}
-                </button>
+                </Button>
                 <Button variant="primary" size="sm" onClick={commitRename}>
                   {t(lang, "documentsRename")}
                 </Button>
