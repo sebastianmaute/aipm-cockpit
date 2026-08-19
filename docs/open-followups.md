@@ -12110,14 +12110,21 @@ in the sanitizers, and this is not one.
 
 Before the block editor normalised at commit this happened on the next LOAD,
 with nothing on screen to connect it to anything the user did. It now happens at
-the COMMIT — but it is still invisible until a reload. ★★★ An earlier revision
-said "the draft's seed nonce remounts the editor with the flattened result, so
-the user at least SEES it", and that stopped being true in the same branch: the
-reconcile now re-seeds only when storage holds content the draft does not
-already say, and after our own commit the two agree, so there is no re-seed and
-no remount. That was the deliberate trade — the remount also destroyed DOM focus
-and the editor's undo history mid-session — but it means the ONLY signal today
-is the paragraph coming back flattened on the next load.
+the COMMIT. ★★★ An earlier revision said "the draft's seed nonce remounts the
+editor with the flattened result, so the user at least SEES it", and that
+stopped being true in the same branch: the reconcile now re-seeds only when
+storage holds content the draft does not already say, and after our own commit
+the two agree, so there is no re-seed and no remount. That was the deliberate
+trade — the remount also destroyed DOM focus and the editor's undo history
+mid-session.
+
+★★ So nothing changes on screen AT THE COMMIT. It does NOT follow that the
+flattening is invisible until a reload, and the revision that replaced the
+sentence above said exactly that — the same overclaim, one step smaller. Any
+surface that re-reads storage shows it: leaving edit mode renders
+`DocumentPreview` from the stored doc, and so does a remount. Two successive
+revisions of this paragraph each asserted a universal about what the user sees,
+and neither ran a command against it.
 
 There is no warning before the cap, no notice explaining it, and nothing in the
 editor that can restore the markup afterwards. Version history is the only
@@ -12148,10 +12155,14 @@ one banner. The string is raw English with an op index in it, and it is not an
 i18n key.
 
 ★★ The panel already concedes untranslated engine reasons, but that concession
-was made for RESTORE failures, which are rare and operator-facing. This one
-fires on an ordinary two-writer editing race — an AI write or a second tab
-landing while someone is typing — so a German user editing a document is now a
-plausible audience for it. Whether that is acceptable is a product call, not a
+was made for RESTORE failures, which are rare and operator-facing. ★★★ An earlier revision of this entry then
+claimed this one "fires on an ordinary two-writer editing race — an AI write or
+a second tab landing while someone is typing", which is false and overstated who
+sees it: `tryCommit` calls `externallyWritten()` and refuses with a TRANSLATED
+notice (`documentsBlockConflictNotSaved`) BEFORE it ever reaches `onCommit`, so
+the ordinary race never reaches the engine at all. The engine string surfaces
+only on the paths where that component guard is blind — the type-change unmount
+being the one AGENTS.md already names. Whether that is acceptable is a product call, not a
 bug: the banner is better than the silent abandon it replaced either way.
 
 **To close:** give the rejection a code the panel maps to an i18n key, keeping
@@ -12197,7 +12208,7 @@ round. **Deliberately not fixed.**
 `useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
 pink "Not saved" line clears on the next COMMIT attempt and not before.
 `commit()` early-returns while the draft is undirty, so blurring the field again
-does not clear it — only a further edit-and-commit does.
+does not clear it.
 
 ★★ Recorded rather than fixed because the notice is arguably still TRUE for the
 whole of that window, and for `"conflict"` it is actively useful: it is the only
@@ -12224,10 +12235,18 @@ raise that cap to **900** in the same change.
 
 ### Why both halves move together
 
-Reformatting the tree at width 120 grows files by roughly 2% at the median, so
-the cap has to absorb that before the ratchet can pass. Raising the cap ALONE
-would be a pure weakening — it buys headroom nothing has earned. Adopting the
-formatter alone would fail the gate on the files already at the line.
+Reformatting the tree at width 120 grows files, so the cap has to absorb that
+growth before the ratchet can pass. Raising the cap ALONE would be a pure
+weakening — it buys headroom nothing has earned. Adopting the formatter alone
+would fail the gate on the files already at the line.
+
+★★ **900 is a CHOSEN number, not a derived one, and nothing here derives it.**
+The width-120 growth measured at roughly 2% at the median, which across this
+band is ~16 lines — arithmetic alone argues for a cap nearer 820. 900 was picked
+to leave room beyond the reformat itself. If that trade is wrong, the number is
+the thing to revisit; the pairing of formatter and cap is not. Do not read the
+2% figure as the justification for 900 — an earlier revision of this entry put
+the two in one sentence and made it look like one.
 
 The pressure is real, measured 2026-08-19 (reproduce with the snippet below):
 **27** files sit in the 700–800 band and six are at 795 or above, including

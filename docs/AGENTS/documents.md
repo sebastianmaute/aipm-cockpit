@@ -240,11 +240,8 @@ this file stops at the version-model decision, per the header note above.
 
 ## What the commit path stores, and the second guard
 
-Two properties of the hand block editor that `useBlockDraft`'s own docstring does not carry. ★ Not
-because "neither lives in the component" — an earlier revision said that and it was wrong in both halves:
-`tryCommit` IS inside `useBlockDraft`, and the hook's own header already announces the guard "IN TWO
-LAYERS". They are here because neither is a property of the DRAFT: the first belongs to the loader, whose
-rule the commit borrows, and the second to the engine.
+Two properties of the hand block editor's commit path, expanded from the code comments in
+`document-block-editors.tsx`.
 
 ### The commit NORMALISES; it does not merely validate
 

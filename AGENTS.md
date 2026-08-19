@@ -1215,8 +1215,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
   three-rule contract — flush a dirty draft on unmount, ABANDON (never clobber) a commit whose `storedBlock`
   moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
-  while the draft is undirty — is the FIRST of two layers defending a hand edit against a concurrent
-  writer; the ★★★ below names the second, and the component layer alone is structurally blind on one path.
+  while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
   Read the hook's own docstring before touching it, not this summary.
   ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
   [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "What the commit path stores, and the second
