@@ -41,7 +41,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
-import { INTERACTIVE } from "./interaction-styles";
+import { Input } from "./form-controls";
 
 // --- pure presentation helpers --------------------------------------------
 // i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
@@ -765,25 +765,19 @@ export function DocumentsPanel({
                     not, and a placeholder-only input fails the axe gate even
                     though it looks labeled. */}
                 {t(lang, "documentsTitleLabel")}
-                <input
-                  type="text"
+                <Input
                   autoFocus
                   value={renaming.draft}
                   onChange={(e) => setRenaming((prev) => (prev ? { ...prev, draft: e.target.value } : prev))}
                   onKeyDown={(e) => {
                     if (e.key === "Enter" && !e.nativeEvent.isComposing) commitRename();
                   }}
-                  className={`rounded-md border border-line bg-surface px-2 py-1.5 text-sm text-foreground ${INTERACTIVE}`}
                 />
               </label>
               <div className="flex justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setRenaming(null)}
-                  className={`rounded-md border border-line bg-surface px-3 py-1.5 text-sm font-medium text-foreground hover:bg-surface-muted ${INTERACTIVE}`}
-                >
+                <Button variant="secondary" size="sm" onClick={() => setRenaming(null)}>
                   {t(lang, "cancel")}
-                </button>
+                </Button>
                 <Button variant="primary" size="sm" onClick={commitRename}>
                   {t(lang, "documentsRename")}
                 </Button>
