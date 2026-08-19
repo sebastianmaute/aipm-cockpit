@@ -1,35 +1,18 @@
 // src/app/settings-sections/export-section.tsx
 "use client";
 
-import { type Lang, type TranslationKey, t } from "../i18n";
+import { type Lang, t } from "../i18n";
 import { FieldHint } from "../field-hint";
 import { FOCUS_RING, TRANSITION } from "../interaction-styles";
 import type { Settings } from "../settings-types";
 import { EXPORT_SECTION_KEYS, defaultExportConfig, type ExportSectionKey } from "../settings-types";
+import { EXPORT_SECTION_LABEL_KEYS } from "../export-section-labels";
 
 interface ExportSectionProps {
   lang: Lang;
   settings: Settings;
   onChange: (s: Settings) => void;
 }
-
-const LABEL_KEYS: Record<ExportSectionKey, TranslationKey> = {
-  project: "exportLabelProject",
-  tasks: "exportLabelTasks",
-  raid: "exportLabelRaid",
-  changes: "exportLabelChanges",
-  milestones: "exportLabelMilestones",
-  stakeholders: "exportLabelStakeholders",
-  budgets: "exportLabelBudgets",
-  resources: "exportLabelResources",
-  roles: "exportLabelRoles",
-  absences: "exportLabelAbsences",
-  shifts: "exportLabelShifts",
-  calendarEvents: "exportLabelCalendarEvents",
-  status: "exportLabelStatus",
-  knowledgeItems: "exportLabelKnowledgeItems",
-  insights: "exportLabelInsights",
-};
 
 export function ExportSection({ lang, settings, onChange }: ExportSectionProps) {
   const exportConfig = settings.export ?? defaultExportConfig;
@@ -59,7 +42,7 @@ export function ExportSection({ lang, settings, onChange }: ExportSectionProps) 
                   onChange={(e) => handleToggle(key, e.target.checked)}
                   className={`h-4 w-4 cursor-pointer rounded border-line text-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}
                 />
-                {t(lang, LABEL_KEYS[key])}
+                {t(lang, EXPORT_SECTION_LABEL_KEYS[key])}
               </label>
             </li>
           );

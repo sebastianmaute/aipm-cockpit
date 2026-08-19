@@ -204,6 +204,98 @@ a title accepted here can never disagree with what the next load produces. Empty
 whitespace-only) is rejected rather than stored, because the sanitizer would drop the document
 on the very next load while this module reported success.
 
+## Coalescing before-images for hand edits (`document-editor-commit.ts`)
+
+★★★ **THE RUN IS ANCHORED BY IDENTITY, NOT CONTENT.** `shouldCoalesce(versions, documentId, now, anchor)`
+decides whether a hand block edit reuses the session's most recent before-image or the mutation engine
+mints a new one (`applyOps` → `"ops"` mutation → the `update` row in the table above). `anchor` is the
+exact `{id, savedAt}` pair the CALLER's own last commit minted — `DocResult.minted` — never a "newest"
+re-derived from the version list; coalescing happens only while that exact row is still the newest one.
+
+★★ **Why identity, and not the `source === "user" && op === "update"` check it replaced:** the "restore
+(live)" row two sections up ALSO writes a `user`/`update` before-image (`snapshot(liveDoc, "update", ctx)`,
+`ctx.source` hardcoded to `"user"` by the panel funnel), byte-indistinguishable from one of the hand
+editor's own. A content-only test coalesced onto it and silently overwrote the just-restored state with
+no history entry that it had ever existed. Giving the restore its own `DocVersionOp` was rejected —
+`sanitizeDocumentVersions` coerces an unknown op back to `"update"`, so an older client reading the same
+project would silently re-open the hole on shared data.
+
+★ Both halves of the pair are compared, and the id alone is not enough — `seedMintFromWorkspace(ws,
+"reset")` restarts the `documentVersion` high-water mark per project, so ids alone can resume a run onto an
+identically-numbered row in a DIFFERENT project; `savedAt` separates them. Both comparisons are equality,
+never ordering — this identity check does not depend on a clock. `source`/`op` are kept as secondary
+guards (unreachable in practice for the one caller today, whose anchor is always a `user`/`update` mint,
+but this is an exported pure function that cannot assume a future caller's discipline).
+
+★ `COALESCE_WINDOW_MS` (5 minutes) is measured from the anchor's own `savedAt`, never from the previous
+edit — a coalesced edit mints no version, so it never advances the anchor, and a continuous burst of
+sub-window edits can still cross the window measured from wherever the session's last real version landed.
+
+★ The property this whole mechanism preserves: the FIRST before-image of a session holds the state before
+the session started — the thing a user actually reverts to. The commit-side half of the contract
+(unmount flush, the concurrent-write abandon guard, undirty adoption of an external write) lives in
+`useBlockDraft` (`document-block-editors.tsx`) and is summarized in `AGENTS.md`'s "Documents (AI document
+authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
+this file stops at the version-model decision, per the header note above.
+
+## What the commit path stores, and the second guard
+
+Two properties of the hand block editor's commit path, expanded from the code comments in
+`document-block-editors.tsx`.
+
+### The commit NORMALISES; it does not merely validate
+
+`tryCommit` runs the draft through **`normalizeBlockForStorage`** — the loader's own per-block rule,
+exported from `document-model.ts` — and commits the RESULT, so a stored block survives the STRUCTURAL
+half of a load unchanged.
+
+★★★ **NOT "identical by construction", and the overclaim is the dangerous direction.** A load is TWO
+passes: `sanitizeProjectDocuments` (structural, DOM-free) and THEN `sanitizeDocumentRichFields` →
+`sanitizeDocumentHtml` (the DOMPurify allow-list) — see `browser-backend.ts`'s documents branch, which
+composes them in that order. `normalizeBlockForStorage` is the first pass only. Paragraph HTML round-trips
+today because everything the editor can PRODUCE already sits inside `DOCUMENT_ALLOWED_TAGS`, which is a
+fact about the editor's toolbar, not a guarantee from this function. A slice that lets a block carry markup
+the allow-list strips — the images slice is the live candidate — breaks the round-trip while this call goes
+on returning a non-null block. Reading it as covering both passes is how that would ship unnoticed.
+
+★★★ **Validating instead let the two disagree, silently, in three measured ways.** A paragraph over
+`MAX_HTML_TEXT_CHARS` came back with every mark flattened to plain text (`capHtmlText`'s truncation
+branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the loader trims; and
+"Add item" appended an empty bullet item that counted as a change, minting a document version for
+content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
+just added gone on reload.
+
+★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect
+existed in the first place: one copy of each loader rule per editor, free to drift from the loader's.
+
+★ `null` means the loader would DISCARD the block. That refusal is shown (`BlockRefusalNotice`), and
+so is the concurrent-write ABANDON — one nullable `"empty" | "conflict"` state, because the abandon
+used to be silent and a user watched their typing be replaced on screen with no explanation. ★ The
+UNMOUNT flush abandons silently and must: the component is going away, so there is nothing to render
+into.
+
+★ `blockSurvivesLoad` still exists and has NO production caller. It is kept as the tested statement of
+the DROP rule — `document-editor-commit.test.ts` pins all five droppable shapes, one per block
+kind that has one (`pageBreak` cannot be dropped), including the two no editor control can reach — and is defined in terms
+of `normalizeBlockForStorage`, so the two cannot disagree.
+
+### The engine carries the second concurrent-write guard
+
+A `replace` op takes an optional **`expect`** — the draft's baseline, built by `replaceBlockOp` — and
+`applyOps` refuses the op when live state at that index no longer matches it.
+
+★★★ **THE IN-COMPONENT GUARD IS STRUCTURALLY BLIND ON ONE PATH, which is why this exists.**
+`useBlockDraft`'s `externallyWritten` reads refs that advance only when that row RENDERS. `BlockEditor`
+returns a DIFFERENT component per `block.type`, so a concurrent write changing the TYPE at an index
+unmounts the row with no final render — every ref the guard reads frozen at its pre-write value. The
+guard then returns false and the unmount flush overwrites whichever block shifted into that index. The
+engine compares `expect` against live state at CALL time, which no ref-based check can do.
+
+★ `expect` is OPTIONAL because the AI tools build their own ops and are resolving no draft of their
+own. A future op-builder that IS resolving a draft must pass it.
+
+★ A refused op reports `op {i}: replace index {n} was changed by another writer` in `DocResult.rejected`.
+
 ## Persistence — six write paths
 
 `documentVersions` is a top-level optional `Workspace` field carried by all six write paths.

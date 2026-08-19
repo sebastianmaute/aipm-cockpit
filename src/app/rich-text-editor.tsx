@@ -2,6 +2,7 @@
 import { useEffect, useImperativeHandle, useMemo, useRef } from "react";
 import type { Ref } from "react";
 import { useEditor, EditorContent } from "@tiptap/react";
+import { createPortal } from "react-dom";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
 import Subscript from "@tiptap/extension-subscript";
@@ -36,6 +37,13 @@ export interface RichTextEditorProps {
   fieldLabel?: (field: string) => string;
   /** Imperative handle for appending dictated text (React 19 ref-as-prop). */
   editorRef?: Ref<RichTextEditorHandle>;
+  /** Renders the toolbar into this element instead of inline above the
+   *  contenteditable. ★★ OPT-IN, and it must stay opt-in: every other surface
+   *  wants the toolbar attached to its own editor, and a portal moves DOM
+   *  position, which is the recorded way to break Tab order. The one consumer
+   *  (the documents block editor at a narrow pane) docks it ABOVE the document,
+   *  i.e. the position it already occupies logically. */
+  toolbarContainer?: HTMLElement | null;
 }
 
 // ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
@@ -273,7 +281,16 @@ export function RichTextEditor(props: RichTextEditorProps) {
           protection: hoist the toolbar out of it and `EditorStateManager` seeds
           its snapshot with the null it was handed, so the selector's
           `live.isActive(...)` throws on that render. */}
-      {editor && <RichTextToolbar editor={editor} lang={lang} label={label} onAddLink={addLink} />}
+      {editor &&
+        (() => {
+          // ★ Built ONCE into a local rather than spelled twice: the duplication
+          //  gate compares TOTAL duplicated lines across the repo, so a repeated
+          //  JSX element is a needless contribution to a number that gates merges.
+          const toolbar = (
+            <RichTextToolbar editor={editor} lang={lang} label={label} onAddLink={addLink} />
+          );
+          return props.toolbarContainer ? createPortal(toolbar, props.toolbarContainer) : toolbar;
+        })()}
       {editor && (mergeFields?.length ?? 0) > 0 && (
         <div className="flex flex-wrap gap-1">
           {(mergeFields ?? []).map((field) => (

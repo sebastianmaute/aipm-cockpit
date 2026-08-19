@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.248.0 "Bujold" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.249.0 "Modesitt" | Files scanned: src/proxy.ts + 12 route.ts + api/_shared + 4 client storage backends | Token estimate: ~900 -->
 
 # Backend
 

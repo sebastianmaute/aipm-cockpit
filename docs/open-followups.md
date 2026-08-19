@@ -12054,3 +12054,436 @@ independently of the date. Re-deriving `status` inside the merge from the resolv
 silently overrides a local status the user was never asked about. Routing the merged row through
 `applyStatusChange` would stamp `today` over Jira's resolution date — which is the exact reason the
 Jira path bypasses that engine everywhere else, so it is the one option that is already known wrong.
+
+---
+
+## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — open, deferred out of the S3b fix round
+
+"Documents" is in `A11Y_VIEWS` (`e2e/a11y.spec.ts`), but nothing in `e2e/`
+enters edit mode — `grep -rn "Edit blocks\|documentsEditBlocks" e2e/` returns
+nothing. Every axe scan of that view therefore renders the read-only
+`DocumentPreview`. The block editor is entirely unscanned: five per-kind
+editors, the table grid, every per-block control, N rich-text toolbars, and
+the narrow-pane docked toolbar.
+
+★★ Same blind-spot CLASS as the Turso-gated views and the Resources →
+Calendar sub-tab: the view is listed, so a green run reads as coverage, and
+the empty/preview state is what the gate actually sees. Compounding it,
+`e2e/seed.ts` seeds `documents` from the sample workspace, so even an
+edit-mode scan would only cover the block KINDS that sample happens to carry.
+
+★★★ AND THE GATE COULD NOT CATCH THE DOMINANT RISK HERE ANYWAY. This surface
+repeats controls across sibling blocks (and across rows and columns inside a
+table block), and axe 4.12.1 has NO rule under the four tags the spec requests
+that flags two controls sharing an accessible name, at any seed size — see
+AGENTS.md's a11y hard-constraint section for the measurement. The multi-block
+unit tests in `document-block-editors.test.tsx` and `document-editor.test.tsx`
+are the only detector that exists for that class, and closing this item would
+not change that.
+
+**To close:** seed a document carrying every `DocBlock` kind, click the
+"Edit blocks" toggle before the scan in `e2e/a11y.spec.ts`, and — in the SAME
+commit — re-measure the spec's test total with
+`npx playwright test e2e/a11y.spec.ts --list` and update AGENTS.md's count.
+Deliberately deferred out of the S3b fix round: the surface was being
+restructured by that round's docked-toolbar task, and the count could not be
+measured under its constraints.
+
+## 185. An over-long document paragraph is flattened to plain text at commit
+
+**Status:** open. **Severity:** low (bounded, visible, and only past 20 000
+visible characters). **Introduced:** pre-existing in `capHtmlText`; made VISIBLE
+rather than silent by the S3b normalise-at-commit change.
+
+`document-model.ts` caps a paragraph at `MAX_HTML_TEXT_CHARS` (20 000 visible
+characters) via `capHtmlText`, whose truncation branch returns
+`plainToHtml(text.slice(0, cut))` — so on overflow the paragraph loses **every
+mark**, not merely its tail. Bold, links, lists and headings inside it are
+REMOVED: what remains is the paragraph's plain-text projection.
+
+★★ **Not "escaped", and an earlier revision of this entry said escaped.** `text`
+is already the projection, with the tags stripped; `plainToHtml` then escapes
+`& < >` so that any such character the user actually TYPED still renders as
+itself. No tag text becomes visible — the markup is simply gone. The distinction
+matters because "escaped" describes a corruption a reader would go hunting for
+in the sanitizers, and this is not one.
+
+Before the block editor normalised at commit this happened on the next LOAD,
+with nothing on screen to connect it to anything the user did. It now happens at
+the COMMIT. ★★★ An earlier revision said "the draft's seed nonce remounts the
+editor with the flattened result, so the user at least SEES it", and that
+stopped being true in the same branch: the reconcile now re-seeds only when
+storage holds content the draft does not already say, and after our own commit
+the two agree, so there is no re-seed and no remount. That was the deliberate
+trade — the remount also destroyed DOM focus and the editor's undo history
+mid-session.
+
+★★ So nothing changes on screen AT THE COMMIT. It does NOT follow that the
+flattening is invisible until a reload, and the revision that replaced the
+sentence above said exactly that — the same overclaim, one step smaller. Any
+surface that re-reads storage shows it: leaving edit mode renders
+`DocumentPreview` from the stored doc, and so does a remount. Two successive
+revisions of this paragraph each asserted a universal about what the user sees,
+and neither ran a command against it.
+
+There is no warning before the cap, no notice explaining it, and nothing in the
+editor that can restore the markup afterwards. Version history is the only
+recovery: the before-image holds the pre-edit paragraph, and only until it is
+evicted.
+
+★ It is deliberately NOT fixed by refusing the commit: the user's text would
+then be unsaveable, which is worse. Nor by a per-editor `maxLength`: the cap is
+measured on VISIBLE text, and a `maxLength` counts markup too, so the two
+disagree on any formatted paragraph — that mismatch is exactly what the
+normalise-at-commit change removed.
+
+**To close:** either (a) count visible characters live in `RichTextEditor` and
+warn as the cap approaches, so overflow is a choice rather than a surprise, or
+(b) teach `capHtmlText` a mark-preserving truncation. (b) is the real fix and is
+the larger one — it needs a DOM-free HTML truncator, and `rich-text-plain.ts` may
+never call DOMPurify.
+
+## 186. The block-editor conflict reason reaches users untranslated
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round.
+
+`applyOps` rejects a guarded `replace` with the engine string
+`op {i}: replace index {n} was changed by another writer`, and
+`documents-panel.tsx` surfaces `restoreRejected` by joining those reasons into
+one banner. The string is raw English with an op index in it, and it is not an
+i18n key.
+
+★★ The panel already concedes untranslated engine reasons, but that concession
+was made for RESTORE failures, which are rare and operator-facing. ★★★ An earlier revision of this entry then
+claimed this one "fires on an ordinary two-writer editing race — an AI write or
+a second tab landing while someone is typing", which is false and overstated who
+sees it: `tryCommit` calls `externallyWritten()` and refuses with a TRANSLATED
+notice (`documentsBlockConflictNotSaved`) BEFORE it ever reaches `onCommit`, so
+the ordinary race never reaches the engine at all. The engine string surfaces
+only on the paths where that component guard is blind — the type-change unmount
+being the one AGENTS.md already names. Whether that is acceptable is a product call, not a
+bug: the banner is better than the silent abandon it replaced either way.
+
+**To close:** give the rejection a code the panel maps to an i18n key, keeping
+the engine string as the diagnostic detail. Do NOT translate inside the engine —
+`document-mutations.ts` is i18n-free by contract.
+
+## 187. `useDocumentTools` has no test file, and one guard there is unpinned
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round; the guard was added in the same round.
+
+Nothing under `src/app` imports `useDocumentTools` from a test, and there is no
+`use-document-tools.test.ts` — reproduce with
+`grep -rln "useDocumentTools\|document_ops" src/app/*.test.*`, which returns
+nothing. The whole model-facing document write path is therefore covered only
+indirectly, by the engine tests underneath it.
+
+That matters now because the round added a guard there: `keepOp` strips
+`expect` from every op before it reaches `applyOps`. The field is the HAND
+editor's concurrency guard, carrying a draft's baseline, and an AI op resolves
+no draft — but the `document_ops` schema sets no `additionalProperties: false`
+(verified: `grep -n additionalProperties src/app/chat-tool-defs-documents.ts`
+returns nothing), so a model can emit it and the `{ ...op, block }` spreads
+would have carried it through. Worst case was never data loss — the model's own
+op self-rejects with a reason the model sees — but model-supplied data should
+not decide whether a write applies.
+
+★★ The strip is UNTESTED, and this entry exists so that is on the record rather
+than inferred from a confident comment. It is placed in `keepOp` because every
+op funnels through there, so no later branch can reintroduce the field; that is
+an argument about placement, not evidence that it works.
+
+**To close:** stand up `use-document-tools.test.ts` with a `mutateDocuments`
+spy, and assert (a) an op carrying `expect` reaches the engine without it, and
+(b) the hand editor's own guarded `replace` still carries its `expect` — the
+second half is what stops a future "just drop expect everywhere" simplification.
+
+## 188. A block refusal notice outlives the attempt it describes
+
+**Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
+round. **Deliberately not fixed.**
+
+`useBlockDraft`'s `refusal` state is written only inside `tryCommit`, so the
+pink "Not saved" line clears on the next COMMIT attempt and not before.
+`commit()` early-returns while the draft is undirty, so blurring the field again
+does not clear it.
+
+★★ Recorded rather than fixed because the notice is arguably still TRUE for the
+whole of that window, and for `"conflict"` it is actively useful: it is the only
+explanation the user gets for their text having been replaced on screen by the
+external write the reconcile adopted. Clearing it on adoption would delete the
+explanation at the exact moment it becomes relevant.
+
+★ The case for changing it is the stale-context one: a user who walks away and
+returns sees a refusal referring to an attempt they no longer remember. If that
+is judged to matter, clear it when the draft next goes DIRTY (the user has moved
+on) rather than on adoption — and note `document-block-editors.tsx` currently
+sits at exactly 800 of the 800-line cap, so it needs headroom first.
+
+## 189. Adopt Prettier at `printWidth: 120` and raise the size cap to 900
+
+**Status:** open, DECIDED but deliberately not implemented. **Severity:** low
+(no defect — a tooling decision plus its migration cost). **Decided:**
+2026-08-19. **Deferred the same day**, to be done as its own slice rather than
+riding on an unrelated branch.
+
+The repo has no formatter. `scripts/check-file-sizes.mjs` caps a `src` file at
+`LIMIT = 800` lines. The decision is to adopt Prettier at `printWidth: 120` and
+raise that cap to **900** in the same change.
+
+### Why both halves move together
+
+Reformatting the tree at width 120 grows files, so the cap has to absorb that
+growth before the ratchet can pass. Raising the cap ALONE would be a pure
+weakening — it buys headroom nothing has earned. Adopting the formatter alone
+would fail the gate on the files already at the line.
+
+★★ **900 is a CHOSEN number, not a derived one, and nothing here derives it.**
+The width-120 growth measured at roughly 2% at the median, which across this
+band is ~16 lines — arithmetic alone argues for a cap nearer 820. 900 was picked
+to leave room beyond the reformat itself. If that trade is wrong, the number is
+the thing to revisit; the pairing of formatter and cap is not. Do not read the
+2% figure as the justification for 900 — an earlier revision of this entry put
+the two in one sentence and made it look like one.
+
+The pressure is real, measured 2026-08-19 (reproduce with the snippet below):
+**27** files sit in the 700–800 band and six are at 795 or above, including
+`document-block-editors.tsx` at exactly **800** — zero headroom, which is why
+followup §188 records a fix it cannot make room for. Four files are over the cap
+and baselined; `i18n.ts` / `i18n.de.ts` are exempt and not counted here.
+
+```bash
+node -e "
+const fs=require('fs');const files=[];
+(function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=d+'/'+e.name;
+if(e.isDirectory()){if(!/node_modules|[.]next|coverage|[.]git/.test(p))walk(p)}
+else if(/[.](ts|tsx)$/.test(e.name)&&!/[.]test[.]|[.]property[.]/.test(e.name))files.push(p)}})('src');
+const L=files.map(f=>[f,fs.readFileSync(f,'utf8').split('\n').length]).sort((a,b)=>b[1]-a[1]);
+console.log('700-800 band:',L.filter(x=>x[1]>700&&x[1]<=800).length);
+console.log(L.slice(0,12).map(x=>x[1]+'  '+x[0]).join('\n'));"
+```
+
+★ The cap script counts `split("\n").length`, which is `wc -l` **+ 1** — so a
+file reading 799 under `wc -l` is already AT an 800 cap. Budget the new cap from
+the script's own number, not from `wc -l`.
+
+### The real cost, and why this is not a drive-by
+
+★★★ **A repo-wide reformat silently invalidates every `path:LINE` citation in
+the docs, and `docs:claims:check` STAYS GREEN while it happens.** The gate is a
+ratchet over citation COUNT plus a range check — it proves a cited line COULD
+exist, never that the right thing is on it. Reformatting moves hundreds of lines
+without changing any file's length enough to push a citation past EOF, so
+essentially none of the drift is detectable. Read today's citation total off the
+gate itself (`npm run docs:claims:check`); do not trust a number quoted in prose.
+
+That makes the citation question the *substance* of this slice, not a chore
+attached to it. Two defensible answers, and the choice belongs to whoever runs it:
+
+- **Convert first.** Turn `path:LINE` citations into symbol + grep citations
+  (already the documented house rule), THEN reformat. Slow, but it retires the
+  rot permanently and leaves the gate meaningful.
+- **Accept and record.** Reformat, then treat every surviving line citation as
+  suspect until re-verified. Cheap, and consistent with the standing rule that a
+  wrong line number is a SYMPTOM — go re-verify the claim, never renumber it.
+
+Do NOT re-baseline the citation gate to absorb the churn. Re-baselining to admit
+new breakage defeats the only property it checks.
+
+### Implementation notes measured on 2026-08-19
+
+A temporary `prettier@3.9.6` install produced these, and was removed again — the
+tree today has no prettier, so re-install before reproducing anything here.
+
+- **`endOfLine: "auto"` is REQUIRED**, not a preference. `core.autocrlf=true`
+  checks source out as CRLF on Windows while CI runs on LF. Prettier's default
+  `"lf"` would rewrite every worktree file's endings and make a `format:check`
+  job pass on CI and fail locally, or the reverse. `"auto"` preserves what each
+  file already has, so both platforms agree.
+- **Scope to `.ts`/`.tsx`/`.mjs`.** Prettier formats `.json` and `.md` by
+  default, and both are hazardous here: `.gitattributes` pins the golden
+  serializer fixtures as binary precisely so nothing rewrites them, `*.md` is
+  pinned to LF for the script-docs verifier, and the generated
+  `operating-guide-builtin.generated.ts` is regenerated LF by `prebuild` — a
+  prettified copy would drift on the next build. Today's fixtures are `.csv` and
+  `.md` only, so an extension-scoped run cannot reach them, but that is a fact
+  about today's fixture set rather than a guarantee.
+- **`globals.css` deliberately excluded** from the first cut. It is the file the
+  palette and Tailwind-v4 constraints bear on hardest, and formatting it buys
+  the least.
+- **The size baseline must be regenerated** (`node scripts/check-file-sizes.mjs
+  --update`) after the reformat: the four baselined files all grow, and a grown
+  baselined file fails the ratchet exactly like a new oversized one.
+- **ESLint conflict looks unlikely but was NOT audited.** `eslint.config.mjs`
+  adds no stylistic rules of its own — it is `eslint-config-next`'s
+  core-web-vitals + typescript presets plus `globalIgnores`. Whether those
+  presets carry a formatting rule that Prettier's output would trip was not
+  checked, and `eslint.config.mjs` is hook-protected, so a conflict cannot be
+  resolved by editing the config. Run `npx eslint --max-warnings=0 src/app`
+  against a reformatted tree EARLY.
+- **`dup:check` is an open risk.** Reformatting normalises code, which can raise
+  jscpd's detected duplication. The gate compares one number — total duplicated
+  LINE percentage — against a hardcoded `1.75` in `package.json`. Measure after
+  reformatting; if it rises past the threshold, that is a finding about real
+  duplication the old formatting was hiding, not a licence to raise the number.
+
+### Not decided
+
+Whether a `format:check` job joins the CI quality stage. Without one the
+formatting drifts back within weeks; with one, every in-flight branch goes red
+until rebased. Deliberately left to whoever runs the slice.
+
+**To close:** run it as its own branch — answer the citation question first,
+then config + reformat + cap + baseline in one reviewable change set.
+
+## 190. The block refusal notice is inserted together with its text, which is the unreliable half of the live-region contract
+
+**Status:** open. **Severity:** low (an announcement that may not fire, on a
+surface that already shows the reason visually). **Found by:** cold code review
+of the S3b fix round, 2026-08-19.
+
+`BlockRefusalNotice` (`document-block-notices.tsx`) renders
+`<p role="status" className="text-xs text-ui-pink">`, and all four call sites in
+`document-block-editors.tsx` spell it `{refusal && <BlockRefusalNotice … />}`.
+So the live region and its content enter the DOM in the SAME commit.
+
+The reliable shape is the opposite one: a region already sitting in the
+accessibility tree whose TEXT then changes. Inserting the region itself is where
+AT support diverges — it is the case screen readers historically handle worst,
+and the one this repo already avoids everywhere it cares: `dashboard-panel.tsx`,
+`modern-shell.tsx` and `resource-calendar.tsx` all keep an always-mounted
+`sr-only` region and write into it.
+
+★★ **THIS CANNOT BE GATED, IN EITHER LAYER, AND THAT IS THE REASON TO WRITE IT
+DOWN.** axe cannot see it: `p` carries `allowedRoles: true` in axe 4.12.1
+(`node -e "const s=require('fs').readFileSync('node_modules/axe-core/axe.js','utf8');const i=s.indexOf('      p: {');console.log(s.slice(i,i+120))"`),
+a MISSING live region is an absence rather than a violation, and the notice only
+renders after an interaction the scan never performs. jsdom cannot see it
+either: no assertion can distinguish "region inserted with content" from "text
+changed inside an existing region", so the two tests added for this in
+`document-block-editors.test.tsx` pin the ROLE and can never pin the
+ANNOUNCEMENT.
+
+★★ Consequently the component's own docstring is over-broad where it says that
+unit test "is the only detector there will be" — true of the role, false of the
+announcement, which has no detector at all.
+
+### Two changes, and the primitive swap is NOT the one that fixes this
+
+★★★ **`FieldNotice` ALONE DOES NOT FIX THE ANNOUNCEMENT.** The obvious remedy
+is to stop hand-rolling and use the shared primitive — `FieldNotice` in
+`field-feedback.tsx` is `<p id role="status" aria-live="polite">`, exactly this
+shape, and the house rule says do not hand-roll what a primitive covers. But
+`FieldNotice` opens with `if (!children) return null`, so it is conditionally
+mounted too. Swapping to it buys the explicit `aria-live`, shared styling and
+one less hand-rolled control; it leaves the insertion problem exactly where it
+is. Do not close this item by swapping the primitive and calling it done.
+
+What actually fixes it is an always-mounted region: widen the prop to
+`BlockRefusal | null`, render the `<p>` unconditionally with empty text when
+null, and drop the `&&` at the four call sites. ★ That is line-count neutral in
+`document-block-editors.tsx`, which matters because that file sits at exactly
+800 of the 800-line cap (§189) — `{refusal && <X … />}` and `<X … />` are one
+line either way, at all four sites.
+
+### Costs and open questions, so the next person does not rediscover them
+
+- ★ The swap is NOT cosmetically neutral. `FieldNotice` hardcodes
+  `mt-1 text-xs text-ui-pink-strong`; the block notice is `text-xs text-ui-pink`.
+  Different palette token and an added margin — both need an eye check against
+  the block editors' spacing, and the token change needs a contrast read on the
+  surfaces it lands on. jsdom cannot judge either.
+- ★ `FieldNotice` takes an `id` for `aria-describedby` wiring. The block notice
+  has no such wiring today. Adding the primitive without the association gets a
+  prop that does nothing.
+- ★ An always-mounted empty `<p>` still occupies layout unless it collapses.
+  Check that an empty notice does not add permanent vertical space under every
+  block editor — four per block, in a list.
+
+★★ **A REVIEWER CLAIM THAT DOES NOT SURVIVE, recorded so it is not repeated:**
+the review said this is "the only live region in `src/app` relying on the
+implicit `aria-live` of `role="status"` rather than stating it". It is not —
+ELEVEN other non-test files do the same. Derive rather than trust either number:
+
+```bash
+for f in $(grep -rl 'role="status"' src/app --include=*.tsx | grep -v "\.test\."); do
+  grep -q 'aria-live="' "$f" || echo "$f"
+done
+```
+
+So making this one explicit is a consistency argument at best, not a
+correction of a lone outlier — and if implicit-vs-explicit is judged to matter,
+it is a sweep, not a one-file fix.
+
+★ One more over-broad premise in the same docstring: "This element mounts AFTER
+a blur has already moved focus elsewhere" holds for the BLUR path only. On the
+`commitValue` paths — bullets add/remove/move/toggle, table add/remove, the
+dataSection `<select>` — it mounts with focus still on the control just
+operated. The conclusion (the mount alone announces nothing to a screen-reader
+user) is unchanged either way, so this is a wording fix, not a defect.
+
+**To close:** make the region always-mounted, decide the `FieldNotice`-vs-local
+question on the styling and `id` questions above rather than on the
+announcement, and correct the two over-broad docstring sentences in the same
+commit. Nothing will catch a regression here afterwards, so whatever is decided
+belongs in the docstring rather than in a test.
+
+## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state
+
+**Status:** open. **Severity:** medium (a false affordance plus a silent
+refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
+review of the S3b branch, 2026-08-19.
+
+`normalizeBlockForStorage` clamps a block to `MAX_TABLE_COLUMNS` (30),
+`MAX_TABLE_ROWS` (500), `MAX_BULLET_ITEMS` (200), `MAX_TEXT_CHARS` (5 000) and
+`MAX_HTML_TEXT_CHARS` (20 000). Nothing upstream stops a draft exceeding any of
+them: "Add column", "Add row" and "Add item" carry no `disabled` at the cap, and
+no text input carries a `maxLength`. Reaching a cap therefore produces a control
+the user can see and type into, whose content storage will never accept.
+
+`tryCommit` then refuses it SILENTLY. Its no-change branch runs
+`setRefusal(null); return false` — so the cap is a THIRD refusal reason with no
+`BlockRefusal` variant and no notice, in the one file whose notice component
+exists precisely because "the concurrent-write ABANDON did not have one".
+
+★★ **The reconcile's cap arm treats the symptom, not this.** It clears such a
+draft on the next parent render so the phantom control cannot persist
+indefinitely (see `exceedsStorageCaps`). That restores the pre-branch behaviour
+— the identity-keyed re-seed it replaced dropped the same text on the same
+trigger — but it is a cleanup, not a fix, and it has a real cost recorded below.
+
+★★★ **THE OVER-CAP CONTENT IS NOT UNRECOVERABLE, AND AN EARLIER COMMENT SAID IT
+WAS.** `removeItem` and `removeColumn` route the WHOLE draft through
+`commitValue`, so deleting any row or column brings the draft back under the cap
+and the previously-unsaveable text COMMITS. The claim "it can NEVER become
+committable" shipped in `document-model.ts` and `document-block-editors.tsx` and
+was refuted by the review in one command; both now say "cannot commit while it
+stays over the cap". The consequence is that the re-seed discards text the user
+could have rescued by deleting a row first — which is exactly why the fix below
+is the one that matters.
+
+**To close**, in this order:
+
+1. **Stop the state being reachable.** `disabled` on Add row / Add column / Add
+   item at the cap, with the reason surfaced (a real `disabled` attribute, never
+   an `aria-disabled` lookalike — that still fires `onClick`). ★ A disabled
+   control needs a reason visible somewhere or it is the "disabled control with
+   no reason" defect the block editors already avoid elsewhere.
+2. **Give the cap a refusal.** Widen `BlockRefusal` from `"empty" | "conflict"`
+   to carry a `"cap"` variant with its own i18n string, and have `tryCommit`
+   set it rather than clearing the refusal, so a no-change-because-clamped
+   commit says so.
+3. Once 1 and 2 exist, revisit whether the reconcile's cap arm should still
+   discard the draft or leave it for the user to shorten deliberately.
+
+★ Blocked on headroom for the parts that live in `document-block-editors.tsx`,
+which sits at exactly 800 of the 800-line cap — see §189. The table controls are
+in `document-table-editor.tsx` (225 lines) and are not blocked.
+
+★★ A related gap the same review found, worth closing with 2: `exceedsStorageCaps`
+ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
+`DocBlock` kind would silently be classified as never-truncating. The predicate's
+arms are now pinned individually in `document-model.test.ts`, but nothing forces
+a new arm when the union grows.

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { applyDocMutation, type DocState } from "./document-mutations";
-import { deletedDocumentVersions } from "./document-versions";
+import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
 import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type DocBlock, type ProjectDocument } from "./document-model";
 import { MAX_LINKS_PER_DOC } from "./document-ref";
 
@@ -25,6 +27,55 @@ const ctx = () => ({
   mintDocId: () => nextDoc++,
   mintVersionId: () => nextVer++,
 });
+
+// Returns the FULL object-literal text (braces balanced from the opening `{`)
+// that encloses the first occurrence of `anchor`, rather than a fixed-width
+// forward slice — a forward slice misses a spread placed BEFORE the anchor
+// (`{ ...rawArgs, kind: "ops", ... }`, the more idiomatic refactor shape) and
+// silently passes on a reformatted anchor it can no longer find (indexOf
+// returns -1, and a bare `.slice(-1)` would then read the LAST character of
+// the file). Throws — loudly, not a passing assertion — when the anchor or
+// its enclosing braces cannot be located, so a broken anchor fails the test
+// instead of vacuously passing it.
+function findEnclosingObjectLiteral(src: string, anchor: string): string {
+  const anchorIndex = src.indexOf(anchor);
+  if (anchorIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: anchor ${JSON.stringify(anchor)} not found`);
+  }
+  let depth = 0;
+  let openIndex = -1;
+  for (let i = anchorIndex; i >= 0; i--) {
+    const ch = src[i];
+    if (ch === "}") depth++;
+    else if (ch === "{") {
+      if (depth === 0) {
+        openIndex = i;
+        break;
+      }
+      depth--;
+    }
+  }
+  if (openIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: no enclosing "{" found before ${JSON.stringify(anchor)}`);
+  }
+  depth = 0;
+  let closeIndex = -1;
+  for (let i = openIndex; i < src.length; i++) {
+    const ch = src[i];
+    if (ch === "{") depth++;
+    else if (ch === "}") {
+      depth--;
+      if (depth === 0) {
+        closeIndex = i;
+        break;
+      }
+    }
+  }
+  if (closeIndex === -1) {
+    throw new Error(`findEnclosingObjectLiteral: no matching "}" found after ${JSON.stringify(anchor)}`);
+  }
+  return src.slice(openIndex, closeIndex + 1);
+}
 
 describe("applyDocMutation — versions", () => {
   it("create writes no version — nothing was replaced", () => {
@@ -139,6 +190,55 @@ describe("applyDocMutation — ops", () => {
     const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replaceAll", blocks: [{ type: "pageBreak" }] }] }, ctx());
     expect(out.documents[0].blocks).toEqual([{ type: "pageBreak" }]);
     expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  it("coalesce: true suppresses the before-image but still applies the edit", () => {
+    const mark: DocBlock = { type: "paragraph", html: "<p>new</p>" };
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: mark }], coalesce: true }, ctx());
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(mark);
+    // The edit landed; no history entry was created for it.
+    expect(out.versions).toHaveLength(0);
+  });
+
+  it("coalesce absent writes the before-image, byte-identical to today", () => {
+    const mark: DocBlock = { type: "paragraph", html: "<p>new</p>" };
+    const out = applyDocMutation(state(), { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: mark }] }, ctx());
+    expect(out.versions).toHaveLength(1);
+    expect(out.versions[0].op).toBe("update");
+    // The before-image holds the PRE-edit blocks, not the post-edit ones.
+    expect(out.versions[0].blocks).toEqual(DOC.blocks);
+  });
+
+  it("the AI tool path cannot set coalesce — it builds the mutation field by field", () => {
+    // use-document-tools.ts constructs `{ kind: "ops", id, ops: cleanOps, title }`
+    // with explicit fields and no spread of model-supplied args, so a model
+    // cannot suppress version history. Scans the WHOLE enclosing object
+    // literal (brace-balanced, not a fixed-width forward window), so a
+    // spread BEFORE `kind: "ops"` is caught too, not just one placed after.
+    // It ALSO bans the field by name, because the object is built explicitly:
+    // a spread is not the only way in.
+    const src = readFileSync(join(import.meta.dirname, "use-document-tools.ts"), "utf8");
+    const opsLiteral = findEnclosingObjectLiteral(src, 'kind: "ops"');
+    expect(opsLiteral).not.toMatch(/\.\.\./);
+    // ★★ THE SPREAD BAN IS HALF THE PROPERTY. A spread is only the SHORTEST
+    //  way to smuggle the flag through; `, coalesce: rawArgs.coalesce` is a
+    //  direct field and passed the spread check untouched. Name the field.
+    expect(opsLiteral).not.toMatch(/coalesce/);
+  });
+});
+
+describe("findEnclosingObjectLiteral (test-helper guard)", () => {
+  it("returns the whole object literal, not a fixed-width window", () => {
+    const src = 'const x = mutateDocuments({ kind: "ops", id, ops: cleanOps, title }, "ai");';
+    expect(findEnclosingObjectLiteral(src, 'kind: "ops"')).toBe(
+      '{ kind: "ops", id, ops: cleanOps, title }',
+    );
+  });
+
+  it("throws — loudly, not a passing assertion — when the anchor is not found", () => {
+    const src = 'const x = mutateDocuments({ kind: \'ops\', id, ops: cleanOps, title }, "ai");';
+    expect(() => findEnclosingObjectLiteral(src, 'kind: "ops"')).toThrow();
   });
 });
 
@@ -948,5 +1048,241 @@ describe("link / unlink", () => {
     const out = applyDocMutation(withBoth, { kind: "unlink", id: 1, ref: { kind: "raid", id: 7 } }, ctx());
     expect(out.changed).toBe(true);
     expect(out.documents[0].linkedEntities).toEqual([{ kind: "task", id: 7 }]);
+  });
+});
+
+// ★★★ WHY THIS BLOCK EXISTS. `DocResult.minted` is consumed by exactly one
+//  caller — use-document-editor.ts's coalescing anchor — and its whole value is
+//  that it names THE ROW THIS CALL MINTED rather than "the newest row", which a
+//  skewed clock can make somebody else's. The tests below therefore have to be
+//  able to tell those two answers apart; a fixture whose minted row happens to
+//  be the newest cannot, and would pass against the very implementation this
+//  field replaced.
+describe("applyDocMutation reports the version it minted", () => {
+  // ★ A LOCAL mint counter, not the module-level `ctx()`. `nextVer` above is
+  //  module state shared by every test in this file, and `npm run test:shuffle`
+  //  reorders tests WITHIN a file — so an absolute-id assertion built on it
+  //  would pass or fail by test order. This one restarts at 500 per call.
+  const FIRST_MINT = 500;
+  const MINT_NOW = "2026-08-06T09:00:00.000Z";
+  const localCtx = (source: DocVersionSource = "user") => {
+    let doc = 900;
+    let ver = FIRST_MINT;
+    return { now: MINT_NOW, source, mintDocId: () => doc++, mintVersionId: () => ver++ };
+  };
+
+  const seeded = (over: Partial<DocVersion> = {}): DocVersion => ({
+    id: 42,
+    documentId: 1,
+    title: "Status report",
+    blocks: [],
+    savedAt: "2026-08-05T09:00:00.000Z",
+    source: "user",
+    op: "update",
+    ...over,
+  });
+
+  it.each([
+    ["rename", { kind: "rename", id: 1, title: "Renamed" }],
+    ["delete", { kind: "delete", id: 1 }],
+    ["duplicate", { kind: "duplicate", id: 1, title: "Copy" }],
+    ["ops", { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }] }],
+  ] as const)("names the row %s appended, not one that was already there", (_label, m) => {
+    // The seeded row is what a "return the newest existing id" implementation
+    // would report, so the two answers are distinguishable here.
+    const out = applyDocMutation(state({ versions: [seeded()] }), m, localCtx());
+    expect(out.changed).toBe(true);
+    // BOTH halves: the id AND the savedAt the caller will pair against. The
+    // seeded row differs in both, so neither half can pass by coincidence.
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
+  });
+
+  it("names a row that is actually in the returned list, id and savedAt both", () => {
+    const out = applyDocMutation(state(), { kind: "rename", id: 1, title: "Renamed" }, localCtx());
+    expect(out.versions).toContainEqual(expect.objectContaining(out.minted!));
+  });
+
+  it("names the RESTORED marker when a restore recreates a deleted document", () => {
+    // ★ ONE ctx across BOTH calls, deliberately. Giving the restore its own
+    //  counter would mint the marker at the same id as the tombstone it closes,
+    //  and the `not.toBe` below — the assertion that says these are two
+    //  DIFFERENT rows — could not fail. (It did exactly that on the first cut.)
+    const shared = localCtx();
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, shared);
+    const tombstone = deleted.versions[0].id;
+    expect(tombstone).toBe(FIRST_MINT);
+    const out = applyDocMutation(deleted, { kind: "restore", versionId: tombstone }, shared);
+    expect(out.changed).toBe(true);
+    // The marker is a NEW row, not the tombstone it closes.
+    expect(out.minted).toEqual({ id: FIRST_MINT + 1, savedAt: MINT_NOW });
+    expect(out.minted?.id).not.toBe(tombstone);
+  });
+
+  it("names the before-image when a restore lands IN PLACE on a live document", () => {
+    const out = applyDocMutation(
+      state({ versions: [seeded({ id: 42, blocks: [{ type: "paragraph", html: "<p>old</p>" }] })] }),
+      { kind: "restore", versionId: 42 },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
+  });
+
+  it.each([
+    ["create", { kind: "create", title: "New", blocks: [] }],
+    ["link", { kind: "link", id: 1, ref: { kind: "task", id: 7 } }],
+  ] as const)("is null for %s, which lands a change but writes no history", (_label, m) => {
+    const start = state({ versions: [seeded()] });
+    const out = applyDocMutation(start, m, localCtx());
+    expect(out.changed).toBe(true);
+    expect(out.minted).toBe(null);
+    // ★ The positive control for the absence above: the list really is
+    //  untouched, so `null` means "minted none" and not "the assertion passed
+    //  because there was nothing to mint from".
+    expect(out.versions).toBe(start.versions);
+  });
+
+  it("is null for unlink, which removes a reference and writes no history", () => {
+    const linked = applyDocMutation(
+      state({ versions: [seeded()] }),
+      { kind: "link", id: 1, ref: { kind: "task", id: 7 } },
+      localCtx(),
+    );
+    const out = applyDocMutation(
+      linked,
+      { kind: "unlink", id: 1, ref: { kind: "task", id: 7 } },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.minted).toBe(null);
+    expect(out.versions).toBe(linked.versions);
+  });
+
+  it("is null for a REFUSED mutation", () => {
+    const out = applyDocMutation(
+      state({ versions: [seeded()] }),
+      { kind: "rename", id: 999, title: "Nope" },
+      localCtx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.minted).toBe(null);
+  });
+
+  // ★★★ THE CASE THE HOOK'S ADVANCE RULE TURNS ON. A coalesced edit LANDS
+  //  (`changed: true`) and deliberately mints nothing, so the anchor must stay
+  //  where it is. If this reported the newest EXISTING id instead of null the
+  //  editor would re-anchor onto a row it did not write, which is the whole
+  //  defect. The seeded row is what makes null and "newest existing" tellable
+  //  apart.
+  it("is null for a COALESCED edit, which lands without minting", () => {
+    const start = state({ versions: [seeded()] });
+    const out = applyDocMutation(
+      start,
+      { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }], coalesce: true },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.minted).toBe(null);
+    expect(out.versions.map((v) => v.id)).toEqual([42]);
+  });
+
+  // ★★★ THE DEFECT THIS FIELD EXISTS FOR, stated as a test. `savedAt` is
+  //  validated for canonical-ISO SHAPE only and is never clamped to the present,
+  //  so a row written by a skewed clock on a shared project sorts NEWEST while
+  //  belonging to somebody else. Re-deriving "newest" would report 42 here and
+  //  the editor would coalesce onto a stranger's before-image.
+  it("reports its OWN row even when a foreign version carries a LATER savedAt", () => {
+    const future = seeded({ id: 42, savedAt: "2099-01-01T00:00:00.000Z" });
+    const out = applyDocMutation(
+      state({ versions: [future] }),
+      { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }] },
+      localCtx(),
+    );
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
+    expect(out.minted?.id).not.toBe(42);
+  });
+});
+
+// ★★★ THE CONCURRENT-WRITE GUARD, IN THE ENGINE. A block editor's unmount
+// flush cannot see a write that arrived without re-rendering its row (the
+// parent swaps a DIFFERENT component in when the block TYPE changes at an
+// index, so the outgoing row is torn down with every ref frozen at the
+// pre-write value). The engine reads live state at call time, so the
+// expectation has to be checked HERE — the in-component guard is the fast,
+// quiet abandon on the path that CAN see the write, this is the backstop that
+// cannot be fooled.
+describe("applyOps — replace against an expected baseline", () => {
+  const stale: DocBlock = { type: "heading", level: 1, text: "stale draft" };
+  const landed: DocBlock = { type: "heading", level: 1, text: "Week 13" };
+
+  /** The collision, seeded explicitly: one mutation lands, then a second
+   *  arrives carrying the baseline that was current BEFORE the first. A test
+   *  that replaces against an untouched document passes whichever way the
+   *  engine decides, so it could not express this bug. */
+  const afterFirstWrite = (): DocState => {
+    const first = applyDocMutation(
+      state(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: landed }] },
+      ctx(),
+    );
+    expect(first.changed).toBe(true);
+    return { documents: first.documents, versions: first.versions };
+  };
+
+  it("refuses a replace whose expect no longer matches, and reports a reason", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale, expect: DOC.blocks[0] }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    // The concurrent write SURVIVES — this is the property, not the message.
+    expect(out.documents[0].blocks[0]).toEqual(landed);
+    expect(out.rejected).toEqual(["op 0: replace index 0 was changed by another writer"]);
+  });
+
+  it("applies a replace whose expect still matches", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale, expect: landed }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(stale);
+    expect(out.rejected).toEqual([]);
+  });
+
+  // ★ The control: `expect` is OPTIONAL, and every pre-existing caller (the AI
+  //  tools, the property suite) omits it. An absent expectation must never be
+  //  read as "expected nothing" — that would refuse every one of them.
+  it("applies a replace with NO expect at all", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(stale);
+    expect(out.rejected).toEqual([]);
+  });
+
+  // ★ An omitted optional field and one explicitly set to `undefined` are the
+  //  same block (`blockChanged`'s own rule), so a form control that clears
+  //  `ordered` must not read as a concurrent write.
+  it("treats an omitted optional field and an explicit undefined as a match", () => {
+    const stored: DocBlock = { type: "bullets", items: ["a"] };
+    const withUndefined: DocBlock = { type: "bullets", items: ["a"], ordered: undefined };
+    const doc: ProjectDocument = { ...DOC, blocks: [stored] };
+    const out = applyDocMutation(
+      { documents: [doc], versions: [] },
+      {
+        kind: "ops",
+        id: 1,
+        ops: [{ op: "replace", index: 0, block: { type: "bullets", items: ["a", "b"] }, expect: withUndefined }],
+      },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.rejected).toEqual([]);
   });
 });

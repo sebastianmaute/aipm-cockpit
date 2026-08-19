@@ -34,6 +34,26 @@ export const DOC_FORMATS: readonly { value: DocFormat; label: string }[] = [
   { value: "html", label: "HTML" },
 ];
 
+/** The pane's edit-mode controls, threaded as ONE object rather than three
+ *  flat props (AGENTS.md's extraction convention — the same reason a
+ *  calendar-capable entity threads one `EntityCalendarProps`). Built by
+ *  `useDocumentEditMode`, so the panel does not have to keep three names in
+ *  step. */
+export interface DocumentsEditToolbarProps {
+  /** Whether the block editor is showing (vs the read-only preview). ★ The
+   *  label is PINNED to "Edit blocks" in both states — it does NOT flip to
+   *  "Preview" — so `aria-pressed` tracks what the label names, mirroring the
+   *  deleted-documents toggle. A flipped label would announce the WRONG mode
+   *  as active (WCAG 4.1.2), which axe cannot catch (see AGENTS.md). */
+  editing: boolean;
+  onToggleEditing: () => void;
+  /** False when nothing is selected. ★★ `DocumentEditModeBody` needs a
+   *  non-null `doc` as well as `!isReadOnly`, so a toggle gated on isReadOnly
+   *  ALONE pressed, reported aria-pressed="true", and did nothing — a lie the
+   *  a11y gate passes because a name exists. Mirrors `canDownload`. */
+  canEdit: boolean;
+}
+
 export interface DocumentsToolbarProps {
   lang: Lang;
   /** Create a new empty document. */
@@ -57,10 +77,16 @@ export interface DocumentsToolbarProps {
    *  worded warning would be better and needs an i18n key this task was told
    *  not to add; see the report. */
   deletedCount: number;
+  editToolbar: DocumentsEditToolbarProps;
   /** Popout mirrors are read-only: the CREATE affordance goes inert. Download,
    *  print and the view controls stay live — they mutate nothing. */
   isReadOnly?: boolean;
 }
+
+// ★ Module-scope constants, not `useId`: this toolbar is rendered once per
+//  pane and the ids are referenced from two places in the same subtree.
+const EDIT_DISABLED_HINT_ID = "documents-edit-blocks-disabled-hint";
+const NEW_DISABLED_HINT_ID = "documents-new-disabled-hint";
 
 export function DocumentsToolbar({
   lang,
@@ -74,11 +100,26 @@ export function DocumentsToolbar({
   showDeleted,
   onShowDeletedChange,
   deletedCount,
+  editToolbar,
   isReadOnly,
 }: DocumentsToolbarProps) {
+  // ★ TWO reasons, different text. Read-only wins: in a popout mirror nothing
+  //  is editable regardless of selection, so naming the selection would send
+  //  the user to pick a row that changes nothing.
+  const editDisabledReason = isReadOnly
+    ? t(lang, "documentsReadOnlyMirror")
+    : editToolbar.canEdit
+      ? undefined
+      : t(lang, "documentsEditBlocksNoDocument");
   return (
     <PaneToolbar>
-      <AddButton onClick={onNew} disabled={isReadOnly}>{t(lang, "documentsNew")}</AddButton>
+      <AddButton
+        onClick={onNew}
+        disabled={isReadOnly}
+        aria-describedby={isReadOnly ? NEW_DISABLED_HINT_ID : undefined}
+      >
+        {t(lang, "documentsNew")}
+      </AddButton>
       {/* ★ Its OWN accessible name, not "Download": two adjacent controls both
           named "Download" is a WCAG 2.4.6 failure that axe will NOT flag,
           because they are different roles and each has *a* name. And a visible
@@ -137,6 +178,38 @@ export function DocumentsToolbar({
       >
         {`${t(lang, "documentsShowDeleted")} (${deletedCount})`}
       </ToggleButton>
+      {/* ★ Same reasoning as the deleted-documents toggle just above: the
+          label is pinned to what pressed=true ENABLES ("Edit blocks" showing
+          the block editor), never flipped to "Preview" — a flip would
+          announce the wrong mode as active (WCAG 4.1.2), which axe cannot
+          catch. Disabled whenever `editDisabledReason` is set — either a
+          read-only popout mirror or no document selected, matching New
+          document — a toggle that presses and does nothing is a false
+          affordance (WCAG 4.1.2). */}
+      <ToggleButton
+        pressed={editToolbar.editing}
+        onToggle={editToolbar.onToggleEditing}
+        lang={lang}
+        title={t(lang, "documentsEditBlocks")}
+        disabled={editDisabledReason !== undefined}
+        ariaDescribedBy={editDisabledReason !== undefined ? EDIT_DISABLED_HINT_ID : undefined}
+      >
+        {t(lang, "documentsEditBlocks")}
+      </ToggleButton>
+      {/* ★★ The description node for BOTH inert controls. `ToggleButton`
+          suppresses its on/off tooltip suffix while disabled and a disabled
+          control leaves the tab order, so without this the toggle announces a
+          bare name and nothing about why it cannot be used. Rendered
+          unconditionally so the id an `aria-describedby` points at always
+          resolves — a dangling idref announces nothing and axe does not flag
+          it. `sr-only`, because the reason is redundant beside a control a
+          sighted user can see is greyed out. */}
+      <span id={EDIT_DISABLED_HINT_ID} className="sr-only">
+        {editDisabledReason ?? ""}
+      </span>
+      <span id={NEW_DISABLED_HINT_ID} className="sr-only">
+        {isReadOnly ? t(lang, "documentsReadOnlyMirror") : ""}
+      </span>
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />
         <ResetColWidthsButton onClick={onResetColumns} lang={lang} />

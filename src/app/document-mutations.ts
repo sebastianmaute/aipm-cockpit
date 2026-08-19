@@ -25,6 +25,7 @@
 // reference identity to decide whether a write is needed at all.
 
 import {
+  blockChanged,
   MAX_BLOCKS_PER_DOC,
   MAX_DOCUMENTS,
   MAX_TITLE_CHARS,
@@ -44,7 +45,16 @@ import { MAX_LINKS_PER_DOC, refKey, sanitizeDocEntityRefs, type DocEntityRef } f
 export type DocOp =
   | { op: "append"; block: DocBlock }
   | { op: "insert"; index: number; block: DocBlock }
-  | { op: "replace"; index: number; block: DocBlock }
+  // ★★★ `expect` IS AN OPTIMISTIC-CONCURRENCY PRECONDITION: apply this only
+  //  while the block at `index` is still the one the caller derived its edit
+  //  from. The hand block editor supplies its draft's baseline, because its own
+  //  in-component guard reads refs that only advance when that row RENDERS — and
+  //  a write changing the block's TYPE at an index unmounts the row with NO
+  //  final render, freezing every ref at the pre-write value. This module reads
+  //  live state at call time, so it is the one place the check cannot be fooled.
+  //  ★ OPTIONAL, and an absent one must never be read as "expected nothing":
+  //   every AI/tool caller omits it and must keep applying.
+  | { op: "replace"; index: number; block: DocBlock; expect?: DocBlock }
   | { op: "delete"; index: number }
   | { op: "replaceAll"; blocks: readonly DocBlock[] };
 
@@ -53,12 +63,43 @@ export type DocMutation =
   | { kind: "rename"; id: number; title: string }
   | { kind: "duplicate"; id: number; title: string }
   | { kind: "delete"; id: number }
-  | { kind: "ops"; id: number; ops: readonly DocOp[]; title?: string }
+  | { kind: "ops"; id: number; ops: readonly DocOp[]; title?: string; coalesce?: boolean }
   | { kind: "restore"; versionId: number }
   | { kind: "link"; id: number; ref: DocEntityRef }
   | { kind: "unlink"; id: number; ref: Pick<DocEntityRef, "kind" | "id"> };
 
 export type DocState = { documents: readonly ProjectDocument[]; versions: readonly DocVersion[] };
+
+/**
+ * ★★★ THE IDENTITY OF ONE MINTED VERSION — the `(id, savedAt)` PAIR, not an id.
+ *
+ * A caller anchoring a coalescing run has to know WHICH ROW IS ITS OWN, and
+ * two different implementations of that question have already been wrong here:
+ *
+ *  ★★ "THE NEWEST ROW" is wrong because `savedAt` is validated for canonical-
+ *   ISO SHAPE only (`isCanonicalIso` in document-versions.ts) and is never
+ *   clamped to the present. A foreign row written by a skewed clock on a shared
+ *   Turso project — or carried in by an imported workspace — sorts newest and
+ *   gets adopted as "mine", so the block editor coalesces onto somebody else's
+ *   before-image and suppresses its own. Reporting what THIS call minted is
+ *   timestamp-independent and closes that.
+ *
+ *  ★★ "THE MINTED ID" is wrong across a PROJECT SWITCH, which is why the id
+ *   alone was not enough. `seedMintFromWorkspace(ws, "reset")` reseeds the
+ *   `documentVersion` high-water from the incoming project's own list, so ids
+ *   restart per project — and the anchor is a ref in a React hook that survives
+ *   a switch on the Documents tab. Project B can legitimately hold version #7
+ *   on document #3 while the ref still says 7, and the run resumes onto a row
+ *   from a different project entirely.
+ *
+ *  ★ The PAIR closes that at no cost: `savedAt` differs between two unrelated
+ *   projects' rows, and the check stays pure EQUALITY — no ordering, no
+ *   `Date.parse`, no window arithmetic — so no clock can influence it either.
+ *   (The 5-minute coalescing window is a separate check on `now`, unrelated to
+ *   this identity.)
+ *
+ * ★★ BUILD IT FROM THE ROW, never from `ctx.now` — see `mintedOf`. */
+export type DocMintedVersion = { id: number; savedAt: string };
 
 export type DocResult = DocState & {
   changed: boolean;
@@ -66,6 +107,11 @@ export type DocResult = DocState & {
   /** The document the mutation landed on — the caller's tool result needs it.
    *  `null` for delete (nothing survives) and for a rejected/no-op mutation. */
   documentId: number | null;
+  /** ★★★ THE VERSION **THIS CALL** MINTED — `null` when it minted none: a
+   *  refusal, a no-op, a `coalesce`d edit, or one of the three branches that
+   *  write no history at all (create / link / unlink). See DocMintedVersion
+   *  for why it is a PAIR and not an id. */
+  minted: DocMintedVersion | null;
 };
 
 export type DocContext = {
@@ -76,7 +122,7 @@ export type DocContext = {
 };
 
 function unchanged(state: DocState, rejected: readonly string[] = []): DocResult {
-  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null };
+  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null, minted: null };
 }
 
 /** Cap+trim a title the SAME way document-model.ts's sanitizer does
@@ -203,6 +249,25 @@ function linkLimitReason(): string {
  *  one with the other's wording. */
 function exceedsBlockCap(next: number, current: number): boolean {
   return next > MAX_BLOCKS_PER_DOC && next > current;
+}
+
+/** The anchor pair for a row this call appended, or `null` when it appended
+ *  none — so a branch that mints conditionally (only `ops`, via `coalesce`)
+ *  needs no ternary of its own.
+ *
+ *  ★★ BOTH FIELDS COME FROM THE ROW, never `ctx.now`. They are equal today only
+ *   because `snapshot` stamps `ctx.now`; a future mint that stamps anything
+ *   else would hand out an anchor that can never match its own row, and the
+ *   run would silently stop coalescing rather than fail visibly.
+ *
+ *  ★ It names a row this call APPENDED. Retention (`withVersions` →
+ *   `trimVersions`) runs afterwards and could in principle drop it, so the pair
+ *   is not guaranteed to be present in the `versions` returned beside it. That
+ *   is the SAFE direction for the one consumer: an anchor naming a pruned row
+ *   can never equal the newest row, so the next edit records a real
+ *   before-image instead of suppressing one. */
+function mintedOf(v: DocVersion | undefined): DocMintedVersion | null {
+  return v ? { id: v.id, savedAt: v.savedAt } : null;
 }
 
 /** The before-image of `doc`, as it stands right now. */
@@ -351,6 +416,14 @@ function applyOps(
           rejected.push(`op ${i}: replace requires a block`);
           break;
         }
+        // ★★ REFUSE, do not overwrite — the concurrent write has no undo (AI
+        //  and restore writes bypass the undo stack), while the draft this
+        //  refuses is one unblurred keystroke burst the user can retype. The
+        //  reason reaches them through the panel's existing refusal banner.
+        if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
+          rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
+          break;
+        }
         next[op.index] = op.block;
         applied++;
         break;
@@ -415,7 +488,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // Nothing was replaced — a create writes no version. Consistent with
       // restore-of-a-deleted-document below, which is also a create (a new
       // id, not a resurrection of the old one) and also writes none.
-      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id };
+      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id, minted: null };
     }
 
     case "restore": {
@@ -463,6 +536,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
           changed: true,
           rejected: [],
           documentId: restoredDoc.id,
+          minted: mintedOf(before),
         };
       }
       // ★★★ RESTORE IS NOT IDEMPOTENT WITHOUT THIS, and the marker alone does
@@ -533,6 +607,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: recreated.id,
+        minted: mintedOf(marker),
       };
     }
 
@@ -551,6 +626,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: target.id,
+        minted: mintedOf(before),
       };
     }
 
@@ -572,7 +648,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (current.length >= MAX_LINKS_PER_DOC) return unchanged(state, [linkLimitReason()]);
       const linked: ProjectDocument = { ...target, linkedEntities: [...current, ref] };
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? linked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, minted: null };
     }
 
     case "unlink": {
@@ -595,7 +671,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       delete (withoutRefs as { linkedEntities?: unknown }).linkedEntities;
       const unlinked: ProjectDocument = kept.length > 0 ? { ...target, linkedEntities: kept } : withoutRefs;
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? unlinked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, minted: null };
     }
 
     case "duplicate": {
@@ -641,6 +717,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: copy.id,
+        minted: mintedOf(before),
       };
     }
 
@@ -655,6 +732,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: null,
+        minted: mintedOf(before),
       };
     }
 
@@ -685,7 +763,17 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         }
       }
       if (nextBlocks === null && !titleChanged) return unchanged(state, rejected);
-      const before = snapshot(target, "update", ctx);
+      // ★★ `coalesce` SUPPRESSES THE BEFORE-IMAGE AND NOTHING ELSE. The edit
+      //  still lands and retention still re-runs — `withVersions` already takes
+      //  an optional `added`, so passing `undefined` is the whole mechanism.
+      //  Set by the hand editor when the newest version for this document is
+      //  already a `user`/`update` inside the coalescing window, so that a
+      //  20-block editing session cannot evict the document's own history
+      //  against MAX_VERSIONS_PER_DOC. See document-editor-commit.ts, which
+      //  owns the decision (this module only honours the flag).
+      // ★ The AI path never sets it: use-document-tools.ts builds this mutation
+      //  field by field, so a model cannot suppress its own audit trail.
+      const before = m.coalesce ? undefined : snapshot(target, "update", ctx);
       const updated: ProjectDocument = { ...target, title: nextTitle, blocks: nextBlocks ?? target.blocks, updatedAt: ctx.now };
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? updated : d));
       return {
@@ -694,6 +782,12 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected,
         documentId: target.id,
+        // ★★ THE ONE BRANCH THAT LANDS A WRITE WHILE MINTING NOTHING: a
+        //  coalesced edit is `changed: true` with no new row, so `before` is
+        //  undefined, this is `null`, and the caller's run keeps whichever
+        //  anchor it already held. Reading it as "the run has no anchor"
+        //  would make every second edit mint, defeating coalescing entirely.
+        minted: mintedOf(before),
       };
     }
   }

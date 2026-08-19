@@ -7,9 +7,15 @@ import {
   MAX_TABLE_ROWS,
   MAX_TABLE_COLUMNS,
   MAX_BULLET_ITEMS,
+  MAX_TEXT_CHARS,
+  MAX_HTML_TEXT_CHARS,
+  exceedsStorageCaps,
+  normalizeBlockForStorage,
+  type DocBlock,
   type DocTruncationDiag,
   type ProjectDocument,
 } from "./document-model";
+import { EXPORT_SECTION_KEYS } from "./settings-types";
 
 const doc = (over: Partial<ProjectDocument> = {}): ProjectDocument => ({
   id: 1,
@@ -429,5 +435,83 @@ describe("sanitizeProjectDocuments — linkedEntities", () => {
   it("omits the field when it was absent", () => {
     const [doc] = sanitizeProjectDocuments([base]);
     expect("linkedEntities" in doc).toBe(false);
+  });
+});
+
+// ★★★ EVERY ARM, BECAUSE THE ONE CONSUMER TEST REACHES EXACTLY ONE OF THEM.
+//  `exceedsStorageCaps` is called from a single site (the block editor's
+//  reconcile), and the test there is a table that trips the COLUMN arm and
+//  short-circuits. A review measured the consequence: deleting `case "bullets"`
+//  outright left the whole suite green. These pin each arm against the
+//  normaliser it mirrors, in BOTH directions — at the cap is not over it.
+//  ★★ The pairing with `sanitizeBlock` is what actually matters and nothing
+//   gates it, so each case asserts the PREDICATE and the normaliser's own
+//   observable effect, rather than the predicate alone.
+describe("exceedsStorageCaps", () => {
+  const truncates = (b: DocBlock): boolean => {
+    const out = normalizeBlockForStorage(b);
+    return out !== null && JSON.stringify(out) !== JSON.stringify(b);
+  };
+
+  it("is false for the kinds that carry no capped content", () => {
+    expect(exceedsStorageCaps({ type: "pageBreak" })).toBe(false);
+    expect(exceedsStorageCaps({ type: "dataSection", key: EXPORT_SECTION_KEYS[0] })).toBe(false);
+  });
+
+  it("catches an over-cap heading and clears one exactly at the cap", () => {
+    const at: DocBlock = { type: "heading", level: 1, text: "x".repeat(MAX_TEXT_CHARS) };
+    const over: DocBlock = { type: "heading", level: 1, text: "x".repeat(MAX_TEXT_CHARS + 1) };
+    expect(exceedsStorageCaps(at)).toBe(false);
+    expect(exceedsStorageCaps(over)).toBe(true);
+    expect(truncates(over)).toBe(true);
+  });
+
+  it("measures a paragraph by VISIBLE text, not markup length", () => {
+    // ★★ The markup must be OVER the cap while the visible text is UNDER it,
+    //  or the case cannot tell `htmlTextLength` from a `html.length` mutant —
+    //  both answer "false" for any input short enough in both measures. A first
+    //  cut used 100 repeats (1 807 html chars) and was vacuous in exactly that
+    //  way, on top of asserting a ">" that was not true.
+    const marked = "<p>" + "<strong>x</strong>".repeat(2_000) + "</p>";
+    expect(marked.length).toBeGreaterThan(MAX_HTML_TEXT_CHARS);
+    expect(exceedsStorageCaps({ type: "paragraph", html: marked })).toBe(false);
+    const over: DocBlock = { type: "paragraph", html: "<p>" + "x".repeat(MAX_HTML_TEXT_CHARS + 1) + "</p>" };
+    expect(exceedsStorageCaps(over)).toBe(true);
+    expect(truncates(over)).toBe(true);
+  });
+
+  it("catches both bullet arms — too many items, and one item too long", () => {
+    const many: DocBlock = { type: "bullets", items: Array(MAX_BULLET_ITEMS + 1).fill("a") };
+    const long: DocBlock = { type: "bullets", items: ["a", "x".repeat(MAX_TEXT_CHARS + 1)] };
+    const fine: DocBlock = { type: "bullets", items: Array(MAX_BULLET_ITEMS).fill("a") };
+    expect(exceedsStorageCaps(many)).toBe(true);
+    expect(exceedsStorageCaps(long)).toBe(true);
+    expect(exceedsStorageCaps(fine)).toBe(false);
+    expect(truncates(many)).toBe(true);
+    expect(truncates(long)).toBe(true);
+  });
+
+  it("catches every table arm — columns, rows, header text, cell text, caption", () => {
+    const cols = (n: number) => Array.from({ length: n }, (_, i) => `c${i}`);
+    const fine: DocBlock = { type: "table", columns: cols(2), rows: [["a", "b"]] };
+    expect(exceedsStorageCaps(fine)).toBe(false);
+
+    const wide: DocBlock = { type: "table", columns: cols(MAX_TABLE_COLUMNS + 1), rows: [] };
+    const tall: DocBlock = { type: "table", columns: cols(1), rows: Array(MAX_TABLE_ROWS + 1).fill(["a"]) };
+    const longHeader: DocBlock = { type: "table", columns: ["x".repeat(MAX_TEXT_CHARS + 1)], rows: [] };
+    const longCell: DocBlock = { type: "table", columns: cols(1), rows: [["x".repeat(MAX_TEXT_CHARS + 1)]] };
+    const longCaption: DocBlock = { type: "table", caption: "x".repeat(MAX_TEXT_CHARS + 1), columns: cols(1), rows: [] };
+    for (const b of [wide, tall, longHeader, longCell, longCaption]) {
+      expect(exceedsStorageCaps(b)).toBe(true);
+      expect(truncates(b)).toBe(true);
+    }
+  });
+
+  // ★ A ragged row (more cells than headers) IS truncated — `sanitizeBlock`
+  //  slices each row to the header count — so the predicate must say so.
+  it("catches a row carrying more cells than there are columns", () => {
+    const ragged: DocBlock = { type: "table", columns: ["a"], rows: [["one", "two"]] };
+    expect(exceedsStorageCaps(ragged)).toBe(true);
+    expect(truncates(ragged)).toBe(true);
   });
 });
