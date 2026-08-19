@@ -8,7 +8,7 @@ beforeAll(installRangePolyfills);
 
 // The queue at its own layer. `note-log-panel.dictation.test.tsx` proves the
 // same property end-to-end through one consumer; this proves it for the
-// component all eight consumers render, which is the layer that has to hold when
+// component all nine consumers render, which is the layer that has to hold when
 // a ninth is added.
 //
 // ★★ Alone in its file, like the note-log dictation suites: the append must
@@ -22,10 +22,11 @@ beforeAll(installRangePolyfills);
 describe("the lazy editor's append queue", () => {
   it("holds text appended before the chunk resolves and replays it on arrival", async () => {
     const ref = createRef<RichTextEditorHandle>();
+    const html: string[] = [];
     render(
       <RichTextEditor
         value="<p>existing</p>"
-        onChange={() => {}}
+        onChange={(next) => html.push(next)}
         label="Description"
         lang="en-US"
         editorRef={ref}
@@ -44,5 +45,18 @@ describe("the lazy editor's append queue", () => {
     const editor = await screen.findByRole("textbox", { name: "Description" }, { timeout: 15_000 });
     expect(editor.textContent).toContain("existing");
     expect(editor.textContent).toContain("queued while loading");
+
+    // ★★★ ASSERT THE BLOCK STRUCTURE, NOT JUST THE TEXT. `textContent` is blind to
+    // both things the deferred-append path can get wrong, and asserting it alone
+    // left the ONE line this wave adds to the raw editor completely unpinned:
+    //   · appending at `doc.content.size` (a DOC-level position, after the last
+    //     block) makes ProseMirror wrap the text in a NEW paragraph, so an empty
+    //     composer persists a stray leading `<p></p>`. See `appendPos`.
+    //   · dropping `{ focus: false }` routes the replay through `focus()` +
+    //     `insertContent`, which inserts at the SELECTION — start-of-document on an
+    //     editor the user has never focused — i.e. it PREPENDS.
+    // Both mutants keep every `textContent` assertion above green and change this
+    // one, which is the whole reason it is here. Do not weaken it back to text.
+    expect(html.at(-1)).toBe("<p>existingqueued while loading</p>");
   });
 });

@@ -51,6 +51,15 @@ describe("an abandoned edit does not resurrect its dictation", () => {
     // The row's registration is the last one made: the panel renders the
     // composer's mic before the row's on every pass.
     const row = pushToTalkCalls[pushToTalkCalls.length - 1];
+    // ★★ ASSERT THE PREMISE. This test only says anything if the transcript is
+    // QUEUED — i.e. the `dynamic()` payload is still unresolved and there is no
+    // live handle to take it. It holds today only because no microtask drains
+    // between the synchronous `fireEvent` calls above, which is a property of the
+    // harness, not of the code under test. If that ever changes the append goes
+    // through a live handle, Cancel discards it anyway, and the test passes for
+    // the wrong reason with the module-scope mutant alive — the exact vacuity
+    // already measured once on the assertion below.
+    expect(screen.queryByRole("textbox", { name: t(EN, "edit") })).toBeNull();
     act(() => row.onAppendFinal("abandoned transcript"));
 
     fireEvent.click(screen.getByRole("button", { name: t(EN, "cancel") }));
