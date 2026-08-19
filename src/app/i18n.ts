@@ -2701,6 +2701,8 @@ const enUS = {
   documentsBlockImageReadOnly:
     "This paragraph contains an image, so it cannot be edited yet. Editing it here would remove the image.",
   documentsBlockNoEditor: "This block has no editable content.",
+  documentsBlockEmptyNotSaved:
+    "Empty content is not saved — this block keeps the text it had.",
   documentsNewTitle: "Untitled document",
   documentsHistory: "History",
   documentsHistoryFor: "History – {0}",

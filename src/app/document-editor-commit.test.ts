@@ -5,6 +5,7 @@ import {
   paragraphHasImage,
   blockChanged,
   replaceBlockOp,
+  blockSurvivesLoad,
 } from "./document-editor-commit";
 import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
@@ -243,5 +244,27 @@ describe("replaceBlockOp", () => {
   it("builds a replace op at the given index", () => {
     const block: DocBlock = { type: "heading", level: 2, text: "H" };
     expect(replaceBlockOp(3, block)).toEqual({ op: "replace", index: 3, block });
+  });
+});
+
+describe("blockSurvivesLoad", () => {
+  // Mirrors document-model.ts's three drop rules WITHOUT restating them — it
+  // asks the real loader. A block the editor can produce but the loader
+  // discards is silent data loss: it renders for the session and is gone on
+  // the next load, and this slice ships no add-block control to recreate it.
+  it("rejects the three shapes sanitizeProjectDocuments drops", () => {
+    expect(blockSurvivesLoad({ type: "heading", level: 1, text: "   " })).toBe(false);
+    expect(blockSurvivesLoad({ type: "paragraph", html: "<p></p>" })).toBe(false);
+    expect(blockSurvivesLoad({ type: "bullets", items: [] })).toBe(false);
+    expect(blockSurvivesLoad({ type: "bullets", items: ["", "  "] })).toBe(false);
+  });
+
+  it("accepts every block kind that survives a load", () => {
+    expect(blockSurvivesLoad({ type: "heading", level: 2, text: "Q3" })).toBe(true);
+    expect(blockSurvivesLoad({ type: "paragraph", html: "<p>x</p>" })).toBe(true);
+    expect(blockSurvivesLoad({ type: "bullets", items: ["a"] })).toBe(true);
+    expect(blockSurvivesLoad({ type: "pageBreak" })).toBe(true);
+    expect(blockSurvivesLoad({ type: "dataSection", key: "tasks" })).toBe(true);
+    expect(blockSurvivesLoad({ type: "table", columns: ["c"], rows: [["v"]] })).toBe(true);
   });
 });

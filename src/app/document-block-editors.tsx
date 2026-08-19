@@ -13,7 +13,7 @@
 //  copy this shape. Keep new editors thin consumers of both.
 import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor";
-import { paragraphHasImage, blockChanged } from "./document-editor-commit";
+import { paragraphHasImage, blockChanged, blockSurvivesLoad } from "./document-editor-commit";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
@@ -286,9 +286,22 @@ export function useBlockDraft<T, B extends DocBlock>(
     return blockChanged(baselineRef.current, stored) && blockChanged(preCommitStoredRef.current, stored);
   };
 
+  const [dropped, setDropped] = useState(false);
+
   /** Shared by `commit` and `commitValue`. Returns true when the write landed. */
   const tryCommit = (next: DocBlock): boolean => {
-    if (!blockChanged(baselineRef.current, next)) return false;
+    if (!blockChanged(baselineRef.current, next)) { setDropped(false); return false; }
+    // ★★★ NEVER COMMIT A BLOCK THE LOADER DISCARDS. An emptied heading, a
+    //  paragraph with no visible text or a bullets list with nothing in it all
+    //  commit fine, render for the rest of the session, and are GONE on the
+    //  next load — and this slice ships no add-block control to recreate one.
+    //  Refusing is right; refusing SILENTLY is the same "disabled control with
+    //  no reason" defect the image guard exists to avoid, so the consumer
+    //  renders `documentsBlockEmptyNotSaved` while this is true. Checked
+    //  BEFORE the concurrent-write guard below: a block this hook itself
+    //  cannot commit is refused regardless of what any other writer did.
+    if (!blockSurvivesLoad(next)) { setDropped(true); return false; }
+    setDropped(false);
     // ★★★ ABANDON RATHER THAN CLOBBER — and this now applies to a BLUR too,
     //  which is a change of policy from the first cut. It used to hold only on
     //  the unmount path, on the reasoning that a deliberate commit may
@@ -341,7 +354,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     // through a ref, which the rule does not treat as a dependency.
   }, []);
 
-  return { value: rawValue, setValue, commit, commitValue, seedNonce };
+  return { value: rawValue, setValue, commit, commitValue, seedNonce, dropped };
 }
 
 /**
@@ -368,6 +381,13 @@ function BlockReadOnlyNotice({ html, reason }: { html: string; reason: string })
       <p className="mt-2 text-xs text-muted-foreground">{reason}</p>
     </div>
   );
+}
+
+/** Shown when a commit was refused because the block would not survive a load
+ *  (`blockSurvivesLoad`). ★ Never silent: a refusal with no reason reads
+ *  exactly like a broken editor — the same principle as the image guard. */
+function BlockDroppedNotice({ lang }: { lang: Lang }) {
+  return <p className="text-xs text-ui-pink">{t(lang, "documentsBlockEmptyNotSaved")}</p>;
 }
 
 const HEADING_LEVELS = [1, 2, 3] as const;
@@ -400,7 +420,7 @@ export function HeadingBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "heading" }>>) {
-  const { value, setValue, commit } = useBlockDraft(
+  const { value, setValue, commit, dropped } = useBlockDraft(
     (b: Extract<DocBlock, { type: "heading" }>): HeadingDraft => ({ level: b.level, text: b.text }),
     block,
     index,
@@ -413,24 +433,27 @@ export function HeadingBlockEditor({
   const suffix = ` ${index + 1}`;
 
   return (
-    <div className="flex flex-wrap items-center gap-2" onBlur={commit}>
-      <select
-        aria-label={t(lang, "documentsHeadingLevel") + suffix}
-        className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
-        value={String(value.level)}
-        onChange={(e) => setValue({ ...value, level: Number(e.target.value) as HeadingLevel })}
-      >
-        {HEADING_LEVELS.map((l) => (
-          <option key={l} value={String(l)}>{`H${l}`}</option>
-        ))}
-      </select>
-      <input
-        type="text"
-        aria-label={t(lang, "documentsHeadingText") + suffix}
-        className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
-        value={value.text}
-        onChange={(e) => setValue({ ...value, text: e.target.value })}
-      />
+    <div className="flex flex-col gap-1" onBlur={commit}>
+      <div className="flex flex-wrap items-center gap-2">
+        <select
+          aria-label={t(lang, "documentsHeadingLevel") + suffix}
+          className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+          value={String(value.level)}
+          onChange={(e) => setValue({ ...value, level: Number(e.target.value) as HeadingLevel })}
+        >
+          {HEADING_LEVELS.map((l) => (
+            <option key={l} value={String(l)}>{`H${l}`}</option>
+          ))}
+        </select>
+        <input
+          type="text"
+          aria-label={t(lang, "documentsHeadingText") + suffix}
+          className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+          value={value.text}
+          onChange={(e) => setValue({ ...value, text: e.target.value })}
+        />
+      </div>
+      {dropped && <BlockDroppedNotice lang={lang} />}
     </div>
   );
 }
@@ -460,7 +483,7 @@ function ParagraphEditorBody({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "paragraph" }>>) {
-  const { value: html, setValue: setHtml, commit, seedNonce } = useBlockDraft(
+  const { value: html, setValue: setHtml, commit, seedNonce, dropped } = useBlockDraft(
     (b: Extract<DocBlock, { type: "paragraph" }>): string => b.html,
     block,
     index,
@@ -491,6 +514,7 @@ function ParagraphEditorBody({
         label={t(lang, "documentsParagraphLabel", String(index + 1))}
         lang={lang}
       />
+      {dropped && <BlockDroppedNotice lang={lang} />}
     </div>
   );
 }
@@ -526,7 +550,7 @@ export function BulletsBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "bullets" }>>) {
-  const { value, setValue, commit, commitValue } = useBlockDraft(
+  const { value, setValue, commit, commitValue, dropped } = useBlockDraft(
     (b: Extract<DocBlock, { type: "bullets" }>): BulletsDraft => ({
       items: b.items,
       ordered: b.ordered === true,
@@ -618,7 +642,14 @@ export function BulletsBlockEditor({
             <button
               type="button"
               aria-label={qualify(t(lang, "documentsRemoveItem", String(i + 1)))}
-              className="rounded-md border border-line px-2 py-1 text-xs"
+              // ★ Mirrors document-table-editor.tsx's remove-row/remove-column
+              //  bounds. Removing the last item produces `items: []`, which
+              //  document-model.ts drops on load — the block would render for
+              //  the session and vanish, with no add-block control to bring it
+              //  back. A real `disabled` attribute, never `aria-disabled`:
+              //  the lookalike still fires onClick.
+              disabled={value.items.length <= 1}
+              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => removeItem(i)}
             >
               <span aria-hidden="true">{"✕"}</span>
@@ -637,6 +668,7 @@ export function BulletsBlockEditor({
           {t(lang, "documentsAddItem")}
         </button>
       </div>
+      {dropped && <BlockDroppedNotice lang={lang} />}
     </div>
   );
 }

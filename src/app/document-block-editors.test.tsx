@@ -1124,3 +1124,36 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     expect(onCommit).not.toHaveBeenCalled();
   });
 });
+
+describe("blocks the loader would discard", () => {
+  // ★ Local qualifier, matching the pattern each describe block above already
+  //  uses — `qualified` in the BulletsBlockEditor describe above is scoped to
+  //  that callback and unreachable here.
+  const blockQ = (n: number) => t(LANG, "documentsBlockN", String(n));
+  const qualified = (label: string, n = 1) => `${label} – ${blockQ(n)}`;
+
+  it("cannot remove the last bullet item", () => {
+    const single: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["only"] };
+    render(<BulletsBlockEditor lang={LANG} index={0} block={single} onCommit={vi.fn()} />);
+    expect(
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveItem", "1")) }),
+    ).toBeDisabled();
+  });
+
+  it("refuses to commit an emptied heading and says why", async () => {
+    const onCommit = vi.fn();
+    const block: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Alpha" };
+    render(<HeadingBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.clear(text);
+    // ★ act-wrapped: the assertion below needs the `setDropped(true)` render
+    //  that the refusal schedules — a bare `.blur()` runs the handler (so
+    //  onCommit not being called is observable either way) but leaves that
+    //  follow-up render unflushed, per this file's own note above.
+    act(() => {
+      text.blur();
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeInTheDocument();
+  });
+});

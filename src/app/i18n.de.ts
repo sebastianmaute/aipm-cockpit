@@ -2638,6 +2638,8 @@ export const de: Record<TranslationKey, string> = {
   documentsDataSectionKey: "Datenabschnitt",
   documentsBlockImageReadOnly:
     "Dieser Absatz enthält ein Bild und kann noch nicht bearbeitet werden. Eine Bearbeitung würde das Bild entfernen.",
+  documentsBlockEmptyNotSaved:
+    "Leerer Inhalt wird nicht gespeichert – dieser Block behält seinen bisherigen Text.",
   documentsBlockNoEditor: "Dieser Block hat keinen bearbeitbaren Inhalt.",
   documentsNewTitle: "Unbenanntes Dokument",
   documentsHistory: "Verlauf",

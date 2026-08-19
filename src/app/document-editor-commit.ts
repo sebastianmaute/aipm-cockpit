@@ -5,6 +5,7 @@
 //  decides. Keeping it pure is what makes the coalescing rule testable at all.
 import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
+import { sanitizeProjectDocuments } from "./document-model";
 import type { DocMintedVersion, DocOp } from "./document-mutations";
 
 /** How long after the last MINTED version's `savedAt` a further edit still
@@ -151,6 +152,32 @@ export function blockChanged(stored: DocBlock, edited: DocBlock): boolean {
  *  deletes. */
 export function replaceBlockOp(index: number, block: DocBlock): DocOp {
   return { op: "replace", index, block };
+}
+
+/** A canonical ISO stamp for the throwaway document the predicate below
+ *  builds. `sanitizeProjectDocuments` validates `createdAt`/`updatedAt`, so a
+ *  non-canonical value would make every block look invalid. */
+const PROBE_STAMP = "2000-01-01T00:00:00.000Z";
+
+/**
+ * Would this block survive a load?
+ *
+ * ★★★ IT ASKS THE REAL LOADER, and that is the whole point. `document-model.ts`
+ *  drops an empty heading, a paragraph with no visible text and an empty
+ *  bullets list — three rules that a second copy here would drift from the
+ *  moment a fourth is added. `sanitizeDocumentVersions` delegates to the same
+ *  function for the same reason ("one implementation, not two that can
+ *  drift"), so this follows an established pattern rather than inventing one.
+ *
+ * ★ Both modules are DOM-FREE by contract, so this import cannot break either.
+ *  Do NOT reach for DOMPurify here: `document-editor-commit.ts` is DOM-free
+ *  and i18n-free by contract (see this file's header).
+ */
+export function blockSurvivesLoad(block: DocBlock): boolean {
+  const [doc] = sanitizeProjectDocuments([
+    { id: 1, title: "probe", blocks: [block], createdAt: PROBE_STAMP, updatedAt: PROBE_STAMP },
+  ]);
+  return doc?.blocks.length === 1;
 }
 
 /** ★ An OMITTED optional field and one explicitly set to `undefined` are the
