@@ -248,6 +248,13 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  and the `setDirty(false)` in commit/commitValue is itself the render
     //  that lets the adoption run.
     setHandledBlock(storedBlock);
+    // ★★★ RE-SEED ONLY WHEN STORAGE HOLDS SOMETHING THE DRAFT DOES NOT ALREADY SAY.
+    //  Keying on IDENTITY discarded draft-only content, because `applyOps` hands back
+    //  a new object for our own commit: "Add item" appends an empty row that
+    //  `normalizeBlockForStorage` drops, so the next commit deleted the row just added.
+    //  Compare via that rule, NOT `baselineRef` (re-pointed at the STALE block below).
+    const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
+    if (!draftAsStored || blockChanged(draftAsStored, storedBlock)) {
     const seeded = fromBlock(storedBlock);
     setRawValue(seeded);
     // ★★★ BUMPED ON A CONTENT CHANGE, NEVER ON IDENTITY — the nonce keys a
@@ -266,6 +273,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  the hook's one deep comparison rather than adding a second notion of
     //  equality — every other check here is CONTENT, and this one now is too.
     if (blockChanged(toBlock(rawValue), toBlock(seeded))) setSeedNonce((n) => n + 1);
+    }
   }
 
   const latestRef = useRef({ toBlock, onCommit, index, storedBlock: storedBlock as DocBlock });

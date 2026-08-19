@@ -506,6 +506,70 @@ describe("BulletsBlockEditor", () => {
     );
   });
 
+  // ★★★ THE ADDED ROW MUST SURVIVE OUR OWN WRITE COMING BACK. `addItem` appends
+  //  an empty item that `normalizeBlockForStorage` drops, so the add commits
+  //  nothing and the row lives ONLY in the draft. Committing a SIBLING edit then
+  //  hands `applyOps` a new object, and a reconcile keyed on identity re-seeded
+  //  the draft from storage and silently deleted the row the user had just added
+  //  (measured: 3 rows on screen before the sibling edit, 2 after). The guard
+  //  compares CONTENT against the last committed baseline instead, so an echo of
+  //  our own write is not treated as an external one.
+  it("keeps an added row when this hook's OWN commit echoes back", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
+    expect(screen.getAllByRole("textbox", { name: /^Item \d+/ })).toHaveLength(3);
+
+    const first = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
+    await userEvent.type(first, "!");
+    act(() => {
+      first.blur();
+    });
+    expect(onCommit).toHaveBeenCalledWith(
+      0,
+      { type: "bullets", items: ["one!", "two"] },
+      expect.anything(),
+    );
+
+    // The engine stores `op.block` verbatim, so the parent re-renders with a NEW
+    // object carrying exactly what we just committed.
+    rerender(
+      <BulletsBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ type: "bullets", items: ["one!", "two"] }}
+        onCommit={onCommit}
+      />,
+    );
+    expect(screen.getAllByRole("textbox", { name: /^Item \d+/ })).toHaveLength(3);
+  });
+
+  // ★ The CONTRAST case: a genuinely EXTERNAL write (content this hook never
+  //  committed) still wins, draft-only row and all. Without this the guard above
+  //  could be widened to "never re-seed" and both tests would still pass.
+  it("re-seeds from a genuinely external write, dropping the draft-only row", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
+    expect(screen.getAllByRole("textbox", { name: /^Item \d+/ })).toHaveLength(3);
+
+    rerender(
+      <BulletsBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ type: "bullets", items: ["externally", "rewritten"] }}
+        onCommit={onCommit}
+      />,
+    );
+    const rows = screen.getAllByRole("textbox", { name: /^Item \d+/ });
+    expect(rows).toHaveLength(2);
+    expect((rows[0] as HTMLInputElement).value).toBe("externally");
+  });
+
   // ★ The visible label stays the plain, unqualified "Add item" — only the
   //  accessible name carries the block qualifier (mirrors ToggleButton's
   //  WCAG 4.1.2 contract: visible text vs. aria-label are allowed to differ,
