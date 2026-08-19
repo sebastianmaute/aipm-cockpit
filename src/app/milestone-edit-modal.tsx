@@ -8,7 +8,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input } from "./form-controls";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { TEXTAREA_MAX } from "./sanitize";
