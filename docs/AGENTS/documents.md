@@ -238,6 +238,55 @@ the session started — the thing a user actually reverts to. The commit-side ha
 authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
 this file stops at the version-model decision, per the header note above.
 
+## What the commit path stores, and the second guard
+
+Two properties of the hand block editor that `useBlockDraft`'s own docstring does not carry, because
+neither lives in the component.
+
+### The commit NORMALISES; it does not merely validate
+
+`tryCommit` runs the draft through **`normalizeBlockForStorage`** — the loader's own per-block rule,
+exported from `document-model.ts` — and commits the RESULT. Stored and loaded bytes are therefore
+identical by construction.
+
+★★★ **Validating instead let the two disagree, silently, in three measured ways.** A paragraph over
+`MAX_HTML_TEXT_CHARS` came back with every mark flattened to plain text (`capHtmlText`'s truncation
+branch returns `plainToHtml(slice)`); a heading kept the trailing whitespace the loader trims; and
+"Add item" appended an empty bullet item that counted as a change, minting a document version for
+content the next load drops — one of `MAX_VERSIONS_PER_DOC` (20) slots spent, and the row the user
+just added gone on reload.
+
+★★ **Per-editor `maxLength` caps are the WRONG fix** and were rejected for the reason the defect
+existed in the first place: one copy of each loader rule per editor, free to drift from the loader's.
+
+★ `null` means the loader would DISCARD the block. That refusal is shown (`BlockRefusalNotice`), and
+so is the concurrent-write ABANDON — one nullable `"empty" | "conflict"` state, because the abandon
+used to be silent and a user watched their typing be replaced on screen with no explanation. ★ The
+UNMOUNT flush abandons silently and must: the component is going away, so there is nothing to render
+into.
+
+★ `blockSurvivesLoad` still exists and has NO production caller. It is kept as the tested statement of
+the DROP rule — `document-editor-commit.test.ts` pins all five droppable shapes, one per block
+kind that has one (`pageBreak` cannot be dropped), including the two no editor control can reach — and is defined in terms
+of `normalizeBlockForStorage`, so the two cannot disagree.
+
+### The engine carries the second concurrent-write guard
+
+A `replace` op takes an optional **`expect`** — the draft's baseline, built by `replaceBlockOp` — and
+`applyOps` refuses the op when live state at that index no longer matches it.
+
+★★★ **THE IN-COMPONENT GUARD IS STRUCTURALLY BLIND ON ONE PATH, which is why this exists.**
+`useBlockDraft`'s `externallyWritten` reads refs that advance only when that row RENDERS. `BlockEditor`
+returns a DIFFERENT component per `block.type`, so a concurrent write changing the TYPE at an index
+unmounts the row with no final render — every ref the guard reads frozen at its pre-write value. The
+guard then returns false and the unmount flush overwrites whichever block shifted into that index. The
+engine compares `expect` against live state at CALL time, which no ref-based check can do.
+
+★ `expect` is OPTIONAL because the AI tools build their own ops and are resolving no draft of their
+own. A future op-builder that IS resolving a draft must pass it.
+
+★ A refused op reports `op {i}: replace index {n} was changed by another writer` in `DocResult.rejected`.
+
 ## Persistence — six write paths
 
 `documentVersions` is a top-level optional `Workspace` field carried by all six write paths.

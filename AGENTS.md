@@ -1216,16 +1216,21 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   three-rule contract — flush a dirty draft on unmount, ABANDON (never clobber) a commit whose `storedBlock`
   moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
   while the draft is undirty — is the whole defense against a hand edit racing a concurrent writer; read the
-  hook's own docstring before touching it, not this summary. A commit `blockSurvivesLoad` would drop (an
-  emptied heading/paragraph/bullets list) is refused with a visible reason, never silently accepted and lost
-  on the next load. ★ Selecting a different document while its editor is open cannot leak text into the
+  hook's own docstring before touching it, not this summary.
+  ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
+  [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "What the commit path stores, and the second
+  guard": the commit NORMALISES through the loader's own rule (`normalizeBlockForStorage`) rather than
+  merely validating, and the ENGINE carries a second concurrent-write guard (a `replace` op's `expect`)
+  because the in-component one is structurally blind on the type-change path. Read that section before
+  touching either — the component guard alone is not the defense it looks like. ★ Selecting a different document while its editor is open cannot leak text into the
   wrong one: each row's key carries `doc.id` (`` `${doc.id}-${index}` ``), forcing a full remount of the
   block-editor subtree on any switch. ★★ At a narrow PANE (not viewport — `use-narrow-element.ts`, the
   repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
   paragraph but the SELECTED one collapses read-only with a "select this block" button, and the selected
   block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
   replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★ A
-  zero-block document explains itself and offers an "Add block" control rather than rendering nothing.
+  zero-block document explains itself and offers a control that appends one paragraph — labelled "Add a
+  paragraph" (`documentsAddBlock`), not "Add block"; it adds ONE kind, and there is no block-kind picker.
   ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
   before-image or mints a new one lives beside the version model, not here — see
   `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.

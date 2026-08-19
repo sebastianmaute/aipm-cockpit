@@ -301,10 +301,19 @@ describe("normalizeBlockForStorage", () => {
     });
   });
 
+  // ★ ALL FIVE droppable shapes, one per block kind that has one — pageBreak
+  //  cannot be dropped. The last two are unreachable through the editors own
+  //  controls (remove-column is disabled at one column; the key select offers
+  //  only registry keys), which is exactly why the PURE function has to pin
+  //  them: nothing at the component layer can.
   it("returns null for exactly the blocks the loader discards", () => {
     expect(normalizeBlockForStorage({ type: "heading", level: 1, text: "   " })).toBeNull();
     expect(normalizeBlockForStorage({ type: "paragraph", html: "<p></p>" })).toBeNull();
     expect(normalizeBlockForStorage({ type: "bullets", items: ["", "  "] })).toBeNull();
+    expect(normalizeBlockForStorage({ type: "table", columns: [], rows: [] })).toBeNull();
+    expect(
+      normalizeBlockForStorage({ type: "dataSection", key: "not-a-registry-key" } as unknown as DocBlock),
+    ).toBeNull();
   });
 
   // ★ The two are defined in terms of each other on purpose — one rule, not two.
