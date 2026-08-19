@@ -2695,6 +2695,7 @@ const enUS = {
   documentsTableCaption: "Table caption",
   documentsTableCell: "Row {0}, column {1}",
   documentsTableColumnHeader: "Column {0} heading",
+  documentsTableRowActions: "Row actions",
   documentsAddRow: "Add row",
   documentsRemoveRow: "Remove row {0}",
   documentsAddColumn: "Add column",

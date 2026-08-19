@@ -2633,6 +2633,7 @@ export const de: Record<TranslationKey, string> = {
   documentsTableCaption: "Tabellenbeschriftung",
   documentsTableCell: "Zeile {0}, Spalte {1}",
   documentsTableColumnHeader: "Überschrift Spalte {0}",
+  documentsTableRowActions: "Zeilenaktionen",
   documentsAddRow: "Zeile hinzufügen",
   documentsRemoveRow: "Zeile {0} entfernen",
   documentsAddColumn: "Spalte hinzufügen",

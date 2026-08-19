@@ -140,6 +140,22 @@ export function TableBlockEditor({
                   </button>
                 </th>
               ))}
+              {/* ★★ PAIRS WITH THE PER-ROW REMOVE BUTTON'S <td> BELOW. Without
+                  it every body row was one cell wider than the header — a
+                  ragged table the renderers' rectangularity assumption does
+                  not cover, and a grid column a screen reader enters unnamed.
+                  ★ `sr-only` because the column shows one icon-only button
+                  whose own name already says what it does; same convention as
+                  documents-list.tsx's action column.
+                  ★ Its OWN key — reusing `documentsRemoveRow` would announce
+                  the COLUMN as "Remove row {0}", i.e. name a column after a
+                  single one of its buttons.
+                  ★ NOT block-qualified: a <th> is scoped by its own table
+                  element, so unlike the per-row CONTROLS it cannot collide
+                  with a sibling table block's header. */}
+              <th className="px-1 py-1 text-left font-medium">
+                <span className="sr-only">{t(lang, "documentsTableRowActions")}</span>
+              </th>
             </tr>
           </thead>
           <tbody>

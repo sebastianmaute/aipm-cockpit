@@ -813,6 +813,26 @@ describe("TableBlockEditor", () => {
     expect(removeRow).not.toBeDisabled();
     expect(removeColumn).not.toBeDisabled();
   });
+
+  // ★★ THE ACTION COLUMN HAD NO HEADER, so every body row carried one more
+  //  <td> than the header had <th>. Header/body column counts must agree —
+  //  the renderers assume rectangularity, and a screen reader navigating the
+  //  grid lands in a column with no name.
+  it("gives the remove-row column a header, so the header and body agree on width", () => {
+    const table: Extract<DocBlock, { type: "table" }> = {
+      type: "table",
+      columns: ["A", "B"],
+      rows: [["1", "2"], ["3", "4"]],
+    };
+    const { container } = render(
+      <TableBlockEditor lang={LANG} index={0} block={table} onCommit={vi.fn()} />,
+    );
+    const headerCells = container.querySelectorAll("thead th");
+    const firstBodyRowCells = container.querySelectorAll("tbody tr:first-child td");
+    expect(headerCells).toHaveLength(firstBodyRowCells.length);
+    // ...and the extra header is NAMED, not an empty cell.
+    expect(screen.getByText(t(LANG, "documentsTableRowActions"))).toBeInTheDocument();
+  });
 });
 
 describe("DataSectionBlockEditor", () => {
