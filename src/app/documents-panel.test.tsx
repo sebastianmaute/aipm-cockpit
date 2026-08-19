@@ -21,6 +21,11 @@ import { downloadDocument } from "./document-download";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
+/** The heading editor's accessible names, 0-based block index in, en-dash
+ *  qualified name out. Spelled once so a convention change is one edit. */
+const headingTextName = (index: number) =>
+  `${t("en-US", "documentsHeadingText")} – ${t("en-US", "documentsBlockN", String(index + 1))}`;
+
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
 // with the right document and format.
@@ -2001,12 +2006,12 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     await userEvent.click(screen.getByRole("button", { name: docA.title }));
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     expect(
-      await screen.findByRole("textbox", { name: `${t("en-US", "documentsHeadingText")} 1` }),
+      await screen.findByRole("textbox", { name: headingTextName(0) }),
     ).toHaveValue("Alpha");
 
     await userEvent.click(screen.getByRole("button", { name: docB.title }));
     const textAfterSwitch = await screen.findByRole("textbox", {
-      name: `${t("en-US", "documentsHeadingText")} 1`,
+      name: headingTextName(0),
     });
     expect(textAfterSwitch).toHaveValue("Beta");
 
@@ -2027,7 +2032,7 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     const { mutateDocuments } = renderWithSpy();
     await userEvent.click(screen.getByRole("button", { name: docA.title }));
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
-    const text = await screen.findByRole("textbox", { name: `${t("en-US", "documentsHeadingText")} 1` });
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!"); // dirty, unblurred — and still focused
 
     fireEvent.click(screen.getByRole("button", { name: docB.title }));

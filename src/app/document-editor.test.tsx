@@ -7,6 +7,11 @@ import type { ProjectDocument } from "./document-model";
 
 const LANG = "en-US" as const;
 
+/** The heading editor's accessible names, 0-based block index in, en-dash
+ *  qualified name out. Spelled once so a convention change is one edit. */
+const headingTextName = (index: number) =>
+  `${t(LANG, "documentsHeadingText")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+
 const doc: ProjectDocument = {
   id: 7,
   title: "Status report",
@@ -31,7 +36,7 @@ describe("DocumentEditor", () => {
   it("passes the block INDEX through to the commit handler", async () => {
     const onCommitBlock = vi.fn();
     render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={onCommitBlock} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     text.blur();
     expect(onCommitBlock).toHaveBeenCalledWith(0, expect.objectContaining({ type: "heading" }));
@@ -108,11 +113,11 @@ describe("DocumentEditor", () => {
     it("shows the new document's content, not the old one's, and commits nothing on an untouched switch", () => {
       const onCommitBlock = vi.fn();
       const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
-      const textBefore = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      const textBefore = screen.getByRole("textbox", { name: headingTextName(0) });
       expect(textBefore).toHaveValue("Alpha");
 
       rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
-      const textAfter = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      const textAfter = screen.getByRole("textbox", { name: headingTextName(0) });
       expect(textAfter).toHaveValue("Beta");
       expect(textAfter).not.toBe(textBefore); // a NEW element — the row really remounted
 
@@ -124,12 +129,12 @@ describe("DocumentEditor", () => {
     it("does not carry an unblurred edit from the old document into the DOM after a switch", async () => {
       const onCommitBlock = vi.fn();
       const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
-      const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      const text = screen.getByRole("textbox", { name: headingTextName(0) });
       await userEvent.type(text, "!"); // dirty, unblurred
 
       rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
       // The remounted field reflects B's stored content, never the stray "!".
-      expect(screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` })).toHaveValue("Beta");
+      expect(screen.getByRole("textbox", { name: headingTextName(0) })).toHaveValue("Beta");
     });
   });
 });

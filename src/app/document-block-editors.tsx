@@ -428,15 +428,23 @@ export function HeadingBlockEditor({
     onCommit,
   );
 
-  // ★ Every label carries the 1-based block position. N identical "Heading
-  //  level" labels is a 2.4.6 failure the axe gate cannot see.
-  const suffix = ` ${index + 1}`;
+  // ★★★ EN-DASH BLOCK QUALIFIER, never a bare trailing digit — the convention
+  //  the bullets, table and dataSection editors already state verbatim. It
+  //  matters MORE here than anywhere else in the slice: this block's select
+  //  offers H1/H2/H3, so "Heading level 1" reads as the LEVEL, and a user
+  //  cannot tell the qualifier from the control's own subject. N identical
+  //  "Heading text" labels across sibling heading blocks is a WCAG 2.4.6
+  //  failure no axe rule under the four tags e2e/a11y.spec.ts requests can
+  //  see, at any seed size — this file's multi-block tests are the only
+  //  detector that exists.
+  const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
+  const qualify = (label: string) => `${label} – ${blockQualifier}`;
 
   return (
     <div className="flex flex-col gap-1" onBlur={commit}>
       <div className="flex flex-wrap items-center gap-2">
         <select
-          aria-label={t(lang, "documentsHeadingLevel") + suffix}
+          aria-label={qualify(t(lang, "documentsHeadingLevel"))}
           className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
           value={String(value.level)}
           onChange={(e) => setValue({ ...value, level: Number(e.target.value) as HeadingLevel })}
@@ -447,7 +455,7 @@ export function HeadingBlockEditor({
         </select>
         <input
           type="text"
-          aria-label={t(lang, "documentsHeadingText") + suffix}
+          aria-label={qualify(t(lang, "documentsHeadingText"))}
           className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
           value={value.text}
           onChange={(e) => setValue({ ...value, text: e.target.value })}

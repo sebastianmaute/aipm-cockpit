@@ -33,6 +33,13 @@ beforeAll(() => {
 
 const LANG = "en-US" as const;
 
+/** The heading editor's accessible names, 0-based block index in, en-dash
+ *  qualified name out. Spelled once so a convention change is one edit. */
+const headingTextName = (index: number) =>
+  `${t(LANG, "documentsHeadingText")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+const headingLevelName = (index: number) =>
+  `${t(LANG, "documentsHeadingLevel")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+
 describe("ParagraphBlockEditor", () => {
   it("renders an editor for a paragraph with no image", () => {
     render(
@@ -304,7 +311,7 @@ describe("HeadingBlockEditor", () => {
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "H" }} onCommit={vi.fn()} />,
     );
-    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
+    const select = screen.getByRole("combobox", { name: headingLevelName(0) });
     expect(within(select).getAllByRole("option").map((o) => o.getAttribute("value"))).toEqual(["1", "2", "3"]);
   });
 
@@ -329,7 +336,7 @@ describe("HeadingBlockEditor", () => {
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Same" }} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     text.focus();
     text.blur();
     expect(onCommit).not.toHaveBeenCalled();
@@ -345,7 +352,7 @@ describe("HeadingBlockEditor", () => {
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Old" }} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.clear(text);
     await userEvent.type(text, "Ne");
     await userEvent.type(text, "w");
@@ -363,7 +370,7 @@ describe("HeadingBlockEditor", () => {
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "Title" }} onCommit={onCommit} />,
     );
-    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
+    const select = screen.getByRole("combobox", { name: headingLevelName(0) });
     select.focus();
     fireEvent.change(select, { target: { value: "3" } });
     select.blur();
@@ -380,13 +387,35 @@ describe("HeadingBlockEditor", () => {
     render(
       <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 1, text: "Title" }} onCommit={onCommit} />,
     );
-    const select = screen.getByRole("combobox", { name: `${t(LANG, "documentsHeadingLevel")} 1` });
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const select = screen.getByRole("combobox", { name: headingLevelName(0) });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     select.focus();
     fireEvent.change(select, { target: { value: "3" } });
     text.focus(); // tab-through: blurs the select, which bubbles to the group's onBlur
     expect(onCommit).toHaveBeenCalledTimes(1);
     expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
+  });
+
+  // ★★★ A BARE TRAILING DIGIT IS AMBIGUOUS HERE IN A WAY IT IS NOT ELSEWHERE.
+  //  The select's options are H1/H2/H3, so "Heading level 1" reads as LEVEL
+  //  one, not BLOCK one — the qualifier and the control's own subject collide.
+  //  Three other editors in this slice already state this rule verbatim; this
+  //  one shipped against it.
+  it("qualifies both heading controls with the en-dash block convention, not a bare digit", () => {
+    const block: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 2, text: "Q3" };
+    render(<HeadingBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const expected = `${t(LANG, "documentsBlockN", "1")}`;
+    const select = screen.getByRole("combobox", {
+      name: `${t(LANG, "documentsHeadingLevel")} – ${expected}`,
+    });
+    const text = screen.getByRole("textbox", {
+      name: `${t(LANG, "documentsHeadingText")} – ${expected}`,
+    });
+    expect(select).toBeInTheDocument();
+    expect(text).toBeInTheDocument();
+    // The old bare-digit form must be GONE, or both spellings would resolve and
+    // the rename would be cosmetic.
+    expect(screen.queryByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` })).toBeNull();
   });
 });
 
@@ -922,7 +951,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     );
     rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
 
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     expect(text).toHaveValue("Restored");
     text.focus();
     text.blur();
@@ -946,7 +975,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     const { rerender } = render(
       <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!"); // dirty, unblurred
     expect(text).toHaveValue("Alpha!");
     rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
@@ -988,7 +1017,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     const { rerender } = render(
       <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
     // ★ act-wrapped because the ASSERTION below needs the re-render that the
@@ -1028,7 +1057,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     const { rerender } = render(
       <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     text.blur();
     expect(onCommit).toHaveBeenCalledTimes(1);
@@ -1117,7 +1146,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     const { rerender } = render(
       <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
     );
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
     act(() => {
@@ -1138,7 +1167,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
   it("commits nothing on a blur with no edit", () => {
     const onCommit = vi.fn();
     render(<HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     text.focus();
     text.blur();
     expect(onCommit).not.toHaveBeenCalled();
@@ -1164,7 +1193,7 @@ describe("blocks the loader would discard", () => {
     const onCommit = vi.fn();
     const block: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Alpha" };
     render(<HeadingBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.clear(text);
     // ★ act-wrapped: the assertion below needs the `setDropped(true)` render
     //  that the refusal schedules — a bare `.blur()` runs the handler (so
