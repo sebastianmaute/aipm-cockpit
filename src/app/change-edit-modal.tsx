@@ -42,7 +42,7 @@ import {
   ModalEditFooter,
 } from "./edit-modal-chrome";
 import { Input, Select } from "./form-controls";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";

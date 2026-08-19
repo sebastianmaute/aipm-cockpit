@@ -47,7 +47,7 @@ import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
 import { EditModalShell, ModalFieldError, StakeholderChipPicker } from "./edit-modal-chrome";
 import { Input } from "./form-controls";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "./rich-text-editor-lazy";
 import { capHtmlText, descriptionHtml, htmlPlainProjection } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import { appendDictationToHtml } from "./rich-text-projection";
