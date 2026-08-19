@@ -103,11 +103,16 @@ function renderBulkWithRealUndo(overrides?: Partial<UseBulkOperationsArgs>) {
         taskForm: useTaskForm(),
         filters: useFilters(),
         undo: undoApi.undo,
+        redo: undoApi.redo,
+        // The REAL stack's metas — `captureFieldRows` pushes `edits.length` as
+        // the entry's `count`, so this is where the undo label's count can be
+        // compared against the toast's without mocking either.
+        undoStack: undoApi.stack,
       };
     },
     { wrapper: Wrapper },
   );
-  return { result };
+  return { result, logActivity, showToast };
 }
 
 describe("useBulkOperations", () => {
@@ -594,6 +599,201 @@ describe("useBulkOperations", () => {
       // The bucket move WAS reverted — this is a real composite undo, not just
       // the field patch half.
       expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(10);
+    });
+
+    // ★★★ THE CAPTURE SET AND THE WRITE SET ARE ONE SET. The field-patch
+    // conversion gated the capture on `taskEdits.length > 0` (values DIFFER)
+    // while leaving the write on `taskFieldsEnabled && targetIds.length > 0`
+    // (rows SELECTED). `buildBulkFieldEdits` puts `localModifiedAt` in
+    // NEVER_CAPTURE, so a row whose only difference is the fresh stamp yields no
+    // edit — and the write stamped it anyway. Bulk-editing a field to the value
+    // the rows already hold therefore dirtied every selected row, autosaved,
+    // claimed "N tasks updated" and left NOTHING on the undo stack.
+    // ★★ ASSERTED ON REAL STATE, not on a `captureFieldRows` spy: the defect is
+    // that the STORED ROW moved while nothing was recorded, and a spy on the
+    // capture arg can only ever see the half that was already absent. The real
+    // `useUndoStack` here is what makes "and nothing was recorded" observable.
+    it("a bulk apply whose value every selected row ALREADY holds writes nothing and records nothing", () => {
+      const { result, logActivity, showToast } = renderBulkWithRealUndo();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "High", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+          { id: 2, taskName: "Task B", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "High", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      const before = result.current.workspace.tasks;
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      // The rows are ALREADY High — the apply has nothing to change but the stamp.
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      // The WRITE half: no fresh stamp on either row…
+      expect(result.current.workspace.tasks.find((r) => r.id === 1)!.localModifiedAt).toBe("STAMP");
+      expect(result.current.workspace.tasks.find((r) => r.id === 2)!.localModifiedAt).toBe("STAMP");
+      // …and no fresh array either, so nothing dirties the workspace for nothing.
+      expect(result.current.workspace.tasks).toBe(before);
+      // The CAPTURE half: nothing written, so nothing to undo. Both halves agree.
+      expect(result.current.undoStack).toHaveLength(0);
+      // An apply that wrote nothing must not claim rows or log a row either.
+      expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
+      expect(showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/updated/i));
+    });
+
+    // The PARTIAL case, which is the same invariant with a witness on both sides:
+    // rows 1–2 really change, row 3 already holds the target value. Before the
+    // fix all THREE were stamped while only TWO were captured, so row 3's stamp
+    // was unrevertable and the undo label ("2") disagreed with the toast and the
+    // activity row ("3").
+    it("a partial bulk apply writes exactly the rows it records, and counts them once", () => {
+      const { result, logActivity, showToast } = renderBulkWithRealUndo();
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+          { id: 2, taskName: "Task B", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+          { id: 3, taskName: "Task C", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+            lastUpdateDate: "2026-05-20", status: "To Do", priority: "High", group: "",
+            blockers: "", description: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      act(() => { [1, 2, 3].forEach((id) => result.current.bulk.onToggleSelect(id)); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      const byId = (id: number) => result.current.workspace.tasks.find((r) => r.id === id)!;
+      expect(byId(1).priority).toBe("High");
+      expect(byId(2).priority).toBe("High");
+      expect(byId(1).localModifiedAt).not.toBe("STAMP");
+      expect(byId(2).localModifiedAt).not.toBe("STAMP");
+      // Row 3 had nothing to change, so it must not be stamped — a stamp with no
+      // undo entry behind it is exactly the write this guard exists to stop.
+      expect(byId(3).priority).toBe("High");
+      expect(byId(3).localModifiedAt).toBe("STAMP");
+      // ONE count: the undo entry, the toast and the activity row all say 2.
+      expect(result.current.undoStack).toHaveLength(1);
+      expect(result.current.undoStack[0].count).toBe(2);
+      expect(logActivity).toHaveBeenCalledWith("bulk.edit", 2);
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+
+      // …and the undo reverts exactly those two, leaving row 3 as it was found.
+      act(() => { result.current.undo(); });
+      expect(byId(1).priority).toBe("Low");
+      expect(byId(2).priority).toBe("Low");
+      expect(byId(3).priority).toBe("High");
+      expect(byId(3).localModifiedAt).toBe("STAMP");
+    });
+
+    // ★★★ PINS `stampField: "localModifiedAt"` on BOTH capture call sites in
+    // use-bulk-operations.ts — removing it from both left the suite green.
+    // `buildBulkFieldEdits` never captures the stamp (NEVER_CAPTURE), so without
+    // `stampField` the undo merges the before-patch and leaves the APPLY's stamp
+    // sitting on the row: the content moves backwards while the sync layer is
+    // told the row last changed at the apply, so the revert never propagates.
+    // ★★ `stampField` re-stamps with NOW on undo AND redo (`captureFieldPart`) —
+    // it does NOT restore the pre-apply value, and it must not: the undo IS a new
+    // local modification the backends have to push. The assertion is therefore
+    // "a stamp minted at undo time", not "the value the row had before".
+    // ★ Only `Date` is faked. The apply's and the undo's stamps are otherwise
+    // minted within the same millisecond and compare EQUAL, which would make this
+    // pass against the unpinned code; faking every timer would put RTL and the
+    // React scheduler on a stopped clock this test does not need.
+    it("undo and redo of a bulk edit re-stamp localModifiedAt (stampField)", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+        const { result } = renderBulkWithRealUndo();
+        act(() => {
+          result.current.workspace.setTasks([
+            { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+              lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+              blockers: "", description: "", inquiriesSent: 0,
+              localModifiedAt: "2026-05-20T00:00:00.000Z" },
+          ] as unknown as Task[]);
+        });
+        act(() => { result.current.bulk.onToggleSelect(1); });
+        act(() => {
+          result.current.taskForm.setBulkEdit((prev) => ({
+            ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+          }));
+        });
+        act(() => { result.current.bulk.applyBulkEdit(); });
+        expect(result.current.workspace.tasks[0].priority).toBe("High");
+        expect(result.current.workspace.tasks[0].localModifiedAt).toBe("2026-07-01T00:00:00.000Z");
+
+        vi.setSystemTime(new Date("2026-07-02T00:00:00.000Z"));
+        act(() => { result.current.undo(); });
+        expect(result.current.workspace.tasks[0].priority).toBe("Low");
+        // THE KILLER: without `stampField` this is still the apply's stamp.
+        expect(result.current.workspace.tasks[0].localModifiedAt).toBe("2026-07-02T00:00:00.000Z");
+
+        vi.setSystemTime(new Date("2026-07-03T00:00:00.000Z"));
+        act(() => { result.current.redo(); });
+        expect(result.current.workspace.tasks[0].priority).toBe("High");
+        expect(result.current.workspace.tasks[0].localModifiedAt).toBe("2026-07-03T00:00:00.000Z");
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+
+    // ★★ THE OTHER `stampField` CALL SITE. `use-bulk-operations.ts` passes it
+    // twice — once to `captureFieldRows` (the pure task-field path, pinned by the
+    // test above) and once to `captureFieldPart` for `tasksPart`, which is
+    // reachable ONLY when a bucket change makes the entry a composite. A test
+    // that never enables `budgetBucket` cannot distinguish the second site, so
+    // deleting just that one would stay green without this.
+    it("undo of a bulk edit that ALSO moved buckets re-stamps localModifiedAt (composite stampField)", () => {
+      vi.useFakeTimers({ toFake: ["Date"] });
+      try {
+        vi.setSystemTime(new Date("2026-07-01T00:00:00.000Z"));
+        const { result } = renderBulkWithRealUndo();
+        act(() => {
+          result.current.workspace.setTasks([
+            { id: 1, taskName: "Task A", assignee: "", assigneeEmail: "", dueDate: "2027-01-01",
+              lastUpdateDate: "2026-05-20", status: "To Do", priority: "Low", group: "",
+              blockers: "", description: "", inquiriesSent: 0,
+              localModifiedAt: "2026-05-20T00:00:00.000Z" },
+          ] as unknown as Task[]);
+          result.current.workspace.setBudgets([
+            { id: 10, name: "Design", taskIds: [1] },
+            { id: 20, name: "Build", taskIds: [] },
+          ] as unknown as BudgetBucket[]);
+        });
+        act(() => { result.current.bulk.onToggleSelect(1); });
+        act(() => {
+          result.current.taskForm.setBulkEdit((prev) => ({
+            ...prev,
+            enabled: { ...prev.enabled, priority: true, budgetBucket: true },
+            priority: "High",
+            budgetBucket: "20",
+          }));
+        });
+        act(() => { result.current.bulk.applyBulkEdit(); });
+        expect(result.current.workspace.tasks[0].localModifiedAt).toBe("2026-07-01T00:00:00.000Z");
+        expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(20);
+
+        vi.setSystemTime(new Date("2026-07-02T00:00:00.000Z"));
+        act(() => { result.current.undo(); });
+        expect(result.current.workspace.tasks[0].priority).toBe("Low");
+        expect(bucketIdForTask(result.current.workspace.budgets, 1)).toBe(10);
+        expect(result.current.workspace.tasks[0].localModifiedAt).toBe("2026-07-02T00:00:00.000Z");
+      } finally {
+        vi.useRealTimers();
+      }
     });
   });
 

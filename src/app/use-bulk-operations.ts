@@ -248,7 +248,6 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // only (nothing local to apply); subtract those so the count reflects rows
     // actually changed.
     const untouchedSynced = managedEnabled && noLocalForSynced ? skippedSynced : 0;
-    const count = targetIds.length - untouchedSynced;
     const stamp = new Date().toISOString();
     const beforeRows = tasks.filter((r) => targetSet.has(r.id));
     // ONE definition of the row patch, used to derive the undo patches AND to
@@ -285,16 +284,43 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     const taskEdits = taskFieldsEnabled
       ? buildBulkFieldEdits(beforeRows.map((row) => ({ before: row, after: patchRow(row) })))
       : [];
+    // ★★★ THE ROWS THE CAPTURE RECORDS AND THE ROWS THE WRITE TOUCHES ARE ONE
+    // SET, derived from the one `patchRow` diff above. Gating the write on
+    // `taskFieldsEnabled && targetIds.length > 0` while gating the capture on
+    // `taskEdits.length > 0` let the two diverge: `buildBulkFieldEdits` puts
+    // `localModifiedAt` in NEVER_CAPTURE, so a row whose ONLY difference is the
+    // fresh stamp yields no edit — and the write stamped it regardless. Bulk-
+    // editing a field to the value the rows already hold therefore dirtied every
+    // selected row, autosaved, toasted "N tasks updated" and logged a bulk.edit
+    // with NO undo entry behind it; the partial case (3 of 5 rows differ) left
+    // two stamps unrevertable.
+    // ★★ NARROWED THE WRITE rather than widening the capture with empty patches,
+    // because writing nothing is what the rest of this apply already does for a
+    // row it has no real change for: `patchRow`'s `noLocalForSynced` early return
+    // and the bucket-only / no-op-bucket paths all decline to write precisely so
+    // no spurious `localModifiedAt` reaches a row for a Jira pull to revert. An
+    // empty-patch capture would instead have offered an undo for a change the
+    // user cannot see.
+    const editedIds = new Set(taskEdits.map((e) => e.id));
+    // ★★ ONE count for the toast, the activity row AND the undo label.
+    // `captureFieldRows` pushes `edits.length` as its own count, so the pure
+    // task-field path must report exactly that or the toast and the undo entry
+    // describe different sets of rows. A bucket move rewrites the link for every
+    // visible target whether or not its task fields changed, so that path keeps
+    // the target count (minus the synced rows left fully untouched).
+    const count = bucketsChanged ? targetIds.length - untouchedSynced : taskEdits.length;
     const tasksPart = taskEdits.length > 0
       ? captureFieldPart<Task>({ setter: setTasks, edits: taskEdits, stampField: "localModifiedAt" })
       : null;
     if (tasksPart !== null && !bucketsChanged) {
       captureFieldRowsRef.current({ setter: setTasks, kind: "bulk.edit", edits: taskEdits, entityKey: "task", stampField: "localModifiedAt" });
     }
-    // `targetIds.length > 0` also keeps a fully-hidden selection from producing a
-    // fresh (identical) tasks array, which would dirty the workspace for nothing.
-    if (taskFieldsEnabled && targetIds.length > 0) {
-      setTasks((prev) => prev.map((row) => (targetSet.has(row.id) ? patchRow(row) : row)));
+    // `editedIds` is a subset of the VISIBLE targets, so this also keeps a
+    // fully-hidden selection from producing a fresh (identical) tasks array,
+    // which would dirty the workspace for nothing — the guard the old
+    // `targetIds.length > 0` test carried, now implied by construction.
+    if (editedIds.size > 0) {
+      setTasks((prev) => prev.map((row) => (editedIds.has(row.id) ? patchRow(row) : row)));
     }
     if (bucketsChanged) {
       commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });
