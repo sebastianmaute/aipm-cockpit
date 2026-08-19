@@ -1045,23 +1045,24 @@ describe("link / unlink", () => {
   });
 });
 
-// ★★★ WHY THIS BLOCK EXISTS. `DocResult.versionId` is consumed by exactly one
+// ★★★ WHY THIS BLOCK EXISTS. `DocResult.minted` is consumed by exactly one
 //  caller — use-document-editor.ts's coalescing anchor — and its whole value is
 //  that it names THE ROW THIS CALL MINTED rather than "the newest row", which a
 //  skewed clock can make somebody else's. The tests below therefore have to be
 //  able to tell those two answers apart; a fixture whose minted row happens to
 //  be the newest cannot, and would pass against the very implementation this
 //  field replaced.
-describe("applyDocMutation reports the id of the version it minted", () => {
+describe("applyDocMutation reports the version it minted", () => {
   // ★ A LOCAL mint counter, not the module-level `ctx()`. `nextVer` above is
   //  module state shared by every test in this file, and `npm run test:shuffle`
   //  reorders tests WITHIN a file — so an absolute-id assertion built on it
   //  would pass or fail by test order. This one restarts at 500 per call.
   const FIRST_MINT = 500;
+  const MINT_NOW = "2026-08-06T09:00:00.000Z";
   const localCtx = (source: DocVersionSource = "user") => {
     let doc = 900;
     let ver = FIRST_MINT;
-    return { now: "2026-08-06T09:00:00.000Z", source, mintDocId: () => doc++, mintVersionId: () => ver++ };
+    return { now: MINT_NOW, source, mintDocId: () => doc++, mintVersionId: () => ver++ };
   };
 
   const seeded = (over: Partial<DocVersion> = {}): DocVersion => ({
@@ -1085,12 +1086,14 @@ describe("applyDocMutation reports the id of the version it minted", () => {
     // would report, so the two answers are distinguishable here.
     const out = applyDocMutation(state({ versions: [seeded()] }), m, localCtx());
     expect(out.changed).toBe(true);
-    expect(out.versionId).toBe(FIRST_MINT);
+    // BOTH halves: the id AND the savedAt the caller will pair against. The
+    // seeded row differs in both, so neither half can pass by coincidence.
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
   });
 
-  it("names a row that is actually in the returned list", () => {
+  it("names a row that is actually in the returned list, id and savedAt both", () => {
     const out = applyDocMutation(state(), { kind: "rename", id: 1, title: "Renamed" }, localCtx());
-    expect(out.versions.map((v) => v.id)).toContain(out.versionId);
+    expect(out.versions).toContainEqual(expect.objectContaining(out.minted!));
   });
 
   it("names the RESTORED marker when a restore recreates a deleted document", () => {
@@ -1105,8 +1108,8 @@ describe("applyDocMutation reports the id of the version it minted", () => {
     const out = applyDocMutation(deleted, { kind: "restore", versionId: tombstone }, shared);
     expect(out.changed).toBe(true);
     // The marker is a NEW row, not the tombstone it closes.
-    expect(out.versionId).toBe(FIRST_MINT + 1);
-    expect(out.versionId).not.toBe(tombstone);
+    expect(out.minted).toEqual({ id: FIRST_MINT + 1, savedAt: MINT_NOW });
+    expect(out.minted?.id).not.toBe(tombstone);
   });
 
   it("names the before-image when a restore lands IN PLACE on a live document", () => {
@@ -1116,7 +1119,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
       localCtx(),
     );
     expect(out.changed).toBe(true);
-    expect(out.versionId).toBe(FIRST_MINT);
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
   });
 
   it.each([
@@ -1126,7 +1129,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
     const start = state({ versions: [seeded()] });
     const out = applyDocMutation(start, m, localCtx());
     expect(out.changed).toBe(true);
-    expect(out.versionId).toBe(null);
+    expect(out.minted).toBe(null);
     // ★ The positive control for the absence above: the list really is
     //  untouched, so `null` means "minted none" and not "the assertion passed
     //  because there was nothing to mint from".
@@ -1145,7 +1148,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
       localCtx(),
     );
     expect(out.changed).toBe(true);
-    expect(out.versionId).toBe(null);
+    expect(out.minted).toBe(null);
     expect(out.versions).toBe(linked.versions);
   });
 
@@ -1156,7 +1159,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
       localCtx(),
     );
     expect(out.changed).toBe(false);
-    expect(out.versionId).toBe(null);
+    expect(out.minted).toBe(null);
   });
 
   // ★★★ THE CASE THE HOOK'S ADVANCE RULE TURNS ON. A coalesced edit LANDS
@@ -1173,7 +1176,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
       localCtx(),
     );
     expect(out.changed).toBe(true);
-    expect(out.versionId).toBe(null);
+    expect(out.minted).toBe(null);
     expect(out.versions.map((v) => v.id)).toEqual([42]);
   });
 
@@ -1189,7 +1192,7 @@ describe("applyDocMutation reports the id of the version it minted", () => {
       { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }] },
       localCtx(),
     );
-    expect(out.versionId).toBe(FIRST_MINT);
-    expect(out.versionId).not.toBe(42);
+    expect(out.minted).toEqual({ id: FIRST_MINT, savedAt: MINT_NOW });
+    expect(out.minted?.id).not.toBe(42);
   });
 });

@@ -115,7 +115,7 @@ const inertMutate = (): DocResult => ({
   changed: false,
   rejected: [],
   documentId: null,
-  versionId: null,
+  minted: null,
 });
 
 type Box = { docs: readonly ProjectDocument[]; versions: readonly DocVersion[] };

@@ -5,7 +5,7 @@
 //  decides. Keeping it pure is what makes the coalescing rule testable at all.
 import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
-import type { DocOp } from "./document-mutations";
+import type { DocMintedVersion, DocOp } from "./document-mutations";
 
 /** How long after the last MINTED version's `savedAt` a further edit still
  *  coalesces into the same editing session — anchored to the last version
@@ -25,10 +25,20 @@ export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
  *  reverts to. Twenty keystroke-shaped snapshots would evict that, and every
  *  AI-authored version with it, against MAX_VERSIONS_PER_DOC (20).
  *
- * ★★★ THE RUN IS ANCHORED BY IDENTITY. `lastVersionId` is the id of the
- *  version the CALLER's own last commit MINTED — `DocResult.versionId`, never
- *  a "newest" re-derived from the list — and `null` before it has minted one.
- *  Coalescing happens only while that exact row is still the newest.
+ * ★★★ THE RUN IS ANCHORED BY IDENTITY. `anchor` is the `(id, savedAt)` PAIR
+ *  the CALLER's own last commit MINTED — `DocResult.minted`, never a "newest"
+ *  re-derived from the list — and `null` before it has minted one. Coalescing
+ *  happens only while that exact row is still the newest.
+ *
+ * ★★★ BOTH HALVES OF THE PAIR ARE COMPARED, and the id alone is NOT enough.
+ *  `seedMintFromWorkspace(ws, "reset")` reseeds the `documentVersion` high-water
+ *  per project, so version ids restart on a project switch — while the caller's
+ *  anchor is a hook ref that survives one. An id-only check therefore resumes a
+ *  run onto an identically-numbered row in a DIFFERENT project. `savedAt`
+ *  separates them. ★ Both comparisons are EQUALITY: no ordering, no `Date.parse`,
+ *  no arithmetic, so nothing about this identity depends on a clock. (The window
+ *  check further down does parse `now` — that is a separate question about
+ *  RECENCY, not about whose row this is.)
  *
  * ★★★ STATE THAT PRECISELY: **a writer whose row sorts NEWEST ends the run.**
  *  An earlier revision of this line said "ANY other writer ends the run, with
@@ -57,23 +67,24 @@ export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
  * ★ The source/op checks below are unreachable for the ONE caller today (the
  *  block editor anchors to an `ops` mint, which is by construction a
  *  `user`/`update` row) — but that is a property of that caller, not of this
- *  function: `DocResult.versionId` also reports a `rename`/`delete`/
+ *  function: `DocResult.minted` also reports a `rename`/`delete`/
  *  `duplicate`/`restored` mint, so a future caller anchoring to one of those
  *  reaches them. They are KEPT for that, and as a guard against a mis-passed
  *  anchor — this is an exported pure function and cannot assume its caller's
- *  discipline. The id check is the load-bearing one; do not delete IT and
+ *  discipline. The PAIR check is the load-bearing one; do not delete IT and
  *  keep them.
  */
 export function shouldCoalesce(
   versions: readonly DocVersion[],
   documentId: number,
   now: string,
-  lastVersionId: number | null,
+  anchor: DocMintedVersion | null,
 ): boolean {
   const newest = newestVersion(versions);
   if (!newest) return false;
   if (newest.documentId !== documentId) return false;
-  if (newest.id !== lastVersionId) return false;
+  if (!anchor) return false;
+  if (newest.id !== anchor.id || newest.savedAt !== anchor.savedAt) return false;
   if (newest.source !== "user" || newest.op !== "update") return false;
 
   const nowMs = Date.parse(now);

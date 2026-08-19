@@ -60,36 +60,48 @@ export type DocMutation =
 
 export type DocState = { documents: readonly ProjectDocument[]; versions: readonly DocVersion[] };
 
+/**
+ * ★★★ THE IDENTITY OF ONE MINTED VERSION — the `(id, savedAt)` PAIR, not an id.
+ *
+ * A caller anchoring a coalescing run has to know WHICH ROW IS ITS OWN, and
+ * two different implementations of that question have already been wrong here:
+ *
+ *  ★★ "THE NEWEST ROW" is wrong because `savedAt` is validated for canonical-
+ *   ISO SHAPE only (`isCanonicalIso` in document-versions.ts) and is never
+ *   clamped to the present. A foreign row written by a skewed clock on a shared
+ *   Turso project — or carried in by an imported workspace — sorts newest and
+ *   gets adopted as "mine", so the block editor coalesces onto somebody else's
+ *   before-image and suppresses its own. Reporting what THIS call minted is
+ *   timestamp-independent and closes that.
+ *
+ *  ★★ "THE MINTED ID" is wrong across a PROJECT SWITCH, which is why the id
+ *   alone was not enough. `seedMintFromWorkspace(ws, "reset")` reseeds the
+ *   `documentVersion` high-water from the incoming project's own list, so ids
+ *   restart per project — and the anchor is a ref in a React hook that survives
+ *   a switch on the Documents tab. Project B can legitimately hold version #7
+ *   on document #3 while the ref still says 7, and the run resumes onto a row
+ *   from a different project entirely.
+ *
+ *  ★ The PAIR closes that at no cost: `savedAt` differs between two unrelated
+ *   projects' rows, and the check stays pure EQUALITY — no ordering, no
+ *   `Date.parse`, no window arithmetic — so no clock can influence it either.
+ *   (The 5-minute coalescing window is a separate check on `now`, unrelated to
+ *   this identity.)
+ *
+ * ★★ BUILD IT FROM THE ROW, never from `ctx.now` — see `mintedOf`. */
+export type DocMintedVersion = { id: number; savedAt: string };
+
 export type DocResult = DocState & {
   changed: boolean;
   rejected: readonly string[];
   /** The document the mutation landed on — the caller's tool result needs it.
    *  `null` for delete (nothing survives) and for a rejected/no-op mutation. */
   documentId: number | null;
-  /** ★★★ THE ID OF THE VERSION **THIS CALL** MINTED — `null` when it minted
-   *  none: a refusal, a no-op, a `coalesce`d edit, or one of the three
-   *  branches that write no history at all (create / link / unlink).
-   *
-   *  ★★ IT IS NOT "THE NEWEST VERSION", and the difference is a real defect
-   *   this field exists to close. A caller anchoring a coalescing run has to
-   *   know WHICH ROW IS ITS OWN, and picking the newest by `savedAt` cannot
-   *   answer that: `savedAt` is validated for canonical-ISO SHAPE only
-   *   (`isCanonicalIso` in document-versions.ts) and is never clamped to the
-   *   present, so a foreign row written by a skewed clock on a shared Turso
-   *   project — or carried in by an imported workspace — sorts newest and
-   *   gets adopted as "mine". The block editor would then coalesce onto
-   *   somebody else's before-image and suppress its own, which is exactly
-   *   the data loss the anchor exists to prevent, reached by another route.
-   *   Reporting the minted id is timestamp-independent, so no clock can
-   *   reopen it.
-   *
-   *  ★ It names a row this call APPENDED. Retention (`withVersions` →
-   *   `trimVersions`) runs afterwards and could in principle drop it, so the
-   *   id is not guaranteed to be present in the `versions` returned beside
-   *   it. That is the SAFE direction for the one consumer: an anchor naming
-   *   a pruned row can never equal the newest row's id, so the next edit
-   *   records a real before-image instead of suppressing one. */
-  versionId: number | null;
+  /** ★★★ THE VERSION **THIS CALL** MINTED — `null` when it minted none: a
+   *  refusal, a no-op, a `coalesce`d edit, or one of the three branches that
+   *  write no history at all (create / link / unlink). See DocMintedVersion
+   *  for why it is a PAIR and not an id. */
+  minted: DocMintedVersion | null;
 };
 
 export type DocContext = {
@@ -100,7 +112,7 @@ export type DocContext = {
 };
 
 function unchanged(state: DocState, rejected: readonly string[] = []): DocResult {
-  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null, versionId: null };
+  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null, minted: null };
 }
 
 /** Cap+trim a title the SAME way document-model.ts's sanitizer does
@@ -227,6 +239,25 @@ function linkLimitReason(): string {
  *  one with the other's wording. */
 function exceedsBlockCap(next: number, current: number): boolean {
   return next > MAX_BLOCKS_PER_DOC && next > current;
+}
+
+/** The anchor pair for a row this call appended, or `null` when it appended
+ *  none — so a branch that mints conditionally (only `ops`, via `coalesce`)
+ *  needs no ternary of its own.
+ *
+ *  ★★ BOTH FIELDS COME FROM THE ROW, never `ctx.now`. They are equal today only
+ *   because `snapshot` stamps `ctx.now`; a future mint that stamps anything
+ *   else would hand out an anchor that can never match its own row, and the
+ *   run would silently stop coalescing rather than fail visibly.
+ *
+ *  ★ It names a row this call APPENDED. Retention (`withVersions` →
+ *   `trimVersions`) runs afterwards and could in principle drop it, so the pair
+ *   is not guaranteed to be present in the `versions` returned beside it. That
+ *   is the SAFE direction for the one consumer: an anchor naming a pruned row
+ *   can never equal the newest row, so the next edit records a real
+ *   before-image instead of suppressing one. */
+function mintedOf(v: DocVersion | undefined): DocMintedVersion | null {
+  return v ? { id: v.id, savedAt: v.savedAt } : null;
 }
 
 /** The before-image of `doc`, as it stands right now. */
@@ -439,7 +470,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // Nothing was replaced — a create writes no version. Consistent with
       // restore-of-a-deleted-document below, which is also a create (a new
       // id, not a resurrection of the old one) and also writes none.
-      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id, versionId: null };
+      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id, minted: null };
     }
 
     case "restore": {
@@ -487,7 +518,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
           changed: true,
           rejected: [],
           documentId: restoredDoc.id,
-          versionId: before.id,
+          minted: mintedOf(before),
         };
       }
       // ★★★ RESTORE IS NOT IDEMPOTENT WITHOUT THIS, and the marker alone does
@@ -558,7 +589,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: recreated.id,
-        versionId: marker.id,
+        minted: mintedOf(marker),
       };
     }
 
@@ -577,7 +608,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: target.id,
-        versionId: before.id,
+        minted: mintedOf(before),
       };
     }
 
@@ -599,7 +630,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (current.length >= MAX_LINKS_PER_DOC) return unchanged(state, [linkLimitReason()]);
       const linked: ProjectDocument = { ...target, linkedEntities: [...current, ref] };
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? linked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, versionId: null };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, minted: null };
     }
 
     case "unlink": {
@@ -622,7 +653,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       delete (withoutRefs as { linkedEntities?: unknown }).linkedEntities;
       const unlinked: ProjectDocument = kept.length > 0 ? { ...target, linkedEntities: kept } : withoutRefs;
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? unlinked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, versionId: null };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, minted: null };
     }
 
     case "duplicate": {
@@ -668,7 +699,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: copy.id,
-        versionId: before.id,
+        minted: mintedOf(before),
       };
     }
 
@@ -683,7 +714,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: null,
-        versionId: before.id,
+        minted: mintedOf(before),
       };
     }
 
@@ -734,11 +765,11 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         rejected,
         documentId: target.id,
         // ★★ THE ONE BRANCH THAT LANDS A WRITE WHILE MINTING NOTHING: a
-        //  coalesced edit is `changed: true` with no new row, so this is
-        //  `null` and the caller's run keeps whichever anchor it already
-        //  held. Reading it as "the run has no anchor" would make every
-        //  second edit mint, defeating coalescing entirely.
-        versionId: before?.id ?? null,
+        //  coalesced edit is `changed: true` with no new row, so `before` is
+        //  undefined, this is `null`, and the caller's run keeps whichever
+        //  anchor it already held. Reading it as "the run has no anchor"
+        //  would make every second edit mint, defeating coalescing entirely.
+        minted: mintedOf(before),
       };
     }
   }

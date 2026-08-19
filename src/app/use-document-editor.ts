@@ -7,7 +7,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
-import type { DocMutation, DocResult } from "./document-mutations";
+import type { DocMintedVersion, DocMutation, DocResult } from "./document-mutations";
 import type { DocVersion, DocVersionSource } from "./document-versions";
 
 export type UseDocumentEditorDeps = {
@@ -39,18 +39,23 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     currentDocIdRef.current = documentId;
   }, [documentId]);
 
-  // ★★★ THE COALESCING RUN'S ANCHOR — the id of the version THIS hook's last
-  //  landed commit MINTED, taken from `DocResult.versionId`. `shouldCoalesce`
-  //  coalesces only while that exact row is still the newest, so a writer whose
-  //  row sorts newer (a restore, an AI write, a rename, a second tab) ends the
-  //  run and the next edit records a real before-image.
+  // ★★★ THE COALESCING RUN'S ANCHOR — the `(id, savedAt)` PAIR of the version
+  //  THIS hook's last landed commit MINTED, taken from `DocResult.minted`.
+  //  `shouldCoalesce` coalesces only while that exact row is still the newest,
+  //  so a writer whose row sorts newer (a restore, an AI write, a rename, a
+  //  second tab) ends the run and the next edit records a real before-image.
   //  ★★★ TAKE IT FROM THE RESULT, NEVER BY RE-DERIVING "NEWEST" FROM THE LIST.
   //   An earlier cut read the newest row of `result.versions` back, which is
   //   "newest by savedAt globally", not "the row I just minted" — a foreign row
   //   from a skewed clock on a shared project sorts newest and would be adopted
   //   as this run's anchor, so the next edit coalesces onto somebody else's
-  //   before-image and suppresses its own. `DocResult.versionId` carries the
-  //   minted id, which no clock can influence; its docblock holds the detail.
+  //   before-image and suppresses its own.
+  //  ★★★ AND IT IS THE PAIR, NOT THE ID — because THIS REF SURVIVES A PROJECT
+  //   SWITCH. Nothing here clears it, and `seedMintFromWorkspace(ws, "reset")`
+  //   restarts the `documentVersion` high-water per project, so project B can
+  //   hold version #7 on document #3 while this ref still says 7 from project
+  //   A — and an id-only check would resume the run onto a stranger's row.
+  //   `DocMintedVersion`'s own docblock carries both arguments in full.
   //  ★ A ref, not state: it is read and written inside an event handler, never
   //   during render, and a re-render on every commit would buy nothing.
   //  ★★ IT DIES WITH THE PANEL, AND THE PANEL IS TAB-CONDITIONAL.
@@ -62,7 +67,7 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
   //   COALESCE_WINDOW_MS. Defensible (each visit is a fresh session) but not
   //   free: ~20 leave-and-edit cycles evict this document's own history against
   //   MAX_VERSIONS_PER_DOC. Recorded because nothing else states it.
-  const lastVersionIdRef = useRef<number | null>(null);
+  const lastMintedRef = useRef<DocMintedVersion | null>(null);
 
   const commitBlock = useCallback(
     (index: number, block: DocBlock): DocResult | undefined => {
@@ -85,24 +90,24 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
       //  cannot evict this document's history against MAX_VERSIONS_PER_DOC.
       //  The FIRST edit of a session always records, so the pre-session state
       //  stays the revert target.
-      const coalesce = shouldCoalesce(versions, documentId, stamp, lastVersionIdRef.current);
+      const coalesce = shouldCoalesce(versions, documentId, stamp, lastMintedRef.current);
       const result = mutateDocuments(
         { kind: "ops", id: documentId, ops: [replaceBlockOp(index, block)], coalesce },
         "user",
       );
       // ★★ ADVANCE ONLY WHEN THIS CALL MINTED A ROW, and otherwise leave the
       //  anchor exactly where it is — do NOT clear it. The three cases:
-      //   • minted (`versionId` is a number): that row is this run's new anchor.
-      //   • COALESCED (`changed: true`, `versionId: null`): the write landed and
+      //   • minted (`minted` is a pair): that row is this run's new anchor.
+      //   • COALESCED (`changed: true`, `minted: null`): the write landed and
       //     deliberately minted nothing, so the run's anchor is still the row it
       //     already points at. Clearing it here would make the NEXT edit see a
       //     null anchor, refuse to coalesce and mint — i.e. every second edit
       //     would mint and coalescing would collapse to a 2× reduction.
-      //   • REFUSED (`changed: false`, `versionId: null`): nothing happened;
-      //     the anchor must not move either.
+      //   • REFUSED (`changed: false`, `minted: null`): nothing happened; the
+      //     anchor must not move either.
       //  The last two are the same assignment, which is why this is one guard
-      //  on `versionId` and not a `changed` check.
-      if (result.versionId !== null) lastVersionIdRef.current = result.versionId;
+      //  on `minted` and not a `changed` check.
+      if (result.minted) lastMintedRef.current = result.minted;
       return result;
     },
     [documentId, versions, mutateDocuments, now],
