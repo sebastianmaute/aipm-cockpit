@@ -66,6 +66,30 @@ export type DocResult = DocState & {
   /** The document the mutation landed on — the caller's tool result needs it.
    *  `null` for delete (nothing survives) and for a rejected/no-op mutation. */
   documentId: number | null;
+  /** ★★★ THE ID OF THE VERSION **THIS CALL** MINTED — `null` when it minted
+   *  none: a refusal, a no-op, a `coalesce`d edit, or one of the three
+   *  branches that write no history at all (create / link / unlink).
+   *
+   *  ★★ IT IS NOT "THE NEWEST VERSION", and the difference is a real defect
+   *   this field exists to close. A caller anchoring a coalescing run has to
+   *   know WHICH ROW IS ITS OWN, and picking the newest by `savedAt` cannot
+   *   answer that: `savedAt` is validated for canonical-ISO SHAPE only
+   *   (`isCanonicalIso` in document-versions.ts) and is never clamped to the
+   *   present, so a foreign row written by a skewed clock on a shared Turso
+   *   project — or carried in by an imported workspace — sorts newest and
+   *   gets adopted as "mine". The block editor would then coalesce onto
+   *   somebody else's before-image and suppress its own, which is exactly
+   *   the data loss the anchor exists to prevent, reached by another route.
+   *   Reporting the minted id is timestamp-independent, so no clock can
+   *   reopen it.
+   *
+   *  ★ It names a row this call APPENDED. Retention (`withVersions` →
+   *   `trimVersions`) runs afterwards and could in principle drop it, so the
+   *   id is not guaranteed to be present in the `versions` returned beside
+   *   it. That is the SAFE direction for the one consumer: an anchor naming
+   *   a pruned row can never equal the newest row's id, so the next edit
+   *   records a real before-image instead of suppressing one. */
+  versionId: number | null;
 };
 
 export type DocContext = {
@@ -76,7 +100,7 @@ export type DocContext = {
 };
 
 function unchanged(state: DocState, rejected: readonly string[] = []): DocResult {
-  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null };
+  return { documents: state.documents, versions: state.versions, changed: false, rejected, documentId: null, versionId: null };
 }
 
 /** Cap+trim a title the SAME way document-model.ts's sanitizer does
@@ -415,7 +439,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       // Nothing was replaced — a create writes no version. Consistent with
       // restore-of-a-deleted-document below, which is also a create (a new
       // id, not a resurrection of the old one) and also writes none.
-      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id };
+      return { documents: [...state.documents, doc], versions: state.versions, changed: true, rejected: [], documentId: doc.id, versionId: null };
     }
 
     case "restore": {
@@ -463,6 +487,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
           changed: true,
           rejected: [],
           documentId: restoredDoc.id,
+          versionId: before.id,
         };
       }
       // ★★★ RESTORE IS NOT IDEMPOTENT WITHOUT THIS, and the marker alone does
@@ -533,6 +558,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: recreated.id,
+        versionId: marker.id,
       };
     }
 
@@ -551,6 +577,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: target.id,
+        versionId: before.id,
       };
     }
 
@@ -572,7 +599,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       if (current.length >= MAX_LINKS_PER_DOC) return unchanged(state, [linkLimitReason()]);
       const linked: ProjectDocument = { ...target, linkedEntities: [...current, ref] };
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? linked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, versionId: null };
     }
 
     case "unlink": {
@@ -595,7 +622,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
       delete (withoutRefs as { linkedEntities?: unknown }).linkedEntities;
       const unlinked: ProjectDocument = kept.length > 0 ? { ...target, linkedEntities: kept } : withoutRefs;
       const nextDocuments = state.documents.map((d) => (d.id === target.id ? unlinked : d));
-      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id };
+      return { documents: nextDocuments, versions: state.versions, changed: true, rejected: [], documentId: target.id, versionId: null };
     }
 
     case "duplicate": {
@@ -641,6 +668,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: copy.id,
+        versionId: before.id,
       };
     }
 
@@ -655,6 +683,7 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected: [],
         documentId: null,
+        versionId: before.id,
       };
     }
 
@@ -704,6 +733,12 @@ export function applyDocMutation(state: DocState, m: DocMutation, ctx: DocContex
         changed: true,
         rejected,
         documentId: target.id,
+        // ★★ THE ONE BRANCH THAT LANDS A WRITE WHILE MINTING NOTHING: a
+        //  coalesced edit is `changed: true` with no new row, so this is
+        //  `null` and the caller's run keeps whichever anchor it already
+        //  held. Reading it as "the run has no anchor" would make every
+        //  second edit mint, defeating coalescing entirely.
+        versionId: before?.id ?? null,
       };
     }
   }

@@ -2,7 +2,7 @@ import { describe, it, expect } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { applyDocMutation, type DocState } from "./document-mutations";
-import { deletedDocumentVersions } from "./document-versions";
+import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
 import { MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS, type DocBlock, type ProjectDocument } from "./document-model";
 import { MAX_LINKS_PER_DOC } from "./document-ref";
 
@@ -1042,5 +1042,154 @@ describe("link / unlink", () => {
     const out = applyDocMutation(withBoth, { kind: "unlink", id: 1, ref: { kind: "raid", id: 7 } }, ctx());
     expect(out.changed).toBe(true);
     expect(out.documents[0].linkedEntities).toEqual([{ kind: "task", id: 7 }]);
+  });
+});
+
+// ★★★ WHY THIS BLOCK EXISTS. `DocResult.versionId` is consumed by exactly one
+//  caller — use-document-editor.ts's coalescing anchor — and its whole value is
+//  that it names THE ROW THIS CALL MINTED rather than "the newest row", which a
+//  skewed clock can make somebody else's. The tests below therefore have to be
+//  able to tell those two answers apart; a fixture whose minted row happens to
+//  be the newest cannot, and would pass against the very implementation this
+//  field replaced.
+describe("applyDocMutation reports the id of the version it minted", () => {
+  // ★ A LOCAL mint counter, not the module-level `ctx()`. `nextVer` above is
+  //  module state shared by every test in this file, and `npm run test:shuffle`
+  //  reorders tests WITHIN a file — so an absolute-id assertion built on it
+  //  would pass or fail by test order. This one restarts at 500 per call.
+  const FIRST_MINT = 500;
+  const localCtx = (source: DocVersionSource = "user") => {
+    let doc = 900;
+    let ver = FIRST_MINT;
+    return { now: "2026-08-06T09:00:00.000Z", source, mintDocId: () => doc++, mintVersionId: () => ver++ };
+  };
+
+  const seeded = (over: Partial<DocVersion> = {}): DocVersion => ({
+    id: 42,
+    documentId: 1,
+    title: "Status report",
+    blocks: [],
+    savedAt: "2026-08-05T09:00:00.000Z",
+    source: "user",
+    op: "update",
+    ...over,
+  });
+
+  it.each([
+    ["rename", { kind: "rename", id: 1, title: "Renamed" }],
+    ["delete", { kind: "delete", id: 1 }],
+    ["duplicate", { kind: "duplicate", id: 1, title: "Copy" }],
+    ["ops", { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }] }],
+  ] as const)("names the row %s appended, not one that was already there", (_label, m) => {
+    // The seeded row is what a "return the newest existing id" implementation
+    // would report, so the two answers are distinguishable here.
+    const out = applyDocMutation(state({ versions: [seeded()] }), m, localCtx());
+    expect(out.changed).toBe(true);
+    expect(out.versionId).toBe(FIRST_MINT);
+  });
+
+  it("names a row that is actually in the returned list", () => {
+    const out = applyDocMutation(state(), { kind: "rename", id: 1, title: "Renamed" }, localCtx());
+    expect(out.versions.map((v) => v.id)).toContain(out.versionId);
+  });
+
+  it("names the RESTORED marker when a restore recreates a deleted document", () => {
+    // ★ ONE ctx across BOTH calls, deliberately. Giving the restore its own
+    //  counter would mint the marker at the same id as the tombstone it closes,
+    //  and the `not.toBe` below — the assertion that says these are two
+    //  DIFFERENT rows — could not fail. (It did exactly that on the first cut.)
+    const shared = localCtx();
+    const deleted = applyDocMutation(state(), { kind: "delete", id: 1 }, shared);
+    const tombstone = deleted.versions[0].id;
+    expect(tombstone).toBe(FIRST_MINT);
+    const out = applyDocMutation(deleted, { kind: "restore", versionId: tombstone }, shared);
+    expect(out.changed).toBe(true);
+    // The marker is a NEW row, not the tombstone it closes.
+    expect(out.versionId).toBe(FIRST_MINT + 1);
+    expect(out.versionId).not.toBe(tombstone);
+  });
+
+  it("names the before-image when a restore lands IN PLACE on a live document", () => {
+    const out = applyDocMutation(
+      state({ versions: [seeded({ id: 42, blocks: [{ type: "paragraph", html: "<p>old</p>" }] })] }),
+      { kind: "restore", versionId: 42 },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.versionId).toBe(FIRST_MINT);
+  });
+
+  it.each([
+    ["create", { kind: "create", title: "New", blocks: [] }],
+    ["link", { kind: "link", id: 1, ref: { kind: "task", id: 7 } }],
+  ] as const)("is null for %s, which lands a change but writes no history", (_label, m) => {
+    const start = state({ versions: [seeded()] });
+    const out = applyDocMutation(start, m, localCtx());
+    expect(out.changed).toBe(true);
+    expect(out.versionId).toBe(null);
+    // ★ The positive control for the absence above: the list really is
+    //  untouched, so `null` means "minted none" and not "the assertion passed
+    //  because there was nothing to mint from".
+    expect(out.versions).toBe(start.versions);
+  });
+
+  it("is null for unlink, which removes a reference and writes no history", () => {
+    const linked = applyDocMutation(
+      state({ versions: [seeded()] }),
+      { kind: "link", id: 1, ref: { kind: "task", id: 7 } },
+      localCtx(),
+    );
+    const out = applyDocMutation(
+      linked,
+      { kind: "unlink", id: 1, ref: { kind: "task", id: 7 } },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.versionId).toBe(null);
+    expect(out.versions).toBe(linked.versions);
+  });
+
+  it("is null for a REFUSED mutation", () => {
+    const out = applyDocMutation(
+      state({ versions: [seeded()] }),
+      { kind: "rename", id: 999, title: "Nope" },
+      localCtx(),
+    );
+    expect(out.changed).toBe(false);
+    expect(out.versionId).toBe(null);
+  });
+
+  // ★★★ THE CASE THE HOOK'S ADVANCE RULE TURNS ON. A coalesced edit LANDS
+  //  (`changed: true`) and deliberately mints nothing, so the anchor must stay
+  //  where it is. If this reported the newest EXISTING id instead of null the
+  //  editor would re-anchor onto a row it did not write, which is the whole
+  //  defect. The seeded row is what makes null and "newest existing" tellable
+  //  apart.
+  it("is null for a COALESCED edit, which lands without minting", () => {
+    const start = state({ versions: [seeded()] });
+    const out = applyDocMutation(
+      start,
+      { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }], coalesce: true },
+      localCtx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.versionId).toBe(null);
+    expect(out.versions.map((v) => v.id)).toEqual([42]);
+  });
+
+  // ★★★ THE DEFECT THIS FIELD EXISTS FOR, stated as a test. `savedAt` is
+  //  validated for canonical-ISO SHAPE only and is never clamped to the present,
+  //  so a row written by a skewed clock on a shared project sorts NEWEST while
+  //  belonging to somebody else. Re-deriving "newest" would report 42 here and
+  //  the editor would coalesce onto a stranger's before-image.
+  it("reports its OWN row even when a foreign version carries a LATER savedAt", () => {
+    const future = seeded({ id: 42, savedAt: "2099-01-01T00:00:00.000Z" });
+    const out = applyDocMutation(
+      state({ versions: [future] }),
+      { kind: "ops", id: 1, ops: [{ op: "append", block: { type: "paragraph", html: "<p>x</p>" } }] },
+      localCtx(),
+    );
+    expect(out.versionId).toBe(FIRST_MINT);
+    expect(out.versionId).not.toBe(42);
   });
 });

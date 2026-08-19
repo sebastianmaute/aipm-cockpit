@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { applyDocMutation } from "./document-mutations";
-import { shouldCoalesce, newestVersionId, COALESCE_WINDOW_MS } from "./document-editor-commit";
+import { shouldCoalesce, COALESCE_WINDOW_MS } from "./document-editor-commit";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 
@@ -40,7 +40,8 @@ describe("version budget under a hand-editing session", () => {
         let nextVersionId = 1;
         // Mirrors use-document-editor.ts's `lastVersionIdRef`: the property is
         // about the HOOK's behaviour, so the simulation has to carry the same
-        // anchor or it is measuring a function no caller uses that way.
+        // anchor — including its advance RULE — or it is measuring a function
+        // no caller uses that way.
         let lastVersionId: number | null = null;
 
         for (let i = 0; i < edits; i++) {
@@ -64,7 +65,9 @@ describe("version budget under a hand-editing session", () => {
           );
           documents = result.documents;
           versions = result.versions;
-          if (result.changed) lastVersionId = newestVersionId(result.versions);
+          // Advance only on a MINT, never on a coalesced write: exactly the
+          // rule in use-document-editor.ts, for the same reason.
+          if (result.versionId !== null) lastVersionId = result.versionId;
         }
 
         const mine = versions.filter((v) => v.documentId === 1);

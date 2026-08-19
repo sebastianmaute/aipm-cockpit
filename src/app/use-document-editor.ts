@@ -5,7 +5,7 @@
 //  tested. If logic starts accumulating in this file, move it there instead of
 //  testing it here.
 import { useCallback, useEffect, useRef } from "react";
-import { shouldCoalesce, newestVersionId, replaceBlockOp } from "./document-editor-commit";
+import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
 import type { DocVersion, DocVersionSource } from "./document-versions";
@@ -40,11 +40,28 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
   }, [documentId]);
 
   // ★★★ THE COALESCING RUN'S ANCHOR — the id of the version THIS hook's last
-  //  landed commit produced. `shouldCoalesce` coalesces only while that row is
-  //  still the newest, so any other writer (a restore, an AI write, a second
-  //  tab) ends the run and the next edit records a real before-image.
+  //  landed commit MINTED, taken from `DocResult.versionId`. `shouldCoalesce`
+  //  coalesces only while that exact row is still the newest, so a writer whose
+  //  row sorts newer (a restore, an AI write, a rename, a second tab) ends the
+  //  run and the next edit records a real before-image.
+  //  ★★★ TAKE IT FROM THE RESULT, NEVER BY RE-DERIVING "NEWEST" FROM THE LIST.
+  //   An earlier cut read the newest row of `result.versions` back, which is
+  //   "newest by savedAt globally", not "the row I just minted" — a foreign row
+  //   from a skewed clock on a shared project sorts newest and would be adopted
+  //   as this run's anchor, so the next edit coalesces onto somebody else's
+  //   before-image and suppresses its own. `DocResult.versionId` carries the
+  //   minted id, which no clock can influence; its docblock holds the detail.
   //  ★ A ref, not state: it is read and written inside an event handler, never
   //   during render, and a re-render on every commit would buy nothing.
+  //  ★★ IT DIES WITH THE PANEL, AND THE PANEL IS TAB-CONDITIONAL.
+  //   `workspace-section.tsx` mounts the Documents panel as
+  //   `{activeTab === "documents" && <DocumentsTabPanel …/>}`, so this hook —
+  //   and this ref with it — unmounts on any TAB switch, not merely a document
+  //   switch. Leaving Documents and coming back therefore ALWAYS records a
+  //   before-image, where the pre-anchor heuristic would have coalesced within
+  //   COALESCE_WINDOW_MS. Defensible (each visit is a fresh session) but not
+  //   free: ~20 leave-and-edit cycles evict this document's own history against
+  //   MAX_VERSIONS_PER_DOC. Recorded because nothing else states it.
   const lastVersionIdRef = useRef<number | null>(null);
 
   const commitBlock = useCallback(
@@ -73,13 +90,19 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
         { kind: "ops", id: documentId, ops: [replaceBlockOp(index, block)], coalesce },
         "user",
       );
-      // ★★ ADVANCE ONLY ON A LANDED WRITE. A refusal (`changed: false`) leaves
-      //  the caller's list untouched, so adopting its newest id would anchor
-      //  this run to a row somebody ELSE minted — and the next edit would
-      //  coalesce onto it, which is the exact defect this anchor exists to
-      //  prevent. A COALESCED write is `changed: true` and mints nothing, so
-      //  this correctly re-reads the same anchor.
-      if (result.changed) lastVersionIdRef.current = newestVersionId(result.versions);
+      // ★★ ADVANCE ONLY WHEN THIS CALL MINTED A ROW, and otherwise leave the
+      //  anchor exactly where it is — do NOT clear it. The three cases:
+      //   • minted (`versionId` is a number): that row is this run's new anchor.
+      //   • COALESCED (`changed: true`, `versionId: null`): the write landed and
+      //     deliberately minted nothing, so the run's anchor is still the row it
+      //     already points at. Clearing it here would make the NEXT edit see a
+      //     null anchor, refuse to coalesce and mint — i.e. every second edit
+      //     would mint and coalescing would collapse to a 2× reduction.
+      //   • REFUSED (`changed: false`, `versionId: null`): nothing happened;
+      //     the anchor must not move either.
+      //  The last two are the same assignment, which is why this is one guard
+      //  on `versionId` and not a `changed` check.
+      if (result.versionId !== null) lastVersionIdRef.current = result.versionId;
       return result;
     },
     [documentId, versions, mutateDocuments, now],

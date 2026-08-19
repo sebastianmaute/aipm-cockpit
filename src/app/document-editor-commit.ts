@@ -26,11 +26,23 @@ export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
  *  AI-authored version with it, against MAX_VERSIONS_PER_DOC (20).
  *
  * ★★★ THE RUN IS ANCHORED BY IDENTITY. `lastVersionId` is the id of the
- *  version the CALLER's own last commit produced (`null` before it has
- *  produced one). Coalescing happens only when that exact row is still the
- *  newest — so ANY other writer ends the run, with no per-writer case
- *  analysis: a restore, an AI write, a rename, a delete, a second tab, a
- *  future user/update writer nobody has thought of yet.
+ *  version the CALLER's own last commit MINTED — `DocResult.versionId`, never
+ *  a "newest" re-derived from the list — and `null` before it has minted one.
+ *  Coalescing happens only while that exact row is still the newest.
+ *
+ * ★★★ STATE THAT PRECISELY: **a writer whose row sorts NEWEST ends the run.**
+ *  An earlier revision of this line said "ANY other writer ends the run, with
+ *  no per-writer case analysis", which over-claims in the direction that
+ *  matters. What the check actually asks is an identity question about ONE
+ *  row — the newest — not a change-detector over the whole list. So the
+ *  cases it does cover are the realistic ones (a restore, an AI write, a
+ *  rename, a delete, a second tab, a future user/update writer nobody has
+ *  thought of yet), and the RESIDUAL is a foreign row carrying an EARLIER
+ *  `savedAt` than the caller's own last one: it never becomes newest, so it
+ *  does not end the run. That is strictly narrower than the defect this
+ *  replaced — the caller's own row is still what a coalesced edit folds
+ *  into, and the foreign writer wrote its own before-image — but it is not
+ *  nothing, and it is why this says "sorts newest" rather than "any".
  *
  *  This replaced a content test (`source === "user" && op === "update"`), which
  *  a live-document restore defeats: `document-mutations.ts`'s restore-in-place
@@ -42,11 +54,15 @@ export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
  *  `"update"`, so an older client reading the same project would silently
  *  re-open the hole on shared data.
  *
- * ★ The source/op checks below are now unreachable whenever the id check
- *  passes (an id the caller minted is by construction a user/update row). They
- *  are KEPT as a guard against a mis-passed anchor — this is an exported pure
- *  function and cannot assume its caller's discipline. The id check is the
- *  load-bearing one; do not delete IT and keep them.
+ * ★ The source/op checks below are unreachable for the ONE caller today (the
+ *  block editor anchors to an `ops` mint, which is by construction a
+ *  `user`/`update` row) — but that is a property of that caller, not of this
+ *  function: `DocResult.versionId` also reports a `rename`/`delete`/
+ *  `duplicate`/`restored` mint, so a future caller anchoring to one of those
+ *  reaches them. They are KEPT for that, and as a guard against a mis-passed
+ *  anchor — this is an exported pure function and cannot assume its caller's
+ *  discipline. The id check is the load-bearing one; do not delete IT and
+ *  keep them.
  */
 export function shouldCoalesce(
   versions: readonly DocVersion[],
@@ -70,15 +86,6 @@ export function shouldCoalesce(
   return nowMs - savedMs <= COALESCE_WINDOW_MS && nowMs >= savedMs;
 }
 
-/** The id a caller should anchor its next `shouldCoalesce` call to, read from
- *  the post-mutation version list. `null` when there are none.
- *
- *  ★ Exported so the caller never re-derives "newest" — `newestVersion`'s
- *   savedAt/id ordering rule lives here and a second copy of it is exactly the
- *   drift this codebase keeps getting bitten by. */
-export function newestVersionId(versions: readonly DocVersion[]): number | null {
-  return newestVersion(versions)?.id ?? null;
-}
 
 /** ★ The caller must not have to pre-sort: this picks by `savedAt`, falling
  *  back to the higher id when two entries share a timestamp (two mutations in

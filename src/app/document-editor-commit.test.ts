@@ -1,7 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
   shouldCoalesce,
-  newestVersionId,
   COALESCE_WINDOW_MS,
   paragraphHasImage,
   blockChanged,
@@ -117,14 +116,6 @@ describe("shouldCoalesce", () => {
     expect(shouldCoalesce([version({ id: 4 })], 7, NOW, null)).toBe(false);
   });
 
-  it("exposes the newest version's id so the caller can anchor its run", () => {
-    expect(newestVersionId([])).toBe(null);
-    // The NEWEST is listed FIRST on purpose: "read the last array element" and
-    // "read the newest" must DISAGREE here, or the assertion cannot tell the
-    // two implementations apart and passes against either.
-    const newest = version({ id: 9, savedAt: "2026-08-18T10:00:05.000Z" });
-    expect(newestVersionId([newest, version({ id: 1 })])).toBe(9);
-  });
 });
 
 describe("paragraphHasImage", () => {
