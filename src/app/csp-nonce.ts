@@ -30,12 +30,20 @@
  *  — and therefore this function — really was evaluated during SSR. Every call
  *  site now loads through `rich-text-editor-lazy.tsx`, which is `ssr: false`, so
  *  NOTHING reaches this function on the server today. Reproduce both halves:
- *    grep -rn 'from "\./rich-text-editor"' src/app --include=*.tsx | grep -v '\.test\.'
- *      → only the lazy module's type-only re-export
- *    grep -rn 'readCspNonce(' src --include=*.ts --include=*.tsx | grep -v '\.test\.' \r
- *      | grep -v '^src/app/csp-nonce.ts'
- *      → exactly ONE line: `rich-text-editor.tsx`. The second `grep -v` is not
- *        tidying — without it THIS comment matches its own command.
+ *    grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
+ *      → FOUR lines, and none of them is a consumer: three in
+ *        `rich-text-editor-lazy.tsx` (a type-only import, the dynamic import, a
+ *        type-only re-export) plus `rich-text-editor.test.tsx`, which exercises
+ *        the raw module deliberately. ★ A `--include=*.tsx` sweep rooted at `./`
+ *        misses a `../rich-text-editor` import from a subdirectory, which is why
+ *        this one is rooted at `src e2e scripts` and admits `../`.
+ *    grep -rn 'readCspNonce(' src --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v csp-nonce.ts
+ *      → exactly ONE line: `rich-text-editor.tsx`. The trailing `grep -v` is not
+ *        tidying — without it THIS comment matches its own command. ★★ Keep the
+ *        whole pipeline on ONE line: the previous spelling wrapped it across two
+ *        comment lines with a trailing backslash, which the shell read as a file
+ *        named `r` (`grep: r: No such file or directory`, exit 2). A reproduce
+ *        command that does not run is worse than none — it reads as evidence.
  *  ★★★ That makes the guard defensive, NOT dead, and the difference is one word in
  *  one file: flip `ssr` to true in `rich-text-editor-lazy.tsx` — or add a second
  *  caller that is not behind a `dynamic` boundary — and the SSR path is armed

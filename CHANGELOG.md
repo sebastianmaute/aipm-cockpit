@@ -23,13 +23,16 @@ longer carries its own changelog comment.
 
   | | before | after |
   |---|---|---|
-  | ProseMirror in the eager entry graph | true | **false** |
-  | eager total | 2334.7 kB | **1906.8 kB** |
-  | eager chunks | 19 | **18** |
+  | eager chunks carrying `prosemirror-view` | 1 | **0** |
+  | eager total | 2334.7 kB | **1911.1 kB** |
+  | eager chunks | 19 | **20** |
   | `react-loadable` entries able to reach the chunk | — | **1 of 27** |
 
-  The 428.3 kB delta matches the evicted chunk's own on-disk size, which is what
-  separates a real eviction from bytes merely re-homing into another eager chunk.
+  Exactly one chunk on disk carries the editor — 428.19 kB of it — and it is not in
+  the eager set, which is what separates a real eviction from bytes merely re-homing
+  into another eager chunk. The table delta is slightly smaller than that chunk
+  because this same release adds strings to the eager dictionary, so it understates
+  the eviction rather than overstating it.
 
   Two of the eight were nearly left static, on the reasoning that both sit behind
   `dynamic()` panels and so cannot affect the entry graph. That was true of the

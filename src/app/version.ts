@@ -41,8 +41,12 @@ export const APP_BUILD_DATE = "2026-08-19"; // 0.249.0: the rich-text editor loa
 // APP_VERSION "0.248.0" beside APP_MILESTONE "Butcher" — the 0.247.x name — so
 // `APP_VERSION_LABEL` rendered `0.248.0 "Butcher"` in Settings, the top bar and the
 // Version popover, while CHANGELOG.md, the README badge and the docstring above all
-// said "Bujold". Nothing compares them: the release checklist counts eight sites and
-// this is not one of them, and no gate reads either constant. Bump BOTH together.
+// said "Bujold". Nothing compares them, and no gate reads either constant.
+// ★★ THE CHECKLIST IS NOT AT FAULT — AGENTS.md's "Releasing:" bullet names the
+// milestone in its first clause, beside APP_VERSION and APP_BUILD_DATE. An earlier
+// version of this comment blamed the checklist for not counting it, which sends the
+// next maintainer to add an item that is already there. What failed was execution.
+// Bump BOTH together.
 export const APP_MILESTONE = "McAuley";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;

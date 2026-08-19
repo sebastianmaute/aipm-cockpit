@@ -38,8 +38,17 @@ register's fix to another is how two of them broke. Read the note that names you
   via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
   `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
   object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
-  interpreted as markup instead of inserted literally. Both the note log's composer and its entry editor wire
-  `useDictationMic`'s `onAppendFinal` straight to `editorRef.current?.appendText(txt)`.
+  interpreted as markup instead of inserted literally.
+  ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
+  described exactly that as the pattern to copy for four releases, and it is SILENT DATA LOSS. The mic is a
+  SIBLING of the editor, so it paints and is operable while the editor is still loading; `appendText` is a
+  no-op until Tiptap is live, and the `?.` swallows the miss with no throw and no toast. Render the editor
+  from `rich-text-editor-lazy.tsx` (every consumer does) and append through ITS handle, which owns a queue
+  and replays on arrival — see the `RichTextEditor` docstring there.
+  ★★ "Is the ref populated?" is the WRONG guard: `useImperativeHandle` has deps `[editor]` and `editor` is
+  null on the first render, so React attaches a DEAD handle first — a populated ref whose appends vanish.
+  The raw handle in `rich-text-editor.tsx` returns a boolean for that reason, and it has exactly ONE reader
+  in the app: the wrapper. A consumer never sees it.
   ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
   migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.

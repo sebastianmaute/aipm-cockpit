@@ -2633,11 +2633,17 @@ different file (`prosemirror-view/style/prosemirror.css`, 1243 bytes, so not the
 prosemirror-view never injects; it only warns (`checkCSS`, `dist/index.js`, recommending you load its
 stylesheet yourself). Fires once, on initial load.
 
-★ The entry also said "The editor loads via `next/dynamic`". True of only 2 of its 8 call sites —
-`meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx`. The other six import
-`RichTextEditor` statically, so it SSRs, which is why the nonce reader must guard `typeof document`.
-Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
-(8 consumers). See §129, which carries the full table and the counter-example command.
+★ The entry also said "The editor loads via `next/dynamic`". That was true of only 2 of its 8 call sites
+when this was written — `meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx` —
+and the other six imported `RichTextEditor` statically, so it SSRed, which is why the nonce reader must
+guard `typeof document`.
+★★ **BOTH HALVES OF THAT ARE NOW FALSE AND THE GUARD STAYS ANYWAY.** 0.249.0 routed all eight consumers
+through `rich-text-editor-lazy.tsx`, so nothing SSRs the editor and nothing reaches `readCspNonce()` on the
+server — the guard is DEFENSIVE, not load-bearing, and `csp-nonce.ts` records both states deliberately so
+nobody deletes it. Do not read this paragraph as a live description of the tree; it is why the guard exists.
+The old reproduce command (`grep -rl 'rich-text-editor"' src/app --include="*.tsx"`, quoted here as
+returning 8) now returns 1, and the bare form returns 6. See §129 for the current split and the sweep that
+does not miss a `../` import.
 
 ★★ **Why it is prod-only, structurally** (`src/proxy.ts`, the `styleElem` ternary — `grep -n styleElem
 src/proxy.ts`) — verified on the live response header:
@@ -2682,11 +2688,13 @@ the same entry (count between the two mentions, not from the list, which gives 6
 consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
 the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the consumer
 list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
-RENDERED. The consumer list is
-`grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v "\.test\.tsx"` (8); the bare
-`grep -rl 'rich-text-editor"' src/app` an earlier revision quoted here returns 12, because it also picks
-up `csp-nonce.ts` and three test files. Abbreviating an attached command is how it stops reproducing the
-number beside it.
+RENDERED. The consumer list is derived, never quoted — 0.249.0 moved every consumer behind
+`rich-text-editor-lazy.tsx`, so the command this paragraph used to carry (`grep -rl 'rich-text-editor"'
+src/app --include="*.tsx"`, quoted as 8) now returns 1 and its bare form returns 6. ★★ A `--include=*.tsx`
+sweep rooted at `./` also misses a `../rich-text-editor` import from `settings-sections/` or
+`dashboard-sections/`, both of which hold consumers; the sweep in `rich-text-editor-lazy.tsx`'s header
+admits `../`, `.ts` and single quotes. Abbreviating an attached command is how it stops reproducing the
+number beside it — and outliving the tree is the other way.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
 its only runtime commit is six type annotations. The same violation, with an identical hash and only the
@@ -8203,17 +8211,46 @@ read instead from `.next/server/app/page_client-reference-manifest.js`, which ma
 the chunks needed to load it; `task-manager.tsx` is the root client component of `/`, so its chunk list
 IS that graph, and a module behind `next/dynamic` gets its own entry and drops out of the parent’s.
 
-| | before | after |
+| | before (at `d20ab9c1`) | after (at the 0.249.0 release commit) |
 |---|---|---|
-| ProseMirror in the eager entry graph | true | **false** |
-| eager total | 2334.7 kB | **1906.8 kB** |
-| eager chunks | 19 | **18** |
+| eager chunks carrying `prosemirror-view` | 1 | **0** |
+| eager total | 2334.7 kB | **1911.1 kB** |
+| eager chunks | 19 | **20** |
 | `react-loadable` entries that can reach the ProseMirror chunk | — | **1 of 27** |
+
+★★ EVERY NUMBER IN THAT TABLE MOVES ON ANY CONTENT CHANGE, so read it as a direction and re-measure the
+column you care about. It was first written as 1906.8 kB / 18 chunks and was already stale THREE COMMITS
+LATER — falsified by this very release's own i18n strings, which land in the eager EN dictionary. Reproduce
+the "after" column against a CURRENT build (`npm run build` first):
+```bash
+node -e "const fs=require('fs'),p=require('path');globalThis.self=globalThis;
+eval(fs.readFileSync('.next/server/app/page_client-reference-manifest.js','utf8'));
+const m=globalThis.__RSC_MANIFEST['/page'],e=new Set();
+for(const v of Object.values(m.clientModules))for(const c of (v.chunks||[]))if(c.endsWith('.js'))e.add(c.replace(/^.._next./,''));
+let t=0,pm=0;for(const c of e){const f=p.join('.next',c);t+=fs.statSync(f).size;
+if(fs.readFileSync(f,'utf8').includes('prosemirror-view'))pm++}
+console.log(e.size,'chunks',(t/1024).toFixed(1),'kB, carrying prosemirror-view:',pm)"
+```
 
 ★★★ **EVICTION VS RELOCATION IS THE ONLY THING THAT MAKES THAT TABLE MEAN ANYTHING.** A flat total with
 a flipped flag would mean the bytes re-homed into another eager chunk — a null result that reads as a win.
-The 428.3 kB delta matches the evicted chunk’s own size (438,428 B on disk = 428.15 kB), and exactly one
-chunk in `.next/static/chunks` contains the string `ProseMirror`. Check BOTH, always.
+Exactly ONE chunk in `.next/static/chunks` carries the editor (438,462 B = 428.19 kB) and it is not in the
+eager set. Check BOTH, always.
+
+★★★ **GREP FOR `prosemirror-view`, NEVER FOR `ProseMirror`** — the sharpest instance in this file of prose
+outliving its own commit. The original discriminator here was "exactly one chunk contains the string
+`ProseMirror`", true when written and falsified BY THE SAME RELEASE: the EN and DE version highlights
+announcing this work both name Tiptap and ProseMirror, so they ship inside the i18n chunks and the count is
+permanently >= 3. **The release note describing the eviction breaks the grep that proves the eviction.**
+`prosemirror-view` is a package specifier, so it appears only where the code does:
+```bash
+node -e "const fs=require('fs'),d='.next/static/chunks';
+const has=s=>fs.readdirSync(d).filter(f=>f.endsWith('.js')&&fs.readFileSync(d+'/'+f,'utf8').includes(s));
+console.log('code:',has('prosemirror-view').length,'| display string:',has('ProseMirror').length)"
+```
+It printed `code: 1 | display string: 3`. ★★ The 423.6 kB table delta is SMALLER than the 428.19 kB chunk,
+and that direction is the expected one: the same release added content to the eager graph (the highlight
+strings above), so the delta UNDERSTATES the eviction. A delta LARGER than the chunk is the one to chase.
 
 ★★★ **THE ENTRY-GRAPH NUMBER WAS TRUE AND THE FRAMING BUILT ON IT WAS HALF FALSE**, and only a cold
 review caught it. The first cut converted the six static sites and left `change-edit-modal` and
