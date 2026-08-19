@@ -17,6 +17,43 @@ import { Button } from "./button";
 import { RichTextToolbar } from "./rich-text-toolbar";
 import { t, type Lang } from "./i18n";
 
+/** The position a deferred append should land at: the end of the document's
+ *  LAST TEXTBLOCK, so the text joins that block instead of starting a new one.
+ *
+ *  ★★★ NOT `doc.content.size`. That is a position at DOC level, AFTER the last
+ *  block, and ProseMirror cannot place a text node there — its fitting algorithm
+ *  wraps the text in a NEW PARAGRAPH. The dominant case (an empty note composer
+ *  receiving a transcript before the editor chunk loads) therefore persisted as
+ *  `<p></p><p>transcript</p>`, a stored leading blank line that
+ *  `sanitizeRichHtml` does not strip. Measured against this repo's own
+ *  prosemirror-model, not reasoned: `content.size` gave [paragraph,
+ *  paragraph:"DICT"] on an empty doc and [paragraph:"existing",
+ *  paragraph:"DICT"] on `<p>existing</p>`; this gives [paragraph:"DICT"] and
+ *  [paragraph:"existingDICT"]. ★★ `content.size - 1` is NOT the fix either —
+ *  measured wrong for a trailing list, where it opens a new list ITEM.
+ *
+ *  ★ Equivalent to prosemirror-state's `Selection.atEnd(doc).from` for every
+ *  shape this editor can hold, verified case by case (empty paragraph, trailing
+ *  text, trailing bullet list, nested list, paragraph-then-list, trailing code
+ *  block, heading-only). It is computed here rather than imported because
+ *  `prosemirror-state` is a TRANSITIVE dependency, reachable only through
+ *  `@tiptap/pm`, which this package.json does not declare.
+ *
+ *  ★★ ONE MEASURED DIVERGENCE from `Selection.atEnd`, and it is deliberate: for a
+ *  document whose last node is a horizontal rule, `atEnd` gives the doc-level
+ *  position AFTER the rule (a new paragraph below it) while this gives the end of
+ *  the paragraph above it. Text is placed one block earlier, never lost. A doc
+ *  with NO textblock at all falls back to the doc end, where wrapping in a fresh
+ *  paragraph is the correct outcome rather than the bug above. */
+export function appendPos(doc: Editor["state"]["doc"]): number {
+  let end: number | null = null;
+  // `descendants` walks in document order, so the last textblock wins.
+  doc.descendants((node, pos) => {
+    if (node.isTextblock) end = pos + node.nodeSize - 1;
+  });
+  return end ?? doc.content.size;
+}
+
 export interface RichTextEditorHandle {
   /** Insert plain text at the caret. Used by the dictation mic — the editor
    *  binds `content` once at mount, so a new `value` cannot reach it.
@@ -270,11 +307,16 @@ export function RichTextEditor(props: RichTextEditorProps) {
         if (!text) return true;
         if (!editor) return false;
         const chain = editor.chain();
-        (opts?.focus === false
-          ? chain.insertContentAt(editor.state.doc.content.size, { type: "text", text })
-          : chain.focus().insertContent({ type: "text", text })
+        // ★★ RETURN the chain's verdict rather than an unconditional true.
+        // `insertContentAt` returns false on a content error (it catches, emits
+        // `contentError`, and the chain no-ops), and the wrapper's queue treats
+        // this return as "the text landed" — so reporting true drops it. That is
+        // the exact silent-loss class the queue exists to close.
+        return (
+          opts?.focus === false
+            ? chain.insertContentAt(appendPos(editor.state.doc), { type: "text", text })
+            : chain.focus().insertContent({ type: "text", text })
         ).run();
-        return true;
       },
     }),
     [editor],

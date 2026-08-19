@@ -13,10 +13,17 @@
 //   admits ../ paths, .ts files and single quotes, because a narrower one has
 //   already been wrong here:
 //     grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
-//   It must return only THIS file's dynamic import and type-only re-export, plus
-//   the two tests that exercise the raw module. A --include=*.tsx filter rooted
-//   at ./ misses a consumer in `settings-sections/` or `dashboard-sections/`
-//   importing ../rich-text-editor, and both directories hold consumers today.
+//   It must return FIVE lines: THIS file's three (a type-only import, the dynamic
+//   import, a type-only re-export) plus the two tests that exercise the raw
+//   module. ★★ This said "the dynamic import and type-only re-export, plus the two
+//   tests" — four — while `csp-nonce.ts` carried a DIFFERENT, also-wrong enumeration
+//   of the SAME command. Two files, two mutually inconsistent counts, neither run.
+//   Run it; do not trust the five either.
+//   A --include=*.tsx filter rooted at ./ cannot see a ../rich-text-editor import
+//   from `settings-sections/` or `dashboard-sections/`. Both hold consumers, but they
+//   reach the editor through THIS module, so no sweep for the RAW module finds
+//   them today — the narrower form is a hazard waiting on the next raw importer,
+//   not a difference you can currently measure.
 //   Leaving `raid-edit-modal` static was measured to cost the entire win: its
 //   panel is one of the two mounted UNCONDITIONALLY (`workspace-section.tsx`),
 //   so the chunk was still fetched on the initial dashboard render — off the
@@ -123,12 +130,19 @@ export function RichTextEditor({ editorRef, ...rest }: RichTextEditorProps) {
   useImperativeHandle(
     editorRef,
     () => ({
-      appendText(text: string) {
+      appendText(text: string, opts?: { focus?: boolean }) {
         // Empty is nothing to do — queueing it would make the flush a no-op that
         // still reports work.
         if (!text) return true;
         const handle = inner.current;
-        if (!handle || !handle.appendText(text)) pending.current.push(text);
+        // ★★ `opts` is FORWARDED on the live path. This wrapper is the only editor
+        // any consumer can reach, so an arity-1 signature here left the `opts` the
+        // handle type advertises unreachable from the entire app — and it
+        // typechecks, because arity-1 is assignable to `(text, opts?) => boolean`.
+        // ★ The REPLAY deliberately does NOT forward it: see `attach`, which always
+        // passes `focus: false` because the moment of replay is chosen by the
+        // network rather than by the caller.
+        if (!handle || !handle.appendText(text, opts)) pending.current.push(text);
         return true;
       },
     }),

@@ -60,7 +60,7 @@ interface NoteEntryRowProps {
   onDelete: (id: number) => void;
 }
 
-export function NoteEntryRow(props: NoteEntryRowProps) {
+function NoteEntryRow(props: NoteEntryRowProps) {
   const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
