@@ -578,12 +578,28 @@ describe("BulletsBlockEditor", () => {
   //  blur — this proves that path leaves the SAME baseline/dirty state a
   //  normal blur-commit would, so the unmount-flush guard for a LATER,
   //  genuinely pending text edit still works afterward.
-  //  ★ The `rerender` with the post-add block mirrors what a real parent
-  //   does after `onCommit` fires (apply the op, pass the new block back
-  //   down) — without it `storedBlock` never advances past the ORIGINAL
-  //   prop, and the concurrent-write guard would (correctly, for an
-  //   isolated fixture that never re-feeds its own commits) read that gap
-  //   as a concurrent write and abandon the flush.
+  //  ★★ WHY THE `rerender`, PRECISELY — and why it is NOT what makes the
+  //   second flush succeed, contrary to what an earlier revision of this
+  //   comment (and the plan text that first proposed replacing it) both
+  //   claimed. `commitValue`'s own `tryCommit` moves `baselineRef` to the
+  //   post-add block synchronously; the after-every-render effect that runs
+  //   next then resyncs `baselineRef`, `preCommitStoredRef` AND (via
+  //   `latestRef`) `externallyWritten`'s `stored` comparator to whatever
+  //   `storedBlock` that render actually held — which, with NO `rerender`,
+  //   is still the pre-add object this test originally passed to `render`.
+  //   All three move together, off the SAME unchanged prop, so they stay
+  //   equal to each other on every undirty render regardless — the abandon
+  //   guard has no live prop change to ever read as a concurrent write.
+  //   Nor does the render-time reconcile fire and undo the add on screen:
+  //   it is gated on `storedBlock !== handledBlock`, and without a
+  //   `rerender` that identity comparison never flips. Measured, not
+  //   assumed — deleting the `rerender` call above and re-running this file
+  //   (`npx vitest run src/app/document-block-editors.test.tsx`) still
+  //   passes every test, this one included. What the `rerender` actually
+  //   buys is narrower: it is what a real parent does after `onCommit`
+  //   fires (apply the op, hand the new block back down), and keeping the
+  //   fixture honest to that shape — not preventing a clobber — is the
+  //   only thing this line is for.
   it("flushes a pending item-text edit on unmount after a structural action already committed", async () => {
     const onCommit = vi.fn();
     const { rerender, unmount } = render(
