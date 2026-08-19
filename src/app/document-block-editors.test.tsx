@@ -168,6 +168,18 @@ describe("ParagraphBlockEditor", () => {
     );
     const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
     editable.focus();
+    // ★ Pin the caret to end-of-content before typing — same cross-test
+    //  ProseMirror selection residue as the two-chunk blur test above. If
+    //  "y" landed at the START instead of the end, Backspace would remove a
+    //  DIFFERENT character than the one just typed, the content would no
+    //  longer equal the original, and this test would flake into a spurious
+    //  commit (~24% of runs when preceded by another rich-text mount).
+    const range = document.createRange();
+    range.selectNodeContents(editable);
+    range.collapse(false); // end
+    const sel = window.getSelection()!;
+    sel.removeAllRanges();
+    sel.addRange(range);
     await userEvent.type(editable, "y");
     await userEvent.type(editable, "{Backspace}");
     editable.blur();
