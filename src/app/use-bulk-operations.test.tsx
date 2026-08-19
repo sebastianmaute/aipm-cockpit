@@ -660,6 +660,161 @@ describe("useBulkOperations", () => {
       expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
     });
 
+    // ★★★ THE THREE CONJUNCTS OF THE no-changes GATE, one test each. The branch's
+    // EXISTENCE is pinned by the test above (and by the bucket no-op test further
+    // down); its GATING was pinned by nothing, so
+    // `targetIds.length > 0 && skippedHidden === 0 && skippedSynced === 0` could
+    // be cut back to either half with this whole file green. The source comment
+    // spends two paragraphs justifying each conjunct; these are the observations.
+    //
+    // CONJUNCT `skippedHidden === 0`. Every VISIBLE target already holds the
+    // value AND one selected row has since been hidden. Correct code has already
+    // explained the outcome with `bulkEditHiddenSkipped`; a second toast would
+    // offer the user a DIFFERENT reason for the same closed modal ("nothing
+    // needed changing" vs "one row was withheld").
+    // ★★ NOT reachable by "a bulk apply whose whole selection is hidden" above:
+    // there `targetIds` is EMPTY, so a mutant that keeps only
+    // `targetIds.length > 0` stays silent there and passes. The separator is a
+    // NON-empty target set that changed nothing, WITH a withheld row beside it.
+    // ★★ The `bulkEditDoneOne` assertion is load-bearing, not decoration: if the
+    // fixture's visible row DID change, the FIRST branch fires and the else-if is
+    // never evaluated, so the test would pass for a reason that has nothing to do
+    // with its subject. It pins that the branch under test was reached at all.
+    it("a no-change apply that also withheld a hidden row explains the withholding ONLY", () => {
+      const showToast = vi.fn();
+      const { result } = renderBulk({ showToast });
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Overdue", status: "To Do", dueDate: "2020-01-01",
+            priority: "High", assignee: "", assigneeEmail: "", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "STAMP" },
+          { id: 2, taskName: "Fine", status: "To Do", dueDate: "2027-01-01",
+            priority: "Low", assignee: "", assigneeEmail: "", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      // Both rows are visible now, so both are legitimately selectable…
+      act(() => { result.current.bulk.onToggleSelect(1); result.current.bulk.onToggleSelect(2); });
+      // …then row 2 is hidden while it stays selected → skippedHidden === 1.
+      act(() => { result.current.filters.setHealthFilter("red"); });
+      // Row 1, the only remaining target, is ALREADY High → `taskEdits` is empty
+      // and `count` is 0, so the else-if is the branch that gets evaluated.
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      const byId = (id: number) => result.current.workspace.tasks.find((r) => r.id === id)!;
+      // Nothing was written: the visible target had nothing to change, and the
+      // hidden one was withheld.
+      expect(byId(1).localModifiedAt).toBe("STAMP");
+      expect(byId(2).priority).toBe("Low");
+      expect(byId(2).localModifiedAt).toBe("STAMP");
+      // The "N updated" branch did NOT fire, so the else-if WAS evaluated.
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
+      // The user gets the withholding notice…
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditHiddenSkipped", 1));
+      // …and NOT a second, contradicting explanation for the same outcome.
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
+    });
+
+    // CONJUNCT `skippedSynced === 0` — the other half of the same guard, and it
+    // needs its own fixture because a hidden-row fixture leaves `skippedSynced`
+    // at 0 and vice versa. One selected Jira-synced row with a managed-fields-only
+    // edit: `patchRow`'s `noLocalForSynced` early return leaves the row untouched,
+    // so `taskEdits` is empty and `count` is 0 while `skippedSynced` is 1.
+    // ★★ The fixture is deliberately the same shape as "leaves a synced row
+    // untouched when only managed fields are enabled" above rather than a new
+    // invention — but that test asserts the ROW and the ACTIVITY row and says
+    // nothing about which toast fires, which is exactly why the gating survived
+    // it. This one asserts only the toast gating.
+    it("a no-change apply that also withheld a Jira-synced row explains the sync skip ONLY", () => {
+      const showToast = vi.fn();
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ showToast, logActivity });
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Synced", jiraKey: "PROJ-1", assignee: "Alice", assigneeEmail: "",
+            dueDate: "2026-06-01", lastUpdateDate: "2026-05-20", status: "To Do", priority: "Medium",
+            blockers: "", description: "", group: "", inquiriesSent: 0, localModifiedAt: "STAMP" },
+        ]);
+      });
+      act(() => { result.current.bulk.onToggleSelect(1); });
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      // The row is the sole VISIBLE target, so nothing here is hidden — this is
+      // the `skippedSynced` conjunct on its own, not the one above.
+      expect(result.current.workspace.tasks[0].localModifiedAt).toBe("STAMP");
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditHiddenSkipped", 1));
+      // The "N updated" branch did NOT fire, so the else-if WAS evaluated.
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
+      expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
+      // The user gets the Jira notice…
+      expect(showToast).toHaveBeenCalledWith(
+        "info",
+        t("en-US", "jiraBulkManagedFieldsSkipped", 1),
+      );
+      // …and NOT a second explanation contradicting it.
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
+    });
+
+    // CONJUNCT `targetIds.length > 0`. Reached with NO target rows at all:
+    // nothing is selected, so `skippedHidden` (= selection size minus target count)
+    // is 0 too and BOTH skip guards are satisfied. Correct code stays silent;
+    // without this conjunct the apply announces "those rows already hold those
+    // values" about no rows.
+    // ★★ An empty selection is the ONLY way to reach an empty `targetIds` with
+    // `skippedHidden === 0`, which is why "a bulk apply whose whole selection is
+    // hidden" above (selection 1, targets 0, skippedHidden 1) cannot cover this:
+    // its `skippedHidden` is non-zero, so a mutant keeping the two skip guards
+    // stays silent there anyway.
+    // ★★ ANTI-VACUITY: "a toast did NOT fire" also holds if the callback never
+    // got there, so two positive observables pin that it did — the
+    // `bulkEditNoFields` early return did NOT fire (a field really was enabled),
+    // and the draft was reset, which happens on the line AFTER the branch.
+    it("an apply with no target rows at all stays silent (nothing to say it about)", () => {
+      const showToast = vi.fn();
+      const logActivity = vi.fn();
+      const { result } = renderBulk({ showToast, logActivity });
+      act(() => {
+        result.current.workspace.setTasks([
+          { id: 1, taskName: "Unselected", status: "To Do", dueDate: "2027-01-01",
+            priority: "Low", assignee: "", assigneeEmail: "", blockers: "",
+            description: "", inquiriesSent: 0, lastUpdateDate: "2026-05-20",
+            localModifiedAt: "STAMP" },
+        ] as unknown as Task[]);
+      });
+      // Deliberately NO onToggleSelect — the row is visible but untargeted.
+      expect(result.current.bulk.selectedIds.size).toBe(0);
+      act(() => {
+        result.current.taskForm.setBulkEdit((prev) => ({
+          ...prev, enabled: { ...prev.enabled, priority: true }, priority: "High",
+        }));
+      });
+      act(() => { result.current.bulk.applyBulkEdit(); });
+
+      // The two positive observables: a field WAS enabled (so the early return
+      // did not fire) and the draft was reset below the branch under test.
+      expect(showToast).not.toHaveBeenCalledWith("error", t("en-US", "bulkEditNoFields"));
+      expect(result.current.taskForm.bulkEdit.enabled.priority).toBe(false);
+      // The untargeted row is untouched.
+      expect(result.current.workspace.tasks[0].priority).toBe("Low");
+      expect(result.current.workspace.tasks[0].localModifiedAt).toBe("STAMP");
+      expect(logActivity).not.toHaveBeenCalled();
+      // The message's claim is about "those rows" — with none targeted there are
+      // none for it to be about, so it must not fire.
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
+    });
+
     // The PARTIAL case, which is the same invariant with a witness on both sides:
     // rows 1–2 really change, row 3 already holds the target value. Before the
     // fix all THREE were stamped while only TWO were captured, so row 3's stamp
