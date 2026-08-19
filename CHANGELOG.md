@@ -24,15 +24,21 @@ longer carries its own changelog comment.
   | | before | after |
   |---|---|---|
   | eager chunks carrying `prosemirror-view` | 1 | **0** |
-  | eager total | 2334.7 kB | **1911.1 kB** |
-  | eager chunks | 19 | **20** |
+  | eager total | 2334.7 kB | **1915.4 kB** |
+  | eager chunks | 19 | **21** |
   | `react-loadable` entries able to reach the chunk | — | **1 of 27** |
 
-  Exactly one chunk on disk carries the editor — 428.19 kB of it — and it is not in
+  Exactly one chunk on disk carries the editor — 428.48 kB of it — and it is not in
   the eager set, which is what separates a real eviction from bytes merely re-homing
-  into another eager chunk. The table delta is slightly smaller than that chunk
-  because this same release adds strings to the eager dictionary, so it understates
-  the eviction rather than overstating it.
+  into another eager chunk. The table delta is smaller than that chunk because this
+  same release adds strings to the eager dictionary, so it understates the eviction
+  rather than overstating it.
+
+  The `before` column is measured at this branch's base and predates the ninth
+  consumer, which arrived on main mid-branch as a further STATIC importer. That can
+  only have kept the editor in the eager graph, never shrunk it, so the real delta is
+  at least this large. Read the table as a direction; every number in it moves on any
+  content change.
 
   Two of them were nearly left static, on the reasoning that both sit behind
   `dynamic()` panels and so cannot affect the entry graph. That was true of the
