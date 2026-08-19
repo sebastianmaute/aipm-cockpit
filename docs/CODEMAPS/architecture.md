@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.247.0 "Butcher" | Files scanned: 1694 (src/**/*.{ts,tsx}, incl. 852 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.248.0 "Bujold" | Files scanned: 1782 (src/**/*.{ts,tsx}, incl. 893 tests) | Token estimate: ~950 -->
 
 # Architecture
 
@@ -12,7 +12,7 @@ plus request-time middleware issuing a per-request CSP nonce.
 │  task-manager.tsx  (root orchestrator: layout, top bar, view routing) │
 │      │                                                                │
 │      ├── workspace-context ── live entity state + setters             │
-│      ├── workspace-section ── view router → ~20 lazy panels           │
+│      ├── workspace-section ── view router → 24 lazy panels           │
 │      └── use-storage-backend ─ load/save debounce, broadcast sync     │
 │                    │                                                  │
 │            storage.ts (facade)                                        │
@@ -52,10 +52,10 @@ plus request-time middleware issuing a per-request CSP nonce.
 
 | Subsystem | Entry | Note |
 |---|---|---|
-| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 35 tools; browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
+| AI assistant | `chat-panel.tsx` + pure `chat-api.ts` | 45 tools; browser-direct to Anthropic; prompt-cache prefix ordering is load-bearing |
 | Next actions | `next-actions/` | pure ranking engine + providers → Action Center |
 | Insights loop | `insights/` | detect → reconcile → recommend → measure outcome |
-| Undo/redo | `undo/` | ~10-step, in-memory, backend-agnostic |
+| Undo/redo | `undo/` | `UNDO_CAP` = 25 entries, in-memory, backend-agnostic |
 | Calendar sync | `use-entity-calendar-push` / `-pull` | two-way Outlook for task · RAID · change · absence; milestone push-only |
 | Diagnostics | `diagnostics.ts` | capped per-device ring, two-layer secret redaction |
 
@@ -69,6 +69,9 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 `install → quality → build → e2e`. Quality is blocking: lint (`--max-warnings=0`), `tsc --noEmit`,
 Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
-E2E includes a 16-view × 5-scheme-combo axe pass (85 checks) plus the print spec. ★ Visual-regression
+E2E includes an axe pass over the 17 `A11Y_VIEWS` × 6 scheme combos plus a Kanban scan per combo and one
+notes-window toolbar scan, and the print spec. ★ MEASURE the scan count, do not derive it — the spec
+carries its own arithmetic and a draft of it has been wrong twice: `npx playwright test
+e2e/a11y.spec.ts --list` (no browsers needed). ★ Visual-regression
 is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the
 default `chromium` project `testIgnore`s, because baselines are per-platform (`npm run e2e:visual`).

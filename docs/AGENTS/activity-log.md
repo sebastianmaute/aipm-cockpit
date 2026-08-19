@@ -1,0 +1,226 @@
+# Activity log — `Workspace.activityLog`
+
+Owns the per-project audit trail: its meta-blob persistence, the `logMode` split across the
+two load funnels, entry ids, forward-compat sanitising, who stamps the actor, and the three
+incompatible delta shapes the completion trend derives from it.
+
+Does NOT own the undo stack itself, the AI dispatcher's tool surface
+(`docs/AGENTS/ai-assistant.md`), or the six-write-paths rule (`AGENTS.md`). One fact, one doc.
+
+★★★ **IT IS WORKSPACE DATA THAT MUST NEVER BE EXPORTED.** An entry's `changes` carries old/new
+values for up to 12 fields — internal audit detail that must not reach a client-facing
+document — so it is storage-only on every path, and it is absent from `TABLE_NAMES` because
+it has no table of its own, NOT because it sits outside the workspace.
+
+- **Activity log (`Workspace.activityLog`):** per-project audit trail, promoted from a per-device
+  `localStorage` blob. Persists via the **meta-blob** pattern (one JSON row in `meta`, like
+  `insights`/`documents`), NOT `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` because it
+  has no table, **not** because it is non-workspace data. ★★ **STORAGE-ONLY on every path**: no
+  `activityLog` key in `EXPORT_SECTION_KEYS`, and the CSV and Markdown emit sites gate on
+  `config === undefined` rather than routing through the export `enabled(...)` allow-list. An entry's
+  `changes` carries old/new values for up to `MAX_FIELD_CHANGES` (12) fields per update — internal
+  audit detail that must never reach a document handed to a client. Do not add an export key.
+  ★★ **Nor an AI-snapshot field.** `runTool`'s `get_app_state` returns `getSnapshot()` verbatim, so the log
+  is reachable only through `getActivityLog()` on `ToolDispatcher`. It is CAPPED (`ACTIVITY_MAX_ENTRIES`),
+  and discovering that cap is not a licence to "complete the pattern" — the guard rests on per-call size,
+  not on unboundedness. Reasoning + the guard test:
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md).
+  ★★★ **`isWorkspaceEmpty` deliberately EXCLUDES it, INVERTING the `documents` rule directly above.**
+  The log is auto-appended by ordinary use, so counting it would make a project with log entries and no
+  user records read as non-empty — letting a transient empty backend read replace a populated project,
+  i.e. turning a data-loss guard into a data-loss vector. Same reasoning keeps it out of
+  `nonEmptyCollectionCount`/`workspaceRecordCount`. Pinned by `workspace.test.ts` ("a workspace holding
+  ONLY activity entries is still EMPTY (inverse of documents)"). Do not "complete" the documents
+  precedent.
+  ★★★ **`applyWorkspace`'s `logMode` has TWO branches and they are not interchangeable.** MERGE
+  (same-project load/reload) unions by id via `mergeActivityLogs` so entries appended while a load was
+  in flight survive; REPLACE (project switch/create/load-from-file) stops the outgoing project's trail
+  leaking into the target. **The default is REPLACE — the contaminating direction must be asked for
+  explicitly.** ★★ Those switch/create/load-from-file sites do NOT hide from a bare
+  `grep "applyWorkspace("` — they spell it `deps.applyWorkspace(ws)` and the grep finds all six. What
+  hides is the ARGUMENT: the deps contract in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` is
+  typed `(ws: Workspace) => void`, one parameter, so those call sites structurally CANNOT pass a
+  `logMode` and silently take the default. Widening that contract is what would let one of them opt into
+  the contaminating branch — check the TYPE, not the call text.
+  ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
+  `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
+  `activityLog`, so fanning it out would blank the audit trail on every version restore.
+  ★★ It is ONE OF THREE slices on which the two funnels disagree, NOT the only one — `features` and
+  `fieldVisibility` are also absent from the restore fan-out. An earlier revision said "the one slice",
+  which sends a reader who diffs the funnels either to distrust the doc or to "complete the pattern" on
+  the other two. Re-derive rather than trust this line: extract the setter names from `applyWorkspace`
+  and from `applyRestoredWorkspace` and `comm` them. ★★ That diff returns FOUR names, not three — the
+  fourth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it), not a
+  workspace slice, and the comment above `applyRestoredWorkspace` already says the restore funnel
+  deliberately omits it. Three SLICES, four NAMES; a reader who stops at the count will think this line
+  is wrong. ★ A range that stops at `setCalendarEvents` hides it and returns three — `setLoadedBackend`
+  is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close brace.
+  ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
+  ("extract the setter names … and `comm` them") while the code comment that carried the real command
+  lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
+  back there: `use-storage-backend.ts` stands at 798 of the 800-line cap (`size:check` counts `wc -l`
+  plus one), and this file is outside that gate's `src` walk, so the command lives here.
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **28**
+  `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
+  `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
+  → `setActivityLog(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
+  `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
+  `^  };$` end anchor there runs 616 lines and reports 38. And the first command's start pattern needs
+  the `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 572 lines
+  and reports 31. ★ Its `^  ` anchor is DORMANT today and still worth keeping: the code comment that
+  used to quote this command sat inside the very file it greps, so its own copy of the start pattern
+  opened a second range (unanchored: 32 setters over 90 lines at `4cd14c14^`). That copy is gone, the
+  file now holds one occurrence, and anchored and unanchored both return 28 — so the hazard is quoting
+  a command in the file it scans, not the anchor by itself.
+  ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
+  property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
+  24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
+  `calendarEvents` are each SET from a payload that never carried them — i.e. blanked on every version
+  restore, by exactly the mechanism omitting `activityLog` avoids. PRE-EXISTING, not introduced by the
+  activity-log slice and deliberately not fixed by it; recorded here only so the omission above stops
+  reading as a guarantee about everything else the funnel touches.
+  ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
+  `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
+  scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which
+  unions by id) silently discards one of two real entries. ★ Minted inside a `setState` functional
+  updater (`useActivityLog`), which React double-invokes under StrictMode — the counter is gap-tolerant
+  by design and must never be treated as a dense sequence number.
+  ★★ **An unknown-but-string `kind` is KEPT, not dropped** (`sanitizeActivityEntry`), unlike the retired
+  localStorage-era validator: the log is shared workspace data and the autosave writes loaded state
+  straight back, so an older client dropping a kind a newer release added would DELETE those entries
+  from the shared project. Rendering falls back to `activityUnknownKind` via `activityMessageKey`, whose
+  `hasOwnProperty` check is required — a bare index resolves `kind: "toString"` to a `Function` prototype
+  method, `t()` then misses it in the dict and throws on `undefined.replace`, crashing the app through
+  the top-level `ErrorBoundary`. ★ A non-string or absent `kind` IS dropped: `activityGroupOf` calls
+  `kind.startsWith` and there is nothing honest to display.
+  ★★ **An entry also carries an OPTIONAL `actor` (`"user"` | `"ai"` | `"integration"`), and ABSENCE IS
+  NOT `"user"`.** Every entry written before 0.244.0 has a genuinely unknown author, so defaulting the
+  missing case would attribute the entire pre-release trail to whoever happens to be reading it.
+  `ActivityEntry` keeps the field optional for exactly that reason — render the gap as unattributed,
+  never as a person, and never filter as though absence meant anything.
+  ★ **It rides all SIX write paths for free, and that is not a violation of the six-write-paths rule
+  above.** Every path serialises the whole entry as JSON wholesale (CSV as one `config,<json>` cell,
+  Markdown as a fenced json block), so a new FIELD on a meta-blob entry costs no per-path work at all.
+  The landmine is about a new SLICE. ★★ Do NOT generalise that to an `ENTITY_SPECS` entity, where a new
+  column really does cost every one of the six — the exemption is a property of the blob, not of the
+  activity log.
+  ★★★ **`sanitizeActivityEntry` KEEPS an unknown-but-string `actor`** — the same forward-compat reason
+  it keeps an unknown `kind` directly above, and a non-string one is stripped the same way. **So every
+  actor lookup needs an own-property guard, never a bare index:** `actor: "toString"` otherwise resolves
+  a `Function` prototype method, which is the crash shape the `activityMessageKey` `hasOwnProperty`
+  check already exists to prevent. Nothing gates this and a green suite will not find it — the fixture
+  has to carry the hostile string.
+  ★★★ **THE AI DISPATCHER'S ENTITY WRITERS NOW LOG** (`actor: "ai"`, reusing the EXISTING kinds). Those
+  writers logged NOTHING before 0.244.0, so the trail was blind to every AI-made ENTITY change and any
+  older reasoning that read the log as "what the assistant did to my records" was wrong by omission.
+  ONE kind was added — `bulk.delete` — because recording an irreversible mass delete as `bulk.edit`
+  misdescribed it.
+  ★ **SCOPE IT TO ENTITY WRITES — it was NOT "every AI-made change", and an earlier revision of the line
+  above said it was.** Nine call sites in six files already logged `ai.*` kinds at base: `ai.documentWrite`
+  (`use-document-tools.ts`, ×3), `ai.inlineEdit` (`use-inline-entity-edit.ts`, ×2 — since REMOVED, see
+  [`docs/AGENTS/ai-assistant.md`](docs/AGENTS/ai-assistant.md)), `ai.insightRecommendation`
+  (`task-manager.tsx`), `ai.allocationPlan` (`use-alloc-plan.tsx`), `ai.raciSuggest`
+  (`use-raci-suggest.tsx`), `ai.taskDedup` (`use-tasks-dedup.tsx`). Re-derive against the merge base
+  rather than trusting the number:
+  `git grep -nE 'logActivity[A-Za-z]*\??\.?\(\s*"ai\.' 2e2c8c00 -- src/app | grep -v test` → **9**.
+  `CHANGELOG.md` got the scope right — it scopes the gap to the assistant's ENTITY WRITERS, not to
+  every AI-made change (`sed -n '20p' CHANGELOG.md`). One claim in three places, one correct.
+  ★★ **The actor is stamped at the WIRING, not the leaf.** `useActivityLog` returns pre-stamped
+  `logActivityUser`/`logActivityChangesUser`, because a leaf logging a generic kind cannot know whether
+  a user, the assistant or a background pull reached it. **A call site's spelling is therefore NOT its
+  actor** — never infer one by grepping for the kind; find which wrapper the site was handed.
+  Integrations (Jira sync + the four calendar background auto-pulls) stamp `"integration"`.
+  ★ **`completion-trend.ts`'s `COUNT_KINDS` set has FOUR members** — `task.created`, `task.completed`,
+  `task.reopened`, `task.deleted` — and the dispatcher writes exactly TWO of them, `task.created` and
+  `task.deleted`. So tasks the AI creates or deletes now move that trend. Intended, but it is a change to
+  an EXISTING derived metric — the trend can shift with no user action behind it.
+  `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
+  `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u` prints the 21
+  distinct kinds the dispatcher writes across its 23 sites, of which those two intersect the set.
+  ★★ **An AI status change to Done logs `task.updated`, NOT `task.completed`** — `update_task` stamps that
+  ONE kind whichever fields it touches, exactly as the form save does (`use-task-submit.ts`, which routes
+  the status through `logActivityChanges("task.updated", …)`), so a completion is invisible to the set. ★ The
+  INLINE status dropdown logs nothing at all — `use-task-row-handlers.ts` calls `logActivityRef.current`
+  on DELETE only: `grep -c "logActivityRef.current(" src/app/use-task-row-handlers.ts` → **1**, and the
+  `-n` form shows that one hit is the `"task.deleted"` call. A separate pre-existing coverage gap.
+  ★★ **SCOPE THE COMMAND TO THE CLAIM.** This was attached as `grep -n "logActivity"` on that file,
+  which returns **6** lines — the prop type, the destructure, the ref init, the ref assignment, a dep
+  array and the one call. The claim was TRUE and the command did not reproduce it, which is the exact
+  failure the rule at the top of this file exists to prevent; both reviewers flagged it independently.
+  Do not read the set's membership as "these four fire": `task.completed`
+  and `task.reopened` have **NO writer anywhere in the app**, only a union member, an
+  `activityMessageKey` row and their seat in this set. Verify before reasoning about either:
+  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` →
+  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch — but it
+  means the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals.
+  ★★ `bulk.delete` is STILL deliberately NOT in `COUNT_KINDS` — that set's members each move the metric
+  by ±1 per entry, while one `bulk.delete` entry carries a count of N, so adding it would under-count by
+  N−1. §163 closed the gap the OTHER way, as that entry said it had to be: a second set,
+  `BULK_TOTAL_KINDS`, whose members have their delta READ OUT OF THE ENTRY (`args[0]`) rather than
+  implied by the kind. ★ Do not "simplify" the two sets into one — they encode two different arithmetics,
+  and merging them silently reinstates the N−1 undercount.
+  ★★★ THERE IS A **THIRD** ARITHMETIC AND IT IS NEITHER SET — `reversedForwardDelta`, added by §166,
+  which reads `undo`/`redo` rows. Those two kinds belong to no set on purpose: their delta is neither
+  ±1 nor `args[0]` but the FORWARD delta of the ops they reverse, signed by the direction, so an `undo`
+  subtracts it and a `redo` re-applies it. `useUndoStack` appends `(kind, count)` PAIRS after the row's
+  total-rows arg — one per distinct kind, built by `reversedKindCounts` from `UndoMeta`, at all four
+  log sites. Before that the walk honoured a `bulk.delete −N` and ignored its undo, so an undone mass
+  delete left every reconstructed day's DENOMINATOR N too HIGH — which, since `percent` is
+  `done/total`, pushed the CURVE DOWN, the exact mirror of §163's inflation.
+  ★★★ PAIRS, AND THE FIRST CUT'S SINGLE-KIND FORM IS THE LESSON. That cut wrote one kind, or `""` for
+  a mixed batch, and defended `""` as an acceptable residual because "every single-entry undo is
+  homogeneous, i.e. the common case is exact". True and IRRELEVANT: a single-entry undo never reached
+  the batch helper (`commitUndo`/`redo` pass `meta.kind` directly), so the reassurance described the
+  one path on which the residual could not occur. `""` arose ONLY under the caret's
+  undo-through/redo-through — where a multi-entry batch is the whole point of the control — so
+  "delete 50, edit one field, undo through both" discarded the 50-row correction and reproduced §166
+  two clicks from its own fix. **A residual's justification must name the path the residual occurs
+  on.** Full reasoning in `docs/open-followups.md` §166.
+  ★★★ READING UNDO ROWS IS ONLY SOUND WHERE THE FORWARD SIDE IS READ TOO, and the first cut of §166
+  broke that: `use-tasks-dedup.tsx` captures `kind: "task.deleted"` but logs only `ai.taskDedup N`,
+  which was in neither set — so the reversal added +N against a forward side of ZERO and an undone
+  dedup inflated every earlier day. `ai.taskDedup` is now a `BULK_TOTAL_KINDS` member, which also
+  closes the pre-existing blind spot (its `args[0]` is `removedCount`, and `applyMerges` returns
+  `removedCount: removed.length`). ★★ ENUMERATE THE CAPTURE SITES before touching either set: grep
+  `src/app` for a `capture` call whose kind is the task-delete one, excluding tests AND
+  `completion-trend.ts`. There are FOUR, and only the dedup one was unpaired. ★★★ The pattern is
+  DESCRIBED, not quoted, and an earlier revision here quoted it and claimed "returns FOUR" — it
+  returns SIX, because `completion-trend.ts`'s own comment spells the same search string and is
+  matched by it. Third recorded instance of a self-matching grep in this repo; a cold review caught
+  it in both files at once. Every gate was green over the dedup defect.
+  ★★★ `bulk.delete` HAS THREE WRITERS NOW, and for one commit range on this branch it had ONE. (NOT "for
+  one release" — an earlier wording said that, and the kind has never shipped: `git grep -n '"bulk\.delete"' 2e2c8c00 -- src`
+  returns nothing at the merge base. It sends a reader hunting a released version that does not exist.) The kind arrived with the AI's
+  `delete_all_tasks`, so the first cut of §163 corrected the denominator for AI mass deletes while the USER
+  path — `handleClearAll` and `handleBulkDelete` in `use-bulk-operations.ts`, which took an undo capture and
+  logged NOTHING — stayed silent, INVERTING the asymmetry rather than removing it. Both user handlers now
+  log it. Re-derive rather than trusting this count — and note the command must be scoped to WRITERS:
+  `git grep -nE 'logActivity[A-Za-z]*(Ref\.current)?\??\.?\(("ai", )?"bulk\.delete"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` → **3**.
+  ★★ A bare `git grep -n '"bulk\.delete"'` does NOT reproduce the claim — it also matches the union
+  member, the `activityMessageKey` row, `BULK_TOTAL_KINDS` itself, and every test. That mistake was made
+  and caught while writing this very bullet — the same "scope the command to the claim" failure recorded
+  two paragraphs up for `use-task-row-handlers.ts` — which is why the wrong command is quoted here rather
+  than silently replaced.
+  ★★★ NO NUMBER IS QUOTED FOR THE BARE FORM ON PURPOSE, AND THIS IS THE **FOURTH** ROUND OF THIS ERROR.
+  Round one said the bare grep "returns 6" — wrong, because 6 is what you get only after
+  `| grep -v '\.test\.'`, which the quoted command does not have. Round two replaced it with "returns
+  **14**" and quoted **6** for the filtered form; a cold review measured **16** and **7**. So the
+  correction of a wrong number was itself a wrong number, twice over, inside a paragraph whose entire
+  subject is attaching a command that reproduces its claim. ★★ The filtered count had ALSO moved
+  underneath it: `reversedForwardDelta`'s own `kind === "bulk.delete"` comparison is a new non-writer
+  hit that this branch added, so any number written here is stale by the end of the commit that writes
+  it. Run whichever form you want the figure for; **do not restore a number.** ★★ The user
+  handlers count the rows REMOVED, never the ids requested — a stale selection can name ids no longer in
+  `tasks`, and the walk subtracts whatever the entry carries. ★ The general rule this cost: **a metric
+  corrected for one actor is a SCOPE, not a fix — check the other one in the same pass.**
+  ★ `bulkTaskCount`'s `Number.isFinite` guard is
+  load-bearing and its failure is SILENT: the walk does `total -= delta`, so one NaN propagates into every
+  EARLIER day, and `clampPctFromCounts` maps each non-finite result to 0 — the chart then reads a
+  plausible 0% across that whole earlier span rather than looking broken. ★ "Everywhere" is what an
+  earlier wording said and it overshoots: `endState[i]` is assigned BEFORE the subtraction, so days at
+  or after the bad entry keep their correct values. The preceding clause already says "every EARLIER
+  day" — the two halves of one sentence disagreed.
+  ★ **`mergeActivityLogs` NARROWS the loss window, it does not close it.** An entry appended on device A
+  between B's load and B's save is still lost; closing it needs append-level writes the meta-blob shape
+  cannot express. Do not record as solved.
