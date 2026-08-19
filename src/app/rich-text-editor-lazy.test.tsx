@@ -24,6 +24,12 @@ beforeAll(() => {
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
 });
 
+/** The module source with every comment removed. A source assertion over a
+ *  file that documents itself will otherwise happily match its own prose. */
+function stripComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+}
+
 describe("the dynamic() boundary", () => {
   const SRC = readFileSync("src/app/rich-text-editor-lazy.tsx", "utf8");
 
@@ -51,13 +57,23 @@ describe("the dynamic() boundary", () => {
     //   is paid in production: `useEditor` would run during SSR and
     //   `readCspNonce()` with it (see the ★★ block in `csp-nonce.ts`, whose
     //   `typeof document` guard is now the ONLY thing standing behind this line).
-    // ★★★ MATCH THE CALL SITE, NOT THE TOKEN. A first cut asserted
-    //   `toContain("ssr: false")` and SURVIVED the `ssr: true` mutant, because
-    //   the module's own header comment discusses `ssr: false` in prose — the
-    //   assertion was reading the comment. Measured, not reasoned: the mutated
-    //   file passed 5/5. Any source assertion over a file that documents itself
-    //   has this failure mode.
-    expect(SRC).toContain("{ ssr: false, loading: RichTextEditorFallback }");
+    // ★★★ STRIP THE COMMENTS FIRST. A first cut asserted
+    //   `toContain("ssr: false")` against the raw source and SURVIVED the
+    //   `ssr: true` mutant, because the module's own header discusses
+    //   `ssr: false` in prose — the assertion was reading the comment. Measured,
+    //   not reasoned: the mutated file passed 5/5. Any source assertion over a
+    //   file that documents itself has this failure mode.
+    // ★★ Its replacement pinned the exact one-line spelling
+    //   `{ ssr: false, loading: RichTextEditorFallback }`, which killed the
+    //   mutant but went red the moment the options object was reformatted onto
+    //   three lines — a test that fails on prettier is a test that gets deleted.
+    //   Stripping comments and matching per-key survives reflow AND cannot read
+    //   prose.
+    const CODE = stripComments(SRC);
+    expect(CODE).toMatch(/ssr:\s*false/);
+    expect(CODE).toMatch(/loading:\s*RichTextEditorFallback/);
+    // The needle must not have been read out of prose: no comment survives here.
+    expect(CODE).not.toContain("★");
   });
 });
 

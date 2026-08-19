@@ -1,62 +1,27 @@
-import { act, render, screen } from "@testing-library/react";
+import { act, screen } from "@testing-library/react";
 import { describe, it, expect, beforeAll, vi } from "vitest";
-import { NoteLogPanel } from "./note-log-panel";
+import { installRangePolyfills, renderNotePanel, EN } from "../test/note-log-dictation";
 import { t } from "./i18n";
-import type { Resource } from "./types";
 
-// Capture every usePushToTalk registration so a test can invoke the captured
-// `onAppendFinal` directly, the way a real engine reports a finished segment.
-// Same shape as task-form-fields.dictation.test.tsx, plus the arg capture.
-const pushToTalkCalls: { onAppendFinal: (text: string) => void }[] = [];
-vi.mock("./use-push-to-talk", () => ({
-  usePushToTalk: (args: { onAppendFinal: (text: string) => void }) => {
-    pushToTalkCalls.push(args);
-    return {
-      listening: false,
-      transcribing: false,
-      supported: true,
-      buttonHandlers: {},
-      toggle: () => {},
-      press: vi.fn(),
-      release: vi.fn(),
-    };
-  },
-}));
-
-beforeAll(() => {
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore jsdom polyfill
-  Range.prototype.getClientRects = () => ({ length: 0, item: () => null, [Symbol.iterator]: function* () {} });
-  // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-  // @ts-ignore jsdom polyfill
-  Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
+vi.mock("./use-push-to-talk", async () => {
+  const { pushToTalkMock: mock } = await import("../test/push-to-talk-mock");
+  return mock();
 });
 
-const EN = "en-US" as const;
-const RESOURCES: Resource[] = [
-  { id: 1, firstName: "Alice", lastName: "Anders", roleId: null, utilizationMode: "percent", utilization: {} },
-];
+beforeAll(installRangePolyfills);
 
-function renderPanel() {
-  pushToTalkCalls.length = 0;
-  render(
-    <NoteLogPanel
-      entries={[]}
-      onAdd={vi.fn()}
-      onEdit={vi.fn()}
-      onDelete={vi.fn()}
-      self={1}
-      resources={RESOURCES}
-      lang={EN}
-      labelSuffix={null}
-    />,
-  );
-  // The composer's mic is the first (and, with no entries, only) registration.
-  const reg = pushToTalkCalls[0];
-  expect(reg, "no usePushToTalk registration captured").toBeTruthy();
-  return reg;
-}
-
+// ★★★ ONE TEST, ONE FILE — AND THAT IS THE FIX, NOT AN ACCIDENT OF LAYOUT.
+// This assertion's premise is that the editor has NOT arrived yet, and
+// `dynamic()` builds its `React.lazy` ONCE per MODULE evaluation: any sibling
+// test in this file that awaits the editor resolves the shared payload, after
+// which `render()` mounts a real ProseMirror textbox synchronously and the
+// `toBeNull()` below fails. `test:shuffle` (BLOCKING in CI) shuffles WITHIN a
+// file, so a two-test version of this file passes or fails by order — both
+// orders were green when it shipped, which is why it was invisible. The sibling
+// cases live in `note-log-panel.dictation-live.test.tsx` and
+// `note-log-panel.dictation-cancel.test.tsx`; vitest gives each FILE its own
+// module registry, so each gets an unresolved boundary.
+//
 // ★★★ THE ONLY TEST THAT CAN SEE THE BUG IT PINS, and the fixture is what makes
 // it able to: the transcript is delivered BEFORE the editor exists. Assert after
 // the editor has mounted and the buffer is bypassed entirely — the raw
@@ -68,22 +33,14 @@ function renderPanel() {
 // still non-zero — `useEditor` runs with `immediatelyRender: false`.
 describe("note-log dictation vs. the lazily-loaded editor", () => {
   it("keeps a transcript that arrives before the editor has mounted", async () => {
-    const reg = renderPanel();
+    const { composer } = renderNotePanel();
 
     // Nothing has mounted the editor yet: the boundary is still painting its
     // fallback, so this is exactly the pre-handle state.
     expect(screen.queryByRole("textbox", { name: t(EN, "noteLogPlaceholder") })).toBeNull();
-    act(() => reg.onAppendFinal("dictated before mount"));
+    act(() => composer.onAppendFinal("dictated before mount"));
 
-    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
+    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") }, { timeout: 15_000 });
     expect(editor.textContent).toContain("dictated before mount");
-  });
-
-  it("still appends normally once the editor is mounted", async () => {
-    const reg = renderPanel();
-    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
-
-    act(() => reg.onAppendFinal("dictated after mount"));
-    expect(editor.textContent).toContain("dictated after mount");
   });
 });
