@@ -18,6 +18,8 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
+import { Button } from "./button";
+import { Input, Select } from "./form-controls";
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { EXPORT_SECTION_LABEL_KEYS } from "./export-section-labels";
 
@@ -470,20 +472,18 @@ export function HeadingBlockEditor({
   return (
     <div className="flex flex-col gap-1" onBlur={commit}>
       <div className="flex flex-wrap items-center gap-2">
-        <select
+        <Select
           aria-label={qualify(t(lang, "documentsHeadingLevel"))}
-          className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
           value={String(value.level)}
           onChange={(e) => setValue({ ...value, level: Number(e.target.value) as HeadingLevel })}
         >
           {HEADING_LEVELS.map((l) => (
             <option key={l} value={String(l)}>{`H${l}`}</option>
           ))}
-        </select>
-        <input
-          type="text"
+        </Select>
+        <Input
           aria-label={qualify(t(lang, "documentsHeadingText"))}
-          className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+          className="flex-1"
           value={value.text}
           onChange={(e) => setValue({ ...value, text: e.target.value })}
         />
@@ -653,10 +653,10 @@ export function BulletsBlockEditor({
       <ul className="flex flex-col gap-1">
         {value.items.map((item, i) => (
           <li key={i} className="flex items-center gap-1">
-            <input
-              type="text"
+            <Input
               aria-label={qualify(t(lang, "documentsListItem", String(i + 1)))}
-              className="flex-1 rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+              className="flex-1"
+              size="xs"
               value={item}
               onChange={(e) => {
                 const text = e.target.value;
@@ -667,26 +667,27 @@ export function BulletsBlockEditor({
                 });
               }}
             />
-            <button
-              type="button"
+            <Button
+              variant="secondary"
+              size="xs"
               aria-label={qualify(t(lang, "documentsMoveItemUp", String(i + 1)))}
               disabled={i === 0}
-              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => moveItem(i, i - 1)}
             >
               <span aria-hidden="true">{"↑"}</span>
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="xs"
               aria-label={qualify(t(lang, "documentsMoveItemDown", String(i + 1)))}
               disabled={i === value.items.length - 1}
-              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => moveItem(i, i + 1)}
             >
               <span aria-hidden="true">{"↓"}</span>
-            </button>
-            <button
-              type="button"
+            </Button>
+            <Button
+              variant="secondary"
+              size="xs"
               aria-label={qualify(t(lang, "documentsRemoveItem", String(i + 1)))}
               // ★ Mirrors document-table-editor.tsx's remove-row/remove-column
               //  bounds. Removing the last item produces `items: []`, which
@@ -695,24 +696,23 @@ export function BulletsBlockEditor({
               //  back. A real `disabled` attribute, never `aria-disabled`:
               //  the lookalike still fires onClick.
               disabled={value.items.length <= 1}
-              className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
               onClick={() => removeItem(i)}
             >
               <span aria-hidden="true">{"✕"}</span>
-            </button>
+            </Button>
           </li>
         ))}
       </ul>
 
       <div>
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           aria-label={qualify(t(lang, "documentsAddItem"))}
-          className="rounded-md border border-line px-2 py-1 text-xs"
           onClick={addItem}
         >
           {t(lang, "documentsAddItem")}
-        </button>
+        </Button>
       </div>
       {dropped && <BlockDroppedNotice lang={lang} />}
     </div>
@@ -772,9 +772,8 @@ export function DataSectionBlockEditor({
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
 
   return (
-    <select
+    <Select
       aria-label={`${t(lang, "documentsDataSectionKey")} – ${blockQualifier}`}
-      className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
       value={value}
       onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
     >
@@ -783,7 +782,7 @@ export function DataSectionBlockEditor({
           {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
         </option>
       ))}
-    </select>
+    </Select>
   );
 }
 

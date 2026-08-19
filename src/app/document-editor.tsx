@@ -17,6 +17,7 @@ import type { ReactElement } from "react";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { sanitizeDocumentHtml, plainToHtml } from "./sanitize-html";
+import { Button } from "./button";
 
 /** Pane width, in px, at or below which the toolbar docks once instead of
  *  rendering per block.
@@ -113,15 +114,15 @@ export function DocumentEditor({
               ★ No `aria-label`: the visible text IS the accessible name, so
               WCAG 2.5.3 holds by construction and there is nothing to keep in
               step. This control renders once, so it needs no block qualifier. */}
-          <button
-            type="button"
-            className="rounded-md border border-line px-2 py-1 text-xs"
+          <Button
+            variant="secondary"
+            size="xs"
             onClick={() =>
               onAppendBlock?.({ type: "paragraph", html: plainToHtml(t(lang, "documentsNewBlockText")) })
             }
           >
             {t(lang, "documentsAddBlock")}
-          </button>
+          </Button>
         </div>
       )}
       {doc.blocks.map((block, index) => (
@@ -214,14 +215,15 @@ function BlockEditor({
               failure no axe rule under the gate's four tags can see, at any
               seed size. The VISIBLE label stays unqualified and is CONTAINED
               in the accessible name, so WCAG 2.5.3 holds too. */}
-          <button
-            type="button"
+          <Button
+            variant="secondary"
+            size="xs"
             aria-label={`${t(lang, "documentsBlockSelect")} – ${t(lang, "documentsBlockN", String(index + 1))}`}
-            className="w-fit rounded-md border border-line px-2 py-1 text-xs"
+            className="w-fit"
             onClick={onSelect}
           >
             {t(lang, "documentsBlockSelect")}
-          </button>
+          </Button>
         </div>
       ) : (
         <ParagraphBlockEditor

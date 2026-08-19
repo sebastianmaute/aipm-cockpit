@@ -18,6 +18,8 @@
 import { t } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
+import { Button } from "./button";
+import { Input } from "./form-controls";
 
 type TableDraft = {
   caption: string;
@@ -108,10 +110,9 @@ export function TableBlockEditor({
 
   return (
     <div className="flex flex-col gap-2" onBlur={commit}>
-      <input
-        type="text"
+      <Input
         aria-label={qualify(t(lang, "documentsTableCaption"))}
-        className="rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground"
+        size="xs"
         value={value.caption}
         onChange={(e) => editCaption(e.target.value)}
       />
@@ -122,22 +123,23 @@ export function TableBlockEditor({
             <tr>
               {value.columns.map((col, c) => (
                 <th key={c} className="px-1 py-1 text-left font-medium">
-                  <input
-                    type="text"
+                  <Input
                     aria-label={qualify(t(lang, "documentsTableColumnHeader", String(c + 1)))}
-                    className="w-32 rounded-md border border-line bg-surface px-2 py-1 text-foreground"
+                    className="w-32"
+                    size="xs"
                     value={col}
                     onChange={(e) => editColumnHeader(c, e.target.value)}
                   />
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     aria-label={qualify(t(lang, "documentsRemoveColumn", String(c + 1)))}
                     disabled={value.columns.length <= 1}
-                    className="ml-1 rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
+                    className="ml-1"
                     onClick={() => removeColumn(c)}
                   >
                     <span aria-hidden="true">{"✕"}</span>
-                  </button>
+                  </Button>
                 </th>
               ))}
               {/* ★★ PAIRS WITH THE PER-ROW REMOVE BUTTON'S <td> BELOW. Without
@@ -163,25 +165,25 @@ export function TableBlockEditor({
               <tr key={r}>
                 {row.map((cell, c) => (
                   <td key={c} className="px-1 py-1">
-                    <input
-                      type="text"
+                    <Input
                       aria-label={qualify(t(lang, "documentsTableCell", String(r + 1), String(c + 1)))}
-                      className="w-32 rounded-md border border-line bg-surface px-2 py-1 text-foreground"
+                      className="w-32"
+                      size="xs"
                       value={cell}
                       onChange={(e) => editCell(r, c, e.target.value)}
                     />
                   </td>
                 ))}
                 <td className="px-1 py-1">
-                  <button
-                    type="button"
+                  <Button
+                    variant="secondary"
+                    size="xs"
                     aria-label={qualify(t(lang, "documentsRemoveRow", String(r + 1)))}
                     disabled={value.rows.length <= 1}
-                    className="rounded-md border border-line px-2 py-1 text-xs disabled:cursor-not-allowed disabled:opacity-60"
                     onClick={() => removeRow(r)}
                   >
                     <span aria-hidden="true">{"✕"}</span>
-                  </button>
+                  </Button>
                 </td>
               </tr>
             ))}
@@ -195,22 +197,22 @@ export function TableBlockEditor({
          Add-item button). WCAG 2.5.3 still holds: the accessible name
          CONTAINS the visible text. */}
       <div className="flex gap-2">
-        <button
-          type="button"
+        <Button
+          variant="secondary"
+          size="xs"
           aria-label={qualify(t(lang, "documentsAddRow"))}
-          className="rounded-md border border-line px-2 py-1 text-xs"
           onClick={addRow}
         >
           {t(lang, "documentsAddRow")}
-        </button>
-        <button
-          type="button"
+        </Button>
+        <Button
+          variant="secondary"
+          size="xs"
           aria-label={qualify(t(lang, "documentsAddColumn"))}
-          className="rounded-md border border-line px-2 py-1 text-xs"
           onClick={addColumn}
         >
           {t(lang, "documentsAddColumn")}
-        </button>
+        </Button>
       </div>
     </div>
   );
