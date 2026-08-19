@@ -613,7 +613,15 @@ describe("useBulkOperations", () => {
     // that the STORED ROW moved while nothing was recorded, and a spy on the
     // capture arg can only ever see the half that was already absent. The real
     // `useUndoStack` here is what makes "and nothing was recorded" observable.
-    it("a bulk apply whose value every selected row ALREADY holds writes nothing and records nothing", () => {
+    // ★★ WRITING NOTHING IS NOT THE SAME AS SAYING NOTHING. The write half above
+    // is correct, but the apply then closed the modal and cleared the selection
+    // in silence — indistinguishable from a swallowed error, and the exact
+    // failure the `bulkEditHiddenSkipped` notice exists to prevent one case
+    // over. So this pins BOTH halves: the rows are untouched AND the user is
+    // told why. The "no updated toast" assertions stay key-based rather than a
+    // /updated/i regex, so they cannot pass merely because the new message
+    // happens to avoid that word.
+    it("a bulk apply whose value every selected row ALREADY holds writes nothing, records nothing, and says so", () => {
       const { result, logActivity, showToast } = renderBulkWithRealUndo();
       act(() => {
         result.current.workspace.setTasks([
@@ -644,7 +652,12 @@ describe("useBulkOperations", () => {
       expect(result.current.undoStack).toHaveLength(0);
       // An apply that wrote nothing must not claim rows or log a row either.
       expect(logActivity).not.toHaveBeenCalledWith("bulk.edit", expect.anything());
-      expect(showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/updated/i));
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
+      expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+      // …but it MUST say that nothing needed changing: nothing was withheld here
+      // (no hidden row, no Jira-synced row), so this is the only notice the user
+      // gets for an apply that closed the modal and cleared the selection.
+      expect(showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
     });
 
     // The PARTIAL case, which is the same invariant with a witness on both sides:
@@ -1118,7 +1131,7 @@ describe("useBulkOperations", () => {
       expect(r.commitBuckets.mock.calls[0][1].callerLogs).toBe(true);
     });
 
-    it("a bucket apply that changes nothing writes nothing and claims nothing", () => {
+    it("a bucket apply that changes nothing writes nothing, claims nothing, and says so", () => {
       const r = seedBucketFixture();
       // Tasks 1 and 2 are ALREADY in bucket 1; select only those, target bucket 1.
       act(() => { r.result.current.bulk.clearSelection(); });
@@ -1130,7 +1143,12 @@ describe("useBulkOperations", () => {
       // (a managed-fields-only edit on synced rows drives count to 0). A no-op
       // bucket apply must not report "2 tasks updated" or log a bulk.edit row.
       expect(r.args.logActivity).not.toHaveBeenCalled();
-      expect(r.args.showToast).not.toHaveBeenCalledWith("info", expect.stringMatching(/updated/i));
+      expect(r.args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneOne"));
+      expect(r.args.showToast).not.toHaveBeenCalledWith("info", t("en-US", "bulkEditDoneMany", 2));
+      // The second no-change path (bucket move that moves nothing) reaches the
+      // same notice as the field path: nothing was withheld, so silence would be
+      // indistinguishable from a swallowed error.
+      expect(r.args.showToast).toHaveBeenCalledWith("info", t("en-US", "bulkEditNoChanges"));
     });
 
     it("the none option unlinks the selected tasks", () => {

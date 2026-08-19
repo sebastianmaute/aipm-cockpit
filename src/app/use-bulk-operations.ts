@@ -344,6 +344,26 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
           : t(lang, "bulkEditDoneMany", count),
       );
       logActivityRef.current("bulk.edit", count);
+    } else if (targetIds.length > 0 && skippedHidden === 0 && skippedSynced === 0) {
+      // The GENUINE no-change apply: rows were targeted, none was withheld, and
+      // every one already held the values asked for — so the write half
+      // correctly wrote nothing. Saying nothing is the same failure the
+      // `skippedHidden` notice above exists to prevent (the modal closes and the
+      // selection clears either way, so silence is indistinguishable from a
+      // swallowed error).
+      // Gated on BOTH skip counts being zero: when either notice fired the user
+      // already has an explanation for the same outcome, and a second toast
+      // would offer a different reason for it. Gated on `targetIds.length > 0`
+      // so the message's claim ("those rows already hold those values") is true
+      // by construction — with no target rows there is nothing to say that
+      // about. The `!anyEnabled` and invalid-input paths returned earlier, so
+      // neither can reach here.
+      // NO activity row on purpose: nothing was written, so an audit line would
+      // describe a change that did not happen — and `bulk.edit` renders as
+      // "Bulk edit applied to {0} task(s)", i.e. a literal "0 task(s)" entry.
+      // (It is in neither `COUNT_KINDS` nor `BULK_TOTAL_KINDS`, so the omission
+      // costs the completion trend nothing either way.)
+      showToastRef.current("info", t(lang, "bulkEditNoChanges"));
     }
     setBulkEditOpen(false);
     setBulkEdit(emptyBulkEdit());
