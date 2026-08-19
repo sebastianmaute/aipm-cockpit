@@ -60,62 +60,7 @@ interface NoteEntryRowProps {
   onDelete: (id: number) => void;
 }
 
-export /** An editor handle that tolerates not being usable yet.
- *
- *  ★★★ DICTATION CAN OUTRUN THE EDITOR, and the `?.` that used to sit at both
- *  call sites turned that into SILENT DATA LOSS — no throw, no toast, the
- *  transcript simply gone. The mic is a SIBLING of the editor, not a child, so
- *  it paints and is operable immediately; the editor now arrives over the
- *  network behind `rich-text-editor-lazy.tsx`. The gap was always non-zero
- *  (`useEditor` runs with `immediatelyRender: false`) — that change made it a
- *  428 kB fetch wide.
- *
- *  ★★★ "IS THE REF POPULATED?" IS THE WRONG QUESTION, and a first cut of this
- *  hook asked exactly that and lost the text anyway — measured, by the test in
- *  `note-log-panel.dictation.test.tsx`, not reasoned. `useImperativeHandle` in
- *  `rich-text-editor.tsx` has deps `[editor]`, and `editor` is null on the first
- *  render, so React attaches a DEAD handle, then detaches with `null`, then
- *  attaches the live one. Flushing on first attach fires into the no-op; and
- *  clearing the queue on the `null` detach discards it one beat before the
- *  handle that could have taken it. Trust only `appendText`'s RETURN VALUE.
- *
- *  ★★ Buffer rather than disabling the mic: its hold-to-talk registration is
- *  driven by editor focus, so gating the control would need the handle in
- *  STATE, and a mic that looks inert for the length of a chunk fetch trades one
- *  bad outcome for another.
- *
- *  ★ Consequence worth knowing: the queue survives the `key={composerNonce}`
- *  remount that clears the composer after an Add, so a transcript still in
- *  flight lands in the FRESH composer rather than being dropped. That is the
- *  deliberate trade — the alternative is losing it. */
-function useBufferedEditorHandle() {
-  const handle = useRef<RichTextEditorHandle | null>(null);
-  const pending = useRef<string[]>([]);
-
-  const flush = useCallback((h: RichTextEditorHandle) => {
-    const queued = pending.current;
-    if (queued.length === 0) return;
-    pending.current = [];
-    for (const txt of queued) if (!h.appendText(txt)) pending.current.push(txt);
-  }, []);
-
-  const attach = useCallback(
-    (h: RichTextEditorHandle | null) => {
-      handle.current = h;
-      if (h) flush(h);
-    },
-    [flush],
-  );
-
-  const appendText = useCallback((txt: string) => {
-    const h = handle.current;
-    if (!h || !h.appendText(txt)) pending.current.push(txt);
-  }, []);
-
-  return { attach, appendText };
-}
-
-function NoteEntryRow(props: NoteEntryRowProps) {
+export function NoteEntryRow(props: NoteEntryRowProps) {
   const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
@@ -125,7 +70,14 @@ function NoteEntryRow(props: NoteEntryRowProps) {
   // which take this same string — announced identically (WCAG 2.4.6). Naming
   // them from one const is what stops that recurring.
   const editLabel = `${t(lang, "edit")}${suffix}`;
-  const editEditor = useBufferedEditorHandle();
+  const editEditor = useRef<RichTextEditorHandle | null>(null);
+  // ★ The queue that makes this safe lives in `rich-text-editor-lazy.tsx`, NOT
+  //   here — see its `RichTextEditor` docstring. A row-scoped queue outlived the
+  //   editor it was for and spliced an abandoned transcript into the stored note
+  //   the next time the row was opened.
+  const appendToEdit = useCallback((txt: string) => {
+    editEditor.current?.appendText(txt);
+  }, []);
   // The editor owns its own content; append through the handle rather than
   // re-feeding `value`, which Tiptap binds only at mount (see rich-text-editor.tsx).
   const { mic: editMic, registration: editDictationReg } = useDictationMic({
@@ -137,7 +89,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
     // one inside the task editor), and without it both mics announce
     // identically — WCAG 2.4.6.
     label: editLabel,
-    onAppendFinal: editEditor.appendText,
+    onAppendFinal: appendToEdit,
   });
 
   return (
@@ -167,7 +119,7 @@ function NoteEntryRow(props: NoteEntryRowProps) {
               commitOnEnter
               label={editLabel}
               lang={lang}
-              editorRef={editEditor.attach}
+              editorRef={editEditor}
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -240,7 +192,10 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   const composerLabel = labelSuffix
     ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
     : t(lang, "noteLogPlaceholder");
-  const composerEditor = useBufferedEditorHandle();
+  const composerEditor = useRef<RichTextEditorHandle | null>(null);
+  const appendToComposer = useCallback((txt: string) => {
+    composerEditor.current?.appendText(txt);
+  }, []);
   // Appended through the imperative handle rather than re-feeding `value` —
   // Tiptap binds `content` only at mount, and Web Speech fires `onFinal`
   // repeatedly per hold, so a value-based push would need to remount the
@@ -255,7 +210,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
     // ★★ ONE expression for the mic AND the composer beside it — see
     // `editLabel` in NoteEntryRow for what a second spelling of this cost.
     label: composerLabel,
-    onAppendFinal: composerEditor.appendText,
+    onAppendFinal: appendToComposer,
   });
 
   const handleAdd = useCallback(() => {
@@ -300,7 +255,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             commitOnEnter
             label={composerLabel}
             lang={lang}
-            editorRef={composerEditor.attach}
+            editorRef={composerEditor}
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">

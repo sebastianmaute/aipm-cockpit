@@ -28,9 +28,17 @@ export interface RichTextEditorHandle {
    *  below has deps `[editor]` — so a callback ref is attached ONCE with a dead
    *  handle, detached with `null`, and re-attached with the live one. Any
    *  "is the ref populated?" test therefore answers YES while appends vanish.
-   *  `note-log-panel.tsx`'s `useBufferedEditorHandle` is the reference consumer:
-   *  it re-queues on `false` rather than trusting attachment. */
-  appendText(text: string): boolean;
+   *  ★★ THE QUEUE THAT ACTS ON THIS LIVES IN `rich-text-editor-lazy.tsx`, not in
+   *  any consumer, so this return value has exactly ONE reader in the app. That
+   *  is deliberate: a boolean nobody is forced to check is a convention, and the
+   *  bug it replaced was a consumer forgetting one. Consumers get a handle whose
+   *  `appendText` cannot lose text and always returns true.
+   *
+   *  ★ `focus: false` appends at the END of the document without moving focus —
+   *  for a DEFERRED append, whose moment is decided by a network fetch rather
+   *  than by the user. Focusing then would yank the caret out of whatever they
+   *  had moved on to, and a stale selection would splice the text mid-document. */
+  appendText(text: string, opts?: { focus?: boolean }): boolean;
 }
 
 export interface RichTextEditorProps {
@@ -248,12 +256,16 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useImperativeHandle(
     props.editorRef,
     () => ({
-      appendText(text: string) {
+      appendText(text: string, opts?: { focus?: boolean }) {
         // Empty is "nothing to do", NOT a failure — reporting false would make a
         // buffering caller re-queue it forever.
         if (!text) return true;
         if (!editor) return false;
-        editor.chain().focus().insertContent({ type: "text", text }).run();
+        const chain = editor.chain();
+        (opts?.focus === false
+          ? chain.insertContentAt(editor.state.doc.content.size, { type: "text", text })
+          : chain.focus().insertContent({ type: "text", text })
+        ).run();
         return true;
       },
     }),
