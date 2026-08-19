@@ -924,6 +924,17 @@ describe("DataSectionBlockEditor", () => {
     expect(selects).toHaveLength(2);
     expect(new Set(selects.map((s) => s.getAttribute("aria-label"))).size).toBe(2);
   });
+
+  // ★ Raw registry keys ("knowledgeItems") were rendered as user-visible text.
+  //  Every option must carry the same translated label Settings → Export shows
+  //  for the same section, so the two surfaces cannot name one thing twice.
+  it("renders translated option labels, not raw registry keys", () => {
+    const block: Extract<DocBlock, { type: "dataSection" }> = { type: "dataSection", key: "tasks" };
+    render(<DataSectionBlockEditor lang={LANG} index={0} block={block} onCommit={vi.fn()} />);
+    const select = screen.getByRole("combobox");
+    expect(select).toHaveTextContent(t(LANG, "exportLabelKnowledgeItems"));
+    expect(select).not.toHaveTextContent("knowledgeItems");
+  });
 });
 
 describe("PageBreakBlockEditor", () => {

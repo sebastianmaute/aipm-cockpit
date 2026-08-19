@@ -19,6 +19,7 @@ import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
+import { EXPORT_SECTION_LABEL_KEYS } from "./export-section-labels";
 
 export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   lang: Lang;
@@ -741,7 +742,9 @@ export function DataSectionBlockEditor({
       onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
     >
       {EXPORT_SECTION_KEYS.map((k) => (
-        <option key={k} value={k}>{k}</option>
+        <option key={k} value={k}>
+          {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
+        </option>
       ))}
     </select>
   );
