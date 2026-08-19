@@ -88,6 +88,14 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   // by remembering this file.
   const captureBulkUndo = useCallback(
     (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => {
+      // No `stampField` here, deliberately: the tasks bulk path
+      // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"` and
+      // these four converted registers do not, so undoing a bulk edit reverts
+      // the values and leaves the apply's `localModifiedAt` standing.
+      // `stampField` does NOT restore the prior stamp; it writes a FRESH
+      // `new Date().toISOString()` on undo AND redo, the reversal being itself
+      // a local modification the backends must push. Adding it here would be a
+      // behaviour change, not a consistency fix.
       if (edits.length) args.captureFieldRows?.({ setter: setStakeholders, kind: "bulk.edit", edits, entityKey: "stakeholder" });
     },
     [setStakeholders, args],
