@@ -2,7 +2,7 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Close the fifteen findings two cold reviews raised against `feat/documents-s3b` — a silent data-loss path on restore, an unversioned clobber, an editor that can produce blocks the loader discards, four tests that cannot detect what they are named for, six a11y/correctness defects, and the unbuilt narrow-pane docked toolbar the design spec specified.
+**Goal:** Close the fifteen findings two cold reviews raised against `feat/documents-s3b` — a silent data-loss path on restore, an unversioned clobber, an editor that can produce blocks the loader discards, four tests that cannot detect what they are named for, six a11y/correctness defects, and the unbuilt narrow-pane docked toolbar the design spec specified — plus the zero-block empty state, which the user asked to close with a working add-block control (Task 15b).
 
 **Architecture:** The draft hook (`useBlockDraft`) gains a render-time reconcile plus commit guards so an external write to a block can neither be clobbered nor silently ignored. Coalescing stops being a content heuristic and becomes an identity check: the editor anchors its run to the exact version id its own last commit produced, so *any* other writer breaks the run. The narrow-pane layout becomes real block selection with one portaled, docked toolbar, driven by a `ResizeObserver` hook measuring the pane element rather than the viewport.
 
@@ -58,10 +58,12 @@ Every finding below was re-checked against the tree at `7627329d`. **All fifteen
 | `src/app/document-table-editor.tsx` | T5 → T10 |
 | `src/app/document-editor.tsx` | T5 → T15 |
 | `src/app/document-editor.test.tsx` | T5 → T11 → T14b → T15 |
-| `src/app/documents-panel.tsx` | T9 → T13 → T14 |
-| `src/app/document-edit-mode.tsx` | T1 → T9 → T14 |
-| `src/app/documents-panel.test.tsx` | T8 → T11 |
-| `src/app/i18n.ts` + `i18n.de.ts` | T7 → T10 (removes nothing) → T15 — **one writer at a time, always** |
+| `src/app/documents-panel.tsx` | T9 → T13 → T14 → T15b |
+| `src/app/document-edit-mode.tsx` | T1 → T9 → T14 → T15b |
+| `src/app/documents-panel.test.tsx` | T8 → T11 → T13 |
+| `src/app/use-document-editor.ts` | T2 → T13 → T15b |
+| `src/app/use-document-editor.test.ts` | T8 (creates) → T13 → T15b |
+| `src/app/i18n.ts` + `i18n.de.ts` | T7 → T9 → T10 → T15 → T15b — **one writer at a time, always** |
 
 ---
 
@@ -2744,6 +2746,319 @@ holding an image left the document with no editable paragraph at all."
 
 ---
 
+## Task 15b: The zero-block empty state — explain it AND offer a working add-block control
+
+**User decision: option (c)** — an explanatory line **plus** a working control, not the explanatory line alone this plan first recommended. The recommendation rested on a cost estimate that was wrong, and the correction is worth recording: **the write path already exists.**
+
+```
+src/app/document-mutations.ts:45  | { op: "append"; block: DocBlock }
+src/app/document-mutations.ts:46  | { op: "insert"; index: number; block: DocBlock }
+```
+
+Both are members of `DocOp`, both are handled in `applyOps` (`:317`, `:333`), and both are exercised — `document-mutations.test.ts:481` runs `it.each(["append","insert","replace"])` and `document-mutations.property.test.ts:48` includes them in `OpKind`. So this task builds a **UI control emitting an existing op through the mutation path the block editors already use**, not a new op path. Verified against the tree, not taken on trust.
+
+### The four design choices, settled here rather than at implementation time
+
+**1. Which op, and which starting block kind — `append`, and a `paragraph`.**
+An empty document has no index to insert at, so `insert` has nothing meaningful to take; `append` is the only op whose contract is satisfied by an empty block list.
+
+The kind is a `paragraph`: it is the block every editor path already handles, it is the one the narrow-pane docking work (Task 15) is built around, and it is what a document normally opens with.
+
+★★★ **But it must NOT be an EMPTY paragraph, and this is the trap.** `document-model.ts:127` drops a paragraph whose `htmlTextLength` is 0 — so appending `{ type: "paragraph", html: "" }` creates a block that renders now and is **gone on the next load**, which is precisely the failure Task 7 exists to prevent. Seeding it three tasks after banning it would be incoherent. The appended block therefore carries a translated placeholder, and the user replaces it. The alternative — appending empty and relying on the user typing before the next save — was rejected: the window is small but real, and "usually fine" is what F3 already caught once.
+
+**2. Empty-state only — and that is a boundary, not an omission.**
+The control renders **only** when `doc.blocks.length === 0`. A general add-block affordance (per-position insert, a kind picker, delete, reorder) is the **structural slice**, which `document-editor.tsx`'s own header comment scopes out of S3b ("IN SCOPE IS BLOCK *CONTENT*; the SET of blocks is not… That is the structural slice"). It does **not** belong in Task 15 either: Task 15 is narrow-pane selection among blocks that exist, and folding block creation into it would put two independent changes behind one review. State the boundary; build one control.
+
+**3. Coalescing — the append records its own before-image, and the typing that follows folds into it.**
+Two separate questions, and the answers differ:
+
+- **Does the append coalesce into a preceding run? NO.** The mutation is built without a `coalesce` field, so `document-mutations.ts`'s `const before = m.coalesce ? undefined : snapshot(...)` writes the before-image unconditionally. Creating a block is a structural change and the pre-append state is exactly what a user reverting an accidental add wants back. (This matters little for a document that was empty, and a great deal if a general add-block ever reuses this path — so the property is established now, not later.)
+- **Do the user's first edits to the new block coalesce onto it? YES**, and it costs no extra code. `appendBlock` advances `lastVersionIdRef` exactly as `commitBlock` does, so the append's version becomes the run's anchor and the typing that follows folds in. That is right: the append's before-image **already is** the pre-session state, so a second version would capture a half-typed placeholder — a revert target nobody wants — and would spend one of `MAX_VERSIONS_PER_DOC` (20) on it.
+
+★ Note that this falls out of Task 2's anchor design rather than being special-cased: the append is one of this hook's own commits, so it advances the anchor for the same reason every other commit does.
+
+**4. What this covers, and what it does NOT.**
+It covers a document reduced to **zero blocks** — that document now has a way back. It does **not** cover a **bullets block** reduced to zero items; that stays where it already is in this plan, closed by Task 7's `disabled={value.items.length <= 1}` bound on the remove button. **The two must not merge:** they are different objects (a document's block list vs one block's item list), fixed by different mechanisms (a create affordance vs a lower bound), and treating the new control as covering both would invite someone to relax Task 7's bound on the grounds that "you can just add it back" — which you cannot, because there is no add-bullets-block control and this task deliberately does not build one.
+
+### Size budget
+
+`documents-panel.tsx` is at **799** at branch point and Task 9 nets it to **798**. This task spends **zero** lines there:
+- `appendBlock` is returned by `useDocumentEditor` and destructured on the **existing** line 360 alongside `commitBlock`;
+- `onAppendBlock` is added to the **existing** single-line `<DocumentEditModeBody … />` element (line ~705).
+
+Re-verify after editing — the whole budget rests on both staying one line each:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
+```
+
+Expected: **798**. The growth lands in `document-editor.tsx` (~134 at branch point, ~250 after Task 15) and `use-document-editor.ts` (74), both far from the cap.
+
+**Files:**
+- Modify: `src/app/use-document-editor.ts` (**serialise after Tasks 2 and 13**)
+- Modify: `src/app/document-edit-mode.tsx` (**after Tasks 1, 9, 14**)
+- Modify: `src/app/document-editor.tsx` (**after Task 15** — this edits the component Task 15 produced)
+- Modify: `src/app/documents-panel.tsx` (**after Tasks 9, 13, 14** — zero net lines)
+- Modify: `src/app/i18n.ts`, `src/app/i18n.de.ts` (three new keys)
+- Test: `src/app/document-editor.test.tsx`, `src/app/use-document-editor.test.ts`
+
+- [ ] **Step 1: Write the failing tests**
+
+Append to `src/app/document-editor.test.tsx`:
+
+```tsx
+describe("a document with no blocks", () => {
+  const empty: ProjectDocument = {
+    id: 11,
+    title: "Empty",
+    blocks: [],
+    createdAt: "2026-08-18T10:00:00.000Z",
+    updatedAt: "2026-08-18T10:00:00.000Z",
+  };
+
+  // ★★ An empty <div> with no message and no affordance reads as broken — the
+  //  same principle this slice states for the image case and for the collapsed
+  //  narrow-pane paragraph.
+  it("says the document has no blocks yet", () => {
+    render(
+      <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+    );
+    expect(screen.getByText(t(LANG, "documentsNoBlocks"))).toBeInTheDocument();
+  });
+
+  // ★★★ THE APPENDED PARAGRAPH CARRIES SEEDED TEXT, NOT AN EMPTY ONE.
+  //  document-model.ts drops a paragraph whose visible text length is 0, so an
+  //  empty seed would create a block that renders now and is GONE on the next
+  //  load — the exact failure Task 7 of this round exists to prevent.
+  it("appends a paragraph carrying real text", async () => {
+    const onAppendBlock = vi.fn();
+    render(
+      <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={onAppendBlock} />,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
+    expect(onAppendBlock).toHaveBeenCalledTimes(1);
+    const block = onAppendBlock.mock.calls[0][0] as { type: string; html: string };
+    expect(block.type).toBe("paragraph");
+    expect(htmlTextLength(block.html)).toBeGreaterThan(0);
+    expect(block.html).toContain(t(LANG, "documentsNewBlockText"));
+  });
+
+  // ★ The control is EMPTY-STATE ONLY. A general add-block affordance is the
+  //  structural slice (document-editor.tsx's own header scopes the block SET
+  //  out of S3b), and it is deliberately not built here.
+  it("renders no add-block control once the document has a block", () => {
+    render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: t(LANG, "documentsAddBlock") })).toBeNull();
+    expect(screen.queryByText(t(LANG, "documentsNoBlocks"))).toBeNull();
+  });
+});
+```
+
+Add `import { htmlTextLength } from "./rich-text-plain";` to that file — asserting on the **loader's own measure** rather than on a string length is what makes the seeded-text assertion mean "this survives a load" instead of "this is non-empty".
+
+Append to `src/app/use-document-editor.test.ts`:
+
+```ts
+describe("useDocumentEditor — appendBlock", () => {
+  // ★★★ AN APPEND NEVER COALESCES INTO A PRECEDING RUN. Creating a block is a
+  //  structural change and the pre-append state is what a user reverting an
+  //  accidental add wants back, so the mutation carries NO coalesce field and
+  //  document-mutations.ts writes the before-image unconditionally.
+  it("emits an append with no coalesce flag", () => {
+    const mutateDocuments = vi.fn((_m: DocMutation): DocResult => result());
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions: [], mutateDocuments, now: () => NOW }),
+    );
+    hook.current.appendBlock({ type: "paragraph", html: "<p>seed</p>" });
+    const sent = mutateDocuments.mock.calls[0][0];
+    expect(sent).toMatchObject({ kind: "ops", id: 1, ops: [{ op: "append" }] });
+    expect(sent).not.toHaveProperty("coalesce");
+  });
+
+  // Same guard as commitBlock: a closure minted for a document that is no
+  // longer selected must abandon rather than land on whichever is selected now.
+  it("abandons an append from a closure minted for a document that is no longer selected", () => {
+    const mutateDocuments = vi.fn((_m: DocMutation): DocResult => result());
+    const { result: hook, rerender } = renderHook(
+      ({ documentId }: { documentId: number }) =>
+        useDocumentEditor({ documentId, versions: [], mutateDocuments, now: () => NOW }),
+      { initialProps: { documentId: 1 } },
+    );
+    const staleAppend = hook.current.appendBlock;
+    rerender({ documentId: 2 });
+    expect(staleAppend({ type: "paragraph", html: "<p>seed</p>" })).toBeUndefined();
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+});
+```
+
+- [ ] **Step 2: Run and watch them fail**
+
+Run: `npx vitest run src/app/document-editor.test.tsx src/app/use-document-editor.test.ts --reporter=dot`
+Expected: FAIL — `onAppendBlock` is not a prop, `appendBlock` is not returned, and none of the three strings exist.
+
+- [ ] **Step 3: Add the three i18n keys**
+
+`src/app/i18n.ts`, beside the other `documents*` keys:
+
+```ts
+  documentsNoBlocks: "This document has no blocks yet.",
+  documentsAddBlock: "Add a paragraph",
+  documentsNewBlockText: "New paragraph",
+```
+
+`src/app/i18n.de.ts`:
+
+```ts
+  documentsNoBlocks: "Dieses Dokument hat noch keine Blöcke.",
+  documentsAddBlock: "Absatz hinzufügen",
+  documentsNewBlockText: "Neuer Absatz",
+```
+
+★★ **Two of the three DE strings carry umlauts** ("Blöcke", "hinzufügen") and `i18n.de.ts` is **CRLF** — the Edit tool corrupts umlauts there *and* curls double quotes. Patch by node UTF-8 write with a `\r\n` anchor, then re-verify the bytes:
+
+```bash
+node -e "const fs=require('fs');const p='src/app/i18n.de.ts';let s=fs.readFileSync(p,'utf8');const a='  documentsBlockNoEditor:';if(!s.includes(a))throw new Error('anchor missing');const add='  documentsNoBlocks: \"Dieses Dokument hat noch keine Blöcke.\",\r\n  documentsAddBlock: \"Absatz hinzufügen\",\r\n  documentsNewBlockText: \"Neuer Absatz\",\r\n';fs.writeFileSync(p,s.replace(a,add+a),'utf8');"
+grep -n "documentsNoBlocks\|documentsAddBlock\|documentsNewBlockText" src/app/i18n.de.ts
+```
+
+Expected: three lines printing real `ö` and `ü`, with straight `"` quotes. The `i18n-encoding` test bans ASCII substitutions (`Bloecke`, `hinzufuegen`) and `\u00XX` escapes **in the file** — the command above writes real characters.
+
+★ If Task 7 already inserted a key at the `documentsBlockNoEditor` anchor, anchor on a different existing key; the command throws rather than silently no-opping if the anchor is missing, which is the point of the guard.
+
+- [ ] **Step 4: Add `appendBlock` to the hook**
+
+In `src/app/use-document-editor.ts`, after `commitBlock`:
+
+```ts
+  const appendBlock = useCallback(
+    (block: DocBlock): DocResult | undefined => {
+      // Same abandon-rather-than-clobber guard as commitBlock: this closure was
+      // built for `documentId`, and if the panel has moved on, appending here
+      // would add a block to whichever document happens to be selected now.
+      if (documentId !== currentDocIdRef.current) return undefined;
+      // ★★★ NO `coalesce` FIELD, DELIBERATELY. document-mutations.ts reads
+      //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
+      //  it writes the before-image unconditionally. Creating a block is a
+      //  structural change and the pre-append state is exactly what a user
+      //  reverting an accidental add wants back — an append must never fold
+      //  into a preceding editing run.
+      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [{ op: "append", block }] });
+      // ★★ ...but it DOES become the run's anchor, so the typing that follows
+      //  folds into it. That is not a special case: the append is one of THIS
+      //  hook's own commits, so it advances the anchor for the same reason
+      //  every other one does. And it is right — the append's before-image
+      //  already IS the pre-session state, so a second version would capture a
+      //  half-typed placeholder, which is a revert target nobody wants and one
+      //  of only MAX_VERSIONS_PER_DOC (20) slots spent.
+      if (result.changed) lastVersionIdRef.current = newestVersionId(result.versions);
+      return result;
+    },
+    [documentId, mutateDocuments],
+  );
+
+  return { commitBlock, appendBlock };
+```
+
+- [ ] **Step 5: Thread it down**
+
+`src/app/document-edit-mode.tsx`:
+- `const { commitBlock, appendBlock } = useDocumentEditor(deps);` and add `appendBlock` to the returned object;
+- add `onAppendBlock: (block: DocBlock) => void;` to `DocumentEditModeBodyProps`, destructure it, and pass it: `<DocumentEditor lang={lang} doc={doc} onCommitBlock={onCommitBlock} onAppendBlock={onAppendBlock} narrow={narrow} />`.
+
+`src/app/documents-panel.tsx` — **both edits stay on their existing lines**:
+- line 360: `const { editing, narrowPane, commitBlock, appendBlock, editToolbar, paneRef } = useDocumentEditMode({ … });`
+- line ~705: add `onAppendBlock={appendBlock}` to the existing `<DocumentEditModeBody … />` element.
+
+- [ ] **Step 6: Build the empty state**
+
+`src/app/document-editor.tsx` — add to `DocumentEditorProps`:
+
+```ts
+  /** Appends a block. Reached only from the zero-block empty state: the block
+   *  SET is otherwise out of scope for this slice (see this file's header). */
+  onAppendBlock: (block: DocBlock) => void;
+```
+
+and, inside the component Task 15 produced, insert the empty branch as the **first** child of the outer `<div className="flex flex-col gap-3">`, before the `{narrow && <div ref={setDock} …/>}` line:
+
+```tsx
+      {doc.blocks.length === 0 && (
+        <div className="flex flex-col items-start gap-2 rounded-md border border-line p-3">
+          <p className="text-sm text-muted-foreground">{t(lang, "documentsNoBlocks")}</p>
+          {/* ★★★ THE SEED IS NOT EMPTY. document-model.ts drops a paragraph
+              whose visible text length is 0, so an empty seed would create a
+              block that renders now and is GONE on the next load — the exact
+              failure this round's "never commit a block the loader discards"
+              task exists to prevent. The user replaces the placeholder.
+              ★ `plainToHtml`, not `sanitizeRichText`: the input is a
+              compile-time i18n literal, so it is provably plain by
+              construction — the same justification the other remaining
+              `plainToHtml(` call sites carry. Do NOT copy this to a boundary
+              whose input could already be HTML; there the escape corrupts it
+              permanently.
+              ★ No `aria-label`: the visible text IS the accessible name, so
+              WCAG 2.5.3 holds by construction and there is nothing to keep in
+              step. This control renders once, so it needs no block qualifier. */}
+          <button
+            type="button"
+            className="rounded-md border border-line px-2 py-1 text-xs"
+            onClick={() =>
+              onAppendBlock({ type: "paragraph", html: plainToHtml(t(lang, "documentsNewBlockText")) })
+            }
+          >
+            {t(lang, "documentsAddBlock")}
+          </button>
+        </div>
+      )}
+```
+
+with `import { plainToHtml } from "./sanitize-html";` added and `onAppendBlock` destructured from the props.
+
+★ **`plainToHtml` lives in `sanitize-html.ts`, not `rich-text-plain.ts`** — verified with `grep -rn "export function plainToHtml" src/app/`. The two are easy to confuse because AGENTS.md discusses them in one breath. `document-editor.tsx` already imports `sanitizeDocumentHtml` from that module, so this adds no new dependency edge. (`htmlTextLength`, used by the test in Step 1, *is* in `rich-text-plain.ts`.)
+
+★ Everything else Task 15 wrote is untouched: `doc.blocks.map(...)` renders nothing for an empty list, so the two branches cannot both show.
+
+- [ ] **Step 7: Run**
+
+```bash
+npx vitest run src/app/document-editor.test.tsx src/app/use-document-editor.test.ts src/app/documents-panel.test.tsx src/app/i18n.test.ts --reporter=dot
+npx tsc --noEmit; echo "EXIT=$?"
+npx eslint --max-warnings=0 src/app; echo "EXIT=$?"
+node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
+```
+
+Expected: PASS, `EXIT=0` twice, **798**.
+
+★ `tsc` is what enforces EN/DE key parity — a DE dictionary missing one of the three is a compile error, never a test failure.
+
+- [ ] **Step 8: Prove the mutants die**
+
+| Mutant (smallest token change) | Test that goes red |
+|---|---|
+| `html: plainToHtml(t(lang, "documentsNewBlockText"))` → `html: ""` | *appends a paragraph carrying real text* — `htmlTextLength` is 0 |
+| `{ op: "append", block }` → `{ op: "append", block }, coalesce: true` added to the mutation | *emits an append with no coalesce flag* |
+| delete `if (documentId !== currentDocIdRef.current) return undefined;` from `appendBlock` | *abandons an append from a closure minted for…* |
+| `doc.blocks.length === 0` → `doc.blocks.length >= 0` | *renders no add-block control once the document has a block* |
+| delete the `<p>{t(lang,"documentsNoBlocks")}</p>` | *says the document has no blocks yet* — so the message and the control are pinned **separately**, and a control with no explanation cannot pass |
+
+Run each, confirm red, revert, confirm green. `git status --porcelain -uall` must be clean before Step 9.
+
+- [ ] **Step 9: Commit**
+
+```bash
+git add src/app/use-document-editor.ts src/app/document-edit-mode.tsx src/app/document-editor.tsx src/app/documents-panel.tsx src/app/document-editor.test.tsx src/app/use-document-editor.test.ts src/app/i18n.ts src/app/i18n.de.ts
+git commit -m "feat(documents): explain the zero-block empty state and offer a way out
+
+A document with no blocks rendered an empty div with no message and no
+affordance. It now says so and offers one append — the op already existed
+and was already tested; only the control was missing. The seeded paragraph
+carries real text on purpose: the loader drops an empty one, so an empty
+seed would create a block that vanishes on the next load."
+```
+
+---
+
 ## Task 16: F15 — record the block editor's a11y-scan gap in the register
 
 `e2e/a11y.spec.ts:19` lists `"Documents"` in `A11Y_VIEWS`, but `grep -rn "Edit blocks\|documentsEditBlocks" e2e/` returns nothing, so the scan only ever renders the read-only **preview**. The whole block editor — five editors, the table grid, every per-block control, N rich-text toolbars, and now the docked toolbar — is unscanned.
@@ -2885,29 +3200,33 @@ npm run test:coverage > /tmp/cov.log 2>&1; echo "EXIT=$?"
 
 ---
 
-## OPEN QUESTIONS FOR THE USER — answer before Task 15 ships
+## DECISIONS — all three questions answered; no open questions remain
 
-1. **A document with zero blocks renders an empty `<div>` in edit mode** (`document-editor.tsx:56-86`) with no message and no add-block affordance. This repo requires confirming before altering any window's empty state, so **no task in this plan touches it.** Options, if you want it changed:
-   - (a) leave as-is (the block SET is out of scope for S3b, and an add-block control is the structural slice);
-   - (b) render an explanatory line only ("This document has no blocks yet" — one i18n key, no new control);
-   - (c) render the explanation plus an add-block control (a genuine scope increase — it needs an `insert` op path, a kind picker and its own tests).
-   **Recommendation: (b).** It removes the "reads as broken" failure without pulling the structural slice forward, and it is one key plus one `<p>`.
+1. **The zero-block empty state: option (c) — explanatory line PLUS a working add-block control.** Built in **Task 15b**.
 
-2. **Task 15 changes the narrow-pane interaction model** from "the first paragraph is editable" to "the selected paragraph is editable, everything else says why and offers a way in". Confirm the affordance wording — the plan uses "Edit this block" (`documentsBlockSelect`) with the reason "Only the selected block is editable while the pane is narrow."
+   ★★ **The plan's original recommendation of (b) rested on a wrong cost estimate and is retracted.** It said (c) "needs an `insert` op path". It does not: `append` and `insert` are both already members of `DocOp` (`document-mutations.ts:45-46`), both handled in `applyOps` (`:317`, `:333`), and both already exercised by `document-mutations.test.ts:481`'s `it.each(["append","insert","replace"])` and by `document-mutations.property.test.ts:48`'s `OpKind`. The write path was done; only the control was missing. Recording the retraction rather than quietly deleting it, because the same estimate would otherwise be made again by whoever plans the structural slice.
 
-3. **Task 5 changes commit policy on blur:** a blur now ABANDONS rather than last-write-wins when the stored block moved under a dirty draft. The cost is that an unblurred keystroke burst is discarded when a restore or an AI write lands mid-edit. That is the documented trade (recoverable loss beats unrecoverable), but it is a behaviour change a user can notice, so it is called out rather than buried.
+   The four design choices (op, kind, scope, coalescing) are settled inside Task 15b, along with the trap that nearly made this a data-loss feature: an **empty** appended paragraph is dropped by `document-model.ts:127` on the next load, so the seed carries translated text.
+
+2. **Narrow-pane wording: accepted as proposed** — "Edit this block" (`documentsBlockSelect`), with the reason "Only the selected block is editable while the pane is narrow." (`documentsBlockCollapsedNarrow`). No change to Task 15.
+
+3. **Task 5's blur-policy change: accepted.** A blur now ABANDONS rather than last-write-wins when the stored block moved under a dirty draft. **Kept flagged as user-visible:** an unblurred keystroke burst is discarded when a restore or an AI write lands mid-edit. That is the documented trade (recoverable loss beats unrecoverable), and no design change follows — it is recorded here so it is not rediscovered as a bug report.
+
+★ Independently re-verified by the team lead and unchanged: the D3 ResizeObserver precedent does not exist — both `ResizeObserver` hits in the tree are comments saying the feature deliberately uses none. Task 14 stands as written.
 
 ---
 
 ## Self-review
 
-**Spec coverage.** Every finding F1–F15 maps to a task: F1→T5, F2→T2, F3→T7, F4a→T8, F4b→T14b, F4c→T4, F4d→T3, F5+F7→T9, F6→T10, F8→T11, F9→T13, F10→T12, F11+F12→T1/T6, F13→T15, F14→T14, F15→T16. The spec gap (D2) is built in T15; D3's ResizeObserver decision is honoured in T14 **with its cited precedent corrected** — `dashboard-grid.tsx` contains no ResizeObserver, only two comments saying it deliberately has none. The zero-block empty state is an open question, not a task, as instructed.
+**Spec coverage.** Every finding F1–F15 maps to a task: F1→T5, F2→T2, F3→T7, F4a→T8, F4b→T14b, F4c→T4, F4d→T3, F5+F7→T9, F6→T10, F8→T11, F9→T13, F10→T12, F11+F12→T1/T6, F13→T15, F14→T14, F15→T16. The spec gap (D2) is built in T15; D3's ResizeObserver decision is honoured in T14 **with its cited precedent corrected** — `dashboard-grid.tsx` contains no ResizeObserver, only two comments saying it deliberately has none. The zero-block empty state, first written up as an open question, is now **Task 15b** under the user's option (c).
 
 **Placeholder scan.** No "TBD", no "similar to Task N", no "add appropriate error handling". Every code step carries the code. Two deliberate forward references are marked inline and both say what to do until the later task lands: `headingTextName` (Task 11's helper, used by Tasks 5, 8 and 13 — spell it inline until then) and `renderToolbar` (Task 9's own helper, written in that task).
 
 **Type consistency.** `useBlockDraft` is `<T, B extends DocBlock>(fromBlock, storedBlock, index, toBlock, onCommit)` and returns `{ value, setValue, commit, commitValue, seedNonce, dropped }` — the same shape at all five call sites and in every later task. `shouldCoalesce(versions, documentId, now, lastVersionId)` is four arguments everywhere after Task 2, including the property test. `UseDocumentEditorDeps.mutateDocuments` is `(m: DocMutation) => DocResult` from Task 13 onward, and Task 8's test file is updated in Task 13 Step 5 rather than left stale. `NARROW_PANE_QUERY` (a string) becomes `NARROW_PANE_PX` (a number) in Task 14 and is consumed as a number in `useNarrowElement(NARROW_PANE_PX)`. `useNarrowElement` returns `{ ref, narrow }`; `useDocumentEditMode` returns `{ editing, narrowPane, commitBlock, editToolbar, paneRef }` from Task 14 on — note `toggleEditing` leaves that return shape in Task 9 (it moves inside `editToolbar`), so any later reader of it must use `editToolbar.onToggleEditing`.
 
-**Gate exposure declared.** No task touches the six persistence write paths, and `DocVersionOp` is deliberately not extended, so no golden fixture is regenerated. Four tasks touch the i18n pair and must be serialised against each other (T7, T9, T10, T15 — six new keys in total, EN and DE). One new coverage-gated `.ts` file is added and deliberately tested rather than excluded (T14); one more (T12) is a constant-only module. `documents-panel.tsx` is tracked at every touch and lands at 798.
+**Gate exposure declared.** No task touches the six persistence write paths, and `DocVersionOp` is deliberately not extended, so no golden fixture is regenerated. **Task 15b emits an `append` op but adds no field and no op** — `DocOp` already carries it, so the persisted shape is unchanged there too. Five tasks touch the i18n pair and must be serialised against each other (T7, T9, T10, T15, T15b — **nine** new keys in total, EN and DE: 1 + 2 + 1 + 2 + 3). One new coverage-gated `.ts` file is added and deliberately tested rather than excluded (T14); one more (T12) is a constant-only module. `documents-panel.tsx` is tracked at every touch and lands at **798**, with T13, T14 and T15b each spending zero net lines there.
+
+**Type consistency, second pass (Task 15b).** `useDocumentEditor` returns `{ commitBlock, appendBlock }` from T15b on, and `useDocumentEditMode` returns `{ editing, narrowPane, commitBlock, appendBlock, editToolbar, paneRef }`. `appendBlock` has the same `(block: DocBlock) => DocResult | undefined` shape family as `commitBlock`'s `(index, block) => DocResult | undefined`, and `DocumentEditorProps.onAppendBlock` is `(block: DocBlock) => void` — the panel discards the result there for the same reason the block editors do, and the refusal still surfaces because T13 routed the whole hook through the panel's funnel. `plainToHtml` is imported from `sanitize-html.ts` (verified), `htmlTextLength` from `rich-text-plain.ts`.
 
 
 
