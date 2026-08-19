@@ -12429,3 +12429,61 @@ question on the styling and `id` questions above rather than on the
 announcement, and correct the two over-broad docstring sentences in the same
 commit. Nothing will catch a regression here afterwards, so whatever is decided
 belongs in the docstring rather than in a test.
+
+## 191. A block draft over a storage cap refuses silently, and the Add controls do not stop you reaching that state
+
+**Status:** open. **Severity:** medium (a false affordance plus a silent
+refusal; no data reaches storage wrongly). **Found by:** the pre-release cold
+review of the S3b branch, 2026-08-19.
+
+`normalizeBlockForStorage` clamps a block to `MAX_TABLE_COLUMNS` (30),
+`MAX_TABLE_ROWS` (500), `MAX_BULLET_ITEMS` (200), `MAX_TEXT_CHARS` (5 000) and
+`MAX_HTML_TEXT_CHARS` (20 000). Nothing upstream stops a draft exceeding any of
+them: "Add column", "Add row" and "Add item" carry no `disabled` at the cap, and
+no text input carries a `maxLength`. Reaching a cap therefore produces a control
+the user can see and type into, whose content storage will never accept.
+
+`tryCommit` then refuses it SILENTLY. Its no-change branch runs
+`setRefusal(null); return false` — so the cap is a THIRD refusal reason with no
+`BlockRefusal` variant and no notice, in the one file whose notice component
+exists precisely because "the concurrent-write ABANDON did not have one".
+
+★★ **The reconcile's cap arm treats the symptom, not this.** It clears such a
+draft on the next parent render so the phantom control cannot persist
+indefinitely (see `exceedsStorageCaps`). That restores the pre-branch behaviour
+— the identity-keyed re-seed it replaced dropped the same text on the same
+trigger — but it is a cleanup, not a fix, and it has a real cost recorded below.
+
+★★★ **THE OVER-CAP CONTENT IS NOT UNRECOVERABLE, AND AN EARLIER COMMENT SAID IT
+WAS.** `removeItem` and `removeColumn` route the WHOLE draft through
+`commitValue`, so deleting any row or column brings the draft back under the cap
+and the previously-unsaveable text COMMITS. The claim "it can NEVER become
+committable" shipped in `document-model.ts` and `document-block-editors.tsx` and
+was refuted by the review in one command; both now say "cannot commit while it
+stays over the cap". The consequence is that the re-seed discards text the user
+could have rescued by deleting a row first — which is exactly why the fix below
+is the one that matters.
+
+**To close**, in this order:
+
+1. **Stop the state being reachable.** `disabled` on Add row / Add column / Add
+   item at the cap, with the reason surfaced (a real `disabled` attribute, never
+   an `aria-disabled` lookalike — that still fires `onClick`). ★ A disabled
+   control needs a reason visible somewhere or it is the "disabled control with
+   no reason" defect the block editors already avoid elsewhere.
+2. **Give the cap a refusal.** Widen `BlockRefusal` from `"empty" | "conflict"`
+   to carry a `"cap"` variant with its own i18n string, and have `tryCommit`
+   set it rather than clearing the refusal, so a no-change-because-clamped
+   commit says so.
+3. Once 1 and 2 exist, revisit whether the reconcile's cap arm should still
+   discard the draft or leave it for the user to shorten deliberately.
+
+★ Blocked on headroom for the parts that live in `document-block-editors.tsx`,
+which sits at exactly 800 of the 800-line cap — see §189. The table controls are
+in `document-table-editor.tsx` (225 lines) and are not blocked.
+
+★★ A related gap the same review found, worth closing with 2: `exceedsStorageCaps`
+ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
+`DocBlock` kind would silently be classified as never-truncating. The predicate's
+arms are now pinned individually in `document-model.test.ts`, but nothing forces
+a new arm when the union grows.

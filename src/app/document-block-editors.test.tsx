@@ -869,15 +869,19 @@ describe("TableBlockEditor", () => {
   });
 
   // ★★★ THE RECONCILE'S SKIP IS NOT "the draft normalises onto storage" — it is
-  //  that AND "the draft could still commit". A draft the CAP flattened onto
-  //  storage satisfies the first and fails the second: `tryCommit` finds no
-  //  change, returns false WITHOUT a notice, and the extra control would sit
-  //  there forever swallowing keystrokes. The identity-keyed re-seed this
-  //  branch replaced removed it — destructively, but visibly — so dropping the
-  //  cap arm turns a self-correcting phantom into a permanent silent sink.
+  //  that AND "the draft could still commit AS IT STANDS". A draft the CAP
+  //  flattened onto storage satisfies the first and fails the second:
+  //  `tryCommit` finds no change, returns false WITHOUT a notice, and the
+  //  extra control would sit there swallowing keystrokes. The identity-keyed
+  //  re-seed this branch replaced removed it — destructively, but visibly — so
+  //  dropping the cap arm turns a self-correcting phantom into a permanent
+  //  silent sink.
+  //  ★★ "as it stands" is load-bearing: removing any column routes the whole
+  //   draft through `commitValue`, which then fits and SAVES the over-cap
+  //   text, so this re-seed does discard a recoverable edit (§191).
   //  ★ Counting remove-column buttons rather than header inputs: one per
   //   column, and it is the control the user would actually be stuck with.
-  it("re-seeds away a column the cap would eat, rather than stranding a dead control", async () => {
+  it("re-seeds away a column that cannot commit while the draft stays over the cap", async () => {
     const wide: Extract<DocBlock, { type: "table" }> = {
       type: "table",
       columns: Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `C${i + 1}`),

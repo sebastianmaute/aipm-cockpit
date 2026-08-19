@@ -252,7 +252,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  Identity keying discarded draft-only content — "Add item" appends an empty row
     //  the normaliser drops. Compare via that rule, NOT `baselineRef` (re-pointed at
     //  the STALE block below). `exceedsStorageCaps` then excludes a draft a CAP ate
-    //  onto storage: it can NEVER commit, so keeping it strands a dead control.
+    //  onto storage — it cannot commit while over it (§191 carries the cost).
     const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
     if (!draftAsStored || exceedsStorageCaps(toBlock(rawValue)) || blockChanged(draftAsStored, storedBlock)) {
       const seeded = fromBlock(storedBlock);

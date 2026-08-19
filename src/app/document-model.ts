@@ -138,11 +138,20 @@ export function normalizeBlockForStorage(block: DocBlock): DocBlock | null {
  *   that normalises ONTO the stored block is usually harmless — "Add item"
  *   appends an empty row storage drops, and that row becomes committable the
  *   moment the user types into it, which is why the reconcile keeps it. A draft
- *   that normalises onto the stored block because a CAP ATE THE DIFFERENCE is
- *   the opposite: it can NEVER become committable. `tryCommit` normalises,
- *   finds no change against the baseline, and returns false WITHOUT a notice,
- *   so a 31st column or a 201st bullet would sit on screen forever, silently
- *   swallowing every keystroke typed into it. Re-seed from storage instead.
+ *   that normalises onto the stored block because a CAP ATE THE DIFFERENCE
+ *   cannot commit WHILE IT STAYS OVER THE CAP. `tryCommit` normalises, finds
+ *   no change against the baseline, and returns false WITHOUT a notice, so a
+ *   31st column or a 201st bullet sits on screen swallowing every keystroke
+ *   typed into it. Re-seed from storage instead.
+ *  ★★★ NOT "can never commit", which this said until a review refuted it in
+ *   one command: removing ANY item or column routes the WHOLE draft through
+ *   `commitValue`, which then fits and SAVES the over-cap text. So re-seeding
+ *   does discard something the user could have rescued by deleting a row
+ *   first. That trade restores the pre-branch behaviour rather than adding a
+ *   new one — the identity-keyed re-seed it replaced dropped the same text on
+ *   the same trigger — but it is the WRONG fix for the real defect: the cap
+ *   path shows no refusal notice and the Add controls are not disabled at the
+ *   cap, so nothing tells the user any of it. `docs/open-followups.md` §191.
  *   Measured before this existed: add a column to a 30-column table, edit any
  *   other cell, and the phantom column survived every subsequent commit.
  *  ★★ Length checks only — a TRIM or an empty-drop is not truncation, and
