@@ -55,8 +55,28 @@ export type BlockRefusal = "empty" | "conflict";
  * ★ It cannot be rendered on the UNMOUNT flush path, which abandons for the
  *  same reason — the component is going away and there is nothing left to
  *  render into. Refusing to write is the whole fix there; do not fake a notice.
+ *
+ * ★★★ `role="status"` IS LOAD-BEARING, and its absence made the docstring above
+ *  false for exactly the users it was written for. This element mounts AFTER a
+ *  blur has already moved focus elsewhere, so a screen-reader user gets no
+ *  announcement from the mount alone: the "silent refusal" this component
+ *  exists to prevent stayed silent for them, in both states. `status` carries
+ *  an implicit `aria-live="polite"`, so the reason is announced without
+ *  interrupting whatever the user is now typing.
+ *  ★★ NOT `role="alert"` (assertive): it would cut across the user's next
+ *   keystrokes to report a refusal they can act on at their leisure. Nothing
+ *   here is time-critical — the draft text is still on screen and still theirs.
+ *  ★★ NO axe RULE COVERS THIS, at any seed size: a missing live region is not
+ *   a violation, it is an absence. `document-block-editors.test.tsx` pins the
+ *   role in both states, and that unit test is the only detector there will be.
+ *   The identical problem is solved the identical way one file over, in
+ *   `documents-panel.tsx`'s rejection banner.
  */
 export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
   const key = refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved";
-  return <p className="text-xs text-ui-pink">{t(lang, key)}</p>;
+  return (
+    <p role="status" className="text-xs text-ui-pink">
+      {t(lang, key)}
+    </p>
+  );
 }

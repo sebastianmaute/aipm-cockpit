@@ -189,6 +189,13 @@ export function replaceBlockOp(index: number, block: DocBlock, expect?: DocBlock
  *  Do NOT reach for DOMPurify here: `document-editor-commit.ts` is DOM-free
  *  and i18n-free by contract (see this file's header).
  */
+/* ★★ NO TEST COMPARES THIS TO `normalizeBlockForStorage`, DELIBERATELY. One
+ *  existed and was deleted: while this is DEFINED as `... !== null`, both sides
+ *  of such an assertion move together under every mutation, so it could not
+ *  fail. Measured — stubbing the normaliser to return `null` outright turned
+ *  four tests in `document-editor-commit.test.ts` red and left that one green.
+ *  ★ It would become a real test the moment this stops delegating (an inlined
+ *  or independently reimplemented drop rule). If you ever do that, write it. */
 export function blockSurvivesLoad(block: DocBlock): boolean {
   return normalizeBlockForStorage(block) !== null;
 }

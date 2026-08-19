@@ -1166,6 +1166,15 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     act(() => { text.blur(); });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByText(t(LANG, "documentsBlockConflictNotSaved"))).toBeTruthy();
+    // ★★★ ANNOUNCED, not merely RENDERED — the two are different claims and only
+    //  this one is about the user this notice was added for. The element mounts
+    //  after blur has already moved focus elsewhere, so with no live region a
+    //  screen-reader user gets nothing: the silent abandon the test above exists
+    //  to prevent, still silent for them. `role="status"` is polite by default,
+    //  so it does not cut across the keystrokes they are about to type.
+    expect(screen.getByRole("status")).toHaveTextContent(
+      t(LANG, "documentsBlockConflictNotSaved"),
+    );
     // ★ Distinct from the empty-content refusal: one state, two reasons, and a
     //  reader must be able to tell which one fired.
     expect(screen.queryByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeNull();
@@ -1391,6 +1400,10 @@ describe("blocks the loader would discard", () => {
     });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeInTheDocument();
+    // ★ Same live region in the OTHER state — one assertion per state, because a
+    //  role added to one branch of the ternary's consumer is no evidence about
+    //  the other. (Here it is one element for both, and that is worth pinning.)
+    expect(screen.getByRole("status")).toHaveTextContent(t(LANG, "documentsBlockEmptyNotSaved"));
   });
 });
 

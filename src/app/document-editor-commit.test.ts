@@ -315,22 +315,6 @@ describe("normalizeBlockForStorage", () => {
       normalizeBlockForStorage({ type: "dataSection", key: "not-a-registry-key" } as unknown as DocBlock),
     ).toBeNull();
   });
-
-  // ★ The two are defined in terms of each other on purpose — one rule, not two.
-  it("agrees with blockSurvivesLoad on every shape", () => {
-    const shapes: DocBlock[] = [
-      { type: "heading", level: 1, text: "ok" },
-      { type: "heading", level: 1, text: " " },
-      { type: "paragraph", html: "<p>x</p>" },
-      { type: "paragraph", html: "" },
-      { type: "bullets", items: ["a"] },
-      { type: "bullets", items: [] },
-      { type: "pageBreak" },
-    ];
-    for (const b of shapes) {
-      expect(normalizeBlockForStorage(b) !== null).toBe(blockSurvivesLoad(b));
-    }
-  });
 });
 
 // ★★★ THE SECOND HALF OF THE WINDOW CHECK, which had no test at all. The
