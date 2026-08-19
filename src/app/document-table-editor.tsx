@@ -31,8 +31,12 @@ export function TableBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "table" }>>) {
-  const { value, setValue, commit, commitValue } = useBlockDraft<TableDraft>(
-    { caption: block.caption ?? "", columns: block.columns, rows: block.rows },
+  const { value, setValue, commit, commitValue } = useBlockDraft(
+    (b: Extract<DocBlock, { type: "table" }>): TableDraft => ({
+      caption: b.caption ?? "",
+      columns: b.columns,
+      rows: b.rows,
+    }),
     block,
     index,
     // ★ Caption is OPTIONAL and sparse: an empty one is omitted, so a table

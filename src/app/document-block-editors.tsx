@@ -32,19 +32,26 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  * Shared draft/dirty-check/commit wiring for a block editor whose full
  * editable state fits in one value of type `T` (the paragraph editor's is a
  * plain `string`; the heading editor's is the composite `{ level; text }`;
- * a future table editor's could be its row array). Holds the draft in
+ * the table editor's is its caption/columns/rows). Holds the draft in
  * state, and on `commit()` converts it to a `DocBlock` via `toBlock` and
  * calls `onCommit` only if it actually differs from `baselineRef`
  * (`blockChanged` — required, not an optimisation: without it, focusing a
  * block and leaving it would write a version whose before-image equals its
  * after-image).
  *
- * `commit` is a plain closure recreated every render (never memoized), so it
- * always reads the LATEST draft value with no ref — setting a ref's
- * `.current` during render is itself a fatal lint error
- * (react-hooks/refs: "Cannot access refs during render").
+ * ★ The FIRST parameter is a DERIVER (`fromBlock: (block: B) => T`), not a
+ * mount-time value, because rule 3 below has to re-derive the draft from a
+ * CHANGED block, not just seed it once.
  *
- * ★★★ THE CONTRACT, PRECISELY (two failure modes, two different rules):
+ * `commit` is a plain closure recreated every render (never memoized), and
+ * it reads the draft through `liveValueRef` rather than this render's
+ * `value` (see that ref's own comment for why a closure over the render
+ * scope is not enough). Refs are what the render body may NOT touch:
+ * reading OR writing `.current` during render is a fatal lint error
+ * (react-hooks/refs: "Cannot access refs during render"), which is why the
+ * dirty flag is mirrored into state for the reconcile below.
+ *
+ * ★★★ THE CONTRACT, PRECISELY (three rules):
  *
  * 1. UNMOUNT FLUSH. A pending, genuinely-changed draft with no blur is real
  *    data loss: leaving edit mode, navigating away, or a block-list
@@ -55,18 +62,22 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *    an editor that was never touched, or one whose blur already committed
  *    (which resets `dirtyRef`), flushes nothing.
  *
- * 2. CONCURRENT-WRITE GUARD. A DELIBERATE commit (blur) may overwrite
- *    whatever is stored — the user chose to finish editing, last-write-wins
- *    is defensible there. An INCIDENTAL one (the unmount flush) may NOT: if
- *    `storedBlock` moved since the draft's baseline — a concurrent AI
- *    write, another client, anything — the flush ABANDONS the pending
- *    draft rather than silently destroying that write. Losing an unblurred
- *    keystroke burst is recoverable (the user re-types it); silently
- *    overwriting someone else's committed edit is not (AI writes carry no
- *    undo). This is why `baselineRef` freezes the moment the draft goes
- *    dirty (see its own comment) — that frozen value is what the flush
- *    compares the LIVE `storedBlock` against to detect the concurrent
- *    write.
+ * 2. CONCURRENT-WRITE GUARD, ON EVERY COMMIT PATH. If `storedBlock` moved
+ *    since the draft's baseline froze — a restore, a concurrent AI write,
+ *    another client — the commit ABANDONS rather than silently destroying
+ *    that write. ★★★ THIS APPLIES TO A BLUR TOO. An earlier revision of this
+ *    comment said a deliberate commit "MAY overwrite whatever is stored —
+ *    last-write-wins is defensible there", and that was the bug: the user's
+ *    deliberate act is clicking OUT of a field, which carries no intent to
+ *    overwrite a restore that landed while it was focused. Losing an
+ *    unblurred keystroke burst is recoverable; destroying a committed write
+ *    is not, since AI and restore writes carry no undo.
+ *
+ * 3. UNDIRTY ADOPTION. While the draft is untouched it TRACKS `storedBlock`
+ *    via the render-time reconcile, so an external write reaches the field
+ *    the user is looking at. Without this the draft went stale while
+ *    `baselineRef` advanced past it, and the next blur wrote the stale value
+ *    back — the F1 clobber.
  *
  * Reads at unmount go through `latestRef` (kept current by the effect that
  * runs after every render) rather than closing over `toBlock`/`onCommit`/
@@ -96,24 +107,42 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *  pre-batch value and the second commit would silently overwrite the
  *  first's change instead of building on it.
  */
-export function useBlockDraft<T>(
-  initialValue: T,
-  storedBlock: DocBlock,
+export function useBlockDraft<T, B extends DocBlock>(
+  fromBlock: (block: B) => T,
+  storedBlock: B,
   index: number,
   toBlock: (value: T) => DocBlock,
   onCommit: (index: number, block: DocBlock) => void,
 ) {
-  const [rawValue, setRawValue] = useState(initialValue);
+  const [rawValue, setRawValue] = useState(() => fromBlock(storedBlock));
 
   // Whether the draft has a local edit since the last sync point (mount, a
-  // successful commit, or an external storedBlock adoption while
-  // untouched — see below). Set ONLY by the wrapped setValue this hook
-  // returns, never inferred from comparing draft/baseline content: content
-  // alone cannot tell "genuinely edited" apart from "untouched, but the
-  // baseline moved out from under it" (see baselineRef), and conflating
+  // successful commit, or an external storedBlock adoption while untouched
+  // — see the reconcile below). Set ONLY by `markDirty` from the wrapped
+  // setValue/commit paths, never inferred from comparing draft/baseline
+  // content: content alone cannot tell "genuinely edited" apart from
+  // "untouched, but the baseline moved out from under it", and conflating
   // the two would make an untouched editor's unmount flush try to commit
   // content nobody typed.
   const dirtyRef = useRef(false);
+
+  // ★★★ A RENDER-VISIBLE MIRROR OF `dirtyRef`, AND IT IS NOT REDUNDANT.
+  //  The render-time reconcile below has to know whether the draft is dirty,
+  //  and `react-hooks/refs` ("Cannot access refs during render") is FATAL for
+  //  READING a ref as well as for writing one. Measured, not assumed: the
+  //  reconcile written as `if (!dirtyRef.current)` fails
+  //  `npx eslint --max-warnings=0` on this file with that exact message, so
+  //  the plan's original one-ref shape could not ship.
+  //  Handlers keep reading `dirtyRef` because they can run before the render
+  //  a `setDirty` schedules (two calls batched into one event must each see
+  //  the other's effect — the same reason `liveValueRef` exists); the render
+  //  body reads this state instead. `markDirty` is the ONLY writer of either,
+  //  so the two cannot drift — never set one without the other.
+  const [dirty, setDirty] = useState(false);
+  const markDirty = (next: boolean) => {
+    dirtyRef.current = next;
+    setDirty(next);
+  };
 
   // A SYNCHRONOUS mirror of the draft's true current value. `rawValue`
   // (React state) is only EVENTUALLY consistent — a `setRawValue` call does
@@ -122,54 +151,143 @@ export function useBlockDraft<T>(
   // value-producing call (`setValue`, `commitValue`) resolves a functional
   // updater against this ref and updates it immediately, so calls stack
   // correctly regardless of render timing.
-  const liveValueRef = useRef(initialValue);
+  const liveValueRef = useRef(rawValue);
 
   const resolveValue = (next: T | ((prev: T) => T)): T =>
     typeof next === "function" ? (next as (prev: T) => T)(liveValueRef.current) : next;
 
   const setValue = (next: T | ((prev: T) => T)) => {
-    dirtyRef.current = true;
+    markDirty(true);
     const resolved = resolveValue(next);
     liveValueRef.current = resolved;
     setRawValue(resolved);
   };
 
-  // The block this draft is currently derived from. Starts at the block
-  // this hook was seeded with; advances to `next` on every successful
-  // `commit()`/`commitValue()`; and is RE-SEEDED to the live `storedBlock`
-  // prop on every render where the draft is NOT dirty (an untouched editor
-  // should track a concurrent write rather than go stale). It is
-  // deliberately FROZEN the moment `dirtyRef` goes true, so a concurrent
-  // write arriving WHILE the user has a pending edit stays visible as a
-  // mismatch between this ref and the live `storedBlock` — that mismatch
-  // is the concurrent-write guard's whole signal.
-  const baselineRef = useRef(storedBlock);
+  // The block this draft is currently derived from. Advances to `next` on
+  // every successful commit; is RE-SEEDED to the live `storedBlock` on every
+  // render where the draft is not dirty; and is deliberately FROZEN the moment
+  // the draft goes dirty, so a concurrent write arriving WHILE the user has a
+  // pending edit stays visible as a mismatch against the live prop — that
+  // mismatch is the concurrent-write guard's whole signal.
+  const baselineRef = useRef<DocBlock>(storedBlock);
 
-  const latestRef = useRef({ toBlock, onCommit, index, storedBlock });
+  // ★★★ THE VALUE `storedBlock` HELD IMMEDIATELY BEFORE THIS HOOK'S OWN LAST
+  //  COMMIT — and without it the abandon guard below fires on our OWN write.
+  //  `onCommit` does not change `storedBlock`; the parent has to apply the op
+  //  and re-render us, which cannot happen in the middle of one batched event.
+  //  So between our commit and that echo, `baselineRef` (what we sent) and the
+  //  live `storedBlock` (what the parent still shows) legitimately differ with
+  //  NOBODY else having written. Measured: with a single-ref guard, two
+  //  structural clicks batched into one event — the "N saves in one tick"
+  //  landmine `commitValue` exists for — had the SECOND one abandoned, because
+  //  it read the first one's un-echoed write as a concurrent one
+  //  ("keeps BOTH intentions when add and remove are batched into one event"
+  //  went red). A stored block equal to EITHER value is therefore unmoved.
+  const preCommitStoredRef = useRef<DocBlock>(storedBlock);
+
+  // ★★★ RENDER-TIME RECONCILE, NOT AN EFFECT. `react-hooks/set-state-in-effect`
+  //  is a FATAL lint error in CI, so adopting a changed prop uses the repo's
+  //  standard `if (prop !== handled) { setState(...) }` shape guarded by
+  //  last-seen state.
+  //
+  //  WHY IT EXISTS: a restore-in-place keeps the document id, so
+  //  `DocumentEditor`'s `${doc.id}-${index}` keys do not change and NOTHING
+  //  remounts. Without this the draft stayed seeded from the pre-restore block
+  //  while `baselineRef` advanced past it, and the next blur wrote the stale
+  //  draft back over the restored content — silent data loss (F1).
+  //
+  //  ★ Only while UNDIRTY. A pending user edit is not discarded by a
+  //   concurrent write; it is abandoned at commit time instead (see below), so
+  //   the user still sees what they typed and can re-apply it.
+  //  ★ `fromBlock` cannot receive a wrong-kind block: `BlockEditor` (in
+  //   document-editor.tsx) switches on `block.type` and returns a different
+  //   component per kind, so a kind change at one position unmounts this
+  //   editor rather than re-rendering it with a mismatched prop.
+  const [handledBlock, setHandledBlock] = useState<DocBlock>(storedBlock);
+  const [seedNonce, setSeedNonce] = useState(0);
+  if (storedBlock !== handledBlock) {
+    setHandledBlock(storedBlock);
+    if (!dirty) {
+      setRawValue(fromBlock(storedBlock));
+      // Bumped so a consumer whose child binds its content ONCE at mount (the
+      // paragraph editor's Tiptap surface) can key a remount off it. A plain
+      // value prop cannot reach a mounted editor.
+      setSeedNonce((n) => n + 1);
+    }
+  }
+
+  const latestRef = useRef({ toBlock, onCommit, index, storedBlock: storedBlock as DocBlock });
   useEffect(() => {
-    if (!dirtyRef.current) baselineRef.current = storedBlock;
+    // ★★★ THE ONE LEGAL PLACE TO PROPAGATE A RENDER-TIME RE-SEED.
+    //  `react-hooks/refs` bans WRITING a ref during render, so the reconcile
+    //  above cannot assign `liveValueRef` itself. This assignment is a NO-OP on
+    //  every other path — `setValue`/`commitValue` set the ref and the state to
+    //  the SAME resolved value, and effects run after the commit of whatever
+    //  render that batch produced, so `rawValue === liveValueRef.current`
+    //  already. Do not "simplify" it away: the re-seed is the one path where
+    //  they differ, and it is the path this whole reconcile exists for.
+    liveValueRef.current = rawValue;
+    if (!dirtyRef.current) {
+      baselineRef.current = storedBlock;
+      // Kept in step so the pair only ever diverges inside the
+      // commit-to-echo window described on preCommitStoredRef.
+      preCommitStoredRef.current = storedBlock;
+    }
     latestRef.current = { toBlock, onCommit, index, storedBlock };
   });
 
+  /**
+   * True when `storedBlock` has moved to something this hook did not write.
+   *
+   * ★ Reads ONLY refs, which is why the unmount cleanup shares it while
+   *  deliberately keeping its own copy of everything else: `tryCommit` calls
+   *  `onCommit(index, next)` from the RENDER scope, and both of those are
+   *  stale inside a mount-only effect's cleanup. The guard itself has no such
+   *  problem, and one copy is what stops the two paths drifting apart.
+   */
+  const externallyWritten = (): boolean => {
+    const stored = latestRef.current.storedBlock;
+    return blockChanged(baselineRef.current, stored) && blockChanged(preCommitStoredRef.current, stored);
+  };
+
+  /** Shared by `commit` and `commitValue`. Returns true when the write landed. */
+  const tryCommit = (next: DocBlock): boolean => {
+    if (!blockChanged(baselineRef.current, next)) return false;
+    // ★★★ ABANDON RATHER THAN CLOBBER — and this now applies to a BLUR too,
+    //  which is a change of policy from the first cut. It used to hold only on
+    //  the unmount path, on the reasoning that a deliberate commit may
+    //  last-write-wins. That reasoning does not survive the restore case: the
+    //  user's "deliberate" act is clicking OUT of a field, which they do
+    //  reflexively and which carries no intent to overwrite a restore that
+    //  landed while the field was focused. Losing an unblurred keystroke burst
+    //  is recoverable (re-type it); destroying a committed write is not — AI
+    //  and restore writes carry no undo.
+    if (externallyWritten()) return false;
+    preCommitStoredRef.current = latestRef.current.storedBlock;
+    baselineRef.current = next;
+    onCommit(index, next);
+    return true;
+  };
+
   const commit = () => {
-    const next = toBlock(liveValueRef.current);
-    if (blockChanged(baselineRef.current, next)) {
-      baselineRef.current = next;
-      onCommit(index, next);
-    }
-    dirtyRef.current = false;
+    // ★ DIRTY GUARD. Without it every focusout on an untouched editor ran the
+    //  full toBlock/blockChanged pair against a baseline that may have moved,
+    //  which is how the clean-draft ordering of F1 wrote a stale value.
+    if (!dirtyRef.current) return;
+    tryCommit(toBlock(liveValueRef.current));
+    markDirty(false);
   };
 
   const commitValue = (next: T | ((prev: T) => T)) => {
+    // ★ NO dirty guard here, deliberately: a structural click (add/remove/
+    //  move/toggle, or picking a select option) IS the edit, and demanding a
+    //  prior `setValue` would make the first click a no-op. The abandon guard
+    //  inside tryCommit still applies.
     const resolved = resolveValue(next);
     liveValueRef.current = resolved;
     setRawValue(resolved);
-    const nextBlock = toBlock(resolved);
-    if (blockChanged(baselineRef.current, nextBlock)) {
-      baselineRef.current = nextBlock;
-      onCommit(index, nextBlock);
-    }
-    dirtyRef.current = false;
+    tryCommit(toBlock(resolved));
+    markDirty(false);
   };
 
   useEffect(() => {
@@ -178,7 +296,7 @@ export function useBlockDraft<T>(
       const latest = latestRef.current;
       const next = latest.toBlock(liveValueRef.current);
       if (!blockChanged(baselineRef.current, next)) return; // dirty flag set, but content is a no-op (e.g. reverted)
-      if (blockChanged(baselineRef.current, latest.storedBlock)) return; // concurrent write since baseline froze — abandon
+      if (externallyWritten()) return; // concurrent write since baseline froze — abandon
       latest.onCommit(latest.index, next);
     };
     // Deliberately mount-only: the effect body does nothing, and only its
@@ -187,7 +305,7 @@ export function useBlockDraft<T>(
     // through a ref, which the rule does not treat as a dependency.
   }, []);
 
-  return { value: rawValue, setValue, commit, commitValue };
+  return { value: rawValue, setValue, commit, commitValue, seedNonce };
 }
 
 /**
@@ -246,8 +364,8 @@ export function HeadingBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "heading" }>>) {
-  const { value, setValue, commit } = useBlockDraft<HeadingDraft>(
-    { level: block.level, text: block.text },
+  const { value, setValue, commit } = useBlockDraft(
+    (b: Extract<DocBlock, { type: "heading" }>): HeadingDraft => ({ level: b.level, text: b.text }),
     block,
     index,
     (v): DocBlock => ({ type: "heading", level: v.level, text: v.text }),
@@ -306,8 +424,8 @@ function ParagraphEditorBody({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "paragraph" }>>) {
-  const { value: html, setValue: setHtml, commit } = useBlockDraft<string>(
-    block.html,
+  const { value: html, setValue: setHtml, commit, seedNonce } = useBlockDraft(
+    (b: Extract<DocBlock, { type: "paragraph" }>): string => b.html,
     block,
     index,
     (nextHtml): DocBlock => ({ type: "paragraph", html: nextHtml }),
@@ -316,7 +434,15 @@ function ParagraphEditorBody({
 
   return (
     <div onBlur={commit}>
+      {/* ★★★ KEYED ON THE SEED NONCE. Tiptap binds `content` ONCE at mount
+          (`useEditor({ content: value })` in rich-text-editor.tsx), so a
+          changed `value` prop CANNOT reach a mounted editor — the only two
+          ways in are the imperative handle (which offers `appendText` alone,
+          and cannot replace content) and a remount. The nonce bumps only when
+          the hook adopts an external write while undirty, so ordinary typing
+          never remounts and never loses the caret. */}
       <RichTextEditor
+        key={seedNonce}
         value={html}
         onChange={setHtml}
         label={t(lang, "documentsParagraphLabel", String(index + 1))}
@@ -357,8 +483,11 @@ export function BulletsBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "bullets" }>>) {
-  const { value, setValue, commit, commitValue } = useBlockDraft<BulletsDraft>(
-    { items: block.items, ordered: block.ordered === true },
+  const { value, setValue, commit, commitValue } = useBlockDraft(
+    (b: Extract<DocBlock, { type: "bullets" }>): BulletsDraft => ({
+      items: b.items,
+      ordered: b.ordered === true,
+    }),
     block,
     index,
     (v): DocBlock =>
@@ -505,8 +634,8 @@ export function DataSectionBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "dataSection" }>>) {
-  const { value, commitValue } = useBlockDraft<ExportSectionKey>(
-    block.key,
+  const { value, commitValue } = useBlockDraft(
+    (b: Extract<DocBlock, { type: "dataSection" }>): ExportSectionKey => b.key,
     block,
     index,
     (key): DocBlock => ({ type: "dataSection", key }),

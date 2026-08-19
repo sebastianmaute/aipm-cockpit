@@ -869,3 +869,81 @@ describe("PageBreakBlockEditor", () => {
     expect(screen.queryByRole("combobox")).toBeNull();
   });
 });
+
+describe("useBlockDraft — an external write to the block being edited", () => {
+  const heading: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Alpha" };
+  const restored: Extract<DocBlock, { type: "heading" }> = { type: "heading", level: 1, text: "Restored" };
+
+  // ★★★ THE RESTORE CLOBBER, CLEAN-DRAFT ORDERING. Restore-in-place keeps the
+  //  document id, so nothing remounts. Before the fix the effect advanced
+  //  `baselineRef` to the restored block while the draft still held "Alpha",
+  //  so the next blur read them as different and wrote "Alpha" back over the
+  //  restore. The draft must ADOPT the new block instead.
+  it("adopts a changed storedBlock while the draft is untouched, and commits nothing on blur", () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    expect(text).toHaveValue("Restored");
+    text.focus();
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THE SAME CLOBBER, DIRTY-DRAFT ORDERING. Here `baselineRef` is frozen
+  //  (that is the concurrent-write signal), and the UNMOUNT path already
+  //  abandoned — but `commit()` did not, so a blur wrote the stale draft over
+  //  the restore. Losing an unblurred keystroke burst is recoverable; silently
+  //  destroying a committed write is not.
+  //
+  //  ★ THE CONCURRENT WRITE IS SEEDED BETWEEN THE DRAFT GOING DIRTY AND THE
+  //   BLUR, and that ordering is the whole fixture: the `rerender` sits AFTER
+  //   the `type` and BEFORE the `blur`. Move it before the type and the draft
+  //   adopts instead (the clean-draft path above), so the test would pass
+  //   whichever way `commit()` decides — it would stop being able to express
+  //   the bug.
+  it("abandons a dirty draft on blur when the stored block moved underneath it", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    await userEvent.type(text, "!"); // dirty, unblurred
+    expect(text).toHaveValue("Alpha!");
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  // ★ Tiptap binds `content` ONCE at mount, so the paragraph editor cannot
+  //  adopt a new value by prop alone — the hook's seed nonce keys a remount.
+  //  Asserting on the rendered TEXT (not a prop) is what makes this able to
+  //  fail: a passed-but-ignored `value` prop looks identical from the outside.
+  it("re-renders the paragraph editor's content when the stored block is replaced", () => {
+    const before: Extract<DocBlock, { type: "paragraph" }> = { type: "paragraph", html: "<p>Alpha</p>" };
+    const after: Extract<DocBlock, { type: "paragraph" }> = { type: "paragraph", html: "<p>Restored</p>" };
+    const onCommit = vi.fn();
+    const { rerender, container } = render(
+      <ParagraphBlockEditor lang={LANG} index={0} block={before} onCommit={onCommit} />,
+    );
+    expect(container.textContent).toContain("Alpha");
+    rerender(<ParagraphBlockEditor lang={LANG} index={0} block={after} onCommit={onCommit} />);
+    expect(container.textContent).toContain("Restored");
+    expect(container.textContent).not.toContain("Alpha");
+  });
+
+  // ★ A blur on an editor nobody touched must not even ASK the toBlock/
+  //  blockChanged pair — and, more importantly, must not be able to commit.
+  it("commits nothing on a blur with no edit", () => {
+    const onCommit = vi.fn();
+    render(<HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+    text.focus();
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});
