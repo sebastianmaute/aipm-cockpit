@@ -1946,3 +1946,84 @@ describe("DocumentsPanel — edit mode toggle", () => {
     expect(toggle).toHaveAttribute("aria-pressed", "false");
   });
 });
+
+// ★★★ Pins the FULL fix — the doc-id-keyed rows in document-editor.tsx AND
+// the currentDocIdRef guard in use-document-editor.ts — through the REAL
+// panel wiring (`useDocumentEditMode` → `useDocumentEditor` → `commitBlock`),
+// not just `DocumentEditor` in isolation. `document-editor.test.tsx` already
+// pins that a switch remounts and shows the right content; these two pin
+// that a commit reaching this far EITHER never fires on a switch, OR — if
+// it does — can never land against the newly-selected document's id.
+describe("DocumentsPanel — document-switch commit guard", () => {
+  const docA: ProjectDocument = {
+    id: 301,
+    title: "Doc A",
+    blocks: [{ type: "heading", level: 1, text: "Alpha" }],
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+  const docB: ProjectDocument = {
+    id: 302,
+    title: "Doc B",
+    blocks: [{ type: "heading", level: 1, text: "Beta" }],
+    createdAt: NOW,
+    updatedAt: NOW,
+  };
+
+  /** A spied `mutateDocuments` backed by the REAL `applyDocMutation` (via
+   *  `boxMutator`), so a call that DOES land still behaves like production —
+   *  the point is to observe WHICH id it lands against, not to fake the
+   *  write. */
+  function renderWithSpy() {
+    const box: Box = { docs: [docA, docB], versions: [] };
+    const realMutate = boxMutator(box);
+    const mutateDocuments = vi.fn(
+      (m: DocMutation, source: DocVersionSource): DocResult => realMutate(m, source),
+    );
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={box.docs}
+          mutateDocuments={mutateDocuments}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    return { mutateDocuments };
+  }
+
+  it("shows the new document and commits nothing when switching without editing", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    expect(
+      await screen.findByRole("textbox", { name: `${t("en-US", "documentsHeadingText")} 1` }),
+    ).toHaveValue("Alpha");
+
+    await userEvent.click(screen.getByRole("button", { name: docB.title }));
+    const textAfterSwitch = await screen.findByRole("textbox", {
+      name: `${t("en-US", "documentsHeadingText")} 1`,
+    });
+    expect(textAfterSwitch).toHaveValue("Beta");
+
+    textAfterSwitch.focus();
+    textAfterSwitch.blur();
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+
+  it("never commits a pending unblurred edit against the newly-selected document's id", async () => {
+    const { mutateDocuments } = renderWithSpy();
+    await userEvent.click(screen.getByRole("button", { name: docA.title }));
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: `${t("en-US", "documentsHeadingText")} 1` });
+    await userEvent.type(text, "!"); // dirty, unblurred
+
+    await userEvent.click(screen.getByRole("button", { name: docB.title }));
+
+    const committedIds = mutateDocuments.mock.calls.map(([m]) => (m as { id?: number }).id);
+    expect(committedIds).not.toContain(docB.id);
+  });
+});

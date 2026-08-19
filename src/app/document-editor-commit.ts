@@ -7,10 +7,14 @@ import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
 import type { DocOp } from "./document-mutations";
 
-/** How long after the previous user edit a further edit is treated as the same
- *  editing session. Deliberately short: long enough that typing through a
- *  document is one session, short enough that coming back after a break
- *  records a fresh before-image. */
+/** How long after the last MINTED version's `savedAt` a further edit still
+ *  coalesces into the same editing session — anchored to the last version
+ *  actually WRITTEN, not to the previous edit: a coalesced edit mints no
+ *  version, so it never advances that anchor, and a continuous burst of
+ *  sub-window edits can still cross this window measured from wherever the
+ *  session's last real version landed. Deliberately short: long enough that
+ *  typing through a document is one session, short enough that coming back
+ *  after a break records a fresh before-image. */
 export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
 
 /**

@@ -56,7 +56,16 @@ export function DocumentEditor({ lang, doc, onCommitBlock, narrow = false }: Doc
   return (
     <div className="flex flex-col gap-3">
       {doc.blocks.map((block, index) => (
-        <div key={index} className="flex gap-2 rounded-md border border-line p-2">
+        // ★★★ The key carries `doc.id`, not just `index` — otherwise switching
+        //  the SELECTED document while edit mode is open lets React reuse this
+        //  row's editor instance for the new document (same position, same
+        //  block type), leaving a stale useBlockDraft mounted over the wrong
+        //  document. A blur (or an unblurred edit's unmount flush) then writes
+        //  the OLD document's content into the NEW one. Composing the doc id
+        //  into every row's key forces a full remount of the block-editor
+        //  subtree on any switch, so no draft can outlive the document it was
+        //  seeded from.
+        <div key={`${doc.id}-${index}`} className="flex gap-2 rounded-md border border-line p-2">
           <div className="shrink-0">
             <span className="rounded-md bg-surface-muted px-2 py-1 text-xs text-muted-foreground">
               {t(lang, KIND_LABEL[block.type])}

@@ -4,7 +4,7 @@
 //  the image predicate all live in document-editor-commit.ts, which is pure and
 //  tested. If logic starts accumulating in this file, move it there instead of
 //  testing it here.
-import { useCallback } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
@@ -21,8 +21,32 @@ export type UseDocumentEditorDeps = {
 export function useDocumentEditor(deps: UseDocumentEditorDeps) {
   const { documentId, versions, mutateDocuments, now } = deps;
 
+  // ★★★ DOCUMENT-SWITCH GUARD — the second half of the fix alongside
+  //  document-editor.tsx's doc-id-keyed rows. A block editor's draft can
+  //  reach `commitBlock` from a call queued BEFORE the panel switched
+  //  documents (a block-list re-render's unmount flush, or any other
+  //  delayed caller) — keying makes that the rare case, not the impossible
+  //  one, and this hook is the one place that can tell such a call apart
+  //  from a live one: unlike the per-document block-editor subtree, THIS
+  //  hook never unmounts on a document switch (it runs every render of
+  //  documents-panel.tsx), so `currentDocIdRef` always reflects whichever
+  //  document is selected NOW, regardless of which document a specific
+  //  `commitBlock` closure below was minted for.
+  //  ★ react-hooks/refs bans reading OR writing a ref during render, so the
+  //  write happens in an effect, never here directly.
+  const currentDocIdRef = useRef(documentId);
+  useEffect(() => {
+    currentDocIdRef.current = documentId;
+  }, [documentId]);
+
   const commitBlock = useCallback(
-    (index: number, block: DocBlock): DocResult => {
+    (index: number, block: DocBlock): DocResult | undefined => {
+      // Same "abandon rather than clobber" principle as useBlockDraft's
+      // concurrent-write guard, one level up: `documentId` is the document
+      // THIS closure was built for. If the panel has since moved on to a
+      // different document, writing here would land the edit on whichever
+      // document happens to be selected now — abandon instead.
+      if (documentId !== currentDocIdRef.current) return undefined;
       // ★ A real conditional with an unexercised branch — every caller today
       //  (document-edit-mode.tsx) omits `now`, so only the `new Date()` arm
       //  ever runs, and no test injects `now` either. Left un-covered

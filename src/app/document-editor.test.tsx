@@ -84,4 +84,52 @@ describe("DocumentEditor", () => {
     expect(images[0].getAttribute("data-asset-id")).toBe("a1");
     expect(container.querySelector("script")).toBeNull();
   });
+
+  // ★★★ Pins the doc-id-keyed row fix directly: two documents each carry a
+  //  same-type (heading) block at index 0, so BEFORE the fix React would
+  //  reuse the SAME BlockEditor instance across the switch (same position,
+  //  same type) and go on showing document A's stale draft.
+  describe("switching the selected document while edit mode is open", () => {
+    const docA: ProjectDocument = {
+      id: 201,
+      title: "Doc A",
+      blocks: [{ type: "heading", level: 1, text: "Alpha" }],
+      createdAt: "2026-08-18T10:00:00.000Z",
+      updatedAt: "2026-08-18T10:00:00.000Z",
+    };
+    const docB: ProjectDocument = {
+      id: 202,
+      title: "Doc B",
+      blocks: [{ type: "heading", level: 1, text: "Beta" }],
+      createdAt: "2026-08-18T10:00:00.000Z",
+      updatedAt: "2026-08-18T10:00:00.000Z",
+    };
+
+    it("shows the new document's content, not the old one's, and commits nothing on an untouched switch", () => {
+      const onCommitBlock = vi.fn();
+      const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
+      const textBefore = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      expect(textBefore).toHaveValue("Alpha");
+
+      rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
+      const textAfter = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      expect(textAfter).toHaveValue("Beta");
+      expect(textAfter).not.toBe(textBefore); // a NEW element — the row really remounted
+
+      textAfter.focus();
+      textAfter.blur();
+      expect(onCommitBlock).not.toHaveBeenCalled();
+    });
+
+    it("does not carry an unblurred edit from the old document into the DOM after a switch", async () => {
+      const onCommitBlock = vi.fn();
+      const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
+      const text = screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` });
+      await userEvent.type(text, "!"); // dirty, unblurred
+
+      rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
+      // The remounted field reflects B's stored content, never the stray "!".
+      expect(screen.getByRole("textbox", { name: `${t(LANG, "documentsHeadingText")} 1` })).toHaveValue("Beta");
+    });
+  });
 });
