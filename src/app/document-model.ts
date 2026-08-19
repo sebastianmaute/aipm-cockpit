@@ -114,8 +114,13 @@ function isoOr(v: unknown, fallback: string): string {
  *  text (capHtmlText's truncation branch returns `plainToHtml(slice)`), and a
  *  freshly added empty bullet item vanished after burning one of the
  *  document's MAX_VERSIONS_PER_DOC (20) history slots. Normalising at the
- *  commit instead makes stored and loaded bytes identical by construction,
- *  which is a property no per-editor `maxLength` can hold — there would be
+ *  commit instead makes a stored block survive the STRUCTURAL half of a load
+ *  unchanged. ★★ NOT "identical by construction", which this comment claimed
+ *  until a review caught it: a load runs `sanitizeProjectDocuments` and THEN
+ *  the DOMPurify allow-list, and this function is the FIRST pass only. Nothing
+ *  the editor can emit trips the second one today — a fact about the editor's
+ *  own schema, not a guarantee from here, and one the images slice would end.
+ *  It is still a property no per-editor `maxLength` can hold — there would be
  *  one copy of each rule per editor, free to drift from this one.
  *
  * ★ Returns `null` for a block the loader DROPS, which is what
@@ -124,6 +129,51 @@ function isoOr(v: unknown, fallback: string): string {
  */
 export function normalizeBlockForStorage(block: DocBlock): DocBlock | null {
   return sanitizeBlock(block);
+}
+
+/** True when `normalizeBlockForStorage` would TRUNCATE this block rather than
+ *  merely drop empties from it.
+ *
+ *  ★★★ THE RECONCILE NEEDS THIS AND THE NORMALISER CANNOT ANSWER IT. A draft
+ *   that normalises ONTO the stored block is usually harmless — "Add item"
+ *   appends an empty row storage drops, and that row becomes committable the
+ *   moment the user types into it, which is why the reconcile keeps it. A draft
+ *   that normalises onto the stored block because a CAP ATE THE DIFFERENCE is
+ *   the opposite: it can NEVER become committable. `tryCommit` normalises,
+ *   finds no change against the baseline, and returns false WITHOUT a notice,
+ *   so a 31st column or a 201st bullet would sit on screen forever, silently
+ *   swallowing every keystroke typed into it. Re-seed from storage instead.
+ *   Measured before this existed: add a column to a 30-column table, edit any
+ *   other cell, and the phantom column survived every subsequent commit.
+ *  ★★ Length checks only — a TRIM or an empty-drop is not truncation, and
+ *   treating it as one would re-seed away the very row the reconcile exists to
+ *   protect. Keep this in step with `sanitizeBlock`'s slices above; nothing
+ *   gates the pairing, so a new cap there needs a new arm here. */
+export function exceedsStorageCaps(block: DocBlock): boolean {
+  switch (block.type) {
+    case "heading":
+      return block.text.length > MAX_TEXT_CHARS;
+    case "paragraph":
+      return htmlTextLength(block.html) > MAX_HTML_TEXT_CHARS;
+    case "bullets":
+      return (
+        block.items.length > MAX_BULLET_ITEMS ||
+        block.items.some((i) => i.length > MAX_TEXT_CHARS)
+      );
+    case "table":
+      return (
+        block.columns.length > MAX_TABLE_COLUMNS ||
+        block.rows.length > MAX_TABLE_ROWS ||
+        block.columns.some((c) => c.length > MAX_TEXT_CHARS) ||
+        (block.caption ?? "").length > MAX_TEXT_CHARS ||
+        block.rows.some(
+          (r) =>
+            r.length > block.columns.length || r.some((c) => c.length > MAX_TEXT_CHARS),
+        )
+      );
+    default:
+      return false;
+  }
 }
 
 function sanitizeBlock(raw: unknown): DocBlock | null {

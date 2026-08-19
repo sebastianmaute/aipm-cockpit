@@ -280,8 +280,11 @@ export function useDocumentTools(
           // ★★★ STRIP `expect`: it is the HAND EDITOR's concurrency guard and carries
           //  a draft's baseline, and an AI op resolves no draft. The tool schema sets
           //  no `additionalProperties: false`, so a model CAN emit the field, and the
-          //  spreads above (`{ ...op, block }`) would carry it into `applyOps` —
-          //  letting model-supplied data decide whether a write applies. Stripped in
+          //  spreads above (`{ ...op, block }`) would carry it into `applyOps`.
+          //  ★★ That can only SUBTRACT writes — a mismatched `expect` REJECTS and
+          //  an absent one always applies — so the exposure was a self-inflicted
+          //  refusal, NOT an integrity hole, and this comment overstated it until a
+          //  review said so. Do not cite this as a security control. Stripped in
           //  `keepOp` because every op funnels through here, so no later branch can
           //  reintroduce it. A model op that legitimately wants to guard on prior
           //  content should read the document first, not hand us an `expect`.

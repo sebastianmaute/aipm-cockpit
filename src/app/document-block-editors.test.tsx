@@ -15,6 +15,7 @@ import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
 import { t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import { MAX_TABLE_COLUMNS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
@@ -865,6 +866,50 @@ describe("TableBlockEditor", () => {
         ["Beta", "Bob", ""],
       ],
     }, expect.anything());
+  });
+
+  // ★★★ THE RECONCILE'S SKIP IS NOT "the draft normalises onto storage" — it is
+  //  that AND "the draft could still commit". A draft the CAP flattened onto
+  //  storage satisfies the first and fails the second: `tryCommit` finds no
+  //  change, returns false WITHOUT a notice, and the extra control would sit
+  //  there forever swallowing keystrokes. The identity-keyed re-seed this
+  //  branch replaced removed it — destructively, but visibly — so dropping the
+  //  cap arm turns a self-correcting phantom into a permanent silent sink.
+  //  ★ Counting remove-column buttons rather than header inputs: one per
+  //   column, and it is the control the user would actually be stuck with.
+  it("re-seeds away a column the cap would eat, rather than stranding a dead control", async () => {
+    const wide: Extract<DocBlock, { type: "table" }> = {
+      type: "table",
+      columns: Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `C${i + 1}`),
+      rows: [Array.from({ length: MAX_TABLE_COLUMNS }, (_, i) => `v${i + 1}`)],
+    };
+    const columnCount = () => screen.getAllByRole("button", { name: /^Remove column/ }).length;
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <TableBlockEditor lang={LANG} index={0} block={wide} onCommit={onCommit} />,
+    );
+    expect(columnCount()).toBe(MAX_TABLE_COLUMNS);
+
+    await userEvent.click(
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsAddColumn")) }),
+    );
+    // The cap ate it: normalising slices back to MAX_TABLE_COLUMNS, so the
+    // block is unchanged and nothing is written — silently.
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(columnCount()).toBe(MAX_TABLE_COLUMNS + 1);
+
+    // Any later parent render — our own commit echoing back, an AI write, a
+    // second tab — must clear the phantom. A NEW object carrying the SAME
+    // content, which is exactly what `applyOps` hands back.
+    rerender(
+      <TableBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ ...wide, columns: [...wide.columns], rows: wide.rows.map((r) => [...r]) }}
+        onCommit={onCommit}
+      />,
+    );
+    expect(columnCount()).toBe(MAX_TABLE_COLUMNS);
   });
 
   it("removes a column from the header AND every row", async () => {

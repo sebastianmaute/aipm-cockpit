@@ -145,7 +145,7 @@ export function paragraphHasImage(html: string): boolean {
  *  document-model.ts. Kept on this module's surface so its consumers
  *  (document-block-editors.tsx, this file's tests) do not have to know it
  *  moved. */
-export { blockChanged, normalizeBlockForStorage } from "./document-model";
+export { blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-model";
 
 /** The single op a block edit produces. Block CONTENT is in scope for this
  *  slice; the SET of blocks is not, so nothing here appends, inserts or

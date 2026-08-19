@@ -19,7 +19,7 @@
 //  them there, not here.
 import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor";
-import { paragraphHasImage, blockChanged, normalizeBlockForStorage } from "./document-editor-commit";
+import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
@@ -248,31 +248,31 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  and the `setDirty(false)` in commit/commitValue is itself the render
     //  that lets the adoption run.
     setHandledBlock(storedBlock);
-    // ★★★ RE-SEED ONLY WHEN STORAGE HOLDS SOMETHING THE DRAFT DOES NOT ALREADY SAY.
-    //  Keying on IDENTITY discarded draft-only content, because `applyOps` hands back
-    //  a new object for our own commit: "Add item" appends an empty row that
-    //  `normalizeBlockForStorage` drops, so the next commit deleted the row just added.
-    //  Compare via that rule, NOT `baselineRef` (re-pointed at the STALE block below).
+    // ★★★ RE-SEED UNLESS THE DRAFT ALREADY SAYS WHAT STORAGE HOLDS *AND* CAN COMMIT.
+    //  Identity keying discarded draft-only content — "Add item" appends an empty row
+    //  the normaliser drops. Compare via that rule, NOT `baselineRef` (re-pointed at
+    //  the STALE block below). `exceedsStorageCaps` then excludes a draft a CAP ate
+    //  onto storage: it can NEVER commit, so keeping it strands a dead control.
     const draftAsStored = normalizeBlockForStorage(toBlock(rawValue));
-    if (!draftAsStored || blockChanged(draftAsStored, storedBlock)) {
-    const seeded = fromBlock(storedBlock);
-    setRawValue(seeded);
-    // ★★★ BUMPED ON A CONTENT CHANGE, NEVER ON IDENTITY — the nonce keys a
-    //  REMOUNT of the paragraph's Tiptap surface (a plain value prop cannot
-    //  reach a mounted editor), and a remount destroys DOM focus and the
-    //  editor's undo history. `applyOps` stores `op.block` verbatim, so this
-    //  hook's OWN commit comes straight back as a new object holding the same
-    //  content; bumping on identity therefore remounted after every commit.
-    //  Measured: React's `onBlur` is `focusout`, which BUBBLES and carries no
-    //  relatedTarget check, so moving focus from the contenteditable to this
-    //  editor's own toolbar (which renders BEFORE `EditorContent`, i.e. one
-    //  Shift+Tab away) fires `commit` — and the remount then dropped the
-    //  focused toolbar button on the floor, leaving `document.activeElement`
-    //  at `<body>`. Mouse users were spared only because `preventFocusSteal`
-    //  suppresses the mousedown default. Comparing through `toBlock` reuses
-    //  the hook's one deep comparison rather than adding a second notion of
-    //  equality — every other check here is CONTENT, and this one now is too.
-    if (blockChanged(toBlock(rawValue), toBlock(seeded))) setSeedNonce((n) => n + 1);
+    if (!draftAsStored || exceedsStorageCaps(toBlock(rawValue)) || blockChanged(draftAsStored, storedBlock)) {
+      const seeded = fromBlock(storedBlock);
+      setRawValue(seeded);
+      // ★★★ BUMPED ON A CONTENT CHANGE, NEVER ON IDENTITY — the nonce keys a
+      //  REMOUNT of the paragraph's Tiptap surface (a plain value prop cannot
+      //  reach a mounted editor), and a remount destroys DOM focus and the
+      //  editor's undo history. `applyOps` stores `op.block` verbatim, so this
+      //  hook's OWN commit comes straight back as a new object holding the same
+      //  content; bumping on identity therefore remounted after every commit.
+      //  Measured: React's `onBlur` is `focusout`, which BUBBLES and carries no
+      //  relatedTarget check, so moving focus from the contenteditable to this
+      //  editor's own toolbar (which renders BEFORE `EditorContent`, i.e. one
+      //  Shift+Tab away) fires `commit` — and the remount then dropped the
+      //  focused toolbar button on the floor, leaving `document.activeElement`
+      //  at `<body>`. Mouse users were spared only because `preventFocusSteal`
+      //  suppresses the mousedown default. Comparing through `toBlock` reuses
+      //  the hook's one deep comparison rather than adding a second notion of
+      //  equality — every other check here is CONTENT, and this one now is too.
+      if (blockChanged(toBlock(rawValue), toBlock(seeded))) setSeedNonce((n) => n + 1);
     }
   }
 
@@ -315,8 +315,8 @@ export function useBlockDraft<T, B extends DocBlock>(
   /** Shared by `commit` and `commitValue`. Returns true when the write landed.
    *
    * ★★★ NORMALISE FIRST, AND COMMIT THE NORMALISED BLOCK — never the raw draft.
-   *  `normalizeBlockForStorage` IS the loader's own per-block rule, so what this
-   *  writes is byte-identical to what the next load produces. Committing the raw
+   *  `normalizeBlockForStorage` IS the loader's own per-block rule, so this write
+   *  survives a load's STRUCTURAL pass, not its allow-list pass. Committing the raw
    *  draft instead let the two disagree, silently, in three measured ways: a
    *  paragraph over MAX_HTML_TEXT_CHARS came back with every mark flattened to
    *  plain text, a heading kept trailing whitespace the loader trims, and a
