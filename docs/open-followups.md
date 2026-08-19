@@ -8191,7 +8191,75 @@ non-AI surface none of them touched — a fourth widening was the wrong call.
 
 ---
 
-## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — open, a decision, measured
+## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — CLOSED 2026-08-19
+
+**CLOSED in 0.249.0 "McAuley" — measured, then done. Everything below the next rule is the ORIGINAL
+2026-08-09 entry, preserved. Read the date on a paragraph, not its position.**
+
+**What the measurement was, because `next build` could not answer it.** Every route on this app is `ƒ`
+(dynamic), and Next 16.2.11 + Turbopack prints a `First Load JS` table only for statically generated
+routes — the build log has zero `kB` / `First Load` / `shared by all` lines. The eager entry graph was
+read instead from `.next/server/app/page_client-reference-manifest.js`, which maps each client module to
+the chunks needed to load it; `task-manager.tsx` is the root client component of `/`, so its chunk list
+IS that graph, and a module behind `next/dynamic` gets its own entry and drops out of the parent’s.
+
+| | before | after |
+|---|---|---|
+| ProseMirror in the eager entry graph | true | **false** |
+| eager total | 2334.7 kB | **1906.8 kB** |
+| eager chunks | 19 | **18** |
+| `react-loadable` entries that can reach the ProseMirror chunk | — | **1 of 27** |
+
+★★★ **EVICTION VS RELOCATION IS THE ONLY THING THAT MAKES THAT TABLE MEAN ANYTHING.** A flat total with
+a flipped flag would mean the bytes re-homed into another eager chunk — a null result that reads as a win.
+The 428.3 kB delta matches the evicted chunk’s own size (438,428 B on disk = 428.15 kB), and exactly one
+chunk in `.next/static/chunks` contains the string `ProseMirror`. Check BOTH, always.
+
+★★★ **THE ENTRY-GRAPH NUMBER WAS TRUE AND THE FRAMING BUILT ON IT WAS HALF FALSE**, and only a cold
+review caught it. The first cut converted the six static sites and left `change-edit-modal` and
+`raid-edit-modal` alone, reasoning that both sit behind `dynamic()` panels so neither can affect the entry
+graph. Correct about the entry graph. But `panel-raid` is one of the two tabpanels `workspace-section.tsx`
+mounts UNCONDITIONALLY (`hidden`-toggled, no `key`), and React.lazy fires its loader on RENDER, not on
+visibility — so `RaidPanel`’s chunk was fetched on the initial dashboard render and `raid-edit-modal`’s
+static import put ProseMirror in the same `Promise.all`. The bytes had left the render-blocking entry
+chunk and had NOT left the page load. Reproduce the distinction with the loadable manifest, which the
+client-reference manifest cannot show you:
+```bash
+node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('.next/server/app/page/react-loadable-manifest.json','utf8'));
+let n=0;for(const v of Object.values(m)){if((v.files||[]).some(f=>{try{return fs.readFileSync('.next/'+f.replace(/^\/_next\//,''),'utf8').includes('ProseMirror')}catch(e){return false}}))n++}
+console.log(n,'of',Object.keys(m).length)"
+```
+It printed **3** with the two holdouts static and **1** with all eight converted. "Is it in the entry
+graph?" and "is it fetched on load?" are DIFFERENT QUESTIONS and this entry’s original framing only asked
+the first.
+
+★★ **THE PREDICTED TEST COST WAS WRONG THREE TIMES IN A ROW, IN BOTH DIRECTIONS.** The "Costs" paragraph
+below predicted every affected suite moving to `await waitFor`; the plan revised that to one; the
+implementer then reported ZERO and I propagated that into three later task briefs before measuring it
+myself: `EXIT=1, 1 failed | 14 passed`. The true answer is ONE assertion needing an await
+(`task-form-fields.test.tsx`) — because `useEditor` already runs with `immediatelyRender: false`, so
+nearly every consumer suite was ALREADY awaiting — plus a SECOND, subtler one no prediction had a shape
+for: an absence assertion that `dynamic()` makes ORDER-DEPENDENT. `dynamic()` builds its `React.lazy`
+once per MODULE evaluation, so after any earlier test in the file resolves it, later renders in that file
+are synchronous again — and `test:shuffle` shuffles WITHIN a file. Both orders were green.
+
+★★ **The one real behavioural defect was not a blank flash, it was silent data loss.** Both note-log mics
+called `editorRef.current?.appendText(txt)`, and the mic is a SIBLING of the editor, so it is operable
+while the editor is still loading. See the `useBufferedEditorHandle` docstring in `note-log-panel.tsx`:
+"is the ref populated?" is the wrong question, because `useImperativeHandle` has deps `[editor]` and
+therefore attaches a DEAD handle first. `appendText` now returns whether the text landed.
+
+★ The two claims below about §54 and about the `typeof document` guard BOTH held — `ssr: false` is not a
+fix for §54 and the guard stays. But the guard’s JUSTIFICATION inverted: with every site now behind an
+`ssr: false` boundary, nothing reaches `readCspNonce()` on the server, so it is defensive rather than
+load-bearing. `csp-nonce.ts` records both states, deliberately, so nobody deletes it.
+
+★ UNMEASURED, and stated as such: whether the ~160px `min-h-40` fallback matches the editor it replaces.
+jsdom has no layout, so no test in this repo can see it, and the two size-to-content consumers
+(`milestone-edit-modal`, the draggable `TaskFormModal`) will resize on the swap. A Slow-3G eye-verify is
+owed.
+
+---
 
 **Where:** `src/app/rich-text-editor.tsx`'s consumers.
 
