@@ -2,10 +2,17 @@
 
 // src/app/document-edit-mode.tsx — the Documents pane's edit-mode glue.
 //
-// `documents-panel.tsx` sits at 796 of the 800-line size-gate cap (four lines
-// of headroom — see AGENTS.md's file-size-gate note), so the toggle state,
-// the narrow-pane media query, the commit wiring and the preview/editor swap
-// live here instead of inline in the panel. A `.tsx` file is dropped
+// `documents-panel.tsx` sits within a line or two of the 800-line size-gate
+// cap, so the toggle state, the narrow-pane measurement, the commit wiring and
+// the preview/editor swap live here instead of inline in the panel.
+// ★★★ DO NOT QUOTE THE NUMBER HERE — an earlier revision said "796 … four
+//  lines of headroom" when the gate's own method (`readFileSync().split("\n")
+//  .length`, check-file-sizes.mjs) reported 799, i.e. ONE. A stale number in
+//  the optimistic direction spends headroom that does not exist, and the file
+//  is NOT in docs/baselines/file-sizes.json, so 801 fails outright as a NEW
+//  file over the limit. Measure it instead:
+//    node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
+// A `.tsx` file is dropped
 // WHOLESALE by `vitest.config.ts` `coverage.exclude` (the same class as every
 // other React UI component), so — unlike a new `.ts` hook — this needs no new
 // exclude entry (`use-document-editor.ts` already carries one, for contrast).
