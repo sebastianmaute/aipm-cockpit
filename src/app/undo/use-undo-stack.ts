@@ -5,6 +5,9 @@ import type { Dispatch, SetStateAction } from "react";
 import { flushSync } from "react-dom";
 import { t, type Lang } from "../i18n";
 import type { ActivityKind } from "../activity-log";
+import type {
+  Absence, ChangeItem, CommitteeMeeting, Milestone, RaidItem, Task,
+} from "../types";
 import type { ToastAction } from "../use-toast";
 import {
   applyUndoRestoreWithRemap,
@@ -46,8 +49,23 @@ const UNDO_CAP = 25;
  * See also `WRITE_THROUGH_KEYS` in `field-groups.ts` — that constant decides
  * what a bulk-edit patch CAPTURES; this one decides what a whole-row undo
  * PRESERVES.
+ *
+ * ★★ THE `satisfies` IS THE ONLY THING TYING THESE STRINGS TO A REAL FIELD.
+ * The engine parameter stays `readonly string[]` on purpose — the same constant
+ * is applied to entity types carrying NEITHER key (roles, grades), which a
+ * `keyof T` parameter could not accept — so the constraint has to live at the
+ * one place the list is AUTHORED. `keyof (A | B)` is the keys common to ALL
+ * members, and the tuple constrains each SLOT separately, so each entry must
+ * name a field every one of ITS OWN carriers still declares. A rename in
+ * `types.ts`, or a typo here, is then a compile error on this line rather than
+ * a silent loss of protection (before this, `[]` typechecked just as happily).
+ * A new entry must extend the tuple with its own carrier list — the tuple
+ * length forces that rather than letting it ride on an unrelated slot's type.
  */
-const WRITE_THROUGH_FIELDS: readonly string[] = ["noteLog", "outlookEventId"];
+const WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId"] as const satisfies readonly [
+  keyof (Task | RaidItem | ChangeItem),
+  keyof (Task | RaidItem | Milestone | ChangeItem | CommitteeMeeting | Absence),
+];
 
 /** The entities an undo label can name. `bulk.edit` is entity-AMBIGUOUS (one
  *  shared kind across tasks/raid/change/…), so its capture site passes an explicit
@@ -360,7 +378,17 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
-  /** One entry per affected row. `before`/`after` hold ONLY the written fields. */
+  /** One entry per affected row. `before`/`after` hold ONLY the written fields.
+   *  ★ IDS MUST BE DISTINCT, and that is an invariant on the CALLER, deliberately
+   *  not enforced here. The patch is keyed by `new Map(edits.map(…))`, so a
+   *  repeated id collapses to its LAST entry — the earlier patch's `before` is
+   *  dropped, so undo restores the wrong pre-op values — while `captureFieldRows`
+   *  pushes `edits.length` as the entry count, so the toast also over-reports.
+   *  ★ NOTHING ENFORCES IT anywhere on the path: `buildBulkFieldEdits`
+   *  (`field-groups.ts`), which feeds every `bulk.edit` site, emits one entry per
+   *  input ROW and does not dedup either — so uniqueness rests on each caller's
+   *  row/selection list, per site. Merge upstream if a caller can repeat an id;
+   *  do not add a runtime dedup here on the strength of one site's list. */
   edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
   stampField?: keyof T & string;
 }
@@ -383,12 +411,6 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `isPrimary`, so a field part sitting first would become the nominal primary,
  * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
  * stale ids with no error.
- * ★★ "Every existing caller flags its primary" is FALSE. Of the SEVEN
- * `captureComposite` call sites, FIVE flag one — the three in
- * `use-reference-data.ts` and the two in `use-resource-directory.ts`. The other
- * two, `use-budget-buckets.ts` and `use-task-submit.ts`, flag NOTHING and ride
- * the positional fallback this paragraph calls fragile. Neither is a live defect:
- * no fragment in either declares `fkRemapField`, so the empty remap is never read.
  * ★★★ ENUMERATE WITH ALL THREE CALL SHAPES OR YOU WILL MISS ONE. An earlier
  * revision of this paragraph said SIX and named only the budget caller, because
  * its grep matched `captureComposite({` and `captureCompositeRef.current?.({`
