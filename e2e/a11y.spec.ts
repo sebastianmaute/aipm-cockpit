@@ -214,6 +214,21 @@ test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", asyn
   expect(clickedNotesBadge, "Notes badge button not found on Open Points").toBe(true);
   await waitForViewSettled(page);
 
+  // ★★★ `waitForViewSettled` IS STRUCTURALLY BLIND TO THIS WINDOW, so it cannot be
+  // what gates the scan. It polls <main>'s innerHTML for stability, and
+  // <NotesWindow> renders inside `modalsBlock` — a SIBLING of <ModernShell>,
+  // whose <main> wraps only banners + content. It therefore returns after its
+  // ~240 ms floor whether or not the window ever opened. Since the editor moved
+  // behind `rich-text-editor-lazy.tsx` it also arrives over the NETWORK, against
+  // a dev server that may compile the chunk on demand — so with no explicit wait
+  // axe scans `RichTextEditorFallback` and reports GREEN over a toolbar that is
+  // not in the DOM. That is the same silent no-op the badge assertion above
+  // exists to prevent, one layer deeper. Locator matches the one
+  // `rich-text-toolbar-keyboard.spec.ts` already drives on this surface.
+  await expect(page.getByRole("button", { name: "Text style" }).first()).toBeVisible({
+    timeout: 30_000,
+  });
+
   const results = await new AxeBuilder({ page })
     .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
     .analyze();
