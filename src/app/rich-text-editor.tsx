@@ -18,8 +18,19 @@ import { t, type Lang } from "./i18n";
 
 export interface RichTextEditorHandle {
   /** Insert plain text at the caret. Used by the dictation mic — the editor
-   *  binds `content` once at mount, so a new `value` cannot reach it. */
-  appendText(text: string): void;
+   *  binds `content` once at mount, so a new `value` cannot reach it.
+   *
+   *  ★★★ RETURNS WHETHER THE TEXT LANDED, and a caller that ignores it is the
+   *  silent-data-loss bug this signature exists to make impossible. Holding a
+   *  handle is NOT the same as the handle being usable: `useEditor` runs with
+   *  `immediatelyRender: false`, so `editor` is null on the first render and
+   *  this method is a NO-OP until Tiptap is live. Worse, `useImperativeHandle`
+   *  below has deps `[editor]` — so a callback ref is attached ONCE with a dead
+   *  handle, detached with `null`, and re-attached with the live one. Any
+   *  "is the ref populated?" test therefore answers YES while appends vanish.
+   *  `note-log-panel.tsx`'s `useBufferedEditorHandle` is the reference consumer:
+   *  it re-queues on `false` rather than trusting attachment. */
+  appendText(text: string): boolean;
 }
 
 export interface RichTextEditorProps {
@@ -238,8 +249,12 @@ export function RichTextEditor(props: RichTextEditorProps) {
     props.editorRef,
     () => ({
       appendText(text: string) {
-        if (!text) return;
-        editor?.chain().focus().insertContent({ type: "text", text }).run();
+        // Empty is "nothing to do", NOT a failure — reporting false would make a
+        // buffering caller re-queue it forever.
+        if (!text) return true;
+        if (!editor) return false;
+        editor.chain().focus().insertContent({ type: "text", text }).run();
+        return true;
       },
     }),
     [editor],
