@@ -48,11 +48,30 @@ describe("DocumentEditor", () => {
     expect(screen.queryByRole("button", { name: /drag|reorder|move block/i })).toBeNull();
   });
 
+  // ★★★ TWO PARAGRAPHS, NOT ONE. With a single-paragraph fixture this assertion
+  //  is satisfied by the WIDE branch as well — one paragraph mounts one editor
+  //  and therefore one toolbar either way — so it passed with the narrow branch
+  //  deleted outright. A count assertion needs a fixture in which the two
+  //  branches DISAGREE.
   it("docks ONE toolbar at a narrow pane instead of one per block", () => {
-    render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} narrow />);
+    const twoParagraphs: ProjectDocument = {
+      ...doc,
+      blocks: [
+        { type: "heading", level: 1, text: "Summary" },
+        { type: "paragraph", html: "<p>First</p>" },
+        { type: "paragraph", html: "<p>Second</p>" },
+      ],
+    };
+    const { rerender } = render(
+      <DocumentEditor lang={LANG} doc={twoParagraphs} onCommitBlock={vi.fn()} narrow />,
+    );
     // jsdom has no layout, so the narrow branch is driven by an injected flag,
     // never by a measured width.
     expect(screen.getAllByRole("toolbar")).toHaveLength(1);
+
+    // The wide branch is what proves the fixture can tell them apart.
+    rerender(<DocumentEditor lang={LANG} doc={twoParagraphs} onCommitBlock={vi.fn()} />);
+    expect(screen.getAllByRole("toolbar")).toHaveLength(2);
   });
 
   // ★ `doc` above has its ONE paragraph as the first-in-document — the exact
