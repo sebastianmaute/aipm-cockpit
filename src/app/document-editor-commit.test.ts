@@ -6,9 +6,10 @@ import {
   blockChanged,
   replaceBlockOp,
   blockSurvivesLoad,
+  normalizeBlockForStorage,
 } from "./document-editor-commit";
 import type { DocVersion } from "./document-versions";
-import type { DocBlock } from "./document-model";
+import { MAX_HTML_TEXT_CHARS, type DocBlock } from "./document-model";
 
 const version = (over: Partial<DocVersion> = {}): DocVersion => ({
   id: 1,
@@ -266,5 +267,59 @@ describe("blockSurvivesLoad", () => {
     expect(blockSurvivesLoad({ type: "pageBreak" })).toBe(true);
     expect(blockSurvivesLoad({ type: "dataSection", key: "tasks" })).toBe(true);
     expect(blockSurvivesLoad({ type: "table", columns: ["c"], rows: [["v"]] })).toBe(true);
+  });
+});
+
+// ★★★ THE COMMIT PATH'S CONTRACT, and the reason it is a NORMALISER rather than
+//  a predicate. `blockSurvivesLoad` can only refuse; it cannot hand back the
+//  bytes the loader would keep, so an editor built on it stored values the next
+//  load silently rewrote. Each case below is a measured instance of that drift.
+describe("normalizeBlockForStorage", () => {
+  it("caps a paragraph at MAX_HTML_TEXT_CHARS the way the loader does", () => {
+    const long = "<p>" + "a".repeat(MAX_HTML_TEXT_CHARS + 500) + "</p>";
+    const out = normalizeBlockForStorage({ type: "paragraph", html: long });
+    expect(out).not.toBeNull();
+    const html = (out as Extract<DocBlock, { type: "paragraph" }>).html;
+    expect(html).not.toBe(long);
+    // Idempotent: the value it returns is a FIXED POINT of the loader, which is
+    // the whole property — commit it and the next load changes nothing.
+    expect(normalizeBlockForStorage({ type: "paragraph", html })).toEqual({ type: "paragraph", html });
+  });
+
+  it("trims a heading's text", () => {
+    expect(normalizeBlockForStorage({ type: "heading", level: 2, text: "  Q3  " })).toEqual({
+      type: "heading",
+      level: 2,
+      text: "Q3",
+    });
+  });
+
+  it("drops empty bullet items instead of storing them", () => {
+    expect(normalizeBlockForStorage({ type: "bullets", items: ["one", "", "  ", "two"] })).toEqual({
+      type: "bullets",
+      items: ["one", "two"],
+    });
+  });
+
+  it("returns null for exactly the blocks the loader discards", () => {
+    expect(normalizeBlockForStorage({ type: "heading", level: 1, text: "   " })).toBeNull();
+    expect(normalizeBlockForStorage({ type: "paragraph", html: "<p></p>" })).toBeNull();
+    expect(normalizeBlockForStorage({ type: "bullets", items: ["", "  "] })).toBeNull();
+  });
+
+  // ★ The two are defined in terms of each other on purpose — one rule, not two.
+  it("agrees with blockSurvivesLoad on every shape", () => {
+    const shapes: DocBlock[] = [
+      { type: "heading", level: 1, text: "ok" },
+      { type: "heading", level: 1, text: " " },
+      { type: "paragraph", html: "<p>x</p>" },
+      { type: "paragraph", html: "" },
+      { type: "bullets", items: ["a"] },
+      { type: "bullets", items: [] },
+      { type: "pageBreak" },
+    ];
+    for (const b of shapes) {
+      expect(normalizeBlockForStorage(b) !== null).toBe(blockSurvivesLoad(b));
+    }
   });
 });

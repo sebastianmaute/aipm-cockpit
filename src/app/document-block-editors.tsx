@@ -13,11 +13,11 @@
 //  copy this shape. Keep new editors thin consumers of both.
 import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor";
-import { paragraphHasImage, blockChanged, blockSurvivesLoad } from "./document-editor-commit";
-import { sanitizeDocumentHtml } from "./sanitize-html";
+import { paragraphHasImage, blockChanged, normalizeBlockForStorage } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
+import { BlockReadOnlyNotice, BlockDroppedNotice } from "./document-block-notices";
 import { Button } from "./button";
 import { Input, Select } from "./form-controls";
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
@@ -298,19 +298,30 @@ export function useBlockDraft<T, B extends DocBlock>(
 
   const [dropped, setDropped] = useState(false);
 
-  /** Shared by `commit` and `commitValue`. Returns true when the write landed. */
-  const tryCommit = (next: DocBlock): boolean => {
+  /** Shared by `commit` and `commitValue`. Returns true when the write landed.
+   *
+   * ★★★ NORMALISE FIRST, AND COMMIT THE NORMALISED BLOCK — never the raw draft.
+   *  `normalizeBlockForStorage` IS the loader's own per-block rule, so what this
+   *  writes is byte-identical to what the next load produces. Committing the raw
+   *  draft instead let the two disagree, silently, in three measured ways: a
+   *  paragraph over MAX_HTML_TEXT_CHARS came back with every mark flattened to
+   *  plain text, a heading kept trailing whitespace the loader trims, and a
+   *  freshly ADDED empty bullet item counted as a change — minting a document
+   *  version for content the next load drops. Per-editor caps would have been
+   *  one copy of each rule per editor, free to drift from the loader's.
+   *
+   * ★★★ NULL MEANS THE LOADER DISCARDS IT, and refusing is right — an emptied
+   *  heading, a paragraph with no visible text or a bullets list with nothing in
+   *  it all commit fine, render for the rest of the session, and are GONE on the
+   *  next load. Refusing SILENTLY is the same "disabled control with no reason"
+   *  defect the image guard exists to avoid, so the consumer renders
+   *  `documentsBlockEmptyNotSaved` while this is true. Checked BEFORE the
+   *  concurrent-write guard below: a block this hook itself cannot commit is
+   *  refused regardless of what any other writer did. */
+  const tryCommit = (raw: DocBlock): boolean => {
+    const next = normalizeBlockForStorage(raw);
+    if (!next) { setDropped(true); return false; }
     if (!blockChanged(baselineRef.current, next)) { setDropped(false); return false; }
-    // ★★★ NEVER COMMIT A BLOCK THE LOADER DISCARDS. An emptied heading, a
-    //  paragraph with no visible text or a bullets list with nothing in it all
-    //  commit fine, render for the rest of the session, and are GONE on the
-    //  next load — and this slice ships no add-block control to recreate one.
-    //  Refusing is right; refusing SILENTLY is the same "disabled control with
-    //  no reason" defect the image guard exists to avoid, so the consumer
-    //  renders `documentsBlockEmptyNotSaved` while this is true. Checked
-    //  BEFORE the concurrent-write guard below: a block this hook itself
-    //  cannot commit is refused regardless of what any other writer did.
-    if (!blockSurvivesLoad(next)) { setDropped(true); return false; }
     setDropped(false);
     // ★★★ ABANDON RATHER THAN CLOBBER — and this now applies to a BLUR too,
     //  which is a change of policy from the first cut. It used to hold only on
@@ -358,8 +369,6 @@ export function useBlockDraft<T, B extends DocBlock>(
     return () => {
       if (!dirtyRef.current) return; // never edited (or already committed) — nothing pending
       const latest = latestRef.current;
-      const next = latest.toBlock(liveValueRef.current);
-      if (!blockChanged(baselineRef.current, next)) return; // dirty flag set, but content is a no-op (e.g. reverted)
       // ★★★ THE LOADER'S RULE APPLIES HERE TOO, and `tryCommit` was its only
       //  call site — i.e. the BLUR path. An emptied paragraph/heading/bullets
       //  list reaches THIS path with no blur at all: narrowing the pane below
@@ -367,7 +376,13 @@ export function useBlockDraft<T, B extends DocBlock>(
       //  resize moves no focus. Committing it would render for the session and
       //  be GONE on the next load. ★ It cannot `setDropped` (the component is
       //  unmounting), so refusing to write IS the fix — do not fake a notice.
-      if (!blockSurvivesLoad(next)) return;
+      // ★★ NORMALISED FIRST for the same reason `tryCommit` does it, and the
+      //  ORDER matters: comparing the RAW draft against the baseline would call
+      //  a whitespace-only or empty-item-only change "changed" and flush a block
+      //  the loader then rewrites.
+      const next = normalizeBlockForStorage(latest.toBlock(liveValueRef.current));
+      if (!next) return;
+      if (!blockChanged(baselineRef.current, next)) return; // dirty flag set, but content is a no-op (e.g. reverted)
       if (externallyWritten()) return; // concurrent write since baseline froze — abandon
       // ★★★ AND THE ENGINE GETS THE BASELINE, because `externallyWritten()`
       //  is BLIND on exactly this path: every ref it reads advances only when
@@ -384,39 +399,6 @@ export function useBlockDraft<T, B extends DocBlock>(
   }, []);
 
   return { value: rawValue, setValue, commit, commitValue, seedNonce, dropped };
-}
-
-/**
- * Read-only notice for a block this editor cannot safely edit in place (used
- * today by the paragraph editor's image guard; any future per-kind editor
- * with its own read-only case can reuse it).
- *
- * ★★★ CRITICAL — re-sanitizes `html` AT THE SINK with `sanitizeDocumentHtml`
- *  (DOCUMENT_ALLOWED_TAGS = RICH_ALLOWED_TAGS + img) before the
- *  `dangerouslySetInnerHTML`. NEVER `sanitizeRichHtml` here — it drops `<img>`
- *  outright, which would blank the very image this component exists to keep
- *  visible. Mirrors the repo's documented defense-in-depth pattern
- *  (`rich-text-view.tsx`, `document-preview.tsx`'s header comment): every
- *  render path that reaches an unescaped sink re-sanitizes there even if an
- *  earlier layer (load path, a future data-driven html source) regresses.
- */
-function BlockReadOnlyNotice({ html, reason }: { html: string; reason: string }) {
-  return (
-    <div className="rounded-md border border-line bg-surface-muted p-3">
-      <div
-        className="prose-sm max-w-none text-foreground"
-        dangerouslySetInnerHTML={{ __html: sanitizeDocumentHtml(html) }}
-      />
-      <p className="mt-2 text-xs text-muted-foreground">{reason}</p>
-    </div>
-  );
-}
-
-/** Shown when a commit was refused because the block would not survive a load
- *  (`blockSurvivesLoad`). ★ Never silent: a refusal with no reason reads
- *  exactly like a broken editor — the same principle as the image guard. */
-function BlockDroppedNotice({ lang }: { lang: Lang }) {
-  return <p className="text-xs text-ui-pink">{t(lang, "documentsBlockEmptyNotSaved")}</p>;
 }
 
 const HEADING_LEVELS = [1, 2, 3] as const;

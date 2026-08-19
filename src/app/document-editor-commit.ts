@@ -5,7 +5,7 @@
 //  decides. Keeping it pure is what makes the coalescing rule testable at all.
 import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
-import { sanitizeProjectDocuments } from "./document-model";
+import { normalizeBlockForStorage } from "./document-model";
 import type { DocMintedVersion, DocOp } from "./document-mutations";
 
 /** How long after the last MINTED version's `savedAt` a further edit still
@@ -145,7 +145,7 @@ export function paragraphHasImage(html: string): boolean {
  *  document-model.ts. Kept on this module's surface so its consumers
  *  (document-block-editors.tsx, this file's tests) do not have to know it
  *  moved. */
-export { blockChanged } from "./document-model";
+export { blockChanged, normalizeBlockForStorage } from "./document-model";
 
 /** The single op a block edit produces. Block CONTENT is in scope for this
  *  slice; the SET of blocks is not, so nothing here appends, inserts or
@@ -163,11 +163,6 @@ export function replaceBlockOp(index: number, block: DocBlock, expect?: DocBlock
   return { op: "replace", index, block, expect };
 }
 
-/** A canonical ISO stamp for the throwaway document the predicate below
- *  builds. `sanitizeProjectDocuments` validates `createdAt`/`updatedAt`, so a
- *  non-canonical value would make every block look invalid. */
-const PROBE_STAMP = "2000-01-01T00:00:00.000Z";
-
 /**
  * Would this block survive a load?
  *
@@ -178,13 +173,22 @@ const PROBE_STAMP = "2000-01-01T00:00:00.000Z";
  *  function for the same reason ("one implementation, not two that can
  *  drift"), so this follows an established pattern rather than inventing one.
  *
+ * ★★★ SURVIVING IS NOT THE SAME AS BEING STORED UNCHANGED, which is why the
+ *  commit path calls `normalizeBlockForStorage` and NOT this. An over-long
+ *  paragraph survives — and comes back with every mark flattened to plain
+ *  text. A predicate can only refuse; it cannot hand back the bytes the loader
+ *  would keep, so a commit path built on one stores something else.
+ *
+ * ★ NO PRODUCTION CALLER as of this commit — the block editor moved to
+ *  `normalizeBlockForStorage`. Kept as the tested statement of the loader's
+ *  DROP rule (`document-editor-commit.test.ts` enumerates every dropped shape),
+ *  and because a future caller that genuinely only needs the yes/no should ask
+ *  for it by name rather than re-deriving `!== null`.
+ *
  * ★ Both modules are DOM-FREE by contract, so this import cannot break either.
  *  Do NOT reach for DOMPurify here: `document-editor-commit.ts` is DOM-free
  *  and i18n-free by contract (see this file's header).
  */
 export function blockSurvivesLoad(block: DocBlock): boolean {
-  const [doc] = sanitizeProjectDocuments([
-    { id: 1, title: "probe", blocks: [block], createdAt: PROBE_STAMP, updatedAt: PROBE_STAMP },
-  ]);
-  return doc?.blocks.length === 1;
+  return normalizeBlockForStorage(block) !== null;
 }

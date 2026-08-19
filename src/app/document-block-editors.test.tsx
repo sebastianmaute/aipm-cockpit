@@ -368,6 +368,39 @@ describe("HeadingBlockEditor", () => {
   //  field never focused, so this only exercises a single control's own
   //  blur firing the group's onBlur. Tabbing to the text field afterward
   //  fires a SECOND, independent commit (see HeadingBlockEditor's docstring).
+  // ★★ THE WIRING PROOF for the normalise-at-commit rule, and it needs BOTH
+  //  halves. The loader trims a heading, so committing the raw draft stored
+  //  "Q3 review  " while the next load held "Q3 review" — a stored-vs-loaded
+  //  mismatch with no user-visible cause. Pinned at the COMPONENT because the
+  //  pure rule holding (document-editor-commit.test.ts) says nothing about
+  //  whether `tryCommit` actually calls it.
+  it("commits the heading text TRIMMED, matching what the loader stores", async () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Q3" }} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, " review  ");
+    text.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    // Internal whitespace survives; only the edges go.
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 2, text: "Q3 review" }, expect.anything());
+  });
+
+  // ★ The other half: an edit that normalises back to the stored value is NOT
+  //  a change, so it mints no document version. Without this the test above
+  //  passes on a hook that trims but still commits every whitespace keystroke.
+  it("does not commit when the only edit is trailing whitespace", async () => {
+    const onCommit = vi.fn();
+    render(
+      <HeadingBlockEditor lang={LANG} index={0} block={{ type: "heading", level: 2, text: "Q3" }} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "   ");
+    text.blur();
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
   it("commits a level change on its own blur", () => {
     const onCommit = vi.fn();
     render(
@@ -443,11 +476,34 @@ describe("BulletsBlockEditor", () => {
     expect(new Set(removes.map((b) => b.getAttribute("aria-label"))).size).toBe(2);
   });
 
-  it("adds an item", async () => {
+  // ★★★ ADDING AN ITEM RENDERS A ROW AND COMMITS NOTHING, and the second half
+  //  is the point. `addItem` appends `""`, which the loader drops — so the old
+  //  behaviour (commit `["one","two",""]`) stored a block the next load rewrote
+  //  to `["one","two"]`, burning one of the document's MAX_VERSIONS_PER_DOC (20)
+  //  history slots and making the row the user just added vanish on reload.
+  //  `tryCommit` now normalises first, so the add is a no-op against the
+  //  baseline and no version is minted until the item carries text.
+  it("adds an item ROW without committing an empty item", async () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
     await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
+    expect(screen.getAllByRole("textbox", { name: /^Item \d+/ })).toHaveLength(3);
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+
+  it("commits the added item once it carries text", async () => {
+    const onCommit = vi.fn();
+    render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
+    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
+    const added = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "3")) });
+    await userEvent.type(added, "three");
+    added.blur();
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenCalledWith(
+      0,
+      { type: "bullets", items: ["one", "two", "three"] },
+      expect.anything(),
+    );
   });
 
   // ★ The visible label stays the plain, unqualified "Add item" — only the
@@ -565,14 +621,21 @@ describe("BulletsBlockEditor", () => {
   //  A raw `.click()` (bypassing RTL/userEvent's automatic `act()` flush, so
   //  no render or effect is guaranteed before the very next line) followed
   //  by an immediate `unmount()` is exactly the shape that exposed it.
-  it("commits an add-then-immediate-unmount with NO intervening render", () => {
+  //  ★★ The structural action is a REMOVE, not an add, and it has to be: an
+  //   add appends `""`, which normalises away, so it commits nothing and the
+  //   assertion below would pass for the wrong reason on both the fixed and
+  //   the broken hook. Any action whose normalised result differs from the
+  //   baseline works; remove is the cheapest.
+  it("commits a structural change on immediate unmount with NO intervening render", () => {
     const onCommit = vi.fn();
     const { unmount } = render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    const addButton = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
-    addButton.click();
+    const removeItem1 = screen.getByRole("button", {
+      name: qualified(t(LANG, "documentsRemoveItem", "1")),
+    });
+    removeItem1.click();
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two"] }, expect.anything());
   });
 
   // ★★★ The "N saves in one tick" landmine (AGENTS.md), for a block editor:
@@ -583,24 +646,36 @@ describe("BulletsBlockEditor", () => {
   //  applied change. A `{...value, ...}` spread reading the render-scope
   //  `value` would have both handlers close over the SAME pre-batch
   //  snapshot, and the second commit would silently overwrite the first's
-  //  addition instead of removing from the grown list.
-  it("keeps BOTH intentions when add and remove are batched into one event", () => {
+  //  change instead of building on it.
+  //  ★★ THE PAIR IS REMOVE-THEN-TOGGLE, and the choice is load-bearing twice
+  //   over. An ADD commits nothing now (it appends `""`, which normalises
+  //   away), so it cannot be the first half. And a remove+remove pair would be
+  //   VACUOUS: dropping index 0 from the stale 2-item snapshot and from the
+  //   live list both yield `["two"]`, so the assertion would pass whichever
+  //   value the second handler read. Toggling `ordered` second makes the two
+  //   readings differ — live gives `{items:["two"], ordered:true}`, stale would
+  //   give `{items:["one","two"], ordered:true}`.
+  it("keeps BOTH intentions when remove and toggle are batched into one event", () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
-    const addButton = screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) });
     const removeItem1 = screen.getByRole("button", {
       name: qualified(t(LANG, "documentsRemoveItem", "1")),
     });
+    const orderedToggle = screen.getByRole("button", {
+      name: qualified(t(LANG, "documentsListOrdered")),
+    });
     act(() => {
-      addButton.click();
       removeItem1.click();
+      orderedToggle.click();
     });
     expect(onCommit).toHaveBeenCalledTimes(2);
-    expect(onCommit).toHaveBeenNthCalledWith(1, 0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
-    // The remove acts on the POST-ADD list (3 items), not the stale 2-item
-    // render-scope snapshot — dropping index 0 ("one") leaves the new blank
-    // item in place.
-    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["two", ""] }, expect.anything());
+    expect(onCommit).toHaveBeenNthCalledWith(1, 0, { type: "bullets", items: ["two"] }, expect.anything());
+    expect(onCommit).toHaveBeenNthCalledWith(
+      2,
+      0,
+      { type: "bullets", items: ["two"], ordered: true },
+      expect.anything(),
+    );
   });
 
   // ★★★ Shared useBlockDraft behaviour, pinned here for the SAME reason the
@@ -610,6 +685,9 @@ describe("BulletsBlockEditor", () => {
   //  blur — this proves that path leaves the SAME baseline/dirty state a
   //  normal blur-commit would, so the unmount-flush guard for a LATER,
   //  genuinely pending text edit still works afterward.
+  //  ★ The structural action is a REMOVE because an add commits nothing (it
+  //   appends `""`, which `normalizeBlockForStorage` drops) — there would be
+  //   no "already committed" state for the rest of the test to build on.
   //  ★★ WHY THE `rerender`, PRECISELY — and why it is NOT what makes the
   //   second flush succeed, contrary to what an earlier revision of this
   //   comment (and the plan text that first proposed replacing it) both
@@ -637,16 +715,18 @@ describe("BulletsBlockEditor", () => {
     const { rerender, unmount } = render(
       <BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />,
     );
-    await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
+    await userEvent.click(
+      screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveItem", "1")) }),
+    );
     expect(onCommit).toHaveBeenCalledTimes(1);
-    const afterAdd: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two", ""] };
-    expect(onCommit).toHaveBeenCalledWith(0, afterAdd, expect.anything());
-    rerender(<BulletsBlockEditor lang={LANG} index={0} block={afterAdd} onCommit={onCommit} />);
+    const afterRemove: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["two"] };
+    expect(onCommit).toHaveBeenCalledWith(0, afterRemove, expect.anything());
+    rerender(<BulletsBlockEditor lang={LANG} index={0} block={afterRemove} onCommit={onCommit} />);
     const text = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
     await userEvent.type(text, "!");
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(2);
-    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["one!", "two", ""] }, expect.anything());
+    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["two!"] }, expect.anything());
   });
 });
 

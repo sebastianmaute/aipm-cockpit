@@ -102,6 +102,30 @@ function isoOr(v: unknown, fallback: string): string {
   return Number.isFinite(t) ? v : fallback;
 }
 
+/**
+ * The loader's per-block rule, exposed for the ONE consumer that must agree
+ * with it exactly: the block editor's commit path.
+ *
+ * ★★★ WHY IT IS EXPORTED. `sanitizeBlock` does more than accept or reject —
+ *  it TRIMS a heading, CAPS a paragraph at MAX_HTML_TEXT_CHARS, drops empty
+ *  bullet items and clamps table extents. An editor that committed the raw
+ *  draft therefore stored bytes the next load would silently rewrite: a
+ *  >20 000-character paragraph came back with every mark flattened to plain
+ *  text (capHtmlText's truncation branch returns `plainToHtml(slice)`), and a
+ *  freshly added empty bullet item vanished after burning one of the
+ *  document's MAX_VERSIONS_PER_DOC (20) history slots. Normalising at the
+ *  commit instead makes stored and loaded bytes identical by construction,
+ *  which is a property no per-editor `maxLength` can hold — there would be
+ *  one copy of each rule per editor, free to drift from this one.
+ *
+ * ★ Returns `null` for a block the loader DROPS, which is what
+ *  `blockSurvivesLoad` is now defined in terms of — one implementation, not
+ *  two that can disagree.
+ */
+export function normalizeBlockForStorage(block: DocBlock): DocBlock | null {
+  return sanitizeBlock(block);
+}
+
 function sanitizeBlock(raw: unknown): DocBlock | null {
   if (!raw || typeof raw !== "object") return null;
   const b = raw as Record<string, unknown>;
