@@ -18,7 +18,7 @@
 import { useCallback, useRef, useState } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
-import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor-lazy";
 import { canEditNote } from "./note-log";
 import { htmlToText } from "./sanitize-html";
 // A note body renders stored HTML through the shared sanitized sink, which
