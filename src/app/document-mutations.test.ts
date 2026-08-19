@@ -216,9 +216,15 @@ describe("applyDocMutation — ops", () => {
     // cannot suppress version history. Scans the WHOLE enclosing object
     // literal (brace-balanced, not a fixed-width forward window), so a
     // spread BEFORE `kind: "ops"` is caught too, not just one placed after.
+    // It ALSO bans the field by name, because the object is built explicitly:
+    // a spread is not the only way in.
     const src = readFileSync(join(import.meta.dirname, "use-document-tools.ts"), "utf8");
     const opsLiteral = findEnclosingObjectLiteral(src, 'kind: "ops"');
     expect(opsLiteral).not.toMatch(/\.\.\./);
+    // ★★ THE SPREAD BAN IS HALF THE PROPERTY. A spread is only the SHORTEST
+    //  way to smuggle the flag through; `, coalesce: rawArgs.coalesce` is a
+    //  direct field and passed the spread check untouched. Name the field.
+    expect(opsLiteral).not.toMatch(/coalesce/);
   });
 });
 
