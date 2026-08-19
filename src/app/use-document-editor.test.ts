@@ -185,3 +185,50 @@ describe("useDocumentEditor — appendBlock", () => {
     expect(mutateDocuments).not.toHaveBeenCalled();
   });
 });
+
+// ★★★ `appendBlock`'s OWN anchor advance, which nothing reached. Its
+//  `if (result.minted) lastMintedRef.current = result.minted;` is the same line
+//  `commitBlock` carries, but the module-level `mockMutate` hardcodes
+//  `minted: null`, so every existing test drove the FALSE arm only — the append
+//  could have advanced no anchor at all and the file stayed green.
+//
+//  It matters because an append deliberately mints a before-image
+//  unconditionally (no `coalesce` field), and the typing that follows is meant
+//  to FOLD INTO that version rather than mint a second one capturing a
+//  half-written placeholder. Without the advance the next edit sees a null
+//  anchor, refuses to coalesce, and spends a second of the document's
+//  MAX_VERSIONS_PER_DOC (20) slots.
+describe("useDocumentEditor — an append becomes the coalescing anchor", () => {
+  const V: DocVersion = {
+    id: 7,
+    documentId: 1,
+    title: "d",
+    blocks: [],
+    savedAt: NOW,
+    source: "user",
+    op: "update",
+  };
+
+  it("folds the edit that follows an append into the append's own version", () => {
+    const versions = [V];
+    const mutateDocuments = vi.fn<(m: DocMutation) => DocResult>(() => ({
+      documents: [],
+      versions,
+      changed: true,
+      rejected: [],
+      documentId: 1,
+      minted: { id: 7, savedAt: NOW },
+    }));
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions, mutateDocuments, now: () => NOW }),
+    );
+
+    hook.current.appendBlock({ type: "paragraph", html: "<p>new</p>" });
+    // ★ The append itself must carry NO coalesce field — it is a structural
+    //  change and its before-image is the pre-append state.
+    expect(mutateDocuments.mock.calls[0][0]).not.toHaveProperty("coalesce");
+
+    hook.current.commitBlock(0, { type: "heading", level: 1, text: "typed after" });
+    expect(mutateDocuments.mock.calls[1][0]).toMatchObject({ coalesce: true });
+  });
+});

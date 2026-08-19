@@ -323,3 +323,35 @@ describe("normalizeBlockForStorage", () => {
     }
   });
 });
+
+// ★★★ THE SECOND HALF OF THE WINDOW CHECK, which had no test at all. The
+//  expression is `nowMs - savedMs <= COALESCE_WINDOW_MS && nowMs >= savedMs`,
+//  and a mutant dropping the second conjunct survived every other test in this
+//  file: with only the first, a `now` BEFORE the anchor's `savedAt` yields a
+//  NEGATIVE difference, which is trivially under the window, so the edit
+//  coalesces. That is the failure that costs history rather than an extra
+//  version — the before-image is suppressed on a clock the code cannot trust.
+//  Reachable without malice: a device whose clock is corrected backwards, or a
+//  `savedAt` written by another machine running ahead.
+describe("shouldCoalesce — a clock that runs backwards must not coalesce", () => {
+  const anchor = { id: 1, savedAt: SAVED };
+
+  it("refuses when now is BEFORE the anchor's savedAt", () => {
+    const before = "2026-08-18T09:59:30.000Z"; // 30s earlier than SAVED
+    expect(shouldCoalesce([version()], 7, before, anchor)).toBe(false);
+  });
+
+  it("still coalesces at exactly the anchor's savedAt (the boundary is inclusive)", () => {
+    expect(shouldCoalesce([version()], 7, SAVED, anchor)).toBe(true);
+  });
+
+  // ★ The companion boundary for the FIRST conjunct, so neither can be dropped
+  //  without a red test: one millisecond past the window refuses, exactly at it
+  //  still coalesces.
+  it("coalesces at exactly the window edge and refuses one millisecond past it", () => {
+    const edge = new Date(Date.parse(SAVED) + COALESCE_WINDOW_MS).toISOString();
+    const past = new Date(Date.parse(SAVED) + COALESCE_WINDOW_MS + 1).toISOString();
+    expect(shouldCoalesce([version()], 7, edge, anchor)).toBe(true);
+    expect(shouldCoalesce([version()], 7, past, anchor)).toBe(false);
+  });
+});
