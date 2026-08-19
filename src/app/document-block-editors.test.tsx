@@ -1078,6 +1078,35 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     expect(onCommit).not.toHaveBeenCalled();
   });
 
+  // ★★★ THE ABANDON MUST SAY SO. Refusing the commit is correct and was
+  //  already pinned above — but it used to be entirely SILENT, and the
+  //  render-time reconcile then adopts the external write, so from the user's
+  //  seat their typing was replaced on screen by text they did not write with
+  //  no statement that anything happened. That is indistinguishable from an
+  //  editor eating input. The notice names the reason; asserting on the
+  //  RENDERED string (not a flag) is what makes this able to fail.
+  it("says WHY when it abandons a dirty draft on blur", async () => {
+    const onCommit = vi.fn();
+    const { rerender } = render(
+      <HeadingBlockEditor lang={LANG} index={0} block={heading} onCommit={onCommit} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+    expect(screen.queryByText(t(LANG, "documentsBlockConflictNotSaved"))).toBeNull();
+    rerender(<HeadingBlockEditor lang={LANG} index={0} block={restored} onCommit={onCommit} />);
+
+    // ★ act() because the assertion is on RENDERED output: a bare .blur() runs
+    //  the handler, but the setState it schedules needs a flushed render to be
+    //  visible. The sibling abandon test above asserts on a MOCK, which is why
+    //  it can get away without one.
+    act(() => { text.blur(); });
+    expect(onCommit).not.toHaveBeenCalled();
+    expect(screen.getByText(t(LANG, "documentsBlockConflictNotSaved"))).toBeTruthy();
+    // ★ Distinct from the empty-content refusal: one state, two reasons, and a
+    //  reader must be able to tell which one fired.
+    expect(screen.queryByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeNull();
+  });
+
   // ★ Tiptap binds `content` ONCE at mount, so the paragraph editor cannot
   //  adopt a new value by prop alone — the hook's seed nonce keys a remount.
   //  Asserting on the rendered TEXT (not a prop) is what makes this able to

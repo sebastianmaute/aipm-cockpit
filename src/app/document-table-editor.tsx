@@ -18,6 +18,7 @@
 import { t } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";
+import { BlockRefusalNotice } from "./document-block-notices";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 
@@ -33,7 +34,7 @@ export function TableBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "table" }>>) {
-  const { value, setValue, commit, commitValue } = useBlockDraft(
+  const { value, setValue, commit, commitValue, refusal } = useBlockDraft(
     (b: Extract<DocBlock, { type: "table" }>): TableDraft => ({
       caption: b.caption ?? "",
       columns: b.columns,
@@ -214,6 +215,7 @@ export function TableBlockEditor({
           {t(lang, "documentsAddColumn")}
         </Button>
       </div>
+      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );
 }

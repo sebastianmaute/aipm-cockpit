@@ -2716,6 +2716,8 @@ const enUS = {
     "Only the selected block is editable while the pane is narrow.",
   documentsBlockEmptyNotSaved:
     "Empty content is not saved — this block keeps the text it had.",
+  documentsBlockConflictNotSaved:
+    "Not saved — this block was changed elsewhere, and the newer version is shown.",
   documentsNewTitle: "Untitled document",
   documentsHistory: "History",
   documentsHistoryFor: "History – {0}",

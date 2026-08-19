@@ -17,7 +17,7 @@ import { paragraphHasImage, blockChanged, normalizeBlockForStorage } from "./doc
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ToggleButton } from "./toggle-button";
-import { BlockReadOnlyNotice, BlockDroppedNotice } from "./document-block-notices";
+import { BlockReadOnlyNotice, BlockRefusalNotice, type BlockRefusal } from "./document-block-notices";
 import { Button } from "./button";
 import { Input, Select } from "./form-controls";
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
@@ -296,7 +296,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     return blockChanged(baselineRef.current, stored) && blockChanged(preCommitStoredRef.current, stored);
   };
 
-  const [dropped, setDropped] = useState(false);
+  const [refusal, setRefusal] = useState<BlockRefusal | null>(null);
 
   /** Shared by `commit` and `commitValue`. Returns true when the write landed.
    *
@@ -320,9 +320,8 @@ export function useBlockDraft<T, B extends DocBlock>(
    *  refused regardless of what any other writer did. */
   const tryCommit = (raw: DocBlock): boolean => {
     const next = normalizeBlockForStorage(raw);
-    if (!next) { setDropped(true); return false; }
-    if (!blockChanged(baselineRef.current, next)) { setDropped(false); return false; }
-    setDropped(false);
+    if (!next) { setRefusal("empty"); return false; }
+    if (!blockChanged(baselineRef.current, next)) { setRefusal(null); return false; }
     // ★★★ ABANDON RATHER THAN CLOBBER — and this now applies to a BLUR too,
     //  which is a change of policy from the first cut. It used to hold only on
     //  the unmount path, on the reasoning that a deliberate commit may
@@ -332,7 +331,8 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  landed while the field was focused. Losing an unblurred keystroke burst
     //  is recoverable (re-type it); destroying a committed write is not — AI
     //  and restore writes carry no undo.
-    if (externallyWritten()) return false;
+    if (externallyWritten()) { setRefusal("conflict"); return false; }
+    setRefusal(null);
     // ★★ READ BEFORE `baselineRef` ADVANCES: this is the block the edit was
     //  derived from, and the engine applies the write only while it is still
     //  what sits at `index`. Reading it after the assignment below would send
@@ -398,7 +398,7 @@ export function useBlockDraft<T, B extends DocBlock>(
     // through a ref, which the rule does not treat as a dependency.
   }, []);
 
-  return { value: rawValue, setValue, commit, commitValue, seedNonce, dropped };
+  return { value: rawValue, setValue, commit, commitValue, seedNonce, refusal };
 }
 
 const HEADING_LEVELS = [1, 2, 3] as const;
@@ -431,7 +431,7 @@ export function HeadingBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "heading" }>>) {
-  const { value, setValue, commit, dropped } = useBlockDraft(
+  const { value, setValue, commit, refusal } = useBlockDraft(
     (b: Extract<DocBlock, { type: "heading" }>): HeadingDraft => ({ level: b.level, text: b.text }),
     block,
     index,
@@ -470,7 +470,7 @@ export function HeadingBlockEditor({
           onChange={(e) => setValue({ ...value, text: e.target.value })}
         />
       </div>
-      {dropped && <BlockDroppedNotice lang={lang} />}
+      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );
 }
@@ -510,7 +510,7 @@ function ParagraphEditorBody({
   onCommit,
   toolbarContainer,
 }: BlockEditorProps<Extract<DocBlock, { type: "paragraph" }>>) {
-  const { value: html, setValue: setHtml, commit, seedNonce, dropped } = useBlockDraft(
+  const { value: html, setValue: setHtml, commit, seedNonce, refusal } = useBlockDraft(
     (b: Extract<DocBlock, { type: "paragraph" }>): string => b.html,
     block,
     index,
@@ -542,7 +542,7 @@ function ParagraphEditorBody({
         lang={lang}
         toolbarContainer={toolbarContainer}
       />
-      {dropped && <BlockDroppedNotice lang={lang} />}
+      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );
 }
@@ -578,7 +578,7 @@ export function BulletsBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "bullets" }>>) {
-  const { value, setValue, commit, commitValue, dropped } = useBlockDraft(
+  const { value, setValue, commit, commitValue, refusal } = useBlockDraft(
     (b: Extract<DocBlock, { type: "bullets" }>): BulletsDraft => ({
       items: b.items,
       ordered: b.ordered === true,
@@ -696,7 +696,7 @@ export function BulletsBlockEditor({
           {t(lang, "documentsAddItem")}
         </Button>
       </div>
-      {dropped && <BlockDroppedNotice lang={lang} />}
+      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
     </div>
   );
 }
@@ -737,7 +737,7 @@ export function DataSectionBlockEditor({
   block,
   onCommit,
 }: BlockEditorProps<Extract<DocBlock, { type: "dataSection" }>>) {
-  const { value, commitValue } = useBlockDraft(
+  const { value, commitValue, refusal } = useBlockDraft(
     (b: Extract<DocBlock, { type: "dataSection" }>): ExportSectionKey => b.key,
     block,
     index,
@@ -753,18 +753,25 @@ export function DataSectionBlockEditor({
   //  so it follows the bullets/table editors' qualifier pattern instead.
   const blockQualifier = t(lang, "documentsBlockN", String(index + 1));
 
+  // ★ The wrapper exists ONLY so the refusal notice has somewhere to render.
+  //  A concurrent write reaches this editor exactly like any other; before the
+  //  wrapper the abandon was silent here and the select simply snapped back to
+  //  the external write's key.
   return (
-    <Select
-      aria-label={`${t(lang, "documentsDataSectionKey")} – ${blockQualifier}`}
-      value={value}
-      onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
-    >
-      {EXPORT_SECTION_KEYS.map((k) => (
-        <option key={k} value={k}>
-          {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
-        </option>
-      ))}
-    </Select>
+    <div className="flex flex-col gap-1">
+      <Select
+        aria-label={`${t(lang, "documentsDataSectionKey")} – ${blockQualifier}`}
+        value={value}
+        onChange={(e) => commitValue(e.target.value as ExportSectionKey)}
+      >
+        {EXPORT_SECTION_KEYS.map((k) => (
+          <option key={k} value={k}>
+            {t(lang, EXPORT_SECTION_LABEL_KEYS[k])}
+          </option>
+        ))}
+      </Select>
+      {refusal && <BlockRefusalNotice lang={lang} refusal={refusal} />}
+    </div>
   );
 }
 

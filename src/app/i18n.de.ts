@@ -2645,6 +2645,8 @@ export const de: Record<TranslationKey, string> = {
     "Dieser Absatz enthält ein Bild und kann noch nicht bearbeitet werden. Eine Bearbeitung würde das Bild entfernen.",
   documentsBlockEmptyNotSaved:
     "Leerer Inhalt wird nicht gespeichert – dieser Block behält seinen bisherigen Text.",
+  documentsBlockConflictNotSaved:
+    "Nicht gespeichert – dieser Block wurde an anderer Stelle geändert; die neuere Fassung wird angezeigt.",
   documentsBlockNoEditor: "Dieser Block hat keinen bearbeitbaren Inhalt.",
   documentsNoBlocks: "Dieses Dokument hat noch keine Blöcke.",
   documentsAddBlock: "Absatz hinzufügen",

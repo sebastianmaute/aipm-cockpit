@@ -33,10 +33,30 @@ export function BlockReadOnlyNotice({ html, reason }: { html: string; reason: st
   );
 }
 
-/** Shown when a commit was refused because the block would not survive a load
- *  (`normalizeBlockForStorage` returned null). ★ Never silent: a refusal with no
- *  reason reads exactly like a broken editor — the same principle as the image
- *  guard. */
-export function BlockDroppedNotice({ lang }: { lang: Lang }) {
-  return <p className="text-xs text-ui-pink">{t(lang, "documentsBlockEmptyNotSaved")}</p>;
+/** Why `useBlockDraft` refused the last commit. `null` = it did not.
+ *
+ * ★★ TWO REASONS, ONE STATE. They are mutually exclusive by construction —
+ *  `tryCommit` returns on the first one that fires — so a single nullable field
+ *  cannot report a contradiction the way two independent booleans could. */
+export type BlockRefusal = "empty" | "conflict";
+
+/**
+ * Shown when a commit was REFUSED, with the reason.
+ *
+ * ★★★ NEVER SILENT, and `"conflict"` is why this component stopped being
+ *  `BlockDroppedNotice`. The empty-content refusal always had a notice; the
+ *  concurrent-write ABANDON did not, so a user whose block was rewritten by an
+ *  AI edit, a restore or a second window watched their typing get replaced on
+ *  screen (the render-time reconcile adopts the external write once the draft
+ *  goes undirty) with no statement that anything had happened — which reads as
+ *  the editor eating input. Same principle as the image guard: a refusal with
+ *  no reason is indistinguishable from a broken control.
+ *
+ * ★ It cannot be rendered on the UNMOUNT flush path, which abandons for the
+ *  same reason — the component is going away and there is nothing left to
+ *  render into. Refusing to write is the whole fix there; do not fake a notice.
+ */
+export function BlockRefusalNotice({ lang, refusal }: { lang: Lang; refusal: BlockRefusal }) {
+  const key = refusal === "empty" ? "documentsBlockEmptyNotSaved" : "documentsBlockConflictNotSaved";
+  return <p className="text-xs text-ui-pink">{t(lang, key)}</p>;
 }
