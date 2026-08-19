@@ -335,7 +335,9 @@ function deepEqual(a: unknown, b: unknown): boolean {
   const bo = b as Record<string, unknown>;
   const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
   for (const k of keys) {
-    if (ao[k] === undefined && bo[k] === undefined) continue;
+    // ★ No both-undefined short-circuit here, deliberately: the recursive call
+    //  starts with `a === b`, which is already true for two `undefined`s. A
+    //  guard for it existed and could never change an outcome.
     if (!deepEqual(ao[k], bo[k])) return false;
   }
   return true;

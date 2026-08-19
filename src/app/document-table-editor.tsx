@@ -14,7 +14,10 @@
 //  WITHIN one table block — two sibling table blocks of the same shape would
 //  otherwise render byte-identical cell and button names, and axe cannot see
 //  that collision at any seed size (AGENTS.md a11y hard-constraint section).
-//  The multi-block test below is the only possible detector.
+//  The only possible detector is the multi-block test in
+//  `document-block-editors.test.tsx` ("gives block-position-dependent controls
+//  DISTINCT names across sibling table blocks") — NOT in this file, and there
+//  is no test file beside this one.
 import { t } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { type BlockEditorProps, useBlockDraft } from "./document-block-editors";

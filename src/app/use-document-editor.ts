@@ -84,14 +84,18 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
       // different document, writing here would land the edit on whichever
       // document happens to be selected now — abandon instead.
       if (documentId !== currentDocIdRef.current) return undefined;
-      // ★ A real conditional with an unexercised branch — every caller today
-      //  (document-edit-mode.tsx) omits `now`, so only the `new Date()` arm
-      //  ever runs, and no test injects `now` either. Left un-covered
-      //  deliberately and permanently: this file sits in `vitest.config.ts`
-      //  `coverage.exclude` as render-scope UI glue (unlike the structurally
-      //  identical `now ?? (() => new Date())` fallback in
-      //  `use-scheduled-job-runner.ts`, which IS coverage-gated and whose
-      //  tests exercise both arms). Do not chase this branch for coverage.
+      // ★★ WHICH ARM RUNS WHERE, and an earlier revision of this comment had
+      //  it backwards in the half that matters. PRODUCTION always takes the
+      //  `new Date()` arm, and structurally so: `UseDocumentEditModeDeps` is
+      //  `Omit<UseDocumentEditorDeps, "now">`, so the one caller
+      //  (document-edit-mode.tsx) CANNOT pass `now` — a stronger guarantee than
+      //  "omits it today". TESTS take the other arm: every `renderHook` in
+      //  use-document-editor.test.ts injects `now: () => NOW`, which is what
+      //  makes the coalescing assertions deterministic. The old text said "no
+      //  test injects `now` either", which would have sent a reader deleting
+      //  the injectable parameter as dead.
+      //  ★ This file sits in `vitest.config.ts` `coverage.exclude` as
+      //  render-scope UI glue, so neither arm is coverage-gated either way.
       const stamp = now ? now() : new Date().toISOString();
       // ★★ Coalesce a RUN of consecutive user edits so a 20-block session
       //  cannot evict this document's history against MAX_VERSIONS_PER_DOC.

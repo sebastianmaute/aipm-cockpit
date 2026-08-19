@@ -7,10 +7,16 @@
 //  this file are the only detector that exists.
 //
 // ★ This file is the TEMPLATE for the heading/bullets/table/dataSection
-//  editors (Tasks 6-9): `useBlockDraft` + `BlockReadOnlyNotice` below are
-//  factored out so the duplication-gate (a BLOCKING total-duplicated-lines
-//  check, not per-file) doesn't have to be paid down after four more siblings
-//  copy this shape. Keep new editors thin consumers of both.
+//  editors: `useBlockDraft` here, plus `BlockReadOnlyNotice` /
+//  `BlockRefusalNotice` in `document-block-notices.tsx`, are factored out so
+//  the duplication-gate (a BLOCKING total-duplicated-lines check, not
+//  per-file) doesn't have to be paid down after four more siblings copy this
+//  shape. Keep new editors thin consumers of all three.
+//
+// ★ FIVE editors are DEFINED here; `TableBlockEditor` is the sixth block kind
+//  and lives in `document-table-editor.tsx`, re-exported from the bottom of
+//  this file so callers see one module. `DocBlock` has six members — count
+//  them there, not here.
 import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage } from "./document-editor-commit";

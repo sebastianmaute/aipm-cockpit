@@ -43,7 +43,10 @@ export function useDocumentEditMode(deps: UseDocumentEditModeDeps) {
   // ★ `documentId` is `selected?.id ?? -1` at the call site, so a real
   //  selection is the only thing that yields a positive id. Deriving canEdit
   //  HERE rather than passing a fourth thing down keeps the panel's toolbar
-  //  call one prop wide — and the panel sits one line under the 800-line gate.
+  //  call one prop wide — and `documents-panel.tsx` has only a couple of lines
+  //  of headroom against the 800-line ratchet. Read the real number rather than
+  //  trusting one written here, because `size:check` counts `wc -l` + 1:
+  //  node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
   const editToolbar = { editing, onToggleEditing: toggleEditing, canEdit: deps.documentId > 0 };
   return { editing, narrowPane, paneRef, commitBlock, appendBlock, editToolbar };
 }
