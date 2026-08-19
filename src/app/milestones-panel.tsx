@@ -230,9 +230,16 @@ function MilestonesPanelBody({
       .filter((item): item is Milestone => item !== undefined)
       .map((item) => ({ before: item, after: patch(item) }));
 
-    // Capture BEFORE the saves — a capture built from the post-save rows would
-    // record the already-patched value as `before`, making the undo a no-op.
+    // Capture BEFORE the saves.
     const edits = buildBulkFieldEdits(rows);
+    // No `stampField` here, deliberately: the tasks bulk path
+    // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"` and
+    // these four converted registers do not, so undoing a bulk edit reverts
+    // the values and leaves the apply's `localModifiedAt` standing.
+    // `stampField` does NOT restore the prior stamp; it writes a FRESH
+    // `new Date().toISOString()` on undo AND redo, the reversal being itself
+    // a local modification the backends must push. Adding it here would be a
+    // behaviour change, not a consistency fix.
     if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
     for (const { after } of rows) save(after, undefined, { suppressFieldUndo: true });
     setBulkOpen(false);

@@ -431,12 +431,102 @@ describe("RAID bulk edit", () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     // Bulk apply passes suppressFieldUndo so the looped save skips per-field
-    // undo capture (the whole-row bulk.edit entry already covers it).
+    // undo capture: the panel captures the whole op ITSELF, as one set of
+    // {before, after} field patches handed to onCaptureBulk (pinned by the test
+    // below). Without the flag every row would also be captured a second time by
+    // the save handler.
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, severity: "High" }),
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
+  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
+  // suite that never passes the prop does not even RUN the builder. Owner is the
+  // discriminating field here — one bulk pick writes THREE keys, which must land
+  // in ONE patch so an undo reverts the identity as a unit.
+  it("captures the owner triple as one patch per changed row, and skips a row the pick did not change", () => {
+    const onSave = vi.fn<(item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void>();
+    const onCaptureBulk =
+      vi.fn<(edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => void>();
+    const resources = [res({ id: 7, firstName: "Ann", lastName: "Lee", email: "ann@example.com" })];
+    const raid = [
+      // Unowned: every owner key is ABSENT, so `before` carries three explicit
+      // undefineds — that is what lets the undo restore "absent".
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" }),
+      // Owned by someone else: `before` is fully populated.
+      makeRaidItem({
+        id: 2,
+        title: "Late delivery",
+        severity: "Medium",
+        owner: "Old Owner",
+        ownerEmail: "old@example.com",
+        ownerResourceId: 9,
+      }),
+      // ALREADY Ann: the pick is a no-op for this row, so it must produce NO
+      // patch — while still being saved by the loop.
+      makeRaidItem({
+        id: 3,
+        title: "Scope creep",
+        severity: "Low",
+        owner: "Ann Lee",
+        ownerEmail: "ann@example.com",
+        ownerResourceId: 7,
+      }),
+    ];
+    renderPanel(makeProps({ raid, resources, onSave, onCaptureBulk }));
+
+    for (const title of ["Vendor risk", "Late delivery", "Scope creep"]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidOwner") }));
+    const bulkOwner = screen
+      .getAllByRole("combobox", { name: t("en-US", "raidOwner") })
+      .find((el) => el.id === "bulk-owner")!;
+    fireEvent.change(bulkOwner, { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    const edits = onCaptureBulk.mock.calls[0][0];
+    const saved = new Map<number, RaidItem>(onSave.mock.calls.map(([row]) => [row.id, row] as const));
+
+    // All three rows are saved; only the two the pick CHANGED are captured. A
+    // whole-row capture would emit three entries here, each carrying title,
+    // severity, category and the rest.
+    expect([...saved.keys()].sort()).toEqual([1, 2, 3]);
+    expect(edits.map((e) => e.id).sort()).toEqual([1, 2]);
+
+    // `after` is what the save actually wrote — every captured key, every row.
+    for (const e of edits) {
+      const row = saved.get(e.id)!;
+      for (const [key, value] of Object.entries(e.after)) {
+        expect(value).toEqual(row[key as keyof RaidItem]);
+      }
+    }
+
+    const assigned = { owner: "Ann Lee", ownerEmail: "ann@example.com", ownerResourceId: 7 };
+
+    const unowned = edits.find((e) => e.id === 1)!;
+    expect(Object.keys(unowned.before).sort()).toEqual(["owner", "ownerEmail", "ownerResourceId"]);
+    expect(unowned.before.owner).toBeUndefined();
+    expect(unowned.before.ownerEmail).toBeUndefined();
+    expect(unowned.before.ownerResourceId).toBeUndefined();
+    expect(unowned.after).toEqual(assigned);
+
+    const reassigned = edits.find((e) => e.id === 2)!;
+    expect(reassigned.before).toEqual({ owner: "Old Owner", ownerEmail: "old@example.com", ownerResourceId: 9 });
+    expect(reassigned.after).toEqual(assigned);
+
+    // STATEMENT ORDER ONLY. This pins that the capture call precedes the first
+    // save; it does NOT pin the rationale in the panel's "Capture BEFORE the
+    // saves" comment. `rows` — both halves of every {before, after} — is
+    // materialised before either step, so moving the capture below the loop would
+    // leave the payload above byte-identical. Nothing here can express that
+    // rationale, and no test in this file claims to.
+    expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
   });
 });
 

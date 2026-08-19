@@ -290,8 +290,7 @@ function ChangePanelBody({
       .filter((item): item is ChangeItem => item !== undefined)
       .map((item) => ({ before: item, after: apply(item) }));
 
-    // Capture BEFORE the saves — a capture built from the post-save rows would
-    // record the already-patched value as `before`, making the undo a no-op.
+    // Capture BEFORE the saves.
     onCaptureBulk?.(buildBulkFieldEdits(rows));
     for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
     setBulkOpen(false);

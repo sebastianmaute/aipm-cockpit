@@ -393,12 +393,87 @@ describe("Changes bulk edit", () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     // Bulk apply passes suppressFieldUndo so the looped save skips per-field
-    // undo capture (the whole-row bulk.edit entry already covers it).
+    // undo capture: the panel captures the whole op ITSELF, as one set of
+    // {before, after} field patches handed to onCaptureBulk (pinned by the test
+    // below). Without the flag every row would also be captured a second time by
+    // the save handler.
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, status: "Approved" }),
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
+  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
+  // suite that never passes the prop does not even RUN the builder. Assert the
+  // real payload, per row, against what the saves actually wrote.
+  it("captures one patch per changed row, holding only the keys the save wrote", () => {
+    const onSave = vi.fn<(item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void>();
+    const onCaptureBulk =
+      vi.fn<(edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => void>();
+    const changes = [
+      // No decisionDate — approving STAMPS one, so this row's patch carries BOTH
+      // keys and its `before.decisionDate` is an explicit undefined (that is what
+      // makes the undo able to restore "absent").
+      ci({ id: 1, title: "Alpha scope", status: "Proposed" }),
+      // Already decided on an earlier date — applyChangeStatus keeps it
+      // (`item.decisionDate ?? today`), so decisionDate does NOT change here and
+      // must stay OUT of the patch.
+      ci({ id: 2, title: "Beta cost", status: "Rejected", decisionDate: "2026-06-05" }),
+    ];
+    const { getByRole, getAllByRole } = render(
+      <ChangePanel {...base} changes={changes} onSave={onSave} onCaptureBulk={onCaptureBulk} />,
+      { wrapper: Providers },
+    );
+
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha scope") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", "Beta cost") }));
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value: "Approved" } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "2") }));
+
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    const edits = onCaptureBulk.mock.calls[0][0];
+    const saved = new Map<number, ChangeItem>(onSave.mock.calls.map(([row]) => [row.id, row] as const));
+
+    // The capture covers exactly the rows the panel saved.
+    expect([...saved.keys()].sort()).toEqual([1, 2]);
+    expect(edits.map((e) => e.id).sort()).toEqual([1, 2]);
+
+    // `after` is what the save actually wrote — every captured key, every row.
+    for (const e of edits) {
+      const row = saved.get(e.id)!;
+      for (const [key, value] of Object.entries(e.after)) {
+        expect(value).toEqual(row[key as keyof ChangeItem]);
+      }
+    }
+
+    const first = edits.find((e) => e.id === 1)!;
+    expect(Object.keys(first.before).sort()).toEqual(["decisionDate", "status"]);
+    expect(first.before.status).toBe("Proposed");
+    expect(first.before.decisionDate).toBeUndefined();
+    expect(first.after).toEqual({ status: "Approved", decisionDate: base.today });
+
+    const second = edits.find((e) => e.id === 2)!;
+    // Only `status` moved, so the patch is status-only: undoing this row cannot
+    // rewrite a decisionDate the bulk edit never touched. This is also what
+    // separates a real patch from a whole-row capture — a whole-row capture would
+    // carry title/type/raisedDate here too.
+    expect(Object.keys(second.before)).toEqual(["status"]);
+    expect(second.before).toEqual({ status: "Rejected" });
+    expect(second.after).toEqual({ status: "Approved" });
+
+    // STATEMENT ORDER ONLY. This pins that the capture call precedes the first
+    // save; it does NOT pin the rationale in the panel's "Capture BEFORE the
+    // saves" comment. `rows` — both halves of every {before, after} — is
+    // materialised before either step, so moving the capture below the loop would
+    // leave the payload above byte-identical. Nothing here can express that
+    // rationale, and no test in this file claims to.
+    expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
   });
 
   /** Sets `status` on the bulk panel and applies it to the one selected row. */

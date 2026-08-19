@@ -208,8 +208,7 @@ function StakeholdersPanelBody({
       .filter((item): item is Stakeholder => item !== undefined)
       .map((item) => ({ before: item, after: patch(item) }));
 
-    // Capture BEFORE the saves — a capture built from the post-save rows would
-    // record the already-patched value as `before`, making the undo a no-op.
+    // Capture BEFORE the saves.
     onCaptureBulk?.(buildBulkFieldEdits(rows));
     for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
     setBulkOpen(false);
