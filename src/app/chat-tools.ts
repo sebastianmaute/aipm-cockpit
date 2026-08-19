@@ -443,8 +443,8 @@ function buildPatch(input: Record<string, unknown>): Partial<Task> {
   if (input.status !== undefined) {
     const s = asString(input.status);
     // Carry the raw value through; the dispatcher validates against
-    // TASK_STATUSES and routes it through applyStatusChange (the sole writer
-    // of status + completedDate). A non-string is ignored.
+    // TASK_STATUSES and routes it through applyStatusChange, which keeps the
+    // Done/completedDate invariant. A non-string is ignored.
     if (s !== undefined) patch.status = s as Task["status"];
   }
   if (input.blockers !== undefined) patch.blockers = asString(input.blockers) ?? "";

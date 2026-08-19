@@ -11882,3 +11882,71 @@ above is an argument, not a measurement.
 whichever spelling its author copied. Whether any TEST would catch a flip on the four is not asserted
 here — no suite was run for this entry. The four omitting sites each carry a comment pointing here;
 read it before editing one of them.
+
+---
+
+## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — open
+
+The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load. Two writers
+hold it, by two DIFFERENT mechanisms:
+
+- `applyStatusChange` (`task-status.ts`) holds it BY CONSTRUCTION — `Done` stamps a `completedDate`,
+  every other status clears it. Every LOCAL status mutation routes through it.
+- Jira sync holds it WITHOUT calling that function: `issueToTaskFields` (`jira-api.ts`) derives both
+  fields from one `statusKey` read (`isDone` picks the date branch, `jiraCategoryToStatus` the
+  status), so the two cannot disagree. ★ This is why `applyStatusChange` is not "the sole writer of
+  status + completedDate" — a phrase four source comments carried until the round that filed this
+  entry. AGENTS.md now carries the scoping in one place; do not restate it at a call site.
+
+**Template import holds it by NEITHER mechanism.** `sanitizeSeedTask` (`templates.ts`) reads the two
+fields INDEPENDENTLY off the raw seed — `status` is a bare cast, `completedDate` a separate
+`sanitizeIsoDate` read assigned only when truthy — and then returns `migrateTask(task)`.
+
+```bash
+# leg 1: the two independent reads, and the normalizer call that ends the function.
+# ★ A FOURTH hit (`const status = raw.status`) belongs to the NEXT sanitizer in the file, not to
+#   sanitizeSeedTask. Read the function; do not count the hits.
+grep -n "raw\.status\|raw\.completedDate\|migrateTask(task)" src/app/templates.ts
+# leg 2: the short-circuit, and the GUARDED status write that is the real reason nothing is repaired.
+grep -n "statusOk && createdOk\|if (!statusOk)" src/app/task-status.ts
+```
+
+★★ **`migrateTask` does not repair the pair, and on THIS path the reason is NOT the short-circuit.**
+The obvious reading is that `if (statusOk && createdOk) return task;` returns early on a valid
+status. It does not fire here: `sanitizeSeedTask` never assigns `createdDate` (the field is optional
+on `Task`), so `createdOk` is false and the body always runs. The body preserves the pair anyway,
+because its only status write is guarded `if (!statusOk)` and a template's valid status makes
+`statusOk` true — `migrateTask` backfills `createdDate` and leaves the inconsistency untouched. The
+OUTCOME is identical either way, which is exactly what makes the wrong mechanism easy to write down.
+
+**Consequence.** `isTaskClosed` and `isTaskDelivered` (`task-closed.ts`) are the two questions a
+caller can ask, and they read DIFFERENT fields — `status` and `completedDate` respectively. An
+inconsistent row answers them incoherently, in both directions:
+
+(a) A non-Done status beside a set `completedDate` is OPEN and DELIVERED at once.
+`computeDashboardProgress` counts it in `completed` (the numerator is `isTaskDelivered`) AND keeps it
+in the denominator (`scopeCounts` subtracts only `isTaskOutOfScope`, which requires CLOSED), while
+`computeScheduleStatus` and `partitionUpcoming` skip on `isTaskClosed` — so with a past `dueDate` the
+SAME row is counted complete and counted overdue on one dashboard render. Hide-finished does not hide
+it either (`visible-task-rows.ts` filters on `isTaskClosed`), so the table still shows it as To Do.
+Reports takes the delivered branch first, so it lands in `stats.completed` and the on-time/late split
+and never in `stats.open` — Reports and the dashboard schedule tile then disagree about that row.
+
+(b) `Done` with no `completedDate` is CLOSED and never DELIVERED, i.e. `isTaskOutOfScope` — dropped
+from the completion denominator and counted as cancelled scope in Reports. ★ That SHAPE is not
+specific to template import (`health.ts` already splits the "Done-with-no-date" row out three ways,
+§65); what is new is that template import is a way to CREATE one.
+
+**Why it is left open.** Not reachable from shipped data: no built-in template carries a
+`completedDate` (`grep -n completedDate src/app/templates-builtin.ts` returns nothing). The reachable
+sources are a hand-edited or third-party template JSON read back by `sanitizeTemplates`, and a
+capture of an already-inconsistent workspace row — `templateFromWorkspace` copies live `Task` objects
+verbatim, so it launders whatever the workspace already holds.
+
+★ The fix is one line in `sanitizeSeedTask` (route the seed through `applyStatusChange` before
+returning), but WHICH field should win is a real question and this entry does not answer it: trusting
+`status` discards a real delivery date, trusting `completedDate` flips a status the template author
+wrote. ★★ Do NOT reach for `migrateTask` instead — it runs on all six load paths, so teaching it to
+reconcile a VALID-but-inconsistent pair changes every backend's load behaviour, and AGENTS.md records
+that the invariant is held by the writers and that `migrateTask` only backfills an ABSENT/INVALID
+status.
