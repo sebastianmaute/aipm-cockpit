@@ -2674,6 +2674,8 @@ const enUS = {
   documentsFilterEmpty: "No documents are linked to this item.",
   documentsCopySuffix: "{0} (copy)",
   documentsEditBlocks: "Edit blocks",
+  documentsEditBlocksNoDocument: "Select a document to edit its blocks.",
+  documentsReadOnlyMirror: "This window is a read-only mirror.",
   documentsBlockParagraph: "Paragraph",
   documentsBlockHeading: "Heading",
   documentsBlockBullets: "List",

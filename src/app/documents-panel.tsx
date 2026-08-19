@@ -357,7 +357,7 @@ export function DocumentsPanel({
   // and with no undo on document writes.
   const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
   const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
-  const { editing, toggleEditing, narrowPane, commitBlock } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments });
+  const { editing, narrowPane, commitBlock, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments });
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -576,8 +576,7 @@ export function DocumentsPanel({
         onShowDeletedChange={handleShowDeletedChange}
         deletedCount={deleted.length}
         isReadOnly={isReadOnly}
-        editing={editing}
-        onToggleEditing={toggleEditing}
+        editToolbar={editToolbar}
       />
       <div className="flex min-h-0 flex-1 flex-col gap-3">
         {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked

@@ -1,14 +1,16 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, type RenderResult } from "@testing-library/react";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { expectButtonOrder, buttonNames } from "../test/toolbar-order";
+import { t } from "./i18n";
 
 const noop = () => {};
+const LANG = "en-US";
 
-function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) {
+function renderToolbar(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) {
   return render(
     <DocumentsToolbar
-      lang="en-US"
+      lang={LANG}
       onNew={noop}
       onDownload={noop}
       canDownload
@@ -19,8 +21,30 @@ function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) 
       showDeleted={false}
       onShowDeletedChange={noop}
       deletedCount={0}
-      editing={false}
-      onToggleEditing={noop}
+      editToolbar={{ editing: false, onToggleEditing: noop, canEdit: true }}
+      {...overrides}
+    />,
+  );
+}
+
+function rerenderToolbar(
+  rerender: RenderResult["rerender"],
+  overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {},
+) {
+  return rerender(
+    <DocumentsToolbar
+      lang={LANG}
+      onNew={noop}
+      onDownload={noop}
+      canDownload
+      format="docx"
+      onFormatChange={noop}
+      onResetColumns={noop}
+      onResetSize={noop}
+      showDeleted={false}
+      onShowDeletedChange={noop}
+      deletedCount={0}
+      editToolbar={{ editing: false, onToggleEditing: noop, canEdit: true }}
       {...overrides}
     />,
   );
@@ -28,7 +52,7 @@ function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) 
 
 describe("DocumentsToolbar", () => {
   it("leads with the primary New document action", () => {
-    setup();
+    renderToolbar();
     // The convention: a pane's PRIMARY action leads the control row, ahead of
     // everything else. Plain ordering (not contiguous) — it only has to come
     // BEFORE the trailing group.
@@ -36,7 +60,7 @@ describe("DocumentsToolbar", () => {
   });
 
   it("ends with the contiguous Print / reset-columns / reset-size group", () => {
-    setup();
+    renderToolbar();
     // ★ `contiguous` is the assertion that matters. Plain ordering leaves the
     // indices ascending when a stray control drifts BETWEEN two members, which
     // is the exact drift this convention has been broken by before.
@@ -44,7 +68,7 @@ describe("DocumentsToolbar", () => {
   });
 
   it("places Download before the trailing group, not inside it", () => {
-    setup();
+    renderToolbar();
     expectButtonOrder(["documentsDownload", "printHint"]);
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
   });
@@ -55,14 +79,14 @@ describe("DocumentsToolbar", () => {
     // toolbar's control count would change between states and a control could
     // slide into the trailing group unnoticed. Rendering it disabled keeps one
     // stable layout.
-    setup({ canDownload: false });
+    renderToolbar({ canDownload: false });
     expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
     const download = screen.getByRole("button", { name: "Download" });
     expect(download).toBeDisabled();
   });
 
   it("gives the format picker its OWN accessible name, distinct from Download", () => {
-    setup();
+    renderToolbar();
     // ★★ Reusing "Download" here would put two adjacent controls under one name
     // — a WCAG 2.4.6 failure axe will NOT flag, since they are different roles
     // and each has *a* name. And a bare <select> beside a visible <span> is not
@@ -75,7 +99,7 @@ describe("DocumentsToolbar", () => {
   it("offers every format downloadDocument supports", () => {
     // ★ Derived from DOC_FORMATS rather than a hardcoded list, so adding a
     // format to the module without adding an option fails here.
-    setup();
+    renderToolbar();
     const picker = screen.getByRole("combobox", { name: "Download format" });
     const values = [...picker.querySelectorAll("option")].map((o) => o.getAttribute("value"));
     expect(values.sort()).toEqual(["docx", "html", "pdf", "pptx"]);
@@ -84,7 +108,7 @@ describe("DocumentsToolbar", () => {
 
   it("reports the chosen format to its parent", () => {
     const onFormatChange = vi.fn();
-    setup({ onFormatChange });
+    renderToolbar({ onFormatChange });
     fireEvent.change(screen.getByRole("combobox", { name: "Download format" }), {
       target: { value: "pptx" },
     });
@@ -94,7 +118,7 @@ describe("DocumentsToolbar", () => {
   it("sits ahead of the trailing group and does not break its contiguity", () => {
     // ★ The shared helper reads BUTTONS only, so the combobox is invisible to
     // it — this position check has to be hand-rolled against the DOM.
-    setup();
+    renderToolbar();
     const picker = screen.getByRole("combobox", { name: "Download format" });
     const print = screen.getByRole("button", { name: /print/i });
     expect(picker.compareDocumentPosition(print) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
@@ -102,7 +126,7 @@ describe("DocumentsToolbar", () => {
   });
 
   it("disables ONLY the create action when read-only", () => {
-    setup({ isReadOnly: true });
+    renderToolbar({ isReadOnly: true });
     expect(screen.getByRole("button", { name: "New document" })).toBeDisabled();
     // Download, print and the view controls mutate nothing — they stay live, or
     // a popout becomes useless rather than merely read-only.
@@ -112,7 +136,7 @@ describe("DocumentsToolbar", () => {
 
   describe("the deleted-documents toggle", () => {
     it("sits after the pane actions and BEFORE the contiguous trailing group", () => {
-      setup();
+      renderToolbar();
       expectButtonOrder(["documentsNew", "documentsDownload", "documentsShowDeleted", "printHint"]);
       // ★ Ordering alone is not enough: a control landing BETWEEN two members
       // of the trailing group leaves the indices ascending. Only `contiguous`
@@ -127,12 +151,12 @@ describe("DocumentsToolbar", () => {
     // deleted documents ARE shown. axe passes a flipped label (a name exists),
     // so this is the only coverage.
     it("announces the state on the label it enables", () => {
-      const { unmount } = setup({ showDeleted: false });
+      const { unmount } = renderToolbar({ showDeleted: false });
       const off = screen.getByRole("button", { name: /Deleted documents/ });
       expect(off).toHaveAttribute("aria-pressed", "false");
       unmount();
 
-      setup({ showDeleted: true });
+      renderToolbar({ showDeleted: true });
       const on = screen.getByRole("button", { name: /Deleted documents/ });
       expect(on).toHaveAttribute("aria-pressed", "true");
       // The label does NOT flip to "Hide…" — it names what pressed=true
@@ -142,14 +166,14 @@ describe("DocumentsToolbar", () => {
 
     it("reports the flipped value to its parent", () => {
       const onShowDeletedChange = vi.fn();
-      const { unmount } = setup({ showDeleted: false, onShowDeletedChange });
+      const { unmount } = renderToolbar({ showDeleted: false, onShowDeletedChange });
       fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
       expect(onShowDeletedChange).toHaveBeenCalledWith(true);
       unmount();
 
       // The other direction, so a hardcoded `true` fails.
       const onShowDeletedChange2 = vi.fn();
-      setup({ showDeleted: true, onShowDeletedChange: onShowDeletedChange2 });
+      renderToolbar({ showDeleted: true, onShowDeletedChange: onShowDeletedChange2 });
       fireEvent.click(screen.getByRole("button", { name: /Deleted documents/ }));
       expect(onShowDeletedChange2).toHaveBeenCalledWith(false);
     });
@@ -158,7 +182,7 @@ describe("DocumentsToolbar", () => {
       // A corrupted `documents` blob beside a valid versions blob makes EVERY
       // version read as deleted; "Deleted documents (200)" next to an empty
       // pane is what tells the user that.
-      setup({ deletedCount: 200 });
+      renderToolbar({ deletedCount: 200 });
       expect(screen.getByRole("button", { name: /Deleted documents/ }).textContent).toContain("(200)");
     });
 
@@ -168,7 +192,7 @@ describe("DocumentsToolbar", () => {
       // primitive renders a trailing marker glyph instead. Pinned here because
       // using a hand-rolled `aria-pressed` button would lose it silently and
       // axe has no rule that would notice.
-      setup({ showDeleted: true });
+      renderToolbar({ showDeleted: true });
       const toggle = screen.getByRole("button", { name: /Deleted documents/ });
       expect(toggle.querySelector("[data-pressed-marker]")).not.toBeNull();
     });
@@ -176,7 +200,7 @@ describe("DocumentsToolbar", () => {
 
   describe("the edit-mode toggle", () => {
     it("sits after the pane actions and BEFORE the contiguous trailing group", () => {
-      setup();
+      renderToolbar();
       expectButtonOrder(["documentsNew", "documentsDownload", "documentsShowDeleted", "documentsEditBlocks", "printHint"]);
       expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
     });
@@ -186,12 +210,14 @@ describe("DocumentsToolbar", () => {
     // pinned label names, or the announcement implies the wrong mode is on
     // (WCAG 4.1.2). axe cannot catch a flipped label; this is the only cover.
     it("announces the state on the label it enables, never flipping it", () => {
-      const { unmount } = setup({ editing: false });
+      const { unmount } = renderToolbar({
+        editToolbar: { editing: false, onToggleEditing: noop, canEdit: true },
+      });
       const off = screen.getByRole("button", { name: /Edit blocks/ });
       expect(off).toHaveAttribute("aria-pressed", "false");
       unmount();
 
-      setup({ editing: true });
+      renderToolbar({ editToolbar: { editing: true, onToggleEditing: noop, canEdit: true } });
       const on = screen.getByRole("button", { name: /Edit blocks/ });
       expect(on).toHaveAttribute("aria-pressed", "true");
       expect(on.textContent).toContain("Edit blocks");
@@ -199,21 +225,63 @@ describe("DocumentsToolbar", () => {
 
     it("reports the flipped value to its parent", () => {
       const onToggleEditing = vi.fn();
-      setup({ editing: false, onToggleEditing });
+      renderToolbar({ editToolbar: { editing: false, onToggleEditing, canEdit: true } });
       fireEvent.click(screen.getByRole("button", { name: /Edit blocks/ }));
       expect(onToggleEditing).toHaveBeenCalledTimes(1);
     });
 
     it("is disabled in a read-only popout mirror, not silently inert", () => {
-      setup({ isReadOnly: true });
+      renderToolbar({ isReadOnly: true });
       expect(screen.getByRole("button", { name: /Edit blocks/ })).toBeDisabled();
+    });
+
+    // ★★★ A TOGGLE THAT PRESSES AND DOES NOTHING IS A LIE. With no documents
+    //  selected, `DocumentEditModeBody` short-circuits on `doc === null` and
+    //  renders the preview — so the pressed state announced the block editor as
+    //  active while nothing had changed (WCAG 4.1.2). axe passes it: a name
+    //  exists and aria-pressed is a legal attribute. Only this test can see it.
+    it("is disabled when no document is selected", () => {
+      renderToolbar({ editToolbar: { editing: false, onToggleEditing: noop, canEdit: false } });
+      expect(screen.getByRole("button", { name: t(LANG, "documentsEditBlocks") })).toBeDisabled();
+    });
+
+    it("is enabled once a document is selected", () => {
+      renderToolbar({ editToolbar: { editing: false, onToggleEditing: noop, canEdit: true } });
+      expect(screen.getByRole("button", { name: t(LANG, "documentsEditBlocks") })).toBeEnabled();
+    });
+
+    // ★★ A DISABLED TOGGLE LEAVES THE TAB ORDER AND `ToggleButton` SUPPRESSES ITS
+    //  state suffix while disabled, so without a description it announces a bare
+    //  name and nothing about WHY it is inert. The two reasons differ, so the
+    //  text is derived rather than fixed.
+    it("explains why it is disabled — no document vs a read-only mirror", () => {
+      const { rerender } = renderToolbar({
+        editToolbar: { editing: false, onToggleEditing: noop, canEdit: false },
+      });
+      const noDoc = screen.getByRole("button", { name: t(LANG, "documentsEditBlocks") });
+      expect(noDoc).toHaveAccessibleDescription(t(LANG, "documentsEditBlocksNoDocument"));
+
+      rerenderToolbar(rerender, {
+        isReadOnly: true,
+        editToolbar: { editing: false, onToggleEditing: noop, canEdit: true },
+      });
+      expect(
+        screen.getByRole("button", { name: t(LANG, "documentsEditBlocks") }),
+      ).toHaveAccessibleDescription(t(LANG, "documentsReadOnlyMirror"));
+    });
+
+    it("explains why the New document button is inert in a read-only mirror", () => {
+      renderToolbar({ isReadOnly: true });
+      expect(
+        screen.getByRole("button", { name: new RegExp(t(LANG, "documentsNew")) }),
+      ).toHaveAccessibleDescription(t(LANG, "documentsReadOnlyMirror"));
     });
   });
 
   it("renders exactly one button per control — no duplicate accessible names", () => {
     // buttonIndex THROWS on an ambiguous match, so a duplicate name would make
     // every ordering assertion above unreliable rather than red. Pin it directly.
-    setup();
+    renderToolbar();
     const names = buttonNames();
     expect(new Set(names).size).toBe(names.length);
   });

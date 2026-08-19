@@ -2612,6 +2612,8 @@ export const de: Record<TranslationKey, string> = {
   documentsFilterEmpty: "Mit diesem Eintrag ist kein Dokument verknüpft.",
   documentsCopySuffix: "{0} (Kopie)",
   documentsEditBlocks: "Blöcke bearbeiten",
+  documentsEditBlocksNoDocument: "Wählen Sie ein Dokument aus, um seine Blöcke zu bearbeiten.",
+  documentsReadOnlyMirror: "Dieses Fenster ist eine schreibgeschützte Spiegelung.",
   documentsBlockParagraph: "Absatz",
   documentsBlockHeading: "Überschrift",
   documentsBlockBullets: "Liste",

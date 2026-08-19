@@ -38,7 +38,12 @@ export function useDocumentEditMode(deps: UseDocumentEditModeDeps) {
   //  takes the RESULT as a prop, which is what makes ITS OWN test injectable.
   const narrowPane = useMediaQuery(NARROW_PANE_QUERY);
   const { commitBlock } = useDocumentEditor(deps);
-  return { editing, toggleEditing, narrowPane, commitBlock };
+  // ★ `documentId` is `selected?.id ?? -1` at the call site, so a real
+  //  selection is the only thing that yields a positive id. Deriving canEdit
+  //  HERE rather than passing a fourth thing down keeps the panel's toolbar
+  //  call one prop wide — and the panel sits one line under the 800-line gate.
+  const editToolbar = { editing, onToggleEditing: toggleEditing, canEdit: deps.documentId > 0 };
+  return { editing, narrowPane, commitBlock, editToolbar };
 }
 
 export interface DocumentEditModeBodyProps {
