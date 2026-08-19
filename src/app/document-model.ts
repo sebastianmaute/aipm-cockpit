@@ -277,3 +277,42 @@ export function sanitizeProjectDocuments(
   }
   return out;
 }
+
+/** Did the edited block actually differ from the stored one?
+ *
+ *  ★ REQUIRED, not an optimisation, at both of its call sites: without it, a
+ *   block editor focusing a block and leaving it writes a version whose
+ *   before-image equals its after-image; and `document-mutations.ts` compares
+ *   a `replace` op's `expect` against the block currently at that index.
+ *
+ *  ★★★ IT LIVES HERE, NOT BESIDE EITHER CALLER, because both of them need it:
+ *   `document-editor-commit.ts` (the block editors' decision layer, which
+ *   re-exports it) and `document-mutations.ts` (the engine). Putting it in the
+ *   first and importing it into the second would point the ENGINE at the
+ *   EDITOR's helper — a backwards dependency, and a type cycle, since
+ *   document-editor-commit.ts already imports `DocOp` back from the engine.
+ *   This module owns `DocBlock`, is imported by both, and imports neither.
+ *   ★ DOM-free, like everything else here — a structural comparison only. */
+export function blockChanged(stored: DocBlock, edited: DocBlock): boolean {
+  return !deepEqual(stored, edited);
+}
+
+/** ★ An OMITTED optional field and one explicitly set to `undefined` are the
+ *  same block — a form control that clears `ordered` must not read as a change. */
+function deepEqual(a: unknown, b: unknown): boolean {
+  if (a === b) return true;
+  if (a === undefined || b === undefined || a === null || b === null) return false;
+  if (typeof a !== "object" || typeof b !== "object") return false;
+  if (Array.isArray(a) !== Array.isArray(b)) return false;
+  if (Array.isArray(a) && Array.isArray(b)) {
+    return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
+  }
+  const ao = a as Record<string, unknown>;
+  const bo = b as Record<string, unknown>;
+  const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
+  for (const k of keys) {
+    if (ao[k] === undefined && bo[k] === undefined) continue;
+    if (!deepEqual(ao[k], bo[k])) return false;
+  }
+  return true;
+}

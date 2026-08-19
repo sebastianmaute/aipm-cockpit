@@ -26,7 +26,9 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   /** Position in the document — the op index, and what makes labels unique. */
   index: number;
   block: B;
-  onCommit: (index: number, block: DocBlock) => void;
+  /** ★ The THIRD argument is the draft's BASELINE, forwarded to the engine as
+   *   the `replace` op's `expect` precondition (see `replaceBlockOp`). */
+  onCommit: (index: number, block: DocBlock, expect?: DocBlock) => void;
   /** Narrow-pane docking: the paragraph editor portals its toolbar here.
    *  Absent at a wide pane and for every NON-paragraph editor — those carry
    *  no 20-control toolbar, so they have nothing to dock and read it never. */
@@ -67,7 +69,8 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
  *    an editor that was never touched, or one whose blur already committed
  *    (which resets `dirtyRef`), flushes nothing.
  *
- * 2. CONCURRENT-WRITE GUARD, ON EVERY COMMIT PATH. If `storedBlock` moved
+ * 2. CONCURRENT-WRITE GUARD, ON EVERY COMMIT PATH, IN TWO LAYERS — this hook
+ *    first, then the engine (see the unmount cleanup). If `storedBlock` moved
  *    since the draft's baseline froze — a restore, a concurrent AI write,
  *    another client — the commit ABANDONS rather than silently destroying
  *    that write. ★★★ THIS APPLIES TO A BLUR TOO. An earlier revision of this
@@ -117,7 +120,7 @@ export function useBlockDraft<T, B extends DocBlock>(
   storedBlock: B,
   index: number,
   toBlock: (value: T) => DocBlock,
-  onCommit: (index: number, block: DocBlock) => void,
+  onCommit: (index: number, block: DocBlock, expect?: DocBlock) => void,
 ) {
   const [rawValue, setRawValue] = useState(() => fromBlock(storedBlock));
 
@@ -317,9 +320,14 @@ export function useBlockDraft<T, B extends DocBlock>(
     //  is recoverable (re-type it); destroying a committed write is not — AI
     //  and restore writes carry no undo.
     if (externallyWritten()) return false;
+    // ★★ READ BEFORE `baselineRef` ADVANCES: this is the block the edit was
+    //  derived from, and the engine applies the write only while it is still
+    //  what sits at `index`. Reading it after the assignment below would send
+    //  the value we are about to write — matching nothing, guarding nothing.
+    const expected = baselineRef.current;
     preCommitStoredRef.current = latestRef.current.storedBlock;
     baselineRef.current = next;
-    onCommit(index, next);
+    onCommit(index, next, expected);
     return true;
   };
 
@@ -350,8 +358,22 @@ export function useBlockDraft<T, B extends DocBlock>(
       const latest = latestRef.current;
       const next = latest.toBlock(liveValueRef.current);
       if (!blockChanged(baselineRef.current, next)) return; // dirty flag set, but content is a no-op (e.g. reverted)
+      // ★★★ THE LOADER'S RULE APPLIES HERE TOO, and `tryCommit` was its only
+      //  call site — i.e. the BLUR path. An emptied paragraph/heading/bullets
+      //  list reaches THIS path with no blur at all: narrowing the pane below
+      //  NARROW_PANE_PX collapses a non-selected row and unmounts it, and a
+      //  resize moves no focus. Committing it would render for the session and
+      //  be GONE on the next load. ★ It cannot `setDropped` (the component is
+      //  unmounting), so refusing to write IS the fix — do not fake a notice.
+      if (!blockSurvivesLoad(next)) return;
       if (externallyWritten()) return; // concurrent write since baseline froze — abandon
-      latest.onCommit(latest.index, next);
+      // ★★★ AND THE ENGINE GETS THE BASELINE, because `externallyWritten()`
+      //  is BLIND on exactly this path: every ref it reads advances only when
+      //  this row RENDERS, and `BlockEditor` returns a different component per
+      //  `block.type` — so a write changing the TYPE here tears the row down
+      //  with no final render, all refs frozen pre-write. The engine compares
+      //  `expect` against live state at call time.
+      latest.onCommit(latest.index, next, baselineRef.current);
     };
     // Deliberately mount-only: the effect body does nothing, and only its
     // cleanup — which fires exactly once, at real unmount — matters. No

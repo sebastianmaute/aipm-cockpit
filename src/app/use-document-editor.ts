@@ -77,7 +77,7 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
   const lastMintedRef = useRef<DocMintedVersion | null>(null);
 
   const commitBlock = useCallback(
-    (index: number, block: DocBlock): DocResult | undefined => {
+    (index: number, block: DocBlock, expect?: DocBlock): DocResult | undefined => {
       // Same "abandon rather than clobber" principle as useBlockDraft's
       // concurrent-write guard, one level up: `documentId` is the document
       // THIS closure was built for. If the panel has since moved on to a
@@ -101,7 +101,10 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
       const result = mutateDocuments({
         kind: "ops",
         id: documentId,
-        ops: [replaceBlockOp(index, block)],
+        // ★★ `expect` is the draft's baseline, threaded straight through:
+        //  this hook decides nothing about it, and the engine — which reads
+        //  live state at call time — is the only layer that can.
+        ops: [replaceBlockOp(index, block, expect)],
         coalesce,
       });
       // ★★ ADVANCE ONLY WHEN THIS CALL MINTED A ROW, and otherwise leave the

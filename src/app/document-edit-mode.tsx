@@ -55,7 +55,7 @@ export interface DocumentEditModeBodyProps {
   editing: boolean;
   narrow: boolean;
   isReadOnly?: boolean;
-  onCommitBlock: (index: number, block: DocBlock) => void;
+  onCommitBlock: (index: number, block: DocBlock, expect?: DocBlock) => void;
   onAppendBlock: (block: DocBlock) => void;
 }
 

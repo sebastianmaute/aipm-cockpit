@@ -25,6 +25,7 @@
 // reference identity to decide whether a write is needed at all.
 
 import {
+  blockChanged,
   MAX_BLOCKS_PER_DOC,
   MAX_DOCUMENTS,
   MAX_TITLE_CHARS,
@@ -44,7 +45,16 @@ import { MAX_LINKS_PER_DOC, refKey, sanitizeDocEntityRefs, type DocEntityRef } f
 export type DocOp =
   | { op: "append"; block: DocBlock }
   | { op: "insert"; index: number; block: DocBlock }
-  | { op: "replace"; index: number; block: DocBlock }
+  // ★★★ `expect` IS AN OPTIMISTIC-CONCURRENCY PRECONDITION: apply this only
+  //  while the block at `index` is still the one the caller derived its edit
+  //  from. The hand block editor supplies its draft's baseline, because its own
+  //  in-component guard reads refs that only advance when that row RENDERS — and
+  //  a write changing the block's TYPE at an index unmounts the row with NO
+  //  final render, freezing every ref at the pre-write value. This module reads
+  //  live state at call time, so it is the one place the check cannot be fooled.
+  //  ★ OPTIONAL, and an absent one must never be read as "expected nothing":
+  //   every AI/tool caller omits it and must keep applying.
+  | { op: "replace"; index: number; block: DocBlock; expect?: DocBlock }
   | { op: "delete"; index: number }
   | { op: "replaceAll"; blocks: readonly DocBlock[] };
 
@@ -404,6 +414,14 @@ function applyOps(
         }
         if (opBlockIsMissing(op)) {
           rejected.push(`op ${i}: replace requires a block`);
+          break;
+        }
+        // ★★ REFUSE, do not overwrite — the concurrent write has no undo (AI
+        //  and restore writes bypass the undo stack), while the draft this
+        //  refuses is one unblurred keystroke burst the user can retype. The
+        //  reason reaches them through the panel's existing refusal banner.
+        if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
+          rejected.push(`op ${i}: replace index ${op.index} was changed by another writer`);
           break;
         }
         next[op.index] = op.block;

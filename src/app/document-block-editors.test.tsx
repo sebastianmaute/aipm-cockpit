@@ -10,8 +10,11 @@ import {
   DataSectionBlockEditor,
   PageBreakBlockEditor,
 } from "./document-block-editors";
+import { DocumentEditor } from "./document-editor";
+import { replaceBlockOp } from "./document-editor-commit";
+import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";
 import { t } from "./i18n";
-import type { DocBlock } from "./document-model";
+import type { DocBlock, ProjectDocument } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
@@ -358,7 +361,7 @@ describe("HeadingBlockEditor", () => {
     await userEvent.type(text, "w");
     text.blur();
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 2, text: "New" });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 2, text: "New" }, expect.anything());
   });
 
   // ★ NOT a combined-commit test — it blurs the select alone, with the text
@@ -374,7 +377,7 @@ describe("HeadingBlockEditor", () => {
     select.focus();
     fireEvent.change(select, { target: { value: "3" } });
     select.blur();
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" }, expect.anything());
   });
 
   // ★★★ Pins the docstring's corrected claim: onBlur is a bubbling
@@ -393,7 +396,7 @@ describe("HeadingBlockEditor", () => {
     fireEvent.change(select, { target: { value: "3" } });
     text.focus(); // tab-through: blurs the select, which bubbles to the group's onBlur
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 3, text: "Title" }, expect.anything());
   });
 
   // ★★★ A BARE TRAILING DIGIT IS AMBIGUOUS HERE IN A WAY IT IS NOT ELSEWHERE.
@@ -444,7 +447,7 @@ describe("BulletsBlockEditor", () => {
     const onCommit = vi.fn();
     render(<BulletsBlockEditor lang={LANG} index={0} block={block} onCommit={onCommit} />);
     await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
   });
 
   // ★ The visible label stays the plain, unqualified "Add item" — only the
@@ -465,7 +468,7 @@ describe("BulletsBlockEditor", () => {
     await userEvent.click(
       screen.getByRole("button", { name: qualified(t(LANG, "documentsRemoveItem", "1")) }),
     );
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two"] });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two"] }, expect.anything());
   });
 
   it("moves an item down", async () => {
@@ -474,7 +477,7 @@ describe("BulletsBlockEditor", () => {
     await userEvent.click(
       screen.getByRole("button", { name: qualified(t(LANG, "documentsMoveItemDown", "1")) }),
     );
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two", "one"] });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["two", "one"] }, expect.anything());
   });
 
   it("cannot move the first item up or the last item down", () => {
@@ -493,7 +496,7 @@ describe("BulletsBlockEditor", () => {
     await userEvent.click(
       screen.getByRole("button", { name: qualified(t(LANG, "documentsListOrdered")) }),
     );
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two"], ordered: true });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two"], ordered: true }, expect.anything());
   });
 
   // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
@@ -547,7 +550,7 @@ describe("BulletsBlockEditor", () => {
     await userEvent.type(text, "e2");
     text.blur();
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one2", "two"] });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one2", "two"] }, expect.anything());
   });
 
   // ★★★ CRITICAL regression test. Add/remove/move/toggle commit via the
@@ -569,7 +572,7 @@ describe("BulletsBlockEditor", () => {
     addButton.click();
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
   });
 
   // ★★★ The "N saves in one tick" landmine (AGENTS.md), for a block editor:
@@ -593,11 +596,11 @@ describe("BulletsBlockEditor", () => {
       removeItem1.click();
     });
     expect(onCommit).toHaveBeenCalledTimes(2);
-    expect(onCommit).toHaveBeenNthCalledWith(1, 0, { type: "bullets", items: ["one", "two", ""] });
+    expect(onCommit).toHaveBeenNthCalledWith(1, 0, { type: "bullets", items: ["one", "two", ""] }, expect.anything());
     // The remove acts on the POST-ADD list (3 items), not the stale 2-item
     // render-scope snapshot — dropping index 0 ("one") leaves the new blank
     // item in place.
-    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["two", ""] });
+    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["two", ""] }, expect.anything());
   });
 
   // ★★★ Shared useBlockDraft behaviour, pinned here for the SAME reason the
@@ -637,13 +640,13 @@ describe("BulletsBlockEditor", () => {
     await userEvent.click(screen.getByRole("button", { name: qualified(t(LANG, "documentsAddItem")) }));
     expect(onCommit).toHaveBeenCalledTimes(1);
     const afterAdd: Extract<DocBlock, { type: "bullets" }> = { type: "bullets", items: ["one", "two", ""] };
-    expect(onCommit).toHaveBeenCalledWith(0, afterAdd);
+    expect(onCommit).toHaveBeenCalledWith(0, afterAdd, expect.anything());
     rerender(<BulletsBlockEditor lang={LANG} index={0} block={afterAdd} onCommit={onCommit} />);
     const text = screen.getByRole("textbox", { name: qualified(t(LANG, "documentsListItem", "1")) });
     await userEvent.type(text, "!");
     unmount();
     expect(onCommit).toHaveBeenCalledTimes(2);
-    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["one!", "two", ""] });
+    expect(onCommit).toHaveBeenNthCalledWith(2, 0, { type: "bullets", items: ["one!", "two", ""] }, expect.anything());
   });
 });
 
@@ -703,7 +706,7 @@ describe("TableBlockEditor", () => {
         ["Beta", "Bob"],
         ["", ""],
       ],
-    });
+    }, expect.anything());
   });
 
   it("adds a column to the header AND every row", async () => {
@@ -717,7 +720,7 @@ describe("TableBlockEditor", () => {
         ["Alpha", "Ada", ""],
         ["Beta", "Bob", ""],
       ],
-    });
+    }, expect.anything());
   });
 
   it("removes a column from the header AND every row", async () => {
@@ -730,7 +733,7 @@ describe("TableBlockEditor", () => {
       type: "table",
       columns: ["Owner"],
       rows: [["Ada"], ["Bob"]],
-    });
+    }, expect.anything());
   });
 
   it("removes a row", async () => {
@@ -741,7 +744,7 @@ describe("TableBlockEditor", () => {
       type: "table",
       columns: ["Name", "Owner"],
       rows: [["Beta", "Bob"]],
-    });
+    }, expect.anything());
   });
 
   it("keeps an existing caption when editing structurally", async () => {
@@ -767,7 +770,7 @@ describe("TableBlockEditor", () => {
         ["Gamma", "Ada"],
         ["Beta", "Bob"],
       ],
-    });
+    }, expect.anything());
   });
 
   // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
@@ -894,7 +897,7 @@ describe("DataSectionBlockEditor", () => {
     );
     const select = screen.getByRole("combobox", { name: qualified(t(LANG, "documentsDataSectionKey"), 5) });
     await userEvent.selectOptions(select, EXPORT_SECTION_KEYS[1]);
-    expect(onCommit).toHaveBeenCalledWith(4, { type: "dataSection", key: EXPORT_SECTION_KEYS[1] });
+    expect(onCommit).toHaveBeenCalledWith(4, { type: "dataSection", key: EXPORT_SECTION_KEYS[1] }, expect.anything());
   });
 
   // ★★★ The axe gate cannot see a duplicate accessible name at ANY seed size
@@ -1047,7 +1050,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     await userEvent.type(text, "x");
     text.blur();
     expect(onCommit).toHaveBeenCalledTimes(1);
-    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 1, text: "Restoredx" });
+    expect(onCommit).toHaveBeenCalledWith(0, { type: "heading", level: 1, text: "Restoredx" }, expect.anything());
   });
 
   // ★★★ THE COMMIT-TO-ECHO WINDOW MUST NOT OUTLIVE ONE BATCH. `preCommitStoredRef`
@@ -1215,5 +1218,150 @@ describe("blocks the loader would discard", () => {
     });
     expect(onCommit).not.toHaveBeenCalled();
     expect(screen.getByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeInTheDocument();
+  });
+});
+
+// ★★★ THE TWO UNMOUNT-FLUSH DEFECTS, PINNED THROUGH THE REAL ENGINE.
+//  `useBlockDraft`'s in-component `externallyWritten()` reads refs that only
+//  advance when THIS row renders — and the row that matters here NEVER gets a
+//  final render, because `BlockEditor` returns a DIFFERENT component per
+//  `block.type` under an unchanged key, so a write that changes the type at an
+//  index tears the row down with every ref frozen at the pre-write value. The
+//  guard therefore cannot live in the component alone; the engine reads live
+//  state at call time, so the commit carries its baseline as `expect` and the
+//  engine refuses a stale one.
+//
+//  ★ THE FIXTURE MOUNTS `DocumentEditor`, not a per-kind editor, and that is
+//   load-bearing: the type-driven component swap is what makes the row unmount
+//   without rendering, and only the real block-list reproduces it. A same-type
+//   fixture re-renders the row (advancing `latestRef`), the in-component guard
+//   fires, and the test passes with the engine check deleted.
+describe("an unmount flush cannot clobber a concurrent write", () => {
+  const STAMP = "2026-08-01T08:00:00.000Z";
+
+  /** A real `applyDocMutation` behind `onCommitBlock`, so "the block at that
+   *  index is unchanged" is a claim about STORED state rather than about which
+   *  arguments a spy saw. */
+  function engineHarness(initial: readonly DocBlock[]) {
+    let versionId = 1;
+    let state: DocState = {
+      documents: [{ id: 1, title: "Doc", blocks: initial, createdAt: STAMP, updatedAt: STAMP }],
+      versions: [],
+    };
+    const ctx = () => ({
+      now: STAMP,
+      source: "user" as const,
+      mintDocId: () => 99,
+      mintVersionId: () => versionId++,
+    });
+    const run = (op: DocOp) => {
+      state = applyDocMutation(state, { kind: "ops", id: 1, ops: [op] }, ctx());
+    };
+    return {
+      /** What the block editors call. */
+      onCommitBlock: (index: number, block: DocBlock, expected?: DocBlock) =>
+        run(replaceBlockOp(index, block, expected)),
+      /** A concurrent writer (an AI write, a restore, a second tab): no
+       *  expectation, because it is not resolving a draft of its own. */
+      external: (index: number, block: DocBlock) => run({ op: "replace", index, block }),
+      docNow: (): ProjectDocument => state.documents[0],
+      blocksNow: (): readonly DocBlock[] => state.documents[0].blocks,
+    };
+  }
+
+  it("refuses the flush when a concurrent write changed the block TYPE at that index", async () => {
+    const h = engineHarness([{ type: "heading", level: 1, text: "Alpha" }]);
+    const { rerender } = render(
+      <DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!"); // dirty, never blurred
+    expect(text).toHaveValue("Alpha!");
+
+    // The concurrent write lands and CHANGES THE KIND, so the heading row is
+    // torn down with no final render of its own.
+    const written: DocBlock = { type: "paragraph", html: "<p>concurrent</p>" };
+    h.external(0, written);
+    act(() => {
+      rerender(<DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />);
+    });
+
+    expect(h.blocksNow()).toEqual([written]);
+  });
+
+  // The control, and it is what keeps the guard from being a blanket refusal:
+  // an ordinary unmount with nobody else writing must still flush.
+  it("still flushes a pending edit when nothing wrote underneath it", async () => {
+    const h = engineHarness([{ type: "heading", level: 1, text: "Alpha" }]);
+    const { unmount } = render(
+      <DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+    act(() => {
+      unmount();
+    });
+    expect(h.blocksNow()).toEqual([{ type: "heading", level: 1, text: "Alpha!" }]);
+  });
+});
+
+describe("the unmount flush honours blockSurvivesLoad", () => {
+  // ★★★ REACHABLE WITH NO CONCURRENT WRITER AT ALL: empty a paragraph or
+  //  heading you are not focused on, then narrow the pane below NARROW_PANE_PX
+  //  so the row collapses and unmounts. A resize moves no focus, so nothing
+  //  blurs — and `tryCommit`'s `blockSurvivesLoad` refusal (its ONLY call site
+  //  before this fix) is on the blur path, not this one. The draft would have
+  //  committed, rendered for the rest of the session and been GONE on the next
+  //  load, with no add-block control to recreate it.
+  //  ★ It cannot call `setDropped` — the component is unmounting — so refusing
+  //   to write IS the whole fix; there is no notice to assert.
+  it("commits nothing when an emptied draft unmounts without a blur", async () => {
+    const onCommit = vi.fn();
+    const { unmount } = render(
+      <HeadingBlockEditor
+        lang={LANG}
+        index={0}
+        block={{ type: "heading", level: 1, text: "Alpha" }}
+        onCommit={onCommit}
+      />,
+    );
+    const text = screen.getByRole("textbox", { name: headingTextName(0) });
+    await userEvent.clear(text);
+    // No commit has been ATTEMPTED yet — the refusal notice would be on screen
+    // if a blur had already run the commit path, which would make the
+    // assertion below pass for the wrong reason.
+    expect(screen.queryByText(t(LANG, "documentsBlockEmptyNotSaved"))).toBeNull();
+    act(() => {
+      unmount();
+    });
+    expect(onCommit).not.toHaveBeenCalled();
+  });
+});
+
+describe("every commit carries the draft's baseline", () => {
+  // ★ The BLUR path's half of the same guard. The engine needs to know which
+  //  block this edit was derived from, and the only layer that knows is the
+  //  draft — so it has to travel with the commit rather than be re-derived.
+  //  ★ ONE commit, deliberately: with a spy parent the write is never echoed
+  //   back as a new `storedBlock`, so the after-render effect re-syncs the
+  //   baseline to the (unchanged) prop and a second commit would send the same
+  //   value again. That is an artefact of the fixture, not of the hook — the
+  //   engine-backed tests above cover the advancing case for real.
+  it("forwards the block the draft was derived from, on a blur commit", async () => {
+    const onCommit = vi.fn();
+    const original: DocBlock = { type: "heading", level: 1, text: "Alpha" };
+    render(<HeadingBlockEditor lang={LANG} index={3} block={original} onCommit={onCommit} />);
+    const text = screen.getByRole("textbox", { name: headingTextName(3) });
+    await userEvent.type(text, "!");
+    act(() => {
+      text.blur();
+    });
+    expect(onCommit).toHaveBeenCalledTimes(1);
+    expect(onCommit).toHaveBeenNthCalledWith(
+      1,
+      3,
+      { type: "heading", level: 1, text: "Alpha!" },
+      original,
+    );
   });
 });

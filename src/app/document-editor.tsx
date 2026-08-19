@@ -32,7 +32,9 @@ export const NARROW_PANE_PX = 640;
 export type DocumentEditorProps = {
   lang: Lang;
   doc: ProjectDocument;
-  onCommitBlock: (index: number, block: DocBlock) => void;
+  /** ★ The third argument is the committing draft's baseline — the engine's
+   *   `expect` precondition. See `replaceBlockOp` in document-editor-commit.ts. */
+  onCommitBlock: (index: number, block: DocBlock, expect?: DocBlock) => void;
   /** Appends a block. Reached only from the zero-block empty state: the block
    *  SET is otherwise out of scope for this slice (see this file's header).
    *  ★ Optional so the many pre-existing non-empty-document fixtures in this
@@ -171,7 +173,7 @@ function BlockEditor({
   lang: Lang;
   index: number;
   block: DocBlock;
-  onCommit: (index: number, block: DocBlock) => void;
+  onCommit: (index: number, block: DocBlock, expect?: DocBlock) => void;
   collapseParagraph: boolean;
   /** Makes THIS block the selected one. Only the collapsed paragraph branch
    *  wires it up — every other case ignores it. */

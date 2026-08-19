@@ -40,7 +40,7 @@ describe("DocumentEditor", () => {
     const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     text.blur();
-    expect(onCommitBlock).toHaveBeenCalledWith(0, expect.objectContaining({ type: "heading" }));
+    expect(onCommitBlock).toHaveBeenCalledWith(0, expect.objectContaining({ type: "heading" }), expect.anything());
   });
 
   it("renders NO drag handle — reordering is out of scope for this slice", () => {

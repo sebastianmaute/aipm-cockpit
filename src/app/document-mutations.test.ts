@@ -1202,3 +1202,87 @@ describe("applyDocMutation reports the version it minted", () => {
     expect(out.minted?.id).not.toBe(42);
   });
 });
+
+// ★★★ THE CONCURRENT-WRITE GUARD, IN THE ENGINE. A block editor's unmount
+// flush cannot see a write that arrived without re-rendering its row (the
+// parent swaps a DIFFERENT component in when the block TYPE changes at an
+// index, so the outgoing row is torn down with every ref frozen at the
+// pre-write value). The engine reads live state at call time, so the
+// expectation has to be checked HERE — the in-component guard is the fast,
+// quiet abandon on the path that CAN see the write, this is the backstop that
+// cannot be fooled.
+describe("applyOps — replace against an expected baseline", () => {
+  const stale: DocBlock = { type: "heading", level: 1, text: "stale draft" };
+  const landed: DocBlock = { type: "heading", level: 1, text: "Week 13" };
+
+  /** The collision, seeded explicitly: one mutation lands, then a second
+   *  arrives carrying the baseline that was current BEFORE the first. A test
+   *  that replaces against an untouched document passes whichever way the
+   *  engine decides, so it could not express this bug. */
+  const afterFirstWrite = (): DocState => {
+    const first = applyDocMutation(
+      state(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: landed }] },
+      ctx(),
+    );
+    expect(first.changed).toBe(true);
+    return { documents: first.documents, versions: first.versions };
+  };
+
+  it("refuses a replace whose expect no longer matches, and reports a reason", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale, expect: DOC.blocks[0] }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(false);
+    // The concurrent write SURVIVES — this is the property, not the message.
+    expect(out.documents[0].blocks[0]).toEqual(landed);
+    expect(out.rejected).toEqual(["op 0: replace index 0 was changed by another writer"]);
+  });
+
+  it("applies a replace whose expect still matches", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale, expect: landed }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(stale);
+    expect(out.rejected).toEqual([]);
+  });
+
+  // ★ The control: `expect` is OPTIONAL, and every pre-existing caller (the AI
+  //  tools, the property suite) omits it. An absent expectation must never be
+  //  read as "expected nothing" — that would refuse every one of them.
+  it("applies a replace with NO expect at all", () => {
+    const out = applyDocMutation(
+      afterFirstWrite(),
+      { kind: "ops", id: 1, ops: [{ op: "replace", index: 0, block: stale }] },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.documents[0].blocks[0]).toEqual(stale);
+    expect(out.rejected).toEqual([]);
+  });
+
+  // ★ An omitted optional field and one explicitly set to `undefined` are the
+  //  same block (`blockChanged`'s own rule), so a form control that clears
+  //  `ordered` must not read as a concurrent write.
+  it("treats an omitted optional field and an explicit undefined as a match", () => {
+    const stored: DocBlock = { type: "bullets", items: ["a"] };
+    const withUndefined: DocBlock = { type: "bullets", items: ["a"], ordered: undefined };
+    const doc: ProjectDocument = { ...DOC, blocks: [stored] };
+    const out = applyDocMutation(
+      { documents: [doc], versions: [] },
+      {
+        kind: "ops",
+        id: 1,
+        ops: [{ op: "replace", index: 0, block: { type: "bullets", items: ["a", "b"] }, expect: withUndefined }],
+      },
+      ctx(),
+    );
+    expect(out.changed).toBe(true);
+    expect(out.rejected).toEqual([]);
+  });
+});

@@ -139,19 +139,28 @@ export function paragraphHasImage(html: string): boolean {
   return /<img[\s/>]/i.test(html);
 }
 
-/** Did the edited block actually differ from the stored one?
- *
- *  ★ REQUIRED, not an optimisation: without it, focusing a block and leaving it
- *   writes a version whose before-image equals its after-image. */
-export function blockChanged(stored: DocBlock, edited: DocBlock): boolean {
-  return !deepEqual(stored, edited);
-}
+/** ★ RE-EXPORTED, not defined here. `document-mutations.ts` needs the same
+ *  comparison for a `replace` op's `expect`, and the engine must not depend on
+ *  the block editors' decision layer — see the function's own note in
+ *  document-model.ts. Kept on this module's surface so its consumers
+ *  (document-block-editors.tsx, this file's tests) do not have to know it
+ *  moved. */
+export { blockChanged } from "./document-model";
 
 /** The single op a block edit produces. Block CONTENT is in scope for this
  *  slice; the SET of blocks is not, so nothing here appends, inserts or
- *  deletes. */
-export function replaceBlockOp(index: number, block: DocBlock): DocOp {
-  return { op: "replace", index, block };
+ *  deletes.
+ *
+ *  ★★★ `expect` IS THE DRAFT'S BASELINE — the block this edit was derived
+ *   from — and it is what makes the concurrent-write guard un-foolable. The
+ *   in-component guard (`useBlockDraft`'s `externallyWritten`) reads refs that
+ *   only advance when that row RENDERS, and a write changing the block's TYPE
+ *   at an index unmounts the row with no final render, so every ref it reads is
+ *   frozen at the pre-write value. `applyOps` compares this against live state
+ *   at call time instead and refuses a stale one. OPTIONAL because the AI tools
+ *   build their own ops and are resolving no draft of their own. */
+export function replaceBlockOp(index: number, block: DocBlock, expect?: DocBlock): DocOp {
+  return { op: "replace", index, block, expect };
 }
 
 /** A canonical ISO stamp for the throwaway document the predicate below
@@ -178,24 +187,4 @@ export function blockSurvivesLoad(block: DocBlock): boolean {
     { id: 1, title: "probe", blocks: [block], createdAt: PROBE_STAMP, updatedAt: PROBE_STAMP },
   ]);
   return doc?.blocks.length === 1;
-}
-
-/** ★ An OMITTED optional field and one explicitly set to `undefined` are the
- *  same block — a form control that clears `ordered` must not read as a change. */
-function deepEqual(a: unknown, b: unknown): boolean {
-  if (a === b) return true;
-  if (a === undefined || b === undefined || a === null || b === null) return false;
-  if (typeof a !== "object" || typeof b !== "object") return false;
-  if (Array.isArray(a) !== Array.isArray(b)) return false;
-  if (Array.isArray(a) && Array.isArray(b)) {
-    return a.length === b.length && a.every((v, i) => deepEqual(v, b[i]));
-  }
-  const ao = a as Record<string, unknown>;
-  const bo = b as Record<string, unknown>;
-  const keys = new Set([...Object.keys(ao), ...Object.keys(bo)]);
-  for (const k of keys) {
-    if (ao[k] === undefined && bo[k] === undefined) continue;
-    if (!deepEqual(ao[k], bo[k])) return false;
-  }
-  return true;
 }
