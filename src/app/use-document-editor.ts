@@ -23,6 +23,14 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
 
   const commitBlock = useCallback(
     (index: number, block: DocBlock): DocResult => {
+      // ★ A real conditional with an unexercised branch — every caller today
+      //  (document-edit-mode.tsx) omits `now`, so only the `new Date()` arm
+      //  ever runs, and no test injects `now` either. Left un-covered
+      //  deliberately and permanently: this file sits in `vitest.config.ts`
+      //  `coverage.exclude` as render-scope UI glue (unlike the structurally
+      //  identical `now ?? (() => new Date())` fallback in
+      //  `use-scheduled-job-runner.ts`, which IS coverage-gated and whose
+      //  tests exercise both arms). Do not chase this branch for coverage.
       const stamp = now ? now() : new Date().toISOString();
       // ★★ Coalesce a RUN of consecutive user edits so a 20-block session
       //  cannot evict this document's history against MAX_VERSIONS_PER_DOC.

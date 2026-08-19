@@ -57,6 +57,13 @@ export interface DocumentsToolbarProps {
    *  worded warning would be better and needs an i18n key this task was told
    *  not to add; see the report. */
   deletedCount: number;
+  /** Whether the block editor is showing (vs the read-only preview). ★ The
+   *  label is PINNED to "Edit blocks" in both states — it does NOT flip to
+   *  "Preview" — so `aria-pressed` tracks what the label names, mirroring the
+   *  deleted-documents toggle above. A flipped label would announce the WRONG
+   *  mode as active (WCAG 4.1.2), which axe cannot catch (see AGENTS.md). */
+  editing: boolean;
+  onToggleEditing: () => void;
   /** Popout mirrors are read-only: the CREATE affordance goes inert. Download,
    *  print and the view controls stay live — they mutate nothing. */
   isReadOnly?: boolean;
@@ -74,6 +81,8 @@ export function DocumentsToolbar({
   showDeleted,
   onShowDeletedChange,
   deletedCount,
+  editing,
+  onToggleEditing,
   isReadOnly,
 }: DocumentsToolbarProps) {
   return (
@@ -136,6 +145,21 @@ export function DocumentsToolbar({
         title={t(lang, "documentsShowDeleted")}
       >
         {`${t(lang, "documentsShowDeleted")} (${deletedCount})`}
+      </ToggleButton>
+      {/* ★ Same reasoning as the deleted-documents toggle just above: the
+          label is pinned to what pressed=true ENABLES ("Edit blocks" showing
+          the block editor), never flipped to "Preview" — a flip would
+          announce the wrong mode as active (WCAG 4.1.2), which axe cannot
+          catch. Disabled in a read-only popout mirror, matching New document
+          — a toggle that mutates nothing when pressed is a false affordance. */}
+      <ToggleButton
+        pressed={editing}
+        onToggle={onToggleEditing}
+        lang={lang}
+        title={t(lang, "documentsEditBlocks")}
+        disabled={isReadOnly}
+      >
+        {t(lang, "documentsEditBlocks")}
       </ToggleButton>
       <div className="ml-auto flex items-center gap-2">
         <PrintButton lang={lang} />

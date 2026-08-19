@@ -19,6 +19,8 @@ function setup(overrides: Partial<Parameters<typeof DocumentsToolbar>[0]> = {}) 
       showDeleted={false}
       onShowDeletedChange={noop}
       deletedCount={0}
+      editing={false}
+      onToggleEditing={noop}
       {...overrides}
     />,
   );
@@ -169,6 +171,42 @@ describe("DocumentsToolbar", () => {
       setup({ showDeleted: true });
       const toggle = screen.getByRole("button", { name: /Deleted documents/ });
       expect(toggle.querySelector("[data-pressed-marker]")).not.toBeNull();
+    });
+  });
+
+  describe("the edit-mode toggle", () => {
+    it("sits after the pane actions and BEFORE the contiguous trailing group", () => {
+      setup();
+      expectButtonOrder(["documentsNew", "documentsDownload", "documentsShowDeleted", "documentsEditBlocks", "printHint"]);
+      expectButtonOrder(["printHint", "colResetWidthsHint", "tableResetSizeHint"], { contiguous: true });
+    });
+
+    // ★★★ MUTATION-PROVED, mirroring the deleted-documents toggle: the label
+    // must NOT flip to "Preview" — `aria-pressed` has to track the state the
+    // pinned label names, or the announcement implies the wrong mode is on
+    // (WCAG 4.1.2). axe cannot catch a flipped label; this is the only cover.
+    it("announces the state on the label it enables, never flipping it", () => {
+      const { unmount } = setup({ editing: false });
+      const off = screen.getByRole("button", { name: /Edit blocks/ });
+      expect(off).toHaveAttribute("aria-pressed", "false");
+      unmount();
+
+      setup({ editing: true });
+      const on = screen.getByRole("button", { name: /Edit blocks/ });
+      expect(on).toHaveAttribute("aria-pressed", "true");
+      expect(on.textContent).toContain("Edit blocks");
+    });
+
+    it("reports the flipped value to its parent", () => {
+      const onToggleEditing = vi.fn();
+      setup({ editing: false, onToggleEditing });
+      fireEvent.click(screen.getByRole("button", { name: /Edit blocks/ }));
+      expect(onToggleEditing).toHaveBeenCalledTimes(1);
+    });
+
+    it("is disabled in a read-only popout mirror, not silently inert", () => {
+      setup({ isReadOnly: true });
+      expect(screen.getByRole("button", { name: /Edit blocks/ })).toBeDisabled();
     });
   });
 

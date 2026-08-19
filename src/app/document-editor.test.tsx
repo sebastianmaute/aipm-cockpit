@@ -49,4 +49,39 @@ describe("DocumentEditor", () => {
     // never by a measured width.
     expect(screen.getAllByRole("toolbar")).toHaveLength(1);
   });
+
+  // ★ `doc` above has its ONE paragraph as the first-in-document — the exact
+  //  block the narrow branch does NOT collapse — so no existing test reaches
+  //  the collapsed render's own `sanitizeDocumentHtml` sink. This fixture
+  //  carries a SECOND paragraph so it collapses, and asserts on the rendered
+  //  DOM (not the input string): the image survives, the script does not.
+  it("sanitizes a collapsed paragraph's stored html at the render sink — keeps the image, drops the script", () => {
+    const twoParagraphDoc: ProjectDocument = {
+      id: 8,
+      title: "Two paragraphs",
+      blocks: [
+        { type: "paragraph", html: "<p>First</p>" },
+        {
+          // ★ `src` is NOT on `DOCUMENT_ALLOWED_ATTR` (sanitize-html.ts) —
+          //  an image is referenced by `data-asset-id`, not a URL, since the
+          //  asset store this feeds is inert until S3c. `alt` and
+          //  `data-asset-id` are what a sanitized `<img>` can carry.
+          type: "paragraph",
+          html: '<p>Second</p><img data-asset-id="a1" alt="chart"><script>alert(1)</script>',
+        },
+      ],
+      createdAt: doc.createdAt,
+      updatedAt: doc.updatedAt,
+    };
+    const { container } = render(
+      <DocumentEditor lang={LANG} doc={twoParagraphDoc} onCommitBlock={vi.fn()} narrow />,
+    );
+    // Only the SECOND paragraph collapses (the first keeps its live editor),
+    // so its rendered image and dropped script are unambiguous either way.
+    const images = container.querySelectorAll("img");
+    expect(images).toHaveLength(1);
+    expect(images[0].getAttribute("alt")).toBe("chart");
+    expect(images[0].getAttribute("data-asset-id")).toBe("a1");
+    expect(container.querySelector("script")).toBeNull();
+  });
 });

@@ -1910,3 +1910,39 @@ describe("DocumentsPanel — entity filter", () => {
     expect(screen.getByRole("button", { name: `${t("en-US", "documentsLinkedRemove")} R#3` })).toBeTruthy();
   });
 });
+
+describe("DocumentsPanel — edit mode toggle", () => {
+  // ★ The toggle's accessible name is PINNED to "Edit blocks" in both states
+  // (see documents-toolbar.tsx) — it does NOT flip to "Preview" — so this
+  // asserts on `aria-pressed` plus the block editor's own textbox, not on a
+  // second button name. The fixture carries its own heading block: the shared
+  // `doc()` builder only mints `pageBreak` blocks. The row-selection button
+  // shares its accessible name with the preview's own `<h2>` title, so the
+  // selection click is scoped to `{ name: ..., }` on a BUTTON role, not
+  // `getByText`, which would match both.
+  it("toggles between preview and the block editor", async () => {
+    const headingDoc: ProjectDocument = {
+      id: 9,
+      title: "Charter",
+      blocks: [{ type: "heading", level: 2, text: "Scope" }],
+      createdAt: NOW,
+      updatedAt: NOW,
+    };
+    renderPanel([headingDoc]);
+    await userEvent.click(screen.getByRole("button", { name: headingDoc.title }));
+
+    // Preview is the default — no block editor textbox mounted yet.
+    expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
+
+    const toggle = screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") });
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+    await userEvent.click(toggle);
+
+    expect(await screen.findByRole("textbox", { name: /Heading text/ })).toBeInTheDocument();
+    expect(toggle).toHaveAttribute("aria-pressed", "true");
+
+    await userEvent.click(toggle);
+    expect(screen.queryByRole("textbox", { name: /Heading text/ })).toBeNull();
+    expect(toggle).toHaveAttribute("aria-pressed", "false");
+  });
+});
