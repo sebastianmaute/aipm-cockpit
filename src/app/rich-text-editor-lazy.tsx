@@ -1,21 +1,36 @@
 "use client";
 // The single `next/dynamic` boundary for the rich-text editor.
 //
-// Tiptap + ProseMirror is browser-only and large. Every consumer imports the
+// Tiptap + ProseMirror is browser-only and ~428 kB. EVERY consumer imports the
 // editor THROUGH this module so that (a) there is one place that decides the
 // loading fallback, and (b) the chunk boundary is visible in one file rather
 // than re-derived per call site. Before this module the wrapper was hand-rolled
 // verbatim in two consumers and statically imported by six more.
 //
+// ★★ "EVERY" is load-bearing and cheap to check — one static importer anywhere
+//   in the eager graph puts the whole chunk back. Reproduce:
+//     grep -rn 'from "\./rich-text-editor"' src/app --include=*.tsx | grep -v '\.test\.'
+//   It must return ONLY this file's type-only re-export (erased at build time).
+//   Leaving `raid-edit-modal` static was measured to cost the entire win: its
+//   panel is one of the two mounted UNCONDITIONALLY (`workspace-section.tsx`),
+//   so the chunk was still fetched on the initial dashboard render — off the
+//   render-blocking entry chunk, but not off the page load.
+//
 // ★ `ssr: false` changes WHERE the component renders, not where Tiptap injects
 //   its stylesheet. `useEditor` runs with `immediatelyRender: false`, so
 //   `injectCSS()` is deferred to mount under both import styles. This module is
-//   therefore NOT a fix for the prod-only CSP defect (open-followups §54), and
+//   therefore NOT a fix for the prod-only CSP defect (open-followups §54, now
+//   CLOSED — do not read this line as evidence it is open), and
 //   it does not let `csp-nonce.ts`'s `typeof document` guard go away.
-// ★ The editor's imperative handle is passed as the ORDINARY prop `editorRef`,
-//   not React's `ref`. That is what makes this wrapper safe: `next/dynamic` does
-//   not forward `ref`, so a handle wired the conventional way would break here
-//   silently. Do not "tidy" `editorRef` into `ref`.
+// ★★ The editor's imperative handle travels as the ORDINARY prop `editorRef`
+//   because `rich-text-editor.tsx` DECLARES it that way — and for no other
+//   reason. This comment used to say `next/dynamic` "does not forward `ref`",
+//   which was true for Next ≤14 / React ≤18 and is FALSE at the installed
+//   versions: `node_modules/next/dist/shared/lib/lazy-dynamic/loadable.js`
+//   renders `jsx(Lazy, {...props})` from a plain function component, and React
+//   19 passes `ref` as an ordinary prop — so `ref` WOULD forward. Reproduce:
+//     node -e "console.log(require('next/package.json').version, require('react/package.json').version)"
+//   Renaming still buys nothing and touches two files, so don't.
 import dynamic from "next/dynamic";
 import { Skeleton } from "./skeleton";
 
@@ -33,7 +48,10 @@ import { Skeleton } from "./skeleton";
  *  reported green after its conversion when it was in fact 1 failed / 14 passed.
  *  A consumer test asserting the editor MUST await it. */
 export function RichTextEditorFallback() {
-  return <Skeleton className="min-h-40" />;
+  // ★ `border border-line` is NOT decoration: the two consumers that had a
+  //   hand-rolled fallback before this module drew one, and `Skeleton` emits no
+  //   border, so dropping it made the placeholder stop reading as a field.
+  return <Skeleton className="min-h-40 border border-line" />;
 }
 
 export const RichTextEditor = dynamic(

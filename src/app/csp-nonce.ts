@@ -22,13 +22,25 @@
  *  check that can is a real-browser one — see `npm run e2e:smoke:prod` and the
  *  verification recorded in open-followups §54.
  *
- *  ★★ The `typeof document` guard is REQUIRED, not defensive padding. Six of the
- *  eight call sites of RichTextEditor import it STATICALLY, and a "use client"
- *  component still renders on the server, so the `useEditor({...})` options
- *  object — and therefore this function — is evaluated during SSR. Only
- *  meeting-report-panel.tsx and comm-templates-section.tsx use `ssr: false`.
- *  Reproduce the eight (2026-08-09):
- *  `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
+ *  ★★ KEEP the `typeof document` guard — but its justification INVERTED, and the
+ *  old one is preserved here because a reader who finds only the new state will
+ *  delete the guard. UNTIL 2026-08-19 it was required by a live path: six of the
+ *  eight RichTextEditor call sites imported the editor STATICALLY, a "use client"
+ *  component still renders on the server, so the `useEditor({...})` options object
+ *  — and therefore this function — really was evaluated during SSR. Every call
+ *  site now loads through `rich-text-editor-lazy.tsx`, which is `ssr: false`, so
+ *  NOTHING reaches this function on the server today. Reproduce both halves:
+ *    grep -rn 'from "\./rich-text-editor"' src/app --include=*.tsx | grep -v '\.test\.'
+ *      → only the lazy module's type-only re-export
+ *    grep -rn 'readCspNonce(' src --include=*.ts --include=*.tsx | grep -v '\.test\.' \r
+ *      | grep -v '^src/app/csp-nonce.ts'
+ *      → exactly ONE line: `rich-text-editor.tsx`. The second `grep -v` is not
+ *        tidying — without it THIS comment matches its own command.
+ *  ★★★ That makes the guard defensive, NOT dead, and the difference is one word in
+ *  one file: flip `ssr` to true in `rich-text-editor-lazy.tsx` — or add a second
+ *  caller that is not behind a `dynamic` boundary — and the SSR path is armed
+ *  again with no other edit. A guard whose live path was removed is the guard
+ *  most likely to be tidied away by whoever removes the NEXT one.
  *
  *  ★ `document.querySelector("script[nonce]")` is not specific to the one
  *  hand-authored nonced tag in `layout.tsx` — it also matches Next.js's own
