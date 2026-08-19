@@ -1,17 +1,32 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { applyDocMutation } from "./document-mutations";
-import { shouldCoalesce } from "./document-editor-commit";
-import { MAX_VERSIONS_PER_DOC } from "./document-versions";
+import { shouldCoalesce, COALESCE_WINDOW_MS } from "./document-editor-commit";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 
 const START = Date.parse("2026-08-18T10:00:00.000Z");
 
+// Edits land 10s apart; the property generates up to 40 of them, so the
+// longest possible session spans (40-1)*10s = 390s of wall time. Coalescing
+// mints a new version only once the gap since the last-minted version's own
+// timestamp exceeds COALESCE_WINDOW_MS (5min = 300000ms) — see
+// document-editor-commit.ts's shouldCoalesce. A session of span S therefore
+// mints at most floor(S / COALESCE_WINDOW_MS) + 1 versions for this document:
+// one at the first edit, then one more each time the elapsed time since the
+// last mint crosses another full window. For S=390000 that is
+// floor(390000 / 300000) + 1 = 2 — regardless of how many edits (1..40) land
+// inside that span, since more edits packed into the same window only add
+// MORE coalesced (unminted) writes, never more minted versions.
+const EDIT_SPACING_MS = 10_000;
+const MAX_EDITS = 40;
+const MAX_SPAN_MS = (MAX_EDITS - 1) * EDIT_SPACING_MS;
+const MAX_VERSIONS_MINTED = Math.floor(MAX_SPAN_MS / COALESCE_WINDOW_MS) + 1;
+
 describe("version budget under a hand-editing session", () => {
-  it("keeps the pre-session before-image and never exceeds the per-document cap", () => {
+  it("coalesces a burst into a handful of versions while keeping the pre-session before-image reachable", () => {
     fc.assert(
-      fc.property(fc.integer({ min: 1, max: 40 }), (edits) => {
+      fc.property(fc.integer({ min: 1, max: MAX_EDITS }), (edits) => {
         let documents: readonly ProjectDocument[] = [
           {
             id: 1,
@@ -48,8 +63,12 @@ describe("version budget under a hand-editing session", () => {
         }
 
         const mine = versions.filter((v) => v.documentId === 1);
-        // The cap is never breached...
-        expect(mine.length).toBeLessThanOrEqual(MAX_VERSIONS_PER_DOC);
+        // Coalescing actually collapsed the burst: a session of up to 40
+        // hand edits mints at most MAX_VERSIONS_MINTED (2) versions for this
+        // document, never one-per-edit. This is the assertion that depends
+        // on shouldCoalesce — with coalescing disabled the count would climb
+        // to (near) `edits` instead, well past this bound.
+        expect(mine.length).toBeLessThanOrEqual(MAX_VERSIONS_MINTED);
         // ...and the session's FIRST before-image — the pre-session state, the
         // thing worth reverting to — is still reachable however long the
         // session ran.
