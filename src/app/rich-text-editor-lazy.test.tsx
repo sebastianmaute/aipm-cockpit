@@ -2,9 +2,11 @@ import { render } from "@testing-library/react";
 import { describe, it, expect } from "vitest";
 import { RichTextEditorFallback } from "./rich-text-editor-lazy";
 
-// The `dynamic()` boundary itself is not unit-testable in a useful way — vitest
-// resolves the import in a microtask, so the fallback is never observed. What IS
-// testable, and what the design actually decided, is the fallback component: it
+// The `dynamic()` boundary is exercised through its CONSUMERS' suites, where a
+// synchronous query lands on this fallback and an awaited one lands on the real
+// editor (see the ★★★ note in rich-text-editor-lazy.tsx — an earlier version of
+// this comment wrongly said the fallback is never observed). What is tested HERE,
+// and what the design actually decided, is the fallback component itself: it
 // must shimmer like every other lazy surface in the app, and it must stay out of
 // the accessibility tree (the surrounding form labels the field; a decorative
 // placeholder announcing itself would be noise).

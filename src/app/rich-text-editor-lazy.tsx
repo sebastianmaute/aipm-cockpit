@@ -20,8 +20,18 @@ import dynamic from "next/dynamic";
 import { Skeleton } from "./skeleton";
 
 /** Placeholder shown while the editor chunk loads. Exported so it can be tested
- *  directly — the `dynamic()` boundary resolves in a microtask under vitest, so
- *  the fallback is never observed through a rendered consumer. */
+ *  directly, and because a consumer's test may need to name it.
+ *
+ *  ★★★ THE FALLBACK **IS** OBSERVABLE THROUGH A RENDERED CONSUMER, and an
+ *  earlier version of this comment claimed the opposite. The `dynamic()` import
+ *  does resolve in a microtask under vitest, but React still needs a re-render
+ *  to swap the fallback for the editor — so a SYNCHRONOUS `getByRole` on the
+ *  line after `render()` sees this skeleton and no editor at all. Only an
+ *  `await findByRole` (or any awaited query) sees the real thing.
+ *
+ *  That false claim cost a shipped commit: `task-form-fields.test.tsx` was
+ *  reported green after its conversion when it was in fact 1 failed / 14 passed.
+ *  A consumer test asserting the editor MUST await it. */
 export function RichTextEditorFallback() {
   return <Skeleton className="min-h-40" />;
 }
