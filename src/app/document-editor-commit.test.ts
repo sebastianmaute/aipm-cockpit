@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import {
   shouldCoalesce,
+  newestVersionId,
   COALESCE_WINDOW_MS,
   paragraphHasImage,
   blockChanged,
@@ -24,32 +25,32 @@ const NOW = "2026-08-18T10:00:30.000Z"; // 30s after the fixture's savedAt
 
 describe("shouldCoalesce", () => {
   it("is false when the document has no versions — the first edit of a session always records", () => {
-    expect(shouldCoalesce([], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([], 7, NOW, null)).toBe(false);
   });
 
   it("is true when the newest version is a recent user update on the same document", () => {
-    expect(shouldCoalesce([version()], 7, NOW)).toBe(true);
+    expect(shouldCoalesce([version()], 7, NOW, 1)).toBe(true);
   });
 
   it("is false when the newest version belongs to a DIFFERENT document", () => {
-    expect(shouldCoalesce([version({ documentId: 99 })], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([version({ documentId: 99 })], 7, NOW, 1)).toBe(false);
   });
 
   // The three run-breaking cases. Each records a different actor's change, so
   // it is never the current session's start state.
   it("is false when the newest version is an AI write", () => {
-    expect(shouldCoalesce([version({ source: "ai" })], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([version({ source: "ai" })], 7, NOW, 1)).toBe(false);
   });
 
   it("is false when the newest version is not an update", () => {
     for (const op of ["rename", "delete", "duplicate", "restored"] as const) {
-      expect(shouldCoalesce([version({ op })], 7, NOW)).toBe(false);
+      expect(shouldCoalesce([version({ op })], 7, NOW, 1)).toBe(false);
     }
   });
 
   it("is false when the newest version is outside the window", () => {
     const stale = version({ savedAt: "2026-08-18T09:00:00.000Z" });
-    expect(shouldCoalesce([stale], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([stale], 7, NOW, 1)).toBe(false);
   });
 
   it("reads the NEWEST version, not the last array element", () => {
@@ -57,11 +58,11 @@ describe("shouldCoalesce", () => {
     // breaks the run — if this read the last element it would return true.
     const older = version({ id: 1, savedAt: "2026-08-18T10:00:20.000Z", source: "user" });
     const newer = version({ id: 2, savedAt: "2026-08-18T10:00:25.000Z", source: "ai" });
-    expect(shouldCoalesce([newer, older], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([newer, older], 7, NOW, 2)).toBe(false);
   });
 
   it("is false on an unparseable savedAt rather than coalescing blindly", () => {
-    expect(shouldCoalesce([version({ savedAt: "not a date" })], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([version({ savedAt: "not a date" })], 7, NOW, 1)).toBe(false);
   });
 
   it("breaks a savedAt tie by the HIGHER id, not array order", () => {
@@ -72,23 +73,57 @@ describe("shouldCoalesce", () => {
     // "return the higher id" must disagree here, or the fixture can't tell them
     // apart. Last-element would read lowerId (documentId 7, user/update — would
     // coalesce); the correct tie-break reads higherId (documentId 99 — does not).
-    expect(shouldCoalesce([higherId, lowerId], 7, NOW)).toBe(false);
+    expect(shouldCoalesce([higherId, lowerId], 7, NOW, 2)).toBe(false);
   });
 
   it("coalesces exactly at the window boundary (inclusive)", () => {
     const savedAt = "2026-08-18T10:00:00.000Z";
     const atBoundary = new Date(Date.parse(savedAt) + COALESCE_WINDOW_MS).toISOString();
-    expect(shouldCoalesce([version({ savedAt })], 7, atBoundary)).toBe(true);
+    expect(shouldCoalesce([version({ savedAt })], 7, atBoundary, 1)).toBe(true);
   });
 
   it("does not coalesce one millisecond past the window boundary", () => {
     const savedAt = "2026-08-18T10:00:00.000Z";
     const pastBoundary = new Date(Date.parse(savedAt) + COALESCE_WINDOW_MS + 1).toISOString();
-    expect(shouldCoalesce([version({ savedAt })], 7, pastBoundary)).toBe(false);
+    expect(shouldCoalesce([version({ savedAt })], 7, pastBoundary, 1)).toBe(false);
   });
 
   it("exposes the window as a named constant", () => {
     expect(COALESCE_WINDOW_MS).toBeGreaterThan(0);
+  });
+
+  // ★★★ THE RUN IS ANCHORED BY IDENTITY, NOT BY CONTENT. A live-document
+  //  restore writes `snapshot(liveDoc, "update", ctx)` with `source: "user"`
+  //  (document-mutations.ts, `case "restore"`), so it is BYTE-INDISTINGUISHABLE
+  //  from one of the editor's own before-images by source+op. Without the id
+  //  check the editor coalesces straight onto it, the restored state is
+  //  overwritten, and NO history entry records that it ever existed.
+  it("does not coalesce onto a user/update version the editor did not mint", () => {
+    const mine = version({ id: 4, savedAt: "2026-08-18T10:00:00.000Z" });
+    // A restore's before-image: same document, same source, same op, newer.
+    const restore = version({ id: 5, savedAt: "2026-08-18T10:00:10.000Z" });
+    expect(shouldCoalesce([mine, restore], 7, NOW, 4)).toBe(false);
+  });
+
+  it("coalesces onto the version the editor itself last minted", () => {
+    const mine = version({ id: 4 });
+    expect(shouldCoalesce([mine], 7, NOW, 4)).toBe(true);
+  });
+
+  it("does not coalesce when the editor has minted nothing yet", () => {
+    // A null anchor is a fresh run: the first edit ALWAYS records, so the
+    // pre-session state stays the revert target even when some other writer
+    // left a recent user/update sitting there.
+    expect(shouldCoalesce([version({ id: 4 })], 7, NOW, null)).toBe(false);
+  });
+
+  it("exposes the newest version's id so the caller can anchor its run", () => {
+    expect(newestVersionId([])).toBe(null);
+    // The NEWEST is listed FIRST on purpose: "read the last array element" and
+    // "read the newest" must DISAGREE here, or the assertion cannot tell the
+    // two implementations apart and passes against either.
+    const newest = version({ id: 9, savedAt: "2026-08-18T10:00:05.000Z" });
+    expect(newestVersionId([newest, version({ id: 1 })])).toBe(9);
   });
 });
 

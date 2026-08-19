@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { applyDocMutation } from "./document-mutations";
-import { shouldCoalesce, COALESCE_WINDOW_MS } from "./document-editor-commit";
+import { shouldCoalesce, newestVersionId, COALESCE_WINDOW_MS } from "./document-editor-commit";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 
@@ -38,11 +38,15 @@ describe("version budget under a hand-editing session", () => {
         ];
         let versions: readonly DocVersion[] = [];
         let nextVersionId = 1;
+        // Mirrors use-document-editor.ts's `lastVersionIdRef`: the property is
+        // about the HOOK's behaviour, so the simulation has to carry the same
+        // anchor or it is measuring a function no caller uses that way.
+        let lastVersionId: number | null = null;
 
         for (let i = 0; i < edits; i++) {
           // Each edit lands 10s after the previous one — one continuous session.
           const now = new Date(START + i * 10_000).toISOString();
-          const coalesce = shouldCoalesce(versions, 1, now);
+          const coalesce = shouldCoalesce(versions, 1, now, lastVersionId);
           const result = applyDocMutation(
             { documents, versions },
             {
@@ -60,6 +64,7 @@ describe("version budget under a hand-editing session", () => {
           );
           documents = result.documents;
           versions = result.versions;
+          if (result.changed) lastVersionId = newestVersionId(result.versions);
         }
 
         const mine = versions.filter((v) => v.documentId === 1);

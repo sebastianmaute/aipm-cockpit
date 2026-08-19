@@ -25,19 +25,39 @@ export const COALESCE_WINDOW_MS = 5 * 60 * 1000;
  *  reverts to. Twenty keystroke-shaped snapshots would evict that, and every
  *  AI-authored version with it, against MAX_VERSIONS_PER_DOC (20).
  *
- * ★ Coalescing applies ONLY to a run of consecutive `user`/`update` versions on
- *  the SAME document. An AI write, a rename, a delete or a restore in between
- *  ends the run: those record a different actor's change and are never the
- *  current session's start state.
+ * ★★★ THE RUN IS ANCHORED BY IDENTITY. `lastVersionId` is the id of the
+ *  version the CALLER's own last commit produced (`null` before it has
+ *  produced one). Coalescing happens only when that exact row is still the
+ *  newest — so ANY other writer ends the run, with no per-writer case
+ *  analysis: a restore, an AI write, a rename, a delete, a second tab, a
+ *  future user/update writer nobody has thought of yet.
+ *
+ *  This replaced a content test (`source === "user" && op === "update"`), which
+ *  a live-document restore defeats: `document-mutations.ts`'s restore-in-place
+ *  writes `snapshot(liveDoc, "update", ctx)` and `ctx.source` is `"user"`, so
+ *  its before-image is byte-indistinguishable from one of the editor's own.
+ *  The editor coalesced onto it and overwrote the restored state with NO
+ *  history entry that it had existed. Giving the restore its own DocVersionOp
+ *  was rejected: `sanitizeDocumentVersions` coerces an unknown op back to
+ *  `"update"`, so an older client reading the same project would silently
+ *  re-open the hole on shared data.
+ *
+ * ★ The source/op checks below are now unreachable whenever the id check
+ *  passes (an id the caller minted is by construction a user/update row). They
+ *  are KEPT as a guard against a mis-passed anchor — this is an exported pure
+ *  function and cannot assume its caller's discipline. The id check is the
+ *  load-bearing one; do not delete IT and keep them.
  */
 export function shouldCoalesce(
   versions: readonly DocVersion[],
   documentId: number,
   now: string,
+  lastVersionId: number | null,
 ): boolean {
   const newest = newestVersion(versions);
   if (!newest) return false;
   if (newest.documentId !== documentId) return false;
+  if (newest.id !== lastVersionId) return false;
   if (newest.source !== "user" || newest.op !== "update") return false;
 
   const nowMs = Date.parse(now);
@@ -48,6 +68,16 @@ export function shouldCoalesce(
   if (Number.isNaN(nowMs) || Number.isNaN(savedMs)) return false;
 
   return nowMs - savedMs <= COALESCE_WINDOW_MS && nowMs >= savedMs;
+}
+
+/** The id a caller should anchor its next `shouldCoalesce` call to, read from
+ *  the post-mutation version list. `null` when there are none.
+ *
+ *  ★ Exported so the caller never re-derives "newest" — `newestVersion`'s
+ *   savedAt/id ordering rule lives here and a second copy of it is exactly the
+ *   drift this codebase keeps getting bitten by. */
+export function newestVersionId(versions: readonly DocVersion[]): number | null {
+  return newestVersion(versions)?.id ?? null;
 }
 
 /** ★ The caller must not have to pre-sort: this picks by `savedAt`, falling

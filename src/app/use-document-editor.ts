@@ -5,7 +5,7 @@
 //  tested. If logic starts accumulating in this file, move it there instead of
 //  testing it here.
 import { useCallback, useEffect, useRef } from "react";
-import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
+import { shouldCoalesce, newestVersionId, replaceBlockOp } from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
 import type { DocVersion, DocVersionSource } from "./document-versions";
@@ -39,6 +39,14 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     currentDocIdRef.current = documentId;
   }, [documentId]);
 
+  // ★★★ THE COALESCING RUN'S ANCHOR — the id of the version THIS hook's last
+  //  landed commit produced. `shouldCoalesce` coalesces only while that row is
+  //  still the newest, so any other writer (a restore, an AI write, a second
+  //  tab) ends the run and the next edit records a real before-image.
+  //  ★ A ref, not state: it is read and written inside an event handler, never
+  //   during render, and a re-render on every commit would buy nothing.
+  const lastVersionIdRef = useRef<number | null>(null);
+
   const commitBlock = useCallback(
     (index: number, block: DocBlock): DocResult | undefined => {
       // Same "abandon rather than clobber" principle as useBlockDraft's
@@ -60,11 +68,19 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
       //  cannot evict this document's history against MAX_VERSIONS_PER_DOC.
       //  The FIRST edit of a session always records, so the pre-session state
       //  stays the revert target.
-      const coalesce = shouldCoalesce(versions, documentId, stamp);
-      return mutateDocuments(
+      const coalesce = shouldCoalesce(versions, documentId, stamp, lastVersionIdRef.current);
+      const result = mutateDocuments(
         { kind: "ops", id: documentId, ops: [replaceBlockOp(index, block)], coalesce },
         "user",
       );
+      // ★★ ADVANCE ONLY ON A LANDED WRITE. A refusal (`changed: false`) leaves
+      //  the caller's list untouched, so adopting its newest id would anchor
+      //  this run to a row somebody ELSE minted — and the next edit would
+      //  coalesce onto it, which is the exact defect this anchor exists to
+      //  prevent. A COALESCED write is `changed: true` and mints nothing, so
+      //  this correctly re-reads the same anchor.
+      if (result.changed) lastVersionIdRef.current = newestVersionId(result.versions);
+      return result;
     },
     [documentId, versions, mutateDocuments, now],
   );
