@@ -8,12 +8,19 @@ import { useCallback, useEffect, useRef } from "react";
 import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
 import type { DocMintedVersion, DocMutation, DocResult } from "./document-mutations";
-import type { DocVersion, DocVersionSource } from "./document-versions";
+import type { DocVersion } from "./document-versions";
 
 export type UseDocumentEditorDeps = {
   documentId: number;
   versions: readonly DocVersion[];
-  mutateDocuments: (m: DocMutation, source: DocVersionSource) => DocResult;
+  /** ★★★ ONE ARGUMENT, DELIBERATELY. This is the PANEL'S FUNNEL, not the raw
+   *  workspace mutator: the funnel hardcodes the `"user"` source, clears the
+   *  previous refusal, keeps `freshRef` current AND — the reason this is not a
+   *  style choice — is the one place a refusal reaches the user. Widening this
+   *  back to `(m, source)` is what let a call site be wired straight past it,
+   *  so a concurrent delete refused the commit and the typing vanished with
+   *  nothing said. Keep the source out of this contract. */
+  mutateDocuments: (m: DocMutation) => DocResult;
   /** Injected so the decision is testable without a clock. */
   now?: () => string;
 };
@@ -91,10 +98,12 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
       //  The FIRST edit of a session always records, so the pre-session state
       //  stays the revert target.
       const coalesce = shouldCoalesce(versions, documentId, stamp, lastMintedRef.current);
-      const result = mutateDocuments(
-        { kind: "ops", id: documentId, ops: [replaceBlockOp(index, block)], coalesce },
-        "user",
-      );
+      const result = mutateDocuments({
+        kind: "ops",
+        id: documentId,
+        ops: [replaceBlockOp(index, block)],
+        coalesce,
+      });
       // ★★ ADVANCE ONLY WHEN THIS CALL MINTED A ROW, and otherwise leave the
       //  anchor exactly where it is — do NOT clear it. The three cases:
       //   • minted (`minted` is a pair): that row is this run's new anchor.

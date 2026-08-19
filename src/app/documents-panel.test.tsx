@@ -2048,4 +2048,38 @@ describe("DocumentsPanel — document-switch commit guard", () => {
       | undefined;
     expect(op?.block?.text).toBe("Alpha!");
   });
+
+  // ★★★ A REFUSAL MUST REACH THE USER. The panel funnel (`mutate`) is the ONE
+  //  place that renders one — its own comment says so — and the block editor
+  //  was wired straight past it to `mutateDocuments`. A concurrent delete then
+  //  refused the commit with "document #N not found" and the user's typing
+  //  vanished in silence.
+  it("shows the refusal when a block commit is rejected", async () => {
+    const box: Box = { docs: [docA], versions: [] };
+    const realMutate = boxMutator(box);
+    const mutateDocuments = vi.fn((m: DocMutation, source: DocVersionSource): DocResult => {
+      // The document is deleted out from under the open editor, exactly as a
+      // second tab or an AI delete would do it.
+      if (m.kind === "ops") box.docs = [];
+      return realMutate(m, source);
+    });
+    render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[docA]}
+          mutateDocuments={mutateDocuments}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+    await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
+    const text = await screen.findByRole("textbox", { name: headingTextName(0) });
+    await userEvent.type(text, "!");
+    text.blur();
+
+    expect(await screen.findByText(/not found/i)).toBeInTheDocument();
+  });
 });

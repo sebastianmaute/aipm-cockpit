@@ -2,7 +2,7 @@ import { describe, it, expect, vi } from "vitest";
 import { renderHook } from "@testing-library/react";
 import { useDocumentEditor } from "./use-document-editor";
 import type { DocMutation, DocResult } from "./document-mutations";
-import type { DocVersion, DocVersionSource } from "./document-versions";
+import type { DocVersion } from "./document-versions";
 
 const NOW = "2026-08-18T10:00:00.000Z";
 
@@ -11,11 +11,11 @@ function result(): DocResult {
 }
 
 // ★ Lint watch (see the plan's T8 note): CI runs `eslint --max-warnings=0`
-//  with no `argsIgnorePattern`, so a named-but-unused `(_m, _source)` pair is
-//  fatal. Typed explicitly via the generic instead, so `.mock.calls[0][0]`
-//  keeps its real tuple shape without the callback needing to name either arg.
+//  with no `argsIgnorePattern`, so a named-but-unused `(_m)` param is fatal.
+//  Typed explicitly via the generic instead, so `.mock.calls[0][0]` keeps its
+//  real tuple shape without the callback needing to name the arg.
 function mockMutate() {
-  return vi.fn<(m: DocMutation, source: DocVersionSource) => DocResult>(() => result());
+  return vi.fn<(m: DocMutation) => DocResult>(() => result());
 }
 
 describe("useDocumentEditor — the document-switch guard", () => {
@@ -93,7 +93,7 @@ describe("useDocumentEditor — the coalescing anchor survives a null-minted res
 
   it("keeps the anchor after a COALESCED write that mints nothing", () => {
     const versions = [V_ANCHOR];
-    const mutateDocuments = vi.fn<(m: DocMutation, source: DocVersionSource) => DocResult>();
+    const mutateDocuments = vi.fn<(m: DocMutation) => DocResult>();
     mutateDocuments.mockReturnValueOnce(mintingResult());
     mutateDocuments.mockReturnValueOnce({
       documents: [],
@@ -124,7 +124,7 @@ describe("useDocumentEditor — the coalescing anchor survives a null-minted res
 
   it("keeps the anchor after a REFUSED commit (same guard, the other reachable path)", () => {
     const versions = [V_ANCHOR];
-    const mutateDocuments = vi.fn<(m: DocMutation, source: DocVersionSource) => DocResult>();
+    const mutateDocuments = vi.fn<(m: DocMutation) => DocResult>();
     mutateDocuments.mockReturnValueOnce(mintingResult());
     mutateDocuments.mockReturnValueOnce({
       documents: [],
