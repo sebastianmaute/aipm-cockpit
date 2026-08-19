@@ -200,8 +200,8 @@ describe("Stakeholders bulk edit", () => {
   });
 
   // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
-  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
-  // suite that never passes the prop does not even RUN the builder. Two ticked
+  // panel. The panel hoists `buildBulkFieldEdits(rows)` above the optional
+  // `onCaptureBulk?.(build())` call so the builder runs even unwired. Two ticked
   // fields over THREE rows, each row a different shape of overlap with the pick:
   //   Dana  — both picked values are new            → both keys captured, saved
   //   Eve   — ONE of the two is already at target   → one key captured, saved

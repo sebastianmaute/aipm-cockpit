@@ -326,7 +326,7 @@ function RaidPanelBody({
     // holds both sides, so the capture payload is the same either way. The write
     // set DERIVING from the capture is what matters: `buildBulkFieldEdits` drops a
     // row whose diff is empty, and saving such a row anyway stamps a fresh
-    // `localModifiedAt` and logs a bulk edit that no undo entry can reverse.
+    // `localModifiedAt` and logs a `raid.updated` that no undo entry can reverse.
     // ★ `buildBulkFieldEdits(rows)` is hoisted out of the optional call on purpose:
     // `onCaptureBulk?.(build())` would not evaluate `build()` at all when no
     // capture prop is wired, leaving `wrote` empty and writing nothing.

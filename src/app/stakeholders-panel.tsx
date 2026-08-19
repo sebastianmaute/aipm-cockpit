@@ -213,7 +213,7 @@ function StakeholdersPanelBody({
     // set comes out of the capture: `buildBulkFieldEdits` drops a row whose diff
     // is empty, so a selected row already holding the target value produces no
     // edit, and writing it regardless would stamp a fresh `localModifiedAt` and
-    // log a bulk edit with nothing on the undo stack behind it.
+    // log a `stakeholder.updated` with nothing on the undo stack behind it.
     // ★ Hoisting the build out of the optional call is load-bearing, not tidiness:
     // `onCaptureBulk?.(build())` skips `build()` entirely when no capture prop is
     // wired, which would empty `wrote` and suppress every save.

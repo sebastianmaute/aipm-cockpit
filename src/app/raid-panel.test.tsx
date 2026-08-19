@@ -446,8 +446,8 @@ describe("RAID bulk edit", () => {
   });
 
   // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
-  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
-  // suite that never passes the prop does not even RUN the builder. Owner is the
+  // panel. The panel hoists `buildBulkFieldEdits(rows)` above the optional
+  // `onCaptureBulk?.(build())` call so the builder runs even unwired. Owner is the
   // discriminating field here — one bulk pick writes THREE keys, which must land
   // in ONE patch so an undo reverts the identity as a unit.
   it("captures the owner triple as one patch per changed row, and neither captures NOR saves a row the pick did not change", () => {
