@@ -825,17 +825,35 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
   SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
   **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
-  left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the SOLE
-  writer of status+completedDate — EVERY status mutation (form save create+update in `use-task-submit`,
-  inline status dropdown (`onStatusChange`) in `use-task-row-handlers`, AI/Jira/template seeds) routes through
-  it. ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
+  left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the
+  writer for every LOCAL status mutation — form save, the inline dropdown, bulk edit, the Mark-done CTA,
+  the AI dispatcher and `handleCreateLinkedTask` all route through it.
+  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR, AND THIS BULLET SAID IT WAS. Two paths write `status` and
+  `completedDate` together WITHOUT it, both deliberately: **Jira sync** — `issueToTaskFields` builds the
+  patch and `use-jira-sync` applies both fields verbatim; the Kanban bullet below carries the reason
+  (the engine would stamp `today` over Jira's resolution date), so read it there rather than reasoning
+  from here — and **template import**, where `sanitizeSeedTask` takes both from the raw seed and then
+  calls `migrateTask`, which repairs the pair only when the status is absent or invalid (see the
+  short-circuit below). Do NOT "complete the pattern" by routing either through the engine.
+  ★★ Re-derive both sets rather than trusting any list here: the engine's callers with
+  `grep -rn "applyStatusChange(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — which
+  also returns the declaration itself and one `change-log.ts` COMMENT, so it is not a caller count — and
+  the pair-writers with the same sweep over `completedDate:`. ★ Three kinds of hit in THAT one are not
+  writers: `i18n`/`jira-conflicts-modal` are LABEL maps, the two `*-codecs-decode` hits are load paths,
+  and every `use-task-row-handlers` hit is an undo BEFORE/AFTER capture of what the engine already
+  returned. Read the hit, don't count it.
+  ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
   IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
   ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
   task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
-  NOT repaired. The invariant is held by the WRITERS (`applyStatusChange`; Jira's `issueToTaskFields`
-  drives both fields off one `isDone` flag), not at load, so an imported or hand-edited blob can carry
-  the bad pair. The old wording caused three separate defects in one session — every reader concluded
-  load normalises the pair and wrote that into code comments and commit messages.
+  NOT repaired. The invariant is held by the WRITERS, not at load — `applyStatusChange` by construction,
+  and `issueToTaskFields` because BOTH fields derive from one `statusKey` read (`completedDate` through
+  its `isDone` boolean, `status` through `jiraCategoryToStatus`), so that pair cannot drift.
+  ★★ The THIRD writer does NOT hold it: `sanitizeSeedTask` reads `status` and `completedDate`
+  independently off the seed, so template import is a LIVE CODE PATH that produces the bad pair — "an
+  imported or hand-edited blob" is not merely a hand-editing hazard. The old wording caused three
+  separate defects in one session — every reader concluded load normalises the pair and wrote that
+  into code comments and commit messages.
   `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
   overdue/next-actions/health-red). ★★ SINCE 0.213.0 THE CALLER MUST SAY WHICH QUESTION IT IS ASKING —
   pure `task-closed.ts` exposes `isTaskClosed(task)` (= `isTaskFinished`, Done|Cancelled → "will this be
@@ -843,9 +861,13 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   filter, milestone at-risk) and `isTaskDelivered(task)` (= `!!completedDate` → "was it delivered?": the
   completion-% NUMERATOR, earned value, on-time/late, and anywhere a real date is shown). Cancelled is
   CLOSED but never DELIVERED. Reading `!!completedDate` as "closed" is the bug that made cancelled tasks
-  keep reporting as open and overdue — 11 modules import the split (dashboard · gantt · gantt-rows ·
-  gantt-status-buckets · milestones · reports-stats · resource-workload-rows · resources-panel · snapshot ·
-  task-row · visible-task-rows). ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
+  keep reporting as open and overdue. ★★ THE CONSUMER LIST THAT USED TO SIT HERE WAS WRONG IN BOTH
+  DIRECTIONS — it named eleven modules, omitting two real importers and including one that imports
+  NEITHER half of the split (only the module's third export, `isTaskOutOfScope`, which the list never
+  mentioned). Derive it, never quote it:
+  `grep -rn "from \"./task-closed\"" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  prints each importer WITH the names it takes, which is the part a bare file list cannot carry.
+  ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
   cancelled work is dropped from the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a
   project with cancelled scope can reach 100%. Reports carry a third `cancelled` bucket — a cancelled
   task is neither open nor completed there, and never overdue. UI labels via
