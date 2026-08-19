@@ -322,9 +322,20 @@ function RaidPanelBody({
       .filter((item): item is RaidItem => item !== undefined)
       .map((item) => ({ before: item, after: patch(item) }));
 
-    // Capture BEFORE the saves.
-    onCaptureBulk?.(buildBulkFieldEdits(rows));
-    for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
+    // Ordering between these two statements is NOT what matters — `rows` already
+    // holds both sides, so the capture payload is the same either way. The write
+    // set DERIVING from the capture is what matters: `buildBulkFieldEdits` drops a
+    // row whose diff is empty, and saving such a row anyway stamps a fresh
+    // `localModifiedAt` and logs a bulk edit that no undo entry can reverse.
+    // ★ `buildBulkFieldEdits(rows)` is hoisted out of the optional call on purpose:
+    // `onCaptureBulk?.(build())` would not evaluate `build()` at all when no
+    // capture prop is wired, leaving `wrote` empty and writing nothing.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
+    }
     setBulkOpen(false);
     sel.clear();
   };

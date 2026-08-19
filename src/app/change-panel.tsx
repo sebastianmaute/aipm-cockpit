@@ -290,9 +290,22 @@ function ChangePanelBody({
       .filter((item): item is ChangeItem => item !== undefined)
       .map((item) => ({ before: item, after: apply(item) }));
 
-    // Capture BEFORE the saves.
-    onCaptureBulk?.(buildBulkFieldEdits(rows));
-    for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
+    // `rows` materialises both `before` and `after` above, so the capture payload
+    // does not depend on where these two statements sit relative to each other.
+    // What IS load-bearing: the write set is DERIVED from the capture.
+    // `buildBulkFieldEdits` drops a row whose diff is empty, so bulk-setting a
+    // field to the value a row already holds yields no edit — and saving it anyway
+    // would stamp a fresh `localModifiedAt` and log a bulk edit with no undo entry
+    // behind it (the tasks path had the same split; `use-bulk-operations.ts`).
+    // ★ Hoisted out of the optional call deliberately: `onCaptureBulk?.(build())`
+    // never evaluates `build()` when no capture prop is wired, which would leave
+    // `wrote` empty and write NOTHING at all.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
+    }
     setBulkOpen(false);
     sel.clear();
   };

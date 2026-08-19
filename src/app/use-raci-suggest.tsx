@@ -242,8 +242,24 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
         return before ? { before, after } : null;
       })
       .filter((row): row is { before: Stakeholder; after: Stakeholder } => row !== null);
-    onCaptureBulk?.(buildBulkFieldEdits(rows));
-    for (const s of updated) onSave(s, false, { suppressFieldUndo: true });
+    // The write set DERIVES from the capture. `buildBulkFieldEdits` drops a row
+    // whose diff is empty, so confirming a cell that merely re-states the role a
+    // stakeholder already carries yields no edit — and saving it anyway would
+    // stamp a fresh `localModifiedAt` (`use-stakeholders.ts`) and log a
+    // `stakeholder.updated` with no undo entry behind it.
+    // ★ Hoisted out of the optional call deliberately: `onCaptureBulk?.(build())`
+    // never evaluates `build()` when no capture prop is wired, which would leave
+    // `wrote` empty and apply nothing at all.
+    // ★ Looping `rows` rather than `updated` is not a narrowing — `foldCellsByStakeholder`
+    // folds over the SAME `stakeholders` list `originalById` is built from, so every
+    // `after.id` resolves and `rows.length === updated.length`; the null filter above
+    // is defensive.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, false, { suppressFieldUndo: true });
+    }
     // Report the number of CELL assignments applied (chosen.length), not the
     // number of stakeholders touched (updated.length) — the activity string
     // reads "N RACI assignments".

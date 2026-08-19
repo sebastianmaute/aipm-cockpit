@@ -208,9 +208,21 @@ function StakeholdersPanelBody({
       .filter((item): item is Stakeholder => item !== undefined)
       .map((item) => ({ before: item, after: patch(item) }));
 
-    // Capture BEFORE the saves.
-    onCaptureBulk?.(buildBulkFieldEdits(rows));
-    for (const { after } of rows) onSave(after, undefined, { suppressFieldUndo: true });
+    // The capture payload does not depend on this statement's position — `rows`
+    // snapshots both sides above. The binding that DOES matter is that the write
+    // set comes out of the capture: `buildBulkFieldEdits` drops a row whose diff
+    // is empty, so a selected row already holding the target value produces no
+    // edit, and writing it regardless would stamp a fresh `localModifiedAt` and
+    // log a bulk edit with nothing on the undo stack behind it.
+    // ★ Hoisting the build out of the optional call is load-bearing, not tidiness:
+    // `onCaptureBulk?.(build())` skips `build()` entirely when no capture prop is
+    // wired, which would empty `wrote` and suppress every save.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
+    }
     setBulkOpen(false);
     sel.clear();
   };

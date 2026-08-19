@@ -230,18 +230,35 @@ function MilestonesPanelBody({
       .filter((item): item is Milestone => item !== undefined)
       .map((item) => ({ before: item, after: patch(item) }));
 
-    // Capture BEFORE the saves.
+    // `rows` snapshots both sides above, so the capture payload does not depend on
+    // where this build sits relative to the save loop. What the loop DOES depend on
+    // is `edits`: `buildBulkFieldEdits` drops a row whose diff is empty, so a
+    // selected milestone already carrying the target date yields no edit — and
+    // saving it anyway still replaces the row (a fresh array, so the workspace
+    // dirties and autosaves) and logs a `milestone.updated` carrying an EMPTY
+    // diffFields, with no undo entry behind either. `wrote` binds the written set
+    // to the captured one so the two cannot drift apart.
+    // ★ The build stays hoisted out of the optional `captureFieldRows?.(…)` call:
+    // inlined, it would not run at all when no capture prop is wired, emptying
+    // `wrote` and suppressing every save.
     const edits = buildBulkFieldEdits(rows);
-    // No `stampField` here, deliberately: the tasks bulk path
-    // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"` and
-    // these four converted registers do not, so undoing a bulk edit reverts
-    // the values and leaves the apply's `localModifiedAt` standing.
-    // `stampField` does NOT restore the prior stamp; it writes a FRESH
-    // `new Date().toISOString()` on undo AND redo, the reversal being itself
-    // a local modification the backends must push. Adding it here would be a
-    // behaviour change, not a consistency fix.
+    const wrote = new Set(edits.map((e) => e.id));
+    // No `stampField` here: this register omits it while the tasks bulk edit
+    // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"`.
+    // `stampField` does NOT restore the prior stamp — it writes a FRESH
+    // `new Date().toISOString()` on undo AND redo, the reversal being itself a
+    // local modification. Which of the two registers is right is UNRESOLVED: an
+    // undo that does not restamp may not propagate to a backend that syncs on
+    // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
+    // four registers without reading it.
+    // ★ Milestones sit further out than the other three: `Milestone` HAS an
+    // optional `localModifiedAt`, but `save` below never writes it, so this
+    // register's APPLY does not stamp either. Weigh that before answering §181
+    // here — it is a different question from the one the stamping registers ask.
     if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
-    for (const { after } of rows) save(after, undefined, { suppressFieldUndo: true });
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) save(after, undefined, { suppressFieldUndo: true });
+    }
     setBulkOpen(false);
     sel.clear();
   };
