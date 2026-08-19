@@ -48,13 +48,15 @@ describe("DocumentEditor", () => {
     expect(screen.queryByRole("button", { name: /drag|reorder|move block/i })).toBeNull();
   });
 
-  // ★★★ TWO PARAGRAPHS, NOT ONE. With a single-paragraph fixture this assertion
-  //  is satisfied by the WIDE branch as well — one paragraph mounts one editor
-  //  and therefore one toolbar either way — so it passed with the narrow branch
-  //  deleted outright. A count assertion needs a fixture in which the two
-  //  branches DISAGREE.
-  it("docks ONE toolbar at a narrow pane instead of one per block", () => {
-    const twoParagraphs: ProjectDocument = {
+  describe("at a narrow pane", () => {
+    // ★★★ THREE BLOCKS, TWO OF THEM PARAGRAPHS. With a single-paragraph
+    //  fixture the toolbar count is satisfied by the WIDE branch as well —
+    //  one paragraph mounts one editor and therefore one toolbar either way —
+    //  so it passed with the narrow branch deleted outright. A count
+    //  assertion needs a fixture in which the two branches DISAGREE. The
+    //  leading heading also keeps the first PARAGRAPH off block index 0, so a
+    //  selection compared against the block's own index cannot pass by luck.
+    const threeBlocks: ProjectDocument = {
       ...doc,
       blocks: [
         { type: "heading", level: 1, text: "Summary" },
@@ -62,16 +64,109 @@ describe("DocumentEditor", () => {
         { type: "paragraph", html: "<p>Second</p>" },
       ],
     };
-    const { rerender } = render(
-      <DocumentEditor lang={LANG} doc={twoParagraphs} onCommitBlock={vi.fn()} narrow />,
-    );
-    // jsdom has no layout, so the narrow branch is driven by an injected flag,
-    // never by a measured width.
-    expect(screen.getAllByRole("toolbar")).toHaveLength(1);
 
-    // The wide branch is what proves the fixture can tell them apart.
-    rerender(<DocumentEditor lang={LANG} doc={twoParagraphs} onCommitBlock={vi.fn()} />);
-    expect(screen.getAllByRole("toolbar")).toHaveLength(2);
+    it("docks ONE toolbar instead of one per block", () => {
+      const { rerender } = render(
+        <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
+      );
+      // jsdom has no layout, so the narrow branch is driven by an injected
+      // flag, never by a measured width.
+      expect(screen.getAllByRole("toolbar")).toHaveLength(1);
+      // The wide branch is what proves the fixture can tell the two apart.
+      rerender(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} />);
+      expect(screen.getAllByRole("toolbar")).toHaveLength(2);
+    });
+
+    // ★★ THE DOCK IS ABOVE THE DOCUMENT, which is both the spec's wording and
+    //  what keeps the portal from breaking Tab: content moved BELOW its
+    //  logical position is the recorded failure mode.
+    it("renders the docked toolbar before the block list in DOM order", () => {
+      const { container } = render(
+        <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
+      );
+      const toolbar = screen.getByRole("toolbar");
+      const firstRow = container.querySelectorAll("[data-block-row]")[0];
+      expect(toolbar.compareDocumentPosition(firstRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
+    });
+
+    // ★★★ THE SILENT COLLAPSE WAS THE DEFECT, not the collapse itself. An
+    //  unselected paragraph rendering read-only with no reason and no way back
+    //  is the "disabled control with no reason reads as broken" failure this
+    //  slice states two files away for the image case.
+    it("says why an unselected paragraph is read-only, and offers a way in", async () => {
+      render(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
+      expect(screen.getByText(t(LANG, "documentsBlockCollapsedNarrow"))).toBeInTheDocument();
+      const select = screen.getByRole("button", {
+        name: `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "3")}`,
+      });
+      await userEvent.click(select);
+      // Selection MOVED: the second paragraph is now live and the first is not.
+      expect(
+        screen.getByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "3") }),
+      ).toBeInTheDocument();
+      expect(
+        screen.queryByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "2") }),
+      ).toBeNull();
+    });
+
+    // ★★★ BLOCK-UNIQUE NAMES. Two "Edit this block" buttons sharing one
+    //  accessible name is a WCAG 2.4.6 failure NO axe rule under the four tags
+    //  e2e/a11y.spec.ts requests can see, at any seed size — a unit test
+    //  rendering two of them is the only detector that can exist. The two
+    //  paragraphs above cannot express it (only ONE is ever unselected), so
+    //  this fixture carries three.
+    it("gives each unselected paragraph a block-unique select button", () => {
+      const fourBlocks: ProjectDocument = {
+        ...doc,
+        blocks: [
+          { type: "heading", level: 1, text: "Summary" },
+          { type: "paragraph", html: "<p>First</p>" },
+          { type: "paragraph", html: "<p>Second</p>" },
+          { type: "paragraph", html: "<p>Third</p>" },
+        ],
+      };
+      render(<DocumentEditor lang={LANG} doc={fourBlocks} onCommitBlock={vi.fn()} narrow />);
+      const names = screen
+        .getAllByRole("button", { name: new RegExp(t(LANG, "documentsBlockSelect")) })
+        .map((b) => b.getAttribute("aria-label"));
+      expect(names).toEqual([
+        `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "3")}`,
+        `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "4")}`,
+      ]);
+      expect(new Set(names).size).toBe(names.length);
+    });
+
+    // ★★★ THE IMAGE BUG. `firstParagraphIndex` had no image test, so a first
+    //  paragraph holding one made ParagraphBlockEditor return its read-only
+    //  notice and left the document with NO editable paragraph anywhere.
+    it("leaves another paragraph reachable when the first holds an image", async () => {
+      const withImage: ProjectDocument = {
+        ...doc,
+        blocks: [
+          { type: "paragraph", html: '<p>Chart</p><img data-asset-id="a1" alt="chart">' },
+          { type: "paragraph", html: "<p>Editable</p>" },
+        ],
+      };
+      render(<DocumentEditor lang={LANG} doc={withImage} onCommitBlock={vi.fn()} narrow />);
+      const select = screen.getByRole("button", {
+        name: `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "2")}`,
+      });
+      // ★★ REACHABLE means the click WORKS, not merely that a button is drawn.
+      //  Asserting only its presence leaves the test green with the selection
+      //  state dropped (`selected` pinned to the first paragraph) — measured:
+      //  that mutant killed the sibling test and survived this one.
+      await userEvent.click(select);
+      expect(
+        screen.getByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "2") }),
+      ).toBeInTheDocument();
+    });
+
+    // Non-paragraph editors carry no rich toolbar, so there is nothing to dock
+    // and nothing to crowd — they stay live at every width.
+    it("leaves non-paragraph editors live", () => {
+      render(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
+      expect(screen.getByRole("textbox", { name: headingTextName(0) })).toBeEnabled();
+    });
   });
 
   // ★ `doc` above has its ONE paragraph as the first-in-document — the exact

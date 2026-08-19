@@ -27,6 +27,10 @@ export type BlockEditorProps<B extends DocBlock = DocBlock> = {
   index: number;
   block: B;
   onCommit: (index: number, block: DocBlock) => void;
+  /** Narrow-pane docking: the paragraph editor portals its toolbar here.
+   *  Absent at a wide pane and for every NON-paragraph editor — those carry
+   *  no 20-control toolbar, so they have nothing to dock and read it never. */
+  toolbarContainer?: HTMLElement | null;
 };
 
 /**
@@ -472,6 +476,7 @@ export function ParagraphBlockEditor({
   index,
   block,
   onCommit,
+  toolbarContainer,
 }: BlockEditorProps<Extract<DocBlock, { type: "paragraph" }>>) {
   // ★★★ An image in a document paragraph is REACHABLE TODAY (model-authored
   //  HTML goes through sanitizeDocumentHtml, which admits `img`), and the
@@ -481,7 +486,15 @@ export function ParagraphBlockEditor({
   if (paragraphHasImage(block.html)) {
     return <BlockReadOnlyNotice html={block.html} reason={t(lang, "documentsBlockImageReadOnly")} />;
   }
-  return <ParagraphEditorBody lang={lang} index={index} block={block} onCommit={onCommit} />;
+  return (
+    <ParagraphEditorBody
+      lang={lang}
+      index={index}
+      block={block}
+      onCommit={onCommit}
+      toolbarContainer={toolbarContainer}
+    />
+  );
 }
 
 /** Split out so the read-only branch above returns BEFORE any hook runs —
@@ -491,6 +504,7 @@ function ParagraphEditorBody({
   index,
   block,
   onCommit,
+  toolbarContainer,
 }: BlockEditorProps<Extract<DocBlock, { type: "paragraph" }>>) {
   const { value: html, setValue: setHtml, commit, seedNonce, dropped } = useBlockDraft(
     (b: Extract<DocBlock, { type: "paragraph" }>): string => b.html,
@@ -522,6 +536,7 @@ function ParagraphEditorBody({
         onChange={setHtml}
         label={t(lang, "documentsParagraphLabel", String(index + 1))}
         lang={lang}
+        toolbarContainer={toolbarContainer}
       />
       {dropped && <BlockDroppedNotice lang={lang} />}
     </div>
