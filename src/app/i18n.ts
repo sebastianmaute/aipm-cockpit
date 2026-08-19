@@ -2708,6 +2708,9 @@ const enUS = {
   documentsBlockImageReadOnly:
     "This paragraph contains an image, so it cannot be edited yet. Editing it here would remove the image.",
   documentsBlockNoEditor: "This block has no editable content.",
+  documentsNoBlocks: "This document has no blocks yet.",
+  documentsAddBlock: "Add a paragraph",
+  documentsNewBlockText: "New paragraph",
   documentsBlockSelect: "Edit this block",
   documentsBlockCollapsedNarrow:
     "Only the selected block is editable while the pane is narrow.",

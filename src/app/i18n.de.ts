@@ -2646,6 +2646,9 @@ export const de: Record<TranslationKey, string> = {
   documentsBlockEmptyNotSaved:
     "Leerer Inhalt wird nicht gespeichert – dieser Block behält seinen bisherigen Text.",
   documentsBlockNoEditor: "Dieser Block hat keinen bearbeitbaren Inhalt.",
+  documentsNoBlocks: "Dieses Dokument hat noch keine Blöcke.",
+  documentsAddBlock: "Absatz hinzufügen",
+  documentsNewBlockText: "Neuer Absatz",
   documentsBlockSelect: "Diesen Block bearbeiten",
   documentsBlockCollapsedNarrow:
     "Nur der ausgewählte Block ist bearbeitbar, solange der Bereich schmal ist.",

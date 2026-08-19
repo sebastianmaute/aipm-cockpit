@@ -16,7 +16,7 @@ import {
 import type { ReactElement } from "react";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { sanitizeDocumentHtml } from "./sanitize-html";
+import { sanitizeDocumentHtml, plainToHtml } from "./sanitize-html";
 
 /** Pane width, in px, at or below which the toolbar docks once instead of
  *  rendering per block.
@@ -33,6 +33,11 @@ export type DocumentEditorProps = {
   lang: Lang;
   doc: ProjectDocument;
   onCommitBlock: (index: number, block: DocBlock) => void;
+  /** Appends a block. Reached only from the zero-block empty state: the block
+   *  SET is otherwise out of scope for this slice (see this file's header).
+   *  ★ Optional so the many pre-existing non-empty-document fixtures in this
+   *   file's own tests never have to thread a value that branch never calls. */
+  onAppendBlock?: (block: DocBlock) => void;
   /** Injected. ★ jsdom has no layout, so a measured width would be untestable. */
   narrow?: boolean;
 };
@@ -46,7 +51,13 @@ const KIND_LABEL: Record<DocBlock["type"], TranslationKey> = {
   pageBreak: "documentsBlockPageBreak",
 };
 
-export function DocumentEditor({ lang, doc, onCommitBlock, narrow = false }: DocumentEditorProps) {
+export function DocumentEditor({
+  lang,
+  doc,
+  onCommitBlock,
+  onAppendBlock,
+  narrow = false,
+}: DocumentEditorProps) {
   // ★★★ THE DOCK. A callback ref held in STATE, not a `useRef`: the portal
   //  target must exist before the child renders into it, and mutating a ref
   //  object triggers no re-render (nor may a ref be READ during render at all
@@ -83,6 +94,34 @@ export function DocumentEditor({ lang, doc, onCommitBlock, narrow = false }: Doc
           dock is a stable 0-height box, whereas mounting it conditionally on a
           paragraph existing would move every row the moment one is added. */}
       {narrow && <div ref={setDock} className="sticky top-0 z-10 bg-surface" />}
+      {doc.blocks.length === 0 && (
+        <div className="flex flex-col items-start gap-2 rounded-md border border-line p-3">
+          <p className="text-sm text-muted-foreground">{t(lang, "documentsNoBlocks")}</p>
+          {/* ★★★ THE SEED IS NOT EMPTY. document-model.ts drops a paragraph
+              whose visible text length is 0, so an empty seed would create a
+              block that renders now and is GONE on the next load — the exact
+              failure this round's "never commit a block the loader discards"
+              task exists to prevent. The user replaces the placeholder.
+              ★ `plainToHtml`, not `sanitizeRichText`: the input is a
+              compile-time i18n literal, so it is provably plain by
+              construction — the same justification the other remaining
+              `plainToHtml(` call sites carry. Do NOT copy this to a boundary
+              whose input could already be HTML; there the escape corrupts it
+              permanently.
+              ★ No `aria-label`: the visible text IS the accessible name, so
+              WCAG 2.5.3 holds by construction and there is nothing to keep in
+              step. This control renders once, so it needs no block qualifier. */}
+          <button
+            type="button"
+            className="rounded-md border border-line px-2 py-1 text-xs"
+            onClick={() =>
+              onAppendBlock?.({ type: "paragraph", html: plainToHtml(t(lang, "documentsNewBlockText")) })
+            }
+          >
+            {t(lang, "documentsAddBlock")}
+          </button>
+        </div>
+      )}
       {doc.blocks.map((block, index) => (
         // ★★★ The key carries `doc.id`, not just `index` — otherwise switching
         //  the SELECTED document while edit mode is open lets React reuse this

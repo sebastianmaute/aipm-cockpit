@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { DocumentEditor } from "./document-editor";
 import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
+import { htmlTextLength } from "./rich-text-plain";
 
 const LANG = "en-US" as const;
 
@@ -249,6 +250,52 @@ describe("DocumentEditor", () => {
       rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
       // The remounted field reflects B's stored content, never the stray "!".
       expect(screen.getByRole("textbox", { name: headingTextName(0) })).toHaveValue("Beta");
+    });
+  });
+
+  describe("a document with no blocks", () => {
+    const empty: ProjectDocument = {
+      id: 11,
+      title: "Empty",
+      blocks: [],
+      createdAt: "2026-08-18T10:00:00.000Z",
+      updatedAt: "2026-08-18T10:00:00.000Z",
+    };
+
+    // ★★ An empty <div> with no message and no affordance reads as broken — the
+    //  same principle this slice states for the image case and for the collapsed
+    //  narrow-pane paragraph.
+    it("says the document has no blocks yet", () => {
+      render(
+        <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+      );
+      expect(screen.getByText(t(LANG, "documentsNoBlocks"))).toBeInTheDocument();
+    });
+
+    // ★★★ THE APPENDED PARAGRAPH CARRIES SEEDED TEXT, NOT AN EMPTY ONE.
+    //  document-model.ts drops a paragraph whose visible text length is 0, so an
+    //  empty seed would create a block that renders now and is GONE on the next
+    //  load — the exact failure Task 7 of this round exists to prevent.
+    it("appends a paragraph carrying real text", async () => {
+      const onAppendBlock = vi.fn();
+      render(
+        <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={onAppendBlock} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
+      expect(onAppendBlock).toHaveBeenCalledTimes(1);
+      const block = onAppendBlock.mock.calls[0][0] as { type: string; html: string };
+      expect(block.type).toBe("paragraph");
+      expect(htmlTextLength(block.html)).toBeGreaterThan(0);
+      expect(block.html).toContain(t(LANG, "documentsNewBlockText"));
+    });
+
+    // ★ The control is EMPTY-STATE ONLY. A general add-block affordance is the
+    //  structural slice (document-editor.tsx's own header scopes the block SET
+    //  out of S3b), and it is deliberately not built here.
+    it("renders no add-block control once the document has a block", () => {
+      render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />);
+      expect(screen.queryByRole("button", { name: t(LANG, "documentsAddBlock") })).toBeNull();
+      expect(screen.queryByText(t(LANG, "documentsNoBlocks"))).toBeNull();
     });
   });
 });

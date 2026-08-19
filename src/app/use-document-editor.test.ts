@@ -153,3 +153,35 @@ describe("useDocumentEditor — the coalescing anchor survives a null-minted res
     expect(mutateDocuments.mock.calls[2][0]).toMatchObject({ coalesce: true });
   });
 });
+
+describe("useDocumentEditor — appendBlock", () => {
+  // ★★★ AN APPEND NEVER COALESCES INTO A PRECEDING RUN. Creating a block is a
+  //  structural change and the pre-append state is what a user reverting an
+  //  accidental add wants back, so the mutation carries NO coalesce field and
+  //  document-mutations.ts writes the before-image unconditionally.
+  it("emits an append with no coalesce flag", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions: [], mutateDocuments, now: () => NOW }),
+    );
+    hook.current.appendBlock({ type: "paragraph", html: "<p>seed</p>" });
+    const sent = mutateDocuments.mock.calls[0][0];
+    expect(sent).toMatchObject({ kind: "ops", id: 1, ops: [{ op: "append" }] });
+    expect(sent).not.toHaveProperty("coalesce");
+  });
+
+  // Same guard as commitBlock: a closure minted for a document that is no
+  // longer selected must abandon rather than land on whichever is selected now.
+  it("abandons an append from a closure minted for a document that is no longer selected", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook, rerender } = renderHook(
+      ({ documentId }: { documentId: number }) =>
+        useDocumentEditor({ documentId, versions: [], mutateDocuments, now: () => NOW }),
+      { initialProps: { documentId: 1 } },
+    );
+    const staleAppend = hook.current.appendBlock;
+    rerender({ documentId: 2 });
+    expect(staleAppend({ type: "paragraph", html: "<p>seed</p>" })).toBeUndefined();
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+});

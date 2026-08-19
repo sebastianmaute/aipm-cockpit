@@ -122,5 +122,31 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     [documentId, versions, mutateDocuments, now],
   );
 
-  return { commitBlock };
+  const appendBlock = useCallback(
+    (block: DocBlock): DocResult | undefined => {
+      // Same abandon-rather-than-clobber guard as commitBlock: this closure was
+      // built for `documentId`, and if the panel has moved on, appending here
+      // would add a block to whichever document happens to be selected now.
+      if (documentId !== currentDocIdRef.current) return undefined;
+      // ★★★ NO `coalesce` FIELD, DELIBERATELY. document-mutations.ts reads
+      //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
+      //  it writes the before-image unconditionally. Creating a block is a
+      //  structural change and the pre-append state is exactly what a user
+      //  reverting an accidental add wants back — an append must never fold
+      //  into a preceding editing run.
+      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [{ op: "append", block }] });
+      // ★★ ...but it DOES become the run's anchor, so the typing that follows
+      //  folds into it. That is not a special case: the append is one of THIS
+      //  hook's own commits, so it advances the anchor for the same reason
+      //  every other one does. And it is right — the append's before-image
+      //  already IS the pre-session state, so a second version would capture a
+      //  half-typed placeholder, which is a revert target nobody wants and one
+      //  of only MAX_VERSIONS_PER_DOC (20) slots spent.
+      if (result.minted) lastMintedRef.current = result.minted;
+      return result;
+    },
+    [documentId, mutateDocuments],
+  );
+
+  return { commitBlock, appendBlock };
 }
