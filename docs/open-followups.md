@@ -12210,3 +12210,111 @@ returns sees a refusal referring to an attempt they no longer remember. If that
 is judged to matter, clear it when the draft next goes DIRTY (the user has moved
 on) rather than on adoption — and note `document-block-editors.tsx` currently
 sits at exactly 800 of the 800-line cap, so it needs headroom first.
+
+## 189. Adopt Prettier at `printWidth: 120` and raise the size cap to 900
+
+**Status:** open, DECIDED but deliberately not implemented. **Severity:** low
+(no defect — a tooling decision plus its migration cost). **Decided:**
+2026-08-19. **Deferred the same day**, to be done as its own slice rather than
+riding on an unrelated branch.
+
+The repo has no formatter. `scripts/check-file-sizes.mjs` caps a `src` file at
+`LIMIT = 800` lines. The decision is to adopt Prettier at `printWidth: 120` and
+raise that cap to **900** in the same change.
+
+### Why both halves move together
+
+Reformatting the tree at width 120 grows files by roughly 2% at the median, so
+the cap has to absorb that before the ratchet can pass. Raising the cap ALONE
+would be a pure weakening — it buys headroom nothing has earned. Adopting the
+formatter alone would fail the gate on the files already at the line.
+
+The pressure is real, measured 2026-08-19 (reproduce with the snippet below):
+**27** files sit in the 700–800 band and six are at 795 or above, including
+`document-block-editors.tsx` at exactly **800** — zero headroom, which is why
+followup §188 records a fix it cannot make room for. Four files are over the cap
+and baselined; `i18n.ts` / `i18n.de.ts` are exempt and not counted here.
+
+```bash
+node -e "
+const fs=require('fs');const files=[];
+(function walk(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){const p=d+'/'+e.name;
+if(e.isDirectory()){if(!/node_modules|[.]next|coverage|[.]git/.test(p))walk(p)}
+else if(/[.](ts|tsx)$/.test(e.name)&&!/[.]test[.]|[.]property[.]/.test(e.name))files.push(p)}})('src');
+const L=files.map(f=>[f,fs.readFileSync(f,'utf8').split('\n').length]).sort((a,b)=>b[1]-a[1]);
+console.log('700-800 band:',L.filter(x=>x[1]>700&&x[1]<=800).length);
+console.log(L.slice(0,12).map(x=>x[1]+'  '+x[0]).join('\n'));"
+```
+
+★ The cap script counts `split("\n").length`, which is `wc -l` **+ 1** — so a
+file reading 799 under `wc -l` is already AT an 800 cap. Budget the new cap from
+the script's own number, not from `wc -l`.
+
+### The real cost, and why this is not a drive-by
+
+★★★ **A repo-wide reformat silently invalidates every `path:LINE` citation in
+the docs, and `docs:claims:check` STAYS GREEN while it happens.** The gate is a
+ratchet over citation COUNT plus a range check — it proves a cited line COULD
+exist, never that the right thing is on it. Reformatting moves hundreds of lines
+without changing any file's length enough to push a citation past EOF, so
+essentially none of the drift is detectable. Read today's citation total off the
+gate itself (`npm run docs:claims:check`); do not trust a number quoted in prose.
+
+That makes the citation question the *substance* of this slice, not a chore
+attached to it. Two defensible answers, and the choice belongs to whoever runs it:
+
+- **Convert first.** Turn `path:LINE` citations into symbol + grep citations
+  (already the documented house rule), THEN reformat. Slow, but it retires the
+  rot permanently and leaves the gate meaningful.
+- **Accept and record.** Reformat, then treat every surviving line citation as
+  suspect until re-verified. Cheap, and consistent with the standing rule that a
+  wrong line number is a SYMPTOM — go re-verify the claim, never renumber it.
+
+Do NOT re-baseline the citation gate to absorb the churn. Re-baselining to admit
+new breakage defeats the only property it checks.
+
+### Implementation notes measured on 2026-08-19
+
+A temporary `prettier@3.9.6` install produced these, and was removed again — the
+tree today has no prettier, so re-install before reproducing anything here.
+
+- **`endOfLine: "auto"` is REQUIRED**, not a preference. `core.autocrlf=true`
+  checks source out as CRLF on Windows while CI runs on LF. Prettier's default
+  `"lf"` would rewrite every worktree file's endings and make a `format:check`
+  job pass on CI and fail locally, or the reverse. `"auto"` preserves what each
+  file already has, so both platforms agree.
+- **Scope to `.ts`/`.tsx`/`.mjs`.** Prettier formats `.json` and `.md` by
+  default, and both are hazardous here: `.gitattributes` pins the golden
+  serializer fixtures as binary precisely so nothing rewrites them, `*.md` is
+  pinned to LF for the script-docs verifier, and the generated
+  `operating-guide-builtin.generated.ts` is regenerated LF by `prebuild` — a
+  prettified copy would drift on the next build. Today's fixtures are `.csv` and
+  `.md` only, so an extension-scoped run cannot reach them, but that is a fact
+  about today's fixture set rather than a guarantee.
+- **`globals.css` deliberately excluded** from the first cut. It is the file the
+  palette and Tailwind-v4 constraints bear on hardest, and formatting it buys
+  the least.
+- **The size baseline must be regenerated** (`node scripts/check-file-sizes.mjs
+  --update`) after the reformat: the four baselined files all grow, and a grown
+  baselined file fails the ratchet exactly like a new oversized one.
+- **ESLint conflict looks unlikely but was NOT audited.** `eslint.config.mjs`
+  adds no stylistic rules of its own — it is `eslint-config-next`'s
+  core-web-vitals + typescript presets plus `globalIgnores`. Whether those
+  presets carry a formatting rule that Prettier's output would trip was not
+  checked, and `eslint.config.mjs` is hook-protected, so a conflict cannot be
+  resolved by editing the config. Run `npx eslint --max-warnings=0 src/app`
+  against a reformatted tree EARLY.
+- **`dup:check` is an open risk.** Reformatting normalises code, which can raise
+  jscpd's detected duplication. The gate compares one number — total duplicated
+  LINE percentage — against a hardcoded `1.75` in `package.json`. Measure after
+  reformatting; if it rises past the threshold, that is a finding about real
+  duplication the old formatting was hiding, not a licence to raise the number.
+
+### Not decided
+
+Whether a `format:check` job joins the CI quality stage. Without one the
+formatting drifts back within weeks; with one, every in-flight branch goes red
+until rebased. Deliberately left to whoever runs the slice.
+
+**To close:** run it as its own branch — answer the citation question first,
+then config + reformat + cap + baseline in one reviewable change set.
