@@ -2192,8 +2192,15 @@ Closed by **two complementary mechanisms**, not one, because they cover differen
   write-through keys), and `captureFieldRows` turns N such patches into one undo entry. **Five PANEL
   bulk-edit sites were converted** — RAID (`use-resource-planner.ts`), changes (`use-change-log.ts`),
   stakeholders (`use-stakeholders.ts`), milestones (`milestones-panel.tsx`), tasks
-  (`use-bulk-operations.ts`) — plus two consumers the original plan never named,
-  `raci-panel.tsx` / `use-raci-suggest.tsx`, which share the stakeholders capture prop.
+  (`use-bulk-operations.ts`) — plus ONE consumer the original plan never named,
+  `use-raci-suggest.tsx`, which builds the same field patches and hands them to the stakeholders
+  capture prop. ★ An earlier revision of this line said TWO and named `raci-panel.tsx` beside it;
+  that panel declares the prop, destructures it and forwards it into the hook's `deps`, and calls
+  neither `buildBulkFieldEdits` nor any capture. One builder, one pass-through:
+
+  ```bash
+  grep -n "onCaptureBulk\|buildBulkFieldEdits\|captureFieldRows" src/app/raci-panel.tsx src/app/use-raci-suggest.tsx
+  ```
 
   ★★ **THOSE ARE NOT ALL THE `bulk.edit` EMITTERS** — an earlier revision of this line said "all five
   `bulk.edit` sites … were converted", which is false.
@@ -2204,14 +2211,20 @@ Closed by **two complementary mechanisms**, not one, because they cover differen
   fields and nothing else. Re-derive the set rather than trusting this list:
 
   ```bash
-  grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+  # ★★ SOME HITS ARE COMMENTS quoting the literal, not emit sites — this doc's own round added one
+  # (`use-budget-buckets.ts`). The trailing filter drops a `//` line; a `*` continuation inside a
+  # block comment would still slip through, so READ each line rather than counting them.
+  grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' \
+    | grep -vE ':[0-9]+: *//'
   ```
 
   ★★★ **A field patch preserves concurrent edits to OTHER FIELDS — NOT "EVERY concurrent edit on
   that row", which is what this entry claimed.** `buildBulkFieldEdits` captures whole FIELD VALUES
-  (`pick(before, changed)`) and the restore merges them wholesale (`{ ...r, ...patch }`, the field
-  runner in `use-undo-stack.ts`), so a concurrent write to a DIFFERENT KEY of the same
-  object-valued field is still reverted. Reachable today on `Stakeholder.raci`. Filed as §178.
+  (`pick(before, changed)`) and the restore merges them wholesale — `const merged = { ...row,
+  ...pick(edit) }` in `captureFieldPart` (`src/app/undo/use-undo-stack.ts`), the BULK runner, NOT the
+  `{ ...r, ...patch }` of `captureFieldEdit`'s single-row modal-save path in the same file — so a
+  concurrent write to a DIFFERENT KEY of the same object-valued field is still reverted. Reachable
+  today on `Stakeholder.raci`. Filed as §178.
   Within that limit it is still strictly stronger than the backstop, wherever it applies.
 
 **The task half is now verified, not suspected.** This entry said the same sequence "very likely" lost
@@ -11632,21 +11645,35 @@ and this entry records what was deliberately left out.
 
 ★★ **The whole-row paths that remain still revert every concurrent change OUTSIDE
 `WRITE_THROUGH_FIELDS`.** Reference-data cascades, the resource directory, task dedup
-(`use-tasks-dedup.tsx`), the alloc plan (`use-alloc-plan.tsx`), and dependency stripping on delete
+(`use-tasks-dedup.tsx`), the alloc plan (`use-alloc-plan.tsx`), the BUCKETS half of the tasks
+bulk-edit composite (`use-budget-buckets.ts`), and dependency stripping on delete
 (pinned against, not fixed, by the two `use-task-row-handlers.test.ts` tests §50 added) all still
 capture whole rows. Undoing any of them reverts every field the row carried at
 capture time, including one a background writer changed in the meantime — the exact §50 shape.
 
 ★★ **TWO CORRECTIONS TO THIS PARAGRAPH'S OWN EARLIER TEXT, both measured.** (1) It said these paths
-capture "via `capturePart`" — only the reference-data cascades and the resource-directory DELETES do;
-task dedup, the alloc plan, the resource directory's BULK EDIT and dependency stripping on delete all
-use the single-array `capture()`. (2) It said the shape is "just not on a `bulk.edit` site", which
-contradicts §50 and is false twice over — the alloc plan and the resource directory's bulk edit BOTH
-emit `kind: "bulk.edit"`. The two commands disagree with the sentences they replace, so run them:
+capture "via `capturePart`" — that is THREE of them, not all: the reference-data cascades
+(`use-reference-data.ts`), the resource-directory DELETES (`use-resource-directory.ts`) and the
+BUCKETS half of the tasks bulk-edit composite (`use-budget-buckets.ts`, whose part carries whole
+`removed`/`edited` rows). Task dedup, the alloc plan, the resource directory's BULK EDIT and
+dependency stripping on delete all use the single-array `capture()` instead. (2) It said the shape is
+"just not on a `bulk.edit` site", which contradicts §50 and is false twice over — the alloc plan and
+the resource directory's bulk edit BOTH emit `kind: "bulk.edit"`.
+
+★★★ **BOTH COMMANDS BELOW ARE NARROWED FROM THE BARE GREPS THIS ENTRY USED TO CARRY, and each bare
+form was wrong in a DIFFERENT direction.** `grep -rn "capturePart"` OVER-reports — it returns the
+import lines and the source comments that merely name the helper. But the obvious narrowing,
+`capturePart({`, UNDER-reports and hides the very site the sentence above was missing: the
+budget-buckets call is `capturePart<BudgetBucket>({`, so a call-shaped grep with no generic in it
+drops it silently. The form below admits an optional type argument — the repo's standing
+"enumerate call sites with ALL call shapes" rule. Read the `kind:` hits rather than counting them:
+comment lines quoting the literal are hits too.
 
 ```bash
-grep -rn "capturePart" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
-grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -rnE "\bcapturePart(<[A-Za-z0-9_, ]*>)?\(" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.' | grep -vE ':[0-9]+: *//'
+grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' \
+  | grep -vE ':[0-9]+: *//'
 ```
 
 A NEW write-through field added to an entity escapes
@@ -11684,14 +11711,18 @@ grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
 
 §50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
 this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
-key-by-key and stores the WHOLE VALUE of each changed field (`pick(before, changed)`); the field
-runner then merges those values wholesale over the live row (`{ ...r, ...patch }`). So the unit of
-preservation is the FIELD, not the key inside it — a concurrent writer that produced a new object or
+key-by-key and stores the WHOLE VALUE of each changed field (`pick(before, changed)`); the BULK field
+runner `captureFieldPart` then merges those values wholesale over the live row
+(`const merged = { ...row, ...pick(edit) }`). So the unit of preservation is the FIELD, not the key
+inside it — a concurrent writer that produced a new object or
 array for a field the op also touched loses its change, exactly as a whole-row capture would.
 
 ```bash
-grep -n "pick(before, changed)" src/app/undo/field-groups.ts        # whole VALUE captured
-grep -n '\.\.\.r, \.\.\.patch' src/app/undo/use-undo-stack.ts       # merged wholesale
+grep -n "pick(before, changed)" src/app/undo/field-groups.ts   # whole VALUE captured
+# ★★ The BULK runner, not the single-row one. `{ ...r, ...patch }` in the same file is
+# `captureFieldEdit`'s modal-save path — it proves the same property about a DIFFERENT runner,
+# and it exits 0 and prints a line, so citing it reads as verified when it is not.
+grep -n "merged = { \.\.\.row, \.\.\.pick(edit) }" src/app/undo/use-undo-stack.ts   # merged wholesale
 ```
 
 **Reachable today on `Stakeholder.raci`**, which is a `Record<string, RaciRole>` keyed by milestone id,
@@ -11780,14 +11811,74 @@ undo restores it alone — leaving `status: "Done"` with no `completedDate`, or 
 guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed-but-never-delivered
 or the reverse).
 
-**Reachability is narrow and it is worth stating precisely.** Every writer keeps the pairs in step —
-`applyStatusChange` is the sole writer of `status`+`completedDate`, and a bulk op builds `after` from
-`before` — so a lone-member difference requires the STORED row to already be inconsistent. Nothing
-repairs that on load: `migrateTask` short-circuits on `if (statusOk && createdOk) return task;`, so a
-valid-but-inconsistent pair from an import or a hand-edited blob survives every load path.
+**Reachability is narrow and it is worth stating precisely.** Every writer keeps the pairs in step,
+and a bulk op builds `after` from `before` — so a lone-member difference requires the STORED row to
+already be inconsistent. Nothing repairs that on load: `migrateTask` short-circuits on
+`if (statusOk && createdOk) return task;`, so a valid-but-inconsistent pair from an import or a
+hand-edited blob survives every load path.
+
+★★ **THE GROUND FOR THAT IS NOT "`applyStatusChange` IS THE SOLE WRITER", WHICH THIS ENTRY CLAIMED
+AND IS FALSE.** The Jira path bypasses it: `issueToTaskFields` (`jira-api.ts`) sets `completedDate`
+off its own `isDone` flag and `status` off `jiraCategoryToStatus`, and `use-jira-sync.ts` applies
+`patch.completedDate` directly. That bypass is deliberate — routing through `applyStatusChange` would
+stamp today instead of Jira's resolution date — and AGENTS.md describes it in the Kanban and
+task-status bullets, while ALSO carrying the same sole-writer wording a few lines away, so grepping
+that file will find both. The CONCLUSION survives regardless, because Jira drives both fields off the
+SAME `isDone`/status read and the pair still cannot diverge; the sole-writer wording just names the
+wrong reason. Enumerate the writers before relying on either:
+
+```bash
+grep -rn "completedDate:" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -n "applyStatusChange" AGENTS.md   # the SOLE-writer line and the Jira bypass both live here
+```
 
 **Why it was left.** It is a pre-existing property of the new helper's contract, not a live defect
 with a user-reachable sequence on well-formed data, and the source already carries the gap as a
 comment pointing here. Fixing it means threading the per-entity `FieldGroup[]` through
 `captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
 which is exactly the class §50 declined to make inside a fix round.
+
+---
+
+## 181. Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED
+
+§50's field-patch conversion wired five PANEL bulk-edit sites to `captureFieldRows`. Exactly ONE of
+them — tasks (`use-bulk-operations.ts`) — passes `stampField: "localModifiedAt"`. RAID
+(`use-resource-planner.ts`), changes (`use-change-log.ts`), stakeholders (`use-stakeholders.ts`) and
+milestones (`milestones-panel.tsx`) pass nothing.
+
+```bash
+# the four that omit it, and the one that passes it — five lines, one per register.
+# ★ The optional-call and ref-call shapes BOTH have to be admitted: a plain `captureFieldRows(`
+#   grep sees neither `args.captureFieldRows?.({` nor `captureFieldRowsRef.current({`.
+grep -rnE "captureFieldRows(Ref\.current)?\??\.?\(\{" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.'
+# the four source comments that point at this entry
+grep -rn "No .stampField. here" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+
+What `stampField` does is not in dispute: `captureFieldPart` writes a FRESH `new Date().toISOString()`
+into the named field on undo AND on redo. It does not restore the row's prior stamp, and it is not
+meant to — the reversal is itself a local modification.
+
+**What is unresolved is which behaviour is right, and two texts written in the same round do not
+agree about it.** All four register sites record the omission as an OPEN QUESTION and say so with
+that word (three share one wording; `milestones-panel.tsx` phrases it as "which of the two registers
+is right"). The tasks-side test docblock in `use-bulk-operations.test.tsx`
+states the omission as a defect: `buildBulkFieldEdits` never captures the stamp (it is in
+`NEVER_CAPTURE`), so without `stampField` an undo merges the before-patch and leaves the APPLY's
+stamp sitting on the row — "the content moves backwards while the sync layer is told the row last
+changed at the apply, so the revert never propagates".
+
+★★ **NEITHER VERDICT HAS BEEN VERIFIED, and this entry deliberately does not pick one.** Deciding it
+means establishing how each of the six backends actually uses `localModifiedAt` — whether any of them
+resolves a conflict or skips a push on it, and whether the four registers even reach a path where
+that matters. Nobody has done that work. Until it is done, "harmonising" the five sites in either
+direction is a BEHAVIOUR change on four registers, not a consistency cleanup, and the test docblock
+above is an argument, not a measurement.
+
+★ Nothing STRUCTURAL gates the asymmetry: `stampField` is optional on `CaptureFieldRowsOpts`
+(`stampField?: keyof T & string`), so all five spellings typecheck and a future site inherits
+whichever spelling its author copied. Whether any TEST would catch a flip on the four is not asserted
+here — no suite was run for this entry. The four omitting sites each carry a comment pointing here;
+read it before editing one of them.
