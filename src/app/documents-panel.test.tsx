@@ -2015,16 +2015,32 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     expect(mutateDocuments).not.toHaveBeenCalled();
   });
 
-  it("never commits a pending unblurred edit against the newly-selected document's id", async () => {
+  // ★★★ ASSERT THE POSITIVE. `.not.toContain` passes on an EMPTY array, so the
+  //  first cut of this test stayed green with the unmount flush deleted, with
+  //  `key={index}` restored, AND with use-document-editor's document-switch
+  //  guard deleted. The flush MUST happen, and it must land on doc A.
+  //  ★★ `fireEvent.click`, never `userEvent.click`: userEvent moves focus, so
+  //   it blurs the input BEFORE the switch and commits through the ordinary
+  //   blur path — the "pending unblurred edit" this test is named for never
+  //   exists. fireEvent dispatches the click alone and leaves focus put.
+  it("flushes a pending unblurred edit to the OLD document on a switch, never the new one", async () => {
     const { mutateDocuments } = renderWithSpy();
     await userEvent.click(screen.getByRole("button", { name: docA.title }));
     await userEvent.click(screen.getByRole("button", { name: t("en-US", "documentsEditBlocks") }));
     const text = await screen.findByRole("textbox", { name: `${t("en-US", "documentsHeadingText")} 1` });
-    await userEvent.type(text, "!"); // dirty, unblurred
+    await userEvent.type(text, "!"); // dirty, unblurred — and still focused
 
-    await userEvent.click(screen.getByRole("button", { name: docB.title }));
+    fireEvent.click(screen.getByRole("button", { name: docB.title }));
 
-    const committedIds = mutateDocuments.mock.calls.map(([m]) => (m as { id?: number }).id);
-    expect(committedIds).not.toContain(docB.id);
+    const committed = mutateDocuments.mock.calls.map(([m]) => m as { id?: number; ops?: unknown[] });
+    const ids = committed.map((m) => m.id);
+    expect(ids).toContain(docA.id);
+    expect(ids).not.toContain(docB.id);
+    // ...and it carried the EDITED text, not docA's stored text — otherwise a
+    // flush that wrote the wrong content would still satisfy the id assertions.
+    const op = committed.find((m) => m.id === docA.id)?.ops?.[0] as
+      | { block?: { text?: string } }
+      | undefined;
+    expect(op?.block?.text).toBe("Alpha!");
   });
 });
