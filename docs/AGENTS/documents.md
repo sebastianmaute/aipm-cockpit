@@ -204,6 +204,40 @@ a title accepted here can never disagree with what the next load produces. Empty
 whitespace-only) is rejected rather than stored, because the sanitizer would drop the document
 on the very next load while this module reported success.
 
+## Coalescing before-images for hand edits (`document-editor-commit.ts`)
+
+★★★ **THE RUN IS ANCHORED BY IDENTITY, NOT CONTENT.** `shouldCoalesce(versions, documentId, now, anchor)`
+decides whether a hand block edit reuses the session's most recent before-image or the mutation engine
+mints a new one (`applyOps` → `"ops"` mutation → the `update` row in the table above). `anchor` is the
+exact `{id, savedAt}` pair the CALLER's own last commit minted — `DocResult.minted` — never a "newest"
+re-derived from the version list; coalescing happens only while that exact row is still the newest one.
+
+★★ **Why identity, and not the `source === "user" && op === "update"` check it replaced:** the "restore
+(live)" row two sections up ALSO writes a `user`/`update` before-image (`snapshot(liveDoc, "update", ctx)`,
+`ctx.source` hardcoded to `"user"` by the panel funnel), byte-indistinguishable from one of the hand
+editor's own. A content-only test coalesced onto it and silently overwrote the just-restored state with
+no history entry that it had ever existed. Giving the restore its own `DocVersionOp` was rejected —
+`sanitizeDocumentVersions` coerces an unknown op back to `"update"`, so an older client reading the same
+project would silently re-open the hole on shared data.
+
+★ Both halves of the pair are compared, and the id alone is not enough — `seedMintFromWorkspace(ws,
+"reset")` restarts the `documentVersion` high-water mark per project, so ids alone can resume a run onto an
+identically-numbered row in a DIFFERENT project; `savedAt` separates them. Both comparisons are equality,
+never ordering — this identity check does not depend on a clock. `source`/`op` are kept as secondary
+guards (unreachable in practice for the one caller today, whose anchor is always a `user`/`update` mint,
+but this is an exported pure function that cannot assume a future caller's discipline).
+
+★ `COALESCE_WINDOW_MS` (5 minutes) is measured from the anchor's own `savedAt`, never from the previous
+edit — a coalesced edit mints no version, so it never advances the anchor, and a continuous burst of
+sub-window edits can still cross the window measured from wherever the session's last real version landed.
+
+★ The property this whole mechanism preserves: the FIRST before-image of a session holds the state before
+the session started — the thing a user actually reverts to. The commit-side half of the contract
+(unmount flush, the concurrent-write abandon guard, undirty adoption of an external write) lives in
+`useBlockDraft` (`document-block-editors.tsx`) and is summarized in `AGENTS.md`'s "Documents (AI document
+authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
+this file stops at the version-model decision, per the header note above.
+
 ## Persistence — six write paths
 
 `documentVersions` is a top-level optional `Workspace` field carried by all six write paths.

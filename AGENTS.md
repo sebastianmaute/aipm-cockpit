@@ -1208,7 +1208,28 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `doc-render-pptx.ts`. ★ **PDF is not a fourth renderer** — it is the HTML renderer's `standalone` mode
   driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
   Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
-  `documents-toolbar.tsx`.
+  `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
+  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors).
+  ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
+  (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
+  one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
+  three-rule contract — flush a dirty draft on unmount, ABANDON (never clobber) a commit whose `storedBlock`
+  moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
+  while the draft is undirty — is the whole defense against a hand edit racing a concurrent writer; read the
+  hook's own docstring before touching it, not this summary. A commit `blockSurvivesLoad` would drop (an
+  emptied heading/paragraph/bullets list) is refused with a visible reason, never silently accepted and lost
+  on the next load. ★ Selecting a different document while its editor is open cannot leak text into the
+  wrong one: each row's key carries `doc.id` (`` `${doc.id}-${index}` ``), forcing a full remount of the
+  block-editor subtree on any switch. ★★ At a narrow PANE (not viewport — `use-narrow-element.ts`, the
+  repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
+  paragraph but the SELECTED one collapses read-only with a "select this block" button, and the selected
+  block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
+  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★ A
+  zero-block document explains itself and offers an "Add block" control rather than rendering nothing.
+  ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
+  before-image or mints a new one lives beside the version model, not here — see
+  `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.
+  ★★ This surface is entirely OUTSIDE axe `A11Y_VIEWS` coverage — `docs/open-followups.md` §184.
   ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
   `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
   because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
