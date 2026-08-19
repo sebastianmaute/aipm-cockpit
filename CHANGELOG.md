@@ -14,7 +14,7 @@ longer carries its own changelog comment.
 
 - **The rich-text editor is loaded on demand.** Tiptap + ProseMirror is ~428 kB —
   the single largest piece of the client — and it was fetched and parsed on every
-  page load whether or not a rich-text surface was ever opened. All eight consumers
+  page load whether or not a rich-text surface was ever opened. All nine consumers
   now import it through one `next/dynamic` boundary (`src/app/rich-text-editor-lazy.tsx`),
   which also replaces two hand-rolled copies of the same wrapper. A short placeholder
   holds the space while the chunk arrives.
@@ -34,7 +34,7 @@ longer carries its own changelog comment.
   because this same release adds strings to the eager dictionary, so it understates
   the eviction rather than overstating it.
 
-  Two of the eight were nearly left static, on the reasoning that both sit behind
+  Two of them were nearly left static, on the reasoning that both sit behind
   `dynamic()` panels and so cannot affect the entry graph. That was true of the
   entry graph and false of the page load: the RAID tabpanel is mounted
   unconditionally, and React.lazy fires its loader on render rather than on

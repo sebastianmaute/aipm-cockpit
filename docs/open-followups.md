@@ -2637,7 +2637,7 @@ stylesheet yourself). Fires once, on initial load.
 when this was written — `meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx` —
 and the other six imported `RichTextEditor` statically, so it SSRed, which is why the nonce reader must
 guard `typeof document`.
-★★ **BOTH HALVES OF THAT ARE NOW FALSE AND THE GUARD STAYS ANYWAY.** 0.249.0 routed all eight consumers
+★★ **BOTH HALVES OF THAT ARE NOW FALSE AND THE GUARD STAYS ANYWAY.** 0.250.0 routed all nine consumers
 through `rich-text-editor-lazy.tsx`, so nothing SSRs the editor and nothing reaches `readCspNonce()` on the
 server — the guard is DEFENSIVE, not load-bearing, and `csp-nonce.ts` records both states deliberately so
 nobody deletes it. Do not read this paragraph as a live description of the tree; it is why the guard exists.
@@ -2690,10 +2690,18 @@ the injection is client-side under BOTH import styles (§129). ★ Derive a blas
 list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
 RENDERED. The consumer list is derived, never quoted — 0.249.0 moved every consumer behind
 `rich-text-editor-lazy.tsx`, so the command this paragraph used to carry (`grep -rl 'rich-text-editor"'
-src/app --include="*.tsx"`, quoted as 8) now returns 1 and its bare form returns 6. ★★ A `--include=*.tsx`
-sweep rooted at `./` also misses a `../rich-text-editor` import from `settings-sections/` or
-`dashboard-sections/`, both of which hold consumers; the sweep in `rich-text-editor-lazy.tsx`'s header
-admits `../`, `.ts` and single quotes. Abbreviating an attached command is how it stops reproducing the
+src/app --include="*.tsx"`, quoted as 8) now returns FIVE, all of them the wrapper or a test.
+★★★ THIS SENTENCE SAID "returns 1 and its bare form returns 6" AND BOTH NUMBERS WERE WRONG, in the very
+commit whose message was "correct the claims this branch itself falsified". The 1 was the OLD command's
+result, kept after its trailing `| grep -v '.test.tsx'` was dropped — a number carried across an edit
+to the command that produced it. The 6 was invented. Measured: both forms return the IDENTICAL five
+files. A correction is a NEW claim and inherits none of the verification of the thing it corrects.
+★★ The adjacent hazard was refuted too, and is restated as what it is — a property of the COMMAND FORM,
+not a fact about today's results. A `--include=*.tsx` sweep rooted at `./` cannot see a
+`../rich-text-editor` import from `settings-sections/` or `dashboard-sections/`; both directories do
+hold consumers, but they reach the editor through `rich-text-editor-lazy.tsx`, so NEITHER form finds them
+and the two counts cannot differ today. The sweep in that file's header admits `../`, `.ts` and single
+quotes because the hazard returns the moment a consumer imports the raw module again. Abbreviating an attached command is how it stops reproducing the
 number beside it — and outliving the tree is the other way.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
