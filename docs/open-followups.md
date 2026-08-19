@@ -11811,9 +11811,10 @@ undo restores it alone — leaving `status: "Done"` with no `completedDate`, or 
 guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed-but-never-delivered
 or the reverse).
 
-**Reachability is narrow and it is worth stating precisely.** Every writer keeps the pairs in step,
-and a bulk op builds `after` from `before` — so a lone-member difference requires the STORED row to
-already be inconsistent. Nothing repairs that on load: `migrateTask` short-circuits on
+**Reachability.** A lone-member difference requires the STORED row to already be inconsistent, and
+§183 records a code path that produces one from well-formed data — the Jira CONFLICT merge, which
+writes `completedDate` from the user's per-field pick and never `status`. Nothing repairs that on
+load: `migrateTask` short-circuits on
 `if (statusOk && createdOk) return task;`, so a valid-but-inconsistent pair from an import or a
 hand-edited blob survives every load path.
 
@@ -11822,19 +11823,22 @@ AND IS FALSE.** The Jira path bypasses it: `issueToTaskFields` (`jira-api.ts`) s
 off its own `isDone` flag and `status` off `jiraCategoryToStatus`, and `use-jira-sync.ts` applies
 `patch.completedDate` directly. That bypass is deliberate — routing through `applyStatusChange` would
 stamp today instead of Jira's resolution date — and AGENTS.md describes it in the Kanban and
-task-status bullets, while ALSO carrying the same sole-writer wording a few lines away, so grepping
-that file will find both. The CONCLUSION survives regardless, because Jira drives both fields off the
-SAME `isDone`/status read and the pair still cannot diverge; the sole-writer wording just names the
-wrong reason. Enumerate the writers before relying on either:
+task-status bullets. Enumerate the writers before relying on either — and note that the OBVIOUS
+sweep cannot do it, because two of the four write the field through an ASSIGNMENT rather than a
+property literal, and one of those two is the §183 defect:
 
 ```bash
-grep -rn "completedDate:" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
-grep -n "applyStatusChange" AGENTS.md   # the SOLE-writer line and the Jira bypass both live here
+# A bare `completedDate:` misses `templates.ts` outright and returns only the three patch-literal
+# sites in `use-jira-sync.ts`, never the conflict merge. Admit both shapes, and the trailing `=`
+# that sits at end-of-line:
+grep -rnE "completedDate[[:space:]]*[:=]([^=]|$)" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.'
 ```
 
-**Why it was left.** It is a pre-existing property of the new helper's contract, not a live defect
-with a user-reachable sequence on well-formed data, and the source already carries the gap as a
-comment pointing here. Fixing it means threading the per-entity `FieldGroup[]` through
+**Why it was left.** It is a pre-existing property of the new helper's contract, and the source
+already carries the gap as a comment pointing here. ★★ It was left on the ground that no sequence
+reached it from well-formed data; §183 removes that ground by supplying the inconsistent row this
+entry needs as its precondition, so re-argue the deferral rather than inheriting it. Fixing it means threading the per-entity `FieldGroup[]` through
 `captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
 which is exactly the class §50 declined to make inside a fix round.
 
@@ -11887,18 +11891,24 @@ read it before editing one of them.
 
 ## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — open
 
-The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load. Two writers
-hold it, by two DIFFERENT mechanisms:
+The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load — and NOT by
+all of them. FOUR paths write the pair. Two hold it, by two DIFFERENT mechanisms:
 
 - `applyStatusChange` (`task-status.ts`) holds it BY CONSTRUCTION — `Done` stamps a `completedDate`,
   every other status clears it. Every LOCAL status mutation routes through it.
-- Jira sync holds it WITHOUT calling that function: `issueToTaskFields` (`jira-api.ts`) derives both
+- Jira sync's PATCH-application sites (pull, create, read-only) hold it WITHOUT calling that
+  function — but its CONFLICT merge does not, so scope this to the path and not to the file (§183):
+  `issueToTaskFields` (`jira-api.ts`) derives both
   fields from one `statusKey` read (`isDone` picks the date branch, `jiraCategoryToStatus` the
   status), so the two cannot disagree. ★ This is why `applyStatusChange` is not "the sole writer of
   status + completedDate" — a phrase four source comments carried until the round that filed this
   entry. AGENTS.md now carries the scoping in one place; do not restate it at a call site.
 
-**Template import holds it by NEITHER mechanism.** `sanitizeSeedTask` (`templates.ts`) reads the two
+The other TWO hold it by neither, so do not read the pair above as an enumeration. One is this entry;
+the other is the Jira CONFLICT merge, filed separately as §183 because it is reachable from
+well-formed data through the conflicts modal and this one is not.
+
+**Template import holds it by neither mechanism.** `sanitizeSeedTask` (`templates.ts`) reads the two
 fields INDEPENDENTLY off the raw seed — `status` is a bare cast, `completedDate` a separate
 `sanitizeIsoDate` read assigned only when truthy — and then returns `migrateTask(task)`.
 
@@ -11950,3 +11960,97 @@ wrote. ★★ Do NOT reach for `migrateTask` instead — it runs on all six load
 reconcile a VALID-but-inconsistent pair changes every backend's load behaviour, and AGENTS.md records
 that the invariant is held by the writers and that `migrateTask` only backfills an ABSENT/INVALID
 status.
+
+---
+
+## 183. The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data — open
+
+`handleResolveConflicts` (`use-jira-sync.ts`) seeds its output row from the LOCAL one —
+`const merged: Task = { ...original }` — then overwrites, per conflict field, whichever side the user
+picked. `completedDate` has its own branch. `status` has NO branch, and cannot have one: it is not a
+member of `ConflictFieldKey`, and `diffTaskAgainstIssue` (`jira-api.ts`) never offers it. So the merge
+writes one member of the coupled pair and leaves the other at its LOCAL value.
+
+```bash
+# the union the modal can offer, and the eight checks that build a diff — no `status` in either
+grep -n "export type ConflictFieldKey" -A 10 src/app/jira-api.ts
+grep -n "^  check(\"" src/app/jira-api.ts
+# every write the merge makes: labels, completedDate, lastSyncedAt, localModifiedAt. No status.
+grep -nE "merged: Task|merged\.[a-zA-Z]+|field\.key ===" src/app/use-jira-sync.ts
+```
+
+**This is the FOURTH writer of the pair, and the SECOND that holds the invariant by neither
+mechanism.** Corrected set: `applyStatusChange` (`task-status.ts`) holds it by construction; the three
+patch-application sites in `use-jira-sync.ts` hold it because `issueToTaskFields` derives both fields
+from one `statusKey` read; `sanitizeSeedTask` (`templates.ts`) holds it by neither (§182); and this
+merge holds it by neither. §180's reachability paragraph and the AGENTS.md task-status bullet were
+both written against a set of two or three and have been corrected in the same round as this entry.
+★ Note the split is WITHIN one file — `use-jira-sync.ts` holds the invariant on its pull/create/
+read-only paths and breaks it on its conflict path — so scope any claim about that file to the path.
+
+**Reachable from well-formed data, and the DEFAULT pick is the one that breaks it.** A conflict is
+queued when a synced row's `localModifiedAt` and the issue's `updated` have BOTH moved past
+`lastSyncedAt`, on a project `isReadOnlyIssue` does not exclude. `jira-conflicts-modal.tsx` seeds
+every field's pick to `"remote"`, and the merge falls back to `"remote"` again for any key the
+resolution omits — so both directions below are reached by opening the modal and pressing confirm,
+without touching the `completedDate` row at all.
+
+```bash
+grep -nE "remoteChanged = |localChanged = |remoteChanged && localChanged" src/app/use-jira-sync.ts
+grep -n 'picks\[f.key\] = "remote"' src/app/jira-conflicts-modal.tsx
+grep -n '?? "remote"' src/app/jira-conflicts-modal.tsx src/app/use-jira-sync.ts
+```
+
+(a) **Local Done, remote reopened.** The row is `status: "Done"` with a `completedDate`; the user edits
+any field locally (which stamps `localModifiedAt`); someone reopens the issue in Jira. The patch's
+`completedDate` is undefined, so it differs and is offered. Accepting remote clears
+`merged.completedDate` and leaves `merged.status === "Done"`. → **`Done` with no date.**
+
+(b) **Local open, remote completed.** The row is a non-`Done` status with no `completedDate`; same
+local edit; the issue is transitioned to done in Jira. The patch carries a real date, it is offered,
+and accepting remote writes it while `status` stays non-`Done`. → **a completion date on an open row.**
+
+★ Picking LOCAL for `completedDate` is consistent in both directions, because `status` is already the
+local one. It is the REMOTE pick — the default — that splits the pair.
+
+**Consequence, derived from `task-closed.ts` rather than asserted.** `isTaskClosed` reads `status`,
+`isTaskDelivered` reads `completedDate`, and `isTaskOutOfScope` is the conjunction
+`isTaskClosed && !isTaskDelivered`. The two directions land on opposite sides of it:
+
+- **(a) is CLOSED and never DELIVERED, i.e. `isTaskOutOfScope`.** `computeDashboardProgress`
+  (`dashboard.ts`) leaves it out of the numerator (`tasks.filter(isTaskDelivered)`) AND removes it
+  from the denominator, because `scopeCounts` subtracts exactly the out-of-scope rows. So a task the
+  user just watched go Done stops contributing to completion % in either term, and RAISES the
+  percentage reported for every other row. `computeStats` (`reports-stats.ts`) files it under
+  `cancelled` — the bucket whose own comment reads "closed without being delivered" — so a
+  resolved task is reported as cancelled scope, and is never counted open or overdue.
+- **(b) is OPEN and DELIVERED at once.** The dashboard counts it in the numerator AND keeps it in the
+  denominator (out-of-scope needs CLOSED, which it is not). `computeStats` takes the delivered branch
+  first, so it lands in `completed` and in the on-time/late split and never in `open`. Meanwhile
+  `visible-task-rows.ts` filters hide-finished on `isTaskClosed`, so the table goes on listing it as
+  an open row while Reports calls it complete.
+
+★ It can SELF-HEAL, which is the likeliest reason this has not been reported. The merge clears
+`localModifiedAt` and stamps `lastSyncedAt`, so the next sync in which the issue changes takes the
+plain pull branch — which writes `status` and `completedDate` together off one patch. A row whose
+issue never changes again stays inconsistent indefinitely.
+
+**Not determined.** Nothing here was executed: no suite was run for this entry, and the sequences
+above are read off the source, not reproduced. No test exercises the branch either — every conflict
+fixture in `use-jira-sync.test.tsx` seeds `diffTaskAgainstIssue` with a `taskName`-only diff, so the
+`completedDate` arm of the merge loop has never run under the suite:
+
+```bash
+grep -n "diffTaskAgainstIssue as ReturnType" -A 3 src/app/use-jira-sync.test.tsx
+```
+
+Also undetermined: whether the `transitionIssueTo` call on the `anyLocalPicked` path shortens the
+window for either direction in practice, and whether anything downstream of the six backends reads
+the pair in a way that would surface the inconsistency sooner than the next sync.
+
+**No fix is proposed, because the choice is a real design question and this round did not settle it.**
+Adding `status` to `ConflictFieldKey` exposes a field the user cannot meaningfully arbitrate
+independently of the date. Re-deriving `status` inside the merge from the resolved `completedDate`
+silently overrides a local status the user was never asked about. Routing the merged row through
+`applyStatusChange` would stamp `today` over Jira's resolution date — which is the exact reason the
+Jira path bypasses that engine everywhere else, so it is the one option that is already known wrong.

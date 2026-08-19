@@ -828,17 +828,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the
   writer for every LOCAL status mutation — form save, the inline dropdown, bulk edit, the Mark-done CTA,
   the AI dispatcher and `handleCreateLinkedTask` all route through it.
-  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR, AND THIS BULLET SAID IT WAS. Two paths write `status` and
-  `completedDate` together WITHOUT it, both deliberately: **Jira sync** — `issueToTaskFields` builds the
-  patch and `use-jira-sync` applies both fields verbatim; the Kanban bullet below carries the reason
-  (the engine would stamp `today` over Jira's resolution date), so read it there rather than reasoning
-  from here — and **template import**, where `sanitizeSeedTask` takes both from the raw seed and then
-  calls `migrateTask`, which repairs the pair only when the status is absent or invalid (see the
-  short-circuit below). Do NOT "complete the pattern" by routing either through the engine.
+  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR, AND THIS BULLET SAID IT WAS. THREE other paths write
+  `status` and/or `completedDate` without it. TWO are deliberate: **Jira sync** — `issueToTaskFields`
+  builds the patch and `use-jira-sync` applies both fields verbatim; the Kanban bullet below carries
+  the reason (the engine would stamp `today` over Jira's resolution date), so read it there rather
+  than reasoning from here — and **template import**, where `sanitizeSeedTask` takes the two fields
+  from the raw seed INDEPENDENTLY and then calls `migrateTask`, which leaves a VALID-but-inconsistent
+  pair untouched (`docs/open-followups.md` §182 carries the mechanism, and it is NOT the short-circuit
+  below). Do NOT "complete the pattern" by routing either of those two through the engine. The THIRD
+  is not deliberate: the Jira CONFLICT merge writes `completedDate` alone
+  (`docs/open-followups.md` §183).
   ★★ Re-derive both sets rather than trusting any list here: the engine's callers with
   `grep -rn "applyStatusChange(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — which
   also returns the declaration itself and one `change-log.ts` COMMENT, so it is not a caller count — and
-  the pair-writers with the same sweep over `completedDate:`. ★ Three kinds of hit in THAT one are not
+  the pair-writers with a sweep admitting BOTH the property-literal and the ASSIGNMENT shape — a bare
+  `completedDate:` misses `templates.ts` and the conflict merge outright, and
+  `docs/open-followups.md` §180 carries a form that returns all four. ★ Three kinds of hit in it are not
   writers: `i18n`/`jira-conflicts-modal` are LABEL maps, the two `*-codecs-decode` hits are load paths,
   and every `use-task-row-handlers` hit is an undo BEFORE/AFTER capture of what the engine already
   returned. Read the hit, don't count it.
@@ -846,11 +851,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
   ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
   task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
-  NOT repaired. The invariant is held by the WRITERS, not at load — `applyStatusChange` by construction,
+  NOT repaired. The invariant is held by SOME of the WRITERS, not at load — `applyStatusChange` by construction,
   and `issueToTaskFields` because BOTH fields derive from one `statusKey` read (`completedDate` through
-  its `isDone` boolean, `status` through `jiraCategoryToStatus`), so that pair cannot drift.
-  ★★ The THIRD writer does NOT hold it: `sanitizeSeedTask` reads `status` and `completedDate`
-  independently off the seed, so template import is a LIVE CODE PATH that produces the bad pair — "an
+  its `isDone` boolean, `status` through `jiraCategoryToStatus`), so THAT PATCH's pair cannot drift.
+  ★★ TWO OF THE FOUR WRITERS DO NOT HOLD IT, so "held by the writers" is a claim about half of them —
+  and the ordinal this line used to carry ("the THIRD writer") named only one. `sanitizeSeedTask`
+  reads `status` and `completedDate` independently off the seed (§182), and the Jira CONFLICT merge
+  in `use-jira-sync` writes `completedDate` from the user's pick while leaving `status` at its LOCAL
+  value (§183) — the same `use-jira-sync` whose three non-conflict write sites DO hold it, so scope
+  any claim about that file to the path. Both are LIVE CODE PATHS that produce the bad pair — "an
   imported or hand-edited blob" is not merely a hand-editing hazard. The old wording caused three
   separate defects in one session — every reader concluded load normalises the pair and wrote that
   into code comments and commit messages.
