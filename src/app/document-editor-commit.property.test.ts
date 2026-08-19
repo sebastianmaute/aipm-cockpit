@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { applyDocMutation, type DocMintedVersion } from "./document-mutations";
-import { shouldCoalesce, COALESCE_WINDOW_MS } from "./document-editor-commit";
+import { shouldCoalesce } from "./document-editor-commit";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
 
@@ -18,10 +18,17 @@ const START = Date.parse("2026-08-18T10:00:00.000Z");
 // floor(390000 / 300000) + 1 = 2 — regardless of how many edits (1..40) land
 // inside that span, since more edits packed into the same window only add
 // MORE coalesced (unminted) writes, never more minted versions.
+//
+// ★★★ THE BOUND IS A LITERAL, NOT A DERIVATION. It used to read
+//  `Math.floor(MAX_SPAN_MS / COALESCE_WINDOW_MS) + 1`, i.e. it was computed
+//  from the very constant it polices — so it auto-loosened in BOTH directions.
+//  Shrinking COALESCE_WINDOW_MS to 1s moves the bound to 391, which is past
+//  MAX_EDITS, and the assertion then passes with coalescing effectively
+//  DISABLED. A gate whose threshold follows the thing it measures is not a
+//  gate. Recompute the 2 BY HAND if either constant above changes.
 const EDIT_SPACING_MS = 10_000;
 const MAX_EDITS = 40;
-const MAX_SPAN_MS = (MAX_EDITS - 1) * EDIT_SPACING_MS;
-const MAX_VERSIONS_MINTED = Math.floor(MAX_SPAN_MS / COALESCE_WINDOW_MS) + 1;
+const MAX_VERSIONS_MINTED = 2;
 
 describe("version budget under a hand-editing session", () => {
   it("coalesces a burst into a handful of versions while keeping the pre-session before-image reachable", () => {
@@ -46,7 +53,7 @@ describe("version budget under a hand-editing session", () => {
 
         for (let i = 0; i < edits; i++) {
           // Each edit lands 10s after the previous one — one continuous session.
-          const now = new Date(START + i * 10_000).toISOString();
+          const now = new Date(START + i * EDIT_SPACING_MS).toISOString();
           const coalesce = shouldCoalesce(versions, 1, now, anchor);
           const result = applyDocMutation(
             { documents, versions },
