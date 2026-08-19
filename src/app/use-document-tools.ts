@@ -277,7 +277,17 @@ export function useDocumentTools(
         // three sites would silently shift every later remap by one.
         const callerIndexOf: number[] = [];
         const keepOp = (op: DocOp, callerIndex: number) => {
-          cleanOps.push(op);
+          // ★★★ STRIP `expect`: it is the HAND EDITOR's concurrency guard and carries
+          //  a draft's baseline, and an AI op resolves no draft. The tool schema sets
+          //  no `additionalProperties: false`, so a model CAN emit the field, and the
+          //  spreads above (`{ ...op, block }`) would carry it into `applyOps` —
+          //  letting model-supplied data decide whether a write applies. Stripped in
+          //  `keepOp` because every op funnels through here, so no later branch can
+          //  reintroduce it. A model op that legitimately wants to guard on prior
+          //  content should read the document first, not hand us an `expect`.
+          const rest = { ...op } as DocOp & { expect?: unknown };
+          delete rest.expect;
+          cleanOps.push(rest as DocOp);
           callerIndexOf.push(callerIndex);
         };
         ops.forEach((op, i) => {
