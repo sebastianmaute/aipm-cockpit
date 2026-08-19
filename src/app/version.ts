@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.248.0";
-export const APP_BUILD_DATE = "2026-08-19"; // 0.248.0: the docs and in-app Help now match the app — the activity log is project data, not browser-local (Bujold)
+export const APP_VERSION = "0.249.0";
+export const APP_BUILD_DATE = "2026-08-19"; // 0.249.0: the rich-text editor loads on demand — Tiptap leaves the initial bundle (McAuley)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.248.x line is "Bujold" (Lois McMaster Bujold, SF/fantasy author).
+ *  0.249.x line is "McAuley" (Paul McAuley, SF author).
+ *  0.248.x was "Bujold" (Lois McMaster Bujold, SF/fantasy author).
  *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
  *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
  *  0.245.x was "Buckell" (Tobias S. Buckell, SF author).
@@ -36,7 +37,13 @@ export const APP_BUILD_DATE = "2026-08-19"; // 0.248.0: the docs and in-app Help
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Butcher";
+// ★★★ A NINTH VERSION SITE, AND THE ONLY ONE USERS SEE. 0.248.0 shipped with
+// APP_VERSION "0.248.0" beside APP_MILESTONE "Butcher" — the 0.247.x name — so
+// `APP_VERSION_LABEL` rendered `0.248.0 "Butcher"` in Settings, the top bar and the
+// Version popover, while CHANGELOG.md, the README badge and the docstring above all
+// said "Bujold". Nothing compares them: the release checklist counts eight sites and
+// this is not one of them, and no gate reads either constant. Bump BOTH together.
+export const APP_MILESTONE = "McAuley";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -317,4 +324,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightRichExport",
   "versionHighlightActorAttribution",
   "versionHighlightChangeNotesTimelog",
+  "versionHighlightLazyEditor",
 ] as const;

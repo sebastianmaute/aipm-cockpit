@@ -8,6 +8,69 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.249.0] - 2026-08-19 "McAuley"
+
+### Changed
+
+- **The rich-text editor is loaded on demand.** Tiptap + ProseMirror is ~428 kB —
+  the single largest piece of the client — and it was fetched and parsed on every
+  page load whether or not a rich-text surface was ever opened. All eight consumers
+  now import it through one `next/dynamic` boundary (`src/app/rich-text-editor-lazy.tsx`),
+  which also replaces two hand-rolled copies of the same wrapper. A short placeholder
+  holds the space while the chunk arrives.
+
+  Measured from the build's own manifests, before and after:
+
+  | | before | after |
+  |---|---|---|
+  | ProseMirror in the eager entry graph | true | **false** |
+  | eager total | 2334.7 kB | **1906.8 kB** |
+  | eager chunks | 19 | **18** |
+  | `react-loadable` entries able to reach the chunk | — | **1 of 27** |
+
+  The 428.3 kB delta matches the evicted chunk's own on-disk size, which is what
+  separates a real eviction from bytes merely re-homing into another eager chunk.
+
+  Two of the eight were nearly left static, on the reasoning that both sit behind
+  `dynamic()` panels and so cannot affect the entry graph. That was true of the
+  entry graph and false of the page load: the RAID tabpanel is mounted
+  unconditionally, and React.lazy fires its loader on render rather than on
+  visibility, so its chunk — and the editor with it — was still fetched on the
+  initial dashboard render. Converting them is what takes the bytes off the page
+  load rather than merely off the render-blocking entry chunk.
+
+  Closes open-followups §129, which had asked for a measurement before a decision.
+
+### Fixed
+
+- **Dictating into a note no longer discards the transcript when it arrives before
+  the editor.** The mic is a sibling of the editor, not a child, so it is operable
+  while the editor is still mounting; the append was made through an optional call
+  that silently swallowed it. Text is now buffered and inserted as soon as the
+  editor is ready. The window was always non-zero — the editor defers construction
+  to mount — and loading it over the network widened it.
+
+- **The version popover, Settings and the top bar showed the wrong codename.**
+  0.248.0 shipped with `APP_MILESTONE` still set to the 0.247.x name, so the app
+  displayed `0.248.0 "Butcher"` while the changelog, README badge and codemaps all
+  said "Bujold". Both constants are bumped together, and the file now records that
+  this is a version site the release checklist does not count.
+
+### Internal
+
+- `RichTextEditorHandle.appendText` returns whether the text landed. Holding a
+  handle does not mean the handle is usable: the imperative handle is recreated
+  when the editor instance changes, so a callback ref is attached once with a
+  dead handle before the live one. The return value is the only thing that
+  distinguishes them.
+- The accessibility gate's rich-text-toolbar scan now waits for the toolbar. Its
+  previous settle probe watched a DOM subtree the notes window does not render
+  into, so with the editor arriving over the network the scan could have run
+  against the placeholder and reported green over an empty surface.
+- Corrected two claims in source comments that this change inverted: `next/dynamic`
+  does forward `ref` at the installed React/Next versions, and the `typeof document`
+  guard in `csp-nonce.ts` is now defensive rather than load-bearing. The guard stays.
+
 ## [0.248.0] - 2026-08-19 "Bujold"
 
 ### Fixed
