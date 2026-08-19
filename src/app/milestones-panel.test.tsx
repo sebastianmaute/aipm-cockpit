@@ -542,6 +542,7 @@ describe("Milestones bulk edit undo", () => {
       <>
         <span data-testid={`date-${id}`}>{ms?.date ?? ""}</span>
         <span data-testid={`event-${id}`}>{ms?.outlookEventId ?? ""}</span>
+        <span data-testid={`name-${id}`}>{ms?.name ?? ""}</span>
       </>
     );
   }
@@ -582,6 +583,21 @@ describe("Milestones bulk edit undo", () => {
         >
           TEST_STAMP_EVENT_ID
         </button>
+        {/* An ORDINARY concurrent field write on the same row — a rename from
+            the edit modal, a second tab, or the AI dispatcher — fired AFTER
+            the bulk apply too. `name` is on NEITHER backstop list, which is
+            what makes it the assertion that discriminates the field-patch
+            capture from the whole-row one (see the test's own note). */}
+        <button
+          type="button"
+          onClick={() =>
+            setMilestones((prev) =>
+              prev.map((ms) => (ms.id === 1 ? { ...ms, name: "Alpha (renamed)" } : ms)),
+            )
+          }
+        >
+          TEST_CONCURRENT_RENAME
+        </button>
         <button type="button" onClick={() => undoApi.undo()}>
           TEST_UNDO
         </button>
@@ -590,11 +606,23 @@ describe("Milestones bulk edit undo", () => {
   }
 
   // ★★★ open-followups §50, milestones half. Milestones carry no note log, but
-  //   they DO carry `outlookEventId`, stamped by the milestone calendar sync
-  //   (use-milestone-calendar-pull.ts). A whole-row bulk-edit undo would make
-  //   the row forget an event that still exists in Outlook, and the next push
-  //   would then create a SECOND meeting for the same milestone.
-  it("undoing a milestone bulk edit keeps an outlookEventId stamped since the apply", () => {
+  //   they DO carry `outlookEventId`, stamped by the Outlook calendar PUSH
+  //   (`use-outlook-calendar-push.ts` — the milestone calendar PULL only reads
+  //   the field and CLEARS it on a deleted event, it never stamps). A whole-row
+  //   bulk-edit undo would make the row forget an event that still exists in
+  //   Outlook, and the next push would then create a SECOND meeting for the
+  //   same milestone.
+  //   ★★★ ANTI-VACUITY: the `outlookEventId` assertion ALONE cannot fail. That
+  //   key is on `WRITE_THROUGH_FIELDS` (undo/use-undo-stack.ts), so even a
+  //   whole-row restore preserves it — that is Part A, the backstop, and it
+  //   holds with the field-patch capture (Part B) reverted. `name` is an
+  //   ordinary `Milestone` field on NEITHER backstop list AND is not one of
+  //   the two bulk-editable fields (`date`/`achievedDate`), so a whole-row
+  //   restore reverts it to the pre-apply snapshot ("Alpha") while the
+  //   field-patch capture merges back only `date` and leaves it at
+  //   "Alpha (renamed)". It is the assertion that distinguishes Part B from
+  //   Part A.
+  it("undoing a milestone bulk edit keeps an outlookEventId (and any other concurrent field write) stamped since the apply", () => {
     render(
       <RealUndoHarness
         milestones={[m("Alpha", "2026-01-01", { id: 1 }), m("Beta", "2026-01-01", { id: 2 })]}
@@ -616,15 +644,20 @@ describe("Milestones bulk edit undo", () => {
     expect(screen.getByTestId("date-1").textContent).toBe("2026-02-01");
     expect(screen.getByTestId("date-2").textContent).toBe("2026-02-01");
 
-    // THEN — after the apply — the background calendar push stamps an event id.
+    // THEN — after the apply — the background calendar push stamps an event id,
+    // and an ordinary concurrent write renames the same row.
     fireEvent.click(screen.getByRole("button", { name: "TEST_STAMP_EVENT_ID" }));
+    fireEvent.click(screen.getByRole("button", { name: "TEST_CONCURRENT_RENAME" }));
 
     fireEvent.click(screen.getByRole("button", { name: "TEST_UNDO" }));
 
     // the bulk date edit WAS reverted...
     expect(screen.getByTestId("date-1").textContent).toBe("2026-01-01");
     expect(screen.getByTestId("date-2").textContent).toBe("2026-01-01");
-    // ...but the event id stamped since the apply survived the undo.
+    // ...but the event id stamped since the apply survived the undo...
     expect(screen.getByTestId("event-1").textContent).toBe("AAMkAG-evt-9");
+    // ...and so did the concurrent rename, which no backstop protects.
+    expect(screen.getByTestId("name-1").textContent).toBe("Alpha (renamed)");
+    expect(screen.getByTestId("name-2").textContent).toBe("Beta");
   });
 });

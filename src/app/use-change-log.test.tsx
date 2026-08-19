@@ -22,6 +22,15 @@ function Wrapper({ children }: { children: ReactNode }) {
 // capture/captureFieldRows) so a bulk-edit undo actually reverts through the
 // live setter — needed to prove a concurrent write survives it, not merely
 // that the right args were passed. Mirrors use-resource-planner.undo.test.tsx.
+// ★★★ BOTH `capture` AND `captureFieldRows` are wired, and the FIRST one is
+//   what makes the bulk-edit test below discriminate for the RIGHT reason.
+//   `captureBulkUndo` only reaches `captureFieldRows`; wiring that one alone
+//   means a regression to the old WHOLE-ROW capture would find `capture`
+//   undefined, capture NOTHING, and make `undo()` a silent no-op — the test
+//   would go red on the "the bulk edit was reverted" assertion (a misleading
+//   diagnosis) and go green again the moment someone wired `capture` up.
+//   With both live, the regression captures whole rows and CLOBBERS the
+//   concurrent write, which is the property the test is actually named for.
 function renderChangeLogWithRealUndo() {
   const logActivity = vi.fn();
   const showToast = vi.fn();
@@ -37,6 +46,7 @@ function renderChangeLogWithRealUndo() {
         today: "2026-06-09",
         logActivity,
         showToast,
+        capture: undoApi.capture,
         captureFieldRows: undoApi.captureFieldRows,
       });
       const workspace = useWorkspace();
@@ -207,10 +217,18 @@ describe("useChangeLog — logActivity", () => {
   //   captured keys back onto the LIVE row on undo.
   //   ★★★ The note is seeded AFTER the bulk apply, not before — seeding it
   //   first would pass against the unfixed whole-row capture too (§48 trap).
-  it("undoing a changes bulk edit keeps a note added since the apply", () => {
+  //   ★★★ ANTI-VACUITY: the noteLog assertion ALONE cannot fail. `noteLog` is
+  //   on `WRITE_THROUGH_FIELDS` (undo/use-undo-stack.ts), so even a whole-row
+  //   restore preserves it — that is Part A, the backstop, and it holds with
+  //   the field-patch capture (Part B) reverted. `requestedBy` is an ordinary
+  //   `ChangeItem` field on NEITHER backstop list, so a whole-row restore
+  //   reverts it to the pre-apply snapshot ("Dana") while the field-patch
+  //   capture merges back only `impact` and leaves it at "Priya". It is the
+  //   assertion that actually distinguishes Part B from Part A.
+  it("undoing a changes bulk edit keeps a note (and any other concurrent field write) added since the apply", () => {
     const { result } = renderChangeLogWithRealUndo();
-    const item1 = ci({ id: 1, title: "Change one", impact: "Low" });
-    const item2 = ci({ id: 2, title: "Change two", impact: "Low" });
+    const item1 = ci({ id: 1, title: "Change one", impact: "Low", requestedBy: "Dana" });
+    const item2 = ci({ id: 2, title: "Change two", impact: "Low", requestedBy: "Dana" });
     act(() => { result.current.workspace.setChanges([item1, item2]); });
 
     act(() => {
@@ -222,13 +240,17 @@ describe("useChangeLog — logActivity", () => {
       result.current.changeLog.handleSaveChange({ ...item2, impact: "High" }, undefined, { suppressFieldUndo: true });
     });
 
-    // A note lands through the write-through notes window AFTER the bulk apply.
+    // Two concurrent writes land on row 1 AFTER the bulk apply — a note through
+    // the write-through notes window, and a plain field edit (requestedBy) that
+    // has no backstop at all. Neither is something the bulk edit's undo wrote,
+    // so neither should be reverted by it.
     act(() => {
       result.current.workspace.setChanges((prev) =>
         prev.map((c) =>
           c.id === 1
             ? {
                 ...c,
+                requestedBy: "Priya",
                 noteLog: [
                   ...(c.noteLog ?? []),
                   { id: 1, timestamp: "2026-06-10T00:00:00.000Z", html: "<p>added after the bulk edit</p>", text: "added after the bulk edit" },
@@ -244,6 +266,7 @@ describe("useChangeLog — logActivity", () => {
     const changeById = (id: number) => result.current.workspace.changes.find((c) => c.id === id)!;
     expect(changeById(1).impact).toBe("Low");
     expect(changeById(1).noteLog?.map((n) => n.text)).toEqual(["added after the bulk edit"]);
+    expect(changeById(1).requestedBy).toBe("Priya");
     expect(changeById(2).impact).toBe("Low");
   });
 });
