@@ -133,9 +133,13 @@ describe("buildBulkFieldEdits", () => {
     expect(Object.keys(edits[0].before)).toEqual(["sev"]);
   });
 
-  it("does NOT capture a write-through field even when it differs", () => {
-    // A note added between the panel reading the row and building the patch must
-    // not become part of what undo reverts — that is the whole defect this closes.
+  it("skips a write-through field that differs — a forward-proofing branch NO current caller reaches", () => {
+    // NOT evidence the filter is live. Every production caller derives `after`
+    // from `before`, so a key the op did not write is the same REFERENCE on both
+    // sides and `differs` short-circuits before the filter is consulted; this
+    // fixture is one no current caller can produce. It pins the branch for a
+    // future caller that builds `after` independently. See the WRITE_THROUGH_KEYS
+    // docblock in field-groups.ts for the call-site enumeration command.
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low", noteLog: ["a"] }, after: { id: 1, sev: "High", noteLog: ["a", "b"] } },
     ]);

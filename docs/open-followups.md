@@ -2189,12 +2189,30 @@ Closed by **two complementary mechanisms**, not one, because they cover differen
   fields and nothing else.
 - **Field-patch capture.** `buildBulkFieldEdits` in `src/app/undo/field-groups.ts` diffs
   `{before, after}` row pairs into field PATCHES (excluding `id`, `localModifiedAt` and the
-  write-through keys), and `captureFieldRows` turns N such patches into one undo entry. All five
-  `bulk.edit` sites (RAID, changes, stakeholders, milestones, tasks) were converted, plus two consumers
-  the original plan never named — `raci-panel.tsx` / `use-raci-suggest.tsx`, which share the
-  stakeholders capture prop. A field-patch undo merges only the fields the op actually touched, which
-  preserves EVERY concurrent edit on that row, not just the two named write-through fields — strictly
-  stronger than the backstop, wherever it applies.
+  write-through keys), and `captureFieldRows` turns N such patches into one undo entry. **Five PANEL
+  bulk-edit sites were converted** — RAID (`use-resource-planner.ts`), changes (`use-change-log.ts`),
+  stakeholders (`use-stakeholders.ts`), milestones (`milestones-panel.tsx`), tasks
+  (`use-bulk-operations.ts`) — plus two consumers the original plan never named,
+  `raci-panel.tsx` / `use-raci-suggest.tsx`, which share the stakeholders capture prop.
+
+  ★★ **THOSE ARE NOT ALL THE `bulk.edit` EMITTERS** — an earlier revision of this line said "all five
+  `bulk.edit` sites … were converted", which is false.
+  `use-alloc-plan.tsx` and `use-resource-directory.ts` emit the same kind through whole-row
+  `capture()` and were deliberately left there, as is the BUCKET half of the tasks composite
+  (`commitBuckets` → `capturePart` in `use-budget-buckets.ts`; that composite's TASKS half is a
+  field part). Those remain whole-row and are covered by the Part A backstop instead — the two named
+  fields and nothing else. Re-derive the set rather than trusting this list:
+
+  ```bash
+  grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+  ```
+
+  ★★★ **A field patch preserves concurrent edits to OTHER FIELDS — NOT "EVERY concurrent edit on
+  that row", which is what this entry claimed.** `buildBulkFieldEdits` captures whole FIELD VALUES
+  (`pick(before, changed)`) and the restore merges them wholesale (`{ ...r, ...patch }`, the field
+  runner in `use-undo-stack.ts`), so a concurrent write to a DIFFERENT KEY of the same
+  object-valued field is still reverted. Reachable today on `Stakeholder.raci`. Filed as §174.
+  Within that limit it is still strictly stronger than the backstop, wherever it applies.
 
 **The task half is now verified, not suspected.** This entry said the same sequence "very likely" lost
 task notes too, but marked that half UNVERIFIED. It was measured true: `use-bulk-operations.ts`
@@ -11511,20 +11529,38 @@ short-returns with no error and no `failedProjects`, so it is the same "short ag
 complete" class by a third route. Pre-existing, and almost certainly unreachable at real data volumes;
 recorded because nothing anywhere else says it.
 
+---
+
 ## 173. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
 
-§50's field-patch conversion (closed 2026-08-18) made the five `bulk.edit` sites immune to the
-write-through clobber BY CONSTRUCTION — a field patch merges only what the op itself touched, so
-every concurrent edit on the row survives, not just `noteLog`/`outlookEventId`. That property does not
-extend to every writer in the app, and this entry records what was deliberately left out.
+§50's field-patch conversion (closed 2026-08-18) made the five converted PANEL bulk-edit sites immune
+to the write-through clobber BY CONSTRUCTION — a field patch merges only the fields the op itself
+touched, so a concurrent edit to a DIFFERENT FIELD of the row survives, not just
+`noteLog`/`outlookEventId`. ★ It does NOT preserve a concurrent write to a different KEY of the same
+object-valued field (§174), and the five are not the only `bulk.edit` emitters (§50's Resolution
+carries both corrections and the greps). That property does not extend to every writer in the app,
+and this entry records what was deliberately left out.
 
 ★★ **The whole-row paths that remain still revert every concurrent change OUTSIDE
 `WRITE_THROUGH_FIELDS`.** Reference-data cascades, the resource directory, task dedup
 (`use-tasks-dedup.tsx`), the alloc plan (`use-alloc-plan.tsx`), and dependency stripping on delete
 (pinned against, not fixed, by the two `use-task-row-handlers.test.ts` tests §50 added) all still
-capture whole rows via `capturePart`. Undoing any of them reverts every field the row carried at
-capture time, including one a background writer changed in the meantime — the exact §50 shape, just
-not on a `bulk.edit` site. A NEW write-through field added to an entity escapes
+capture whole rows. Undoing any of them reverts every field the row carried at
+capture time, including one a background writer changed in the meantime — the exact §50 shape.
+
+★★ **TWO CORRECTIONS TO THIS PARAGRAPH'S OWN EARLIER TEXT, both measured.** (1) It said these paths
+capture "via `capturePart`" — only the reference-data cascades and the resource-directory DELETES do;
+task dedup, the alloc plan, the resource directory's BULK EDIT and dependency stripping on delete all
+use the single-array `capture()`. (2) It said the shape is "just not on a `bulk.edit` site", which
+contradicts §50 and is false twice over — the alloc plan and the resource directory's bulk edit BOTH
+emit `kind: "bulk.edit"`. The two commands disagree with the sentences they replace, so run them:
+
+```bash
+grep -rn "capturePart" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+
+A NEW write-through field added to an entity escapes
 `WRITE_THROUGH_FIELDS`/`WRITE_THROUGH_KEYS` on these paths silently: nothing fails, the field is simply
 reverted on undo like any other.
 
@@ -11552,3 +11588,124 @@ silently in exactly the shape this whole entry is about.
 grep -n "WRITE_THROUGH_FIELDS" src/app/undo/use-undo-stack.ts
 grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
 ```
+
+---
+
+> ★★ **NUMBERING — §173 (above) and §174–§176 (below) are PENDING RENUMBER against `origin/main`.**
+> Main already holds its own §173–§176, so all four of this branch's numbers collide on merge; the
+> whole block gets renumbered together in a later step. Do not cite these numbers from anywhere
+> outside this file until that lands.
+
+---
+
+## 174. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
+
+§50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
+this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
+key-by-key and stores the WHOLE VALUE of each changed field (`pick(before, changed)`); the field
+runner then merges those values wholesale over the live row (`{ ...r, ...patch }`). So the unit of
+preservation is the FIELD, not the key inside it — a concurrent writer that produced a new object or
+array for a field the op also touched loses its change, exactly as a whole-row capture would.
+
+```bash
+grep -n "pick(before, changed)" src/app/undo/field-groups.ts        # whole VALUE captured
+grep -n '\.\.\.r, \.\.\.patch' src/app/undo/use-undo-stack.ts       # merged wholesale
+```
+
+**Reachable today on `Stakeholder.raci`**, which is a `Record<string, RaciRole>` keyed by milestone id,
+and whose only writer returns a whole new map:
+
+```bash
+grep -n "raci: Record" src/app/types.ts
+grep -n "export function setRaciRole" -A 12 src/app/stakeholders.ts   # returns { ...s, raci }
+```
+
+Sequence: RACI panel → **Suggest RACI** → apply across stakeholders (one `bulk.edit` field patch whose
+changed field is `raci`) → the user assigns a cell for a DIFFERENT milestone on one of those
+stakeholders → Ctrl+Z. The bulk suggestion is undone AND the user's hand-assigned cell silently
+vanishes, because the patch's `before.raci` is the whole pre-suggestion map.
+
+Same shape wherever an op's changed field holds a collection another writer can rewrite —
+`Task.labels` (`string[]`), `RaidItem.linkedTaskIds` (`number[]`). ★ NOT `Task.blockers`: that is a
+plain `string`, so whole-value capture is exactly right there and there is no sub-field to lose.
+
+**Why it was left.** Pre-existing, not a regression — the whole-row capture this replaced lost the
+same cell and more, so Part B strictly narrowed the defect rather than introducing it. Closing it
+needs per-key diffing and per-key merging of object-valued fields, which is a different data model
+for a patch (`{path, before, after}` rather than `{field, before, after}`) and a different restore
+runner. That is a design slice, not a fix-round edit to shared undo machinery — the same reasoning
+§50 gave in 0.211.1.
+
+---
+
+## 175. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
+
+§50's Part A backstop is wired into the EDIT branch only. Both `applyPreserved(item, …)` call sites
+sit inside an `op === "edit"` loop — one in `applyUndoRestoreWithRemap`, one in `applyUndoForward`:
+
+```bash
+grep -n "applyPreserved(item" -B 3 src/app/undo/undo-stack.ts
+```
+
+The delete branch instead confirms a row's IDENTITY before removing it, by deep-equality against the
+capture-time image:
+
+```bash
+grep -n "rowsEqual(r, recovered)" src/app/undo/undo-stack.ts
+```
+
+A write-through field that changed on a RESTORED row breaks that equality, and the failure is not a
+no-op — it desynchronises the two stacks and then mints a duplicate:
+
+1. Delete a RAID item. → undo entry pushed with a delete-image.
+2. Ctrl+Z. The row is restored under its original id; the entry moves to the redo stack.
+3. Add a note to that row through the notes window. The notes window is write-through and pushes NO
+   undo entry, so the redo stack SURVIVES this write (a normal edit would have cleared it — that is
+   why this needs a write-through writer specifically).
+4. Ctrl+Y. `rowsEqual(live, recovered)` is now false (the live row carries a `noteLog` the recovered
+   image does not), so the filter keeps the row — the redo does NOT remove it. The entry still moves
+   back to the undo stack.
+5. Ctrl+Z. The restore branch now finds `present.has(id) === true`, takes the id-reuse path, and
+   splices a SECOND copy of the row in under a freshly minted id.
+
+Result: a duplicate RAID item plus a stale one, from three keystrokes and one note.
+
+**Why it was left.** Pre-existing and unchanged by this branch — `rowsEqual` predates it and the
+preserve list did not alter the delete path in either direction. The fix is not "pass `preserve` to
+`rowsEqual`" either: the guard exists to stop redo destroying an unrelated live row that reused a
+freed id (real data loss), so relaxing it needs an identity notion that is neither whole-row equality
+nor id alone. Scoping that inside the fix round that closed §50 is how a regression ships.
+
+---
+
+## 176. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+
+`changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
+`TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),
+`CHANGE_UNDO_GROUPS` couples `status` with `decisionDate`. `buildBulkFieldEdits` takes no
+`FieldGroup[]` argument and consults none of those constants: it diffs key-by-key and captures
+exactly the keys that differ.
+
+```bash
+grep -n "export function buildBulkFieldEdits" -A 4 src/app/undo/field-groups.ts   # no FieldGroup param
+grep -n "UNDO_GROUPS" src/app/undo/field-groups.ts   # declaration lines ONLY — no read site
+grep -n "KNOWN GAP" -A 7 src/app/undo/field-groups.ts                             # the same gap, at the source
+```
+
+So if a bulk edit sees only ONE member of such a pair differ, only that member is captured, and the
+undo restores it alone — leaving `status: "Done"` with no `completedDate`, or a change whose
+`decisionDate` no longer matches its status. Both are invariants the rest of the app reads as
+guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed-but-never-delivered
+or the reverse).
+
+**Reachability is narrow and it is worth stating precisely.** Every writer keeps the pairs in step —
+`applyStatusChange` is the sole writer of `status`+`completedDate`, and a bulk op builds `after` from
+`before` — so a lone-member difference requires the STORED row to already be inconsistent. Nothing
+repairs that on load: `migrateTask` short-circuits on `if (statusOk && createdOk) return task;`, so a
+valid-but-inconsistent pair from an import or a hand-edited blob survives every load path.
+
+**Why it was left.** It is a pre-existing property of the new helper's contract, not a live defect
+with a user-reachable sequence on well-formed data, and the source already carries the gap as a
+comment pointing here. Fixing it means threading the per-entity `FieldGroup[]` through
+`captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
+which is exactly the class §50 declined to make inside a fix round.

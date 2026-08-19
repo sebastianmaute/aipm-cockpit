@@ -107,15 +107,29 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * background calendar push (open-followups §50). A patch reverts only what the op
  * itself wrote.
  *
- * ★★ `WRITE_THROUGH_KEYS` is excluded even when the two rows DISAGREE on it. The
- * panel reads its rows from a render snapshot, so a note committed between that
- * read and the save legitimately shows up as a difference — and capturing it would
- * reintroduce the very clobber this exists to prevent, one layer up.
+ * ★★ `WRITE_THROUGH_KEYS` is excluded even when the two rows DISAGREE on it —
+ * and NO CURRENT CALLER CAN REACH THAT BRANCH. All six build `after` out of
+ * `before` (a spread, or a helper that spreads), so any key the op did not write
+ * holds the SAME REFERENCE on both sides, `differs` short-circuits on `Object.is`,
+ * and the filter is never consulted. It is forward-proofing for a caller that
+ * builds `after` INDEPENDENTLY — a row rebuilt from a form draft, an AI or
+ * integration writer — where a bulk op writing a write-through field would be
+ * captured and then reverted by the undo. ★ That is also the cost of keeping it,
+ * seen from the other side: if a bulk op ever LEGITIMATELY writes one of these
+ * keys, the write lands and the capture silently omits it, so undo leaves that
+ * field applied and nothing errors.
+ *
+ * Enumerate the call sites — the self-exclusion is REQUIRED, because this comment
+ * quotes the very pattern it searches for (the declaration and the import lines do
+ * not match this form and need no filter):
+ *   grep -rn "buildBulkFieldEdits(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "undo/field-groups"
+ * Six lines today; the count moves with any new caller, so run it rather than
+ * trusting this one. It proves the SET only — read each site's argument to
+ * confirm `after` is still derived from `before`.
  *
  * ★ A key set on a row that lacked it (and one cleared to `undefined`) is captured
  * with an explicit `undefined` on the other side, so a bulk edit that CLEARS a
- * field is undoable. `captureFieldPart` merges the patch, and merging an explicit
- * `undefined` is what restores "absent".
+ * field is undoable.
  *
  * See also `WRITE_THROUGH_FIELDS` in `use-undo-stack.ts` — that constant decides
  * what a whole-row undo PRESERVES; this one decides what a patch CAPTURES.
@@ -126,6 +140,13 @@ export function buildBulkFieldEdits<T extends { id: number }>(
   rows: readonly { before: T; after: T }[],
 ): { id: number; before: Partial<T>; after: Partial<T> }[] {
   const out: { id: number; before: Partial<T>; after: Partial<T> }[] = [];
+  // KNOWN GAP: this diffs key-by-key and takes NO `FieldGroup[]`, so the
+  // invariants `changedFieldGroups` exists to hold (status+completedDate,
+  // status+decisionDate) are not enforced here — if only one member of such a
+  // pair differs, only that member is captured and the undo can leave the pair
+  // inconsistent. Reaching it needs already-inconsistent stored data, since the
+  // writers keep the pairs in step. Filed as a register entry; do not "fix" it
+  // here without reading that entry first.
   for (const { before, after } of rows) {
     const keys = new Set<string>([...Object.keys(before), ...Object.keys(after)]);
     const changed: (keyof T & string)[] = [];

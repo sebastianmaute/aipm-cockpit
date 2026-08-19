@@ -98,14 +98,30 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
         primaryCount: meta.primaryCount ?? (deleted.length + editedBefore.length),
         parts: [meta.tasksPart, budgetsPart],
         name,
-        // ★ "task", NOT "budget": this branch is reachable only from a caller
-        // that supplies a `tasksPart`, and the one that does
-        // (`use-bulk-operations.ts`) passes its TASK count as `primaryCount`.
-        // Naming the entity "budget" would label a task count with the wrong
-        // noun ("Bulk edit 3 budget buckets" for 3 edited tasks). The
-        // bucket-count fallback beside it applies only if a future caller
-        // supplies a tasksPart WITHOUT a primaryCount — if one ever does, the
-        // entity has to become a parameter rather than this literal.
+        // ★★ "task", NOT "budget" — and this literal is safe only under BOTH
+        // halves of a coupling that nothing here enforces. `buildUndoLabel`
+        // resolves the noun as `entityKey ?? entityKeyFromKind(kind)`, so the
+        // literal OVERRIDES whatever entity the caller's `kind` carries, while
+        // the branch is selected on `tasksPart` ALONE and never reads `kind`
+        // or `primaryCount`. It is correct only for a caller whose count AND
+        // kind both describe the TASKS side. Exactly one reaches it today
+        // (`use-bulk-operations.ts`) and satisfies both:
+        //   COUNT half — it passes its TASK count as `primaryCount`. Naming the
+        //   entity "budget" would label a task count with the wrong noun
+        //   ("Bulk edit 3 budget buckets" for 3 edited tasks). The bucket-count
+        //   fallback beside it applies only to a future caller supplying a
+        //   tasksPart WITHOUT a primaryCount.
+        //   KIND half — it passes `kind: "bulk.edit"`, which is entity-AMBIGUOUS
+        //   by construction (`entityKeyFromKind` yields null for it, so this
+        //   literal supplies the only entity there is). A future caller
+        //   supplying a tasksPart with an entity-FLAVOURED kind gets that kind's
+        //   own entity silently overridden instead: `kind: "budget.deleted"`
+        //   renders "Deleted N tasks" — wrong noun, wrong operation, no error
+        //   anywhere, and no gate that can see it.
+        // EITHER half failing is the trigger to make the entity a parameter.
+        // Do NOT add one before then: a parameter defaulting to "task"
+        // reinstates the identical silent mislabel for any caller that forgets
+        // it, minus this warning.
         entityKey: "task",
       });
     } else if (budgetsPart !== null) {
