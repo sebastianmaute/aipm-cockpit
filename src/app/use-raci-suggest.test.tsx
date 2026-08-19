@@ -82,9 +82,19 @@ interface HarnessProps {
   milestones?: Milestone[];
   /** Seed stakeholder 1's stored RACI so a proposal can be a pure no-op. */
   stakeholderRaci?: Record<string, string>;
+  /** Renders a TEST_ button that writes a role onto a stored stakeholder from
+   *  OUTSIDE the hook. The only way an already-satisfied cell can reach the
+   *  applier: `groundRaciCells` drops a cell whose role is already stored, but
+   *  it runs at PROPOSE time, so a role assigned between propose and confirm —
+   *  a second tab, the AI dispatcher, a manual edit in the matrix — leaves a
+   *  cell in `cells` that has since become a no-op. */
+  externalWrite?: { id: number; milestoneId: number; role: "R" | "A" | "C" | "I" };
 }
 
-function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci }: HarnessProps) {
+function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakeholderRaci, externalWrite }: HarnessProps) {
+  // Bound to a const so the `ext &&` guard's narrowing survives into the nested
+  // setState/map callbacks below — a destructured PARAMETER's narrowing does not.
+  const ext = externalWrite;
   const [stakeholders, setStakeholders] = useState<readonly Stakeholder[]>([
     { id: 1, name: "Sam", category: "Sponsor", influence: "High", interest: "High", raci: (stakeholderRaci ?? {}) as Stakeholder["raci"] },
     { id: 2, name: "Lee", category: "Internal", influence: "Medium", interest: "High", raci: {} },
@@ -106,6 +116,23 @@ function Harness({ onCaptureBulk, onSaves, milestones: milestonesProp, stakehold
       {suggest.button}
       {suggest.modal}
       <output data-testid="sam-raci">{JSON.stringify(stakeholders.find((s) => s.id === 1)?.raci ?? {})}</output>
+      <output data-testid="lee-raci">{JSON.stringify(stakeholders.find((s) => s.id === 2)?.raci ?? {})}</output>
+      {ext && (
+        <button
+          type="button"
+          onClick={() =>
+            setStakeholders((prev) =>
+              prev.map((s) =>
+                s.id === ext.id
+                  ? { ...s, raci: { ...s.raci, [String(ext.milestoneId)]: ext.role } }
+                  : s,
+              ),
+            )
+          }
+        >
+          TEST_EXTERNAL_RACI_WRITE
+        </button>
+      )}
     </div>
   );
 }
@@ -286,6 +313,58 @@ describe("useRaciSuggest (plan-then-apply)", () => {
     await waitFor(() => expect(onSaves).toHaveBeenCalledTimes(1));
     // Only "10": "R" was applied — "11": "C" was unticked and must be absent.
     expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "R" }));
+  });
+
+  // ★★★ The applier writes the set `buildBulkFieldEdits` CAPTURED, not the set
+  //   `foldCellsByStakeholder` produced. Those two diverge only when a folded
+  //   stakeholder's `after` is value-identical to its `before`, which needs a
+  //   role to arrive BETWEEN propose and confirm — `groundRaciCells` already
+  //   drops an at-target cell, but it grounds against the stakeholder list as it
+  //   stood at propose. Hence the TEST_EXTERNAL_RACI_WRITE button: it is the
+  //   fixture, not scaffolding. Without it every folded row really differs, the
+  //   filtered and unfiltered write sets coincide, and the guard is invisible.
+  //
+  //   ★★ WHAT THIS CANNOT PIN, stated so nobody reads it as more: the fix also
+  //   changed the loop's collection from `updated` to `rows`, and the two are
+  //   always the same length — `foldCellsByStakeholder` builds its `byId` from
+  //   the SAME `stakeholders` array `originalById` is built from and skips a
+  //   cell whose stakeholder is missing, so every `after.id` resolves and the
+  //   null filter never fires. Verified by reading both, not by this test. The
+  //   subject here is the `wrote.has(after.id)` guard alone.
+  it("does not save a folded stakeholder whose role was already assigned between propose and confirm", async () => {
+    vi.mocked(call.runRaciSuggestion).mockResolvedValue({
+      cells: [
+        { stakeholderId: 1, milestoneId: 10, role: "R" },
+        { stakeholderId: 2, milestoneId: 10, role: "C" },
+      ],
+      truncated: false,
+    });
+    const onSaves = vi.fn();
+    const onCaptureBulk = vi.fn();
+    renderHarness({ onSaves, onCaptureBulk, externalWrite: { id: 2, milestoneId: 10, role: "C" } });
+
+    fireEvent.click(screen.getByRole("button", { name: /suggest raci/i }));
+    // Both cells survived grounding and are preselected — so Lee reaches the
+    // fold. Without this the test could pass because grounding dropped the cell,
+    // which is a different (and already-tested) mechanism.
+    await waitFor(() => expect(screen.getByRole("checkbox", { name: /Sam.*Go-Live/i })).toBeChecked());
+    expect(screen.getByRole("checkbox", { name: /Lee.*Go-Live/i })).toBeChecked();
+
+    // Someone else assigns Lee the very role the proposal would write.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_EXTERNAL_RACI_WRITE" }));
+    expect(screen.getByTestId("lee-raci").textContent).toBe(JSON.stringify({ "10": "C" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /apply selected/i }));
+
+    await waitFor(() => expect(screen.getByTestId("sam-raci").textContent).toBe(JSON.stringify({ "10": "R" })));
+    // Sam changed and was written; Lee did not and must not be. A save would
+    // stamp a fresh `localModifiedAt` (use-stakeholders.ts) and log a
+    // `stakeholder.updated` with nothing on the undo stack behind it.
+    expect(onSaves).toHaveBeenCalledTimes(1);
+    expect(onSaves.mock.calls[0][0].id).toBe(1);
+    expect(onCaptureBulk).toHaveBeenCalledWith([
+      { id: 1, before: { raci: {} }, after: { raci: { "10": "R" } } },
+    ]);
   });
 
   it("shows a 'no proposal' toast and no modal when the model returns nothing", async () => {

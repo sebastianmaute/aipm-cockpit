@@ -397,6 +397,123 @@ describe("Milestones bulk edit", () => {
     expect(screen.getByText("2026-07-15")).toBeInTheDocument();
     expect(screen.queryByText("2026-06-10")).not.toBeInTheDocument();
   });
+
+  /** Select every seeded row, open the bulk panel, tick "Achieved date" and
+   *  apply — leaving the date input BLANK, which is the CLEAR case.
+   *  `dateField`'s `default` is `""` and the panel maps a blank through
+   *  `changes.achievedDate || undefined`, so ticking the box alone IS the
+   *  clear; there is no value to type. */
+  function bulkClearAchievedDate(names: readonly string[]) {
+    for (const name of names) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", name) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "achievedDate") }));
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "bulkApplyCount", String(names.length)) }),
+    );
+  }
+
+  // The PAYLOAD milestones hand the undo stack was unpinned. The three sibling
+  // registers each got this test (`change-panel.test.tsx`, `raid-panel.test.tsx`,
+  // `stakeholders-panel.test.tsx` all assert the `onCaptureBulk` argument) and
+  // this file got none. ★ Not for want of the prop — `RealUndoHarness` below
+  // wires the REAL `captureFieldRows` — but that test drives undo end-to-end and
+  // never looks at the argument, so nothing here described the patch's shape.
+  // The CLEAR case is the shape worth describing: it is the only milestone patch
+  // whose `after` value is `undefined`.
+  it("hands captureFieldRows a patch whose cleared side carries an explicit undefined, not an absent key", () => {
+    const captureFieldRows = vi.fn();
+    render(
+      <>
+        <Seed
+          milestones={[
+            m("Alpha", "2026-06-10", { id: 1, achievedDate: "2026-06-01" }),
+            m("Beta", "2026-06-20", { id: 2, achievedDate: "2026-06-05" }),
+          ]}
+        />
+        <MilestonesPanel {...baseProps} captureFieldRows={captureFieldRows} />
+      </>,
+      { wrapper },
+    );
+
+    bulkClearAchievedDate(["Alpha", "Beta"]);
+
+    expect(captureFieldRows).toHaveBeenCalledTimes(1);
+    const arg = captureFieldRows.mock.calls[0][0];
+    expect(arg.kind).toBe("bulk.edit");
+    // `bulk.edit` is entity-AMBIGUOUS — one shared kind across tasks/raid/
+    // change/… — so unlike every other kind the undo label cannot be derived
+    // from it and each capture site must name its entity explicitly.
+    expect(arg.entityKey).toBe("milestone");
+    expect(arg.edits.map((e: { id: number }) => e.id)).toEqual([1, 2]);
+
+    for (const e of arg.edits as { id: number; before: Partial<Milestone>; after: Partial<Milestone> }[]) {
+      // The patch is the DELTA: `date`, `name` and `linkedTaskIds` are copied
+      // through by `{...item}` unchanged, so only the cleared key is captured.
+      expect(Object.keys(e.before)).toEqual(["achievedDate"]);
+      // ★ ANTI-VACUITY: assert the KEY's presence, not the value. `toEqual`
+      // treats `{achievedDate: undefined}` and `{}` as equal, so an assertion
+      // written that way passes against a patch that omits the key — and the key
+      // is exactly what carries the clear. `captureFieldPart` applies a patch as
+      // `{...row, ...pick(edit)}`, and a spread only overwrites keys it HAS: with
+      // the key absent, REDO would leave the pre-undo date standing and the redo
+      // of a clear would silently do nothing.
+      expect(Object.keys(e.after)).toEqual(["achievedDate"]);
+      expect(e.after.achievedDate).toBeUndefined();
+    }
+    expect(arg.edits.find((e: { id: number }) => e.id === 1).before).toEqual({ achievedDate: "2026-06-01" });
+    expect(arg.edits.find((e: { id: number }) => e.id === 2).before).toEqual({ achievedDate: "2026-06-05" });
+  });
+
+  // ★★★ THE OBSERVABLE HERE IS NOT `localModifiedAt`. Unlike the three other
+  // converted registers, `save` in this panel never writes that field at all
+  // (`{...next, id}` and nothing else), so an assertion on it would hold whether
+  // or not the panel wrote the row. What an unwanted save DOES leave behind is a
+  // `milestone.updated` activity entry carrying an EMPTY `diffFields` — an audit
+  // row for an edit that changed nothing — plus a map-replace into a fresh array
+  // that dirties the workspace and triggers an autosave. The activity call is the
+  // one of those two a unit test can name a row from.
+  it("neither captures nor logs a selected milestone that already has no achieved date to clear", () => {
+    const captureFieldRows = vi.fn();
+    const logActivityChanges = vi.fn();
+    render(
+      <>
+        <Seed
+          milestones={[
+            m("Alpha", "2026-06-10", { id: 1, achievedDate: "2026-06-01" }),
+            // Beta has NO `achievedDate`. Clearing it sets the key to `undefined`
+            // on a row that already reads `undefined` there, and `{...item}`
+            // copies every other key by reference — so Beta's diff is empty and
+            // `buildBulkFieldEdits` drops the row.
+            m("Beta", "2026-06-20", { id: 2 }),
+          ]}
+        />
+        <MilestonesPanel
+          {...baseProps}
+          captureFieldRows={captureFieldRows}
+          logActivityChanges={logActivityChanges}
+        />
+      </>,
+      { wrapper },
+    );
+
+    bulkClearAchievedDate(["Alpha", "Beta"]);
+
+    // Captured: Alpha only.
+    expect(captureFieldRows).toHaveBeenCalledTimes(1);
+    expect(captureFieldRows.mock.calls[0][0].edits.map((e: { id: number }) => e.id)).toEqual([1]);
+
+    // Written: Alpha only. Reading the ids off EVERY call is what makes this
+    // able to fail — with the panel's `wrote.has(after.id)` guard removed the
+    // list reads `[1, 2]`, and the extra entry's `changes` is `[]`.
+    expect(logActivityChanges.mock.calls.map((c: unknown[]) => c[2])).toEqual([1]);
+    expect(logActivityChanges).toHaveBeenCalledWith(
+      "milestone.updated",
+      [{ field: "achievedDate", from: "2026-06-01", to: "" }],
+      1,
+    );
+  });
 });
 
 describe("achieved toggle", () => {
