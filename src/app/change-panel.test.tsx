@@ -5,6 +5,9 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { ChangePanel } from "./change-panel";
+import { useChangeLog } from "./use-change-log";
+import { useUndoStack } from "./undo/use-undo-stack";
+import type { ActivityKind } from "./activity-log";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
@@ -393,12 +396,105 @@ describe("Changes bulk edit", () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     // Bulk apply passes suppressFieldUndo so the looped save skips per-field
-    // undo capture (the whole-row bulk.edit entry already covers it).
+    // undo capture: the panel captures the whole op ITSELF, as one set of
+    // {before, after} field patches handed to onCaptureBulk (pinned by the test
+    // below). Without the flag every row would also be captured a second time by
+    // the save handler.
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, status: "Approved" }),
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
+  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
+  // suite that never passes the prop does not even RUN the builder. Assert the
+  // real payload, per row, against what the saves actually wrote.
+  it("captures one patch per changed row, and neither captures NOR saves a row already holding every value the patch sets", () => {
+    const onSave = vi.fn<(item: ChangeItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void>();
+    const onCaptureBulk =
+      vi.fn<(edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => void>();
+    const changes = [
+      // No decisionDate — approving STAMPS one, so this row's patch carries BOTH
+      // keys and its `before.decisionDate` is an explicit undefined (that is what
+      // makes the undo able to restore "absent").
+      ci({ id: 1, title: "Alpha scope", status: "Proposed" }),
+      // Already decided on an earlier date — applyChangeStatus keeps it
+      // (`item.decisionDate ?? today`), so decisionDate does NOT change here and
+      // must stay OUT of the patch.
+      ci({ id: 2, title: "Beta cost", status: "Rejected", decisionDate: "2026-06-05" }),
+      // ★★★ THE WITNESS, and without it the two id assertions below cannot fail.
+      // `applyChangeStatus` writes exactly two keys — `status`, and
+      // `decisionDate` (`item.decisionDate ?? today` on a non-pending status,
+      // change-log.ts) — and this row already holds the target value of BOTH, so
+      // its `after` is value-equal to its `before` on every key the apply
+      // touches. `buildBulkFieldEdits` therefore emits nothing for it, and with
+      // the two rows above changing on at least one key each, saved-ids and
+      // captured-ids agree ONLY when the panel derives its write set from the
+      // capture. Note the decisionDate: a row merely already at status
+      // "Approved" but with NO decisionDate would be STAMPED with `today` and so
+      // would still change — it would prove nothing.
+      ci({ id: 3, title: "Gamma risk", status: "Approved", decisionDate: "2026-06-05" }),
+    ];
+    const { getByRole, getAllByRole } = render(
+      <ChangePanel {...base} changes={changes} onSave={onSave} onCaptureBulk={onCaptureBulk} />,
+      { wrapper: Providers },
+    );
+
+    for (const title of ["Alpha scope", "Beta cost", "Gamma risk"]) {
+      fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
+    }
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value: "Approved" } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    const edits = onCaptureBulk.mock.calls[0][0];
+    const saved = new Map<number, ChangeItem>(onSave.mock.calls.map(([row]) => [row.id, row] as const));
+
+    // The capture covers exactly the rows the panel saved — THREE rows were
+    // selected and offered to the apply, and the same two come out of both
+    // sides. `Gamma risk` is dropped by `buildBulkFieldEdits` (empty diff) and
+    // must therefore be dropped by the save loop too: saving it anyway stamps a
+    // fresh `localModifiedAt` and logs a `change.updated` that no undo entry can
+    // reverse, which is the whole defect this pins.
+    expect([...saved.keys()].sort()).toEqual([1, 2]);
+    expect(edits.map((e) => e.id).sort()).toEqual([1, 2]);
+
+    // `after` is what the save actually wrote — every captured key, every row.
+    for (const e of edits) {
+      const row = saved.get(e.id)!;
+      for (const [key, value] of Object.entries(e.after)) {
+        expect(value).toEqual(row[key as keyof ChangeItem]);
+      }
+    }
+
+    const first = edits.find((e) => e.id === 1)!;
+    expect(Object.keys(first.before).sort()).toEqual(["decisionDate", "status"]);
+    expect(first.before.status).toBe("Proposed");
+    expect(first.before.decisionDate).toBeUndefined();
+    expect(first.after).toEqual({ status: "Approved", decisionDate: base.today });
+
+    const second = edits.find((e) => e.id === 2)!;
+    // Only `status` moved, so the patch is status-only: undoing this row cannot
+    // rewrite a decisionDate the bulk edit never touched. This is also what
+    // separates a real patch from a whole-row capture — a whole-row capture would
+    // carry title/type/raisedDate here too.
+    expect(Object.keys(second.before)).toEqual(["status"]);
+    expect(second.before).toEqual({ status: "Rejected" });
+    expect(second.after).toEqual({ status: "Approved" });
+
+    // STATEMENT ORDER ONLY. This pins that the capture call precedes the first
+    // save; it does NOT pin the rationale in the panel's "Capture BEFORE the
+    // saves" comment. `rows` — both halves of every {before, after} — is
+    // materialised before either step, so moving the capture below the loop would
+    // leave the payload above byte-identical. Nothing here can express that
+    // rationale, and no test in this file claims to.
+    expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
   });
 
   /** Sets `status` on the bulk panel and applies it to the one selected row. */
@@ -439,6 +535,168 @@ describe("Changes bulk edit", () => {
     expect(onSave).toHaveBeenCalledTimes(1);
     expect(onSave.mock.calls[0][0].status).toBe("Under Review");
     expect(onSave.mock.calls[0][0].decisionDate).toBeUndefined();
+  });
+});
+
+// --- bulk-edit undo through the REAL panel → hook → stack chain -------------
+
+describe("Changes bulk edit undo — real useChangeLog + real useUndoStack", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  /** The stamp every seeded row starts with.
+   *  ★★★ ANTI-VACUITY, and the reason this field rather than a business one:
+   *  NOTHING but a save can move `localModifiedAt`, so an assertion on it cannot
+   *  be carried by a second mechanism. It is in `NEVER_CAPTURE`
+   *  (`undo/field-groups.ts`), so no capture ever holds it and no undo ever
+   *  restores it; it is NOT on `WRITE_THROUGH_FIELDS`
+   *  (`undo/use-undo-stack.ts`), so no whole-row backstop preserves it either.
+   *  `handleSaveChange` overwrites it with `new Date().toISOString()` on EVERY
+   *  update. A row still carrying this value was never handed to the save. */
+  const SEED_STAMP = "2020-01-01T00:00:00.000Z";
+
+  const noop = () => {};
+
+  function Seeder({ seed }: { seed: readonly ChangeItem[] }) {
+    const { setChanges } = useWorkspace();
+    useEffect(() => {
+      setChanges([...seed]);
+    }, [seed, setChanges]);
+    return null;
+  }
+
+  /** Reads LIVE workspace state rather than the rendered table: the table shows
+   *  neither `localModifiedAt` nor `decisionDate`, and reading a row off DOM
+   *  text would also depend on sort order, which the status change perturbs. */
+  function Probe({ id }: { id: number }) {
+    const { changes } = useWorkspace();
+    const c = changes.find((x) => x.id === id);
+    return (
+      <>
+        <span data-testid={`status-${id}`}>{c?.status ?? ""}</span>
+        <span data-testid={`decision-${id}`}>{c?.decisionDate ?? ""}</span>
+        <span data-testid={`stamp-${id}`}>{c?.localModifiedAt ?? ""}</span>
+      </>
+    );
+  }
+
+  /**
+   * Mounts a REAL `useChangeLog` and a REAL `useUndoStack` behind the panel, so
+   * genuine `buildBulkFieldEdits` output flows into a genuine `captureFieldRows`
+   * and the undo reverts real workspace state.
+   *
+   * ★★ THE SEAM NOTHING ELSE COVERS. The panel's own bulk tests assert the
+   * payload against a MOCKED `onCaptureBulk`, and `use-change-log.test.tsx`
+   * calls the capture hook DIRECTLY with a hand-written patch array — so a
+   * defect between them (the wrong callback threaded, or the panel handing over
+   * the wrong `rows`) is invisible to both layers. Modelled on
+   * `milestones-panel.test.tsx`'s "Milestones bulk edit undo", which is the one
+   * register where this chain already ran for real.
+   *
+   * ★ The stack gets its OWN `logActivity` (a no-op): `commitUndo` logs an
+   * "undo" entry through the stack's deps, which would otherwise land in the
+   * `change.updated` assertions below.
+   */
+  function Harness({
+    seed,
+    logActivity,
+  }: {
+    seed: readonly ChangeItem[];
+    logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  }) {
+    const undoApi = useUndoStack({
+      lang: "en-US",
+      logActivity: noop,
+      showToast: noop,
+      showToastAction: noop,
+    });
+    const changeLog = useChangeLog({
+      today: base.today,
+      lang: "en-US",
+      logActivity,
+      captureFieldRows: undoApi.captureFieldRows,
+    });
+    return (
+      <>
+        <Seeder seed={seed} />
+        <ChangePanel
+          {...base}
+          changes={changeLog.changes}
+          onSave={changeLog.handleSaveChange}
+          onCaptureBulk={changeLog.captureBulkUndo}
+        />
+        <Probe id={1} />
+        <Probe id={2} />
+        <Probe id={3} />
+        <button type="button" onClick={() => undoApi.undo()}>
+          TEST_UNDO
+        </button>
+      </>
+    );
+  }
+
+  it("saves and reverts only the rows the patch moved, leaving a row already at the target byte-identical", () => {
+    const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
+    const seed = [
+      ci({ id: 1, title: "Alpha scope", status: "Proposed", localModifiedAt: SEED_STAMP }),
+      ci({ id: 2, title: "Beta cost", status: "Rejected", decisionDate: "2026-06-05", localModifiedAt: SEED_STAMP }),
+      // Already Approved AND already decided — the two keys `applyChangeStatus`
+      // writes both already hold the target value, so this row's diff is empty.
+      ci({ id: 3, title: "Gamma risk", status: "Approved", decisionDate: "2026-06-05", localModifiedAt: SEED_STAMP }),
+    ];
+    const { getByRole, getAllByRole, getByTestId } = render(
+      <Harness seed={seed} logActivity={logActivity} />,
+      { wrapper: Providers },
+    );
+
+    for (const title of ["Alpha scope", "Beta cost", "Gamma risk"]) {
+      fireEvent.click(getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
+    }
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(getByRole("checkbox", { name: t("en-US", "changeFieldStatus") }));
+    const bulkStatus = getAllByRole("combobox", { name: t("en-US", "changeFieldStatus") })
+      .find((el) => el.id === "bulk-status")!;
+    fireEvent.change(bulkStatus, { target: { value: "Approved" } });
+    fireEvent.click(getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    // The two rows with somewhere to move were written — a fresh stamp is the
+    // proof the save ran, and it is what makes the row-3 assertion meaningful.
+    expect(getByTestId("status-1").textContent).toBe("Approved");
+    expect(getByTestId("decision-1").textContent).toBe(base.today);
+    expect(getByTestId("status-2").textContent).toBe("Approved");
+    expect(getByTestId("stamp-1").textContent).not.toBe(SEED_STAMP);
+    expect(getByTestId("stamp-2").textContent).not.toBe(SEED_STAMP);
+
+    // ...and row 3 was never written at all. Its FIELDS would look identical
+    // either way — only the stamp and the audit trail can tell a skipped save
+    // from a redundant one.
+    expect(getByTestId("stamp-3").textContent).toBe(SEED_STAMP);
+    expect(
+      logActivity.mock.calls.filter((c) => c[0] === "change.updated").map((c) => c[1]).sort(),
+    ).toEqual([1, 2]);
+
+    fireEvent.click(getByRole("button", { name: "TEST_UNDO" }));
+
+    // The undo reached real workspace state through the real `captureFieldRows`
+    // — with a broken wire (no `onCaptureBulk`, or the wrong callback) the
+    // capture would be dropped and these four assertions would all still read
+    // the applied values.
+    expect(getByTestId("status-1").textContent).toBe("Proposed");
+    expect(getByTestId("decision-1").textContent).toBe("");
+    expect(getByTestId("status-2").textContent).toBe("Rejected");
+    // Only `status` was captured for row 2, so the undo cannot rewrite a
+    // decisionDate the bulk edit never touched.
+    expect(getByTestId("decision-2").textContent).toBe("2026-06-05");
+
+    // Row 3 is where it started, on both sides of the undo.
+    expect(getByTestId("status-3").textContent).toBe("Approved");
+    expect(getByTestId("decision-3").textContent).toBe("2026-06-05");
+    expect(getByTestId("stamp-3").textContent).toBe(SEED_STAMP);
   });
 });
 

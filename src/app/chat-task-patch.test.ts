@@ -168,9 +168,9 @@ describe("buildTaskCleanPatch", () => {
   });
 
   // ★★ `status` is deliberately NOT handled here — it must route through
-  //    `applyStatusChange`, the sole writer of status + completedDate, which
-  //    the caller applies after merging. Carrying it here would let a status
-  //    land without its paired completedDate.
+  //    `applyStatusChange`, the writer of status + completedDate for every
+  //    in-app status change, which the caller applies after merging. Carrying
+  //    it here would let a status land without its paired completedDate.
   it("drops status, leaving it to applyStatusChange", () => {
     expect(buildTaskCleanPatch({ status: "Done" } as Partial<Task>, task())).toEqual({});
   });

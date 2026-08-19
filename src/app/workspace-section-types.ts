@@ -143,12 +143,16 @@ export interface WorkspaceSectionProps {
   /** Send a status-inquiry email to a RAID item's owner (mirrors task
    *  `onSendInquiry`). Absent in popouts. */
   onSendRaidInquiry?: (item: RaidItem) => void;
-  /** Capture the selected RAID rows' pre-edit images for undo before a bulk apply. */
-  onCaptureRaidBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected RAID rows' field patches for undo before a bulk apply. */
+  onCaptureRaidBulk?: (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => void;
   /** Raw undo capture (milestone panel builds its own restore via setMilestones). */
   onCaptureUndo?: import("./undo/use-undo-stack").UndoStackApi["capture"];
   /** Per-field edit undo capture (milestone panel diffs prev/next itself). */
   onCaptureFieldEdit?: import("./undo/use-undo-stack").UndoStackApi["captureFieldEdit"];
+  /** Bulk field-patch undo capture (milestone panel builds its own edits via
+   *  buildBulkFieldEdits, unlike the other bulk-edit registers, which route
+   *  it through a feature hook). */
+  onCaptureFieldRows?: import("./undo/use-undo-stack").UndoStackApi["captureFieldRows"];
   changes: readonly ChangeItem[];
   /** `refKey(kind, id)` → the documents referencing that entity, for the
    *  linked-documents row badge. Built ONCE in task-manager and threaded down:
@@ -159,13 +163,13 @@ export interface WorkspaceSectionProps {
   handleDeleteChange: (id: number, title: string) => void;
   /** Inline status change from a change row (routes through applyChangeStatus). */
   handleChangeStatusChange: (id: number, next: ChangeStatus) => void;
-  /** Capture the selected changes' pre-edit images for undo before a bulk apply. */
-  onCaptureChangeBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected changes' field patches for undo before a bulk apply. */
+  onCaptureChangeBulk?: (edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => void;
   stakeholders: readonly Stakeholder[];
   handleSaveStakeholder: (item: Stakeholder, isNew?: boolean) => void;
   handleDeleteStakeholder: (id: number, name: string) => void;
-  /** Capture the selected stakeholders' pre-edit images for undo before a bulk apply. */
-  onCaptureStakeholderBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected stakeholders' field patches for undo before a bulk apply. */
+  onCaptureStakeholderBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */

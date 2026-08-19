@@ -1,10 +1,14 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-10 at the merge with main 528dd5fe | App 0.246.0 "Bodard" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.248.0 "Bujold" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 
-Deliberately small. **Nine runtime dependencies**, and the count barely moves across releases —
-timezones use native `Intl`, drag-and-drop is native HTML5, OOXML export is hand-rolled over an
-in-tree zip writer, and every AI call is a raw `fetch`.
+Deliberately small. **Fifteen runtime dependencies**, seven of which are Tiptap packages on one
+version line — so the count of independent vendors is nine. Timezones use native `Intl`,
+drag-and-drop is native HTML5, OOXML export is hand-rolled over an in-tree zip writer, and every AI
+call is a raw `fetch`.
+
+★ Read the number rather than quoting this one: `node -e "console.log(Object.keys(require('./package.json').dependencies).length)"`.
+It said **nine** for six releases after five Tiptap extensions and `lucide-react` had landed.
 
 ## Runtime
 
@@ -15,6 +19,8 @@ in-tree zip writer, and every AI call is a raw `fetch`.
 | `@azure/msal-browser` | ^5.16.0 | M365 sign-in; owns its own token cache (app stores no M365 secret) |
 | `@heroicons/react` | ^2.2.0 | icon set |
 | `@tiptap/react` + `@tiptap/starter-kit` | ^3.27.1 | rich-text editor (lazy `ssr:false` — needs `Range.getClientRects` stubs in jsdom) |
+| `@tiptap/extension-``list` `text-align` `highlight` `superscript` `subscript` | ^3.27.1 | the toolbar beyond starter-kit: task lists, alignment, highlight, super/subscript. ★★ Each declares its own commands via `declare module '@tiptap/core'` INSIDE its package, so `toggleHighlight`/`toggleSuperscript`/`toggleSubscript` do not exist on the chained-commands type until some file in the TS program imports that module — a toolbar calling them while only the EDITOR imports the extensions is green in vitest and red in tsc |
+| `lucide-react` | ^1.31.0 | ONE consumer, `rich-text-toolbar.tsx`. Heroicons is still the app-wide icon set (77 files); do not reach for lucide elsewhere without deciding to switch |
 | `dompurify` | ^3.4.10 | HTML sanitize for the note log, the seven rich description fields, and anything the AI writes into them. ★★ must not run at module-eval (no DOM under SSR → 500) **and must never be reached from `rich-text-plain.ts` or an entity sanitizer** — those run under bare Node in the sample generator, where the call throws and `jsonToWorkspace` swallows it into an empty workspace (see [data.md](data.md)) |
 | `date-holidays` | ^3.28.0 | public-holiday calendar |
 

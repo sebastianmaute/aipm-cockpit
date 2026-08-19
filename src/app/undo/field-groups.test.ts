@@ -1,5 +1,5 @@
 import { describe, test, it, expect } from "vitest";
-import { pick, changedFieldGroups, type FieldGroup } from "./field-groups";
+import { pick, changedFieldGroups, buildBulkFieldEdits, type FieldGroup } from "./field-groups";
 
 interface Row { id: number; a: string; b: string; c: string; tags: string[]; localModifiedAt?: string }
 
@@ -105,5 +105,57 @@ describe("CALENDAR_EVENT_UNDO_GROUPS", () => {
     const out = changedFieldGroups(base, { ...base, title: "Renamed" }, CALENDAR_EVENT_UNDO_GROUPS);
     expect(out).toHaveLength(1);
     expect(out[0].before).toEqual({ title: "Standup" });
+  });
+});
+
+describe("buildBulkFieldEdits", () => {
+  type Row = { id: number; sev: string; owner?: string; localModifiedAt?: string; noteLog?: string[] };
+
+  it("emits one edit per row carrying only the CHANGED keys", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", owner: "ann" }, after: { id: 1, sev: "High", owner: "ann" } },
+    ]);
+    expect(edits).toEqual([{ id: 1, before: { sev: "Low" }, after: { sev: "High" } }]);
+  });
+
+  it("skips a row nothing changed on", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low" } },
+      { before: { id: 2, sev: "Low" }, after: { id: 2, sev: "High" } },
+    ]);
+    expect(edits.map((e) => e.id)).toEqual([2]);
+  });
+
+  it("never captures id or localModifiedAt", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", localModifiedAt: "t0" }, after: { id: 1, sev: "High", localModifiedAt: "t1" } },
+    ]);
+    expect(Object.keys(edits[0].before)).toEqual(["sev"]);
+  });
+
+  it("skips a write-through field that differs — a forward-proofing branch NO current caller reaches", () => {
+    // NOT evidence the filter is live. Every production caller derives `after`
+    // from `before`, so a key the op did not write is the same REFERENCE on both
+    // sides and `differs` short-circuits before the filter is consulted; this
+    // fixture is one no current caller can produce. It pins the branch for a
+    // future caller that builds `after` independently. See the WRITE_THROUGH_KEYS
+    // docblock in field-groups.ts for the call-site enumeration command.
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low", noteLog: ["a"] }, after: { id: 1, sev: "High", noteLog: ["a", "b"] } },
+    ]);
+    expect(Object.keys(edits[0].before)).toEqual(["sev"]);
+  });
+
+  it("captures a field set from undefined and one cleared to undefined", () => {
+    const edits = buildBulkFieldEdits<Row>([
+      { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low", owner: "ann" } },
+      { before: { id: 2, sev: "Low", owner: "bo" }, after: { id: 2, sev: "Low" } },
+    ]);
+    expect(edits[0]).toEqual({ id: 1, before: { owner: undefined }, after: { owner: "ann" } });
+    expect(edits[1]).toEqual({ id: 2, before: { owner: "bo" }, after: { owner: undefined } });
+  });
+
+  it("returns an empty array for an empty input", () => {
+    expect(buildBulkFieldEdits<Row>([])).toEqual([]);
   });
 });

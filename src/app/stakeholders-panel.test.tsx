@@ -188,11 +188,116 @@ describe("Stakeholders bulk edit", () => {
 
     expect(props.onSave).toHaveBeenCalledTimes(1);
     // Bulk apply passes suppressFieldUndo so the looped save skips per-field
-    // undo capture (the whole-row bulk.edit entry already covers it).
+    // undo capture: the panel captures the whole op ITSELF, as one set of
+    // {before, after} field patches handed to onCaptureBulk (pinned by the test
+    // below). Without the flag every row would also be captured a second time by
+    // the save handler.
     expect(props.onSave).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, influence: "High" }),
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
+  // panel. The panel hoists `buildBulkFieldEdits(rows)` above the optional
+  // `onCaptureBulk?.(build())` call so the builder runs even unwired. Two ticked
+  // fields over THREE rows, each row a different shape of overlap with the pick:
+  //   Dana  — both picked values are new            → both keys captured, saved
+  //   Eve   — ONE of the two is already at target   → one key captured, saved
+  //   Finn  — BOTH are already at target            → no patch at all, NOT saved
+  // Eve exercises the per-KEY delta; Finn exercises the per-ROW one, and only
+  // Finn can tell the write set apart from the selection. Without that row the panel
+  // could save every selected row while capturing only the changed ones and
+  // every assertion below would still hold.
+  it("captures one patch per row it wrote, and neither captures nor writes a row already at every picked value", () => {
+    const onSave = vi.fn<(item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void>();
+    const onCaptureBulk =
+      vi.fn<(edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void>();
+    const stakeholders = [
+      sampleStakeholder({ id: 1, name: "Dana", influence: "Low", interest: "Low" }),
+      // Interest is ALREADY High — the pick is a no-op for that one field, so it
+      // must stay out of this row's patch while influence still lands in it.
+      sampleStakeholder({ id: 2, name: "Eve", influence: "Medium", interest: "High" }),
+      // BOTH picked values are already stored, and `category` — the third bulk
+      // field — is left unticked, so `patch` copies it through untouched. Finn's
+      // `after` is therefore value-identical to his `before` on every key,
+      // `buildBulkFieldEdits` drops the row, and the panel must not save it.
+      sampleStakeholder({ id: 3, name: "Finn", influence: "High", interest: "High" }),
+    ];
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={stakeholders}
+        resources={[]}
+        milestones={[]}
+        onSave={onSave}
+        onDelete={vi.fn()}
+        onCaptureBulk={onCaptureBulk}
+      />,
+      { wrapper },
+    );
+
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Dana") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Eve") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Finn") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+
+    // Tick + set both fields (the bulk selects share their names with the column
+    // header sort controls — disambiguate by the bulk control's id).
+    for (const [field, id] of [
+      ["stakeholderFieldInfluence", "bulk-influence"],
+      ["stakeholderFieldInterest", "bulk-interest"],
+    ] as const) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", field) }));
+      const control = screen.getAllByRole("combobox", { name: t("en-US", field) }).find((el) => el.id === id)!;
+      fireEvent.change(control, { target: { value: "High" } });
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    const edits = onCaptureBulk.mock.calls[0][0];
+    const saved = new Map<number, Stakeholder>(onSave.mock.calls.map(([row]) => [row.id, row] as const));
+
+    // THE WRITE SET IS THE CAPTURED SET — three rows selected, two written.
+    // Finn is the row that makes this assertion able to fail: with the panel's
+    // `wrote.has(after.id)` guard removed that row is saved but not captured, so it
+    // appears on the left of this equality and not on the right. `Stakeholder`
+    // carries neither `noteLog` nor `outlookEventId`, so no `WRITE_THROUGH_KEYS`
+    // exclusion in `buildBulkFieldEdits` can drop a key here and manufacture an
+    // empty patch for a row that really did change.
+    expect([...saved.keys()].sort()).toEqual([1, 2]);
+    expect(edits.map((e) => e.id).sort()).toEqual([1, 2]);
+    expect(saved.has(3)).toBe(false);
+    expect(edits.some((e) => e.id === 3)).toBe(false);
+
+    // `after` is what the save actually wrote — every captured key, every row.
+    for (const e of edits) {
+      const row = saved.get(e.id)!;
+      for (const [key, value] of Object.entries(e.after)) {
+        expect(value).toEqual(row[key as keyof Stakeholder]);
+      }
+    }
+
+    const dana = edits.find((e) => e.id === 1)!;
+    expect(Object.keys(dana.before).sort()).toEqual(["influence", "interest"]);
+    expect(dana.before).toEqual({ influence: "Low", interest: "Low" });
+    expect(dana.after).toEqual({ influence: "High", interest: "High" });
+
+    const eve = edits.find((e) => e.id === 2)!;
+    // Interest was already High, so it is absent here — the patch is the delta,
+    // not the row. A whole-row capture would carry name/category/raci as well.
+    expect(Object.keys(eve.before)).toEqual(["influence"]);
+    expect(eve.before).toEqual({ influence: "Medium" });
+    expect(eve.after).toEqual({ influence: "High" });
+
+    // STATEMENT ORDER ONLY, and it is NOT what makes the payload correct.
+    // `rows` — both halves of every {before, after} — is materialised before
+    // either step, so moving the capture below the loop would leave the payload
+    // above byte-identical. (The panel used to carry a "Capture BEFORE the
+    // saves" comment claiming otherwise; it was retired with the fix above.)
+    // What the loop DOES depend on is `edits`, and that dependency is pinned by
+    // the Finn assertions, not by this line.
+    expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
   });
 });

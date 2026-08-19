@@ -55,6 +55,7 @@ import {
 import type { EntityPaneCalendarHintsProps } from "./workspace-section-types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { InfoTooltip } from "./info-tooltip";
 import { RagDot } from "./rag-dot";
@@ -113,8 +114,8 @@ export type ChangePanelProps = EntityPaneCalendarHintsProps & {
    *  `changes` array, never through `onSave` — which reads `noteLog` back from
    *  the stored row and would drop a note added while an editor was open. */
   onOpenNotes: (id: number) => void;
-  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected rows' field patches for undo before a bulk apply. */
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => void;
   /** When false, the RAID-link editor is hidden in the edit modal. Default true. */
   raidEnabled?: boolean;
   /** When false, the Stakeholders picker is hidden in the edit modal. Default true. */
@@ -270,10 +271,7 @@ function ChangePanelBody({
   );
 
   const applyBulk = (patch: Record<string, string>) => {
-    onCaptureBulk?.(Array.from(sel.selectedIds));
-    for (const id of sel.selectedIds) {
-      const item = changesById.get(id);
-      if (!item) continue;
+    const apply = (item: ChangeItem): ChangeItem => {
       let patched: ChangeItem = { ...item };
       // Through applyChangeStatus, exactly like the row select and the modal:
       // setting `status` raw left a bulk-approved row with NO decisionDate (so
@@ -285,7 +283,28 @@ function ChangePanelBody({
         patched = { ...patched, impact: patch.impact ? (patch.impact as ChangeImpact) : undefined };
       if (patch.requestedBy !== undefined)
         patched = { ...patched, requestedBy: patch.requestedBy || undefined };
-      onSave(patched, undefined, { suppressFieldUndo: true });
+      return patched;
+    };
+    const rows = Array.from(sel.selectedIds)
+      .map((id) => changesById.get(id))
+      .filter((item): item is ChangeItem => item !== undefined)
+      .map((item) => ({ before: item, after: apply(item) }));
+
+    // `rows` materialises both `before` and `after` above, so the capture payload
+    // does not depend on where these two statements sit relative to each other.
+    // What IS load-bearing: the write set is DERIVED from the capture.
+    // `buildBulkFieldEdits` drops a row whose diff is empty, so bulk-setting a
+    // field to the value a row already holds yields no edit — and saving it anyway
+    // would stamp a fresh `localModifiedAt` and log a `change.updated` with no undo
+    // entry behind it (the tasks path had the same split; `use-bulk-operations.ts`).
+    // ★ Hoisted out of the optional call deliberately: `onCaptureBulk?.(build())`
+    // never evaluates `build()` when no capture prop is wired, which would leave
+    // `wrote` empty and write NOTHING at all.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();

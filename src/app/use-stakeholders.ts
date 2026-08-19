@@ -25,6 +25,8 @@ export interface UseStakeholdersArgs {
   capture?: UndoStackApi["capture"];
   /** Capture per-field edits for undo (modal save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a bulk field-patch edit for undo (stakeholders bulk apply). */
+  captureFieldRows?: UndoStackApi["captureFieldRows"];
 }
 
 export function useStakeholders(args: UseStakeholdersArgs) {
@@ -77,12 +79,24 @@ export function useStakeholders(args: UseStakeholdersArgs) {
     args.logActivity?.("stakeholder.deleted", id, name);
   }, [stakeholders, setStakeholders, args]);
 
-  // Snapshot the selected rows' pre-edit images before a bulk edit loops the
-  // per-row save handler; call BEFORE the loop mutates them.
-  const captureBulkUndo = useCallback((ids: readonly number[]) => {
-    const edited = stakeholders.filter((s) => ids.includes(s.id));
-    if (edited.length) args.capture?.({ setter: setStakeholders, kind: "bulk.edit", edited, fromArray: stakeholders, entityKey: "stakeholder" });
-  }, [stakeholders, setStakeholders, args]);
+  // Called by stakeholders-panel (and use-raci-suggest's apply) BEFORE its
+  // save loop, with the field patches about to be written. Field patches
+  // rather than whole rows — see open-followups #50: a whole-row capture
+  // reverts anything a concurrent writer changed on these rows meanwhile.
+  // Stakeholders carry no write-through field today; the shape is the point,
+  // so a write-through field added later is safe by construction rather than
+  // by remembering this file.
+  const captureBulkUndo = useCallback(
+    (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => {
+      // No `stampField` here: this register omits it while the tasks bulk edit
+      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
+      // undo that does not restamp may not propagate to a backend that syncs on
+      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
+      // four registers without reading it.
+      if (edits.length) args.captureFieldRows?.({ setter: setStakeholders, kind: "bulk.edit", edits, entityKey: "stakeholder" });
+    },
+    [setStakeholders, args],
+  );
 
   return { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo };
 }

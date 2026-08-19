@@ -48,6 +48,7 @@ import {
 import { setRaciRole } from "./stakeholders";
 import { RaciSuggestModal } from "./raci-suggest-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 
 type Phase = "idle" | "thinking" | "preview" | "applying";
 
@@ -62,12 +63,12 @@ export interface RaciSuggestDeps {
    *  the per-field undo capture (this hook records ONE bulk undo entry
    *  instead, via `onCaptureBulk`). */
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
-  /** Snapshot the touched stakeholders' pre-edit images for undo, called
+  /** Snapshot the touched stakeholders' field patches for undo, called
    *  BEFORE the save loop mutates them — mirrors `onCaptureStakeholderBulk`
    *  (the same capture the manual bulk-edit panel uses), so this feature
    *  gets one correctly-ordered undo entry for free instead of re-deriving
    *  the low-level `capture()` before/after-image contract itself. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** ★ ACTOR-AWARE. This hook writes exactly one kind, and it is an `ai.*`
    *  one, so it KNOWS its actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;
@@ -232,9 +233,33 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     }
     setPhase("applying");
     // Snapshot BEFORE the save loop mutates — mirrors captureBulkUndo's own
-    // "call BEFORE the loop" contract.
-    onCaptureBulk?.(updated.map((s) => s.id));
-    for (const s of updated) onSave(s, false, { suppressFieldUndo: true });
+    // "call BEFORE the loop" contract. Field patches rather than whole rows,
+    // same as the manual bulk-edit panel — see open-followups #50.
+    const originalById = new Map(stakeholders.map((s) => [s.id, s]));
+    const rows = updated
+      .map((after) => {
+        const before = originalById.get(after.id);
+        return before ? { before, after } : null;
+      })
+      .filter((row): row is { before: Stakeholder; after: Stakeholder } => row !== null);
+    // The write set DERIVES from the capture. `buildBulkFieldEdits` drops a row
+    // whose diff is empty, so confirming a cell that merely re-states the role a
+    // stakeholder already carries yields no edit — and saving it anyway would
+    // stamp a fresh `localModifiedAt` (`use-stakeholders.ts`) and log a
+    // `stakeholder.updated` with no undo entry behind it.
+    // ★ Hoisted out of the optional call deliberately: `onCaptureBulk?.(build())`
+    // never evaluates `build()` when no capture prop is wired, which would leave
+    // `wrote` empty and apply nothing at all.
+    // ★ Looping `rows` rather than `updated` is not a narrowing — `foldCellsByStakeholder`
+    // folds over the SAME `stakeholders` list `originalById` is built from, so every
+    // `after.id` resolves and `rows.length === updated.length`; the null filter above
+    // is defensive.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, false, { suppressFieldUndo: true });
+    }
     // Report the number of CELL assignments applied (chosen.length), not the
     // number of stakeholders touched (updated.length) — the activity string
     // reads "N RACI assignments".

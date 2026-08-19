@@ -77,6 +77,8 @@ src/app/
 ├── stakeholders-panel.tsx — stakeholder register + RACI + influence/interest
 ├── resources-panel.tsx   — Resources tab + calendar
 ├── activity-log-panel.tsx — Activity log tab
+├── documents-panel.tsx   — Documents tab (list / preview / toolbar leaves)
+├── insights-panel.tsx    — Insights tab over the pure insights/ engines
 ├── reports.tsx           — Reports tab
 ├── projects-panel.tsx    — Portfolio: project list / create / archive / delete
 ├── projects-registry.ts  — file-mode project registry (localStorage)
@@ -178,7 +180,14 @@ path intact; there is no such path.
 Seven fields hold rich HTML rather than plain text: `Task.description`, RAID
 `description` + `mitigation`, Change `description` + `impactDescription` +
 `resolutionNotes`, and `Milestone.description`. Plus the note log
-(`Task.noteLog` / `RaidItem.noteLog`), which is separate and owns itself.
+(`Task.noteLog` / `RaidItem.noteLog` / `ChangeItem.noteLog` — three registers
+since 0.245.0), which is separate and owns itself.
+
+★★★ The note-log rules are **not uniform across the three registers**: the same
+write-through defect is closed by a different mechanism in each, so copying one
+register's fix to another is how two of them broke.
+[`docs/AGENTS/rich-text.md`](docs/AGENTS/rich-text.md) owns that detail — read it
+before touching any of them.
 
 Five rules, each of which has already cost a bug:
 
@@ -195,13 +204,21 @@ Five rules, each of which has already cost a bug:
    Every *reader* upgrades: `descriptionHtml` at a DOM boundary,
    `descriptionText` for search / AI / previews. Grep the seven field names
    before adding a reader.
-3. **Exports use the other projection.** `descriptionText` collapses a
-   paragraph boundary to a space (right for search, wrong for a human-readable
-   export); `descriptionTextWithBreaks` keeps it as `"\n"`. A new export column
-   joins the matching `*_RICH_COLUMNS` set in `export-sections.ts`, and a new
-   renderer must map that newline to its own primitive (`<br>`, `<w:br/>`, one
-   `<a:p>` per line) or it silently ships fused text. ★ CSV and Markdown are the
-   app's storage format and deliberately export the stored HTML verbatim.
+3. **A rich export column is a `RichCell`, not a string.** A column named in
+   the matching `*_RICH_COLUMNS` set is emitted by `richCell` as
+   `RichCell = { html, text }` (`ExportCell = string | number | RichCell`, guard
+   `isRichCell`, flattener `cellText`). The DOCX and HTML/PDF renderers read
+   `.html` and render real headings, lists and alignment; XLSX and both PPTX
+   paths read `.text`, which comes from `descriptionTextWithBreaks` and keeps a
+   paragraph boundary as `"\n"` — so those renderers must map that newline to
+   their own primitive (one `<a:p>` per line) or they ship fused text.
+   `descriptionText` is the OTHER projection: it collapses a paragraph boundary
+   to a space, which is right for search / AI / previews and wrong for anything
+   a human reads. A new export column joins `*_RICH_COLUMNS`. ★ CSV and Markdown
+   are outside this entirely — `exportWorkspace` routes them to
+   `workspaceToCsv` / `workspaceToMarkdown`, which never call
+   `buildExportSections`, so they emit the stored HTML verbatim and a project
+   round-trips without loss.
 4. **Every write boundary must be upgrade-aware, and a model's write must also
    be allow-listed.** Use `sanitizeRichText` (never `plainToHtml`, which escapes
    `& < >` and would store literal tags). For anything the AI supplies, route it
@@ -241,10 +258,20 @@ Every user-facing string goes through `t(lang, "key")`. When you add a key:
    if you forget — `de: Record<TranslationKey, string>`.
 
 ### Activity log
-Mutations that create / update / delete tasks, RAID entries, shifts, or
-absences should append an entry via `activity-log.ts` so the Activity tab
-stays accurate. Keep entries short and translatable (use existing i18n keys
-where possible).
+Mutations that create / update / delete a task, RAID entry, change, document,
+shift or absence should append an entry via `activity-log.ts` so the Activity
+tab stays accurate. Keep entries short and translatable (use existing i18n keys
+where possible), and stamp the actor — an entry records whether it was the user,
+the assistant or an integration.
+
+★★ It is **`Workspace.activityLog` — project data, not a per-device store.** It
+moved out of localStorage in 0.239.0 and is persisted as a meta-blob on all six
+write paths, which means a new field on an entry is a six-path change, not a
+one-line one. It is also **storage-only**: it has no export key, deliberately,
+because an entry's `changes` carries old and new values.
+[`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md) owns the rest —
+`logMode`, the two load funnels, and the three incompatible completion-trend
+delta shapes.
 
 ### Versioning
 On a noteworthy change, update `src/app/version.ts`:

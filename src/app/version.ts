@@ -2,10 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.246.0";
-export const APP_BUILD_DATE = "2026-08-18"; // 0.246.0: the assistant can search this project's earlier chat threads, and is told when it cannot (Bodard)
+export const APP_VERSION = "0.248.0";
+export const APP_BUILD_DATE = "2026-08-19"; // 0.248.0: the docs and in-app Help now match the app — the activity log is project data, not browser-local (Bujold)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.246.x line is "Bodard" (Aliette de Bodard, SF/fantasy author).
+ *  0.248.x line is "Bujold" (Lois McMaster Bujold, SF/fantasy author).
+ *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
+ *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
  *  0.245.x was "Buckell" (Tobias S. Buckell, SF author).
  *  0.244.x was "Waldrop" (Howard Waldrop, SF/fantasy short-fiction author).
  *  0.243.x was "Aaronovitch" (Ben Aaronovitch, urban-fantasy author).
@@ -34,7 +36,7 @@ export const APP_BUILD_DATE = "2026-08-18"; // 0.246.0: the assistant can search
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Bodard";
+export const APP_MILESTONE = "Butcher";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

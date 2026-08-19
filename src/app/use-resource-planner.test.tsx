@@ -35,6 +35,7 @@ function makeArgs(
     showToast: vi.fn(),
     workdayHours: 8,
     holidaySet: new Set<string>(),
+    captureFieldRows: vi.fn(),
     ...overrides,
   };
 }

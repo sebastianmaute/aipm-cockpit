@@ -39,6 +39,7 @@ import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, type BulkField } from "./bulk-edit-panel";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
@@ -77,8 +78,8 @@ export interface StakeholdersPanelProps extends EntityPaneHintsProps {
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number, name: string) => void;
-  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected rows' field patches for undo before a bulk apply. */
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** Stakeholder ids with a pending stakeholder-comms next-action (drives the matrix icon). */
   commsPendingStakeholderIds?: ReadonlySet<number>;
   /** Jump to the Action Center for the given stakeholder. */
@@ -195,15 +196,32 @@ function StakeholdersPanelBody({
   );
 
   const applyBulk = (changes: Record<string, string>) => {
-    onCaptureBulk?.(Array.from(sel.selectedIds));
-    for (const id of sel.selectedIds) {
-      const item = stakeholderById.get(id);
-      if (!item) continue;
+    const patch = (item: Stakeholder): Stakeholder => {
       let patched: Stakeholder = { ...item };
       if (changes.category !== undefined) patched = { ...patched, category: changes.category as StakeholderCategory };
       if (changes.influence !== undefined) patched = { ...patched, influence: changes.influence as InfluenceInterest };
       if (changes.interest !== undefined) patched = { ...patched, interest: changes.interest as InfluenceInterest };
-      onSave(patched, undefined, { suppressFieldUndo: true });
+      return patched;
+    };
+    const rows = Array.from(sel.selectedIds)
+      .map((id) => stakeholderById.get(id))
+      .filter((item): item is Stakeholder => item !== undefined)
+      .map((item) => ({ before: item, after: patch(item) }));
+
+    // The capture payload does not depend on this statement's position — `rows`
+    // snapshots both sides above. The binding that DOES matter is that the write
+    // set comes out of the capture: `buildBulkFieldEdits` drops a row whose diff
+    // is empty, so a selected row already holding the target value produces no
+    // edit, and writing it regardless would stamp a fresh `localModifiedAt` and
+    // log a `stakeholder.updated` with nothing on the undo stack behind it.
+    // ★ Hoisting the build out of the optional call is load-bearing, not tidiness:
+    // `onCaptureBulk?.(build())` skips `build()` entirely when no capture prop is
+    // wired, which would empty `wrote` and suppress every save.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();
