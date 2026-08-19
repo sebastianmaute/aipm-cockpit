@@ -9,6 +9,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { ToastProvider } from "./toast-context";
 import { MilestonesPanel } from "./milestones-panel";
+import { useUndoStack } from "./undo/use-undo-stack";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
 
@@ -396,6 +397,123 @@ describe("Milestones bulk edit", () => {
     expect(screen.getByText("2026-07-15")).toBeInTheDocument();
     expect(screen.queryByText("2026-06-10")).not.toBeInTheDocument();
   });
+
+  /** Select every seeded row, open the bulk panel, tick "Achieved date" and
+   *  apply — leaving the date input BLANK, which is the CLEAR case.
+   *  `dateField`'s `default` is `""` and the panel maps a blank through
+   *  `changes.achievedDate || undefined`, so ticking the box alone IS the
+   *  clear; there is no value to type. */
+  function bulkClearAchievedDate(names: readonly string[]) {
+    for (const name of names) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", name) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "achievedDate") }));
+    fireEvent.click(
+      screen.getByRole("button", { name: t("en-US", "bulkApplyCount", String(names.length)) }),
+    );
+  }
+
+  // The PAYLOAD milestones hand the undo stack was unpinned. The three sibling
+  // registers each got this test (`change-panel.test.tsx`, `raid-panel.test.tsx`,
+  // `stakeholders-panel.test.tsx` all assert the `onCaptureBulk` argument) and
+  // this file got none. ★ Not for want of the prop — `RealUndoHarness` below
+  // wires the REAL `captureFieldRows` — but that test drives undo end-to-end and
+  // never looks at the argument, so nothing here described the patch's shape.
+  // The CLEAR case is the shape worth describing: it is the only milestone patch
+  // whose `after` value is `undefined`.
+  it("hands captureFieldRows a patch whose cleared side carries an explicit undefined, not an absent key", () => {
+    const captureFieldRows = vi.fn();
+    render(
+      <>
+        <Seed
+          milestones={[
+            m("Alpha", "2026-06-10", { id: 1, achievedDate: "2026-06-01" }),
+            m("Beta", "2026-06-20", { id: 2, achievedDate: "2026-06-05" }),
+          ]}
+        />
+        <MilestonesPanel {...baseProps} captureFieldRows={captureFieldRows} />
+      </>,
+      { wrapper },
+    );
+
+    bulkClearAchievedDate(["Alpha", "Beta"]);
+
+    expect(captureFieldRows).toHaveBeenCalledTimes(1);
+    const arg = captureFieldRows.mock.calls[0][0];
+    expect(arg.kind).toBe("bulk.edit");
+    // `bulk.edit` is entity-AMBIGUOUS — one shared kind across tasks/raid/
+    // change/… — so unlike every other kind the undo label cannot be derived
+    // from it and each capture site must name its entity explicitly.
+    expect(arg.entityKey).toBe("milestone");
+    expect(arg.edits.map((e: { id: number }) => e.id)).toEqual([1, 2]);
+
+    for (const e of arg.edits as { id: number; before: Partial<Milestone>; after: Partial<Milestone> }[]) {
+      // The patch is the DELTA: `date`, `name` and `linkedTaskIds` are copied
+      // through by `{...item}` unchanged, so only the cleared key is captured.
+      expect(Object.keys(e.before)).toEqual(["achievedDate"]);
+      // ★ ANTI-VACUITY: assert the KEY's presence, not the value. `toEqual`
+      // treats `{achievedDate: undefined}` and `{}` as equal, so an assertion
+      // written that way passes against a patch that omits the key — and the key
+      // is exactly what carries the clear. `captureFieldPart` applies a patch as
+      // `{...row, ...pick(edit)}`, and a spread only overwrites keys it HAS: with
+      // the key absent, REDO would leave the pre-undo date standing and the redo
+      // of a clear would silently do nothing.
+      expect(Object.keys(e.after)).toEqual(["achievedDate"]);
+      expect(e.after.achievedDate).toBeUndefined();
+    }
+    expect(arg.edits.find((e: { id: number }) => e.id === 1).before).toEqual({ achievedDate: "2026-06-01" });
+    expect(arg.edits.find((e: { id: number }) => e.id === 2).before).toEqual({ achievedDate: "2026-06-05" });
+  });
+
+  // ★★★ THE OBSERVABLE HERE IS NOT `localModifiedAt`. Unlike the three other
+  // converted registers, `save` in this panel never writes that field at all
+  // (`{...next, id}` and nothing else), so an assertion on it would hold whether
+  // or not the panel wrote the row. What an unwanted save DOES leave behind is a
+  // `milestone.updated` activity entry carrying an EMPTY `diffFields` — an audit
+  // row for an edit that changed nothing — plus a map-replace into a fresh array
+  // that dirties the workspace and triggers an autosave. The activity call is the
+  // one of those two a unit test can name a row from.
+  it("neither captures nor logs a selected milestone that already has no achieved date to clear", () => {
+    const captureFieldRows = vi.fn();
+    const logActivityChanges = vi.fn();
+    render(
+      <>
+        <Seed
+          milestones={[
+            m("Alpha", "2026-06-10", { id: 1, achievedDate: "2026-06-01" }),
+            // Beta has NO `achievedDate`. Clearing it sets the key to `undefined`
+            // on a row that already reads `undefined` there, and `{...item}`
+            // copies every other key by reference — so Beta's diff is empty and
+            // `buildBulkFieldEdits` drops the row.
+            m("Beta", "2026-06-20", { id: 2 }),
+          ]}
+        />
+        <MilestonesPanel
+          {...baseProps}
+          captureFieldRows={captureFieldRows}
+          logActivityChanges={logActivityChanges}
+        />
+      </>,
+      { wrapper },
+    );
+
+    bulkClearAchievedDate(["Alpha", "Beta"]);
+
+    // Captured: Alpha only.
+    expect(captureFieldRows).toHaveBeenCalledTimes(1);
+    expect(captureFieldRows.mock.calls[0][0].edits.map((e: { id: number }) => e.id)).toEqual([1]);
+
+    // Written: Alpha only. Reading the ids off EVERY call is what makes this
+    // able to fail — with the panel's `wrote.has(after.id)` guard removed the
+    // list reads `[1, 2]`, and the extra entry's `changes` is `[]`.
+    expect(logActivityChanges.mock.calls.map((c: unknown[]) => c[2])).toEqual([1]);
+    expect(logActivityChanges).toHaveBeenCalledWith(
+      "milestone.updated",
+      [{ field: "achievedDate", from: "2026-06-01", to: "" }],
+      1,
+    );
+  });
 });
 
 describe("achieved toggle", () => {
@@ -525,5 +643,138 @@ describe("MilestonesPanel linked-documents badge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha gate" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
     expect(screen.getByTestId("pending-doc-filter").textContent).toBe("milestone:1");
+  });
+});
+
+// --- bulk-edit undo (open-followups §50, milestones half) -------------------
+
+describe("Milestones bulk edit undo", () => {
+  // Reads live workspace state directly rather than the rendered table — the
+  // table never shows `outlookEventId`, and reading it off DOM text would
+  // also depend on row order, which the date change can perturb.
+  function MilestoneProbe({ id }: { id: number }) {
+    const { milestones } = useWorkspace();
+    const ms = milestones.find((x) => x.id === id);
+    return (
+      <>
+        <span data-testid={`date-${id}`}>{ms?.date ?? ""}</span>
+        <span data-testid={`event-${id}`}>{ms?.outlookEventId ?? ""}</span>
+        <span data-testid={`name-${id}`}>{ms?.name ?? ""}</span>
+      </>
+    );
+  }
+
+  // Mounts a REAL useUndoStack beside the panel (rather than a mocked
+  // capture/captureFieldRows) so undo actually reverts through the live
+  // setter — needed to prove a concurrent write survives it, not merely that
+  // the right args were passed. Mirrors use-change-log.test.tsx's
+  // renderChangeLogWithRealUndo.
+  function RealUndoHarness({ milestones }: { milestones: readonly Milestone[] }) {
+    const logActivity = vi.fn();
+    const showToast = vi.fn();
+    const showToastAction = vi.fn();
+    const undoApi = useUndoStack({ lang: "en-US", logActivity, showToast, showToastAction });
+    const { setMilestones } = useWorkspace();
+    return (
+      <>
+        <Seed milestones={milestones} />
+        <MilestonesPanel
+          {...baseProps}
+          capture={undoApi.capture}
+          captureFieldRows={undoApi.captureFieldRows}
+        />
+        <MilestoneProbe id={1} />
+        <MilestoneProbe id={2} />
+        {/* Stands in for the background calendar push stamping the id Graph
+            handed back — fired AFTER the bulk apply, through the same
+            `setMilestones` setter a real push would use. Seeding it before
+            the apply would pass against the unfixed whole-row capture too
+            (the §48 trap use-change-log.test.tsx also calls out). */}
+        <button
+          type="button"
+          onClick={() =>
+            setMilestones((prev) =>
+              prev.map((ms) => (ms.id === 1 ? { ...ms, outlookEventId: "AAMkAG-evt-9" } : ms)),
+            )
+          }
+        >
+          TEST_STAMP_EVENT_ID
+        </button>
+        {/* An ORDINARY concurrent field write on the same row — a rename from
+            the edit modal, a second tab, or the AI dispatcher — fired AFTER
+            the bulk apply too. `name` is on NEITHER backstop list, which is
+            what makes it the assertion that discriminates the field-patch
+            capture from the whole-row one (see the test's own note). */}
+        <button
+          type="button"
+          onClick={() =>
+            setMilestones((prev) =>
+              prev.map((ms) => (ms.id === 1 ? { ...ms, name: "Alpha (renamed)" } : ms)),
+            )
+          }
+        >
+          TEST_CONCURRENT_RENAME
+        </button>
+        <button type="button" onClick={() => undoApi.undo()}>
+          TEST_UNDO
+        </button>
+      </>
+    );
+  }
+
+  // ★★★ open-followups §50, milestones half. Milestones carry no note log, but
+  //   they DO carry `outlookEventId`, stamped by the Outlook calendar PUSH
+  //   (`use-outlook-calendar-push.ts` — the milestone calendar PULL only reads
+  //   the field and CLEARS it on a deleted event, it never stamps). A whole-row
+  //   bulk-edit undo would make the row forget an event that still exists in
+  //   Outlook, and the next push would then create a SECOND meeting for the
+  //   same milestone.
+  //   ★★★ ANTI-VACUITY: the `outlookEventId` assertion ALONE cannot fail. That
+  //   key is on `WRITE_THROUGH_FIELDS` (undo/use-undo-stack.ts), so even a
+  //   whole-row restore preserves it — that is Part A, the backstop, and it
+  //   holds with the field-patch capture (Part B) reverted. `name` is an
+  //   ordinary `Milestone` field on NEITHER backstop list AND is not one of
+  //   the two bulk-editable fields (`date`/`achievedDate`), so a whole-row
+  //   restore reverts it to the pre-apply snapshot ("Alpha") while the
+  //   field-patch capture merges back only `date` and leaves it at
+  //   "Alpha (renamed)". It is the assertion that distinguishes Part B from
+  //   Part A.
+  it("undoing a milestone bulk edit keeps an outlookEventId (and any other concurrent field write) stamped since the apply", () => {
+    render(
+      <RealUndoHarness
+        milestones={[m("Alpha", "2026-01-01", { id: 1 }), m("Beta", "2026-01-01", { id: 2 })]}
+      />,
+      { wrapper },
+    );
+
+    // select both rows
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Alpha") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Beta") }));
+    // open the bulk panel and apply a target-date change to both
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "milestoneDate") }));
+    const dateInput = document.getElementById("bulk-date") as HTMLInputElement;
+    fireEvent.change(dateInput, { target: { value: "2026-02-01" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "2") }));
+
+    // sanity: the bulk apply actually landed before we stamp/undo it
+    expect(screen.getByTestId("date-1").textContent).toBe("2026-02-01");
+    expect(screen.getByTestId("date-2").textContent).toBe("2026-02-01");
+
+    // THEN — after the apply — the background calendar push stamps an event id,
+    // and an ordinary concurrent write renames the same row.
+    fireEvent.click(screen.getByRole("button", { name: "TEST_STAMP_EVENT_ID" }));
+    fireEvent.click(screen.getByRole("button", { name: "TEST_CONCURRENT_RENAME" }));
+
+    fireEvent.click(screen.getByRole("button", { name: "TEST_UNDO" }));
+
+    // the bulk date edit WAS reverted...
+    expect(screen.getByTestId("date-1").textContent).toBe("2026-01-01");
+    expect(screen.getByTestId("date-2").textContent).toBe("2026-01-01");
+    // ...but the event id stamped since the apply survived the undo...
+    expect(screen.getByTestId("event-1").textContent).toBe("AAMkAG-evt-9");
+    // ...and so did the concurrent rename, which no backstop protects.
+    expect(screen.getByTestId("name-1").textContent).toBe("Alpha (renamed)");
+    expect(screen.getByTestId("name-2").textContent).toBe("Beta");
   });
 });

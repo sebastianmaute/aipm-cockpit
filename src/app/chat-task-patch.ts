@@ -61,8 +61,8 @@ export function assertJiraManagedUnchanged(
  *  other field byte-identical.
  *
  *  ★ `status` is deliberately NOT handled here — it is the one field that must
- *  route through `applyStatusChange` (the sole writer of status +
- *  completedDate), which the caller does after merging. */
+ *  route through `applyStatusChange` (it keeps the Done/completedDate
+ *  invariant), which the caller does after merging. */
 export function buildTaskCleanPatch(
   patch: Partial<Task>,
   existing: Task,

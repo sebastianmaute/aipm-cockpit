@@ -297,8 +297,8 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           group: sanitizeGroup(input.group),
           labels: sanitizeLabels(input.labels),
         };
-        // A model-supplied status routes through applyStatusChange (the sole
-        // writer of status + completedDate) so e.g. Done stamps completedDate.
+        // A model-supplied status routes through applyStatusChange (it keeps
+        // the Done/completedDate invariant) so e.g. Done stamps completedDate.
         // An invalid value falls back to the default.
         const newTask = isTaskStatus(input.status)
           ? applyStatusChange(baseTask, input.status, clockRef.current.today)
@@ -321,9 +321,9 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           id: existing.id,
           localModifiedAt: new Date().toISOString(),
         };
-        // A valid status change routes through applyStatusChange — the sole
-        // writer of status + completedDate (keeps the Done⟺completedDate
-        // invariant). Invalid values are ignored (status left unchanged).
+        // A valid status change routes through applyStatusChange, which keeps
+        // the Done/completedDate invariant. Invalid values are ignored
+        // (status left unchanged).
         const merged = isTaskStatus(patch.status)
           ? applyStatusChange(mergedBase, patch.status, clockRef.current.today)
           : mergedBase;

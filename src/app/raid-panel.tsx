@@ -45,6 +45,7 @@ import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { useRowSelection } from "./use-row-selection";
+import { buildBulkFieldEdits } from "./undo/field-groups";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, dateField, type BulkField } from "./bulk-edit-panel";
 import { resourceDisplayName, effectivePersonName } from "./resource-foundation";
@@ -88,8 +89,8 @@ export type RaidPanelProps = EntityPaneCalendarHintsProps & {
    *  `localModifiedAt`. */
   onSave: (item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
   onDelete: (id: number) => void;
-  /** Capture the selected rows' pre-edit images for undo before a bulk apply. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  /** Capture the selected rows' field patches for undo before a bulk apply. */
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => void;
   /** Spawns a Task pre-filled from the item; returns its new id so the
    *  modal can add it to `linkedTaskIds` immediately. In a read-only (popout)
    *  context the guard returns undefined; callers must treat undefined as null. */
@@ -306,10 +307,7 @@ function RaidPanelBody({
   }, [lang, resources]);
 
   const applyBulk = (changes: Record<string, string>) => {
-    onCaptureBulk?.(Array.from(sel.selectedIds));
-    for (const id of sel.selectedIds) {
-      const item = raidById.get(id);
-      if (!item) continue;
+    const patch = (item: RaidItem): RaidItem => {
       let patched: RaidItem = { ...item };
       if (changes.severity !== undefined) patched = { ...patched, severity: changes.severity as RaidSeverity };
       if (changes.targetDate !== undefined) patched = { ...patched, targetDate: changes.targetDate || undefined };
@@ -317,7 +315,26 @@ function RaidPanelBody({
         const r = changes.owner ? resources.find((x) => String(x.id) === changes.owner) : undefined;
         patched = { ...patched, owner: r ? resourceDisplayName(r) : "", ownerEmail: r?.email, ownerResourceId: r ? r.id : null };
       }
-      onSave(patched, undefined, { suppressFieldUndo: true });
+      return patched;
+    };
+    const rows = Array.from(sel.selectedIds)
+      .map((id) => raidById.get(id))
+      .filter((item): item is RaidItem => item !== undefined)
+      .map((item) => ({ before: item, after: patch(item) }));
+
+    // Ordering between these two statements is NOT what matters — `rows` already
+    // holds both sides, so the capture payload is the same either way. The write
+    // set DERIVING from the capture is what matters: `buildBulkFieldEdits` drops a
+    // row whose diff is empty, and saving such a row anyway stamps a fresh
+    // `localModifiedAt` and logs a `raid.updated` that no undo entry can reverse.
+    // ★ `buildBulkFieldEdits(rows)` is hoisted out of the optional call on purpose:
+    // `onCaptureBulk?.(build())` would not evaluate `build()` at all when no
+    // capture prop is wired, leaving `wrote` empty and writing nothing.
+    const edits = buildBulkFieldEdits(rows);
+    const wrote = new Set(edits.map((e) => e.id));
+    onCaptureBulk?.(edits);
+    for (const { after } of rows) {
+      if (wrote.has(after.id)) onSave(after, undefined, { suppressFieldUndo: true });
     }
     setBulkOpen(false);
     sel.clear();

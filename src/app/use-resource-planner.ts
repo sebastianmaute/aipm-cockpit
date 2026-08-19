@@ -63,6 +63,24 @@ export interface UseResourcePlannerArgs {
   captureComposite?: UndoStackApi["captureComposite"];
   /** Capture per-field edits for undo (RAID/resource modal save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a bulk field-patch edit for undo (RAID bulk apply).
+   *  ★★ REQUIRED while its three siblings above stay OPTIONAL, and that split is
+   *  deliberate: it is driven by TEST-HARNESS SHAPE, not by importance. Both
+   *  test files for this hook build their args through a `makeArgs` factory —
+   *  one per file, not one shared:
+   *    grep -n "function makeArgs" src/app/use-resource-planner.test.tsx src/app/use-resource-planner.undo.test.tsx
+   *  so requiring it costs one stub per FILE rather than one per call site, while
+   *  making a dropped wire — which silently un-does the RAID bulk edit — a
+   *  typecheck failure. The equivalent change on `use-change-log` /
+   *  `use-stakeholders` was deliberately REJECTED: their call sites are inline
+   *  object literals, and a required prop that every site satisfies with a no-op
+   *  stub LOOKS wired and is not — worse than an honest optional. Do NOT
+   *  "harmonise" the two directions in either sense. Enumerate those call sites
+   *  with the following — no count is quoted because the output also carries
+   *  comment lines naming either hook, so read it rather than counting it:
+   *    grep -rn "useChangeLog(\|useStakeholders(" src/app --include=*.ts --include=*.tsx | grep -v "export function"
+   */
+  captureFieldRows: UndoStackApi["captureFieldRows"];
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -89,6 +107,8 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
   const captureFieldEditRef = useRef(args.captureFieldEdit);
   useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
+  const captureFieldRowsRef = useRef(args.captureFieldRows);
+  useEffect(() => { captureFieldRowsRef.current = args.captureFieldRows; }, [args.captureFieldRows]);
   const logActivityChangesRef = useRef(args.logActivityChanges);
   const showToastRef = useRef(args.showToast);
   const tasksRef = useRef(tasks);
@@ -257,12 +277,22 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
     [resources, setRaid],
   );
 
-  // Snapshot the selected RAID rows' pre-edit images before a bulk apply loops
-  // the per-row save handler; call BEFORE the loop mutates them.
-  const captureRaidBulkUndo = useCallback((ids: readonly number[]) => {
-    const edited = raid.filter((r) => ids.includes(r.id));
-    if (edited.length) captureRef.current?.({ setter: setRaid, kind: "bulk.edit", edited, fromArray: raid, entityKey: "raid" });
-  }, [raid, setRaid]);
+  // Called by raid-panel BEFORE its save loop, with the field patches the bulk
+  // form is about to write. Field patches rather than whole rows: a whole-row
+  // capture reverts anything a concurrent writer changed on these rows meanwhile
+  // — a note added through the notes window, an outlookEventId stamped by the
+  // background calendar push (open-followups §50).
+  const captureRaidBulkUndo = useCallback(
+    (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => {
+      // No `stampField` here: this register omits it while the tasks bulk edit
+      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
+      // undo that does not restamp may not propagate to a backend that syncs on
+      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
+      // four registers without reading it.
+      if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid" });
+    },
+    [setRaid],
+  );
 
   const handleOpenAddAbsence = useCallback(
     (seed?: Partial<Absence>) => {

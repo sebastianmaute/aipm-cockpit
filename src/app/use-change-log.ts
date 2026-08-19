@@ -25,6 +25,8 @@ export interface UseChangeLogArgs {
   capture?: UndoStackApi["capture"];
   /** Capture per-field edits for undo (modal/inline save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Capture a bulk field-patch edit for undo (changes bulk apply). */
+  captureFieldRows?: UndoStackApi["captureFieldRows"];
 }
 
 export function useChangeLog(args: UseChangeLogArgs) {
@@ -130,12 +132,23 @@ export function useChangeLog(args: UseChangeLogArgs) {
     args.logActivity?.("change.deleted", id, title);
   }, [changes, setChanges, args]);
 
-  // Snapshot the selected rows' pre-edit images before a bulk edit loops the
-  // per-row save handler; call BEFORE the loop mutates them.
-  const captureBulkUndo = useCallback((ids: readonly number[]) => {
-    const edited = changes.filter((c) => ids.includes(c.id));
-    if (edited.length) args.capture?.({ setter: setChanges, kind: "bulk.edit", edited, fromArray: changes, entityKey: "change" });
-  }, [changes, setChanges, args]);
+  // Called by change-panel BEFORE its save loop, with the field patches the
+  // bulk form is about to write. Field patches rather than whole rows: a
+  // whole-row capture reverts anything a concurrent writer changed on these
+  // rows meanwhile — a note added through the notes window, an outlookEventId
+  // stamped by the background calendar push (open-followups §50). ChangeItem
+  // carries a noteLog too, as of 0.245.0.
+  const captureBulkUndo = useCallback(
+    (edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => {
+      // No `stampField` here: this register omits it while the tasks bulk edit
+      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
+      // undo that does not restamp may not propagate to a backend that syncs on
+      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
+      // four registers without reading it.
+      if (edits.length) args.captureFieldRows?.({ setter: setChanges, kind: "bulk.edit", edits, entityKey: "change" });
+    },
+    [setChanges, args],
+  );
 
   return { changes, handleSaveChange, handleChangeStatusChange, handleDeleteChange, captureBulkUndo };
 }

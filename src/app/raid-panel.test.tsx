@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect } from "react";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it, expect, vi, test } from "vitest";
@@ -12,7 +12,10 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { FiltersProvider } from "./filters-context";
-import { WorkspaceProvider } from "./workspace-context";
+import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { useResourcePlanner } from "./use-resource-planner";
+import { useUndoStack } from "./undo/use-undo-stack";
+import type { ActivityKind } from "./activity-log";
 
 vi.mock("./use-settings", () => ({
   useSettings: () => ({
@@ -431,12 +434,277 @@ describe("RAID bulk edit", () => {
 
     expect(onSave).toHaveBeenCalledTimes(1);
     // Bulk apply passes suppressFieldUndo so the looped save skips per-field
-    // undo capture (the whole-row bulk.edit entry already covers it).
+    // undo capture: the panel captures the whole op ITSELF, as one set of
+    // {before, after} field patches handed to onCaptureBulk (pinned by the test
+    // below). Without the flag every row would also be captured a second time by
+    // the save handler.
     expect(onSave).toHaveBeenCalledWith(
       expect.objectContaining({ id: 1, severity: "High" }),
       undefined,
       { suppressFieldUndo: true },
     );
+  });
+
+  // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
+  // panel. The panel hoists `buildBulkFieldEdits(rows)` above the optional
+  // `onCaptureBulk?.(build())` call so the builder runs even unwired. Owner is the
+  // discriminating field here — one bulk pick writes THREE keys, which must land
+  // in ONE patch so an undo reverts the identity as a unit.
+  it("captures the owner triple as one patch per changed row, and neither captures NOR saves a row the pick did not change", () => {
+    const onSave = vi.fn<(item: RaidItem, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void>();
+    const onCaptureBulk =
+      vi.fn<(edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => void>();
+    const resources = [res({ id: 7, firstName: "Ann", lastName: "Lee", email: "ann@example.com" })];
+    const raid = [
+      // Unowned: every owner key is ABSENT, so `before` carries three explicit
+      // undefineds — that is what lets the undo restore "absent".
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" }),
+      // Owned by someone else: `before` is fully populated.
+      makeRaidItem({
+        id: 2,
+        title: "Late delivery",
+        severity: "Medium",
+        owner: "Old Owner",
+        ownerEmail: "old@example.com",
+        ownerResourceId: 9,
+      }),
+      // ★★★ THE WITNESS, and without it the two id assertions below cannot
+      // fail. ALREADY Ann on all three keys the owner pick writes — `owner`
+      // (`resourceDisplayName` → "Ann Lee"), `ownerEmail` and `ownerResourceId`
+      // — so its `after` is value-equal to its `before` on every key the apply
+      // touches, `buildBulkFieldEdits` emits nothing for it, and the panel must
+      // drop it from the save loop as well. With only the two changing rows,
+      // saved-ids and captured-ids would agree whether or not the panel derives
+      // its write set from the capture.
+      makeRaidItem({
+        id: 3,
+        title: "Scope creep",
+        severity: "Low",
+        owner: "Ann Lee",
+        ownerEmail: "ann@example.com",
+        ownerResourceId: 7,
+      }),
+    ];
+    renderPanel(makeProps({ raid, resources, onSave, onCaptureBulk }));
+
+    for (const title of ["Vendor risk", "Late delivery", "Scope creep"]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidOwner") }));
+    const bulkOwner = screen
+      .getAllByRole("combobox", { name: t("en-US", "raidOwner") })
+      .find((el) => el.id === "bulk-owner")!;
+    fireEvent.change(bulkOwner, { target: { value: "7" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    expect(onCaptureBulk).toHaveBeenCalledTimes(1);
+    const edits = onCaptureBulk.mock.calls[0][0];
+    const saved = new Map<number, RaidItem>(onSave.mock.calls.map(([row]) => [row.id, row] as const));
+
+    // THREE rows were selected and offered to the apply; the same two come out
+    // of both sides. This assertion used to read `[1, 2, 3]` on the left — the
+    // panel captured over the FILTERED list while saving every selected row, so
+    // "Scope creep" was saved with no undo entry behind it (a fresh
+    // `localModifiedAt` and a `raid.updated` the undo could not reverse). A
+    // whole-row capture, meanwhile, would emit three entries on the right, each
+    // carrying title, severity, category and the rest.
+    expect([...saved.keys()].sort()).toEqual([1, 2]);
+    expect(edits.map((e) => e.id).sort()).toEqual([1, 2]);
+
+    // `after` is what the save actually wrote — every captured key, every row.
+    for (const e of edits) {
+      const row = saved.get(e.id)!;
+      for (const [key, value] of Object.entries(e.after)) {
+        expect(value).toEqual(row[key as keyof RaidItem]);
+      }
+    }
+
+    const assigned = { owner: "Ann Lee", ownerEmail: "ann@example.com", ownerResourceId: 7 };
+
+    const unowned = edits.find((e) => e.id === 1)!;
+    expect(Object.keys(unowned.before).sort()).toEqual(["owner", "ownerEmail", "ownerResourceId"]);
+    expect(unowned.before.owner).toBeUndefined();
+    expect(unowned.before.ownerEmail).toBeUndefined();
+    expect(unowned.before.ownerResourceId).toBeUndefined();
+    expect(unowned.after).toEqual(assigned);
+
+    const reassigned = edits.find((e) => e.id === 2)!;
+    expect(reassigned.before).toEqual({ owner: "Old Owner", ownerEmail: "old@example.com", ownerResourceId: 9 });
+    expect(reassigned.after).toEqual(assigned);
+
+    // STATEMENT ORDER ONLY. This pins that the capture call precedes the first
+    // save; it does NOT pin the rationale in the panel's "Capture BEFORE the
+    // saves" comment. `rows` — both halves of every {before, after} — is
+    // materialised before either step, so moving the capture below the loop would
+    // leave the payload above byte-identical. Nothing here can express that
+    // rationale, and no test in this file claims to.
+    expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
+  });
+});
+
+// --- bulk-edit undo through the REAL panel → hook → stack chain -------------
+
+describe("RAID bulk edit undo — real useResourcePlanner + real useUndoStack", () => {
+  /** The stamp every seeded row starts with.
+   *  ★★★ ANTI-VACUITY, and the reason this field rather than a business one:
+   *  NOTHING but a save can move `localModifiedAt`, so an assertion on it cannot
+   *  be carried by a second mechanism. It is in `NEVER_CAPTURE`
+   *  (`undo/field-groups.ts`), so no capture ever holds it and no undo ever
+   *  restores it; it is NOT on `WRITE_THROUGH_FIELDS`
+   *  (`undo/use-undo-stack.ts`), so no whole-row backstop preserves it either.
+   *  `handleSaveRaidItem` overwrites it with `new Date().toISOString()` on EVERY
+   *  save. A row still carrying this value was never handed to the save. */
+  const SEED_STAMP = "2020-01-01T00:00:00.000Z";
+
+  const noop = () => {};
+  const NO_HOLIDAYS: ReadonlySet<string> = new Set<string>();
+
+  function Seeder({ seed }: { seed: readonly RaidItem[] }) {
+    const { setRaid } = useWorkspace();
+    useEffect(() => {
+      setRaid([...seed]);
+    }, [seed, setRaid]);
+    return null;
+  }
+
+  /** Reads LIVE workspace state rather than the rendered table: the table never
+   *  shows `localModifiedAt`, and reading a row off DOM text would also depend
+   *  on row order, which the severity change perturbs (the default sort ranks
+   *  by severity). */
+  function Probe({ id }: { id: number }) {
+    const { raid } = useWorkspace();
+    const r = raid.find((x) => x.id === id);
+    return (
+      <>
+        <span data-testid={`severity-${id}`}>{r?.severity ?? ""}</span>
+        <span data-testid={`stamp-${id}`}>{r?.localModifiedAt ?? ""}</span>
+      </>
+    );
+  }
+
+  /**
+   * Mounts a REAL `useResourcePlanner` and a REAL `useUndoStack` behind the
+   * panel, so genuine `buildBulkFieldEdits` output flows into a genuine
+   * `captureFieldRows` and the undo reverts real workspace state.
+   *
+   * ★★ THE SEAM NOTHING ELSE COVERS. The panel's own bulk tests assert the
+   * payload against a MOCKED `onCaptureBulk`, and
+   * `use-resource-planner.undo.test.tsx` calls `captureRaidBulkUndo` DIRECTLY
+   * with a hand-written patch array — so a defect between them (the wrong
+   * callback threaded, or the panel handing over the wrong `rows`) is invisible
+   * to both layers. Modelled on `milestones-panel.test.tsx`'s "Milestones bulk
+   * edit undo", which is the one register where this chain already ran for real.
+   *
+   * ★ The stack gets its OWN `logActivity` (a no-op): `commitUndo` logs an
+   * "undo" entry through the stack's deps, which would otherwise land in the
+   * `raid.updated` assertions below.
+   */
+  function Harness({
+    seed,
+    logActivity,
+  }: {
+    seed: readonly RaidItem[];
+    logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
+  }) {
+    const undoApi = useUndoStack({
+      lang: "en-US",
+      logActivity: noop,
+      showToast: noop,
+      showToastAction: noop,
+    });
+    const planner = useResourcePlanner({
+      lang: "en-US",
+      today: "2026-05-22",
+      logActivity,
+      showToast: noop,
+      workdayHours: 8,
+      holidaySet: NO_HOLIDAYS,
+      captureFieldRows: undoApi.captureFieldRows,
+    });
+    const { raid } = useWorkspace();
+    return (
+      <>
+        <Seeder seed={seed} />
+        <RaidPanel
+          {...makeProps({
+            raid,
+            onSave: planner.handleSaveRaidItem,
+            onCaptureBulk: planner.captureRaidBulkUndo,
+          })}
+        />
+        <Probe id={1} />
+        <Probe id={2} />
+        <Probe id={3} />
+        <button type="button" onClick={() => undoApi.undo()}>
+          TEST_UNDO
+        </button>
+      </>
+    );
+  }
+
+  function renderHarness(seed: readonly RaidItem[], logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void) {
+    return render(
+      <FiltersProvider>
+        <WorkspaceProvider>
+          <WorkspaceTabProvider>
+            <Harness seed={seed} logActivity={logActivity} />
+          </WorkspaceTabProvider>
+        </WorkspaceProvider>
+      </FiltersProvider>,
+    );
+  }
+
+  it("saves and reverts only the rows the patch moved, leaving a row already at the target byte-identical", () => {
+    const logActivity = vi.fn<(kind: ActivityKind, ...args: (string | number)[]) => void>();
+    const seed = [
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "Low", localModifiedAt: SEED_STAMP }),
+      makeRaidItem({ id: 2, title: "Late delivery", severity: "Medium", localModifiedAt: SEED_STAMP }),
+      // ALREADY High — `severity` is the only key the patch writes when Severity
+      // is the only ticked field (the owner and targetDate branches are gated on
+      // `changes.<key> !== undefined`), so this row's diff is empty.
+      makeRaidItem({ id: 3, title: "Scope creep", severity: "High", localModifiedAt: SEED_STAMP }),
+    ];
+    renderHarness(seed, logActivity);
+
+    for (const title of ["Vendor risk", "Late delivery", "Scope creep"]) {
+      fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", title) }));
+    }
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
+    fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
+    const bulkSeverity = screen
+      .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
+      .find((el) => el.id === "bulk-severity")!;
+    fireEvent.change(bulkSeverity, { target: { value: "High" } });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkApplyCount", "3") }));
+
+    // The two rows with somewhere to move were written — a fresh stamp is the
+    // proof the save ran, and it is what makes the row-3 assertion meaningful.
+    expect(screen.getByTestId("severity-1").textContent).toBe("High");
+    expect(screen.getByTestId("severity-2").textContent).toBe("High");
+    expect(screen.getByTestId("stamp-1").textContent).not.toBe(SEED_STAMP);
+    expect(screen.getByTestId("stamp-2").textContent).not.toBe(SEED_STAMP);
+
+    // ...and row 3 was never written at all. Its FIELDS would look identical
+    // either way — only the stamp and the audit trail can tell a skipped save
+    // from a redundant one.
+    expect(screen.getByTestId("severity-3").textContent).toBe("High");
+    expect(screen.getByTestId("stamp-3").textContent).toBe(SEED_STAMP);
+    expect(
+      logActivity.mock.calls.filter((c) => c[0] === "raid.updated").map((c) => c[1]).sort(),
+    ).toEqual([1, 2]);
+
+    fireEvent.click(screen.getByRole("button", { name: "TEST_UNDO" }));
+
+    // The undo reached real workspace state through the real `captureFieldRows`
+    // — with a broken wire (no `onCaptureBulk`, or the wrong callback) the
+    // capture would be dropped and these two assertions would still read "High".
+    expect(screen.getByTestId("severity-1").textContent).toBe("Low");
+    expect(screen.getByTestId("severity-2").textContent).toBe("Medium");
+
+    // Row 3 is where it started, on both sides of the undo.
+    expect(screen.getByTestId("severity-3").textContent).toBe("High");
+    expect(screen.getByTestId("stamp-3").textContent).toBe(SEED_STAMP);
   });
 });
 

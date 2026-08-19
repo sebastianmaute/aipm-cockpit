@@ -5,6 +5,9 @@ import type { Dispatch, SetStateAction } from "react";
 import { flushSync } from "react-dom";
 import { t, type Lang } from "../i18n";
 import type { ActivityKind } from "../activity-log";
+import type {
+  Absence, ChangeItem, CommitteeMeeting, Milestone, RaidItem, Task,
+} from "../types";
 import type { ToastAction } from "../use-toast";
 import {
   applyUndoRestoreWithRemap,
@@ -24,6 +27,45 @@ import {
 
 // Retention: how many destructive ops stay undoable/redoable at once.
 const UNDO_CAP = 25;
+
+/**
+ * Fields written to a live row by something OTHER than the op that captured it.
+ * A whole-row undo lets the LIVE value win on these, or it reverts a write the
+ * user's undo was never about (open-followups §50).
+ *
+ * ★★ MEMBERSHIP RULE, not a list of "important" fields: a field belongs here iff
+ * some writer OTHER than an entity's own save handler can change it on a row that
+ * is not being edited. Today that is the notes window (`noteLog`, on Task, RaidItem
+ * and ChangeItem) and the background calendar push/pull (`outlookEventId`, on every
+ * calendar-capable entity).
+ *
+ * ★★ THIS LIST IS THE BACKSTOP, NOT THE PRIMARY FIX. The bulk-edit sites capture
+ * FIELD PATCHES and are immune by construction; what this protects is the paths
+ * that genuinely replace whole rows — reference-data cascades, the resource
+ * directory, task dedup, the alloc plan, and dependency stripping on delete. A new
+ * write-through field silently escapes it, which is why the patch capture is
+ * preferred wherever the op is a field edit.
+ *
+ * See also `WRITE_THROUGH_KEYS` in `field-groups.ts` — that constant decides
+ * what a bulk-edit patch CAPTURES; this one decides what a whole-row undo
+ * PRESERVES.
+ *
+ * ★★ THE `satisfies` IS THE ONLY THING TYING THESE STRINGS TO A REAL FIELD.
+ * The engine parameter stays `readonly string[]` on purpose — the same constant
+ * is applied to entity types carrying NEITHER key (roles, grades), which a
+ * `keyof T` parameter could not accept — so the constraint has to live at the
+ * one place the list is AUTHORED. `keyof (A | B)` is the keys common to ALL
+ * members, and the tuple constrains each SLOT separately, so each entry must
+ * name a field every one of ITS OWN carriers still declares. A rename in
+ * `types.ts`, or a typo here, is then a compile error on this line rather than
+ * a silent loss of protection (before this, `[]` typechecked just as happily).
+ * A new entry must extend the tuple with its own carrier list — the tuple
+ * length forces that rather than letting it ride on an unrelated slot's type.
+ */
+const WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId"] as const satisfies readonly [
+  keyof (Task | RaidItem | ChangeItem),
+  keyof (Task | RaidItem | Milestone | ChangeItem | CommitteeMeeting | Absence),
+];
 
 /** The entities an undo label can name. `bulk.edit` is entity-AMBIGUOUS (one
  *  shared kind across tasks/raid/change/…), so its capture site passes an explicit
@@ -196,14 +238,14 @@ function fragmentUndoRunner<T extends { id: number }>(
   const runUndo: Runner = () => {
     let forward: BeforeImage<T>[] = [];
     setter((prev) => {
-      const { result, remap } = applyUndoRestoreWithRemap(prev, before);
+      const { result, remap } = applyUndoRestoreWithRemap(prev, before, WRITE_THROUGH_FIELDS);
       // Build the redo images from the SAME prev + the remap, so a re-minted
       // delete removes the recovered row on redo, not the live reused-id row.
       forward = buildForwardImages(before, prev, remap);
       return result;
     });
     const runRedo: Runner = () => {
-      setter((prev) => applyUndoForward(prev, forward));
+      setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS));
       return runUndo;
     };
     return runRedo;
@@ -227,6 +269,18 @@ export interface CompositeFragment {
   /** Whether this fragment is the PRIMARY delete (its id-remap drives cascades). */
   isPrimary: boolean;
   restore: (primaryRemap: { current: ReadonlyMap<number, number> }, isPrimary: boolean) => () => void;
+}
+
+/** Drive ONE `captureFieldPart` fragment as a standalone undo↔redo runner. The
+ *  fragment publishes no id-remap (it removes nothing), so the empty box and
+ *  `isPrimary: false` are the only correct arguments here. */
+function fieldRowsRunner(part: CompositeFragment): Runner {
+  const runUndo: Runner = () => {
+    const redo = part.restore({ current: EMPTY_REMAP }, false);
+    const runRedo: Runner = () => { redo(); return runUndo; };
+    return runRedo;
+  };
+  return runUndo;
 }
 
 /**
@@ -296,14 +350,14 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
       const restoreImages = fkRemapField
         ? remapImageField(images, fkRemapField, primaryRemap.current)
         : images;
-      const { result, remap } = applyUndoRestoreWithRemap(prev, restoreImages);
+      const { result, remap } = applyUndoRestoreWithRemap(prev, restoreImages, WRITE_THROUGH_FIELDS);
       if (isPrimary) primaryRemap.current = remap; // publish for cascades (idempotent)
       // Redo images from the SAME prev + this fragment's own remap, so a re-minted
       // delete removes the recovered row on redo, not a live reused-id row.
       forward = buildForwardImages(restoreImages, prev, remap);
       return result;
     });
-    return () => { setter((prev) => applyUndoForward(prev, forward)); };
+    return () => { setter((prev) => applyUndoForward(prev, forward, WRITE_THROUGH_FIELDS)); };
   };
   return { isPrimary: isPrimary === true, restore };
 }
@@ -314,14 +368,27 @@ export function capturePart<T extends { id: number }>(part: CapturePart<T>): Com
  *  `capturePart` builds WHOLE-ROW before-images, so undoing restores every field
  *  as it stood at capture time and silently discards anything a concurrent
  *  writer changed on those rows meanwhile (open-followups §50 — the shape that
- *  reverts a RAID item's note log; §50 says the same sequence "very likely"
- *  loses TASK notes too but marks that half UNVERIFIED, so do not cite this as
- *  a known task defect). A patch merge touches only the fields the op
- *  actually wrote. Use this whenever the op edited FIELDS; use `capturePart`
- *  when it removed or replaced whole rows. */
+ *  reverts a RAID item's note log; §50 also flagged the same sequence on TASK
+ *  notes, at the time marked "very likely" but UNVERIFIED. That half was
+ *  measured true on 2026-08-18 — `use-bulk-operations.ts` captured whole
+ *  `beforeRows` exactly like RAID and changes — and both are now CLOSED: every
+ *  `bulk.edit` site was converted to a field patch. Residual whole-row paths
+ *  outside `bulk.edit` are tracked as open-followups §177, not here). A patch
+ *  merge touches only the fields the op actually wrote. Use this whenever the
+ *  op edited FIELDS; use `capturePart` when it removed or replaced whole rows. */
 export interface CaptureFieldPart<T extends { id: number }> {
   setter: Dispatch<SetStateAction<readonly T[]>>;
-  /** One entry per affected row. `before`/`after` hold ONLY the written fields. */
+  /** One entry per affected row. `before`/`after` hold ONLY the written fields.
+   *  ★ IDS MUST BE DISTINCT, and that is an invariant on the CALLER, deliberately
+   *  not enforced here. The patch is keyed by `new Map(edits.map(…))`, so a
+   *  repeated id collapses to its LAST entry — the earlier patch's `before` is
+   *  dropped, so undo restores the wrong pre-op values — while `captureFieldRows`
+   *  pushes `edits.length` as the entry count, so the toast also over-reports.
+   *  ★ NOTHING ENFORCES IT anywhere on the path: `buildBulkFieldEdits`
+   *  (`field-groups.ts`), which feeds every `bulk.edit` site, emits one entry per
+   *  input ROW and does not dedup either — so uniqueness rests on each caller's
+   *  row/selection list, per site. Merge upstream if a caller can repeat an id;
+   *  do not add a runtime dedup here on the strength of one site's list. */
   edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
   stampField?: keyof T & string;
 }
@@ -344,12 +411,6 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `isPrimary`, so a field part sitting first would become the nominal primary,
  * leave `primaryRemap` empty, and silently point every `fkRemapField` cascade at
  * stale ids with no error.
- * ★★ "Every existing caller flags its primary" is FALSE. Of the SEVEN
- * `captureComposite` call sites, FIVE flag one — the three in
- * `use-reference-data.ts` and the two in `use-resource-directory.ts`. The other
- * two, `use-budget-buckets.ts` and `use-task-submit.ts`, flag NOTHING and ride
- * the positional fallback this paragraph calls fragile. Neither is a live defect:
- * no fragment in either declares `fkRemapField`, so the empty remap is never read.
  * ★★★ ENUMERATE WITH ALL THREE CALL SHAPES OR YOU WILL MISS ONE. An earlier
  * revision of this paragraph said SIX and named only the budget caller, because
  * its grep matched `captureComposite({` and `captureCompositeRef.current?.({`
@@ -369,10 +430,14 @@ export interface CaptureFieldPart<T extends { id: number }> {
  * `capturePart` cascade to an existing single-fragment field composite is
  * therefore a live hazard, not a future one: flag the cascade `isPrimary: true`
  * in the same edit.
- * ★★ Same trap waiting in `use-budget-buckets.ts`: its `parts[0]` is
- * `use-bulk-operations`' whole-row `tasksPart`, an open-followups §50 candidate,
- * and the obvious §50 fix swaps it for a `captureFieldPart` — reproducing this
- * shape beside a real `capturePart`. Flag the remaining part in that same edit.
+ * ★★ The matching trap in `use-budget-buckets.ts` HAS BEEN TAKEN, not merely
+ * waiting: its `parts[0]` — `use-bulk-operations`' `tasksPart` — was the
+ * open-followups §50 candidate this paragraph warned about, and the §50 fix
+ * swapped it for a `captureFieldPart`, reproducing this shape beside a real
+ * `capturePart` (the `budgetsPart` cascade). The remaining part was flagged in
+ * the same edit — `budgetsPart` carries `isPrimary: true` in
+ * `use-budget-buckets.ts`, so the field part sitting in `parts[0]` never
+ * becomes the nominal primary. See open-followups §50 (closed 2026-08-18).
  */
 export function captureFieldPart<T extends { id: number }>(
   part: CaptureFieldPart<T>,
@@ -425,12 +490,37 @@ export interface CaptureCompositeOpts {
   parts: readonly (CompositeFragment | null)[];
   /** Entity name/title for the undo label (e.g. the deleted resource's name). */
   name?: string;
+  /** Names the entity for the undo LABEL. Required in practice for `bulk.edit`,
+   *  which is entity-ambiguous: `buildUndoLabel` resolves the entity from the
+   *  kind's prefix, `"bulk"` is not in `ENTITY_KEY_SET`, and without this the
+   *  label degrades to the generic "Edited N item(s)". */
+  entityKey?: UndoEntityKey;
+}
+
+/** A single-array bulk field edit: N rows, each reverted by MERGING a field
+ *  patch onto the live row (not a whole-row replace) — so a concurrent write
+ *  through a DIFFERENT field (a note added, a background calendar stamp)
+ *  survives the undo. Thin wrapper over `captureFieldPart` for the common case
+ *  of one array and no cascade, which is why it needs neither `isPrimary` nor
+ *  an id-remap (see `captureFieldPart`'s own doc for why passing it as a
+ *  composite's first fragment would be unsafe). */
+export interface CaptureFieldRowsOpts<T extends { id: number }> {
+  setter: Dispatch<SetStateAction<readonly T[]>>;
+  kind: ActivityKind;
+  /** One entry per affected row; `before`/`after` hold ONLY the written fields. */
+  edits: readonly { id: number; before: Partial<T>; after: Partial<T> }[];
+  /** Required in practice for `bulk.edit`, which is entity-ambiguous — without it
+   *  the label degrades to the generic "Edited N item(s)". */
+  entityKey?: UndoEntityKey;
+  name?: string;
+  stampField?: keyof T & string;
 }
 
 export interface UndoStackApi {
   capture: <T extends { id: number }>(opts: CaptureOpts<T>) => void;
   captureFieldEdit: <T extends { id: number }>(opts: CaptureFieldEditOpts<T>) => void;
   captureComposite: (opts: CaptureCompositeOpts) => void;
+  captureFieldRows: <T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => void;
   undo: () => void;
   undoById: (id: number) => void;
   /** Undo every entry from `id` up to the top, newest-first, as ONE commit. */
@@ -607,7 +697,13 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
   const captureComposite = useCallback((opts: CaptureCompositeOpts) => {
     const fragments = opts.parts.filter((f): f is CompositeFragment => f !== null);
     if (fragments.length === 0) return;
-    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name });
+    pushEntry(opts.kind, opts.primaryCount, compositeUndoRunner(fragments), { name: opts.name, entityKey: opts.entityKey });
+  }, [pushEntry]);
+
+  const captureFieldRows = useCallback(<T extends { id: number }>(opts: CaptureFieldRowsOpts<T>) => {
+    const part = captureFieldPart<T>({ setter: opts.setter, edits: opts.edits, stampField: opts.stampField });
+    if (part === null) return;
+    pushEntry(opts.kind, opts.edits.length, fieldRowsRunner(part), { name: opts.name, entityKey: opts.entityKey });
   }, [pushEntry]);
 
   const metas = useMemo(() => stack.map((e) => e.meta), [stack]);
@@ -617,6 +713,7 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     capture,
     captureFieldEdit,
     captureComposite,
+    captureFieldRows,
     undo,
     undoById,
     undoThrough,

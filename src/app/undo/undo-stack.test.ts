@@ -3,6 +3,7 @@ import {
   applyUndoRestore,
   applyUndoRestoreWithRemap,
   applyUndoForward,
+  applyPreserved,
   buildBeforeImages,
   buildForwardImages,
   remapImageField,
@@ -11,6 +12,7 @@ import {
   dropEntry,
   takeThrough,
   pushUndoMany,
+  type BeforeImage,
   type UndoEntry,
 } from "./undo-stack";
 
@@ -23,35 +25,35 @@ const edit = (index: number, item: Row) => ({ index, item, op: "edit" as const }
 describe("applyUndoRestore", () => {
   it("re-inserts deleted rows at their original index", () => {
     const current: Row[] = [{ id: 1, name: "a" }, { id: 3, name: "c" }];
-    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })])).toEqual([
+    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })], [])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" },
     ]);
   });
 
   it("reverts an edited row to its before-image (present → replace)", () => {
     const current: Row[] = [{ id: 1, name: "EDITED" }, { id: 2, name: "b" }];
-    expect(applyUndoRestore(current, [edit(0, { id: 1, name: "a" })])).toEqual([
+    expect(applyUndoRestore(current, [edit(0, { id: 1, name: "a" })], [])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
     ]);
   });
 
   it("restores a fully-cleared array (clear-all)", () => {
     const before = [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "b" })];
-    expect(applyUndoRestore<Row>([], before)).toEqual([
+    expect(applyUndoRestore<Row>([], before, [])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
     ]);
   });
 
   it("leaves rows the op never touched intact (interleaving)", () => {
     const current: Row[] = [{ id: 1, name: "EDITED-LATER" }, { id: 3, name: "c" }];
-    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })])).toEqual([
+    expect(applyUndoRestore(current, [del(1, { id: 2, name: "b" })], [])).toEqual([
       { id: 1, name: "EDITED-LATER" }, { id: 2, name: "b" }, { id: 3, name: "c" },
     ]);
   });
 
   it("clamps a stale index to the array end", () => {
     const current: Row[] = [{ id: 1, name: "a" }];
-    expect(applyUndoRestore(current, [del(99, { id: 2, name: "b" })])).toEqual([
+    expect(applyUndoRestore(current, [del(99, { id: 2, name: "b" })], [])).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" },
     ]);
   });
@@ -60,7 +62,7 @@ describe("applyUndoRestore", () => {
     // Deleted id 3, then a DIFFERENT row was created reusing id 3. Undo must
     // recover the deleted row WITHOUT overwriting the live id-3 row.
     const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "NEW-REUSED" }];
-    const out = applyUndoRestore(current, [del(2, { id: 3, name: "OLD-DELETED" })]);
+    const out = applyUndoRestore(current, [del(2, { id: 3, name: "OLD-DELETED" })], []);
     // live row survives unchanged
     expect(out.find((r) => r.name === "NEW-REUSED")).toEqual({ id: 3, name: "NEW-REUSED" });
     // deleted row recovered under a fresh id (max+1 = 4)
@@ -71,7 +73,7 @@ describe("applyUndoRestore", () => {
   it("skips an edit-image whose row was deleted since (does not resurrect it)", () => {
     const current: Row[] = [{ id: 1, name: "a" }];
     // edit-image for id 2, but id 2 is gone (deleted after the edit) → skip
-    expect(applyUndoRestore(current, [edit(1, { id: 2, name: "stale" })])).toEqual([
+    expect(applyUndoRestore(current, [edit(1, { id: 2, name: "stale" })], [])).toEqual([
       { id: 1, name: "a" },
     ]);
   });
@@ -82,7 +84,7 @@ describe("applyUndoRestore", () => {
     const out = applyUndoRestore(current, [
       del(1, { id: 3, name: "OLD-DELETED" }),
       edit(1, { id: 3, name: "OLD-DELETED" }),
-    ]);
+    ], []);
     expect(out.find((r) => r.name === "NEW-REUSED")).toEqual({ id: 3, name: "NEW-REUSED" });
     expect(out.find((r) => r.name === "OLD-DELETED")).toEqual({ id: 4, name: "OLD-DELETED" });
     expect(out).toHaveLength(3);
@@ -94,7 +96,7 @@ describe("applyUndoRestore", () => {
     const out = applyUndoRestore(current, [
       del(1, { id: 2, name: "b" }),
       edit(2, { id: 3, name: "3-with-dep" }),
-    ]);
+    ], []);
     expect(out).toEqual([
       { id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "3-with-dep" },
     ]);
@@ -137,26 +139,26 @@ describe("applyUndoForward", () => {
   it("re-applies an edit (replaces the row with the after-value)", () => {
     const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
     // forward edit-image carries the AFTER value
-    expect(applyUndoForward(current, [edit(0, { id: 1, name: "AFTER" })])).toEqual([
+    expect(applyUndoForward(current, [edit(0, { id: 1, name: "AFTER" })], [])).toEqual([
       { id: 1, name: "AFTER" }, { id: 2, name: "b" },
     ]);
   });
 
   it("re-applies a delete (removes the row with that id)", () => {
     const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }, { id: 3, name: "c" }];
-    expect(applyUndoForward(current, [del(1, { id: 2, name: "b" })])).toEqual([
+    expect(applyUndoForward(current, [del(1, { id: 2, name: "b" })], [])).toEqual([
       { id: 1, name: "a" }, { id: 3, name: "c" },
     ]);
   });
 
   it("re-applies a clear-all (removes every captured row)", () => {
     const current: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
-    expect(applyUndoForward(current, [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "b" })])).toEqual([]);
+    expect(applyUndoForward(current, [del(0, { id: 1, name: "a" }), del(1, { id: 2, name: "b" })], [])).toEqual([]);
   });
 
   it("skips an absent edit/delete row (no crash, no change)", () => {
     const current: Row[] = [{ id: 1, name: "a" }];
-    expect(applyUndoForward(current, [edit(9, { id: 9, name: "gone" }), del(9, { id: 8, name: "gone" })])).toEqual([
+    expect(applyUndoForward(current, [edit(9, { id: 9, name: "gone" }), del(9, { id: 8, name: "gone" })], [])).toEqual([
       { id: 1, name: "a" },
     ]);
   });
@@ -167,20 +169,20 @@ describe("applyUndoForward", () => {
     const out = applyUndoForward(current, [
       del(1, { id: 2, name: "b" }),
       edit(2, { id: 3, name: "3-stripped" }),
-    ]);
+    ], []);
     expect(out).toEqual([{ id: 1, name: "a" }, { id: 3, name: "3-stripped" }]);
   });
 
   it("removes the recovered row on redo when it still MATCHES", () => {
     // delete → undo → redo: the recovered row is unchanged, so redo removes it.
-    expect(applyUndoForward([{ id: 1, name: "Alice" }], [del(0, { id: 1, name: "Alice" })])).toEqual([]);
+    expect(applyUndoForward([{ id: 1, name: "Alice" }], [del(0, { id: 1, name: "Alice" })], [])).toEqual([]);
   });
 
   it("does NOT remove a reused-id row that no longer matches the recovered row (capture-bypass guard)", () => {
     // The recovered Alice(id 1) was deleted outside the undo system and id 1 reused
     // by Bob (a capture-bypassing path that didn't clear the redo stack). Redo's
     // forward delete-image is Alice's — it must NOT destroy the live Bob.
-    expect(applyUndoForward([{ id: 1, name: "Bob" }], [del(0, { id: 1, name: "Alice" })])).toEqual([
+    expect(applyUndoForward([{ id: 1, name: "Bob" }], [del(0, { id: 1, name: "Alice" })], [])).toEqual([
       { id: 1, name: "Bob" },
     ]);
   });
@@ -210,12 +212,12 @@ describe("buildForwardImages", () => {
   it("round-trips a delete: restore then forward returns the post-op array", () => {
     const preOp: Row[] = [{ id: 1, name: "a" }, { id: 2, name: "b" }];
     const before = buildBeforeImages([{ id: 2, name: "b" }], [], preOp);
-    const postOp = applyUndoForward(preOp, buildForwardImages(before, preOp));
+    const postOp = applyUndoForward(preOp, buildForwardImages(before, preOp), []);
     expect(postOp).toEqual([{ id: 1, name: "a" }]); // delete applied
-    const restored = applyUndoRestore(postOp, before);
+    const restored = applyUndoRestore(postOp, before, []);
     expect(restored).toEqual(preOp); // undo restored
     const forward = buildForwardImages(before, restored);
-    expect(applyUndoForward(restored, forward)).toEqual([{ id: 1, name: "a" }]); // redo re-deletes
+    expect(applyUndoForward(restored, forward, [])).toEqual([{ id: 1, name: "a" }]); // redo re-deletes
   });
 });
 
@@ -227,13 +229,13 @@ describe("redo after id re-mint (data-loss regression)", () => {
     const before = buildBeforeImages<Row>([{ id: 1, name: "Solo" }], [], [{ id: 1, name: "Solo" }]);
     const afterArray: Row[] = [{ id: 1, name: "NewRow" }]; // id1 reused by a new row
 
-    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before, []);
     // Solo recovered under a fresh id (2); NewRow (id1) untouched.
     expect(restored).toEqual([{ id: 2, name: "Solo" }, { id: 1, name: "NewRow" }]);
     expect(remap.get(1)).toBe(2);
 
     const forward = buildForwardImages(before, afterArray, remap);
-    const redone = applyUndoForward(restored, forward);
+    const redone = applyUndoForward(restored, forward, []);
     // NewRow SURVIVES; only the recovered Solo is removed again.
     expect(redone).toEqual([{ id: 1, name: "NewRow" }]);
   });
@@ -241,10 +243,10 @@ describe("redo after id re-mint (data-loss regression)", () => {
   it("without a remap, a plain delete round-trips normally", () => {
     const before = buildBeforeImages<Row>([{ id: 5, name: "X" }], [], [{ id: 5, name: "X" }]);
     const after: Row[] = [];
-    const { result: restored, remap } = applyUndoRestoreWithRemap(after, before);
+    const { result: restored, remap } = applyUndoRestoreWithRemap(after, before, []);
     expect(restored).toEqual([{ id: 5, name: "X" }]);
     expect(remap.size).toBe(0);
-    expect(applyUndoForward(restored, buildForwardImages(before, after, remap))).toEqual([]);
+    expect(applyUndoForward(restored, buildForwardImages(before, after, remap), [])).toEqual([]);
   });
 
   it("MULTIPLE simultaneous re-mints (clear-all): redo removes all recovered rows, keeps all live ones", () => {
@@ -252,9 +254,9 @@ describe("redo after id re-mint (data-loss regression)", () => {
     const before = buildBeforeImages<Row>(orig, [], orig);
     // all three ids reused by new rows before undo
     const afterArray: Row[] = [{ id: 1, name: "X" }, { id: 2, name: "Y" }, { id: 3, name: "Z" }];
-    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before, []);
     expect([...remap.entries()].sort()).toEqual([[1, 4], [2, 5], [3, 6]]);
-    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap));
+    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap), []);
     expect(redone).toEqual(afterArray); // the 3 live reused-id rows survive; recovered ones removed
   });
 
@@ -264,8 +266,8 @@ describe("redo after id re-mint (data-loss regression)", () => {
     // state, so redo restores the reused row's CURRENT value rather than clobbering.
     const before = buildBeforeImages<Row>([], [{ id: 10, name: "OLD" }], [{ id: 10, name: "OLD" }]);
     const afterArray: Row[] = [{ id: 10, name: "NEW-REUSED" }];
-    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before);
-    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap));
+    const { result: restored, remap } = applyUndoRestoreWithRemap(afterArray, before, []);
+    const redone = applyUndoForward(restored, buildForwardImages(before, afterArray, remap), []);
     expect(redone).toEqual([{ id: 10, name: "NEW-REUSED" }]);
   });
 });
@@ -372,5 +374,117 @@ describe("pushUndoMany", () => {
   it("is a no-op copy for an empty entry list", () => {
     const got = pushUndoMany([e(1)], [], 25);
     expect(got.map((x) => x.meta.id)).toEqual([1]);
+  });
+});
+
+describe("applyPreserved", () => {
+  type Row = { id: number; name: string; noteLog?: string[]; outlookEventId?: string };
+
+  it("returns the image unchanged when there is nothing to preserve", () => {
+    const image: Row = { id: 1, name: "before" };
+    const live: Row = { id: 1, name: "after" };
+    expect(applyPreserved(image, live, [])).toBe(image); // same reference
+  });
+
+  it("takes the LIVE value when the live row has the key", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["old"] };
+    const live: Row = { id: 1, name: "after", noteLog: ["old", "added since"] };
+    expect(applyPreserved(image, live, ["noteLog"])).toEqual({
+      id: 1, name: "before", noteLog: ["old", "added since"],
+    });
+  });
+
+  it("lets an EMPTIER live value win — a cleared field stays cleared", () => {
+    const image: Row = { id: 1, name: "before", outlookEventId: "evt-1" };
+    const live: Row = { id: 1, name: "after", outlookEventId: undefined };
+    const out = applyPreserved(image, live, ["outlookEventId"]);
+    expect(out.outlookEventId).toBeUndefined();
+    expect(out.name).toBe("before"); // the non-preserved field still reverts
+  });
+
+  it("DELETES the key when only the image has it, rather than leaving the stale value", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["stale"] };
+    const live: Row = { id: 1, name: "after" };
+    const out = applyPreserved(image, live, ["noteLog"]);
+    expect("noteLog" in out).toBe(false); // NOT toBeUndefined — that passes against a spread
+  });
+
+  it("never INVENTS a key that neither row carries", () => {
+    const image: Row = { id: 1, name: "before" };
+    const live: Row = { id: 1, name: "after" };
+    const out = applyPreserved(image, live, ["noteLog", "outlookEventId"]);
+    expect(Object.keys(out).sort()).toEqual(["id", "name"]);
+  });
+
+  it("preserves several keys independently in one pass", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["a"], outlookEventId: "evt-1" };
+    const live: Row = { id: 1, name: "after", noteLog: ["a", "b"] };
+    const out = applyPreserved(image, live, ["noteLog", "outlookEventId"]);
+    expect(out.noteLog).toEqual(["a", "b"]);
+    expect("outlookEventId" in out).toBe(false);
+  });
+
+  it("does not mutate either input", () => {
+    const image: Row = { id: 1, name: "before", noteLog: ["a"] };
+    const live: Row = { id: 1, name: "after", noteLog: ["a", "b"] };
+    applyPreserved(image, live, ["noteLog"]);
+    expect(image.noteLog).toEqual(["a"]);
+    expect(live.noteLog).toEqual(["a", "b"]);
+  });
+});
+
+describe("preserve on restore and redo", () => {
+  type Row = { id: number; sev: string; noteLog?: string[] };
+  const PRESERVE = ["noteLog"];
+
+  it("undo reverts the edited field but keeps a note added since the capture", () => {
+    const before: BeforeImage<Row>[] = [
+      { index: 0, item: { id: 1, sev: "Low" }, op: "edit" },
+    ];
+    const live: Row[] = [{ id: 1, sev: "High", noteLog: ["added after the bulk edit"] }];
+    const out = applyUndoRestore(live, before, PRESERVE);
+    expect(out[0].sev).toBe("Low");
+    expect(out[0].noteLog).toEqual(["added after the bulk edit"]);
+  });
+
+  it("redo re-applies the edit but keeps a note added since the UNDO", () => {
+    const forward: BeforeImage<Row>[] = [
+      { index: 0, item: { id: 1, sev: "High", noteLog: ["note A"] }, op: "edit" },
+    ];
+    const live: Row[] = [{ id: 1, sev: "Low", noteLog: ["note A", "note B"] }];
+    const out = applyUndoForward(live, forward, PRESERVE);
+    expect(out[0].sev).toBe("High");
+    expect(out[0].noteLog).toEqual(["note A", "note B"]);
+  });
+
+  it("an empty preserve list is byte-identical to the old whole-row replace", () => {
+    const before: BeforeImage<Row>[] = [
+      { index: 0, item: { id: 1, sev: "Low" }, op: "edit" },
+    ];
+    const live: Row[] = [{ id: 1, sev: "High", noteLog: ["lost"] }];
+    expect(applyUndoRestore(live, before, [])).toEqual([{ id: 1, sev: "Low" }]);
+  });
+
+  it("still skips an edit-image whose id a delete-image owns", () => {
+    const before: BeforeImage<Row>[] = [
+      { index: 0, item: { id: 1, sev: "Low" }, op: "edit" },
+      { index: 0, item: { id: 1, sev: "Gone" }, op: "delete" },
+    ];
+    const live: Row[] = [{ id: 1, sev: "Live", noteLog: ["n"] }];
+    const out = applyUndoRestore(live, before, PRESERVE);
+    // The delete branch owns id 1: it re-mints rather than letting the edit revert.
+    expect(out.find((r) => r.sev === "Live")).toBeDefined();
+  });
+
+  it("redo's rowsEqual identity guard still fires with preserve on (non-regression)", () => {
+    // A recovered delete-image whose id a NEW unrelated row now holds must not be
+    // removed by redo. Preservation touches only edit-images, so this must not change.
+    const forward: BeforeImage<Row>[] = [
+      { index: 0, item: { id: 7, sev: "recovered" }, op: "delete" },
+    ];
+    const live: Row[] = [{ id: 7, sev: "an unrelated new row", noteLog: ["keep me"] }];
+    const out = applyUndoForward(live, forward, PRESERVE);
+    expect(out).toHaveLength(1);
+    expect(out[0].sev).toBe("an unrelated new row");
   });
 });

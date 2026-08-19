@@ -34,11 +34,11 @@ export interface RaciPanelProps {
   stakeholders: readonly Stakeholder[];
   milestones: readonly Milestone[];
   onSave: (item: Stakeholder, isNew?: boolean, opts?: { suppressFieldUndo?: boolean }) => void;
-  /** Snapshot the touched stakeholders' pre-edit images for undo, called
+  /** Snapshot the touched stakeholders' field patches for undo, called
    *  before "Suggest RACI" applies its selected cells — mirrors
    *  `onCaptureStakeholderBulk` (the same capture the manual bulk-edit panel
    *  uses). Omitted -> AI apply proceeds without an undo entry. */
-  onCaptureBulk?: (ids: readonly number[]) => void;
+  onCaptureBulk?: (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => void;
   /** ★ ACTOR-AWARE. Every consumer of this prop writes an `ai.*` kind, so it
    *  names its own actor — see the rule on `useActivityLog`. */
   logActivityAs?: LogActivityAsFn;

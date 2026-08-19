@@ -75,12 +75,17 @@ export interface UndoEntry {
  *
  * Delete-images are applied in ascending original-index order so sequential
  * splices land correctly regardless of caller order. Pure.
+ *
+ * `preserve` is forwarded to `applyPreserved` for every edit-image reverted —
+ * the LIVE row wins on those keys rather than being clobbered by the snapshot.
+ * See `applyPreserved` for why this exists and its "never invent a key" rule.
  */
 export function applyUndoRestore<T extends { id: number }>(
   current: readonly T[],
   before: readonly BeforeImage<T>[],
+  preserve: readonly string[],
 ): T[] {
-  return applyUndoRestoreWithRemap(current, before).result;
+  return applyUndoRestoreWithRemap(current, before, preserve).result;
 }
 
 /**
@@ -89,10 +94,15 @@ export function applyUndoRestore<T extends { id: number }>(
  * recovered under a FRESH id), `remap[originalId] = mintedId`. Redo needs this
  * so it removes the id the row ACTUALLY holds post-restore, not the stale
  * original (which now belongs to the unrelated live row). Pure.
+ *
+ * `preserve` is forwarded to `applyPreserved` for every edit-image reverted —
+ * the LIVE row wins on those keys rather than being clobbered by the snapshot.
+ * See `applyPreserved` for why this exists and its "never invent a key" rule.
  */
 export function applyUndoRestoreWithRemap<T extends { id: number }>(
   current: readonly T[],
   before: readonly BeforeImage<T>[],
+  preserve: readonly string[],
 ): { result: T[]; remap: Map<number, number> } {
   const present = new Set(current.map((r) => r.id));
   // Fresh-id source covers current ids AND every captured id, so a re-mint can
@@ -114,7 +124,8 @@ export function applyUndoRestoreWithRemap<T extends { id: number }>(
   for (const { item, op } of before) {
     if (op !== "edit" || deleteIds.has(item.id)) continue;
     if (present.has(item.id)) {
-      out[out.findIndex((r) => r.id === item.id)] = item;
+      const idx = out.findIndex((r) => r.id === item.id);
+      out[idx] = applyPreserved(item, out[idx], preserve);
     }
     // absent edit-image → skip (row deleted since; not this op's to restore)
   }
@@ -139,6 +150,50 @@ export function applyUndoRestoreWithRemap<T extends { id: number }>(
 }
 
 /**
+ * Merge one edit-image over the LIVE row, letting the live row win on the
+ * `preserve` keys.
+ *
+ * ★★★ WHY THIS EXISTS. An edit-image is a whole-row snapshot taken when the op
+ * ran, so restoring it verbatim also reverts anything a DIFFERENT writer changed
+ * on that row meanwhile — a note added through the notes window, an
+ * `outlookEventId` stamped by a background calendar push. See open-followups §50.
+ *
+ * ★★ IT MUST NOT INVENT A KEY. `{ ...image, noteLog: live.noteLog }` adds an
+ * explicit `undefined` when NEITHER row carries one, which changes
+ * `Object.keys` — and `rowsEqual` below compares key COUNT to confirm a row's
+ * identity before redo removes it. No reachable break through that guard has
+ * been demonstrated (a fresh capture clears the redo stack, and an id claimed by
+ * a delete-image never reaches the edit branch), so this is hazard avoidance in
+ * shared machinery rather than a fix for a known defect — do not write a test
+ * claiming to reproduce one. The rule: the result carries exactly the keys one of
+ * the two rows had.
+ *
+ * ★ Returns `image` BY REFERENCE when nothing applies, so the common
+ * `preserve: []` case allocates nothing. Pure.
+ *
+ * ★ `preserve` must never contain `"id"` — every caller matches rows by that
+ * key, and letting the live row win on it would overwrite the returned row's
+ * own identity.
+ */
+export function applyPreserved<T extends { id: number }>(
+  image: T,
+  live: T,
+  preserve: readonly string[],
+): T {
+  let out: T | null = null;
+  for (const key of preserve) {
+    const liveHas = Object.prototype.hasOwnProperty.call(live, key);
+    const imageHas = Object.prototype.hasOwnProperty.call(image, key);
+    if (!liveHas && !imageHas) continue;
+    if (out === null) out = { ...image };
+    const rec = out as unknown as Record<string, unknown>;
+    if (liveHas) rec[key] = (live as unknown as Record<string, unknown>)[key];
+    else delete rec[key];
+  }
+  return out ?? image;
+}
+
+/**
  * Re-apply the destructive op (REDO) — the exact inverse of `applyUndoRestore`,
  * driven by FORWARD images (the post-op / after values, built by
  * `buildForwardImages` at undo time):
@@ -150,6 +205,10 @@ export function applyUndoRestoreWithRemap<T extends { id: number }>(
  *
  * Edits are applied first, then removals, mirroring the restore ordering so a
  * redo that both edits and removes composes correctly. Id-based and pure.
+ *
+ * `preserve` is forwarded to `applyPreserved` for every edit-image re-applied —
+ * the LIVE row wins on those keys rather than being clobbered by the forward
+ * image. See `applyPreserved` for why this exists and its "never invent a key" rule.
  */
 /** Structural deep-equality for plain rows (primitives, arrays, plain objects) —
  *  used to confirm a row's IDENTITY before redo removes it. Pure. */
@@ -166,6 +225,7 @@ function rowsEqual(a: unknown, b: unknown): boolean {
 export function applyUndoForward<T extends { id: number }>(
   current: readonly T[],
   forward: readonly BeforeImage<T>[],
+  preserve: readonly string[],
 ): T[] {
   let out = current.slice();
   // Map each delete-image's id → the RECOVERED row it represents.
@@ -174,7 +234,7 @@ export function applyUndoForward<T extends { id: number }>(
   for (const { item, op } of forward) {
     if (op !== "edit" || deletes.has(item.id)) continue; // delete-image owns this id
     const idx = out.findIndex((r) => r.id === item.id);
-    if (idx !== -1) out[idx] = item; // absent edit → skip
+    if (idx !== -1) out[idx] = applyPreserved(item, out[idx], preserve); // absent edit → skip
   }
   if (deletes.size > 0) {
     // ★★ Remove a row ONLY if the live row at that id still MATCHES the recovered

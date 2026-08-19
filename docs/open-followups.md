@@ -2130,7 +2130,7 @@ write-through field; whether any other entity sanitizer drops a field its caller
 
 ---
 
-## 50. Undo of a BULK edit reverts write-through fields — open, pre-existing, DATA LOSS
+## 50. Undo of a BULK edit reverts write-through fields — CLOSED 2026-08-18
 
 `undo-stack.ts:89` restores an edit-image with `out[findIndex(...)] = item` — a **whole-row replace**
 using the before-image captured at bulk-apply time. `use-resource-planner.ts` `captureRaidBulkUndo`
@@ -2174,10 +2174,73 @@ already like this; the slice added a third entity to its blast radius. ★ It al
 per-entity field list a fix would need is now three entries, not two, and it grows silently every time
 a write-through field is added to an entity — which is an argument for the field-wise capture option.
 
-**Fix when taken:** either preserve the live row's write-through fields in the edit branch
-(`out[idx] = { ...item, noteLog: out[idx].noteLog }`, generalised over a per-entity field list), or
-capture bulk edits field-wise. ★ Write the failing test first, and seed the note AFTER the bulk apply —
-a fixture that adds it before passes either way (the §48 trap, restated).
+### Resolution
+
+Closed by **two complementary mechanisms**, not one, because they cover different shapes of writer:
+
+- **The engine backstop.** `applyPreserved(image, live, preserve)` in `src/app/undo/undo-stack.ts`
+  merges an edit-image over the LIVE row, letting the live row win on a named `preserve` list, and
+  never invents a key neither row carries. `applyUndoRestore` / `applyUndoRestoreWithRemap` /
+  `applyUndoForward` all take a REQUIRED `preserve: readonly string[]` — required so a future call
+  site that forgets it is a typecheck error, not a silent regression. `use-undo-stack.ts` declares
+  `WRITE_THROUGH_FIELDS = ["noteLog", "outlookEventId"]` and passes it at all four runner sites. This
+  is the backstop for paths that genuinely still replace a whole row (e.g. dependency stripping on
+  delete, which captures dependents as whole-row edit-images) — it preserves exactly the two named
+  fields and nothing else.
+- **Field-patch capture.** `buildBulkFieldEdits` in `src/app/undo/field-groups.ts` diffs
+  `{before, after}` row pairs into field PATCHES (excluding `id`, `localModifiedAt` and the
+  write-through keys), and `captureFieldRows` turns N such patches into one undo entry. **Five PANEL
+  bulk-edit sites were converted** — RAID (`use-resource-planner.ts`), changes (`use-change-log.ts`),
+  stakeholders (`use-stakeholders.ts`), milestones (`milestones-panel.tsx`), tasks
+  (`use-bulk-operations.ts`) — plus ONE consumer the original plan never named,
+  `use-raci-suggest.tsx`, which builds the same field patches and hands them to the stakeholders
+  capture prop. ★ An earlier revision of this line said TWO and named `raci-panel.tsx` beside it;
+  that panel declares the prop, destructures it and forwards it into the hook's `deps`, and calls
+  neither `buildBulkFieldEdits` nor any capture. One builder, one pass-through:
+
+  ```bash
+  grep -n "onCaptureBulk\|buildBulkFieldEdits\|captureFieldRows" src/app/raci-panel.tsx src/app/use-raci-suggest.tsx
+  ```
+
+  ★★ **THOSE ARE NOT ALL THE `bulk.edit` EMITTERS** — an earlier revision of this line said "all five
+  `bulk.edit` sites … were converted", which is false.
+  `use-alloc-plan.tsx` and `use-resource-directory.ts` emit the same kind through whole-row
+  `capture()` and were deliberately left there, as is the BUCKET half of the tasks composite
+  (`commitBuckets` → `capturePart` in `use-budget-buckets.ts`; that composite's TASKS half is a
+  field part). Those remain whole-row and are covered by the Part A backstop instead — the two named
+  fields and nothing else. Re-derive the set rather than trusting this list:
+
+  ```bash
+  # ★★ SOME HITS ARE COMMENTS quoting the literal, not emit sites — this doc's own round added one
+  # (`use-budget-buckets.ts`). The trailing filter drops a `//` line; a `*` continuation inside a
+  # block comment would still slip through, so READ each line rather than counting them.
+  grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' \
+    | grep -vE ':[0-9]+: *//'
+  ```
+
+  ★★★ **A field patch preserves concurrent edits to OTHER FIELDS — NOT "EVERY concurrent edit on
+  that row", which is what this entry claimed.** `buildBulkFieldEdits` captures whole FIELD VALUES
+  (`pick(before, changed)`) and the restore merges them wholesale — `const merged = { ...row,
+  ...pick(edit) }` in `captureFieldPart` (`src/app/undo/use-undo-stack.ts`), the BULK runner, NOT the
+  `{ ...r, ...patch }` of `captureFieldEdit`'s single-row modal-save path in the same file — so a
+  concurrent write to a DIFFERENT KEY of the same object-valued field is still reverted. Reachable
+  today on `Stakeholder.raci`. Filed as §178.
+  Within that limit it is still strictly stronger than the backstop, wherever it applies.
+
+**The task half is now verified, not suspected.** This entry said the same sequence "very likely" lost
+task notes too, but marked that half UNVERIFIED. It was measured true: `use-bulk-operations.ts`
+captured whole `beforeRows`, exactly like RAID and changes, before this slice converted it to a field
+part.
+
+**`outlookEventId` was a second member of the class this entry never named.** Everything above was
+written about note logs. But the background calendar push stamps `outlookEventId` on live rows, so the
+same shape had a second, worse trigger: bulk-edit → auto-sync fires → Ctrl+Z restores
+`outlookEventId: undefined` → the next push creates a DUPLICATE event in the user's real Outlook
+calendar. Worse than the note case two ways — no user race is needed (a background timer supplies the
+concurrent write on its own schedule), and it reaches entities that carry no note log at all.
+
+Residual scope — the whole-row paths this slice deliberately left untouched, and the duplicated
+write-through field list — is recorded separately as §177, not folded in here.
 
 ---
 
@@ -4910,7 +4973,22 @@ chip there would be a dead prompt.
 
 ---
 
-## 87. AI cannot read the activity log — deliberate, no tool exposes it
+## 87. AI cannot read the activity log — CORRECTED 2026-08-18, stale
+
+★★★ **STALE — a read tool now exists, and this entry's own reasoning is what the fix had to solve.**
+`chat-tool-defs.ts` declares a `search_history` tool, and `chat-tools.ts` exposes
+`getActivityLog(): readonly ActivityEntry[]` on the dispatcher, consumed inside `chat-tools.ts` to
+serve it. The "not part of `Workspace`, so there is nothing for a read tool to query without new
+plumbing" claim below is no longer true — the plumbing was built.
+
+The *reasoning* that `task-manager.tsx` is the Phase-3 baselined orchestrator and is deliberately kept
+from growing new responsibilities is worth keeping, not deleting — it is exactly the constraint the
+`search_history`/`getActivityLog` slice (part of the AI-recall work referenced in the memory index as
+B2a) had to design around, rather than route the log through the orchestrator the way §86's reasoning
+originally implied a fix would. Do not re-open this as a gap; if the tool is ever removed, that is a
+new entry, not a revival of this one.
+
+Original text, kept for the reasoning:
 
 `activity-log-context.tsx` exposes a WRITER only — `LogActivityFn`, delivered through
 `ActivityLogProvider`/`useActivityLogger()` — and the log itself is not part of `Workspace`, so there is
@@ -4919,7 +4997,10 @@ nothing for a read tool to query without new plumbing. Reading it would mean thr
 above) and is deliberately kept from growing new responsibilities.
 
 Same handling as §86: `VIEW_AI_SCOPE.activity.reading` states the model cannot read the log, and
-`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together).
+`ASK_CLAUDE_PROMPTS` has no `activity` entry (same test pins both absences together). ★ That guard
+pairing may itself be stale now that a read tool exists — not re-verified as part of this correction;
+check `VIEW_AI_SCOPE.activity.reading` and the `ASK_CLAUDE_PROMPTS` `activity` entry before relying on
+either claim.
 
 ---
 
@@ -11549,3 +11630,427 @@ because the run is counted against the cap before it is collapsed.
 ★ Bounded either way (the cap plus one ellipsis), model-facing only, and no storage or export path
 is involved ★★ but NO test pins either ordering, so a future edit can reverse it silently in
 either direction. If it is ever worth pinning, pin it at `threadTitle`, where the clip now lives.
+
+---
+
+## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
+
+§50's field-patch conversion (closed 2026-08-18) made the five converted PANEL bulk-edit sites immune
+to the write-through clobber BY CONSTRUCTION — a field patch merges only the fields the op itself
+touched, so a concurrent edit to a DIFFERENT FIELD of the row survives, not just
+`noteLog`/`outlookEventId`. ★ It does NOT preserve a concurrent write to a different KEY of the same
+object-valued field (§178), and the five are not the only `bulk.edit` emitters (§50's Resolution
+carries both corrections and the greps). That property does not extend to every writer in the app,
+and this entry records what was deliberately left out.
+
+★★ **The whole-row paths that remain still revert every concurrent change OUTSIDE
+`WRITE_THROUGH_FIELDS`.** Reference-data cascades, the resource directory, task dedup
+(`use-tasks-dedup.tsx`), the alloc plan (`use-alloc-plan.tsx`), the BUCKETS half of the tasks
+bulk-edit composite (`use-budget-buckets.ts`), and dependency stripping on delete
+(pinned against, not fixed, by the two `use-task-row-handlers.test.ts` tests §50 added) all still
+capture whole rows. Undoing any of them reverts every field the row carried at
+capture time, including one a background writer changed in the meantime — the exact §50 shape.
+
+★★ **TWO CORRECTIONS TO THIS PARAGRAPH'S OWN EARLIER TEXT, both measured.** (1) It said these paths
+capture "via `capturePart`" — that is THREE of them, not all: the reference-data cascades
+(`use-reference-data.ts`), the resource-directory DELETES (`use-resource-directory.ts`) and the
+BUCKETS half of the tasks bulk-edit composite (`use-budget-buckets.ts`, whose part carries whole
+`removed`/`edited` rows). Task dedup, the alloc plan, the resource directory's BULK EDIT and
+dependency stripping on delete all use the single-array `capture()` instead. (2) It said the shape is
+"just not on a `bulk.edit` site", which contradicts §50 and is false twice over — the alloc plan and
+the resource directory's bulk edit BOTH emit `kind: "bulk.edit"`.
+
+★★★ **BOTH COMMANDS BELOW ARE NARROWED FROM THE BARE GREPS THIS ENTRY USED TO CARRY, and each bare
+form was wrong in a DIFFERENT direction.** `grep -rn "capturePart"` OVER-reports — it returns the
+import lines and the source comments that merely name the helper. But the obvious narrowing,
+`capturePart({`, UNDER-reports and hides the very site the sentence above was missing: the
+budget-buckets call is `capturePart<BudgetBucket>({`, so a call-shaped grep with no generic in it
+drops it silently. The form below admits an optional type argument — the repo's standing
+"enumerate call sites with ALL call shapes" rule. Read the `kind:` hits rather than counting them:
+comment lines quoting the literal are hits too.
+
+```bash
+grep -rnE "\bcapturePart(<[A-Za-z0-9_, ]*>)?\(" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.' | grep -vE ':[0-9]+: *//'
+grep -rn 'kind: "bulk\.edit"' src/app --include=*.ts --include=*.tsx | grep -v '\.test\.' \
+  | grep -vE ':[0-9]+: *//'
+```
+
+A NEW write-through field added to an entity escapes
+`WRITE_THROUGH_FIELDS`/`WRITE_THROUGH_KEYS` on these paths silently: nothing fails, the field is simply
+reverted on undo like any other.
+
+Two ways out, neither taken here:
+- Convert the remaining sites to field patches where the op is genuinely field-shaped (most of the
+  list above edits, rather than restructures, the row).
+- Derive `WRITE_THROUGH_FIELDS`/`WRITE_THROUGH_KEYS` from something structural (a per-entity
+  "concurrently-writable" field list on the type, or similar) rather than hand-maintaining two copies
+  — see the duplication note below, which is the sharper version of this same risk.
+
+This slice deliberately scoped these sites out — converting every whole-row capture in the app was not
+in §50's blast radius, and doing it inside the fix round that closed §50 is how a regression ships (the
+same reasoning §50 itself gave in 0.211.1 for not touching shared undo machinery mid-batch).
+
+★★ **The write-through field list is duplicated, and that duplication is itself residue.**
+`WRITE_THROUGH_FIELDS` (`src/app/undo/use-undo-stack.ts`) governs what a whole-row undo PRESERVES;
+`WRITE_THROUGH_KEYS` (`src/app/undo/field-groups.ts`) governs what a bulk-edit field patch CAPTURES.
+Both are hardcoded to the same two names, `["noteLog", "outlookEventId"]`. They are deliberately
+SEPARATE constants — different layers, and `field-groups.ts` must not import the hook — and each
+carries a doc comment cross-referencing the other, but a third write-through field means editing BOTH
+by hand. Nothing enforces they stay in sync; a future field added to one and not the other would fail
+silently in exactly the shape this whole entry is about.
+
+```bash
+grep -n "WRITE_THROUGH_FIELDS" src/app/undo/use-undo-stack.ts
+grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
+```
+
+---
+
+## 178. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
+
+§50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
+this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
+key-by-key and stores the WHOLE VALUE of each changed field (`pick(before, changed)`); the BULK field
+runner `captureFieldPart` then merges those values wholesale over the live row
+(`const merged = { ...row, ...pick(edit) }`). So the unit of preservation is the FIELD, not the key
+inside it — a concurrent writer that produced a new object or
+array for a field the op also touched loses its change, exactly as a whole-row capture would.
+
+```bash
+grep -n "pick(before, changed)" src/app/undo/field-groups.ts   # whole VALUE captured
+# ★★ The BULK runner, not the single-row one. `{ ...r, ...patch }` in the same file is
+# `captureFieldEdit`'s modal-save path — it proves the same property about a DIFFERENT runner,
+# and it exits 0 and prints a line, so citing it reads as verified when it is not.
+grep -n "merged = { \.\.\.row, \.\.\.pick(edit) }" src/app/undo/use-undo-stack.ts   # merged wholesale
+```
+
+**Reachable today on `Stakeholder.raci`**, which is a `Record<string, RaciRole>` keyed by milestone id,
+and whose only writer returns a whole new map:
+
+```bash
+grep -n "raci: Record" src/app/types.ts
+grep -n "export function setRaciRole" -A 12 src/app/stakeholders.ts   # returns { ...s, raci }
+```
+
+Sequence: RACI panel → **Suggest RACI** → apply across stakeholders (one `bulk.edit` field patch whose
+changed field is `raci`) → the user assigns a cell for a DIFFERENT milestone on one of those
+stakeholders → Ctrl+Z. The bulk suggestion is undone AND the user's hand-assigned cell silently
+vanishes, because the patch's `before.raci` is the whole pre-suggestion map.
+
+Same shape wherever an op's changed field holds a collection another writer can rewrite —
+`Task.labels` (`string[]`), `RaidItem.linkedTaskIds` (`number[]`). ★ NOT `Task.blockers`: that is a
+plain `string`, so whole-value capture is exactly right there and there is no sub-field to lose.
+
+**Why it was left.** Pre-existing, not a regression — the whole-row capture this replaced lost the
+same cell and more, so Part B strictly narrowed the defect rather than introducing it. Closing it
+needs per-key diffing and per-key merging of object-valued fields, which is a different data model
+for a patch (`{path, before, after}` rather than `{field, before, after}`) and a different restore
+runner. That is a design slice, not a fix-round edit to shared undo machinery — the same reasoning
+§50 gave in 0.211.1.
+
+---
+
+## 179. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
+
+§50's Part A backstop is wired into the EDIT branch only. Both `applyPreserved(item, …)` call sites
+sit inside an `op === "edit"` loop — one in `applyUndoRestoreWithRemap`, one in `applyUndoForward`:
+
+```bash
+grep -n "applyPreserved(item" -B 3 src/app/undo/undo-stack.ts
+```
+
+The delete branch instead confirms a row's IDENTITY before removing it, by deep-equality against the
+capture-time image:
+
+```bash
+grep -n "rowsEqual(r, recovered)" src/app/undo/undo-stack.ts
+```
+
+A write-through field that changed on a RESTORED row breaks that equality, and the failure is not a
+no-op — it desynchronises the two stacks and then mints a duplicate:
+
+1. Delete a RAID item. → undo entry pushed with a delete-image.
+2. Ctrl+Z. The row is restored under its original id; the entry moves to the redo stack.
+3. Add a note to that row through the notes window. The notes window is write-through and pushes NO
+   undo entry, so the redo stack SURVIVES this write (a normal edit would have cleared it — that is
+   why this needs a write-through writer specifically).
+4. Ctrl+Y. `rowsEqual(live, recovered)` is now false (the live row carries a `noteLog` the recovered
+   image does not), so the filter keeps the row — the redo does NOT remove it. The entry still moves
+   back to the undo stack.
+5. Ctrl+Z. The restore branch now finds `present.has(id) === true`, takes the id-reuse path, and
+   splices a SECOND copy of the row in under a freshly minted id.
+
+Result: a duplicate RAID item plus a stale one, from three keystrokes and one note.
+
+**Why it was left.** Pre-existing and unchanged by this branch — `rowsEqual` predates it and the
+preserve list did not alter the delete path in either direction. The fix is not "pass `preserve` to
+`rowsEqual`" either: the guard exists to stop redo destroying an unrelated live row that reused a
+freed id (real data loss), so relaxing it needs an identity notion that is neither whole-row equality
+nor id alone. Scoping that inside the fix round that closed §50 is how a regression ships.
+
+---
+
+## 180. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+
+`changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
+`TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),
+`CHANGE_UNDO_GROUPS` couples `status` with `decisionDate`. `buildBulkFieldEdits` takes no
+`FieldGroup[]` argument and consults none of those constants: it diffs key-by-key and captures
+exactly the keys that differ.
+
+```bash
+grep -n "export function buildBulkFieldEdits" -A 4 src/app/undo/field-groups.ts   # no FieldGroup param
+grep -n "UNDO_GROUPS" src/app/undo/field-groups.ts   # declaration lines ONLY — no read site
+grep -n "KNOWN GAP" -A 7 src/app/undo/field-groups.ts                             # the same gap, at the source
+```
+
+So if a bulk edit sees only ONE member of such a pair differ, only that member is captured, and the
+undo restores it alone — leaving `status: "Done"` with no `completedDate`, or a change whose
+`decisionDate` no longer matches its status. Both are invariants the rest of the app reads as
+guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed-but-never-delivered
+or the reverse).
+
+**Reachability.** A lone-member difference requires the STORED row to already be inconsistent, and
+§183 records a code path that produces one from well-formed data — the Jira CONFLICT merge, which
+writes `completedDate` from the user's per-field pick and never `status`. Nothing repairs that on
+load: `migrateTask` short-circuits on
+`if (statusOk && createdOk) return task;`, so a valid-but-inconsistent pair from an import or a
+hand-edited blob survives every load path.
+
+★★ **THE GROUND FOR THAT IS NOT "`applyStatusChange` IS THE SOLE WRITER", WHICH THIS ENTRY CLAIMED
+AND IS FALSE.** The Jira path bypasses it: `issueToTaskFields` (`jira-api.ts`) sets `completedDate`
+off its own `isDone` flag and `status` off `jiraCategoryToStatus`, and `use-jira-sync.ts` applies
+`patch.completedDate` directly. That bypass is deliberate — routing through `applyStatusChange` would
+stamp today instead of Jira's resolution date — and AGENTS.md describes it in the Kanban and
+task-status bullets. Enumerate the writers before relying on either — and note that the OBVIOUS
+sweep cannot do it, because two of the four write the field through an ASSIGNMENT rather than a
+property literal, and one of those two is the §183 defect:
+
+```bash
+# A bare `completedDate:` misses `templates.ts` outright and returns only the three patch-literal
+# sites in `use-jira-sync.ts`, never the conflict merge. Admit both shapes, and the trailing `=`
+# that sits at end-of-line:
+grep -rnE "completedDate[[:space:]]*[:=]([^=]|$)" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.'
+```
+
+**Why it was left.** It is a pre-existing property of the new helper's contract, and the source
+already carries the gap as a comment pointing here. ★★ It was left on the ground that no sequence
+reached it from well-formed data; §183 removes that ground by supplying the inconsistent row this
+entry needs as its precondition, so re-argue the deferral rather than inheriting it. Fixing it means threading the per-entity `FieldGroup[]` through
+`captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
+which is exactly the class §50 declined to make inside a fix round.
+
+---
+
+## 181. Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED
+
+§50's field-patch conversion wired five PANEL bulk-edit sites to `captureFieldRows`. Exactly ONE of
+them — tasks (`use-bulk-operations.ts`) — passes `stampField: "localModifiedAt"`. RAID
+(`use-resource-planner.ts`), changes (`use-change-log.ts`), stakeholders (`use-stakeholders.ts`) and
+milestones (`milestones-panel.tsx`) pass nothing.
+
+```bash
+# the four that omit it, and the one that passes it — five lines, one per register.
+# ★ The optional-call and ref-call shapes BOTH have to be admitted: a plain `captureFieldRows(`
+#   grep sees neither `args.captureFieldRows?.({` nor `captureFieldRowsRef.current({`.
+grep -rnE "captureFieldRows(Ref\.current)?\??\.?\(\{" src/app --include=*.ts --include=*.tsx \
+  | grep -v '\.test\.'
+# the four source comments that point at this entry
+grep -rn "No .stampField. here" src/app --include=*.ts --include=*.tsx | grep -v '\.test\.'
+```
+
+What `stampField` does is not in dispute: `captureFieldPart` writes a FRESH `new Date().toISOString()`
+into the named field on undo AND on redo. It does not restore the row's prior stamp, and it is not
+meant to — the reversal is itself a local modification.
+
+**What is unresolved is which behaviour is right, and two texts written in the same round do not
+agree about it.** All four register sites record the omission as an OPEN QUESTION and say so with
+that word (three share one wording; `milestones-panel.tsx` phrases it as "which of the two registers
+is right"). The tasks-side test docblock in `use-bulk-operations.test.tsx`
+states the omission as a defect: `buildBulkFieldEdits` never captures the stamp (it is in
+`NEVER_CAPTURE`), so without `stampField` an undo merges the before-patch and leaves the APPLY's
+stamp sitting on the row — "the content moves backwards while the sync layer is told the row last
+changed at the apply, so the revert never propagates".
+
+★★ **NEITHER VERDICT HAS BEEN VERIFIED, and this entry deliberately does not pick one.** Deciding it
+means establishing how each of the six backends actually uses `localModifiedAt` — whether any of them
+resolves a conflict or skips a push on it, and whether the four registers even reach a path where
+that matters. Nobody has done that work. Until it is done, "harmonising" the five sites in either
+direction is a BEHAVIOUR change on four registers, not a consistency cleanup, and the test docblock
+above is an argument, not a measurement.
+
+★ Nothing STRUCTURAL gates the asymmetry: `stampField` is optional on `CaptureFieldRowsOpts`
+(`stampField?: keyof T & string`), so all five spellings typecheck and a future site inherits
+whichever spelling its author copied. Whether any TEST would catch a flip on the four is not asserted
+here — no suite was run for this entry. The four omitting sites each carry a comment pointing here;
+read it before editing one of them.
+
+---
+
+## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — open
+
+The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load — and NOT by
+all of them. FOUR paths write the pair. Two hold it, by two DIFFERENT mechanisms:
+
+- `applyStatusChange` (`task-status.ts`) holds it BY CONSTRUCTION — `Done` stamps a `completedDate`,
+  every other status clears it. Every LOCAL status mutation routes through it.
+- Jira sync's PATCH-application sites (pull, create, read-only) hold it WITHOUT calling that
+  function — but its CONFLICT merge does not, so scope this to the path and not to the file (§183):
+  `issueToTaskFields` (`jira-api.ts`) derives both
+  fields from one `statusKey` read (`isDone` picks the date branch, `jiraCategoryToStatus` the
+  status), so the two cannot disagree. ★ This is why `applyStatusChange` is not "the sole writer of
+  status + completedDate" — a phrase four source comments carried until the round that filed this
+  entry. AGENTS.md now carries the scoping in one place; do not restate it at a call site.
+
+The other TWO hold it by neither, so do not read the pair above as an enumeration. One is this entry;
+the other is the Jira CONFLICT merge, filed separately as §183 because it is reachable from
+well-formed data through the conflicts modal and this one is not.
+
+**Template import holds it by neither mechanism.** `sanitizeSeedTask` (`templates.ts`) reads the two
+fields INDEPENDENTLY off the raw seed — `status` is a bare cast, `completedDate` a separate
+`sanitizeIsoDate` read assigned only when truthy — and then returns `migrateTask(task)`.
+
+```bash
+# leg 1: the two independent reads, and the normalizer call that ends the function.
+# ★ A FOURTH hit (`const status = raw.status`) belongs to the NEXT sanitizer in the file, not to
+#   sanitizeSeedTask. Read the function; do not count the hits.
+grep -n "raw\.status\|raw\.completedDate\|migrateTask(task)" src/app/templates.ts
+# leg 2: the short-circuit, and the GUARDED status write that is the real reason nothing is repaired.
+grep -n "statusOk && createdOk\|if (!statusOk)" src/app/task-status.ts
+```
+
+★★ **`migrateTask` does not repair the pair, and on THIS path the reason is NOT the short-circuit.**
+The obvious reading is that `if (statusOk && createdOk) return task;` returns early on a valid
+status. It does not fire here: `sanitizeSeedTask` never assigns `createdDate` (the field is optional
+on `Task`), so `createdOk` is false and the body always runs. The body preserves the pair anyway,
+because its only status write is guarded `if (!statusOk)` and a template's valid status makes
+`statusOk` true — `migrateTask` backfills `createdDate` and leaves the inconsistency untouched. The
+OUTCOME is identical either way, which is exactly what makes the wrong mechanism easy to write down.
+
+**Consequence.** `isTaskClosed` and `isTaskDelivered` (`task-closed.ts`) are the two questions a
+caller can ask, and they read DIFFERENT fields — `status` and `completedDate` respectively. An
+inconsistent row answers them incoherently, in both directions:
+
+(a) A non-Done status beside a set `completedDate` is OPEN and DELIVERED at once.
+`computeDashboardProgress` counts it in `completed` (the numerator is `isTaskDelivered`) AND keeps it
+in the denominator (`scopeCounts` subtracts only `isTaskOutOfScope`, which requires CLOSED), while
+`computeScheduleStatus` and `partitionUpcoming` skip on `isTaskClosed` — so with a past `dueDate` the
+SAME row is counted complete and counted overdue on one dashboard render. Hide-finished does not hide
+it either (`visible-task-rows.ts` filters on `isTaskClosed`), so the table still shows it as To Do.
+Reports takes the delivered branch first, so it lands in `stats.completed` and the on-time/late split
+and never in `stats.open` — Reports and the dashboard schedule tile then disagree about that row.
+
+(b) `Done` with no `completedDate` is CLOSED and never DELIVERED, i.e. `isTaskOutOfScope` — dropped
+from the completion denominator and counted as cancelled scope in Reports. ★ That SHAPE is not
+specific to template import (`health.ts` already splits the "Done-with-no-date" row out three ways,
+§65); what is new is that template import is a way to CREATE one.
+
+**Why it is left open.** Not reachable from shipped data: no built-in template carries a
+`completedDate` (`grep -n completedDate src/app/templates-builtin.ts` returns nothing). The reachable
+sources are a hand-edited or third-party template JSON read back by `sanitizeTemplates`, and a
+capture of an already-inconsistent workspace row — `templateFromWorkspace` copies live `Task` objects
+verbatim, so it launders whatever the workspace already holds.
+
+★ The fix is one line in `sanitizeSeedTask` (route the seed through `applyStatusChange` before
+returning), but WHICH field should win is a real question and this entry does not answer it: trusting
+`status` discards a real delivery date, trusting `completedDate` flips a status the template author
+wrote. ★★ Do NOT reach for `migrateTask` instead — it runs on all six load paths, so teaching it to
+reconcile a VALID-but-inconsistent pair changes every backend's load behaviour, and AGENTS.md records
+that the invariant is held by the writers and that `migrateTask` only backfills an ABSENT/INVALID
+status.
+
+---
+
+## 183. The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data — open
+
+`handleResolveConflicts` (`use-jira-sync.ts`) seeds its output row from the LOCAL one —
+`const merged: Task = { ...original }` — then overwrites, per conflict field, whichever side the user
+picked. `completedDate` has its own branch. `status` has NO branch, and cannot have one: it is not a
+member of `ConflictFieldKey`, and `diffTaskAgainstIssue` (`jira-api.ts`) never offers it. So the merge
+writes one member of the coupled pair and leaves the other at its LOCAL value.
+
+```bash
+# the union the modal can offer, and the eight checks that build a diff — no `status` in either
+grep -n "export type ConflictFieldKey" -A 10 src/app/jira-api.ts
+grep -n "^  check(\"" src/app/jira-api.ts
+# every write the merge makes: labels, completedDate, lastSyncedAt, localModifiedAt. No status.
+grep -nE "merged: Task|merged\.[a-zA-Z]+|field\.key ===" src/app/use-jira-sync.ts
+```
+
+**This is the FOURTH writer of the pair, and the SECOND that holds the invariant by neither
+mechanism.** Corrected set: `applyStatusChange` (`task-status.ts`) holds it by construction; the three
+patch-application sites in `use-jira-sync.ts` hold it because `issueToTaskFields` derives both fields
+from one `statusKey` read; `sanitizeSeedTask` (`templates.ts`) holds it by neither (§182); and this
+merge holds it by neither. §180's reachability paragraph and the AGENTS.md task-status bullet were
+both written against a set of two or three and have been corrected in the same round as this entry.
+★ Note the split is WITHIN one file — `use-jira-sync.ts` holds the invariant on its pull/create/
+read-only paths and breaks it on its conflict path — so scope any claim about that file to the path.
+
+**Reachable from well-formed data, and the DEFAULT pick is the one that breaks it.** A conflict is
+queued when a synced row's `localModifiedAt` and the issue's `updated` have BOTH moved past
+`lastSyncedAt`, on a project `isReadOnlyIssue` does not exclude. `jira-conflicts-modal.tsx` seeds
+every field's pick to `"remote"`, and the merge falls back to `"remote"` again for any key the
+resolution omits — so both directions below are reached by opening the modal and pressing confirm,
+without touching the `completedDate` row at all.
+
+```bash
+grep -nE "remoteChanged = |localChanged = |remoteChanged && localChanged" src/app/use-jira-sync.ts
+grep -n 'picks\[f.key\] = "remote"' src/app/jira-conflicts-modal.tsx
+grep -n '?? "remote"' src/app/jira-conflicts-modal.tsx src/app/use-jira-sync.ts
+```
+
+(a) **Local Done, remote reopened.** The row is `status: "Done"` with a `completedDate`; the user edits
+any field locally (which stamps `localModifiedAt`); someone reopens the issue in Jira. The patch's
+`completedDate` is undefined, so it differs and is offered. Accepting remote clears
+`merged.completedDate` and leaves `merged.status === "Done"`. → **`Done` with no date.**
+
+(b) **Local open, remote completed.** The row is a non-`Done` status with no `completedDate`; same
+local edit; the issue is transitioned to done in Jira. The patch carries a real date, it is offered,
+and accepting remote writes it while `status` stays non-`Done`. → **a completion date on an open row.**
+
+★ Picking LOCAL for `completedDate` is consistent in both directions, because `status` is already the
+local one. It is the REMOTE pick — the default — that splits the pair.
+
+**Consequence, derived from `task-closed.ts` rather than asserted.** `isTaskClosed` reads `status`,
+`isTaskDelivered` reads `completedDate`, and `isTaskOutOfScope` is the conjunction
+`isTaskClosed && !isTaskDelivered`. The two directions land on opposite sides of it:
+
+- **(a) is CLOSED and never DELIVERED, i.e. `isTaskOutOfScope`.** `computeDashboardProgress`
+  (`dashboard.ts`) leaves it out of the numerator (`tasks.filter(isTaskDelivered)`) AND removes it
+  from the denominator, because `scopeCounts` subtracts exactly the out-of-scope rows. So a task the
+  user just watched go Done stops contributing to completion % in either term, and RAISES the
+  percentage reported for every other row. `computeStats` (`reports-stats.ts`) files it under
+  `cancelled` — the bucket whose own comment reads "closed without being delivered" — so a
+  resolved task is reported as cancelled scope, and is never counted open or overdue.
+- **(b) is OPEN and DELIVERED at once.** The dashboard counts it in the numerator AND keeps it in the
+  denominator (out-of-scope needs CLOSED, which it is not). `computeStats` takes the delivered branch
+  first, so it lands in `completed` and in the on-time/late split and never in `open`. Meanwhile
+  `visible-task-rows.ts` filters hide-finished on `isTaskClosed`, so the table goes on listing it as
+  an open row while Reports calls it complete.
+
+★ It can SELF-HEAL, which is the likeliest reason this has not been reported. The merge clears
+`localModifiedAt` and stamps `lastSyncedAt`, so the next sync in which the issue changes takes the
+plain pull branch — which writes `status` and `completedDate` together off one patch. A row whose
+issue never changes again stays inconsistent indefinitely.
+
+**Not determined.** Nothing here was executed: no suite was run for this entry, and the sequences
+above are read off the source, not reproduced. No test exercises the branch either — every conflict
+fixture in `use-jira-sync.test.tsx` seeds `diffTaskAgainstIssue` with a `taskName`-only diff, so the
+`completedDate` arm of the merge loop has never run under the suite:
+
+```bash
+grep -n "diffTaskAgainstIssue as ReturnType" -A 3 src/app/use-jira-sync.test.tsx
+```
+
+Also undetermined: whether the `transitionIssueTo` call on the `anyLocalPicked` path shortens the
+window for either direction in practice, and whether anything downstream of the six backends reads
+the pair in a way that would surface the inconsistency sooner than the next sync.
+
+**No fix is proposed, because the choice is a real design question and this round did not settle it.**
+Adding `status` to `ConflictFieldKey` exposes a field the user cannot meaningfully arbitrate
+independently of the date. Re-deriving `status` inside the merge from the resolved `completedDate`
+silently overrides a local status the user was never asked about. Routing the merged row through
+`applyStatusChange` would stamp `today` over Jira's resolution date — which is the exact reason the
+Jira path bypasses that engine everywhere else, so it is the one option that is already known wrong.
