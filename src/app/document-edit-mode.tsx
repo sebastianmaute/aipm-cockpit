@@ -20,10 +20,10 @@ import { useCallback, useState } from "react";
 import type { Lang } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
-import { DocumentEditor, NARROW_PANE_QUERY } from "./document-editor";
+import { DocumentEditor, NARROW_PANE_PX } from "./document-editor";
 import { DocumentPreview } from "./document-preview";
 import { useDocumentEditor, type UseDocumentEditorDeps } from "./use-document-editor";
-import { useMediaQuery } from "./use-media-query";
+import { useNarrowElement } from "./use-narrow-element";
 
 export type UseDocumentEditModeDeps = Omit<UseDocumentEditorDeps, "now">;
 
@@ -33,17 +33,19 @@ export type UseDocumentEditModeDeps = Omit<UseDocumentEditorDeps, "now">;
 export function useDocumentEditMode(deps: UseDocumentEditModeDeps) {
   const [editing, setEditing] = useState(false);
   const toggleEditing = useCallback(() => setEditing((v) => !v), []);
-  // ★ The swap hinges on a media query, never a measured width: jsdom has no
-  //  layout, so a width-driven branch would be untestable. `DocumentEditor`
-  //  takes the RESULT as a prop, which is what makes ITS OWN test injectable.
-  const narrowPane = useMediaQuery(NARROW_PANE_QUERY);
+  // ★ Measures the PANE element (the caller attaches `paneRef` to it), never
+  //  the viewport — the pane is user-resizable, so device width is the wrong
+  //  question. `DocumentEditor` takes the RESULT as a prop, which is what
+  //  keeps ITS OWN test injectable: jsdom has no layout, so a component that
+  //  measured for itself would be untestable.
+  const { ref: paneRef, narrow: narrowPane } = useNarrowElement(NARROW_PANE_PX);
   const { commitBlock } = useDocumentEditor(deps);
   // ★ `documentId` is `selected?.id ?? -1` at the call site, so a real
   //  selection is the only thing that yields a positive id. Deriving canEdit
   //  HERE rather than passing a fourth thing down keeps the panel's toolbar
   //  call one prop wide — and the panel sits one line under the 800-line gate.
   const editToolbar = { editing, onToggleEditing: toggleEditing, canEdit: deps.documentId > 0 };
-  return { editing, narrowPane, commitBlock, editToolbar };
+  return { editing, narrowPane, paneRef, commitBlock, editToolbar };
 }
 
 export interface DocumentEditModeBodyProps {

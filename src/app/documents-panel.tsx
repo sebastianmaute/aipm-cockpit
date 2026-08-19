@@ -357,7 +357,7 @@ export function DocumentsPanel({
   // and with no undo on document writes.
   const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
   const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
-  const { editing, narrowPane, commitBlock, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
+  const { editing, narrowPane, paneRef, commitBlock, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -578,7 +578,7 @@ export function DocumentsPanel({
         isReadOnly={isReadOnly}
         editToolbar={editToolbar}
       />
-      <div className="flex min-h-0 flex-1 flex-col gap-3">
+      <div ref={paneRef} className="flex min-h-0 flex-1 flex-col gap-3">
         {/* ★ Title falls back to `#id` — an entity deleted since the badge was clicked
             must still name what is filtered. ★★ Clear does BOTH, or a re-visit re-applies. */}
         {entityFilter && (

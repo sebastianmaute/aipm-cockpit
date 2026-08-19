@@ -17,13 +17,16 @@ import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 
-/** Pane width below which the toolbar docks once instead of per block.
+/** Pane width, in px, at or below which the toolbar docks once instead of
+ *  rendering per block.
  *  ★ PANE width, not device width — the pane is user-resizable and has a
- *   popout path, so a desktop user reaches this by dragging. Consumed via the
- *   repo's shared `useMediaQuery` hook by the mounting panel (Task 12), which
- *   passes the resulting boolean down as `narrow` — this component never
- *   reads `window.matchMedia` itself. */
-export const NARROW_PANE_QUERY = "(max-width: 640px)";
+ *   popout path, so a desktop user reaches this by dragging. Measured by
+ *   `use-narrow-element.ts` (a ResizeObserver over the pane element) and
+ *   passed down as `narrow`; this component never measures anything itself.
+ *  ★★ It used to be a `matchMedia` string consumed by `use-media-query.ts`,
+ *   which reads the VIEWPORT — so the "reaches this by dragging" claim above
+ *   was false for the whole S3b slice. */
+export const NARROW_PANE_PX = 640;
 
 export type DocumentEditorProps = {
   lang: Lang;
