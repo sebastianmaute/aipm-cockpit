@@ -147,7 +147,11 @@ describe("mutate then restore returns the prior document state", () => {
             else if (op.op === "append") expected.push(op.block);
             else if (op.op === "insert") expected.splice(op.index, 0, op.block);
             else if (op.op === "replace") expected[op.index] = op.block;
-            else expected.splice(op.index, 1);
+            // ★ `validOp`'s own OpKind excludes "move" (this suite predates it),
+            //  so an explicit "delete" check here is accurate, not a narrowing
+            //  guess — DocOp growing a `move` member is what makes the trailing
+            //  `else` ambiguous to tsc now.
+            else if (op.op === "delete") expected.splice(op.index, 1);
             expect(after.documents[0].blocks).toEqual(expected);
           }
 

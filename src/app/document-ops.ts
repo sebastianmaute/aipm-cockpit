@@ -25,7 +25,20 @@ export type DocOp =
   //  ★ OPTIONAL, and an absent one must never be read as "expected nothing":
   //   every AI/tool caller omits it and must keep applying.
   | { op: "replace"; index: number; block: DocBlock; expect?: DocBlock }
-  | { op: "delete"; index: number }
+  // ★ `expect` here for the same reason as on `replace`, and NOT on `insert`:
+  //  a shifted index makes a delete remove a block the user never pointed at,
+  //  which is unrecoverable except by a whole-document version restore, while
+  //  the same shift merely puts a NEW empty block one position from where it
+  //  was asked for. `insert` also has no target block to name.
+  | { op: "delete"; index: number; expect?: DocBlock }
+  // ★★★ ONE OP, NEVER A COMPOSED `delete` + `insert`. applyOps applies per-op
+  //  and bails wholesale only when `applied === 0`, so the composed spelling
+  //  can delete a block and then have the re-insert refused — losing it. A
+  //  single op cannot express that failure. `document-ops.test.ts` pins the
+  //  contrast.
+  //  ★ Semantics: remove at `from`, then insert at `to` IN THE RESULTING
+  //   array, so `to` addresses 0..len-1 and `to === len-1` appends.
+  | { op: "move"; from: number; to: number; expect?: DocBlock }
   | { op: "replaceAll"; blocks: readonly DocBlock[] };
 
 /** ★★★ AN OMITTED FIELD IS NOT AN EMPTY ONE — the same rule chat-tools-documents.ts
@@ -151,9 +164,42 @@ export function applyOps(
           rejected.push(`op ${i}: delete index ${op.index} out of range 0..${next.length - 1}`);
           break;
         }
+        if (op.expect !== undefined && blockChanged(op.expect, next[op.index])) {
+          rejected.push(`op ${i}: delete index ${op.index} was changed by another writer`);
+          break;
+        }
         next.splice(op.index, 1);
         applied++;
         break;
+      case "move": {
+        if (!Number.isInteger(op.from) || op.from < 0 || op.from >= next.length) {
+          rejected.push(`op ${i}: move from ${op.from} out of range 0..${next.length - 1}`);
+          break;
+        }
+        if (!Number.isInteger(op.to) || op.to < 0 || op.to >= next.length) {
+          rejected.push(`op ${i}: move to ${op.to} out of range 0..${next.length - 1}`);
+          break;
+        }
+        // ★ Rejected, not applied: `changed` derives from the applied COUNT,
+        //  so a self-move would mint a before-image recording nothing.
+        //  useListReorderDnd's `commit` returns early on a no-op reorder
+        //  (`reorderIds` returns the SAME array reference when the dragged and
+        //  target ids are equal), so no user reaches this arm — it exists
+        //  because model JSON and stored ops both arrive as `unknown` at
+        //  runtime.
+        if (op.from === op.to) {
+          rejected.push(`op ${i}: move from ${op.from} to ${op.to} is a no-op`);
+          break;
+        }
+        if (op.expect !== undefined && blockChanged(op.expect, next[op.from])) {
+          rejected.push(`op ${i}: move index ${op.from} was changed by another writer`);
+          break;
+        }
+        const [moved] = next.splice(op.from, 1);
+        next.splice(op.to, 0, moved);
+        applied++;
+        break;
+      }
       // ★★ An off-enum `op` used to fall straight through this switch: not
       // applied, and — because nothing was pushed — not reported either, so the
       // call came back `changed:false, rejected:[]`, i.e. "I did nothing and
