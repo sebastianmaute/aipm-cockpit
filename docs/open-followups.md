@@ -12757,6 +12757,12 @@ finding, which is why it is written down rather than fixed here.
 call on the same never-focused editor now land in the same place, so the network no
 longer decides anything.
 
+★ **Option 3's stated PREMISE was later refuted; its conclusion does not need it.** "A
+queued line is by definition dictated before the editor existed" is false — a line is
+ALSO queued when a LIVE handle's `appendText` returns false. What holds is narrower: a
+replay runs at `attach`, on the commit that first mounts the editor, where `everFocused`
+is still false. The option-3 wording above is left as the reasoning of the day.
+
 ★★ **BEHAVIOUR DELTA, stated plainly rather than buried.** Dictating into an EXISTING
 note WITHOUT clicking into it now APPENDS, where it used to prepend. Dictating with
 the caret placed is unchanged. Both production callers are in `note-log-panel.tsx`,

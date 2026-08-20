@@ -34,8 +34,7 @@ import { server } from "./src/test/msw-server";
 //
 // ★★ That is a claim about THIS budget, NOT about the literal. `timelog-panel.test.tsx`
 // spells 15000 at its own `waitFor` calls, for an unrelated reason it documents
-// in place (docs/open-followups.md §39 — those two budgets sum past the 20s
-// testTimeout, which is the information that comment exists to carry). They are
+// in place (docs/open-followups.md §39, and at the call sites themselves). They are
 // deliberately NOT swept in here. ★ A sweep for the `15_000` spelling cannot see
 // them, which is how they survived the one that removed the copies above:
 //   grep -rn "15000" src --include=*.tsx | grep timeout

@@ -63,9 +63,7 @@ describe("the lazy editor's append queue", () => {
     //   deliberately. It read: "dropping `{ focus: false }` routes the replay
     //   through focus() + insertContent, which inserts at the SELECTION — i.e. it
     //   PREPENDS." §192 split position from focus, so `opts` no longer decides
-    //   position and that mutant now changes NOTHING about the HTML. Measured, not
-    //   assumed: with the argument dropped this file stayed GREEN — measured before
-    //   the `activeElement` assertion below was added, in that same commit.
+    //   position and that mutant now changes NOTHING about the HTML.
     // ★★ Dropping it is still a real defect — the replay would FOCUS the editor at
     //   a moment the NETWORK chose, stealing the caret from wherever the user
     //   actually is. So the assertion moved from position to focus. This is the

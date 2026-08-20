@@ -42,16 +42,11 @@ register's fix to another is how two of them broke. Read the note that names you
   the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
   whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
   has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
-  `opts.focus`; the two are independent, and a REPLAY can only ever run at attach, where `everFocused` is
-  still false — so both routes agree. `docs/open-followups.md` §192.
-  ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN, and an earlier revision of this line got
-  that wrong: it said a queued line "is by definition dictated before the editor existed", which is FALSE
-  for the second way a line reaches the queue — a LIVE handle whose `appendText` returned false
-  (`if (!handle || !handle.appendText(text, opts))` in `rich-text-editor-lazy.tsx`), by which point the
-  user may well have focused. What holds instead is that `flushPending` has exactly ONE call site, inside
-  `attach` — so a replay cannot happen at any other moment
-  (`grep -rn "flushPending(" src --include=*.ts --include=*.tsx | grep -v "\.test\."` → the declaration
-  and that one call, and nothing else).
+  `opts.focus`; the two are independent, and a REPLAY runs at `attach`, on the commit that first mounts
+  the editor, where `everFocused` is still false — so both routes agree. `docs/open-followups.md` §192.
+  ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN. An earlier revision said a queued line
+  "is by definition dictated before the editor existed"; that premise is false and the conclusion does
+  not need it.
   ★★ Either way `insertContent` MUST take a TEXT NODE object, never a bare string: a bare string is parsed
   as HTML, so dictated text containing `<`/`&` would be interpreted as markup instead of inserted literally.
   ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
