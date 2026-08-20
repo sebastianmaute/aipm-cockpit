@@ -33,16 +33,18 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 // has no dark combo to add — there is nothing to scan.
 // ★ 6 combos × 17 views = 102, + the Kanban-board scan below (ONE PER COMBO,
 // its own `for (const combo of COMBOS)` loop — it scales with the combo count,
-// it is NOT a fixed 5) = 108, + 1 notes-window toolbar scan (harbor-light
-// only, hardcoded — does NOT scale with combo count) = 109 scans, plus the one
-// non-scan guard below = 110 tests. MEASURE it in the same commit that changes
-// A11Y_VIEWS or adds a scan rather than deriving it — this comment said 85 for
-// as long as the list said 16 views, and a beacon-added-combo draft of this
-// very comment still said "108 scans / 109 tests" by carrying forward the
-// pre-beacon "5 Kanban variants" instead of re-measuring. Reproduce (no
+// it is NOT a fixed 5) = 108, + 1 notes-window toolbar scan + 1 Documents
+// block-editor scan (both harbor-light only, hardcoded — neither scales with
+// the combo count) = 110 scans, plus the one non-scan guard below = 111 tests.
+// MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
+// than deriving it — this comment said 85 for as long as the list said 16
+// views, and a beacon-added-combo draft of this very comment still said "108
+// scans / 109 tests" by carrying forward the pre-beacon "5 Kanban variants"
+// instead of re-measuring. The 110/111 below were likewise MEASURED, not
+// derived, in the commit that added the block-editor scan. Reproduce (no
 // browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 110 total
-//   …then `grep -c "a11y:"` over that output       # 109 scans
+//   npx playwright test e2e/a11y.spec.ts --list   # 111 total
+//   …then `grep -c "a11y:"` over that output       # 110 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
@@ -225,4 +227,56 @@ test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", asyn
     .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
     .join("\n");
   expect(blocking, `Notes window a11y violations:\n${summary}`).toEqual([]);
+});
+
+// open-followups §184: the Documents block editor is a MODE toggle inside the
+// Documents view, so the A11Y_VIEWS loop only ever scanned DocumentPreview.
+// Every per-kind block editor and every gutter control was unscanned until
+// this test.
+// ★ A green scan here does NOT prove there are no duplicate accessible names —
+// axe cannot see that in any view at any seed size (open-followups §144, §126,
+// AGENTS.md's a11y bullet). document-block-gutter.test.tsx is the only
+// detector for that class.
+// ★★ WHICH document this opens is NOT the seeded 9001: documents-panel.tsx
+// falls back to `selectionPool[0]`, and `selectionPool` is the UNSORTED
+// `documents` array, so it lands on the sample master's id 1 — which already
+// carries all six DocBlock kinds. e2e/seed.ts seeds all six on 9001 as well,
+// so this scan covers every per-kind editor whichever one wins that fallback.
+test("a11y: harbor-light — Documents (block editor)", async ({ page }) => {
+  await page.addInitScript(seedScript(COMBOS[0]));
+
+  await gotoApp(page);
+  await openView(page, "Documents");
+  // DOM-click the toggle (mirrors the two scans above) so the auto-launched
+  // guided tour overlay cannot intercept a real pointer click. ★ The label is
+  // PINNED to "Edit blocks" in BOTH states by design (documents-toolbar.tsx),
+  // so matching on it is stable across the toggle flipping.
+  const clickedEdit = await page.evaluate(() => {
+    const btn = [...document.querySelectorAll("button")].find(
+      (b) => (b.textContent || "").trim() === "Edit blocks",
+    );
+    if (!btn) return false;
+    (btn as HTMLElement).click();
+    return true;
+  });
+  expect(clickedEdit, "Edit blocks toggle not found in Documents").toBe(true);
+  await waitForViewSettled(page);
+
+  // Assert the editor actually mounted — otherwise a broken toggle (or one
+  // rendered `disabled`, which it is whenever no document is selected)
+  // silently scans the preview and this becomes a no-op duplicate of the
+  // existing "Documents" scan.
+  expect(await page.locator("[data-block-row]").count()).toBeGreaterThan(1);
+
+  const results = await new AxeBuilder({ page })
+    .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa"])
+    .analyze();
+
+  const blocking = results.violations.filter(
+    (v) => v.impact === "critical" || v.impact === "serious",
+  );
+  const summary = blocking
+    .map((v) => `${v.impact} · ${v.id}: ${v.help} (${v.nodes.length} node(s))`)
+    .join("\n");
+  expect(blocking, `Documents block editor a11y violations:\n${summary}`).toEqual([]);
 });

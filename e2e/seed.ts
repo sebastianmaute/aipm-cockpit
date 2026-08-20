@@ -29,10 +29,25 @@ const SEED_WORKSPACE: Record<string, unknown> = {
     {
       id: 9001,
       title: "Kickoff pack",
+      // ★★ ALL SIX DocBlock KINDS, deliberately. The block editor renders a
+      // per-kind editor plus a gutter per row, so a document carrying three
+      // kinds leaves three of them unscanned — and a view being in A11Y_VIEWS is
+      // NOT the same as that view being covered (this file's own note above).
+      // ★★ BELT-AND-BRACES, and knowing which half is load-bearing matters:
+      // documents-panel.tsx falls back to `selectionPool[0]` when nothing is
+      // selected, and `selectionPool` is the UNSORTED `documents` array — so the
+      // document the edit-mode scan actually opens is the SAMPLE MASTER's id 1,
+      // spread ahead of this one, which ALREADY carries all six kinds. Seeding
+      // them here keeps the scan honest if that ordering, or the master's own
+      // document, ever changes. Re-measure both halves rather than trusting this:
+      //   node -e "const m=JSON.parse(require('fs').readFileSync('sample-workspace-small.json','utf8'));console.log(m.documents.map(d=>d.id+': '+[...new Set(d.blocks.map(b=>b.type))].join('/')))"
       blocks: [
         { type: "heading", level: 1, text: "Kickoff" },
         { type: "paragraph", html: "<p>Agenda and owners for the kickoff session.</p>" },
         { type: "bullets", items: ["Scope walkthrough", "Risk review"] },
+        { type: "table", caption: "Owners", columns: ["Area", "Owner"], rows: [["Scope", "Dana"], ["Risk", "Ravi"]] },
+        { type: "dataSection", key: "milestones" },
+        { type: "pageBreak" },
       ],
       createdAt: "2026-06-01T00:00:00.000Z",
       updatedAt: "2026-06-01T00:00:00.000Z",
