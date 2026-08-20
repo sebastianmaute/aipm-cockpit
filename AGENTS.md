@@ -1210,7 +1210,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
   Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
   `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
-  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors).
+  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
+  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu).
   ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
   (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
   one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
@@ -1218,6 +1219,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
   while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
   Read the hook's own docstring before touching it, not this summary.
+  ★★★ **THE BLOCK SET IS HAND-EDITABLE TOO, not only each block's CONTENT** — everything above is about
+  the per-row DRAFTS. Each gutter carries a `DragHandle` grip plus an actions menu that inserts
+  above/below and deletes, all routed through ONE REQUIRED `BlockStructuralOps` bag; deleting anything
+  but a page break or an untouched seed is confirm-gated. ★★ The grip's ArrowUp/ArrowDown path is the
+  ONLY reorder a keyboard or touch user has (HTML5 drag never fires on touch) and it MUST move focus
+  with the block: the rows are index-keyed, so React reconciles them IN PLACE, and a grip that keeps its
+  original row makes the arrow keys TOGGLE a pair instead of moving anything. ★★ `move` coalesces its
+  before-image while `insert`/`remove` deliberately do not — the split, and what a per-press mint cost,
+  is in [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md).
   ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
   [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "What the commit path stores, and the second
   guard": the commit NORMALISES through the loader's own rule (`normalizeBlockForStorage`) rather than
@@ -1246,8 +1256,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
   so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
   still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
-  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by
-  `document-block-gutter.test.tsx` ALONE, and no gate will ever tell you if it regresses.
+  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by UNIT TESTS and by
+  nothing else. ★★ TWO of them, not one, and they do not cover the same controls: this line said
+  "`document-block-gutter.test.tsx` ALONE", but that file's "gives every control a row-unique accessible
+  name" (two rows) is the only cover for the ACTIONS trigger, while the GRIP is pinned twice — there and
+  by `document-editor.test.tsx`'s "gives every row a block-unique reorder handle" (three rows, plus an
+  explicit set-size check). Deleting either leaves a hole no gate reports.
   ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
   `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
   because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
