@@ -935,6 +935,33 @@ describe("DocumentEditor — structural editing", () => {
       expect(expandedRows(3)).toEqual([2]);
     });
 
+    // ★★★ NO `selectName` CLICK, AND THAT IS THE WHOLE TEST. Every other case
+    //  in this describe opens by clicking "Edit this block", which is the ONLY
+    //  writer that puts a non-null value into `chosen` — so all of them entered
+    //  the op with a concrete index and none of them could see the default
+    //  state. In the default state `chosen` is null, the remaps map null to
+    //  null by design, and the resolved selection is recomputed as
+    //  `firstParagraph` from the NEW block order: on [Alpha, Beta, Gamma] a
+    //  user who moves Alpha down watches Beta expand and Alpha — the block they
+    //  were editing and just moved — collapse read-only. That is verbatim the
+    //  failure the carry-through exists to prevent, reached with no click at
+    //  all, so the remaps take the RESOLVED selection rather than raw `chosen`.
+    it("follows the block when it is moved with no explicit selection", async () => {
+      const user = userEvent.setup();
+      const onMoveSpy = vi.fn();
+      render(<Controlled onMoveSpy={onMoveSpy} initialBlocks={paragraphs} narrow />);
+
+      // The default: nothing clicked, so the FIRST paragraph is the live one.
+      expect(expandedRows(3)).toEqual([1]);
+
+      screen.getByRole("button", { name: reorderName(0) }).focus();
+      await user.keyboard("{ArrowDown}");
+
+      expect(onMoveSpy).toHaveBeenCalledWith(0, 1);
+      // Alpha is row 2 now, and it must still be the expanded one.
+      expect(expandedRows(3)).toEqual([2]);
+    });
+
     it("shifts down when an earlier block is deleted", async () => {
       const user = userEvent.setup();
       render(

@@ -114,6 +114,30 @@ export function DocumentEditor({
   const selected =
     chosen !== null && doc.blocks[chosen]?.type === "paragraph" ? chosen : firstParagraph;
 
+  // ★★★ THE OPS REMAP *THIS*, NOT THE RAW `chosen`, AND REMAPPING THE RAW STATE
+  //  LEFT THE CARRY-THROUGH A NO-OP IN THE DEFAULT STATE. `chosen` is null
+  //  until the collapsed paragraph's "Edit this block" button is clicked —
+  //  the only writer of a non-null value besides the ops themselves — and all
+  //  three remaps map null to null by design, while the resolution above
+  //  recomputes `firstParagraph` from the NEW block order. So on
+  //  [Alpha, Beta] with nothing ever clicked, a user who moves Alpha down
+  //  watches Beta expand and Alpha — the block they were editing and just
+  //  moved — collapse read-only. That is verbatim the failure the
+  //  carry-through was added to prevent, reached with no selection click at
+  //  all, and every test of it opened by clicking, which is why it shipped.
+  //  ★ `-1` — a document with NO paragraph anywhere — must stay null rather
+  //   than become a real index: nothing is selected in that document, and
+  //   writing -1 into `chosen` would have the ops shift a selection that does
+  //   not exist.
+  //  ★★ A PRECOMPUTED VALUE AT EACH CALL SITE, never `setChosen(c => …)`. The
+  //   updater's argument is `chosen` itself, which is exactly the value that
+  //   must NOT be the base — an updater would have to reach render scope for
+  //   `firstParagraph` anyway, leaving it half-live and half-stale. It is also
+  //   trivially safe under StrictMode's double invocation, which re-runs an
+  //   updater against the same base state and so silently compounds any shift
+  //   written as one.
+  const resolvedSelection = selected === -1 ? null : selected;
+
   // ★ `useId`, not a module constant: two editors could in principle mount at
   //  once (a popout beside the main window), and two `<p>` nodes sharing one
   //  id makes every describedby on this surface resolve to whichever the
@@ -241,14 +265,14 @@ export function DocumentEditor({
       //  `to` for both of them.
       if (r?.changed) {
         pendingFocusRef.current = to;
-        setChosen((c) => selectionAfterMove(c, from, to));
+        setChosen(selectionAfterMove(resolvedSelection, from, to));
       }
     },
   });
 
   const insertSeeded = (at: number, type: AddableBlockType) => {
     const r = structural.insert(at, blockSeed(lang, type));
-    if (r?.changed) setChosen((c) => selectionAfterInsert(c, at));
+    if (r?.changed) setChosen(selectionAfterInsert(resolvedSelection, at));
   };
 
   const deleteBlock = async (index: number) => {
@@ -283,8 +307,19 @@ export function DocumentEditor({
     //   moments re-renders the editor, so this handler closes over the NEW
     //   `doc` and `expect` compares the new block against itself. Widening the
     //   capture to menu-OPEN is a design change, deliberately not made here.
+    // ★★ `resolvedSelection` COMES FROM THE RENDER THAT BUILT THIS HANDLER,
+    //  i.e. from BEFORE the `await confirm(...)` above — deliberately the same
+    //  snapshot `block` is read from, so the delete and the selection it
+    //  carries cannot disagree about which document they acted on. A
+    //  functional updater (`setChosen(c => …)`) would read `chosen` LIVE at
+    //  commit time, which sounds stricter and is not usable here: what has to
+    //  be remapped is the RESOLVED selection, whose other half
+    //  (`firstParagraph`) is render scope the updater cannot reach — the
+    //  result would be half-live and half-stale. And if a write really did
+    //  land while the prompt was open, the engine's `expect` precondition
+    //  refuses the delete, so the gate below skips the remap outright.
     const r = structural.remove(index, block);
-    if (r?.changed) setChosen((c) => selectionAfterDelete(c, index));
+    if (r?.changed) setChosen(selectionAfterDelete(resolvedSelection, index));
   };
 
   return (
