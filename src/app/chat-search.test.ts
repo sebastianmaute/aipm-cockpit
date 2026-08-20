@@ -362,6 +362,35 @@ describe("threadTitle", () => {
     expect(out).toHaveLength(THREAD_NAME_MAX);
     expect(out).not.toContain("……");
   });
+
+  // ★★★ PINS AN ORDER, NOT A LENGTH. When the cap moved to its producer the path
+  //   flipped from flatten-then-cap to cap-then-flatten: `threadTitle` clips first
+  //   and `inlineTitle` (chat-recap.ts) collapses whatever survives. A title with a
+  //   long INTERIOR whitespace run therefore yields FEWER visible characters than it
+  //   used to, because the run is spent against the cap before it is collapsed.
+  //   Deliberate and bounded either way, but nothing pinned it, so a future edit
+  //   could reverse it in silence. docs/open-followups.md §176.
+  // ★★ The fixture is built so the two orders produce DIFFERENT strings — that is
+  //   the whole point. Flatten-then-cap would collapse the run to ONE space and keep
+  //   29 trailing "b"s; cap-then-flatten keeps TAIL of them. A fixture without a long
+  //   interior run cannot tell the two apart.
+  it("clips before flattening, so an interior whitespace run is spent against the cap", () => {
+    const HEAD = 30;
+    const GAP = 20;
+    // ★ Derived, never re-spelled as 10 — the surviving tail is whatever the cap
+    //   leaves after the head and the whole (uncollapsed) run are charged against it.
+    const TAIL = THREAD_NAME_MAX - HEAD - GAP;
+    const name = `${"a".repeat(HEAD)}${" ".repeat(GAP)}${"b".repeat(30)}`;
+    // Anti-vacuity, all three halves: the fixture is over the cap, the whole
+    // whitespace run sits INSIDE it, and something still survives past the run.
+    // Drop any one and the two orderings agree, so the assertion cannot fail.
+    expect(name.length).toBeGreaterThan(THREAD_NAME_MAX);
+    expect(HEAD + GAP).toBeLessThan(THREAD_NAME_MAX);
+    expect(TAIL).toBeGreaterThan(0);
+
+    const title = threadTitle(thread({ id: "t1", name }));
+    expect(title).toBe(`${"a".repeat(HEAD)}${" ".repeat(GAP)}${"b".repeat(TAIL)}…`);
+  });
 });
 
 describe("summarizeChatThreads", () => {
