@@ -117,13 +117,28 @@ export function DocumentEditor({
   //   during render, so the read has to be in an effect regardless.)
   //  ★ NO DEP ARRAY: the effect must fire on whichever render finally carries
   //   the new order, and nothing in scope names that render. A parent that
-  //   never re-renders (a static test fixture, or a refused move) simply
-  //   leaves the request pending rather than focusing a row that did not move.
-  //  ★ The request is recorded UNCONDITIONALLY rather than gated on the op's
-  //   result: `structural.move` returns `DocResult | undefined` and a refusal
-  //   is unreachable from here anyway (the `expect` below is read from the
-  //   latest render), so gating would buy nothing and would make the focus
-  //   depend on a return value every other caller discards.
+  //   never re-renders — a static test fixture — simply leaves the request
+  //   pending rather than focusing a row that did not move.
+  //  ★★★ A REFUSED MOVE IS NOT THAT CASE, AND THIS COMMENT USED TO SAY IT WAS.
+  //   It read "a static test fixture, or a refused move", and argued from that
+  //   to leaving the request UNGATED because gating "would buy nothing". The
+  //   real parent re-renders on a refusal too: `documents-panel.tsx`'s
+  //   `mutate` opens with `clearRestoreRejected()` → `setRestoreRejected([])`
+  //   on EVERY call, a fresh array literal is never `Object.is`-equal to the
+  //   current state so React cannot bail, and nothing from `DocumentsPanel`
+  //   down to here is memoised (`grep -n "memo(" src/app/documents-panel.tsx
+  //   src/app/document-edit-mode.tsx src/app/document-editor.tsx` is empty).
+  //   Ungated, a refused move would focus the grip at `to` — a row that did
+  //   not move. Hence the `r?.changed` gate below.
+  //  ★ That refusal is close to unreachable FROM HERE — `useListReorderDnd`'s
+  //   `move` clamps the index, its `commit` returns early on a no-op, and the
+  //   `expect` below is read from the latest render — so the gate is cheap
+  //   insurance rather than a hot path. `changed` comes off `DocResult`, which
+  //   `structural.move` returns.
+  //  ★★ BOTH PATHS, not only the keyboard one: `onMove` is shared, so a mouse
+  //   DROP moves focus onto the dropped block's grip as well. That is right —
+  //   the user just acted on that grip — and it is invisible to a mouse user,
+  //   because the grip's ring is `focus-visible:`, never plain `focus:`.
   const listRef = useRef<HTMLDivElement>(null);
   const pendingFocusRef = useRef<number | null>(null);
   useEffect(() => {
@@ -195,8 +210,8 @@ export function DocumentEditor({
     //   what guards the property; if this ever grows a drop that removes a
     //   block, add the call and that test will still be the thing watching it.
     onMove: (from, to) => {
-      structural.move(from, to, doc.blocks[from]);
-      pendingFocusRef.current = to;
+      const r = structural.move(from, to, doc.blocks[from]);
+      if (r?.changed) pendingFocusRef.current = to;
     },
   });
 

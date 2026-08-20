@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useReducer, useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
@@ -6,6 +6,7 @@ import { DocumentEditor } from "./document-editor";
 import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import type { DocResult } from "./document-mutations";
 import { htmlTextLength } from "./rich-text-plain";
 
 const LANG = "en-US" as const;
@@ -423,41 +424,79 @@ describe("DocumentEditor — structural editing", () => {
     expect(structural.move).toHaveBeenCalledWith(2, 1, structDoc.blocks[2]);
   });
 
+  /** What the real engine hands back. `changed` is the field `onMove` gates
+   *  the focus request on, so a fixture returning `undefined` would make every
+   *  focus assertion below fail for a reason that has nothing to do with the
+   *  behaviour under test. */
+  const docResult = (changed: boolean): DocResult => ({
+    documents: [],
+    versions: [],
+    changed,
+    rejected: changed ? [] : ["refused by a concurrent writer"],
+    documentId: changed ? structDoc.id : null,
+    minted: null,
+  });
+
   /** ★★★ A CONTROLLED PARENT THAT ACTUALLY REORDERS, and the ONLY fixture in
-   *  this file that can express the defect the two tests below pin. Every
-   *  other fixture here holds `doc` STATIC, so nothing re-renders after a move
-   *  and the focused grip stays on the row it started on WHETHER OR NOT focus
+   *  this file that can express the defect the tests below pin. Every other
+   *  fixture here holds `doc` STATIC, so nothing re-renders after a move and
+   *  the focused grip stays on the row it started on WHETHER OR NOT focus
    *  follows the block — a second ArrowDown then reads as a correct second
    *  move either way. Only a parent that re-renders in the NEW order can tell
    *  "the block moved twice" from "the same pair toggled".
    *  ★ `structural` is rebuilt every render deliberately: `DocumentEditor`
    *   calls its members from event handlers and never as a hook dependency, so
    *   a stable identity would buy nothing here and would hide the re-render
-   *   this fixture exists to produce. */
-  function Controlled({ onMoveSpy }: { onMoveSpy: (from: number, to: number) => void }) {
+   *   this fixture exists to produce.
+   *  ★★★ `refuse` MODELS A REFUSAL AS THE REAL PANEL PRODUCES ONE: the block
+   *   order does NOT change, and the parent re-renders ANYWAY. That second half
+   *   is the whole point and it is not incidental — `documents-panel.tsx`'s
+   *   `mutate` opens with `clearRestoreRejected()` → `setRestoreRejected([])`
+   *   on every call, and a fresh array literal is never `Object.is`-equal to
+   *   the current state, so React cannot bail out; nothing in the chain down to
+   *   `DocumentEditor` is memoised. A fixture that simply did nothing on a
+   *   refusal would produce NO render, the focus effect would never run, and
+   *   the refusal test would pass with the `r?.changed` gate DELETED — vacuous.
+   *   `renderCount` is rendered into the DOM so that test can assert the
+   *   re-render actually happened rather than assuming it. */
+  function Controlled({
+    onMoveSpy,
+    refuse = false,
+  }: {
+    onMoveSpy: (from: number, to: number) => void;
+    refuse?: boolean;
+  }) {
     const [blocks, setBlocks] = useState<readonly DocBlock[]>(structDoc.blocks);
+    const [renderCount, bumpRender] = useReducer((n: number) => n + 1, 0);
     return (
-      <DocumentEditor
-        lang={LANG}
-        doc={{ ...structDoc, blocks }}
-        onCommitBlock={vi.fn()}
-        structural={{
-          insert: vi.fn(),
-          remove: vi.fn(),
-          move: (from: number, to: number) => {
-            onMoveSpy(from, to);
-            setBlocks((prev) => {
-              const next = [...prev];
-              const [moved] = next.splice(from, 1);
-              next.splice(to, 0, moved);
-              return next;
-            });
-            return undefined;
-          },
-        }}
-      />
+      <div data-render-count={renderCount}>
+        <DocumentEditor
+          lang={LANG}
+          doc={{ ...structDoc, blocks }}
+          onCommitBlock={vi.fn()}
+          structural={{
+            insert: vi.fn(),
+            remove: vi.fn(),
+            move: (from: number, to: number) => {
+              onMoveSpy(from, to);
+              bumpRender();
+              if (refuse) return docResult(false);
+              setBlocks((prev) => {
+                const next = [...prev];
+                const [moved] = next.splice(from, 1);
+                next.splice(to, 0, moved);
+                return next;
+              });
+              return docResult(true);
+            },
+          }}
+        />
+      </div>
     );
   }
+
+  const renderCountOf = () =>
+    document.querySelector("[data-render-count]")?.getAttribute("data-render-count");
 
   /** The kind chip of every row, in DOM order — the only observable this
    *  component offers for "which block sits where" (it is controlled and owns
@@ -516,6 +555,35 @@ describe("DocumentEditor — structural editing", () => {
     await user.keyboard("{ArrowDown}");
     expect(document.activeElement).toBe(screen.getByRole("button", { name: reorderName(1) }));
     expect(document.activeElement).not.toBe(first);
+  });
+
+  // ★★★ A REFUSED MOVE MUST NOT MOVE FOCUS, and the naive fix had this wrong.
+  //  The focus request was recorded unconditionally on the argument that a
+  //  refusal produces no re-render, so the effect would never fire. That is
+  //  false for the real parent: `documents-panel.tsx`'s `mutate` calls
+  //  `clearRestoreRejected()` → `setRestoreRejected([])` as its FIRST statement
+  //  on every call, a fresh array literal is never `Object.is`-equal to current
+  //  state, and nothing in the chain is memoised — so a refusal re-renders and
+  //  the grip at `to` (a row that did not move) would take focus.
+  //  ★★ THE RENDER-COUNT ASSERTION IS LOAD-BEARING, not decoration. Without it
+  //   this test passes for the wrong reason on a fixture that quietly fails to
+  //   re-render — no render, no effect, no focus move, green with the gate
+  //   deleted. Asserting the count CHANGED is the positive observable that
+  //   proves the effect really did get its chance and declined.
+  it("does NOT move focus when the engine refuses the move", async () => {
+    const user = userEvent.setup();
+    const onMoveSpy = vi.fn();
+    render(<Controlled onMoveSpy={onMoveSpy} refuse />);
+    const first = screen.getByRole("button", { name: reorderName(0) });
+    first.focus();
+    const rendersBefore = renderCountOf();
+
+    await user.keyboard("{ArrowDown}");
+
+    expect(onMoveSpy).toHaveBeenCalledWith(0, 1);
+    // The parent DID re-render — so the effect ran, and chose not to move focus.
+    expect(renderCountOf()).not.toBe(rendersBefore);
+    expect(document.activeElement).toBe(first);
   });
 
   it("does not move the first block up", async () => {
