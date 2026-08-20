@@ -72,9 +72,11 @@ longer carries its own changelog comment.
   prevent, so a wait past a threshold records one warning in the diagnostic log
   instead of quietly growing. Cancelling the edit discards the buffer and reports
   nothing — that is the user's own decision, not a failure.
-- A failed insert no longer takes the lines behind it. The buffered text is handed
-  to the editor as a batch, and an error partway through left the untried
-  remainder unreachable by any later attempt.
+- A failed insert no longer discards the lines behind it. The buffered text is
+  handed to the editor as a batch, and an error partway through dropped the
+  untried remainder outright; it is now kept. An insert that fails still surfaces
+  as an error rather than being swallowed, so this is about not compounding the
+  failure with silent data loss, not about recovering from it.
 - The accessibility gate's rich-text-toolbar scan now waits for the toolbar. Its
   previous settle probe watched a DOM subtree the notes window does not render
   into, so with the editor arriving over the network the scan could have run

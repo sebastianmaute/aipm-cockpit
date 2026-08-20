@@ -15,7 +15,12 @@
 //     grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
 //   It must return FIVE lines: THIS file's three (a type-only import, the dynamic
 //   import, a type-only re-export) plus the two tests that exercise the raw
-//   module. ★★ This said "the dynamic import and type-only re-export, plus the two
+//   module. ★★ FIVE IS NOT THE NUMBER OF REFERENCES — two test files
+//   (`*.stall.test.tsx`, `*.refused.test.tsx`) name the raw module inside a
+//   `vi.mock(…)` and this sweep CANNOT see them, because there is no
+//   `from`/`import`/`require` before the string. That is harmless for the bundle
+//   (a mock is not a static import) and worth knowing before you conclude the
+//   sweep enumerates every mention. ★★ This said "the dynamic import and type-only re-export, plus the two
 //   tests" — four — while `csp-nonce.ts` carried a DIFFERENT, also-wrong enumeration
 //   of the SAME command. Two files, two mutually inconsistent counts, neither run.
 //   Run it; do not trust the five either.
@@ -92,9 +97,23 @@ export const QUEUE_STALL_MS = 15_000;
  *  ★★ A THROW MID-FLUSH MUST NOT TAKE THE TRANSCRIPTS BEHIND IT. The caller has
  *  already swapped `queued` out of its pending array before calling (re-pushing a
  *  failure into the array being iterated is an infinite loop, not a retry), so
- *  without the `finally` the items after the failing one are unreachable by any
- *  later attach — one bad append silently discards every LATER one, which is the
- *  same class of loss the queue exists to close.
+ *  without the `finally` the items after the failing one are simply GONE — one bad
+ *  append discards every LATER one, which is the same class of loss the queue
+ *  exists to close.
+ *
+ *  ★★★ WHAT "KEPT" MEANS HERE, PRECISELY, BECAUSE THE OBVIOUS READING IS WRONG:
+ *  the remainder survives IN THE QUEUE. It does NOT mean some later attach
+ *  replays it. Measured with a stub editor whose `appendText` throws, rendered
+ *  under an error boundary: the throw propagates out of the callback ref into
+ *  React's commit phase, the boundary catches it, and the editor is UNMOUNTED —
+ *  in the app the nearest boundary is the top-level one in `page.tsx`, so the
+ *  whole tree goes to the crash page and this component's `pending` dies with it.
+ *  Requeueing is still the only shape that could ever be right (a caller that
+ *  contains the throw finds the text where it left it, and losing it is
+ *  unrecoverable either way), but do not read it as a recovery path that exists
+ *  today. Containing and reporting the throw instead is a real option and is
+ *  deliberately NOT taken here — it would change what a failed insert does to the
+ *  app, which is a bigger decision than this fix.
  *
  *  ★★ The item at `i` is re-queued TOO, not skipped: a Tiptap command dispatches
  *  ONE transaction, so a throw means it never applied and re-queueing it cannot
