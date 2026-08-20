@@ -332,4 +332,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightChangeNotesTimelog",
   "versionHighlightBlockEditing",
   "versionHighlightLazyEditor",
+  "versionHighlightDictationPosition",
 ] as const;
