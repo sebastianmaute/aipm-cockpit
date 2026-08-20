@@ -18,6 +18,13 @@ import type { DocBlock, ProjectDocument } from "./document-model";
 import { MAX_TABLE_COLUMNS } from "./document-model";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 
+/** `structural` is REQUIRED on `DocumentEditorProps`. The three fixtures in
+ *  this file exercise the CONTENT commit path only and never touch the block
+ *  set, so one shared stub is enough — and a STABLE identity is what a
+ *  `rerender`-based fixture wants, since a fresh object every render would be
+ *  a prop change none of these tests mean to make. */
+const noStructural = { insert: vi.fn(), remove: vi.fn(), move: vi.fn() };
+
 // ProseMirror touches layout APIs jsdom lacks; stub them so typing works.
 // Mirrors rich-text-editor.test.tsx's beforeAll — without it userEvent.type
 // on the contenteditable silently no-ops (getClientRects is not a function),
@@ -1507,7 +1514,7 @@ describe("an unmount flush cannot clobber a concurrent write", () => {
   it("refuses the flush when a concurrent write changed the block TYPE at that index", async () => {
     const h = engineHarness([{ type: "heading", level: 1, text: "Alpha" }]);
     const { rerender } = render(
-      <DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
+      <DocumentEditor lang={LANG} structural={noStructural} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
     );
     const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!"); // dirty, never blurred
@@ -1518,7 +1525,7 @@ describe("an unmount flush cannot clobber a concurrent write", () => {
     const written: DocBlock = { type: "paragraph", html: "<p>concurrent</p>" };
     h.external(0, written);
     act(() => {
-      rerender(<DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />);
+      rerender(<DocumentEditor lang={LANG} structural={noStructural} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />);
     });
 
     expect(h.blocksNow()).toEqual([written]);
@@ -1529,7 +1536,7 @@ describe("an unmount flush cannot clobber a concurrent write", () => {
   it("still flushes a pending edit when nothing wrote underneath it", async () => {
     const h = engineHarness([{ type: "heading", level: 1, text: "Alpha" }]);
     const { unmount } = render(
-      <DocumentEditor lang={LANG} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
+      <DocumentEditor lang={LANG} structural={noStructural} doc={h.docNow()} onCommitBlock={h.onCommitBlock} />,
     );
     const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");

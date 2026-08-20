@@ -1,12 +1,21 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen } from "@testing-library/react";
+import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DocumentEditor } from "./document-editor";
+import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { htmlTextLength } from "./rich-text-plain";
 
 const LANG = "en-US" as const;
+
+/** A fresh set of structural spies per render. `structural` is REQUIRED on
+ *  `DocumentEditorProps` — a wiring regression that drops it would otherwise
+ *  remove every structural control with nothing failing — so the many fixtures
+ *  here that never exercise it still have to supply one. FRESH rather than a
+ *  shared module-level object: a shared spy accumulates calls across tests and
+ *  a "was not called" assertion then depends on file order. */
+const stubStructural = () => ({ insert: vi.fn(), remove: vi.fn(), move: vi.fn() });
 
 /** The heading editor's accessible names, 0-based block index in, en-dash
  *  qualified name out. Spelled once so a convention change is one edit. */
@@ -27,7 +36,7 @@ const doc: ProjectDocument = {
 
 describe("DocumentEditor", () => {
   it("renders one row per block, including blocks with no editor", () => {
-    render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} />);
+    render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} />);
     expect(screen.getByText(t(LANG, "documentsBlockHeading"))).toBeInTheDocument();
     expect(screen.getByText(t(LANG, "documentsBlockParagraph"))).toBeInTheDocument();
     // The page break is still listed — a block that vanishes reads as data loss.
@@ -36,17 +45,30 @@ describe("DocumentEditor", () => {
 
   it("passes the block INDEX through to the commit handler", async () => {
     const onCommitBlock = vi.fn();
-    render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={onCommitBlock} />);
+    render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={onCommitBlock} />);
     const text = screen.getByRole("textbox", { name: headingTextName(0) });
     await userEvent.type(text, "!");
     text.blur();
     expect(onCommitBlock).toHaveBeenCalledWith(0, expect.objectContaining({ type: "heading" }), expect.anything());
   });
 
-  it("renders NO drag handle — reordering is out of scope for this slice", () => {
-    render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} />);
-    // A handle that does nothing is worse than no handle.
-    expect(screen.queryByRole("button", { name: /drag|reorder|move block/i })).toBeNull();
+  // ★★★ REVERSES an S3b test that asserted NO drag handle exists ("a handle
+  //  that does nothing is worse than no handle"). It does something now, so
+  //  the assertion is the positive one — and it is ROW-UNIQUE, which is the
+  //  half no gate can check: axe 4.12.1 has no rule under the four tags
+  //  e2e/a11y.spec.ts requests that flags two controls sharing an accessible
+  //  name, at any seed size. A fixture with several rows is the only detector.
+  it("gives every row a block-unique reorder handle", () => {
+    render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} />);
+    const names = screen
+      .getAllByRole("button", { name: new RegExp(t(LANG, "documentsBlockReorder")) })
+      .map((b) => b.getAttribute("aria-label"));
+    expect(names).toEqual([
+      `${t(LANG, "documentsBlockReorder")} – ${t(LANG, "documentsBlockN", "1")}`,
+      `${t(LANG, "documentsBlockReorder")} – ${t(LANG, "documentsBlockN", "2")}`,
+      `${t(LANG, "documentsBlockReorder")} – ${t(LANG, "documentsBlockN", "3")}`,
+    ]);
+    expect(new Set(names).size).toBe(names.length);
   });
 
   describe("at a narrow pane", () => {
@@ -68,13 +90,13 @@ describe("DocumentEditor", () => {
 
     it("docks ONE toolbar instead of one per block", () => {
       const { rerender } = render(
-        <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
       // jsdom has no layout, so the narrow branch is driven by an injected
       // flag, never by a measured width.
       expect(screen.getAllByRole("toolbar")).toHaveLength(1);
       // The wide branch is what proves the fixture can tell the two apart.
-      rerender(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} />);
+      rerender(<DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} />);
       expect(screen.getAllByRole("toolbar")).toHaveLength(2);
     });
 
@@ -83,7 +105,7 @@ describe("DocumentEditor", () => {
     //  logical position is the recorded failure mode.
     it("renders the docked toolbar before the block list in DOM order", () => {
       const { container } = render(
-        <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
       const toolbar = screen.getByRole("toolbar");
       const firstRow = container.querySelectorAll("[data-block-row]")[0];
@@ -95,7 +117,7 @@ describe("DocumentEditor", () => {
     //  is the "disabled control with no reason reads as broken" failure this
     //  slice states two files away for the image case.
     it("says why an unselected paragraph is read-only, and offers a way in", async () => {
-      render(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
       expect(screen.getByText(t(LANG, "documentsBlockCollapsedNarrow"))).toBeInTheDocument();
       const select = screen.getByRole("button", {
         name: `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "3")}`,
@@ -126,7 +148,7 @@ describe("DocumentEditor", () => {
           { type: "paragraph", html: "<p>Third</p>" },
         ],
       };
-      render(<DocumentEditor lang={LANG} doc={fourBlocks} onCommitBlock={vi.fn()} narrow />);
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={fourBlocks} onCommitBlock={vi.fn()} narrow />);
       const names = screen
         .getAllByRole("button", { name: new RegExp(t(LANG, "documentsBlockSelect")) })
         .map((b) => b.getAttribute("aria-label"));
@@ -148,7 +170,7 @@ describe("DocumentEditor", () => {
           { type: "paragraph", html: "<p>Editable</p>" },
         ],
       };
-      render(<DocumentEditor lang={LANG} doc={withImage} onCommitBlock={vi.fn()} narrow />);
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={withImage} onCommitBlock={vi.fn()} narrow />);
       const select = screen.getByRole("button", {
         name: `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", "2")}`,
       });
@@ -165,7 +187,7 @@ describe("DocumentEditor", () => {
     // Non-paragraph editors carry no rich toolbar, so there is nothing to dock
     // and nothing to crowd — they stay live at every width.
     it("leaves non-paragraph editors live", () => {
-      render(<DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />);
       expect(screen.getByRole("textbox", { name: headingTextName(0) })).toBeEnabled();
     });
   });
@@ -194,7 +216,7 @@ describe("DocumentEditor", () => {
       updatedAt: doc.updatedAt,
     };
     const { container } = render(
-      <DocumentEditor lang={LANG} doc={twoParagraphDoc} onCommitBlock={vi.fn()} narrow />,
+      <DocumentEditor lang={LANG} structural={stubStructural()} doc={twoParagraphDoc} onCommitBlock={vi.fn()} narrow />,
     );
     // Only the SECOND paragraph collapses (the first keeps its live editor),
     // so its rendered image and dropped script are unambiguous either way.
@@ -227,11 +249,11 @@ describe("DocumentEditor", () => {
 
     it("shows the new document's content, not the old one's, and commits nothing on an untouched switch", () => {
       const onCommitBlock = vi.fn();
-      const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
+      const { rerender } = render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={docA} onCommitBlock={onCommitBlock} />);
       const textBefore = screen.getByRole("textbox", { name: headingTextName(0) });
       expect(textBefore).toHaveValue("Alpha");
 
-      rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
+      rerender(<DocumentEditor lang={LANG} structural={stubStructural()} doc={docB} onCommitBlock={onCommitBlock} />);
       const textAfter = screen.getByRole("textbox", { name: headingTextName(0) });
       expect(textAfter).toHaveValue("Beta");
       expect(textAfter).not.toBe(textBefore); // a NEW element — the row really remounted
@@ -243,11 +265,11 @@ describe("DocumentEditor", () => {
 
     it("does not carry an unblurred edit from the old document into the DOM after a switch", async () => {
       const onCommitBlock = vi.fn();
-      const { rerender } = render(<DocumentEditor lang={LANG} doc={docA} onCommitBlock={onCommitBlock} />);
+      const { rerender } = render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={docA} onCommitBlock={onCommitBlock} />);
       const text = screen.getByRole("textbox", { name: headingTextName(0) });
       await userEvent.type(text, "!"); // dirty, unblurred
 
-      rerender(<DocumentEditor lang={LANG} doc={docB} onCommitBlock={onCommitBlock} />);
+      rerender(<DocumentEditor lang={LANG} structural={stubStructural()} doc={docB} onCommitBlock={onCommitBlock} />);
       // The remounted field reflects B's stored content, never the stray "!".
       expect(screen.getByRole("textbox", { name: headingTextName(0) })).toHaveValue("Beta");
     });
@@ -267,7 +289,7 @@ describe("DocumentEditor", () => {
     //  narrow-pane paragraph.
     it("says the document has no blocks yet", () => {
       render(
-        <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
       );
       expect(screen.getByText(t(LANG, "documentsNoBlocks"))).toBeInTheDocument();
     });
@@ -279,9 +301,10 @@ describe("DocumentEditor", () => {
     it("appends a paragraph carrying real text", async () => {
       const onAppendBlock = vi.fn();
       render(
-        <DocumentEditor lang={LANG} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={onAppendBlock} />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={onAppendBlock} />,
       );
       await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
+      await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsBlockParagraph") }));
       expect(onAppendBlock).toHaveBeenCalledTimes(1);
       const block = onAppendBlock.mock.calls[0][0] as { type: string; html: string };
       expect(block.type).toBe("paragraph");
@@ -289,13 +312,263 @@ describe("DocumentEditor", () => {
       expect(block.html).toContain(t(LANG, "documentsNewBlockText"));
     });
 
-    // ★ The control is EMPTY-STATE ONLY. A general add-block affordance is the
-    //  structural slice (document-editor.tsx's own header scopes the block SET
-    //  out of S3b), and it is deliberately not built here.
-    it("renders no add-block control once the document has a block", () => {
-      render(<DocumentEditor lang={LANG} doc={doc} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />);
-      expect(screen.queryByRole("button", { name: t(LANG, "documentsAddBlock") })).toBeNull();
+    // ★★ THE EMPTY STATE OFFERS EVERY KIND, not just a paragraph. Starting a
+    //  document with a heading is the obvious first move, and the old
+    //  paragraph-only button made it a two-step one.
+    it("offers every addable kind from the empty state", async () => {
+      render(
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+      );
+      await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
+      const menu = screen.getByRole("dialog", { name: t(LANG, "documentsAddBlock") });
+      expect(within(menu).getAllByRole("button")).toHaveLength(6);
+    });
+
+    // ★★★ REVERSES an S3b test asserting NO add-block control exists once the
+    //  document has a block ("a general add-block affordance is the structural
+    //  slice"). This IS that slice. The count matters as much as the presence:
+    //  the empty state's menu and the trailing one are mutually exclusive, so
+    //  two controls sharing the name "Add a block" would be a WCAG 2.4.6
+    //  failure no axe rule can see.
+    it("renders exactly ONE add-block control once the document has a block", () => {
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />);
+      expect(screen.getAllByRole("button", { name: t(LANG, "documentsAddBlock") })).toHaveLength(1);
       expect(screen.queryByText(t(LANG, "documentsNoBlocks"))).toBeNull();
     });
+  });
+});
+
+// ★★★ THE STRUCTURAL SLICE. Every assertion here is against the `structural`
+//  bag, never against a re-rendered list: `DocumentEditor` is controlled — it
+//  owns no blocks — so the ops it EMITS are the whole of its contract. The
+//  engine's own arithmetic is pinned in document-ops.test.ts.
+describe("DocumentEditor — structural editing", () => {
+  const structDoc: ProjectDocument = {
+    id: 31,
+    title: "Doc",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    updatedAt: "2026-01-01T00:00:00.000Z",
+    blocks: [
+      { type: "heading", level: 1, text: "One" },
+      { type: "paragraph", html: "<p>Two</p>" },
+      { type: "pageBreak" },
+    ],
+  };
+
+  const reorderName = (index: number) =>
+    `${t(LANG, "documentsBlockReorder")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+  const actionsName = (index: number) =>
+    `${t(LANG, "documentsBlockActions")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+
+  function setup() {
+    const structural = stubStructural();
+    render(
+      <DocumentEditor
+        lang={LANG}
+        doc={structDoc}
+        onCommitBlock={vi.fn()}
+        onAppendBlock={vi.fn()}
+        structural={structural}
+      />,
+    );
+    return { structural };
+  }
+
+  /** Same fixture inside a real `ConfirmProvider`. Without one `useConfirm()`
+   *  resolves FALSE by default, so an unwrapped render can only ever exercise
+   *  the cancel branch — and a "confirm was honoured" test would be vacuous. */
+  function setupConfirmable() {
+    const structural = stubStructural();
+    render(
+      <ConfirmProvider lang={LANG}>
+        <DocumentEditor
+          lang={LANG}
+          doc={structDoc}
+          onCommitBlock={vi.fn()}
+          onAppendBlock={vi.fn()}
+          structural={structural}
+        />
+      </ConfirmProvider>,
+    );
+    return { structural };
+  }
+
+  /** Open a row's actions menu and return the panel. */
+  async function openActions(user: ReturnType<typeof userEvent.setup>, index: number) {
+    await user.click(screen.getByRole("button", { name: actionsName(index) }));
+    return screen.getByRole("dialog", { name: actionsName(index) });
+  }
+
+  it("moves a block down when ArrowDown is pressed on its handle", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    screen.getByRole("button", { name: reorderName(0) }).focus();
+    await user.keyboard("{ArrowDown}");
+    // ★ The third argument is the baseline the engine's `expect` precondition
+    //  checks — the block the user picked up, not the one now at that index.
+    expect(structural.move).toHaveBeenCalledWith(0, 1, structDoc.blocks[0]);
+  });
+
+  it("moves a block up when ArrowUp is pressed on its handle", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    screen.getByRole("button", { name: reorderName(2) }).focus();
+    await user.keyboard("{ArrowUp}");
+    expect(structural.move).toHaveBeenCalledWith(2, 1, structDoc.blocks[2]);
+  });
+
+  it("does not move the first block up", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    screen.getByRole("button", { name: reorderName(0) }).focus();
+    await user.keyboard("{ArrowUp}");
+    expect(structural.move).not.toHaveBeenCalled();
+  });
+
+  it("does not move the last block down", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    screen.getByRole("button", { name: reorderName(2) }).focus();
+    await user.keyboard("{ArrowDown}");
+    expect(structural.move).not.toHaveBeenCalled();
+  });
+
+  // ★★★ Firefox will not START a drag unless `dragstart` sets transfer data.
+  //  The payload is never read back — the reorder uses the hook's own state —
+  //  so reorder is simply DEAD there with no other symptom, and jsdom
+  //  dispatches the whole sequence regardless. Three of the primitive's four
+  //  original call sites shipped without it. Only a spy can catch its absence.
+  it("sets drag transfer data on dragstart", () => {
+    setup();
+    const setData = vi.fn();
+    fireEvent.dragStart(screen.getByRole("button", { name: reorderName(0) }), {
+      dataTransfer: { setData, effectAllowed: "" },
+    });
+    expect(setData).toHaveBeenCalled();
+  });
+
+  // ★★ THE ROW IS THE DROP TARGET, not the grip. A gesture releasable only
+  //  over a 24px grip is one nobody can complete, and `itemProps` spread on
+  //  the wrong element fails silently — the drop just does nothing.
+  it("reorders on a drop anywhere in the target row", () => {
+    const { structural } = setup();
+    const rows = document.querySelectorAll("[data-block-row]");
+    fireEvent.dragStart(screen.getByRole("button", { name: reorderName(0) }), {
+      dataTransfer: { setData: vi.fn(), effectAllowed: "" },
+    });
+    fireEvent.dragOver(rows[2]);
+    fireEvent.drop(rows[2]);
+    expect(structural.move).toHaveBeenCalledWith(0, 2, structDoc.blocks[0]);
+  });
+
+  // ★★★ A DROP WITH NO DRAG IN FLIGHT MUST REORDER NOTHING. `dragId` is an
+  //  INDEX here, so a stale one does not merely repeat the last move — it
+  //  names whichever block now sits at that position, and the user picked up
+  //  none of them. This is what the hook's `endDrag` (called from its own
+  //  `onDrop`, and by `onDragEnd` on the grip) exists to guarantee; the rows
+  //  are keyed by the same indices the reorder uses, so a move re-renders them
+  //  IN PLACE and the grip survives to receive its `dragend`.
+  it("does not reorder on a drop when no drag is in flight", () => {
+    const { structural } = setup();
+    const rows = document.querySelectorAll("[data-block-row]");
+    const handle = screen.getByRole("button", { name: reorderName(0) });
+    fireEvent.dragStart(handle, { dataTransfer: { setData: vi.fn(), effectAllowed: "" } });
+    fireEvent.drop(rows[2]);
+    expect(structural.move).toHaveBeenCalledTimes(1);
+    // Second drop, no second dragstart: the first one is spent.
+    fireEvent.drop(rows[1]);
+    expect(structural.move).toHaveBeenCalledTimes(1);
+  });
+
+  it("inserts a seeded block of the chosen kind below", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    const menu = await openActions(user, 0);
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockAddBelow") }));
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockBullets") }));
+    expect(structural.insert).toHaveBeenCalledWith(1, {
+      type: "bullets",
+      items: [t(LANG, "documentsNewItemText")],
+    });
+  });
+
+  // ★ "Above" and "below" differ ONLY by the index, so a fixture that opened
+  //  the menu on row 0 could not tell an off-by-one from a correct one — both
+  //  land on 0 or 1. Row 1 separates them.
+  it("inserts above at the row's own index", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    const menu = await openActions(user, 1);
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockAddAbove") }));
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockPageBreak") }));
+    expect(structural.insert).toHaveBeenCalledWith(1, { type: "pageBreak" });
+  });
+
+  // ★ A pageBreak is trivial, so it deletes with no confirm — and it carries
+  //  its baseline for the engine's precondition all the same.
+  it("deletes a trivial block without confirming", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    const menu = await openActions(user, 2);
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    expect(structural.remove).toHaveBeenCalledWith(2, structDoc.blocks[2]);
+  });
+
+  // ★★★ THE CONFIRM GATE. Content is recoverable only by restoring an earlier
+  //  version of the WHOLE document, discarding every other edit since — so a
+  //  one-click delete of a heading the user has written into is the expensive
+  //  mistake. Without this pair the gate is unpinned and
+  //  `documentsBlockDeleteConfirm` is a dead string in both dictionaries.
+  it("asks before deleting a block holding content", async () => {
+    const user = userEvent.setup();
+    const { structural } = setupConfirmable();
+    const menu = await openActions(user, 0);
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    // The prompt is up and NOTHING has been removed yet.
+    expect(screen.getByText(t(LANG, "documentsBlockDeleteConfirm"))).toBeInTheDocument();
+    expect(structural.remove).not.toHaveBeenCalled();
+    await user.click(screen.getByRole("button", { name: t(LANG, "cancel") }));
+    expect(structural.remove).not.toHaveBeenCalled();
+  });
+
+  it("deletes a block holding content once confirmed", async () => {
+    const user = userEvent.setup();
+    const { structural } = setupConfirmable();
+    const menu = await openActions(user, 0);
+    await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    // ★ The confirm button carries the ACTION's own label, not a generic
+    //  "Confirm", so it is queried by the same key the menu item uses.
+    const dialog = screen.getByRole("dialog", { name: t(LANG, "documentsBlockDelete") });
+    await user.click(within(dialog).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+    expect(structural.remove).toHaveBeenCalledWith(0, structDoc.blocks[0]);
+  });
+
+  it("appends a chosen kind from the trailing add control", async () => {
+    const user = userEvent.setup();
+    const { structural } = setup();
+    await user.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
+    await user.click(screen.getByRole("button", { name: t(LANG, "documentsBlockPageBreak") }));
+    expect(structural.insert).toHaveBeenCalledWith(3, { type: "pageBreak" });
+  });
+
+  // ★★ The hint is the ONLY place the arrow-key path is disclosed. Native
+  //  HTML5 drag does not fire on touch at all, so for a touch or keyboard user
+  //  the arrow keys are not a shortcut — they are the whole feature.
+  it("states the reorder hint once, not per row", () => {
+    setup();
+    expect(screen.getAllByText(t(LANG, "documentsBlockReorderHint"))).toHaveLength(1);
+  });
+
+  it("omits the reorder hint when there is nothing to reorder", () => {
+    render(
+      <DocumentEditor
+        lang={LANG}
+        doc={{ ...structDoc, blocks: [{ type: "pageBreak" }] }}
+        onCommitBlock={vi.fn()}
+        onAppendBlock={vi.fn()}
+        structural={stubStructural()}
+      />,
+    );
+    expect(screen.queryByText(t(LANG, "documentsBlockReorderHint"))).toBeNull();
   });
 });

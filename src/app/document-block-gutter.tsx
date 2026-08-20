@@ -83,9 +83,14 @@ export function DocumentBlockGutter({
       </span>
       <div className="flex items-center gap-1">
         {/* ★ `ariaLabel` makes this a real focusable role="button" rather than
-            the decorative aria-hidden variant. `DragHandle` forwards no
-            `title`, so the `documentsBlockReorderHint` text is NOT surfaced
-            here — see the report accompanying this commit. */}
+            the decorative aria-hidden variant.
+            ★★ `documentsBlockReorderHint` is deliberately NOT surfaced here.
+            `DragHandle` forwards no `title` — and a `title` would be the wrong
+            home anyway: hover-only, so it never reaches the keyboard user who
+            is the one who needs telling that the arrow keys work, and
+            unreachable on touch, where native HTML5 drag does not fire at all.
+            `document-editor.tsx` renders it ONCE as visible help text above the
+            block list instead; per-row would be N copies of one sentence. */}
         <DragHandle
           ariaLabel={rowName("documentsBlockReorder")}
           className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue"
