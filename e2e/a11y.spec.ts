@@ -194,6 +194,19 @@ for (const combo of COMBOS) {
 // axe cannot see that at any seed size (open-followups §144, §126, AGENTS.md's
 // a11y bullet). It only proves this ONE toolbar clears the structural rules.
 test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", async ({ page }) => {
+  // ★★★ THIS TEST NEEDS MORE THAN THE 60 s FILE DEFAULT, and the arithmetic is
+  //   the reason rather than a hunch. The editor-chunk wait below is allowed
+  //   30 s ON ITS OWN — half the whole budget — and it is the LAST thing this
+  //   test does before scanning, after a cold first navigation (which
+  //   `playwright.config.ts` documents as able to consume the 60 s by itself on
+  //   a Turbopack compile), a view switch, a settle poll and the axe analyze.
+  //   At the default, a run that is merely slow blows the budget and reports as
+  //   "Test timeout of 60000ms exceeded" inside `page.evaluate` — a failure that
+  //   names no rule and no impact, i.e. it reads exactly like a contention flake
+  //   and nothing like the a11y violation it is not. Give the wait somewhere to
+  //   fit so a red run here means a real finding.
+  test.setTimeout(120_000);
+
   await page.addInitScript(seedScript(COMBOS[0]));
 
   await gotoApp(page);
