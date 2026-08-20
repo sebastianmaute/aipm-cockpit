@@ -31,8 +31,8 @@ longer carries its own changelog comment.
 - The chat pointer block's boundedness is pinned as a composition test (§175), and
   cap-then-flatten is pinned at `threadTitle` (§176), so neither can flip back
   without a test going red.
-- Nine redundant explicit test timeouts were removed in favour of the one global
-  setting they duplicated (§193).
+- Nine redundant explicit Testing Library wait budgets were removed in favour of
+  the one global setting they duplicated (§193).
 
 ## [0.250.0] - 2026-08-20 "McAuley"
 
