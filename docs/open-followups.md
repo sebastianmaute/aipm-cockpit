@@ -12136,8 +12136,8 @@ keeps the scan honest if that ordering, or the master's own document, ever chang
 cannot see two controls sharing an accessible name, in ANY view, at ANY seed size; the measurement
 lives in AGENTS.md's a11y hard-constraint section. The block gutter mints a row-qualified name per
 row (`rowName` suffixes every gutter control with the row's 1-based `documentsBlockN`), and that
-naming remains covered ONLY by `document-block-gutter.test.tsx`, alongside the
-multi-block tests in `document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
+naming is covered by `document-block-gutter.test.tsx` alongside the multi-block tests in
+`document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
 scan here says nothing about that class, and no configuration of this gate ever will.
 
 ## 185. An over-long document paragraph is flattened to plain text at commit
@@ -12538,3 +12538,36 @@ ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
 `DocBlock` kind would silently be classified as never-truncating. The predicate's
 arms are now pinned individually in `document-model.test.ts`, but nothing forces
 a new arm when the union grows.
+
+## 192. A block delete reads its baseline at CLICK time, not at menu-open time
+
+**Status:** open. **Severity:** low (needs a concurrent write inside a narrow
+window). **Found by:** cold review of the S3c structural-blocks round.
+**Deliberately not fixed — it is a component-contract change, not a one-liner.**
+
+In `document-editor.tsx`'s `deleteBlock`, `const block = doc.blocks[index]` runs
+when the menu ITEM IS CLICKED, from whichever render is current at that moment —
+not when the user opened the gutter menu on that row. A concurrent write landing
+between those two moments re-renders the editor, so the handler closes over the
+NEW `doc`, and the engine's `expect` precondition in `structural.remove` compares
+the new block against ITSELF. The precondition cannot fire, so it protects
+nothing across that window.
+
+★★ The `await confirm(...)` window is already covered and is a different thing:
+`block` is read BEFORE that await, so a write arriving while the prompt is open
+does make the engine refuse. The gap is strictly the earlier hop, menu-open →
+click.
+
+★★ **Concrete failure.** The user opens "Block actions – Block 1" on a heading;
+an AI `insert` lands a paragraph at index 0; the user clicks "Delete block".
+`blockIsTrivial` is false for the AI's paragraph, so they get the GENERIC confirm
+prompt, which names no block — nothing on screen tells them the target changed.
+They confirm, the AI's paragraph is deleted, and the heading they pointed at
+survives.
+
+★ **Why it is not fixed here.** The capture has to be frozen when the menu OPENS
+and threaded back out through `onDelete`, which changes `DocumentBlockGutter`'s
+component contract — the gutter would have to hand the editor the block it was
+opened against, not just an index. That is a design change and wants its own
+slice. The comment above the call has been narrowed to stop claiming the baseline
+is "the row the user pointed at", so the code no longer overstates the guarantee.
