@@ -1241,13 +1241,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
   replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★★ A
   zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
-  REWORDED from "Add a paragraph" when the kind picker landed) that opens the SAME `BlockKindMenu` the
-  per-row gutter uses, over every member of `ADDABLE_BLOCK_TYPES`. ★★ It INSERTS at index 0 through
+  REWORDED from "Add a paragraph" when the kind picker landed) that opens a `BlockKindMenu` over the
+  SAME `BlockKindList` the per-row gutter renders, covering every member of `ADDABLE_BLOCK_TYPES`
+  (the gutter renders the list DIRECTLY; the menu is the trigger-plus-popover wrapper around it, and
+  outside its own test file is rendered only by `document-editor.tsx`, here and by the trailing add
+  control — verify with `grep -rn "<BlockKindMenu\|<BlockKindList" src`). ★★ It INSERTS at index 0 through
   `structural.insert`; the hand-editor's `appendBlock` path was REMOVED, so nothing on this surface
   appends any more — the `{op:"append"}` ENGINE op stays live and is still what the AI document tools
   emit, and flattening those two together is the easy mistake. ★ Do not quote a kind COUNT here; derive it
-  with `grep -n "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts`, and read the behaviour off the
-  "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
+  with `grep -n -A 2 "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts` — the members sit on the
+  line AFTER the declaration, so a bare grep for that anchor returns nothing derivable. Read the
+  behaviour off the "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
   ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
   before-image or mints a new one lives beside the version model, not here — see
   `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.

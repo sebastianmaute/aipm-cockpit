@@ -39,7 +39,7 @@ describe("DocumentBlockGutter", () => {
   // ★★★ TWO ROWS, NOT ONE. A duplicate accessible name is not a property a
   //  single row can have, so no one-row fixture can express this at any
   //  assertion count — and axe cannot see it in ANY view at ANY seed size.
-  //  This test is the only possible detector.
+  //  Only a multi-row unit test can ever catch it.
   it("gives every control a row-unique accessible name", () => {
     renderRows([P, P]);
     expect(screen.getByRole("button", { name: "Reorder – Block 1" })).toBeInTheDocument();

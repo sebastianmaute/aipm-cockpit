@@ -150,14 +150,15 @@ export function DocumentEditor({
   //   `mutate` opens with `clearRestoreRejected()` → `setRestoreRejected([])`
   //   on EVERY call, a fresh array literal is never `Object.is`-equal to the
   //   current state so React cannot bail, and nothing from `DocumentsPanel`
-  //   down to here is memoised (`grep -n "memo(" src/app/documents-panel.tsx
-  //   src/app/document-edit-mode.tsx src/app/document-editor.tsx` is empty).
+  //   down to here is memoised — no React.memo on documents-panel.tsx,
+  //   document-edit-mode.tsx or this file.
   //   Ungated, a refused move would focus the grip at `to` — a row that did
   //   not move. Hence the `r?.changed` gate below.
   //  ★ That refusal is close to unreachable FROM HERE — `useListReorderDnd`'s
-  //   `move` clamps the index, its `commit` returns early on a no-op, and the
-  //   `expect` below is read from the latest render — so the gate is cheap
-  //   insurance rather than a hot path. `changed` comes off `DocResult`, which
+  //   `move` RETURNS EARLY when the target index falls outside the list — it
+  //   does NOT clamp — its `commit` returns early on a no-op, and the `expect`
+  //   below is read from the latest render — so the gate is cheap insurance
+  //   rather than a hot path. `changed` comes off `DocResult`, which
   //   `structural.move` returns.
   //  ★★ BOTH PATHS, not only the keyboard one: `onMove` is shared, so a mouse
   //   DROP moves focus onto the dropped block's grip as well. That is right —

@@ -378,9 +378,9 @@ key SET unchanged.
 ★★ **MEASURED, not reasoned**, because `use-list-reorder-dnd.ts`'s own docstring argues the
 opposite case forcefully — and is right about consumers whose drop UNMOUNTS the dragged item.
 Deleting `endDrag()` from the HOOK turns `document-editor.test.tsx`'s "does not reorder on a drop
-when no drag is in flight" RED (re-run 2026-08-20: 1 failed / 30 passed, and that one test is the
-failure); adding `reorder.endDrag()` in the consumer on top of that turns it GREEN again (31
-passed). So the consumer call is an equivalent mutant — a working substitute for a reset this
+when no drag is in flight" RED, and that one test is the only failure; adding `reorder.endDrag()`
+in the consumer on top of that turns it GREEN again. So the consumer call is an equivalent mutant
+— a working substitute for a reset this
 consumer already gets, carrying a false justification. That TEST is what guards the property; if
 this editor ever grows a drop that REMOVES a block, add the call and the same test will still be
 the thing watching it.

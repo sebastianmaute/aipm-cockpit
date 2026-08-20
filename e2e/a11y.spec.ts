@@ -235,8 +235,8 @@ test("a11y: harbor-light — Open Points (Notes window rich-text toolbar)", asyn
 // this test.
 // ★ A green scan here does NOT prove there are no duplicate accessible names —
 // axe cannot see that in any view at any seed size (open-followups §144, §126,
-// AGENTS.md's a11y bullet). document-block-gutter.test.tsx is the only
-// detector for that class.
+// AGENTS.md's a11y bullet). Only a multi-row UNIT test can ever catch that
+// class; document-block-gutter.test.tsx is where the gutter's names are pinned.
 // ★★ WHICH document this opens is NOT the seeded 9001: documents-panel.tsx
 // falls back to `selectionPool[0]`, and `selectionPool` is the UNSORTED
 // `documents` array, so it lands on the sample master's id 1 — which already

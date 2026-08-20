@@ -65,8 +65,8 @@ export function DocumentBlockGutter({
   // ★★ ROW-QUALIFIED, via the en-dash convention S3b's block editors already
   //  use (`document-block-editors.tsx`'s own `qualify`). N buttons named
   //  "Reorder" is a WCAG 2.4.6 failure that no axe rule under the gate's four
-  //  tags can see at any seed size — the two-row unit test is the only
-  //  possible detector.
+  //  tags can see at any seed size — only a multi-row unit test can ever
+  //  catch it.
   const rowName = (key: TranslationKey) =>
     `${t(lang, key)} – ${t(lang, "documentsBlockN", String(index + 1))}`;
 
