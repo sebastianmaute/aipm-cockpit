@@ -12634,11 +12634,35 @@ ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
 arms are now pinned individually in `document-model.test.ts`, but nothing forces
 a new arm when the union grows.
 
-## 192. `appendText` PREPENDS when the editor has never been focused
+## 192. `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK
 
-**Status:** open — a decision, not a defect report. Behaviour is unchanged from
-`main` and is pinned by the two "appendText lands" tests in
-`rich-text-editor.test.tsx`, so it cannot drift silently.
+**Status:** open — a decision, not a defect report. Pinned by the two "appendText
+lands" tests in `rich-text-editor.test.tsx`, so neither branch can drift silently.
+
+★★★ **THE FIRST REVISION OF THIS ENTRY SAID "behaviour is unchanged from `main`"
+AND THAT IS HALF FALSE.** The DEFAULT branch is unchanged. The DICTATION PATH is
+not, and it is the only production caller. On `main` the handle was
+`appendText(text: string): void` with ONE branch —
+`editor?.chain().focus().insertContent({type:"text",text}).run()` — so dictation
+ALWAYS inserted at the caret, which on a never-focused editor means it always
+PREPENDED. Surprising, but deterministic. This branch added the second branch, and
+with it a coin flip.
+
+`note-log-panel.tsx` calls `appendText(txt)` with NO `opts`, at two sites. Through
+the lazy wrapper that reaches either branch depending on whether Tiptap's ~428 kB
+chunk had landed when the user pressed the mic:
+
+| chunk state at the call | route | result on `<p>existing</p>` |
+|---|---|---|
+| not yet arrived | queued, replayed with `{focus:false}` → `appendPos` | `<p>existing dictated</p>` (APPENDED) |
+| already arrived | live path, `opts` forwarded as `undefined` → `chain().focus().insertContent` | `<p> dictatedexisting</p>` (PREPENDED) |
+
+Measured by a cold review with two throwaway suites over the same fixture and the
+same call, differing only in whether the append happened before or after the
+`findByRole` that waits for the chunk. So the user has no way to predict where a
+dictated line lands, and nothing on screen tells them which run they got. That is a
+different and stronger problem than the edge described below, which is why the
+heading changed.
 
 `RichTextEditorHandle.appendText` has two branches and they insert in different
 places. Measured through the real editor, fixture `<p>existing</p>`, editor never
@@ -12661,17 +12685,25 @@ caret"). The method NAME is what misleads. The edge that is genuinely surprising
 open an existing note for editing, press the mic WITHOUT clicking into the text,
 and the transcript is prepended to the stored note.
 
-**Options, none taken:**
+**Options, none taken.** Whatever is picked, the RACE is the reason to pick
+something — every option below also makes the two routes agree, which option 1
+cannot:
 
-1. Leave it. Correct for the mid-sentence case, surprising for the never-focused
-   one. This is the status quo.
+1. ~~Leave it — this is the status quo.~~ NOT TENABLE, and it was listed as the
+   status quo before the race was on the table. There is no status quo to leave:
+   the two-branch behaviour is new on this branch, and `main`'s deterministic
+   prepend is not what ships today.
 2. Route BOTH branches through `appendPos`, differing only in whether they focus.
-   Makes the name true and fixes the edge, but moves a mid-sentence dictation to
-   the end of the note, which is a real regression for the main use.
-3. Branch on whether the editor has ever held a selection: caret if it has, end of
-   document if it has not. Matches what a user would predict in both cases, and is
-   the only option that needs no trade — at the cost of a third state to carry.
+   Makes the name true, fixes the edge, AND removes the race in one move — but it
+   moves a mid-sentence dictation to the end of the note, a real regression for
+   the main use.
+3. Branch on whether the editor has ever held a selection — concretely, a ref set
+   on first focus: caret if it has, end of the document if it has not. Matches
+   what a user would predict in both cases and removes the race, because a QUEUED
+   line is by definition dictated before the editor existed, so the user cannot
+   have focused it and both routes then agree on "end of document". The cost is
+   the third state.
 
-3 looks right and is not free; it wants its own slice rather than being smuggled
-into a lazy-loading branch. Found while verifying an unrelated review finding,
-which is why it is written down rather than fixed here.
+3 still looks right and is not free; it wants its own slice rather than being
+smuggled into a lazy-loading branch. Found while verifying an unrelated review
+finding, which is why it is written down rather than fixed here.

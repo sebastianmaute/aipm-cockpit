@@ -45,7 +45,11 @@ describe("the lazy editor's append queue", () => {
       ref.current?.appendText("queued while loading");
     });
 
-    const editor = await screen.findByRole("textbox", { name: "Description" }, { timeout: 15_000 });
+    // No explicit timeout: `vitest.setup.ts` raises `asyncUtilTimeout` to 15s for
+    // the whole suite, because a cold Tiptap transform can outlast the 5s default
+    // on a loaded machine. Two waits of 15s still exceed the 20s `testTimeout`, so
+    // a test needing several is the shape to watch.
+    const editor = await screen.findByRole("textbox", { name: "Description" });
     expect(editor.textContent).toContain("existing");
     expect(editor.textContent).toContain("queued while loading");
 

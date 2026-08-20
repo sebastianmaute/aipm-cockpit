@@ -110,13 +110,27 @@ const LABELABLE = /<(input|select|textarea|Input|Select|Textarea|Checkbox|Resour
 //
 // ★★ The local stripper this replaced was ALSO CORRUPTING THIS SCAN'S INPUT, which
 // nothing noticed for as long as it existed. Its `{\s*/\*…\*/\s*}` rule matched from
-// an unrelated `{` to a much later `*/}` and blanked REAL CODE — 45,377 characters
-// across `src`, including whole `import` blocks — so the tokenizer below was reading
-// a mangled file. The shared stripper uses the TypeScript parser and was measured
-// against its comment ranges over all 1,812 files in `src`: zero characters blanked
-// that are not in a comment, zero comment characters left readable. The count this
-// scan actually reads is unchanged either way (218 `<label>` tags), so this is a
-// correctness repair rather than a behaviour change.
+// an unrelated `{` to a much later `*/}` and blanked REAL CODE — 47,380
+// non-whitespace characters across 164 files in `src`, including whole `import`
+// blocks — so the tokenizer below was reading a mangled file. Still reproducible:
+// the regexes are at `git show 333f1dd3:src/app/label-binding.guard.test.ts`, and
+// the measurement compares, per position, what they blank against the comment
+// ranges `src/test/strip-comments.ts` reports.
+// ★★★ THE GUARANTEE IS ONE-SIDED, AND AN EARLIER REVISION HERE CLAIMED BOTH HALVES
+// ("zero characters blanked that are not in a comment, zero comment characters left
+// readable"). The second half was FALSE when written — the stripper parsed every
+// file as TSX, so `workspace.ts`'s non-comma generic arrow opened a JSX element and
+// left 8,250 comment characters readable — and the check could not see it, because
+// its reference shared the same misparse. What holds today, measured against an
+// INDEPENDENT reference (the union of every significant token's span, which can
+// never be a comment): zero over-blanking across every `.ts`/`.tsx` file in `src`.
+// That is the direction that matters — over-blanking DELETES code from the text
+// this scan reads, while a comment left readable merely restores the behaviour
+// every earlier cut had. Nothing that shares the parser can prove the other half,
+// so it is not claimed.
+// ★ The label count this scan reads is unchanged either way; no figure is quoted
+// here because it moves with every form edit, and the floors in the suite below are
+// what actually pin it.
 // ★ Still length-preserving, for the same reason the local one was: `standsFirst`
 // compares match INDEXES and the tokenizer reports line numbers off this output.
 
@@ -261,7 +275,7 @@ export function scanSource(src: string, rel: string): string[] {
 /** `"<file>: <label|Field> wraps <widget>"` for every offending block in src/app. */
 function offenders(): string[] {
   return sourceFiles().flatMap((path) =>
-    scanSource(stripComments(readFileSync(path, "utf8")), path.slice(__dirname.length + 1).replace(/\\/g, "/")),
+    scanSource(stripComments(readFileSync(path, "utf8"), path), path.slice(__dirname.length + 1).replace(/\\/g, "/")),
   );
 }
 
@@ -286,7 +300,7 @@ describe("label binding guard", () => {
     let labels = 0;
     let fields = 0;
     for (const path of sourceFiles()) {
-      const src = stripComments(readFileSync(path, "utf8"));
+      const src = stripComments(readFileSync(path, "utf8"), path);
       labels += blocks(src, "label").length;
       fields += blocks(src, "Field").length;
     }

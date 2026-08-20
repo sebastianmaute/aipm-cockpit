@@ -35,27 +35,50 @@ describe("stripComments", () => {
   });
 
   it("leaves the // of a bare URL in JSX TEXT alone", () => {
-    // ★★★ THE OVER-BLANK CASE, AND THE WORST BUG ANY CUT OF THIS HELPER HAD.
-    //   JSX children are TEXT, not code, so a `//` there opens nothing. A
-    //   string-tracking scanner blanked from the `//` onward — 8,283 characters
-    //   of real markup across `src`, starting at the bare URL in
-    //   `timelog-settings.tsx`. Over-blanking DELETES CODE from the text an
-    //   assertion reads, which is categorically worse than leaving a comment
-    //   readable; a guard scanning the result can no longer see the very markup
-    //   it exists to check.
-    const src = "<p>\n  https://login.example.com/token\n  <b>after</b>\n</p>\n";
+    // ★★★ THE OVER-BLANK CASE, AND THE WORST BUG ANY CUT OF THIS HELPER HAD —
+    //   INCLUDING THE PARSER CUT. JSX children are TEXT, not code, so a `//`
+    //   there opens nothing; a string-tracking scanner blanked from it onward,
+    //   thousands of characters of real markup across `src` starting at the bare
+    //   URL in `timelog-settings.tsx`. Over-blanking DELETES CODE from the text
+    //   an assertion reads, which is categorically worse than leaving a comment
+    //   readable: a guard scanning the result can no longer see the markup it
+    //   exists to check.
+    // ★★★ THE FIXTURE MUST LEAD WITH `//`, AND THIS ONE DID NOT until a cold
+    //   review measured it. A `JsxText` leaf's `fullStart` is its own start, so
+    //   `getLeadingCommentRanges` scans the TEXT — but reports a comment only
+    //   when that text BEGINS `//` or `/*`. With `https:` in front the query
+    //   never fired, so this passed for a reason unrelated to its name while the
+    //   parser cut blanked 27 characters of markup one prefix away. A test named
+    //   after a bug it cannot observe is worse than no test.
+    const src = "<p>\n  //login.example.com/token\n  <b>after</b>\n</p>\n";
     expect(stripComments(src)).toBe(src);
   });
 
   it("blanks a // comment inside a template-literal ${…} interpolation", () => {
     // ★★ An interpolation is CODE inside template TEXT. A scanner that treated a
     //   backtick run as opaque to its closing backtick left these readable —
-    //   seven of them in `combobox-shared.tsx`, inside a `className`, one naming
-    //   `<Input>`.
+    //   seven of them in `combobox-shared.tsx`, inside a `className`. The tag
+    //   name below is the SHAPE that matters to the label guard, not a quote from
+    //   that file: a comment naming a labelable tag is what makes a real widget
+    //   after it read as trailing.
     const src = ["const c = `w-full ${", "  active", "    // mirrors the <Input> pattern", '    ? "a" : "b"', "}`;", ""].join("\n");
     const out = stripComments(src);
     expect(out).not.toContain("Input");
     expect(out).toContain("w-full");
+  });
+
+  it("parses a .ts file as TS, so a non-comma generic arrow does not open JSX", () => {
+    // ★★★ THE SCRIPT KIND IS LOAD-BEARING, and this module parsed everything as
+    //   TSX until a cold review measured it. Under TSX, `<T>(x: T)` opens a JSX
+    //   element and the parse is garbage to end of file — in `workspace.ts` that
+    //   left 8,250 comment characters readable, and no `.tsx` file can exhibit
+    //   it. The `<T,>` spelling parses either way, which is why this uses the
+    //   bare one.
+    const src = "const f = <T>(x: T): T => x; // ★ secret\n";
+    expect(stripComments(src, "a.ts")).not.toContain("★");
+    // The default stays TSX: every other fixture here is a `.tsx`-shaped string,
+    // and this asserts the default is real rather than incidental.
+    expect(stripComments(src)).toContain("★");
   });
 
   it("does not blank a comment marker inside a template literal's TEXT", () => {

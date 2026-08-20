@@ -14,7 +14,10 @@ import { QUEUE_STALL_MS, RichTextEditor, type RichTextEditorHandle } from "./ric
 // What that reaches, and nothing else in the family does: the flush's decision of
 // whether to DISARM the stall timer. With a real editor every flush succeeds, the
 // queue always ends empty, and the condition is constant — a mutant making the
-// disarm unconditional survives all sixteen tests in the other four suites. Not a
+// disarm unconditional survives every other suite in the repo. Three mutants die
+// HERE AND NOWHERE ELSE, measured by a cold review running one battery over the
+// whole family: disarm-always, disarm-never, and dropping `opts` on the live path.
+// Not a
 // cosmetic mutant either: `armStall` is only ever called from `appendText`, so
 // disarming after a flush that REFUSED means the stall is never reported unless
 // the user happens to dictate again.
