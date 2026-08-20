@@ -142,6 +142,49 @@ describe("DocumentBlockGutter", () => {
     await user.click(within(menu).getByRole("button", { name: "Add below" }));
     expect(within(menu).getByRole("button", { name: "Paragraph" })).toHaveFocus();
   });
+
+  // ★★ `aria-expanded` alone says a thing is open or shut; it does not say
+  //  there is anything to open. Every other trigger in the app that opens a
+  //  `PopoverPanel role="dialog"` pairs the two — action-popover-trigger,
+  //  ask-claude-menu, modal-field-controls, resource-workload-triage,
+  //  undo-control, action-cta-controls — and the VALUE must match the role the
+  //  panel actually renders, which for both panels on this surface is
+  //  `dialog`, not `menu`. axe flags neither the omission nor a mismatch, so
+  //  this test is the only coverage.
+  it("declares that the actions trigger opens a dialog", () => {
+    renderRows([P]);
+    const trigger = screen.getByRole("button", { name: "Block actions – Block 1" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
+  });
+
+  // ★★★ THE HINT IS THE ONLY DISCLOSURE OF THE ARROW-KEY PATH, and native
+  //  HTML5 drag does not fire on touch at all — so for a keyboard or touch
+  //  user the arrow keys are not a shortcut, they are the whole feature. It
+  //  renders ONCE above the list as a bare `<p>`, which reaches nobody who
+  //  tabs straight to a grip: they hear "Reorder – Block 1, button" and are
+  //  never told the keys exist. `aria-describedby` is what carries it there.
+  //  ★ ONE id serves every row, because the hint renders once.
+  it("describes the grip with whatever hint id it is handed", () => {
+    renderRows([P, P], { handleDescribedBy: "reorder-hint" });
+    for (const n of [1, 2]) {
+      expect(screen.getByRole("button", { name: `Reorder – Block ${n}` })).toHaveAttribute(
+        "aria-describedby",
+        "reorder-hint",
+      );
+    }
+  });
+
+  // ★★ An `aria-describedby` pointing at an id that is not in the DOM is worse
+  //  than none — AT resolves it to nothing and the user is told there is a
+  //  description they cannot hear. The hint is gated on there being something
+  //  to reorder, so the prop must be OMITTED, never passed as an empty string.
+  it("omits aria-describedby entirely when no hint id is passed", () => {
+    renderRows([P]);
+    expect(screen.getByRole("button", { name: "Reorder – Block 1" })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
 });
 
 describe("BlockKindMenu", () => {
@@ -171,5 +214,16 @@ describe("BlockKindMenu", () => {
 
     expect(onPick).toHaveBeenCalledWith("table");
     expect(screen.queryByRole("dialog", { name: "Add a block" })).not.toBeInTheDocument();
+  });
+
+  // ★★ Same convention as the gutter's actions trigger, and the same reason:
+  //  the panel it opens is `role="dialog"`, so `aria-haspopup` must say
+  //  `dialog` and not `menu`. Both triggers on this surface were shipping
+  //  `aria-expanded` with no `aria-haspopup` at all.
+  it("declares that the trigger opens a dialog", () => {
+    render(<BlockKindMenu lang="en-US" triggerLabel="Add a block" onPick={vi.fn()} />);
+    const trigger = screen.getByRole("button", { name: "Add a block" });
+    expect(trigger).toHaveAttribute("aria-haspopup", "dialog");
+    expect(trigger).toHaveAttribute("aria-expanded", "false");
   });
 });

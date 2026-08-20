@@ -825,6 +825,49 @@ describe("DocumentEditor — structural editing", () => {
     expect(screen.getAllByText(t(LANG, "documentsBlockReorderHint"))).toHaveLength(1);
   });
 
+  // ★★★ THE HINT WAS ANNOUNCED TO NOBODY. It renders once as a bare `<p>`
+  //  above the list, so a keyboard or screen-reader user who tabs straight to
+  //  a grip hears "Reorder – Block 1, button" and is never told the arrow keys
+  //  reorder — and native HTML5 drag does not fire on touch, so for them the
+  //  arrow keys ARE the feature. `aria-describedby` is the wiring that carries
+  //  it to every grip; one id serves all of them since the hint renders once.
+  //  ★★ RESOLVED AGAINST THE REAL DOM, not compared to a constant: the whole
+  //   failure mode of a describedby is pointing at an id nothing renders, and
+  //   an assertion that only compares the attribute to a string cannot see it.
+  it("describes every grip with the reorder hint that is actually rendered", () => {
+    setup();
+    const hint = screen.getByText(t(LANG, "documentsBlockReorderHint"));
+    expect(hint.id).not.toBe("");
+    const grips = screen.getAllByRole("button", {
+      name: new RegExp(t(LANG, "documentsBlockReorder")),
+    });
+    expect(grips).toHaveLength(3);
+    for (const grip of grips) {
+      const id = grip.getAttribute("aria-describedby");
+      expect(id).toBe(hint.id);
+      expect(document.getElementById(id ?? "")).toBe(hint);
+    }
+  });
+
+  // ★★ A describedby pointing at an id that is not in the DOM is worse than
+  //  none — AT announces that a description exists and then resolves nothing.
+  //  The hint is gated on there being two blocks, so the single-block case
+  //  must carry NO describedby rather than a dangling one.
+  it("carries no describedby on the grip when the hint is not rendered", () => {
+    render(
+      <DocumentEditor
+        lang={LANG}
+        doc={{ ...structDoc, blocks: [{ type: "pageBreak" }] }}
+        onCommitBlock={vi.fn()}
+        structural={stubStructural()}
+      />,
+    );
+    expect(screen.queryByText(t(LANG, "documentsBlockReorderHint"))).toBeNull();
+    expect(screen.getByRole("button", { name: reorderName(0) })).not.toHaveAttribute(
+      "aria-describedby",
+    );
+  });
+
   it("omits the reorder hint when there is nothing to reorder", () => {
     render(
       <DocumentEditor

@@ -41,10 +41,19 @@ export interface DocumentBlockGutterProps {
   /** Supplies the drag wiring AND the ArrowUp/ArrowDown reorder — this
    *  component adds no keyboard path of its own. */
   handleProps: BlockHandleProps;
+  /** Id of the reorder hint the grip should be DESCRIBED by. A passthrough,
+   *  the same shape as `DragHandle`'s `title` — the hint lives in
+   *  `document-editor.tsx`, which renders it once above the list and owns its
+   *  id, so this component cannot mint one.
+   *  ★★ OPTIONAL, and it must stay so: the hint is gated on there being two
+   *   blocks to reorder, and an `aria-describedby` pointing at an id nothing
+   *   renders is WORSE than none — AT announces that a description exists and
+   *   then resolves nothing. Omitted, never an empty string. */
+  handleDescribedBy?: string;
 }
 
 export function DocumentBlockGutter({
-  lang, index, block, onInsert, onDelete, handleProps,
+  lang, index, block, onInsert, onDelete, handleProps, handleDescribedBy,
 }: DocumentBlockGutterProps) {
   const anchorRef = useRef<HTMLButtonElement>(null);
   const viewRef = useRef<HTMLDivElement>(null);
@@ -84,17 +93,17 @@ export function DocumentBlockGutter({
       <div className="flex items-center gap-1">
         {/* ★ `ariaLabel` makes this a real focusable role="button" rather than
             the decorative aria-hidden variant.
-            ★★ `documentsBlockReorderHint` is deliberately NOT surfaced here.
-            This used to read "`DragHandle` forwards no `title`", which the
-            reorder-grip migration made false — it forwards one now, so this is
-            a CHOICE, not a limitation. A `title` would still be the wrong home:
-            hover-only, so it never reaches the keyboard user who is the one who
-            needs telling that the arrow keys work, and unreachable on touch,
-            where native HTML5 drag does not fire at all.
-            `document-editor.tsx` renders it ONCE as visible help text above the
-            block list instead; per-row would be N copies of one sentence. */}
+            ★★ `documentsBlockReorderHint` reaches this grip as a DESCRIPTION,
+            not as a `title` and not as per-row visible text. A `title` is the
+            wrong home — hover-only, so it never reaches the keyboard user who
+            is the one who needs telling that the arrow keys work, and
+            unreachable on touch, where native HTML5 drag does not fire at all.
+            Per-row visible text would be N copies of one sentence.
+            `document-editor.tsx` renders it ONCE above the block list and
+            hands its id down, so every grip is described by the same node. */}
         <DragHandle
           ariaLabel={rowName("documentsBlockReorder")}
+          ariaDescribedBy={handleDescribedBy}
           className="h-6 w-6 cursor-grab text-muted-foreground/60 hover:bg-ui-dark-blue/10 hover:text-ui-dark-blue"
           {...handleProps}
         />
@@ -106,6 +115,12 @@ export function DocumentBlockGutter({
           variant="ghost"
           size="xs"
           aria-label={rowName("documentsBlockActions")}
+          // ★★ `dialog`, matching the role the PopoverPanel below actually
+          //  renders — the convention every other dialog-opening trigger in
+          //  the app follows. `aria-expanded` alone says a thing is open or
+          //  shut without saying there is anything to open, and axe flags
+          //  neither the omission nor a value that contradicts the panel.
+          aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => (open ? close() : setOpen(true))}
         >
@@ -209,6 +224,9 @@ export function BlockKindMenu({ lang, triggerLabel, onPick }: {
         ref={anchorRef}
         variant="secondary"
         size="xs"
+        // ★ Same convention and same reason as the gutter's actions trigger —
+        //  the panel below is `role="dialog"`.
+        aria-haspopup="dialog"
         aria-expanded={open}
         onClick={() => (open ? close() : setOpen(true))}
       >

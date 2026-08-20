@@ -67,6 +67,19 @@ export interface DragGripProps {
    *  ColumnResizeHandle behavior). Must be unique per row where several
    *  handles coexist (e.g. one grip per column, one per calendar event). */
   ariaLabel?: string;
+  /** Id of an element that DESCRIBES this grip — typically a hint stating
+   *  what the arrow keys do, rendered once for a whole list. A passthrough,
+   *  the same shape as `title`: the describing node lives with the caller,
+   *  so this atom cannot mint the id.
+   *  ★★ It is the accessible DESCRIPTION, not the name — `ariaLabel` still
+   *   wins the name, which is what carries the WCAG 2.4.6 row qualifier.
+   *  ★★ Applied ONLY to the accessible variant. The decorative one is
+   *   `aria-hidden` with no role and no tab stop, so a description on it
+   *   would name a relationship no one can reach.
+   *  ★ Omit it rather than passing an empty string when there is nothing to
+   *   point at: a describedby resolving to no element is worse than none —
+   *   AT announces that a description exists and then reads nothing. */
+  ariaDescribedBy?: string;
   draggable?: boolean;
   onDragStart?: (e: React.DragEvent<HTMLElement>) => void;
   /** Drag cleanup. Forwarded because `useListReorderDnd().handleProps(id)`
@@ -117,6 +130,7 @@ const SWALLOWED_KEYS = new Set([" ", "Enter"]);
 
 export function DragHandle({
   ariaLabel,
+  ariaDescribedBy,
   draggable,
   onDragStart,
   onDragEnd,
@@ -134,6 +148,7 @@ export function DragHandle({
     <div
       role={isAccessible ? "button" : undefined}
       aria-label={isAccessible ? ariaLabel : undefined}
+      aria-describedby={isAccessible ? ariaDescribedBy : undefined}
       aria-hidden={isAccessible ? undefined : "true"}
       tabIndex={isAccessible ? 0 : undefined}
       draggable={draggable}

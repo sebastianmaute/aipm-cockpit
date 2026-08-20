@@ -6,7 +6,7 @@
 //  handle"); this is the structural slice that gives them something to do.
 //  Everything here routes through `structural`, whose three ops are the only
 //  way the set changes by hand.
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import {
   ParagraphBlockEditor,
   HeadingBlockEditor,
@@ -113,6 +113,15 @@ export function DocumentEditor({
   const firstParagraph = doc.blocks.findIndex((b) => b.type === "paragraph");
   const selected =
     chosen !== null && doc.blocks[chosen]?.type === "paragraph" ? chosen : firstParagraph;
+
+  // ★ `useId`, not a module constant: two editors could in principle mount at
+  //  once (a popout beside the main window), and two `<p>` nodes sharing one
+  //  id makes every describedby on this surface resolve to whichever the
+  //  browser found first.
+  const hintId = useId();
+  // ★★ ONE source for "is the hint on screen": the `<p>` and the id handed to
+  //  every grip must never disagree, or a describedby points at nothing.
+  const hintShown = doc.blocks.length > 1;
 
   const confirm = useConfirm();
 
@@ -328,10 +337,21 @@ export function DocumentEditor({
           is the one who needs telling that the arrow keys work, and
           unreachable on touch — where native HTML5 drag does not fire at all,
           making the arrow keys the ONLY reorder path.
+          ★★ It reaches every grip as `aria-describedby`. Rendered as a bare
+          `<p>` it was announced to NOBODY: a keyboard or screen-reader user
+          tabbing to a grip hears only "Reorder – Block 1, button" and is never
+          told the arrow keys reorder — which for them is the whole feature.
+          ONE id serves every row, because the hint renders once.
           ★ Gated on TWO blocks: with one there is nowhere to move it, and a
-          hint about an impossible gesture is noise. */}
-      {doc.blocks.length > 1 && (
-        <p className="text-xs text-muted-foreground">{t(lang, "documentsBlockReorderHint")}</p>
+          hint about an impossible gesture is noise. ★★ The SAME condition
+          gates the id handed to the grips (`hintShown`), so a describedby can
+          never point at an element this branch did not render — one that
+          resolves to nothing is worse than none, since AT announces a
+          description and then reads nothing. */}
+      {hintShown && (
+        <p id={hintId} className="text-xs text-muted-foreground">
+          {t(lang, "documentsBlockReorderHint")}
+        </p>
       )}
       {doc.blocks.map((block, index) => {
         const dropEdge = reorder.dropEdgeFor(index);
@@ -395,6 +415,7 @@ export function DocumentEditor({
               onInsert={insertSeeded}
               onDelete={deleteBlock}
               handleProps={reorder.handleProps(index)}
+              handleDescribedBy={hintShown ? hintId : undefined}
             />
             <div className="min-w-0 flex-1">
               <BlockEditor

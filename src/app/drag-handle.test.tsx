@@ -148,6 +148,31 @@ describe("DragHandle", () => {
     expect(screen.queryByRole("button", { name: "Reorder" })).toBeNull();
   });
 
+  // ★★ The DESCRIPTION, not the name. A grip's `aria-label` carries the WCAG
+  //  2.4.6 row qualifier and must survive — so a fixture passing the same
+  //  string for both would pass with the two wired to each other. Both halves
+  //  are asserted: the description lands, and the name is untouched.
+  it("forwards ariaDescribedBy without disturbing the accessible name", () => {
+    render(<DragHandle ariaLabel="Reorder – Row 1" ariaDescribedBy="hint-1" />);
+    const handle = screen.getByRole("button", { name: "Reorder – Row 1" });
+    expect(handle).toHaveAttribute("aria-describedby", "hint-1");
+  });
+
+  // ★★ A describedby resolving to no element is worse than none — AT says a
+  //  description exists and then reads nothing. Callers gate the id on the
+  //  hint being rendered, so the absent case must produce NO attribute.
+  it("omits aria-describedby entirely when none is passed", () => {
+    const { container } = render(<DragHandle ariaLabel="Reorder – Row 1" />);
+    expect(container.firstElementChild).not.toHaveAttribute("aria-describedby");
+  });
+
+  // ★ The decorative variant is aria-hidden with no role and no tab stop, so
+  //  a description on it would name a relationship nobody can reach. Pins the
+  //  branch — without it, dropping the `isAccessible` gate is invisible.
+  it("does not describe the decorative variant", () => {
+    const { container } = render(<DragHandle ariaDescribedBy="hint-1" />);
+    expect(container.firstElementChild).not.toHaveAttribute("aria-describedby");
+  });
   it("omits the title attribute entirely when no title is passed", () => {
     const { container } = render(<DragHandle ariaLabel="Reorder – Row 1" />);
     expect(container.firstElementChild).not.toHaveAttribute("title");
