@@ -7,6 +7,10 @@ import {
   replaceBlockOp,
   blockSurvivesLoad,
   normalizeBlockForStorage,
+  insertBlockOp,
+  deleteBlockOp,
+  moveBlockOp,
+  blockIsTrivial,
 } from "./document-editor-commit";
 import type { DocVersion } from "./document-versions";
 import { MAX_HTML_TEXT_CHARS, type DocBlock } from "./document-model";
@@ -346,5 +350,62 @@ describe("shouldCoalesce — a clock that runs backwards must not coalesce", () 
     const past = new Date(Date.parse(SAVED) + COALESCE_WINDOW_MS + 1).toISOString();
     expect(shouldCoalesce([version()], 7, edge, anchor)).toBe(true);
     expect(shouldCoalesce([version()], 7, past, anchor)).toBe(false);
+  });
+});
+
+describe("structural op builders", () => {
+  const seed: DocBlock = { type: "paragraph", html: "<p>New paragraph</p>" };
+  const edited: DocBlock = { type: "paragraph", html: "<p>Real content</p>" };
+
+  it("builds an insert op", () => {
+    expect(insertBlockOp(2, seed)).toEqual({ op: "insert", index: 2, block: seed });
+  });
+
+  it("builds a delete op carrying the baseline as its precondition", () => {
+    expect(deleteBlockOp(1, edited)).toEqual({ op: "delete", index: 1, expect: edited });
+  });
+
+  it("builds a move op carrying the baseline as its precondition", () => {
+    expect(moveBlockOp(0, 2, edited)).toEqual({ op: "move", from: 0, to: 2, expect: edited });
+  });
+
+  // ★ The UI always supplies a baseline; the parameter stays optional because
+  //  the type is shared with the AI callers, which resolve no draft. An
+  //  explicitly-undefined `expect` is equivalent to an absent one at the
+  //  engine, which guards on `op.expect !== undefined`. `toEqual` alone
+  //  cannot distinguish an absent key from one present-and-undefined (it
+  //  treats `{k: undefined}` and `{}` as equal), so this also checks the key
+  //  itself is undefined on the built op — a direct assertion on the
+  //  behaviour that actually matters, rather than a name implying the key is
+  //  gone when the implementation puts it there regardless.
+  it("builds a delete op with no precondition when none is supplied", () => {
+    const op = deleteBlockOp(1);
+    expect(op).toEqual({ op: "delete", index: 1 });
+    expect((op as { expect?: unknown }).expect).toBeUndefined();
+  });
+});
+
+describe("blockIsTrivial", () => {
+  const seed: DocBlock = { type: "paragraph", html: "<p>New paragraph</p>" };
+
+  it("treats a pageBreak as trivial — there is nothing to lose", () => {
+    expect(blockIsTrivial({ type: "pageBreak" }, { type: "pageBreak" })).toBe(true);
+  });
+
+  it("treats an untouched seed as trivial", () => {
+    expect(blockIsTrivial({ type: "paragraph", html: "<p>New paragraph</p>" }, seed)).toBe(true);
+  });
+
+  it("treats an edited block as NOT trivial", () => {
+    expect(blockIsTrivial({ type: "paragraph", html: "<p>Real content</p>" }, seed)).toBe(false);
+  });
+
+  // ★ A block of a different kind from the seed is content the user chose;
+  //  comparing it against the wrong seed must not accidentally read trivial.
+  // This holds by construction: blockChanged is a deep structural comparison
+  // over the whole object including `type`, so a type mismatch alone makes
+  // it unequal — there is no special-casing here that could get it wrong.
+  it("treats a block of a different kind as NOT trivial", () => {
+    expect(blockIsTrivial({ type: "heading", level: 2, text: "Scope" }, seed)).toBe(false);
   });
 });

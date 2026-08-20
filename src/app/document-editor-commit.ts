@@ -5,7 +5,7 @@
 //  decides. Keeping it pure is what makes the coalescing rule testable at all.
 import type { DocVersion } from "./document-versions";
 import type { DocBlock } from "./document-model";
-import { normalizeBlockForStorage } from "./document-model";
+import { blockChanged, normalizeBlockForStorage } from "./document-model";
 import type { DocMintedVersion, DocOp } from "./document-mutations";
 
 /** How long after the last MINTED version's `savedAt` a further edit still
@@ -161,6 +161,56 @@ export { blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./do
  *   build their own ops and are resolving no draft of their own. */
 export function replaceBlockOp(index: number, block: DocBlock, expect?: DocBlock): DocOp {
   return { op: "replace", index, block, expect };
+}
+
+/** The ops a STRUCTURAL edit produces. Separate builders rather than one
+ *  variadic factory: each carries a different precondition rule and the
+ *  differences are the point.
+ *
+ *  ★★ `insert` takes NO precondition, deliberately. A concurrent write that
+ *   shifts indices puts a new, empty, user-authored block one position from
+ *   where it was asked for — which the user fixes by dragging it. The same
+ *   shift on a delete removes a block they never pointed at, recoverable only
+ *   by restoring the whole document. `insert` also has no target block to
+ *   name, so its precondition would have to encode "the block at this index,
+ *   or the end of the list", and a `DocBlock | null` whose null means "the
+ *   end" is the kind of contract that ships wrong. */
+export function insertBlockOp(index: number, block: DocBlock): DocOp {
+  return { op: "insert", index, block };
+}
+
+/** ★ `expect` is the row's baseline — the block the user pointed at. Optional
+ *  because the type is shared with the AI tools, which resolve no draft and
+ *  must keep applying; an absent one must never read as "expected nothing". */
+export function deleteBlockOp(index: number, expect?: DocBlock): DocOp {
+  return { op: "delete", index, expect };
+}
+
+/** ★ Same precondition rule as `deleteBlockOp`, anchored to the block at
+ *  `from` — the one the user picked up. */
+export function moveBlockOp(from: number, to: number, expect?: DocBlock): DocOp {
+  return { op: "move", from, to, expect };
+}
+
+/**
+ * Is deleting this block safe to do without asking?
+ *
+ * ★★ TRUE for a `pageBreak` (nothing to lose) and for a block still holding
+ *  its untouched seed — the common case immediately after inserting one by
+ *  mistake. Everything else is content, and content here is recoverable only
+ *  by restoring an earlier version of the WHOLE document, discarding every
+ *  other edit since.
+ *
+ * ★ `seed` is passed IN rather than computed: the seeds are translated
+ *  (`document-block-seeds.ts`) and this module is i18n-free by contract. The
+ *  caller supplies the seed for that block's kind.
+ *
+ * ★ Reuses `blockChanged` rather than a second comparator — a private
+ *  equality here would drift from the one the engine's preconditions use.
+ */
+export function blockIsTrivial(block: DocBlock, seed: DocBlock): boolean {
+  if (block.type === "pageBreak") return true;
+  return !blockChanged(block, seed);
 }
 
 /**
