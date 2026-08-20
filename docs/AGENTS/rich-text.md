@@ -35,10 +35,17 @@ register's fix to another is how two of them broke. Read the note that names you
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
   ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
   so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
-  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
-  `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
-  object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
-  interpreted as markup instead of inserted literally.
+  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`.
+  ★★★ **`appendText` SPLITS POSITION FROM FOCUS, and this line described the pre-split call for four
+  releases.** It used to read `editor.chain().focus().insertContent(...)`, which inserts at the SELECTION —
+  the doc START on an editor nobody has clicked into — so a dictated line PREPENDED on the live route while
+  the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
+  whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
+  has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
+  `opts.focus`; the two are independent, and a queued line is by definition dictated before the editor
+  existed, so both routes agree. `docs/open-followups.md` §192.
+  ★★ Either way `insertContent` MUST take a TEXT NODE object, never a bare string: a bare string is parsed
+  as HTML, so dictated text containing `<`/`&` would be interpreted as markup instead of inserted literally.
   ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
   described exactly that as the pattern to copy for four releases, and it is SILENT DATA LOSS. The mic is a
   SIBLING of the editor, so it paints and is operable while the editor is still loading; `appendText` is a

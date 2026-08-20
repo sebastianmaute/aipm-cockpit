@@ -55,8 +55,13 @@ export function appendPos(doc: Editor["state"]["doc"]): number {
 }
 
 export interface RichTextEditorHandle {
-  /** Insert plain text at the caret. Used by the dictation mic — the editor
-   *  binds `content` once at mount, so a new `value` cannot reach it.
+  /** Insert plain text. WHERE it lands and WHETHER the editor takes focus are
+   *  INDEPENDENT: position follows an `everFocused` ref (the caret if the user
+   *  has ever been in this editor, otherwise the end of the last textblock),
+   *  focus follows `opts.focus`. See the ★★★ block on the implementation and
+   *  `docs/open-followups.md` §192 for why conflating the two was a defect.
+   *  Used by the dictation mic — the editor binds `content` once at mount, so a
+   *  new `value` cannot reach it.
    *
    *  ★★★ RETURNS WHETHER THE TEXT LANDED, and a caller that ignores it is the
    *  silent-data-loss bug this signature exists to make impossible. Holding a
@@ -72,10 +77,18 @@ export interface RichTextEditorHandle {
    *  bug it replaced was a consumer forgetting one. Consumers get a handle whose
    *  `appendText` cannot lose text and always returns true.
    *
-   *  ★ `focus: false` appends at the END of the document without moving focus —
-   *  for a DEFERRED append, whose moment is decided by a network fetch rather
-   *  than by the user. Focusing then would yank the caret out of whatever they
-   *  had moved on to, and a stale selection would splice the text mid-document. */
+   *  ★★ `focus: false` DOES NOT DECIDE POSITION, and this paragraph used to say
+   *  it did ("appends at the END of the document"). It no longer can: on an
+   *  editor the user HAS been in, `{focus: false}` inserts at the CARET without
+   *  moving focus. What the flag is FOR is a DEFERRED append, whose moment is
+   *  decided by a network fetch rather than by the user — focusing then would
+   *  yank the caret out of whatever they had moved on to.
+   *  ★★ THE STALE-SELECTION WARNING IS THEREFORE MORE RELEVANT, NOT LESS: on a
+   *  focused editor a deferred append splices at whatever selection was left
+   *  behind. NOTHING REACHES THAT TODAY — the only `{focus: false}` caller is
+   *  `flushPending`, which runs at attach, when `everFocused` is still false and
+   *  the text goes to the end. A second caller, or a queue that outlives a focus,
+   *  would reach it. */
   appendText(text: string, opts?: { focus?: boolean }): boolean;
 }
 
@@ -335,20 +348,33 @@ export function RichTextEditor(props: RichTextEditorProps) {
         //   · focus    <- `opts.focus`: unchanged meaning.
         // A queued line is BY DEFINITION dictated before the editor existed, so on
         // replay `everFocused` is false and both routes now agree.
-        // ★★ READ THE REF BEFORE BUILDING THE CHAIN. Our own `.focus()` fires
-        // `onFocus`, so a read taken later would let this call's focus decide this
-        // call's position. ★ REASONED, NOT PINNED: chain commands do not run until
-        // `.run()`, so a read placed after `chain.focus()` still observes the
-        // pre-call value, and no mutant this suite can express distinguishes the
-        // two orderings. Do not read the tests below as covering it.
+        // ★★★ READ THE REF BEFORE BUILDING THE CHAIN — THIS LINE IS LOAD-BEARING,
+        // NOT STYLE. An earlier revision of this comment claimed chain commands
+        // "do not run until .run()" and concluded the ordering was cosmetic. Both
+        // halves are false against @tiptap/core 3.x: createChain runs each
+        // command's body AT CALL TIME and defers only view.dispatch, and the focus
+        // command calls view.dom.focus() SYNCHRONOUSLY on Safari/iOS/Android
+        // (elsewhere it is rAF-deferred). That DOM focus reaches FocusEvents ->
+        // emit("focus") -> the onFocus handler above, so a read taken after
+        // chain.focus() would see true on those platforms and let this call's own
+        // focus decide this call's position. That is §192 again, on three
+        // platforms.
+        // ★★ NO TEST HERE CAN CATCH THAT, which is why it is written down. jsdom
+        // is none of those three user agents, so focus is rAF-only and the two
+        // orderings are indistinguishable in this suite. Do not read the tests as
+        // covering it, and do not "tidy" this read down into the ternary.
         const atCaret = everFocused.current;
         let chain = editor.chain();
         if (opts?.focus !== false) chain = chain.focus();
         // ★★ RETURN the chain's verdict rather than an unconditional true.
-        // `insertContentAt` returns false on a content error (it catches, emits
-        // `contentError`, and the chain no-ops), and the wrapper's queue treats
-        // this return as "the text landed" — so reporting true drops it. That is
-        // the exact silent-loss class the queue exists to close.
+        // `insertContentAt` returns false on a content error (it catches and emits
+        // `contentError` instead of throwing). ★ A false command does NOT abort the
+        // chain: `run()` dispatches regardless and returns `callbacks.every(cb =>
+        // cb === true)`, so "nothing lands" is a claim about THIS chain only, where
+        // the only other command is `focus` and nothing else touches the
+        // transaction. The wrapper's queue treats this return as "the text landed",
+        // so reporting an unconditional true drops it — the exact silent-loss class
+        // the queue exists to close.
         return (
           atCaret
             ? chain.insertContent({ type: "text", text })

@@ -321,14 +321,18 @@ describe("RichTextEditor imperative handle", () => {
   // cannot see it: `toContain("world")` passes whether the text went to the front
   // or the back. All three assert the WHOLE document for that reason.
   // ★★ POSITION IS DECIDED BY `everFocused`, NOT BY `opts.focus` — that split IS
-  // the §192 fix and these three tests are what pin it: an editor nobody has
-  // focused appends on EITHER route, a focused one inserts at the caret. Before
-  // the fix the default branch inserted at the SELECTION, so the unfocused case
-  // PREPENDED while the `{focus:false}` route appended, and which one a dictated
-  // line got was decided by whether Tiptap's lazy chunk had arrived. See the
-  // ★★★ block on `appendText` in `rich-text-editor.tsx` and
-  // `docs/open-followups.md` §192. If one of these goes red, someone has changed
-  // which end the text lands at, and that is a decision to make on purpose.
+  // the §192 fix: an editor nobody has focused appends on EITHER route, a focused
+  // one inserts at the caret. Before the fix the default branch inserted at the
+  // SELECTION, so the unfocused case PREPENDED while the `{focus:false}` route
+  // appended, and which one a dictated line got was decided by whether Tiptap's
+  // lazy chunk had arrived. See the ★★★ block on `appendText` in
+  // `rich-text-editor.tsx` and `docs/open-followups.md` §192.
+  // ★★ THE SET PINS IT, NOT EACH MEMBER — do not read any one of these as the
+  // guard. Under a full revert of the fix only the FIRST goes red. The third's
+  // unique value is narrower and worth knowing: it is the only one that dies when
+  // the `onFocus` handler is deleted, i.e. when the ref stops being written at
+  // all. If one goes red, someone has changed which end the text lands at, and
+  // that is a decision to make on purpose.
   it("appendText lands at the END of the document when nobody has focused the editor", async () => {
     const onChange = vi.fn();
     function Harness() {
