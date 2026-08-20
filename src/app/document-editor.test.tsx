@@ -27,15 +27,11 @@ const doc: ProjectDocument = {
 
 /** The paragraph editor mounts behind the `rich-text-editor-lazy` next/dynamic
  *  boundary, so the contenteditable is NOT in the DOM on the line after
- *  `render()` — the skeleton is. 15_000, not RTL's 1000 ms default: the FIRST
- *  file in a run to load Tiptap pays the whole Vite transform (~3.5 s), and
- *  vitest.config.ts sets testTimeout 20000. Same convention as
- *  `rich-text-editor-lazy.queue.test.tsx`. */
+ *  `render()` — the skeleton is. */
 const findParagraphEditable = (blockNumber: string): Promise<HTMLElement> =>
   screen.findByRole(
     "textbox",
     { name: t(LANG, "documentsParagraphLabel", blockNumber) },
-    { timeout: 15_000 },
   );
 
 describe("DocumentEditor", () => {
@@ -104,7 +100,7 @@ describe("DocumentEditor", () => {
       const { container } = render(
         <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
-      const toolbar = await screen.findByRole("toolbar", undefined, { timeout: 15_000 });
+      const toolbar = await screen.findByRole("toolbar", undefined);
       const firstRow = container.querySelectorAll("[data-block-row]")[0];
       expect(toolbar.compareDocumentPosition(firstRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     });

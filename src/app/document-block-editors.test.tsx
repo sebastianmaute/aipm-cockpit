@@ -46,19 +46,11 @@ const headingLevelName = (index: number) =>
 
 /** The paragraph editor mounts behind the `rich-text-editor-lazy` next/dynamic
  *  boundary, so its contenteditable is NOT in the DOM on the line after
- *  `render()` — the skeleton is. Await the real thing before touching it.
- *
- *  ★ 15_000, not RTL's 1000 ms default: the FIRST file in a run to load Tiptap
- *   pays the whole Vite transform (~3.5 s). vitest.config.ts sets testTimeout
- *   20000, so this stays inside the budget. Only the FIRST await in a test
- *   needs it — once the chunk is resolved in this module registry later
- *   queries are synchronous again. Convention copied from
- *   `rich-text-editor-lazy.queue.test.tsx` and the note-log dictation suites. */
+ *  `render()` — the skeleton is. Await the real thing before touching it. */
 const findParagraphEditable = (index: number): Promise<HTMLElement> =>
   screen.findByRole(
     "textbox",
     { name: t(LANG, "documentsParagraphLabel", String(index + 1)) },
-    { timeout: 15_000 },
   );
 
 describe("ParagraphBlockEditor", () => {
@@ -71,7 +63,7 @@ describe("ParagraphBlockEditor", () => {
         onCommit={vi.fn()}
       />,
     );
-    expect(await screen.findByText("hello", undefined, { timeout: 15_000 })).toBeInTheDocument();
+    expect(await screen.findByText("hello", undefined)).toBeInTheDocument();
     expect(screen.queryByText(t(LANG, "documentsBlockImageReadOnly"))).toBeNull();
   });
 
@@ -1272,7 +1264,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     rerender(<ParagraphBlockEditor lang={LANG} index={0} block={after} onCommit={onCommit} />);
     // The nonce keys a REMOUNT of the lazy editor — await the replaced text
     // rather than assuming the resolved chunk re-renders in the same tick.
-    await screen.findByText("Restored", undefined, { timeout: 15_000 });
+    await screen.findByText("Restored", undefined);
     expect(container.textContent).toContain("Restored");
     expect(container.textContent).not.toContain("Alpha");
   });
