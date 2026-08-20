@@ -22,6 +22,11 @@ import type { BlockStructuralOps } from "./use-document-editor";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DocumentBlockGutter, BlockKindMenu } from "./document-block-gutter";
 import { blockSeed, type AddableBlockType } from "./document-block-seeds";
+import {
+  selectionAfterMove,
+  selectionAfterInsert,
+  selectionAfterDelete,
+} from "./document-block-selection";
 import { blockIsTrivial } from "./document-editor-commit";
 import { useConfirm } from "./confirm-dialog";
 import { sanitizeDocumentHtml } from "./sanitize-html";
@@ -94,6 +99,16 @@ export function DocumentEditor({
   //   type re-check is what handles a chosen index that stops being a
   //   paragraph (or leaves the document): it falls back rather than docking a
   //   toolbar onto a block that has none.
+  //  ★★★ THAT FALLBACK IS NOT ENOUGH ON ITS OWN, AND THE MISSING HALF WAS A
+  //   REAL BUG. `chosen` is a bare INDEX, so a structural op moves the blocks
+  //   out from under it — and in a document OF PARAGRAPHS the stale index is
+  //   still a paragraph, so the type re-check never fires and a DIFFERENT
+  //   block is silently adopted. Traced on [A, B]: select B, ArrowUp on its
+  //   grip → move(1, 0) → [B, A] with `chosen` still 1, so A expands and B —
+  //   the block the user selected and just moved — collapses read-only.
+  //   Every op below therefore carries the selection through the SAME index
+  //   arithmetic the op itself performs (`document-block-selection.ts`), and
+  //   only when the engine says the op LANDED.
   const [chosen, setChosen] = useState<number | null>(null);
   const firstParagraph = doc.blocks.findIndex((b) => b.type === "paragraph");
   const selected =
@@ -211,12 +226,20 @@ export function DocumentEditor({
     //   block, add the call and that test will still be the thing watching it.
     onMove: (from, to) => {
       const r = structural.move(from, to, doc.blocks[from]);
-      if (r?.changed) pendingFocusRef.current = to;
+      // ★ ONE `changed` gate for both follow-ups: focus and selection must
+      //  agree about whether the move happened, and the moved block lands at
+      //  `to` for both of them.
+      if (r?.changed) {
+        pendingFocusRef.current = to;
+        setChosen((c) => selectionAfterMove(c, from, to));
+      }
     },
   });
 
-  const insertSeeded = (at: number, type: AddableBlockType) =>
-    structural.insert(at, blockSeed(lang, type));
+  const insertSeeded = (at: number, type: AddableBlockType) => {
+    const r = structural.insert(at, blockSeed(lang, type));
+    if (r?.changed) setChosen((c) => selectionAfterInsert(c, at));
+  };
 
   const deleteBlock = async (index: number) => {
     const block = doc.blocks[index];
@@ -239,10 +262,19 @@ export function DocumentEditor({
       });
       if (!ok) return;
     }
-    // ★ `block` is the baseline the engine's `expect` precondition checks — the
-    //  row the user pointed at. The same shift that merely misplaces an insert
-    //  would make this delete the wrong block.
-    structural.remove(index, block);
+    // ★★ `block` is the baseline the engine's `expect` precondition checks, and
+    //  what it buys HERE is the `await confirm(...)` window above: `block` is
+    //  read before the await, so a write that lands while the prompt is open
+    //  makes the engine REFUSE rather than delete whatever slid into `index`.
+    //  ★★ It is NOT "the row the user pointed at", which is what this comment
+    //   used to claim. `const block = doc.blocks[index]` runs when the MENU
+    //   ITEM IS CLICKED, from whichever render is current then — not when the
+    //   menu was opened on that row. A concurrent write between those two
+    //   moments re-renders the editor, so this handler closes over the NEW
+    //   `doc` and `expect` compares the new block against itself. Widening the
+    //   capture to menu-OPEN is a design change, deliberately not made here.
+    const r = structural.remove(index, block);
+    if (r?.changed) setChosen((c) => selectionAfterDelete(c, index));
   };
 
   return (

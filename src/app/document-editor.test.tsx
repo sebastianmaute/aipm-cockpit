@@ -462,21 +462,44 @@ describe("DocumentEditor — structural editing", () => {
   function Controlled({
     onMoveSpy,
     refuse = false,
+    initialBlocks = structDoc.blocks,
+    narrow = false,
   }: {
     onMoveSpy: (from: number, to: number) => void;
     refuse?: boolean;
+    /** ★ The selection tests below need a document of PARAGRAPHS — the case in
+     *   which a stale index is still a paragraph, so the component's
+     *   "is it still a paragraph?" fallback never fires. */
+    initialBlocks?: readonly DocBlock[];
+    narrow?: boolean;
   }) {
-    const [blocks, setBlocks] = useState<readonly DocBlock[]>(structDoc.blocks);
+    const [blocks, setBlocks] = useState<readonly DocBlock[]>(initialBlocks);
     const [renderCount, bumpRender] = useReducer((n: number) => n + 1, 0);
     return (
       <div data-render-count={renderCount}>
         <DocumentEditor
           lang={LANG}
+          narrow={narrow}
           doc={{ ...structDoc, blocks }}
           onCommitBlock={vi.fn()}
           structural={{
-            insert: vi.fn(),
-            remove: vi.fn(),
+            // ★ Real splices, not spies: the selection tests below observe
+            //  WHICH ROW is expanded after the list changed, which a fixture
+            //  that never changes the list cannot express at all.
+            insert: (at: number, block: DocBlock) => {
+              bumpRender();
+              setBlocks((prev) => {
+                const next = [...prev];
+                next.splice(at, 0, block);
+                return next;
+              });
+              return docResult(true);
+            },
+            remove: (at: number) => {
+              bumpRender();
+              setBlocks((prev) => prev.filter((_, i) => i !== at));
+              return docResult(true);
+            },
             move: (from: number, to: number) => {
               onMoveSpy(from, to);
               bumpRender();
@@ -738,5 +761,99 @@ describe("DocumentEditor — structural editing", () => {
       />,
     );
     expect(screen.queryByText(t(LANG, "documentsBlockReorderHint"))).toBeNull();
+  });
+
+  // ★★★ THE SELECTION IS A BARE INDEX, so every structural op moves the blocks
+  //  out from under it. At a narrow pane the selection decides which paragraph
+  //  stays EXPANDED, so the user moves the block they were editing and watches
+  //  a DIFFERENT one expand while theirs collapses read-only.
+  //  ★★ THE COMPONENT'S EXISTING FALLBACK CANNOT SEE THIS. It re-resolves only
+  //   when the chosen index stops being a paragraph; in a document OF
+  //   paragraphs the stale index is still a paragraph, so the fallback never
+  //   fires and the wrong block is silently adopted.
+  //  ★★★ THREE PARAGRAPHS, AND THE SELECTED ONE IS NEITHER THE FIRST NOR THE
+  //   ONE THE STALE INDEX NAMES — that separation is what makes these tests
+  //   non-vacuous. With two blocks the correct answer after a move collides
+  //   with `firstParagraph`, so "reset the selection to null" would pass just
+  //   as well as carrying it. The assertions therefore name all three rows:
+  //   one must be expanded and the other two must not.
+  describe("carrying the selection through a structural op (narrow pane)", () => {
+    const paragraphs: readonly DocBlock[] = [
+      { type: "paragraph", html: "<p>Alpha</p>" },
+      { type: "paragraph", html: "<p>Beta</p>" },
+      { type: "paragraph", html: "<p>Gamma</p>" },
+    ];
+
+    const selectName = (index: number) =>
+      `${t(LANG, "documentsBlockSelect")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
+
+    /** Which ROWS hold a live paragraph editor — the observable for "which
+     *  block is selected", since collapsing the rest is what selection DOES
+     *  at a narrow pane. 1-based, matching `documentsParagraphLabel`.
+     *  ★ It returns every live row rather than the first, so an assertion
+     *   names the whole state: exactly one expanded, and WHICH one. */
+    const expandedRows = (rows: number) =>
+      Array.from({ length: rows }, (_, i) => i + 1).filter(
+        (n) =>
+          screen.queryByRole("textbox", {
+            name: t(LANG, "documentsParagraphLabel", String(n)),
+          }) !== null,
+      );
+
+    it("follows the block when it is moved", async () => {
+      const user = userEvent.setup();
+      const onMoveSpy = vi.fn();
+      render(<Controlled onMoveSpy={onMoveSpy} initialBlocks={paragraphs} narrow />);
+
+      await user.click(screen.getByRole("button", { name: selectName(2) }));
+      expect(expandedRows(3)).toEqual([3]);
+
+      screen.getByRole("button", { name: reorderName(2) }).focus();
+      await user.keyboard("{ArrowUp}");
+
+      // The move really happened — without this the row assertion below could
+      // pass on a fixture that never reordered anything.
+      expect(onMoveSpy).toHaveBeenCalledWith(2, 1);
+      // Gamma is row 2 now, and it is still the expanded one.
+      expect(expandedRows(3)).toEqual([2]);
+    });
+
+    it("shifts down when an earlier block is deleted", async () => {
+      const user = userEvent.setup();
+      render(
+        <Controlled
+          onMoveSpy={vi.fn()}
+          // ★ A LEADING PAGE BREAK, deliberately: `blockIsTrivial` is true for
+          //  one, so this deletes with no confirm and needs no ConfirmProvider.
+          //  It also puts `firstParagraph` at 1 rather than 0, so a reverted
+          //  fix cannot land on the right answer by accident.
+          initialBlocks={[{ type: "pageBreak" }, ...paragraphs]}
+          narrow
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: selectName(3) }));
+      expect(expandedRows(4)).toEqual([4]);
+
+      await user.click(screen.getByRole("button", { name: actionsName(0) }));
+      const menu = screen.getByRole("dialog", { name: actionsName(0) });
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+
+      expect(expandedRows(3)).toEqual([3]);
+    });
+
+    it("shifts up when a block is inserted above it", async () => {
+      const user = userEvent.setup();
+      render(<Controlled onMoveSpy={vi.fn()} initialBlocks={paragraphs} narrow />);
+
+      await user.click(screen.getByRole("button", { name: selectName(2) }));
+      expect(expandedRows(3)).toEqual([3]);
+
+      const menu = await openActions(user, 0);
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockAddAbove") }));
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockPageBreak") }));
+
+      expect(expandedRows(4)).toEqual([4]);
+    });
   });
 });
