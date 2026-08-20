@@ -108,12 +108,17 @@ const LABELABLE = /<(input|select|textarea|Input|Select|Textarea|Checkbox|Resour
 // is landmine comments full of backticked tag names, so both are realistic rather
 // than contrived.
 //
-// ★★ The local stripper this replaced blanked a `//` comment only when it STARTED
-// a line — deliberately, to protect the `//` of a URL in an attribute. The shared
-// scanner tracks strings instead, so it protects the URL AND blanks the trailing
-// comment the line-start rule left readable. It is length-preserving for the same
-// reason the local one was: `standsFirst` compares match INDEXES and the tokenizer
-// reports line numbers off this output.
+// ★★ The local stripper this replaced was ALSO CORRUPTING THIS SCAN'S INPUT, which
+// nothing noticed for as long as it existed. Its `{\s*/\*…\*/\s*}` rule matched from
+// an unrelated `{` to a much later `*/}` and blanked REAL CODE — 45,377 characters
+// across `src`, including whole `import` blocks — so the tokenizer below was reading
+// a mangled file. The shared stripper uses the TypeScript parser and was measured
+// against its comment ranges over all 1,812 files in `src`: zero characters blanked
+// that are not in a comment, zero comment characters left readable. The count this
+// scan actually reads is unchanged either way (218 `<label>` tags), so this is a
+// correctness repair rather than a behaviour change.
+// ★ Still length-preserving, for the same reason the local one was: `standsFirst`
+// compares match INDEXES and the tokenizer reports line numbers off this output.
 
 /** Balanced `<tag …> … </tag>` bodies, self-closing tags skipped (no children
  *  means nothing can be adopted). A stack, not a lazy `.*?`, so a nested tag of
