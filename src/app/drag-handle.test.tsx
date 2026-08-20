@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, createEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DragHandle } from "./drag-handle";
 
@@ -68,6 +68,62 @@ describe("DragHandle", () => {
     expect(screen.getByRole("button", { name: "Reorder – Row 1" })).toHaveFocus();
     await user.keyboard("{ArrowDown}");
     expect(onKeyDown).toHaveBeenCalled();
+  });
+
+  // ★★★ SPACE ON A `div role="button"` SCROLLS THE PAGE. A native <button>
+  //  swallows Space by construction; this primitive renders a div, and the
+  //  five reorder grips that migrated onto it were all native <button>s
+  //  before, so the migration silently handed the page-scroll default back.
+  //  `useListReorderDnd`'s onKeyDown handles ArrowUp/ArrowDown ONLY, so
+  //  neither Space nor Enter has anything to do on a grip — the browser's
+  //  default fires anyway and scrolls the page out from under a keyboard
+  //  user mid-reorder. Enter goes the same way: it does nothing on a control
+  //  announced as a button, so leaving its default live buys nothing.
+  //  ★ The caller is still CALLED — only the default is suppressed — so a
+  //   future consumer can give either key a meaning without fighting this.
+  it.each([[" "], ["Enter"]])(
+    "swallows %j on the accessible variant while still calling the caller",
+    async (key) => {
+      const user = userEvent.setup();
+      const onKeyDown = vi.fn();
+      render(<DragHandle ariaLabel="Reorder – Row 1" draggable onKeyDown={onKeyDown} />);
+      // ★ `.focus()` never proves focusability — tab to it.
+      await user.tab();
+      const handle = screen.getByRole("button", { name: "Reorder – Row 1" });
+      expect(handle).toHaveFocus();
+      const event = createEvent.keyDown(handle, { key });
+      fireEvent(handle, event);
+      expect(event.defaultPrevented).toBe(true);
+      expect(onKeyDown).toHaveBeenCalled();
+    },
+  );
+
+  // ★★ THE ARROW PATH MUST STAY THE CALLER'S. `useListReorderDnd` calls
+  //  preventDefault itself on ArrowUp/ArrowDown; this primitive must not, or
+  //  a consumer wanting an arrow key to keep its native meaning has no way to
+  //  get it back — and a guard widened to every key would be invisible here
+  //  unless the assertion names a key it must NOT swallow.
+  it("leaves the ArrowDown default alone and forwards it", async () => {
+    const user = userEvent.setup();
+    const onKeyDown = vi.fn();
+    render(<DragHandle ariaLabel="Reorder – Row 1" draggable onKeyDown={onKeyDown} />);
+    await user.tab();
+    const handle = screen.getByRole("button", { name: "Reorder – Row 1" });
+    const event = createEvent.keyDown(handle, { key: "ArrowDown" });
+    fireEvent(handle, event);
+    expect(event.defaultPrevented).toBe(false);
+    expect(onKeyDown).toHaveBeenCalled();
+  });
+
+  // ★ The DECORATIVE variant is aria-hidden with no role and no tab stop, so
+  //  it is never a button to anyone — suppressing a key default there would
+  //  act on an element the user cannot reach. Pins the branch.
+  it("does not swallow Space on the decorative variant", () => {
+    const { container } = render(<DragHandle />);
+    const handle = container.firstElementChild as HTMLElement;
+    const event = createEvent.keyDown(handle, { key: " " });
+    fireEvent(handle, event);
+    expect(event.defaultPrevented).toBe(false);
   });
 
   it("fires onMouseDown", () => {

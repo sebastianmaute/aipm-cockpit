@@ -91,6 +91,30 @@ export interface DragGripProps {
   className?: string;
 }
 
+/**
+ * Keys the ACCESSIBLE variant must swallow, because a native `<button>`
+ * swallows them and a `div role="button"` does not.
+ *
+ * ★★★ SPACE SCROLLS THE PAGE. Every reorder grip in the app was a native
+ * `<button type="button">` before it migrated onto this primitive, so the
+ * migration silently handed the page-scroll default back to the browser: a
+ * keyboard user who lands on a grip and presses Space watches the page jump
+ * mid-reorder. `useListReorderDnd`'s `onKeyDown` handles ArrowUp/ArrowDown
+ * ONLY, so neither of these keys has anything to do here — there is nothing
+ * their default could be competing with.
+ *
+ * ★ Enter is included for the same reason rather than a different one: it
+ * does nothing on a control announced as a button, so its default is pure
+ * cost. ARROW KEYS ARE DELIBERATELY ABSENT — the hook calls `preventDefault`
+ * on the two it uses, and a consumer that wants an arrow key to keep its
+ * native meaning must be able to have it.
+ *
+ * ★ The caller's `onKeyDown` is still invoked for these keys; only the
+ * DEFAULT is suppressed, so a future consumer can give either one a meaning
+ * without having to fight this.
+ */
+const SWALLOWED_KEYS = new Set([" ", "Enter"]);
+
 export function DragHandle({
   ariaLabel,
   draggable,
@@ -102,6 +126,10 @@ export function DragHandle({
   className = "",
 }: DragGripProps) {
   const isAccessible = ariaLabel !== undefined;
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLElement>) => {
+    if (isAccessible && SWALLOWED_KEYS.has(e.key)) e.preventDefault();
+    onKeyDown?.(e);
+  };
   return (
     <div
       role={isAccessible ? "button" : undefined}
@@ -111,7 +139,7 @@ export function DragHandle({
       draggable={draggable}
       onDragStart={onDragStart}
       onDragEnd={onDragEnd}
-      onKeyDown={onKeyDown}
+      onKeyDown={handleKeyDown}
       onMouseDown={onMouseDown}
       title={title}
       // PRESS is omitted deliberately: a grip is held through the whole gesture, not
