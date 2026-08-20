@@ -15,12 +15,16 @@
 //     grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
 //   It must return FIVE lines: THIS file's three (a type-only import, the dynamic
 //   import, a type-only re-export) plus the two tests that exercise the raw
-//   module. ★★ FIVE IS NOT THE NUMBER OF REFERENCES — two test files
-//   (`*.stall.test.tsx`, `*.refused.test.tsx`) name the raw module inside a
-//   `vi.mock(…)` and this sweep CANNOT see them, because there is no
-//   `from`/`import`/`require` before the string. That is harmless for the bundle
-//   (a mock is not a static import) and worth knowing before you conclude the
-//   sweep enumerates every mention. ★★ This said "the dynamic import and type-only re-export, plus the two
+//   module. ★★ FIVE IS NOT THE NUMBER OF REFERENCES — SEVERAL test suites name the
+//   raw module inside a `vi.mock(…)` and this sweep CANNOT see any of them, because
+//   there is no `from`/`import`/`require` before the string. That is harmless for the
+//   bundle (a mock is not a static import) and worth knowing before you conclude the
+//   sweep enumerates every mention. ★★ NO NUMBER IS WRITTEN HERE ON PURPOSE: this note
+//   named two files (`*.stall`, `*.refused`) and was ALREADY wrong when written —
+//   `meeting-report-panel.test.tsx` was a third — and a fourth (`*.strictmode`) landed
+//   after. Enumerate them instead, never from a number here:
+//     grep -rn 'vi.mock("./rich-text-editor"' src --include=*.test.tsx
+//   (scoped to test files, so the command cannot match this comment). ★★ This said "the dynamic import and type-only re-export, plus the two
 //   tests" — four — while `csp-nonce.ts` carried a DIFFERENT, also-wrong enumeration
 //   of the SAME command. Two files, two mutually inconsistent counts, neither run.
 //   Run it; do not trust the five either.
