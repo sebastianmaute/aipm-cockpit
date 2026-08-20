@@ -346,8 +346,8 @@ export function RichTextEditor(props: RichTextEditorProps) {
         //   · position <- `everFocused`: the caret if the user has ever been in this
         //     editor, otherwise the end of the last textblock.
         //   · focus    <- `opts.focus`: unchanged meaning.
-        // A replay runs at `attach`, on the commit that first mounts the editor,
-        // where `everFocused` is still false, so both routes now agree.
+        // A replay runs at `attach`, where `everFocused` is still false, so both
+        // routes now agree.
         // ★★★ READ THE REF BEFORE BUILDING THE CHAIN — THIS LINE IS LOAD-BEARING,
         // NOT STYLE. An earlier revision of this comment claimed chain commands
         // "do not run until .run()" and concluded the ordering was cosmetic. Both

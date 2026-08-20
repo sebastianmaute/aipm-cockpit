@@ -42,8 +42,8 @@ register's fix to another is how two of them broke. Read the note that names you
   the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
   whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
   has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
-  `opts.focus`; the two are independent, and a REPLAY runs at `attach`, on the commit that first mounts
-  the editor, where `everFocused` is still false — so both routes agree. `docs/open-followups.md` §192.
+  `opts.focus`; the two are independent, and a REPLAY runs at `attach`, where `everFocused` is still
+  false — so both routes agree. `docs/open-followups.md` §192.
   ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN. An earlier revision said a queued line
   "is by definition dictated before the editor existed"; that premise is false and the conclusion does
   not need it.
