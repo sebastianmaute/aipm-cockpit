@@ -78,6 +78,25 @@ describe("DragHandle", () => {
     expect(onMouseDown).toHaveBeenCalledTimes(1);
   });
 
+  // ★★ Every one of the five reorder grips that migrated onto this primitive
+  //  pairs a row-QUALIFIED `ariaLabel` with a SHORT, unqualified `title`, so the
+  //  two are deliberately different strings. Both halves matter: the tooltip has
+  //  to reach the DOM at all, and it must not displace the accessible name that
+  //  carries the WCAG 2.4.6 row qualifier. A fixture passing the SAME string for
+  //  both would pass with `title` wired to `aria-label` (or vice versa).
+  it("forwards title as the tooltip without disturbing the accessible name", () => {
+    render(<DragHandle ariaLabel="Reorder – Row 1" title="Reorder" />);
+    const handle = screen.getByRole("button", { name: "Reorder – Row 1" });
+    expect(handle).toHaveAttribute("title", "Reorder");
+    // The name is still the qualified one, not the tooltip.
+    expect(screen.queryByRole("button", { name: "Reorder" })).toBeNull();
+  });
+
+  it("omits the title attribute entirely when no title is passed", () => {
+    const { container } = render(<DragHandle ariaLabel="Reorder – Row 1" />);
+    expect(container.firstElementChild).not.toHaveAttribute("title");
+  });
+
   it("applies a caller className additively, keeping the atom's own base classes", () => {
     const { container } = render(<DragHandle className="cursor-col-resize w-1.5" />);
     const handle = container.firstElementChild as HTMLElement;

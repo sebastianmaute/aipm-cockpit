@@ -67,6 +67,15 @@ export interface DragGripProps {
    *  without a mouse. Also supplied by `handleProps`. */
   onKeyDown?: (e: React.KeyboardEvent<HTMLElement>) => void;
   onMouseDown?: (e: React.MouseEvent<HTMLElement>) => void;
+  /** Hover tooltip. Forwarded because every reorder grip that migrated onto
+   *  this primitive carries one, and without it each migration would drop the
+   *  tooltip SILENTLY — an unknown JSX attribute on a typed component is a tsc
+   *  error, but a caller that simply stops passing it is not.
+   *  ★ It is NOT the accessible name: alongside `ariaLabel` (which wins the
+   *  name) a `title` is the accessible DESCRIPTION, so the two may differ —
+   *  every migrated grip pairs a row-QUALIFIED `ariaLabel` with a short
+   *  unqualified `title`. */
+  title?: string;
   /** Composed AFTER the atom's own base classes (size, position, color,
    *  cursor stay entirely the caller's — this atom has no opinion on them). */
   className?: string;
@@ -79,6 +88,7 @@ export function DragHandle({
   onDragEnd,
   onKeyDown,
   onMouseDown,
+  title,
   className = "",
 }: DragGripProps) {
   const isAccessible = ariaLabel !== undefined;
@@ -93,6 +103,7 @@ export function DragHandle({
       onDragEnd={onDragEnd}
       onKeyDown={onKeyDown}
       onMouseDown={onMouseDown}
+      title={title}
       // PRESS is omitted deliberately: a grip is held through the whole gesture, not
       // clicked-and-released, so active:translate-y-px would visibly fight the pointer
       // for the drag's duration. Gantt's grip and the old ColumnResizeHandle both
