@@ -462,11 +462,25 @@ describe("DocumentEditor — structural editing", () => {
   function Controlled({
     onMoveSpy,
     refuse = false,
+    refuseInsert = false,
+    refuseDelete = false,
     initialBlocks = structDoc.blocks,
     narrow = false,
   }: {
     onMoveSpy: (from: number, to: number) => void;
     refuse?: boolean;
+    /** ★★ The insert and delete equivalents of `refuse`, and they exist for the
+     *   same reason it does: without a fixture that can refuse, `insert` and
+     *   `remove` always returned `changed: true`, so deleting their
+     *   `r?.changed` gate changed no assertion in this file. A refusal here
+     *   models the real engine's — the block list does NOT change, and the
+     *   parent re-renders anyway (see `refuse` above for why that second half
+     *   is load-bearing rather than incidental). Reachable in production:
+     *   `document-mutations.ts`'s `"ops"` arm sets `nextBlocks = null` when
+     *   `exceedsBlockCap(...)` fires and no title is passed on either path, so
+     *   the mutation returns `changed: false`. */
+    refuseInsert?: boolean;
+    refuseDelete?: boolean;
     /** ★ The selection tests below need a document of PARAGRAPHS — the case in
      *   which a stale index is still a paragraph, so the component's
      *   "is it still a paragraph?" fallback never fires. */
@@ -488,6 +502,7 @@ describe("DocumentEditor — structural editing", () => {
             //  that never changes the list cannot express at all.
             insert: (at: number, block: DocBlock) => {
               bumpRender();
+              if (refuseInsert) return docResult(false);
               setBlocks((prev) => {
                 const next = [...prev];
                 next.splice(at, 0, block);
@@ -497,6 +512,7 @@ describe("DocumentEditor — structural editing", () => {
             },
             remove: (at: number) => {
               bumpRender();
+              if (refuseDelete) return docResult(false);
               setBlocks((prev) => prev.filter((_, i) => i !== at));
               return docResult(true);
             },
@@ -998,6 +1014,65 @@ describe("DocumentEditor — structural editing", () => {
       await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockPageBreak") }));
 
       expect(expandedRows(4)).toEqual([4]);
+    });
+
+    // ★★★ THE `r?.changed` GATE ON INSERT AND DELETE, which nothing pinned
+    //  until these two. `onMove` had its refusal test from the start, but the
+    //  `Controlled` fixture's `insert`/`remove` both returned `changed: true`
+    //  unconditionally and every other fixture in this file hands back bare
+    //  spies whose tests read the CALL and never the resulting selection — so
+    //  deleting either gate passed the whole suite. Shifting a selection for
+    //  an op that never landed points it at a block nobody moved.
+    //  ★★ THE RENDER-COUNT ASSERTION IS LOAD-BEARING, exactly as it is in the
+    //   move refusal above: a refused op leaves the list untouched, so without
+    //   it the row assertion would also pass on a fixture that quietly failed
+    //   to re-render — nothing rendered, nothing to observe, green with the
+    //   gate deleted. Asserting the count CHANGED proves the component really
+    //   did get its chance and declined.
+    //  ★ Each fixture keeps the selection AWAY from both the first paragraph
+    //   and the index the ungated remap would produce, so neither test can
+    //   land on the right answer by accident.
+    it("does NOT shift the selection when the engine refuses an insert", async () => {
+      const user = userEvent.setup();
+      render(<Controlled onMoveSpy={vi.fn()} initialBlocks={paragraphs} narrow refuseInsert />);
+
+      await user.click(screen.getByRole("button", { name: selectName(1) }));
+      expect(expandedRows(3)).toEqual([2]);
+      const rendersBefore = renderCountOf();
+
+      const menu = await openActions(user, 0);
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockAddAbove") }));
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockPageBreak") }));
+
+      // The component DID re-render — so it had the chance to shift and did not.
+      expect(renderCountOf()).not.toBe(rendersBefore);
+      // Ungated, the selection would ride the insert to row 3.
+      expect(expandedRows(3)).toEqual([2]);
+    });
+
+    it("does NOT shift the selection when the engine refuses a delete", async () => {
+      const user = userEvent.setup();
+      render(
+        <Controlled
+          onMoveSpy={vi.fn()}
+          // ★ A LEADING PAGE BREAK again: `blockIsTrivial` is true for one, so
+          //  the delete needs no confirm and no `ConfirmProvider`.
+          initialBlocks={[{ type: "pageBreak" }, ...paragraphs]}
+          narrow
+          refuseDelete
+        />,
+      );
+
+      await user.click(screen.getByRole("button", { name: selectName(2) }));
+      expect(expandedRows(4)).toEqual([3]);
+      const rendersBefore = renderCountOf();
+
+      const menu = await openActions(user, 0);
+      await user.click(within(menu).getByRole("button", { name: t(LANG, "documentsBlockDelete") }));
+
+      expect(renderCountOf()).not.toBe(rendersBefore);
+      // Ungated, the selection would slide down to row 2.
+      expect(expandedRows(4)).toEqual([3]);
     });
   });
 });
