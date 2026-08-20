@@ -1,13 +1,24 @@
 import { describe, it, expect, vi } from "vitest";
-import { render } from "@testing-library/react";
+import { render, screen, fireEvent } from "@testing-library/react";
+import userEvent from "@testing-library/user-event";
 import { DragHandle } from "./drag-handle";
 
 describe("DragHandle", () => {
-  it("is decorative (aria-hidden, no role) when no ariaLabel is passed", () => {
+  it("is decorative (aria-hidden, no role, no tab stop) when no ariaLabel is passed", async () => {
+    const user = userEvent.setup();
     const { container } = render(<DragHandle />);
     const handle = container.firstElementChild as HTMLElement;
     expect(handle).toHaveAttribute("aria-hidden", "true");
     expect(handle).not.toHaveAttribute("role");
+    // ★ The property most at risk from any edit to this file: the decorative
+    //  variant must stay OUT of the tab order. `tabIndex` absent is the wiring;
+    //  the tab attempt is the observable — a `tabIndex={-1}` regression would
+    //  keep the attribute assertion honest but is still not focusable, whereas
+    //  a `tabIndex={0}` regression fails BOTH.
+    expect(handle).not.toHaveAttribute("tabindex");
+    await user.tab();
+    expect(handle).not.toHaveFocus();
+    expect(document.body).toHaveFocus();
   });
 
   it("renders role=button with the passed accessible name when ariaLabel is given", () => {
@@ -34,6 +45,31 @@ describe("DragHandle", () => {
     expect(onDragStart).toHaveBeenCalledTimes(1);
   });
 
+  // ★★ The next two pin the other half of `useListReorderDnd().handleProps(id)`.
+  //  The primitive carried only `draggable` + `onDragStart`, so a caller
+  //  spreading `handleProps` lost `onDragEnd` and `onKeyDown` SILENTLY — a
+  //  spread of a wider object is not an excess-property tsc error. Losing
+  //  `onDragEnd` strands the hook's `dragId` for the session; losing
+  //  `onKeyDown` removes the only mouse-free reorder path.
+  it("forwards onDragEnd to the grip", () => {
+    const onDragEnd = vi.fn();
+    render(<DragHandle ariaLabel="Reorder – Row 1" draggable onDragEnd={onDragEnd} />);
+    fireEvent.dragEnd(screen.getByRole("button", { name: "Reorder – Row 1" }));
+    expect(onDragEnd).toHaveBeenCalled();
+  });
+
+  it("forwards onKeyDown so the arrow-key reorder path works", async () => {
+    const onKeyDown = vi.fn();
+    const user = userEvent.setup();
+    render(<DragHandle ariaLabel="Reorder – Row 1" draggable onKeyDown={onKeyDown} />);
+    // ★ `.focus()` never proves focusability — it succeeds on an element the
+    //  keyboard can never reach. Tab to it.
+    await user.tab();
+    expect(screen.getByRole("button", { name: "Reorder – Row 1" })).toHaveFocus();
+    await user.keyboard("{ArrowDown}");
+    expect(onKeyDown).toHaveBeenCalled();
+  });
+
   it("fires onMouseDown", () => {
     const onMouseDown = vi.fn();
     const { container } = render(<DragHandle onMouseDown={onMouseDown} />);
@@ -50,5 +86,30 @@ describe("DragHandle", () => {
     // Base classes (generic to any drag handle) survive alongside it.
     expect(handle.className).toContain("select-none");
     expect(handle.className).toContain("print:hidden");
+  });
+
+  // ★★ A grip is PRESSED and held for the whole gesture, so the accessible
+  //  variant deliberately uses a `focus-visible:` ring instead of the shared
+  //  `focus:`-based FOCUS_RING — a `focus:` ring would paint for the drag's
+  //  entire duration. This mirrors all five hand-rolled reorder grips.
+  //  Asserting the ABSENCE of `focus:ring-2` is what makes it a real guard:
+  //  reverting to FOCUS_RING keeps a ring but fails here.
+  it("gives the accessible variant a focus-visible ring, not a focus: ring", () => {
+    const { container } = render(<DragHandle ariaLabel="Reorder – Row 1" />);
+    const cls = (container.firstElementChild as HTMLElement).className;
+    expect(cls).toContain("focus-visible:ring-2");
+    expect(cls).toContain("focus-visible:ring-ui-green");
+    expect(cls).not.toContain("focus:ring-2");
+    expect(cls).not.toContain("focus:ring-ui-green");
+    // outline-none stays on plain `focus:` — matching every other
+    // focus-visible ring call site in src/app.
+    expect(cls).toContain("focus:outline-none");
+  });
+
+  it("gives the decorative variant no focus ring at all", () => {
+    const { container } = render(<DragHandle />);
+    const cls = (container.firstElementChild as HTMLElement).className;
+    expect(cls).not.toContain("ring-2");
+    expect(cls).not.toContain("ring-ui-green");
   });
 });
