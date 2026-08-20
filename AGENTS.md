@@ -1229,13 +1229,25 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
   paragraph but the SELECTED one collapses read-only with a "select this block" button, and the selected
   block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
-  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★ A
-  zero-block document explains itself and offers a control that appends one paragraph — labelled "Add a
-  paragraph" (`documentsAddBlock`), not "Add block"; it adds ONE kind, and there is no block-kind picker.
+  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★★ A
+  zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
+  REWORDED from "Add a paragraph" when the kind picker landed) that opens the SAME `BlockKindMenu` the
+  per-row gutter uses, over every member of `ADDABLE_BLOCK_TYPES`. ★★ It INSERTS at index 0 through
+  `structural.insert`; the hand-editor's `appendBlock` path was REMOVED, so nothing on this surface
+  appends any more — the `{op:"append"}` ENGINE op stays live and is still what the AI document tools
+  emit, and flattening those two together is the easy mistake. ★ Do not quote a kind COUNT here; derive it
+  with `grep -n "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts`, and read the behaviour off the
+  "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
   ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
   before-image or mints a new one lives beside the version model, not here — see
   `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.
-  ★★ This surface is entirely OUTSIDE axe `A11Y_VIEWS` coverage — `docs/open-followups.md` §184.
+  ★★★ This surface WAS entirely outside axe `A11Y_VIEWS` coverage and no longer is —
+  `docs/open-followups.md` §184 is CLOSED. `e2e/a11y.spec.ts` drives Documents into edit mode (a DOM
+  click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
+  so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
+  still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
+  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by
+  `document-block-gutter.test.tsx` ALONE, and no gate will ever tell you if it regresses.
   ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
   `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
   because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a
