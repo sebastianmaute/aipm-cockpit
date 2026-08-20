@@ -76,6 +76,20 @@ describe("the lazy editor's append queue", () => {
     //   deleting the guard leaves rich-text-editor.test.tsx green (46 passed) and
     //   reddens this line. ★ Scoped to THAT mutant on purpose — it is not a claim
     //   that nothing else in the repo exercises `opts.focus` at all.
+    // ★★★ FLUSH A FRAME FIRST — an ABSENCE assertion proves nothing until the thing
+    //   it denies has had its chance to happen. Under jsdom every UA check in tiptap's
+    //   `focus()` is false, so it takes the requestAnimationFrame path, and jsdom fires
+    //   rAF on a ~16.7ms interval while RTL can resume the awaited `findByRole` above
+    //   much sooner than that. Assert into that window and the mutant's focus has simply
+    //   not run yet: `activeElement` is still `document.body`, the line below PASSES, and
+    //   the guard stops guarding without ever going red — the direction nobody finds out
+    //   about. ★★ Measured 2026-08-20, not assumed: the mutant DOES die 3/3 without this
+    //   wait on a quiet machine, so this is insurance against a load-dependent silent
+    //   pass, not the repair of a broken kill. It was added with the kill re-proved on
+    //   both sides of it.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
     expect(document.activeElement).not.toBe(editor);
 
     // ★★★ THE TWO ROUTES AGREE — this is what §192 is actually about. Above, the
