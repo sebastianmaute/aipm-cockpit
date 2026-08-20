@@ -12649,7 +12649,7 @@ PREPENDED. Surprising, but deterministic. This branch added the second branch, a
 with it a coin flip.
 
 `note-log-panel.tsx` calls `appendText(txt)` with NO `opts`, at two sites. Through
-the lazy wrapper that reaches either branch depending on whether Tiptap's ~428 kB
+the lazy wrapper that reaches either branch depending on whether Tiptap's
 chunk had landed when the user pressed the mic:
 
 | chunk state at the call | route | result on `<p>existing</p>` |
@@ -12707,3 +12707,62 @@ cannot:
 3 still looks right and is not free; it wants its own slice rather than being
 smuggled into a lazy-loading branch. Found while verifying an unrelated review
 finding, which is why it is written down rather than fixed here.
+
+## 193. Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted
+
+**Status:** open — pure cleanup, no behaviour change, deliberately NOT done inside
+the 0.250.0 branch.
+
+`vitest.setup.ts` sets `configure({ asyncUtilTimeout: 15000 })` globally. Nine
+`findBy*` calls still pass `{ timeout: 15_000 }` explicitly, across six files:
+
+    grep -rn "{ timeout: 15_000 }" src --include=*.tsx
+
+    document-block-editors.test.tsx        (3)
+    document-editor.test.tsx               (2)
+    note-log-panel.dictation.test.tsx       (1)
+    note-log-panel.dictation-live.test.tsx  (1)
+    note-log-panel.dictation-cancel.test.tsx(1)
+    rich-text-editor-lazy.queue.test.tsx    (1)
+
+Each is a no-op: it re-states the global. Removing all nine is behaviour-identical.
+
+★★★ **DO NOT REMOVE THEM ONE AT A TIME.** 0.250.0 removed exactly one — the queue
+suite's — and a cold review caught the result: a SPLIT, where eight sites carry the
+literal and one does not, which reads as though the one carried a deliberate
+exception. It was reverted. Either all nine go in one commit or none do.
+
+★★ **AND FIX THE COUNT IN `vitest.setup.ts` IN THAT SAME COMMIT** — or better,
+remove it. The comment there once read "15s matches what the four lazy-editor
+suites already pass explicitly". That was wrong before anyone noticed: the suites
+passing it are not four, are not all lazy-editor suites, and the set moves whenever
+a Tiptap-mounting test is added. It now names no number, which is the state to keep.
+This is the same class as §131 and the AGENTS.md counts landmine — a count is the
+easiest claim to check and the easiest to leave rotting.
+
+## 194. The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE
+
+**Status:** open — a deliberate gap, filed because 0.250.0 deleted the thing that
+was standing in for it.
+
+`rich-text-editor-lazy.strictmode.test.tsx` was deleted in 0.250.0. Its own header
+already conceded "no mutant is known that this file kills and `*.queue.test.tsx`
+does not", and a cold review measured why: its only assertion is the editor's FINAL
+HTML, and `attach` returns early on an empty queue, so a second LIVE attach — the
+exact thing a future React double-invoke would cause — produces byte-identical HTML.
+The tripwire could not observe the condition it existed to guard.
+
+Deleting it was right. But the branch now has ZERO StrictMode execution of the queue
+path, so the honest state is a gap, not a solved problem.
+
+★★ **THE REPLACEMENT IS A DIFFERENT TEST, NOT A RE-ADD.** It has to assert the
+attach SEQUENCE — how many times `attach` runs, with what queue depth each time —
+not the text that falls out the end. A spy on the attach path with an ordered call
+log is the shape; final-HTML equality is the shape that already failed.
+
+★★★ Read `src/app/strictmode.meta.test.tsx` BEFORE writing it. React's
+double-invoke walk fires only at the topmost fiber flagged for PLACEMENT, so
+`wrapper: StrictMode` and RTL's `reactStrictMode: true` work while composing
+StrictMode inside a wrapper does NOT — and a test written the wrong way passes with
+the line it claims to pin DELETED. Mutation-test the guard, or it is worse than the
+one that was removed.

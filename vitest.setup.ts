@@ -27,8 +27,11 @@ import { server } from "./src/test/msw-server";
 // starvation shape this block already existed for, with a new and much larger
 // first-hit cost on top.
 //
-// ★★ 15s matches what the four lazy-editor suites already pass explicitly, so
-// there is now one number rather than two. It sits under the 20s testTimeout,
+// ★★ 15s matches what the Tiptap-mounting suites already pass explicitly at their
+// own waits, so there is one number rather than two. NO COUNT OF THOSE SUITES IS
+// GIVEN: a cold review found the number here had already rotted, and those explicit
+// copies are now redundant with this line anyway (docs/open-followups.md §193).
+// It sits under the 20s testTimeout,
 // but the margin is thinner than it was: a test with TWO failing waits will now
 // hit the test timeout rather than reporting a clean assertion failure. If that
 // starts happening, split the test rather than trimming this back — the waits

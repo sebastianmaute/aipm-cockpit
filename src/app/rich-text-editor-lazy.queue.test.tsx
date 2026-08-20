@@ -45,11 +45,11 @@ describe("the lazy editor's append queue", () => {
       ref.current?.appendText("queued while loading");
     });
 
-    // No explicit timeout: `vitest.setup.ts` raises `asyncUtilTimeout` to 15s for
-    // the whole suite, because a cold Tiptap transform can outlast the 5s default
-    // on a loaded machine. Two waits of 15s still exceed the 20s `testTimeout`, so
-    // a test needing several is the shape to watch.
-    const editor = await screen.findByRole("textbox", { name: "Description" });
+    // 15s because a cold Tiptap transform can outlast RTL's 5s default on a loaded
+    // machine. Redundant with `vitest.setup.ts`'s global `asyncUtilTimeout`, and
+    // deliberately left in step with the eight other explicit copies rather than
+    // removed here alone (docs/open-followups.md §193).
+    const editor = await screen.findByRole("textbox", { name: "Description" }, { timeout: 15_000 });
     expect(editor.textContent).toContain("existing");
     expect(editor.textContent).toContain("queued while loading");
 

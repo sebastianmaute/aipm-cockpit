@@ -110,20 +110,29 @@ const LABELABLE = /<(input|select|textarea|Input|Select|Textarea|Checkbox|Resour
 //
 // ★★ The local stripper this replaced was ALSO CORRUPTING THIS SCAN'S INPUT, which
 // nothing noticed for as long as it existed. Its `{\s*/\*…\*/\s*}` rule matched from
-// an unrelated `{` to a much later `*/}` and blanked REAL CODE — 47,380
-// non-whitespace characters across 164 files in `src`, including whole `import`
-// blocks — so the tokenizer below was reading a mangled file. Still reproducible:
-// the regexes are at `git show 333f1dd3:src/app/label-binding.guard.test.ts`, and
-// the measurement compares, per position, what they blank against the comment
-// ranges `src/test/strip-comments.ts` reports.
+// an unrelated `{` to a much later `*/}` and blanked REAL CODE — whole `import`
+// blocks among it — so the tokenizer below was reading a mangled file. Still
+// reproducible: the regexes are at `git show
+// 333f1dd3:src/app/label-binding.guard.test.ts`, and the measurement compares, per
+// position, what they blank against the comment ranges `src/test/strip-comments.ts`
+// reports. ★★ No total is quoted here, and one was removed: see the note in that
+// module on why a whole-tree aggregate cannot survive the commit that quotes it.
 // ★★★ THE GUARANTEE IS ONE-SIDED, AND AN EARLIER REVISION HERE CLAIMED BOTH HALVES
 // ("zero characters blanked that are not in a comment, zero comment characters left
 // readable"). The second half was FALSE when written — the stripper parsed every
 // file as TSX, so `workspace.ts`'s non-comma generic arrow opened a JSX element and
 // left 8,250 comment characters readable — and the check could not see it, because
 // its reference shared the same misparse. What holds today, measured against an
-// INDEPENDENT reference (the union of every significant token's span, which can
-// never be a comment): zero over-blanking across every `.ts`/`.tsx` file in `src`.
+// INDEPENDENT reference — the union of every significant token's span, EXCLUDING
+// nodes between `FirstJSDocNode` and `LastJSDocNode`: zero over-blanking across
+// every `.ts`/`.tsx` file in `src`.
+// ★★★ THAT EXCLUSION IS THE MEASUREMENT, NOT A DETAIL, and an earlier revision of
+// this sentence omitted it — so anyone re-deriving the claim the way it was written
+// would have DISPROVED a true statement. TypeScript hangs JSDoc nodes off the
+// declaration they document, so a leaf walk masks the identifiers inside every
+// `/** … */` block as "significant", i.e. as code the stripper must not touch. Run
+// the reference without the exclusion and it reports over-blanking across most of
+// `src` on a tree where the real answer is zero.
 // That is the direction that matters — over-blanking DELETES code from the text
 // this scan reads, while a comment left readable merely restores the behaviour
 // every earlier cut had. Nothing that shares the parser can prove the other half,

@@ -18,10 +18,21 @@
 //      comment readable — including, in the lazy-editor suite, the assertion
 //      added to prove no prose had been read. Its `{\s*/\*…\*/\s*}` rule also
 //      spanned from an unrelated `{` to a much later `*/}` and blanked REAL
-//      CODE: 47,380 non-whitespace characters across 164 files in `src`, e.g.
-//      the `import` lines at the top of `api/jira/_helpers.ts`. That one is
-//      still reproducible — the regexes are in git (`git show
-//      333f1dd3:src/app/label-binding.guard.test.ts`), and the measurement is a
+//      CODE across a wide swathe of `src` — whole `import` blocks, e.g. at the
+//      top of `api/jira/_helpers.ts`.
+//      ★★★ NO TOTAL IS QUOTED, and the reason generalises past this line. Two
+//      successive revisions here quoted one, and the second was ALREADY WRONG
+//      IN THE COMMIT THAT SHIPPED IT: the figure is an aggregate over ~1,800
+//      files, this file and `strip-comments.test.ts` are two of them, and the
+//      same commit that re-derived the number edited both. Measured by a cold
+//      review — 47,380 at the parent, 48,512 one commit later, +1,107 of it
+//      from the test file added to prove the very fix being described.
+//      ★★ So the rule is not "re-derive it" but: A WHOLE-TREE AGGREGATE
+//      RE-DERIVED DURING A FIX ROUND MUST BE RE-DERIVED AFTER THAT ROUND'S LAST
+//      EDIT, because the round edits files inside the population it counts. A
+//      number that cannot be pinned to a REVISION does not belong in prose.
+//      Reproduce it if you need it: the regexes are in git (`git show
+//      333f1dd3:src/app/label-binding.guard.test.ts`) and the method is a
 //      per-position comparison of what they blank against this module's ranges.
 //   2. A string-tracking scanner. Treated a template literal as opaque to its
 //      closing backtick, so `//` comments inside a `${…}` INTERPOLATION

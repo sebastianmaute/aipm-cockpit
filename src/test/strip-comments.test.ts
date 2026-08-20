@@ -48,10 +48,16 @@ describe("stripComments", () => {
     //   `getLeadingCommentRanges` scans the TEXT — but reports a comment only
     //   when that text BEGINS `//` or `/*`. With `https:` in front the query
     //   never fired, so this passed for a reason unrelated to its name while the
-    //   parser cut blanked 27 characters of markup one prefix away. A test named
-    //   after a bug it cannot observe is worse than no test.
+    //   parser cut blanked the whole URL line one prefix away. A test named after
+    //   a bug it cannot observe is worse than no test.
+    // ★★ BOTH SHAPES ARE ASSERTED. `//…` is what reaches the bug; `https://…` is
+    //   what `src` actually contains (`timelog-settings.tsx`), and dropping it
+    //   would leave the real-world shape uncovered against some future cut whose
+    //   blind spot is the other way round.
     const src = "<p>\n  //login.example.com/token\n  <b>after</b>\n</p>\n";
     expect(stripComments(src)).toBe(src);
+    const real = "<p>\n  https://login.timelog.com/personaltoken\n  <b>after</b>\n</p>\n";
+    expect(stripComments(real)).toBe(real);
   });
 
   it("blanks a // comment inside a template-literal ${…} interpolation", () => {
