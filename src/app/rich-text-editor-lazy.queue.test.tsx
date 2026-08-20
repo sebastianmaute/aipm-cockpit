@@ -69,10 +69,13 @@ describe("the lazy editor's append queue", () => {
     //   a moment the NETWORK chose, stealing the caret from wherever the user
     //   actually is. So the assertion moved from position to focus. This is the
     //   only thing in the suite that kills that mutant now.
-    // ★★ It is also the only thing in the REPO that kills the handle's own
-    //   `if (opts?.focus !== false)` guard: after §192, `opts.focus` is observable
-    //   only through focus, never through the asserted HTML, so deleting that guard
-    //   leaves every test in rich-text-editor.test.tsx green.
+    // ★★ It is also the only thing in the REPO that kills ONE mutant on the
+    //   handle's own guard: DELETING `if (opts?.focus !== false)` so focus is
+    //   unconditional. After §192, `opts.focus` is observable only through focus
+    //   and never through the asserted HTML. Measured 2026-08-20, not assumed:
+    //   deleting the guard leaves rich-text-editor.test.tsx green (46 passed) and
+    //   reddens this line. ★ Scoped to THAT mutant on purpose — it is not a claim
+    //   that nothing else in the repo exercises `opts.focus` at all.
     expect(document.activeElement).not.toBe(editor);
 
     // ★★★ THE TWO ROUTES AGREE — this is what §192 is actually about. Above, the
