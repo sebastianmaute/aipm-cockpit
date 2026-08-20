@@ -115,12 +115,11 @@ describe("buildChatPointerBlock is bounded only because threadTitle bounds it", 
   // ★★ The mutant: drop the `sanitizeMultiline(raw, THREAD_NAME_MAX)` clip from
   //   `threadTitle` and this goes red. Nothing else IN THIS FILE does — which is
   //   the scope §175's own resolution states, and the only scope this claim ever
-  //   had. It said "nothing else in the suite", which is false: the producer-side
-  //   cap is ALSO guarded in `chat-search.test.ts`, where the same mutant reddens
-  //   both the `toHaveLength(THREAD_NAME_MAX + 1)` assertion and the cap-then-
-  //   flatten test (§176). ★ Do not read this line as licence to delete either of
-  //   those — this file pins the COMPOSITION through the renderer, that one pins
-  //   the producer itself, and neither substitutes for the other.
+  //   had. It said "nothing else in the suite", which is false: SEVERAL tests in
+  //   `chat-search.test.ts` die under this same mutant, which is exactly why the
+  //   claim here is scoped to this file. ★ Do not read this line as licence to
+  //   delete them — this file pins the COMPOSITION through the renderer, that one
+  //   pins the producer itself, and neither substitutes for the other.
   it("clips a 5000-character thread name before it can reach the system prompt", () => {
     const th: ChatThread = {
       id: "t1",
