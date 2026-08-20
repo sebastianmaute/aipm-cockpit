@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { stripComments } from "../test/strip-comments";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -98,30 +99,21 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
 // task form's Assignee field, whose `ResourcePicker` does lead with an input.
 const LABELABLE = /<(input|select|textarea|Input|Select|Textarea|Checkbox|ResourcePicker|ComboInput)\b/;
 
-/**
- * Source with every comment blanked to SPACES of the same length.
- *
- * ★★ Length-preserving on purpose: `standsFirst` compares match INDEXES and the
- * tokenizer reports line numbers, so deleting the text outright would move both.
- * Newlines are kept for the same reason.
- * ★★ Why it exists at all — measured against the pre-strip scanner: a JSX comment
- * inside a label body that merely NAMES a labelable tag (a landmine line such as
- * "mirrors the `<Input>` pattern") made a real button-first widget after it read
- * as trailing, a SILENT miss; and a
- * comment containing `<label>` re-paired the tokenizer's stack, so the block it
- * emitted carried the comment's (empty) attrs and a correctly-`htmlFor`'d label
- * read as unnamed. This repo's house style is landmine comments full of backticked
- * tag names, so both are realistic rather than contrived.
- * ★ Line comments are stripped only when they START a line — a bare `//` rule
- * would eat the `//` of a URL in an attribute and truncate anything after it.
- */
-export function stripComments(src: string): string {
-  const blank = (m: string) => m.replace(/[^\r\n]/g, " ");
-  return src
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, blank)
-    .replace(/\/\*[\s\S]*?\*\//g, blank)
-    .replace(/^[ \t]*\/\/.*$/gm, blank);
-}
+// ★★ Why stripping exists at all — measured against the pre-strip scanner: a JSX
+// comment inside a label body that merely NAMES a labelable tag (a landmine line
+// such as "mirrors the `<Input>` pattern") made a real button-first widget after
+// it read as trailing, a SILENT miss; and a comment containing `<label>` re-paired
+// the tokenizer's stack, so the block it emitted carried the comment's (empty)
+// attrs and a correctly-`htmlFor`'d label read as unnamed. This repo's house style
+// is landmine comments full of backticked tag names, so both are realistic rather
+// than contrived.
+//
+// ★★ The local stripper this replaced blanked a `//` comment only when it STARTED
+// a line — deliberately, to protect the `//` of a URL in an attribute. The shared
+// scanner tracks strings instead, so it protects the URL AND blanks the trailing
+// comment the line-start rule left readable. It is length-preserving for the same
+// reason the local one was: `standsFirst` compares match INDEXES and the tokenizer
+// reports line numbers off this output.
 
 /** Balanced `<tag …> … </tag>` bodies, self-closing tags skipped (no children
  *  means nothing can be adopted). A stack, not a lazy `.*?`, so a nested tag of
