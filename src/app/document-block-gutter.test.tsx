@@ -144,13 +144,11 @@ describe("DocumentBlockGutter", () => {
   });
 
   // ★★ `aria-expanded` alone says a thing is open or shut; it does not say
-  //  there is anything to open. Every other trigger in the app that opens a
-  //  `PopoverPanel role="dialog"` pairs the two — action-popover-trigger,
-  //  ask-claude-menu, modal-field-controls, resource-workload-triage,
-  //  undo-control, action-cta-controls — and the VALUE must match the role the
-  //  panel actually renders, which for both panels on this surface is
-  //  `dialog`, not `menu`. axe flags neither the omission nor a mismatch, so
-  //  this test is the only coverage.
+  //  there is anything to open. The VALUE must match the role the panel
+  //  actually renders, which for both panels on this surface is `dialog`, not
+  //  `menu`. No axe rule under the gate's four tags evaluates `aria-haspopup`
+  //  against the popup it opens, so the gate flags neither the omission nor a
+  //  mismatch.
   it("declares that the actions trigger opens a dialog", () => {
     renderRows([P]);
     const trigger = screen.getByRole("button", { name: "Block actions – Block 1" });

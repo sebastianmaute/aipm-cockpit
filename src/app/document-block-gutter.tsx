@@ -116,10 +116,9 @@ export function DocumentBlockGutter({
           size="xs"
           aria-label={rowName("documentsBlockActions")}
           // ★★ `dialog`, matching the role the PopoverPanel below actually
-          //  renders — the convention every other dialog-opening trigger in
-          //  the app follows. `aria-expanded` alone says a thing is open or
-          //  shut without saying there is anything to open, and axe flags
-          //  neither the omission nor a value that contradicts the panel.
+          //  renders. `aria-expanded` alone says a thing is open or shut
+          //  without saying there is anything to open, and axe flags neither
+          //  the omission nor a value that contradicts the panel.
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={() => (open ? close() : setOpen(true))}
