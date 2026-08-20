@@ -50,6 +50,17 @@ describe("move", () => {
     expect(rejected[0]).toContain("out of range");
   });
 
+  // ★ Names the destination so it distinguishes WHICH of the two range guards
+  //  fired, unlike the `from` test above — `Number.isInteger(op.to)` survived
+  //  deletion otherwise: the remaining range check passes a fractional `to`,
+  //  `from !== to` holds, and `splice(1.5, 0, moved)` truncates to 1 and
+  //  applies with no rejection.
+  it("refuses a non-integer `to`", () => {
+    const { next, rejected } = run([{ op: "move", from: 0, to: 1.5 }]);
+    expect(next).toBeNull();
+    expect(rejected[0]).toContain("move to 1.5 out of range");
+  });
+
   // ★ `changed` is derived from the applied COUNT, never from comparing the
   //  result, so an applied self-move would mint a version before-image
   //  recording nothing at all.
