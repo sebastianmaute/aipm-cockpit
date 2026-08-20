@@ -306,6 +306,22 @@ export function RichTextEditor(props: RichTextEditorProps) {
         // buffering caller re-queue it forever.
         if (!text) return true;
         if (!editor) return false;
+        // ★★★ THE TWO BRANCHES INSERT IN DIFFERENT PLACES, AND THE DEFAULT ONE IS
+        // NOT AN APPEND. Measured through the real editor, same fixture
+        // `<p>existing</p>`, editor never focused:
+        //     appendText(" appended")                 -> "<p> appendedexisting</p>"
+        //     appendText(" appended", {focus:false})  -> "<p>existing appended</p>"
+        // The default branch inserts AT THE SELECTION, which on an editor the user
+        // has never clicked into is the start of the document — so it PREPENDS.
+        // That is the behaviour `main` has always had (its docstring said "insert
+        // at the caret", which is accurate; the method NAME is what misleads), and
+        // it is deliberately unchanged here: a user dictating with the caret placed
+        // mid-sentence wants the text at the caret, not at the end.
+        // ★★ The asymmetry is therefore intended, but its EDGE is not: dictating
+        // into a note that already has text, without first clicking into it, puts
+        // the transcript at the front. `docs/open-followups.md` §192 carries that
+        // decision; the two "appendText lands" tests in `rich-text-editor.test.tsx`
+        // pin BOTH strings so neither branch can drift into the other in silence.
         const chain = editor.chain();
         // ★★ RETURN the chain's verdict rather than an unconditional true.
         // `insertContentAt` returns false on a content error (it catches, emits

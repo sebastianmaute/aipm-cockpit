@@ -12633,3 +12633,45 @@ ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
 `DocBlock` kind would silently be classified as never-truncating. The predicate's
 arms are now pinned individually in `document-model.test.ts`, but nothing forces
 a new arm when the union grows.
+
+## 192. `appendText` PREPENDS when the editor has never been focused
+
+**Status:** open — a decision, not a defect report. Behaviour is unchanged from
+`main` and is pinned by the two "appendText lands" tests in
+`rich-text-editor.test.tsx`, so it cannot drift silently.
+
+`RichTextEditorHandle.appendText` has two branches and they insert in different
+places. Measured through the real editor, fixture `<p>existing</p>`, editor never
+focused:
+
+| call | result |
+|---|---|
+| `appendText(" appended")` | `<p> appendedexisting</p>` |
+| `appendText(" appended", {focus:false})` | `<p>existing appended</p>` |
+
+The default branch is `chain().focus().insertContent(…)`, which inserts at the
+SELECTION. On an editor nobody has clicked into, that selection is the start of
+the document, so the text lands at the front. The deferred branch cannot use the
+selection at all — its moment is chosen by the network — so it computes the end
+of the last textblock (`appendPos`) and inserts there.
+
+Insert-at-the-caret is the RIGHT default for a user dictating mid-sentence, and
+`main`'s own docstring described the method that way ("insert plain text at the
+caret"). The method NAME is what misleads. The edge that is genuinely surprising:
+open an existing note for editing, press the mic WITHOUT clicking into the text,
+and the transcript is prepended to the stored note.
+
+**Options, none taken:**
+
+1. Leave it. Correct for the mid-sentence case, surprising for the never-focused
+   one. This is the status quo.
+2. Route BOTH branches through `appendPos`, differing only in whether they focus.
+   Makes the name true and fixes the edge, but moves a mid-sentence dictation to
+   the end of the note, which is a real regression for the main use.
+3. Branch on whether the editor has ever held a selection: caret if it has, end of
+   document if it has not. Matches what a user would predict in both cases, and is
+   the only option that needs no trade — at the cost of a third state to carry.
+
+3 looks right and is not free; it wants its own slice rather than being smuggled
+into a lazy-loading branch. Found while verifying an unrelated review finding,
+which is why it is written down rather than fixed here.

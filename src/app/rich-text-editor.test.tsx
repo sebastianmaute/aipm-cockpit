@@ -316,6 +316,53 @@ describe("RichTextEditor imperative handle", () => {
     expect(html).toContain("&lt;b&gt;");
     expect(html).not.toContain("<b>x</b>");
   });
+
+  // ★★★ THE TWO BRANCHES OF `appendText` LAND IN DIFFERENT PLACES, and the test
+  // above cannot see it: `toContain("world")` passes whether the text went to the
+  // front or the back. Both cases below assert the WHOLE document for that reason.
+  // The behaviour is deliberate and unchanged from `main` — see the ★★★ block on
+  // `appendText` in `rich-text-editor.tsx` and `docs/open-followups.md` §192 —
+  // so these are CHARACTERIZATION: if one of them goes red, someone has changed
+  // which end the text lands at, and that is a decision to make on purpose.
+  it("appendText lands at the caret by default, which is the START of an editor nobody has focused", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor value="<p>existing</p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText(" appended")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    // Clicking the BUTTON leaves the editor unfocused, which is the state a user
+    // reaches by pressing the mic without clicking into the text first.
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls.at(-1)![0]).toBe("<p> appendedexisting</p>");
+  });
+
+  it("appendText lands at the end of the last textblock when told not to focus", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor value="<p>existing</p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText(" appended", { focus: false })}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    // Not `doc.content.size`: that is a DOC-level position after the last block,
+    // where ProseMirror cannot place text and wraps it in a new paragraph.
+    expect(onChange.mock.calls.at(-1)![0]).toBe("<p>existing appended</p>");
+  });
 });
 
 describe("RichTextEditor commitOnEnter", () => {
