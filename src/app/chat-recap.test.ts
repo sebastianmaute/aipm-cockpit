@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { buildChatPointerBlock } from "./chat-recap";
-import type { ChatPointer } from "./chat-search";
+import { threadTitle, type ChatPointer } from "./chat-search";
+import { THREAD_NAME_MAX, type ChatThread } from "./chat-threads";
 
 const POINTER: ChatPointer = {
   count: 4,
@@ -98,5 +99,39 @@ describe("buildChatPointerBlock", () => {
       OFFERED,
     );
     expect(out).not.toContain('""');
+  });
+});
+
+describe("buildChatPointerBlock is bounded only because threadTitle bounds it", () => {
+  // ★★★ THIS TESTS THE COMPOSITION ON PURPOSE. `buildChatPointerBlock` clips
+  //   nothing and must not start: `inlineTitle`'s docstring says the cap lives at
+  //   the PRODUCER (`threadTitle`), one point for all three emitters, "Do not
+  //   re-add a clip here." So a test feeding this function an unbounded title
+  //   directly could only pass by adding the clip that comment forbids.
+  //   docs/open-followups.md §175 asks for the direct feed; its own neighbouring
+  //   text rules it out. What is worth pinning is that the ONLY producer really
+  //   does bound what reaches the sink — the property is true today by
+  //   single-producer accident, and this is what makes it checkable.
+  // ★★ The mutant: drop the `sanitizeMultiline(raw, THREAD_NAME_MAX)` clip from
+  //   `threadTitle` and this goes red. Nothing else in the suite does.
+  it("clips a 5000-character thread name before it can reach the system prompt", () => {
+    const th: ChatThread = {
+      id: "t1",
+      projectId: "default",
+      name: "x".repeat(5000),
+      createdAt: "2026-08-01T00:00:00.000Z",
+      updatedAt: "2026-08-01T00:00:00.000Z",
+      history: [],
+      display: [],
+    };
+    const title = threadTitle(th);
+    const block = buildChatPointerBlock(
+      { count: 1, recent: [{ title, at: "2026-08-20" }] },
+      new Set<string>(),
+    );
+    // THREAD_NAME_MAX units plus at most one appended ellipsis.
+    expect(title.length).toBeLessThanOrEqual(THREAD_NAME_MAX + 1);
+    expect(block).toContain(`"${"x".repeat(THREAD_NAME_MAX)}…"`);
+    expect(block.length).toBeLessThan(200);
   });
 });
