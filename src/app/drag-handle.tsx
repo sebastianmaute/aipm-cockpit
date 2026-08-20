@@ -6,13 +6,18 @@ import { TRANSITION } from "./interaction-styles";
 /** Grip focus ring — deliberately `focus-visible:`, NOT the shared FOCUS_RING
  *  primitive (which is `focus:`). A grip is PRESSED and held for the whole
  *  gesture, so a `focus:` ring would paint for the drag's entire duration.
- *  All five hand-rolled reorder grips reached this independently and spell it
- *  exactly this way — reports.tsx, budget-panel.tsx, dashboard-tile.tsx, and
- *  roles-editor.tsx's two via its own REORDER_HANDLE_CLASS; dashboard-tile.tsx
- *  carries the rationale inline. `outline-none` deliberately stays on plain
- *  `focus:`, matching every focus-visible ring call site in the app.
- *  ★ No count is quoted on purpose: the constant below IS one of those call
- *  sites, so any grep for the spelling now matches this file too. */
+ *  All five hand-rolled reorder grips HAD reached this independently and spelt
+ *  it exactly this way — reports.tsx, budget-panel.tsx, dashboard-tile.tsx, and
+ *  roles-editor.tsx's two via its own REORDER_HANDLE_CLASS. All five have since
+ *  MIGRATED onto this primitive, so no REORDER GRIP spells it any more and
+ *  REORDER_HANDLE_CLASS is down to `cursor-move text-muted-foreground`.
+ *  `outline-none` deliberately stays on plain `focus:`, matching every
+ *  focus-visible ring call site in the app.
+ *  ★ No count is quoted on purpose, and the scope above is GRIPS only: the
+ *  same three classes are spelt inline by several non-grip controls (the
+ *  help and notes windows, the register name buttons), and the constant
+ *  below is itself a match, so any grep for the spelling hits this file too.
+ *  Re-derive with `grep -rn "focus-visible:ring-ui-green" src/app`. */
 const GRIP_FOCUS_RING =
   "focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green";
 
@@ -40,11 +45,13 @@ const GRIP_FOCUS_RING =
  * without `onKeyDown` there is no ArrowUp/ArrowDown reorder, which is the
  * ONLY reorder path available without a mouse.
  *
- * ★ Forwarding them MIGRATES NOTHING BY ITSELF. The five hand-rolled reorder
- * grips (reports.tsx, budget-panel.tsx, dashboard-tile.tsx, roles-editor.tsx
- * ×2) are still hand-rolled `<button>`s; docs/handrolled-ui-inventory.md
- * records the gap above as the reason. This change removes that blocker —
- * it does not close the inventory row.
+ * ★ Forwarding them MIGRATED NOTHING BY ITSELF — it removed the blocker. At
+ * the time it landed, the five hand-rolled reorder grips (reports.tsx,
+ * budget-panel.tsx, dashboard-tile.tsx, roles-editor.tsx ×2) were still
+ * hand-rolled `<button>`s and docs/handrolled-ui-inventory.md recorded the
+ * missing forwarding as the reason. All five were migrated onto this
+ * primitive three commits later, and that inventory row now reads
+ * "converted — none left hand-rolled".
  */
 // NOTE: named DragGripProps, not DragHandleProps — `use-draggable.ts` already
 // exports an unrelated DragHandleProps (window-repositioning drag, consumed by

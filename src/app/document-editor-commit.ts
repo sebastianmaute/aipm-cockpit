@@ -147,9 +147,9 @@ export function paragraphHasImage(html: string): boolean {
  *  moved. */
 export { blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-model";
 
-/** The single op a block edit produces. Block CONTENT is in scope for this
- *  slice; the SET of blocks is not, so nothing here appends, inserts or
- *  deletes.
+/** The single op a block *content* edit produces. (The SET of blocks is in
+ *  scope too now — `insertBlockOp` / `deleteBlockOp` / `moveBlockOp` are a
+ *  few lines below.)
  *
  *  ★★★ `expect` IS THE DRAFT'S BASELINE — the block this edit was derived
  *   from — and it is what makes the concurrent-write guard un-foolable. The

@@ -7068,11 +7068,16 @@ shape recurred six times in one release.
 
 ### Deliberately out of scope, recorded so it is not an accidental gap
 
-Block add/remove/reorder and a figure block (a later structural slice — so S3b's gutter carries the
-kind chip and ⋮ but **no drag handle**; a handle that does nothing is worse than none); search and
+A figure block; search and
 replace (extension licence unverified); marks inside `heading.text`, `bullets.items` or table cells
 (all plain `string`); AI link/unlink tools and letting the model see a task's attached documents —
 **named explicitly so it does not become a fourth accidental gap beside §86 / §87 / §89**.
+
+★ **Block add / remove / reorder SHIPPED** in the structural slice that followed S3b and is no longer
+out of scope: the gutter now carries a real `DragHandle` grip (drag plus an ArrowUp/ArrowDown path,
+which is the only one touch and keyboard users have) and an actions menu that inserts and deletes,
+all three routed through `BlockStructuralOps`. Left in this list, the sentence read as a standing
+decision NOT to build it.
 
 ---
 
