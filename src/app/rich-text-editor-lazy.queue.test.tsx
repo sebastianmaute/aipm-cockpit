@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act, render, screen } from "@testing-library/react";
+import { act, render, screen, waitFor } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, it, expect, beforeAll } from "vitest";
 import { installRangePolyfills } from "../test/note-log-dictation";
@@ -50,17 +50,43 @@ describe("the lazy editor's append queue", () => {
     expect(editor.textContent).toContain("queued while loading");
 
     // ★★★ ASSERT THE BLOCK STRUCTURE, NOT JUST THE TEXT. `textContent` is blind to
-    // both things the deferred-append path can get wrong, and asserting it alone
-    // left the ONE line this wave adds to the raw editor completely unpinned:
+    // what the deferred-append path can get wrong, and asserting it alone left the
+    // ONE line this wave adds to the raw editor completely unpinned:
     //   · appending at `doc.content.size` (a DOC-level position, after the last
     //     block) makes ProseMirror wrap the text in a NEW paragraph, so an empty
     //     composer persists a stray leading `<p></p>`. See `appendPos`.
-    //   · dropping `{ focus: false }` routes the replay through `focus()` +
-    //     `insertContent`, which inserts at the SELECTION — start-of-document on an
-    //     editor the user has never focused — i.e. it PREPENDS.
-    // Both mutants keep every `textContent` assertion above green and change this
+    // That mutant keeps every `textContent` assertion above green and changes this
     // one, which is the whole reason it is here. Do not weaken it back to text.
     expect(html.at(-1)).toBe("<p>existingqueued while loading</p>");
+
+    // ★★★ THE SECOND MUTANT THIS BLOCK USED TO NAME IS DEAD, and it was killed
+    //   deliberately. It read: "dropping `{ focus: false }` routes the replay
+    //   through focus() + insertContent, which inserts at the SELECTION — i.e. it
+    //   PREPENDS." §192 split position from focus, so `opts` no longer decides
+    //   position and that mutant now changes NOTHING about the HTML. Measured, not
+    //   assumed: with the argument dropped this file stayed GREEN.
+    // ★★ Dropping it is still a real defect — the replay would FOCUS the editor at
+    //   a moment the NETWORK chose, stealing the caret from wherever the user
+    //   actually is. So the assertion moved from position to focus. This is the
+    //   only thing in the suite that kills that mutant now.
+    // ★★ It is also the only thing in the REPO that kills the handle's own
+    //   `if (opts?.focus !== false)` guard: after §192, `opts.focus` is observable
+    //   only through focus, never through the asserted HTML, so deleting that guard
+    //   leaves every test in rich-text-editor.test.tsx green.
+    expect(document.activeElement).not.toBe(editor);
+
+    // ★★★ THE TWO ROUTES AGREE — this is what §192 is actually about. Above, the
+    //   text went through the QUEUE (appended before the chunk resolved, replayed
+    //   on arrival). Here the same call runs LIVE against the same never-focused
+    //   editor. Before the fix these produced different documents and which one a
+    //   user got was decided by network timing; now they cannot diverge.
+    // ★★ Do not split this into a second `it` in this file: only the FIRST test in
+    //   a file gets an unresolved `dynamic()` import, so a second one would resolve
+    //   the chunk up front and never exercise the queued half at all.
+    act(() => {
+      ref.current?.appendText(" live");
+    });
+    await waitFor(() => expect(html.at(-1)).toBe("<p>existingqueued while loading live</p>"));
   });
 
   // ★★★ THE PREMISE ABOVE IS A PROPERTY OF THE RUNNER, NOT OF THIS FILE, AND
