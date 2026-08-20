@@ -6,16 +6,32 @@ import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor-la
 
 beforeAll(installRangePolyfills);
 
-// The append queue under React StrictMode — the one execution mode where the
-// flush can run more than once, and the one nothing pinned.
+// The append queue under React StrictMode.
 //
-// ★★★ THE FAILURE THIS EXISTS FOR IS A DUPLICATED TRANSCRIPT, not a lost one.
-// StrictMode mounts, unmounts and remounts, so `useImperativeHandle` in
-// `rich-text-editor.tsx` detaches with `null` and re-attaches — meaning `attach`
-// runs at least twice against the same queue. If the flush read `pending.current`
-// without swapping in a fresh array first, the second attach would replay the
-// same text into the editor again and the user's dictated sentence would appear
-// twice. Dev-only, and therefore exactly the kind of thing that ships.
+// ★★★ THIS IS A CHARACTERIZATION TEST AND IS LABELLED ONE DELIBERATELY. An
+// earlier version of this comment asserted the failure it guards against was a
+// DUPLICATED transcript — "the second attach would replay the same text again".
+// That is false, and it was measured false by instrumenting `attach` and running
+// both modes on a cold module:
+//     plain       ["obj/1","null/1","obj/1"]           html "<p>existingdictated</p>"
+//     StrictMode  ["obj/1","null/1","obj/1","null/1","obj/1"]  same html
+// StrictMode adds two more attaches, but the queue depth is 1 at EVERY one of
+// them: the extra handles are the dead ones `useImperativeHandle` attaches
+// before `editor` exists, they refuse, and `flushPending` puts the text straight
+// back. It drains exactly once, at the last attach, in both modes. There is no
+// second live handle for a doubled replay to come from.
+//
+// ★★★ NO MUTANT IS KNOWN THAT THIS FILE KILLS AND `*.queue.test.tsx` DOES NOT.
+// Ten were tried — dropping the queue swap, skipping the thrower, dropping the
+// requeue, never arming, re-arming, never disarming, always disarming, dropping
+// `opts`, forcing `focus:true`, and stopping the flush on a refusal. The one that
+// turns this file red (dropping `pending.current = []`) turns the queue suite red
+// too, and by an eight-second TIMEOUT rather than an assertion: the dead-handle
+// attach re-pushes into the array it is iterating, which is an infinite loop. So
+// what this file buys is a tripwire on React's own behaviour — if a future React
+// makes StrictMode attach a second LIVE handle, the queue depth stops being 1 at
+// every attach and this goes red first. That is worth a file; pretending it
+// pins the production code is not.
 //
 // ★★ SHAPE MATTERS — `wrapper: StrictMode`, never a wrapper function that
 // composes `<StrictMode>` inside itself. React's double-invoke walk stops at the
@@ -29,7 +45,7 @@ beforeAll(installRangePolyfills);
 // append has to happen while the `dynamic()` payload is still unresolved, and
 // any sibling test that awaits the editor resolves it for the whole module.
 describe("the lazy editor's append queue under StrictMode", () => {
-  it("replays text queued before the chunk resolved exactly once", async () => {
+  it("carries the queue across the extra attach cycle and drains it exactly once", async () => {
     const ref = createRef<RichTextEditorHandle>();
     const html: string[] = [];
     render(
@@ -54,8 +70,10 @@ describe("the lazy editor's append queue under StrictMode", () => {
     expect(editor.textContent).toContain("existing");
 
     // ★★ COUNT, do not merely look for presence: `toContain` passes on a doubled
-    //   replay, which is the whole defect this file is about. The full-document
-    //   HTML is the only assertion that can tell "once" from "twice".
+    //   replay. The full-document HTML is the only assertion that can tell "once"
+    //   from "twice" — and, because it is the whole document, the only one that
+    //   can tell an APPEND from a PREPEND, which is the shape the deferred path
+    //   got wrong once already.
     expect(html.at(-1)).toBe("<p>existingdictated once</p>");
     expect(editor.textContent?.match(/dictated once/g) ?? []).toHaveLength(1);
   });

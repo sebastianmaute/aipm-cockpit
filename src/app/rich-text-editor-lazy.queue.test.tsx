@@ -77,7 +77,18 @@ describe("the lazy editor's append queue", () => {
   // ★ A source assertion because the property has no in-process observable:
   // `isolate` is not on `import.meta.env`, and by the time a test body runs, its
   // own registry has already been built either way.
-  it("depends on vitest file isolation, which the config must not disable", () => {
-    expect(readFileSync("vitest.config.ts", "utf8")).not.toMatch(/isolate:\s*false/);
+  //
+  // ★★ TWO FILES AND THREE SPELLINGS, none of which is hypothetical tidiness:
+  // isolation can be turned off in `vitest.config.ts` OR on the command line, and
+  // every entry point that runs this suite (`test:run`, `test:shuffle`,
+  // `test:coverage`) lives in `package.json` — a `--no-isolate` added there is
+  // exactly as fatal to the premise and would sail past a config-only check.
+  // JSON quotes the key, so the pattern has to tolerate them.
+  it("depends on vitest file isolation, which nothing may disable", () => {
+    for (const file of ["vitest.config.ts", "package.json"]) {
+      const source = readFileSync(file, "utf8");
+      expect(source, file).not.toMatch(/["']?isolate["']?\s*:\s*false/);
+      expect(source, file).not.toMatch(/--no-isolate/);
+    }
   });
 });
