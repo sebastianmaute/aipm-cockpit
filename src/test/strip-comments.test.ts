@@ -34,7 +34,7 @@ describe("stripComments", () => {
     expect(stripComments(line)).toBe(line);
   });
 
-  it("leaves the // of a bare URL in JSX TEXT alone", () => {
+  it("leaves the // of a protocol-relative URL in JSX TEXT alone", () => {
     // ★★★ THE OVER-BLANK CASE, AND THE WORST BUG ANY CUT OF THIS HELPER HAD —
     //   INCLUDING THE PARSER CUT. JSX children are TEXT, not code, so a `//`
     //   there opens nothing; a string-tracking scanner blanked from it onward,
@@ -50,14 +50,20 @@ describe("stripComments", () => {
     //   never fired, so this passed for a reason unrelated to its name while the
     //   parser cut blanked the whole URL line one prefix away. A test named after
     //   a bug it cannot observe is worse than no test.
-    // ★★ BOTH SHAPES ARE ASSERTED. `//…` is what reaches the bug; `https://…` is
-    //   what `src` actually contains (`timelog-settings.tsx`), and dropping it
-    //   would leave the real-world shape uncovered against some future cut whose
-    //   blind spot is the other way round.
+    // ★★★ MEASURED, NOT REASONED, and this is the strongest thing in the commit
+    //   that changed the fixture. Reinstate the bug (drop the `JsxText` skip) AND
+    //   restore the old `https:`-leading fixture: this file goes 13/13 GREEN with
+    //   the over-blank fully present. Restore only the skip, against the fixture
+    //   below: RED. The one-line fixture change is the ENTIRE difference between a
+    //   vacuous test and a live one.
+    // ★★ ONE FIXTURE, NOT TWO. Asserting the `https:` shape alongside it was tried
+    //   and REVERTED. A cut-3 emulation — blank from the first `//` ANYWHERE in the
+    //   JSX text, which is what the old fixture existed to catch — dies against the
+    //   leading form as well, so that form kills every mutant the `https:` form
+    //   does and the parser-cut one besides. A second assertion buys no
+    //   mutant-killing power; it only looks like coverage.
     const src = "<p>\n  //login.example.com/token\n  <b>after</b>\n</p>\n";
     expect(stripComments(src)).toBe(src);
-    const real = "<p>\n  https://login.timelog.com/personaltoken\n  <b>after</b>\n</p>\n";
-    expect(stripComments(real)).toBe(real);
   });
 
   it("blanks a // comment inside a template-literal ${…} interpolation", () => {
