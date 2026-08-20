@@ -212,6 +212,17 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
   useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
 
+  // ★★★ POSITION, NOT FOCUS. `appendText` used to let `opts.focus` decide BOTH
+  //   where the text goes and whether to focus, which made the insert position a
+  //   function of whether Tiptap's chunk had loaded — see the handle below and
+  //   docs/open-followups.md §192. This ref carries the only question that should
+  //   decide position: has the user ever been in this editor?
+  // ★★ It lives HERE, in the editor that remounts per editing session, not in the
+  //   lazy wrapper. A fresh mount has never been focused, which is exactly the
+  //   state a queued replay arrives in — so both routes agree on "end of document"
+  //   without the wrapper having to know anything about it.
+  const everFocused = useRef(false);
+
   // ★★ Tiptap's TaskItem nodeView hardcodes an ENGLISH accessible name for its
   // checkbox (`Task item checkbox for …`, extension-list task-item/index.js).
   // The extension exposes an `a11y.checkboxLabel` option for exactly this, so
@@ -294,6 +305,12 @@ export function RichTextEditor(props: RichTextEditorProps) {
       },
     },
     onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeRichHtml(editor.getHTML())),
+    // Sets the ref above. Fires for a user click AND for our own chained
+    // `.focus()`, which is correct: after we focus, the caret is meaningful, so
+    // the NEXT append should go there.
+    onFocus: () => {
+      everFocused.current = true;
+    },
   });
 
   // insertContent with a TEXT NODE, not a string: a bare string is parsed as
@@ -306,32 +323,36 @@ export function RichTextEditor(props: RichTextEditorProps) {
         // buffering caller re-queue it forever.
         if (!text) return true;
         if (!editor) return false;
-        // ★★★ THE TWO BRANCHES INSERT IN DIFFERENT PLACES, AND THE DEFAULT ONE IS
-        // NOT AN APPEND. Measured through the real editor, same fixture
-        // `<p>existing</p>`, editor never focused:
-        //     appendText(" appended")                 -> "<p> appendedexisting</p>"
-        //     appendText(" appended", {focus:false})  -> "<p>existing appended</p>"
-        // The default branch inserts AT THE SELECTION, which on an editor the user
-        // has never clicked into is the start of the document — so it PREPENDS.
-        // That is the behaviour `main` has always had (its docstring said "insert
-        // at the caret", which is accurate; the method NAME is what misleads), and
-        // it is deliberately unchanged here: a user dictating with the caret placed
-        // mid-sentence wants the text at the caret, not at the end.
-        // ★★ The asymmetry is therefore intended, but its EDGE is not: dictating
-        // into a note that already has text, without first clicking into it, puts
-        // the transcript at the front. `docs/open-followups.md` §192 carries that
-        // decision; the two "appendText lands" tests in `rich-text-editor.test.tsx`
-        // pin BOTH strings so neither branch can drift into the other in silence.
-        const chain = editor.chain();
+        // ★★★ POSITION AND FOCUS ARE SEPARATE QUESTIONS, and conflating them was
+        // §192. `opts.focus` used to select both, so a dictated line landed at the
+        // END when the queue replayed it (`{focus:false}`) and at the START when the
+        // live path ran (no `opts`, selection at doc start on an unfocused editor) —
+        // and which route ran was decided by whether Tiptap's chunk had arrived when
+        // the user pressed the mic. Same note, same call, two results, nothing on
+        // screen to say which.
+        //   · position <- `everFocused`: the caret if the user has ever been in this
+        //     editor, otherwise the end of the last textblock.
+        //   · focus    <- `opts.focus`: unchanged meaning.
+        // A queued line is BY DEFINITION dictated before the editor existed, so on
+        // replay `everFocused` is false and both routes now agree.
+        // ★★ READ THE REF BEFORE BUILDING THE CHAIN. Our own `.focus()` fires
+        // `onFocus`, so a read taken later would let this call's focus decide this
+        // call's position. ★ REASONED, NOT PINNED: chain commands do not run until
+        // `.run()`, so a read placed after `chain.focus()` still observes the
+        // pre-call value, and no mutant this suite can express distinguishes the
+        // two orderings. Do not read the tests below as covering it.
+        const atCaret = everFocused.current;
+        let chain = editor.chain();
+        if (opts?.focus !== false) chain = chain.focus();
         // ★★ RETURN the chain's verdict rather than an unconditional true.
         // `insertContentAt` returns false on a content error (it catches, emits
         // `contentError`, and the chain no-ops), and the wrapper's queue treats
         // this return as "the text landed" — so reporting true drops it. That is
         // the exact silent-loss class the queue exists to close.
         return (
-          opts?.focus === false
-            ? chain.insertContentAt(appendPos(editor.state.doc), { type: "text", text })
-            : chain.focus().insertContent({ type: "text", text })
+          atCaret
+            ? chain.insertContent({ type: "text", text })
+            : chain.insertContentAt(appendPos(editor.state.doc), { type: "text", text })
         ).run();
       },
     }),
