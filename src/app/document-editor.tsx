@@ -6,7 +6,7 @@
 //  handle"); this is the structural slice that gives them something to do.
 //  Everything here routes through `structural`, whose three ops are the only
 //  way the set changes by hand.
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   ParagraphBlockEditor,
   HeadingBlockEditor,
@@ -44,13 +44,6 @@ export type DocumentEditorProps = {
   /** ★ The third argument is the committing draft's baseline — the engine's
    *   `expect` precondition. See `replaceBlockOp` in document-editor-commit.ts. */
   onCommitBlock: (index: number, block: DocBlock, expect?: DocBlock) => void;
-  /** Appends a block. Reached only from the zero-block empty state, where
-   *  `structural.insert(0, …)` would be exactly equivalent — the append op
-   *  carries no index at all, so it is the spelling that cannot be off by one
-   *  on a list that has no positions yet.
-   *  ★ Optional so the many pre-existing non-empty-document fixtures in this
-   *   file's own tests never have to thread a value that branch never calls. */
-  onAppendBlock?: (block: DocBlock) => void;
   /** Add / delete / reorder.
    *  ★★★ REQUIRED, and it used to be optional. Optional means a future wiring
    *   regression that drops the prop silently removes every structural control
@@ -59,7 +52,16 @@ export type DocumentEditorProps = {
    *   call an absent handler. The type is the only thing that can catch that,
    *   because a hook that quietly does nothing tests exactly like one whose
    *   list happens not to move (the same reasoning `useListReorderDnd`'s own
-   *   `onReorder`/`onMove` union carries). */
+   *   `onReorder`/`onMove` union carries).
+   *  ★★★ IT IS ALSO THE ONLY WAY A BLOCK IS ADDED, INCLUDING THE FIRST ONE.
+   *   The empty state used to route through a SEPARATE optional
+   *   `onAppendBlock` prop — the exact hazard the paragraph above exists to
+   *   prevent, one prop away: the empty state is the only path into a
+   *   zero-block document, so dropping that one line would have left an empty
+   *   document permanently uneditable with its controls still rendering, and
+   *   no type error to say so. `structural.insert(0, …)` is equivalent on a
+   *   list with no positions, and the append op it replaced is now reachable
+   *   only from the AI document tools. */
   structural: BlockStructuralOps;
   /** Injected. ★ jsdom has no layout, so a measured width would be untestable. */
   narrow?: boolean;
@@ -69,7 +71,6 @@ export function DocumentEditor({
   lang,
   doc,
   onCommitBlock,
-  onAppendBlock,
   structural,
   narrow = false,
 }: DocumentEditorProps) {
@@ -100,6 +101,47 @@ export function DocumentEditor({
 
   const confirm = useConfirm();
 
+  // ★★★ FOCUS FOLLOWS THE MOVED BLOCK, and without it the arrow keys TOGGLE
+  //  instead of moving. The rows are index-keyed (see below), so a move leaves
+  //  the key SET unchanged and React reconciles IN PLACE — the focused grip
+  //  therefore still belongs to row `from`, which now holds the block that was
+  //  displaced. Traced on [A,B,C] with focus on row 0: ArrowDown gives
+  //  [B,A,C], a second ArrowDown gives [A,B,C] back, so no block could ever
+  //  move more than ONE position by keyboard. Native HTML5 drag does not fire
+  //  on touch at all, so per this component's own reorder hint the arrow keys
+  //  are the ONLY reorder path a keyboard or touch user has.
+  //  ★★ A REF PLUS AN EFFECT, not a `focus()` in the handler: the row the grip
+  //   must land on does not exist until the parent has re-rendered in the new
+  //   order, and this component is controlled — it owns no blocks and cannot
+  //   produce that render itself. (`react-hooks/refs` also bans reading a ref
+  //   during render, so the read has to be in an effect regardless.)
+  //  ★ NO DEP ARRAY: the effect must fire on whichever render finally carries
+  //   the new order, and nothing in scope names that render. A parent that
+  //   never re-renders (a static test fixture, or a refused move) simply
+  //   leaves the request pending rather than focusing a row that did not move.
+  //  ★ The request is recorded UNCONDITIONALLY rather than gated on the op's
+  //   result: `structural.move` returns `DocResult | undefined` and a refusal
+  //   is unreachable from here anyway (the `expect` below is read from the
+  //   latest render), so gating would buy nothing and would make the focus
+  //   depend on a return value every other caller discards.
+  const listRef = useRef<HTMLDivElement>(null);
+  const pendingFocusRef = useRef<number | null>(null);
+  useEffect(() => {
+    const target = pendingFocusRef.current;
+    if (target === null) return;
+    pendingFocusRef.current = null;
+    // ★ Scoped to THIS editor's own subtree, and structural rather than by
+    //  accessible name — a name is i18n text, and component code must never
+    //  have to know a translation to find its own DOM.
+    //  ★★ The grip is the only EXPLICIT `role="button"` in a row: the actions
+    //   trigger beside it is a native `<button>`, which carries the role
+    //   implicitly and so does not match this selector. A test pins the
+    //   focused control's accessible name, which is what would catch that
+    //   changing.
+    const rows = listRef.current?.querySelectorAll("[data-block-row]");
+    rows?.[target]?.querySelector<HTMLElement>('[role="button"]')?.focus();
+  });
+
   // ★★ INDEX-AS-ID, with no `blockId` added to the model. `DocBlock` is a
   //  positional array — every op in document-ops.ts addresses a block by index
   //  — and the hook is generic over `Id`, controlled (it never owns the list)
@@ -115,10 +157,23 @@ export function DocumentEditor({
     //  here ARE the from/to indices — and its `reorderIds` splice (remove at
     //  `from`, insert at the target's pre-removal index) is the same arithmetic
     //  `applyOps`' `move` arm performs, so the pair needs no translation.
-    //  ★★ The third argument is the engine's `expect` precondition: the block
-    //   the user actually picked up. A concurrent write that shifts indices
-    //   then makes the move REFUSE rather than reorder a block nobody pointed
-    //   at. See `moveBlockOp` in document-editor-commit.ts.
+    //  ★★★ The third argument is the engine's `expect` precondition — and what
+    //   it is worth HERE is narrower than an earlier revision of this comment
+    //   claimed. That text said a concurrent write shifting indices "makes the
+    //   move REFUSE rather than reorder a block nobody pointed at", which is
+    //   FALSE on both of this consumer's paths: `onMove` runs inside the drop
+    //   handler (or the keydown handler) built by the LATEST render, so
+    //   `doc.blocks[from]` is the block sitting at that index right now —
+    //   exactly what `applyOps` compares it against. The check cannot fail.
+    //   The residue it does cover is a write that landed AFTER React's last
+    //   commit and before the gesture completed, i.e. a window of about one
+    //   frame. Wrapping `onDragStart` to stash the block at dragstart would
+    //   widen that to the whole drag; deliberately not done — a drag is
+    //   seconds at most and the extra ref is not worth it here.
+    //   ★★ It IS load-bearing on the DELETE path below, where `block` is
+    //    captured before an `await confirm(...)` that stays open for as long
+    //    as the user takes to answer. See `moveBlockOp` / `deleteBlockOp` in
+    //    document-editor-commit.ts.
     //  ★★★ AND NO `reorder.endDrag()` HERE, which is the opposite of what this
     //   slice was specified to do — the reasoning it was specified WITH is
     //   false in both halves. (a) The hook's own `onDrop` already calls
@@ -139,7 +194,10 @@ export function DocumentEditor({
     //   call carrying a false justification is worse than none. The TEST is
     //   what guards the property; if this ever grows a drop that removes a
     //   block, add the call and that test will still be the thing watching it.
-    onMove: (from, to) => structural.move(from, to, doc.blocks[from]),
+    onMove: (from, to) => {
+      structural.move(from, to, doc.blocks[from]);
+      pendingFocusRef.current = to;
+    },
   });
 
   const insertSeeded = (at: number, type: AddableBlockType) =>
@@ -153,6 +211,11 @@ export function DocumentEditor({
     //  or a block still holding its untouched placeholder, is nothing to lose.
     //  Everything else is content, recoverable only by restoring an earlier
     //  version of the WHOLE document and discarding every edit since.
+    //  ★ The seed is built from the CURRENT `lang`, so a placeholder inserted
+    //   in German and deleted after switching to English no longer matches its
+    //   seed and DOES raise the confirm. That fails SAFE — extra friction on an
+    //   untouched placeholder, never a silent delete of real content — so it is
+    //   left as is rather than storing the seeding language on the block.
     if (!blockIsTrivial(block, blockSeed(lang, block.type))) {
       const ok = await confirm({
         title: t(lang, "documentsBlockDelete"),
@@ -168,7 +231,7 @@ export function DocumentEditor({
   };
 
   return (
-    <div className="flex flex-col gap-3">
+    <div ref={listRef} className="flex flex-col gap-3">
       {/* ★★ ABOVE the block list in DOM order, which is both what the design
           spec asks for and what keeps the portal from breaking Tab: the
           recorded failure mode (portaling a menu BREAKS Tab) is content moved
@@ -191,10 +254,13 @@ export function DocumentEditor({
               a populated document can never offer different kinds. It replaced
               a paragraph-only button, which made starting a document with a
               heading a two-step job.
-              ★ It routes through `onAppendBlock` rather than
-              `structural.insert(0, …)`. The two are equivalent on an empty list
-              and the append op carries no index at all, so it is the spelling
-              that cannot be off by one. Both omit `coalesce`, so both write a
+              ★★★ It routes through `structural.insert(0, …)`, the SAME bag
+              every other add/remove/reorder uses, and NOT through a prop of
+              its own. It had one — an optional `onAppendBlock` — and this is
+              the only path into a zero-block document, so a wiring regression
+              dropping it would have made an empty document permanently
+              uneditable while still rendering this menu. `insert` omits
+              `coalesce` exactly as the append op did, so it still writes a
               before-image (see `use-document-editor.ts`).
               ★ MUTUALLY EXCLUSIVE with the trailing control below — two
               triggers named "Add a block" in one document would be a WCAG 2.4.6
@@ -202,17 +268,19 @@ export function DocumentEditor({
           <BlockKindMenu
             lang={lang}
             triggerLabel={t(lang, "documentsAddBlock")}
-            onPick={(type) => onAppendBlock?.(blockSeed(lang, type))}
+            onPick={(type) => insertSeeded(0, type)}
           />
         </div>
       )}
       {/* ★★★ ONCE, not per row. `documentsBlockReorderHint` was added intending
-          a `title` on the grip, and it sat UNUSED in both dictionaries because
-          `DragHandle` forwards no `title`. A `title` would have been the wrong
-          home regardless: it is hover-only, so it never reaches the keyboard
-          user who is the only one who needs to be told the arrow keys work, and
-          it is unreachable on touch — where native HTML5 drag does not fire at
-          all, making the arrow keys the ONLY reorder path.
+          a `title` on the grip. This used to read "it sat UNUSED in both
+          dictionaries because `DragHandle` forwards no `title`", which the
+          reorder-grip migration made false — it forwards one now, so putting
+          the hint here is a CHOICE, not a limitation. A `title` would still be
+          the wrong home: hover-only, so it never reaches the keyboard user who
+          is the one who needs telling that the arrow keys work, and
+          unreachable on touch — where native HTML5 drag does not fire at all,
+          making the arrow keys the ONLY reorder path.
           ★ Gated on TWO blocks: with one there is nowhere to move it, and a
           hint about an impossible gesture is noise. */}
       {doc.blocks.length > 1 && (

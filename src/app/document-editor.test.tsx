@@ -1,10 +1,11 @@
+import { useState } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, within, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DocumentEditor } from "./document-editor";
 import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
-import type { ProjectDocument } from "./document-model";
+import type { DocBlock, ProjectDocument } from "./document-model";
 import { htmlTextLength } from "./rich-text-plain";
 
 const LANG = "en-US" as const;
@@ -289,24 +290,31 @@ describe("DocumentEditor", () => {
     //  narrow-pane paragraph.
     it("says the document has no blocks yet", () => {
       render(
-        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} />,
       );
       expect(screen.getByText(t(LANG, "documentsNoBlocks"))).toBeInTheDocument();
     });
 
-    // ★★★ THE APPENDED PARAGRAPH CARRIES SEEDED TEXT, NOT AN EMPTY ONE.
+    // ★★★ THE FIRST BLOCK CARRIES SEEDED TEXT, NOT AN EMPTY ONE.
     //  document-model.ts drops a paragraph whose visible text length is 0, so an
     //  empty seed would create a block that renders now and is GONE on the next
     //  load — the exact failure Task 7 of this round exists to prevent.
-    it("appends a paragraph carrying real text", async () => {
-      const onAppendBlock = vi.fn();
+    //  ★★ It goes through `structural.insert(0, …)`, NOT a prop of its own. The
+    //   empty state is the ONLY path into a zero-block document, so routing it
+    //   through the optional `onAppendBlock` it used to have meant a wiring
+    //   regression could leave an empty document permanently uneditable with the
+    //   menu still rendering, and nothing — not tsc, not this suite — would say
+    //   so. `structural` is required, so that shape is now a type error.
+    it("inserts a first paragraph carrying real text at index 0", async () => {
+      const structural = stubStructural();
       render(
-        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={onAppendBlock} />,
+        <DocumentEditor lang={LANG} structural={structural} doc={empty} onCommitBlock={vi.fn()} />,
       );
       await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
       await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsBlockParagraph") }));
-      expect(onAppendBlock).toHaveBeenCalledTimes(1);
-      const block = onAppendBlock.mock.calls[0][0] as { type: string; html: string };
+      expect(structural.insert).toHaveBeenCalledTimes(1);
+      const [at, block] = structural.insert.mock.calls[0] as [number, { type: string; html: string }];
+      expect(at).toBe(0);
       expect(block.type).toBe("paragraph");
       expect(htmlTextLength(block.html)).toBeGreaterThan(0);
       expect(block.html).toContain(t(LANG, "documentsNewBlockText"));
@@ -317,7 +325,7 @@ describe("DocumentEditor", () => {
     //  paragraph-only button made it a two-step one.
     it("offers every addable kind from the empty state", async () => {
       render(
-        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />,
+        <DocumentEditor lang={LANG} structural={stubStructural()} doc={empty} onCommitBlock={vi.fn()} />,
       );
       await userEvent.click(screen.getByRole("button", { name: t(LANG, "documentsAddBlock") }));
       const menu = screen.getByRole("dialog", { name: t(LANG, "documentsAddBlock") });
@@ -331,7 +339,7 @@ describe("DocumentEditor", () => {
     //  two controls sharing the name "Add a block" would be a WCAG 2.4.6
     //  failure no axe rule can see.
     it("renders exactly ONE add-block control once the document has a block", () => {
-      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} onAppendBlock={vi.fn()} />);
+      render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} />);
       expect(screen.getAllByRole("button", { name: t(LANG, "documentsAddBlock") })).toHaveLength(1);
       expect(screen.queryByText(t(LANG, "documentsNoBlocks"))).toBeNull();
     });
@@ -367,7 +375,6 @@ describe("DocumentEditor — structural editing", () => {
         lang={LANG}
         doc={structDoc}
         onCommitBlock={vi.fn()}
-        onAppendBlock={vi.fn()}
         structural={structural}
       />,
     );
@@ -385,7 +392,6 @@ describe("DocumentEditor — structural editing", () => {
           lang={LANG}
           doc={structDoc}
           onCommitBlock={vi.fn()}
-          onAppendBlock={vi.fn()}
           structural={structural}
         />
       </ConfirmProvider>,
@@ -415,6 +421,101 @@ describe("DocumentEditor — structural editing", () => {
     screen.getByRole("button", { name: reorderName(2) }).focus();
     await user.keyboard("{ArrowUp}");
     expect(structural.move).toHaveBeenCalledWith(2, 1, structDoc.blocks[2]);
+  });
+
+  /** ★★★ A CONTROLLED PARENT THAT ACTUALLY REORDERS, and the ONLY fixture in
+   *  this file that can express the defect the two tests below pin. Every
+   *  other fixture here holds `doc` STATIC, so nothing re-renders after a move
+   *  and the focused grip stays on the row it started on WHETHER OR NOT focus
+   *  follows the block — a second ArrowDown then reads as a correct second
+   *  move either way. Only a parent that re-renders in the NEW order can tell
+   *  "the block moved twice" from "the same pair toggled".
+   *  ★ `structural` is rebuilt every render deliberately: `DocumentEditor`
+   *   calls its members from event handlers and never as a hook dependency, so
+   *   a stable identity would buy nothing here and would hide the re-render
+   *   this fixture exists to produce. */
+  function Controlled({ onMoveSpy }: { onMoveSpy: (from: number, to: number) => void }) {
+    const [blocks, setBlocks] = useState<readonly DocBlock[]>(structDoc.blocks);
+    return (
+      <DocumentEditor
+        lang={LANG}
+        doc={{ ...structDoc, blocks }}
+        onCommitBlock={vi.fn()}
+        structural={{
+          insert: vi.fn(),
+          remove: vi.fn(),
+          move: (from: number, to: number) => {
+            onMoveSpy(from, to);
+            setBlocks((prev) => {
+              const next = [...prev];
+              const [moved] = next.splice(from, 1);
+              next.splice(to, 0, moved);
+              return next;
+            });
+            return undefined;
+          },
+        }}
+      />
+    );
+  }
+
+  /** The kind chip of every row, in DOM order — the only observable this
+   *  component offers for "which block sits where" (it is controlled and owns
+   *  no list, so the emitted ops are the rest of its contract). */
+  const kindOrder = () =>
+    Array.from(document.querySelectorAll("[data-block-row]")).map(
+      (row) => row.querySelector("span")?.textContent ?? "",
+    );
+
+  // ★★★ THE ARROW KEYS USED TO TOGGLE, NOT MOVE. The rows are index-keyed, so a
+  //  move leaves the key SET unchanged and React reconciles IN PLACE — without
+  //  focus following the block, the grip that had focus still belongs to row
+  //  `from`, which now holds whatever was displaced. On [heading, paragraph,
+  //  pageBreak] that made press 1 emit move(0,1) and press 2 emit move(0,1)
+  //  AGAIN, putting the list straight back: no block could travel more than one
+  //  position by keyboard, and native HTML5 drag does not fire on touch, so for
+  //  a touch or keyboard user that was the whole feature.
+  //  ★ Every pre-existing reorder test in this file presses ArrowDown exactly
+  //   ONCE, which is why this shipped.
+  it("moves a block TWO positions on two ArrowDown presses", async () => {
+    const user = userEvent.setup();
+    const onMoveSpy = vi.fn();
+    render(<Controlled onMoveSpy={onMoveSpy} />);
+    expect(kindOrder()).toEqual([
+      t(LANG, "documentsBlockHeading"),
+      t(LANG, "documentsBlockParagraph"),
+      t(LANG, "documentsBlockPageBreak"),
+    ]);
+
+    screen.getByRole("button", { name: reorderName(0) }).focus();
+    await user.keyboard("{ArrowDown}");
+    await user.keyboard("{ArrowDown}");
+
+    // The SECOND call is the one the defect got wrong — it emitted (0, 1) again.
+    expect(onMoveSpy.mock.calls).toEqual([
+      [0, 1],
+      [1, 2],
+    ]);
+    expect(kindOrder()).toEqual([
+      t(LANG, "documentsBlockParagraph"),
+      t(LANG, "documentsBlockPageBreak"),
+      t(LANG, "documentsBlockHeading"),
+    ]);
+  });
+
+  // ★★ THE HALF THAT ACTUALLY PINS THE FIX. The grip labels are POSITIONAL
+  //  (`Reorder – Block N` is built from the row index, not the block), so this
+  //  asserts focus sits on row 1's grip — where the moved block now is —
+  //  rather than on row 0's, where it started. Deleting the focus effect in
+  //  document-editor.tsx turns this red on its own.
+  it("moves focus onto the grip of the block that just moved", async () => {
+    const user = userEvent.setup();
+    render(<Controlled onMoveSpy={vi.fn()} />);
+    const first = screen.getByRole("button", { name: reorderName(0) });
+    first.focus();
+    await user.keyboard("{ArrowDown}");
+    expect(document.activeElement).toBe(screen.getByRole("button", { name: reorderName(1) }));
+    expect(document.activeElement).not.toBe(first);
   });
 
   it("does not move the first block up", async () => {
@@ -565,7 +666,6 @@ describe("DocumentEditor — structural editing", () => {
         lang={LANG}
         doc={{ ...structDoc, blocks: [{ type: "pageBreak" }] }}
         onCommitBlock={vi.fn()}
-        onAppendBlock={vi.fn()}
         structural={stubStructural()}
       />,
     );
