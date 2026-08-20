@@ -100,7 +100,7 @@ describe("DocumentEditor", () => {
       const { container } = render(
         <DocumentEditor lang={LANG} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
-      const toolbar = await screen.findByRole("toolbar", undefined);
+      const toolbar = await screen.findByRole("toolbar");
       const firstRow = container.querySelectorAll("[data-block-row]")[0];
       expect(toolbar.compareDocumentPosition(firstRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     });

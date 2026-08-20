@@ -34,7 +34,7 @@ import { server } from "./src/test/msw-server";
 // named one ("the four lazy-editor suites") and it had already rotted: the suites
 // were not four and were not all lazy-editor suites. The set moves whenever a
 // Tiptap-mounting test is added, so any number written here is wrong on a schedule.
-// It sits under the 20s testTimeout,
+// The 15s sits under the 20s testTimeout,
 // but the margin is thinner than it was: a test with TWO failing waits will now
 // hit the test timeout rather than reporting a clean assertion failure. If that
 // starts happening, split the test rather than trimming this back — the waits

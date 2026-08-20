@@ -63,7 +63,7 @@ describe("ParagraphBlockEditor", () => {
         onCommit={vi.fn()}
       />,
     );
-    expect(await screen.findByText("hello", undefined)).toBeInTheDocument();
+    expect(await screen.findByText("hello")).toBeInTheDocument();
     expect(screen.queryByText(t(LANG, "documentsBlockImageReadOnly"))).toBeNull();
   });
 
@@ -1264,7 +1264,7 @@ describe("useBlockDraft — an external write to the block being edited", () => 
     rerender(<ParagraphBlockEditor lang={LANG} index={0} block={after} onCommit={onCommit} />);
     // The nonce keys a REMOUNT of the lazy editor — await the replaced text
     // rather than assuming the resolved chunk re-renders in the same tick.
-    await screen.findByText("Restored", undefined);
+    await screen.findByText("Restored");
     expect(container.textContent).toContain("Restored");
     expect(container.textContent).not.toContain("Alpha");
   });
