@@ -672,6 +672,80 @@ describe("DocumentEditor — structural editing", () => {
     expect(structural.move).toHaveBeenCalledTimes(1);
   });
 
+  // ★★★ A DRAG THAT SHOWS NOTHING. This surface spread `itemProps` and consumed
+  //  NONE of the hook's feedback API, so dragging a block rendered no edge
+  //  marker, no dimming and no reflow at any point — and `reorderIds`'
+  //  semantics are ASYMMETRIC (dropping on a LATER item lands AFTER it, on an
+  //  EARLIER item BEFORE it), which is exactly the thing a drop-edge indicator
+  //  exists to disclose. It also made every `onDragOver` re-render the whole
+  //  editor subtree, Tiptap editors included, to update state nothing read.
+  //  ★ `data-drop-edge` is the assertable half, matching `reports.tsx`: the
+  //   border colours are what the user sees, but a test reading them would pin
+  //   styling rather than the splice semantics. jsdom has no layout, so the
+  //   plumbing is all a unit test can reach either way.
+  describe("drag feedback", () => {
+    const startDrag = (index: number) =>
+      fireEvent.dragStart(screen.getByRole("button", { name: reorderName(index) }), {
+        dataTransfer: { setData: vi.fn(), effectAllowed: "" },
+      });
+    const rows = () => Array.from(document.querySelectorAll("[data-block-row]"));
+
+    it("marks no drop edge while no drag is in flight", () => {
+      setup();
+      fireEvent.dragOver(rows()[2]);
+      expect(rows().map((r) => r.getAttribute("data-drop-edge"))).toEqual([null, null, null]);
+    });
+
+    // ★★★ THE TWO DIRECTIONS ARE SEPARATE TESTS ON PURPOSE. Either one alone
+    //  passes against an indicator hardcoded to that edge — the asymmetry is
+    //  the whole content of the claim.
+    it("marks the AFTER edge when the drop lands on a LATER row", () => {
+      setup();
+      startDrag(0);
+      fireEvent.dragOver(rows()[2]);
+      expect(rows().map((r) => r.getAttribute("data-drop-edge"))).toEqual([null, null, "after"]);
+    });
+
+    it("marks the BEFORE edge when the drop lands on an EARLIER row", () => {
+      setup();
+      startDrag(2);
+      fireEvent.dragOver(rows()[0]);
+      expect(rows().map((r) => r.getAttribute("data-drop-edge"))).toEqual(["before", null, null]);
+    });
+
+    // ★★ The edge marker says WHERE; the dimming says a drag is in flight at
+    //  all, which is the only feedback a row the pointer has not reached yet
+    //  can give. The dragged row keeps full opacity so it stays identifiable.
+    it("dims every row but the one being dragged", () => {
+      setup();
+      const before = rows().map((r) => r.className.includes("opacity-70"));
+      expect(before).toEqual([false, false, false]);
+      startDrag(1);
+      expect(rows().map((r) => r.className.includes("opacity-70"))).toEqual([true, false, true]);
+    });
+
+    // ★★ THE BORDER WIDTH IS CONSTANT AND ONLY THE COLOUR CHANGES — the same
+    //  rule reports.tsx states. A width that grew on hover would move every row
+    //  below it DURING a drag, which is precisely when the hit target has to
+    //  hold still. jsdom has no layout, so the class is the only witness.
+    //  ★★ Every branch names BOTH y edges, so no two classes here target the
+    //   same CSS property: a baseline shorthand with a per-side colour layered
+    //   over it pits `border-color` against `border-top-color`, and which wins
+    //   is decided by Tailwind's emit order rather than by source order.
+    it("changes only the border COLOUR, never its width", () => {
+      setup();
+      const widthClasses = (el: Element) =>
+        el.className.split(" ").filter((c) => /^border(-[xytblr])?-\d/.test(c));
+      const atRest = widthClasses(rows()[2]);
+      startDrag(0);
+      fireEvent.dragOver(rows()[2]);
+      expect(widthClasses(rows()[2])).toEqual(atRest);
+      expect(rows()[2].className).toContain("border-b-ui-green-strong");
+      // The opposite edge is named explicitly rather than left to a shorthand.
+      expect(rows()[2].className).toContain("border-t-line");
+    });
+  });
+
   it("inserts a seeded block of the chosen kind below", async () => {
     const user = userEvent.setup();
     const { structural } = setup();

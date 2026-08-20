@@ -333,47 +333,83 @@ export function DocumentEditor({
       {doc.blocks.length > 1 && (
         <p className="text-xs text-muted-foreground">{t(lang, "documentsBlockReorderHint")}</p>
       )}
-      {doc.blocks.map((block, index) => (
-        // ★★★ The key carries `doc.id`, not just `index` — otherwise switching
-        //  the SELECTED document while edit mode is open lets React reuse this
-        //  row's editor instance for the new document (same position, same
-        //  block type), leaving a stale useBlockDraft mounted over the wrong
-        //  document. A blur (or an unblurred edit's unmount flush) then writes
-        //  the OLD document's content into the NEW one. Composing the doc id
-        //  into every row's key forces a full remount of the block-editor
-        //  subtree on any switch, so no draft can outlive the document it was
-        //  seeded from.
-        <div
-          key={`${doc.id}-${index}`}
-          data-block-row=""
-          className="flex gap-2 rounded-md border border-line p-2"
-          // ★ The DROP TARGET is the whole row, not the grip: a drag has to be
-          //  releasable over the block you can see, and a 24px grip is a target
-          //  nobody can hit. `itemProps` is the only thing spread here, so it
-          //  cannot collide with the row's own handlers (it has none).
-          {...reorder.itemProps(index)}
-        >
-          <DocumentBlockGutter
-            lang={lang}
-            index={index}
-            block={block}
-            onInsert={insertSeeded}
-            onDelete={deleteBlock}
-            handleProps={reorder.handleProps(index)}
-          />
-          <div className="min-w-0 flex-1">
-            <BlockEditor
+      {doc.blocks.map((block, index) => {
+        const dropEdge = reorder.dropEdgeFor(index);
+        return (
+          // ★★★ The key carries `doc.id`, not just `index` — otherwise switching
+          //  the SELECTED document while edit mode is open lets React reuse this
+          //  row's editor instance for the new document (same position, same
+          //  block type), leaving a stale useBlockDraft mounted over the wrong
+          //  document. A blur (or an unblurred edit's unmount flush) then writes
+          //  the OLD document's content into the NEW one. Composing the doc id
+          //  into every row's key forces a full remount of the block-editor
+          //  subtree on any switch, so no draft can outlive the document it was
+          //  seeded from.
+          <div
+            key={`${doc.id}-${index}`}
+            data-block-row=""
+            // ★ `data-drop-edge` is the assertable half of the indicator, and the
+            //  spelling `reports.tsx` already uses: the border colours below are
+            //  what a user sees, but a test reading them would pin styling rather
+            //  than the splice semantics `reorderIds` defines.
+            data-drop-edge={dropEdge ?? undefined}
+            // ★★ THE 2px BORDER IS ALWAYS PRESENT AND ONLY CHANGES COLOUR. Adding
+            //  width on the marked edge would move every row below it DURING a
+            //  drag, which is exactly when the hit target has to hold still —
+            //  reports.tsx reached the same conclusion.
+            // ★★★ EVERY BRANCH NAMES BOTH y EDGES, so no two classes here target
+            //  the same CSS property. Leaving a `border-line` shorthand as the
+            //  baseline and layering `border-t-…` over it pits `border-color`
+            //  against `border-top-color` at identical specificity, and which
+            //  wins is decided by Tailwind's emit order rather than by the order
+            //  written here — invisible to jsdom, so the indicator would either
+            //  work or render grey depending on a detail of the generated CSS.
+            //  The x edges are their own longhand pair for the same reason.
+            // ★★ COLOUR IS NOT THE SOLE CHANNEL, measured rather than assumed:
+            //  `--ui-green-strong` is DERIVED PER SCHEME (`scheme-tokens.ts` runs
+            //  `nudgeToAa` against `--surface-muted`), and against `--line` it
+            //  lands at 4.06:1 harbor-light · 5.62 harbor-dark · 4.90/4.96
+            //  meridian · 4.40/6.90 umber · 5.68 beacon. All clear the 3:1
+            //  lightness difference Understanding 1.4.1 accepts as the required
+            //  additional distinction, and 1.4.11's 3:1 for a graphical object
+            //  carrying state. The dimming below is a second channel besides.
+            className={[
+              "flex gap-2 rounded-md border-2 border-x-line p-2",
+              reorder.isDragging && reorder.dragId !== index ? "opacity-70" : "",
+              dropEdge === "before" ? "border-t-ui-green-strong border-b-line" : "",
+              dropEdge === "after" ? "border-b-ui-green-strong border-t-line" : "",
+              dropEdge === null ? "border-y-line" : "",
+            ]
+              .filter(Boolean)
+              .join(" ")}
+            // ★ The DROP TARGET is the whole row, not the grip: a drag has to be
+            //  releasable over the block you can see, and a 24px grip is a target
+            //  nobody can hit. `itemProps` is the only thing spread here, so it
+            //  cannot collide with the row's own handlers (it has none).
+            {...reorder.itemProps(index)}
+          >
+            <DocumentBlockGutter
               lang={lang}
               index={index}
               block={block}
-              onCommit={onCommitBlock}
-              collapseParagraph={narrow && index !== selected}
-              onSelect={() => setChosen(index)}
-              toolbarContainer={narrow && index === selected ? dock : null}
+              onInsert={insertSeeded}
+              onDelete={deleteBlock}
+              handleProps={reorder.handleProps(index)}
             />
+            <div className="min-w-0 flex-1">
+              <BlockEditor
+                lang={lang}
+                index={index}
+                block={block}
+                onCommit={onCommitBlock}
+                collapseParagraph={narrow && index !== selected}
+                onSelect={() => setChosen(index)}
+                toolbarContainer={narrow && index === selected ? dock : null}
+              />
+            </div>
           </div>
-        </div>
-      ))}
+        );
+      })}
       {/* ★★ AFTER the rows in DOM order, which is where "append" belongs and
           what keeps it in the natural Tab sequence: a reader tabbing through
           the document reaches it having passed every block, not before the
