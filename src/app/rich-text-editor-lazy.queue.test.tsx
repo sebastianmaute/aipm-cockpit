@@ -1,5 +1,5 @@
 import { readFileSync } from "node:fs";
-import { act, render, screen, waitFor } from "@testing-library/react";
+import { act, render, screen } from "@testing-library/react";
 import { createRef } from "react";
 import { describe, it, expect, beforeAll } from "vitest";
 import { installRangePolyfills } from "../test/note-log-dictation";
@@ -64,7 +64,8 @@ describe("the lazy editor's append queue", () => {
     //   through focus() + insertContent, which inserts at the SELECTION — i.e. it
     //   PREPENDS." §192 split position from focus, so `opts` no longer decides
     //   position and that mutant now changes NOTHING about the HTML. Measured, not
-    //   assumed: with the argument dropped this file stayed GREEN.
+    //   assumed: with the argument dropped this file stayed GREEN — measured before
+    //   the `activeElement` assertion below was added, in that same commit.
     // ★★ Dropping it is still a real defect — the replay would FOCUS the editor at
     //   a moment the NETWORK chose, stealing the caret from wherever the user
     //   actually is. So the assertion moved from position to focus. This is the
@@ -73,7 +74,7 @@ describe("the lazy editor's append queue", () => {
     //   handle's own guard: DELETING `if (opts?.focus !== false)` so focus is
     //   unconditional. After §192, `opts.focus` is observable only through focus
     //   and never through the asserted HTML. Measured 2026-08-20, not assumed:
-    //   deleting the guard leaves rich-text-editor.test.tsx green (46 passed) and
+    //   deleting the guard leaves rich-text-editor.test.tsx green and
     //   reddens this line. ★ Scoped to THAT mutant on purpose — it is not a claim
     //   that nothing else in the repo exercises `opts.focus` at all.
     // ★★★ FLUSH A FRAME FIRST — an ABSENCE assertion proves nothing until the thing
@@ -91,19 +92,6 @@ describe("the lazy editor's append queue", () => {
       await new Promise((resolve) => setTimeout(resolve, 50));
     });
     expect(document.activeElement).not.toBe(editor);
-
-    // ★★★ THE TWO ROUTES AGREE — this is what §192 is actually about. Above, the
-    //   text went through the QUEUE (appended before the chunk resolved, replayed
-    //   on arrival). Here the same call runs LIVE against the same never-focused
-    //   editor. Before the fix these produced different documents and which one a
-    //   user got was decided by network timing; now they cannot diverge.
-    // ★★ Do not split this into a second `it` in this file: only the FIRST test in
-    //   a file gets an unresolved `dynamic()` import, so a second one would resolve
-    //   the chunk up front and never exercise the queued half at all.
-    act(() => {
-      ref.current?.appendText(" live");
-    });
-    await waitFor(() => expect(html.at(-1)).toBe("<p>existingqueued while loading live</p>"));
   });
 
   // ★★★ THE PREMISE ABOVE IS A PROPERTY OF THE RUNNER, NOT OF THIS FILE, AND

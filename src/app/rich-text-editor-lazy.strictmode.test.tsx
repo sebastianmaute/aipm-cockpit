@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react";
-import { createRef, StrictMode } from "react";
+import { createRef, StrictMode, useCallback } from "react";
 import { describe, it, expect, vi } from "vitest";
 import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor-lazy";
 
@@ -20,33 +20,45 @@ const mock = vi.hoisted(() => ({
   attachLog: [] as string[],
 }));
 
-vi.mock("./rich-text-editor", () => ({
-  RichTextEditor: ({
+vi.mock("./rich-text-editor", () => {
+  // ★★ THE REF CALLBACK MUST BE STABLE, and this is about the PREMISE assertion at
+  //   the bottom of the test, not about the mutant. React detaches and reattaches a
+  //   callback ref whose IDENTITY changed, so an inline arrow here logs
+  //   attach/detach/attach on ANY re-render — StrictMode or not. The premise would
+  //   then go red on some unrelated extra render and read as "the double invoke
+  //   stopped reaching this tree" when nothing about StrictMode had changed.
+  //   Measured 2026-08-20, not assumed: unstabilised, one extra `rerender` with a
+  //   fresh element takes the log from `attach, detach, attach` to `attach, detach,
+  //   attach, detach, attach`; with this `useCallback` the same extra render adds
+  //   NOTHING and the double invoke is still observed.
+  // ★ `editorRef` is the wrapper's `attach`, which is itself a `useCallback`, so
+  //   this dep does not defeat the memo.
+  // ★ Declared as a named function rather than an arrow in the returned object so
+  //   the hook lint recognises it as a component.
+  function RichTextEditor({
     editorRef,
     label,
   }: {
     editorRef?: (h: { appendText: (t: string, o?: { focus?: boolean }) => boolean } | null) => void;
     label: string;
-  }) => (
-    <div
-      role="textbox"
-      aria-label={label}
-      ref={() => {
-        mock.attachLog.push("attach");
-        editorRef?.({
-          appendText: (text, opts) => {
-            mock.appendCalls.push({ text, opts });
-            return true;
-          },
-        });
-        return () => {
-          mock.attachLog.push("detach");
-          editorRef?.(null);
-        };
-      }}
-    />
-  ),
-}));
+  }) {
+    const attachRef = useCallback(() => {
+      mock.attachLog.push("attach");
+      editorRef?.({
+        appendText: (text, opts) => {
+          mock.appendCalls.push({ text, opts });
+          return true;
+        },
+      });
+      return () => {
+        mock.attachLog.push("detach");
+        editorRef?.(null);
+      };
+    }, [editorRef]);
+    return <div role="textbox" aria-label={label} ref={attachRef} />;
+  }
+  return { RichTextEditor };
+});
 
 describe("the lazy editor's append queue under StrictMode", () => {
   // ★★★ TEST #1 IN THIS FILE, AND IT MUST STAY THAT WAY. Only the first test in a
