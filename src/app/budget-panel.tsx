@@ -9,6 +9,7 @@ import { bucketPercentComplete } from "./budget-earned-value";
 import { describeClamp } from "./sanitize-report";
 import { generatePeriods, type Period } from "./resource-capacity";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { DragHandle } from "./drag-handle";
 import { BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod } from "./budget-panel-people-rows";
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -488,8 +489,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
             >
               <div className="mb-2 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
+                  <DragHandle
                     {...bucketOrder.handleProps(br.bucketId)}
                     // ★★ Bucket-UNIQUE name (WCAG 2.4.6). Every handle carried
                     // the identical "Reorder bucket — …", so a screen-reader
@@ -499,12 +499,12 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     // — no rule under the four tags the gate requests flags
                     // duplicate accessible names — so the qualifier is written
                     // at the source and pinned by a unit test.
-                    aria-label={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
+                    ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
-                    className="cursor-grab select-none rounded leading-none text-muted-foreground hover:text-ui-dark-blue focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green active:cursor-grabbing dark:hover:text-ui-light-grey"
-                  >
-                    ⠿
-                  </button>
+                    // `select-none` and the focus-visible ring are the primitive's own
+                    // base; `leading-none` went with the text glyph it used to tune.
+                    className="cursor-grab rounded text-muted-foreground hover:text-ui-dark-blue active:cursor-grabbing dark:hover:text-ui-light-grey"
+                  />
                   <span className="font-semibold text-ui-dark-blue dark:text-ui-light-grey">
                     {br.name}{bucket.poNumber ? ` · ${bucket.poNumber}` : ""}
                   </span>

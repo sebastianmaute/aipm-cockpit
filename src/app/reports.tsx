@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { DragHandle } from "./drag-handle";
 import { EmptyState } from "./empty-state";
 import { Select } from "./form-controls";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
@@ -557,9 +558,7 @@ export function ReportsPanel({
           >
             <div className="mb-2 flex items-center justify-between gap-2 border-t border-line pt-4">
               <div className="flex items-center gap-1">
-                <button
-                  type="button"
-                  tabIndex={0}
+                <DragHandle
                   {...reorder.handleProps(id)}
                   // ★★ Row-UNIQUE name (WCAG 2.4.6). Every handle carried the
                   // identical "Drag or use arrow keys to reorder", so a
@@ -570,12 +569,12 @@ export function ReportsPanel({
                   // duplicate accessible names — so the qualifier has to be
                   // written at the source. Pre-existing; fixed here because this
                   // change already owns the element.
-                  aria-label={`${t(lang, "reorderHandle")} – ${t(lang, meta.titleKey)}`}
+                  ariaLabel={`${t(lang, "reorderHandle")} – ${t(lang, meta.titleKey)}`}
                   title={t(lang, "reorderHandle")}
-                  className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:hidden"
-                >
-                  ⠿
-                </button>
+                  // `select-none`, `print:hidden`, the focus-visible ring and the tab
+                  // stop are the primitive's own base — only size/colour/cursor stay here.
+                  className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground"
+                />
                 <h3 className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">{t(lang, meta.titleKey)}</h3>
               </div>
               <button

@@ -15,9 +15,14 @@ import { Button } from "./button";
 import { IconButton } from "./icon-button";
 import { XMarkIcon } from "@heroicons/react/24/outline";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
+import { DragHandle } from "./drag-handle";
 
-/** Shared chrome for the two `≡` reorder handles. A native button so it is
- *  keyboard-focusable without an ARIA role.
+/** Shared chrome for the two reorder grips, both now the `DragHandle` primitive.
+ *  ★ It was a native `<button>` rendering `≡` until the primitive learned to
+ *  forward the whole `handleProps` bag; it is a `div role="button"` with the
+ *  primitive's ⋮ glyph now, keyboard-focusable via the primitive's own
+ *  `tabIndex={0}`. `select-none` and the focus-visible ring moved into the
+ *  primitive's base, so only cursor + colour are left here.
  *
  *  ★★★ `handleProps` BELONGS ON THIS BUTTON, NEVER ON THE ROW/ITEM. It carries
  *  the hook's `onKeyDown`, which `preventDefault()`s ArrowUp/ArrowDown and
@@ -28,8 +33,7 @@ import { useListReorderDnd } from "./use-list-reorder-dnd";
  *  ArrowDown wrote the basis AND reordered the row) and the RefList rename
  *  input's caret movement. Only `itemProps` (the drop target) goes on the
  *  container. Same split as `reports.tsx` and `budget-panel.tsx`. */
-const REORDER_HANDLE_CLASS =
-  "cursor-move select-none text-muted-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green";
+const REORDER_HANDLE_CLASS = "cursor-move text-muted-foreground";
 
 export const ROLES_COL_WIDTHS = {
   discipline: 160,
@@ -275,7 +279,7 @@ export function RolesEditor({
                 // The rate inputs sit in bare <td>s with no per-row header, so
                 // each needs an explicit name carrying its row + column context.
                 const rowCtx = `${disciplineName} / ${gradeName}`;
-                // The `≡` is the drag source AND the keyboard entry point, so
+                // The GRIP is the drag source AND the keyboard entry point, so
                 // `handleProps` lands on IT (see REORDER_HANDLE_CLASS); the row
                 // is only the drop target. The handle renders only while the
                 // hook is live (see `disabled` above).
@@ -286,19 +290,31 @@ export function RolesEditor({
                   {...roleOrder.itemProps(r.id)}
                 >
                   <td className="px-3 py-2">
-                    {reorderable && (
-                      // ★★ Row-UNIQUE name (WCAG 2.4.6): N identical reorder
-                      // handles is a fail axe cannot see at any seed size, so
-                      // the qualifier is written at the source.
-                      <button
-                        type="button"
-                        {...roleOrder.handleProps(r.id)}
-                        aria-label={`${t(lang, "reorderHandle")} – ${rowCtx}`}
-                        title={t(lang, "reorderHandle")}
-                        className={`mr-1 ${REORDER_HANDLE_CLASS}`}
-                      >≡</button>
-                    )}
-                    {disciplineName}
+                    {/* ★★ An explicit flex line, unlike the four other migrated grips.
+                        `DragHandle`'s base display is `flex` — a BLOCK box — so dropped
+                        straight into this cell it would take a line of its own and push
+                        the discipline name underneath it. The other grips are already
+                        flex ITEMS of a flex parent, where a block child is laid out
+                        inline anyway, so only this one needs the wrapper. Overriding the
+                        primitive's `flex` with an `inline-flex` in the caller className
+                        would work only while Tailwind emits `.inline-flex` AFTER `.flex`
+                        (equal specificity, source order decides) — not a guarantee to
+                        build a layout on. ★ jsdom has no layout, so nothing in the unit
+                        suite can see any of this. */}
+                    <span className="flex items-center">
+                      {reorderable && (
+                        // ★★ Row-UNIQUE name (WCAG 2.4.6): N identical reorder
+                        // handles is a fail axe cannot see at any seed size, so
+                        // the qualifier is written at the source.
+                        <DragHandle
+                          {...roleOrder.handleProps(r.id)}
+                          ariaLabel={`${t(lang, "reorderHandle")} – ${rowCtx}`}
+                          title={t(lang, "reorderHandle")}
+                          className={`mr-1 ${REORDER_HANDLE_CLASS}`}
+                        />
+                      )}
+                      {disciplineName}
+                    </span>
                   </td>
                   <td className="px-3 py-2">{gradeName}</td>
                   {rateCell(r, rowCtx, "hour", "internal")}
@@ -394,19 +410,18 @@ function RefList({
         {items.map((it) => (
           <li
             key={it.id}
-            // Drop target only — `handleProps` goes on the `≡` below, because
+            // Drop target only — `handleProps` goes on the GRIP below, because
             // this item also holds the rename input (see REORDER_HANDLE_CLASS).
             {...itemOrder.itemProps(it.id)}
             className="flex items-center gap-1"
           >
             {/* ★★ Row-UNIQUE name (WCAG 2.4.6) — see the rate-card handle. */}
-            <button
-              type="button"
+            <DragHandle
               {...itemOrder.handleProps(it.id)}
-              aria-label={`${t(lang, "reorderHandle")} – ${it.name}`}
+              ariaLabel={`${t(lang, "reorderHandle")} – ${it.name}`}
               title={t(lang, "reorderHandle")}
               className={`px-1 ${REORDER_HANDLE_CLASS}`}
-            >≡</button>
+            />
             <input defaultValue={it.name}
               onBlur={(e) => { if (e.target.value.trim() && e.target.value.trim() !== it.name) onRename(it.id, e.target.value); }}
               className="flex-1 rounded-md border border-line px-2 py-1 text-sm bg-surface-muted" />

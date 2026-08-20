@@ -85,10 +85,12 @@ export function DocumentBlockGutter({
         {/* ★ `ariaLabel` makes this a real focusable role="button" rather than
             the decorative aria-hidden variant.
             ★★ `documentsBlockReorderHint` is deliberately NOT surfaced here.
-            `DragHandle` forwards no `title` — and a `title` would be the wrong
-            home anyway: hover-only, so it never reaches the keyboard user who
-            is the one who needs telling that the arrow keys work, and
-            unreachable on touch, where native HTML5 drag does not fire at all.
+            This used to read "`DragHandle` forwards no `title`", which the
+            reorder-grip migration made false — it forwards one now, so this is
+            a CHOICE, not a limitation. A `title` would still be the wrong home:
+            hover-only, so it never reaches the keyboard user who is the one who
+            needs telling that the arrow keys work, and unreachable on touch,
+            where native HTML5 drag does not fire at all.
             `document-editor.tsx` renders it ONCE as visible help text above the
             block list instead; per-row would be N copies of one sentence. */}
         <DragHandle
