@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.250.0";
-export const APP_BUILD_DATE = "2026-08-20"; // 0.250.0: the rich-text editor loads on demand — Tiptap leaves the initial bundle (McAuley)
+export const APP_VERSION = "0.251.0";
+export const APP_BUILD_DATE = "2026-08-20"; // 0.251.0: a dictated line lands in the same place whether or not the editor chunk had arrived (Larson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.250.x line is "McAuley" (Paul McAuley, SF author).
+ *  0.251.x line is "Larson" (Rich Larson, SF author).
+ *  0.250.x was "McAuley" (Paul McAuley, SF author).
  *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
  *  0.248.x was "Bujold" (Lois McMaster Bujold, SF/fantasy author).
  *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
@@ -48,7 +49,7 @@ export const APP_BUILD_DATE = "2026-08-20"; // 0.250.0: the rich-text editor loa
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "McAuley";
+export const APP_MILESTONE = "Larson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -331,4 +332,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightChangeNotesTimelog",
   "versionHighlightBlockEditing",
   "versionHighlightLazyEditor",
+  "versionHighlightDictationPosition",
 ] as const;

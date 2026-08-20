@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.251.0] - 2026-08-20 "Larson"
+
+### Changed
+
+- **Where a dictated line lands no longer depends on whether the editor had
+  finished loading.** Dictating into an existing note without clicking into it
+  now appends to the end of it. Previously that same action prepended when the
+  transcript arrived after the editor had loaded and appended when it arrived
+  first, with nothing on screen to say which of the two had happened. Dictating
+  with the caret placed is unchanged — the text still lands at the caret.
+
+### Internal
+
+- StrictMode coverage of the lazy editor's append queue. The test asserts the
+  sequence in which the handle is attached rather than the resulting HTML,
+  because the HTML is the same whether the queue replays once or twice — the
+  double invoke is visible only in the order.
+- The `ChangePanelMemo` docblock no longer describes a bailout the memo does not
+  currently achieve: the parent builds its handler props unmemoized, so a fresh
+  identity arrives on every render (§170).
+- The chat pointer block's boundedness is pinned as a composition test (§175), and
+  cap-then-flatten is pinned at `threadTitle` (§176), so neither can flip back
+  without a test going red.
+- Nine redundant explicit Testing Library wait budgets were removed in favour of
+  the one global setting they duplicated (§193).
+
 ## [0.250.0] - 2026-08-20 "McAuley"
 
 ### Changed

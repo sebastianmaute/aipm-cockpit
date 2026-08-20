@@ -35,12 +35,22 @@ register's fix to another is how two of them broke. Read the note that names you
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
   ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
   so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
-  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
-  `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
-  object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
-  interpreted as markup instead of inserted literally.
+  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`.
+  ★★★ **`appendText` SPLITS POSITION FROM FOCUS, and this line described the pre-split call from
+  0.211.0 until 0.251.0.** It used to read `editor.chain().focus().insertContent(...)`, which inserts at the SELECTION —
+  the doc START on an editor nobody has clicked into — so a dictated line PREPENDED on the live route while
+  the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
+  whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
+  has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
+  `opts.focus`; the two are independent, and a REPLAY runs at `attach`, where `everFocused` is still
+  false — so both routes agree. `docs/open-followups.md` §192.
+  ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN. An earlier revision said a queued line
+  "is by definition dictated before the editor existed"; that premise is false and the conclusion does
+  not need it.
+  ★★ Either way `insertContent` MUST take a TEXT NODE object, never a bare string: a bare string is parsed
+  as HTML, so dictated text containing `<`/`&` would be interpreted as markup instead of inserted literally.
   ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
-  described exactly that as the pattern to copy for four releases, and it is SILENT DATA LOSS. The mic is a
+  described exactly that as the pattern to copy from 0.211.0 until 0.250.0, and it is SILENT DATA LOSS. The mic is a
   SIBLING of the editor, so it paints and is operable while the editor is still loading; `appendText` is a
   no-op until Tiptap is live, and the `?.` swallows the miss with no throw and no toast. Render the editor
   from `rich-text-editor-lazy.tsx` (every consumer does) and append through ITS handle, which owns a queue

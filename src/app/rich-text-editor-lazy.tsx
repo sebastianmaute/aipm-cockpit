@@ -15,12 +15,19 @@
 //     grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
 //   It must return FIVE lines: THIS file's three (a type-only import, the dynamic
 //   import, a type-only re-export) plus the two tests that exercise the raw
-//   module. ★★ FIVE IS NOT THE NUMBER OF REFERENCES — two test files
-//   (`*.stall.test.tsx`, `*.refused.test.tsx`) name the raw module inside a
-//   `vi.mock(…)` and this sweep CANNOT see them, because there is no
-//   `from`/`import`/`require` before the string. That is harmless for the bundle
-//   (a mock is not a static import) and worth knowing before you conclude the
-//   sweep enumerates every mention. ★★ This said "the dynamic import and type-only re-export, plus the two
+//   module. ★★ FIVE IS NOT THE NUMBER OF REFERENCES — SEVERAL test suites name the
+//   raw module inside a `vi.mock(…)` and this sweep CANNOT see any of them, because
+//   there is no `from`/`import`/`require` before the string. That is harmless for the
+//   bundle (a mock is not a static import) and worth knowing before you conclude the
+//   sweep enumerates every mention. ★★ NO LIST IS WRITTEN HERE ON PURPOSE. This note
+//   carried one, it was wrong when written and wrong again after, so it now carries a
+//   command instead — run it, and do not write down what it printed:
+//     grep -rnE 'vi\.mock\("\.\.?/rich-text-editor"' src --include=*.test.tsx
+//   ★ The `\.\.?/` is load-bearing and a bare `./` form was WRONG here: a mock lives
+//   in `settings-sections/` and reaches the module as `../rich-text-editor`, the same
+//   subdirectory trap `csp-nonce.ts` documents for the sweep above.
+//   ★ `--include=*.test.tsx` also keeps the command from matching this comment.
+//   ★★ This said "the dynamic import and type-only re-export, plus the two
 //   tests" — four — while `csp-nonce.ts` carried a DIFFERENT, also-wrong enumeration
 //   of the SAME command. Two files, two mutually inconsistent counts, neither run.
 //   Run it; do not trust the five either.

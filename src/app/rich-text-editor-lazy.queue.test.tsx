@@ -45,26 +45,51 @@ describe("the lazy editor's append queue", () => {
       ref.current?.appendText("queued while loading");
     });
 
-    // 15s because a cold Tiptap transform can outlast RTL's 5s default on a loaded
-    // machine. Redundant with `vitest.setup.ts`'s global `asyncUtilTimeout`, and
-    // deliberately left in step with the eight other explicit copies rather than
-    // removed here alone (docs/open-followups.md §193).
-    const editor = await screen.findByRole("textbox", { name: "Description" }, { timeout: 15_000 });
+    const editor = await screen.findByRole("textbox", { name: "Description" });
     expect(editor.textContent).toContain("existing");
     expect(editor.textContent).toContain("queued while loading");
 
     // ★★★ ASSERT THE BLOCK STRUCTURE, NOT JUST THE TEXT. `textContent` is blind to
-    // both things the deferred-append path can get wrong, and asserting it alone
-    // left the ONE line this wave adds to the raw editor completely unpinned:
+    // what the deferred-append path can get wrong, and asserting it alone left the
+    // ONE line this wave adds to the raw editor completely unpinned:
     //   · appending at `doc.content.size` (a DOC-level position, after the last
     //     block) makes ProseMirror wrap the text in a NEW paragraph, so an empty
     //     composer persists a stray leading `<p></p>`. See `appendPos`.
-    //   · dropping `{ focus: false }` routes the replay through `focus()` +
-    //     `insertContent`, which inserts at the SELECTION — start-of-document on an
-    //     editor the user has never focused — i.e. it PREPENDS.
-    // Both mutants keep every `textContent` assertion above green and change this
+    // That mutant keeps every `textContent` assertion above green and changes this
     // one, which is the whole reason it is here. Do not weaken it back to text.
     expect(html.at(-1)).toBe("<p>existingqueued while loading</p>");
+
+    // ★★★ THE SECOND MUTANT THIS BLOCK USED TO NAME IS DEAD, and it was killed
+    //   deliberately. It read: "dropping `{ focus: false }` routes the replay
+    //   through focus() + insertContent, which inserts at the SELECTION — i.e. it
+    //   PREPENDS." §192 split position from focus, so `opts` no longer decides
+    //   position and that mutant now changes NOTHING about the HTML.
+    // ★★ Dropping it is still a real defect — the replay would FOCUS the editor at
+    //   a moment the NETWORK chose, stealing the caret from wherever the user
+    //   actually is. So the assertion moved from position to focus. This is the
+    //   only thing in the suite that kills that mutant now.
+    // ★★ It is also the only thing in the REPO that kills ONE mutant on the
+    //   handle's own guard: DELETING `if (opts?.focus !== false)` so focus is
+    //   unconditional. After §192, `opts.focus` is observable only through focus
+    //   and never through the asserted HTML. Measured 2026-08-20, not assumed:
+    //   deleting the guard leaves rich-text-editor.test.tsx green and
+    //   reddens this line. ★ Scoped to THAT mutant on purpose — it is not a claim
+    //   that nothing else in the repo exercises `opts.focus` at all.
+    // ★★★ FLUSH A FRAME FIRST — an ABSENCE assertion proves nothing until the thing
+    //   it denies has had its chance to happen. Under jsdom every UA check in tiptap's
+    //   `focus()` is false, so it takes the requestAnimationFrame path, and jsdom fires
+    //   rAF on a ~16.7ms interval while RTL can resume the awaited `findByRole` above
+    //   much sooner than that. Assert into that window and the mutant's focus has simply
+    //   not run yet: `activeElement` is still `document.body`, the line below PASSES, and
+    //   the guard stops guarding without ever going red — the direction nobody finds out
+    //   about. ★★ Measured 2026-08-20, not assumed: the mutant DOES die 3/3 without this
+    //   wait on a quiet machine, so this is insurance against a load-dependent silent
+    //   pass, not the repair of a broken kill. It was added with the kill re-proved on
+    //   both sides of it.
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(document.activeElement).not.toBe(editor);
   });
 
   // ★★★ THE PREMISE ABOVE IS A PROPERTY OF THE RUNNER, NOT OF THIS FILE, AND

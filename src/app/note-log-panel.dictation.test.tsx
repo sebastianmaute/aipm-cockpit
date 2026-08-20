@@ -40,7 +40,7 @@ describe("note-log dictation vs. the lazily-loaded editor", () => {
     expect(screen.queryByRole("textbox", { name: t(EN, "noteLogPlaceholder") })).toBeNull();
     act(() => composer.onAppendFinal("dictated before mount"));
 
-    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") }, { timeout: 15_000 });
+    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
     expect(editor.textContent).toContain("dictated before mount");
   });
 });

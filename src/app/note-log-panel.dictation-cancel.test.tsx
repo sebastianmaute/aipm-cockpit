@@ -65,7 +65,7 @@ describe("an abandoned edit does not resurrect its dictation", () => {
     fireEvent.click(screen.getByRole("button", { name: t(EN, "cancel") }));
     fireEvent.click(screen.getByRole("button", { name: EDIT_BUTTON }));
 
-    const editor = await screen.findByRole("textbox", { name: t(EN, "edit") }, { timeout: 15_000 });
+    const editor = await screen.findByRole("textbox", { name: t(EN, "edit") });
     // Positive observable first: absence alone would also be satisfied by an
     // editor that failed to render its stored content at all.
     expect(editor.textContent).toContain("stored body");

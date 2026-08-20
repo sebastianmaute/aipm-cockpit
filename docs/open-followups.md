@@ -11499,7 +11499,7 @@ fixed when a user stumbles onto the workaround.
 ★ The argument is required rather than defaulted (a missing one is a tsc error, and the declaration
 carries a comment saying so), so the hazard is a STALE cache, never a wrong call.
 
-## 170. The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do — open, pre-existing
+## 170. The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do — CLOSED 2026-08-20
 
 The comment above `memo(ChangePanelBody)` says the memo "relies on handler props being stable refs
 (the parent wraps them in `useCallback`)". It does not: `task-manager.tsx` builds `guardEdit(handler)`
@@ -11516,6 +11516,19 @@ is honestly labelled and this one is not, so a reader takes the comment as a liv
 "preserve" an optimisation that has never run. Either correct the comment or delete the memo; do
 NOT cite it as a reason anything is fast. ★ Memoizing `guardEdit` is not the fix on its own — it is
 one unstable family among several, the same finding recorded for `ResourcesPanel`.
+
+**Resolution 2026-08-20.** The comment was corrected; **the memo is KEPT and now labelled
+aspirational**, matching how AGENTS.md already describes the `ResourcesPanel` memo. Re-confirmed
+before writing the replacement text rather than taken from this entry: `task-manager.tsx` declares
+`guardEdit` as a bare `const` in the render body — no `useCallback` anywhere near it — and the
+three change-panel handlers are wrapped at call time, so a fresh identity arrives on every parent
+render and the memo compares unequal every time.
+
+★★ **THE MEMO STILL DOES NOT BAIL, and that is unchanged and deliberate.** Only the CLAIM was
+false; the optimisation was never running and is not running now. Nothing in this slice made
+anything faster. The entry closes on the honesty of the comment, not on the performance — and the
+choice between "stabilise every handler prop" and "delete the memo" is still open, exactly as the
+`ResourcesPanel` finding leaves it.
 
 ## 171. The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted
 
@@ -11743,7 +11756,7 @@ commit, or the model is handed a value the prose does not define.
 ★ Window is small but not theoretical: the pointer and the tool are both reachable on the first
 turn after a project opens.
 
-## 175. `buildChatPointerBlock` is no longer bounded by any test — open, safe by single-producer accident
+## 175. `buildChatPointerBlock` is no longer bounded by any test — CLOSED 2026-08-20
 
 Same review. Introduced BY the fix that moved the thread-title cap to its producer: that commit
 deleted the four size tests from `chat-recap.test.ts` because their subject (`inlineTitle`'s clip)
@@ -11764,7 +11777,21 @@ an argument for ONE test that feeds `buildChatPointerBlock` an over-long title d
 the block stays bounded — the guard that makes the single-producer property checkable instead of
 merely true.
 
-## 176. The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order — open, cosmetic
+**Resolution 2026-08-20.** Pinned in `chat-recap.test.ts` — but as a **COMPOSITION** test, producer
+through renderer, NOT the direct feed the paragraph immediately above asks for.
+
+★★ **THE DISCREPANCY IS DELIBERATE, and it is the reason this entry is worth reading closed.** The
+paragraph above wants a test that feeds `buildChatPointerBlock` an over-long title DIRECTLY.
+`inlineTitle`'s own docstring says the cap lives at the producer and "Do not re-add a clip here" —
+so a direct-feed test could only go GREEN by adding the very clip that docstring forbids. Written as
+asked, the test would have been a standing request to reintroduce a second cap. It was pinned one
+level up instead — `threadTitle` through `buildChatPointerBlock` — which is where the
+single-producer property actually lives, and which is what a second producer would break.
+
+★ Mutation-proved: dropping the `sanitizeMultiline` clip from `threadTitle` reddens exactly the
+new test and nothing else in that file.
+
+## 176. The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order — CLOSED 2026-08-20
 
 Same review. Behaviour delta, deliberately shipped, recorded so it is not mistaken for a bug later.
 
@@ -11776,6 +11803,16 @@ because the run is counted against the cap before it is collapsed.
 ★ Bounded either way (the cap plus one ellipsis), model-facing only, and no storage or export path
 is involved ★★ but NO test pins either ordering, so a future edit can reverse it silently in
 either direction. If it is ever worth pinning, pin it at `threadTitle`, where the clip now lives.
+
+**Resolution 2026-08-20.** Pinned at `threadTitle`, in `chat-search.test.ts`, exactly where this
+entry says to put it.
+
+★★ **THE FIXTURE IS THE TEST.** The two orderings agree character for character on almost any
+input, so the fixture carries a long run of INTERIOR whitespace: spent against the cap before it is
+collapsed, cap-then-flatten keeps the tail of what follows the run and flatten-then-cap does not.
+Without that run the assertion CANNOT fail, which is why three anti-vacuity guards sit beside it and
+why the expected tail length is DERIVED from `THREAD_NAME_MAX` rather than hardcoded. Mutation-proved
+by reversing the order.
 
 ---
 
@@ -12634,10 +12671,16 @@ ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
 arms are now pinned individually in `document-model.test.ts`, but nothing forces
 a new arm when the union grows.
 
-## 192. `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK
+## 192. `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK — CLOSED 2026-08-20
 
-**Status:** open — a decision, not a defect report. Pinned by the two "appendText
-lands" tests in `rich-text-editor.test.tsx`, so neither branch can drift silently.
+**Status:** CLOSED 2026-08-20 — **option 3 taken**, in its own slice, as the entry
+asked. Pinned by the THREE "appendText lands" tests in `rich-text-editor.test.tsx`
+— this line said TWO until the fix added the third — so no branch can drift silently.
+
+★★★ **EVERYTHING BETWEEN HERE AND THE RESOLUTION DESCRIBES THE PRE-FIX STATE.** Both
+tables below were CURRENT behaviour when written and are now history. They are kept
+rather than deleted because the race they measure is the whole argument for the
+option that was taken; read them as the diagnosis, never as today's behaviour.
 
 ★★★ **THE FIRST REVISION OF THIS ENTRY SAID "behaviour is unchanged from `main`"
 AND THAT IS HALF FALSE.** The DEFAULT branch is unchanged. The DICTATION PATH is
@@ -12649,8 +12692,8 @@ PREPENDED. Surprising, but deterministic. This branch added the second branch, a
 with it a coin flip.
 
 `note-log-panel.tsx` calls `appendText(txt)` with NO `opts`, at two sites. Through
-the lazy wrapper that reaches either branch depending on whether Tiptap's
-chunk had landed when the user pressed the mic:
+the lazy wrapper that REACHED either branch depending on whether Tiptap's
+chunk had landed when the user pressed the mic (PRE-FIX — the two routes agree now):
 
 | chunk state at the call | route | result on `<p>existing</p>` |
 |---|---|---|
@@ -12664,9 +12707,9 @@ dictated line lands, and nothing on screen tells them which run they got. That i
 different and stronger problem than the edge described below, which is why the
 heading changed.
 
-`RichTextEditorHandle.appendText` has two branches and they insert in different
-places. Measured through the real editor, fixture `<p>existing</p>`, editor never
-focused:
+`RichTextEditorHandle.appendText` HAD two branches and they inserted in different
+places (PRE-FIX). Measured through the real editor, fixture `<p>existing</p>`, editor
+never focused:
 
 | call | result |
 |---|---|
@@ -12685,8 +12728,8 @@ caret"). The method NAME is what misleads. The edge that is genuinely surprising
 open an existing note for editing, press the mic WITHOUT clicking into the text,
 and the transcript is prepended to the stored note.
 
-**Options, none taken.** Whatever is picked, the RACE is the reason to pick
-something — every option below also makes the two routes agree, which option 1
+**Options — 3 was taken on 2026-08-20.** Whatever is picked, the RACE is the reason
+to pick something — every option below also makes the two routes agree, which option 1
 cannot:
 
 1. ~~Leave it — this is the status quo.~~ NOT TENABLE, and it was listed as the
@@ -12708,10 +12751,44 @@ cannot:
 smuggled into a lazy-loading branch. Found while verifying an unrelated review
 finding, which is why it is written down rather than fixed here.
 
-## 193. Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted
+**Resolution 2026-08-20 — option 3, in its own slice.** Position now comes from an
+`everFocused` ref set by a Tiptap `onFocus` handler; focus still comes from
+`opts.focus`. The two are INDEPENDENT, which is the fix: a queued replay and a live
+call on the same never-focused editor now land in the same place, so the network no
+longer decides anything.
 
-**Status:** open — pure cleanup, no behaviour change, deliberately NOT done inside
-the 0.250.0 branch.
+★ **Option 3's stated PREMISE was later refuted; its conclusion does not need it.** "A
+queued line is by definition dictated before the editor existed" is false — a line is
+ALSO queued when a LIVE handle's `appendText` returns false. What holds is narrower: a
+replay runs at `attach`, where `everFocused` is still false. The option-3 wording above
+is left as the reasoning of the day.
+
+★★ **BEHAVIOUR DELTA, stated plainly rather than buried.** Dictating into an EXISTING
+note WITHOUT clicking into it now APPENDS, where it used to prepend. Dictating with
+the caret placed is unchanged. Both production callers are in `note-log-panel.tsx`,
+both pass no opts, and neither surface auto-focuses — so `everFocused` starts false
+there, which is what makes the queued and live routes agree.
+
+★★ **THE QUEUE SUITE LOST ONE OF ITS TWO DOCUMENTED MUTANTS TO THIS FIX.** "Drop
+`{ focus: false }`" is no longer observable by POSITION — measured SURVIVING before
+the swap, because position stopped reading `opts.focus` — so that assertion moved to
+`document.activeElement`, which does kill it. Do not re-add the position assertion
+thinking it still guards something; it would be a green test pinning nothing.
+
+★★★ **THE FIX CARRIES AN ORDERING CONSTRAINT NO TEST IN THIS REPO CAN COVER** — the
+read of `everFocused` must precede the chain build. Filed as §195, which is OPEN and
+will stay open.
+
+## 193. Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted — CLOSED 2026-08-20
+
+**Status:** CLOSED 2026-08-20 — pure cleanup, no behaviour change, done in ONE
+commit after 0.250.0 shipped without it.
+
+★★★ **EVERYTHING BETWEEN HERE AND THE RESOLUTION DESCRIBES THE PRE-FIX STATE.** The
+count, the per-file table and the grep below were CURRENT when written and are now
+history — that grep returns nothing today. They are kept rather than deleted because
+the SPLIT they warn against is the whole argument for removing all nine in one
+commit; read them as the diagnosis, never as today's tree.
 
 `vitest.setup.ts` sets `configure({ asyncUtilTimeout: 15000 })` globally. Nine
 `findBy*` calls still pass `{ timeout: 15_000 }` explicitly, across six files:
@@ -12740,10 +12817,19 @@ a Tiptap-mounting test is added. It now names no number, which is the state to k
 This is the same class as §131 and the AGENTS.md counts landmine — a count is the
 easiest claim to check and the easiest to leave rotting.
 
-## 194. The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE
+**Resolution 2026-08-20.** All nine went together, in one commit, with no split and
+no exception — which is the whole of what the ★★★ above demands. Removing them also
+stranded three bare `undefined` placeholder arguments that had existed only to carry
+the options object into position; those went in a follow-up commit on the same branch,
+not in the same pass.
 
-**Status:** open — a deliberate gap, filed because 0.250.0 deleted the thing that
-was standing in for it.
+★ **NO COUNT WAS REINTRODUCED IN `vitest.setup.ts`.** Its comment still names no
+number, which is the state this entry asked to keep. The grep above now returns
+nothing, which is the check — not this sentence.
+
+## 194. The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE — CLOSED 2026-08-20
+
+**Status:** CLOSED 2026-08-20 — replaced, not re-added.
 
 `rich-text-editor-lazy.strictmode.test.tsx` was deleted in 0.250.0. Its own header
 already conceded "no mutant is known that this file kills and `*.queue.test.tsx`
@@ -12766,3 +12852,116 @@ double-invoke walk fires only at the topmost fiber flagged for PLACEMENT, so
 StrictMode inside a wrapper does NOT — and a test written the wrong way passes with
 the line it claims to pin DELETED. Mutation-test the guard, or it is worse than the
 one that was removed.
+
+**Resolution 2026-08-20.** `rich-text-editor-lazy.strictmode.test.tsx` is back, but
+as a DIFFERENT test rather than a re-add: it asserts the ordered `appendText` call
+log across the attach sequence, not the final HTML the deleted file compared.
+
+★★ **TWO-SIDED MUTATION RESULT, which is the point.** Deleting `pending.current = []`
+reddens it under StrictMode — the queued text appears twice — and the SAME mutant
+SURVIVES once the StrictMode wrapper is removed. That pair is what makes the wrapper
+load-bearing rather than decorative, and it is exactly the property the deleted file
+could not demonstrate.
+
+★★ **DEPTH IS OBSERVED INDIRECTLY, and the paragraph above asked for it directly.**
+It wants the attach sequence "with what queue depth each time". The queue is a
+`useRef` with no test-reachable handle, so depth is read off its CONSEQUENCE: the
+first attach flushes one item, the second flushes none. Do not read the test as
+measuring the queue's length — it measures what that length caused.
+
+★★ **A MEASUREMENT WORTH KEEPING, because it cuts against the ★★★ above.** A
+wrapper-NESTED StrictMode would NOT have been vacuous here: the editor mounts on a
+LATER commit — the first renders the fallback while the `dynamic()` payload is still
+pending — so `strictmode.meta.test.tsx`'s COROLLARY 2 governs, not the mount-commit
+rule the ★★★ cites. `wrapper: StrictMode` was used anyway, because it satisfies both
+and cannot rot into the vacuous shape if that mount timing ever changes.
+
+## 195. `appendText` must read `everFocused` BEFORE building the chain, and nothing in this repo can catch a regression
+
+**Status:** open — a permanent test gap, not a defect. The code is correct today.
+
+§192's fix reads `everFocused` into a local and only THEN builds the Tiptap chain.
+That order is load-bearing. createChain in @tiptap/core 3.x runs each command's body
+at CALL time and defers only the dispatch, and the focus command calls the DOM focus
+synchronously on Safari, iOS and Android (elsewhere it is rAF-deferred). That DOM
+focus reaches the editor's own `onFocus` handler, which sets `everFocused` — so a
+read taken AFTER `chain.focus()` would see `true` on those three platforms and let
+this call's own focus decide this call's position. That is §192's defect again,
+restricted to three user agents.
+
+★★★ **NO TEST IN THIS REPO CAN OBSERVE IT.** jsdom matches none of those three
+user-agent checks, so focus is rAF-only under vitest and the two orderings are
+indistinguishable. A mutant that moves the read below the chain build survives the
+entire suite, green.
+
+What WOULD catch it: a real-browser test on Safari, iOS or Android asserting where a
+dictated line lands on a never-focused editor. This repo has no harness for any of
+the three — Playwright runs chromium here, which takes the rAF path — so this is not
+a "write the test" follow-up. It is a gap with a named cause.
+
+★ The only present defence is the comment at the call site, which states the
+mechanism and says not to tidy the read down into the ternary. Treat that comment as
+the guard, and do not delete it as redundant with the code.
+
+## 196. The two-routes-agree property §192 exists to establish has NO fixture
+
+**Status:** open — a test gap, not a defect. The behaviour is correct today.
+
+§192's whole point is that a dictated line lands in the SAME place whether it reached the editor
+through the lazy wrapper's QUEUE (appended before the chunk resolved, replayed at attach) or LIVE
+against an already-mounted one. `rich-text-editor-lazy.queue.test.tsx` carried an assertion that
+claimed to pin exactly that. The 0.251.0 review round DELETED it, because it pinned nothing.
+
+**Why it was vacuous.** `insertContentAt` defaults to updating the selection and ends by moving it to
+the insertion end, so the queued replay leaves the caret at the end of the document. A live append
+running AFTER that therefore lands at the end under the PRE-§192 code too. Divergence needs the LIVE
+append to come FIRST — and that file structurally cannot express it: its one test must consume the
+unresolved-chunk window, and a second `it` in the same file gets an already-resolved chunk.
+
+★★ It was also redundant against every mutant the review could name. The full §192 revert SURVIVES it
+(killed by `rich-text-editor.test.tsx`); inverting the position ternary SURVIVES it; forcing
+`everFocused` true SURVIVES it; swapping `appendPos` for the doc-level end position dies at the
+block-structure assertion above it, not at this one; and dropping the wrapper's `inner.current`
+assignment is killed by `rich-text-editor-lazy.refused.test.tsx`. An assertion that kills nothing
+another test does not already kill, while presenting itself as the guard for the release's headline
+property, is worse than no assertion — it is a reason to stop looking.
+
+**The fixture that WOULD pin it.** Render TWO lazy editors in ONE test, both `<p>existing</p>`, both
+never focused. Append to editor A BEFORE the chunk resolves (queued, so replayed with `{focus:false}`);
+append to editor B AFTER a `findByRole` has resolved it (live, `opts` undefined). Assert the two
+produce IDENTICAL HTML. Both editors sit behind the single `next/dynamic` boundary, so B is live the
+moment A's is — which is what keeps the one-queue-test-per-file constraint intact rather than
+violating it.
+
+★ The review that filed this measured that fixture RED under the §192 revert
+(`<p> appendedexisting</p>` against `<p>existing appended</p>`), RED under an inverted position
+ternary, and RED under `everFocused` forced true — i.e. it kills the three mutants the deleted
+assertion did not.
+
+★★ DEFERRED DELIBERATELY, and the reason is procedural rather than technical: it was found during a
+fix round, whose job is to CUT. Adding a new fixture while correcting is the highest-risk commit
+class in this repo, which is the thing this branch has now demonstrated twice.
+
+## 197. `appendText`'s return value is over-claimed by one word — `focus` can also return false
+
+**Status:** open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
+Filed so the comment is not read as stronger than it is.
+
+`appendText` in `rich-text-editor.tsx` returns the chain's own verdict rather than an unconditional
+`true`, and the comment beside that return justifies reading a `false` as "nothing landed" on the
+grounds that "the only other command is `focus` and nothing else touches the transaction". `focus`
+can itself return false: verified in the installed `@tiptap/core`, its body wraps the
+`view.hasFocus()` early-exit in a `try` whose `catch` returns false. A false command does not abort
+the chain, so on that path the insert has still been dispatched — a `false` there would mean "the
+text landed and the focus attempt threw", not "nothing landed".
+
+★★ **NOT REACHABLE TODAY, and that is the half worth keeping.** On the realistic path — a
+never-focused editor, `opts` undefined — `appendText` returns TRUE. A DESTROYED editor throws at
+`editor.chain()` before `focus` runs at all, which `flushPending`'s `finally` already handles.
+Reaching that `catch` needs `view.hasFocus()` to throw while `editor.chain()` still works, which the
+review that filed this could not construct. Main carried the same shape before §192, so nothing on
+that branch introduced it.
+
+★ Adjacent to §195, which records the OTHER thing about this same call that no test here can catch —
+but a different thing, and do not merge them: §195 is about the ORDER of a read, this is about the
+MEANING of a return.

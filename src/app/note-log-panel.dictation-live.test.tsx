@@ -18,7 +18,7 @@ beforeAll(installRangePolyfills);
 describe("note-log dictation once the editor is live", () => {
   it("still appends normally once the editor is mounted", async () => {
     const { composer } = renderNotePanel();
-    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") }, { timeout: 15_000 });
+    const editor = await screen.findByRole("textbox", { name: t(EN, "noteLogPlaceholder") });
 
     act(() => composer.onAppendFinal("dictated after mount"));
     expect(editor.textContent).toContain("dictated after mount");
