@@ -12778,6 +12778,12 @@ will stay open.
 **Status:** CLOSED 2026-08-20 — pure cleanup, no behaviour change, done in ONE
 commit after 0.250.0 shipped without it.
 
+★★★ **EVERYTHING BETWEEN HERE AND THE RESOLUTION DESCRIBES THE PRE-FIX STATE.** The
+count, the per-file table and the grep below were CURRENT when written and are now
+history — that grep returns nothing today. They are kept rather than deleted because
+the SPLIT they warn against is the whole argument for removing all nine in one
+commit; read them as the diagnosis, never as today's tree.
+
 `vitest.setup.ts` sets `configure({ asyncUtilTimeout: 15000 })` globally. Nine
 `findBy*` calls still pass `{ timeout: 15_000 }` explicitly, across six files:
 

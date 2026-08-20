@@ -27,10 +27,20 @@ import { server } from "./src/test/msw-server";
 // starvation shape this block already existed for, with a new and much larger
 // first-hit cost on top.
 //
-// ★★ 15s is the ONLY place this number is written. The Tiptap-mounting suites used
-// to restate it at each wait; all nine copies were removed together in 0.251.0
-// because every one of them merely re-stated this line (docs/open-followups.md
-// §193, closed). ★★★ DO NOT REINTRODUCE A COUNT HERE. The wording this replaced
+// ★★ This is the ONLY place the Tiptap-transform wait budget is written. The
+// Tiptap-mounting suites used to restate it at each wait; every copy was removed
+// together in 0.251.0 because each one merely re-stated this line
+// (docs/open-followups.md §193, closed).
+//
+// ★★ That is a claim about THIS budget, NOT about the literal. `timelog-panel.test.tsx`
+// spells 15000 at two of its own `waitFor` calls, for an unrelated reason it documents
+// in place (docs/open-followups.md §39 — those two budgets sum past the 20s
+// testTimeout, which is the information that comment exists to carry). They are
+// deliberately NOT swept in here. ★ A sweep for the `15_000` spelling cannot see
+// them, which is how they survived the one that removed the copies above:
+//   grep -rn "15000" src --include=*.tsx | grep timeout
+//
+// ★★★ DO NOT REINTRODUCE A COUNT HERE. The wording this replaced
 // named one ("the four lazy-editor suites") and it had already rotted: the suites
 // were not four and were not all lazy-editor suites. The set moves whenever a
 // Tiptap-mounting test is added, so any number written here is wrong on a schedule.
