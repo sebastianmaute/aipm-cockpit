@@ -177,14 +177,32 @@ describe("TaskFormFields", () => {
 });
 
 describe("TaskFormFields description + notes button", () => {
-  it("renders the rich Description editor (a labelled textbox)", () => {
+  it("renders the rich Description editor (a labelled textbox)", async () => {
     render(<Harness />, { wrapper: TestProviders });
     // NoteEditor mounts a contenteditable with role=textbox + aria-label "Description".
-    expect(screen.getByRole("textbox", { name: "Description" })).toBeTruthy();
+    // ★ MUST be findBy, not getBy: the editor loads through the
+    //   rich-text-editor-lazy next/dynamic boundary, so the FIRST render paints
+    //   the Skeleton fallback and a synchronous getBy sees no textbox at all.
+    //   The skeleton carries no role, so this query still cannot be satisfied by
+    //   the placeholder -- swapping the render site for RichTextEditorFallback
+    //   still fails this test.
+    expect(await screen.findByRole("textbox", { name: "Description" })).toBeTruthy();
   });
 
-  it("no longer renders the in-form note-log composer (author select + note input + add button)", () => {
+  it("no longer renders the in-form note-log composer (author select + note input + add button)", async () => {
     render(<Harness />, { wrapper: TestProviders });
+    // ★★★ THE await IS LOAD-BEARING AND IT IS NOT ABOUT THE Description EDITOR.
+    //   `noteLogPlaceholder` labels the COMPOSER's RichTextEditor textbox, which
+    //   now sits behind the rich-text-editor-lazy `next/dynamic` boundary. Assert
+    //   its absence synchronously and the query is satisfied by a fallback that
+    //   has not swapped yet — it would pass with the composer fully restored.
+    //   Worse than plain vacuity: `next/dynamic` builds its `React.lazy` ONCE per
+    //   MODULE evaluation, so after any earlier test in this file has resolved it,
+    //   later renders are synchronous again and the line is live. `test:shuffle`
+    //   shuffles WITHIN a file, so this assertion was alive or dead depending on
+    //   order — and BOTH orders were green. Awaiting a positive observable that
+    //   only exists once the lazy chunk has resolved removes the order dependence.
+    expect(await screen.findByRole("textbox", { name: "Description" })).toBeTruthy();
     expect(screen.queryByLabelText(t("en-US", "noteLogAuthor"))).toBeNull();
     expect(screen.queryByLabelText(t("en-US", "noteLogPlaceholder"))).toBeNull();
     expect(screen.queryByRole("button", { name: t("en-US", "noteLogAdd") })).toBeNull();

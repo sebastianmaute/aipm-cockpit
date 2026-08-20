@@ -2633,11 +2633,17 @@ different file (`prosemirror-view/style/prosemirror.css`, 1243 bytes, so not the
 prosemirror-view never injects; it only warns (`checkCSS`, `dist/index.js`, recommending you load its
 stylesheet yourself). Fires once, on initial load.
 
-★ The entry also said "The editor loads via `next/dynamic`". True of only 2 of its 8 call sites —
-`meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx`. The other six import
-`RichTextEditor` statically, so it SSRs, which is why the nonce reader must guard `typeof document`.
-Reproduce the split with `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
-(8 consumers). See §129, which carries the full table and the counter-example command.
+★ The entry also said "The editor loads via `next/dynamic`". That was true of only 2 of its 8 call sites
+when this was written — `meeting-report-panel.tsx` and `settings-sections/comm-templates-section.tsx` —
+and the other six imported `RichTextEditor` statically, so it SSRed, which is why the nonce reader must
+guard `typeof document`.
+★★ **BOTH HALVES OF THAT ARE NOW FALSE AND THE GUARD STAYS ANYWAY.** 0.250.0 routed all nine consumers
+through `rich-text-editor-lazy.tsx`, so nothing SSRs the editor and nothing reaches `readCspNonce()` on the
+server — the guard is DEFENSIVE, not load-bearing, and `csp-nonce.ts` records both states deliberately so
+nobody deletes it. Do not read this paragraph as a live description of the tree; it is why the guard exists.
+The old reproduce command (`grep -rl 'rich-text-editor"' src/app --include="*.tsx"`, quoted here as
+returning 8) now returns 1, and the bare form returns 6. See §129 for the current split and the sweep that
+does not miss a `../` import.
 
 ★★ **Why it is prod-only, structurally** (`src/proxy.ts`, the `styleElem` ternary — `grep -n styleElem
 src/proxy.ts`) — verified on the live response header:
@@ -2682,11 +2688,21 @@ the same entry (count between the two mentions, not from the list, which gives 6
 consumers are affected identically: `immediatelyRender: false` defers Editor construction to mount, so
 the injection is client-side under BOTH import styles (§129). ★ Derive a blast radius from the consumer
 list, NOT from the field list — a field list answers "what is stored", and this bug is about what is
-RENDERED. The consumer list is
-`grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v "\.test\.tsx"` (8); the bare
-`grep -rl 'rich-text-editor"' src/app` an earlier revision quoted here returns 12, because it also picks
-up `csp-nonce.ts` and three test files. Abbreviating an attached command is how it stops reproducing the
-number beside it.
+RENDERED. The consumer list is derived, never quoted — 0.249.0 moved every consumer behind
+`rich-text-editor-lazy.tsx`, so the command this paragraph used to carry (`grep -rl 'rich-text-editor"'
+src/app --include="*.tsx"`, quoted as 8) now returns FIVE, all of them the wrapper or a test.
+★★★ THIS SENTENCE SAID "returns 1 and its bare form returns 6" AND BOTH NUMBERS WERE WRONG, in the very
+commit whose message was "correct the claims this branch itself falsified". The 1 was the OLD command's
+result, kept after its trailing `| grep -v '.test.tsx'` was dropped — a number carried across an edit
+to the command that produced it. The 6 was invented. Measured: both forms return the IDENTICAL five
+files. A correction is a NEW claim and inherits none of the verification of the thing it corrects.
+★★ The adjacent hazard was refuted too, and is restated as what it is — a property of the COMMAND FORM,
+not a fact about today's results. A `--include=*.tsx` sweep rooted at `./` cannot see a
+`../rich-text-editor` import from `settings-sections/` or `dashboard-sections/`; both directories do
+hold consumers, but they reach the editor through `rich-text-editor-lazy.tsx`, so NEITHER form finds them
+and the two counts cannot differ today. The sweep in that file's header admits `../`, `.ts` and single
+quotes because the hazard returns the moment a consumer imports the raw module again. Abbreviating an attached command is how it stops reproducing the
+number beside it — and outliving the tree is the other way.
 
 **Not caused by the eslint-10 branch.** That branch touches no CSS, no markup and not `src/proxy.ts`;
 its only runtime commit is six type annotations. The same violation, with an identical hash and only the
@@ -8191,7 +8207,137 @@ non-AI surface none of them touched — a fourth widening was the wrong call.
 
 ---
 
-## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — open, a decision, measured
+## 129. Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle — CLOSED 2026-08-19
+
+**CLOSED in 0.249.0 "McAuley" — measured, then done. Everything below the next rule is the ORIGINAL
+2026-08-09 entry, preserved. Read the date on a paragraph, not its position.**
+
+**What the measurement was, because `next build` could not answer it.** Every route on this app is `ƒ`
+(dynamic), and Next 16.2.11 + Turbopack prints a `First Load JS` table only for statically generated
+routes — the build log has zero `kB` / `First Load` / `shared by all` lines. The eager entry graph was
+read instead from `.next/server/app/page_client-reference-manifest.js`, which maps each client module to
+the chunks needed to load it; `task-manager.tsx` is the root client component of `/`, so its chunk list
+IS that graph, and a module behind `next/dynamic` gets its own entry and drops out of the parent’s.
+
+| | before (at `d20ab9c1`) | after (0.249.0) | after (0.250.0, post-merge) |
+|---|---|---|---|
+| eager chunks carrying `prosemirror-view` | 1 | 0 | **0** |
+| eager total | 2334.7 kB | 1911.1 kB | **1915.4 kB** |
+| eager chunks | 19 | 20 | **21** |
+| `react-loadable` entries that can reach the ProseMirror chunk | — | 1 of 27 | **1 of 27** |
+
+★★ THE `before` COLUMN IS AT `d20ab9c1` AND PREDATES THE NINTH CONSUMER, so it is not the merge
+base this release actually shipped against. main added `document-block-editors.tsx` — a further
+STATIC importer — while this branch was unpushed. That can only have kept ProseMirror in the eager graph,
+never shrunk it, so a `before` measured at the true merge base would be at least this large: the delta
+is understated, not overstated. It was not re-measured because doing so needs a full build of a tree this
+branch no longer has, and the direction of the error is the safe one. Do not quote the delta as exact.
+
+★★ EVERY NUMBER IN THAT TABLE MOVES ON ANY CONTENT CHANGE, so read it as a direction and re-measure the
+column you care about. It was first written as 1906.8 kB / 18 chunks and was already stale THREE COMMITS
+LATER — falsified by this very release's own i18n strings, which land in the eager EN dictionary. Reproduce
+the "after" column against a CURRENT build (`npm run build` first):
+★★★ THE COMMAND THAT USED TO SIT HERE **CRASHED**, and it had never been run in the form it was
+committed in. Its path-stripping was `c.replace(/^.._next./,'')`, which wants TWO characters before
+`_next`; the manifest values are `/_next/static/chunks/x.js` with ONE. Nothing matched, `path.join`
+built `.next/_next/static/...`, and it died on `ENOENT` before printing a number. The numbers beside
+it were real — produced by a working variant typed at a shell — but the transcription into this file
+broke it, so anyone re-measuring got a stack trace instead of a check. An attached command that does not
+run is worse than no command: it reads as evidence. Write it into a FILE and run it, rather than
+hand-escaping a one-liner into markdown.
+
+Write this to a file and `node` it, after `npm run build`:
+```js
+import fs from 'fs'; import p from 'path';
+globalThis.self = globalThis;
+eval(fs.readFileSync('.next/server/app/page_client-reference-manifest.js', 'utf8'));
+const m = globalThis.__RSC_MANIFEST['/page'];
+// strip any leading '<...>_next/' so a served path resolves under .next/ on disk
+const strip = (c) => { const i = c.indexOf('_next/'); return i === -1 ? c : c.slice(i + 6); };
+const e = new Set();
+for (const v of Object.values(m.clientModules))
+  for (const c of (v.chunks || [])) if (c.endsWith('.js')) e.add(strip(c));
+let t = 0, pm = 0;
+for (const c of e) { const f = p.join('.next', c); t += fs.statSync(f).size;
+  if (fs.readFileSync(f, 'utf8').includes('prosemirror-view')) pm++; }
+console.log(e.size, 'chunks', (t / 1024).toFixed(1), 'kB, carrying prosemirror-view:', pm);
+// the react-loadable row — note the PER-ROUTE manifest path; there is no
+// .next/react-loadable-manifest.json in this Next version, and looking for one
+// returns ENOENT rather than a wrong number.
+const rl = JSON.parse(fs.readFileSync('.next/server/app/page/react-loadable-manifest.json', 'utf8'));
+const holder = [...e].find((c) => fs.readFileSync(p.join('.next', c), 'utf8').includes('prosemirror-view'));
+const keys = Object.keys(rl);
+const id = 'REPLACE with the basename of the chunk that carries prosemirror-view on disk';
+console.log('react-loadable entries:', keys.length, '| eager holder:', holder ?? 'none (expected)');
+console.log('reaching it:', keys.filter((k) => JSON.stringify(rl[k]).includes(id)).length);
+```
+
+★★★ **EVICTION VS RELOCATION IS THE ONLY THING THAT MAKES THAT TABLE MEAN ANYTHING.** A flat total with
+a flipped flag would mean the bytes re-homed into another eager chunk — a null result that reads as a win.
+Exactly ONE chunk in `.next/static/chunks` carries the editor and it is not in the eager set. Check BOTH,
+always. ★ The SIZE moves with every content change and is quoted here only as an order of magnitude:
+428.19 kB at 0.249.0, 438,762 B = 428.48 kB on the 0.250.0 post-merge build. Re-read it, do not cite it.
+
+★★★ **GREP FOR `prosemirror-view`, NEVER FOR `ProseMirror`** — the sharpest instance in this file of prose
+outliving its own commit. The original discriminator here was "exactly one chunk contains the string
+`ProseMirror`", true when written and falsified BY THE SAME RELEASE: the EN and DE version highlights
+announcing this work both name Tiptap and ProseMirror, so they ship inside the i18n chunks and the count is
+permanently >= 3. **The release note describing the eviction breaks the grep that proves the eviction.**
+`prosemirror-view` is a package specifier, so it appears only where the code does:
+```bash
+node -e "const fs=require('fs'),d='.next/static/chunks';
+const has=s=>fs.readdirSync(d).filter(f=>f.endsWith('.js')&&fs.readFileSync(d+'/'+f,'utf8').includes(s));
+console.log('code:',has('prosemirror-view').length,'| display string:',has('ProseMirror').length)"
+```
+It printed `code: 1 | display string: 3`. ★★ The 423.6 kB table delta is SMALLER than the 428.19 kB chunk,
+and that direction is the expected one: the same release added content to the eager graph (the highlight
+strings above), so the delta UNDERSTATES the eviction. A delta LARGER than the chunk is the one to chase.
+
+★★★ **THE ENTRY-GRAPH NUMBER WAS TRUE AND THE FRAMING BUILT ON IT WAS HALF FALSE**, and only a cold
+review caught it. The first cut converted the six static sites and left `change-edit-modal` and
+`raid-edit-modal` alone, reasoning that both sit behind `dynamic()` panels so neither can affect the entry
+graph. Correct about the entry graph. But `panel-raid` is one of the two tabpanels `workspace-section.tsx`
+mounts UNCONDITIONALLY (`hidden`-toggled, no `key`), and React.lazy fires its loader on RENDER, not on
+visibility — so `RaidPanel`’s chunk was fetched on the initial dashboard render and `raid-edit-modal`’s
+static import put ProseMirror in the same `Promise.all`. The bytes had left the render-blocking entry
+chunk and had NOT left the page load. Reproduce the distinction with the loadable manifest, which the
+client-reference manifest cannot show you:
+```bash
+node -e "const fs=require('fs');const m=JSON.parse(fs.readFileSync('.next/server/app/page/react-loadable-manifest.json','utf8'));
+let n=0;for(const v of Object.values(m)){if((v.files||[]).some(f=>{try{return fs.readFileSync('.next/'+f.replace(/^\/_next\//,''),'utf8').includes('ProseMirror')}catch(e){return false}}))n++}
+console.log(n,'of',Object.keys(m).length)"
+```
+It printed **3** with the two holdouts static and **1** with all eight converted. "Is it in the entry
+graph?" and "is it fetched on load?" are DIFFERENT QUESTIONS and this entry’s original framing only asked
+the first.
+
+★★ **THE PREDICTED TEST COST WAS WRONG THREE TIMES IN A ROW, IN BOTH DIRECTIONS.** The "Costs" paragraph
+below predicted every affected suite moving to `await waitFor`; the plan revised that to one; the
+implementer then reported ZERO and I propagated that into three later task briefs before measuring it
+myself: `EXIT=1, 1 failed | 14 passed`. The true answer is ONE assertion needing an await
+(`task-form-fields.test.tsx`) — because `useEditor` already runs with `immediatelyRender: false`, so
+nearly every consumer suite was ALREADY awaiting — plus a SECOND, subtler one no prediction had a shape
+for: an absence assertion that `dynamic()` makes ORDER-DEPENDENT. `dynamic()` builds its `React.lazy`
+once per MODULE evaluation, so after any earlier test in the file resolves it, later renders in that file
+are synchronous again — and `test:shuffle` shuffles WITHIN a file. Both orders were green.
+
+★★ **The one real behavioural defect was not a blank flash, it was silent data loss.** Both note-log mics
+called `editorRef.current?.appendText(txt)`, and the mic is a SIBLING of the editor, so it is operable
+while the editor is still loading. See the `useBufferedEditorHandle` docstring in `note-log-panel.tsx`:
+"is the ref populated?" is the wrong question, because `useImperativeHandle` has deps `[editor]` and
+therefore attaches a DEAD handle first. `appendText` now returns whether the text landed.
+
+★ The two claims below about §54 and about the `typeof document` guard BOTH held — `ssr: false` is not a
+fix for §54 and the guard stays. But the guard’s JUSTIFICATION inverted: with every site now behind an
+`ssr: false` boundary, nothing reaches `readCspNonce()` on the server, so it is defensive rather than
+load-bearing. `csp-nonce.ts` records both states, deliberately, so nobody deletes it.
+
+★ UNMEASURED, and stated as such: whether the ~160px `min-h-40` fallback matches the editor it replaces.
+jsdom has no layout, so no test in this repo can see it, and the two size-to-content consumers
+(`milestone-edit-modal`, the draggable `TaskFormModal`) will resize on the swap. A Slow-3G eye-verify is
+owed.
+
+---
 
 **Where:** `src/app/rich-text-editor.tsx`'s consumers.
 
@@ -12487,3 +12633,136 @@ ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
 `DocBlock` kind would silently be classified as never-truncating. The predicate's
 arms are now pinned individually in `document-model.test.ts`, but nothing forces
 a new arm when the union grows.
+
+## 192. `appendText` PREPENDS when the editor has never been focused — and which of its two branches runs is decided by the NETWORK
+
+**Status:** open — a decision, not a defect report. Pinned by the two "appendText
+lands" tests in `rich-text-editor.test.tsx`, so neither branch can drift silently.
+
+★★★ **THE FIRST REVISION OF THIS ENTRY SAID "behaviour is unchanged from `main`"
+AND THAT IS HALF FALSE.** The DEFAULT branch is unchanged. The DICTATION PATH is
+not, and it is the only production caller. On `main` the handle was
+`appendText(text: string): void` with ONE branch —
+`editor?.chain().focus().insertContent({type:"text",text}).run()` — so dictation
+ALWAYS inserted at the caret, which on a never-focused editor means it always
+PREPENDED. Surprising, but deterministic. This branch added the second branch, and
+with it a coin flip.
+
+`note-log-panel.tsx` calls `appendText(txt)` with NO `opts`, at two sites. Through
+the lazy wrapper that reaches either branch depending on whether Tiptap's
+chunk had landed when the user pressed the mic:
+
+| chunk state at the call | route | result on `<p>existing</p>` |
+|---|---|---|
+| not yet arrived | queued, replayed with `{focus:false}` → `appendPos` | `<p>existing dictated</p>` (APPENDED) |
+| already arrived | live path, `opts` forwarded as `undefined` → `chain().focus().insertContent` | `<p> dictatedexisting</p>` (PREPENDED) |
+
+Measured by a cold review with two throwaway suites over the same fixture and the
+same call, differing only in whether the append happened before or after the
+`findByRole` that waits for the chunk. So the user has no way to predict where a
+dictated line lands, and nothing on screen tells them which run they got. That is a
+different and stronger problem than the edge described below, which is why the
+heading changed.
+
+`RichTextEditorHandle.appendText` has two branches and they insert in different
+places. Measured through the real editor, fixture `<p>existing</p>`, editor never
+focused:
+
+| call | result |
+|---|---|
+| `appendText(" appended")` | `<p> appendedexisting</p>` |
+| `appendText(" appended", {focus:false})` | `<p>existing appended</p>` |
+
+The default branch is `chain().focus().insertContent(…)`, which inserts at the
+SELECTION. On an editor nobody has clicked into, that selection is the start of
+the document, so the text lands at the front. The deferred branch cannot use the
+selection at all — its moment is chosen by the network — so it computes the end
+of the last textblock (`appendPos`) and inserts there.
+
+Insert-at-the-caret is the RIGHT default for a user dictating mid-sentence, and
+`main`'s own docstring described the method that way ("insert plain text at the
+caret"). The method NAME is what misleads. The edge that is genuinely surprising:
+open an existing note for editing, press the mic WITHOUT clicking into the text,
+and the transcript is prepended to the stored note.
+
+**Options, none taken.** Whatever is picked, the RACE is the reason to pick
+something — every option below also makes the two routes agree, which option 1
+cannot:
+
+1. ~~Leave it — this is the status quo.~~ NOT TENABLE, and it was listed as the
+   status quo before the race was on the table. There is no status quo to leave:
+   the two-branch behaviour is new on this branch, and `main`'s deterministic
+   prepend is not what ships today.
+2. Route BOTH branches through `appendPos`, differing only in whether they focus.
+   Makes the name true, fixes the edge, AND removes the race in one move — but it
+   moves a mid-sentence dictation to the end of the note, a real regression for
+   the main use.
+3. Branch on whether the editor has ever held a selection — concretely, a ref set
+   on first focus: caret if it has, end of the document if it has not. Matches
+   what a user would predict in both cases and removes the race, because a QUEUED
+   line is by definition dictated before the editor existed, so the user cannot
+   have focused it and both routes then agree on "end of document". The cost is
+   the third state.
+
+3 still looks right and is not free; it wants its own slice rather than being
+smuggled into a lazy-loading branch. Found while verifying an unrelated review
+finding, which is why it is written down rather than fixed here.
+
+## 193. Nine explicit `{ timeout: 15_000 }` waits are redundant with the global `asyncUtilTimeout`, and a count of them has already rotted
+
+**Status:** open — pure cleanup, no behaviour change, deliberately NOT done inside
+the 0.250.0 branch.
+
+`vitest.setup.ts` sets `configure({ asyncUtilTimeout: 15000 })` globally. Nine
+`findBy*` calls still pass `{ timeout: 15_000 }` explicitly, across six files:
+
+    grep -rn "{ timeout: 15_000 }" src --include=*.tsx
+
+    document-block-editors.test.tsx        (3)
+    document-editor.test.tsx               (2)
+    note-log-panel.dictation.test.tsx       (1)
+    note-log-panel.dictation-live.test.tsx  (1)
+    note-log-panel.dictation-cancel.test.tsx(1)
+    rich-text-editor-lazy.queue.test.tsx    (1)
+
+Each is a no-op: it re-states the global. Removing all nine is behaviour-identical.
+
+★★★ **DO NOT REMOVE THEM ONE AT A TIME.** 0.250.0 removed exactly one — the queue
+suite's — and a cold review caught the result: a SPLIT, where eight sites carry the
+literal and one does not, which reads as though the one carried a deliberate
+exception. It was reverted. Either all nine go in one commit or none do.
+
+★★ **AND FIX THE COUNT IN `vitest.setup.ts` IN THAT SAME COMMIT** — or better,
+remove it. The comment there once read "15s matches what the four lazy-editor
+suites already pass explicitly". That was wrong before anyone noticed: the suites
+passing it are not four, are not all lazy-editor suites, and the set moves whenever
+a Tiptap-mounting test is added. It now names no number, which is the state to keep.
+This is the same class as §131 and the AGENTS.md counts landmine — a count is the
+easiest claim to check and the easiest to leave rotting.
+
+## 194. The lazy editor's queue has NO StrictMode coverage, and the test that would give it must assert the attach SEQUENCE
+
+**Status:** open — a deliberate gap, filed because 0.250.0 deleted the thing that
+was standing in for it.
+
+`rich-text-editor-lazy.strictmode.test.tsx` was deleted in 0.250.0. Its own header
+already conceded "no mutant is known that this file kills and `*.queue.test.tsx`
+does not", and a cold review measured why: its only assertion is the editor's FINAL
+HTML, and `attach` returns early on an empty queue, so a second LIVE attach — the
+exact thing a future React double-invoke would cause — produces byte-identical HTML.
+The tripwire could not observe the condition it existed to guard.
+
+Deleting it was right. But the branch now has ZERO StrictMode execution of the queue
+path, so the honest state is a gap, not a solved problem.
+
+★★ **THE REPLACEMENT IS A DIFFERENT TEST, NOT A RE-ADD.** It has to assert the
+attach SEQUENCE — how many times `attach` runs, with what queue depth each time —
+not the text that falls out the end. A spy on the attach path with an ordered call
+log is the shape; final-HTML equality is the shape that already failed.
+
+★★★ Read `src/app/strictmode.meta.test.tsx` BEFORE writing it. React's
+double-invoke walk fires only at the topmost fiber flagged for PLACEMENT, so
+`wrapper: StrictMode` and RTL's `reactStrictMode: true` work while composing
+StrictMode inside a wrapper does NOT — and a test written the wrong way passes with
+the line it claims to pin DELETED. Mutation-test the guard, or it is worse than the
+one that was removed.

@@ -8,6 +8,83 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.250.0] - 2026-08-20 "McAuley"
+
+### Changed
+
+- **The rich-text editor is loaded on demand.** Tiptap + ProseMirror is ~428 kB —
+  the single largest piece of the client — and it was fetched and parsed on every
+  page load whether or not a rich-text surface was ever opened. All nine consumers
+  now import it through one `next/dynamic` boundary (`src/app/rich-text-editor-lazy.tsx`),
+  which also replaces two hand-rolled copies of the same wrapper. A short placeholder
+  holds the space while the chunk arrives.
+
+  Measured from the build's own manifests, before and after:
+
+  | | before | after |
+  |---|---|---|
+  | eager chunks carrying `prosemirror-view` | 1 | **0** |
+  | eager total | 2334.7 kB | **1915.4 kB** |
+  | eager chunks | 19 | **21** |
+  | `react-loadable` entries able to reach the chunk | — | **1 of 27** |
+
+  Exactly one chunk on disk carries the editor — 428.48 kB of it — and it is not in
+  the eager set, which is what separates a real eviction from bytes merely re-homing
+  into another eager chunk. The table delta is smaller than that chunk because this
+  same release adds strings to the eager dictionary, so it understates the eviction
+  rather than overstating it.
+
+  The `before` column is measured at this branch's base and predates the ninth
+  consumer, which arrived on main mid-branch as a further STATIC importer. That can
+  only have kept the editor in the eager graph, never shrunk it, so the real delta is
+  at least this large. Read the table as a direction; every number in it moves on any
+  content change.
+
+  Two of them were nearly left static, on the reasoning that both sit behind
+  `dynamic()` panels and so cannot affect the entry graph. That was true of the
+  entry graph and false of the page load: the RAID tabpanel is mounted
+  unconditionally, and React.lazy fires its loader on render rather than on
+  visibility, so its chunk — and the editor with it — was still fetched on the
+  initial dashboard render. Converting them is what takes the bytes off the page
+  load rather than merely off the render-blocking entry chunk.
+
+  Closes open-followups §129, which had asked for a measurement before a decision.
+
+### Fixed
+
+- **Dictating into a note no longer discards the transcript when it arrives before
+  the editor.** The mic is a sibling of the editor, not a child, so it is operable
+  while the editor is still mounting; the append was made through an optional call
+  that silently swallowed it. Text is now buffered and inserted as soon as the
+  editor is ready. The window was always non-zero — the editor defers construction
+  to mount — and loading it over the network widened it.
+
+### Internal
+
+- `RichTextEditorHandle.appendText` returns whether the text landed. Holding a
+  handle does not mean the handle is usable: the imperative handle is recreated
+  when the editor instance changes, so a callback ref is attached once with a
+  dead handle before the live one. The return value is the only thing that
+  distinguishes them.
+- A dictated line still waiting on the editor chunk is now reported if the chunk
+  never arrives. The buffer is deliberately unbounded: a cap could only be
+  enforced by discarding a transcript, which is the loss the buffer exists to
+  prevent, so a wait past a threshold records one warning in the diagnostic log
+  instead of quietly growing. Cancelling the edit discards the buffer and reports
+  nothing — that is the user's own decision, not a failure.
+- A failed insert no longer discards the lines behind it. The buffered text is
+  handed to the editor as a batch, and an error partway through dropped the
+  untried remainder outright; it is now kept. An insert that fails still surfaces
+  as an error rather than being swallowed, so this is about not compounding the
+  failure with silent data loss, not about recovering from it.
+- The accessibility gate's rich-text-toolbar scan now waits for the toolbar. Its
+  previous settle probe watched a DOM subtree the notes window does not render
+  into, so with the editor arriving over the network the scan could have run
+  against the placeholder and reported green over an empty surface.
+- Corrected two claims in source comments that this change inverted: `next/dynamic`
+  does forward `ref` at the installed React/Next versions, and the `typeof document`
+  guard in `csp-nonce.ts` is now defensive rather than load-bearing. The guard stays.
+
 ## [0.249.0] - 2026-08-19 "Modesitt"
 
 ### Added

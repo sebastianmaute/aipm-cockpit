@@ -18,7 +18,7 @@
 //  this file so callers see one module. `DocBlock` has six members — count
 //  them there, not here.
 import { useState, useRef, useEffect } from "react";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";
 import { t, type Lang } from "./i18n";
 import type { DocBlock } from "./document-model";

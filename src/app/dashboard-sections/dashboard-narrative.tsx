@@ -6,7 +6,7 @@ import { type Lang, t } from "../i18n";
 import { FOCUS_RING } from "../interaction-styles";
 import { Button } from "../button";
 import { Card } from "../card";
-import { RichTextEditor } from "../rich-text-editor";
+import { RichTextEditor } from "../rich-text-editor-lazy";
 import { RichTextView } from "../rich-text-view";
 import { sanitizeRichHtml } from "../sanitize-html";
 import { isNarrativeEmpty, narrativeToHtml, normalizeNarrativeHtml } from "../narrative-html";

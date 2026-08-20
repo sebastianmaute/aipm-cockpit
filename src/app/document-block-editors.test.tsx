@@ -44,8 +44,25 @@ const headingTextName = (index: number) =>
 const headingLevelName = (index: number) =>
   `${t(LANG, "documentsHeadingLevel")} – ${t(LANG, "documentsBlockN", String(index + 1))}`;
 
+/** The paragraph editor mounts behind the `rich-text-editor-lazy` next/dynamic
+ *  boundary, so its contenteditable is NOT in the DOM on the line after
+ *  `render()` — the skeleton is. Await the real thing before touching it.
+ *
+ *  ★ 15_000, not RTL's 1000 ms default: the FIRST file in a run to load Tiptap
+ *   pays the whole Vite transform (~3.5 s). vitest.config.ts sets testTimeout
+ *   20000, so this stays inside the budget. Only the FIRST await in a test
+ *   needs it — once the chunk is resolved in this module registry later
+ *   queries are synchronous again. Convention copied from
+ *   `rich-text-editor-lazy.queue.test.tsx` and the note-log dictation suites. */
+const findParagraphEditable = (index: number): Promise<HTMLElement> =>
+  screen.findByRole(
+    "textbox",
+    { name: t(LANG, "documentsParagraphLabel", String(index + 1)) },
+    { timeout: 15_000 },
+  );
+
 describe("ParagraphBlockEditor", () => {
-  it("renders an editor for a paragraph with no image", () => {
+  it("renders an editor for a paragraph with no image", async () => {
     render(
       <ParagraphBlockEditor
         lang={LANG}
@@ -54,7 +71,7 @@ describe("ParagraphBlockEditor", () => {
         onCommit={vi.fn()}
       />,
     );
-    expect(screen.getByText("hello")).toBeInTheDocument();
+    expect(await screen.findByText("hello", undefined, { timeout: 15_000 })).toBeInTheDocument();
     expect(screen.queryByText(t(LANG, "documentsBlockImageReadOnly"))).toBeNull();
   });
 
@@ -109,6 +126,9 @@ describe("ParagraphBlockEditor", () => {
         <ParagraphBlockEditor lang={LANG} index={1} block={{ type: "paragraph", html: "<p>two</p>" }} onCommit={vi.fn()} />
       </>,
     );
+    // Both editors sit behind the lazy boundary — await the LATER one so the
+    // count below cannot read a half-swapped render.
+    await findParagraphEditable(1);
     const toolbars = screen.getAllByRole("toolbar");
     expect(toolbars).toHaveLength(2);
     const names = toolbars.map((el) => el.getAttribute("aria-label"));
@@ -125,7 +145,7 @@ describe("ParagraphBlockEditor", () => {
     render(
       <ParagraphBlockEditor lang={LANG} index={2} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(2);
     editable.focus();
     editable.blur();
     // Focused and left untouched — nothing to save.
@@ -177,7 +197,7 @@ describe("ParagraphBlockEditor", () => {
     render(
       <ParagraphBlockEditor lang={LANG} index={3} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(3);
     editable.focus();
     // ★ Pin the caret to end-of-content before typing — same cross-test
     //  ProseMirror selection residue as the two-chunk blur test above. If
@@ -209,7 +229,7 @@ describe("ParagraphBlockEditor", () => {
     const { unmount } = render(
       <ParagraphBlockEditor lang={LANG} index={4} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(4);
     editable.focus();
     await userEvent.type(editable, "y");
     unmount();
@@ -220,11 +240,15 @@ describe("ParagraphBlockEditor", () => {
     expect(block.html).toContain("y");
   });
 
-  it("commits nothing on unmount when the draft was never touched", () => {
+  it("commits nothing on unmount when the draft was never touched", async () => {
     const onCommit = vi.fn();
     const { unmount } = render(
       <ParagraphBlockEditor lang={LANG} index={5} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
     );
+    // ★ Await the real editor: unmounting the SKELETON flushes nothing for a
+    //  reason that has nothing to do with the draft, so this would pass
+    //  vacuously without it.
+    await findParagraphEditable(5);
     unmount();
     expect(onCommit).not.toHaveBeenCalled();
   });
@@ -234,7 +258,7 @@ describe("ParagraphBlockEditor", () => {
     const { unmount } = render(
       <ParagraphBlockEditor lang={LANG} index={6} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(6);
     editable.focus();
     await userEvent.type(editable, "y");
     editable.blur();
@@ -254,7 +278,7 @@ describe("ParagraphBlockEditor", () => {
     const { rerender, unmount } = render(
       <ParagraphBlockEditor lang={LANG} index={7} block={{ type: "paragraph", html: "<p>base</p>" }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(7);
     editable.focus();
     await userEvent.type(editable, "X");
     rerender(
@@ -273,11 +297,14 @@ describe("ParagraphBlockEditor", () => {
   // a live storedBlock change (so a LATER edit starts from the right
   // place), but that must never be mistaken for something to flush — no
   // local edit ever happened.
-  it("commits nothing on unmount when untouched but storedBlock changed underneath", () => {
+  it("commits nothing on unmount when untouched but storedBlock changed underneath", async () => {
     const onCommit = vi.fn();
     const { rerender, unmount } = render(
       <ParagraphBlockEditor lang={LANG} index={8} block={{ type: "paragraph", html: "<p>base</p>" }} onCommit={onCommit} />,
     );
+    // ★ Same vacuity trap as the sibling above — the editor has to exist for
+    //  "untouched" to mean anything.
+    await findParagraphEditable(8);
     rerender(
       <ParagraphBlockEditor lang={LANG} index={8} block={{ type: "paragraph", html: "<p>changed</p>" }} onCommit={onCommit} />,
     );
@@ -301,7 +328,7 @@ describe("ParagraphBlockEditor", () => {
         <ParagraphBlockEditor lang={LANG} index={9} block={{ type: "paragraph", html: "<p>x</p>" }} onCommit={onCommit} />
       </StrictMode>,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(9);
     editable.focus();
     await userEvent.type(editable, "y");
     unmount();
@@ -1233,15 +1260,19 @@ describe("useBlockDraft — an external write to the block being edited", () => 
   //  adopt a new value by prop alone — the hook's seed nonce keys a remount.
   //  Asserting on the rendered TEXT (not a prop) is what makes this able to
   //  fail: a passed-but-ignored `value` prop looks identical from the outside.
-  it("re-renders the paragraph editor's content when the stored block is replaced", () => {
+  it("re-renders the paragraph editor's content when the stored block is replaced", async () => {
     const before: Extract<DocBlock, { type: "paragraph" }> = { type: "paragraph", html: "<p>Alpha</p>" };
     const after: Extract<DocBlock, { type: "paragraph" }> = { type: "paragraph", html: "<p>Restored</p>" };
     const onCommit = vi.fn();
     const { rerender, container } = render(
       <ParagraphBlockEditor lang={LANG} index={0} block={before} onCommit={onCommit} />,
     );
+    await findParagraphEditable(0);
     expect(container.textContent).toContain("Alpha");
     rerender(<ParagraphBlockEditor lang={LANG} index={0} block={after} onCommit={onCommit} />);
+    // The nonce keys a REMOUNT of the lazy editor — await the replaced text
+    // rather than assuming the resolved chunk re-renders in the same tick.
+    await screen.findByText("Restored", undefined, { timeout: 15_000 });
     expect(container.textContent).toContain("Restored");
     expect(container.textContent).not.toContain("Alpha");
   });
@@ -1338,13 +1369,13 @@ describe("useBlockDraft — an external write to the block being edited", () => 
   //  ★ The fixture passes a DISTINCT object with IDENTICAL content, which is
   //   exactly what the echo is. An object-identical rerender would not enter
   //   the reconcile at all and could not express the bug.
-  it("keeps the paragraph editor mounted, and keyboard focus alive, across a content-identical replacement", () => {
+  it("keeps the paragraph editor mounted, and keyboard focus alive, across a content-identical replacement", async () => {
     const html = "<p>Alpha</p>";
     const onCommit = vi.fn();
     const { rerender } = render(
       <ParagraphBlockEditor lang={LANG} index={0} block={{ type: "paragraph", html }} onCommit={onCommit} />,
     );
-    const editable = document.querySelector('[contenteditable="true"]') as HTMLElement;
+    const editable = await findParagraphEditable(0);
     const toolbarButton = within(screen.getByRole("toolbar")).getAllByRole("button")[0];
     toolbarButton.focus();
     expect(document.activeElement).toBe(toolbarButton);

@@ -22,13 +22,38 @@
  *  check that can is a real-browser one — see `npm run e2e:smoke:prod` and the
  *  verification recorded in open-followups §54.
  *
- *  ★★ The `typeof document` guard is REQUIRED, not defensive padding. Six of the
- *  eight call sites of RichTextEditor import it STATICALLY, and a "use client"
- *  component still renders on the server, so the `useEditor({...})` options
- *  object — and therefore this function — is evaluated during SSR. Only
- *  meeting-report-panel.tsx and comm-templates-section.tsx use `ssr: false`.
- *  Reproduce the eight (2026-08-09):
- *  `grep -rl 'rich-text-editor"' src/app --include="*.tsx" | grep -v '\.test\.tsx'`
+ *  ★★ KEEP the `typeof document` guard — but its justification INVERTED, and the
+ *  old one is preserved here because a reader who finds only the new state will
+ *  delete the guard. UNTIL 2026-08-19 it was required by a live path: seven of
+ *  the nine RichTextEditor call sites imported the editor STATICALLY, a
+ *  "use client"
+ *  component still renders on the server, so the `useEditor({...})` options object
+ *  — and therefore this function — really was evaluated during SSR. Every call
+ *  site now loads through `rich-text-editor-lazy.tsx`, which is `ssr: false`, so
+ *  NOTHING reaches this function on the server today. Reproduce both halves:
+ *    grep -rnE "(from|import|require).{0,4}[\"'][^\"']*rich-text-editor[\"']" src e2e scripts
+ *      → FIVE lines, and none of them is a consumer: three in
+ *        `rich-text-editor-lazy.tsx` (a type-only import, the dynamic import, a
+ *        type-only re-export) plus TWO tests that exercise the raw module
+ *        deliberately — `rich-text-editor.test.tsx` and `rich-text-toolbar.test.tsx`.
+ *        ★★ This said FOUR and enumerated four, omitting the toolbar test, until
+ *        a reviewer RAN it. A count beside a command is worth only the last time
+ *        someone executed it — run this one rather than trusting the five.
+ *        ★ A `--include=*.tsx` sweep rooted at `./` misses a `../rich-text-editor`
+ *        import from a subdirectory, which is why this one is rooted at
+ *        `src e2e scripts` and admits `../` paths.
+ *    grep -rn 'readCspNonce(' src --include=*.ts --include=*.tsx | grep -v '\.test\.' | grep -v csp-nonce.ts
+ *      → exactly ONE line: `rich-text-editor.tsx`. The trailing `grep -v` is not
+ *        tidying — without it THIS comment matches its own command. ★★ Keep the
+ *        whole pipeline on ONE line: the previous spelling wrapped it across two
+ *        comment lines with a trailing backslash, which the shell read as a file
+ *        named `r` (`grep: r: No such file or directory`, exit 2). A reproduce
+ *        command that does not run is worse than none — it reads as evidence.
+ *  ★★★ That makes the guard defensive, NOT dead, and the difference is one word in
+ *  one file: flip `ssr` to true in `rich-text-editor-lazy.tsx` — or add a second
+ *  caller that is not behind a `dynamic` boundary — and the SSR path is armed
+ *  again with no other edit. A guard whose live path was removed is the guard
+ *  most likely to be tidied away by whoever removes the NEXT one.
  *
  *  ★ `document.querySelector("script[nonce]")` is not specific to the one
  *  hand-authored nonced tag in `layout.tsx` — it also matches Next.js's own

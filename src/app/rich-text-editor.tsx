@@ -17,10 +17,66 @@ import { Button } from "./button";
 import { RichTextToolbar } from "./rich-text-toolbar";
 import { t, type Lang } from "./i18n";
 
+/** The position a deferred append should land at: the end of the document's
+ *  LAST TEXTBLOCK, so the text joins that block instead of starting a new one.
+ *
+ *  ★★★ NOT `doc.content.size`. That is a position at DOC level, AFTER the last
+ *  block, and ProseMirror cannot place a text node there — its fitting algorithm
+ *  wraps the text in a NEW PARAGRAPH. The dominant case (an empty note composer
+ *  receiving a transcript before the editor chunk loads) therefore persisted as
+ *  `<p></p><p>transcript</p>`, a stored leading blank line that
+ *  `sanitizeRichHtml` does not strip. Measured against this repo's own
+ *  prosemirror-model, not reasoned: `content.size` gave [paragraph,
+ *  paragraph:"DICT"] on an empty doc and [paragraph:"existing",
+ *  paragraph:"DICT"] on `<p>existing</p>`; this gives [paragraph:"DICT"] and
+ *  [paragraph:"existingDICT"]. ★★ `content.size - 1` is NOT the fix either —
+ *  measured wrong for a trailing list, where it opens a new list ITEM.
+ *
+ *  ★ Equivalent to prosemirror-state's `Selection.atEnd(doc).from` for every
+ *  shape this editor can hold, verified case by case (empty paragraph, trailing
+ *  text, trailing bullet list, nested list, paragraph-then-list, trailing code
+ *  block, heading-only). It is computed here rather than imported because
+ *  `prosemirror-state` is a TRANSITIVE dependency, reachable only through
+ *  `@tiptap/pm`, which this package.json does not declare.
+ *
+ *  ★★ ONE MEASURED DIVERGENCE from `Selection.atEnd`, and it is deliberate: for a
+ *  document whose last node is a horizontal rule, `atEnd` gives the doc-level
+ *  position AFTER the rule (a new paragraph below it) while this gives the end of
+ *  the paragraph above it. Text is placed one block earlier, never lost. A doc
+ *  with NO textblock at all falls back to the doc end, where wrapping in a fresh
+ *  paragraph is the correct outcome rather than the bug above. */
+export function appendPos(doc: Editor["state"]["doc"]): number {
+  let end: number | null = null;
+  // `descendants` walks in document order, so the last textblock wins.
+  doc.descendants((node, pos) => {
+    if (node.isTextblock) end = pos + node.nodeSize - 1;
+  });
+  return end ?? doc.content.size;
+}
+
 export interface RichTextEditorHandle {
   /** Insert plain text at the caret. Used by the dictation mic — the editor
-   *  binds `content` once at mount, so a new `value` cannot reach it. */
-  appendText(text: string): void;
+   *  binds `content` once at mount, so a new `value` cannot reach it.
+   *
+   *  ★★★ RETURNS WHETHER THE TEXT LANDED, and a caller that ignores it is the
+   *  silent-data-loss bug this signature exists to make impossible. Holding a
+   *  handle is NOT the same as the handle being usable: `useEditor` runs with
+   *  `immediatelyRender: false`, so `editor` is null on the first render and
+   *  this method is a NO-OP until Tiptap is live. Worse, `useImperativeHandle`
+   *  below has deps `[editor]` — so a callback ref is attached ONCE with a dead
+   *  handle, detached with `null`, and re-attached with the live one. Any
+   *  "is the ref populated?" test therefore answers YES while appends vanish.
+   *  ★★ THE QUEUE THAT ACTS ON THIS LIVES IN `rich-text-editor-lazy.tsx`, not in
+   *  any consumer, so this return value has exactly ONE reader in the app. That
+   *  is deliberate: a boolean nobody is forced to check is a convention, and the
+   *  bug it replaced was a consumer forgetting one. Consumers get a handle whose
+   *  `appendText` cannot lose text and always returns true.
+   *
+   *  ★ `focus: false` appends at the END of the document without moving focus —
+   *  for a DEFERRED append, whose moment is decided by a network fetch rather
+   *  than by the user. Focusing then would yank the caret out of whatever they
+   *  had moved on to, and a stale selection would splice the text mid-document. */
+  appendText(text: string, opts?: { focus?: boolean }): boolean;
 }
 
 export interface RichTextEditorProps {
@@ -245,9 +301,38 @@ export function RichTextEditor(props: RichTextEditorProps) {
   useImperativeHandle(
     props.editorRef,
     () => ({
-      appendText(text: string) {
-        if (!text) return;
-        editor?.chain().focus().insertContent({ type: "text", text }).run();
+      appendText(text: string, opts?: { focus?: boolean }) {
+        // Empty is "nothing to do", NOT a failure — reporting false would make a
+        // buffering caller re-queue it forever.
+        if (!text) return true;
+        if (!editor) return false;
+        // ★★★ THE TWO BRANCHES INSERT IN DIFFERENT PLACES, AND THE DEFAULT ONE IS
+        // NOT AN APPEND. Measured through the real editor, same fixture
+        // `<p>existing</p>`, editor never focused:
+        //     appendText(" appended")                 -> "<p> appendedexisting</p>"
+        //     appendText(" appended", {focus:false})  -> "<p>existing appended</p>"
+        // The default branch inserts AT THE SELECTION, which on an editor the user
+        // has never clicked into is the start of the document — so it PREPENDS.
+        // That is the behaviour `main` has always had (its docstring said "insert
+        // at the caret", which is accurate; the method NAME is what misleads), and
+        // it is deliberately unchanged here: a user dictating with the caret placed
+        // mid-sentence wants the text at the caret, not at the end.
+        // ★★ The asymmetry is therefore intended, but its EDGE is not: dictating
+        // into a note that already has text, without first clicking into it, puts
+        // the transcript at the front. `docs/open-followups.md` §192 carries that
+        // decision; the two "appendText lands" tests in `rich-text-editor.test.tsx`
+        // pin BOTH strings so neither branch can drift into the other in silence.
+        const chain = editor.chain();
+        // ★★ RETURN the chain's verdict rather than an unconditional true.
+        // `insertContentAt` returns false on a content error (it catches, emits
+        // `contentError`, and the chain no-ops), and the wrapper's queue treats
+        // this return as "the text landed" — so reporting true drops it. That is
+        // the exact silent-loss class the queue exists to close.
+        return (
+          opts?.focus === false
+            ? chain.insertContentAt(appendPos(editor.state.doc), { type: "text", text })
+            : chain.focus().insertContent({ type: "text", text })
+        ).run();
       },
     }),
     [editor],
