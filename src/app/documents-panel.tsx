@@ -357,7 +357,7 @@ export function DocumentsPanel({
   // and with no undo on document writes.
   const selectionPool = entityFilter && visibleRows.length > 0 ? visibleRows : documents;
   const selected = selectionPool.find((d) => d.id === selectedId) ?? selectionPool[0] ?? null;
-  const { editing, narrowPane, paneRef, commitBlock, appendBlock, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
+  const { editing, narrowPane, paneRef, commitBlock, appendBlock, structural, editToolbar } = useDocumentEditMode({ documentId: selected?.id ?? -1, versions: documentVersions, mutateDocuments: mutate });
 
   // ★★★ DEEP LINK. The chat transcript's document card calls
   // `requestOpen("documents", id)` (workspace-tab-context), which switches the
@@ -701,7 +701,7 @@ export function DocumentsPanel({
           onUnlink={(docId, ref) => mutate({ kind: "unlink", id: docId, ref })}
           onOpenView={requestOpen}
         />
-        <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} onAppendBlock={appendBlock} />
+        <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} onAppendBlock={appendBlock} structural={structural} />
       </div>
 
       <DocumentsHistoryModal

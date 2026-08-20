@@ -232,3 +232,59 @@ describe("useDocumentEditor — an append becomes the coalescing anchor", () => 
     expect(mutateDocuments.mock.calls[1][0]).toMatchObject({ coalesce: true });
   });
 });
+
+// ★★★ SAME `coalesce`-OMISSION RULE AS `appendBlock`, for the same reason:
+//  document-mutations.ts reads `m.coalesce ? undefined : snapshot(...)`, so a
+//  structural write (insert/remove/move) must record its own before-image
+//  unconditionally rather than folding into a preceding typing run — see
+//  `structuralOp`'s comment in use-document-editor.ts.
+describe("useDocumentEditor — structural ops", () => {
+  it("emits an insert with no coalesce flag", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions: [], mutateDocuments, now: () => NOW }),
+    );
+    hook.current.structural.insert(0, { type: "paragraph", html: "<p>seed</p>" });
+    const sent = mutateDocuments.mock.calls[0][0];
+    expect(sent).toMatchObject({ kind: "ops", id: 1, ops: [{ op: "insert" }] });
+    expect(sent).not.toHaveProperty("coalesce");
+  });
+
+  it("emits a remove with no coalesce flag", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions: [], mutateDocuments, now: () => NOW }),
+    );
+    hook.current.structural.remove(0);
+    const sent = mutateDocuments.mock.calls[0][0];
+    expect(sent).toMatchObject({ kind: "ops", id: 1, ops: [{ op: "delete" }] });
+    expect(sent).not.toHaveProperty("coalesce");
+  });
+
+  it("emits a move with no coalesce flag", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook } = renderHook(() =>
+      useDocumentEditor({ documentId: 1, versions: [], mutateDocuments, now: () => NOW }),
+    );
+    hook.current.structural.move(0, 1);
+    const sent = mutateDocuments.mock.calls[0][0];
+    expect(sent).toMatchObject({ kind: "ops", id: 1, ops: [{ op: "move" }] });
+    expect(sent).not.toHaveProperty("coalesce");
+  });
+
+  // Same guard as commitBlock/appendBlock: a closure minted for a document
+  // that is no longer selected must abandon rather than land on whichever is
+  // selected now.
+  it("abandons a structural op from a closure minted for a document that is no longer selected", () => {
+    const mutateDocuments = mockMutate();
+    const { result: hook, rerender } = renderHook(
+      ({ documentId }: { documentId: number }) =>
+        useDocumentEditor({ documentId, versions: [], mutateDocuments, now: () => NOW }),
+      { initialProps: { documentId: 1 } },
+    );
+    const staleStructural = hook.current.structural;
+    rerender({ documentId: 2 });
+    expect(staleStructural.insert(0, { type: "paragraph", html: "<p>seed</p>" })).toBeUndefined();
+    expect(mutateDocuments).not.toHaveBeenCalled();
+  });
+});

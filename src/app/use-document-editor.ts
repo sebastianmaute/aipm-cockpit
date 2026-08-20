@@ -4,10 +4,12 @@
 //  the image predicate all live in document-editor-commit.ts, which is pure and
 //  tested. If logic starts accumulating in this file, move it there instead of
 //  testing it here.
-import { useCallback, useEffect, useRef } from "react";
-import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  shouldCoalesce, replaceBlockOp, insertBlockOp, deleteBlockOp, moveBlockOp,
+} from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
-import type { DocMintedVersion, DocMutation, DocResult } from "./document-mutations";
+import type { DocMintedVersion, DocMutation, DocOp, DocResult } from "./document-mutations";
 import type { DocVersion } from "./document-versions";
 
 export type UseDocumentEditorDeps = {
@@ -155,5 +157,39 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     [documentId, mutateDocuments],
   );
 
-  return { commitBlock, appendBlock };
+  // ★★★ NO `coalesce` FIELD, for the same reason `appendBlock` omits one:
+  //  document-mutations.ts reads `m.coalesce ? undefined : snapshot(...)`, so
+  //  omitting it writes the before-image unconditionally. `shouldCoalesce`
+  //  merging a run of edits is right for typing and wrong for a delete — it
+  //  would leave the nearest restore point at wherever the typing run started,
+  //  and a version restore is the ONLY recovery a document has.
+  //  ★ Passing `coalesce: false` would be equivalent; omission is the spelling
+  //   the append path already uses, so the two structural paths match.
+  const structuralOp = useCallback(
+    (op: DocOp): DocResult | undefined => {
+      // Same abandon-rather-than-clobber guard as commitBlock and appendBlock.
+      if (documentId !== currentDocIdRef.current) return undefined;
+      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [op] });
+      if (result.minted) lastMintedRef.current = result.minted;
+      return result;
+    },
+    [documentId, mutateDocuments],
+  );
+
+  // ★ ONE BAG rather than three flat props, matching the pane-contract
+  //  convention AGENTS.md states for calendar-capable entities ("threads ONE
+  //  EntityCalendarProps, never five flat props"). `commitBlock`/`appendBlock`
+  //  keep their existing shape so no existing test moves.
+  const structural = useMemo(
+    () => ({
+      insert: (index: number, block: DocBlock) => structuralOp(insertBlockOp(index, block)),
+      remove: (index: number, expect?: DocBlock) => structuralOp(deleteBlockOp(index, expect)),
+      move: (from: number, to: number, expect?: DocBlock) => structuralOp(moveBlockOp(from, to, expect)),
+    }),
+    [structuralOp],
+  );
+
+  return { commitBlock, appendBlock, structural };
 }
+
+export type BlockStructuralOps = ReturnType<typeof useDocumentEditor>["structural"];

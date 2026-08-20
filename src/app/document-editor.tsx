@@ -16,6 +16,7 @@ import {
 import type { ReactElement } from "react";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import type { BlockStructuralOps } from "./use-document-editor";
 import { sanitizeDocumentHtml, plainToHtml } from "./sanitize-html";
 import { Button } from "./button";
 
@@ -41,6 +42,11 @@ export type DocumentEditorProps = {
    *  ★ Optional so the many pre-existing non-empty-document fixtures in this
    *   file's own tests never have to thread a value that branch never calls. */
   onAppendBlock?: (block: DocBlock) => void;
+  /** Add / delete / reorder — wired by document-edit-mode.tsx (Task 8) but not
+   *  yet consumed here (Task 9). ★ Optional for the same reason
+   *  `onAppendBlock` is: the many pre-existing fixtures in this file's own
+   *  tests never have to thread a value nothing here reads yet. */
+  structural?: BlockStructuralOps;
   /** Injected. ★ jsdom has no layout, so a measured width would be untestable. */
   narrow?: boolean;
 };
