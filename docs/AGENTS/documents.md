@@ -204,6 +204,31 @@ a title accepted here can never disagree with what the next load produces. Empty
 whitespace-only) is rejected rather than stored, because the sanitizer would drop the document
 on the very next load while this module reported success.
 
+★★★ **`move` IS ONE OP AND MUST STAY ONE.** `applyOps` validates and applies per-op, pushing a
+reason for each refusal, and bails wholesale only when NOTHING applied — the wholly-refused-write
+rule above. So a reorder spelled as `delete` + `insert` can apply the delete and have the
+re-insert refused, losing the block; a single op cannot express that failure. `document-ops.test.ts`
+pins the contrast directly ("is atomic where a composed delete+insert is not"). Do not "simplify"
+the op away.
+
+★ Its arithmetic: remove at `from`, then insert at `to` **in the resulting array**, so `to`
+addresses `0..len-1` and `to === len - 1` appends. That is the same splice `reorderIds`
+(`list-reorder.ts`) performs, so the drag hook's dragged/target pair needs no translation.
+
+★★ **`from === to` is REJECTED, not applied.** `changed` derives from the applied COUNT, never
+from comparing the result, so a self-move would mint a before-image recording nothing. No user
+reaches that arm — `useListReorderDnd`'s `commit` returns early when `reorderIds` hands back the
+SAME array reference, which it does for equal ids — but model JSON and stored ops both arrive as
+`unknown` at runtime, so the arm has to exist.
+
+★ **The op interpreter lives in `document-ops.ts`**, split out when `document-mutations.ts`
+reached 795 of the 800-line ratchet. Nothing about the split is semantic: `applyDocMutation` is the
+dispatcher, `applyOps` the interpreter its `"ops"` arm calls. `DocOp` is declared there and
+re-exported from `document-mutations.ts`, so no importer moved — they all still name the engine.
+Count them rather than trust this line (it was **four** non-test modules on 2026-08-20, and
+`use-document-editor.ts` was the one this slice added):
+`grep -rln "import type {[^}]*DocOp" src/app --include="*.ts" | grep -v ".test."`
+
 ## Coalescing before-images for hand edits (`document-editor-commit.ts`)
 
 ★★★ **THE RUN IS ANCHORED BY IDENTITY, NOT CONTENT.** `shouldCoalesce(versions, documentId, now, anchor)`
@@ -237,6 +262,20 @@ the session started — the thing a user actually reverts to. The commit-side ha
 `useBlockDraft` (`document-block-editors.tsx`) and is summarized in `AGENTS.md`'s "Documents (AI document
 authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
 this file stops at the version-model decision, per the header note above.
+
+★★★ **STRUCTURAL WRITES OMIT `coalesce` ENTIRELY, so each records its own before-image.**
+`use-document-editor.ts`'s `appendBlock` and its `structural` bag (`insert` / `remove` /
+`move`) build their mutation without the field, and the engine reads
+`m.coalesce ? undefined : snapshot(...)` — so omitting it snapshots unconditionally. Merging a run
+is right for typing and wrong for a delete: it would leave the nearest restore point at wherever the
+typing run started, and a version restore is the only recovery a document has. `coalesce: false`
+would be equivalent; omission is the spelling both structural paths use, so the two match.
+
+★ They still ADVANCE the run's anchor (`lastMintedRef`) when they mint, so typing that follows
+folds into the version they just wrote — an append or structural op is one of this hook's own
+commits and advances the anchor for the same reason every other one does. For `appendBlock` that is
+also what you want: its before-image already IS the pre-session state, so a second version would
+capture a half-typed placeholder and spend one of only `MAX_VERSIONS_PER_DOC` slots.
 
 ## What the commit path stores, and the second guard
 
@@ -281,8 +320,10 @@ of `normalizeBlockForStorage`, so the two cannot disagree.
 
 ### The engine carries the second concurrent-write guard
 
-A `replace` op takes an optional **`expect`** — the draft's baseline, built by `replaceBlockOp` — and
-`applyOps` refuses the op when live state at that index no longer matches it.
+`replace`, `delete` and `move` each take an optional **`expect`** — the baseline the caller derived
+its edit from, built by `replaceBlockOp` / `deleteBlockOp` / `moveBlockOp`
+(`document-editor-commit.ts`) — and `applyOps` refuses the op when live state at that index no
+longer matches it.
 
 ★★★ **THE IN-COMPONENT GUARD IS STRUCTURALLY BLIND ON ONE PATH, which is why this exists.**
 `useBlockDraft`'s `externallyWritten` reads refs that advance only when that row RENDERS. `BlockEditor`
@@ -292,9 +333,42 @@ guard then returns false and the unmount flush overwrites whichever block shifte
 engine compares `expect` against live state at CALL time, which no ref-based check can do.
 
 ★ `expect` is OPTIONAL because the AI tools build their own ops and are resolving no draft of their
-own. A future op-builder that IS resolving a draft must pass it.
+own. A future op-builder that IS resolving a draft must pass it. An ABSENT `expect` must never be
+read as "expected nothing" — every AI and tool caller omits it and must keep applying.
 
-★ A refused op reports `op {i}: replace index {n} was changed by another writer` in `DocResult.rejected`.
+★★ **`insert` deliberately has none.** A concurrent write that shifts indices makes an index-only
+`delete` or `move` act on a block the user never pointed at, recoverable only by restoring the whole
+document; the same shift on an `insert` merely puts a new empty block one position from where it was
+asked for, which the user drags. `insert` also has no target block to name.
+
+★ A refused op reports its own reason in `DocResult.rejected` — `op {i}: replace index {n} was
+changed by another writer`, and the `delete` and `move` arms word theirs for their own op (`move`
+names its `from` index).
+
+## Reorder wiring (`document-editor.tsx`)
+
+The block editor drives `move` through the shared `useListReorderDnd`, with the row INDEX as the
+reorder id — `DocBlock` is a positional array and every op addresses a block by index, so nothing
+was added to the model. `onMove` forwards its dragged/target pair straight to `structural.move`,
+passing `doc.blocks[from]` as the `expect` baseline.
+
+★★★ **NO consumer-side `reorder.endDrag()` — and the plan that specified one was wrong in BOTH
+halves.** (a) The hook's own `itemProps`' drop handler already calls `endDrag()` immediately after
+`commit`, in the same event, so the drop path self-resets; the arrow-key path never sets `dragId`
+at all, so there is nothing to reset there either. (b) The premise that "index keys make a move
+remount every row from the lower index down, detaching the node that owns dragend" is backwards —
+an index-keyed list is precisely the case React reconciles IN PLACE, because a reorder leaves the
+key SET unchanged.
+
+★★ **MEASURED, not reasoned**, because `use-list-reorder-dnd.ts`'s own docstring argues the
+opposite case forcefully — and is right about consumers whose drop UNMOUNTS the dragged item.
+Deleting `endDrag()` from the HOOK turns `document-editor.test.tsx`'s "does not reorder on a drop
+when no drag is in flight" RED (re-run 2026-08-20: 1 failed / 30 passed, and that one test is the
+failure); adding `reorder.endDrag()` in the consumer on top of that turns it GREEN again (31
+passed). So the consumer call is an equivalent mutant — a working substitute for a reset this
+consumer already gets, carrying a false justification. That TEST is what guards the property; if
+this editor ever grows a drop that REMOVES a block, add the call and the same test will still be
+the thing watching it.
 
 ## Persistence — six write paths
 

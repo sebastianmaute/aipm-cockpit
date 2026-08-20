@@ -12057,7 +12057,7 @@ Jira path bypasses that engine everywhere else, so it is the one option that is 
 
 ---
 
-## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — open, deferred out of the S3b fix round
+## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — CLOSED 2026-08-20
 
 "Documents" is in `A11Y_VIEWS` (`e2e/a11y.spec.ts`), but nothing in `e2e/`
 enters edit mode — `grep -rn "Edit blocks\|documentsEditBlocks" e2e/` returns
@@ -12088,6 +12088,52 @@ commit — re-measure the spec's test total with
 Deliberately deferred out of the S3b fix round: the surface was being
 restructured by that round's docked-toolbar task, and the count could not be
 measured under its constraints.
+
+### What closed it
+
+`e2e/a11y.spec.ts` gained a scan — `a11y: harbor-light — Documents (block editor)` — that opens
+the Documents view and drives it into edit mode. It DOM-clicks the "Edit blocks" toggle rather than
+issuing a real pointer click, so the auto-launched guided-tour overlay cannot intercept it (the same
+shape the Kanban-board and notes-window scans already use), then asserts a `[data-block-row]` count
+greater than 1 and — under the spec's four WCAG tags — no critical or serious violations.
+
+★★ **The row-count assertion is the load-bearing part of the test, not decoration.** The toggle
+renders a real `disabled` attribute whenever no document is selected
+(`documentsEditBlocksNoDocument`), and its label is PINNED to "Edit blocks" in BOTH states by
+design — so a broken, renamed or disabled toggle would leave `DocumentPreview` mounted and this
+test would silently become a no-op duplicate of the existing "Documents" scan. Matching on the
+pinned label is what makes the click stable across the toggle flipping.
+
+AGENTS.md's arithmetic was re-measured in the SAME commit, per this entry's own **To close**
+instruction. **AGENTS.md's a11y bullet owns that count — read it there, not here.** What the two
+runs reported at closure, as a record of the measurement rather than a second live claim: 110
+`a11y:` scans plus the one non-scan version guard, 111 tests.
+
+```bash
+npx playwright test e2e/a11y.spec.ts --list   # Total: 111 tests in 1 file
+# …then grep -c "a11y:" over that output      # 110
+```
+
+★★ **`e2e/seed.ts` now seeds a document (id 9001) carrying all six `DocBlock` kinds — but that is
+belt-and-braces, NOT the load-bearing half**, and reading it the other way would be the second half
+of this entry's own "listed is not covered" trap. `documents-panel.tsx` falls back to
+`selectionPool[0]`, and `selectionPool` is the UNSORTED `documents` array, which the seed builds
+as the sample master's documents SPREAD AHEAD of 9001 — so the document the scan actually opens is
+the master's id **1**. Measured, not assumed: it already carries all six kinds.
+
+```bash
+node -e "const m=JSON.parse(require('fs').readFileSync('sample-workspace-small.json','utf8'));console.log(m.documents.map(d=>d.id+': '+[...new Set(d.blocks.map(b=>b.type))].sort().join('/')))"
+```
+→ `[ '1: bullets/dataSection/heading/pageBreak/paragraph/table' ]`. The 9001 seed stays because it
+keeps the scan honest if that ordering, or the master's own document, ever changes.
+
+★★★ **WHAT THIS DOES NOT CLOSE — and it is the risk this entry itself named as dominant.** axe
+cannot see two controls sharing an accessible name, in ANY view, at ANY seed size; the measurement
+lives in AGENTS.md's a11y hard-constraint section. The block gutter mints a row-qualified name per
+row (`rowName` suffixes every gutter control with the row's 1-based `documentsBlockN`), and that
+naming remains covered ONLY by `document-block-gutter.test.tsx`, alongside the
+multi-block tests in `document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
+scan here says nothing about that class, and no configuration of this gate ever will.
 
 ## 185. An over-long document paragraph is flattened to plain text at commit
 
