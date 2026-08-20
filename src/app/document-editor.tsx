@@ -421,6 +421,22 @@ export function DocumentEditor({
             //  written here — invisible to jsdom, so the indicator would either
             //  work or render grey depending on a detail of the generated CSS.
             //  The x edges are their own longhand pair for the same reason.
+            // ★★ THE AXIS UTILITIES DO GET EMITTED, measured rather than
+            //  assumed: no other `border-x-<token>` exists in this repo, and a
+            //  class Tailwind declines to generate fails SILENTLY — the border
+            //  falls back to `currentColor`, which jsdom and every unit test
+            //  here are blind to. From a `npm run build`, all four are real:
+            //  `.border-x-line{border-inline-color:var(--line)}` ·
+            //  `.border-y-line{border-block-color:var(--line)}` ·
+            //  `.border-t-ui-green-strong{border-top-color:var(--ui-green-strong)}`
+            //  and its `-b-` twin. Re-check with
+            //  `grep -o "\.border-[xy]-line{[^}]*}" .next/static/chunks/*.css`.
+            //  ★ Note the axis pair compiles LOGICAL (`border-inline-color`)
+            //   while the edge classes compile PHYSICAL (`border-top-color`).
+            //   They cannot collide here — the two are the same axes only in a
+            //   horizontal writing mode, and `border-y-line` renders on the
+            //   `dropEdge === null` branch alone, which is exactly when
+            //   neither edge class is present.
             // ★★ COLOUR IS NOT THE SOLE CHANNEL, measured rather than assumed:
             //  `--ui-green-strong` is DERIVED PER SCHEME (`scheme-tokens.ts` runs
             //  `nudgeToAa` against `--surface-muted`), and against `--line` it
