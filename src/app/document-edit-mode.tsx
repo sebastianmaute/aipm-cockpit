@@ -41,7 +41,7 @@ export function useDocumentEditMode(deps: UseDocumentEditModeDeps) {
   //  keeps ITS OWN test injectable: jsdom has no layout, so a component that
   //  measured for itself would be untestable.
   const { ref: paneRef, narrow: narrowPane } = useNarrowElement(NARROW_PANE_PX);
-  const { commitBlock, appendBlock, structural } = useDocumentEditor(deps);
+  const { commitBlock, structural } = useDocumentEditor(deps);
   // ★ `documentId` is `selected?.id ?? -1` at the call site, so a real
   //  selection is the only thing that yields a positive id. Deriving canEdit
   //  HERE rather than passing a fourth thing down keeps the panel's toolbar
@@ -51,7 +51,7 @@ export function useDocumentEditMode(deps: UseDocumentEditModeDeps) {
   //  trusting one written here, because `size:check` counts `wc -l` + 1:
   //  node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
   const editToolbar = { editing, onToggleEditing: toggleEditing, canEdit: deps.documentId > 0 };
-  return { editing, narrowPane, paneRef, commitBlock, appendBlock, structural, editToolbar };
+  return { editing, narrowPane, paneRef, commitBlock, structural, editToolbar };
 }
 
 export interface DocumentEditModeBodyProps {
@@ -62,7 +62,6 @@ export interface DocumentEditModeBodyProps {
   narrow: boolean;
   isReadOnly?: boolean;
   onCommitBlock: (index: number, block: DocBlock, expect?: DocBlock) => void;
-  onAppendBlock: (block: DocBlock) => void;
   /** Add / delete / reorder. One bag rather than three flat props — see the
    *  pane-contract convention in AGENTS.md. */
   structural: BlockStructuralOps;
@@ -79,7 +78,6 @@ export function DocumentEditModeBody({
   narrow,
   isReadOnly,
   onCommitBlock,
-  onAppendBlock,
   structural,
 }: DocumentEditModeBodyProps) {
   if (editing && !isReadOnly && doc) {
@@ -88,7 +86,6 @@ export function DocumentEditModeBody({
         lang={lang}
         doc={doc}
         onCommitBlock={onCommitBlock}
-        onAppendBlock={onAppendBlock}
         structural={structural}
         narrow={narrow}
       />

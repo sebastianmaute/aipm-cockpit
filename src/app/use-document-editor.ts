@@ -131,65 +131,66 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     [documentId, versions, mutateDocuments, now],
   );
 
-  const appendBlock = useCallback(
-    (block: DocBlock): DocResult | undefined => {
-      // Same abandon-rather-than-clobber guard as commitBlock: this closure was
-      // built for `documentId`, and if the panel has moved on, appending here
-      // would add a block to whichever document happens to be selected now.
-      if (documentId !== currentDocIdRef.current) return undefined;
-      // ★★★ NO `coalesce` FIELD, DELIBERATELY. document-mutations.ts reads
-      //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
-      //  it writes the before-image unconditionally. Creating a block is a
-      //  structural change and the pre-append state is exactly what a user
-      //  reverting an accidental add wants back — an append must never fold
-      //  into a preceding editing run.
-      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [{ op: "append", block }] });
-      // ★★ ...but it DOES become the run's anchor, so the typing that follows
-      //  folds into it. That is not a special case: the append is one of THIS
-      //  hook's own commits, so it advances the anchor for the same reason
-      //  every other one does. And it is right — the append's before-image
-      //  already IS the pre-session state, so a second version would capture a
-      //  half-typed placeholder, which is a revert target nobody wants and one
-      //  of only MAX_VERSIONS_PER_DOC (20) slots spent.
-      if (result.minted) lastMintedRef.current = result.minted;
-      return result;
-    },
-    [documentId, mutateDocuments],
-  );
-
-  // ★★★ NO `coalesce` FIELD, for the same reason `appendBlock` omits one:
-  //  document-mutations.ts reads `m.coalesce ? undefined : snapshot(...)`, so
-  //  omitting it writes the before-image unconditionally. `shouldCoalesce`
-  //  merging a run of edits is right for typing and wrong for a delete — it
-  //  would leave the nearest restore point at wherever the typing run started,
-  //  and a version restore is the ONLY recovery a document has.
-  //  ★ Passing `coalesce: false` would be equivalent; omission is the spelling
-  //   the append path already uses, so the two structural paths match.
+  // ★★★ WHICH STRUCTURAL WRITES MAY COALESCE, and it is a SPLIT — not the
+  //  absolute rule this comment used to state. `document-mutations.ts` reads
+  //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
+  //  the field writes a before-image unconditionally.
+  //  • `insert` and `remove` OMIT it. Either changes what the document
+  //    CONTAINS, and the pre-op state is exactly what a user reverting an
+  //    accidental add or delete wants back. Folding one into a preceding
+  //    editing run would leave the nearest restore point at wherever that run
+  //    started, and a version restore is the ONLY recovery a document has —
+  //    there is no undo here.
+  //  • `move` COALESCES, on the same `shouldCoalesce` rule the content-edit
+  //    path uses. A reorder loses nothing: no content changes, and the
+  //    inverse of a reorder is another reorder. Minting per press was the
+  //    expensive half — the keyboard path moves a block ONE position at a
+  //    time, so walking a block from position 12 to the top burned 12 of only
+  //    MAX_VERSIONS_PER_DOC (20) slots and could evict the pre-session
+  //    before-image and every AI-authored version with it.
+  //  ★ `coalesce: false` would be equivalent to omission; omission is the
+  //   spelling the two non-coalescing paths keep, so the split is visible in
+  //   the mutation itself and not only here.
   const structuralOp = useCallback(
-    (op: DocOp): DocResult | undefined => {
-      // Same abandon-rather-than-clobber guard as commitBlock and appendBlock.
+    (op: DocOp, coalescible = false): DocResult | undefined => {
+      // Same abandon-rather-than-clobber guard as commitBlock.
       if (documentId !== currentDocIdRef.current) return undefined;
-      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [op] });
+      // ★ The stamp is minted ONLY on the coalescible path — same source as
+      //  `commitBlock`'s, and see the note there on which arm runs where. A
+      //  value computed unconditionally would invite the field being passed
+      //  "for symmetry" on the two paths that must omit it.
+      const stamp = coalescible ? (now ? now() : new Date().toISOString()) : null;
+      const result = mutateDocuments(
+        stamp === null
+          ? { kind: "ops", id: documentId, ops: [op] }
+          : {
+              kind: "ops",
+              id: documentId,
+              ops: [op],
+              coalesce: shouldCoalesce(versions, documentId, stamp, lastMintedRef.current),
+            },
+      );
       if (result.minted) lastMintedRef.current = result.minted;
       return result;
     },
-    [documentId, mutateDocuments],
+    [documentId, versions, mutateDocuments, now],
   );
 
   // ★ ONE BAG rather than three flat props, matching the pane-contract
   //  convention AGENTS.md states for calendar-capable entities ("threads ONE
-  //  EntityCalendarProps, never five flat props"). `commitBlock`/`appendBlock`
-  //  keep their existing shape so no existing test moves.
+  //  EntityCalendarProps, never five flat props"). `commitBlock` keeps its
+  //  existing shape so no existing test moves.
   const structural = useMemo(
     () => ({
       insert: (index: number, block: DocBlock) => structuralOp(insertBlockOp(index, block)),
       remove: (index: number, expect?: DocBlock) => structuralOp(deleteBlockOp(index, expect)),
-      move: (from: number, to: number, expect?: DocBlock) => structuralOp(moveBlockOp(from, to, expect)),
+      // ★ The ONLY member passing `coalescible` — see the split above.
+      move: (from: number, to: number, expect?: DocBlock) => structuralOp(moveBlockOp(from, to, expect), true),
     }),
     [structuralOp],
   );
 
-  return { commitBlock, appendBlock, structural };
+  return { commitBlock, structural };
 }
 
 export type BlockStructuralOps = ReturnType<typeof useDocumentEditor>["structural"];

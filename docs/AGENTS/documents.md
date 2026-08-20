@@ -263,18 +263,33 @@ the session started — the thing a user actually reverts to. The commit-side ha
 authoring)" bullet, which also owns the narrow-pane docked-toolbar and zero-block-empty-state surfaces —
 this file stops at the version-model decision, per the header note above.
 
-★★★ **STRUCTURAL WRITES OMIT `coalesce` ENTIRELY, so each records its own before-image.**
-`use-document-editor.ts`'s `appendBlock` and its `structural` bag (`insert` / `remove` /
-`move`) build their mutation without the field, and the engine reads
-`m.coalesce ? undefined : snapshot(...)` — so omitting it snapshots unconditionally. Merging a run
-is right for typing and wrong for a delete: it would leave the nearest restore point at wherever the
-typing run started, and a version restore is the only recovery a document has. `coalesce: false`
-would be equivalent; omission is the spelling both structural paths use, so the two match.
+★★★ **TWO OF THE THREE STRUCTURAL WRITES OMIT `coalesce`, AND THE THIRD MUST NOT — it is a
+SPLIT, not a blanket rule.** `use-document-editor.ts`'s `structural` bag builds `insert` and
+`remove` without the field, and the engine reads `m.coalesce ? undefined : snapshot(...)` — so
+omitting it snapshots unconditionally. That is right for those two: each changes what the document
+CONTAINS, and merging one into a preceding typing run would leave the nearest restore point at
+wherever that run started, when a version restore is the only recovery a document has.
 
-★ They still ADVANCE the run's anchor (`lastMintedRef`) when they mint, so typing that follows
-folds into the version they just wrote — an append or structural op is one of this hook's own
-commits and advances the anchor for the same reason every other one does. For `appendBlock` that is
-also what you want: its before-image already IS the pre-session state, so a second version would
+`move` DOES carry the field, on the same `shouldCoalesce` rule the content-edit path uses. A
+reorder loses nothing — no content changes and the inverse of a reorder is another reorder — while
+minting per press was expensive in the only way that matters here: the keyboard path moves a block
+ONE position at a time, so walking a block up from position 12 spent 12 of the document's
+`MAX_VERSIONS_PER_DOC` slots and could evict the pre-session before-image and every AI-authored
+version with it. `coalesce: false` would be equivalent to omission; omission is the spelling the
+two non-coalescing paths keep, so the split is visible in the mutation itself.
+
+★ **The separate append path was REMOVED.** `useDocumentEditor`'s `appendBlock` is GONE, and so is
+the OPTIONAL `onAppendBlock` prop on `DocumentEditor` that was its only caller — do NOT reintroduce
+either. It was reached from the zero-block empty state alone, i.e. the one path into an empty
+document sat behind the one prop a wiring regression could drop with no type error, which is exactly
+the shape `structural` is REQUIRED to prevent. The empty state routes through
+`structural.insert(0, …)` now — equivalent on a list with no positions, and the `{op:"append"}`
+engine op it used stays reachable from the AI document tools.
+
+★ All three still ADVANCE the run's anchor (`lastMintedRef`) when they mint, so typing that follows
+folds into the version they just wrote — a structural op is one of this hook's own commits and
+advances the anchor for the same reason every other one does. For the empty state's `insert` that
+is also what you want: its before-image already IS the pre-session state, so a second version would
 capture a half-typed placeholder and spend one of only `MAX_VERSIONS_PER_DOC` slots.
 
 ## What the commit path stores, and the second guard
