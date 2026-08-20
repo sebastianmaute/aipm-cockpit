@@ -11785,7 +11785,7 @@ paragraph above wants a test that feeds `buildChatPointerBlock` an over-long tit
 `inlineTitle`'s own docstring says the cap lives at the producer and "Do not re-add a clip here" —
 so a direct-feed test could only go GREEN by adding the very clip that docstring forbids. Written as
 asked, the test would have been a standing request to reintroduce a second cap. It was pinned one
-level up instead — `summarizeChatThreads` through `buildChatPointerBlock` — which is where the
+level up instead — `threadTitle` through `buildChatPointerBlock` — which is where the
 single-producer property actually lives, and which is what a second producer would break.
 
 ★ Mutation-proved: dropping the `sanitizeMultiline` clip from `threadTitle` reddens exactly the
@@ -12814,7 +12814,8 @@ easiest claim to check and the easiest to leave rotting.
 **Resolution 2026-08-20.** All nine went together, in one commit, with no split and
 no exception — which is the whole of what the ★★★ above demands. Removing them also
 stranded three bare `undefined` placeholder arguments that had existed only to carry
-the options object into position; those went in the same pass.
+the options object into position; those went in a follow-up commit on the same branch,
+not in the same pass.
 
 ★ **NO COUNT WAS REINTRODUCED IN `vitest.setup.ts`.** Its comment still names no
 number, which is the state this entry asked to keep. The grep above now returns
@@ -12895,3 +12896,66 @@ a "write the test" follow-up. It is a gap with a named cause.
 ★ The only present defence is the comment at the call site, which states the
 mechanism and says not to tidy the read down into the ternary. Treat that comment as
 the guard, and do not delete it as redundant with the code.
+
+## 196. The two-routes-agree property §192 exists to establish has NO fixture
+
+**Status:** open — a test gap, not a defect. The behaviour is correct today.
+
+§192's whole point is that a dictated line lands in the SAME place whether it reached the editor
+through the lazy wrapper's QUEUE (appended before the chunk resolved, replayed at attach) or LIVE
+against an already-mounted one. `rich-text-editor-lazy.queue.test.tsx` carried an assertion that
+claimed to pin exactly that. The 0.251.0 review round DELETED it, because it pinned nothing.
+
+**Why it was vacuous.** `insertContentAt` defaults to updating the selection and ends by moving it to
+the insertion end, so the queued replay leaves the caret at the end of the document. A live append
+running AFTER that therefore lands at the end under the PRE-§192 code too. Divergence needs the LIVE
+append to come FIRST — and that file structurally cannot express it: its one test must consume the
+unresolved-chunk window, and a second `it` in the same file gets an already-resolved chunk.
+
+★★ It was also redundant against every mutant the review could name. The full §192 revert SURVIVES it
+(killed by `rich-text-editor.test.tsx`); inverting the position ternary SURVIVES it; forcing
+`everFocused` true SURVIVES it; swapping `appendPos` for the doc-level end position dies at the
+block-structure assertion above it, not at this one; and dropping the wrapper's `inner.current`
+assignment is killed by `rich-text-editor-lazy.refused.test.tsx`. An assertion that kills nothing
+another test does not already kill, while presenting itself as the guard for the release's headline
+property, is worse than no assertion — it is a reason to stop looking.
+
+**The fixture that WOULD pin it.** Render TWO lazy editors in ONE test, both `<p>existing</p>`, both
+never focused. Append to editor A BEFORE the chunk resolves (queued, so replayed with `{focus:false}`);
+append to editor B AFTER a `findByRole` has resolved it (live, `opts` undefined). Assert the two
+produce IDENTICAL HTML. Both editors sit behind the single `next/dynamic` boundary, so B is live the
+moment A's is — which is what keeps the one-queue-test-per-file constraint intact rather than
+violating it.
+
+★ The review that filed this measured that fixture RED under the §192 revert
+(`<p> appendedexisting</p>` against `<p>existing appended</p>`), RED under an inverted position
+ternary, and RED under `everFocused` forced true — i.e. it kills the three mutants the deleted
+assertion did not.
+
+★★ DEFERRED DELIBERATELY, and the reason is procedural rather than technical: it was found during a
+fix round, whose job is to CUT. Adding a new fixture while correcting is the highest-risk commit
+class in this repo, which is the thing this branch has now demonstrated twice.
+
+## 197. `appendText`'s return value is over-claimed by one word — `focus` can also return false
+
+**Status:** open — NOT reachable today, NOT a regression, and NOT to be "fixed" by changing the code.
+Filed so the comment is not read as stronger than it is.
+
+`appendText` in `rich-text-editor.tsx` returns the chain's own verdict rather than an unconditional
+`true`, and the comment beside that return justifies reading a `false` as "nothing landed" on the
+grounds that "the only other command is `focus` and nothing else touches the transaction". `focus`
+can itself return false: verified in the installed `@tiptap/core`, its body wraps the
+`view.hasFocus()` early-exit in a `try` whose `catch` returns false. A false command does not abort
+the chain, so on that path the insert has still been dispatched — a `false` there would mean "the
+text landed and the focus attempt threw", not "nothing landed".
+
+★★ **NOT REACHABLE TODAY, and that is the half worth keeping.** On the realistic path — a
+never-focused editor, `opts` undefined — `appendText` returns TRUE. A DESTROYED editor throws at
+`editor.chain()` before `focus` runs at all, which `flushPending`'s `finally` already handles.
+Reaching that `catch` needs `view.hasFocus()` to throw while `editor.chain()` still works, which the
+review that filed this could not construct. Main carried the same shape before §192, so nothing on
+that branch introduced it.
+
+★ Adjacent to §195, which records the OTHER thing about this same call that no test here can catch —
+but a different thing, and do not merge them: §195 is about the ORDER of a read, this is about the
+MEANING of a return.

@@ -33,7 +33,7 @@ import { server } from "./src/test/msw-server";
 // (docs/open-followups.md §193, closed).
 //
 // ★★ That is a claim about THIS budget, NOT about the literal. `timelog-panel.test.tsx`
-// spells 15000 at two of its own `waitFor` calls, for an unrelated reason it documents
+// spells 15000 at its own `waitFor` calls, for an unrelated reason it documents
 // in place (docs/open-followups.md §39 — those two budgets sum past the 20s
 // testTimeout, which is the information that comment exists to carry). They are
 // deliberately NOT swept in here. ★ A sweep for the `15_000` spelling cannot see

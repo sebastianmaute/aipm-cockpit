@@ -36,18 +36,26 @@ register's fix to another is how two of them broke. Read the note that names you
   ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
   so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
   via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`.
-  ★★★ **`appendText` SPLITS POSITION FROM FOCUS, and this line described the pre-split call for four
-  releases.** It used to read `editor.chain().focus().insertContent(...)`, which inserts at the SELECTION —
+  ★★★ **`appendText` SPLITS POSITION FROM FOCUS, and this line described the pre-split call from
+  0.211.0 until 0.251.0.** It used to read `editor.chain().focus().insertContent(...)`, which inserts at the SELECTION —
   the doc START on an editor nobody has clicked into — so a dictated line PREPENDED on the live route while
   the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
   whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
   has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
-  `opts.focus`; the two are independent, and a queued line is by definition dictated before the editor
-  existed, so both routes agree. `docs/open-followups.md` §192.
+  `opts.focus`; the two are independent, and a REPLAY can only ever run at attach, where `everFocused` is
+  still false — so both routes agree. `docs/open-followups.md` §192.
+  ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN, and an earlier revision of this line got
+  that wrong: it said a queued line "is by definition dictated before the editor existed", which is FALSE
+  for the second way a line reaches the queue — a LIVE handle whose `appendText` returned false
+  (`if (!handle || !handle.appendText(text, opts))` in `rich-text-editor-lazy.tsx`), by which point the
+  user may well have focused. What holds instead is that `flushPending` has exactly ONE call site, inside
+  `attach` — so a replay cannot happen at any other moment
+  (`grep -rn "flushPending(" src --include=*.ts --include=*.tsx | grep -v "\.test\."` → the declaration
+  and that one call, and nothing else).
   ★★ Either way `insertContent` MUST take a TEXT NODE object, never a bare string: a bare string is parsed
   as HTML, so dictated text containing `<`/`&` would be interpreted as markup instead of inserted literally.
   ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
-  described exactly that as the pattern to copy for four releases, and it is SILENT DATA LOSS. The mic is a
+  described exactly that as the pattern to copy from 0.211.0 until 0.250.0, and it is SILENT DATA LOSS. The mic is a
   SIBLING of the editor, so it paints and is operable while the editor is still loading; `appendText` is a
   no-op until Tiptap is live, and the `?.` swallows the miss with no throw and no toast. Render the editor
   from `rich-text-editor-lazy.tsx` (every consumer does) and append through ITS handle, which owns a queue
