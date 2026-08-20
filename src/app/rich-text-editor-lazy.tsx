@@ -45,7 +45,8 @@
 //     node -e "console.log(require('next/package.json').version, require('react/package.json').version)"
 //   Renaming still buys nothing and touches two files, so don't.
 import dynamic from "next/dynamic";
-import { useCallback, useImperativeHandle, useRef } from "react";
+import { useCallback, useEffect, useImperativeHandle, useRef } from "react";
+import { logDiag } from "./diagnostics";
 import { Skeleton } from "./skeleton";
 import type { RichTextEditorHandle, RichTextEditorProps } from "./rich-text-editor";
 
@@ -73,6 +74,56 @@ const LazyEditor = dynamic(() => import("./rich-text-editor").then((m) => m.Rich
   ssr: false,
   loading: RichTextEditorFallback,
 });
+
+/** How long a queued append may wait for the chunk before the wait is
+ *  REPORTED. Deliberately generous: the queue exists BECAUSE the chunk can be
+ *  slow, so a threshold tight enough to fire on an ordinary slow connection
+ *  produces a warning nobody reads.
+ *
+ *  ★ Exported so `rich-text-editor-lazy.stall.test.tsx` can drive its fake clock
+ *  from THIS number. A test that retypes the threshold passes for the wrong
+ *  reason the moment the threshold moves. */
+export const QUEUE_STALL_MS = 15_000;
+
+/** Replay `queued` into `handle`, pushing whatever is still outstanding into
+ *  `sink`: both the items the handle REFUSED (a falsy return) and — this is the
+ *  point — the items a THROW never reached.
+ *
+ *  ★★ A THROW MID-FLUSH MUST NOT TAKE THE TRANSCRIPTS BEHIND IT. The caller has
+ *  already swapped `queued` out of its pending array before calling (re-pushing a
+ *  failure into the array being iterated is an infinite loop, not a retry), so
+ *  without the `finally` the items after the failing one are unreachable by any
+ *  later attach — one bad append silently discards every LATER one, which is the
+ *  same class of loss the queue exists to close.
+ *
+ *  ★★ The item at `i` is re-queued TOO, not skipped: a Tiptap command dispatches
+ *  ONE transaction, so a throw means it never applied and re-queueing it cannot
+ *  duplicate it. Skipping it would trade a duplicate risk that does not exist for
+ *  a loss that does.
+ *
+ *  ★ It RETHROWS — a `finally`, never a `catch`. Swallowing here would leave the
+ *  editor in a state nothing reported. The sink is correct on both paths; on the
+ *  normal one `i === queued.length` makes the slice empty.
+ *
+ *  ★ A module-scope function rather than a closure so the throw path is reachable
+ *  from a test with a fake handle. Driving it through React would mean making a
+ *  real ProseMirror transaction fail on demand. */
+export function flushPending(
+  handle: RichTextEditorHandle,
+  queued: readonly string[],
+  sink: string[],
+): void {
+  let i = 0;
+  try {
+    for (; i < queued.length; i++) {
+      // `focus: false` — this runs when the chunk resolves, a moment chosen by the
+      // network. Focusing then steals the caret from wherever the user has moved.
+      if (!handle.appendText(queued[i], { focus: false })) sink.push(queued[i]);
+    }
+  } finally {
+    if (i < queued.length) sink.push(...queued.slice(i));
+  }
+}
 
 /** The editor every consumer renders. Eager (a few hundred bytes), so its
  *  imperative handle exists from the first commit; the ~428 kB editor behind it
@@ -113,6 +164,38 @@ const LazyEditor = dynamic(() => import("./rich-text-editor").then((m) => m.Rich
 export function RichTextEditor({ editorRef, ...rest }: RichTextEditorProps) {
   const inner = useRef<RichTextEditorHandle | null>(null);
   const pending = useRef<string[]>([]);
+  // ★★ THE QUEUE IS UNBOUNDED BY DESIGN, AND THE TIMER BELOW IS WHY THAT IS SAFE
+  //   TO SHIP. A cap can only be enforced by DROPPING, which is the exact silent
+  //   data loss this module exists to prevent — so the answer to "what if the
+  //   chunk never arrives?" is to REPORT, never to discard. Growth is bounded in
+  //   practice by how much a person can dictate while one chunk is in flight.
+  const stall = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const reported = useRef(false);
+
+  const clearStall = useCallback(() => {
+    if (stall.current === null) return;
+    clearTimeout(stall.current);
+    stall.current = null;
+  }, []);
+
+  // ★ Armed by the FIRST queued append and never re-armed once it has fired: one
+  //   report per mounted editor. Re-arming would emit a fresh warning every
+  //   QUEUE_STALL_MS for as long as the user keeps talking, and the diagnostic
+  //   ring is capped — a stall that reports itself 40 times evicts everything
+  //   else that mattered, which is a worse outcome than not reporting at all.
+  const armStall = useCallback(() => {
+    if (stall.current !== null || reported.current) return;
+    stall.current = setTimeout(() => {
+      stall.current = null;
+      reported.current = true;
+      logDiag("warn", "richText.appendQueueStalled", { queued: pending.current.length });
+    }, QUEUE_STALL_MS);
+  }, []);
+
+  // ★ Unmount must DISARM. A queue discarded by unmount is CORRECT — Cancel on a
+  //   note row does exactly that, deliberately (see the queue's ★★★ block) — so a
+  //   report fired afterwards would name a loss the user had asked for.
+  useEffect(() => clearStall, [clearStall]);
 
   const attach = useCallback((handle: RichTextEditorHandle | null) => {
     inner.current = handle;
@@ -122,10 +205,14 @@ export function RichTextEditor({ editorRef, ...rest }: RichTextEditorProps) {
     // Swap in a fresh array BEFORE iterating: re-pushing a failure into the array
     // being iterated is an infinite loop, not a retry.
     pending.current = [];
-    // `focus: false` — this runs when the chunk resolves, a moment chosen by the
-    // network. Focusing then steals the caret from wherever the user has moved.
-    for (const txt of queued) if (!handle.appendText(txt, { focus: false })) pending.current.push(txt);
-  }, []);
+    try {
+      flushPending(handle, queued, pending.current);
+    } finally {
+      // Disarm only once the queue is genuinely empty. A refused item, or one a
+      // throw never reached, is still outstanding and still worth reporting.
+      if (pending.current.length === 0) clearStall();
+    }
+  }, [clearStall]);
 
   useImperativeHandle(
     editorRef,
@@ -142,11 +229,14 @@ export function RichTextEditor({ editorRef, ...rest }: RichTextEditorProps) {
         // ★ The REPLAY deliberately does NOT forward it: see `attach`, which always
         // passes `focus: false` because the moment of replay is chosen by the
         // network rather than by the caller.
-        if (!handle || !handle.appendText(text, opts)) pending.current.push(text);
+        if (!handle || !handle.appendText(text, opts)) {
+          pending.current.push(text);
+          armStall();
+        }
         return true;
       },
     }),
-    [],
+    [armStall],
   );
 
   return <LazyEditor {...rest} editorRef={attach} />;

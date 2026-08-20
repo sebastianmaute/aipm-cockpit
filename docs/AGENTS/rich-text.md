@@ -45,6 +45,19 @@ register's fix to another is how two of them broke. Read the note that names you
   no-op until Tiptap is live, and the `?.` swallows the miss with no throw and no toast. Render the editor
   from `rich-text-editor-lazy.tsx` (every consumer does) and append through ITS handle, which owns a queue
   and replays on arrival — see the `RichTextEditor` docstring there.
+  ★★ **THAT QUEUE IS UNBOUNDED ON PURPOSE, AND REPORTS RATHER THAN DROPS.** A cap could only be enforced
+  by discarding a transcript, which is the exact loss the queue exists to close — so the answer to "what
+  if the chunk never arrives?" is a diagnostic, not a limit: one `warn` under the code
+  `richText.appendQueueStalled` after `QUEUE_STALL_MS`, ONCE per mounted editor (re-arming would evict the
+  rest of the capped ring), and NOT AT ALL when the editor unmounts first — a Cancel discards the queue
+  deliberately, and reporting it would name the user's own decision as a defect. `rich-text-editor-lazy.stall.test.tsx`
+  mocks the chunk to never resolve, which is the only place the LOSING side of that race is reachable;
+  every other suite in the family wins it by a microtask.
+  ★ The replay is the module-scope `flushPending(handle, queued, sink)` rather than a closure, so its THROW
+  path is reachable with a fake handle instead of a rigged ProseMirror transaction. A throw re-queues the
+  thrower AND everything behind it: the caller swaps the queue out of `pending` before calling (re-pushing
+  into the array being iterated is an infinite loop, not a retry), so whatever the loop does not reach is
+  unreachable by every later attach — one bad append used to discard every LATER one, silently.
   ★★ "Is the ref populated?" is the WRONG guard: `useImperativeHandle` has deps `[editor]` and `editor` is
   null on the first render, so React attaches a DEAD handle first — a populated ref whose appends vanish.
   The raw handle in `rich-text-editor.tsx` returns a boolean for that reason, and it has exactly ONE reader

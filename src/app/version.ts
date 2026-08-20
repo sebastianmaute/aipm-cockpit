@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.250.0";
-export const APP_BUILD_DATE = "2026-08-19"; // 0.250.0: the rich-text editor loads on demand — Tiptap leaves the initial bundle (McAuley)
+export const APP_BUILD_DATE = "2026-08-20"; // 0.250.0: the rich-text editor loads on demand — Tiptap leaves the initial bundle (McAuley)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.250.x line is "McAuley" (Paul McAuley, SF author).
  *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).

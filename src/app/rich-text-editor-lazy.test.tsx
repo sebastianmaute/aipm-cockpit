@@ -1,7 +1,8 @@
 import { readFileSync } from "node:fs";
 import { render, screen } from "@testing-library/react";
 import { describe, it, expect, beforeAll } from "vitest";
-import { RichTextEditor, RichTextEditorFallback } from "./rich-text-editor-lazy";
+import { stripComments } from "../test/strip-comments";
+import { RichTextEditor, RichTextEditorFallback, flushPending } from "./rich-text-editor-lazy";
 
 // This module exists to make exactly one `dynamic()` call, so what has to be
 // pinned is that call's THREE decisions: it loads the real editor, it shows the
@@ -23,12 +24,6 @@ beforeAll(() => {
   // @ts-ignore jsdom polyfill
   Range.prototype.getBoundingClientRect = () => ({ width: 0, height: 0, top: 0, left: 0, right: 0, bottom: 0, x: 0, y: 0, toJSON: () => ({}) });
 });
-
-/** The module source with every comment removed. A source assertion over a
- *  file that documents itself will otherwise happily match its own prose. */
-function stripComments(src: string): string {
-  return src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-}
 
 describe("the dynamic() boundary", () => {
   const SRC = readFileSync("src/app/rich-text-editor-lazy.tsx", "utf8");
@@ -73,6 +68,12 @@ describe("the dynamic() boundary", () => {
     expect(CODE).toMatch(/ssr:\s*false/);
     expect(CODE).toMatch(/loading:\s*RichTextEditorFallback/);
     // The needle must not have been read out of prose: no comment survives here.
+    // ★★ This line is only as strong as the stripper behind it, and the local
+    //   one it used to call was NOT strong enough — it blanked a `//` comment
+    //   only when the comment STARTED a line, so a trailing `code(); // …★…`
+    //   sailed through and this very assertion could have been satisfied by
+    //   prose. It now calls the shared scanner in `src/test/strip-comments.ts`,
+    //   which tracks strings instead of guessing at line shape.
     expect(CODE).not.toContain("★");
   });
 });
@@ -111,5 +112,77 @@ describe("RichTextEditorFallback", () => {
     // ★ The border is what the two pre-existing hand-rolled fallbacks drew and
     //   `Skeleton` does not, so without it the placeholder stops reading as a field.
     expect(cls).toContain("border-line");
+  });
+});
+
+// The replay itself, driven directly with a fake handle.
+//
+// ★★★ THE THROW PATH IS WHY THIS IS A MODULE-SCOPE FUNCTION. Reaching it through
+// React would mean making a real ProseMirror transaction fail on demand; here it
+// is three lines. The behaviour it pins is not obvious and was wrong until it was
+// written down: the caller has ALREADY swapped the queue out of its pending array
+// before calling, so anything the loop does not reach is unreachable by every
+// later attach. One append that throws used to discard every transcript BEHIND
+// it — silently, with the editor still on screen.
+describe("flushPending", () => {
+  /** A handle whose `appendText` is scripted per call: `true` accepts, `false`
+   *  refuses, an Error is thrown. */
+  function fakeHandle(script: (true | false | Error)[]) {
+    const seen: { text: string; focus: boolean | undefined }[] = [];
+    let n = 0;
+    return {
+      seen,
+      handle: {
+        appendText(text: string, opts?: { focus?: boolean }) {
+          seen.push({ text, focus: opts?.focus });
+          const outcome = script[n++] ?? true;
+          if (outcome instanceof Error) throw outcome;
+          return outcome;
+        },
+      },
+    };
+  }
+
+  it("leaves nothing behind when every append is accepted", () => {
+    const { handle, seen } = fakeHandle([true, true]);
+    const sink: string[] = [];
+    flushPending(handle, ["one", "two"], sink);
+    expect(sink).toEqual([]);
+    expect(seen.map((s) => s.text)).toEqual(["one", "two"]);
+  });
+
+  it("replays with focus: false, so the caret is not yanked mid-sentence", () => {
+    // The replay happens at a moment the NETWORK chose, not the user. Focusing
+    // then steals the caret from wherever they have moved on to.
+    const { handle, seen } = fakeHandle([true]);
+    flushPending(handle, ["one"], []);
+    expect(seen[0]?.focus).toBe(false);
+  });
+
+  it("keeps a refused item queued, and keeps going", () => {
+    const { handle } = fakeHandle([false, true]);
+    const sink: string[] = [];
+    flushPending(handle, ["refused", "accepted"], sink);
+    expect(sink).toEqual(["refused"]);
+  });
+
+  it("re-queues the thrower AND everything behind it, and rethrows", () => {
+    // ★★ THE ITEM THAT THREW IS RE-QUEUED, NOT SKIPPED. A Tiptap command
+    //   dispatches one transaction, so a throw means it never applied — skipping
+    //   it would trade a duplicate risk that does not exist for a loss that does.
+    const { handle } = fakeHandle([true, new Error("transaction failed")]);
+    const sink: string[] = [];
+    expect(() => flushPending(handle, ["landed", "threw", "behind"], sink)).toThrow(
+      "transaction failed",
+    );
+    expect(sink).toEqual(["threw", "behind"]);
+  });
+
+  it("carries a refusal from before the throw through as well", () => {
+    // Both sources of "still outstanding" end up in the same sink, in order.
+    const { handle } = fakeHandle([false, new Error("boom")]);
+    const sink: string[] = [];
+    expect(() => flushPending(handle, ["refused", "threw", "behind"], sink)).toThrow("boom");
+    expect(sink).toEqual(["refused", "threw", "behind"]);
   });
 });

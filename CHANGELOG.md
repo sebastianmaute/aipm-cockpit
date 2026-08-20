@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.250.0] - 2026-08-19 "McAuley"
+## [0.250.0] - 2026-08-20 "McAuley"
 
 ### Changed
 
@@ -66,6 +66,15 @@ longer carries its own changelog comment.
   when the editor instance changes, so a callback ref is attached once with a
   dead handle before the live one. The return value is the only thing that
   distinguishes them.
+- A dictated line still waiting on the editor chunk is now reported if the chunk
+  never arrives. The buffer is deliberately unbounded: a cap could only be
+  enforced by discarding a transcript, which is the loss the buffer exists to
+  prevent, so a wait past a threshold records one warning in the diagnostic log
+  instead of quietly growing. Cancelling the edit discards the buffer and reports
+  nothing — that is the user's own decision, not a failure.
+- A failed insert no longer takes the lines behind it. The buffered text is handed
+  to the editor as a batch, and an error partway through left the untried
+  remainder unreachable by any later attempt.
 - The accessibility gate's rich-text-toolbar scan now waits for the toolbar. Its
   previous settle probe watched a DOM subtree the notes window does not render
   into, so with the editor arriving over the network the scan could have run
