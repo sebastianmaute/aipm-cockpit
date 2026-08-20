@@ -44,8 +44,8 @@ import { applyOps, type DocOp } from "./document-ops";
 
 /** ★ RE-EXPORTED, not defined here — `DocOp` moved to document-ops.ts when this
  *  file hit the size ratchet. Kept on this module's surface so its consumers
- *  (chat-tools-documents.ts, document-editor-commit.ts, document-model.ts,
- *  use-document-tools.ts) do not have to know it moved. Same pattern as
+ *  (chat-tools-documents.ts, document-editor-commit.ts, use-document-tools.ts)
+ *  do not have to know it moved. Same pattern as
  *  document-editor-commit.ts's re-export of `blockChanged`. */
 export type { DocOp } from "./document-ops";
 

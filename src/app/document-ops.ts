@@ -8,7 +8,7 @@
 // ratchet. Nothing about the split is semantic — `applyDocMutation` is the
 // dispatcher, this is the interpreter its `"ops"` arm calls. The DocOp type
 // lives HERE (it is this module's vocabulary) and is RE-EXPORTED from
-// document-mutations.ts so its five consumers did not have to move.
+// document-mutations.ts so its consumers did not have to move.
 
 import { blockChanged, type DocBlock } from "./document-model";
 
