@@ -12561,9 +12561,16 @@ click.
 ★★ **Concrete failure.** The user opens "Block actions – Block 1" on a heading;
 an AI `insert` lands a paragraph at index 0; the user clicks "Delete block".
 `blockIsTrivial` is false for the AI's paragraph, so they get the GENERIC confirm
-prompt, which names no block — nothing on screen tells them the target changed.
-They confirm, the AI's paragraph is deleted, and the heading they pointed at
-survives.
+prompt, which names no block. They confirm, the AI's paragraph is deleted, and
+the heading they pointed at survives.
+
+★ The screen is not silent about the swap, though the PROMPT is. `DocumentBlockGutter`
+holds its popover's `open` state itself and renders `t(lang, KIND_LABEL[block.type])`
+as its first child, and the rows are index-keyed — so the insert reconciles that
+gutter IN PLACE, the open menu survives, and the chip beside it visibly flips
+"Heading" → "Paragraph". An earlier revision of this entry said "nothing on
+screen tells them the target changed", which overstated the defect. What is
+missing is a prompt that names its target, not a cue that something moved.
 
 ★ **Why it is not fixed here.** The capture has to be frozen when the menu OPENS
 and threaded back out through `onDelete`, which changes `DocumentBlockGutter`'s
@@ -12571,3 +12578,38 @@ component contract — the gutter would have to hand the editor the block it was
 opened against, not just an index. That is a design change and wants its own
 slice. The comment above the call has been narrowed to stop claiming the baseline
 is "the row the user pointed at", so the code no longer overstates the guarantee.
+
+## 193. Adding a block at a narrow pane leaves the NEW block collapsed read-only
+
+**Status:** open. **Severity:** low (a UX fork, not a defect — the block is
+reachable in one extra click). **Found by:** cold review of the S3c
+structural-blocks round, on the commit that fixed the default-state
+carry-through. **Deliberately not changed — it is a feature decision, outside
+that round's scope.**
+
+At a narrow pane `document-editor.tsx` collapses every paragraph but the
+selected one, and since the selection carry-through takes the RESOLVED selection
+the three structural ops all keep the block the user was already in. For move
+and delete that is the whole point. For INSERT it means the newly-added block is
+never the selected one: a user who picks "Add below → Paragraph" gets a fresh
+seeded paragraph rendered read-only with an "Edit this block" button, and has to
+click that button before they can type in the block they just asked for.
+
+★ It is now CONSISTENT, which it was not before. With a selection already made,
+`selectionAfterInsert` always shifted it so the old block stayed live. With no
+selection made, the old code fell through to `firstParagraph` recomputed on the
+new list — so inserting at index 0 of a paragraph document happened to select
+the new block while inserting anywhere else did not. The fix removed that split
+by making every case keep the old block.
+
+★ **The fork to decide.** Either (a) carry the selection to the newly-inserted
+block when the inserted kind is a paragraph, on the argument that "add a
+paragraph" is a request to write one; or (b) keep today's behaviour, on the
+argument that an insert should never move the cursor out from under an edit in
+progress — the user may be adding a block to fill in later. (a) needs a rule for
+the non-paragraph kinds, which have no selection concept at all: inserting a
+table or a page break must leave the selection alone either way, so the op
+cannot simply select `at`.
+
+★ Whichever way it goes, it is narrow-pane-only — at a wide pane every paragraph
+is live and the selection is invisible.

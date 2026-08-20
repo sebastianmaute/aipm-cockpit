@@ -377,13 +377,24 @@ key SET unchanged.
 
 ★★ **MEASURED, not reasoned**, because `use-list-reorder-dnd.ts`'s own docstring argues the
 opposite case forcefully — and is right about consumers whose drop UNMOUNTS the dragged item.
-Deleting `endDrag()` from the HOOK turns `document-editor.test.tsx`'s "does not reorder on a drop
-when no drag is in flight" RED, and that one test is the only failure; adding `reorder.endDrag()`
-in the consumer on top of that turns it GREEN again. So the consumer call is an equivalent mutant
-— a working substitute for a reset this
-consumer already gets, carrying a false justification. That TEST is what guards the property; if
-this editor ever grows a drop that REMOVES a block, add the call and the same test will still be
+Deleting the `endDrag()` call from the HOOK's own `onDrop` turns `document-editor.test.tsx`'s "does
+not reorder on a drop when no drag is in flight" RED, and inside that file it is the only failure;
+adding `reorder.endDrag()` as the first statement of the consumer's `onMove` on top of that turns
+it GREEN again. So the consumer call is an equivalent mutant — a working substitute for a reset
+this consumer already gets, carrying a false justification. That TEST is what guards the property;
+if this editor ever grows a drop that REMOVES a block, add the call and the same test will still be
 the thing watching it.
+
+★★ RE-RUN IT RATHER THAN TRUSTING THE SENTENCE — it was written command-less, and the commit that
+added six drag-feedback tests to that same file landed AFTER it, so the "only failure" half was
+unverified until 2026-08-20. Re-measured then: hook mutation alone `Tests 1 failed | 46 passed
+(47)`, naming that test; consumer call on top `Tests 47 passed (47)`. The scope is that ONE file —
+`useListReorderDnd` is shared, so a whole-suite run would also charge its other consumers.
+
+```bash
+npx vitest run src/app/document-editor.test.tsx --maxWorkers=1 > /tmp/t.log 2>&1; echo "EXIT=$?"
+grep -E "Test Files|Tests |^\s+× " /tmp/t.log
+```
 
 ## Persistence — six write paths
 
