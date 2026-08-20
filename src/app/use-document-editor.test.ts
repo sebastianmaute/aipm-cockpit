@@ -154,11 +154,16 @@ describe("useDocumentEditor — the coalescing anchor survives a null-minted res
   });
 });
 
-// ★★★ `structuralOp`'s OWN anchor advance, which nothing else reaches. Its
+// ★★★ `structuralOp`'s OWN anchor advance. Its
 //  `if (result.minted) lastMintedRef.current = result.minted;` is the same line
-//  `commitBlock` carries, but the module-level `mockMutate` hardcodes
-//  `minted: null`, so every other test in this file drives the FALSE arm only —
-//  a structural op could advance no anchor at all and the file would stay green.
+//  `commitBlock` carries, and the module-level `mockMutate` hardcodes
+//  `minted: null` — so any test using THAT mock drives the FALSE arm only, and a
+//  structural op could advance no anchor at all while the file stayed green.
+//  ★★ TWO tests reach the TRUE arm, not one, and an earlier revision of this
+//   line said "which nothing else reaches". The other is "emits a move carrying
+//   the coalesce decision, and folds a run of them" further down, whose second
+//   move can only decide `coalesce: true` because this assignment ran on the
+//   first. Both mock a real `minted` pair; neither uses `mockMutate`.
 //
 //  It matters because an `insert` deliberately mints a before-image
 //  unconditionally (no `coalesce` field), and the typing that follows is meant

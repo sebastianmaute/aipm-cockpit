@@ -50,8 +50,11 @@ const GRIP_FOCUS_RING =
  * budget-panel.tsx, dashboard-tile.tsx, roles-editor.tsx ×2) were still
  * hand-rolled `<button>`s and docs/handrolled-ui-inventory.md recorded the
  * missing forwarding as the reason. All five were migrated onto this
- * primitive three commits later, and that inventory row now reads
- * "converted — none left hand-rolled".
+ * primitive in ONE later commit, `4a059272` (which also rewrote that
+ * inventory row to "converted — none left hand-rolled"). ★ No commit DISTANCE
+ * is quoted: this said "three commits later" and neither reading of it was 3
+ * — `git rev-list --count f5be5774..4a059272` is 7. Name the commit and let a
+ * reader run `git log --oneline -S'<DragHandle' -- src/app/reports.tsx`.
  */
 // NOTE: named DragGripProps, not DragHandleProps — `use-draggable.ts` already
 // exports an unrelated DragHandleProps (window-repositioning drag, consumed by
