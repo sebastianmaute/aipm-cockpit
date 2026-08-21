@@ -37,7 +37,11 @@ import {
   BUDGETS_CSV_COLUMNS,
   EVENTS_CSV_COLUMNS,
 } from "./csv-codecs-core";
+import { DOCUMENT_ASSETS_CSV_COLUMNS } from "./csv-codecs";
+import { ENTITY_SPECS, SCHEMA_DDL } from "./turso-schema";
+import { tenantSchemaDdl } from "./turso-tenant-schema";
 import type { Workspace } from "./workspace";
+import type { DocumentAsset } from "./document-asset";
 
 const EVT = "evt-registry-123";
 
@@ -450,4 +454,65 @@ describe("entity persistence registry — activityLog survives every text backen
     const back = markdownToWorkspace(workspaceToMarkdown(seedActivity()));
     expect(back.activityLog).toEqual(seedActivity().activityLog);
   });
+});
+
+// documentAssets (S3c-1: document images) — DocumentAsset METADATA rows
+// (bytes live in a separate side table, document-asset.ts, out of scope
+// here). This block is the six-path proof for the slice: one ENTITY_SPECS
+// row (turso-schema.ts) drives CSV + both Turso layouts at once, so it gets
+// its own DDL-shape assertions per layout rather than only a name-presence
+// check — the tenant layout's whole reason to exist is the composite
+// (id, project_id) primary key, which a name-only check can't tell apart
+// from the single-tenant layout.
+//
+// Six paths, six locations:
+//   1. CSV        — round-trip below
+//   2. Markdown    — round-trip below
+//   3. JSON         — round-trip below (a real filter: jsonToWorkspace routes
+//      documentAssets through sanitizeDocumentAsset, workspace.ts:721-725)
+//   4. Turso single-tenant — SCHEMA_DDL assertion below
+//   5. Turso multi-tenant  — tenantSchemaDdl() composite-PK assertion below
+//   6. IndexedDB    — proved in browser-backend.test.ts, describe
+//      "documentAssets over IndexedDB" > "round-trips documentAssets through
+//      save and load" (that file owns the fake-indexeddb harness this suite
+//      does not set up)
+describe("entity persistence registry — documentAssets across all six write paths", () => {
+  const asset: DocumentAsset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+  const seedAssets = (): Workspace => ({ ...emptyWorkspace(), documentAssets: [asset] });
+
+  it("1+4+5: the ENTITY_SPECS column registry drives CSV and both Turso layouts", () => {
+    const spec = ENTITY_SPECS.find((s) => s.table === "document_assets");
+    expect(spec?.columns).toEqual(DOCUMENT_ASSETS_CSV_COLUMNS);
+  });
+
+  it("4: the single-tenant SCHEMA_DDL declares the document_assets table", () => {
+    expect(SCHEMA_DDL.some((ddl) => ddl.includes("CREATE TABLE IF NOT EXISTS document_assets"))).toBe(true);
+  });
+
+  it("5: the multi-tenant DDL gives document_assets a composite (id, project_id) primary key", () => {
+    const ddl = tenantSchemaDdl().find((s) => s.includes("CREATE TABLE IF NOT EXISTS document_assets"));
+    expect(ddl).toBeDefined();
+    expect(ddl).toContain("PRIMARY KEY (id, project_id)");
+  });
+
+  it("1: documentAssets survives the CSV round-trip", () => {
+    const back = csvToWorkspace(workspaceToCsv(seedAssets()));
+    expect(back.documentAssets?.[0]).toEqual(asset);
+  });
+
+  it("2: documentAssets survives the Markdown round-trip", () => {
+    const back = markdownToWorkspace(workspaceToMarkdown(seedAssets()));
+    expect(back.documentAssets?.[0]).toEqual(asset);
+  });
+
+  it("3: documentAssets survives the JSON round-trip", () => {
+    const back = jsonToWorkspace(workspaceToJson(seedAssets()));
+    expect(back.documentAssets?.[0]).toEqual(asset);
+  });
+
+  // 6. IndexedDB — proved in browser-backend.test.ts, describe "documentAssets
+  // over IndexedDB" > "round-trips documentAssets through save and load".
 });
