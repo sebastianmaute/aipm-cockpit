@@ -4771,6 +4771,10 @@ to express "this task names a person who is deliberately NOT the same-named dire
 keeping the reach. Not done here: the version-stamp plumbing is a bigger change than the fix warranted,
 and the idempotent pass is harmless for every shape encountered so far.
 
+★ Re-verified 2026-08-21: `migrateWorkspaceV11` does not exist — `grep -n "function migrateWorkspaceV"
+src/app/workspace.ts` tops out at `migrateWorkspaceV10`. It is a proposed name for the fix above, not a
+lost one.
+
 ★★ There are now **two** load funnels and a third would silently miss the backfill. They are listed in
 the function's own doc comment — keep that list current.
 
