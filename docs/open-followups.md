@@ -8592,8 +8592,13 @@ Reproduce with `ls scripts/ scripts/*.test.*` and subtract.
 direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
 equivalent mutants, concluding that `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead were
 redundant guards so removing either alone changed nothing. A cold review's differential fuzz settled
-it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths —
-`` `foo.tsxx` `` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths — fenced below, because these are
+regex INPUTS rather than files this repo holds, and the sweep is right to read a
+backticked filename in prose as a claim:
+
+```text
+`foo.tsxx` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+```
 ★★ THAT EXPERIMENT NOW LIVES IN THE SUITE (`PATH_RE mutants — the two guards are NOT
 interchangeable`), and this entry used to quote its corpus size instead — "784 inputs, 336 differ".
 Nothing in the repo reproduced those figures, and a second reviewer building their own corpus got
@@ -8602,7 +8607,9 @@ rule applied to the text that states the rule. Both mutants are now built from t
 `SOURCE_EXT`, so the property is ENFORCED rather than asserted and there is no count to go stale.
 ★ Writing that pin is itself worked evidence: the first version enumerated "every
 extension-SUFFIXED input" as the expected differing set and FAILED, because the corpus builds
-`ts` + `x` as `foo.tsx` — a valid name that must not differ. Enumerating re-derived the regex's
+`ts` + `x` as foo.tsx — a valid name that must not differ. (Deliberately
+un-backticked: it is a regex input, and backticking it makes the sweep read it as
+a claim on a file this repo does not hold, which is the sweep working.) Enumerating re-derived the regex's
 rules and got them wrong; asserting the PROPERTY (every difference is an invented path, and no
 accepted input is affected) is what holds.
 The lookahead mutant survived only because no test fed it an extension-SUFFIXED name — a TEST GAP,
@@ -13162,7 +13169,7 @@ not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on h
 
 3. **A work email in guide content, in two places that must be fixed in the right ORDER.** The
    address sits in `lib/project-leadership-operating-guide.md` and is embedded verbatim in
-   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the `.generated.ts`
+   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the generated file
    is wrong and will be silently reverted by the next regen — fix the `lib/` markdown and re-run
    `scripts/gen-operating-guide.mjs`. There is no `package.json` script for it; invoke the file
    directly.
