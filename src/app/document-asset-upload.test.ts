@@ -157,9 +157,59 @@ describe("readHeaderDimensions", () => {
     expect(readHeaderDimensions(bytes, "image/jpeg")).toBeNull();
   });
 
+  // ★★★ The SOF0 tail is what makes this test able to FAIL. Without it the scan
+  // data ended the buffer, so deleting the `marker === 0xda` stop still returned
+  // null — the walk just ran off the end, same answer by a different mechanism,
+  // and the guard survived deletion with the file green. `FF C0` cannot appear
+  // in real entropy-coded data (0xFF is byte-stuffed as `FF 00`), which is
+  // exactly why a hostile file can plant one there: with the stop deleted the
+  // walk resumes at p+2+len, lands on it, and reports attacker-chosen
+  // dimensions to the bomb guard.
   it("returns null when SOS is reached before any SOF", () => {
-    const bytes = new Uint8Array([...SOI, ...APP0_JFIF, 0xff, 0xda, 0x00, 0x0c, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    const bytes = new Uint8Array([
+      ...SOI, ...APP0_JFIF,
+      0xff, 0xda, 0x00, 0x0c, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10,
+      ...sof0(800, 600), // planted inside the scan data
+    ]);
     expect(readHeaderDimensions(bytes, "image/jpeg")).toBeNull();
+  });
+
+  // ★★★ A declared length below 2 is impossible (the field counts itself), and
+  // the guard is NOT an equivalent-mutant no-op: the SOF branch reads width and
+  // height BEFORE `i = p + 2 + len` is ever evaluated, so deleting `len < 2`
+  // hands the caller {800, 600} out of a segment whose own header says it holds
+  // nothing. That is a malformed stream feeding attacker-chosen dimensions
+  // straight into checkHeaderDimensions.
+  it("returns null for an SOF segment declaring a length below the minimum", () => {
+    const bytes = new Uint8Array([
+      ...SOI,
+      0xff, 0xc0, 0x00, 0x00, // SOF0 with an impossible length of 0
+      0x08, 0x02, 0x58, 0x03, 0x20, // precision, height 600, width 800
+    ]);
+    expect(readHeaderDimensions(bytes, "image/jpeg")).toBeNull();
+  });
+
+  // ★★★ DUPLICATE SOI — the decompression-bomb bypass that SOI's absence from
+  // the standalone-marker set opens. SOI carries no length field; reading one
+  // anyway makes the walk jump `(0xff << 8) | <the real SOF0's marker byte>`
+  // forward — an attacker-chosen distance — past the real frame header and onto
+  // a planted small one, so the 8000px ceiling waves a 12000x12000 image
+  // through. (Not exploitable end to end only because Chromium refuses to
+  // decode a file with a duplicate SOI at all — a decoder-side accident, not a
+  // guard.) Mutation-proved by removing `marker === 0xd8` from the set.
+  it("steps over a duplicate SOI instead of desynchronising onto a planted SOF0", () => {
+    const decoy = sof0(100, 100);
+    // Byte 4 is the real SOF0's 0xFF prefix and byte 5 its 0xC0 marker, so a
+    // length-reading walk takes 0xFFC0 (65472) as the duplicate SOI's length
+    // and lands exactly here — hence the 64KB fixture.
+    const decoyAt = 4 + ((0xff << 8) | 0xc0);
+    const bytes = new Uint8Array(decoyAt + decoy.length);
+    bytes.set([...SOI, ...SOI, ...sof0(12000, 12000)], 0);
+    bytes.set(decoy, decoyAt);
+
+    const dims = readHeaderDimensions(bytes, "image/jpeg");
+    expect(dims).toEqual({ width: 12000, height: 12000 });
+    expect(reasonOf(checkHeaderDimensions(dims))).toBe("dimensions");
   });
 
   // --- WebP -------------------------------------------------------------

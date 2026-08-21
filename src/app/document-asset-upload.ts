@@ -92,7 +92,15 @@ const JPEG_SOF_EXCLUDED = new Set([0xc4, 0xc8, 0xcc]);
  *     marker prefix and the second 0xFF as the marker BYTE misidentifies the
  *     marker entirely.
  *
- *  This walk: treats SOI/RST0-7/TEM as standalone (advance 2, no length);
+ *  This walk: treats SOI (0xD8), EOI (0xD9), RST0-7 (0xD0-0xD7) and TEM (0x01)
+ *  as standalone (advance 2, no length) — ★★ SOI is in that set deliberately.
+ *  A SECOND SOI is legal to encounter in a hostile stream, and reading a
+ *  length after it desynchronises the walk by an attacker-chosen amount: a
+ *  duplicate SOI prefixed onto a 12000x12000 JPEG makes the walk jump to a
+ *  planted 100x100 SOF0, so `checkHeaderDimensions` waves the bomb through.
+ *  (Chromium happens to refuse to decode any file carrying a duplicate SOI,
+ *  which is why that bypass was not exploitable end to end — but the guard
+ *  must not rest on a decoder-side accident.) It also
  *  skips 0xFF fill runs so the marker byte is always the first non-0xFF after
  *  them; stops at SOS (0xDA) since entropy-coded scan data follows and must
  *  never be walked as markers; and never throws — every read is guarded by an
@@ -111,8 +119,10 @@ function readJpegDimensions(bytes: Uint8Array): PixelSize | null {
     if (p + 1 >= bytes.length) return null; // truncated: no marker byte follows
     const marker = bytes[p + 1];
 
-    // Standalone markers carry no length field at all.
-    if (marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+    // Standalone markers carry no length field at all. SOI (0xd8) and EOI
+    // (0xd9) are BOTH in this set — see the docstring: omitting SOI is a bomb
+    // -guard bypass, not a cosmetic gap.
+    if (marker === 0xd8 || marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
       i = p + 2;
       continue;
     }
