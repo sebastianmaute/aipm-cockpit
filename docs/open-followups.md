@@ -12494,9 +12494,9 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round.
 
-★ Correction 2026-08-21: earlier text here called the per-op item schema `document_ops`; that was
-shorthand this entry invented, never a real symbol — `grep -rn "document_ops" src scripts e2e` finds
-nothing outside this entry. The real AI tool names are `list_documents`, `get_document`,
+★ Correction 2026-08-21: `document_ops` never existed — `grep -rn "document_ops" src scripts e2e` finds
+nothing outside this entry. Earlier text here used that name as shorthand for the per-op item schema.
+The real AI tool names are `list_documents`, `get_document`,
 `create_document`, `update_document` and `delete_document` (`src/app/chat-tool-defs-documents.ts`);
 the schema in question is the per-op item type nested in `update_document`'s `ops` array.
 
