@@ -8,6 +8,62 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.254.0] - 2026-08-21 "Yoshinaga"
+
+### Added
+
+- **Document images, end to end (Turso-gated).** Upload an image by file picker,
+  clipboard paste or drag-and-drop; manage it in a shared asset library with
+  per-asset usage counts; insert it into a document; see it render in the
+  preview and in HTML/PDF export.
+- **Two stores, deliberately separate.** Asset *metadata* (`DocumentAsset`) is a
+  normal workspace slice carried on all six write paths — JSON, CSV, Markdown,
+  Turso single-tenant, Turso multi-tenant and IndexedDB. Asset *bytes* live as
+  base64 in `document_asset_data`, a side table kept out of `TABLE_NAMES`
+  because a workspace save deletes and re-inserts every table it owns, which
+  would wipe the library on every save.
+- **Metadata-first write order.** The metadata row is committed before the
+  bytes, so a failed upload degrades to the already-designed *dangling* case —
+  visible, self-describing and repaired by re-uploading over the same id —
+  rather than leaving an invisible orphan needing a reclaim action.
+- **Upload budget.** 25 MB raw ceiling checked before any decode; a header-only
+  8000px dimension guard against decompression bombs; downscale to 1920x1080; a
+  5 MB stored cap applied *after* downscale; 20 images per document enforced at
+  insert; SHA-256 content-hash dedup so one image referenced from twenty
+  documents is one row.
+- **Formats: PNG, JPEG and WebP.** SVG is excluded permanently as an XSS
+  surface. GIF is excluded because downscaling re-encodes and would silently
+  destroy animation.
+- **Project deletion now drops a project's asset bytes.** The side table sits
+  outside `TABLE_NAMES`, so nothing cleaned it automatically. The cleanup is
+  non-fatal: leaked bytes are recoverable, a half-deleted project is not.
+
+### Changed
+
+- Standalone HTML export inlines image bytes as a data URI, which is also how
+  PDF export works — through the browser print dialog, with no PDF writer and no
+  new dependency.
+- DOCX and PPTX export emit a **visible placeholder naming the omitted image**,
+  never a silent drop. Real OOXML media parts are deferred.
+- The preview resolves image ids to **blob object URLs** rather than inlining
+  base64, which for ten images would put roughly 67 MB into a single HTML
+  string.
+- `workspace.ts` and `csv-codecs-core.ts` were split (`workspace-metrics.ts`,
+  `document-asset-codecs.ts`) to stay under the 800-line file-size ratchet.
+
+### Fixed
+
+- Removed unused image paste/drop plumbing from `RichTextEditor`: the shared
+  editor has no image node and its update path strips `img`, so the prop was a
+  false affordance for every rich field in the app.
+
+### Known limitations
+
+- DOCX and PPTX disclose images rather than embedding them.
+- The asset library is Turso-gated and the e2e seed runs in file mode, so the
+  a11y gate never renders it; its unit tests are the only detector for that
+  surface.
+
 ## [0.253.0] - 2026-08-21 "Schroeder"
 
 ### Changed

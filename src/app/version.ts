@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.253.0";
-export const APP_BUILD_DATE = "2026-08-21"; // 0.253.0: the planning corpus is tracked — 298 archive-only documents recovered (Schroeder)
+export const APP_VERSION = "0.254.0";
+export const APP_BUILD_DATE = "2026-08-21"; // 0.254.0: document images end to end, Turso-gated (Yoshinaga)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.253.x line is "Schroeder" (Karl Schroeder, SF author).
+ *  0.254.x line is "Yoshinaga" (Fumi Yoshinaga, SF/fantasy manga author).
+ *  0.253.x was "Schroeder" (Karl Schroeder, SF author).
  *  0.252.x was "Brust" (Steven Brust, fantasy author).
  *  0.251.x was "Larson" (Rich Larson, SF author).
  *  0.250.x was "McAuley" (Paul McAuley, SF author).
