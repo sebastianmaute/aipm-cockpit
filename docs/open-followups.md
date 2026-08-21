@@ -10670,6 +10670,10 @@ carry the enclosing item’s `depth` WITHOUT becoming an `li` — i.e. an option
 `LineBase` that both renderers add to their indent. That is a wider change than the continuation
 slice needed, and it buys indentation only.
 
+★ Verified 2026-08-21: `listDepth` never existed in this codebase at any point — `git log --oneline
+--all -S'listDepth' -- src` returns zero commits, ever. It is a proposed name for the second axis
+above, not a lost one.
+
 ★ A smaller cousin, also open: a DOCX continuation sits at the item’s `w:ind w:left`, so its text
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
