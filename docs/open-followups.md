@@ -12494,16 +12494,22 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round.
 
-Nothing under `src/app` imports `useDocumentTools` from a test, and there is no
-`use-document-tools.test.ts` — reproduce with
-`grep -rln "useDocumentTools\|document_ops" src/app/*.test.*`, which returns
-nothing. The whole model-facing document write path is therefore covered only
-indirectly, by the engine tests underneath it.
+★ Correction 2026-08-21: earlier text here called the per-op item schema `document_ops`; that was
+shorthand this entry invented, never a real symbol — `grep -rn "document_ops" src scripts e2e` finds
+nothing outside this entry. The real AI tool names are `list_documents`, `get_document`,
+`create_document`, `update_document` and `delete_document` (`src/app/chat-tool-defs-documents.ts`);
+the schema in question is the per-op item type nested in `update_document`'s `ops` array.
+
+Nothing under `src/app` imports `useDocumentTools` from a test, and no `use-document-tools.test.ts`
+exists — reproduce with `grep -rln "useDocumentTools" src/app/*.test.*`, which returns nothing. That
+absence is the point of this entry, not rot: writing that file is exactly what **To close** below asks
+for. The whole model-facing document write path is therefore covered only indirectly, by the engine
+tests underneath it.
 
 That matters now because the round added a guard there: `keepOp` strips
 `expect` from every op before it reaches `applyOps`. The field is the HAND
 editor's concurrency guard, carrying a draft's baseline, and an AI op resolves
-no draft — but the `document_ops` schema sets no `additionalProperties: false`
+no draft — but `update_document`'s per-op schema sets no `additionalProperties: false`
 (verified: `grep -n additionalProperties src/app/chat-tool-defs-documents.ts`
 returns nothing), so a model can emit it and the `{ ...op, block }` spreads
 would have carried it through. Worst case was never data loss — the model's own
