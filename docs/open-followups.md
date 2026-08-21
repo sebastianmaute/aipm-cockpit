@@ -10721,6 +10721,10 @@ first nested item, which reads as a numbering bug rather than a missing marker.
 ★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
 the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.
 
+★ Verified 2026-08-21: `listDepth` / `listMarker` never existed — `git log --oneline --all -S'listDepth'
+-- src` and the same for `listMarker` each return zero commits, ever. Both are proposed vocabulary for
+the unbuilt second axis, not lost names.
+
 ## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
