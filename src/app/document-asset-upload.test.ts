@@ -5,7 +5,8 @@ import {
   ASSET_MAX_SOURCE_DIM, ASSET_DOWNSCALE_W, ASSET_DOWNSCALE_H,
   ASSET_MAX_PER_DOCUMENT, checkUploadCandidate,
   readHeaderDimensions, checkHeaderDimensions,
-  type CandidateResult, type UploadRejection,
+  targetSize, pickSmaller, checkStoredSize, processUpload,
+  type CandidateResult, type UploadRejection, type ImageEncoder,
 } from "./document-asset-upload";
 
 const file = (mime: string, size: number) => ({ type: mime, size, name: "x" }) as File;
@@ -272,5 +273,96 @@ describe("checkHeaderDimensions", () => {
   //    bomb guard trivially bypassable by corrupting one signature byte.
   it("rejects when dimensions could not be read at all", () => {
     expect(reasonOf(checkHeaderDimensions(null))).toBe("decode");
+  });
+});
+
+describe("targetSize", () => {
+  it("leaves an image already inside the target untouched", () => {
+    expect(targetSize({ width: 800, height: 600 })).toEqual({ width: 800, height: 600 });
+  });
+
+  it("scales a wide image down by width, preserving aspect ratio", () => {
+    expect(targetSize({ width: 3840, height: 2160 })).toEqual({ width: 1920, height: 1080 });
+  });
+
+  it("scales a tall image down by height", () => {
+    expect(targetSize({ width: 1080, height: 3840 })).toEqual({ width: 304, height: 1080 });
+  });
+
+  it("never returns a zero dimension for an extreme aspect ratio", () => {
+    const out = targetSize({ width: 20000, height: 1 });
+    expect(out.width).toBe(1920);
+    expect(out.height).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe("pickSmaller", () => {
+  // ★★ Re-encoding a photo to PNG can come out LARGER than the source. Keeping
+  //    the original in that case is the rule, not an optimisation.
+  it("keeps the original when the re-encode came out larger", () => {
+    expect(pickSmaller({ bytes: new Uint8Array(100), mime: "image/jpeg" },
+                       { bytes: new Uint8Array(200), mime: "image/png" }).mime).toBe("image/jpeg");
+  });
+
+  it("takes the re-encode when it is smaller", () => {
+    expect(pickSmaller({ bytes: new Uint8Array(300), mime: "image/jpeg" },
+                       { bytes: new Uint8Array(120), mime: "image/png" }).mime).toBe("image/png");
+  });
+
+  it("keeps the original on a tie, avoiding a needless re-encode", () => {
+    expect(pickSmaller({ bytes: new Uint8Array(100), mime: "image/jpeg" },
+                       { bytes: new Uint8Array(100), mime: "image/png" }).mime).toBe("image/jpeg");
+  });
+});
+
+describe("checkStoredSize", () => {
+  it("accepts bytes at the stored cap", () => {
+    expect(checkStoredSize(ASSET_STORED_MAX_BYTES).ok).toBe(true);
+  });
+
+  it("rejects bytes over the stored cap with its own reason code", () => {
+    expect(reasonOf(checkStoredSize(ASSET_STORED_MAX_BYTES + 1))).toBe("tooLargeStored");
+  });
+});
+
+describe("processUpload", () => {
+  const png = (w: number, h: number, pad = 0) => {
+    const b = new Uint8Array(24 + pad);
+    b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+    new DataView(b.buffer).setUint32(16, w);
+    new DataView(b.buffer).setUint32(20, h);
+    return b;
+  };
+  const shrink: ImageEncoder = async (_b, mime) => ({ bytes: new Uint8Array(10), mime });
+  const grow: ImageEncoder = async (_b, mime) => ({ bytes: new Uint8Array(10_000), mime });
+
+  it("does not call the encoder when the image is already within target", async () => {
+    let called = false;
+    const spy: ImageEncoder = async (b, m) => { called = true; return { bytes: b, mime: m }; };
+    const r = await processUpload(png(800, 600), "image/png", spy);
+    expect(called).toBe(false);
+    expect(r.ok && r.size).toEqual({ width: 800, height: 600 });
+  });
+
+  it("records POST-downscale dimensions when the re-encode is kept", async () => {
+    const r = await processUpload(png(3840, 2160, 5000), "image/png", shrink);
+    expect(r.ok && r.size).toEqual({ width: 1920, height: 1080 });
+  });
+
+  // ★★ This is the trap: if the re-encode was DISCARDED for being larger, the
+  //    stored bytes are the ORIGINAL, so the stored dimensions must be the
+  //    ORIGINAL's too. Recording the target here would make every OOXML export
+  //    size that image wrongly in slice S3c-2.
+  it("records SOURCE dimensions when the re-encode was discarded as larger", async () => {
+    const r = await processUpload(png(3840, 2160), "image/png", grow);
+    expect(r.ok && r.size).toEqual({ width: 3840, height: 2160 });
+  });
+
+  it("rejects a bomb without calling the encoder", async () => {
+    let called = false;
+    const spy: ImageEncoder = async (b, m) => { called = true; return { bytes: b, mime: m }; };
+    const r = await processUpload(png(30000, 30000), "image/png", spy);
+    expect(r.ok).toBe(false);
+    expect(called).toBe(false);
   });
 });

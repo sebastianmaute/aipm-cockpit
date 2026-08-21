@@ -179,3 +179,64 @@ export function checkHeaderDimensions(size: PixelSize | null): CandidateResult {
   }
   return { ok: true };
 }
+
+export interface EncodedImage { bytes: Uint8Array; mime: string }
+
+/** Fit inside the downscale target, preserving aspect ratio. Never upscales, and
+ *  never returns a zero dimension — a 20000x1 banner must still be one pixel
+ *  tall, not zero, or the canvas call throws. */
+export function targetSize(src: PixelSize): PixelSize {
+  const scale = Math.min(ASSET_DOWNSCALE_W / src.width, ASSET_DOWNSCALE_H / src.height, 1);
+  return {
+    width: Math.max(1, Math.round(src.width * scale)),
+    height: Math.max(1, Math.round(src.height * scale)),
+  };
+}
+
+/** ★★ Ties keep the ORIGINAL. Re-encoding a photo to PNG can come out larger,
+ *  and a re-encode that buys nothing is pure loss — it costs a generation of
+ *  quality for zero bytes. */
+export function pickSmaller(original: EncodedImage, reencoded: EncodedImage): EncodedImage {
+  return reencoded.bytes.length < original.bytes.length ? reencoded : original;
+}
+
+export function checkStoredSize(bytes: number): CandidateResult {
+  return bytes > ASSET_STORED_MAX_BYTES
+    ? { ok: false, reason: "tooLargeStored" }
+    : { ok: true };
+}
+
+/** The one browser-only step. Injected so the arithmetic above stays testable
+ *  in jsdom, which has no canvas. Callers pass the real implementation from
+ *  the surface; tests pass a stub. */
+export type ImageEncoder = (bytes: Uint8Array, mime: string, size: PixelSize) => Promise<EncodedImage>;
+
+export interface ProcessResult {
+  ok: true; image: EncodedImage; size: PixelSize;
+}
+
+/** Full pipeline over already-read bytes: header guard, downscale, stored cap,
+ *  keep-original. Returns a reason code on every rejection; throws nothing. */
+export async function processUpload(
+  bytes: Uint8Array, mime: string, encode: ImageEncoder,
+): Promise<ProcessResult | { ok: false; reason: UploadRejection }> {
+  const header = readHeaderDimensions(bytes, mime);
+  const dimCheck = checkHeaderDimensions(header);
+  if (!dimCheck.ok) return dimCheck;
+  const src = header as PixelSize;
+  const target = targetSize(src);
+
+  let chosen: EncodedImage = { bytes, mime };
+  let size = src;
+  if (target.width !== src.width || target.height !== src.height) {
+    const reencoded = await encode(bytes, mime, target);
+    chosen = pickSmaller({ bytes, mime }, reencoded);
+    // Dimensions are recorded POST-downscale — but only when the downscaled
+    // encode was actually the one kept.
+    size = chosen === reencoded ? target : src;
+  }
+
+  const sizeCheck = checkStoredSize(chosen.bytes.length);
+  if (!sizeCheck.ok) return sizeCheck;
+  return { ok: true, image: chosen, size };
+}
