@@ -51,7 +51,15 @@ for (const dir of ["src", "scripts", "e2e"]) {
     // beside this gate rather than inside the symbol gate's constant.
     collectIdentifiers(dir, knownSymbols, SWEEP_SELF_FILES);
   } catch {
-    /* partial checkout — the floor is what decides whether that is survivable */
+    /* ★★ WIDER THAN "partial checkout", WHICH IS ALL THIS USED TO SAY. The catch
+       is wrapped around the WALK, so it swallows an unreadable FILE as readily
+       as an absent DIRECTORY — and the shared primitive it calls is deliberately
+       fail-loud for exactly that case, because the BLOCKING symbol gate needs it
+       to be (see its no-try/catch note, now pinned by two tests). Tolerable HERE
+       and only here: this tool exits 0 by design and reports, so a truncated
+       scan degrades to false SYMBOL_MISSING findings rather than to a silent
+       pass — and the identifier floor below is what decides whether that
+       degradation is survivable. Do not copy this posture into a gate. */
   }
 }
 // ★★★ ROOT-LEVEL CONFIG IS CODE THIS REGISTER CITES, AND THE DIRECTORY WALK
@@ -116,7 +124,7 @@ for (const dir of ["src", "scripts", "e2e"]) {
   try {
     collectIdentifiers(dir, withSelf, new Set());
   } catch {
-    /* same posture as the sweep above — the floor decides what is survivable */
+    /* same posture, same caveat, as the sweep above */
   }
 }
 // ★★ Same root files as the sweep above, with an EMPTY exclusion set — mirrors
