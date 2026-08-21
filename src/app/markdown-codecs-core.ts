@@ -40,7 +40,6 @@ import {
   type Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
-import type { DocumentAsset } from "./document-asset";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
@@ -58,7 +57,6 @@ import {
   buildStakeholderFromObj,
   calendarEventFieldToString,
   changeFieldToString,
-  documentAssetFieldToString,
   encodeRatesMap,
   fieldToString,
   milestoneFieldToString,
@@ -73,7 +71,6 @@ import {
   RAID_MD_COLUMNS,
   ABSENCES_MD_COLUMNS,
   EVENTS_MD_COLUMNS,
-  DOCUMENT_ASSETS_MD_COLUMNS,
   SHIFTS_MD_COLUMNS,
   RESOURCES_MD_COLUMNS,
   ROLES_MD_COLUMNS,
@@ -83,6 +80,11 @@ import {
   CHANGES_MD_COLUMNS,
   STAKEHOLDERS_MD_COLUMNS,
 } from "./markdown-columns";
+// documentAssetsToMarkdown lives in its own file, not here — extracted to
+// keep this file under the file-size ratchet (docs/baselines/file-sizes.json
+// has no entry for this file, so it is a hard "NEW file over 800" failure,
+// not a ratchet warning). See document-asset-markdown.ts's header.
+import { documentAssetsToMarkdown } from "./document-asset-markdown";
 
 /** Serializes status as "## Project Status" + "- field: value" bullets.
  *
@@ -375,7 +377,9 @@ export function markdownToProject(md: string): ProjectMeta | null {
 
 // --- Markdown serialization ------------------------------------------------
 
-function mdEscape(value: string): string {
+// Exported so document-asset-markdown.ts (split out to stay under the
+// file-size ratchet) can reuse it rather than duplicating the escaping rules.
+export function mdEscape(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/\|/g, "\\|")
@@ -439,26 +443,6 @@ function calendarEventsToMarkdown(events: readonly CalendarEvent[]): string {
   for (const e of events) {
     const row = EVENTS_MD_COLUMNS.map((c) =>
       mdEscape(calendarEventFieldToString(e, c.key)),
-    ).join(" | ");
-    lines.push(`| ${row} |`);
-  }
-  return lines.join("\n") + "\n";
-}
-
-// Row-table shape, same as calendarEventsToMarkdown just above — NOT the
-// fenced-json blob shape documentsToMarkdown/documentVersionsToMarkdown/
-// activityLogToMarkdown use (those hold a whole document/version/entry list
-// per blob; asset metadata is one row per asset, matching calendarEvents).
-// Reuses documentAssetFieldToString (csv-codecs-core.ts, via the ./csv-codecs
-// barrel) rather than re-deriving cell values, so CSV and Markdown cannot
-// drift on what a column contains. Bytes never appear here — only metadata.
-function documentAssetsToMarkdown(assets: readonly DocumentAsset[]): string {
-  const header = `| ${DOCUMENT_ASSETS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
-  const sep = `| ${DOCUMENT_ASSETS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
-  const lines = ["## Document Assets", "", header, sep];
-  for (const a of assets) {
-    const row = DOCUMENT_ASSETS_MD_COLUMNS.map((c) =>
-      mdEscape(documentAssetFieldToString(a, c.key)),
     ).join(" | ");
     lines.push(`| ${row} |`);
   }
