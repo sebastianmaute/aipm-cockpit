@@ -185,6 +185,46 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
   }
 }
 
+/** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
+ *  a paragraph meaningful while projecting to no visible text.
+ *
+ *  ★★★ WITHOUT THIS THE LOADER ATE EVERY IMAGE-ONLY PARAGRAPH. An inserted
+ *   image is a paragraph whose whole html is the `<img>` tag; `htmlTextLength`
+ *   strips tags and does not project `alt`, so it measured 0 and the block was
+ *   dropped — on all six write paths at once, since every load routes through
+ *   here. It rendered in the authoring session (in memory) and was gone after
+ *   reload, with no error and nothing in the truncation diag. Fixed on the LOAD
+ *   side deliberately: that also repairs documents already stored broken, which
+ *   no write-side change could.
+ *
+ *  ★★ SCOPED TO `data-asset-id`, NOT TO `<img>` AT LARGE, and the reason is
+ *   that a bare `<img>` here can never become anything: the document allow-list
+ *   gives `img` only `alt` and `data-asset-id` and deliberately NO `src`
+ *   (sanitize-html.ts records why), and `document-asset-images.ts` plus all
+ *   three renderers key off a non-empty `data-asset-id`. So an `<img>` without
+ *   one is invisible on every surface — keeping it would reintroduce exactly
+ *   the accumulating blank paragraph the empty-drop exists to prevent, in a
+ *   form the user cannot see well enough to delete. Empty value likewise: the
+ *   allow-list strips the attribute and the renderers resolve nothing.
+ *
+ *  ★ DELIBERATELY LOOSER THAN THE ALLOW-LIST'S OWN `data-asset-id` PREDICATE
+ *   (`/^[A-Za-z0-9_-]{1,64}$/`, sanitize-html.ts), which is not reused because
+ *   this module is DOM-free and must not depend on the sanitizer. The two
+ *   disagree only for a hand-crafted value the allow-list would strip anyway,
+ *   and this side errs toward KEEPING — the failure it guards against is
+ *   silent data loss, so a stray blank paragraph is the cheap direction.
+ *
+ *  ★★ Case-INSENSITIVE, unlike the identical-shaped `IMG_TAG_RE` in the three
+ *   renderers, which only ever see html already lower-cased by DOMPurify. This
+ *   one runs BEFORE any allow-list pass on the load path
+ *   (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — see
+ *   document-rich-fields.ts), so a hand-edited or imported `<IMG DATA-ASSET-ID>`
+ *   reaches it verbatim and must not be dropped before it can be normalised.
+ *
+ *  ★ NOT `/g` — a global regex carries `lastIndex` across `.test` calls and
+ *   would drop every other image-only paragraph in a document. */
+const ASSET_IMG_RE = /<img\b[^>]*\bdata-asset-id="[^"]+"/i;
+
 function sanitizeBlock(raw: unknown): DocBlock | null {
   if (!raw || typeof raw !== "object") return null;
   const b = raw as Record<string, unknown>;
@@ -207,7 +247,7 @@ function sanitizeBlock(raw: unknown): DocBlock | null {
       // pair (a lone surrogate becomes U+FFFD on CSV/MD but survives on
       // JSON/IDB: a backend-dependent corruption). clipText still has that bug.
       const html = typeof b.html === "string" ? b.html : "";
-      if (htmlTextLength(html) === 0) return null;
+      if (htmlTextLength(html) === 0 && !ASSET_IMG_RE.test(html)) return null;
       return { type: "paragraph", html: capHtmlText(html, MAX_HTML_TEXT_CHARS) };
     }
 

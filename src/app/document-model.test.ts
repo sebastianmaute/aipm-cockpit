@@ -120,6 +120,81 @@ describe("sanitizeProjectDocuments", () => {
     ]);
   });
 
+  it("keeps a paragraph whose only content is an asset image", () => {
+    // ★★★ REGRESSION: the visible-text check ALONE dropped every image-only
+    // paragraph on EVERY load path — the image rendered in the authoring
+    // session and was gone after reload, with no error and no diagnostic.
+    // `<img>` contributes no text and `alt` is not projected, so an
+    // image-only paragraph measures 0. Silent data loss, backend-independent.
+    const imageOnly = '<p><img data-asset-id="a1B_2-x" alt="Burn-up chart"></p>';
+    const captioned = '<p><img data-asset-id="a1B_2-x" alt="chart">Figure 1</p>';
+    // ★ Upper-case reaches this validator verbatim: the HTML allow-list that
+    // lower-cases tag and attribute names runs AFTER it on every load path
+    // (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`), so a
+    // hand-edited or imported document must survive long enough to be
+    // normalised. Also pins that two image paragraphs in ONE document both
+    // survive — a `/g` regex would carry `lastIndex` and drop the second.
+    const upper = '<P><IMG DATA-ASSET-ID="a1B_2-x" ALT="chart"></P>';
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: imageOnly },
+          { type: "paragraph", html: captioned },
+          { type: "paragraph", html: upper },
+          { type: "paragraph", html: "<p>Plain</p>" },
+        ],
+      }),
+    ]);
+    // Assert the SHAPES, not a surviving-block count — a count passes against a
+    // mutant that keeps the wrong three blocks.
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: imageOnly },
+      { type: "paragraph", html: captioned },
+      { type: "paragraph", html: upper },
+      { type: "paragraph", html: "<p>Plain</p>" },
+    ]);
+  });
+
+  it("still drops a text-free paragraph that references no asset image", () => {
+    // The behaviour the exemption must NOT regress. Every entry here projects
+    // to no visible text AND can render nothing: the document allow-list gives
+    // `img` only `alt` and `data-asset-id` (no `src`), and every renderer keys
+    // off a NON-EMPTY `data-asset-id` — so each of these would load back as a
+    // blank paragraph the user cannot see, edit or repair.
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: "" },
+          { type: "paragraph", html: "<p></p>" },
+          { type: "paragraph", html: "<p><br></p>" },
+          { type: "paragraph", html: "<p><img alt='no id'></p>" },
+          { type: "paragraph", html: '<p><img data-asset-id=""></p>' },
+          { type: "paragraph", html: 9 as never },
+          { type: "paragraph", html: '<p><img data-asset-id="kept"></p>' },
+        ],
+      }),
+    ]);
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: '<p><img data-asset-id="kept"></p>' },
+    ]);
+  });
+
+  it("keeps an image-only paragraph on the COMMIT path too", () => {
+    // `normalizeBlockForStorage` is the hand-editor's normaliser and delegates
+    // to the same validator — pinned separately so an extraction that splits
+    // them cannot leave the commit path dropping what the loader keeps.
+    const block: DocBlock = {
+      type: "paragraph",
+      html: '<p><img data-asset-id="a1" alt="chart"></p>',
+    };
+    expect(normalizeBlockForStorage(block)).toEqual(block);
+    expect(normalizeBlockForStorage({ type: "paragraph", html: "<p></p>" })).toBeNull();
+    // No cap is exceeded, so the reconcile must not re-seed the draft from
+    // storage over an image (exceedsStorageCaps measures VISIBLE text, which an
+    // image-only paragraph has none of).
+    expect(exceedsStorageCaps(block)).toBe(false);
+  });
+
   it("keeps bullets, trims blanks, and preserves the ordered flag", () => {
     const out = sanitizeProjectDocuments([
       doc({
