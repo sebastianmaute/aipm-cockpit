@@ -645,6 +645,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 - **New Turso table NOT workspace data** (snapshots, version history, comm_templates)
   must stay OUT of `TABLE_NAMES` (guard test enforces) — else workspace save's
   per-table DELETE wipes it. `SqlArg.value` (turso-schema) is string-only even for ints (`String(v)`).
+  ★★★ **A NEW `ENTITY_SPECS` ENTITY WHOSE `id` IS A STRING MUST DECLARE `idKind: "text"`, AND
+  FORGETTING IT BREAKS EVERY SAVE.** `colDdl` renders any column named `id` as
+  `id INTEGER PRIMARY KEY` — a rowid alias, the one column type SQLite ENFORCES — and
+  `insertStmt`/`tenantInsert` bind it as `{type:"integer"}`. Every spec minted a number until
+  `DocumentAsset` (a `crypto.randomUUID()`), whose INSERT rides the SAME `BEGIN…COMMIT` as tasks,
+  RAID, milestones, plan and meta: a real engine answers `datatype mismatch`, COMMIT is never
+  reached, and ONE such row stops the WHOLE workspace from ever saving. `EntitySpec.idKind`
+  defaults to `"integer"`, so an omission is silent at every layer that does not execute SQL — and
+  a DDL-string-matching test cannot see it either (`entity-persistence-registry.test.ts` never
+  executes a statement). `turso-schema.execute.test.ts` runs the real statements against
+  `node:sqlite`, generalised over `ENTITY_SPECS`, so a new entity is pinned without being named.
+  Enumerate today's declarers with `grep -n 'idKind: "' src/app/turso-schema.ts` (one line per
+  spec that declares it — one today); the worked example
+  is in [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "Asset images (S3c-1)" section.
 - **Secrets at rest:** the `SecretId` union is now FIVE device-sealed ids. ★ The id and the SETTINGS
   FIELD it seals are NOT the same string, and three of the five differ — the ids are
   `"anthropicApiKey"` (field `settings.ai.apiKey`), `"tursoAuthToken"` (field `authToken`),
@@ -1282,10 +1296,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
   before touching version history, deleted documents, or any "add a field to the six write paths" task,
   which it records a landmine for.
-  ★★ **Document images (S3c-1, Turso-gated)** — the asset metadata slice, the out-of-`TABLE_NAMES`
-  byte side table, upload caps, blob-URL rendering and why insertion bypasses the live rich-text
-  editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it before
-  touching anything under `document-asset*`.
+  ★★ **Document images (S3c-1, Turso-gated)** — the metadata slice (an `ENTITY_SPECS` row, so its
+  table IS in `TABLE_NAMES`) versus the byte side table (deliberately OUT of it — both halves
+  matter, and each is a data defect the other way round), the Safe Mode refusal, the single
+  functional-update write path, upload caps, blob-URL rendering and why insertion bypasses the live
+  rich-text editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it
+  before touching anything under `document-asset*`. ★★★ Open it EVEN FOR A SMALL CHANGE: this slice
+  shipped its first cut non-functional on its only backend behind a fully green gate suite (lint,
+  tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
+  reintroduce.
 - **Activity log (`Workspace.activityLog`) → [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md).**
   Per-project audit trail persisted as a **meta-blob** (one JSON row in `meta`, like `insights` and
   `documents`), NOT via `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` **because it has

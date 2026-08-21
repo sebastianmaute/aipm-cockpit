@@ -6979,7 +6979,7 @@ block slice — add/delete/reorder, shipped 0.252.0 "Brust" under the plain labe
 shipped before images did. Because the design document (below) defines "S3c" as *images*, that
 release collided two different scopes under one label and would have read as closing the images
 work with nothing decided. The structural slice is retagged **S3b-2** here and in the design
-document; images now own **S3c-1** (shipped 0.253.0 — see `docs/AGENTS/documents.md`'s "Asset
+document; images now own **S3c-1** (shipped 0.254.0 — see `docs/AGENTS/documents.md`'s "Asset
 images (S3c-1)" section for the as-built architecture) and **S3c-2** (OOXML media parts —
 still open, own follow-up entry). See also `docs/work-inventory.md` §3.
 
@@ -6999,7 +6999,7 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3b-2** | the structural slice S3b deferred: block add / delete / reorder — SHIPPED 0.252.0 "Brust" under the plain label "S3c"; retagged here | free — same blob |
-| **S3c-1** | images end to end, Turso-gated — SHIPPED 0.253.0 | metadata slice + one out-of-`TABLE_NAMES` side table (`document_asset_data`) |
+| **S3c-1** | images end to end, Turso-gated — SHIPPED 0.254.0 | metadata slice + one out-of-`TABLE_NAMES` side table (`document_asset_data`) |
 | **S3c-2** | OOXML media parts (`word/media/`, relationship ids, EMU sizing) for the images S3c-1 shipped — open | none (write-path shape unchanged) |
 
 ### The decisions that are expensive to re-derive
@@ -13240,7 +13240,7 @@ back otherwise clean.
 
 **Status:** open — no scaffolding exists yet.
 
-S3c-1 (0.253.0) shipped document images end to end for the HTML/preview/standalone paths, but
+S3c-1 (0.254.0) shipped document images end to end for the HTML/preview/standalone paths, but
 `doc-render-docx.ts` and `doc-render-pptx.ts` disclose a **visible translated placeholder naming
 the asset** rather than embedding it — a deliberate choice (a silent drop would be worse), not a
 finished feature. Real media parts are unbuilt: `[Content_Types].xml` Default entries, `_rels`
@@ -13303,3 +13303,135 @@ The version-history preview surface (`DocumentsHistoryModal`, opened via each do
 HTML). A document version containing an image block renders that block without its picture in the
 history modal today. Fixing it means threading the same asset-resolution the live preview uses
 into the history modal's render path.
+
+## 207. Single-tenant asset metadata is global while the bytes are always partitioned
+
+**Status:** open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
+round.
+
+The two halves of a document image are partitioned by different things and nothing reconciles them.
+METADATA (`DocumentAsset`) rides `ENTITY_SPECS`, so in the SINGLE-TENANT Turso layout its table
+`document_assets` has no `project_id` column at all — the database IS the project and the metadata
+set is global to it (`colDdl`, `turso-schema.ts`). BYTES live in `document_asset_data`, whose DDL is
+ONE shape for both layouts: `PRIMARY KEY (id, project_id)`, unconditionally
+(`document-assets-schema.ts`). And the key it is given comes from a UI-level read of portfolio /
+registry state in `DocumentsTabPanel` (`workspace-panels.tsx`), not from the workspace the metadata
+arrived with.
+
+Consequence: one global metadata set can face SEVERAL byte partitions. A user on single-tenant Turso
+STORAGE whose file registry holds several projects keeps the same metadata rows across a project
+switch but reads bytes under a different key — so every asset reads as dangling, and every embedded
+image breaks, until they switch back.
+
+★ **Nothing is LOST, and that is why this is deferred rather than patched.** The bytes stay under
+the key that wrote them; re-selecting the original project restores them. The visible failure is the
+already-designed dangling state, which is self-describing.
+
+★★ **Two nearby things are NOT this entry and must not be re-opened as one.** (a) The Safe Mode
+variant is CLOSED — `workspace-panels.tsx` refuses the asset library under `?safe=1` rather than
+letting the key move under a workspace whose metadata did not move; see `docs/AGENTS/documents.md`'s
+"Asset images (S3c-1)" for why refusing beat stabilising. (b) The no-project fallback key
+(`ASSET_PARTITION_FALLBACK`, `"default"`) was examined and is NOT a mis-partition: every input to it
+is deterministic, so a later session in the same state finds the same bytes, and `createBackend`
+(`storage.ts`) constructs a SINGLE-TENANT `TursoBackend` whenever `tursoProjectId` is null or empty
+— so a Turso portfolio with nothing selected is a working configuration with a real workspace on
+screen, not a broken state to refuse.
+
+Closing it properly means keying the byte store on the BACKEND LAYOUT rather than on portfolio /
+registry state: tenant → the tenant project id, single-tenant → one fixed key. That decision belongs
+to the layer that builds the backend, which already distinguishes the two, not to a view component.
+It also needs a migration story that does not exist: every byte already stored is keyed the current
+way and `document_asset_data` carries no version marker to drive a re-key, so changing the scheme
+would orphan an existing library rather than move it.
+
+## 208. `capHtmlText` silently strips an image from any paragraph over the visible-text cap
+
+**Status:** open — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round. Fixing it
+in place would weaken a DoS bound.
+
+Every paragraph that survives `sanitizeBlock` (`document-model.ts`) then passes through
+`capHtmlText(html, MAX_HTML_TEXT_CHARS)`. `capHtmlText` (`rich-text-plain.ts`) measures VISIBLE text
+and, when it exceeds the cap, returns `plainToHtml(text.slice(0, cut))` — and `plainToHtml`
+(`sanitize-html.ts`) builds `"<p>"` + HTML-escaped text (newlines to `<br>`) + `"</p>"`. It
+therefore discards ALL markup, `<img data-asset-id>` included. So a paragraph carrying an image plus
+more than `MAX_HTML_TEXT_CHARS` of visible text loses the image on load, silently.
+
+Measured, not reasoned — a probe against the real functions:
+
+```bash
+cat > probe-cap.ts <<'TS'
+import { capHtmlText, htmlTextLength } from "./src/app/rich-text-plain";
+const img = '<img data-asset-id="a1" alt="c">';
+for (const h of [`<p>${img} caption</p>`, `<p>${img} ${"x".repeat(20001)}</p>`, `<p>${img}</p>`])
+  console.log(htmlTextLength(h), capHtmlText(h, 20000).includes("data-asset-id"));
+TS
+npx vite-node probe-cap.ts; rm probe-cap.ts
+```
+→ `7 true` · `20001 false` · `0 true` (run 2026-08-21, exit 0). Three lines: an image with a
+short caption keeps its image; the same image past the cap LOSES it; an image-only paragraph
+projects to zero visible characters, which is the unreachability below.
+
+★★ **`vite-node` HAS NO `-e` FLAG** — it takes files only (`npx vite-node --help`), so the
+tempting one-liner form of this probe exits 1 with "No files specified" and reads like a broken
+repo. Write the file. ★ Read the cap off `MAX_HTML_TEXT_CHARS` in `document-model.ts` rather than
+trusting the `20000` literal above.
+
+★★ **It is PRE-EXISTING behaviour, not something S3c-1 introduced.** Losing ALL formatting on the
+truncation branch is by design, and `sanitizeAiDocumentRichText`'s cap docstring in
+`ai-rich-text.ts` already records a MEASURED instance of it from a different direction: a
+model-authored paragraph of 10,006 visible characters came out at 4,999 with its `<mark>` gone.
+What changed with S3c-1 is that a paragraph can now carry an image, so the loss became
+consequential rather than cosmetic.
+
+★★ **It is UNREACHABLE from the images feature itself**, which is why it is latent rather than live.
+An inserted image paragraph is the `<img>` tag alone — third probe line above, zero visible
+characters — so the cap can never fire on one. Reaching this needs a hand-edited or imported
+document that puts an image and >20k characters of visible text in ONE paragraph.
+
+★★★ **DO NOT "FIX" IT BY SKIPPING THE CAP WHEN AN IMAGE IS PRESENT.** The cap is a DoS bound on
+stored block size, and an exemption keyed on markup the attacker controls hands them the bypass.
+The real fix is HTML-AWARE truncation — cut the visible text while preserving the surrounding
+markup — which is a change to `capHtmlText` and therefore to every rich-text sink in the app, not to
+`document-model.ts`. ★ Note the module split: the block-drop repair that closed the sibling defect
+(`ASSET_IMG_RE`, §209) landed in `document-model.ts`, while `capHtmlText` is in `rich-text-plain.ts`
+and `plainToHtml` in `sanitize-html.ts` — so this cannot be closed where that one was.
+
+## 209. One `data-asset-id` pattern, five hand-maintained spellings
+
+**Status:** open — a drift risk, not a defect. Nothing here is broken; nothing keeps the shared
+part of the five in step either.
+
+Reproduce the set:
+
+```bash
+grep -rn 'data-asset-id="' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep "RE = "
+```
+
+★★ **They are NOT five copies of one regex — they are one pattern family in five spellings**, and
+that is the more useful framing, because it rules out the mechanical fix. Three (`IMG_TAG_RE` in
+`doc-render-html.ts`, `doc-render-docx.ts` and `doc-render-pptx.ts`) are byte-identical, global, and
+capture the id. `ASSET_ID_RE` (`document-asset-usage.ts`) is attribute-only with NO `<img>` anchor —
+so it matches strings the other four do not, deliberately: its module header records that it runs on
+already-sanitized stored html, where a literal `data-asset-id="…"` in TEXT would already have been
+escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fix round) is case-INSENSITIVE,
+non-global, requires a NON-empty id and captures nothing.
+★ Read the emptiness difference carefully before "unifying" it: `ASSET_ID_RE`'s permissive `[^"]*`
+is narrowed by a `.filter((id) => id.length > 0)` at its only call site, so it and `ASSET_IMG_RE`'s
+`[^"]+` agree on emptiness — through two different mechanisms, in two different files. A shared
+module has to keep the variation as parameters rather than flatten it. ★★ Only `ASSET_IMG_RE`
+carries a per-divergence justification at its own declaration; the other four are explained by their
+surrounding module comments or not at all, so do not expect the code to tell you which differences
+are load-bearing.
+
+★★ **They could not be shared as things stand**, which is why the fix round left all five.
+`document-asset-usage.ts`'s `assetIdsInBlock` is the natural home and is NOT exported; and
+`document-asset-usage.ts` already depends on `document-model.ts` (an `import type` of `DocBlock` /
+`ProjectDocument` today), so consolidating there would point a core model module at one of its own
+consumers — an inversion, and a real runtime cycle the moment either side of that pair needs a VALUE
+import (a type-only import is erased, so today's direction is safe by accident, not by design). This repo already carries a standing cycle trap in exactly that graph (§92).
+
+The clean shape is a small pure module both sides import — id extraction and the "does this block
+carry an asset image" predicate, with the global/case/emptiness differences as options — depended on
+by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and depending on none of
+them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
+records elsewhere; nothing gates them agreeing.
