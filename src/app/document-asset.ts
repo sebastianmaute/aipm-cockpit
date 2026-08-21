@@ -7,6 +7,22 @@
 // JOB (document-asset-upload.ts) — narrowing it here would move a user-facing
 // rule into the storage layer, where a stored row could no longer be read back
 // after the policy changed.
+//
+// The sanitizer NEVER throws: every load path (JSON import, CSV/MD decode,
+// Turso row, IndexedDB) runs untrusted data through it and expects null for an
+// unrecoverable record rather than an exception — same contract as
+// sanitizeCalendarEvent (calendar-event.ts). All coercion of untrusted input
+// routes through sanitizeText/toNumber (./sanitize) rather than `String()`/
+// `Number()` directly: a JSON object whose `toString`/`valueOf` own-key is a
+// non-function throws on the bare coercion (see toNumber's own docstring).
+
+import { sanitizeText, toNumber } from "./sanitize";
+
+const ASSET_ID_MAX = 128; // a minted id
+const ASSET_NAME_MAX = 256; // a filename
+const ASSET_MIME_MAX = 128; // a MIME type string
+const ASSET_HASH_MAX = 128; // SHA-256 hex is 64; double for headroom
+const ASSET_CREATED_AT_MAX = 64; // an ISO-8601 timestamp
 
 export interface DocumentAsset {
   /** Referenced from block HTML as `<img data-asset-id="…">`. */
@@ -26,40 +42,35 @@ export interface DocumentAsset {
   createdAt: string;
 }
 
-function str(v: unknown): string {
-  return typeof v === "string" ? v : v == null ? "" : String(v);
-}
-
 /** Finite positive number, or undefined. Accepts the strings the CSV and
  *  Markdown decode paths hand over. */
 function dim(v: unknown): number | undefined {
-  if (v === "" || v == null) return undefined;
-  const n = typeof v === "number" ? v : Number(v);
+  const n = toNumber(v);
   return Number.isFinite(n) && n > 0 ? n : undefined;
 }
 
 /** Byte count. Floors at 0 rather than dropping the row: a bad size is a
  *  cosmetic defect in a disclosure total, not a reason to lose the asset. */
 function bytes(v: unknown): number {
-  const n = typeof v === "number" ? v : Number(v);
+  const n = toNumber(v);
   return Number.isFinite(n) && n > 0 ? n : 0;
 }
 
 export function sanitizeDocumentAsset(input: unknown): DocumentAsset | null {
   if (!input || typeof input !== "object") return null;
   const o = input as Record<string, unknown>;
-  const id = str(o.id).trim();
+  const id = sanitizeText(o.id, ASSET_ID_MAX);
   if (!id) return null;
   const width = dim(o.width);
   const height = dim(o.height);
   return {
     id,
-    name: str(o.name),
-    mime: str(o.mime),
+    name: sanitizeText(o.name, ASSET_NAME_MAX),
+    mime: sanitizeText(o.mime, ASSET_MIME_MAX),
     size: bytes(o.size),
     ...(width === undefined ? {} : { width }),
     ...(height === undefined ? {} : { height }),
-    hash: str(o.hash),
-    createdAt: str(o.createdAt),
+    hash: sanitizeText(o.hash, ASSET_HASH_MAX),
+    createdAt: sanitizeText(o.createdAt, ASSET_CREATED_AT_MAX),
   };
 }

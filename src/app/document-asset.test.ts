@@ -55,4 +55,36 @@ describe("sanitizeDocumentAsset", () => {
     expect(sanitizeDocumentAsset({ ...valid, size: -1 })?.size).toBe(0);
     expect(sanitizeDocumentAsset({ ...valid, size: "junk" })?.size).toBe(0);
   });
+
+  // A bare object literal ({ toString: null }) does NOT reproduce the hazard —
+  // its prototype's Object.prototype.toString is still reachable. Only a
+  // literal own-key of null (as JSON.parse produces) makes Number()/String()
+  // throw "Cannot convert object to primitive value".
+  it("does not throw on a poisoned primitive-conversion object, for every coerced field", () => {
+    const poison = JSON.parse('{"toString":null,"valueOf":null}') as unknown;
+    expect(() => sanitizeDocumentAsset({ ...valid, id: poison })).not.toThrow();
+    expect(sanitizeDocumentAsset({ ...valid, id: poison })).toBeNull();
+
+    for (const field of ["name", "mime", "hash", "createdAt", "size", "width", "height"] as const) {
+      expect(() => sanitizeDocumentAsset({ ...valid, [field]: poison })).not.toThrow();
+      expect(sanitizeDocumentAsset({ ...valid, [field]: poison })).not.toBeNull();
+    }
+  });
+
+  it("omits an absent dimension as a missing key, not an undefined value", () => {
+    const out = sanitizeDocumentAsset({
+      id: "p1", name: "spec.pdf", mime: "application/pdf",
+      size: 2048, hash: "def456", createdAt: "2026-08-21T10:00:00.000Z",
+    });
+    expect("width" in out!).toBe(false);
+    expect("height" in out!).toBe(false);
+  });
+
+  it("caps name and hash at their length limits", () => {
+    const longName = "n".repeat(300);
+    const longHash = "h".repeat(300);
+    const out = sanitizeDocumentAsset({ ...valid, name: longName, hash: longHash });
+    expect(out?.name.length).toBe(256);
+    expect(out?.hash.length).toBe(128);
+  });
 });
