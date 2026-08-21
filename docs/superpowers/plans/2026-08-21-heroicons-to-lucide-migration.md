@@ -943,6 +943,68 @@ Expected: no output and `EXIT=1` (grep matched nothing). The compare page from T
 
 ---
 
+### Task 8b: Retire the heroicons PROSE, not just the imports
+
+**Files:** `src/app/nav-icons.tsx` · `src/app/rich-text-toolbar.tsx` · `src/app/toggle-button.tsx` · `src/app/toggle-button.test.tsx` · `src/app/i18n.ts` · `src/app/i18n.de.ts`
+
+★★★ **Discovered mid-execution; neither the spec nor the original plan had it.** Converting the imports leaves **10** references to heroicons in `src` prose, and two of them become FALSE rather than merely dated. Re-derive the list before starting:
+
+```bash
+grep -rn "heroicons\|Heroicon" src --include=*.tsx --include=*.ts | grep -v 'from "@heroicons'
+```
+
+- [ ] **Step 1: Fix the inverted a11y reasoning in `toggle-button.tsx`**
+
+Its comment justifies the explicit `aria-hidden` as redundant-but-deliberate: *"heroicons already DEFAULTS it on every icon… heroicons spreads `props` AFTER its own attributes, so this explicit value overrides rather than duplicates."*
+
+**Under lucide that is backwards.** lucide's `Icon` adds `aria-hidden` only when the caller passed NO a11y prop, so an explicit `aria-hidden="true"` means lucide never adds its own — the explicit value is the SOLE source, not an override. Same rendered result, opposite mechanism. Replace those two sentences with prose to this effect, keeping the surrounding ★ markers and indentation intact:
+
+> BELT-AND-BRACES ONLY IN EFFECT, NOT IN MECHANISM — and the mechanism changed with the lucide migration. heroicons set the attribute unconditionally and spread `props` after, so an explicit value OVERRODE it. lucide adds it only when the caller passes no a11y prop, so this explicit value is the SOLE source. Identical output, opposite reason. Keep it; "redundant" was never the right reading, and is now not even true.
+
+Apply the same correction to the comment in `toggle-button.test.tsx` (search `heroicons defaults`), which restates the old mechanism.
+
+- [ ] **Step 2: De-brand two dated comments**
+
+`nav-icons.tsx` — "Single 24x24 line-icon glyph per nav view (heroicons outline)" becomes "(from `icons.ts`)".
+
+`rich-text-toolbar.tsx` — the line pointing at "why the rest of the app still uses heroicons" is obsolete; the rest of the app no longer does. Reword it to say this file and `icons.ts` are the only `lucide-react` importers.
+
+- [ ] **Step 3: Fix the SHIPPED, USER-VISIBLE highlight string**
+
+`versionHighlightHeroicons` renders in the Version popover as *"Unified Heroicons icon set across the whole UI; no functional change."* — false the moment this slice lands, in EN **and** DE.
+
+★★ Reword the VALUES to be package-neutral; do NOT rename the key. The key is internal, while renaming it means touching `APP_HIGHLIGHT_KEYS` in `version.ts` plus both dictionaries for zero user benefit.
+
+EN (`i18n.ts`): `"Unified icon set across the whole UI; no functional change."`
+
+DE (`i18n.de.ts`): `"Einheitlicher Symbolsatz in der gesamten Oberfläche; keine Funktionsänderung."`
+
+★★★ `i18n.de.ts` is **CRLF** and the Edit tool corrupts its umlauts and curls its double quotes. Patch it with a Node utf8 write anchored on a CRLF newline; an LF anchor silently no-ops. The DE string above contains two umlauts — verify them after writing.
+
+- [ ] **Step 4: Verify**
+
+```bash
+node -e 'const s=require("fs").readFileSync("src/app/i18n.de.ts","utf8");const m=s.match(/versionHighlightHeroicons: "[^"]*"/);console.log(m[0]);console.log("umlauts:",/[äöüß]/.test(m[0]),"curly:",/[“”]/.test(m[0]))'
+npx tsc --noEmit; echo "TSC=$?"
+grep -rn "heroicons\|Heroicon" src --include=*.tsx --include=*.ts | grep -v 'from "@heroicons' | grep -v icon-gallery/compare
+```
+
+Expected: the DE string shows real umlauts and no curly quotes, `TSC=0`, and the final grep returns only `icons.ts`'s own deliberate mentions (it documents the migration). The compare page is excluded because Task 9 deletes it.
+
+★ The i18n encoding test bans ASCII substitutes (`fuer`, `druecken`), so "Oberflaeche" is not an escape route — the umlauts must be real.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git commit --only \
+  src/app/nav-icons.tsx src/app/rich-text-toolbar.tsx \
+  src/app/toggle-button.tsx src/app/toggle-button.test.tsx \
+  src/app/i18n.ts src/app/i18n.de.ts \
+  -m "docs: retire heroicons from prose, including one shipped string"
+```
+
+---
+
 ### Task 9: Drop the dependency and forbid its return
 
 **Files:**
