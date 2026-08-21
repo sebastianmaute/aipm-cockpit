@@ -475,9 +475,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
   Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 6 scheme
   COMBOS (harbor/meridian/umber/beacon, Beacon light-only) × 17 + 6 Kanban-board variants (one per combo)
-  + 1 notes-window rich-text-toolbar scan (harbor-light only, hardcoded) = **109** axe scans, plus ONE
-  non-scan guard test (asserts the served app's `data-app-version` matches this checkout, open-followups
-  §58) — **110** tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
+  + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan (both harbor-light only and
+  hardcoded, so neither scales with the combo count) = **110** axe scans, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **111**
+  tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
   `grep -c "a11y:"` over that output splits scans from the guard.
@@ -1209,7 +1210,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   driven through the browser print dialog, so there is no PDF writer and no PDF dependency; keep it that way.
   Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
   `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
-  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors).
+  `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
+  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu).
   ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
   (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
   one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
@@ -1217,6 +1219,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   moved since the draft's baseline froze (a restore, an AI write, a second tab), and adopt an external write
   while the draft is undirty — is the FIRST of two layers (the ★★★ below is the second).
   Read the hook's own docstring before touching it, not this summary.
+  ★★★ **THE BLOCK SET IS HAND-EDITABLE TOO, not only each block's CONTENT** — everything above is about
+  the per-row DRAFTS. Each gutter carries a `DragHandle` grip plus an actions menu that inserts
+  above/below and deletes, all routed through ONE REQUIRED `BlockStructuralOps` bag; deleting anything
+  but a page break or an untouched seed is confirm-gated. ★★ The grip's ArrowUp/ArrowDown path is the
+  ONLY reorder a keyboard or touch user has (HTML5 drag never fires on touch) and it MUST move focus
+  with the block: the rows are index-keyed, so React reconciles them IN PLACE, and a grip that keeps its
+  original row makes the arrow keys TOGGLE a pair instead of moving anything. ★★ `move` coalesces its
+  before-image while `insert`/`remove` deliberately do not — the split, and what a per-press mint cost,
+  is in [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md).
   ★★★ TWO THINGS THE HOOK'S OWN CONTRACT DOES NOT COVER, both in
   [`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)'s "What the commit path stores, and the second
   guard": the commit NORMALISES through the loader's own rule (`normalizeBlockForStorage`) rather than
@@ -1228,13 +1239,33 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   repo's first `ResizeObserver`, measured against `NARROW_PANE_PX` on `document-editor.tsx`), every
   paragraph but the SELECTED one collapses read-only with a "select this block" button, and the selected
   block's toolbar docks once above the list via an opt-in `toolbarContainer` prop on `RichTextEditor` —
-  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★ A
-  zero-block document explains itself and offers a control that appends one paragraph — labelled "Add a
-  paragraph" (`documentsAddBlock`), not "Add block"; it adds ONE kind, and there is no block-kind picker.
+  replacing an earlier cut that collapsed the first paragraph unconditionally with no way back in. ★★ A
+  zero-block document explains itself and offers a control labelled "Add a block" (`documentsAddBlock` —
+  REWORDED from "Add a paragraph" when the kind picker landed) that opens a `BlockKindMenu` over the
+  SAME `BlockKindList` the per-row gutter renders, covering every member of `ADDABLE_BLOCK_TYPES`
+  (the gutter renders the list DIRECTLY; the menu is the trigger-plus-popover wrapper around it, and
+  outside its own test file is rendered only by `document-editor.tsx`, here and by the trailing add
+  control — verify with `grep -rn "<BlockKindMenu\|<BlockKindList" src`). ★★ It INSERTS at index 0 through
+  `structural.insert`; the hand-editor's `appendBlock` path was REMOVED, so nothing on this surface
+  appends any more — the `{op:"append"}` ENGINE op stays live and is still what the AI document tools
+  emit, and flattening those two together is the easy mistake. ★ Do not quote a kind COUNT here; derive it
+  with `grep -n -A 2 "ADDABLE_BLOCK_TYPES = " src/app/document-block-seeds.ts` — the members sit on the
+  line AFTER the declaration, so a bare grep for that anchor returns nothing derivable. Read the
+  behaviour off the "offers every addable kind from the empty state" test in `document-editor.test.tsx`.
   ★★ The identity-anchored coalescing decision that governs whether a hand edit reuses the session's
   before-image or mints a new one lives beside the version model, not here — see
   `docs/AGENTS/documents.md`'s "Coalescing before-images for hand edits" section.
-  ★★ This surface is entirely OUTSIDE axe `A11Y_VIEWS` coverage — `docs/open-followups.md` §184.
+  ★★★ This surface WAS entirely outside axe `A11Y_VIEWS` coverage and no longer is —
+  `docs/open-followups.md` §184 is CLOSED. `e2e/a11y.spec.ts` drives Documents into edit mode (a DOM
+  click, so the auto-launched guided tour cannot intercept it) and asserts `[data-block-row]` count > 1
+  so a broken toggle cannot silently re-scan the PREVIEW and read as covered. ★★★ A green scan there is
+  still SILENT on duplicate accessible names, in every view at every seed size — the measurement is in the
+  a11y hard-constraint bullet above — so the gutter's row-unique naming is pinned by UNIT TESTS and by
+  nothing else. ★★ TWO of them, not one, and they do not cover the same controls: this line said
+  "`document-block-gutter.test.tsx` ALONE", but that file's "gives every control a row-unique accessible
+  name" (two rows) is the only cover for the ACTIONS trigger, while the GRIP is pinned twice — there and
+  by `document-editor.test.tsx`'s "gives every row a block-unique reorder handle" (three rows, plus an
+  explicit set-size check). Deleting either leaves a hole no gate reports.
   ★★ It persists via the **meta-blob** pattern (one JSON row in `meta`, exactly like `insights`), NOT via
   `ENTITY_SPECS`. So it is deliberately absent from `TABLE_NAMES` **because it has no table of its own — NOT
   because it is non-workspace data. It IS workspace data**, and reading the absence the other way is how a

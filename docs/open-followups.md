@@ -7084,11 +7084,16 @@ shape recurred six times in one release.
 
 ### Deliberately out of scope, recorded so it is not an accidental gap
 
-Block add/remove/reorder and a figure block (a later structural slice — so S3b's gutter carries the
-kind chip and ⋮ but **no drag handle**; a handle that does nothing is worse than none); search and
+A figure block; search and
 replace (extension licence unverified); marks inside `heading.text`, `bullets.items` or table cells
 (all plain `string`); AI link/unlink tools and letting the model see a task's attached documents —
 **named explicitly so it does not become a fourth accidental gap beside §86 / §87 / §89**.
+
+★ **Block add / remove / reorder SHIPPED** in the structural slice that followed S3b and is no longer
+out of scope: the gutter now carries a real `DragHandle` grip (drag plus an ArrowUp/ArrowDown path,
+which is the only one touch and keyboard users have) and an actions menu that inserts and deletes,
+all three routed through `BlockStructuralOps`. Left in this list, the sentence read as a standing
+decision NOT to build it.
 
 ---
 
@@ -12240,7 +12245,7 @@ Jira path bypasses that engine everywhere else, so it is the one option that is 
 
 ---
 
-## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — open, deferred out of the S3b fix round
+## 184. The Documents block editor is in A11Y_VIEWS but is never scanned — CLOSED 2026-08-20
 
 "Documents" is in `A11Y_VIEWS` (`e2e/a11y.spec.ts`), but nothing in `e2e/`
 enters edit mode — `grep -rn "Edit blocks\|documentsEditBlocks" e2e/` returns
@@ -12271,6 +12276,52 @@ commit — re-measure the spec's test total with
 Deliberately deferred out of the S3b fix round: the surface was being
 restructured by that round's docked-toolbar task, and the count could not be
 measured under its constraints.
+
+### What closed it
+
+`e2e/a11y.spec.ts` gained a scan — `a11y: harbor-light — Documents (block editor)` — that opens
+the Documents view and drives it into edit mode. It DOM-clicks the "Edit blocks" toggle rather than
+issuing a real pointer click, so the auto-launched guided-tour overlay cannot intercept it (the same
+shape the Kanban-board and notes-window scans already use), then asserts a `[data-block-row]` count
+greater than 1 and — under the spec's four WCAG tags — no critical or serious violations.
+
+★★ **The row-count assertion is the load-bearing part of the test, not decoration.** The toggle
+renders a real `disabled` attribute whenever no document is selected
+(`documentsEditBlocksNoDocument`), and its label is PINNED to "Edit blocks" in BOTH states by
+design — so a broken, renamed or disabled toggle would leave `DocumentPreview` mounted and this
+test would silently become a no-op duplicate of the existing "Documents" scan. Matching on the
+pinned label is what makes the click stable across the toggle flipping.
+
+AGENTS.md's arithmetic was re-measured in the SAME commit, per this entry's own **To close**
+instruction. **AGENTS.md's a11y bullet owns that count — read it there, not here.** What the two
+runs reported at closure, as a record of the measurement rather than a second live claim: 110
+`a11y:` scans plus the one non-scan version guard, 111 tests.
+
+```bash
+npx playwright test e2e/a11y.spec.ts --list   # Total: 111 tests in 1 file
+# …then grep -c "a11y:" over that output      # 110
+```
+
+★★ **`e2e/seed.ts` now seeds a document (id 9001) carrying all six `DocBlock` kinds — but that is
+belt-and-braces, NOT the load-bearing half**, and reading it the other way would be the second half
+of this entry's own "listed is not covered" trap. `documents-panel.tsx` falls back to
+`selectionPool[0]`, and `selectionPool` is the UNSORTED `documents` array, which the seed builds
+as the sample master's documents SPREAD AHEAD of 9001 — so the document the scan actually opens is
+the master's id **1**. Measured, not assumed: it already carries all six kinds.
+
+```bash
+node -e "const m=JSON.parse(require('fs').readFileSync('sample-workspace-small.json','utf8'));console.log(m.documents.map(d=>d.id+': '+[...new Set(d.blocks.map(b=>b.type))].sort().join('/')))"
+```
+→ `[ '1: bullets/dataSection/heading/pageBreak/paragraph/table' ]`. The 9001 seed stays because it
+keeps the scan honest if that ordering, or the master's own document, ever changes.
+
+★★★ **WHAT THIS DOES NOT CLOSE — and it is the risk this entry itself named as dominant.** axe
+cannot see two controls sharing an accessible name, in ANY view, at ANY seed size; the measurement
+lives in AGENTS.md's a11y hard-constraint section. The block gutter mints a row-qualified name per
+row (`rowName` suffixes every gutter control with the row's 1-based `documentsBlockN`), and that
+naming is covered by `document-block-gutter.test.tsx` alongside the multi-block tests in
+`document-block-editors.test.tsx` and `document-editor.test.tsx`. A green
+scan here says nothing about that class, and no configuration of this gate ever will.
 
 ## 185. An over-long document paragraph is flattened to plain text at commit
 
@@ -12965,3 +13016,78 @@ that branch introduced it.
 ★ Adjacent to §195, which records the OTHER thing about this same call that no test here can catch —
 but a different thing, and do not merge them: §195 is about the ORDER of a read, this is about the
 MEANING of a return.
+
+## 198. A block delete reads its baseline at CLICK time, not at menu-open time
+
+**Status:** open. **Severity:** low (needs a concurrent write inside a narrow
+window). **Found by:** cold review of the S3c structural-blocks round.
+**Deliberately not fixed — it is a component-contract change, not a one-liner.**
+
+In `document-editor.tsx`'s `deleteBlock`, `const block = doc.blocks[index]` runs
+when the menu ITEM IS CLICKED, from whichever render is current at that moment —
+not when the user opened the gutter menu on that row. A concurrent write landing
+between those two moments re-renders the editor, so the handler closes over the
+NEW `doc`, and the engine's `expect` precondition in `structural.remove` compares
+the new block against ITSELF. The precondition cannot fire, so it protects
+nothing across that window.
+
+★★ The `await confirm(...)` window is already covered and is a different thing:
+`block` is read BEFORE that await, so a write arriving while the prompt is open
+does make the engine refuse. The gap is strictly the earlier hop, menu-open →
+click.
+
+★★ **Concrete failure.** The user opens "Block actions – Block 1" on a heading;
+an AI `insert` lands a paragraph at index 0; the user clicks "Delete block".
+`blockIsTrivial` is false for the AI's paragraph, so they get the GENERIC confirm
+prompt, which names no block. They confirm, the AI's paragraph is deleted, and
+the heading they pointed at survives.
+
+★ The screen is not silent about the swap, though the PROMPT is. `DocumentBlockGutter`
+holds its popover's `open` state itself and renders `t(lang, KIND_LABEL[block.type])`
+as its first child, and the rows are index-keyed — so the insert reconciles that
+gutter IN PLACE, the open menu survives, and the chip beside it visibly flips
+"Heading" → "Paragraph". An earlier revision of this entry said "nothing on
+screen tells them the target changed", which overstated the defect. What is
+missing is a prompt that names its target, not a cue that something moved.
+
+★ **Why it is not fixed here.** The capture has to be frozen when the menu OPENS
+and threaded back out through `onDelete`, which changes `DocumentBlockGutter`'s
+component contract — the gutter would have to hand the editor the block it was
+opened against, not just an index. That is a design change and wants its own
+slice. The comment above the call has been narrowed to stop claiming the baseline
+is "the row the user pointed at", so the code no longer overstates the guarantee.
+
+## 199. Adding a block at a narrow pane leaves the NEW block collapsed read-only
+
+**Status:** open. **Severity:** low (a UX fork, not a defect — the block is
+reachable in one extra click). **Found by:** cold review of the S3c
+structural-blocks round, on the commit that fixed the default-state
+carry-through. **Deliberately not changed — it is a feature decision, outside
+that round's scope.**
+
+At a narrow pane `document-editor.tsx` collapses every paragraph but the
+selected one, and since the selection carry-through takes the RESOLVED selection
+the three structural ops all keep the block the user was already in. For move
+and delete that is the whole point. For INSERT it means the newly-added block is
+never the selected one: a user who picks "Add below → Paragraph" gets a fresh
+seeded paragraph rendered read-only with an "Edit this block" button, and has to
+click that button before they can type in the block they just asked for.
+
+★ It is now CONSISTENT, which it was not before. With a selection already made,
+`selectionAfterInsert` always shifted it so the old block stayed live. With no
+selection made, the old code fell through to `firstParagraph` recomputed on the
+new list — so inserting at index 0 of a paragraph document happened to select
+the new block while inserting anywhere else did not. The fix removed that split
+by making every case keep the old block.
+
+★ **The fork to decide.** Either (a) carry the selection to the newly-inserted
+block when the inserted kind is a paragraph, on the argument that "add a
+paragraph" is a request to write one; or (b) keep today's behaviour, on the
+argument that an insert should never move the cursor out from under an edit in
+progress — the user may be adding a block to fill in later. (a) needs a rule for
+the non-paragraph kinds, which have no selection concept at all: inserting a
+table or a page break must leave the selection alone either way, so the op
+cannot simply select `at`.
+
+★ Whichever way it goes, it is narrow-pane-only — at a wide pane every paragraph
+is live and the selection is invisible.

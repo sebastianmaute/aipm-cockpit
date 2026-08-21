@@ -4,10 +4,12 @@
 //  the image predicate all live in document-editor-commit.ts, which is pure and
 //  tested. If logic starts accumulating in this file, move it there instead of
 //  testing it here.
-import { useCallback, useEffect, useRef } from "react";
-import { shouldCoalesce, replaceBlockOp } from "./document-editor-commit";
+import { useCallback, useEffect, useMemo, useRef } from "react";
+import {
+  shouldCoalesce, replaceBlockOp, insertBlockOp, deleteBlockOp, moveBlockOp,
+} from "./document-editor-commit";
 import type { DocBlock } from "./document-model";
-import type { DocMintedVersion, DocMutation, DocResult } from "./document-mutations";
+import type { DocMintedVersion, DocMutation, DocOp, DocResult } from "./document-mutations";
 import type { DocVersion } from "./document-versions";
 
 export type UseDocumentEditorDeps = {
@@ -129,31 +131,66 @@ export function useDocumentEditor(deps: UseDocumentEditorDeps) {
     [documentId, versions, mutateDocuments, now],
   );
 
-  const appendBlock = useCallback(
-    (block: DocBlock): DocResult | undefined => {
-      // Same abandon-rather-than-clobber guard as commitBlock: this closure was
-      // built for `documentId`, and if the panel has moved on, appending here
-      // would add a block to whichever document happens to be selected now.
+  // ★★★ WHICH STRUCTURAL WRITES MAY COALESCE, and it is a SPLIT — not the
+  //  absolute rule this comment used to state. `document-mutations.ts` reads
+  //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
+  //  the field writes a before-image unconditionally.
+  //  • `insert` and `remove` OMIT it. Either changes what the document
+  //    CONTAINS, and the pre-op state is exactly what a user reverting an
+  //    accidental add or delete wants back. Folding one into a preceding
+  //    editing run would leave the nearest restore point at wherever that run
+  //    started, and a version restore is the ONLY recovery a document has —
+  //    there is no undo here.
+  //  • `move` COALESCES, on the same `shouldCoalesce` rule the content-edit
+  //    path uses. A reorder loses nothing: no content changes, and the
+  //    inverse of a reorder is another reorder. Minting per press was the
+  //    expensive half — the keyboard path moves a block ONE position at a
+  //    time, so walking a block from position 12 to the top burned 12 of only
+  //    MAX_VERSIONS_PER_DOC (20) slots and could evict the pre-session
+  //    before-image and every AI-authored version with it.
+  //  ★ `coalesce: false` would be equivalent to omission; omission is the
+  //   spelling the two non-coalescing paths keep, so the split is visible in
+  //   the mutation itself and not only here.
+  const structuralOp = useCallback(
+    (op: DocOp, coalescible = false): DocResult | undefined => {
+      // Same abandon-rather-than-clobber guard as commitBlock.
       if (documentId !== currentDocIdRef.current) return undefined;
-      // ★★★ NO `coalesce` FIELD, DELIBERATELY. document-mutations.ts reads
-      //  `m.coalesce ? undefined : snapshot(target, "update", ctx)`, so omitting
-      //  it writes the before-image unconditionally. Creating a block is a
-      //  structural change and the pre-append state is exactly what a user
-      //  reverting an accidental add wants back — an append must never fold
-      //  into a preceding editing run.
-      const result = mutateDocuments({ kind: "ops", id: documentId, ops: [{ op: "append", block }] });
-      // ★★ ...but it DOES become the run's anchor, so the typing that follows
-      //  folds into it. That is not a special case: the append is one of THIS
-      //  hook's own commits, so it advances the anchor for the same reason
-      //  every other one does. And it is right — the append's before-image
-      //  already IS the pre-session state, so a second version would capture a
-      //  half-typed placeholder, which is a revert target nobody wants and one
-      //  of only MAX_VERSIONS_PER_DOC (20) slots spent.
+      // ★ The stamp is minted ONLY on the coalescible path — same source as
+      //  `commitBlock`'s, and see the note there on which arm runs where. A
+      //  value computed unconditionally would invite the field being passed
+      //  "for symmetry" on the two paths that must omit it.
+      const stamp = coalescible ? (now ? now() : new Date().toISOString()) : null;
+      const result = mutateDocuments(
+        stamp === null
+          ? { kind: "ops", id: documentId, ops: [op] }
+          : {
+              kind: "ops",
+              id: documentId,
+              ops: [op],
+              coalesce: shouldCoalesce(versions, documentId, stamp, lastMintedRef.current),
+            },
+      );
       if (result.minted) lastMintedRef.current = result.minted;
       return result;
     },
-    [documentId, mutateDocuments],
+    [documentId, versions, mutateDocuments, now],
   );
 
-  return { commitBlock, appendBlock };
+  // ★ ONE BAG rather than three flat props, matching the pane-contract
+  //  convention AGENTS.md states for calendar-capable entities ("threads ONE
+  //  EntityCalendarProps, never five flat props"). `commitBlock` keeps its
+  //  existing shape so no existing test moves.
+  const structural = useMemo(
+    () => ({
+      insert: (index: number, block: DocBlock) => structuralOp(insertBlockOp(index, block)),
+      remove: (index: number, expect?: DocBlock) => structuralOp(deleteBlockOp(index, expect)),
+      // ★ The ONLY member passing `coalescible` — see the split above.
+      move: (from: number, to: number, expect?: DocBlock) => structuralOp(moveBlockOp(from, to, expect), true),
+    }),
+    [structuralOp],
+  );
+
+  return { commitBlock, structural };
 }
+
+export type BlockStructuralOps = ReturnType<typeof useDocumentEditor>["structural"];

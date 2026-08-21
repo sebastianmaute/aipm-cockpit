@@ -2,6 +2,7 @@
 import type { DragEvent, KeyboardEvent, ReactNode } from "react";
 import { W_CLASS, H_CLASS } from "./dashboard-grid";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { DragHandle } from "./drag-handle";
 import { t, type Lang } from "./i18n";
 import type { DashboardTileId, TileSpan } from "./dashboard-tiles";
 
@@ -35,13 +36,15 @@ export interface TileHandleProps {
  * contain. Containing the tile title is a 2.4.6 disambiguator, not 2.5.3
  * conformance. (The plan's docstring claimed 2.5.3; it does not bind here.)
  *
- * ★★ THE GRIP IS HAND-ROLLED ON PURPOSE — see `docs/handrolled-ui-inventory.md`.
- * `DragHandle` (`drag-handle.tsx`) forwards `draggable`/`onDragStart`/
- * `onMouseDown` ONLY, so it can carry neither `onDragEnd` nor `onKeyDown`, both
- * of which `useListReorderDnd` supplies and both of which are load-bearing
- * (drag cleanup; the arrow-key reorder path, which is the ONLY path that works
- * without a mouse). This matches the grips Phase A shipped in `reports.tsx` and
- * `budget-panel.tsx` rather than inventing a third shape.
+ * ★★ THE GRIP IS THE SHARED `DragHandle` PRIMITIVE, and this paragraph used to
+ * say the opposite: it recorded that `DragHandle` forwarded `draggable`/
+ * `onDragStart`/`onMouseDown` ONLY, so it could carry neither `onDragEnd` nor
+ * `onKeyDown` — both supplied by `useListReorderDnd` and both load-bearing (drag
+ * cleanup; the arrow-key reorder path, the ONLY one that works without a mouse).
+ * The primitive forwards all four now, so the grip spreads `handleProps` straight
+ * onto it. ★ The visible glyph therefore changed from `⠿` to the primitive's ⋮,
+ * and the element from a `<button>` to a `div role="button"` — the accessible
+ * name, the tab stop and the focus-visible ring are unchanged.
  */
 export function DashboardTile({
   id, title, w, h, lang, readOnly, dragProps, handleProps, onOpenMenu, menuButtonRef, children,
@@ -76,20 +79,16 @@ export function DashboardTile({
     >
       <div className="flex items-center gap-1 border-b border-line px-1 py-1">
         {!readOnly && (
-          <button
-            type="button"
-            tabIndex={0}
+          <DragHandle
             {...handleProps}
-            aria-label={moveLabel}
+            ariaLabel={moveLabel}
             title={t(lang, "reorderHandle")}
-            // ★ `focus-visible`, not the `FOCUS_RING` primitive: a grip is
-            // PRESSED and held for the whole gesture, so a `focus:` ring would
-            // paint for the drag's entire duration. Same spelling as the Phase A
-            // grips this matches.
-            className="cursor-grab touch-none select-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green print:hidden"
-          >
-            ⠿
-          </button>
+            // The tab stop, `select-none`, `print:hidden` and the focus-visible
+            // ring (deliberately not `FOCUS_RING` — a grip is held for the whole
+            // gesture, so a `focus:` ring would paint throughout it) are all the
+            // primitive's base. Only size/colour/cursor stay here.
+            className="cursor-grab touch-none rounded px-1 py-0.5 text-muted-foreground hover:text-foreground"
+          />
         )}
         <h3 className="min-w-0 flex-1 truncate text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
           {title}

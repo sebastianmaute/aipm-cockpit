@@ -54,7 +54,7 @@ function renderTwoRoles(onReorderRoles: (ids: number[]) => void = noop) {
   );
 }
 
-/** The `≡` handle inside a given rate-card row — the ONLY drag source and the
+/** The reorder grip inside a given rate-card row — the ONLY drag source and the
  *  only keyboard reorder entry point (see the H1 test below). */
 const handleIn = (row: HTMLElement) => within(row).getByRole("button", { name: /reorder/i });
 
@@ -83,7 +83,7 @@ describe("RolesEditor rate-card table", () => {
     expect(bodyRows[0].textContent).toContain("Eng"); // role 2: Eng/Junior
     expect(bodyRows[1].textContent).toContain("Ops"); // role 3: Ops/Senior
     // Drag role id 1 (last) onto the first row → onReorderRoles gets a new id order.
-    // The drag starts on the row's `≡` handle (the row itself is the DROP
+    // The drag starts on the row's grip (the row itself is the DROP
     // target only — see the arrow-key test at the bottom of this file).
     const dt = { effectAllowed: "", getData: () => "", setData: () => {} };
     fireEvent.dragStart(handleIn(bodyRows[2]), { dataTransfer: dt });
@@ -292,7 +292,7 @@ describe("RolesEditor rate-card table", () => {
   // the four number-input rate spinners, the Hours/Days SegmentedControl (an
   // APG radiogroup that handles the same keys and does NOT stopPropagation, so
   // one ArrowDown produced TWO persisted writes) and the RefList rename caret.
-  // The bag now sits on the `≡` button alone.
+  // The bag now sits on the grip alone.
   it("does not reorder when an arrow key is pressed on a rate input inside the row", () => {
     const onReorderRoles = vi.fn();
     renderTwoRoles(onReorderRoles);
@@ -358,7 +358,7 @@ describe("RolesEditor rate-card table", () => {
     // is not looking at.
     // ★★★ THE DRAG MUST BE STARTED BEFORE THE SORT and that is not a contrived
     // sequence, it is the only one that can TEST the flag: a sorted rate card
-    // renders no `≡` at all (`reorderable = !sort` gates the button), so a test
+    // renders no grip at all (`reorderable = !sort` gates it), so a test
     // that merely renders sorted and fires a drop passes with `disabled` flipped
     // to false — there is no live `dragId` for the drop to commit. Starting the
     // drag first leaves one in hook state across the re-render, so the ONLY

@@ -7,8 +7,15 @@ import {
   type DocContext,
   type DocOp,
 } from "./document-mutations";
+import { applyOps } from "./document-ops";
 import { deletedDocumentVersions } from "./document-versions";
 import type { DocBlock } from "./document-model";
+
+// ★ Typed on DocBlock, not a `{html?}` shape — `next!` and `blocks` sort as
+//  DocBlock[], and a weak-optional-property comparator type fails tsc
+//  against a union member (e.g. "heading") that shares no property with it.
+const byHtml = (a: DocBlock, b: DocBlock) =>
+  ("html" in a ? a.html : "").localeCompare("html" in b ? b.html : "");
 
 // ★ integer ms range, NOT a bare fc.date(): fc.date() can emit an Invalid
 // Date whose .toISOString() throws, which passes vitest's type check but
@@ -147,7 +154,11 @@ describe("mutate then restore returns the prior document state", () => {
             else if (op.op === "append") expected.push(op.block);
             else if (op.op === "insert") expected.splice(op.index, 0, op.block);
             else if (op.op === "replace") expected[op.index] = op.block;
-            else expected.splice(op.index, 1);
+            // ★ `validOp`'s own OpKind excludes "move" (this suite predates it),
+            //  so an explicit "delete" check here is accurate, not a narrowing
+            //  guess — DocOp growing a `move` member is what makes the trailing
+            //  `else` ambiguous to tsc now.
+            else if (op.op === "delete") expected.splice(op.index, 1);
             expect(after.documents[0].blocks).toEqual(expected);
           }
 
@@ -211,6 +222,36 @@ describe("mutate then restore returns the prior document state", () => {
         },
       ),
       { numRuns: 50 },
+    );
+  });
+
+  // ★★ A move must be a PERMUTATION: same blocks, same count, different order.
+  //  An arm that dropped or duplicated the moved block would still satisfy a
+  //  length check alone, and still satisfy a "the block is somewhere" check
+  //  alone — the multiset is what pins both at once.
+  it("move preserves the multiset of blocks and the length", () => {
+    fc.assert(
+      fc.property(
+        fc.array(fc.string({ minLength: 1, maxLength: 8 }), { minLength: 2, maxLength: 12 }),
+        fc.nat(),
+        fc.nat(),
+        (texts, a, b) => {
+          const blocks = texts.map((t) => ({ type: "paragraph" as const, html: `<p>${t}</p>` }));
+          const from = a % blocks.length;
+          const to = b % blocks.length;
+          const rejected: string[] = [];
+          const next = applyOps(blocks, [{ op: "move", from, to }], rejected);
+
+          if (from === to) {
+            expect(next).toBeNull();
+            return;
+          }
+          expect(next).not.toBeNull();
+          expect(next).toHaveLength(blocks.length);
+          expect([...next!].sort(byHtml)).toEqual([...blocks].sort(byHtml));
+          expect(next![to]).toEqual(blocks[from]);
+        },
+      ),
     );
   });
 });
