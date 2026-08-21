@@ -1,7 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent, act } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useState } from "react";
+import { hashBytes } from "./document-asset-upload";
 import { DocumentsAssetSection, type DocumentAssetPaneProps } from "./documents-asset-section";
 import { FiltersProvider } from "./filters-context";
 import { t } from "./i18n";
@@ -34,8 +35,78 @@ function fakeStructural(): BlockStructuralOps {
   } as unknown as BlockStructuralOps;
 }
 
-function fakeAsset(id: string, name = "chart.png"): DocumentAsset {
-  return { id, name, mime: "image/png", size: 10, hash: id, createdAt: "2026-01-01T00:00:00.000Z" };
+function fakeAsset(id: string, name = "chart.png", hash = id): DocumentAsset {
+  return { id, name, mime: "image/png", size: 10, hash, createdAt: "2026-01-01T00:00:00.000Z" };
+}
+
+// A 24-byte PNG header, small enough that `processUpload` never downscales and
+// so never reaches the (canvas-backed, jsdom-hostile) encoder. `width` varies
+// the BYTES, which is what varies the hash the dedup compares.
+function pngBytes(width = 4): Uint8Array {
+  const b = new Uint8Array(24);
+  b.set([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a], 0);
+  new DataView(b.buffer).setUint32(16, width);
+  new DataView(b.buffer).setUint32(20, 3);
+  return b;
+}
+
+function pngFile(name = "paste.png", width = 4): File {
+  return new File([pngBytes(width).buffer as ArrayBuffer], name, { type: "image/png" });
+}
+
+/** ★ The exact row-label shape belongs to `asset-library.tsx` — it qualifies
+ *  each per-row control with the asset id so N rows cannot share one accessible
+ *  name. Matched by PREFIX here so a change to that qualifier cannot break this
+ *  file over a naming detail it does not own. */
+function findInsertRowButton(name: string): Promise<HTMLElement> {
+  const prefix = `${t("en-US", "insert")} – ${name}`.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return screen.findByRole("button", { name: new RegExp(`^${prefix}`) });
+}
+
+/** The zone that owns paste + drop, located STRUCTURALLY.
+ *
+ *  ★★★ DELIBERATELY NOT `getByRole("group", { name: … })`. Its role and its
+ *  aria-label are both things the a11y tests below exist to pin, and a helper
+ *  that FINDS the element by them makes every paste/drop test die at the
+ *  LOOKUP the moment either is mutated. That still prints RED, so it reads as
+ *  a successful mutation proof while proving nothing about the assertion — the
+ *  test would have "died" just as loudly for a harmless relabel. Locate by a
+ *  handle no test mutates; assert on the attributes separately. */
+function pasteZone(): HTMLElement {
+  const zone = document.querySelector("[data-asset-drop-zone]");
+  if (!zone) throw new Error("paste/drop zone not rendered");
+  return zone as HTMLElement;
+}
+
+/** RTL has no `paste` helper that carries files, so the `clipboardData` shape
+ *  React reads is supplied directly. Only `files` is consumed. */
+async function pasteFiles(files: readonly File[]) {
+  await act(async () => {
+    fireEvent.paste(pasteZone(), { clipboardData: { files, items: [], types: ["Files"] } });
+    await Promise.resolve();
+  });
+  // Two microtask drains: `upload` awaits arrayBuffer → processUpload → digest
+  // before it commits, and the insert waits on all of those.
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+}
+
+async function dropFiles(files: readonly File[]) {
+  await act(async () => {
+    fireEvent.drop(pasteZone(), { dataTransfer: { files, items: [], types: ["Files"] } });
+    await Promise.resolve();
+  });
+  await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+}
+
+/** The html `structural.insert` was handed, parsed. ★★ Asserting on the raw
+ *  string would pass for an escaped-looking substring that the browser still
+ *  parses as markup — the DOM is the only thing that answers "did this create
+ *  an element". */
+function insertedDom(structural: BlockStructuralOps, call = 0): HTMLElement {
+  const [, block] = vi.mocked(structural.insert).mock.calls[call];
+  const host = document.createElement("div");
+  host.innerHTML = (block as { html: string }).html;
+  return host;
 }
 
 /** Owns the `assets`/`setAssets` half of the bag with a plain `useState` —
@@ -133,9 +204,23 @@ describe("documents asset library gating", () => {
     expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
   });
 
-  it("disables even with a usable config when the pane is a read-only popout", () => {
-    renderSection({ tursoConfig: TURSO_CONFIG, isReadOnly: true });
-    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
+  // ★★ The read-only popout is NOT a storage problem, and saying it is sends
+  // the reader off to check Turso settings that are already correct.
+  // ★★ `toHaveTextContent` against the CONTAINER, not `getByText`/`queryByText`.
+  //    `getBy*` throws on a miss (a lookup error, which proves nothing about
+  //    WHICH message was chosen) and `queryBy*` hands `toBeInTheDocument` a
+  //    null, which fails as a matcher ARGUMENT error for the same reason. Only
+  //    this shape fails with an assertion naming the expected text.
+  it("explains a read-only popout as read-only, not as a missing Turso project", () => {
+    const { container } = renderSection({ tursoConfig: TURSO_CONFIG, isReadOnly: true });
+    expect(container).toHaveTextContent(t("en-US", "assetLibraryReadOnly"));
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryTursoOnly"));
+  });
+
+  it("still blames the missing project when BOTH reasons apply", () => {
+    const { container } = renderSection({ tursoConfig: null, isReadOnly: true });
+    expect(container).toHaveTextContent(t("en-US", "assetLibraryTursoOnly"));
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryReadOnly"));
   });
 });
 
@@ -146,7 +231,7 @@ describe("documents asset insertion", () => {
     const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a1", "chart.png")]);
 
     await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
-    await user.click(await screen.findByRole("button", { name: `${t("en-US", "insert")} – chart.png` }));
+    await user.click(await findInsertRowButton("chart.png"));
 
     await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
     const [at, block] = vi.mocked(structural.insert).mock.calls[0];
@@ -163,11 +248,50 @@ describe("documents asset insertion", () => {
       [fakeAsset("a1", evilName)],
     );
     await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
-    await user.click(await screen.findByRole("button", { name: `${t("en-US", "insert")} – ${evilName}` }));
+    await user.click(await findInsertRowButton(evilName));
     await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
     const [, block] = vi.mocked(structural.insert).mock.calls[0];
     const html = (block as { html: string }).html;
     expect(html).not.toContain("<script>");
+  });
+
+  // ★★★ THE SANITIZER DOES NOT SAVE YOU HERE, which is the whole point. `<a>`
+  // is allow-listed and an `https:` href passes the URI regexp, so an asset
+  // name that BREAKS OUT of the alt attribute yields a well-formed, sanitizer-
+  // approved anchor with attacker-chosen text — persisted into `block.html` and
+  // carried into the standalone-HTML/DOCX/PPTX exports. An asset name is
+  // `file.name` verbatim, free text via rename, and arbitrary in an imported
+  // workspace, so all three are reachable without any privileged access.
+  it("cannot be made to emit a link by an asset name that breaks out of the alt attribute", async () => {
+    const user = userEvent.setup();
+    const d = doc(1, []);
+    const evilName =
+      'x"><a href="https://evil.test/verify">Click to verify your account</a><img alt="';
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a1", evilName)]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton(evilName));
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+
+    const host = insertedDom(structural);
+    expect(host.querySelectorAll("a")).toHaveLength(0);
+    expect(host.querySelectorAll("img")).toHaveLength(1);
+    // The name survives INTACT as text — escaping is not truncation.
+    expect(host.querySelector("img")!.getAttribute("alt")).toBe(evilName);
+    expect(host.querySelector("img")!.getAttribute("data-asset-id")).toBe("a1");
+  });
+
+  it("keeps a plain double quote in the name instead of truncating the alt at it", async () => {
+    const user = userEvent.setup();
+    const d = doc(1, []);
+    const quoted = 'q3 "final" chart.png';
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a1", quoted)]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton(quoted));
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+
+    expect(insertedDom(structural).querySelector("img")!.getAttribute("alt")).toBe(quoted);
   });
 
   it("refuses to insert past the 20-image-per-document cap, without calling structural.insert", async () => {
@@ -177,7 +301,7 @@ describe("documents asset insertion", () => {
     const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
 
     await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
-    await user.click(await screen.findByRole("button", { name: `${t("en-US", "insert")} – extra.png` }));
+    await user.click(await findInsertRowButton("extra.png"));
 
     expect(await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
     expect(structural.insert).not.toHaveBeenCalled();
@@ -190,8 +314,146 @@ describe("documents asset insertion", () => {
     const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a0", "already-here.png")]);
 
     await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
-    await user.click(await screen.findByRole("button", { name: `${t("en-US", "insert")} – already-here.png` }));
+    await user.click(await findInsertRowButton("already-here.png"));
 
     await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+  });
+});
+
+// ★★★ THIS SURFACE WAS ZERO-COVERED, which is why three defects shipped in it
+// at once. Nothing touched paste, drop, clipboardData, dataTransfer, or the
+// arm-a-ref-and-react-to-`lastId` state machine that used to sit between the
+// upload and the insert.
+describe("documents asset paste and drop insertion", () => {
+  it("inserts a pasted image once it has uploaded", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("pasted.png")]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+    expect(insertedDom(structural).querySelector("img")!.getAttribute("alt")).toBe("pasted.png");
+  });
+
+  // ★★★ DEFECT 2a. The dedup branch used to `setLastId(duplicate.id)` with the
+  // value it already held; React bails out of a re-render for an identical
+  // value, so the effect that performed the insert never ran — and its own
+  // `lastId === lastInsertedRef.current` clause would have refused anyway.
+  // Real-world shape: paste a screenshot into doc A, then the same screenshot
+  // into doc B, and nothing appears, with no error.
+  it("inserts an image that is ALREADY in the library when it is pasted again", async () => {
+    const d = doc(1, []);
+    const stored = fakeAsset("a1", "already-stored.png", await hashBytes(pngBytes()));
+    const { structural } = renderSection({ selected: d, documents: [d] }, [stored]);
+
+    await pasteFiles([pngFile("pasted-again.png")]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+    // Deduped to the STORED row — the existing id, and the stored name.
+    const img = insertedDom(structural).querySelector("img")!;
+    expect(img.getAttribute("data-asset-id")).toBe("a1");
+    expect(img.getAttribute("alt")).toBe("already-stored.png");
+  });
+
+  // ★★★ DEFECT 2c. One boolean ref cannot carry N files: three pasted images
+  // armed the same flag three times and exactly one insert ever fired.
+  it("inserts EVERY file of a multi-file paste, in the pasted order", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("one.png", 4), pngFile("two.png", 5), pngFile("three.png", 6)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(3));
+    const names = [0, 1, 2].map((i) => insertedDom(structural, i).querySelector("img")!.getAttribute("alt"));
+    expect(names).toEqual(["one.png", "two.png", "three.png"]);
+  });
+
+  it("inserts every file of a multi-file DROP too", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await dropFiles([pngFile("one.png", 4), pngFile("two.png", 5)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(2));
+  });
+
+  // ★★★ DEFECT 2b — THE MOST DAMAGING OF THE THREE, because it mutates a
+  // document the user never asked to touch. The arm was set BEFORE the await;
+  // every rejection path in `upload` returns without touching `lastId`, so the
+  // arm was never cleared. The next ORDINARY Upload press — which arms nothing
+  // and is not an insert gesture at all — then satisfied the effect and
+  // appended that unrelated image to the open document.
+  it("does not insert anything when a rejected paste is followed by an ordinary Upload", async () => {
+    const user = userEvent.setup();
+    const d = doc(1, []);
+    const { structural, container } = renderSection({ selected: d, documents: [d] });
+
+    // An allowed mime so the paste handler's own filter passes it through, but
+    // an empty file, so `checkUploadCandidate` rejects it as `empty`.
+    await pasteFiles([new File([], "broken.png", { type: "image/png" })]);
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(await screen.findByText(t("en-US", "assetUploadErrorEmpty"))).toBeInTheDocument();
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, pngFile("library-only.png"));
+
+    await waitFor(() => expect(screen.queryByText(t("en-US", "assetUploadErrorEmpty"))).not.toBeInTheDocument());
+    // The Upload button adds to the LIBRARY. It is not an insert gesture, and
+    // nothing armed earlier may make it one.
+    expect(structural.insert).not.toHaveBeenCalled();
+  });
+
+  it("uploads a pasted image without inserting it when no document is selected", async () => {
+    const { structural } = renderSection({ selected: null, documents: [] });
+    await pasteFiles([pngFile("orphan.png")]);
+    expect(structural.insert).not.toHaveBeenCalled();
+  });
+});
+
+describe("documents asset section accessibility", () => {
+  // ★★★ A live region inserted into the DOM in the same commit as its text is
+  // not reliably announced — assistive tech has to already be observing it.
+  // Conditionally mounted, none of the seven upload-error strings nor the cap
+  // message ever reached a screen reader.
+  // ★ `querySelectorAll`, not `getAllByRole` — a missing region must surface as
+  //   a length assertion, not as a TestingLibrary lookup throw. A proof that
+  //   dies at the lookup never reaches the claim it is supposed to be about.
+  function statusRegions(): HTMLElement[] {
+    return Array.from(pasteZone().querySelectorAll('[role="status"]'));
+  }
+
+  it("mounts both status regions before there is anything to announce", async () => {
+    renderSection();
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+    expect(statusRegions()).toHaveLength(2);
+  });
+
+  it("announces an upload error through an already-mounted region", async () => {
+    renderSection();
+    const before = statusRegions();
+    expect(before).toHaveLength(2);
+
+    await pasteFiles([new File([], "broken.png", { type: "image/png" })]);
+
+    const after = statusRegions();
+    // SAME element, new text — that is what makes it an announcement rather
+    // than an insertion.
+    expect(after[0]).toBe(before[0]);
+    expect(after[0]).toHaveTextContent(t("en-US", "assetUploadErrorEmpty"));
+  });
+
+  // ★★ ARIA prohibits naming the implicit `generic` role, so the aria-label on
+  // a role-less focusable div may simply not be exposed — leaving a tab stop
+  // that announces nothing.
+  it("gives the paste/drop zone a real role so its label can be exposed", async () => {
+    renderSection();
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+    const zone = pasteZone();
+    expect(zone).toHaveAttribute("role", "group");
+    expect(zone).toHaveAttribute("tabIndex", "0");
+    // ★ The point is not that SOME group exists — it is that the accessible
+    //   name resolves to THIS element. `queryByRole` returns null rather than
+    //   throwing, so a missing role fails as an assertion naming the element.
+    expect(screen.queryByRole("group", { name: t("en-US", "assetLibraryPasteDropZone") })).toBe(zone);
   });
 });

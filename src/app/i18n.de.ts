@@ -4069,6 +4069,7 @@ export const de: Record<TranslationKey, string> = {
   assetLibraryDeleteConfirm: "{0} löschen?",
   assetLibraryDeleteConfirmUsed: "{0} löschen? Es wird in {1} Dokument(en) verwendet und hinterlässt dort ein defektes Bild.",
   assetLibraryTursoOnly: "Bilder benötigen ein Turso-Projekt. Dokumente funktionieren mit jedem Backend.",
+  assetLibraryReadOnly: "Bilder sind hier schreibgeschützt – fügen Sie sie im Hauptfenster hinzu.",
   assetLibraryInsert: "Bild einfügen",
   assetLibraryMaxPerDocument: "Dieses Dokument enthält bereits die maximale Anzahl von {0} Bildern.",
   assetLibraryPasteDropZone: "Bild einfügen oder hierher ziehen, um es hinzuzufügen",

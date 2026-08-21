@@ -4129,6 +4129,10 @@ const enUS = {
   assetLibraryDeleteConfirmUsed:
     "Delete {0}? It is used in {1} document(s) and will leave a broken image there.",
   assetLibraryTursoOnly: "Images need a Turso project. Documents work on every backend.",
+  // ★★ SEPARATE FROM assetLibraryTursoOnly ON PURPOSE. A read-only popout on a
+  // fully configured Turso project is not a storage problem, and telling the
+  // reader it is sends them to check settings that are already correct.
+  assetLibraryReadOnly: "Images are read-only here — add them in the main window.",
   assetLibraryInsert: "Insert image",
   assetLibraryMaxPerDocument: "This document already has the maximum of {0} images.",
   assetLibraryPasteDropZone: "Paste or drop an image to add it",

@@ -18,13 +18,26 @@
 // image) — the visible-latency step, not the whole call. `AssetLibrary`
 // disables that row's controls while it is set.
 //
-// ★ Owns its own state (busyId/error/lastId/danglingIds) rather than being a
+// ★ Owns its own state (busyId/error/danglingIds) rather than being a
 // stateless deps-object hook (the use-storage-file-ops.ts Phase-3 shape) —
 // this hook is closer in shape to use-comm-templates.ts: a self-contained
 // async CRUD surface over one Turso-backed store, with real logic and real
 // tests, so it is NOT in vitest.config.ts's coverage.exclude.
+//
+// ★★★ EVERY METADATA WRITE IS FUNCTIONAL, AND THE DEDUP READ GOES THROUGH
+// `assetsRef`, NEVER THE RENDER-SCOPE `assets`. Three call sites fan N
+// concurrent uploads out of ONE render (`asset-library.tsx`'s drop handler and
+// documents-asset-section.tsx's paste + drop), so every one of them shares a
+// single closure. A `setAssets([...assets, asset])` therefore has all N
+// writers computing from the SAME base array and the last write wins — N-1
+// metadata rows are lost AFTER their bytes were already written, which is
+// exactly the orphan state the METADATA-FIRST ordering above exists to
+// prevent. This is the repo's documented "N saves in one tick" landmine
+// (AGENTS.md, per-entity CRUD hooks: "Every save handler is a FUNCTIONAL
+// setter"). `commitAssets` below is the single write path and it is the only
+// thing that may call `setAssets`.
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type Dispatch, type SetStateAction } from "react";
 import type { DocumentAsset } from "./document-asset";
 import {
   checkUploadCandidate, processUpload, hashBytes, findDuplicate,
@@ -38,12 +51,24 @@ export type UploadError = UploadRejection | "storageWrite";
 export interface UseDocumentAssetsDeps {
   config: TursoConfig | null;
   assets: readonly DocumentAsset[];
-  setAssets: (next: readonly DocumentAsset[]) => void;
+  /** ★★ The FULL `SetStateAction` form, matching what `workspace-context.tsx`
+   *  actually supplies (`setDocumentAssets`). Narrowing this to
+   *  `(next: readonly DocumentAsset[]) => void` compiles — a value-only setter
+   *  is assignable to it — but it discards the functional form and with it the
+   *  only way concurrent writers can compose. See the header. */
+  setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
   projectId: string;
 }
 
 export interface UseDocumentAssetsResult {
-  upload: (file: File) => Promise<void>;
+  /** ★★ Resolves to the asset the caller should use: the newly minted row, the
+   *  EXISTING row on a dedup hit, or `null` when the upload was rejected. The
+   *  paste/drop insert path reads this directly rather than waiting for a
+   *  state round trip — a re-render cannot be relied on to fire at all (a
+   *  dedup hit re-commits an unchanged id, which React bails out of), and the
+   *  returned row also carries the `name` an insert needs, which a freshly
+   *  captured `assets` closure would not yet hold. */
+  upload: (file: File) => Promise<DocumentAsset | null>;
   remove: (id: string) => void;
   rename: (id: string, name: string) => void;
   /** Ids whose metadata exists but whose bytes do not, per the last diff
@@ -52,16 +77,19 @@ export interface UseDocumentAssetsResult {
   /** Id currently mid byte-write; that row's controls disable. */
   busyId: string | null;
   error: UploadError | null;
-  /** The id `upload` most recently produced or matched via dedup — lets the
-   *  modal mounting insert the right asset without a second round trip. */
-  lastId: string | null;
 }
 
 /** The one browser-only step, injected so document-asset-upload.ts's
  *  arithmetic stays testable in jsdom (which has no canvas). Production calls
- *  this; tests never reach it because the fixtures used here never trigger a
- *  downscale (target size == source size for a small header-only image). */
-const encodeViaCanvas: ImageEncoder = async (
+ *  this; the `upload` fixtures never reach it, because they never trigger a
+ *  downscale (target size == source size for a small header-only image).
+ *
+ *  ★ EXPORTED FOR ITS OWN TEST ONLY — nothing else imports it. jsdom has no
+ *  canvas, so the only way to pin the mime rule below is to call this directly
+ *  against stubbed `createImageBitmap`/`getContext`/`toBlob`; reaching it
+ *  through `upload` would need a fixture big enough to downscale AND a working
+ *  canvas. */
+export const encodeViaCanvas: ImageEncoder = async (
   bytes: Uint8Array, mime: string, size: PixelSize,
 ): Promise<EncodedImage> => {
   const bitmap = await createImageBitmap(new Blob([new Uint8Array(bytes)], { type: mime }));
@@ -74,7 +102,13 @@ const encodeViaCanvas: ImageEncoder = async (
   const outBlob = await new Promise<Blob>((resolve, reject) => {
     canvas.toBlob((b) => (b ? resolve(b) : reject(new Error("canvas encode failed"))), mime);
   });
-  return { bytes: new Uint8Array(await outBlob.arrayBuffer()), mime };
+  // ★★ REPORT THE MIME THE BLOB ACTUALLY IS, never the one we asked for.
+  // `canvas.toBlob` falls back to image/png SILENTLY for a type it cannot
+  // encode, and the fallback is still allow-listed downstream — so returning
+  // the requested `mime` stores a row that misdescribes its own bytes and the
+  // export sink emits a `data:` URI with the wrong media type. `|| mime` only
+  // covers the spec-legal empty-string case.
+  return { bytes: new Uint8Array(await outBlob.arrayBuffer()), mime: outBlob.type || mime };
 };
 
 /** Reference-free set equality. Load-bearing, not cosmetic — see the effect
@@ -95,8 +129,37 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
   const { config, assets, setAssets, projectId } = deps;
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<UploadError | null>(null);
-  const [lastId, setLastId] = useState<string | null>(null);
   const [danglingIds, setDanglingIds] = useState<ReadonlySet<string>>(new Set());
+
+  // ★★★ A MIRROR OF THE COMMITTED LIST, for the async continuations below.
+  // `upload` awaits three times before it decides anything, so the
+  // render-scope `assets` it closed over is already history by the time the
+  // hash lands — that staleness is what makes two identical files dropped
+  // together BOTH mint an id. Synced from the prop after each commit (an
+  // effect, not a render-body write, so nothing here reads or writes a ref
+  // during render) AND written straight through by `commitAssets`, which is
+  // what lets a second upload later in the SAME tick see the first one's row
+  // before React has re-rendered.
+  const assetsRef = useRef<readonly DocumentAsset[]>(assets);
+  useEffect(() => {
+    assetsRef.current = assets;
+  }, [assets]);
+
+  /** The ONLY writer of `setAssets`. Applies `fn` functionally so N concurrent
+   *  writers compose instead of clobbering, and mirrors the same result
+   *  locally for the in-tick reads above.
+   *
+   *  ★★ `fn` MUST BE PURE — it runs once against the mirror, once in the state
+   *  updater, and React double-invokes the updater under StrictMode
+   *  (`src/app/strictmode.meta.test.tsx`). Never put a setState, a mint, or
+   *  any other effect inside one. */
+  const commitAssets = useCallback(
+    (fn: (prev: readonly DocumentAsset[]) => readonly DocumentAsset[]) => {
+      assetsRef.current = fn(assetsRef.current);
+      setAssets((prev) => fn(prev ?? []));
+    },
+    [setAssets],
+  );
 
   // ★★★ `react-hooks/set-state-in-effect` is BANNED and fatal. The diff runs
   // in the effect's ASYNC CONTINUATION, never synchronously in the effect
@@ -124,28 +187,30 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     };
   }, [config, projectId, assets]);
 
-  const upload = useCallback(async (file: File) => {
+  const upload = useCallback(async (file: File): Promise<DocumentAsset | null> => {
     setError(null);
 
     const candidate = checkUploadCandidate(file);
     if (!candidate.ok) {
       setError(candidate.reason);
-      return;
+      return null;
     }
 
     const raw = new Uint8Array(await file.arrayBuffer());
     const processed = await processUpload(raw, file.type, encodeViaCanvas);
     if (!processed.ok) {
       setError(processed.reason);
-      return;
+      return null;
     }
 
     const hash = await hashBytes(processed.image.bytes);
-    const duplicate = findDuplicate(assets, hash);
+    // ★ `assetsRef.current`, NOT `assets` — see the ref's own note. Reading the
+    // closure here is what makes two identical files pasted at once mint two
+    // rows for one image.
+    const duplicate = findDuplicate(assetsRef.current, hash);
     if (duplicate) {
       // Reuse — no metadata write, no byte write.
-      setLastId(duplicate.id);
-      return;
+      return duplicate;
     }
 
     const id = crypto.randomUUID();
@@ -164,8 +229,7 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     // byte write below without re-running the mutation check that pins it
     // (use-document-assets.test.ts, "commits the metadata row BEFORE writing
     // the bytes").
-    setAssets([...assets, asset]);
-    setLastId(id);
+    commitAssets((prev) => [...prev, asset]);
 
     setBusyId(id);
     try {
@@ -177,22 +241,26 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     } finally {
       setBusyId(null);
     }
-  }, [assets, setAssets, config, projectId]);
+    // ★ Returned even after a failed byte write, deliberately: the row exists,
+    // the library marks it dangling, and re-uploading over the same id repairs
+    // it. Returning null instead would silently drop a paste/drop insert while
+    // the row it refers to is sitting right there in the library.
+    return asset;
+  }, [commitAssets, config, projectId]);
 
   const rename = useCallback((id: string, name: string) => {
-    const idx = assets.findIndex((a) => a.id === id);
-    if (idx < 0) return;
-    setAssets(assets.map((a) => (a.id === id ? { ...a, name } : a)));
-  }, [assets, setAssets]);
+    if (!assetsRef.current.some((a) => a.id === id)) return;
+    commitAssets((prev) => prev.map((a) => (a.id === id ? { ...a, name } : a)));
+  }, [commitAssets]);
 
   const remove = useCallback((id: string) => {
-    setAssets(assets.filter((a) => a.id !== id));
+    commitAssets((prev) => prev.filter((a) => a.id !== id));
     // Best-effort byte cleanup. A leftover byte row with no metadata
     // referencing it is inert and never surfaced — unlike a metadata row
     // with no bytes (the dangling case), this direction has no user-visible
     // consequence, so a failure here is not reported as an upload error.
     void deleteAssetData(config, id, projectId).catch(() => {});
-  }, [assets, setAssets, config, projectId]);
+  }, [commitAssets, config, projectId]);
 
-  return { upload, remove, rename, danglingIds, busyId, error, lastId };
+  return { upload, remove, rename, danglingIds, busyId, error };
 }

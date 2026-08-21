@@ -32,7 +32,7 @@
 // editor to point at.
 
 import {
-  useCallback, useEffect, useMemo, useRef, useState,
+  useCallback, useMemo, useState,
   type ClipboardEvent, type DragEvent, type Dispatch, type SetStateAction,
 } from "react";
 import { t, type Lang, type TranslationKey } from "./i18n";
@@ -46,6 +46,7 @@ import { AssetLibraryModal } from "./asset-library-modal";
 import { Button } from "./button";
 import { EmptyState } from "./empty-state";
 import { sanitizeDocumentHtml } from "./sanitize-html";
+import { htmlEscape } from "./download";
 import { ASSET_MIME_ALLOWED, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
 import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
 
@@ -102,7 +103,7 @@ export function DocumentsAssetSection({
   const tursoConfig = assetPane?.tursoConfig ?? null;
   const projectId = assetPane?.projectId ?? "default";
   const assets = assetPane?.assets ?? EMPTY_ASSETS;
-  const { upload, remove, rename, danglingIds, busyId, error, lastId } = useDocumentAssets({
+  const { upload, remove, rename, danglingIds, busyId, error } = useDocumentAssets({
     config: tursoConfig,
     assets,
     setAssets: assetPane?.setAssets ?? NOOP_SET_ASSETS,
@@ -116,54 +117,71 @@ export function DocumentsAssetSection({
 
   // ★ Enforced HERE (at insert), not by truncating on load — see the module
   // header's "never drop an over-cap image on load" rule.
+  //
+  // ★★ TAKES THE ASSET, NOT ITS ID. The paste/drop path calls this with the row
+  // `upload` just resolved to, which by definition is NOT yet in this render's
+  // `assets` closure — an id-keyed lookup here would find nothing and drop the
+  // insert on the floor. `insertAssetById` below is the id-keyed wrapper the
+  // picker (which only ever names an already-rendered row) uses.
   const insertAsset = useCallback(
-    (id: string) => {
+    (asset: DocumentAsset) => {
       setCapMessage(false);
       if (!selected) return;
       const existing = assetIdsInDocument(selected);
-      if (!existing.has(id) && existing.size >= ASSET_MAX_PER_DOCUMENT) {
+      if (!existing.has(asset.id) && existing.size >= ASSET_MAX_PER_DOCUMENT) {
         setCapMessage(true);
         return;
       }
-      const asset = assets.find((a) => a.id === id);
-      if (!asset) return;
-      const html = sanitizeDocumentHtml(`<img data-asset-id="${id}" alt="${asset.name}">`);
+      // ★★★ `htmlEscape` IS LOAD-BEARING AND THE SANITIZER DOES NOT REPLACE IT.
+      // `asset.name` is `file.name` verbatim on upload, free text via rename,
+      // and fully attacker-controlled in an imported workspace
+      // (`sanitizeDocumentAsset` keeps it as-is). Interpolated raw, a name of
+      // `x"><a href="https://evil.test">Click here</a><img alt="` CLOSES the
+      // img and opens an anchor — and `sanitizeDocumentHtml` then PASSES it,
+      // because `a` is allow-listed and an `https:` href satisfies the URI
+      // regexp. The result persists into `block.html` and rides into the
+      // standalone-HTML/DOCX/PPTX exports. A name holding a plain `"` also just
+      // truncates the alt. Escape at the seam; never ask a sanitizer to clean
+      // up a string that was already malformed when it was built.
+      const html = sanitizeDocumentHtml(
+        `<img data-asset-id="${htmlEscape(asset.id)}" alt="${htmlEscape(asset.name)}">`,
+      );
       structural.insert(selected.blocks.length, { type: "paragraph", html });
     },
-    [selected, assets, structural],
+    [selected, structural],
   );
 
-  // ★★★ ARMED BY A PASTE/DROP-TRIGGERED UPLOAD so the resulting id — which
-  // surfaces asynchronously via `lastId`, NOT via the `upload` promise (see
-  // use-document-assets.ts's own note: "lets the modal mounting insert the
-  // right asset without a second round trip") — is inserted the moment it
-  // lands. `lastInsertedRef` stops a re-render from re-inserting the same id.
-  const pendingInsertRef = useRef(false);
-  const lastInsertedRef = useRef<string | null>(null);
-
-  const uploadAndArm = useCallback(
-    async (file: File) => {
-      pendingInsertRef.current = true;
-      await upload(file);
+  const insertAssetById = useCallback(
+    (id: string) => {
+      const asset = assets.find((a) => a.id === id);
+      if (asset) insertAsset(asset);
     },
-    [upload],
+    [assets, insertAsset],
   );
 
-  // React to `lastId` landing after an armed paste/drop upload. Calling
-  // `insertAsset` here is an ACTION (it calls through to documents-panel.tsx's
-  // `mutate`), not a sync of this component's OWN state to a prop — the shape
-  // `set-state-in-effect` bans — and is precedented by `useDocumentAssets`'s
-  // own dangling-diff effect, which also calls a local setState from inside a
-  // `useEffect`. A plain PICKER insert (`AssetLibraryModal`'s `onInsert`) goes
-  // straight to `insertAsset` with no ref involved — this path exists only
-  // because paste/drop's resulting id is not available until `upload`
-  // resolves AND `lastId` re-renders this component.
-  useEffect(() => {
-    if (!pendingInsertRef.current || !lastId || lastId === lastInsertedRef.current) return;
-    pendingInsertRef.current = false;
-    lastInsertedRef.current = lastId;
-    insertAsset(lastId);
-  }, [lastId, insertAsset]);
+  // ★★★ INSERTS FROM THE AWAITED RESULT, NEVER FROM A STATE ROUND TRIP. The
+  // previous shape armed a boolean ref before the await and reacted to a
+  // `lastId` state change, which was broken three ways at once: (a) re-inserting
+  // an ALREADY-STORED image was a silent no-op, because the dedup branch set
+  // `lastId` to the value it already held and React bailed out of the
+  // re-render, so the effect never ran; (b) every rejection path in `upload`
+  // returns without touching `lastId`, so the arm was never cleared and the
+  // NEXT ordinary Upload press — which arms nothing — appended that image to
+  // the open document unbidden; (c) one boolean cannot carry N files, so a
+  // multi-file paste inserted exactly one. Awaiting the result removes the
+  // state machine entirely.
+  //
+  // ★ Uploads run CONCURRENTLY (`Promise.all`) but insert in the caller's file
+  // order, so a 3-image paste is not three serial round trips.
+  const uploadAndInsert = useCallback(
+    async (files: readonly File[]) => {
+      const uploaded = await Promise.all(files.map((f) => upload(f)));
+      for (const asset of uploaded) {
+        if (asset) insertAsset(asset);
+      }
+    },
+    [upload, insertAsset],
+  );
 
   function handlePaste(e: ClipboardEvent<HTMLDivElement>) {
     if (!enabled) return;
@@ -171,7 +189,7 @@ export function DocumentsAssetSection({
       (ASSET_MIME_ALLOWED as readonly string[]).includes(f.type));
     if (!files.length) return;
     e.preventDefault();
-    files.forEach((f) => void uploadAndArm(f));
+    void uploadAndInsert(files);
   }
 
   function handleDrop(e: DragEvent<HTMLDivElement>) {
@@ -179,11 +197,17 @@ export function DocumentsAssetSection({
     e.preventDefault();
     const files = Array.from(e.dataTransfer.files).filter((f) =>
       (ASSET_MIME_ALLOWED as readonly string[]).includes(f.type));
-    files.forEach((f) => void uploadAndArm(f));
+    if (!files.length) return;
+    void uploadAndInsert(files);
   }
 
   if (!enabled) {
-    return <EmptyState compact title={t(lang, "assetLibraryTursoOnly")} />;
+    // ★★ TWO DIFFERENT REASONS, TWO DIFFERENT MESSAGES. `assetLibraryTursoOnly`
+    // ("Images need a Turso project") is simply UNTRUE for a read-only popout
+    // on a fully configured Turso project, and it sends the reader off to check
+    // storage settings that are already correct.
+    const reason = tursoConfig === null ? "assetLibraryTursoOnly" : "assetLibraryReadOnly";
+    return <EmptyState compact title={t(lang, reason)} />;
   }
 
   return (
@@ -195,7 +219,17 @@ export function DocumentsAssetSection({
           is what makes the native `paste` event reachable at all: a plain
           non-editable div never receives one unless it (or a descendant) has
           focus. */}
+      {/* ★★ `role="group"` IS REQUIRED, not decoration. Without it this is a
+          focusable div with the implicit `generic` role, and ARIA prohibits
+          naming `generic` — the `aria-label` may simply not be exposed, leaving
+          a tab stop that announces nothing at all. */}
+      {/* ★ `data-asset-drop-zone` is a STRUCTURAL test handle (house convention —
+          cf. `data-dangling-marker`, `data-block-row`). Its tests must not find
+          this element by the role or label they exist to pin, or a mutation of
+          either kills them at the LOOKUP and the assertion never runs. */}
       <div
+        data-asset-drop-zone
+        role="group"
         tabIndex={0}
         onPaste={handlePaste}
         onDragOver={(e) => e.preventDefault()}
@@ -206,16 +240,18 @@ export function DocumentsAssetSection({
         <Button variant="secondary" size="sm" disabled={!selected} onClick={() => setModalOpen(true)}>
           {t(lang, "assetLibraryInsert")}
         </Button>
-        {error && (
-          <span role="status" className="text-xs text-ui-pink">
-            {t(lang, UPLOAD_ERROR_KEY[error])}
-          </span>
-        )}
-        {capMessage && (
-          <span role="status" className="text-xs text-ui-pink">
-            {t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT))}
-          </span>
-        )}
+        {/* ★★★ ALWAYS MOUNTED, TEXT TOGGLED — never `{error && <span …>}`. A
+            live region inserted into the DOM in the same commit as its text is
+            not reliably announced: assistive tech has to be observing the
+            region BEFORE the content changes. Conditionally mounted, not one of
+            the seven upload-error strings nor the cap message ever reached a
+            screen reader. Same always-mounted rule as `action-reasons`. */}
+        <span role="status" className="text-xs text-ui-pink">
+          {error ? t(lang, UPLOAD_ERROR_KEY[error]) : ""}
+        </span>
+        <span role="status" className="text-xs text-ui-pink">
+          {capMessage ? t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT)) : ""}
+        </span>
       </div>
       <AssetLibrary
         lang={lang}
@@ -230,7 +266,7 @@ export function DocumentsAssetSection({
       <AssetLibraryModal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
-        onInsert={insertAsset}
+        onInsert={insertAssetById}
         lang={lang}
         assets={assets}
         usage={usage}
