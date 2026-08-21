@@ -1861,11 +1861,13 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
 
-★★★ **Recorded here because it was invisible to every tracked document.** The 8-slice roadmap and
-S6's own spec and plan all live under `docs/superpowers/`, which is **gitignored** — so on any other
-machine the remaining work simply does not exist. Six slices shipped (C 0.204.0 · D 0.205.0 ·
-F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. Per this file's own rule, no link
-into that tree — enough detail is reproduced below to resume without it.
+★★★ **Recorded here because it was invisible to every tracked document — until `0.253.0 "Schroeder"`
+(2026-08-21).** The 8-slice roadmap and S6's own spec and plan live under `docs/superpowers/`, which
+was un-ignored that release and the whole corpus committed — the remaining work is now readable from
+any checkout, not only the machine that wrote it. Six slices shipped (C 0.204.0 · D 0.205.0 ·
+F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. The old rule against linking into
+that tree is retired (see this file's header); enough detail is still reproduced below so this entry
+stays resumable without opening it.
 
 **S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
 step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
@@ -1879,6 +1881,19 @@ The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
 series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
 `use-calendar-integrations` · thread the bag to the Resources pane · the attendee field · mount the
 field + confirm + invitation-aware delete · **security review of the invitation path** · release chain.
+
+★ `eventToGraphEvent` / `exceptionPlan` / `afterPush` / `replayExceptions` /
+`calendar-event-attendees.ts` are all **missing** too — S6's designed-but-unbuilt surface, specified
+in full in `docs/superpowers/specs/2026-07-29-s6-calendar-event-push-design.md`. Phrased on purpose
+to match the same missing-list grammar the three-blockers paragraph below already trips: the
+assertedAbsentNames helper in `scripts/followup-claims-lib.mjs` reads it, so
+`check-followup-claims.mjs` treats these five as an asserted absence today rather than
+`SYMBOL_MISSING`/`PATH_MISSING` noise — and the moment any of them lands in the tree (S6 ships), the
+gate flips this entry to its highest-priority verdict, `ASSERTED_ABSENT_NOW_PRESENT`, which reads as
+a live "this follow-up may be done" signal rather than a silent `CLEAN`. That is the deliberate
+choice: the alternative wording (plain `SYMBOL_MISSING`/`PATH_MISSING`) is equally accurate today but
+gives no signal at all when S6 finally lands, and this entry exists precisely so the next reader
+doesn't have to re-probe these five by hand.
 
 **The data model is already shipped** (S3, 0.202.0): `CalendarEvent` carries `startTime`,
 `durationMinutes`, `attendeeResourceIds`, `sendInvitations` and `outlookEventId` across all six write
@@ -9076,8 +9091,10 @@ a reader trusts.
 
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
 phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
-them are under `docs/superpowers/`, which is gitignored — so they exist on one machine and this entry
-is the only durable record. It is written to be resumable without them.
+them are under `docs/superpowers/`, which was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the
+whole corpus committed — they are tracked and readable in the repo now, so this entry's earlier
+self-description as "the only durable record" no longer holds. It remains written to be resumable
+without them, and the P2–P4 scope stays open.
 
 ★★★ **THE ORIGINATING PREMISE WAS FALSE AND MEASURING IT FIRST IS WHAT SAVED THE SLICE.** The request
 was "extract the open TODOs out of the app files into one place". This repo has **zero**
@@ -9989,7 +10006,7 @@ releases and one later slice that extended the toolbar's own lucide imports);
 ★★★ **THIS ENTRY'S ORIGINAL PREMISE IS DEAD, AND SAYING SO IS THE POINT OF THE ENTRY.** It was
 titled "the migration decision behind it lives nowhere durable" and argued that the rationale was
 "invisible to anyone who doesn't have this local checkout" because it lived only in
-`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`, in a gitignored tree.
+`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`, in what was then a gitignored tree.
 **That tree was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the whole corpus committed** —
 that spec is tracked, and the reasoning it carries (a full app-wide icon migration is its own
 project, out of scope for a toolbar slice) is readable by anyone with the repo. ★ This is a
