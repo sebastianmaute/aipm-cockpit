@@ -20,6 +20,7 @@ import { useCallback, useState } from "react";
 import type { Lang } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { TursoConfig } from "./turso-config";
 import { DocumentEditor, NARROW_PANE_PX } from "./document-editor";
 import { DocumentPreview } from "./document-preview";
 import {
@@ -65,6 +66,11 @@ export interface DocumentEditModeBodyProps {
   /** Add / delete / reorder. One bag rather than three flat props — see the
    *  pane-contract convention in AGENTS.md. */
   structural: BlockStructuralOps;
+  // Same asset-library gate the panel threads to `DocumentsAssetSection`
+  // (null disables) — `DocumentPreview` needs it to resolve
+  // `<img data-asset-id>` references to real bytes. Optional: missing here
+  // correctly means "no images resolve", not broken.
+  assetsTursoConfig?: TursoConfig | null; assetsProjectId?: string;
 }
 
 /** Preview by default; the block editor once toggled on. Popout mirrors stay
@@ -79,6 +85,8 @@ export function DocumentEditModeBody({
   isReadOnly,
   onCommitBlock,
   structural,
+  assetsTursoConfig = null,
+  assetsProjectId = "default",
 }: DocumentEditModeBodyProps) {
   if (editing && !isReadOnly && doc) {
     return (
@@ -91,5 +99,13 @@ export function DocumentEditModeBody({
       />
     );
   }
-  return <DocumentPreview lang={lang} doc={doc} ws={ws} />;
+  return (
+    <DocumentPreview
+      lang={lang}
+      doc={doc}
+      ws={ws}
+      tursoConfig={assetsTursoConfig}
+      projectId={assetsProjectId}
+    />
+  );
 }

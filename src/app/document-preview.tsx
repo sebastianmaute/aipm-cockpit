@@ -31,11 +31,14 @@
 // paragraph path is unguarded — worse than an uncited claim, because the note
 // advertises itself as checked. Line numbers rot on the next edit above them.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { type Lang } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
+import { attachAssetImages } from "./document-asset-images";
+import { loadAssetData } from "./document-assets-store";
 
 export interface DocumentPreviewProps {
   lang: Lang;
@@ -44,9 +47,19 @@ export interface DocumentPreviewProps {
    *  competing with it. */
   doc: ProjectDocument | null;
   ws: Workspace;
+  // Same asset-library gate `documents-panel.tsx` threads to
+  // `DocumentsAssetSection` (null disables). Resolves `<img data-asset-id>`
+  // references left in the rendered HTML to real bytes — see the effect
+  // below. Optional: missing here correctly means "no images resolve" (every
+  // referenced image renders its missing-asset marker), not broken, since
+  // document images are Turso-gated (S3c-1).
+  tursoConfig?: TursoConfig | null;
+  projectId?: string;
 }
 
-export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
+export function DocumentPreview({
+  lang, doc, ws, tursoConfig = null, projectId = "default",
+}: DocumentPreviewProps) {
   // ★★ MEMOIZED, and the cost it avoids is not theoretical. `renderDocumentHtml`
   // runs DOMPurify once PER PARAGRAPH block and `resolveDataSection` once per
   // dataSection block — and that one projects the WHOLE workspace through
@@ -61,6 +74,41 @@ export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
     () => (doc ? renderDocumentHtml(doc, ws, lang, "preview") : ""),
     [doc, ws, lang],
   );
+
+  // `ws.documentAssets` is an obj-member dep — react-hooks/exhaustive-deps
+  // rejects that shape directly in a dependency array, so it is hoisted to a
+  // local first (AGENTS.md's `snapshots.rebaselineNow` note carries the same
+  // rule).
+  const documentAssets = ws.documentAssets;
+
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  // ★★★ IMPERATIVE, NOT REACT STATE — see document-asset-images.ts's own doc
+  // comment for why: the body below is one dangerouslySetInnerHTML string, so
+  // there is no React element to hand a `src`, and this needs no state at all
+  // (react-hooks/set-state-in-effect is banned and fatal regardless).
+  // ★★ MUST SIT ABOVE THE `!doc` EARLY RETURN, same reason as the memo above.
+  // A null `doc` means no preview body mounts this render, so `bodyRef.current`
+  // is null and the effect below is a no-op — it still has to be CALLED,
+  // unconditionally, every render.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    let cancelled = false;
+    let detach: (() => void) | null = null;
+    const mimeFor = (id: string) => documentAssets?.find((a) => a.id === id)?.mime;
+    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor).then((d) => {
+      // The subtree may have been replaced (a new `html` landed) or this
+      // component may have unmounted before the byte loads resolved — either
+      // way, revoke rather than leave the blob URLs it minted dangling.
+      if (cancelled) { d(); return; }
+      detach = d;
+    });
+    return () => {
+      cancelled = true;
+      detach?.();
+    };
+  }, [html, documentAssets, tursoConfig, projectId]);
 
   if (!doc) return null;
 
@@ -89,6 +137,7 @@ export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
         {doc.title}
       </h2>
       <div
+        ref={bodyRef}
         data-document-preview-body
         className="text-sm text-foreground"
         dangerouslySetInnerHTML={{ __html: html }}
