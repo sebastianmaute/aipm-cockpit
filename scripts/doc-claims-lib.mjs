@@ -206,11 +206,20 @@ export function collectResolutionSources() {
     }
   }
   // ★★★ THE NON-MARKDOWN HALF OF `docs/` IS LOAD-BEARING AND IS NOT `collectDocs`'s.
-  // The register cites `docs/baselines/file-sizes.json` three times, plus
-  // `followup-claims.json`, `doc-line-cites.json` and `jscpd-2026-07.json`. None
-  // is under the code tree and none ends in `.md`, so dropping this loop would
-  // turn six resolving citations into fresh PATH_MISSING findings — the exact
-  // false-positive class this function exists to remove, reintroduced by the fix.
+  // The register cites baseline JSON under `docs/baselines/`, which is neither
+  // under the code tree nor `.md`, so dropping this loop turns citations that
+  // resolve today into fresh PATH_MISSING findings — the exact false-positive
+  // class this function exists to remove, reintroduced by the fix.
+  // ★★★ MENTIONS ARE NOT FINDINGS, and an earlier wording here counted the wrong
+  // one. It said "six", reached by counting how often the register MENTIONS
+  // those files. `pathsIn` returns a Set PER ENTRY, so three mentions of one
+  // path inside one entry are ONE finding, and a mention outside any `## N.`
+  // entry is none at all. The measured figure is FOUR, spread over three
+  // entries: §131 twice (the qualified path and the bare filename are distinct
+  // strings), §138 once, §152 once. `jscpd-2026-07.json` contributes ZERO — its
+  // only mention sits outside every entry. Count what the parser returns, never
+  // what a grep of the prose returns; the direction of that error is always
+  // "the guard looks more load-bearing than it is".
   // ★★ UNGUARDED, on purpose, and the reasoning came with the code: a truncated
   // index is indistinguishable from a deleted file, so every missing asset would
   // report PATH_MISSING — a screen of false findings under a tool that exits 0.
