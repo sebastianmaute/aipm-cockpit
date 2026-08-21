@@ -55,7 +55,6 @@ import {
   calendarEventsToCsv,
   changesToCsv,
   csvCellEscape,
-  documentAssetsToCsv,
   fxRatesToCsvLine,
   milestonesToCsv,
   parseCsv,
@@ -68,6 +67,7 @@ import {
   stakeholdersToCsv,
   tasksToCsv,
 } from "./csv-codecs-core";
+import { documentAssetsToCsv } from "./document-asset-codecs";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import {
   sanitizeProjectDocuments,

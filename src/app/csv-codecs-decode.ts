@@ -80,13 +80,13 @@ import {
   CSV_SECTION_ACTIVITY,
   buildCalendarEventFromObj,
   buildChangeFromObj,
-  buildDocumentAssetFromObj,
   buildMilestoneFromObj,
   buildRaidItemFromObj,
   buildStakeholderFromObj,
   parseCsv,
   parseHealthOverride,
 } from "./csv-codecs-core";
+import { buildDocumentAssetFromObj } from "./document-asset-codecs";
 import {
   csvToFeatures,
   csvToFieldVisibility,
