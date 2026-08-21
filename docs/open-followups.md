@@ -5060,10 +5060,14 @@ either claim.
 
 ## 88. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
 
-Found while building the view-scoped AI prompts' Settings disclosure (`AiViewScopeDisclosure`,
-`settings-sections/ai-view-scope-disclosure.tsx`, unreleased at time of writing). Its own "AI
-Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
-headings:
+Found while building the view-scoped AI prompts' Settings disclosure. At the time it was planned under
+the working name `AiViewScopeDisclosure`, in a file to be named `settings-sections/ai-view-scope-disclosure.tsx`.
+★ Correction 2026-08-21: `AiViewScopeDisclosure` / `settings-sections/ai-view-scope-disclosure.tsx` are
+gone — no component or file by either name was ever shipped. The work landed instead as an
+always-visible list with no per-row toggle, folded into `src/app/settings-sections/ai-views-section.tsx`
+(the rename is documented in full in `docs/AGENTS/ai-assistant.md`). The entry's own claim is unaffected
+by that rename and is still live: `ai-section.tsx`'s own "AI Assistant" and "Operating guides"
+sub-section titles are styled elements, not headings:
 
 - **STILL OPEN.** `{t(lang, "aiAssistant")}` renders inside a
   `<span className="... text-sm font-medium ...">` — grep the key in `ai-section.tsx`.
@@ -5080,7 +5084,7 @@ doc-claims ratchet caught only the second, and only because `ai-section.tsx` had
 227-line drift stays green forever. This is the case the "cite the SYMBOL" rule is about.
 
 A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
-rotor) skips the remaining one — it reads as body text, not a section landmark. `AiViewScopeDisclosure`
+rotor) skips the remaining one — it reads as body text, not a section landmark. `ai-views-section.tsx`
 was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
 above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
