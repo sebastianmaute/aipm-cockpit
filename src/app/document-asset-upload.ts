@@ -5,6 +5,8 @@
 // not in the store: document-asset.ts is mime-generic on purpose so a later
 // attachment slice reuses the table with no migration.
 
+import type { DocumentAsset } from "./document-asset";
+
 /** ★★ PNG + JPEG + WebP. WebP is admitted because browsers put WebP on the
  *  clipboard and paste is a shipping entry point — rejecting it would make the
  *  headline gesture fail on real screenshots. SVG is out permanently (XSS
@@ -239,4 +241,43 @@ export async function processUpload(
   const sizeCheck = checkStoredSize(chosen.bytes.length);
   if (!sizeCheck.ok) return sizeCheck;
   return { ok: true, image: chosen, size };
+}
+
+const B64_CHUNK = 0x8000;
+
+/** ★ Chunked: String.fromCharCode.apply overflows its argument limit on a
+ *  multi-megabyte payload, which is the size this ships for. Emits RAW base64 —
+ *  no `data:` prefix, because the store holds bytes and the preview builds its
+ *  own blob URL. */
+export function bytesToBase64(bytes: Uint8Array): string {
+  let out = "";
+  for (let i = 0; i < bytes.length; i += B64_CHUNK) {
+    out += String.fromCharCode(...bytes.subarray(i, i + B64_CHUNK));
+  }
+  return btoa(out);
+}
+
+export function base64ToBytes(b64: string): Uint8Array {
+  const bin = atob(b64);
+  const out = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
+  return out;
+}
+
+/** SHA-256 over the STORED bytes, lowercase hex. Drives dedup and makes delete
+ *  refcount-aware: a logo referenced from twenty documents is one row. */
+export async function hashBytes(bytes: Uint8Array): Promise<string> {
+  const digest = await crypto.subtle.digest("SHA-256", new Uint8Array(bytes));
+  return Array.from(new Uint8Array(digest))
+    .map((b) => b.toString(16).padStart(2, "0"))
+    .join("");
+}
+
+/** ★ A blank hash never matches. A row whose digest failed to compute would
+ *  otherwise dedup against every other such row and serve the wrong image. */
+export function findDuplicate(
+  assets: readonly DocumentAsset[], hash: string,
+): DocumentAsset | undefined {
+  if (!hash) return undefined;
+  return assets.find((a) => a.hash === hash);
 }

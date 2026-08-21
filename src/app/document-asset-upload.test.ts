@@ -6,6 +6,7 @@ import {
   ASSET_MAX_PER_DOCUMENT, checkUploadCandidate,
   readHeaderDimensions, checkHeaderDimensions,
   targetSize, pickSmaller, checkStoredSize, processUpload,
+  bytesToBase64, base64ToBytes, hashBytes, findDuplicate,
   type CandidateResult, type UploadRejection, type ImageEncoder,
 } from "./document-asset-upload";
 
@@ -364,5 +365,61 @@ describe("processUpload", () => {
     const r = await processUpload(png(30000, 30000), "image/png", spy);
     expect(r.ok).toBe(false);
     expect(called).toBe(false);
+  });
+});
+
+describe("bytesToBase64 / base64ToBytes", () => {
+  it("round-trips arbitrary bytes", () => {
+    const bytes = new Uint8Array([0, 1, 2, 250, 251, 255]);
+    expect(base64ToBytes(bytesToBase64(bytes))).toEqual(bytes);
+  });
+
+  it("round-trips an empty array", () => {
+    expect(base64ToBytes(bytesToBase64(new Uint8Array(0)))).toEqual(new Uint8Array(0));
+  });
+
+  // ★ Chunked encoding: String.fromCharCode.apply blows the argument limit on a
+  //   multi-megabyte image, which is exactly the size this ships for.
+  it("round-trips a payload past the call-argument limit", () => {
+    const big = new Uint8Array(200_000).map((_, i) => i % 256);
+    expect(base64ToBytes(bytesToBase64(big))).toEqual(big);
+  });
+
+  it("emits no data: prefix — the store holds raw base64", () => {
+    expect(bytesToBase64(new Uint8Array([1, 2, 3]))).not.toContain("data:");
+  });
+});
+
+describe("hashBytes", () => {
+  it("returns a stable lowercase hex digest", async () => {
+    const h = await hashBytes(new Uint8Array([1, 2, 3]));
+    expect(h).toMatch(/^[0-9a-f]{64}$/);
+    expect(await hashBytes(new Uint8Array([1, 2, 3]))).toBe(h);
+  });
+
+  it("gives different bytes different digests", async () => {
+    expect(await hashBytes(new Uint8Array([1]))).not.toBe(await hashBytes(new Uint8Array([2])));
+  });
+});
+
+describe("findDuplicate", () => {
+  const assets = [
+    { id: "a1", name: "x", mime: "image/png", size: 1, hash: "aaa", createdAt: "" },
+    { id: "a2", name: "y", mime: "image/png", size: 1, hash: "bbb", createdAt: "" },
+  ];
+
+  it("finds an existing asset with the same hash", () => {
+    expect(findDuplicate(assets, "bbb")?.id).toBe("a2");
+  });
+
+  it("returns undefined when nothing matches", () => {
+    expect(findDuplicate(assets, "ccc")).toBeUndefined();
+  });
+
+  // ★ A blank hash must never match. A row whose hash failed to compute would
+  //   otherwise dedup against every other such row and serve the wrong image.
+  it("never matches on a blank hash", () => {
+    const withBlank = [...assets, { id: "a3", name: "z", mime: "image/png", size: 1, hash: "", createdAt: "" }];
+    expect(findDuplicate(withBlank, "")).toBeUndefined();
   });
 });
