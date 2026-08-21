@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.251.0";
-export const APP_BUILD_DATE = "2026-08-20"; // 0.251.0: a dictated line lands in the same place whether or not the editor chunk had arrived (Larson)
+export const APP_VERSION = "0.252.0";
+export const APP_BUILD_DATE = "2026-08-21"; // 0.252.0: generated documents can be restructured by hand — add, delete and reorder blocks (Brust)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.251.x line is "Larson" (Rich Larson, SF author).
+ *  0.252.x line is "Brust" (Steven Brust, fantasy author).
+ *  0.251.x was "Larson" (Rich Larson, SF author).
  *  0.250.x was "McAuley" (Paul McAuley, SF author).
  *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
  *  0.248.x was "Bujold" (Lois McMaster Bujold, SF/fantasy author).
@@ -333,4 +334,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightBlockEditing",
   "versionHighlightLazyEditor",
   "versionHighlightDictationPosition",
+  "versionHighlightBlockStructure",
 ] as const;

@@ -8,6 +8,72 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.252.0] - 2026-08-21 "Brust"
+
+### Added
+
+- **Generated documents can be restructured by hand, not only re-worded.** Block
+  editing arrived in 0.249.0 but could only change what a block said; the shape of
+  a document was still whatever the assistant produced. Every block in the editor
+  now carries its own handle and actions menu: add a block above or below it and
+  choose any block kind, delete it after a confirmation, or move it — by dragging
+  the handle, or with the up and down arrow keys while the handle has focus. A
+  block being dragged is dimmed and the edge it would land on is marked, so a drop
+  is never a guess. Structural changes go through the same mutation path as a text
+  edit, so each one is recorded in the document's version history and an earlier
+  arrangement can be restored.
+
+- The empty-document control is now **"Add a block"** and opens that same
+  block-kind menu, so a document can start with a heading or a table instead of
+  always a paragraph. It inserts at the top through the structural op rather than
+  appending, which is what puts it in version history alongside every other
+  structural change.
+
+### Changed
+
+- The hand-rolled reorder grips in the budget panel, the dashboard tiles, the
+  reports panel and the roles editor now use the shared `DragHandle` primitive,
+  which grew to forward the full reorder contract — `draggable`, `onDragStart`,
+  `onDragEnd`, `onKeyDown` and `title`. The primitive previously forwarded
+  neither `onDragEnd` nor `onKeyDown`, which is why each of those surfaces had
+  its own grip: the keyboard path it could not carry is the only route to
+  reordering without a mouse. The documents gutter is built on it from the start,
+  making five call sites.
+
+### Fixed
+
+- **Arrow-key block reorder moved the block instead of toggling it back and
+  forth.** Block rows are keyed by index, so React reconciled them in place: focus
+  stayed on the same row rather than following the block, and the next arrow press
+  moved the block back where it came from. This was the one real defect in the
+  slice and it lived in the seam between two tasks — neither the reorder engine nor
+  the row component was wrong on its own.
+- The block selection survives a structural op, **including the selection nobody
+  has clicked**. The selection is resolved from a default when no block has been
+  picked, and the remap ran against the raw pick rather than the resolved one, so
+  on a narrow pane the first move after opening the editor collapsed the block that
+  had just moved and expanded its neighbour instead.
+- Focus no longer moves when the engine refuses a reorder — a move off either end
+  leaves the grip where it was rather than jumping to a block that did not move.
+- Space and Enter on a drag grip no longer scroll the page or submit; the grip
+  consumes them, and its reorder hint is announced on every instance rather than
+  once per list.
+
+### Internal
+
+- The document op interpreter is extracted into `document-ops.ts`, and gained a
+  `move` op plus a precondition on `delete` so a refused op is distinguishable
+  from one that silently did nothing.
+- The Documents block editor is now scanned by the axe gate, which closes
+  open-followups §184. The scan drives the editor into edit mode through a real
+  click and asserts more than one block row, so a broken toggle cannot leave it
+  quietly re-scanning the preview and reading as covered.
+- Four cold review rounds ran against this branch. Rounds two, three and four each
+  found their most serious material inside the previous round's fixes, and the
+  fourth found that round three's headline fix never executed in the state the
+  editor opens in — all three of that round's tests had established the state
+  first, so none of them could observe it. Recorded as §198 and §199.
+
 ## [0.251.0] - 2026-08-20 "Larson"
 
 ### Changed
