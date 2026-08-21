@@ -589,7 +589,7 @@ Replace it with (note the outer four backticks below are this plan's quoting —
 ````
 dropping the LOOKAHEAD invents phantom paths — fenced below, because these are
 regex INPUTS rather than files this repo holds, and the sweep is right to read a
-backticked `name.tsx` in prose as a claim:
+backticked filename in prose as a claim:
 
 ```text
 `foo.tsxx` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
@@ -600,7 +600,27 @@ backticked `name.tsx` in prose as a claim:
 
 ★ Splice this into the existing sentence rather than duplicating its opening clause — read the two lines above the target first (`dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths —`) and join them cleanly.
 
-★★ The second `foo.tsx` mention, in the paragraph about the corpus building `ts` + `x`, is **not** backticked as a path and was never flagged. Leave it alone. Verify: `grep -n "foo\.tsx" docs/open-followups.md` after the edit must show it still present.
+★★★ **THE SECOND `foo.tsx` MENTION IS THE ONE ACTUALLY SUPPLYING THE FLAG, AND AN EARLIER REVISION OF THIS LINE SAID THE OPPOSITE** — "not backticked as a path and was never flagged. Leave it alone." Measured 2026-08-21: it IS backticked (a plain U+0060, hex-verified), and `pathsIn` dedupes by string value in a `Set`, so while both mentions were live the single `PATH_MISSING: foo.tsx` could have come from either. Fencing only the first line leaves the second still supplying it. Both must be handled or §131 cannot reach zero.
+
+- [ ] **Step 1b: De-backtick the second mention**
+
+It is the same class of thing as the fenced line — a regex INPUT, not a file this repo holds. A fence would break the sentence it sits inside, so use **this repo's established convention for an inline fake filename**, which `AGENTS.md` already applies to itself: drop the backticks and say why. Find:
+
+```
+`ts` + `x` as `foo.tsx` — a valid name that must not differ.
+```
+
+Replace with:
+
+```
+`ts` + `x` as foo.tsx — a valid name that must not differ. (Deliberately
+un-backticked: it is a regex input, and backticking it makes the sweep read it as
+a claim on a file this repo does not hold, which is the sweep working.)
+```
+
+★ Keep `` `ts` `` and `` `x` `` backticked — neither is filename-shaped, so neither is matched.
+
+★★★ **DO NOT WRITE A BACKTICKED FILENAME-SHAPED TOKEN INTO YOUR OWN REPLACEMENT PROSE.** The first draft of Step 1's text above said "the sweep is right to read a backticked `name.tsx` in prose as a claim", which the sweep duly flagged — a prose fix whose own text tripped the gate it was fixing. The wording now says "a backticked filename". Re-read anything you write here against `pathsIn`'s alternation (`tsx|ts|mjs|json|css|md|yml`) before running the gate.
 
 - [ ] **Step 2: Rewrite §200's shorthand**
 
