@@ -37,6 +37,45 @@ export const SWEEP_SELF_FILES = new Set([
   path.join(HERE, "followup-claims-lib.test.mjs"),
 ]);
 
+/** The TEST FIXTURE alone, split out of the set above because the two halves
+ *  answer different questions and only one of them excuses a missing name.
+ *
+ *  ★★★ A FIXTURE'S MENTION IS NOT EVIDENCE, AND TREATING IT AS EVIDENCE
+ *  DOWNGRADES REAL DEBT. `SYMBOL_SELF_EXCLUDED` means "the sweep was forbidden
+ *  to look at the code that would have vouched for this name" — a statement
+ *  about the GATE'S OWN IMPLEMENTATION. `followup-claims-lib.test.mjs` is not
+ *  that: its method is quoting register prose verbatim, so it holds a name
+ *  precisely BECAUSE the register mentions it. Building the self-excluded set
+ *  from it makes the register vouch for itself.
+ *
+ *  ★★★ THE CONSEQUENCE IS DELAYED AND SILENT, which is why it survived review
+ *  once. A name that is real today, is quoted in the fixture, and is LATER
+ *  DELETED from `src` stops reporting the actionable SYMBOL_MISSING and starts
+ *  reporting SYMBOL_SELF_EXCLUDED — which `NON_ACTIONABLE` swallows, so it never
+ *  sets a verdict and nobody is sent to look.
+ *  ★★★ THE SURFACE IS 34, NOT THE 70 THE REVIEW REPORTED, and the difference is
+ *  the whole reason to measure the RIGHT set. 70 is the count of gated fixture
+ *  names that also exist in the tree — but a name written in the fixture AND in
+ *  one of the two IMPLEMENTATION files stays self-excluded either way, and
+ *  correctly so, because implementation presence is the legitimate reason. Only
+ *  fixture-ONLY names change class: 34 of them. All three names the review
+ *  offered as examples (`resolveEntitySave`, `loadActualsCache`, `isClosed`) are
+ *  in the implementation files too and do NOT move — checking them is what
+ *  showed the headline figure was measuring the wrong difference.
+ *  ★★ Of those 34, most are vitest matchers and capitalised prose words the
+ *  identifier regex admits. At least four are real declared repo symbols —
+ *  `useDismissable`, `markdownToWorkspace`, `PeopleDisclosureLabel`,
+ *  `CalendarEntityType` — which is small, and is still the class of finding
+ *  this tool exists to keep visible. Reproduce with the set arithmetic in
+ *  `scripts/check-followup-claims.mjs`, which builds every set named here.
+ *
+ *  ★★ So the CLI excludes this file from `withSelf` as well as from
+ *  `knownSymbols`: absent from both, a fixture-only name reports SYMBOL_MISSING.
+ *  That is the safe direction for a tool whose own summary says it rules claims
+ *  OUT and never IN — a false MISSING sends someone to probe, a false
+ *  SELF_EXCLUDED sends nobody anywhere. */
+export const SWEEP_SELF_FIXTURES = new Set([path.join(HERE, "followup-claims-lib.test.mjs")]);
+
 /** `## 42. Title` opens an entry. */
 export const ENTRY_RE = /^##\s+(\d+)\.\s+(.*)$/;
 

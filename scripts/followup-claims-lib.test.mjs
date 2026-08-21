@@ -12,6 +12,7 @@ import { ABSENCE_MARKERS, collectIdentifiers, isGatedSymbolName } from "./agents
 import {
   ABSENCE_STATE_WORDS,
   SWEEP_SELF_FILES,
+  SWEEP_SELF_FIXTURES,
   assertedAbsentNames,
   classify,
   fencedLines,
@@ -251,6 +252,26 @@ describe("SWEEP_SELF_FILES", () => {
       expect(fs.existsSync(p), `${p} is not on disk`).toBe(true);
       expect(fs.statSync(p).isFile(), `${p} is not a file`).toBe(true);
     }
+  });
+
+  // ★★★ `SWEEP_SELF_FIXTURES` IS A PROPER, NON-EMPTY SUBSET, and BOTH bounds are
+  // load-bearing in opposite directions — which is why this is two assertions
+  // and not one. Empty, and the fixture's verbatim register quotes go back to
+  // excusing a deleted symbol as SYMBOL_SELF_EXCLUDED, which `NON_ACTIONABLE`
+  // swallows (the whole defect). Equal to `SWEEP_SELF_FILES`, and `withSelf`
+  // loses the two IMPLEMENTATION files too — at which point nothing is ever
+  // self-excluded and §138's three names start reporting SYMBOL_MISSING, a
+  // screenful of false debt. Each mutation is killed by exactly one of these.
+  it("★★★ holds the test fixture ALONE — the implementation files stay in withSelf", () => {
+    expect([...SWEEP_SELF_FIXTURES].map((p) => path.basename(p))).toEqual([
+      "followup-claims-lib.test.mjs",
+    ]);
+  });
+
+  it("★★★ is a proper subset of SWEEP_SELF_FILES", () => {
+    for (const p of SWEEP_SELF_FIXTURES) expect(SWEEP_SELF_FILES.has(p)).toBe(true);
+    expect(SWEEP_SELF_FIXTURES.size).toBeGreaterThan(0);
+    expect(SWEEP_SELF_FIXTURES.size).toBeLessThan(SWEEP_SELF_FILES.size);
   });
 
   it("★★★ every entry is load-bearing — each holds a gated name the scan lacks", () => {

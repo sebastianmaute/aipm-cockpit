@@ -18,6 +18,7 @@ import { collectIdentifiers, collectIdentifiersFromFiles } from "./agents-symbol
 import {
   REGISTER,
   SWEEP_SELF_FILES,
+  SWEEP_SELF_FIXTURES,
   classify,
   isClosed,
   parseEntries,
@@ -115,14 +116,34 @@ if (entries.length < 50) {
 }
 
 // ★★★ A SET DIFFERENCE, NOT A SECOND LIST. The self-excluded set is exactly the
-// names that appear when `SWEEP_SELF_FILES` is included and vanish when it is
-// not — so it follows that constant automatically and can never drift from it.
+// names that appear when this sweep's own IMPLEMENTATION files are included and
+// vanish when they are not — so it follows `SWEEP_SELF_FILES` automatically.
 // The alternative, hand-listing the internals, is a second source of truth for
 // the one fact this file already owns.
+// ★★★ THE FIXTURE IS EXCLUDED FROM BOTH SETS, AND THAT ASYMMETRY IS THE POINT.
+// `SWEEP_SELF_FIXTURES` holds `followup-claims-lib.test.mjs`, whose method is
+// quoting register prose verbatim — it contains a name BECAUSE the register
+// mentions it, so admitting it here would let the register vouch for itself and
+// would silently downgrade a real deletion from SYMBOL_MISSING to the
+// non-actionable SYMBOL_SELF_EXCLUDED. The constant's own docstring carries the
+// measurement (70 gated names were in that state) and the reasoning.
+// ★★★ `GATE_SELF_FILES` IS *NOT* ADDED BACK HERE AND MUST NOT BE, THOUGH THE
+// SYMMETRY ARGUMENT SAYS OTHERWISE. `collectIdentifiers` skips those three files
+// unconditionally, in this pass too, so a name living only there lands in
+// NEITHER set and reports SYMBOL_MISSING — a fourth unfindable class the
+// verdicts do not name. Widening `withSelf` to admit them looks like the fix and
+// is a REGRESSION: the symbol gate's own files quote the deliberately-absent
+// names it exists to catch, so 12 of the 23 orphans measured on 2026-08-21 were
+// names like `migrateTaskStatus`, `pendingFlash` and `onToggleComplete` — which
+// AGENTS.md documents as never having existed, and for which SYMBOL_MISSING is
+// the CORRECT verdict. Only three (`docPath`, `lineStart`, `nEach`) are genuine
+// gate internals; the rest are ordinary prose words the identifier regex admits.
+// Excusing all 23 to rescue three would mask the exact class this gate is for.
+// Recorded rather than fixed, deliberately, and no register entry hits it today.
 const withSelf = new Set();
 for (const dir of ["src", "scripts", "e2e"]) {
   try {
-    collectIdentifiers(dir, withSelf, new Set());
+    collectIdentifiers(dir, withSelf, SWEEP_SELF_FIXTURES);
   } catch {
     /* same posture, same caveat, as the sweep above */
   }
@@ -131,7 +152,7 @@ for (const dir of ["src", "scripts", "e2e"]) {
 // the src/scripts/e2e pairing. Without this, a root file that ever joined
 // `SWEEP_SELF_FILES` would be misreported as SYMBOL_MISSING rather than
 // SYMBOL_SELF_EXCLUDED. There are none today; done correctly anyway.
-collectIdentifiersFromFiles(rootFiles, withSelf, new Set());
+collectIdentifiersFromFiles(rootFiles, withSelf, SWEEP_SELF_FIXTURES);
 const selfExcludedSymbols = new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
 
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
