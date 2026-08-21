@@ -356,9 +356,16 @@ Insert immediately **before** the `/* Print: DIN A4 page, …` comment that prec
    mechanism is unit-testable — but this one does not manufacture a divergence.
    The pin is asserted in a real browser by e2e/icon-gallery.spec.ts.
 
-   ★ Beats lucide's `stroke-width` presentation attribute (CSS always does), so
-   no per-call-site prop is needed. An icon that ever needs another weight can
-   override with a Tailwind arbitrary value; none does today. */
+   ★ Beats lucide's `stroke-width` presentation attribute, because any CSS
+   declaration outranks a presentation attribute. So no per-call-site prop is
+   needed.
+
+   ★★ OVERRIDING IT NEEDS `!`, NOT JUST AN ARBITRARY VALUE. This file is
+   UNLAYERED while Tailwind v4 emits every utility inside `@layer utilities`,
+   and an unlayered normal declaration beats a layered one regardless of
+   specificity or source order. So `stroke-2` / `stroke-[2]` on an icon SILENTLY
+   DOES NOTHING — the override is `stroke-[2]!`. Nothing needs it today; this is
+   recorded so the first person who does need it is not debugging a no-op. */
 .lucide {
   stroke-width: 1.5;
 }

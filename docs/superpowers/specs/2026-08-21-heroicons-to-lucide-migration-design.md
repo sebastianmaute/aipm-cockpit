@@ -112,8 +112,13 @@ unit test would render at stroke 2 while the app renders 1.5 — tests would sto
 jsdom sees no CSS either way, so **neither mechanism is unit-testable**; the difference is that CSS
 does not manufacture a divergence. The pin is asserted in a real browser instead (§6).
 
-★ Per-icon override stays available via a Tailwind arbitrary value where some future icon needs a
-different weight. None does today.
+★★ **Overriding it needs the important modifier, not merely an arbitrary value.** `globals.css` is
+UNLAYERED while Tailwind v4 emits every utility inside `@layer utilities`, and an unlayered normal
+declaration beats a layered one regardless of specificity or source order. So `stroke-2` on an icon
+SILENTLY DOES NOTHING; the override is `stroke-[2]!`. The upside of the same fact is that no utility
+can accidentally clobber the pin. Nothing needs an override today — this is recorded so the first
+person who does is not debugging a no-op. (An earlier revision here promised the arbitrary value and
+was wrong; caught in review of Task 2.)
 
 ### 4.3 Sizing and a11y — unchanged, and why
 
