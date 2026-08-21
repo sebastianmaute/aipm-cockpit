@@ -15,6 +15,7 @@ import {
   stakeholderFieldToString, buildStakeholderFromObj,
   calendarEventFieldToString, buildCalendarEventFromObj,
   decodeRatesMap,
+  DOCUMENT_ASSETS_CSV_COLUMNS, documentAssetFieldToString, buildDocumentAssetFromObj,
 } from "./csv-codecs";
 import {
   emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
@@ -38,6 +39,7 @@ import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
 export interface SqlStmt { sql: string; args?: SqlArg[] }
@@ -76,6 +78,7 @@ export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
   spec<CalendarEvent>({ table: "calendar_events", wsKey: "calendarEvents", columns: EVENTS_CSV_COLUMNS, get: (w) => w.calendarEvents ?? [], toRow: calendarEventFieldToString as unknown as (e: CalendarEvent, col: string) => string, fromObj: buildCalendarEventFromObj }),
+  spec<DocumentAsset>({ table: "document_assets", wsKey: "documentAssets", columns: DOCUMENT_ASSETS_CSV_COLUMNS, get: (w) => w.documentAssets ?? [], toRow: documentAssetFieldToString, fromObj: buildDocumentAssetFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency", "budgetFollowsPlan"] as const;
