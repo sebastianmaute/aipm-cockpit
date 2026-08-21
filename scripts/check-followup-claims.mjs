@@ -19,6 +19,7 @@ import {
   REGISTER,
   SWEEP_SELF_FILES,
   buildSelfExcludedSymbols,
+  SWEEP_DIRS,
   classify,
   isClosed,
   parseEntries,
@@ -41,7 +42,7 @@ const jsonPath = jsonAt === -1 ? null : args[jsonAt + 1];
 const entries = parseEntries(readFileSync(REGISTER, "utf8")).filter((e) => !isClosed(e.title));
 
 const knownSymbols = new Set();
-for (const dir of ["src", "scripts", "e2e"]) {
+for (const dir of SWEEP_DIRS) {
   // An absent directory must reach the floor below as "the scan found nothing",
   // not as an ENOENT stack trace that reads like a broken register.
   try {
@@ -142,14 +143,20 @@ if (entries.length < 50) {
 // FILE IS SWEPT BY THE GATE IT IMPLEMENTS. Every identifier written here — prose
 // and examples included — joins `withSelf`, so a named orphan stops being an
 // orphan and the sentence describing it is falsified BY BEING WRITTEN. Measured,
-// not theorised: an earlier revision of this paragraph named seven, and all
-// seven changed class in the very commit that named them, while the paragraph
-// went on asserting the verdict they no longer got. The same trap is recorded
-// one screen down for a grep pattern that quoted an identifier. So list today's
-// set rather than quoting it — this reads the gate-self files directly, because
-// the shared walk refuses to:
-//   node --input-type=module -e "import{readFileSync}from'node:fs';import{collectIdentifiers,isGatedSymbolName,GATE_SELF_FILES}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const w=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,w,SWEEP_SELF_FIXTURES);const o=new Set();for(const f of GATE_SELF_FILES)for(const m of readFileSync(f,'utf8').matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g))if(isGatedSymbolName(m[0])&&!w.has(m[0]))o.add(m[0]);console.log(o.size,[...o].sort().join(' '))"
-// Recorded rather than fixed, deliberately, and no register entry hits it today.
+// not theorised: an earlier revision of this paragraph named SIX, its sibling
+// in `followup-claims-lib.mjs` named a seventh, and all seven changed class in
+// the very commit that named them, while both paragraphs went on asserting the
+// verdict they no longer got. So list today's set rather than quoting it. The
+// command reads the gate-self files directly, because the shared walk refuses
+// to, and it runs BOTH passes `withSelf` runs — directories AND root files.
+// ★★ The root pass is not optional here, and omitting it is not an off-by-one:
+// the first cut of this command dropped it and printed as an orphan a name set
+// at the REPO ROOT, which is in `knownSymbols` and can never be one. That name
+// is register-cited, so the omission made the next line read as refuted:
+//   node --input-type=module -e "import{readFileSync,readdirSync}from'node:fs';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName,GATE_SELF_FILES}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const w=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,w,SWEEP_SELF_FIXTURES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),w,SWEEP_SELF_FIXTURES);const o=new Set();for(const f of GATE_SELF_FILES)for(const m of readFileSync(f,'utf8').matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g))if(isGatedSymbolName(m[0])&&!w.has(m[0]))o.add(m[0]);console.log(o.size,[...o].sort().join(' '))"
+// ★★ Recorded rather than fixed, deliberately: no OPEN entry hits it today.
+// Scope that to OPEN deliberately — the gate reads open entries only, and the
+// one closed entry that does name an orphan would otherwise refute the line.
 // ★★ The pass itself lives in `buildSelfExcludedSymbols` so a test can reach
 // it: inline here, reverting its exclusion argument left the suite green.
 const selfExcludedSymbols = buildSelfExcludedSymbols({

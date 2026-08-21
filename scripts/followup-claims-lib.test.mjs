@@ -922,6 +922,25 @@ describe("buildSelfExcludedSymbols", () => {
     expect(out.has("quotedOnlyByTheFixture")).toBe(true);
   });
 
+  // ★★★ PINS THE ROOT-FILE PASS, WHICH IS INERT IN PRODUCTION AND SURVIVED
+  // EVERY OTHER MUTANT. Deleting `collectFiles(rootFiles, ...)` from
+  // `buildSelfExcludedSymbols` changed no real output — both root passes scan
+  // the same files and no sweep-self file sits at the root, so everything it
+  // adds is subtracted again. An inert call with no test is indistinguishable
+  // from a deleted one, so this fake puts a name behind the root pass ALONE.
+  it("★★★ runs the root-file pass, not only the directory walk", () => {
+    const out = buildSelfExcludedSymbols({
+      knownSymbols: new Set(),
+      rootFiles: ["some.root.mjs"],
+      collect: () => {},
+      collectFiles: (files, into) => {
+        if (files.includes("some.root.mjs")) into.add("reachableOnlyViaRootFiles");
+      },
+      dirs: ["src"],
+    });
+    expect(out.has("reachableOnlyViaRootFiles")).toBe(true);
+  });
+
   it("never reports a name the known set already holds", () => {
     expect(run(null).has("realSrcName")).toBe(false);
   });

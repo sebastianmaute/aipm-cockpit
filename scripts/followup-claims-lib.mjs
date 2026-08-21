@@ -66,15 +66,27 @@ export const SWEEP_SELF_FILES = new Set([
  *  examples by saying they "are in the implementation files too"; two of them
  *  were not, and had become so only BECAUSE THIS SENTENCE NAMED THEM. The
  *  conclusion held, for the other reason. Check candidates against `src`.
- *  ★★★ NO NAMES AND NO TOTALS ARE QUOTED HERE, and both restrictions are load-
- *  bearing rather than stylistic. This file is swept by the gate it implements,
- *  so a repo symbol named in this docstring is vouched for by this docstring:
- *  delete it from `src` later and its stale register claim reports the
- *  swallowed SELF_EXCLUDED instead of the actionable MISSING — the exact
+ *  ★★★ NO REPO SYMBOL AND NO TOTAL IS QUOTED HERE, and both restrictions are
+ *  load-bearing rather than stylistic. This file is swept by the gate it
+ *  implements, so a repo symbol named in this docstring is vouched for by this
+ *  docstring: delete it from `src` later and its stale register claim reports
+ *  the swallowed SELF_EXCLUDED instead of the actionable MISSING — the exact
  *  delayed, silent failure described two paragraphs above. And every total here
  *  moves with the fixture, so one written into the same commit that edits the
- *  fixture is stale on arrival; the last pair was. Read today's figures with:
- *    node --input-type=module -e "import path from'node:path';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FILES,SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const f=[...SWEEP_SELF_FIXTURES][0];const ids=x=>{const s=new Set();collectIdentifiersFromFiles([x],s,new Set());return s};const tree=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,tree,SWEEP_SELF_FILES);const q=[...ids(f)].filter(isGatedSymbolName);const impl=new Set([...SWEEP_SELF_FILES].filter(x=>x!==f).flatMap(x=>[...ids(x)]));console.log('gated',q.length,'inTree',q.filter(n=>tree.has(n)).length,'fixtureOnly',q.filter(n=>!impl.has(n)).length)"
+ *  fixture is stale on arrival; the last pair was.
+ *  ★★ THE RULE IS ABOUT REPO SYMBOLS, NOT ABOUT THIS MODULE'S OWN API — the
+ *  command below necessarily spells the collectors and constants it calls, and
+ *  an earlier wording said "NO NAMES", which the command on the next line
+ *  contradicts. Those names are declared HERE; naming them vouches for nothing
+ *  that was not already true. A name from `src`, or one that lives only in a
+ *  gate-self file, is the thing that must never appear.
+ *  ★★★ AND IT PRINTS THE SURFACE, NOT THE THREE FIGURES A READER MIGHT PICK
+ *  FROM. The first cut printed a gated total, an in-tree total and a
+ *  "fixture-only" total, none of which is the surface — the middle one counts
+ *  names that cannot move because `src` holds them, and the last one subtracts
+ *  only the two implementation files, over-reporting roughly threefold. The
+ *  surface is the names findable NOWHERE the sweep can otherwise see:
+ *    node --input-type=module -e "import{readdirSync}from'node:fs';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const f=[...SWEEP_SELF_FIXTURES][0];const q=new Set();collectIdentifiersFromFiles([f],q,new Set());const seen=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,seen,SWEEP_SELF_FIXTURES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),seen,SWEEP_SELF_FIXTURES);console.log('SURFACE',[...q].filter(isGatedSymbolName).filter(n=>!seen.has(n)).length)"
  *
  *  ★★ So the CLI excludes this file from `withSelf` as well as from
  *  `knownSymbols`: absent from both, a fixture-only name reports SYMBOL_MISSING.
@@ -83,8 +95,10 @@ export const SWEEP_SELF_FILES = new Set([
  *  SELF_EXCLUDED sends nobody anywhere. */
 export const SWEEP_SELF_FIXTURES = new Set([path.join(HERE, "followup-claims-lib.test.mjs")]);
 
-/** The directories both symbol sweeps walk, in one place so the two passes
- *  cannot disagree about scope. */
+/** The directories BOTH symbol sweeps walk. Consulted by the known-symbol pass
+ *  in `check-followup-claims.mjs` and by the self-excluded pass below, so the
+ *  two cannot disagree about scope — an earlier revision claimed that while the
+ *  known-symbol pass still held its own array literal. */
 export const SWEEP_DIRS = ["src", "scripts", "e2e"];
 
 /** The `withSelf` pass and its set difference, extracted from the CLI so the
@@ -102,10 +116,21 @@ export const SWEEP_DIRS = ["src", "scripts", "e2e"];
  *  a tree in which a name lives ONLY in the fixture — the single input that
  *  separates the correct exclusion from the empty one. Nothing drawn from the
  *  real tree can: every fixture name that matters is also in `src`.
+ *  ★★ THE ROOT-FILE CALL IS INERT TODAY AND IS KEPT ANYWAY. Both root passes
+ *  scan the identical file set and no sweep-self file sits at the root, so every
+ *  identifier it adds is subtracted again by the difference — deleting it
+ *  changes no output. It is here for the day one of those two facts stops
+ *  holding, and it is pinned by a test for the same reason: an inert call with
+ *  no test is indistinguishable from a deleted one.
  *
  *  ★ The catch keeps the CLI's posture, not the blocking gate's: this is a
- *  REPORTING tool, so an unreadable directory OR file degrades the report
- *  rather than stopping it. Do not copy this into a gate. */
+ *  REPORTING tool, so an unreadable DIRECTORY degrades the report rather than
+ *  stopping it. Do not copy this into a gate.
+ *  ★★ SCOPED TO THE DIRECTORY WALK, and an earlier wording said "directory OR
+ *  file", which the code does not do: the root-file call below sits OUTSIDE the
+ *  try and PROPAGATES. That asymmetry is inherited verbatim from the inline
+ *  version this replaced, so it is a faithful move — but do not read the
+ *  swallow as covering both. */
 export function buildSelfExcludedSymbols({
   knownSymbols,
   rootFiles,
