@@ -78,8 +78,10 @@ function buildCsp(nonce: string): string {
     // 'self' does NOT match a blob: URL. Without this every document image is
     // blocked ("Loading the image 'blob:http://…' violates … img-src"), in dev
     // and prod alike (IS_DEV branches only script/style, never img-src).
-    // Nothing automated catches a regression here: jsdom enforces no CSP and no
-    // e2e spec touches document assets — the proxy unit test is the only guard.
+    // jsdom enforces no CSP, so the unit suite is structurally blind here. The
+    // real guard is e2e/documents-images.spec.ts, which renders a seeded image
+    // and asserts naturalWidth > 0 — presence and a set src BOTH pass under the
+    // bug, so only a decode check can see it.
     // ★ object-src 'none' below remains the guard against the usual blob:
     // escalation (a blob: <object>/<embed> executing as a document); img-src
     // can only ever decode an image.
