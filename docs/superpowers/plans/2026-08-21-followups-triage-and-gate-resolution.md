@@ -935,14 +935,34 @@ describe("SYMBOL_THIRD_PARTY", () => {
     const e2 = { ...env, knownSymbols: new Set(["asyncWrapper"]) };
     expect(classify(entry(["`asyncWrapper` here."]), e2).problems).toEqual([]);
   });
+
+  // ★★★ THE ORDER OF THE TERNARY IS LOAD-BEARING AND THIS IS THE ONLY TEST THAT
+  // PINS IT. Every allowlisted name is ALSO self-excluded in the real run, because
+  // the allowlist's own literal keys live in `followup-claims-lib.mjs` — a
+  // `SWEEP_SELF_FILES` member — and nowhere else in the tree. So `withSelf` holds
+  // them, `knownSymbols` does not, and the set difference claims all four. Check
+  // self-exclusion first and the map can NEVER fire: measured, `SYMBOL_THIRD_PARTY`
+  // did not appear in the tally at all and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+  // ★★ The other four tests in this block all pass under EITHER order, because
+  // their `env` sets `selfExcludedSymbols` to an empty set. Only an env where a
+  // name is in BOTH sets can tell the two apart — which is the real run's shape.
+  it("prefers third-party over self-excluded when a name is in both", () => {
+    const e2 = { ...env, selfExcludedSymbols: new Set(["asyncWrapper"]) };
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), e2);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+  });
 });
 ```
 
-- [ ] **Step B2: Run it, confirm the first and third fail**
+- [ ] **Step B2: Run it, confirm which fail**
 
 ```bash
 npx vitest run scripts/followup-claims-lib.test.mjs -t "SYMBOL_THIRD_PARTY"
 ```
+
+Expected: the **first** and the **last** fail (`labels a known upstream symbol as third-party`, and `prefers third-party over self-excluded when a name is in both`). The middle three pass already, and that is correct — they describe behaviour the current code has.
+
+★ An earlier revision of this line predicted "the first and third", which is wrong: `does not hide a real SYMBOL_MISSING behind itself` passes before the change too, because both names classify as `SYMBOL_MISSING` either way, so the verdict is `SYMBOL_MISSING` regardless. Measured, not reasoned.
 
 - [ ] **Step B3: Implement**
 
@@ -977,10 +997,24 @@ Then extend the `if (!present)` branch in `classify` so all three cases are chos
       // sweep is forbidden to look (SWEEP_SELF_FILES), the name belongs to a
       // package rather than to us, or it is genuinely gone. Only the last is
       // actionable — and collapsing any of the others into CLEAN would be worse.
-      const kind = env.selfExcludedSymbols?.has(s)
-        ? "SYMBOL_SELF_EXCLUDED"
-        : THIRD_PARTY_SYMBOLS.has(s)
-          ? "SYMBOL_THIRD_PARTY"
+      // ★★★ THIRD-PARTY IS TESTED FIRST AND THE ORDER IS NOT COSMETIC. Every name
+      // in `THIRD_PARTY_SYMBOLS` is ALSO self-excluded, necessarily and by
+      // construction: the map's own literal keys sit in this file, which is a
+      // `SWEEP_SELF_FILES` member, and they appear nowhere else in the tree —
+      // that is precisely why they were unfindable. So `withSelf` holds them,
+      // `knownSymbols` does not, and the set difference claims all four before
+      // the map is ever consulted. Testing self-exclusion first makes the map
+      // DEAD CODE. Measured 2026-08-21: `SYMBOL_THIRD_PARTY` was absent from the
+      // tally entirely and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+      // ★★ Third-party also happens to be the more specific claim — it names the
+      // owning package — so it should outrank "appears only in our own files"
+      // even where both are true. Pinned by "prefers third-party over
+      // self-excluded when a name is in both"; the block's other tests pass under
+      // either order and cannot catch a regression here.
+      const kind = THIRD_PARTY_SYMBOLS.has(s)
+        ? "SYMBOL_THIRD_PARTY"
+        : env.selfExcludedSymbols?.has(s)
+          ? "SYMBOL_SELF_EXCLUDED"
           : "SYMBOL_MISSING";
       problems.push({ kind, detail: s });
 ```
