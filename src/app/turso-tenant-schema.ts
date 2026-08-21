@@ -16,7 +16,7 @@
 
 import {
   ENTITY_SPECS, PLAN_COLUMNS, FX_COLUMNS, rowObjects, TABLE_NAMES,
-  type SqlStmt, type PipelineResultLike,
+  type SqlStmt, type PipelineResultLike, type EntityIdKind,
 } from "./turso-schema";
 import { hasAnyOverride } from "./settings-overrides";
 import {
@@ -40,11 +40,17 @@ export interface ProjectListEntry {
 
 // --- DDL ------------------------------------------------------------------
 
-/** Like colDdl but renders `id` as a plain INTEGER (no single-column PK) so the
- *  composite PRIMARY KEY (id, project_id) can make ids unique PER PROJECT in the
- *  shared multi-tenant DB. */
-function tenantColDdl(columns: readonly string[]): string {
-  return columns.map((c) => (c === "id" ? "id INTEGER" : `"${c}" TEXT`)).join(", ");
+/** Like colDdl but renders `id` without a single-column PK, so the composite
+ *  PRIMARY KEY (id, project_id) can make ids unique PER PROJECT in the shared
+ *  multi-tenant DB. The spec's `idKind` still selects INTEGER vs TEXT: plain
+ *  affinity is NOT type-enforced by SQLite (a uuid stores fine in an `id
+ *  INTEGER` column here), but the declared type must still describe what the
+ *  entity mints — and it is the same flag that decides the Hrana arg type in
+ *  tenantInsert, where a uuid under `{type:"integer"}` is a wire-protocol
+ *  violation rather than a storage one. */
+function tenantColDdl(columns: readonly string[], idKind: EntityIdKind = "integer"): string {
+  const idDdl = idKind === "text" ? "id TEXT" : "id INTEGER";
+  return columns.map((c) => (c === "id" ? idDdl : `"${c}" TEXT`)).join(", ");
 }
 
 export function tenantSchemaDdl(): string[] {
@@ -52,7 +58,7 @@ export function tenantSchemaDdl(): string[] {
   for (const s of ENTITY_SPECS) {
     const hasId = s.columns.includes("id");
     const pk = hasId ? ", PRIMARY KEY (id, project_id)" : "";
-    out.push(`CREATE TABLE IF NOT EXISTS ${s.table} (${tenantColDdl(s.columns)}, project_id TEXT${pk})`);
+    out.push(`CREATE TABLE IF NOT EXISTS ${s.table} (${tenantColDdl(s.columns, s.idKind)}, project_id TEXT${pk})`);
   }
   out.push(`CREATE TABLE IF NOT EXISTS plan (${PLAN_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")}, project_id TEXT)`);
   out.push(`CREATE TABLE IF NOT EXISTS fx_rates (${FX_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")}, project_id TEXT)`);
@@ -76,12 +82,18 @@ export function tenantSelectStatements(projectId: string): SqlStmt[] {
 
 // --- INSERT helpers -------------------------------------------------------
 
-function tenantInsert(table: string, columns: readonly string[], values: string[], projectId: string): SqlStmt {
+function tenantInsert(
+  table: string,
+  columns: readonly string[],
+  values: string[],
+  projectId: string,
+  idKind: EntityIdKind = "integer",
+): SqlStmt {
   const cols = [...columns, "project_id"];
   const colList = cols.map((c) => `"${c}"`).join(", ");
   const placeholders = cols.map(() => "?").join(", ");
   const args = [
-    ...columns.map((c, i) => (c === "id" ? { type: "integer" as const, value: values[i] } : text(values[i]))),
+    ...columns.map((c, i) => (c === "id" && idKind !== "text" ? { type: "integer" as const, value: values[i] } : text(values[i]))),
     text(projectId),
   ];
   return { sql: `INSERT INTO ${table} (${colList}) VALUES (${placeholders})`, args };
@@ -105,7 +117,7 @@ export function tenantWorkspaceToStatements(ws: Workspace, projectId: string, di
   for (const s of ENTITY_SPECS) {
     if (!isDirty(s.table)) continue;
     for (const e of s.get(ws)) {
-      out.push(tenantInsert(s.table, s.columns, s.columns.map((c) => s.toRow(e, c)), projectId));
+      out.push(tenantInsert(s.table, s.columns, s.columns.map((c) => s.toRow(e, c)), projectId, s.idKind));
     }
   }
   if (isDirty("plan")) {
