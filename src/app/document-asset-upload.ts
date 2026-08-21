@@ -51,3 +51,131 @@ export function checkUploadCandidate(file: Pick<File, "type" | "size">): Candida
   if (file.size > ASSET_RAW_MAX_BYTES) return { ok: false, reason: "tooLargeRaw" };
   return { ok: true };
 }
+
+export interface PixelSize { width: number; height: number }
+
+const PNG_SIG = [0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a];
+
+/** Dimensions from the file HEADER, without decoding a single pixel. Returns
+ *  null when the header is truncated, the signature does not match, or the
+ *  format is one this reader does not parse — the CALLER decides what null
+ *  means, and checkHeaderDimensions treats it as a rejection. */
+export function readHeaderDimensions(bytes: Uint8Array, mime: string): PixelSize | null {
+  if (mime === "image/png") {
+    if (bytes.length < 24) return null;
+    if (!PNG_SIG.every((b, i) => bytes[i] === b)) return null;
+    const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+    const width = view.getUint32(16);
+    const height = view.getUint32(20);
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  if (mime === "image/jpeg") return readJpegDimensions(bytes);
+  if (mime === "image/webp") return readWebpDimensions(bytes);
+  return null;
+}
+
+// JPEG SOF markers that are frame headers vs. table-definition markers that
+// happen to fall in the SOF numeric range but carry no frame dimensions.
+const JPEG_SOF_EXCLUDED = new Set([0xc4, 0xc8, 0xcc]);
+
+/** ★★★ Rewritten from scratch — the plan's original readJpegDimensions had two
+ *  defects that would have shipped a wrong-but-plausible-looking parser:
+ *
+ *  1. It read a 2-byte length after EVERY marker byte. Several markers carry
+ *     NO length field at all — SOI/EOI, RST0-RST7, and TEM (0x01) — so
+ *     treating the bytes right after one of those as a length desynchronises
+ *     the entire walk and can silently skip past (or misread) the real SOF.
+ *  2. It did not skip 0xFF FILL bytes. A run of padding 0xFF bytes before a
+ *     real marker (`FF FF FF C0 …`) is legal; treating the first 0xFF as the
+ *     marker prefix and the second 0xFF as the marker BYTE misidentifies the
+ *     marker entirely.
+ *
+ *  This walk: treats SOI/RST0-7/TEM as standalone (advance 2, no length);
+ *  skips 0xFF fill runs so the marker byte is always the first non-0xFF after
+ *  them; stops at SOS (0xDA) since entropy-coded scan data follows and must
+ *  never be walked as markers; and never throws — every read is guarded by an
+ *  explicit bounds check first, so a truncated or malformed stream returns
+ *  null instead of indexing past the end. */
+function readJpegDimensions(bytes: Uint8Array): PixelSize | null {
+  if (bytes.length < 4 || bytes[0] !== 0xff || bytes[1] !== 0xd8) return null;
+  let i = 2;
+  while (i < bytes.length) {
+    if (bytes[i] !== 0xff) return null; // desynchronised — malformed stream
+
+    // Skip 0xFF fill bytes: p ends on the LAST 0xFF of the run, so bytes[p+1]
+    // is the real marker byte.
+    let p = i;
+    while (p + 1 < bytes.length && bytes[p + 1] === 0xff) p++;
+    if (p + 1 >= bytes.length) return null; // truncated: no marker byte follows
+    const marker = bytes[p + 1];
+
+    // Standalone markers carry no length field at all.
+    if (marker === 0xd9 || marker === 0x01 || (marker >= 0xd0 && marker <= 0xd7)) {
+      i = p + 2;
+      continue;
+    }
+    // SOS: entropy-coded scan data follows: stop walking markers.
+    if (marker === 0xda) return null;
+
+    // Every other marker carries a 2-byte big-endian length, counting itself,
+    // at offset +2/+3 from the (last) 0xFF.
+    if (p + 3 >= bytes.length) return null;
+    const len = (bytes[p + 2] << 8) | bytes[p + 3];
+    if (len < 2) return null;
+
+    const isSof = marker >= 0xc0 && marker <= 0xcf && !JPEG_SOF_EXCLUDED.has(marker);
+    if (isSof) {
+      // Frame header: precision(1) height(2) width(2) starting right after
+      // the length field — height at +5, width at +7 relative to the 0xFF.
+      if (p + 8 >= bytes.length) return null; // truncated SOF segment
+      const height = (bytes[p + 5] << 8) | bytes[p + 6];
+      const width = (bytes[p + 7] << 8) | bytes[p + 8];
+      return width > 0 && height > 0 ? { width, height } : null;
+    }
+
+    i = p + 2 + len; // skip the FF+marker pair, then the segment body (len
+                      // already counts the length field itself)
+  }
+  return null;
+}
+
+/** WebP: RIFF container. Offsets verified against RFC 6386 §9.1 (VP8 lossy
+ *  frame header) and the WebP Lossless Bitstream Format spec (VP8L) — the
+ *  30-byte floor covers every branch's furthest read regardless of which
+ *  chunk is present, and the RIFF chunk-size field is deliberately unused
+ *  (this reader only needs to reach the fixed-offset dimension fields). */
+function readWebpDimensions(bytes: Uint8Array): PixelSize | null {
+  if (bytes.length < 30) return null;
+  const tag = String.fromCharCode(...bytes.slice(0, 4));
+  const webp = String.fromCharCode(...bytes.slice(8, 12));
+  if (tag !== "RIFF" || webp !== "WEBP") return null;
+  const chunk = String.fromCharCode(...bytes.slice(12, 16));
+  const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+  if (chunk === "VP8X") {
+    const width = 1 + (bytes[24] | (bytes[25] << 8) | (bytes[26] << 16));
+    const height = 1 + (bytes[27] | (bytes[28] << 8) | (bytes[29] << 16));
+    return { width, height };
+  }
+  if (chunk === "VP8 ") {
+    const width = view.getUint16(26, true) & 0x3fff;
+    const height = view.getUint16(28, true) & 0x3fff;
+    return width > 0 && height > 0 ? { width, height } : null;
+  }
+  if (chunk === "VP8L") {
+    const b = view.getUint32(21, true);
+    const width = 1 + (b & 0x3fff);
+    const height = 1 + ((b >> 14) & 0x3fff);
+    return { width, height };
+  }
+  return null;
+}
+
+/** ★★ null is a REJECTION, not a pass. Treating an unreadable header as
+ *  acceptable would make the bomb guard bypassable by corrupting one byte. */
+export function checkHeaderDimensions(size: PixelSize | null): CandidateResult {
+  if (!size) return { ok: false, reason: "decode" };
+  if (size.width > ASSET_MAX_SOURCE_DIM || size.height > ASSET_MAX_SOURCE_DIM) {
+    return { ok: false, reason: "dimensions" };
+  }
+  return { ok: true };
+}
