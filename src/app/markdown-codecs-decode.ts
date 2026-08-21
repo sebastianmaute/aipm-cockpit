@@ -117,6 +117,16 @@ function splitMarkdownSections(md: string): {
   const changesLines: string[] = [];
   const stakeholdersLines: string[] = [];
   const projectLines: string[] = [];
+  // Absorbs sections that are read via their own whole-md fenced-json regex
+  // scan (markdownToDocuments/markdownToDocumentVersions/markdownToActivityLog,
+  // plus fieldVisibility/functions/steeringCommittee/timelogLinks/
+  // settingsOverrides/knowledgeItems/insights below) rather than via a split
+  // section — this array is never read back. The three explicit stop-rules
+  // just below exist ONLY to make "## Documents" / "## Document versions" /
+  // "## Activity Log" STOP whatever table section is currently accumulating,
+  // never to route their lines anywhere real. See the comment on the "##
+  // Document Assets" rule for why this matters now.
+  const ignoredLines: string[] = [];
   let target = tasksLines;
   for (const line of lines) {
     const trimmed = line.trim();
@@ -131,6 +141,21 @@ function splitMarkdownSections(md: string): {
     // "Document", so this rule cannot capture either and neither of theirs
     // (there are none here) can capture this one.
     if (/^##\s+Document\s+Assets\b/i.test(trimmed)) { target = documentAssetsLines; continue; }
+    // Emit order puts documents -> documentVersions -> documentAssets ->
+    // activityLog, and documentAssetsLines is a REAL table section a
+    // decodeMdTable call reads. Without a stop-rule here, "## Activity Log"'s
+    // fenced JSON blob (the section immediately after documentAssets) would
+    // keep accumulating into documentAssetsLines — harmless today only
+    // because JSON.stringify escapes every embedded newline as the two
+    // characters \ and n, so no blob line can ever start with "|" and
+    // markdownTableToObjects's row scan skips it. That safety is an
+    // accidental property of the escaping, not an enforced invariant, so
+    // these three headings get explicit stop-rules routing to the inert
+    // ignoredLines sink — mirroring the "## Document Assets" rule above, but
+    // to nowhere, since each is already read via its own whole-md regex scan.
+    if (/^##\s+Documents\b/i.test(trimmed)) { target = ignoredLines; continue; }
+    if (/^##\s+Document\s+versions\b/i.test(trimmed)) { target = ignoredLines; continue; }
+    if (/^##\s+Activity\s+Log\b/i.test(trimmed)) { target = ignoredLines; continue; }
     if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
     if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
     if (/^#\s+Roles\b/i.test(trimmed)) { target = rolesLines; target.push(line); continue; }

@@ -223,6 +223,42 @@ describe("documentAssets Markdown", () => {
     expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Document Assets");
   });
 
+  it("emits no Document Assets section for an explicit empty array", () => {
+    // ★ Pins the non-empty half of the emit gate (`ws.documentAssets.length`
+    //   in markdown-codecs-core.ts's workspaceToMarkdown). emptyWorkspace()
+    //   leaves documentAssets UNDEFINED, so the test above only ever
+    //   exercises the `ws.documentAssets &&` half of that guard — a mutant
+    //   dropping `.length` would leave a bare truthiness check, and `[]` is
+    //   truthy in JS, so it would wrongly emit an empty "## Document Assets"
+    //   section here while the test above stayed green. Same shape as the
+    //   CSV/JSON guard closed in 523c5e7d, applied to Markdown.
+    const ws = { ...emptyWorkspace(), documentAssets: [] } as Workspace;
+    expect(workspaceToMarkdown(ws)).not.toContain("## Document Assets");
+  });
+
+  it("round-trips a name with a pipe, a literal backslash, and non-ASCII characters", () => {
+    // The calendarEvents precedent (same row-table shape, describe block
+    // above) carries an equivalent "pipe + backslash" test; DocumentAsset.name
+    // is comparably free text (a user-editable display name), so it needs the
+    // same coverage, plus a German umlaut and a non-BMP emoji.
+    const weird = {
+      ...asset,
+      id: "a2",
+      name: "München chart | \\draft\\ v2 füße 😀.png",
+    };
+    // Verify the fixture itself before trusting the round-trip — a
+    // heredoc-authored fixture can silently collapse a backslash (see the
+    // calendarEvents test's own note on this).
+    expect(weird.name).toContain("\\");
+    expect(weird.name).toContain("|");
+    expect(weird.name).toContain("ü");
+    expect(weird.name).toContain("😀");
+
+    const ws = { ...emptyWorkspace(), documentAssets: [weird] };
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.documentAssets?.[0]).toEqual(weird);
+  });
+
   it("is STORAGE-ONLY: present without a config, absent with one", () => {
     // ★ documentAssets is not (and should not become) an ExportSectionKey — it
     //   is internal metadata backing `<img data-asset-id>` references inside
@@ -234,5 +270,54 @@ describe("documentAssets Markdown", () => {
     const ws = { ...emptyWorkspace(), documentAssets: [asset] } as Workspace;
     expect(workspaceToMarkdown(ws)).toContain("## Document Assets");
     expect(workspaceToMarkdown(ws, defaultExportConfig)).not.toContain("## Document Assets");
+  });
+});
+
+describe("documentAssets section does not swallow a trailing section's lines", () => {
+  // Emit order is documents -> documentVersions -> documentAssets ->
+  // activityLog (markdown-codecs-core.ts's workspaceToMarkdown). Before
+  // markdown-codecs-decode.ts's splitMarkdownSections grew explicit
+  // stop-rules for "## Documents" / "## Document versions" / "## Activity
+  // Log", NONE of those three headings were recognized — so their lines fell
+  // through into whichever table section was currently accumulating, and
+  // since documentAssets is the section immediately BEFORE activityLog in
+  // emit order, that meant activityLog's fenced JSON blob kept piling into
+  // documentAssetsLines.
+  const asset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+  const log = [
+    { id: "dev1-s1-1", timestamp: "2026-08-01T00:00:00.000Z", kind: "task.created" as const, args: ["T-1"] },
+  ];
+
+  it("round-trips documentAssets and a non-empty activityLog together", () => {
+    // ★ This is the realistic shape (real workspaceToMarkdown output) and
+    //   does round-trip correctly either way — see the adversarial test
+    //   below for WHY it cannot, by itself, prove the stop-rules are doing
+    //   anything. It stays here as real-world regression coverage.
+    const ws = { ...emptyWorkspace(), documentAssets: [asset], activityLog: log } as Workspace;
+    const back = markdownToWorkspace(workspaceToMarkdown(ws));
+    expect(back.documentAssets).toEqual([asset]);
+    expect(back.activityLog).toEqual(log);
+  });
+
+  it("does not decode a stray pipe-row from a following unrecognized section as a document asset", () => {
+    // ★★ The test above CANNOT catch a missing stop-rule: JSON.stringify
+    //   escapes every embedded newline as the two characters \ and n, so no
+    //   line inside an activityLog (or documents/documentVersions) JSON blob
+    //   can ever start with "|", and markdownTableToObjects's row scan skips
+    //   any line that doesn't. That is exactly the "accidental property, not
+    //   an enforced invariant" the review flagged — a future HAND-WRITTEN
+    //   blob writer (not today's JSON.stringify one) could still produce a
+    //   line starting with "|". This test simulates that directly: it
+    //   appends an unrecognized "## Activity Log" heading followed by a
+    //   stray pipe-row to real documentAssets markdown, without going through
+    //   activityLogToMarkdown at all, and asserts that row is NOT decoded as
+    //   a second (garbage) document asset.
+    const assetsMd = workspaceToMarkdown({ ...emptyWorkspace(), documentAssets: [asset] });
+    const poisoned = `${assetsMd}\n## Activity Log\n\n| fake | not | a | real | row |\n`;
+    const back = markdownToWorkspace(poisoned);
+    expect(back.documentAssets).toEqual([asset]);
   });
 });
