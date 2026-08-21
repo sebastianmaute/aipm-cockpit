@@ -40,6 +40,7 @@ import {
   type Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 import type { ExportConfig } from "./settings-types";
 import { EXPORT_SECTION_KEYS } from "./settings-types";
 import { type Workspace, sanitizeProjectStatus } from "./workspace";
@@ -57,6 +58,7 @@ import {
   buildStakeholderFromObj,
   calendarEventFieldToString,
   changeFieldToString,
+  documentAssetFieldToString,
   encodeRatesMap,
   fieldToString,
   milestoneFieldToString,
@@ -71,6 +73,7 @@ import {
   RAID_MD_COLUMNS,
   ABSENCES_MD_COLUMNS,
   EVENTS_MD_COLUMNS,
+  DOCUMENT_ASSETS_MD_COLUMNS,
   SHIFTS_MD_COLUMNS,
   RESOURCES_MD_COLUMNS,
   ROLES_MD_COLUMNS,
@@ -442,6 +445,26 @@ function calendarEventsToMarkdown(events: readonly CalendarEvent[]): string {
   return lines.join("\n") + "\n";
 }
 
+// Row-table shape, same as calendarEventsToMarkdown just above — NOT the
+// fenced-json blob shape documentsToMarkdown/documentVersionsToMarkdown/
+// activityLogToMarkdown use (those hold a whole document/version/entry list
+// per blob; asset metadata is one row per asset, matching calendarEvents).
+// Reuses documentAssetFieldToString (csv-codecs-core.ts, via the ./csv-codecs
+// barrel) rather than re-deriving cell values, so CSV and Markdown cannot
+// drift on what a column contains. Bytes never appear here — only metadata.
+function documentAssetsToMarkdown(assets: readonly DocumentAsset[]): string {
+  const header = `| ${DOCUMENT_ASSETS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
+  const sep = `| ${DOCUMENT_ASSETS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
+  const lines = ["## Document Assets", "", header, sep];
+  for (const a of assets) {
+    const row = DOCUMENT_ASSETS_MD_COLUMNS.map((c) =>
+      mdEscape(documentAssetFieldToString(a, c.key)),
+    ).join(" | ");
+    lines.push(`| ${row} |`);
+  }
+  return lines.join("\n") + "\n";
+}
+
 function shiftsToMarkdown(shifts: readonly Shift[]): string {
   const header = `| ${SHIFTS_MD_COLUMNS.map((c) => c.label).join(" | ")} |`;
   const sep = `| ${SHIFTS_MD_COLUMNS.map(() => "---").join(" | ")} |`;
@@ -668,6 +691,18 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // existed (the golden fixtures pin those bytes).
   if (config === undefined && ws.documentVersions && ws.documentVersions.length)
     mdParts.push(documentVersionsToMarkdown(ws.documentVersions));
+  // Document asset metadata — STORAGE-ONLY, same `config === undefined` gate
+  // as documents/documentVersions above, deliberately NOT an
+  // `enabled("documentAssets")` call like calendarEvents uses: documentAssets
+  // is not (and should not become) an ExportSectionKey — it is internal
+  // metadata backing `<img data-asset-id>` references inside document blocks,
+  // not user-facing content a document export would ever want to include (see
+  // the identical deviation note in csv-codecs-config.ts). Row-table SHAPE
+  // mirrors calendarEvents; gating mirrors documents/documentVersions/
+  // activityLog. Emitted only when present, so an asset-less workspace
+  // serializes byte-for-byte as it did before the field existed.
+  if (config === undefined && ws.documentAssets && ws.documentAssets.length)
+    mdParts.push(documentAssetsToMarkdown(ws.documentAssets));
   // Activity log — STORAGE-ONLY, same gate as documents/documentVersions above:
   // an entry's `changes` is an internal audit trail, not a user-facing export.
   // Emitted only when present, so a log-less workspace serializes byte-for-byte

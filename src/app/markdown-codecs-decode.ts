@@ -42,10 +42,12 @@ import {
   type Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import {
   type ImportDiag,
   buildCalendarEventFromObj,
+  buildDocumentAssetFromObj,
   buildRaidItemFromObj,
   decodeRatesMap,
   parseHealthOverride,
@@ -70,7 +72,7 @@ import {
   mdUnescape,
   splitMdRow,
 } from "./markdown-codecs-core";
-import { EVENTS_MD_COLUMNS } from "./markdown-columns";
+import { EVENTS_MD_COLUMNS, DOCUMENT_ASSETS_MD_COLUMNS } from "./markdown-columns";
 
 /**
  * Splits a workspace markdown into its entity sections by heading.
@@ -81,6 +83,7 @@ function splitMarkdownSections(md: string): {
   raidMd: string;
   absencesMd: string;
   calendarEventsMd: string;
+  documentAssetsMd: string;
   shiftsMd: string;
   resourcesMd: string;
   rolesMd: string;
@@ -100,6 +103,7 @@ function splitMarkdownSections(md: string): {
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
   const calendarEventsLines: string[] = [];
+  const documentAssetsLines: string[] = [];
   const shiftsLines: string[] = [];
   const resourcesLines: string[] = [];
   const rolesLines: string[] = [];
@@ -120,6 +124,13 @@ function splitMarkdownSections(md: string): {
     if (/^#\s+AIPM\s+Tasks\b/i.test(trimmed)) { target = tasksLines; target.push(line); continue; }
     if (/^#\s+Absences\b/i.test(trimmed)) { target = absencesLines; target.push(line); continue; }
     if (/^##\s+Calendar\s+Events\b/i.test(trimmed)) { target = calendarEventsLines; continue; }
+    // "## Document Assets" diverges from "## Documents" and "## Document
+    // versions" (the two fenced-json sections, which splitMarkdownSections
+    // does not recognize at all — see markdownToDocuments/
+    // markdownToDocumentVersions's whole-md scan) at the word after
+    // "Document", so this rule cannot capture either and neither of theirs
+    // (there are none here) can capture this one.
+    if (/^##\s+Document\s+Assets\b/i.test(trimmed)) { target = documentAssetsLines; continue; }
     if (/^#\s+Shifts\b/i.test(trimmed)) { target = shiftsLines; target.push(line); continue; }
     if (/^#\s+Resources\b/i.test(trimmed)) { target = resourcesLines; target.push(line); continue; }
     if (/^#\s+Roles\b/i.test(trimmed)) { target = rolesLines; target.push(line); continue; }
@@ -140,6 +151,7 @@ function splitMarkdownSections(md: string): {
     raidMd: raidLines.join("\n"),
     absencesMd: absencesLines.join("\n"),
     calendarEventsMd: calendarEventsLines.join("\n"),
+    documentAssetsMd: documentAssetsLines.join("\n"),
     shiftsMd: shiftsLines.join("\n"),
     resourcesMd: resourcesLines.join("\n"),
     rolesMd: rolesLines.join("\n"),
@@ -179,6 +191,17 @@ const EVENTS_MD_ALIASES: Record<string, string> = Object.fromEntries(
 
 function markdownToCalendarEvents(md: string, diag?: ImportDiag): CalendarEvent[] {
   return decodeMdTable(md, EVENTS_MD_ALIASES, buildCalendarEventFromObj, diag);
+}
+
+/** Derived from DOCUMENT_ASSETS_MD_COLUMNS (markdown-columns.ts), same
+ *  pattern as EVENTS_MD_ALIASES just above — a hand-written alias map is how
+ *  the encoder's labels and the decoder's lookups drift apart. */
+const DOCUMENT_ASSETS_MD_ALIASES: Record<string, string> = Object.fromEntries(
+  DOCUMENT_ASSETS_MD_COLUMNS.map((c) => [c.label.toLowerCase().replace(/\s+/g, ""), c.key as string]),
+);
+
+function markdownToDocumentAssets(md: string, diag?: ImportDiag): DocumentAsset[] {
+  return decodeMdTable(md, DOCUMENT_ASSETS_MD_ALIASES, buildDocumentAssetFromObj, diag);
 }
 
 const SHIFT_ALIASES: Record<string, string> = {
@@ -359,6 +382,16 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
   // never look like a table row.
   const docVersions = markdownToDocumentVersions(md, diag);
   if (docVersions) ws.documentVersions = docVersions;
+  // Assign only when the decoded list is non-empty — same "stay free of the
+  // key" shape as documents/documentVersions above (and as the CSV codec's
+  // csvToDocumentAssets), so an asset-less workspace round-trips without ever
+  // gaining a `documentAssets` key. Row-table decode, unlike the two
+  // fenced-json ones above — reads its own split section rather than
+  // scanning the whole `md`.
+  if (s.documentAssetsMd.trim()) {
+    const assets = markdownToDocumentAssets(s.documentAssetsMd, diag);
+    if (assets.length) ws.documentAssets = assets;
+  }
   const so = markdownToSettingsOverrides(md);
   if (so) ws.settingsOverrides = so;
   // Whole-md scan, same shape as documents/documentVersions above: "## Activity

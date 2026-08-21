@@ -205,3 +205,34 @@ describe("activity log markdown", () => {
     expect(workspaceToMarkdown(ws, defaultExportConfig)).not.toContain("## Activity Log");
   });
 });
+
+describe("documentAssets Markdown", () => {
+  const asset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+
+  it("round-trips an asset through the Markdown codec", () => {
+    const md = workspaceToMarkdown({ ...emptyWorkspace(), documentAssets: [asset] });
+    expect(md).toContain("## Document Assets");
+    const back = markdownToWorkspace(md);
+    expect(back.documentAssets?.[0]).toEqual(asset);
+  });
+
+  it("emits no Document Assets section when there are none", () => {
+    expect(workspaceToMarkdown(emptyWorkspace())).not.toContain("## Document Assets");
+  });
+
+  it("is STORAGE-ONLY: present without a config, absent with one", () => {
+    // ★ documentAssets is not (and should not become) an ExportSectionKey — it
+    //   is internal metadata backing `<img data-asset-id>` references inside
+    //   document blocks, not user-facing content a document export would ever
+    //   want to include. Same `config === undefined` gate as documents /
+    //   documentVersions / activityLog above, deliberately NOT an
+    //   `enabled("documentAssets")` call. CSV pins the same invariant in
+    //   csv-codecs.test.ts.
+    const ws = { ...emptyWorkspace(), documentAssets: [asset] } as Workspace;
+    expect(workspaceToMarkdown(ws)).toContain("## Document Assets");
+    expect(workspaceToMarkdown(ws, defaultExportConfig)).not.toContain("## Document Assets");
+  });
+});
