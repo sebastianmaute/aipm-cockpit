@@ -10,6 +10,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { IDBFactory } from "fake-indexeddb";
 import type { ChangeItem, Milestone, RaidItem, Task } from "./types";
 import type { ActivityEntry } from "./activity-log";
+import type { DocumentAsset } from "./document-asset";
 
 const ctl = vi.hoisted(() => ({
   failStore: null as string | null,
@@ -40,7 +41,7 @@ vi.mock("./idb", async (importOriginal) => {
 
 import { BrowserBackend } from "./browser-backend";
 import type { FeatureModuleId } from "./feature-modules";
-import { IDB_RAID_STORE, IDB_TASKS_STORE } from "./idb";
+import { IDB_RAID_STORE, IDB_TASKS_STORE, idbGet, idbSet } from "./idb";
 import { emptyWorkspace } from "./workspace";
 
 const task = {
@@ -290,5 +291,58 @@ describe("BrowserBackend parallel IDB save/load", () => {
       expect(call.putIds).toEqual([]);
       expect(call.deleteIds).toEqual([]);
     }
+  });
+
+  // Nested so it inherits the outer beforeEach's fresh-IDB-per-test reset.
+  describe("documentAssets over IndexedDB", () => {
+    const asset: DocumentAsset = {
+      id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+      width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+    };
+
+    it("round-trips documentAssets through save and load", async () => {
+      const backend = new BrowserBackend();
+      await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
+      const back = await backend.load();
+      expect(back.documentAssets?.[0]).toEqual(asset);
+    });
+
+    it("leaves the key undefined when there are no assets", async () => {
+      const backend = new BrowserBackend();
+      await backend.save(emptyWorkspace());
+      expect((await backend.load()).documentAssets).toBeUndefined();
+    });
+
+    it("drops garbage rows on load rather than failing", async () => {
+      await idbSet("documentAssets", [asset, { name: "no id" }]);
+      expect((await new BrowserBackend().load()).documentAssets).toHaveLength(1);
+    });
+
+    // Proven gap in this slice: every emit/assign guard in the six write
+    // paths is `x && x.length`, and no prior test passed an EXPLICIT empty
+    // array — only undefined (emptyWorkspace() never sets documentAssets)
+    // or a non-empty list. A mutant dropping `.length` (bare truthiness of
+    // the array — `[]` is truthy in JS) passed every test on the other
+    // five paths until this shape was added there too. Seed a NON-empty
+    // save first so the test is meaningful: it fails against a backend
+    // that simply never writes the key, or against one that leaves a
+    // stale value in place.
+    //
+    // ★ Assert the RAW kv value via idbGet, NOT backend.load(): the load
+    // path's own "assets.length ? assets : undefined" collapse (a few
+    // lines up in browser-backend.ts) normalizes an empty array IN
+    // STORAGE back to `undefined` on every read regardless of whether the
+    // key was actually deleted or merely re-saved as `[]` — so a
+    // load()-only assertion here is structurally unable to distinguish
+    // the mutant from correct code (verified: it still passed with
+    // `.length` dropped from the save guard). Reading the stored value
+    // directly is the only observable that catches the stale-key bug.
+    it("deletes the stored key (not merely re-saves []) so raw storage cannot hold stale data", async () => {
+      const backend = new BrowserBackend();
+      await backend.save({ ...emptyWorkspace(), documentAssets: [asset] });
+      await backend.save({ ...emptyWorkspace(), documentAssets: [] });
+
+      expect(await idbGet("documentAssets")).toBeUndefined();
+    });
   });
 });
