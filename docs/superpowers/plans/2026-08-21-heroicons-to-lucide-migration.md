@@ -87,7 +87,7 @@ const EXPECTED: Record<string, string> = {
   ArrowsRightLeftIcon: "ArrowLeftRight",
   BackspaceIcon: "Delete",
   Bars2Icon: "Equal",
-  Bars3BottomLeftIcon: "AlignLeft",
+  Bars3BottomLeftIcon: "TextAlignStart",
   Bars3Icon: "Menu",
   BellIcon: "Bell",
   BoltIcon: "Zap",
@@ -126,7 +126,7 @@ const EXPECTED: Record<string, string> = {
   PlusIcon: "Plus",
   PresentationChartLineIcon: "Presentation",
   PrinterIcon: "Printer",
-  QuestionMarkCircleIcon: "CircleHelp",
+  QuestionMarkCircleIcon: "CircleQuestionMark",
   RectangleStackIcon: "Layers",
   ShieldCheckIcon: "ShieldCheck",
   SparklesIcon: "Sparkles",
@@ -233,7 +233,7 @@ export {
   // A Gantt drag handle. `Equal` reproduces today's two bars exactly;
   // `GripHorizontal` is lucide's idiomatic grip but draws dots — fidelity wins.
   EqualIcon as Bars2Icon,
-  AlignLeftIcon as Bars3BottomLeftIcon,
+  TextAlignStartIcon as Bars3BottomLeftIcon,
   MenuIcon as Bars3Icon,
   BellIcon,
   ZapIcon as BoltIcon,
@@ -272,7 +272,7 @@ export {
   PlusIcon,
   PresentationIcon as PresentationChartLineIcon,
   PrinterIcon,
-  CircleHelpIcon as QuestionMarkCircleIcon,
+  CircleQuestionMarkIcon as QuestionMarkCircleIcon,
   LayersIcon as RectangleStackIcon,
   ShieldCheckIcon,
   SparklesIcon,
@@ -303,9 +303,10 @@ Expected: `EXIT=0`, `Tests  73 passed` (4 named tests + 69 from `it.each`).
 Mutate one row and confirm the suite goes red — a test that cannot fail is worse than none.
 
 ```bash
-node -e "const f='src/app/icons.ts';const s=require('fs').readFileSync(f,'utf8');require('fs').writeFileSync(f,s.replace('ZapIcon as BoltIcon','BoltIcon,'))"
+cp src/app/icons.ts /tmp/icons.bak
+node -e "const f='src/app/icons.ts';const s=require('fs').readFileSync(f,'utf8');require('fs').writeFileSync(f,s.replace('ZapIcon as BoltIcon,','BoltIcon,'))"
 npx vitest run src/app/icons.test.ts > /tmp/t1m.log 2>&1; echo "MUTANT_EXIT=$?"
-git checkout -- src/app/icons.ts
+cp /tmp/icons.bak src/app/icons.ts; grep -c "ZapIcon as BoltIcon" src/app/icons.ts
 npx vitest run src/app/icons.test.ts > /tmp/t1r.log 2>&1; echo "REVERTED_EXIT=$?"
 ```
 

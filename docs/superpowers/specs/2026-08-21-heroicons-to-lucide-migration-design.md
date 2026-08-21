@@ -202,7 +202,7 @@ These six are judgment calls where fidelity and idiom disagree. Look at these fi
 | `ArrowsRightLeftIcon` | `ArrowLeftRightIcon` | 1 |
 | `BackspaceIcon` | `DeleteIcon` | 1 |
 | `Bars2Icon` | `EqualIcon` | 1 |
-| `Bars3BottomLeftIcon` | `AlignLeftIcon` | 1 |
+| `Bars3BottomLeftIcon` | `TextAlignStartIcon` | 1 |
 | `Bars3Icon` | `MenuIcon` | 1 |
 | `BellIcon` | `BellIcon` | 3 |
 | `BoltIcon` | `ZapIcon` | 2 |
@@ -241,7 +241,7 @@ These six are judgment calls where fidelity and idiom disagree. Look at these fi
 | `PlusIcon` | `PlusIcon` | 5 |
 | `PresentationChartLineIcon` | `PresentationIcon` | 1 |
 | `PrinterIcon` | `PrinterIcon` | 1 |
-| `QuestionMarkCircleIcon` | `CircleHelpIcon` | 2 |
+| `QuestionMarkCircleIcon` | `CircleQuestionMarkIcon` | 2 |
 | `RectangleStackIcon` | `LayersIcon` | 1 |
 | `ShieldCheckIcon` | `ShieldCheckIcon` | 1 |
 | `SparklesIcon` | `SparklesIcon` | 8 |
@@ -267,6 +267,31 @@ kebab-case helper had no digit boundary, so `Undo2Icon` was looked up as `undo2.
 three correct mappings. The fixed helper inserts a hyphen before a digit; re-verified, **all 69
 resolve**. Recorded because the failure mode — a validator's own defect read as a finding about the
 thing validated — is one this repo keeps paying for.
+
+★★★ **AND THE CHECK WAS STILL TOO WEAK, which the implementation found: a `.mjs` file EXISTING does
+not prove a name is CANONICAL, because a back-compat shim is a file too.** lucide 1.31 renamed two
+of the targets above and kept the old names as one-line re-exports with identical path data:
+
+| Written here as | Actually canonical | The shim |
+|---|---|---|
+| `AlignLeftIcon` | **`TextAlignStartIcon`** | `align-left.mjs` is `export { default } from './text-align-start.mjs'` |
+| `CircleHelpIcon` | **`CircleQuestionMarkIcon`** | `circle-help.mjs` is `export { default } from './circle-question-mark.mjs'` |
+
+Measured, not inferred: `AlignLeftIcon === TextAlignStartIcon` and
+`CircleHelpIcon === CircleQuestionMarkIcon` are both `true` — the same component object, so the
+GLYPH was never at risk and no visual review would ever have caught it. What was wrong was the
+spec's claim to be pinning canonical names. The two rows in §5.3 now carry the canonical targets.
+
+★★ Re-running the existence check with the shim test added finds **exactly these two** across all 69,
+so the rest of the table stands. Read the file, and let `displayName` be the arbiter:
+
+```bash
+grep -l "export { default } from" node_modules/lucide-react/dist/esm/icons/*.mjs
+```
+
+★ This is the THIRD defect in this slice's own instruments — the kebab bug above, a row-counting
+regex that also ignored digits, and now an existence check that could not see a shim. Each reported
+confidently. **An instrument's green is a claim about the instrument first.**
 
 ---
 
