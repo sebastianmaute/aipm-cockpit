@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DOCUMENT_ASSET_DATA_DDL, assetDataSelect, assetDataIdsSelect, assetDataUpsert,
-  assetDataDelete, rowsToAssetData,
+  assetDataDelete, rowsToAssetData, ASSET_PARTITION_FALLBACK,
 } from "./document-assets-schema";
 
 describe("document-assets-schema", () => {
@@ -65,5 +65,16 @@ describe("document-assets-schema", () => {
 
   it("returns an empty list for an undefined result rather than throwing", () => {
     expect(rowsToAssetData(undefined)).toEqual([]);
+  });
+
+  // ★★ The value is asserted as a LITERAL on purpose. `AssetDataRow.projectId`
+  //    documented `""` as the single-tenant key for as long as this feature has
+  //    existed and NO call site ever produced one, so bytes are keyed the way
+  //    this constant spells it and by nothing else. Changing it re-partitions
+  //    every library that has ever stored a byte, with no version marker on the
+  //    table to migrate behind — so it has to fail loudly here.
+  it("names one fallback partition key, and it is not the empty sentinel", () => {
+    expect(ASSET_PARTITION_FALLBACK).toBe("default");
+    expect(ASSET_PARTITION_FALLBACK).not.toBe("");
   });
 });

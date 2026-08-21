@@ -49,6 +49,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { htmlEscape } from "./download";
 import { ASSET_MIME_ALLOWED, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
 import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 
 /** ONE bag, house convention (AGENTS.md's `EntityCalendarProps` rule — "never
  *  five flat props") over the asset gate + byte-store scope + the live
@@ -101,7 +102,14 @@ export function DocumentsAssetSection({
   lang, assetPane, documents, structural, selected, isReadOnly,
 }: DocumentsAssetSectionProps) {
   const tursoConfig = assetPane?.tursoConfig ?? null;
-  const projectId = assetPane?.projectId ?? "default";
+  // ★★★ `||`, NOT `??` — a BLANK id must normalise to the fallback too, not
+  // open a second partition under "". `AssetDataRow.projectId`'s docstring
+  // claimed "" was the single-tenant key for as long as this feature has
+  // existed while no call site produced one; anything written by a caller
+  // following that claim would have been invisible to every session that
+  // resolves the key the way this line does. Normalising here is the seam that
+  // makes the corrected docstring TRUE rather than merely descriptive.
+  const projectId = assetPane?.projectId || ASSET_PARTITION_FALLBACK;
   const assets = assetPane?.assets ?? EMPTY_ASSETS;
   const { upload, remove, rename, danglingIds, busyId, error } = useDocumentAssets({
     config: tursoConfig,
@@ -115,38 +123,87 @@ export function DocumentsAssetSection({
   const [capMessage, setCapMessage] = useState(false);
   const enabled = tursoConfig !== null && !isReadOnly;
 
+  // ★★★ ONE BATCH, ONE RUNNING STATE — this is a BATCH function even for the
+  // single-asset picker path, and collapsing it back to a per-asset one
+  // reopens both defects below.
+  //
+  // ★★★ (1) THE CAP MUST HOLD ACROSS A BATCH. `assetIdsInDocument(selected)`
+  // is read from the RENDER closure, and `selected` cannot change inside a
+  // synchronous loop — so N per-asset calls all evaluate against the SAME
+  // pre-batch id set. At 19 stored images a 5-file paste had all five pass the
+  // `>= ASSET_MAX_PER_DOCUMENT` test and the document ended with 24. The
+  // running `present` set below is what makes the cap hold WITHIN a batch;
+  // holding it ACROSS batches is free, since the next batch re-reads the
+  // (by then updated) document.
+  //
+  // ★★★ (2) THE INSERT INDEX MUST ADVANCE. `structural.insert` is
+  // `splice(index, 0, block)` against LIVE state (document-ops.ts), while
+  // `selected.blocks.length` is frozen for the whole loop — so N inserts at
+  // one index put each new block BEFORE the previous one and a 3-image paste
+  // landed in REVERSE order. The pre-existing "in the pasted order" test only
+  // compared the order of the CALLS, which was right all along; nothing looked
+  // at the index they carried.
+  //
+  // ★★ THE RUNNING STATE IS OPTIMISTIC — it does NOT consult the `DocResult`
+  // `structural.insert` returns. Threading the returned document back in was
+  // the other candidate design and it is worse here for a reason that is about
+  // the failure mode, not about taste: `structuralOp` returns `undefined` the
+  // moment the open document changed underneath (use-document-editor.ts), so a
+  // result-driven set silently stops counting exactly when it is handed
+  // nothing — and every test stub that returns a bare `undefined` (or an
+  // `okResult([])`, as this file's own `fakeStructural` does) would disable the
+  // cap while staying green. Counting locally cannot be switched off by a
+  // caller, and it errs toward SKIPPING rather than overshooting, which is the
+  // safe direction for a cap. A batch whose first insert was refused is
+  // landing nowhere in any case.
+  //
+  // ★★ TAKES ASSETS, NOT IDS. The paste/drop path calls this with the rows
+  // `upload` just resolved to, which by definition are NOT yet in this
+  // render's `assets` closure — an id-keyed lookup here would find nothing and
+  // drop the insert on the floor. `insertAssetById` below is the id-keyed
+  // wrapper the picker (which only ever names an already-rendered row) uses.
+  //
   // ★ Enforced HERE (at insert), not by truncating on load — see the module
   // header's "never drop an over-cap image on load" rule.
-  //
-  // ★★ TAKES THE ASSET, NOT ITS ID. The paste/drop path calls this with the row
-  // `upload` just resolved to, which by definition is NOT yet in this render's
-  // `assets` closure — an id-keyed lookup here would find nothing and drop the
-  // insert on the floor. `insertAssetById` below is the id-keyed wrapper the
-  // picker (which only ever names an already-rendered row) uses.
-  const insertAsset = useCallback(
-    (asset: DocumentAsset) => {
+  const insertAssets = useCallback(
+    (toInsert: readonly DocumentAsset[]) => {
       setCapMessage(false);
-      if (!selected) return;
-      const existing = assetIdsInDocument(selected);
-      if (!existing.has(asset.id) && existing.size >= ASSET_MAX_PER_DOCUMENT) {
-        setCapMessage(true);
-        return;
+      if (!selected || toInsert.length === 0) return;
+      const present = new Set(assetIdsInDocument(selected));
+      let at = selected.blocks.length;
+      let skipped = 0;
+      for (const asset of toInsert) {
+        if (!present.has(asset.id) && present.size >= ASSET_MAX_PER_DOCUMENT) {
+          skipped += 1;
+          continue;
+        }
+        // ★★★ `htmlEscape` IS LOAD-BEARING AND THE SANITIZER DOES NOT REPLACE
+        // IT. `asset.name` is `file.name` verbatim on upload, free text via
+        // rename, and fully attacker-controlled in an imported workspace
+        // (`sanitizeDocumentAsset` keeps it as-is). Interpolated raw, a name of
+        // `x"><a href="https://evil.test">Click here</a><img alt="` CLOSES the
+        // img and opens an anchor — and `sanitizeDocumentHtml` then PASSES it,
+        // because `a` is allow-listed and an `https:` href satisfies the URI
+        // regexp. The result persists into `block.html` and rides into the
+        // standalone-HTML/DOCX/PPTX exports. A name holding a plain `"` also
+        // just truncates the alt. Escape at the seam; never ask a sanitizer to
+        // clean up a string that was already malformed when it was built.
+        const html = sanitizeDocumentHtml(
+          `<img data-asset-id="${htmlEscape(asset.id)}" alt="${htmlEscape(asset.name)}">`,
+        );
+        structural.insert(at, { type: "paragraph", html });
+        present.add(asset.id);
+        at += 1;
       }
-      // ★★★ `htmlEscape` IS LOAD-BEARING AND THE SANITIZER DOES NOT REPLACE IT.
-      // `asset.name` is `file.name` verbatim on upload, free text via rename,
-      // and fully attacker-controlled in an imported workspace
-      // (`sanitizeDocumentAsset` keeps it as-is). Interpolated raw, a name of
-      // `x"><a href="https://evil.test">Click here</a><img alt="` CLOSES the
-      // img and opens an anchor — and `sanitizeDocumentHtml` then PASSES it,
-      // because `a` is allow-listed and an `https:` href satisfies the URI
-      // regexp. The result persists into `block.html` and rides into the
-      // standalone-HTML/DOCX/PPTX exports. A name holding a plain `"` also just
-      // truncates the alt. Escape at the seam; never ask a sanitizer to clean
-      // up a string that was already malformed when it was built.
-      const html = sanitizeDocumentHtml(
-        `<img data-asset-id="${htmlEscape(asset.id)}" alt="${htmlEscape(asset.name)}">`,
-      );
-      structural.insert(selected.blocks.length, { type: "paragraph", html });
+      // ★★ ONE DECISION FOR THE WHOLE BATCH, announced after it. A per-asset
+      // `setCapMessage` let a later file that inserted fine CLEAR the message a
+      // skipped earlier one had just set.
+      // ★★ The existing `assetLibraryMaxPerDocument` string does not name HOW
+      // MANY files were skipped, and it is still the right one: it states the
+      // cap and, by the time it shows, the document is holding it. Saying "N
+      // skipped" would need a new i18n key, which this change deliberately
+      // does not add.
+      if (skipped > 0) setCapMessage(true);
     },
     [selected, structural],
   );
@@ -154,9 +211,9 @@ export function DocumentsAssetSection({
   const insertAssetById = useCallback(
     (id: string) => {
       const asset = assets.find((a) => a.id === id);
-      if (asset) insertAsset(asset);
+      if (asset) insertAssets([asset]);
     },
-    [assets, insertAsset],
+    [assets, insertAssets],
   );
 
   // ★★★ INSERTS FROM THE AWAITED RESULT, NEVER FROM A STATE ROUND TRIP. The
@@ -176,11 +233,13 @@ export function DocumentsAssetSection({
   const uploadAndInsert = useCallback(
     async (files: readonly File[]) => {
       const uploaded = await Promise.all(files.map((f) => upload(f)));
-      for (const asset of uploaded) {
-        if (asset) insertAsset(asset);
-      }
+      // ★ ONE call with every accepted row, never one call per row — the whole
+      // point of `insertAssets` is that the cap and the insert index are
+      // carried ACROSS the batch. Rejected uploads resolve to null and simply
+      // do not take a slot.
+      insertAssets(uploaded.filter((a): a is DocumentAsset => a !== null));
     },
-    [upload, insertAsset],
+    [upload, insertAssets],
   );
 
   function handlePaste(e: ClipboardEvent<HTMLDivElement>) {

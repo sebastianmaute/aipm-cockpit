@@ -11,6 +11,7 @@ import { useSettings } from "./use-settings";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { getTursoConfig } from "./turso-config";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { loadPortfolioMode, loadCurrentTursoProjectId } from "./portfolio-mode";
 import { loadRegistry } from "./projects-registry";
 import { isSafeMode } from "./safe-mode";
@@ -195,8 +196,8 @@ export function DocumentsTabPanel({
   // forces that config to null. Do not reuse it anywhere that lacks the gate.
   const assetsProjectId =
     loadPortfolioMode() === "turso"
-      ? (loadCurrentTursoProjectId() ?? "default")
-      : (loadRegistry().currentProjectId ?? "default");
+      ? (loadCurrentTursoProjectId() || ASSET_PARTITION_FALLBACK)
+      : (loadRegistry().currentProjectId || ASSET_PARTITION_FALLBACK);
   // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
   // The toolbar has always drawn one, but `onResetSize` was optional, the panel
   // fell back to a no-op, and this call site never passed it — so the button

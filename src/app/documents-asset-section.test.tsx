@@ -457,3 +457,172 @@ describe("documents asset section accessibility", () => {
     expect(screen.queryByRole("group", { name: t("en-US", "assetLibraryPasteDropZone") })).toBe(zone);
   });
 });
+
+// ★★★ THE CAP IS A BATCH PROPERTY, AND IT ONLY BECAME ONE WHEN MULTI-FILE
+// PASTE STARTED INSERTING EVERY FILE. Before that fix a paste inserted exactly
+// one image, so N per-file checks against one frozen `selected` closure could
+// not disagree with each other. Afterwards they all evaluated the SAME
+// pre-batch id set: at 19 stored images a 5-file paste passed the cap five
+// times over and the document ended with 24.
+describe("documents asset per-document cap across a batch", () => {
+  /** A document whose single paragraph already references `count` asset ids. */
+  function docHolding(count: number): ProjectDocument {
+    const html = Array.from({ length: count }, (_, i) => `<img data-asset-id="a${i}">`).join("");
+    return doc(1, [{ type: "paragraph", html }]);
+  }
+
+  /** The `alt` of every image handed to `structural.insert`, call order. ★ Read
+   *  through the parsed DOM (`insertedDom`) for the same reason the other tests
+   *  do — a raw-string match would pass for something the browser still parses
+   *  as markup. */
+  function insertedAlts(structural: BlockStructuralOps): (string | null)[] {
+    return vi.mocked(structural.insert).mock.calls.map(
+      (_, i) => insertedDom(structural, i).querySelector("img")!.getAttribute("alt"),
+    );
+  }
+
+  function insertedIndices(structural: BlockStructuralOps): number[] {
+    return vi.mocked(structural.insert).mock.calls.map(([at]) => at);
+  }
+
+  // The LOWER boundary: a batch that lands exactly ON the cap must go in whole,
+  // and must NOT announce a cap it did not hit.
+  it("inserts a whole batch that exactly fills the 20-image cap", async () => {
+    const d = docHolding(18);
+    const { structural, container } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("nineteen.png", 4), pngFile("twenty.png", 5)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(2));
+    expect(insertedAlts(structural)).toEqual(["nineteen.png", "twenty.png"]);
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryMaxPerDocument", "20"));
+  });
+
+  // The UPPER boundary, and the regression itself: one file too many. The two
+  // that fit must still land — a batch is not rejected because its last member
+  // would overshoot.
+  it("inserts only what fits when a batch exceeds the cap by one, and says so", async () => {
+    const d = docHolding(18);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("nineteen.png", 4), pngFile("twenty.png", 5), pngFile("overshoot.png", 6)]);
+
+    // ★★ THE VALUE ASSERTION COMES FIRST, DELIBERATELY. Leading with the cap
+    //    message would make a reverted cap fail at `findByText` — "Unable to
+    //    find an element", a LOOKUP failure that reads as a successful mutation
+    //    proof while saying nothing about how many images went in. This shape
+    //    fails as an AssertionError printing the real overshoot.
+    // ★ SPECIFIC VALUES, not a count and not a uniqueness check: the two that
+    //   fit, in pasted order, and the third one absent. A `toHaveLength(2)`
+    //   alone would stay green if the cap kept the WRONG two.
+    await waitFor(() => expect(structural.insert).toHaveBeenCalled());
+    expect(insertedAlts(structural)).toEqual(["nineteen.png", "twenty.png"]);
+    expect(structural.insert).toHaveBeenCalledTimes(2);
+    expect(await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
+  });
+
+  // Across batches, not only within one: the second paste re-reads a document
+  // that the first one filled.
+  it("still refuses a later batch once an earlier one filled the cap", async () => {
+    const d = docHolding(20);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("late.png", 7)]);
+
+    expect(await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
+    expect(structural.insert).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THE SECOND HALF OF THE SAME FROZEN-CLOSURE DEFECT. `structural.insert`
+  // splices at the index it is given, against LIVE state, while
+  // `selected.blocks.length` is frozen for the whole loop — so N inserts at one
+  // index stack each new block BEFORE the previous one. The pre-existing
+  // "in the pasted order" test compares the order of the CALLS, which was
+  // always right; nothing looked at the index they carried.
+  it("advances the insert index so a multi-file paste appends in pasted order", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("one.png", 4), pngFile("two.png", 5), pngFile("three.png", 6)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(3));
+    expect(insertedIndices(structural)).toEqual([0, 1, 2]);
+  });
+
+  it("advances from the END of an existing document, not from zero", async () => {
+    const d = doc(1, [
+      { type: "heading", level: 1, text: "Intro" },
+      { type: "paragraph", html: "<p>body</p>" },
+    ]);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+
+    await pasteFiles([pngFile("one.png", 4), pngFile("two.png", 5)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(2));
+    expect(insertedIndices(structural)).toEqual([2, 3]);
+  });
+
+  // A dedup hit resolves to a row the document ALREADY holds, so it takes no
+  // slot — and the running set must not count it as one either.
+  it("does not spend a cap slot on a re-insert of an id the document already holds", async () => {
+    const html = Array.from({ length: 20 }, (_, i) => `<img data-asset-id="a${i}">`).join("");
+    const d = doc(1, [{ type: "paragraph", html }]);
+    const stored = fakeAsset("a0", "already-here.png", await hashBytes(pngBytes()));
+    const { structural, container } = renderSection({ selected: d, documents: [d] }, [stored]);
+
+    await pasteFiles([pngFile("same-bytes.png", 4)]);
+
+    await waitFor(() => expect(structural.insert).toHaveBeenCalledTimes(1));
+    expect(insertedAlts(structural)).toEqual(["already-here.png"]);
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryMaxPerDocument", "20"));
+  });
+});
+
+// ★★★ THE BYTE PARTITION KEY, AND THE DECISION THAT IT IS A REAL KEY RATHER
+// THAN A BROKEN STATE TO REFUSE. A Turso portfolio with nothing selected loads
+// the SINGLE-TENANT backend (storage.ts `createBackend` falls back when
+// `tursoProjectId` is null), so a real workspace with real documents is on
+// screen; disabling images there would break a configuration that works. What
+// the feature owes instead is that the key is DETERMINISTIC — the same state
+// resolves to the same partition, and the read side and the write side resolve
+// it identically. Contrast Safe Mode (workspace-panels.tsx), which IS refused,
+// precisely because it MOVES the key under a workspace whose metadata stayed.
+describe("documents asset byte partition", () => {
+  it("keeps the library operating when the caller has no project id", async () => {
+    const d = doc(1, []);
+    const { container } = renderSection({ selected: d, documents: [d], projectId: "" });
+
+    // ★★ The two refusal messages FIRST, as text assertions on the container.
+    //    A `findByRole("button")` leading the test would fail at the LOOKUP if
+    //    a refusal were ever added — which prints RED without naming what went
+    //    wrong, and reads identically to any unrelated render break.
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryTursoOnly"));
+    expect(container).not.toHaveTextContent(t("en-US", "assetLibraryReadOnly"));
+    expect(await screen.findByRole("button", { name: t("en-US", "upload") })).toBeEnabled();
+  });
+
+  // ★★ ONE key, asserted as a LITERAL on both sides. Comparing the two calls to
+  //    each other would stay green if both drifted together, and comparing
+  //    either to the exported constant would stay green if the constant moved.
+  it("writes bytes to and reads dangling ids from the same fallback partition", async () => {
+    const d = doc(1, []);
+    renderSection({ selected: d, documents: [d], projectId: "" });
+
+    await pasteFiles([pngFile("no-project.png")]);
+
+    await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveAssetData).mock.calls[0][1].projectId).toBe("default");
+    expect(vi.mocked(loadAssetDataIds).mock.calls.length).toBeGreaterThan(0);
+    for (const [, key] of vi.mocked(loadAssetDataIds).mock.calls) expect(key).toBe("default");
+  });
+
+  it("passes a real project id straight through, without substituting the fallback", async () => {
+    const d = doc(1, []);
+    renderSection({ selected: d, documents: [d], projectId: "proj-7" });
+
+    await pasteFiles([pngFile("scoped.png")]);
+
+    await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(1));
+    expect(vi.mocked(saveAssetData).mock.calls[0][1].projectId).toBe("proj-7");
+  });
+});

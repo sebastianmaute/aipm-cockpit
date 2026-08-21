@@ -17,10 +17,57 @@
 
 import { rowObjects, txt, type PipelineResultLike, type SqlStmt } from "./turso-schema";
 
+/** The partition key used when the caller has no project id to give — a Turso
+ *  portfolio with nothing selected yet, or a file registry with no current
+ *  entry. Named here, beside the column whose meaning it carries, so the two
+ *  call sites that need it cannot drift into two different literals.
+ *
+ *  ★★★ IT IS A REAL KEY, NOT A SENTINEL FOR "unpartitioned". Bytes written
+ *  under it are found again by any later session in the SAME state, because
+ *  every input to the key is deterministic — that is the property that makes
+ *  it safe, and the one Safe Mode broke (workspace-panels.tsx's gate, which
+ *  disables the feature rather than letting the key MOVE under a workspace
+ *  whose metadata did not move). A no-project Turso portfolio is not a broken
+ *  state: `createBackend` (storage.ts) falls back to the SINGLE-TENANT
+ *  `TursoBackend` when `tursoProjectId` is null, so a real workspace with real
+ *  documents is on screen and its bytes belong somewhere. Refusing there would
+ *  disable images for a configuration that otherwise works.
+ *
+ *  ★★ NEVER "" — see AssetDataRow.projectId. An empty key is normalised to
+ *  this one at the seam (documents-asset-section.tsx) so a caller that follows
+ *  the old, never-implemented docstring cannot open a second partition. */
+export const ASSET_PARTITION_FALLBACK = "default";
+
 export interface AssetDataRow {
   id: string;
-  /** "" in single-tenant mode. Part of the composite key either way, so one
-   *  code path serves both layouts. */
+  /** The caller's project scope, verbatim — part of the composite key in BOTH
+   *  Turso layouts. `ASSET_PARTITION_FALLBACK` stands in when the caller has
+   *  no project id; it is never "".
+   *
+   *  ★★★ AN EARLIER VERSION OF THIS DOCSTRING SAID `""` IN SINGLE-TENANT MODE
+   *  AND NO CALL SITE EVER IMPLEMENTED IT. The store passes the caller's value
+   *  straight through and the only production chain (DocumentsTabPanel →
+   *  `assetPane.projectId` → the section's fallback) yields the portfolio /
+   *  registry id or `ASSET_PARTITION_FALLBACK` — never the sentinel. The
+   *  docstring was corrected to the code rather than the reverse: every byte
+   *  already stored is keyed the way the code does it, so adopting the
+   *  sentinel now would orphan the whole existing library behind a migration
+   *  this table has no version marker to drive.
+   *
+   *  ★★ KNOWN LIMITATION — the two halves are not guaranteed to agree, and
+   *  this key cannot close that on its own. In single-tenant Turso the
+   *  METADATA table `document_assets` is an ENTITY_SPECS row with NO
+   *  `project_id` column, so metadata is GLOBAL to the database, while this
+   *  table's PK is `(id, project_id)` unconditionally. One global metadata set
+   *  can therefore face several byte partitions: a file-portfolio user on
+   *  single-tenant Turso storage who switches registry project keeps the same
+   *  metadata rows but reads bytes under a different key, and every asset
+   *  reads as dangling until they switch back. Nothing is LOST — the bytes
+   *  stay under the key that wrote them, and re-selecting the original project
+   *  restores them. Closing it properly means keying on the BACKEND LAYOUT
+   *  (tenant → the tenant project id; single-tenant → one fixed key), which is
+   *  a decision only the layer that builds the backend can make; it is not
+   *  expressible in this module. */
   projectId: string;
   /** base64, no data: prefix. */
   data: string;
