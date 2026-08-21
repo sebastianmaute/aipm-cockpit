@@ -89,6 +89,11 @@ describe("icons barrel", () => {
     expect(Object.keys(icons).sort()).toEqual(Object.keys(EXPECTED).sort());
   });
 
+  // ★ Deliberately redundant with the key-set test above, which already catches
+  //   any drift with a better diff. This one exists as a RATCHET: adding a row
+  //   to both the barrel and EXPECTED passes that test and fails only this one,
+  //   so growing the icon set is always a conscious edit rather than a
+  //   side-effect. Bump the literal only when you mean to.
   it("exports 69 icons", () => {
     expect(Object.keys(icons)).toHaveLength(69);
   });

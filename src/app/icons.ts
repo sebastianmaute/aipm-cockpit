@@ -30,6 +30,16 @@
 // 2; `globals.css` pins 1.5 on the `.lucide` class that lucide always emits. A
 // `LucideProvider` was rejected — it would leave every unit test rendering a
 // different weight than the app.
+//
+// ★ Adding a 70th icon touches FOUR places, not one:
+//   1. A row in the export block below, alphabetical by the APP-facing name
+//      (the right-hand side, e.g. `AcademicCapIcon`).
+//   2. The matching row in `EXPECTED` in `icons.test.ts` — its value is the
+//      lucide component's own `displayName`, NOT the name you imported (see
+//      the canonical-vs-shim note above).
+//   3. The hardcoded count in `icons.test.ts`'s "exports N icons" ratchet.
+//   4. An eye-check at `/icon-gallery` in dev — no test can tell you the
+//      glyph MEANS the right thing, only that it resolves to what you typed.
 export type { LucideIcon as AppIcon } from "lucide-react";
 
 export {
