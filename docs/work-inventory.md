@@ -130,18 +130,41 @@ script that reads one form silently mis-classifies the other.
 
 ★★★ **A self-declared "open" is an upper bound, not a fact.** An entry can describe behaviour fixed
 two releases ago. `npm run followups:check` classifies entries by whether the symbols and paths they
-cite still exist — re-run 2026-08-21 at `6c4e4162`: CLEAN 113, **SYMBOL_MISSING 13**, PATH_MISSING 3,
-PATH_THIRD_PARTY 1, NO_MACHINE_CLAIM 1. It **exits 0 regardless**, runs in no CI job, and its own output says it rules
-claims out but never in. Treat SYMBOL_MISSING and PATH_MISSING as *probe this first*, never as
-*closed*.
+cite still exist — re-run 2026-08-21 at `73461ca4`: **CLEAN 125**, NO_MACHINE_CLAIM 1,
+SYMBOL_THIRD_PARTY 2, PATH_THIRD_PARTY 1, SYMBOL_SELF_EXCLUDED 1 — **130 open entries and
+SYMBOL_MISSING/PATH_MISSING both zero** (13 and 3 at this slice's branch point). It **exits 0
+regardless**, runs in no CI job, and its own output says it rules claims out but never in. Each of
+the four survivors is deliberately non-actionable (upstream/third-party symbol or path, a
+self-excluded-by-design symbol, one claim with nothing machine-checkable) — none is a *probe this
+first* candidate the way SYMBOL_MISSING/PATH_MISSING used to be.
 
-★ It reports false positives on entries that quote filenames as prose rather than citing them.
+★ It reports false positives on entries that quote filenames as prose rather than citing them —
+two such fragments were the actual cause of two of the flags corrected below, not the resolver gap
+this section used to claim.
 
-★★ **And its resolver walks `src`/`scripts`/`e2e` ONLY, so every `docs/` path it meets is reported
-PATH_MISSING whether or not the file exists** — §145 cites a `docs/superpowers/` spec that is
-present and tracked, and is flagged anyway. That blind spot got worse on 2026-08-21: until the
-planning corpus was tracked, a `docs/superpowers/` path genuinely was unresolvable for most readers;
-now it resolves for everyone except this script. Two of §200's three flags are the same shape.
+★★ **The claim that used to sit here — "its resolver walks `src`/`scripts`/`e2e` ONLY, so every
+`docs/` path it meets is reported PATH_MISSING" — was already false when it was written: `docs/**`
+was indexed by `collectDocs()` at this slice's own branch point, `98ee220a`.** Acting on it would
+have rewritten already-correct code and left every real cause standing. The real causes, all fixed
+in this slice:
+1. `SKIP_DIRS` excluded `docs/superpowers` inside `collectDocs()`, so the whole planning corpus read
+   as deleted (§145) — fixed by `d501c200` + `da725bff`, which gave `collectDocs` a skip-list
+   parameter and added `collectResolutionSources()` to separate "does this path exist" from "is this
+   a citable code file".
+2. `SOURCE_EXT` carried no `md`, so the one markdown fixture tracked under the code tree
+   (`src/app/__fixtures__/golden-workspace.md`) was in no index and read as deleted (§200) — fixed by
+   `da725bff`.
+3. The sweep's own `SWEEP_SELF_FILES` exclusion produced a `SYMBOL_MISSING` no probe could ever
+   discharge (§138) — fixed by `86cb4116`, adding a distinct `SYMBOL_SELF_EXCLUDED` verdict.
+4. Two prose fragments parsed as citations (§131, §200) — fixed by `96f5b44d`.
+
+Two more causes turned up *during* the slice, past what triggered it:
+5. Symbols living in `node_modules` had no classification, so §51 and §53 read `SYMBOL_MISSING`
+   forever despite being correct — fixed by `4afeb4a7`, adding a `SYMBOL_THIRD_PARTY` verdict.
+6. The symbol sweep never scanned the repo root, so `globalIgnores` in `eslint.config.mjs` (§189)
+   was missing forever — fixed by the same `4afeb4a7`, which widened the walk to cover root-level
+   config (deliberately excluding `.json`, so `package-lock.json` cannot inject every dependency name
+   as a phantom symbol).
 
 Rough thematic split of the 135, by heading keyword only — indicative, not authoritative:
 a11y and WCAG 21, rich text 14, doc accuracy 13, documents 8, tests and gates 8, AI and chat 7,
@@ -170,8 +193,8 @@ defect; `docs/open-followups.md` §145 (closed as a decision) is the long form, 
 the still-unspecced migration itself as a backlog row.
 
 ★ Dependency rows: `eslint` 10 is **BLOCKED** upstream via `eslint-config-next`, confirmed by an
-executed attempt. `@types/node` is deferred but its stated precondition — the runtime moving off
-node 20 — is now met, so that is a pickable slice.
+executed attempt. `@types/node` **landed in this slice** — bumped `^20` → `^24` with zero `tsc`
+errors (`a698eac2` / `da9695d0`); it is no longer deferred or pending.
 
 ## 6. Code markers
 
@@ -184,12 +207,12 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
 1. **S6 then S7** — design is already done and verified, and they are the last two UX-batch slices.
 2. **Document images** — a full design exists; settle the S3c label question first.
 3. **`optimize_wbs`** — carries an open design question, so it needs a decision before a plan.
-4. **Follow-up triage** — probe the SYMBOL_MISSING and PATH_MISSING entries; they are the cheapest
-   closures available. Re-derive the count from `npm run followups:check` rather than quoting one:
-   it was 16 at both compiles today, but the split behind it moved (SYMBOL_MISSING 12→13), and
-   **three of the PATH_MISSING flags are the resolver's `docs/` blind spot, not real breakage** —
-   see section 4.
-5. **`@types/node`** — unblocked and self-contained.
+4. **Follow-up triage** — done in this slice. `npm run followups:check` now reads **CLEAN 125**,
+   NO_MACHINE_CLAIM 1, SYMBOL_THIRD_PARTY 2, PATH_THIRD_PARTY 1, SYMBOL_SELF_EXCLUDED 1 —
+   SYMBOL_MISSING and PATH_MISSING both **zero**, down from 13 and 3 at this slice's branch point.
+   The four survivors are deliberately non-actionable; see section 4 for what caused the flags and
+   where each was fixed. Nothing here is a pickable slice any more.
+5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
 6. **Icon-package decision (TD-8 / §145)** — not a slice, a call: schedule the heroicons →
    `lucide-react` migration or record that it is declined. Costs nothing today, and every new icon
    added meanwhile is written against whichever precedent the author happened to open.
