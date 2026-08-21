@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { render, screen, fireEvent, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { Editor } from "@tiptap/core";
-import { RichTextEditor, EXTENSIONS, TASK_ITEM, type RichTextEditorHandle } from "./rich-text-editor";
+import { RichTextEditor, EXTENSIONS, TASK_ITEM, handleImagePaste, handleImageDrop, type RichTextEditorHandle } from "./rich-text-editor";
 import { sanitizeRichHtml } from "./sanitize-html";
 import { loadI18n } from "./i18n";
 
@@ -435,6 +435,82 @@ describe("RichTextEditor commitOnEnter", () => {
     // A normal Enter afterwards still commits.
     fireEvent.keyDown(surface, { key: "Enter" });
     expect(onCommit).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ★★★ Driven directly against `handleImagePaste`/`handleImageDrop`, NOT
+// through a mounted editor + real `fireEvent.paste`/`drop` — ProseMirror
+// computes a `Slice` from the clipboard/dataTransfer BEFORE calling either
+// hook, which needs a fuller Clipboard-API shape than jsdom provides.
+// Exercising the exported pure functions directly is deterministic and is
+// exactly what they are exported for (see their own doc comments on
+// rich-text-editor.tsx).
+describe("RichTextEditor — image paste and drop (S3c-1)", () => {
+  function pngFile(name = "photo.png"): File {
+    return new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], name, { type: "image/png" });
+  }
+  function pdfFile(name = "doc.pdf"): File {
+    return new File([new Uint8Array([1, 2, 3])], name, { type: "application/pdf" });
+  }
+  function fileList(files: readonly File[]): FileList {
+    return files as unknown as FileList;
+  }
+
+  it("calls onImageFiles for an image on the clipboard and stops the default paste", () => {
+    const onImageFiles = vi.fn();
+    const result = handleImagePaste(onImageFiles, { clipboardData: { files: fileList([pngFile()]) } });
+    expect(result).toBe(true);
+    expect(onImageFiles).toHaveBeenCalledTimes(1);
+    expect(onImageFiles.mock.calls[0][0].map((f: File) => f.name)).toEqual(["photo.png"]);
+  });
+
+  it("an ordinary HTML/text paste falls through — false, handler not called", () => {
+    // Regression guard across EVERY rich field: a bare `return true` here
+    // would swallow every normal paste, which the rich-text sanitizers own.
+    const onImageFiles = vi.fn();
+    const result = handleImagePaste(onImageFiles, { clipboardData: { files: fileList([]) } });
+    expect(result).toBe(false);
+    expect(onImageFiles).not.toHaveBeenCalled();
+  });
+
+  it("ignores a non-image file on the clipboard", () => {
+    const onImageFiles = vi.fn();
+    const result = handleImagePaste(onImageFiles, { clipboardData: { files: fileList([pdfFile()]) } });
+    expect(result).toBe(false);
+    expect(onImageFiles).not.toHaveBeenCalled();
+  });
+
+  it("does nothing when no handler is supplied", () => {
+    expect(handleImagePaste(undefined, { clipboardData: { files: fileList([pngFile()]) } })).toBe(false);
+    expect(
+      handleImageDrop(undefined, { dataTransfer: { files: fileList([pngFile()]) }, preventDefault: vi.fn() }),
+    ).toBe(false);
+  });
+
+  it("a dropped image file is handled", () => {
+    const onImageFiles = vi.fn();
+    const preventDefault = vi.fn();
+    const result = handleImageDrop(onImageFiles, { dataTransfer: { files: fileList([pngFile()]) }, preventDefault });
+    expect(result).toBe(true);
+    expect(preventDefault).toHaveBeenCalledTimes(1);
+    expect(onImageFiles).toHaveBeenCalledTimes(1);
+  });
+
+  it("a FILE-LESS drop returns false, so block reorder still works", () => {
+    // ★★★ The block-reorder drag and an image drop share ONE HTML5 drag
+    // channel; this file-count check is the only thing separating them. A
+    // drop the gutter's own reorder grip fires carries NO files, and if this
+    // ever returned true unconditionally the reorder grip would break for
+    // every document — silently, and with a large blast radius (every rich
+    // field in the app shares this component). MUTATION-CHECKED: forcing
+    // `handleImageDrop` to `return true` unconditionally turns this red
+    // (verified manually, not committed — see the task report).
+    const onImageFiles = vi.fn();
+    const preventDefault = vi.fn();
+    const result = handleImageDrop(onImageFiles, { dataTransfer: { files: fileList([]) }, preventDefault });
+    expect(result).toBe(false);
+    expect(preventDefault).not.toHaveBeenCalled();
+    expect(onImageFiles).not.toHaveBeenCalled();
   });
 });
 
