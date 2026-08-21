@@ -302,21 +302,29 @@ describe("documentAssets section does not swallow a trailing section's lines", (
     expect(back.activityLog).toEqual(log);
   });
 
-  it("does not decode a stray pipe-row from a following unrecognized section as a document asset", () => {
-    // ★★ The test above CANNOT catch a missing stop-rule: JSON.stringify
-    //   escapes every embedded newline as the two characters \ and n, so no
-    //   line inside an activityLog (or documents/documentVersions) JSON blob
-    //   can ever start with "|", and markdownTableToObjects's row scan skips
-    //   any line that doesn't. That is exactly the "accidental property, not
-    //   an enforced invariant" the review flagged — a future HAND-WRITTEN
-    //   blob writer (not today's JSON.stringify one) could still produce a
-    //   line starting with "|". This test simulates that directly: it
-    //   appends an unrecognized "## Activity Log" heading followed by a
-    //   stray pipe-row to real documentAssets markdown, without going through
-    //   activityLogToMarkdown at all, and asserts that row is NOT decoded as
-    //   a second (garbage) document asset.
+  // ★★ The round-trip test above CANNOT catch a missing stop-rule: JSON.stringify
+  //   escapes every embedded newline as the two characters \ and n, so no
+  //   line inside a documents/documentVersions/activityLog JSON blob can ever
+  //   start with "|", and markdownTableToObjects's row scan skips any line
+  //   that doesn't. That is exactly the "accidental property, not an enforced
+  //   invariant" the review flagged — a future HAND-WRITTEN blob writer (not
+  //   today's JSON.stringify one) could still produce a line starting with
+  //   "|". This it.each simulates that directly, once per stop-rule: it
+  //   appends an unrecognized heading followed by a stray pipe-row to real
+  //   documentAssets markdown, without going through documentsToMarkdown /
+  //   documentVersionsToMarkdown / activityLogToMarkdown at all, and asserts
+  //   that row is NOT decoded as a second (garbage) document asset. A
+  //   mutation audit found the original single-heading version of this test
+  //   (covering "## Activity Log" only) left the other two stop-rules
+  //   ("## Documents", "## Document versions") deletable with the suite
+  //   green — this table is what closes that gap.
+  it.each([
+    "## Documents",
+    "## Document versions",
+    "## Activity Log",
+  ])("does not decode a stray pipe-row from a following unrecognized %s section as a document asset", (heading) => {
     const assetsMd = workspaceToMarkdown({ ...emptyWorkspace(), documentAssets: [asset] });
-    const poisoned = `${assetsMd}\n## Activity Log\n\n| fake | not | a | real | row |\n`;
+    const poisoned = `${assetsMd}\n${heading}\n\n| fake | not | a | real | row |\n`;
     const back = markdownToWorkspace(poisoned);
     expect(back.documentAssets).toEqual([asset]);
   });

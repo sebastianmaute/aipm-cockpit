@@ -463,8 +463,20 @@ describe("documentAssets JSON round-trip", () => {
   });
 
   // ★★ isWorkspaceEmpty feeds the LOAD guard that refuses an incoming empty
-  //    workspace. Metadata alone must NOT make a workspace look non-empty —
-  //    otherwise a workspace holding only orphaned metadata defeats the guard.
+  //    workspace. documentAssets rows are created only by an explicit user
+  //    upload — behaviourally the SAME precedent as `documents` (which DOES
+  //    count toward isWorkspaceEmpty) — so this is NOT the activityLog rule
+  //    (activityLog is excluded because it is auto-appended by ordinary use,
+  //    where counting it would let a transient empty read overwrite a
+  //    populated project). The exclusion here is still the safe direction:
+  //    an asset-only workspace (uploads with no document ever referencing
+  //    them) is near-unreachable, since the asset library lives inside the
+  //    Documents panel rather than standing on its own — so leaving
+  //    documentAssets uncounted costs nothing in practice while keeping the
+  //    guard's surface area small. documentAssets is likewise absent from
+  //    nonEmptyCollectionCount / workspaceRecordCount (the SAVE-time
+  //    mass-deletion thresholds) for the same reason — not tested separately
+  //    here, but see workspace-metrics.ts's isWorkspaceEmpty for all three.
   it("does not count toward isWorkspaceEmpty", () => {
     expect(isWorkspaceEmpty({ ...emptyWorkspace(), documentAssets: [asset] })).toBe(true);
   });
