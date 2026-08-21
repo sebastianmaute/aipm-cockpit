@@ -130,11 +130,19 @@ export const ROOT_DOCS = [
 ];
 
 // Walk with node's fs, NOT `git ls-files` — the slim CI image has no git.
-export function collectDocs() {
+// ★★★ THE PARAMETER EXISTS SO ONE CONSTANT CAN SERVE TWO INCOMPATIBLE QUESTIONS.
+// `check-doc-claims.mjs` asks "which docs do I SCAN for claims" and must keep
+// skipping `docs/superpowers` — see SKIP_DIRS. `check-followup-claims.mjs` asks
+// "does this path EXIST", and for that question the skip is simply wrong: the
+// corpus has been tracked since 0.253.0, so reporting a present spec as
+// PATH_MISSING is a false finding. Same tree, two questions.
+// ★★ The DEFAULT is the blocking gate's contract. Changing it is a pipeline
+// change; a test pins it.
+export function collectDocs(skipDirs = SKIP_DIRS) {
   const fromDocs = readdirSync("docs", { recursive: true, encoding: "utf8" })
     .map((f) => `docs/${f}`.replace(/\\/g, "/"))
     .filter((f) => f.endsWith(".md"))
-    .filter((f) => !SKIP_DIRS.some((d) => f.startsWith(`${d}/`)));
+    .filter((f) => !skipDirs.some((d) => f.startsWith(`${d}/`)));
   return [...ROOT_DOCS, ...fromDocs].sort();
 }
 

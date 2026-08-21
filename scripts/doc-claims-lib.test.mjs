@@ -557,3 +557,24 @@ describe("THIRD_PARTY_RE", () => {
     expect(THIRD_PARTY_RE.test("e2e/vitest/helper.ts")).toBe(false);
   });
 });
+
+describe("collectDocs skip list", () => {
+  // ★★ THE DEFAULT IS THE BLOCKING GATE'S CONTRACT. `check-doc-claims.mjs` runs
+  // as CI job `doc-claims-check`, and its skip exists because planning documents
+  // cite the tree as it stood when they were written. A no-argument call that
+  // started returning them would fail the pipeline on ~460 historical files.
+  it("excludes docs/superpowers when called with no argument", () => {
+    expect(collectDocs().some((d) => d.startsWith("docs/superpowers/"))).toBe(false);
+  });
+
+  // The widening the follow-up resolver needs — and the ONLY caller allowed to ask.
+  it("includes docs/superpowers when passed an empty skip list", () => {
+    expect(collectDocs([]).some((d) => d.startsWith("docs/superpowers/"))).toBe(true);
+  });
+
+  // ★ Anti-vacuity: proves the second assertion is about the SKIP, not about the
+  // walk returning everything. An unrelated skip must still be honoured.
+  it("honours an arbitrary skip list", () => {
+    expect(collectDocs(["docs/baselines"]).some((d) => d.startsWith("docs/baselines/"))).toBe(false);
+  });
+});
