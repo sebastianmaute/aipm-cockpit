@@ -686,7 +686,7 @@ describe("digest narrative", () => {
   });
 
   it("parseDigestNarrative strips control chars and caps length", () => {
-    expect(parseDigestNarrative("Project slipped. ")).toBe("Project slipped.");
+    expect(parseDigestNarrative("Project slipped.\u0000\u0007")).toBe("Project slipped.");
     const long = "x".repeat(5000);
     expect(parseDigestNarrative(long).length).toBeLessThanOrEqual(2000);
   });

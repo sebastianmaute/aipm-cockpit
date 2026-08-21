@@ -93,12 +93,30 @@ describe("committed source files are text", () => {
     expect(offenders).toEqual([]);
   });
 
-  // The skip set must come from `.gitignore` and must actually contain the two
-  // trees that motivated it — otherwise the guard silently reverts to scanning
-  // them and goes red on somebody's scratch file.
-  it("derives its skip set from .gitignore, covering both ignored doc trees", () => {
+  // The skip set must come from `.gitignore`, never a hardcoded list.
+  //
+  // ★★★ THIS ASSERTION WAS INVERTED ON 2026-08-21 (0.253.0), AND THE INVERSION IS
+  // THE POINT. It used to require BOTH `docs/superpowers` and `docs/patterns` to
+  // be skipped, which was right while the planning tree was gitignored — scanning
+  // it then meant going red on somebody's untracked scratch file. That tree is now
+  // TRACKED: 218 specs and 238 plans, 298 of them recovered from zip archives that
+  // were their only copy. It is real repo content, so scanning it is exactly what
+  // this guard is for, and the very first run over it found a genuine NUL byte in
+  // a recovered document (`2026-07-10-weekly-status-digest.md`) that had sat there
+  // unreadable to every grep for months.
+  //
+  // ★★ Asserting its ABSENCE from the skip set is what stops that coverage being
+  // quietly handed back. Re-adding `/docs/superpowers/` to `.gitignore` would make
+  // ~456 tracked files invisible to this sweep again while every test still passed,
+  // which is the failure this line now exists to prevent.
+  it("derives its skip set from .gitignore, and no longer exempts the tracked planning tree", () => {
     const skip = ignoredDirs();
-    expect(skip.has("docs/superpowers")).toBe(true);
     expect(skip.has("docs/patterns")).toBe(true);
+    expect(skip.has("docs/superpowers")).toBe(false);
+    // ★ Positive control. `toBe(false)` above is satisfied for the WRONG reason by
+    //   a skip set that came back empty — a renamed `.gitignore`, a parser that
+    //   stopped matching the anchored-directory form, a cwd that is not the repo
+    //   root. This pins that the derivation still produces something.
+    expect(skip.size).toBeGreaterThan(0);
   });
 });

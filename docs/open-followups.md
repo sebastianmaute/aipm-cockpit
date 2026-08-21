@@ -13180,3 +13180,32 @@ matches the English word "internal" ending a sentence, which flagged code commen
 company. The first cut of this entry named those two files as leaks while missing almost every real
 one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
 identifiers, never for the word "internal".
+
+## 201. A raw control byte in `jira-api.ts` makes the file binary to grep — the NUL guard cannot see it
+
+**Status:** open — pre-existing, benign at runtime, invisible to every content sweep.
+
+`buildJiraCacheKey`'s array branch joins sorted values on a **raw U+0001 byte** written
+directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
+is a delimiter, and any byte that cannot occur in a Jira field works.
+
+★★ The cost is the one §67 already paid for a NUL: ripgrep and grep classify the file as BINARY and
+print `Binary file … matches` with **no line content**, so every content sweep over `src/` silently
+skips it. A reviewer grepping for a symbol in this file gets a hit they cannot read, or reads the
+sweep as clean when it never showed them the line.
+
+★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
+zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
+not read that green run as "no control characters in `src/`"; it means "no NUL". Widening the guard
+to all C0 controls is the obvious fix and needs care: `\t`, `\n` and `\r` are legal and common, and
+this repo has CRLF files, so a naive range flags every source file in it.
+
+Reproduce (the sweep the NUL guard does not do):
+
+```bash
+node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
+```
+
+★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
+regression from that change — it predates it, and the same sweep over the newly tracked corpus came
+back otherwise clean.
