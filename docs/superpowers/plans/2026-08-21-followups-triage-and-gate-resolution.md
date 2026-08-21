@@ -365,13 +365,23 @@ grep -n "ROOT_DOCS\|SKIP_DIRS\|collectDocs\|collectSources\|readdirSync\|statSyn
 node scripts/check-followup-claims.mjs | tail -4
 ```
 
-Expected: `PATH_MISSING` has dropped from 3 to 1 (§131 remains — Task 4 owns it), and `CLEAN` has risen from 113 to 115.
+Expected: `PATH_MISSING` has dropped from 3 to **2**, and `CLEAN` has risen from 113 to **114**.
+
+★★★ **§200 CARRIES TWO FLAGGED PATHS AND ONLY ONE OF THEM IS THIS TASK'S.** The header's derivation table already splits them — "Task 2 indexes `golden-workspace.md`; Task 4 rewrites `.generated.ts`" — so §200 stays `PATH_MISSING` here with its second path, and clears in Task 4. Only §145 leaves at this step. An earlier revision of this line predicted 3→1 by counting §200 as clearing twice; measured 2026-08-21, the real post-Task-2 tally is `CLEAN=114 … PATH_MISSING=2`.
+
+★★ The survivor is **not** an index defect and must not be fixed by widening anything. `pathsIn` matches the bare backticked fragment `` `.generated.ts` `` as if it were a standalone path, and `resolveCandidates`'s dotfile-suffix rule then correctly refuses to bind it to `src/app/operating-guide-builtin.generated.ts` — the character before the suffix is `n`, not `.`, which is the same guard that stops `helpers.ts` matching `other-helpers.ts`. The prose is what is wrong, which is why Task 4 Step 2 rewrites it.
 
 ```bash
-node scripts/check-followup-claims.mjs | grep -E "^  §(145|200)" ; echo "MATCHES=$?"
+node scripts/check-followup-claims.mjs | grep -E "^  §145" ; echo "MATCHES=$?"
 ```
 
-Expected: `MATCHES=1` — neither entry appears any more.
+Expected: `MATCHES=1` — §145 is gone.
+
+```bash
+node scripts/check-followup-claims.mjs | grep -A 2 "^  §200"
+```
+
+Expected: still listed, now with **`.generated.ts` alone** — `golden-workspace.md` has resolved. That reduction is this task's actual effect on §200.
 
 - [ ] **Step 7: Lint and typecheck**
 
@@ -529,13 +539,13 @@ Expected: verdict `SYMBOL_SELF_EXCLUDED`, with all three symbols listed under it
 node scripts/check-followup-claims.mjs | tail -4
 ```
 
-Expected — this is the full prediction from the header, now due:
+Expected:
 
 ```
-CLEAN=116  NO_MACHINE_CLAIM=1  SYMBOL_MISSING=12  PATH_THIRD_PARTY=1  PATH_MISSING=1  SYMBOL_SELF_EXCLUDED=1
+CLEAN=114  NO_MACHINE_CLAIM=1  SYMBOL_MISSING=12  PATH_THIRD_PARTY=1  PATH_MISSING=2  SYMBOL_SELF_EXCLUDED=1
 ```
 
-★ `PATH_MISSING=1` (§131) is still outstanding here; Task 4 removes it. Everything else must match.
+★ This task moves **one** entry and moves it sideways: §138 leaves `SYMBOL_MISSING` for `SYMBOL_SELF_EXCLUDED`, so `CLEAN` does not change. `PATH_MISSING=2` (§131 and §200's `.generated.ts`) is still outstanding here; Task 4 removes both and is where the header's `CLEAN=116` becomes due. Everything else must match.
 
 - [ ] **Step 7: Lint and typecheck**
 
