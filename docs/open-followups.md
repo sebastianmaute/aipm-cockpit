@@ -13252,30 +13252,44 @@ company. The first cut of this entry named those two files as leaks while missin
 one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
 identifiers, never for the word "internal".
 
-## 201. A raw control byte in `jira-api.ts` makes the file binary to grep — the NUL guard cannot see it
+## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
-**Status:** open — pre-existing, benign at runtime, invisible to every content sweep.
+**Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
+closes the entry.
 
-`buildJiraCacheKey`'s array branch joins sorted values on a **raw U+0001 byte** written
-directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
-is a delimiter, and any byte that cannot occur in a Jira field works.
+★ Correction 2026-08-21: `buildJiraCacheKey` never existed — `git log --oneline --all
+-S'buildJiraCacheKey' -- src` returns zero commits, ever. The array branch described below belongs to
+`normalizeForCompare`, used by `fieldsDiffer` (`grep -n "function normalizeForCompare\|function
+fieldsDiffer" src/app/jira-api.ts`) to compare local vs remote Jira field values for **conflict
+detection** — not to build a cache key.
 
-★★ The cost is the one §67 already paid for a NUL: ripgrep and grep classify the file as BINARY and
-print `Binary file … matches` with **no line content**, so every content sweep over `src/` silently
-skips it. A reviewer grepping for a symbol in this file gets a hit they cannot read, or reads the
-sweep as clean when it never showed them the line.
-
-★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
-zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
-not read that green run as "no control characters in `src/`"; it means "no NUL". Widening the guard
-to all C0 controls is the obvious fix and needs care: `\t`, `\n` and `\r` are legal and common, and
-this repo has CRLF files, so a naive range flags every source file in it.
-
-Reproduce (the sweep the NUL guard does not do):
+★★★ Correction 2026-08-21: the headline claim does not reproduce. This entry originally said the raw
+control byte makes grep/ripgrep classify the file as binary and print `Binary file … matches` with no
+line content, citing §67 — which involved a real NUL and did reproduce that — as precedent. The
+generalisation from a NUL to any control byte was never re-checked. Measured on this checkout instead
+of re-asserted: `jira-api.ts` contains exactly **one** control byte, U+0001, and **no NUL**:
 
 ```bash
 node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
+grep -n "normalizeForCompare" src/app/jira-api.ts
 ```
+
+The first command reports the single control byte at offset 10813, value 1 (U+0001). The second grep
+prints both `normalizeForCompare` lines normally — no "Binary file" message. Both tools' binary
+detection is NUL-triggered specifically, not triggered by an arbitrary control byte, so U+0001 does
+not put this file in the class the §67 NUL did — the sweep this entry warned about is not, in fact,
+blind here.
+
+`normalizeForCompare`'s array branch joins sorted values on a **raw U+0001 byte** written
+directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
+is a delimiter, and any byte that cannot occur in a Jira field works. The byte is still real and
+unescaped, so a hygiene fix (the six-character escape instead of the literal byte) remains arguable
+on its own merits — just not for the "invisible to every content sweep" reason originally given.
+
+★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
+zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
+not read that green run as "no control characters in `src/`"; it means "no NUL". (The whole-tree sweep
+that finds it is the `node -e` command above.)
 
 ★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
