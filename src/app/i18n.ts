@@ -4118,6 +4118,7 @@ const enUS = {
   activityAiDocumentWrite: "Assistant edited a document",
 
   // Asset library (S3c-1 — document images)
+  assetLibraryTitle: "Image library",
   assetLibraryEmpty: "No images yet.",
   assetLibrarySize: "Size",
   assetLibraryUsage: "Used in",

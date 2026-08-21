@@ -4059,6 +4059,7 @@ export const de: Record<TranslationKey, string> = {
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
 
   // Asset library (S3c-1 — document images)
+  assetLibraryTitle: "Bildbibliothek",
   assetLibraryEmpty: "Noch keine Bilder.",
   assetLibrarySize: "Größe",
   assetLibraryUsage: "Verwendet in",
