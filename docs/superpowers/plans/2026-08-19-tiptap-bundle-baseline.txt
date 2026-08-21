@@ -1,0 +1,44 @@
+npm notice run aipm-cockpit@0.248.0 prebuild
+npm notice run node scripts/sync-script-docs.mjs --check && node scripts/gen-operating-guide.mjs
+[sync-script-docs] unchanged: CONTRIBUTING.md
+[sync-script-docs] unchanged: README.md
+gen-operating-guide: wrote C:\Projects\aipm-wt-a\src\app\operating-guide-builtin.generated.ts (leadership 32989 chars, 23 feature guides)
+npm notice run aipm-cockpit@0.248.0 build
+npm notice run next build
+▲ Next.js 16.2.11 (Turbopack)
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 20.8s
+  Running TypeScript ...
+  Finished TypeScript in 44s ...
+  Collecting page data using 19 workers ...
+  Generating static pages using 19 workers (0/18) ...
+  Generating static pages using 19 workers (4/18) 
+  Generating static pages using 19 workers (8/18) 
+  Generating static pages using 19 workers (13/18) 
+✓ Generating static pages using 19 workers (18/18) in 621ms
+  Finalizing page optimization ...
+
+Route (app)
+┌ ƒ /
+├ ƒ /_not-found
+├ ƒ /api/confluence/page
+├ ƒ /api/ecb
+├ ƒ /api/jira/create-issue
+├ ƒ /api/jira/issue-types
+├ ƒ /api/jira/projects
+├ ƒ /api/jira/search
+├ ƒ /api/jira/test
+├ ƒ /api/jira/transition-issue
+├ ƒ /api/jira/update-issue
+├ ƒ /api/jira/users
+├ ƒ /api/stt
+├ ƒ /api/timelog
+├ ƒ /msal-redirect
+└ ƒ /recovery
+
+
+ƒ Proxy (Middleware)
+
+ƒ  (Dynamic)  server-rendered on demand
+
