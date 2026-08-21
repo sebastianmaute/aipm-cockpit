@@ -4128,6 +4128,17 @@ const enUS = {
   assetLibraryDeleteConfirm: "Delete {0}?",
   assetLibraryDeleteConfirmUsed:
     "Delete {0}? It is used in {1} document(s) and will leave a broken image there.",
+  assetLibraryTursoOnly: "Images need a Turso project. Documents work on every backend.",
+  assetLibraryInsert: "Insert image",
+  assetLibraryMaxPerDocument: "This document already has the maximum of {0} images.",
+  assetLibraryPasteDropZone: "Paste or drop an image to add it",
+  assetUploadErrorFormat: "Unsupported image format. Use PNG, JPEG or WebP.",
+  assetUploadErrorTooLargeRaw: "That image is too large to upload.",
+  assetUploadErrorTooLargeStored: "That image is still too large after downscaling.",
+  assetUploadErrorDimensions: "That image's dimensions could not be read.",
+  assetUploadErrorEmpty: "That file is empty.",
+  assetUploadErrorDecode: "That image could not be decoded.",
+  assetUploadErrorStorageWrite: "The image could not be saved. Re-upload to retry.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

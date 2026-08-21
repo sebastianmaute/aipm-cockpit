@@ -4,10 +4,15 @@
 // loads so the first visit to a view shimmers into place instead of flashing
 // blank. The fallback is prop-less (no `lang` in this module scope) → decorative.
 import dynamic from "next/dynamic";
+import { useMemo } from "react";
 import { PanelSkeleton } from "./skeleton";
 import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { getTursoConfig } from "./turso-config";
+import { loadPortfolioMode, loadCurrentTursoProjectId } from "./portfolio-mode";
+import { loadRegistry } from "./projects-registry";
 import type { Lang } from "./i18n";
 
 const loading = () => <PanelSkeleton />;
@@ -132,6 +137,29 @@ export function DocumentsTabPanel({
   isPopout: boolean;
 }) {
   const ws = useWorkspace();
+  // ★★ The asset library's Turso gate. Mirrors workspace-section.tsx's
+  // `chatTursoConfig` pattern exactly (see AGENTS.md's AI Assistant sidebar
+  // bullet): `getTursoConfig` returns a FRESH object every call, so the
+  // `useMemo` on the credential STRINGS (not the settings object) is
+  // load-bearing — an unstable identity would re-fire useDocumentAssets'
+  // dangling-diff effect on every render. Hoisted to locals because
+  // exhaustive-deps rejects an `obj.member` dependency.
+  const { settings } = useSettings();
+  const tursoUrl = settings.integrations?.turso?.databaseUrl;
+  const tursoToken = settings.integrations?.turso?.authToken;
+  const assetsTursoConfig = useMemo(() => getTursoConfig(tursoUrl, tursoToken), [tursoUrl, tursoToken]);
+  // ★★ Project id scoping the asset byte store's `(id, project_id)` rows.
+  // `DocumentsTabPanel` has no `currentProjectId` PROP — workspace-section.tsx
+  // is baselined at exactly 1000 lines with zero headroom, so it cannot be
+  // threaded through — so this reads the SAME two sources task-manager.tsx's
+  // `landingProjectId` combines, directly: Turso portfolio mode's
+  // last-selected project id, or the file registry's current entry. Read
+  // fresh each render (no effect) — synchronous localStorage reads in render
+  // are pure and this repo already relies on that elsewhere.
+  const assetsProjectId =
+    loadPortfolioMode() === "turso"
+      ? (loadCurrentTursoProjectId() ?? "default")
+      : (loadRegistry().currentProjectId ?? "default");
   // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
   // The toolbar has always drawn one, but `onResetSize` was optional, the panel
   // fell back to a no-op, and this call site never passed it — so the button
@@ -167,6 +195,8 @@ export function DocumentsTabPanel({
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}
+          assetsTursoConfig={assetsTursoConfig}
+          assetsProjectId={assetsProjectId}
         />
       </div>
     </div>
