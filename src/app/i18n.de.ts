@@ -261,6 +261,9 @@ export const de: Record<TranslationKey, string> = {
   print: "Drucken",
   printHint: "Browser-Druckdialog für ein A4-Handout öffnen",
   delete: "Löschen",
+  rename: "Umbenennen",
+  insert: "Einfügen",
+  upload: "Hochladen",
   sendInquiry: "Anfrage senden",
 
   showMore: "Mehr anzeigen",
@@ -4054,4 +4057,14 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipAlreadySet: "bereits auf diesem Wert",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
+
+  // Asset library (S3c-1 — document images)
+  assetLibraryEmpty: "Noch keine Bilder.",
+  assetLibrarySize: "Größe",
+  assetLibraryUsage: "Verwendet in",
+  assetLibraryActions: "Aktionen",
+  assetLibraryTotalSize: "Gesamtgröße: {0}",
+  assetLibraryDangling: "Bilddaten fehlen",
+  assetLibraryDeleteConfirm: "{0} löschen?",
+  assetLibraryDeleteConfirmUsed: "{0} löschen? Es wird in {1} Dokument(en) verwendet und hinterlässt dort ein defektes Bild.",
 };

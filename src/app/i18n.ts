@@ -258,6 +258,9 @@ const enUS = {
   print: "Print",
   printHint: "Open the browser print dialog for an A4 handout",
   delete: "Delete",
+  rename: "Rename",
+  insert: "Insert",
+  upload: "Upload",
   sendInquiry: "Send inquiry",
 
   show: "Show",
@@ -4113,6 +4116,17 @@ const enUS = {
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiDocumentWrite: "Assistant edited a document",
+
+  // Asset library (S3c-1 — document images)
+  assetLibraryEmpty: "No images yet.",
+  assetLibrarySize: "Size",
+  assetLibraryUsage: "Used in",
+  assetLibraryActions: "Actions",
+  assetLibraryTotalSize: "Total size: {0}",
+  assetLibraryDangling: "Image data missing",
+  assetLibraryDeleteConfirm: "Delete {0}?",
+  assetLibraryDeleteConfirmUsed:
+    "Delete {0}? It is used in {1} document(s) and will leave a broken image there.",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
