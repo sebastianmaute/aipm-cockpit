@@ -180,6 +180,27 @@ li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
 li[data-type="taskItem"]::before { content: "\2610"; }
 li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
 
+/* Icon stroke weight. lucide defaults to strokeWidth 2; heroicons `24/outline`
+   — which every icon in this app came from until the icons.ts migration — draws
+   at 1.5. Pinning it here keeps the app's line weight unchanged.
+
+   ★★ A CSS rule, NOT a `LucideProvider`, and the reason is testability: a
+   provider is React context, so every existing unit test would render at 2
+   while the app rendered 1.5. jsdom sees no CSS either way, so neither
+   mechanism is unit-testable — but this one does not manufacture a divergence.
+   The pin is asserted in a real browser by e2e/icon-gallery.spec.ts.
+
+   ★ Beats lucide's `stroke-width` presentation attribute (CSS always does), so
+   no per-call-site prop is needed. An icon that ever needs another weight can
+   override with a Tailwind arbitrary value; none does today.
+
+   ★ This deliberately covers `rich-text-toolbar.tsx` too, which already used
+   lucide at the default 2 — two stroke weights in one app is the inconsistency
+   this migration exists to remove. */
+.lucide {
+  stroke-width: 1.5;
+}
+
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
    See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
 @media print {
