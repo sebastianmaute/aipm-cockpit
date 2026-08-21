@@ -50,7 +50,7 @@ and **non-zero for three** — and that split is what separates the classes.
 | Class | Flags | Root cause | Fix lives in |
 |---|---|---|---|
 | **A — planning corpus unresolvable** | §145 | `doc-claims-lib.mjs:112` `SKIP_DIRS = ["docs/superpowers"]`, applied inside `collectDocs()` | resolution index |
-| **B — extension-blind paths** | §200 `golden-workspace.md` | file exists at `src/app/__fixtures__/golden-workspace.md`; `SOURCE_EXT` (`doc-claims-lib.mjs:27`) carries no `md`, and `ROOT_DOCS` excludes it deliberately | resolution index |
+| **B — markdown under the code tree** | §200 `golden-workspace.md` | file exists at `src/app/__fixtures__/golden-workspace.md`; `SOURCE_EXT` (`doc-claims-lib.mjs:27`) carries no `md`, and `ROOT_DOCS` excludes it deliberately | resolution index |
 | **C — the sweep's self-exclusion** | §138 | `markedNear` (5 files), `toArgv` (3), `collectIdentifiers` (5) **all exist**, every one inside `SWEEP_SELF_FILES`, which `check-followup-claims.mjs:59` excludes on purpose | report shape |
 | **D — prose fragments** | §131 `foo.tsx`, §200 `.generated.ts` | example filenames written as if they were citations | the prose |
 
@@ -64,9 +64,10 @@ other one is `check-doc-claims.mjs`, which **does** block, as CI job `doc-claims
 Deleting the constant drags the entire planning corpus into a blocking gate — `ls -1
 docs/superpowers/specs | wc -l` and the same for `plans` today return **219** and **238**, and that
 population grows by one per slice, **including this file**. Re-derive it; do not quote this pair.
-The distinction the code
-does not yet draw is **scanning versus resolving**: a spec under `docs/superpowers/` must stay out
-of the claim-scan corpus and must be found by an existence check. Same tree, two questions.
+
+The distinction the code does not yet draw is **scanning versus resolving**: a spec under
+`docs/superpowers/` must stay out of the claim-scan corpus and must be found by an existence check.
+Same tree, two questions.
 
 ★★★ **Class C must not be fixed by weakening the self-exclusion.** It exists so that
 `followup-claims-lib.test.mjs` — whose method is quoting register prose verbatim — cannot vouch for
@@ -84,9 +85,19 @@ Scope: `scripts/check-followup-claims.mjs`, `scripts/followup-claims-lib.mjs`,
 default; the resolution index passes `[]`. One constant, one definition, two callers stating their
 own intent. Not a second copy of the path list.
 
-**B.** Add an extension-blind **path** index over `src`/`scripts`/`e2e` for resolution only.
-`collectSources()` stays exactly as it is — it is the *citation* index, and citations legitimately
-point only at code.
+**B.** Index `**/*.md` under `src`/`scripts`/`e2e` for resolution only. `collectSources()` stays
+exactly as it is — it is the *citation* index, and citations legitimately point only at code.
+
+★★ **`md` is the entire widening, and that is derived rather than chosen.** `pathsIn` accepts
+`tsx|ts|mjs|json|css|md|yml`; `SOURCE_EXT` is `tsx|ts|mjs|json|js|yaml|yml|css`. The only extension
+the register can name that `collectSources()` never indexes is `md`, and exactly one such file is
+tracked under the code tree. An extension-blind index would be wider than the defect and would add
+suffix-collision risk to `resolveCandidates`'s dotfile rule for no reachable case. If `pathsIn`'s
+alternation ever grows, this derivation is what must be re-run.
+
+★ It cannot affect citation resolution at all: `CITE_RE` is built from `SOURCE_EXT`, which has no
+`md`, so no citation can newly resolve against a file this adds — even though `env.resolve` is
+shared between the two checks.
 
 **C.** New status `SYMBOL_SELF_EXCLUDED`, reported when a symbol is absent from `knownSymbols` but
 present in a `SWEEP_SELF_FILES` member. Distinct from `SYMBOL_MISSING` in the tally line, so the
@@ -139,11 +150,20 @@ disagreement it causes).
 
 ## 4. Prose fragments
 
-§131 and §200 are reworded so their example filenames stop parsing as citations. No new register
-syntax — the file already carries two incompatible status conventions, and a third convention that
-only a script reads would be worse than the two flags it removes.
+No new register syntax — the file already carries two incompatible status conventions, and a third
+that only a script reads would be worse than the two flags it removes. But the two entries need
+**different** treatments, and reading them is what shows why:
 
-§200's `golden-workspace.md` flag needs no prose edit; change B covers it.
+- **§200 is reworded.** `` Editing the `.generated.ts` `` is prose shorthand. The full name
+  `operating-guide-builtin.generated.ts` sits in the preceding clause and resolves fine, so
+  "the generated file" loses nothing.
+- **§131 is fenced, not reworded.** Its `foo.tsx` is the *literal subject* — the sentence
+  demonstrates that a lookahead stops `` `foo.tsxx` `` anchoring to `foo.tsx`. Rewriting it destroys
+  the claim it exists to make. `classify()` already runs `stripFencedBlocks()` before extracting
+  prose, so a fence removes the flag with **zero characters of the example changed**. That is the
+  mechanism already in the file, not a new convention.
+
+§200's `golden-workspace.md` flag needs no prose edit at all; change B covers it.
 
 ---
 
