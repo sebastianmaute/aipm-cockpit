@@ -1399,9 +1399,11 @@ places pointed at §28 for a posture §28 does not cover (§28 is scoped to the 
 0.210.0 it went through `plainToHtml`, which escaped `& < >` — so this boundary got *less* strict in a
 release about write boundaries.
 ★ Risk is genuinely low and that is why it is recorded rather than fixed: there is **no template import
-channel** (no `importTemplate`/`exportTemplate`, no template-JSON path — verified). A template is captured
-from your own workspace into your own `settings.templates`, so the trust level is "your own settings", not
-"a file someone sent you". Every read of the field also re-sanitizes at its sink.
+channel**. `importTemplate` / `exportTemplate` do not exist (re-verified 2026-08-21:
+`grep -rn "importTemplate\|exportTemplate" src scripts e2e` returns nothing), and there is no
+template-JSON path either. A template is captured from your own workspace into your own
+`settings.templates`, so the trust level is "your own settings", not "a file someone sent you". Every
+read of the field also re-sanitizes at its sink.
 ★★ It CANNOT be fixed in `templates.ts` — that file is in the sample generator's import graph, so a
 DOMPurify call there breaks the generator under bare node (and the guard now bans the import). The fix, if
 ever wanted, is an allow-list pass at the browser-side caller of `sanitizeTemplate`.
