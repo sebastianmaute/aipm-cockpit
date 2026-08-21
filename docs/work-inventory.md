@@ -186,9 +186,11 @@ target. ★★ Two things got it there and neither alone would have: duplicated 
 compares ONE number, the total duplicated-LINE percentage, per `AGENTS.md`'s exit-code bisection.
 The deferred structural tail it had been saving for the last stretch was never needed.
 
-★ **TD-8 (recorded 2026-08-21, scheduled the same day):** heroicons and `lucide-react` ship side
-by side — **78** files against **1** — and the app-wide migration is now owned and scheduled,
-though not started; new code defaults to `lucide-react` effective now. Decision debt, not a
+★ **TD-8 (recorded and decided 2026-08-21, still unscheduled):** heroicons and `lucide-react` ship
+side by side — **78** files against **1** — and the app-wide migration is owned and decided but has
+no spec and no date; new code defaults to `lucide-react` effective now. ★★ The register said
+"scheduled" and this line agreed with it; §3 below, in the same file, said **no spec yet**. §3 was
+the accurate one — a decision to do the work is not a schedule for it. Decision debt, not a
 defect; `docs/open-followups.md` §145 (closed as a decision) is the long form, and §3 above carries
 the still-unspecced migration itself as a backlog row.
 
