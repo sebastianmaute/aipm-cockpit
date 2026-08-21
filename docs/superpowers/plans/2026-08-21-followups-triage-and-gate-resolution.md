@@ -192,7 +192,13 @@ git commit -m "refactor: let collectDocs take a skip list, defaulting to the blo
 - Modify: `scripts/check-followup-claims.mjs`
 - Test: `scripts/doc-claims-lib.test.mjs`
 
-**Why `md` and nothing else.** `pathsIn` (`followup-claims-lib.mjs`) matches `` `name.(tsx|ts|mjs|json|css|md|yml)` ``. `SOURCE_EXT` is `tsx|ts|mjs|json|js|yaml|yml|css`. The one extension the register can name that `collectSources()` never indexes is **`md`**, and exactly one such file is tracked under the code tree (`src/app/__fixtures__/golden-workspace.md`). An extension-blind index would be wider than the defect and would add collision risk to `resolveCandidates`'s dotfile suffix rule for no gain.
+**Why `md` and nothing else — under the CODE tree.** `pathsIn` (`followup-claims-lib.mjs`) matches `` `name.(tsx|ts|mjs|json|css|md|yml)` ``. `SOURCE_EXT` is `tsx|ts|mjs|json|js|yaml|yml|css`. The one extension the register can name that `collectSources()` never indexes is **`md`**, and exactly one such file is tracked under the code tree (`src/app/__fixtures__/golden-workspace.md`). An extension-blind code walk would be wider than the defect and would add collision risk to `resolveCandidates`'s dotfile suffix rule for no gain.
+
+★★★ **Scope that sentence to the code tree — under `docs/` the rule is the opposite, and reading it too broadly turns this fix into a regression.** `docs/` is indexed extension-BLIND today, by the `docAssets` loop this task replaces, and the register cites four non-`.md` assets that resolve only through it: `docs/baselines/file-sizes.json` (×3), `followup-claims.json`, `doc-line-cites.json`, `jscpd-2026-07.json`. `collectResolutionSources` must carry that loop across. Re-derive before trusting the list:
+
+```bash
+grep -oE '`[A-Za-z0-9_./-]+\.(json|yml|css)`' docs/open-followups.md | sort | uniq -c | sort -rn
+```
 
 - [ ] **Step 1: Write the failing test**
 
@@ -224,6 +230,19 @@ describe("collectResolutionSources", () => {
 
   it("still reports a deleted markdown fixture as unresolvable", () => {
     expect(resolveCandidates("no-such-fixture.md", idx)).toEqual([]);
+  });
+
+  // ★★★ Class C — the NON-markdown half of `docs/`, which neither `collectDocs`
+  // nor the code walk holds. The register cites this file three times. A fix that
+  // dropped it would trade three false PATH_MISSING findings for six new ones.
+  it("resolves a non-markdown docs asset", () => {
+    expect(resolveCandidates("docs/baselines/file-sizes.json", idx)).toEqual([
+      "docs/baselines/file-sizes.json",
+    ]);
+  });
+
+  it("still reports a deleted docs asset as unresolvable", () => {
+    expect(resolveCandidates("docs/baselines/no-such-baseline.json", idx)).toEqual([]);
   });
 
   // ★ The code index is unchanged and still present — this is a UNION, not a swap.
@@ -280,6 +299,23 @@ export function collectResolutionSources() {
       if (p.endsWith(".md")) codeTreeDocs.push(p);
     }
   }
+  // ★★★ THE NON-MARKDOWN HALF OF `docs/` IS LOAD-BEARING AND IS NOT `collectDocs`'s.
+  // The register cites `docs/baselines/file-sizes.json` three times, plus
+  // `followup-claims.json`, `doc-line-cites.json` and `jscpd-2026-07.json`. None
+  // is under the code tree and none ends in `.md`, so dropping this loop would
+  // turn six resolving citations into fresh PATH_MISSING findings — the exact
+  // false-positive class this function exists to remove, reintroduced by the fix.
+  // ★★ UNGUARDED, on purpose, and the reasoning came with the code: a truncated
+  // index is indistinguishable from a deleted file, so every missing asset would
+  // report PATH_MISSING — a screen of false findings under a tool that exits 0.
+  // An unreadable `docs/` must throw. (`readFileSync(REGISTER)` in the caller
+  // reads inside `docs/` and throws first anyway.)
+  const docAssets = [];
+  for (const f of readdirSync("docs", { recursive: true, encoding: "utf8" })) {
+    const p = `docs/${f}`.replace(/\\/g, "/");
+    if (p.endsWith(".md")) continue; // `collectDocs([])`'s half, just above
+    if (existsSync(p) && statSync(p).isFile()) docAssets.push(p);
+  }
   return [
     ...new Set([
       ...collectSources(),
@@ -287,12 +323,13 @@ export function collectResolutionSources() {
       // planning corpus. See `collectDocs`.
       ...collectDocs([]).filter((d) => (ROOT_DOCS.includes(d) ? existsSync(d) : true)),
       ...codeTreeDocs,
+      ...docAssets,
     ]),
   ];
 }
 ```
 
-Add `existsSync` to the `node:fs` import at the top of `doc-claims-lib.mjs` if it is not already there.
+Add `existsSync` and `statSync` to the `node:fs` import at the top of `doc-claims-lib.mjs` — it currently imports `readdirSync` alone.
 
 - [ ] **Step 4: Run the tests and confirm they pass**
 
