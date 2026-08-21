@@ -5138,8 +5138,8 @@ edit modal opens in a popout and typing a new name into the owner picker calls t
 `handleCreateResource` → `setResources` + `logActivity("resource.created")`. The item saving around it
 is blocked, so a popout can create a resource it cannot then attach.
 
-★ Correction 2026-08-21: earlier text here named this component `RaidPanelToolbar`; that name never
-existed — `git log --oneline --all -S'RaidPanelToolbar' -- src` returns no commits, ever. It has been
+★ Correction 2026-08-21: `RaidPanelToolbar` never existed — `git log --oneline --all -S'RaidPanelToolbar'
+-- src` returns no commits, ever. Earlier text here used that name for this component; it has been
 `RaidToolbar` (`src/app/raid-panel-toolbar.tsx`) since commit `8b53121a` split it out of
 `raid-panel.tsx`. The bug is unchanged, verified directly: `"raid"` is still in `POPOUT_TABS`
 (`broadcast-sync.ts`), `RaidToolbar`'s `AddButton` still renders unconditionally (`isPopout` is only
