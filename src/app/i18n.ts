@@ -3947,7 +3947,7 @@ const enUS = {
   versionHighlightAppRename: "The application is now called AI PM Cockpit.",
   versionHighlightThemeDecouple: "AIPM and Dashboard are now optional importable themes (Settings - Appearance - Theme gallery); Harbor is the default look.",
   versionHighlightUiTokenRename: "Internal palette tokens renamed to a neutral prefix; no visual change.",
-  versionHighlightHeroicons: "Unified Heroicons icon set across the whole UI; no functional change.",
+  versionHighlightHeroicons: "Unified icon set across the whole UI; no functional change.",
   versionHighlightKnowledgeItems: "Knowledge library: add standalone documents, Confluence pages, and web links that aren't tied to an item, and optionally link each to one or more tasks.",
   versionHighlightAiSettingsTool: "The AI assistant can now adjust safe app settings on request (density, view hints, table/board mode, feature modules, next-actions weights) - never keys, secrets, or storage.",
   versionHighlightProjectOverrides: "Per-project setting overrides: a \"This project\" settings section can override next-actions ranking, notifications, and timezone for a single project (they travel with it), plus dashboard density and view-hint banners per device.",

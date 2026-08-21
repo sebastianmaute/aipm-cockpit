@@ -39,7 +39,7 @@ interface NavIconProps {
   className?: string;
 }
 
-// Single 24x24 line-icon glyph per nav view (heroicons outline). Icons are
+// Single 24x24 line-icon glyph per nav view (sourced from the `icons.ts` barrel). Icons are
 // decorative: the button carries the accessible name (visible label when
 // expanded, aria-label when collapsed), so every glyph is aria-hidden.
 const NAV_ICON: Record<AppView, ComponentType<SVGProps<SVGSVGElement>>> = {

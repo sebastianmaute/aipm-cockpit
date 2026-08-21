@@ -2,9 +2,9 @@
 
 // Shared toolbar for the unified rich-text editor: icon-only controls in six
 // dividered clusters, matching the tiptap "Simple" template look
-// (https://template.tiptap.dev/preview/templates/simple). lucide-react is a
-// new dependency, used ONLY in this file — see the design spec's Scope
-// section for why the rest of the app still uses heroicons.
+// (https://template.tiptap.dev/preview/templates/simple). This file and the
+// `icons.ts` barrel are the only two direct `lucide-react` importers in the
+// repo — every other call site imports icons through that barrel instead.
 //
 // ★★★ Every stateful control is the compact ToolbarButton (rich-text-toolbar-
 // button.tsx), NEVER a hand-rolled aria-pressed button. The one this replaced
