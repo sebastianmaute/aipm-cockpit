@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* ★★★ NEVER REMOVE THIS. Tailwind v4 auto-scans every file in the repo that git
+   does not ignore — .md included — harvesting anything that looks like a class.
+   `docs/superpowers/` holds per-slice design and plan documents that quote
+   Tailwind classes while DISCUSSING them, including token FAMILIES written as
+   `bg-[var(--rag-*)]`. A `*` inside an arbitrary-value bracket is emitted
+   verbatim as `background-color: var(--rag-*)`, which is invalid CSS, so
+   globals.css fails to compile and the whole app 500s.
+   ★★ That tree used to be gitignored, so Tailwind skipped it for free. Tracking
+   it on 2026-08-21 removed that accidental protection and turned five recovered
+   documents into a build failure — caught by the e2e job, whose webserver could
+   not compile this file. This directive restores exactly the previous scanning
+   behaviour; it does not lose any real class, because no class ORIGINATES in a
+   planning document.
+   ★ Do not "fix" a future recurrence by editing the offending document instead.
+   Every new spec that discusses a token family would reintroduce it, and the
+   convention in AGENTS.md (write families as bare `--foo-*` globs OUTSIDE any
+   bracket) is guidance no gate enforces. */
+@source not "../../docs/superpowers";
+
 @custom-variant dark (&:where(.dark, .dark *));
 
 :root {
