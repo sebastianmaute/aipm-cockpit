@@ -74,7 +74,8 @@ git log origin/main --merges --pretty=%s | grep -oE "Merge branch '[^']+'" | sor
 
 ## 3. Designed but NOT built — the real backlog
 
-Four items have approved designs and no implementation. These are the roadmap.
+Four items have approved designs and no implementation, plus one item below that is the opposite
+shape: a decision with no design yet. These are the roadmap.
 
 | Item | Design lives in | Evidence it is unbuilt |
 |---|---|---|
@@ -82,6 +83,7 @@ Four items have approved designs and no implementation. These are the roadmap.
 | **S7 — Outlook pull + exception reconciliation** | same roadmap | same |
 | **Document images, end to end, Turso-gated** | documents roadmap; summarised in `docs/open-followups.md` section 113 | no image block kind exists; `document-model.ts` and `doc-render-html.ts` carry comments anticipating a later images slice |
 | **`optimize_wbs`** | multi-surface roadmap, Release 4 | `docs/open-followups.md` section 3, "never built — owed from R4"; the name appears in no source file |
+| **App-wide `@heroicons/react` → `lucide-react` icon migration** | decision recorded 2026-08-21 in `docs/tech-debt-register.md` TD-8 and `docs/open-followups.md` §145 (closed as a decision); **no spec yet** | 78 files still import `@heroicons/react` (`grep -rln "@heroicons/react" src/app`); nothing has been brainstormed or planned for the conversion itself — that is its own slice |
 
 ★★★ **THE "S3c" LABEL IS AMBIGUOUS AND THE AMBIGUITY HIDES THE IMAGES SLICE.** The documents
 roadmap defines S3c as *images end to end*. What actually shipped under that label in 0.252.0 was
@@ -161,9 +163,11 @@ target. ★★ Two things got it there and neither alone would have: duplicated 
 compares ONE number, the total duplicated-LINE percentage, per `AGENTS.md`'s exit-code bisection.
 The deferred structural tail it had been saving for the last stretch was never needed.
 
-★ **TD-8 is new (recorded 2026-08-21):** heroicons and `lucide-react` ship side by side —
-**78** files against **1** — and nobody owns whether to migrate app-wide. Decision debt, not a
-defect; `docs/open-followups.md` §145 is the long form.
+★ **TD-8 (recorded 2026-08-21, scheduled the same day):** heroicons and `lucide-react` ship side
+by side — **78** files against **1** — and the app-wide migration is now owned and scheduled,
+though not started; new code defaults to `lucide-react` effective now. Decision debt, not a
+defect; `docs/open-followups.md` §145 (closed as a decision) is the long form, and §3 above carries
+the still-unspecced migration itself as a backlog row.
 
 ★ Dependency rows: `eslint` 10 is **BLOCKED** upstream via `eslint-config-next`, confirmed by an
 executed attempt. `@types/node` is deferred but its stated precondition — the runtime moving off

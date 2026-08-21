@@ -10008,7 +10008,7 @@ floating notes window off Open Points' notes badge) to drive a REAL browser: foc
 trigger, asserts `ArrowRight` moves focus to Bold without changing `.ProseMirror`'s content, and
 asserts one `Tab` leaves the tagged toolbar row entirely. Passed on the first run.
 
-## 145. The heroicons → `lucide-react` migration is unowned — open, a decision, measured
+## 145. The heroicons → `lucide-react` migration — CLOSED 2026-08-21, a decision, measured
 
 Opened 2026-08-11 with the icon-only rich-text toolbar (`0.233.0 "Reed"`). `rich-text-toolbar.tsx`
 imports `lucide-react` for its icon set (Tiptap's own reference toolbar
@@ -10034,27 +10034,29 @@ ignored still describe it that way, and this one had the ignored-ness as its *th
 aside. Grep for the rest rather than trusting that this was the only one.
 
 ★★ **Option (a) is DONE, and this entry said it was "done partially".** `docs/CODEMAPS/dependencies.md`
-carries the row it asked for, in the runtime-dependency table, stating that `lucide-react` has ONE
-consumer, that heroicons is still the app-wide icon set, and "do not reach for lucide elsewhere
-without deciding to switch". That is exactly what (a) specified, in exactly the file (a) named.
-★ Its file count was **77** against a measured **78** and has been corrected in place — a one-off
-drift, not a reason to distrust the row.
+carried the row it asked for, in the runtime-dependency table, naming `lucide-react`'s one consumer
+and steering new callers away from it without a deliberate switch. That was exactly what (a)
+specified, in exactly the file (a) named — since superseded by the rewrite this closure records
+below, once (b) made the switch deliberate for every caller. ★ Its file count was **77** against a
+measured **78** and was corrected in place before this closure — a one-off drift, not a reason to
+distrust the row.
 
-### What is actually still open
+### Resolution — (b) is now decided
 
-Only **(b)**: whether to run the app-wide migration at all. Nothing has been brainstormed, specced,
-planned or scheduled for it, and there is no roadmap slot. The two packages do not conflict and
-nothing is broken by the coexistence.
+**CLOSED 2026-08-21.** (b) was the only open half: whether to run the app-wide migration at all.
+It is now answered — the app-wide `@heroicons/react` → `lucide-react` migration is **scheduled**,
+and the default for new code flips to `lucide-react` effective now. Recorded in
+`docs/tech-debt-register.md` TD-8 (rewritten: owned, scheduled, not started) and
+`docs/CODEMAPS/dependencies.md` (both the `lucide-react` and `@heroicons/react` rows rewritten to
+name the target and the retired package). The migration itself is **not** in the slice that closes
+this entry — 78 files and 70 distinct imported icon names is its own slice, and it still needs its
+own brainstorm (`docs/work-inventory.md` §3 carries it as a backlog row: a decision recorded, no
+spec yet).
 
-★★ The risk is slow and unchanged: the next person adding an icon anywhere in the app has two
-equally-real precedents to copy. What has changed is that a tracked doc now answers which one wins
-— **heroicons, by volume (78 files against 1) and by being the default the dependencies codemap
-names** — so a new contributor reaching for lucide outside the toolbar is now making a documented
-mistake rather than an undocumented guess.
-
-★ Recorded as a dependency-ownership row in `docs/tech-debt-register.md` (TD-8) so it sits beside
-the other unowned upgrade decisions rather than only here. Closing this entry means either
-scheduling the migration or deciding, in that row, not to.
+★★ **The deliberate mixed state this leaves, recorded so it reads as accepted rather than as a
+defect:** 78 files stay on `@heroicons/react` until the migration slice runs, new code defaults to
+`lucide-react`, and no gate enforces either side. Do not read the mix as license to revert the
+default, and do not "fix" it by hand-converting files outside a scheduled migration slice.
 
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 
