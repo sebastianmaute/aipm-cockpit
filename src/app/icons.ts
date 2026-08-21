@@ -19,12 +19,12 @@
 // ★ Targets are lucide's CANONICAL names, never its back-compat aliases: there
 // is no `check-circle.mjs`, only `circle-check.mjs`. `icons.test.ts` pins each
 // row against the component's own `displayName`, so an alias fails the suite.
-// ★ Two of the imports below (`AlignLeftIcon`, `CircleHelpIcon`) are THEMSELVES
-// back-compat aliases in the installed lucide-react@1.31.0 — `align-left.mjs`
-// and `circle-help.mjs` each re-export a renamed icon (`text-align-start.mjs`,
-// `circle-question-mark.mjs`) verbatim, identical SVG paths. The import names
-// stay as lucide's documented aliases; `icons.test.ts` pins the CANONICAL
-// `displayName` each resolves to (`TextAlignStart`, `CircleQuestionMark`).
+// ★ A `.mjs` file EXISTING does not prove its name is canonical — a shim is a
+// file too. lucide-react 1.31 renamed `AlignLeft` to `TextAlignStart` and
+// `CircleHelp` to `CircleQuestionMark`, keeping the old names as verbatim
+// re-export shims (`align-left.mjs` / `circle-help.mjs`, identical SVG paths).
+// Import the CANONICAL name, not the shim — `displayName` is the arbiter, and
+// `icons.test.ts` pins it for every row.
 //
 // ★ Stroke weight is NOT set here. heroicons draws at 1.5 and lucide defaults to
 // 2; `globals.css` pins 1.5 on the `.lucide` class that lucide always emits. A
@@ -51,7 +51,7 @@ export {
   // A Gantt drag handle. `Equal` reproduces today's two bars exactly;
   // `GripHorizontal` is lucide's idiomatic grip but draws dots — fidelity wins.
   EqualIcon as Bars2Icon,
-  AlignLeftIcon as Bars3BottomLeftIcon,
+  TextAlignStartIcon as Bars3BottomLeftIcon,
   MenuIcon as Bars3Icon,
   BellIcon,
   ZapIcon as BoltIcon,
@@ -90,7 +90,7 @@ export {
   PlusIcon,
   PresentationIcon as PresentationChartLineIcon,
   PrinterIcon,
-  CircleHelpIcon as QuestionMarkCircleIcon,
+  CircleQuestionMarkIcon as QuestionMarkCircleIcon,
   LayersIcon as RectangleStackIcon,
   ShieldCheckIcon,
   SparklesIcon,
