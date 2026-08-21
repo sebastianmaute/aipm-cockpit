@@ -31,6 +31,7 @@ import {
   encodeAttendees,
   decodeAttendees,
 } from "./calendar-event";
+import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import {
   encodeAllocations,
   encodeDisciplineAllocations,
@@ -164,6 +165,14 @@ export const EVENTS_CSV_COLUMNS: Array<keyof CalendarEvent> = [
   "sendInvitations",
   "localModifiedAt",
   "outlookEventId",
+];
+
+// Columns persisted for DocumentAsset metadata rows in CSV. Order matches the
+// header row emitted by the encoder; the decoder reads by column name so
+// reordering files by hand still works. Bytes live in the side table, never
+// in this row — see document-asset.ts.
+export const DOCUMENT_ASSETS_CSV_COLUMNS: Array<keyof DocumentAsset> = [
+  "id", "name", "mime", "size", "width", "height", "hash", "createdAt",
 ];
 
 // Columns persisted for Shift items in CSV and Markdown. Per-weekday hours
@@ -608,6 +617,31 @@ export function calendarEventsToCsv(events: readonly CalendarEvent[], neutralize
     lines.push(
       EVENTS_CSV_COLUMNS.map((c) =>
         csvCellEscape(calendarEventFieldToString(e, c), neutralize),
+      ).join(","),
+    );
+  }
+  return lines.join("\r\n");
+}
+
+// The default branch already renders `undefined` as "" — spelled out here only
+// because an absent width/height is the COMMON case for a non-raster asset, and
+// a codec that emitted the string "undefined" would round-trip it back as a
+// dimension of NaN.
+export function documentAssetFieldToString(a: DocumentAsset, col: string): string {
+  const v = (a as unknown as Record<string, unknown>)[col];
+  return v == null ? "" : String(v);
+}
+
+export function buildDocumentAssetFromObj(obj: Record<string, string>): DocumentAsset | null {
+  return sanitizeDocumentAsset(obj);
+}
+
+export function documentAssetsToCsv(assets: readonly DocumentAsset[], neutralize = false): string {
+  const lines: string[] = [DOCUMENT_ASSETS_CSV_COLUMNS.join(",")];
+  for (const a of assets) {
+    lines.push(
+      DOCUMENT_ASSETS_CSV_COLUMNS.map((c) =>
+        csvCellEscape(documentAssetFieldToString(a, c), neutralize),
       ).join(","),
     );
   }
