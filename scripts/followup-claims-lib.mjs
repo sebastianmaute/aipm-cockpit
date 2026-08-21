@@ -53,21 +53,28 @@ export const SWEEP_SELF_FILES = new Set([
  *  DELETED from `src` stops reporting the actionable SYMBOL_MISSING and starts
  *  reporting SYMBOL_SELF_EXCLUDED — which `NON_ACTIONABLE` swallows, so it never
  *  sets a verdict and nobody is sent to look.
- *  ★★★ THE SURFACE IS 34, NOT THE 70 THE REVIEW REPORTED, and the difference is
- *  the whole reason to measure the RIGHT set. 70 is the count of gated fixture
- *  names that also exist in the tree — but a name written in the fixture AND in
- *  one of the two IMPLEMENTATION files stays self-excluded either way, and
- *  correctly so, because implementation presence is the legitimate reason. Only
- *  fixture-ONLY names change class: 34 of them. All three names the review
- *  offered as examples (`resolveEntitySave`, `loadActualsCache`, `isClosed`) are
- *  in the implementation files too and do NOT move — checking them is what
- *  showed the headline figure was measuring the wrong difference.
- *  ★★ Of those 34, most are vitest matchers and capitalised prose words the
- *  identifier regex admits. At least four are real declared repo symbols —
- *  `useDismissable`, `markdownToWorkspace`, `PeopleDisclosureLabel`,
- *  `CalendarEntityType` — which is small, and is still the class of finding
- *  this tool exists to keep visible. Reproduce with the set arithmetic in
- *  `scripts/check-followup-claims.mjs`, which builds every set named here.
+ *  ★★★ THE SURFACE IS MUCH SMALLER THAN THE COUNT OF QUOTED NAMES, and getting
+ *  that difference right is the whole reason to measure rather than tally. The
+ *  headline figure a reviewer will reach for is "gated fixture names that also
+ *  exist in the tree" — but a name is only DOWNGRADED by admitting the fixture
+ *  if the fixture is the ONLY reason it is findable. A name also written in one
+ *  of the two implementation files stays self-excluded either way, and correctly
+ *  so, because implementation presence is the legitimate reason.
+ *  ★★★ AND A NAME THAT IS IN `src` NEVER MOVES UNDER EITHER CONFIGURATION —
+ *  `knownSymbols` holds it, and that is tested before the difference is ever
+ *  consulted. An earlier revision of this docstring refuted a review's three
+ *  examples by saying they "are in the implementation files too"; two of them
+ *  were not, and had become so only BECAUSE THIS SENTENCE NAMED THEM. The
+ *  conclusion held, for the other reason. Check candidates against `src`.
+ *  ★★★ NO NAMES AND NO TOTALS ARE QUOTED HERE, and both restrictions are load-
+ *  bearing rather than stylistic. This file is swept by the gate it implements,
+ *  so a repo symbol named in this docstring is vouched for by this docstring:
+ *  delete it from `src` later and its stale register claim reports the
+ *  swallowed SELF_EXCLUDED instead of the actionable MISSING — the exact
+ *  delayed, silent failure described two paragraphs above. And every total here
+ *  moves with the fixture, so one written into the same commit that edits the
+ *  fixture is stale on arrival; the last pair was. Read today's figures with:
+ *    node --input-type=module -e "import path from'node:path';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FILES,SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const f=[...SWEEP_SELF_FIXTURES][0];const ids=x=>{const s=new Set();collectIdentifiersFromFiles([x],s,new Set());return s};const tree=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,tree,SWEEP_SELF_FILES);const q=[...ids(f)].filter(isGatedSymbolName);const impl=new Set([...SWEEP_SELF_FILES].filter(x=>x!==f).flatMap(x=>[...ids(x)]));console.log('gated',q.length,'inTree',q.filter(n=>tree.has(n)).length,'fixtureOnly',q.filter(n=>!impl.has(n)).length)"
  *
  *  ★★ So the CLI excludes this file from `withSelf` as well as from
  *  `knownSymbols`: absent from both, a fixture-only name reports SYMBOL_MISSING.
@@ -430,9 +437,18 @@ function assertedAbsent(name, isPath, absent) {
  *  Confirm against the sweep the CLI actually runs, never against a grep of the
  *  three directories:
  *
- *    node --input-type=module -e "import{collectIdentifiers,collectIdentifiersFromFiles}from'./scripts/agents-symbols-lib.mjs';import{readdirSync}from'node:fs';const k=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,k,new Set());collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),k,new Set());console.log(k.has(process.argv[1]))" -- NAME
+ *    node --input-type=module -e "import{collectIdentifiers,collectIdentifiersFromFiles}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FILES}from'./scripts/followup-claims-lib.mjs';import{readdirSync}from'node:fs';const k=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,k,SWEEP_SELF_FILES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),k,SWEEP_SELF_FILES);console.log(k.has(process.argv[1]))" -- NAME
  *
  *  A `true` there means the entry would be dead. Do not add it.
+ *  ★★★ THE EXCLUSION ARGUMENT IS THE WHOLE COMMAND, AND AN EARLIER REVISION
+ *  OMITTED IT — passing an empty set instead of `SWEEP_SELF_FILES` makes the
+ *  probe scan THIS FILE, where every key of the map below is written as a
+ *  literal. It then answers `true` for all of them, the live ones included, and
+ *  the rule above reads as an instruction to delete the entries that are
+ *  working. Measured: `true` for all three live keys on a tree where the gate
+ *  reported them as SYMBOL_THIRD_PARTY. A verification command that cannot
+ *  separate a live entry from a dead one is worse than none — it is a confident
+ *  wrong answer pointing at the removal of a real guard.
  *  ★★ `knownSymbols.has(s)` is checked FIRST, so an entry for a name that also
  *  exists in repo code is dead — and worse than dead: if that name later leaves
  *  the tree, this map silently masks the stale claim instead of reporting it.
@@ -503,15 +519,22 @@ export function classify(entry, env) {
       // ★★★ THE THIRD WAY IS THE ONE WITH NO VERDICT, and it is a live gap, not
       // a theoretical one. `collectIdentifiers` skips GATE_SELF_FILES
       // UNCONDITIONALLY — the exclusion is inside the shared walk, not in the
-      // `alsoExclude` argument — so those files are absent from `withSelf` as
-      // well as from `knownSymbols`, and the set difference below cannot see
-      // them. A name living only there therefore reports SYMBOL_MISSING: the
-      // exact false positive the SELF_EXCLUDED verdict exists to remove, one
-      // layer down. Measured 2026-08-21 — `compareX` sits in
-      // `agents-symbols-lib.mjs` and its test and nowhere else, and classifies
-      // SYMBOL_MISSING. Nothing in the register cites such a name today, which
-      // is why this is recorded rather than fixed; widening `withSelf` to admit
-      // GATE_SELF_FILES is the fix if one ever appears.
+      // caller-supplied one — so those files are absent from `withSelf` as well
+      // as from `knownSymbols`, and the set difference below cannot see them. A
+      // name living only there therefore reports SYMBOL_MISSING: the exact false
+      // positive the SELF_EXCLUDED verdict exists to remove, one layer down.
+      // ★★★ NO EXAMPLE IS QUOTED, AND AN EARLIER REVISION QUOTING ONE IS THE
+      // REASON: this file is swept too, so writing an orphan's name here moves
+      // it out of the very class the sentence places it in. The reproduce
+      // command lives beside the widening argument in
+      // `check-followup-claims.mjs`.
+      // ★★ Nothing in the register cites such a name today, which is why this is
+      // recorded rather than fixed. ★★★ AND WHEN ONE DOES, WIDENING `withSelf`
+      // TO ADMIT GATE_SELF_FILES IS NOT THE FIX — an earlier revision of this
+      // sentence said it was, contradicting the block in the CLI that measures
+      // it as a REGRESSION. Those files quote the deliberately-absent names the
+      // symbol gate exists to catch, so a blanket widening excuses all of them.
+      // Admit the one name, with a reason, the way the two maps above do.
       // ★★★ THIRD-PARTY IS TESTED FIRST AND THE ORDER IS NOT COSMETIC. Every name
       // in `THIRD_PARTY_SYMBOLS` is ALSO self-excluded, necessarily and by
       // construction: the map's own literal keys sit in THIS file, which is a

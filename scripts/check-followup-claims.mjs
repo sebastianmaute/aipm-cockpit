@@ -77,7 +77,7 @@ for (const dir of ["src", "scripts", "e2e"]) {
 // own prose silences its own regression is the self-referential trap this gate
 // exists to avoid, one layer down. Read the name off the config instead — the
 // command is written so that it does not contain the name either:
-//   grep -nE "Ignores\(" eslint.config.mjs
+//   grep -nE "gnores\(" eslint.config.mjs
 // ★★ THE COMMAND'S SHAPE IS LOAD-BEARING FOR THE SAME REASON THE OMISSION IS.
 // A first cut of this comment spelled the identifier inside the grep pattern,
 // which put it straight back into `withSelf` and undid the paragraph above it.
@@ -126,19 +126,29 @@ if (entries.length < 50) {
 // mentions it, so admitting it here would let the register vouch for itself and
 // would silently downgrade a real deletion from SYMBOL_MISSING to the
 // non-actionable SYMBOL_SELF_EXCLUDED. The constant's own docstring carries the
-// measurement (70 gated names were in that state) and the reasoning.
+// reasoning and the command that measures today's overlap.
 // ★★★ `GATE_SELF_FILES` IS *NOT* ADDED BACK HERE AND MUST NOT BE, THOUGH THE
 // SYMMETRY ARGUMENT SAYS OTHERWISE. `collectIdentifiers` skips those three files
 // unconditionally, in this pass too, so a name living only there lands in
 // NEITHER set and reports SYMBOL_MISSING — a fourth unfindable class the
 // verdicts do not name. Widening `withSelf` to admit them looks like the fix and
 // is a REGRESSION: the symbol gate's own files quote the deliberately-absent
-// names it exists to catch, so 12 of the 23 orphans measured on 2026-08-21 were
-// names like `migrateTaskStatus`, `pendingFlash` and `onToggleComplete` — which
-// AGENTS.md documents as never having existed, and for which SYMBOL_MISSING is
-// the CORRECT verdict. Only three (`docPath`, `lineStart`, `nEach`) are genuine
-// gate internals; the rest are ordinary prose words the identifier regex admits.
-// Excusing all 23 to rescue three would mask the exact class this gate is for.
+// names it exists to catch, so most of that orphan set is names AGENTS.md
+// documents as never having existed, for which SYMBOL_MISSING is the CORRECT
+// verdict. Only a few are genuine gate internals; the rest are ordinary prose
+// words the identifier regex admits. Excusing the whole set to rescue those few
+// would mask the exact class this gate is for.
+// ★★★ NO ORPHAN IS NAMED HERE, AND NAMING ONE IS SELF-DEFEATING, BECAUSE THIS
+// FILE IS SWEPT BY THE GATE IT IMPLEMENTS. Every identifier written here — prose
+// and examples included — joins `withSelf`, so a named orphan stops being an
+// orphan and the sentence describing it is falsified BY BEING WRITTEN. Measured,
+// not theorised: an earlier revision of this paragraph named seven, and all
+// seven changed class in the very commit that named them, while the paragraph
+// went on asserting the verdict they no longer got. The same trap is recorded
+// one screen down for a grep pattern that quoted an identifier. So list today's
+// set rather than quoting it — this reads the gate-self files directly, because
+// the shared walk refuses to:
+//   node --input-type=module -e "import{readFileSync}from'node:fs';import{collectIdentifiers,isGatedSymbolName,GATE_SELF_FILES}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const w=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,w,SWEEP_SELF_FIXTURES);const o=new Set();for(const f of GATE_SELF_FILES)for(const m of readFileSync(f,'utf8').matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g))if(isGatedSymbolName(m[0])&&!w.has(m[0]))o.add(m[0]);console.log(o.size,[...o].sort().join(' '))"
 // Recorded rather than fixed, deliberately, and no register entry hits it today.
 const withSelf = new Set();
 for (const dir of ["src", "scripts", "e2e"]) {
