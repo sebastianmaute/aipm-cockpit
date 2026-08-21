@@ -439,3 +439,33 @@ describe("activityLog sanitize-and-cap on load", () => {
     expect((ws.activityLog ?? [])[0]?.changes).toEqual(changes);
   });
 });
+
+describe("documentAssets JSON round-trip", () => {
+  const asset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+
+  it("round-trips documentAssets through JSON", () => {
+    const json = workspaceToJson({ ...emptyWorkspace(), documentAssets: [asset] });
+    expect(jsonToWorkspace(json).documentAssets?.[0]).toEqual(asset);
+  });
+
+  it("omits the key entirely when there are no assets (byte-stable)", () => {
+    expect(workspaceToJson(emptyWorkspace())).not.toContain("documentAssets");
+  });
+
+  it("drops garbage rows individually rather than failing the load", () => {
+    // jsonToWorkspace requires the tasks/raid envelope (see wsWithActivityLog
+    // above) or it treats the input as malformed and returns emptyWorkspace().
+    const json = JSON.stringify({ tasks: [], raid: [], documentAssets: [asset, { name: "no id" }, null] });
+    expect(jsonToWorkspace(json).documentAssets).toHaveLength(1);
+  });
+
+  // ★★ isWorkspaceEmpty feeds the LOAD guard that refuses an incoming empty
+  //    workspace. Metadata alone must NOT make a workspace look non-empty —
+  //    otherwise a workspace holding only orphaned metadata defeats the guard.
+  it("does not count toward isWorkspaceEmpty", () => {
+    expect(isWorkspaceEmpty({ ...emptyWorkspace(), documentAssets: [asset] })).toBe(true);
+  });
+});

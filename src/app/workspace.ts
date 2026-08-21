@@ -43,6 +43,7 @@ import { logDiag } from "./diagnostics";
 import type { SettingsOverrides } from "./settings-types";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
+import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import {
   type Absence,
   type BudgetBucket,
@@ -156,6 +157,12 @@ export type Workspace = {
    *  this task wires CSV + Turso persistence via ENTITY_SPECS. Sanitized by
    *  sanitizeCalendarEvent. */
   calendarEvents?: readonly CalendarEvent[];
+  /** Document asset METADATA. Bytes live in the `document_asset_data` side
+   *  table and never travel here — a JSON backup re-imported into a different
+   *  Turso database therefore yields the dangling case, rendered as such.
+   *  Optional & additive: undefined/empty serializes to nothing (byte-stable).
+   *  Sanitized by sanitizeDocumentAsset. */
+  documentAssets?: readonly DocumentAsset[];
 };
 
 const SCHEMA_VERSION = 11;
@@ -554,6 +561,11 @@ export function workspaceToJson(ws: Workspace): string {
       ...(ws.calendarEvents && ws.calendarEvents.length
         ? { calendarEvents: ws.calendarEvents }
         : {}),
+      // Additive: only present when assets exist, so asset-less files stay free
+      // of a `documentAssets` key.
+      ...(ws.documentAssets && ws.documentAssets.length
+        ? { documentAssets: ws.documentAssets }
+        : {}),
     },
     null,
     2,
@@ -787,6 +799,15 @@ export function jsonToWorkspace(
         .map((e) => sanitizeCalendarEvent(e))
         .filter((e): e is CalendarEvent => e !== null);
       if (events.length) raw.calendarEvents = events;
+    }
+    // Additive: garbage rows are dropped individually (sanitizeDocumentAsset
+    // never throws), and an all-garbage/empty list stays off the key rather
+    // than emitting [].
+    if (p.documentAssets !== undefined) {
+      const assets = ((p.documentAssets as unknown[]) ?? [])
+        .map((a) => sanitizeDocumentAsset(a))
+        .filter((a): a is DocumentAsset => a !== null);
+      if (assets.length) raw.documentAssets = assets;
     }
     return migrateWorkspaceV10(raw);
   } catch (err) {
