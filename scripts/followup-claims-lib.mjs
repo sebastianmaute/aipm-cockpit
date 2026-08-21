@@ -37,6 +37,124 @@ export const SWEEP_SELF_FILES = new Set([
   path.join(HERE, "followup-claims-lib.test.mjs"),
 ]);
 
+/** The TEST FIXTURE alone, split out of the set above because the two halves
+ *  answer different questions and only one of them excuses a missing name.
+ *
+ *  ★★★ A FIXTURE'S MENTION IS NOT EVIDENCE, AND TREATING IT AS EVIDENCE
+ *  DOWNGRADES REAL DEBT. `SYMBOL_SELF_EXCLUDED` means "the sweep was forbidden
+ *  to look at the code that would have vouched for this name" — a statement
+ *  about the GATE'S OWN IMPLEMENTATION. `followup-claims-lib.test.mjs` is not
+ *  that: its method is quoting register prose verbatim, so it holds a name
+ *  precisely BECAUSE the register mentions it. Building the self-excluded set
+ *  from it makes the register vouch for itself.
+ *
+ *  ★★★ THE CONSEQUENCE IS DELAYED AND SILENT, which is why it survived review
+ *  once. A name that is real today, is quoted in the fixture, and is LATER
+ *  DELETED from `src` stops reporting the actionable SYMBOL_MISSING and starts
+ *  reporting SYMBOL_SELF_EXCLUDED — which `NON_ACTIONABLE` swallows, so it never
+ *  sets a verdict and nobody is sent to look.
+ *  ★★★ THE SURFACE IS MUCH SMALLER THAN THE COUNT OF QUOTED NAMES, and getting
+ *  that difference right is the whole reason to measure rather than tally. The
+ *  headline figure a reviewer will reach for is "gated fixture names that also
+ *  exist in the tree" — but a name is only DOWNGRADED by admitting the fixture
+ *  if the fixture is the ONLY reason it is findable. A name also written in one
+ *  of the two implementation files stays self-excluded either way, and correctly
+ *  so, because implementation presence is the legitimate reason.
+ *  ★★★ AND A NAME THAT IS IN `src` NEVER MOVES UNDER EITHER CONFIGURATION —
+ *  `knownSymbols` holds it, and that is tested before the difference is ever
+ *  consulted. An earlier revision of this docstring refuted a review's three
+ *  examples by saying they "are in the implementation files too"; two of them
+ *  were not, and had become so only BECAUSE THIS SENTENCE NAMED THEM. The
+ *  conclusion held, for the other reason. Check candidates against `src`.
+ *  ★★★ NO REPO SYMBOL AND NO TOTAL IS QUOTED HERE, and both restrictions are
+ *  load-bearing rather than stylistic. This file is swept by the gate it
+ *  implements, so a repo symbol named in this docstring is vouched for by this
+ *  docstring: delete it from `src` later and its stale register claim reports
+ *  the swallowed SELF_EXCLUDED instead of the actionable MISSING — the exact
+ *  delayed, silent failure described two paragraphs above. And every total here
+ *  moves with the fixture, so one written into the same commit that edits the
+ *  fixture is stale on arrival; the last pair was.
+ *  ★★ THE RULE IS ABOUT REPO SYMBOLS, NOT ABOUT THIS MODULE'S OWN API — the
+ *  command below necessarily spells the collectors and constants it calls, and
+ *  an earlier wording said "NO NAMES", which the command on the next line
+ *  contradicts. Those names are declared HERE; naming them vouches for nothing
+ *  that was not already true. A name from `src`, or one that lives only in a
+ *  gate-self file, is the thing that must never appear.
+ *  ★★★ AND IT PRINTS THE SURFACE, NOT THE THREE FIGURES A READER MIGHT PICK
+ *  FROM. The first cut printed a gated total, an in-tree total and a
+ *  "fixture-only" total, none of which is the surface — the middle one counts
+ *  names that cannot move because `src` holds them, and the last one subtracts
+ *  only the two implementation files, over-reporting roughly threefold. The
+ *  surface is the names findable NOWHERE the sweep can otherwise see:
+ *    node --input-type=module -e "import{readdirSync}from'node:fs';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const f=[...SWEEP_SELF_FIXTURES][0];const q=new Set();collectIdentifiersFromFiles([f],q,new Set());const seen=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,seen,SWEEP_SELF_FIXTURES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),seen,SWEEP_SELF_FIXTURES);console.log('SURFACE',[...q].filter(isGatedSymbolName).filter(n=>!seen.has(n)).length)"
+ *
+ *  ★★ So the CLI excludes this file from `withSelf` as well as from
+ *  `knownSymbols`: absent from both, a fixture-only name reports SYMBOL_MISSING.
+ *  That is the safe direction for a tool whose own summary says it rules claims
+ *  OUT and never IN — a false MISSING sends someone to probe, a false
+ *  SELF_EXCLUDED sends nobody anywhere. */
+export const SWEEP_SELF_FIXTURES = new Set([path.join(HERE, "followup-claims-lib.test.mjs")]);
+
+/** The directories BOTH symbol sweeps walk. Consulted by the known-symbol pass
+ *  in `check-followup-claims.mjs` and by the self-excluded pass below, so the
+ *  two cannot disagree about scope — an earlier revision claimed that while the
+ *  known-symbol pass still held its own array literal. */
+export const SWEEP_DIRS = ["src", "scripts", "e2e"];
+
+/** The `withSelf` pass and its set difference, extracted from the CLI so the
+ *  ONE thing that matters about it is reachable from a test.
+ *
+ *  ★★★ WHAT THIS PINS IS THE EXCLUSION ARGUMENT, AND NOTHING ELSE COULD.
+ *  The behaviour — build a second identifier set that admits this sweep's
+ *  IMPLEMENTATION files but still excludes its FIXTURE, then subtract the
+ *  known set — lived inline in `check-followup-claims.mjs`, which no test
+ *  imports. Reverting both call sites to an empty exclusion set, i.e. undoing
+ *  the fix this function exists to hold, left the whole scripts suite green.
+ *  A constant whose SHAPE is pinned while its USE is not is not pinned.
+ *
+ *  ★★ The collectors are injected rather than imported so a test can simulate
+ *  a tree in which a name lives ONLY in the fixture — the single input that
+ *  separates the correct exclusion from the empty one. Nothing drawn from the
+ *  real tree can: every fixture name that matters is also in `src`.
+ *  ★★ THE ROOT-FILE CALL IS INERT TODAY AND IS KEPT ANYWAY. Both root passes
+ *  scan the identical file set and no sweep-self file sits at the root, so every
+ *  identifier it adds is subtracted again by the difference — deleting it
+ *  changes no output. It is here for the day one of those two facts stops
+ *  holding, and it is pinned by a test for the same reason: an inert call with
+ *  no test is indistinguishable from a deleted one.
+ *
+ *  ★ The catch keeps the CLI's posture, not the blocking gate's: this is a
+ *  REPORTING tool, so an unreadable DIRECTORY degrades the report rather than
+ *  stopping it. Do not copy this into a gate.
+ *  ★★ SCOPED TO THE DIRECTORY WALK, and an earlier wording said "directory OR
+ *  file", which the code does not do: the root-file call below sits OUTSIDE the
+ *  try and PROPAGATES. That asymmetry is inherited verbatim from the inline
+ *  version this replaced, so it is a faithful move — but do not read the
+ *  swallow as covering both. */
+export function buildSelfExcludedSymbols({
+  knownSymbols,
+  rootFiles,
+  collect,
+  collectFiles,
+  dirs = SWEEP_DIRS,
+}) {
+  const withSelf = new Set();
+  for (const dir of dirs) {
+    try {
+      collect(dir, withSelf, SWEEP_SELF_FIXTURES);
+    } catch {
+      /* same posture, same caveat, as the known-symbol sweep */
+    }
+  }
+  // ★★ The SAME exclusion as the directory walk above, not an empty one — an
+  // earlier revision of this line passed an empty set and the comment beside it
+  // outlived the fix by describing the argument that had been replaced. A root
+  // file admitted here that the fixture pass must not see would be reported as
+  // the non-actionable SELF_EXCLUDED instead of the actionable MISSING.
+  collectFiles(rootFiles, withSelf, SWEEP_SELF_FIXTURES);
+  return new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
+}
+
 /** `## 42. Title` opens an entry. */
 export const ENTRY_RE = /^##\s+(\d+)\.\s+(.*)$/;
 
@@ -375,6 +493,46 @@ function assertedAbsent(name, isPath, absent) {
   return false;
 }
 
+/** Symbols this register cites that belong to INSTALLED PACKAGES, not to this
+ *  repo — each with the package, so the claim stays checkable.
+ *
+ *  ★★★ AN ALLOWLIST IS A HOLE, AND THE REASON IS THE ONLY THING KEEPING IT SMALL.
+ *  Every entry is a name a genuinely stale claim can hide behind. Add one only
+ *  after confirming the name is absent from EVERY TREE THIS GATE SWEEPS AND
+ *  present in the package named, and never merely to make a report look tidy.
+ *  ★★★ THAT IS FOUR DIRECTORIES PLUS THE REPO ROOT, and checking only the first
+ *  three is how a dead entry got in. One of this map's original four entries
+ *  named a vitest config key absent from `src`/`scripts`/`e2e` but set at the
+ *  ROOT — so the root scan in `check-followup-claims.mjs` put it in
+ *  `knownSymbols` and the entry could never fire. It was added and killed by the
+ *  SAME commit, which is why "I checked the three directories" is not a check.
+ *  Confirm against the sweep the CLI actually runs, never against a grep of the
+ *  three directories:
+ *
+ *    node --input-type=module -e "import{collectIdentifiers,collectIdentifiersFromFiles}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FILES}from'./scripts/followup-claims-lib.mjs';import{readdirSync}from'node:fs';const k=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,k,SWEEP_SELF_FILES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),k,SWEEP_SELF_FILES);console.log(k.has(process.argv[1]))" -- NAME
+ *
+ *  A `true` there means the entry would be dead. Do not add it.
+ *  ★★★ THE EXCLUSION ARGUMENT IS THE WHOLE COMMAND, AND AN EARLIER REVISION
+ *  OMITTED IT — passing an empty set instead of `SWEEP_SELF_FILES` makes the
+ *  probe scan THIS FILE, where every key of the map below is written as a
+ *  literal. It then answers `true` for all of them, the live ones included, and
+ *  the rule above reads as an instruction to delete the entries that are
+ *  working. Measured: `true` for all three live keys on a tree where the gate
+ *  reported them as SYMBOL_THIRD_PARTY. A verification command that cannot
+ *  separate a live entry from a dead one is worse than none — it is a confident
+ *  wrong answer pointing at the removal of a real guard.
+ *  ★★ `knownSymbols.has(s)` is checked FIRST, so an entry for a name that also
+ *  exists in repo code is dead — and worse than dead: if that name later leaves
+ *  the tree, this map silently masks the stale claim instead of reporting it.
+ *  That is the same trap `agents-symbols-lib.mjs`'s ALLOWLIST documents.
+ *  ★★ These rot on any upgrade and NOTHING will say so — the standing hazard
+ *  `check-doc-claims.mjs` already records for its own third-party bucket. */
+export const THIRD_PARTY_SYMBOLS = new Map([
+  ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
+  ["getScope", "eslint-plugin-react-hooks — context feature detection"],
+  ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
+]);
+
 /** `env` is injected so this stays pure and testable:
  *    knownSymbols : Set<string>      identifiers present in src/scripts/e2e
  *    resolve      : (path) => path[] doc-claims-lib's resolveCandidates, bound
@@ -411,7 +569,65 @@ export function classify(entry, env) {
       }
       continue;
     }
-    if (!present) problems.push({ kind: "SYMBOL_MISSING", detail: s });
+    if (!present) {
+      // ★★★ THE SYMBOL EXISTS; THE SWEEP CANNOT SEE IT, AND THAT IS DELIBERATE.
+      // `SWEEP_SELF_FILES` is excluded from `knownSymbols` so this harness cannot
+      // vouch for the names it checks — see that constant's three-star note. The
+      // consequence was a permanent SYMBOL_MISSING on §138, which documents this
+      // sweep and therefore names its internals: `markedNear`, `toArgv` and
+      // `collectIdentifiers` are all in the tree — every file holding them is a
+      // swept-self or gate-self file, which is the whole point. ★ No count is
+      // quoted: one was, and it was wrong for `collectIdentifiers` on the day it
+      // was written. Read today's with
+      // `grep -rl "collectIdentifiers" src scripts e2e | wc -l`.
+      // ★★ Reported, never dropped. "I was not allowed to look" is a different
+      // statement from "it is gone", and collapsing them into CLEAN is exactly
+      // the circularity the exclusion exists to prevent.
+      // ★★ FOUR WAYS A NAME CAN BE UNFINDABLE AND ONLY ONE IS REPO DEBT: the
+      // sweep is forbidden to look (SWEEP_SELF_FILES), the name belongs to a
+      // package rather than to us, it lives ONLY in the symbol gate's own
+      // self-excluded files, or it is genuinely gone. Only the last is
+      // actionable — and collapsing any of the others into CLEAN would be worse.
+      // ★★★ THE THIRD WAY IS THE ONE WITH NO VERDICT, and it is a live gap, not
+      // a theoretical one. `collectIdentifiers` skips GATE_SELF_FILES
+      // UNCONDITIONALLY — the exclusion is inside the shared walk, not in the
+      // caller-supplied one — so those files are absent from `withSelf` as well
+      // as from `knownSymbols`, and the set difference below cannot see them. A
+      // name living only there therefore reports SYMBOL_MISSING: the exact false
+      // positive the SELF_EXCLUDED verdict exists to remove, one layer down.
+      // ★★★ NO EXAMPLE IS QUOTED, AND AN EARLIER REVISION QUOTING ONE IS THE
+      // REASON: this file is swept too, so writing an orphan's name here moves
+      // it out of the very class the sentence places it in. The reproduce
+      // command lives beside the widening argument in
+      // `check-followup-claims.mjs`.
+      // ★★ Nothing in the register cites such a name today, which is why this is
+      // recorded rather than fixed. ★★★ AND WHEN ONE DOES, WIDENING `withSelf`
+      // TO ADMIT GATE_SELF_FILES IS NOT THE FIX — an earlier revision of this
+      // sentence said it was, contradicting the block in the CLI that measures
+      // it as a REGRESSION. Those files quote the deliberately-absent names the
+      // symbol gate exists to catch, so a blanket widening excuses all of them.
+      // Admit the one name, with a reason, the way the two maps above do.
+      // ★★★ THIRD-PARTY IS TESTED FIRST AND THE ORDER IS NOT COSMETIC. Every name
+      // in `THIRD_PARTY_SYMBOLS` is ALSO self-excluded, necessarily and by
+      // construction: the map's own literal keys sit in THIS file, which is a
+      // `SWEEP_SELF_FILES` member, and they appear nowhere else in the tree —
+      // which is precisely why they were unfindable to begin with. So `withSelf`
+      // holds them, `knownSymbols` does not, and the set difference claims EVERY
+      // ONE before the map is ever consulted. Testing self-exclusion first makes
+      // this map DEAD CODE. Measured 2026-08-21: `SYMBOL_THIRD_PARTY` was absent
+      // from the tally entirely and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+      // ★★ Third-party is also the more specific claim — it names the owning
+      // package — so it should outrank "appears only in our own files" wherever
+      // both hold. Pinned by "prefers third-party over self-excluded when a name
+      // is in both"; every other test in that block passes under EITHER order and
+      // cannot catch a regression here.
+      const kind = THIRD_PARTY_SYMBOLS.has(s)
+        ? "SYMBOL_THIRD_PARTY"
+        : env.selfExcludedSymbols?.has(s)
+          ? "SYMBOL_SELF_EXCLUDED"
+          : "SYMBOL_MISSING";
+      problems.push({ kind, detail: s });
+    }
   }
   for (const p of paths) {
     // ★★ Mirrors CITE_THIRD_PARTY exactly, including its ORDER: classified on
@@ -472,8 +688,11 @@ export function classify(entry, env) {
   // that still applies. Without this tier a single missing symbol earlier in the
   // body would bury it.
   const THIRD_PARTY_KINDS = new Set(["CITE_THIRD_PARTY", "PATH_THIRD_PARTY"]);
+  // ★★ Not repo debt either, for the same reason and with the same consequence:
+  // a finding no probe can resolve must not stand in front of one that can.
+  const NON_ACTIONABLE = new Set([...THIRD_PARTY_KINDS, "SYMBOL_SELF_EXCLUDED", "SYMBOL_THIRD_PARTY"]);
   const done = problems.find((p) => p.kind === "ASSERTED_ABSENT_NOW_PRESENT");
-  const actionable = problems.find((p) => !THIRD_PARTY_KINDS.has(p.kind));
+  const actionable = problems.find((p) => !NON_ACTIONABLE.has(p.kind));
   const verdict = done
     ? done.kind
     : actionable

@@ -1399,9 +1399,11 @@ places pointed at §28 for a posture §28 does not cover (§28 is scoped to the 
 0.210.0 it went through `plainToHtml`, which escaped `& < >` — so this boundary got *less* strict in a
 release about write boundaries.
 ★ Risk is genuinely low and that is why it is recorded rather than fixed: there is **no template import
-channel** (no `importTemplate`/`exportTemplate`, no template-JSON path — verified). A template is captured
-from your own workspace into your own `settings.templates`, so the trust level is "your own settings", not
-"a file someone sent you". Every read of the field also re-sanitizes at its sink.
+channel**. `importTemplate` / `exportTemplate` do not exist (re-verified 2026-08-21:
+`grep -rn "importTemplate\|exportTemplate" src scripts e2e` returns nothing), and there is no
+template-JSON path either. A template is captured from your own workspace into your own
+`settings.templates`, so the trust level is "your own settings", not "a file someone sent you". Every
+read of the field also re-sanitizes at its sink.
 ★★ It CANNOT be fixed in `templates.ts` — that file is in the sample generator's import graph, so a
 DOMPurify call there breaks the generator under bare node (and the guard now bans the import). The fix, if
 ever wanted, is an allow-list pass at the browser-side caller of `sanitizeTemplate`.
@@ -1861,11 +1863,13 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
 
-★★★ **Recorded here because it was invisible to every tracked document.** The 8-slice roadmap and
-S6's own spec and plan all live under `docs/superpowers/`, which is **gitignored** — so on any other
-machine the remaining work simply does not exist. Six slices shipped (C 0.204.0 · D 0.205.0 ·
-F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. Per this file's own rule, no link
-into that tree — enough detail is reproduced below to resume without it.
+★★★ **Recorded here because it was invisible to every tracked document — until `0.253.0 "Schroeder"`
+(2026-08-21).** The 8-slice roadmap and S6's own spec and plan live under `docs/superpowers/`, which
+was un-ignored that release and the whole corpus committed — the remaining work is now readable from
+any checkout, not only the machine that wrote it. Six slices shipped (C 0.204.0 · D 0.205.0 ·
+F 0.206.0 · A 0.207.0 · E 0.208.0 · B 0.209.0); these two did not. The old rule against linking into
+that tree is retired (see this file's header); enough detail is still reproduced below so this entry
+stays resumable without opening it.
 
 **S6 — Outlook PUSH for calendar events.** Spec and a 17-task / 109-step plan exist and **not one
 step has been executed**. Written against 0.208.0 targeting 0.209.0, then displaced when that release
@@ -1879,6 +1883,19 @@ The tasks: `graph-recurrence.ts` · `calendar-event-attendees.ts` · widen
 series · entity-qualify the Push/Pull names (**= §42 — see there**) · wire the push in
 `use-calendar-integrations` · thread the bag to the Resources pane · the attendee field · mount the
 field + confirm + invitation-aware delete · **security review of the invitation path** · release chain.
+
+★ `eventToGraphEvent` / `exceptionPlan` / `afterPush` / `replayExceptions` /
+`calendar-event-attendees.ts` are all **missing** too — S6's designed-but-unbuilt surface, specified
+in full in `docs/superpowers/specs/2026-07-29-s6-calendar-event-push-design.md`. Phrased on purpose
+to match the same missing-list grammar the three-blockers paragraph below already trips: the
+assertedAbsentNames helper in `scripts/followup-claims-lib.mjs` reads it, so
+`check-followup-claims.mjs` treats these five as an asserted absence today rather than
+`SYMBOL_MISSING`/`PATH_MISSING` noise — and the moment any of them lands in the tree (S6 ships), the
+gate flips this entry to its highest-priority verdict, `ASSERTED_ABSENT_NOW_PRESENT`, which reads as
+a live "this follow-up may be done" signal rather than a silent `CLEAN`. That is the deliberate
+choice: the alternative wording (plain `SYMBOL_MISSING`/`PATH_MISSING`) is equally accurate today but
+gives no signal at all when S6 finally lands, and this entry exists precisely so the next reader
+doesn't have to re-probe these five by hand.
 
 **The data model is already shipped** (S3, 0.202.0): `CalendarEvent` carries `startTime`,
 `durationMinutes`, `attendeeResourceIds`, `sendInvitations` and `outlookEventId` across all six write
@@ -4754,6 +4771,10 @@ to express "this task names a person who is deliberately NOT the same-named dire
 keeping the reach. Not done here: the version-stamp plumbing is a bigger change than the fix warranted,
 and the idempotent pass is harmless for every shape encountered so far.
 
+★ Re-verified 2026-08-21: `migrateWorkspaceV11` does not exist — `grep -n "function migrateWorkspaceV"
+src/app/workspace.ts` tops out at `migrateWorkspaceV10`. It is a proposed name for the fix above, not a
+lost one.
+
 ★★ There are now **two** load funnels and a third would silently miss the backfill. They are listed in
 the function's own doc comment — keep that list current.
 
@@ -5043,10 +5064,14 @@ either claim.
 
 ## 88. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
 
-Found while building the view-scoped AI prompts' Settings disclosure (`AiViewScopeDisclosure`,
-`settings-sections/ai-view-scope-disclosure.tsx`, unreleased at time of writing). Its own "AI
-Assistant" and "Operating guides" sub-section titles in `ai-section.tsx` are styled elements, not
-headings:
+Found while building the view-scoped AI prompts' Settings disclosure. At the time it was planned under
+the working name `AiViewScopeDisclosure`, in a file to be named `settings-sections/ai-view-scope-disclosure.tsx`.
+★ Correction 2026-08-21: `AiViewScopeDisclosure` / `settings-sections/ai-view-scope-disclosure.tsx` are
+gone — no component or file by either name was ever shipped. The work landed instead as an
+always-visible list with no per-row toggle, folded into `src/app/settings-sections/ai-views-section.tsx`
+(the rename is documented in full in `docs/AGENTS/ai-assistant.md`). The entry's own claim is unaffected
+by that rename and is still live: `ai-section.tsx`'s own "AI Assistant" and "Operating guides"
+sub-section titles are styled elements, not headings:
 
 - **STILL OPEN.** `{t(lang, "aiAssistant")}` renders inside a
   `<span className="... text-sm font-medium ...">` — grep the key in `ai-section.tsx`.
@@ -5063,7 +5088,7 @@ doc-claims ratchet caught only the second, and only because `ai-section.tsx` had
 227-line drift stays green forever. This is the case the "cite the SYMBOL" rule is about.
 
 A screen-reader user navigating that Settings tab by heading (NVDA/JAWS "next heading", VoiceOver
-rotor) skips the remaining one — it reads as body text, not a section landmark. `AiViewScopeDisclosure`
+rotor) skips the remaining one — it reads as body text, not a section landmark. `ai-views-section.tsx`
 was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
 above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
@@ -5108,10 +5133,19 @@ fixed. `onCreateResource` is the remaining one, and the same fix does **not** ap
 `number | undefined`. That is a tsc error rather than a silent break, which is why it was left alone
 rather than patched over.
 
-Reachable: RAID is in `POPOUT_TABS`, `RaidPanelToolbar` renders its add button unconditionally, so the
+Reachable: RAID is in `POPOUT_TABS`, `RaidToolbar` renders its add button unconditionally, so the
 edit modal opens in a popout and typing a new name into the owner picker calls through to
 `handleCreateResource` → `setResources` + `logActivity("resource.created")`. The item saving around it
 is blocked, so a popout can create a resource it cannot then attach.
+
+★ Correction 2026-08-21: `RaidPanelToolbar` never existed — `git log --oneline --all -S'RaidPanelToolbar'
+-- src` returns no commits, ever. Earlier text here used that name for this component; it has been
+`RaidToolbar` (`src/app/raid-panel-toolbar.tsx`) since commit `8b53121a` split it out of
+`raid-panel.tsx`. The bug is unchanged, verified directly: `"raid"` is still in `POPOUT_TABS`
+(`broadcast-sync.ts`), `RaidToolbar`'s `AddButton` still renders unconditionally (`isPopout` is only
+forwarded to `CalendarSyncControls`), and `onCreateResource: handleCreateResource` in
+`task-manager.tsx` is still unguarded beside its `guardEdit`-wrapped RAID siblings (`grep -n
+"onCreateResource: handleCreateResource" src/app/task-manager.tsx`).
 
 ★ Blast radius is popout-local for the workspace itself (the save effect early-returns on `isPopout`
 and `canSend` disables every outbound broadcast) — but see §91 for the part that is not.
@@ -8592,8 +8626,13 @@ Reproduce with `ls scripts/ scripts/*.test.*` and subtract.
 direction. Six injected defects, four killed at once, two survived; I classified BOTH survivors as
 equivalent mutants, concluding that `SOURCE_EXT` ordering and PATH_RE's `(?!...)` lookahead were
 redundant guards so removing either alone changed nothing. A cold review's differential fuzz settled
-it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths —
-`` `foo.tsxx` `` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+it: dropping the ORDER changes NO outputs, dropping the LOOKAHEAD invents phantom paths — fenced below, because these are
+regex INPUTS rather than files this repo holds, and the sweep is right to read a
+backticked filename in prose as a claim:
+
+```text
+`foo.tsxx` anchors to `foo.tsx`, `tsconfig.jsonc` to `tsconfig.json`.
+```
 ★★ THAT EXPERIMENT NOW LIVES IN THE SUITE (`PATH_RE mutants — the two guards are NOT
 interchangeable`), and this entry used to quote its corpus size instead — "784 inputs, 336 differ".
 Nothing in the repo reproduced those figures, and a second reviewer building their own corpus got
@@ -8602,7 +8641,9 @@ rule applied to the text that states the rule. Both mutants are now built from t
 `SOURCE_EXT`, so the property is ENFORCED rather than asserted and there is no count to go stale.
 ★ Writing that pin is itself worked evidence: the first version enumerated "every
 extension-SUFFIXED input" as the expected differing set and FAILED, because the corpus builds
-`ts` + `x` as `foo.tsx` — a valid name that must not differ. Enumerating re-derived the regex's
+`ts` + `x` as foo.tsx — a valid name that must not differ. (Deliberately
+un-backticked: it is a regex input, and backticking it makes the sweep read it as
+a claim on a file this repo does not hold, which is the sweep working.) Enumerating re-derived the regex's
 rules and got them wrong; asserting the PROPERTY (every difference is an invented path, and no
 accepted input is affected) is what holds.
 The lookahead mutant survived only because no test fed it an extension-SUFFIXED name — a TEST GAP,
@@ -9069,8 +9110,10 @@ a reader trusts.
 
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
 phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
-them are under `docs/superpowers/`, which is gitignored — so they exist on one machine and this entry
-is the only durable record. It is written to be resumable without them.
+them are under `docs/superpowers/`, which was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the
+whole corpus committed — they are tracked and readable in the repo now, so this entry's earlier
+self-description as "the only durable record" no longer holds. It remains written to be resumable
+without them, and the P2–P4 scope stays open.
 
 ★★★ **THE ORIGINATING PREMISE WAS FALSE AND MEASURING IT FIRST IS WHAT SAVED THE SLICE.** The request
 was "extract the open TODOs out of the app files into one place". This repo has **zero**
@@ -9965,7 +10008,7 @@ floating notes window off Open Points' notes badge) to drive a REAL browser: foc
 trigger, asserts `ArrowRight` moves focus to Bold without changing `.ProseMirror`'s content, and
 asserts one `Tab` leaves the tagged toolbar row entirely. Passed on the first run.
 
-## 145. The heroicons → `lucide-react` migration is unowned — open, a decision, measured
+## 145. The heroicons → `lucide-react` migration — CLOSED 2026-08-21, a decision, measured
 
 Opened 2026-08-11 with the icon-only rich-text toolbar (`0.233.0 "Reed"`). `rich-text-toolbar.tsx`
 imports `lucide-react` for its icon set (Tiptap's own reference toolbar
@@ -9982,7 +10025,7 @@ releases and one later slice that extended the toolbar's own lucide imports);
 ★★★ **THIS ENTRY'S ORIGINAL PREMISE IS DEAD, AND SAYING SO IS THE POINT OF THE ENTRY.** It was
 titled "the migration decision behind it lives nowhere durable" and argued that the rationale was
 "invisible to anyone who doesn't have this local checkout" because it lived only in
-`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`, in a gitignored tree.
+`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`, in what was then a gitignored tree.
 **That tree was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the whole corpus committed** —
 that spec is tracked, and the reasoning it carries (a full app-wide icon migration is its own
 project, out of scope for a toolbar slice) is readable by anyone with the repo. ★ This is a
@@ -9991,27 +10034,29 @@ ignored still describe it that way, and this one had the ignored-ness as its *th
 aside. Grep for the rest rather than trusting that this was the only one.
 
 ★★ **Option (a) is DONE, and this entry said it was "done partially".** `docs/CODEMAPS/dependencies.md`
-carries the row it asked for, in the runtime-dependency table, stating that `lucide-react` has ONE
-consumer, that heroicons is still the app-wide icon set, and "do not reach for lucide elsewhere
-without deciding to switch". That is exactly what (a) specified, in exactly the file (a) named.
-★ Its file count was **77** against a measured **78** and has been corrected in place — a one-off
-drift, not a reason to distrust the row.
+carried the row it asked for, in the runtime-dependency table, naming `lucide-react`'s one consumer
+and steering new callers away from it without a deliberate switch. That was exactly what (a)
+specified, in exactly the file (a) named — since superseded by the rewrite this closure records
+below, once (b) made the switch deliberate for every caller. ★ Its file count was **77** against a
+measured **78** and was corrected in place before this closure — a one-off drift, not a reason to
+distrust the row.
 
-### What is actually still open
+### Resolution — (b) is now decided
 
-Only **(b)**: whether to run the app-wide migration at all. Nothing has been brainstormed, specced,
-planned or scheduled for it, and there is no roadmap slot. The two packages do not conflict and
-nothing is broken by the coexistence.
+**CLOSED 2026-08-21.** (b) was the only open half: whether to run the app-wide migration at all.
+It is now answered — the app-wide `@heroicons/react` → `lucide-react` migration is **scheduled**,
+and the default for new code flips to `lucide-react` effective now. Recorded in
+`docs/tech-debt-register.md` TD-8 (rewritten: owned, scheduled, not started) and
+`docs/CODEMAPS/dependencies.md` (both the `lucide-react` and `@heroicons/react` rows rewritten to
+name the target and the retired package). The migration itself is **not** in the slice that closes
+this entry — 78 files and 70 distinct imported icon names is its own slice, and it still needs its
+own brainstorm (`docs/work-inventory.md` §3 carries it as a backlog row: a decision recorded, no
+spec yet).
 
-★★ The risk is slow and unchanged: the next person adding an icon anywhere in the app has two
-equally-real precedents to copy. What has changed is that a tracked doc now answers which one wins
-— **heroicons, by volume (78 files against 1) and by being the default the dependencies codemap
-names** — so a new contributor reaching for lucide outside the toolbar is now making a documented
-mistake rather than an undocumented guess.
-
-★ Recorded as a dependency-ownership row in `docs/tech-debt-register.md` (TD-8) so it sits beside
-the other unowned upgrade decisions rather than only here. Closing this entry means either
-scheduling the migration or deciding, in that row, not to.
+★★ **The deliberate mixed state this leaves, recorded so it reads as accepted rather than as a
+defect:** 78 files stay on `@heroicons/react` until the migration slice runs, new code defaults to
+`lucide-react`, and no gate enforces either side. Do not read the mix as license to revert the
+default, and do not "fix" it by hand-converting files outside a scheduled migration slice.
 
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 
@@ -10627,6 +10672,10 @@ carry the enclosing item’s `depth` WITHOUT becoming an `li` — i.e. an option
 `LineBase` that both renderers add to their indent. That is a wider change than the continuation
 slice needed, and it buys indentation only.
 
+★ Verified 2026-08-21: `listDepth` never existed in this codebase at any point — `git log --oneline
+--all -S'listDepth' -- src` returns zero commits, ever. It is a proposed name for the second axis
+above, not a lost one.
+
 ★ A smaller cousin, also open: a DOCX continuation sits at the item’s `w:ind w:left`, so its text
 starts under the MARKER rather than under the item’s text. Fixing that properly needs a real
 `numbering.xml` (§154), which would retire the literal marker text altogether.
@@ -10673,6 +10722,10 @@ first nested item, which reads as a numbering bug rather than a missing marker.
 
 ★ Reachability is the narrow one §156 records: Tiptap's `listItem` spec is `paragraph block*`, so
 the editor always puts a `<p>` first. AI-authored and imported HTML can produce either shape.
+
+★ Verified 2026-08-21: `listDepth` / `listMarker` never existed — `git log --oneline --all -S'listDepth'
+-- src` and the same for `listMarker` each return zero commits, ever. Both are proposed vocabulary for
+the unbuilt second axis, not lost names.
 
 ## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
 
@@ -12443,16 +12496,22 @@ the engine string as the diagnostic detail. Do NOT translate inside the engine �
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
 round; the guard was added in the same round.
 
-Nothing under `src/app` imports `useDocumentTools` from a test, and there is no
-`use-document-tools.test.ts` — reproduce with
-`grep -rln "useDocumentTools\|document_ops" src/app/*.test.*`, which returns
-nothing. The whole model-facing document write path is therefore covered only
-indirectly, by the engine tests underneath it.
+★ Correction 2026-08-21: `document_ops` never existed — `grep -rn "document_ops" src scripts e2e` finds
+nothing outside this entry. Earlier text here used that name as shorthand for the per-op item schema.
+The real AI tool names are `list_documents`, `get_document`,
+`create_document`, `update_document` and `delete_document` (`src/app/chat-tool-defs-documents.ts`);
+the schema in question is the per-op item type nested in `update_document`'s `ops` array.
+
+Nothing under `src/app` imports `useDocumentTools` from a test, and no `use-document-tools.test.ts`
+exists — reproduce with `grep -rln "useDocumentTools" src/app/*.test.*`, which returns nothing. That
+absence is the point of this entry, not rot: writing that file is exactly what **To close** below asks
+for. The whole model-facing document write path is therefore covered only indirectly, by the engine
+tests underneath it.
 
 That matters now because the round added a guard there: `keepOp` strips
 `expect` from every op before it reaches `applyOps`. The field is the HAND
 editor's concurrency guard, carrying a draft's baseline, and an AI op resolves
-no draft — but the `document_ops` schema sets no `additionalProperties: false`
+no draft — but `update_document`'s per-op schema sets no `additionalProperties: false`
 (verified: `grep -n additionalProperties src/app/chat-tool-defs-documents.ts`
 returns nothing), so a model can emit it and the `{ ...op, block }` spreads
 would have carried it through. Worst case was never data loss — the model's own
@@ -13162,7 +13221,7 @@ not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on h
 
 3. **A work email in guide content, in two places that must be fixed in the right ORDER.** The
    address sits in `lib/project-leadership-operating-guide.md` and is embedded verbatim in
-   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the `.generated.ts`
+   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the generated file
    is wrong and will be silently reverted by the next regen — fix the `lib/` markdown and re-run
    `scripts/gen-operating-guide.mjs`. There is no `package.json` script for it; invoke the file
    directly.
@@ -13195,30 +13254,44 @@ company. The first cut of this entry named those two files as leaks while missin
 one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
 identifiers, never for the word "internal".
 
-## 201. A raw control byte in `jira-api.ts` makes the file binary to grep — the NUL guard cannot see it
+## 201. A raw control byte sits in `jira-api.ts` — the NUL guard cannot see it, but the "binary to grep" headline does not reproduce
 
-**Status:** open — pre-existing, benign at runtime, invisible to every content sweep.
+**Status:** open — nothing was fixed. Two corrections below downgrade the original claim; neither
+closes the entry.
 
-`buildJiraCacheKey`'s array branch joins sorted values on a **raw U+0001 byte** written
-directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
-is a delimiter, and any byte that cannot occur in a Jira field works.
+★ Correction 2026-08-21: `buildJiraCacheKey` never existed — `git log --oneline --all
+-S'buildJiraCacheKey' -- src` returns zero commits, ever. The array branch described below belongs to
+`normalizeForCompare`, used by `fieldsDiffer` (`grep -n "function normalizeForCompare\|function
+fieldsDiffer" src/app/jira-api.ts`) to compare local vs remote Jira field values for **conflict
+detection** — not to build a cache key.
 
-★★ The cost is the one §67 already paid for a NUL: ripgrep and grep classify the file as BINARY and
-print `Binary file … matches` with **no line content**, so every content sweep over `src/` silently
-skips it. A reviewer grepping for a symbol in this file gets a hit they cannot read, or reads the
-sweep as clean when it never showed them the line.
-
-★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
-zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
-not read that green run as "no control characters in `src/`"; it means "no NUL". Widening the guard
-to all C0 controls is the obvious fix and needs care: `\t`, `\n` and `\r` are legal and common, and
-this repo has CRLF files, so a naive range flags every source file in it.
-
-Reproduce (the sweep the NUL guard does not do):
+★★★ Correction 2026-08-21: the headline claim does not reproduce. This entry originally said the raw
+control byte makes grep/ripgrep classify the file as binary and print `Binary file … matches` with no
+line content, citing §67 — which involved a real NUL and did reproduce that — as precedent. The
+generalisation from a NUL to any control byte was never re-checked. Measured on this checkout instead
+of re-asserted: `jira-api.ts` contains exactly **one** control byte, U+0001, and **no NUL**:
 
 ```bash
 node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
+grep -n "normalizeForCompare" src/app/jira-api.ts
 ```
+
+The first command reports the single control byte at offset 10813, value 1 (U+0001). The second grep
+prints both `normalizeForCompare` lines normally — no "Binary file" message. Both tools' binary
+detection is NUL-triggered specifically, not triggered by an arbitrary control byte, so U+0001 does
+not put this file in the class the §67 NUL did — the sweep this entry warned about is not, in fact,
+blind here.
+
+`normalizeForCompare`'s array branch joins sorted values on a **raw U+0001 byte** written
+directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
+is a delimiter, and any byte that cannot occur in a Jira field works. The byte is still real and
+unescaped, so a hygiene fix (the six-character escape instead of the literal byte) remains arguable
+on its own merits — just not for the "invisible to every content sweep" reason originally given.
+
+★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
+zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
+not read that green run as "no control characters in `src/`"; it means "no NUL". (The whole-tree sweep
+that finds it is the `node -e` command above.)
 
 ★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came

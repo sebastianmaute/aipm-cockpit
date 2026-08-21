@@ -184,9 +184,31 @@ export function collectIdentifiers(dir, into, alsoExclude = new Set()) {
       continue;
     }
     if (!CODE_EXT.test(entry.name)) continue;
-    const abs = path.resolve(dir, entry.name);
+    collectIdentifiersFromFiles([path.join(dir, entry.name)], into, alsoExclude);
+  }
+}
+
+/** The per-file half of `collectIdentifiers`, exported so a caller can pass an
+ *  explicit list instead of a directory.
+ *
+ *  ★★ EXTRACTED, NOT DUPLICATED. A second copy of the identifier regex or of the
+ *  exclusion check is how two gates drift — the whole reason this module exists.
+ *  `collectIdentifiers` calls this, so the directory walk and the file list
+ *  cannot disagree about what an identifier is, or about who is excluded. */
+export function collectIdentifiersFromFiles(files, into, alsoExclude = new Set()) {
+  for (const file of files) {
+    const abs = path.resolve(file);
     if (GATE_SELF_FILES.has(abs) || alsoExclude.has(abs)) continue;
-    const src = fs.readFileSync(path.join(dir, entry.name), "utf8");
+    // ★★★ NO try/catch HERE, DELIBERATELY. `check-agents-symbols.mjs` is a
+    // BLOCKING gate and calls this (via `collectIdentifiers`) unwrapped, so an
+    // unreadable file must throw and stop the run. Swallowing it would drop that
+    // file's identifiers and report a spurious missing symbol instead — a false
+    // FAILURE rather than a false pass, but still a gate lying about why.
+    // ★★ An earlier cut of this extraction did add a catch, to protect the root
+    // scan in `check-followup-claims.mjs` from a DIRECTORY whose name ends in a
+    // code extension. That is the caller's problem and the caller now filters on
+    // `isFile()`, which removes the failure instead of hiding it.
+    const src = fs.readFileSync(file, "utf8");
     for (const m of src.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) into.add(m[0]);
   }
 }

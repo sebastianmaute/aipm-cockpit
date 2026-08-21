@@ -12,6 +12,7 @@ import { ABSENCE_MARKERS, collectIdentifiers, isGatedSymbolName } from "./agents
 import {
   ABSENCE_STATE_WORDS,
   SWEEP_SELF_FILES,
+  SWEEP_SELF_FIXTURES,
   assertedAbsentNames,
   classify,
   fencedLines,
@@ -22,6 +23,7 @@ import {
   stripTrailingComment,
   symbolsIn,
   toArgv,
+  buildSelfExcludedSymbols,
 } from "./followup-claims-lib.mjs";
 
 const REGISTER_SAMPLE = [
@@ -251,6 +253,26 @@ describe("SWEEP_SELF_FILES", () => {
       expect(fs.existsSync(p), `${p} is not on disk`).toBe(true);
       expect(fs.statSync(p).isFile(), `${p} is not a file`).toBe(true);
     }
+  });
+
+  // ★★★ `SWEEP_SELF_FIXTURES` IS A PROPER, NON-EMPTY SUBSET, and BOTH bounds are
+  // load-bearing in opposite directions — which is why this is two assertions
+  // and not one. Empty, and the fixture's verbatim register quotes go back to
+  // excusing a deleted symbol as SYMBOL_SELF_EXCLUDED, which `NON_ACTIONABLE`
+  // swallows (the whole defect). Equal to `SWEEP_SELF_FILES`, and `withSelf`
+  // loses the two IMPLEMENTATION files too — at which point nothing is ever
+  // self-excluded and §138's three names start reporting SYMBOL_MISSING, a
+  // screenful of false debt. Each mutation is killed by exactly one of these.
+  it("★★★ holds the test fixture ALONE — the implementation files stay in withSelf", () => {
+    expect([...SWEEP_SELF_FIXTURES].map((p) => path.basename(p))).toEqual([
+      "followup-claims-lib.test.mjs",
+    ]);
+  });
+
+  it("★★★ is a proper subset of SWEEP_SELF_FILES", () => {
+    for (const p of SWEEP_SELF_FIXTURES) expect(SWEEP_SELF_FILES.has(p)).toBe(true);
+    expect(SWEEP_SELF_FIXTURES.size).toBeGreaterThan(0);
+    expect(SWEEP_SELF_FIXTURES.size).toBeLessThan(SWEEP_SELF_FILES.size);
   });
 
   it("★★★ every entry is load-bearing — each holds a gated name the scan lacks", () => {
@@ -754,5 +776,172 @@ describe("classify — an entry that ASSERTS a thing is absent", () => {
     // must classify exactly as before.
     const [entry] = parseEntries("## 1. x — open\nnames `vanishedHelper` today");
     expect(classify(entry, env).verdict).toBe("SYMBOL_MISSING");
+  });
+});
+
+describe("SYMBOL_SELF_EXCLUDED", () => {
+  const entry = (body) => ({ n: 1, title: "t", startLine: 1, body });
+  const env = {
+    knownSymbols: new Set(["realSymbol"]),
+    selfExcludedSymbols: new Set(["markedNear"]),
+    resolve: () => ["src/x.ts"],
+    lineCounts: { get: () => 1000 },
+  };
+
+  it("labels a symbol that exists only in a swept-self file", () => {
+    const r = classify(entry(["A note about `markedNear` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_SELF_EXCLUDED"]);
+    expect(r.verdict).toBe("SYMBOL_SELF_EXCLUDED");
+  });
+
+  // ★★★ ANTI-VACUITY. Without this, `if (!present) continue` passes the test
+  // above — the mutant that silences every missing symbol in the register.
+  it("still reports a symbol that exists nowhere as SYMBOL_MISSING", () => {
+    const r = classify(entry(["A note about `noSuchSymbolAnywhere` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_MISSING"]);
+  });
+
+  // ★★ A self-excluded symbol must not outrank real debt sitting after it.
+  it("does not hide a real SYMBOL_MISSING behind itself", () => {
+    const r = classify(entry(["`markedNear` and also `noSuchSymbolAnywhere`."]), env);
+    expect(r.verdict).toBe("SYMBOL_MISSING");
+  });
+
+  // ★ A symbol that is genuinely in the tree stays CLEAN — the third direction.
+  it("leaves a present symbol alone", () => {
+    const r = classify(entry(["A note about `realSymbol` here."]), env);
+    expect(r.problems).toEqual([]);
+  });
+});
+
+describe("SYMBOL_THIRD_PARTY", () => {
+  const entry = (body) => ({ n: 1, title: "t", startLine: 1, body });
+  const env = {
+    knownSymbols: new Set(["realSymbol"]),
+    selfExcludedSymbols: new Set(),
+    resolve: () => ["src/x.ts"],
+    lineCounts: { get: () => 1000 },
+  };
+
+  it("labels a known upstream symbol as third-party", () => {
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+    expect(r.verdict).toBe("SYMBOL_THIRD_PARTY");
+  });
+
+  // ★★★ ANTI-VACUITY. Without this, allowlisting everything passes the test above.
+  it("still reports an unknown symbol as SYMBOL_MISSING", () => {
+    const r = classify(entry(["A note about `noSuchSymbolAnywhere` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_MISSING"]);
+  });
+
+  // ★★ Not repo debt, so it must not stand in front of debt that is.
+  it("does not hide a real SYMBOL_MISSING behind itself", () => {
+    const r = classify(entry(["`asyncWrapper` and also `noSuchSymbolAnywhere`."]), env);
+    expect(r.verdict).toBe("SYMBOL_MISSING");
+  });
+
+  // ★★ An allowlisted name that IS in the tree is not third-party — the repo wins.
+  it("prefers the tree over the allowlist", () => {
+    const e2 = { ...env, knownSymbols: new Set(["asyncWrapper"]) };
+    expect(classify(entry(["`asyncWrapper` here."]), e2).problems).toEqual([]);
+  });
+
+  // ★★★ THE ORDER OF THE TERNARY IS LOAD-BEARING AND THIS IS THE ONLY TEST THAT
+  // PINS IT. Every allowlisted name is ALSO self-excluded in the real run: the
+  // allowlist's own literal keys live in `followup-claims-lib.mjs`, a
+  // `SWEEP_SELF_FILES` member, and nowhere else in the tree. So `withSelf` holds
+  // them, `knownSymbols` does not, and the set difference claims all four. Check
+  // self-exclusion first and the map can NEVER fire — measured, `SYMBOL_THIRD_PARTY`
+  // did not appear in the tally at all and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+  // ★★ The other four tests in this block pass under EITHER order, because their
+  // `env` sets `selfExcludedSymbols` to an empty set. Only an env where a name is
+  // in BOTH sets can tell the two apart — which is the real run's shape.
+  it("prefers third-party over self-excluded when a name is in both", () => {
+    const e2 = { ...env, selfExcludedSymbols: new Set(["asyncWrapper"]) };
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), e2);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+  });
+});
+
+describe("buildSelfExcludedSymbols", () => {
+  // ★★★ THE FIXTURE-ONLY NAME IS THE WHOLE TEST. Every other input passes under
+  // both the correct exclusion and an empty one, which is why this behaviour sat
+  // unpinned: reverting the CLI's two exclusion arguments left 186/186 green.
+  // The fake tree below is the separating input the real tree cannot provide —
+  // in the real one, every fixture name that matters is also in `src`.
+  const fakeTree = (exclude) => {
+    const fixture = [...SWEEP_SELF_FIXTURES][0];
+    const impl = [...SWEEP_SELF_FILES].filter((f) => f !== fixture);
+    const files = new Map([
+      ["src", ["realSrcName"]],
+      [fixture, ["quotedOnlyByTheFixture"]],
+      [impl[0], ["gateInternalName"]],
+    ]);
+    const add = (key, into) => {
+      if (exclude.has(key)) return;
+      for (const n of files.get(key) ?? []) into.add(n);
+    };
+    return { add, fixture, impl };
+  };
+
+  const run = (fixtureExclusion) => {
+    const { add, fixture, impl } = fakeTree(new Set());
+    const collect = (dir, into, exclude) => {
+      add("src", into);
+      for (const f of [fixture, ...impl]) if (!exclude.has(f)) add(f, into);
+    };
+    const collectFiles = (_files, into, exclude) => {
+      for (const f of [fixture, ...impl]) if (!exclude.has(f)) add(f, into);
+    };
+    // knownSymbols is what the CLI builds with SWEEP_SELF_FILES: src only.
+    const knownSymbols = new Set(["realSrcName"]);
+    return buildSelfExcludedSymbols({
+      knownSymbols,
+      rootFiles: [],
+      collect: (d, into, ex) => collect(d, into, fixtureExclusion ?? ex),
+      collectFiles: (f, into, ex) => collectFiles(f, into, fixtureExclusion ?? ex),
+      dirs: ["src"],
+    });
+  };
+
+  it("★★★ leaves a name quoted ONLY by the test fixture out of the self-excluded set", () => {
+    const out = run(null);
+    expect(out.has("quotedOnlyByTheFixture")).toBe(false);
+  });
+
+  it("★★★ admits an implementation-file name — that is the legitimate exclusion", () => {
+    const out = run(null);
+    expect(out.has("gateInternalName")).toBe(true);
+  });
+
+  it("★★★ MUTANT: an empty exclusion would downgrade the fixture-only name", () => {
+    // This is the pre-fix behaviour, asserted so the test above cannot be read
+    // as vacuous: with nothing excluded the fixture vouches for its own quote.
+    const out = run(new Set());
+    expect(out.has("quotedOnlyByTheFixture")).toBe(true);
+  });
+
+  // ★★★ PINS THE ROOT-FILE PASS, WHICH IS INERT IN PRODUCTION AND SURVIVED
+  // EVERY OTHER MUTANT. Deleting `collectFiles(rootFiles, ...)` from
+  // `buildSelfExcludedSymbols` changed no real output — both root passes scan
+  // the same files and no sweep-self file sits at the root, so everything it
+  // adds is subtracted again. An inert call with no test is indistinguishable
+  // from a deleted one, so this fake puts a name behind the root pass ALONE.
+  it("★★★ runs the root-file pass, not only the directory walk", () => {
+    const out = buildSelfExcludedSymbols({
+      knownSymbols: new Set(),
+      rootFiles: ["some.root.mjs"],
+      collect: () => {},
+      collectFiles: (files, into) => {
+        if (files.includes("some.root.mjs")) into.add("reachableOnlyViaRootFiles");
+      },
+      dirs: ["src"],
+    });
+    expect(out.has("reachableOnlyViaRootFiles")).toBe(true);
+  });
+
+  it("never reports a name the known set already holds", () => {
+    expect(run(null).has("realSrcName")).toBe(false);
   });
 });

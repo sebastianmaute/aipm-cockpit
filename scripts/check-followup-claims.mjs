@@ -11,20 +11,15 @@
 //   node scripts/check-followup-claims.mjs --run-repro       also execute
 //                                                           allowlisted
 //                                                           reproduce commands
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import {
-  ROOT_DOCS,
-  SKIP_DIRS,
-  collectDocs,
-  collectSources,
-  countLines,
-  resolveCandidates,
-} from "./doc-claims-lib.mjs";
-import { collectIdentifiers } from "./agents-symbols-lib.mjs";
+import { collectResolutionSources, countLines, resolveCandidates } from "./doc-claims-lib.mjs";
+import { collectIdentifiers, collectIdentifiersFromFiles } from "./agents-symbols-lib.mjs";
 import {
   REGISTER,
   SWEEP_SELF_FILES,
+  buildSelfExcludedSymbols,
+  SWEEP_DIRS,
   classify,
   isClosed,
   parseEntries,
@@ -47,7 +42,7 @@ const jsonPath = jsonAt === -1 ? null : args[jsonAt + 1];
 const entries = parseEntries(readFileSync(REGISTER, "utf8")).filter((e) => !isClosed(e.title));
 
 const knownSymbols = new Set();
-for (const dir of ["src", "scripts", "e2e"]) {
+for (const dir of SWEEP_DIRS) {
   // An absent directory must reach the floor below as "the scan found nothing",
   // not as an ENOENT stack trace that reads like a broken register.
   try {
@@ -58,9 +53,58 @@ for (const dir of ["src", "scripts", "e2e"]) {
     // beside this gate rather than inside the symbol gate's constant.
     collectIdentifiers(dir, knownSymbols, SWEEP_SELF_FILES);
   } catch {
-    /* partial checkout — the floor is what decides whether that is survivable */
+    /* ★★ WIDER THAN "partial checkout", WHICH IS ALL THIS USED TO SAY. The catch
+       is wrapped around the WALK, so it swallows an unreadable FILE as readily
+       as an absent DIRECTORY — and the shared primitive it calls is deliberately
+       fail-loud for exactly that case, because the BLOCKING symbol gate needs it
+       to be (see its no-try/catch note, now pinned by two tests). Tolerable HERE
+       and only here: this tool exits 0 by design and reports, so a truncated
+       scan degrades to false SYMBOL_MISSING findings rather than to a silent
+       pass — and the identifier floor below is what decides whether that
+       degradation is survivable. Do not copy this posture into a gate. */
   }
 }
+// ★★★ ROOT-LEVEL CONFIG IS CODE THIS REGISTER CITES, AND THE DIRECTORY WALK
+// CANNOT SEE IT. `collectSources()` scans the root for exactly this reason and
+// says so in its own comment; the SYMBOL sweep did not, so a helper imported and
+// used in `eslint.config.mjs` and cited by §53 and §189 read as missing forever.
+// ★★★ THAT HELPER IS DELIBERATELY NOT NAMED HERE, AND THE OMISSION IS THE POINT.
+// This file is a `SWEEP_SELF_FILES` member, so any identifier written into it —
+// including into a comment — lands in `withSelf` and therefore in
+// `selfExcludedSymbols`. Naming the symbol here would mean that if it ever left
+// `eslint.config.mjs`, or if this root scan were reverted, the register's stale
+// claim would report SYMBOL_SELF_EXCLUDED — which `NON_ACTIONABLE` swallows —
+// instead of the SYMBOL_MISSING that would send someone to fix it. A fix whose
+// own prose silences its own regression is the self-referential trap this gate
+// exists to avoid, one layer down. Read the name off the config instead — the
+// command is written so that it does not contain the name either:
+//   grep -nE "gnores\(" eslint.config.mjs
+// ★★ THE COMMAND'S SHAPE IS LOAD-BEARING FOR THE SAME REASON THE OMISSION IS.
+// A first cut of this comment spelled the identifier inside the grep pattern,
+// which put it straight back into `withSelf` and undid the paragraph above it.
+// Anything added here — prose, example, pattern — is scanned. Match on a
+// fragment, never on the whole name.
+// ★★★ JSON IS DELIBERATELY EXCLUDED HERE, unlike `collectSources()`, and the
+// asymmetry is the point: `package-lock.json` sits at the root, and feeding it
+// to a SYMBOL index would inject every dependency name into `knownSymbols` —
+// after which a genuinely stale claim could resolve against a package name and
+// never be reported. A PATH index may hold that file; a SYMBOL index must not.
+const ROOT_CODE_RE = /\.(?:mjs|cjs|js|jsx|ts|tsx)$/;
+// ★ Non-recursive by construction: `readdirSync(".", { withFileTypes: true })`
+// takes no `recursive` option here, so it lists the root and stops —
+// `node_modules` is never entered. (`withFileTypes` is what makes `isFile()`
+// below possible; it has nothing to do with recursion, and an earlier wording
+// here conflated the two.)
+// ★★ `isFile()` is load-bearing, not defensive noise: a DIRECTORY named with a
+// code extension would otherwise be handed to `readFileSync`, which throws
+// EISDIR. `collectIdentifiers`'s own walk never had this problem because it
+// tests `isDirectory()` first; a flat root listing has to do the same. Filtering
+// here keeps the shared primitive able to fail loudly for the BLOCKING symbol
+// gate — see its no-try/catch note.
+const rootFiles = readdirSync(".", { withFileTypes: true })
+  .filter((e) => e.isFile() && ROOT_CODE_RE.test(e.name))
+  .map((e) => e.name);
+collectIdentifiersFromFiles(rootFiles, knownSymbols, SWEEP_SELF_FILES);
 // A scan that finds nothing passes everything — the same floor both sibling
 // gates carry, for the same reason.
 if (knownSymbols.size < 1000) {
@@ -72,54 +116,68 @@ if (entries.length < 50) {
   process.exit(2);
 }
 
+// ★★★ A SET DIFFERENCE, NOT A SECOND LIST. The self-excluded set is exactly the
+// names that appear when this sweep's own IMPLEMENTATION files are included and
+// vanish when they are not — so it follows `SWEEP_SELF_FILES` automatically.
+// The alternative, hand-listing the internals, is a second source of truth for
+// the one fact this file already owns.
+// ★★★ THE FIXTURE IS EXCLUDED FROM BOTH SETS, AND THAT ASYMMETRY IS THE POINT.
+// `SWEEP_SELF_FIXTURES` holds `followup-claims-lib.test.mjs`, whose method is
+// quoting register prose verbatim — it contains a name BECAUSE the register
+// mentions it, so admitting it here would let the register vouch for itself and
+// would silently downgrade a real deletion from SYMBOL_MISSING to the
+// non-actionable SYMBOL_SELF_EXCLUDED. The constant's own docstring carries the
+// reasoning and the command that measures today's overlap.
+// ★★★ `GATE_SELF_FILES` IS *NOT* ADDED BACK HERE AND MUST NOT BE, THOUGH THE
+// SYMMETRY ARGUMENT SAYS OTHERWISE. `collectIdentifiers` skips those three files
+// unconditionally, in this pass too, so a name living only there lands in
+// NEITHER set and reports SYMBOL_MISSING — a fourth unfindable class the
+// verdicts do not name. Widening `withSelf` to admit them looks like the fix and
+// is a REGRESSION: the symbol gate's own files quote the deliberately-absent
+// names it exists to catch, so most of that orphan set is names AGENTS.md
+// documents as never having existed, for which SYMBOL_MISSING is the CORRECT
+// verdict. Only a few are genuine gate internals; the rest are ordinary prose
+// words the identifier regex admits. Excusing the whole set to rescue those few
+// would mask the exact class this gate is for.
+// ★★★ NO ORPHAN IS NAMED HERE, AND NAMING ONE IS SELF-DEFEATING, BECAUSE THIS
+// FILE IS SWEPT BY THE GATE IT IMPLEMENTS. Every identifier written here — prose
+// and examples included — joins `withSelf`, so a named orphan stops being an
+// orphan and the sentence describing it is falsified BY BEING WRITTEN. Measured,
+// not theorised: an earlier revision of this paragraph named SIX, its sibling
+// in `followup-claims-lib.mjs` named a seventh, and all seven changed class in
+// the very commit that named them, while both paragraphs went on asserting the
+// verdict they no longer got. So list today's set rather than quoting it. The
+// command reads the gate-self files directly, because the shared walk refuses
+// to, and it runs BOTH passes `withSelf` runs — directories AND root files.
+// ★★ The root pass is not optional here, and omitting it is not an off-by-one:
+// the first cut of this command dropped it and printed as an orphan a name set
+// at the REPO ROOT, which is in `knownSymbols` and can never be one. That name
+// is register-cited, so the omission made the next line read as refuted:
+//   node --input-type=module -e "import{readFileSync,readdirSync}from'node:fs';import{collectIdentifiers,collectIdentifiersFromFiles,isGatedSymbolName,GATE_SELF_FILES}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const w=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,w,SWEEP_SELF_FIXTURES);collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),w,SWEEP_SELF_FIXTURES);const o=new Set();for(const f of GATE_SELF_FILES)for(const m of readFileSync(f,'utf8').matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g))if(isGatedSymbolName(m[0])&&!w.has(m[0]))o.add(m[0]);console.log(o.size,[...o].sort().join(' '))"
+// ★★ Recorded rather than fixed, deliberately: no OPEN entry hits it today.
+// Scope that to OPEN deliberately — the gate reads open entries only, and the
+// one closed entry that does name an orphan would otherwise refute the line.
+// ★★ The pass itself lives in `buildSelfExcludedSymbols` so a test can reach
+// it: inline here, reverting its exclusion argument left the suite green.
+const selfExcludedSymbols = buildSelfExcludedSymbols({
+  knownSymbols,
+  rootFiles,
+  collect: collectIdentifiers,
+  collectFiles: collectIdentifiersFromFiles,
+});
+
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
-// That gate resolves citations, which only ever point into CODE, so
-// `collectSources()` — `SOURCE_EXT` under src/scripts/e2e plus root-level
-// config — is exactly its domain. This one resolves `pathsIn`, and the register
-// names DOCS as freely as it names code: the doc set it is part of, the
-// baselines the sibling gates read, the audit snapshots it defers to. Handing
-// those to a code-only index reports every one of them as deleted.
-//
-// Two structural gaps, both measurable: `SOURCE_EXT` carries no `md` at all, and
-// the walk never leaves the code tree, so `docs/baselines/*.json` fails on its
-// DIRECTORY rather than its extension. Reproduce the pre-fix behaviour by
-// passing `collectSources()` alone as `sources` below and diffing the tally.
-//
-// ★★ WIDER, NOT UNCONDITIONAL. A path the register names and the tree no longer
-// holds must still report PATH_MISSING — that is the whole finding. So every
-// member of this index is a file that exists: the walks return real entries, and
-// `ROOT_DOCS` (a hardcoded list, not a walk) is filtered against disk.
-// ★★ UNGUARDED, on purpose. This used to sit in a `try` commented "no docs/ in
-// a partial checkout" — unreachable, because `readFileSync(REGISTER)` above
-// reads a file inside `docs/` and throws first. What the catch could actually
-// have swallowed is an unreadable `docs/`, and swallowing that is the bad
-// direction: a truncated index is indistinguishable from a deleted file — every
-// missing asset reports PATH_MISSING, a whole screen of false findings under a
-// tool that exits 0. Fail loudly instead.
-const docEntries = readdirSync("docs", { recursive: true, encoding: "utf8" });
-const docAssets = [];
-for (const f of docEntries) {
-  const p = `docs/${f}`.replace(/\\/g, "/");
-  // `.md` is `collectDocs()`'s half; directories are not citable.
-  if (p.endsWith(".md")) continue;
-  if (SKIP_DIRS.some((d) => p.startsWith(`${d}/`))) continue;
-  if (existsSync(p) && statSync(p).isFile()) docAssets.push(p);
-}
-const sources = [
-  ...new Set([
-    // Code tree + root config, unchanged.
-    ...collectSources(),
-    // ROOT_DOCS + every `docs/**/*.md` outside SKIP_DIRS. `ROOT_DOCS` is a
-    // literal list, so a deleted entry would otherwise resolve forever.
-    ...collectDocs().filter((d) => (ROOT_DOCS.includes(d) ? existsSync(d) : true)),
-    // Everything else `docs/` holds — the baselines JSON the register cites.
-    ...docAssets,
-  ]),
-];
+// The reasoning, the "wider, not unconditional" guarantee and the derivation of
+// which extensions belong now live with the walk itself, in
+// `collectResolutionSources`. Its describe block in `doc-claims-lib.test.mjs`
+// pins both directions; no count is quoted here, because the last one was wrong
+// within the same branch that wrote it.
+const sources = collectResolutionSources();
 
 const lineCounts = new Map();
 const env = {
   knownSymbols,
+  selfExcludedSymbols,
   resolve: (p) => resolveCandidates(p, sources),
   lineCounts: {
     get(p) {

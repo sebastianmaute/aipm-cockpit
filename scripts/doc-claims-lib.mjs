@@ -10,7 +10,7 @@
 // branch as red — dozens of violations that did not exist. That is why this is a
 // module with a test rather than a hundred lines inside a CI script nobody runs
 // locally. Add a case here before changing a pattern.
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 
 // Extensions that denote a real source file. A bare `foo.io:80` or a version
 // like `0.227.0` must never match, so the extension list is a closed set.
@@ -130,11 +130,19 @@ export const ROOT_DOCS = [
 ];
 
 // Walk with node's fs, NOT `git ls-files` — the slim CI image has no git.
-export function collectDocs() {
+// ★★★ THE PARAMETER EXISTS SO ONE CONSTANT CAN SERVE TWO INCOMPATIBLE QUESTIONS.
+// `check-doc-claims.mjs` asks "which docs do I SCAN for claims" and must keep
+// skipping `docs/superpowers` — see SKIP_DIRS. `check-followup-claims.mjs` asks
+// "does this path EXIST", and for that question the skip is simply wrong: the
+// corpus has been tracked since 0.253.0, so reporting a present spec as
+// PATH_MISSING is a false finding. Same tree, two questions.
+// ★★ The DEFAULT is the blocking gate's contract. Changing it is a pipeline
+// change; a test pins it.
+export function collectDocs(skipDirs = SKIP_DIRS) {
   const fromDocs = readdirSync("docs", { recursive: true, encoding: "utf8" })
     .map((f) => `docs/${f}`.replace(/\\/g, "/"))
     .filter((f) => f.endsWith(".md"))
-    .filter((f) => !SKIP_DIRS.some((d) => f.startsWith(`${d}/`)));
+    .filter((f) => !skipDirs.some((d) => f.startsWith(`${d}/`)));
   return [...ROOT_DOCS, ...fromDocs].sort();
 }
 
@@ -163,6 +171,106 @@ export function collectSources() {
     if (isSource.test(p)) out.push(p);
   }
   return out;
+}
+
+/** The index for "does this path exist", as distinct from `collectSources()`'s
+ *  "is this a citable code file".
+ *
+ *  ★★★ TWO QUESTIONS, TWO INDEXES, AND CONFLATING THEM IS THE BUG THIS CLOSES.
+ *  A citation always points at code, so `collectSources()` is exactly right for
+ *  it. A register entry names DOCS as freely as code — the specs it defers to,
+ *  the baselines the sibling gates read, a markdown fixture under `src/`. Handed
+ *  a code-only index, every one of those reported PATH_MISSING.
+ *
+ *  ★★ WIDER, NOT UNCONDITIONAL. Every member is a file that EXISTS, so a path
+ *  the register names and the tree no longer holds still reports PATH_MISSING —
+ *  that is the whole finding, and tests pin both directions.
+ *
+ *  ★★ `md` IS THE ENTIRE WIDENING over the code tree, and that is a derivation
+ *  rather than a guess: `pathsIn` accepts `tsx|ts|mjs|json|css|md|yml`, and every
+ *  one of those except `md` is already in `SOURCE_EXT`. Widening further would
+ *  add suffix-collision risk to `resolveCandidates` for no reachable case. If
+ *  `pathsIn`'s alternation ever grows, revisit this comment, not just the code. */
+/** Drops a `ROOT_DOCS` entry that is not on disk, and passes everything else
+ *  through untouched.
+ *
+ *  ★★ `ROOT_DOCS` IS THE ONLY HARDCODED HALF OF `collectDocs`, which is the
+ *  whole reason this exists. The `docs/**` half is a directory listing and can
+ *  only name files that are there; a hardcoded list keeps naming a file after
+ *  it is deleted, and an index entry for a deleted file makes every citation to
+ *  it resolve forever — the resolver reporting CLEAN for a doc that is gone.
+ *  ★★★ EXTRACTED PURELY TO MAKE IT TESTABLE, and it was extracted because a
+ *  mutation survived: deleting the guard outright left the whole suite green.
+ *  Every `ROOT_DOCS` file exists today, so no fixture built from the real tree
+ *  can separate the guarded from the unguarded version — the separating input
+ *  has to be an injected list naming something absent, which is what the `exists`
+ *  parameter is for. Nothing else about the signature is load-bearing.
+ *  ★ The two injected parameters default to the real ones, so the caller reads
+ *  the same as it did inline. */
+export function keepPresentRootDocs(docs, rootDocs = ROOT_DOCS, exists = existsSync) {
+  return docs.filter((d) => (rootDocs.includes(d) ? exists(d) : true));
+}
+
+/** ★★★ `exists` IS INJECTED FOR ONE REASON: THE CALL SITE BELOW WAS UNPINNED.
+ *  `keepPresentRootDocs` is tested in both directions, but DELETING ITS CALL
+ *  from the array below left the entire scripts suite green — every real
+ *  ROOT_DOCS file is on disk, so no fixture drawn from the tree can tell the
+ *  guarded index from the unguarded one. Extraction pinned the function and not
+ *  its use, which is the half that matters. This parameter is the separating
+ *  input.
+ *  ★ Scoped deliberately to the ROOT_DOCS guard. The asset walk below keeps the
+ *  real `existsSync`: it pairs with `statSync` on the same path and injecting a
+ *  liar there would test nothing that exists. */
+export function collectResolutionSources({ exists = existsSync } = {}) {
+  const codeTreeDocs = [];
+  for (const dir of ["src", "scripts", "e2e"]) {
+    let entries;
+    try {
+      entries = readdirSync(dir, { recursive: true, encoding: "utf8" });
+    } catch {
+      continue; // absent in a partial checkout — same posture as collectSources
+    }
+    for (const f of entries) {
+      const p = `${dir}/${f}`.replace(/\\/g, "/");
+      if (p.endsWith(".md")) codeTreeDocs.push(p);
+    }
+  }
+  // ★★★ THE NON-MARKDOWN HALF OF `docs/` IS LOAD-BEARING AND IS NOT `collectDocs`'s.
+  // The register cites baseline JSON under `docs/baselines/`, which is neither
+  // under the code tree nor `.md`, so dropping this loop turns citations that
+  // resolve today into fresh PATH_MISSING findings — the exact false-positive
+  // class this function exists to remove, reintroduced by the fix.
+  // ★★★ MENTIONS ARE NOT FINDINGS, and an earlier wording here counted the wrong
+  // one. It said "six", reached by counting how often the register MENTIONS
+  // those files. `pathsIn` returns a Set PER ENTRY, so three mentions of one
+  // path inside one entry are ONE finding, and a mention outside any `## N.`
+  // entry is none at all. The measured figure is FOUR, spread over three
+  // entries: §131 twice (the qualified path and the bare filename are distinct
+  // strings), §138 once, §152 once. `jscpd-2026-07.json` contributes ZERO — its
+  // only mention sits outside every entry. Count what the parser returns, never
+  // what a grep of the prose returns; the direction of that error is always
+  // "the guard looks more load-bearing than it is".
+  // ★★ UNGUARDED, on purpose, and the reasoning came with the code: a truncated
+  // index is indistinguishable from a deleted file, so every missing asset would
+  // report PATH_MISSING — a screen of false findings under a tool that exits 0.
+  // An unreadable `docs/` must throw. (`readFileSync(REGISTER)` in the caller
+  // reads inside `docs/` and throws first anyway.)
+  const docAssets = [];
+  for (const f of readdirSync("docs", { recursive: true, encoding: "utf8" })) {
+    const p = `docs/${f}`.replace(/\\/g, "/");
+    if (p.endsWith(".md")) continue; // `collectDocs([])`'s half, just above
+    if (existsSync(p) && statSync(p).isFile()) docAssets.push(p);
+  }
+  return [
+    ...new Set([
+      ...collectSources(),
+      // ★ `[]` — the follow-up resolver is the one caller entitled to see the
+      // planning corpus. See `collectDocs`.
+      ...keepPresentRootDocs(collectDocs([]), ROOT_DOCS, exists),
+      ...codeTreeDocs,
+      ...docAssets,
+    ]),
+  ];
 }
 
 // ★ A fenced block holds EXAMPLES — command output, stack traces, sample code.

@@ -24,6 +24,7 @@ import {
   ALLOWLIST,
   GATE_SELF_FILES,
   collectIdentifiers,
+  collectIdentifiersFromFiles,
   isGatedSymbolName,
   markedNear,
 } from "./agents-symbols-lib.mjs";
@@ -171,5 +172,53 @@ describe("ABSENCE_MARKERS / ALLOWLIST", () => {
     // un-suppresses a correct doc.
     expect(ABSENCE_MARKERS).toContain("never existed");
     expect(ABSENCE_MARKERS).toContain("NOT built");
+  });
+});
+
+describe("collectIdentifiersFromFiles", () => {
+  it("collects identifiers from an explicit file list", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("globalIgnores")).toBe(true);
+  });
+
+  // ★★ ANTI-VACUITY: a name that appears nowhere must still be absent.
+  it("does not invent identifiers", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("noSuchIdentifierAnywhere")).toBe(false);
+  });
+
+  // ★ Honours the same exclusion set as the directory walk.
+  it("honours alsoExclude", () => {
+    const into = new Set();
+    const excl = new Set([path.resolve("eslint.config.mjs")]);
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into, excl);
+    expect(into.has("globalIgnores")).toBe(false);
+  });
+
+  // ★★★ THE FAIL-LOUD POSTURE IS THE POINT OF THESE TWO, and until they were
+  // written NOTHING pinned it. `check-agents-symbols.mjs` is a BLOCKING CI gate
+  // and reaches this function through `collectIdentifiers` with no try/catch of
+  // its own, so an unreadable file MUST throw and stop the run. Wrapping the
+  // read in a catch would drop that file's identifiers and report a spurious
+  // missing symbol instead — a gate lying about why it failed.
+  //
+  // ★★★ THIS IS A MEASURED TEST GAP, NOT A HYPOTHETICAL. An earlier cut of the
+  // extraction DID add a `try/catch` here, silently converting the blocking gate
+  // from fail-loud to fail-quiet. It was caught by whole-branch review, and when
+  // the mutant was reinstated afterwards the whole file stayed green — 17/17.
+  // A survivor is a question, and the answer here was "missing test": these are
+  // the separating input. Reinstating the catch turns both red.
+  it("★★★ throws on an unreadable target rather than skipping it", () => {
+    // A directory is the cheapest unreadable target that needs no fixture:
+    // `readFileSync` on one throws EISDIR on both POSIX and Windows.
+    expect(() => collectIdentifiersFromFiles(["src"], new Set())).toThrow();
+  });
+
+  it("★★★ throws on a missing file rather than skipping it", () => {
+    expect(() =>
+      collectIdentifiersFromFiles(["no-such-file-in-this-repo.mjs"], new Set()),
+    ).toThrow();
   });
 });
