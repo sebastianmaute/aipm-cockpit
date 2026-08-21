@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.252.0";
-export const APP_BUILD_DATE = "2026-08-21"; // 0.252.0: generated documents can be restructured by hand — add, delete and reorder blocks (Brust)
+export const APP_VERSION = "0.253.0";
+export const APP_BUILD_DATE = "2026-08-21"; // 0.253.0: the planning corpus is tracked — 298 archive-only documents recovered (Schroeder)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.252.x line is "Brust" (Steven Brust, fantasy author).
+ *  0.253.x line is "Schroeder" (Karl Schroeder, SF author).
+ *  0.252.x was "Brust" (Steven Brust, fantasy author).
  *  0.251.x was "Larson" (Rich Larson, SF author).
  *  0.250.x was "McAuley" (Paul McAuley, SF author).
  *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
@@ -50,7 +51,7 @@ export const APP_BUILD_DATE = "2026-08-21"; // 0.252.0: generated documents can 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Larson";
+export const APP_MILESTONE = "Schroeder";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
