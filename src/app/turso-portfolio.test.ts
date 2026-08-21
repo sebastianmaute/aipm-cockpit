@@ -58,8 +58,36 @@ describe("turso-portfolio", () => {
     expect(vi.mocked(runTursoPipeline).mock.calls.at(-1)![1].some((s) => s.sql.includes("'1' WHERE id = ?"))).toBe(true);
     await restoreProject(cfg, "p1");
     expect(vi.mocked(runTursoPipeline).mock.calls.at(-1)![1].some((s) => s.sql.includes("'0' WHERE id = ?"))).toBe(true);
+    // hardDeleteProject now issues a SECOND runTursoPipeline call (the asset-byte
+    // cleanup below), so the tenant-delete statements are no longer the LAST
+    // call — take the first call made after this point, not .at(-1).
+    const callsBeforeDelete = vi.mocked(runTursoPipeline).mock.calls.length;
     await hardDeleteProject(cfg, "p1");
-    expect(vi.mocked(runTursoPipeline).mock.calls.at(-1)![1].some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
+    const deleteCalls = vi.mocked(runTursoPipeline).mock.calls.slice(callsBeforeDelete);
+    expect(deleteCalls[0][1].some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
+  });
+
+  it("hardDeleteProject also cleans the project's asset bytes, scoped to that project id", async () => {
+    vi.mocked(runTursoPipeline).mockResolvedValue([]);
+    await hardDeleteProject(cfg, "p1");
+    const calls = vi.mocked(runTursoPipeline).mock.calls;
+    const assetStmt = calls
+      .flatMap((c) => c[1])
+      .find((s) => s.sql.includes("DELETE FROM document_asset_data WHERE project_id = ?"));
+    expect(assetStmt).toBeDefined();
+    expect(assetStmt!.args).toEqual([{ type: "text", value: "p1" }]);
+  });
+
+  it("hardDeleteProject still completes (and still removes the project row) when asset-byte cleanup fails", async () => {
+    // First runTursoPipeline call = the tenant hard-delete transaction; second =
+    // deleteAllAssetDataForProject's own pipeline call, which rejects here.
+    vi.mocked(runTursoPipeline)
+      .mockResolvedValueOnce([])
+      .mockRejectedValueOnce(new Error("asset cleanup boom"));
+    await expect(hardDeleteProject(cfg, "p1")).resolves.toBeUndefined();
+    const firstCallStmts = vi.mocked(runTursoPipeline).mock.calls[0][1];
+    expect(firstCallStmts.some((s) => s.sql.includes("DELETE FROM projects WHERE id = ?"))).toBe(true);
+    expect(vi.mocked(runTursoPipeline)).toHaveBeenCalledTimes(2);
   });
 
   it("updateProjectMeta emits an upsert with archived='0'", async () => {
