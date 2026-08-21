@@ -5133,10 +5133,19 @@ fixed. `onCreateResource` is the remaining one, and the same fix does **not** ap
 `number | undefined`. That is a tsc error rather than a silent break, which is why it was left alone
 rather than patched over.
 
-Reachable: RAID is in `POPOUT_TABS`, `RaidPanelToolbar` renders its add button unconditionally, so the
+Reachable: RAID is in `POPOUT_TABS`, `RaidToolbar` renders its add button unconditionally, so the
 edit modal opens in a popout and typing a new name into the owner picker calls through to
 `handleCreateResource` → `setResources` + `logActivity("resource.created")`. The item saving around it
 is blocked, so a popout can create a resource it cannot then attach.
+
+★ Correction 2026-08-21: earlier text here named this component `RaidPanelToolbar`; that name never
+existed — `git log --oneline --all -S'RaidPanelToolbar' -- src` returns no commits, ever. It has been
+`RaidToolbar` (`src/app/raid-panel-toolbar.tsx`) since commit `8b53121a` split it out of
+`raid-panel.tsx`. The bug is unchanged, verified directly: `"raid"` is still in `POPOUT_TABS`
+(`broadcast-sync.ts`), `RaidToolbar`'s `AddButton` still renders unconditionally (`isPopout` is only
+forwarded to `CalendarSyncControls`), and `onCreateResource: handleCreateResource` in
+`task-manager.tsx` is still unguarded beside its `guardEdit`-wrapped RAID siblings (`grep -n
+"onCreateResource: handleCreateResource" src/app/task-manager.tsx`).
 
 ★ Blast radius is popout-local for the workspace itself (the save effect early-returns on `isPopout`
 and `canSend` disables every outbound broadcast) — but see §91 for the part that is not.
