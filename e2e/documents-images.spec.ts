@@ -25,16 +25,40 @@
 //   - blob: src present but naturalWidth === 0     => the bytes arrived and the
 //     BROWSER REFUSED OR FAILED THE LOAD. That is the CSP regression signature.
 // Collapsing them would let a broken harness masquerade as a passing CSP test.
+//
+// ★★ IT ALSO GUARDS A SECOND, UNRELATED REGRESSION. The seed carries the image
+// in BOTH shapes — a captioned figure and the image-ONLY paragraph the product
+// actually inserts — and the image-only block only survives a load because of
+// `d183be6d` (ASSET_IMG_RE in document-model.ts's sanitizeBlock). Before that
+// fix, every user-inserted image was silently deleted on the next load, on all
+// six write paths. Revert it and this spec's second image simply is not in the
+// DOM, so the suite reports it. See the seeded blocks' comments in seed.ts.
 
-import { test, expect, gotoApp, openView, installAssetByteStore, E2E_DOCUMENT_ASSET } from "./seed";
+import {
+  test, expect, gotoApp, openView, installAssetByteStore,
+  E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY,
+} from "./seed";
 
-/** The e2e-only document seeded in seed.ts that carries the image block.
+/** The e2e-only document seeded in seed.ts that carries the image blocks.
  *  Selected EXPLICITLY rather than relied upon by position: documents-panel.tsx
  *  falls back to `selectionPool[0]`, the UNSORTED `documents` array, which is
  *  the sample master's document — not this one. */
 const DOC_TITLE = "Kickoff pack";
 
-const IMG = `img[data-asset-id="${E2E_DOCUMENT_ASSET.id}"]`;
+/** ★★ BOTH SEEDED SHAPES ARE ASSERTED, and they fail for different reasons.
+ *  The CAPTIONED figure is valid whatever the block-drop rules do, so it is the
+ *  stable carrier of the CSP/render assertion. The IMAGE-ONLY one is what
+ *  documents-asset-section.tsx actually inserts and only survives a load
+ *  because of `d183be6d` (ASSET_IMG_RE in sanitizeBlock) — revert that and this
+ *  block is deleted before the page renders, so the locator finds nothing and
+ *  the suite goes RED rather than losing user images silently again.
+ *  ★ Their dimensions differ (8x8 vs 4x4) on purpose: asserting each against
+ *  its OWN size means a resolver that pointed both `<img>` elements at the same
+ *  bytes could not pass. */
+const CASES = [
+  { label: "captioned figure", asset: E2E_DOCUMENT_ASSET },
+  { label: "image-only paragraph", asset: E2E_DOCUMENT_ASSET_IMAGE_ONLY },
+] as const;
 
 /** CSP violations reported by the page itself.
  *
@@ -91,29 +115,36 @@ test.describe("document images", () => {
     }, DOC_TITLE);
     expect(clickedDoc, `Document row "${DOC_TITLE}" not found in the documents list`).toBe(true);
 
-    const img = page.locator(IMG);
-    await expect(img).toBeVisible();
+    for (const { label, asset } of CASES) {
+      const img = page.locator(`img[data-asset-id="${asset.id}"]`);
 
-    // ── The byte store delivered ────────────────────────────────────────────
-    // attachAssetImages stamps this when the loader yields nothing; it is the
-    // dangling case and means the image load was never attempted.
-    await expect(img).not.toHaveAttribute("data-asset-missing", "true");
-    await expect(img).toHaveAttribute("src", /^blob:/);
+      // A missing locator here is itself a finding: for the image-only case it
+      // means the block was dropped at load (the d183be6d regression), not that
+      // anything is wrong with rendering.
+      await expect(img, `${label}: no <img> for ${asset.id} — was the block dropped at load?`)
+        .toBeVisible();
 
-    // ── The browser actually loaded and decoded it ──────────────────────────
-    // Polled: attachAssetImages resolves asynchronously (fetch -> base64 ->
-    // Blob -> object URL) and the decode lands after that again.
-    await expect
-      .poll(
-        () => img.evaluate((el: HTMLImageElement) => ({ w: el.naturalWidth, h: el.naturalHeight })),
-        {
-          message:
-            "Document image never decoded. A blob: src with naturalWidth 0 is the CSP " +
-            "img-src regression signature — check that src/proxy.ts still grants blob:. " +
-            `Console errors: ${JSON.stringify(consoleErrors)}`,
-        },
-      )
-      .toEqual({ w: E2E_DOCUMENT_ASSET.width, h: E2E_DOCUMENT_ASSET.height });
+      // ── The byte store delivered ──────────────────────────────────────────
+      // attachAssetImages stamps this when the loader yields nothing; it is the
+      // dangling case and means the image load was never attempted.
+      await expect(img, `${label}: marked dangling`).not.toHaveAttribute("data-asset-missing", "true");
+      await expect(img, `${label}: no blob: src`).toHaveAttribute("src", /^blob:/);
+
+      // ── The browser actually loaded and decoded it ────────────────────────
+      // Polled: attachAssetImages resolves asynchronously (fetch -> base64 ->
+      // Blob -> object URL) and the decode lands after that again.
+      await expect
+        .poll(
+          () => img.evaluate((el: HTMLImageElement) => ({ w: el.naturalWidth, h: el.naturalHeight })),
+          {
+            message:
+              `${label}: document image never decoded. A blob: src with naturalWidth 0 is the ` +
+              "CSP img-src regression signature — check that src/proxy.ts still grants blob:. " +
+              `Console errors: ${JSON.stringify(consoleErrors)}`,
+          },
+        )
+        .toEqual({ w: asset.width, h: asset.height });
+    }
 
     // ── Nothing was refused by the policy ───────────────────────────────────
     // Belt to the naturalWidth brace: this catches a violation on ANY directive

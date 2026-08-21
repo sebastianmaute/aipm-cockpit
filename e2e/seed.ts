@@ -70,6 +70,26 @@ const SEED_WORKSPACE: Record<string, unknown> = {
         // (vite-node takes FILES ONLY — it has no -e flag; that form exits 1. This
         // command was run against the post-fix tree and printed both blocks.)
         { type: "paragraph", html: '<p><img data-asset-id="e2e-asset-1" alt="Burndown chart"> Figure 1 — burndown at kickoff.</p>' },
+        // ★★★ THE IMAGE-ONLY SHAPE, AND IT IS THE MORE IMPORTANT OF THE TWO.
+        // This is EXACTLY what the product inserts: documents-asset-section.tsx
+        // builds `<img data-asset-id=… alt=…>` and nothing else, so this block —
+        // not the captioned one above — is the faithful reproduction of a real
+        // user-inserted image. It is only seedable at all because `d183be6d`
+        // added ASSET_IMG_RE; before that it was deleted on every load.
+        // ★★ That makes it a live REGRESSION DETECTOR for the load-side guard:
+        // revert d183be6d and this block stops existing, so
+        // documents-images.spec.ts never finds its second image and goes RED —
+        // instead of the silent data loss going unnoticed a second time. Keep
+        // BOTH blocks: the captioned one is valid under either behaviour and so
+        // protects the CSP/render assertion from any future change to
+        // block-dropping rules, while this one protects the drop rule itself.
+        // ★ A SECOND asset, not a re-reference of e2e-asset-1: two ids let the
+        // spec assert each image's own dimensions (8x8 vs 4x4), so a resolver
+        // that pointed both `<img>`s at the same bytes could not pass. Distinct
+        // bytes, and therefore a distinct `hash`, also keep the pair consistent
+        // with upload dedup, which is hash-keyed and would never mint two rows
+        // for identical content.
+        { type: "paragraph", html: '<img data-asset-id="e2e-asset-2" alt="Velocity sparkline">' },
         { type: "dataSection", key: "milestones" },
         { type: "pageBreak" },
       ],
@@ -106,6 +126,16 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       width: 8,
       height: 8,
       hash: "ae6850aab39f9fe52b1d62bfeb98c3ccfafc346aeb04ee45e728ba39a10fa20f",
+      createdAt: "2026-06-01T00:00:00.000Z",
+    },
+    {
+      id: "e2e-asset-2",
+      name: "velocity.png",
+      mime: "image/png",
+      size: 83,
+      width: 4,
+      height: 4,
+      hash: "8742b458059c03e5240932d82d1dbbd1708c8b99ca7a93a5041286a8d83669bd",
       createdAt: "2026-06-01T00:00:00.000Z",
     },
   ],
@@ -376,6 +406,28 @@ export const E2E_DOCUMENT_ASSET = {
     "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAG0lEQVR4nGOQt5r8//9/TJIBq6i81WSGQakDANWYfSG99zMiAAAAAElFTkSuQmCC",
 } as const;
 
+/** The image behind the IMAGE-ONLY paragraph block — the shape
+ *  documents-asset-section.tsx actually inserts. See that block's comment in
+ *  SEED_WORKSPACE for why the pair exists.
+ *
+ *  ★ DELIBERATELY 4x4, not another 8x8: the spec asserts each image's own
+ *  dimensions, so a resolver that pointed both `<img>` elements at the same
+ *  bytes would fail rather than pass. Distinct bytes also mean a distinct
+ *  `hash`, which keeps the pair consistent with the hash-keyed upload dedup. */
+export const E2E_DOCUMENT_ASSET_IMAGE_ONLY = {
+  id: "e2e-asset-2",
+  name: "velocity.png",
+  mime: "image/png",
+  width: 4,
+  height: 4,
+  byteLength: 83,
+  base64:
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAGklEQVR4nGM4IaD3//9/CMkAZ50Q0GPAKQMAR6EgGSlBvb8AAAAASUVORK5CYII=",
+} as const;
+
+/** Both seeded assets, for the byte-store stub's id lookup. */
+const E2E_DOCUMENT_ASSETS = [E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY] as const;
+
 /**
  * Make the seeded document image RENDER — opt-in, per spec.
  *
@@ -472,12 +524,15 @@ export async function installAssetByteStore(page: Page): Promise<void> {
       // tenant layouts. This spec's subject is whether an image RENDERS, not
       // how bytes are partitioned; keying on it here would make the spec fail
       // for a reason it does not test. Pin partitioning separately if wanted.
-      const wantsAsset = idsOnly || args.some((a) => a?.value === E2E_DOCUMENT_ASSET.id);
-      if (!wantsAsset) return ok(["id", "project_id", "data"], []);
-      return ok(
-        ["id", "project_id", "data"],
-        [[E2E_DOCUMENT_ASSET.id, "", idsOnly ? "" : E2E_DOCUMENT_ASSET.base64]],
-      );
+      // ★ The ids select must return EVERY seeded id, not just the first: the
+      // hook diffs this set against the metadata slice, so a short list would
+      // mark the missing rows dangling in the library even though their bytes
+      // resolve fine in the preview.
+      const cols = ["id", "project_id", "data"];
+      if (idsOnly) return ok(cols, E2E_DOCUMENT_ASSETS.map((a) => [a.id, "", ""]));
+      const wanted = E2E_DOCUMENT_ASSETS.find((a) => args.some((arg) => arg?.value === a.id));
+      if (!wanted) return ok(cols, []);
+      return ok(cols, [[wanted.id, "", wanted.base64]]);
     });
 
     await route.fulfill({
