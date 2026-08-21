@@ -454,11 +454,19 @@ export default function IconGalleryPage() {
 PORT=3100 npm run dev > /tmp/dev.log 2>&1 &
 sleep 15
 curl -s http://localhost:3100/icon-gallery > /tmp/gallery.html; echo "EXIT=$?"
-grep -c 'data-icon-cell' /tmp/gallery.html
+grep -o 'data-icon-cell="[^"]*"' /tmp/gallery.html | sort -u | wc -l
 PORT=3100 npm run stop
 ```
 
-Expected: `69` cells (the grep counts the attribute once per `<li>`).
+Expected: `69`.
+
+★★ **Count UNIQUE ATTRIBUTE VALUES, not lines and not raw occurrences.** An earlier
+revision of this step used `grep -c`, which counts matching LINES — the SSR response is
+ONE line, so it returns `1` and looks like catastrophic failure. And a bare `grep -o | wc -l`
+returns **138**, because Next embeds the markup twice: once as DOM and once in the RSC flight
+payload used for hydration. Only the dedup above answers the question. ★ This does not affect
+Task 4: Playwright's `toHaveCount` counts real DOM elements, and the flight payload is script
+content, not elements carrying the attribute.
 
 - [ ] **Step 3: Typecheck and lint**
 
