@@ -191,6 +191,26 @@ export function collectSources() {
  *  one of those except `md` is already in `SOURCE_EXT`. Widening further would
  *  add suffix-collision risk to `resolveCandidates` for no reachable case. If
  *  `pathsIn`'s alternation ever grows, revisit this comment, not just the code. */
+/** Drops a `ROOT_DOCS` entry that is not on disk, and passes everything else
+ *  through untouched.
+ *
+ *  ★★ `ROOT_DOCS` IS THE ONLY HARDCODED HALF OF `collectDocs`, which is the
+ *  whole reason this exists. The `docs/**` half is a directory listing and can
+ *  only name files that are there; a hardcoded list keeps naming a file after
+ *  it is deleted, and an index entry for a deleted file makes every citation to
+ *  it resolve forever — the resolver reporting CLEAN for a doc that is gone.
+ *  ★★★ EXTRACTED PURELY TO MAKE IT TESTABLE, and it was extracted because a
+ *  mutation survived: deleting the guard outright left the whole suite green.
+ *  Every `ROOT_DOCS` file exists today, so no fixture built from the real tree
+ *  can separate the guarded from the unguarded version — the separating input
+ *  has to be an injected list naming something absent, which is what the `exists`
+ *  parameter is for. Nothing else about the signature is load-bearing.
+ *  ★ The two injected parameters default to the real ones, so the caller reads
+ *  the same as it did inline. */
+export function keepPresentRootDocs(docs, rootDocs = ROOT_DOCS, exists = existsSync) {
+  return docs.filter((d) => (rootDocs.includes(d) ? exists(d) : true));
+}
+
 export function collectResolutionSources() {
   const codeTreeDocs = [];
   for (const dir of ["src", "scripts", "e2e"]) {
@@ -236,7 +256,7 @@ export function collectResolutionSources() {
       ...collectSources(),
       // ★ `[]` — the follow-up resolver is the one caller entitled to see the
       // planning corpus. See `collectDocs`.
-      ...collectDocs([]).filter((d) => (ROOT_DOCS.includes(d) ? existsSync(d) : true)),
+      ...keepPresentRootDocs(collectDocs([])),
       ...codeTreeDocs,
       ...docAssets,
     ]),

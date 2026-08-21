@@ -34,7 +34,9 @@ import {
   collectResolutionSources,
   collectSources,
   countLines,
+  keepPresentRootDocs,
   resolveCandidates,
+  ROOT_DOCS,
   SOURCE_EXT,
   stripFencedBlocks,
   THIRD_PARTY_RE,
@@ -623,5 +625,46 @@ describe("collectResolutionSources", () => {
   // ★ The code index is unchanged and still present — this is a UNION, not a swap.
   it("keeps every collectSources entry", () => {
     for (const s of collectSources()) expect(idx).toContain(s);
+  });
+});
+
+describe("keepPresentRootDocs", () => {
+  // ★★★ THIS BLOCK EXISTS BECAUSE A MUTANT SURVIVED. Deleting the guard from
+  // `collectResolutionSources` left all of that function's tests green: every
+  // `ROOT_DOCS` file is on disk, so a fixture drawn from the real tree cannot
+  // tell the guarded version from the unguarded one. The separating input is an
+  // injected list naming a file that is absent — which is the only reason the
+  // helper takes parameters at all.
+  //
+  // ★★ What it protects: `ROOT_DOCS` is hardcoded, so it keeps naming a file
+  // after that file is deleted, and an index entry for a deleted file makes
+  // every citation to it resolve — the resolver reporting CLEAN for a doc that
+  // is gone. The `docs/**` half cannot have this defect; it is a listing.
+
+  it("drops a ROOT_DOCS entry that is not on disk", () => {
+    const kept = keepPresentRootDocs(
+      ["README.md", "GONE.md"],
+      ["README.md", "GONE.md"],
+      (p) => p !== "GONE.md",
+    );
+    expect(kept).toEqual(["README.md"]);
+  });
+
+  // ★★ ANTI-VACUITY, and the direction that matters: the guard must not become
+  // an existence check on EVERYTHING. `docs/**` entries come from a listing and
+  // are never probed — a version that filtered them too would pass the test
+  // above and quietly cost a stat per doc, or drop a file racing the walk.
+  it("passes a non-ROOT_DOCS path through even when it does not exist", () => {
+    const kept = keepPresentRootDocs(["docs/whatever.md"], ["README.md"], () => false);
+    expect(kept).toEqual(["docs/whatever.md"]);
+  });
+
+  it("keeps a ROOT_DOCS entry that is on disk", () => {
+    expect(keepPresentRootDocs(["README.md"], ["README.md"], () => true)).toEqual(["README.md"]);
+  });
+
+  // ★ The defaults are the real ones, so the inline caller reads unchanged.
+  it("defaults to the real ROOT_DOCS and the real existsSync", () => {
+    expect(keepPresentRootDocs([...ROOT_DOCS])).toEqual([...ROOT_DOCS]);
   });
 });
