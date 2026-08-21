@@ -56,16 +56,35 @@ for (const dir of ["src", "scripts", "e2e"]) {
 }
 // ★★★ ROOT-LEVEL CONFIG IS CODE THIS REGISTER CITES, AND THE DIRECTORY WALK
 // CANNOT SEE IT. `collectSources()` scans the root for exactly this reason and
-// says so in its own comment; the SYMBOL sweep did not, so `globalIgnores` —
-// imported and used in `eslint.config.mjs` — read as missing forever (§189).
+// says so in its own comment; the SYMBOL sweep did not, so a helper imported and
+// used in `eslint.config.mjs` and cited by §53 and §189 read as missing forever.
+// ★★★ THAT HELPER IS DELIBERATELY NOT NAMED HERE, AND THE OMISSION IS THE POINT.
+// This file is a `SWEEP_SELF_FILES` member, so any identifier written into it —
+// including into a comment — lands in `withSelf` and therefore in
+// `selfExcludedSymbols`. Naming the symbol here would mean that if it ever left
+// `eslint.config.mjs`, or if this root scan were reverted, the register's stale
+// claim would report SYMBOL_SELF_EXCLUDED — which `NON_ACTIONABLE` swallows —
+// instead of the SYMBOL_MISSING that would send someone to fix it. A fix whose
+// own prose silences its own regression is the self-referential trap this gate
+// exists to avoid, one layer down. Read the name off the config instead — the
+// command is written so that it does not contain the name either:
+//   grep -nE "Ignores\(" eslint.config.mjs
+// ★★ THE COMMAND'S SHAPE IS LOAD-BEARING FOR THE SAME REASON THE OMISSION IS.
+// A first cut of this comment spelled the identifier inside the grep pattern,
+// which put it straight back into `withSelf` and undid the paragraph above it.
+// Anything added here — prose, example, pattern — is scanned. Match on a
+// fragment, never on the whole name.
 // ★★★ JSON IS DELIBERATELY EXCLUDED HERE, unlike `collectSources()`, and the
 // asymmetry is the point: `package-lock.json` sits at the root, and feeding it
 // to a SYMBOL index would inject every dependency name into `knownSymbols` —
 // after which a genuinely stale claim could resolve against a package name and
 // never be reported. A PATH index may hold that file; a SYMBOL index must not.
 const ROOT_CODE_RE = /\.(?:mjs|cjs|js|jsx|ts|tsx)$/;
-// ★ Non-recursive by construction (`readdirSync(".")` with no `withFileTypes`
-// recursion) — root only, `node_modules` is never entered.
+// ★ Non-recursive by construction: `readdirSync(".", { withFileTypes: true })`
+// takes no `recursive` option here, so it lists the root and stops —
+// `node_modules` is never entered. (`withFileTypes` is what makes `isFile()`
+// below possible; it has nothing to do with recursion, and an earlier wording
+// here conflated the two.)
 // ★★ `isFile()` is load-bearing, not defensive noise: a DIRECTORY named with a
 // code extension would otherwise be handed to `readFileSync`, which throws
 // EISDIR. `collectIdentifiers`'s own walk never had this problem because it
@@ -110,7 +129,9 @@ const selfExcludedSymbols = new Set([...withSelf].filter((s) => !knownSymbols.ha
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
 // The reasoning, the "wider, not unconditional" guarantee and the derivation of
 // which extensions belong now live with the walk itself, in
-// `collectResolutionSources`. Four tests there pin both directions.
+// `collectResolutionSources`. Its describe block in `doc-claims-lib.test.mjs`
+// pins both directions; no count is quoted here, because the last one was wrong
+// within the same branch that wrote it.
 const sources = collectResolutionSources();
 
 const lineCounts = new Map();
