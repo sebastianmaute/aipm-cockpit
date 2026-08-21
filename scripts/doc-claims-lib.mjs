@@ -100,9 +100,15 @@ export const PATH_RE = new RegExp(
 export const THIRD_PARTY_RE =
   /^(?:node_modules\/|(?:vitest|eslint|dompurify|prosemirror-\w+|@[\w.-]+)\/)|^(?:purify\.cjs|minimatch|version)\.js$|^(?:lib\/util|rules)\//;
 
-// Docs whose citations are in scope. `docs/superpowers/` is gitignored working
-// material, not shipped documentation — scanning it would gate files that are
-// not in the repo.
+// Docs whose citations are in scope. `docs/superpowers/` holds per-slice working
+// material — brainstorms, designs and plans — not shipped documentation. Its
+// citations describe the tree as it stood when the slice was written, so gating
+// them would fail on every historical document the moment the code moved.
+// ★★ IT IS NO LONGER GITIGNORED. The rule was dropped on 2026-08-21 and the whole
+// corpus (~456 files, 298 of them recovered from zip archives that were their only
+// copy) committed. This skip is a HARDCODED path, never a read of `.gitignore`, so
+// tracking them changed nothing here — but do not restore the old justification:
+// "not in the repo" is now false, while the reason above still holds.
 export const SKIP_DIRS = ["docs/superpowers"];
 
 // ★★ ALL tracked prose docs outside `docs/`, not just the obvious three. A cold

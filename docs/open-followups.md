@@ -13,9 +13,30 @@ enough detail to resume without re-deriving the finding. Closed items move to "D
 `superpowers/audit-campaign-remaining.md` were gitignored, so they were never in the repo and are
 recoverable only from the local archive described below. Everything worth keeping from all three is
 reproduced here — nothing in this file requires reading them, and each fact was re-verified against
-0.203.0 on the way in rather than copied forward. ★ Do not add a link pointing into
-`docs/superpowers/`: that whole tree is gitignored, so such a link is dead for everyone but the
-machine that wrote it.
+0.203.0 on the way in rather than copied forward.
+
+★★★ **`docs/superpowers/` IS TRACKED AS OF 2026-08-21 (0.253.0), AND MANY ENTRIES BELOW STILL SAY
+OTHERWISE.** The ignore rule was dropped and the whole corpus committed — 218 specs and 238 plans,
+298 of them recovered from zip archives that were their only copy. The rule that stood here said
+never to link into that tree, because such a link was "dead for everyone but the machine that wrote
+it". Links into it now resolve for everyone, so that prohibition is retired.
+★★ **The two documents named above are NOT among the recovered set.** `r5-calendar-followups.md` and
+`audit-campaign-remaining.md` are still lost, so the paragraph above holds for them unchanged — the
+recovery did not undo the loss that motivated this file, it only stopped the next one.
+★★★ **THE SWEEP IS NOT DONE, AND THIS NOTE IS NOT A SUBSTITUTE FOR IT.** Entries written before this
+date describe the tree as gitignored, local-only, or invisible to anyone else's checkout, and those
+words are now false wherever they appear. §44 and §113 are the sharpest cases: each exists BECAUSE
+the design it points at was unreadable outside one machine, and that premise has changed — neither
+entry has been rewritten. Read "gitignored" anywhere below as a claim about the past, and verify it
+before relying on it. Reproduce today's remaining count with:
+
+```bash
+grep -cniE "superpowers.{0,80}(gitignor|local-only|one machine|not in the repo)" docs/open-followups.md
+```
+
+★ That grep matches THIS note too, because the note quotes the words it hunts — the same
+self-matching property recorded elsewhere in this file. `docs/work-inventory.md` records what the
+recovery found and what remains designed-but-unbuilt.
 
 **Deliberately NOT absorbed:** [`tech-debt-register.md`](tech-debt-register.md) is a different
 artifact class — owner-assigned, quarterly-reviewed, next sweep **2026-10-03**. Copying TD-1/2/3/5/6/7
@@ -13091,3 +13112,100 @@ cannot simply select `at`.
 
 ★ Whichever way it goes, it is narrow-pane-only — at a wide pane every paragraph
 is live and the selection is invisible.
+
+## 200. Internal identifiers ship in the tracked tree — blocks flipping the GitHub mirror public
+
+**Status:** open — NOT a defect today and NOT a regression. The GitLab project and the GitHub push
+mirror are both private, so nothing here is exposed. It becomes a hard blocker the moment that
+GitHub repo is flipped public, which is the stated intent.
+
+`main` is push-mirrored from GitLab to a private GitHub repo. The mirror carries FULL HISTORY, so
+sanitising the working tree is necessary but NOT sufficient — a value deleted in commit N stays
+readable in commit N-1 forever. Settle the history question (rewrite, or a squashed orphan root)
+BEFORE the visibility flip. After is unrecoverable: a public clone can be taken inside the window.
+
+**Reproduce the current surface.** There is NO gate for any of this — `size:check` walks `src`,
+semgrep hunts vulnerability patterns, and neither looks for an employer's name:
+
+```bash
+git grep -lIE 'Acme|iccgroup|example-group/aipm-cockpit|gitlab\.ic' -- .
+git grep -oIE '[A-Za-z0-9._%+-]+@Acme\.[a-z]+' -- . | sort -u
+```
+
+★ Both sweeps match THIS ENTRY, because it quotes the identifiers it hunts. That is the grep working,
+not a twelfth leak — `docs/open-followups.md` is never a hit worth acting on here.
+
+**Four classes, four different fixes:**
+
+1. **README badges** point at `gitlab.example.com/example-group/public-collab/...`. Public, they render as
+   broken images for every visitor AND disclose the internal group path. Repoint or drop.
+
+2. **A live Confluence deep link in shipped app code.** `POLICY_URL` in `chat-panel.tsx` is an
+   `wiki.example.com` wiki URL carrying a page id. ★★ This is the worst of the four because
+   it is not documentation — it renders in the PRODUCT, so a public build hands every user a link
+   into a tenant they cannot reach. It needs to become configurable or conditional, not merely
+   rewritten to a different string.
+
+3. **A work email in guide content, in two places that must be fixed in the right ORDER.** The
+   address sits in `lib/project-leadership-operating-guide.md` and is embedded verbatim in
+   `BUILTIN_GUIDE_CONTENT` in `operating-guide-builtin.generated.ts`. ★★ Editing the `.generated.ts`
+   is wrong and will be silently reverted by the next regen — fix the `lib/` markdown and re-run
+   `scripts/gen-operating-guide.mjs`. There is no `package.json` script for it; invoke the file
+   directly.
+
+4. **Five real-looking identities across the sample workspaces.** `sample-workspace-small.json`
+   carries 42 `@example.com` addresses over FIVE distinct local-parts — every one
+   `firstname.lastname`, none matching a demo/test/sample pattern. ★★ THE REST OF THAT FILE IS
+   ALREADY NEUTRALISED: its SharePoint and Jira URLs use `example.sharepoint.com` and
+   `example.atlassian.net`, and one address uses `northwind.example`. So this block is an oversight
+   inside otherwise-sanitised fixture data, not a deliberate choice, and must be read as real
+   personal data until someone proves it is not.
+
+★★★ **FIXING (4) IS A FOUR-STEP PIPELINE AND THREE OF ITS FOUR FILES ARE GENERATED** — hand-editing
+them is the trap. `sample-workspace-small.json` is the hand-curated MASTER; `-big` and `-huge` come
+from it via `scaleWorkspace`; `golden-workspace.csv` and `golden-workspace.md` come from the master
+via the serializers and are BYTE-PINNED by `golden-workspace.test`. So: edit the master → regenerate
+big/huge with `scripts/generate-sample-workspace.ts` → regenerate the goldens → the byte-pinned test
+goes green on the NEW bytes. ★★ A golden regen has previously written truncated fixtures over full
+ones and reported success, so compare fixture SIZES afterwards, never just the exit code.
+
+★ **Two things that look like hits and are not.** `APP_REPO_URL` in `version.ts` is the public
+marketing site — no leak, though a public repo probably wants it repointed at GitHub. And
+`theming.md` names `Acme`/`AIPM-consult` while documenting branding TOKEN names, which is
+inherent to the palette belonging to a named company.
+
+★★ **A naive `internal\.` sweep produces false positives, and one was acted on.** That pattern
+matches the English word "internal" ending a sentence, which flagged code comments in
+`budget-bucket-people.ts` and `use-ai-orchestration.ts` — neither has anything to do with the
+company. The first cut of this entry named those two files as leaks while missing almost every real
+one; the sweep at the top of this entry returns the actual set. Grep for the ORGANISATION's
+identifiers, never for the word "internal".
+
+## 201. A raw control byte in `jira-api.ts` makes the file binary to grep — the NUL guard cannot see it
+
+**Status:** open — pre-existing, benign at runtime, invisible to every content sweep.
+
+`buildJiraCacheKey`'s array branch joins sorted values on a **raw U+0001 byte** written
+directly into the source rather than as the six-character escape. Runtime behaviour is correct — it
+is a delimiter, and any byte that cannot occur in a Jira field works.
+
+★★ The cost is the one §67 already paid for a NUL: ripgrep and grep classify the file as BINARY and
+print `Binary file … matches` with **no line content**, so every content sweep over `src/` silently
+skips it. A reviewer grepping for a symbol in this file gets a hit they cannot read, or reads the
+sweep as clean when it never showed them the line.
+
+★★★ **`no-nul-bytes.test.ts` CANNOT CATCH THIS AND IS NOT MEANT TO.** It tests `indexOf(0)` — byte
+zero only. U+0001 is a different byte, so the guard is green over this file and always has been. Do
+not read that green run as "no control characters in `src/`"; it means "no NUL". Widening the guard
+to all C0 controls is the obvious fix and needs care: `\t`, `\n` and `\r` are legal and common, and
+this repo has CRLF files, so a naive range flags every source file in it.
+
+Reproduce (the sweep the NUL guard does not do):
+
+```bash
+node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
+```
+
+★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
+regression from that change — it predates it, and the same sweep over the newly tracked corpus came
+back otherwise clean.

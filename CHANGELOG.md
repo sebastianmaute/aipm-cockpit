@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.253.0] - 2026-08-21 "Schroeder"
+
+### Changed
+
+- **The brainstorm, design and plan documents are now part of the repository.**
+  They had been deliberately kept out of git, which meant they were per-checkout
+  local files: two working copies held overlapping but different sets, and seven
+  zip archives held a third. No single location held all of it, and 298 documents
+  existed only inside those archives - one deleted directory away from being gone
+  for good. The whole corpus is now tracked: 218 design documents and 238 plans,
+  spanning May to August 2026, verified to contain every entry of every archive.
+  Eight recovered documents were edited first to remove infrastructure hostnames,
+  an internal project identifier and one set of personal contact details.
+
+### Added
+
+- **A work inventory that says what is designed but not yet built.** Reading the
+  planning documents alone gives a misleading picture, because their task
+  checkboxes are written but never ticked off during the work - so finished slices
+  and untouched ones look identical. The new inventory records what actually
+  remains against the merge history instead: two owed calendar-sync slices,
+  document images, and one AI planning tool. It also flags where the existing
+  roadmaps contradict themselves, including three slices marked as pending that
+  shipped some time ago.
+
+### Fixed
+
+- **The version shown in the app named the wrong release.** The milestone codename
+  is stored separately from the version number and was not updated when 0.252.0
+  shipped, so the top bar, Settings and the Version popover all read
+  `0.252.0 "Larson"` - pairing the new number with the previous release's name -
+  while the changelog and README said "Brust". Nothing compares the two values, so
+  this is the second time it has happened; both are now set together.
+
 ## [0.252.0] - 2026-08-21 "Brust"
 
 ### Added
