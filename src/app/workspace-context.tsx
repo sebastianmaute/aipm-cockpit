@@ -51,6 +51,7 @@ import { mintId } from "./id-mint-session";
 import type { SettingsOverrides } from "./settings-types";
 import type { CalendarEvent } from "./calendar-event";
 import type { ActivityEntry } from "./activity-log";
+import type { DocumentAsset } from "./document-asset";
 
 /** Workspace-section state is `readonly X[]` on purpose: these arrays become
  *  the `Workspace` sections handed to storage, and the Turso dirty-table save
@@ -155,6 +156,15 @@ interface WorkspaceValue {
   calendarEvents: readonly CalendarEvent[] | undefined;
   setCalendarEvents: Dispatch<SetStateAction<readonly CalendarEvent[] | undefined>>;
 
+  /** Optional, like `calendarEvents` above — `undefined` means "absent",
+   *  never `[]`. Mirrors `calendarEvents` site-for-site rather than the
+   *  non-optional `documents`/`documentVersions` pattern: the upload hook
+   *  (`use-document-assets.ts`) always passes a `readonly DocumentAsset[]`
+   *  argument (never spreads context state directly), so there is no
+   *  functional-setter `[...prev]` call here that `undefined` would break. */
+  documentAssets: readonly DocumentAsset[] | undefined;
+  setDocumentAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+
   /** ★ NON-optional (`[]` when empty), like `documents` — every writer appends
    *  through a functional setter (`setActivityLog(prev => appendActivity(prev,
    *  …))`), so an `undefined` state would throw. Byte-stability is unaffected:
@@ -197,6 +207,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
   const [documentVersions, setDocumentVersions] = useState<readonly DocVersion[]>([]);
   const [settingsOverrides, setSettingsOverrides] = useState<Readonly<SettingsOverrides> | undefined>(undefined);
   const [calendarEvents, setCalendarEvents] = useState<readonly CalendarEvent[] | undefined>(undefined);
+  const [documentAssets, setDocumentAssets] = useState<readonly DocumentAsset[] | undefined>(undefined);
   const [activityLog, setActivityLog] = useState<readonly ActivityEntry[]>([]);
 
   // ★★★ THE BEFORE-IMAGE CANNOT BE COMPUTED INSIDE A FUNCTIONAL SETTER.
@@ -464,6 +475,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       mutateDocuments,
       settingsOverrides, setSettingsOverrides,
       calendarEvents, setCalendarEvents,
+      documentAssets, setDocumentAssets,
       activityLog, setActivityLog,
     }),
     [
@@ -501,6 +513,7 @@ export function WorkspaceProvider({ children }: { children: ReactNode }) {
       mutateDocuments,
       settingsOverrides,
       calendarEvents,
+      documentAssets,
       activityLog,
     ],
   );
