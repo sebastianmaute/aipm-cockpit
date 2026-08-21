@@ -10,7 +10,7 @@
 // branch as red — dozens of violations that did not exist. That is why this is a
 // module with a test rather than a hundred lines inside a CI script nobody runs
 // locally. Add a case here before changing a pattern.
-import { readdirSync } from "node:fs";
+import { existsSync, readdirSync, statSync } from "node:fs";
 
 // Extensions that denote a real source file. A bare `foo.io:80` or a version
 // like `0.227.0` must never match, so the extension list is a closed set.
@@ -171,6 +171,67 @@ export function collectSources() {
     if (isSource.test(p)) out.push(p);
   }
   return out;
+}
+
+/** The index for "does this path exist", as distinct from `collectSources()`'s
+ *  "is this a citable code file".
+ *
+ *  ★★★ TWO QUESTIONS, TWO INDEXES, AND CONFLATING THEM IS THE BUG THIS CLOSES.
+ *  A citation always points at code, so `collectSources()` is exactly right for
+ *  it. A register entry names DOCS as freely as code — the specs it defers to,
+ *  the baselines the sibling gates read, a markdown fixture under `src/`. Handed
+ *  a code-only index, every one of those reported PATH_MISSING.
+ *
+ *  ★★ WIDER, NOT UNCONDITIONAL. Every member is a file that EXISTS, so a path
+ *  the register names and the tree no longer holds still reports PATH_MISSING —
+ *  that is the whole finding, and tests pin both directions.
+ *
+ *  ★★ `md` IS THE ENTIRE WIDENING over the code tree, and that is a derivation
+ *  rather than a guess: `pathsIn` accepts `tsx|ts|mjs|json|css|md|yml`, and every
+ *  one of those except `md` is already in `SOURCE_EXT`. Widening further would
+ *  add suffix-collision risk to `resolveCandidates` for no reachable case. If
+ *  `pathsIn`'s alternation ever grows, revisit this comment, not just the code. */
+export function collectResolutionSources() {
+  const codeTreeDocs = [];
+  for (const dir of ["src", "scripts", "e2e"]) {
+    let entries;
+    try {
+      entries = readdirSync(dir, { recursive: true, encoding: "utf8" });
+    } catch {
+      continue; // absent in a partial checkout — same posture as collectSources
+    }
+    for (const f of entries) {
+      const p = `${dir}/${f}`.replace(/\\/g, "/");
+      if (p.endsWith(".md")) codeTreeDocs.push(p);
+    }
+  }
+  // ★★★ THE NON-MARKDOWN HALF OF `docs/` IS LOAD-BEARING AND IS NOT `collectDocs`'s.
+  // The register cites `docs/baselines/file-sizes.json` three times, plus
+  // `followup-claims.json`, `doc-line-cites.json` and `jscpd-2026-07.json`. None
+  // is under the code tree and none ends in `.md`, so dropping this loop would
+  // turn six resolving citations into fresh PATH_MISSING findings — the exact
+  // false-positive class this function exists to remove, reintroduced by the fix.
+  // ★★ UNGUARDED, on purpose, and the reasoning came with the code: a truncated
+  // index is indistinguishable from a deleted file, so every missing asset would
+  // report PATH_MISSING — a screen of false findings under a tool that exits 0.
+  // An unreadable `docs/` must throw. (`readFileSync(REGISTER)` in the caller
+  // reads inside `docs/` and throws first anyway.)
+  const docAssets = [];
+  for (const f of readdirSync("docs", { recursive: true, encoding: "utf8" })) {
+    const p = `docs/${f}`.replace(/\\/g, "/");
+    if (p.endsWith(".md")) continue; // `collectDocs([])`'s half, just above
+    if (existsSync(p) && statSync(p).isFile()) docAssets.push(p);
+  }
+  return [
+    ...new Set([
+      ...collectSources(),
+      // ★ `[]` — the follow-up resolver is the one caller entitled to see the
+      // planning corpus. See `collectDocs`.
+      ...collectDocs([]).filter((d) => (ROOT_DOCS.includes(d) ? existsSync(d) : true)),
+      ...codeTreeDocs,
+      ...docAssets,
+    ]),
+  ];
 }
 
 // ★ A fenced block holds EXAMPLES — command output, stack traces, sample code.

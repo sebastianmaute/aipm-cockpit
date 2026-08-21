@@ -11,16 +11,9 @@
 //   node scripts/check-followup-claims.mjs --run-repro       also execute
 //                                                           allowlisted
 //                                                           reproduce commands
-import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { readFileSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
-import {
-  ROOT_DOCS,
-  SKIP_DIRS,
-  collectDocs,
-  collectSources,
-  countLines,
-  resolveCandidates,
-} from "./doc-claims-lib.mjs";
+import { collectResolutionSources, countLines, resolveCandidates } from "./doc-claims-lib.mjs";
 import { collectIdentifiers } from "./agents-symbols-lib.mjs";
 import {
   REGISTER,
@@ -73,49 +66,10 @@ if (entries.length < 50) {
 }
 
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
-// That gate resolves citations, which only ever point into CODE, so
-// `collectSources()` — `SOURCE_EXT` under src/scripts/e2e plus root-level
-// config — is exactly its domain. This one resolves `pathsIn`, and the register
-// names DOCS as freely as it names code: the doc set it is part of, the
-// baselines the sibling gates read, the audit snapshots it defers to. Handing
-// those to a code-only index reports every one of them as deleted.
-//
-// Two structural gaps, both measurable: `SOURCE_EXT` carries no `md` at all, and
-// the walk never leaves the code tree, so `docs/baselines/*.json` fails on its
-// DIRECTORY rather than its extension. Reproduce the pre-fix behaviour by
-// passing `collectSources()` alone as `sources` below and diffing the tally.
-//
-// ★★ WIDER, NOT UNCONDITIONAL. A path the register names and the tree no longer
-// holds must still report PATH_MISSING — that is the whole finding. So every
-// member of this index is a file that exists: the walks return real entries, and
-// `ROOT_DOCS` (a hardcoded list, not a walk) is filtered against disk.
-// ★★ UNGUARDED, on purpose. This used to sit in a `try` commented "no docs/ in
-// a partial checkout" — unreachable, because `readFileSync(REGISTER)` above
-// reads a file inside `docs/` and throws first. What the catch could actually
-// have swallowed is an unreadable `docs/`, and swallowing that is the bad
-// direction: a truncated index is indistinguishable from a deleted file — every
-// missing asset reports PATH_MISSING, a whole screen of false findings under a
-// tool that exits 0. Fail loudly instead.
-const docEntries = readdirSync("docs", { recursive: true, encoding: "utf8" });
-const docAssets = [];
-for (const f of docEntries) {
-  const p = `docs/${f}`.replace(/\\/g, "/");
-  // `.md` is `collectDocs()`'s half; directories are not citable.
-  if (p.endsWith(".md")) continue;
-  if (SKIP_DIRS.some((d) => p.startsWith(`${d}/`))) continue;
-  if (existsSync(p) && statSync(p).isFile()) docAssets.push(p);
-}
-const sources = [
-  ...new Set([
-    // Code tree + root config, unchanged.
-    ...collectSources(),
-    // ROOT_DOCS + every `docs/**/*.md` outside SKIP_DIRS. `ROOT_DOCS` is a
-    // literal list, so a deleted entry would otherwise resolve forever.
-    ...collectDocs().filter((d) => (ROOT_DOCS.includes(d) ? existsSync(d) : true)),
-    // Everything else `docs/` holds — the baselines JSON the register cites.
-    ...docAssets,
-  ]),
-];
+// The reasoning, the "wider, not unconditional" guarantee and the derivation of
+// which extensions belong now live with the walk itself, in
+// `collectResolutionSources`. Four tests there pin both directions.
+const sources = collectResolutionSources();
 
 const lineCounts = new Map();
 const env = {

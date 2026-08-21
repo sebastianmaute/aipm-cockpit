@@ -31,6 +31,7 @@ import { describe, expect, it } from "vitest";
 import {
   citesOnLine,
   collectDocs,
+  collectResolutionSources,
   collectSources,
   countLines,
   resolveCandidates,
@@ -576,5 +577,51 @@ describe("collectDocs skip list", () => {
   // walk returning everything. An unrelated skip must still be honoured.
   it("honours an arbitrary skip list", () => {
     expect(collectDocs(["docs/baselines"]).some((d) => d.startsWith("docs/baselines/"))).toBe(false);
+  });
+});
+
+describe("collectResolutionSources", () => {
+  const idx = collectResolutionSources();
+
+  // Class A — the planning corpus is tracked and must resolve.
+  it("resolves a tracked docs/superpowers path", () => {
+    expect(resolveCandidates("2026-08-21-followups-triage-and-gate-resolution-design.md", idx))
+      .not.toEqual([]);
+  });
+
+  // Class B — a markdown fixture living under the CODE tree, which no other index holds.
+  it("resolves a markdown fixture under src/", () => {
+    expect(resolveCandidates("golden-workspace.md", idx)).toEqual([
+      "src/app/__fixtures__/golden-workspace.md",
+    ]);
+  });
+
+  // ★★★ WIDER, NOT UNCONDITIONAL. These two are the anti-vacuity half: they name
+  // the PERMISSIVE implementation of the fix above, which is the failure mode a
+  // widening invites. Without them, `resolve: () => ["x"]` passes the suite.
+  it("still reports a deleted docs/superpowers path as unresolvable", () => {
+    expect(resolveCandidates("2019-01-01-no-such-spec-design.md", idx)).toEqual([]);
+  });
+
+  it("still reports a deleted markdown fixture as unresolvable", () => {
+    expect(resolveCandidates("no-such-fixture.md", idx)).toEqual([]);
+  });
+
+  // ★★★ Class C — the NON-markdown half of `docs/`, which neither `collectDocs`
+  // nor the code walk holds. The register cites this file three times. A fix that
+  // dropped it would trade three false PATH_MISSING findings for six new ones.
+  it("resolves a non-markdown docs asset", () => {
+    expect(resolveCandidates("docs/baselines/file-sizes.json", idx)).toEqual([
+      "docs/baselines/file-sizes.json",
+    ]);
+  });
+
+  it("still reports a deleted docs asset as unresolvable", () => {
+    expect(resolveCandidates("docs/baselines/no-such-baseline.json", idx)).toEqual([]);
+  });
+
+  // ★ The code index is unchanged and still present — this is a UNION, not a swap.
+  it("keeps every collectSources entry", () => {
+    for (const s of collectSources()) expect(idx).toContain(s);
   });
 });
