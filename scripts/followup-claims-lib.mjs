@@ -411,7 +411,19 @@ export function classify(entry, env) {
       }
       continue;
     }
-    if (!present) problems.push({ kind: "SYMBOL_MISSING", detail: s });
+    if (!present) {
+      // ★★★ THE SYMBOL EXISTS; THE SWEEP CANNOT SEE IT, AND THAT IS DELIBERATE.
+      // `SWEEP_SELF_FILES` is excluded from `knownSymbols` so this harness cannot
+      // vouch for the names it checks — see that constant's three-star note. The
+      // consequence was a permanent SYMBOL_MISSING on §138, which documents this
+      // sweep and therefore names its internals: `markedNear`, `toArgv` and
+      // `collectIdentifiers` are all in the tree, in 5, 3 and 5 files.
+      // ★★ Reported, never dropped. "I was not allowed to look" is a different
+      // statement from "it is gone", and collapsing them into CLEAN is exactly
+      // the circularity the exclusion exists to prevent.
+      const kind = env.selfExcludedSymbols?.has(s) ? "SYMBOL_SELF_EXCLUDED" : "SYMBOL_MISSING";
+      problems.push({ kind, detail: s });
+    }
   }
   for (const p of paths) {
     // ★★ Mirrors CITE_THIRD_PARTY exactly, including its ORDER: classified on
@@ -472,8 +484,11 @@ export function classify(entry, env) {
   // that still applies. Without this tier a single missing symbol earlier in the
   // body would bury it.
   const THIRD_PARTY_KINDS = new Set(["CITE_THIRD_PARTY", "PATH_THIRD_PARTY"]);
+  // ★★ Not repo debt either, for the same reason and with the same consequence:
+  // a finding no probe can resolve must not stand in front of one that can.
+  const NON_ACTIONABLE = new Set([...THIRD_PARTY_KINDS, "SYMBOL_SELF_EXCLUDED"]);
   const done = problems.find((p) => p.kind === "ASSERTED_ABSENT_NOW_PRESENT");
-  const actionable = problems.find((p) => !THIRD_PARTY_KINDS.has(p.kind));
+  const actionable = problems.find((p) => !NON_ACTIONABLE.has(p.kind));
   const verdict = done
     ? done.kind
     : actionable

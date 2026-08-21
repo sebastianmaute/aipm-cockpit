@@ -756,3 +756,38 @@ describe("classify — an entry that ASSERTS a thing is absent", () => {
     expect(classify(entry, env).verdict).toBe("SYMBOL_MISSING");
   });
 });
+
+describe("SYMBOL_SELF_EXCLUDED", () => {
+  const entry = (body) => ({ n: 1, title: "t", startLine: 1, body });
+  const env = {
+    knownSymbols: new Set(["realSymbol"]),
+    selfExcludedSymbols: new Set(["markedNear"]),
+    resolve: () => ["src/x.ts"],
+    lineCounts: { get: () => 1000 },
+  };
+
+  it("labels a symbol that exists only in a swept-self file", () => {
+    const r = classify(entry(["A note about `markedNear` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_SELF_EXCLUDED"]);
+    expect(r.verdict).toBe("SYMBOL_SELF_EXCLUDED");
+  });
+
+  // ★★★ ANTI-VACUITY. Without this, `if (!present) continue` passes the test
+  // above — the mutant that silences every missing symbol in the register.
+  it("still reports a symbol that exists nowhere as SYMBOL_MISSING", () => {
+    const r = classify(entry(["A note about `noSuchSymbolAnywhere` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_MISSING"]);
+  });
+
+  // ★★ A self-excluded symbol must not outrank real debt sitting after it.
+  it("does not hide a real SYMBOL_MISSING behind itself", () => {
+    const r = classify(entry(["`markedNear` and also `noSuchSymbolAnywhere`."]), env);
+    expect(r.verdict).toBe("SYMBOL_MISSING");
+  });
+
+  // ★ A symbol that is genuinely in the tree stays CLEAN — the third direction.
+  it("leaves a present symbol alone", () => {
+    const r = classify(entry(["A note about `realSymbol` here."]), env);
+    expect(r.problems).toEqual([]);
+  });
+});

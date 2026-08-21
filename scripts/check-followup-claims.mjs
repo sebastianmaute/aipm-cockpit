@@ -65,6 +65,21 @@ if (entries.length < 50) {
   process.exit(2);
 }
 
+// ★★★ A SET DIFFERENCE, NOT A SECOND LIST. The self-excluded set is exactly the
+// names that appear when `SWEEP_SELF_FILES` is included and vanish when it is
+// not — so it follows that constant automatically and can never drift from it.
+// The alternative, hand-listing the internals, is a second source of truth for
+// the one fact this file already owns.
+const withSelf = new Set();
+for (const dir of ["src", "scripts", "e2e"]) {
+  try {
+    collectIdentifiers(dir, withSelf, new Set());
+  } catch {
+    /* same posture as the sweep above — the floor decides what is survivable */
+  }
+}
+const selfExcludedSymbols = new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
+
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
 // The reasoning, the "wider, not unconditional" guarantee and the derivation of
 // which extensions belong now live with the walk itself, in
@@ -74,6 +89,7 @@ const sources = collectResolutionSources();
 const lineCounts = new Map();
 const env = {
   knownSymbols,
+  selfExcludedSymbols,
   resolve: (p) => resolveCandidates(p, sources),
   lineCounts: {
     get(p) {
