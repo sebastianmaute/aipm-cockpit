@@ -316,6 +316,94 @@ describe("RichTextEditor imperative handle", () => {
     expect(html).toContain("&lt;b&gt;");
     expect(html).not.toContain("<b>x</b>");
   });
+
+  // ★★★ THE THREE CASES BELOW LAND IN DIFFERENT PLACES, and the test above
+  // cannot see it: `toContain("world")` passes whether the text went to the front
+  // or the back. All three assert the WHOLE document for that reason.
+  // ★★ POSITION IS DECIDED BY `everFocused`, NOT BY `opts.focus` — that split IS
+  // the §192 fix: an editor nobody has focused appends on EITHER route, a focused
+  // one inserts at the caret. Before the fix the default branch inserted at the
+  // SELECTION, so the unfocused case PREPENDED while the `{focus:false}` route
+  // appended, and which one a dictated line got was decided by whether Tiptap's
+  // lazy chunk had arrived. See the ★★★ block on `appendText` in
+  // `rich-text-editor.tsx` and `docs/open-followups.md` §192.
+  // ★★ THE SET PINS IT, NOT EACH MEMBER — do not read any one of these as the
+  // guard. Under a full revert of the fix only the FIRST goes red. The third's
+  // unique value is narrower and worth knowing: it is the only one that dies when
+  // the `onFocus` handler is deleted, i.e. when the ref stops being written at
+  // all. If one goes red, someone has changed which end the text lands at, and
+  // that is a decision to make on purpose.
+  it("appendText lands at the END of the document when nobody has focused the editor", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor value="<p>existing</p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText(" appended")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    // Clicking the BUTTON leaves the editor unfocused, which is the state a user
+    // reaches by pressing the mic without clicking into the text first.
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    // ★★★ THIS STRING IS THE §192 FIX. It used to be "<p> appendedexisting</p>":
+    //   the default branch inserted at the SELECTION, which on an editor nobody
+    //   has clicked into is the START of the document, so dictating into an
+    //   existing note without clicking it first PREPENDED the transcript. Worse,
+    //   the queued route appended, so which one a user got was decided by whether
+    //   Tiptap's chunk had landed. Position now comes from `everFocused`, so both
+    //   routes agree here. docs/open-followups.md §192.
+    expect(onChange.mock.calls.at(-1)![0]).toBe("<p>existing appended</p>");
+  });
+
+  it("appendText lands at the end of the last textblock when told not to focus", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor value="<p>existing</p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText(" appended", { focus: false })}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    await screen.findByRole("textbox", { name: "Note" });
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    // Not `doc.content.size`: that is a DOC-level position after the last block,
+    // where ProseMirror cannot place text and wraps it in a new paragraph.
+    expect(onChange.mock.calls.at(-1)![0]).toBe("<p>existing appended</p>");
+  });
+
+  it("appendText lands at the caret once the editor has been focused", async () => {
+    const onChange = vi.fn();
+    function Harness() {
+      const ref = useRef<RichTextEditorHandle>(null);
+      return (
+        <>
+          <RichTextEditor value="<p>existing</p>" onChange={onChange} label="Note" lang="en-US" editorRef={ref} />
+          <button type="button" onClick={() => ref.current?.appendText(" appended")}>go</button>
+        </>
+      );
+    }
+    render(<Harness />);
+    const box = await screen.findByRole("textbox", { name: "Note" });
+    // ★★ FOCUS IS THE WHOLE FIXTURE. A ProseMirror EditorState initialises its
+    //   selection at the document start, so focusing without moving the caret
+    //   leaves it there — and inserting at the caret then PREPENDS. That is
+    //   correct and deliberate: a user who has been in this editor gets the text
+    //   where their caret is. The contrast with the test above (same call, no
+    //   focus, appends) is what pins the branch.
+    fireEvent.focus(box);
+    await userEvent.click(screen.getByRole("button", { name: "go" }));
+    await waitFor(() => expect(onChange).toHaveBeenCalled());
+    expect(onChange.mock.calls.at(-1)![0]).toBe("<p> appendedexisting</p>");
+  });
 });
 
 describe("RichTextEditor commitOnEnter", () => {

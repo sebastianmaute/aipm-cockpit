@@ -2,10 +2,9 @@
 // Presentational report pane for a steering-committee meeting's status report.
 // Props-only (no context) — the steering panel is unit-tested outside providers,
 // and this renders inside a shared Modal (see steering-committee-panel). The rich
-// editor loads via next/dynamic (Tiptap is browser-only). Save/send/generate/
+// editor comes from rich-text-editor-lazy (Tiptap is browser-only). Save/send/generate/
 // restore are all no-ops in popouts (read-only).
 import { useState, useMemo } from "react";
-import dynamic from "next/dynamic";
 import { t, type Lang } from "./i18n";
 import type { MeetingReport } from "./types";
 import { sanitizeRichHtml } from "./sanitize-html";
@@ -14,11 +13,7 @@ import { diffLines } from "./text-diff";
 import { CommTemplateDiffView } from "./comm-template-diff-view";
 import { Button } from "./button";
 import { Input } from "./form-controls";
-
-const RichTextEditor = dynamic(() => import("./rich-text-editor").then((m) => m.RichTextEditor), {
-  ssr: false,
-  loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
-});
+import { RichTextEditor } from "./rich-text-editor-lazy";
 
 /** UI-facing subset of a stored MeetingReportVersion (Slice 3). */
 export interface MeetingReportVersionUi {

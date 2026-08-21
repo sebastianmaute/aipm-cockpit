@@ -12,7 +12,7 @@ import { CharCounter, FieldError, FieldNotice } from "./field-feedback";
 import { Field, TaskFormSection } from "./task-form-layout";
 import { useDictationMic } from "./dictation-mic";
 import { appendDictation } from "./dictation-engine";
-import { RichTextEditor } from "./rich-text-editor";
+import { RichTextEditor } from "./rich-text-editor-lazy";
 import { appendDictationToHtml } from "./rich-text-projection";
 import { useSettings } from "./use-settings";
 import { INTERACTIVE } from "./interaction-styles";

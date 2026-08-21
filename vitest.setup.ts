@@ -17,10 +17,38 @@ import { server } from "./src/test/msw-server";
 // passing 12/12 locally in isolation. The assertion was always correct; only
 // the wait budget was wrong.
 //
-// 5s is far above the observed overrun and still well inside the 20s
-// testTimeout, so a genuinely broken expectation still fails within its test
-// rather than hanging the run.
-configure({ asyncUtilTimeout: 5000 });
+// ★★★ RAISED 5s -> 15s WHEN THE RICH-TEXT EDITOR MOVED BEHIND `next/dynamic`.
+// Every editor surface now awaits a `dynamic()` payload, and the FIRST test in a
+// worker to reach it pays Tiptap + ProseMirror's whole transform. Measured, not
+// anticipated: a full sharded run went 4 failed / 3840 passed across three files
+// (`change-edit-modal`, `note-log-panel`, `task-form-modal`), every failure a
+// `findByRole` for an editor that had not arrived — and all three files passed
+// 62/62 when run alone moments later. Same commit, same tree. That is the
+// starvation shape this block already existed for, with a new and much larger
+// first-hit cost on top.
+//
+// ★★ This is the ONLY place the Tiptap-transform wait budget is written. The
+// Tiptap-mounting suites used to restate it at each wait; every copy was removed
+// together in 0.251.0 because each one merely re-stated this line
+// (docs/open-followups.md §193, closed).
+//
+// ★★ That is a claim about THIS budget, NOT about the literal. `timelog-panel.test.tsx`
+// spells 15000 at its own `waitFor` calls, for an unrelated reason it documents
+// in place (docs/open-followups.md §39, and at the call sites themselves). They are
+// deliberately NOT swept in here. ★ A sweep for the `15_000` spelling cannot see
+// them, which is how they survived the one that removed the copies above:
+//   grep -rn "15000" src --include=*.tsx | grep timeout
+//
+// ★★★ DO NOT REINTRODUCE A COUNT HERE. The wording this replaced
+// named one ("the four lazy-editor suites") and it had already rotted: the suites
+// were not four and were not all lazy-editor suites. The set moves whenever a
+// Tiptap-mounting test is added, so any number written here is wrong on a schedule.
+// The 15s sits under the 20s testTimeout,
+// but the margin is thinner than it was: a test with TWO failing waits will now
+// hit the test timeout rather than reporting a clean assertion failure. If that
+// starts happening, split the test rather than trimming this back — the waits
+// are not the problem, the cold transform is.
+configure({ asyncUtilTimeout: 15000 });
 
 // jsdom lacks IntersectionObserver (used by the Help scroll-spy) and
 // Element.scrollIntoView (used by TOC/deep-link scroll). Provide no-op stubs so

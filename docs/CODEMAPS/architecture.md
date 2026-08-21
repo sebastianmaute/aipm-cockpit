@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 on main at 1e83173d | App 0.249.0 "Modesitt" | Files scanned: 1782 (src/**/*.{ts,tsx}, incl. 893 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.251.0 "Larson" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 

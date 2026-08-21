@@ -675,9 +675,19 @@ function ChangePanelBody({
   );
 }
 
-// memo-wrap so the panel skips re-render when the parent re-renders for
-// unrelated reasons. Relies on handler props being stable refs (the parent
-// wraps them in useCallback).
+// memo-wrap so the panel COULD skip re-render when the parent re-renders for
+// unrelated reasons.
+//
+// ★★★ IT DOES NOT CURRENTLY BAIL, and this comment used to claim it did ("the
+// parent wraps them in useCallback" — it does not). `task-manager.tsx` builds
+// `guardEdit(handler)` unmemoized during render, so a fresh identity arrives on
+// every parent render and the memo compares unequal every time. Do NOT cite this
+// memo as the reason anything is fast.
+//
+// ★ Memoizing `guardEdit` is not the fix on its own — it is one unstable family
+// among several, the same finding AGENTS.md records for the `ResourcesPanel` memo,
+// which is honestly labelled aspirational. Either stabilise every handler prop
+// (measure first) or delete the memo. docs/open-followups.md §170.
 const ChangePanelMemo = memo(ChangePanelBody);
 
 export function ChangePanel(props: ChangePanelProps) {

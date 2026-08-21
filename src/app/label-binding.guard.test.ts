@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { stripComments } from "../test/strip-comments";
 import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
@@ -98,30 +99,49 @@ const BUTTON_FIRST: readonly { readonly what: string; readonly re: RegExp }[] = 
 // task form's Assignee field, whose `ResourcePicker` does lead with an input.
 const LABELABLE = /<(input|select|textarea|Input|Select|Textarea|Checkbox|ResourcePicker|ComboInput)\b/;
 
-/**
- * Source with every comment blanked to SPACES of the same length.
- *
- * ★★ Length-preserving on purpose: `standsFirst` compares match INDEXES and the
- * tokenizer reports line numbers, so deleting the text outright would move both.
- * Newlines are kept for the same reason.
- * ★★ Why it exists at all — measured against the pre-strip scanner: a JSX comment
- * inside a label body that merely NAMES a labelable tag (a landmine line such as
- * "mirrors the `<Input>` pattern") made a real button-first widget after it read
- * as trailing, a SILENT miss; and a
- * comment containing `<label>` re-paired the tokenizer's stack, so the block it
- * emitted carried the comment's (empty) attrs and a correctly-`htmlFor`'d label
- * read as unnamed. This repo's house style is landmine comments full of backticked
- * tag names, so both are realistic rather than contrived.
- * ★ Line comments are stripped only when they START a line — a bare `//` rule
- * would eat the `//` of a URL in an attribute and truncate anything after it.
- */
-export function stripComments(src: string): string {
-  const blank = (m: string) => m.replace(/[^\r\n]/g, " ");
-  return src
-    .replace(/\{\s*\/\*[\s\S]*?\*\/\s*\}/g, blank)
-    .replace(/\/\*[\s\S]*?\*\//g, blank)
-    .replace(/^[ \t]*\/\/.*$/gm, blank);
-}
+// ★★ Why stripping exists at all — measured against the pre-strip scanner: a JSX
+// comment inside a label body that merely NAMES a labelable tag (a landmine line
+// such as "mirrors the `<Input>` pattern") made a real button-first widget after
+// it read as trailing, a SILENT miss; and a comment containing `<label>` re-paired
+// the tokenizer's stack, so the block it emitted carried the comment's (empty)
+// attrs and a correctly-`htmlFor`'d label read as unnamed. This repo's house style
+// is landmine comments full of backticked tag names, so both are realistic rather
+// than contrived.
+//
+// ★★ The local stripper this replaced was ALSO CORRUPTING THIS SCAN'S INPUT, which
+// nothing noticed for as long as it existed. Its `{\s*/\*…\*/\s*}` rule matched from
+// an unrelated `{` to a much later `*/}` and blanked REAL CODE — whole `import`
+// blocks among it — so the tokenizer below was reading a mangled file. Still
+// reproducible: the regexes are at `git show
+// 333f1dd3:src/app/label-binding.guard.test.ts`, and the measurement compares, per
+// position, what they blank against the comment ranges `src/test/strip-comments.ts`
+// reports. ★★ No total is quoted here, and one was removed: see the note in that
+// module on why a whole-tree aggregate cannot survive the commit that quotes it.
+// ★★★ THE GUARANTEE IS ONE-SIDED, AND AN EARLIER REVISION HERE CLAIMED BOTH HALVES
+// ("zero characters blanked that are not in a comment, zero comment characters left
+// readable"). The second half was FALSE when written — the stripper parsed every
+// file as TSX, so `workspace.ts`'s non-comma generic arrow opened a JSX element and
+// left 8,250 comment characters readable — and the check could not see it, because
+// its reference shared the same misparse. What holds today, measured against an
+// INDEPENDENT reference — the union of every significant token's span, EXCLUDING
+// nodes between `FirstJSDocNode` and `LastJSDocNode`: zero over-blanking across
+// every `.ts`/`.tsx` file in `src`.
+// ★★★ THAT EXCLUSION IS THE MEASUREMENT, NOT A DETAIL, and an earlier revision of
+// this sentence omitted it — so anyone re-deriving the claim the way it was written
+// would have DISPROVED a true statement. TypeScript hangs JSDoc nodes off the
+// declaration they document, so a leaf walk masks the identifiers inside every
+// `/** … */` block as "significant", i.e. as code the stripper must not touch. Run
+// the reference without the exclusion and it reports over-blanking across most of
+// `src` on a tree where the real answer is zero.
+// That is the direction that matters — over-blanking DELETES code from the text
+// this scan reads, while a comment left readable merely restores the behaviour
+// every earlier cut had. Nothing that shares the parser can prove the other half,
+// so it is not claimed.
+// ★ The label count this scan reads is unchanged either way; no figure is quoted
+// here because it moves with every form edit, and the floors in the suite below are
+// what actually pin it.
+// ★ Still length-preserving, for the same reason the local one was: `standsFirst`
+// compares match INDEXES and the tokenizer reports line numbers off this output.
 
 /** Balanced `<tag …> … </tag>` bodies, self-closing tags skipped (no children
  *  means nothing can be adopted). A stack, not a lazy `.*?`, so a nested tag of
@@ -264,7 +284,7 @@ export function scanSource(src: string, rel: string): string[] {
 /** `"<file>: <label|Field> wraps <widget>"` for every offending block in src/app. */
 function offenders(): string[] {
   return sourceFiles().flatMap((path) =>
-    scanSource(stripComments(readFileSync(path, "utf8")), path.slice(__dirname.length + 1).replace(/\\/g, "/")),
+    scanSource(stripComments(readFileSync(path, "utf8"), path), path.slice(__dirname.length + 1).replace(/\\/g, "/")),
   );
 }
 
@@ -289,7 +309,7 @@ describe("label binding guard", () => {
     let labels = 0;
     let fields = 0;
     for (const path of sourceFiles()) {
-      const src = stripComments(readFileSync(path, "utf8"));
+      const src = stripComments(readFileSync(path, "utf8"), path);
       labels += blocks(src, "label").length;
       fields += blocks(src, "Field").length;
     }

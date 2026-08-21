@@ -36,6 +36,15 @@ const doc: ProjectDocument = {
   updatedAt: "2026-08-18T10:00:00.000Z",
 };
 
+/** The paragraph editor mounts behind the `rich-text-editor-lazy` next/dynamic
+ *  boundary, so the contenteditable is NOT in the DOM on the line after
+ *  `render()` — the skeleton is. */
+const findParagraphEditable = (blockNumber: string): Promise<HTMLElement> =>
+  screen.findByRole(
+    "textbox",
+    { name: t(LANG, "documentsParagraphLabel", blockNumber) },
+  );
+
 describe("DocumentEditor", () => {
   it("renders one row per block, including blocks with no editor", () => {
     render(<DocumentEditor lang={LANG} structural={stubStructural()} doc={doc} onCommitBlock={vi.fn()} />);
@@ -90,26 +99,32 @@ describe("DocumentEditor", () => {
       ],
     };
 
-    it("docks ONE toolbar instead of one per block", () => {
+    it("docks ONE toolbar instead of one per block", async () => {
       const { rerender } = render(
         <DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
+      // The only live paragraph is block 2; awaiting it is what proves the
+      // lazy editor actually swapped in before the toolbars are counted.
+      await findParagraphEditable("2");
       // jsdom has no layout, so the narrow branch is driven by an injected
       // flag, never by a measured width.
       expect(screen.getAllByRole("toolbar")).toHaveLength(1);
       // The wide branch is what proves the fixture can tell the two apart.
       rerender(<DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} />);
+      // The wide branch mounts a SECOND editor; await it too rather than
+      // assuming the already-resolved chunk renders it in the same tick.
+      await findParagraphEditable("3");
       expect(screen.getAllByRole("toolbar")).toHaveLength(2);
     });
 
     // ★★ THE DOCK IS ABOVE THE DOCUMENT, which is both the spec's wording and
     //  what keeps the portal from breaking Tab: content moved BELOW its
     //  logical position is the recorded failure mode.
-    it("renders the docked toolbar before the block list in DOM order", () => {
+    it("renders the docked toolbar before the block list in DOM order", async () => {
       const { container } = render(
         <DocumentEditor lang={LANG} structural={stubStructural()} doc={threeBlocks} onCommitBlock={vi.fn()} narrow />,
       );
-      const toolbar = screen.getByRole("toolbar");
+      const toolbar = await screen.findByRole("toolbar");
       const firstRow = container.querySelectorAll("[data-block-row]")[0];
       expect(toolbar.compareDocumentPosition(firstRow)).toBe(Node.DOCUMENT_POSITION_FOLLOWING);
     });
@@ -126,9 +141,7 @@ describe("DocumentEditor", () => {
       });
       await userEvent.click(select);
       // Selection MOVED: the second paragraph is now live and the first is not.
-      expect(
-        screen.getByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "3") }),
-      ).toBeInTheDocument();
+      expect(await findParagraphEditable("3")).toBeInTheDocument();
       expect(
         screen.queryByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "2") }),
       ).toBeNull();
@@ -181,9 +194,7 @@ describe("DocumentEditor", () => {
       //  state dropped (`selected` pinned to the first paragraph) — measured:
       //  that mutant killed the sibling test and survived this one.
       await userEvent.click(select);
-      expect(
-        screen.getByRole("textbox", { name: t(LANG, "documentsParagraphLabel", "2") }),
-      ).toBeInTheDocument();
+      expect(await findParagraphEditable("2")).toBeInTheDocument();
     });
 
     // Non-paragraph editors carry no rich toolbar, so there is nothing to dock

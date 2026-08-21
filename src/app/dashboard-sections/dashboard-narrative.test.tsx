@@ -176,7 +176,13 @@ describe("NarrativeEditor", () => {
     render(<EditorHost initial="<p>Something</p>" />);
     await user.click(screen.getByText("Status summary"));
     await user.click(screen.getByRole("button", { name: /clear/i }));
-    const surface = screen.getByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
+    // ★★ `findByRole`, not `getByRole`: the editor arrives through
+    //   `rich-text-editor-lazy.tsx`, so the FIRST test in this file to reach it
+    //   waits on a `dynamic()` import. Every sibling after that is warm, which is
+    //   what makes a synchronous query here look safe — it is safe only while
+    //   some other test happens to run first. `test:shuffle` reorders WITHIN a
+    //   file, so this is a latent order dependence, not a style point.
+    const surface = await screen.findByRole("textbox", { name: t("en-US", "dashboardNarrativePlaceholder") });
     await user.click(surface);
     await user.keyboard("X");
     // Blur out of the editor: commit-on-blur stores the draft.

@@ -35,11 +35,43 @@ register's fix to another is how two of them broke. Read the note that names you
   (`commitOnEnter`; note-editor.tsx folded in). Drag via shared `use-draggable-window.ts` (help-menu shares it).
   ★★ **`RichTextEditorHandle.appendText`** (`rich-text-editor.tsx`): Tiptap binds its `content` ONCE at mount,
   so a changed `value` prop cannot reach an already-mounted editor — dictation therefore appends imperatively
-  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`. The handle's `appendText` calls
-  `editor.chain().focus().insertContent({type:"text",text}).run()` — `insertContent` MUST take a TEXT NODE
-  object, never a bare string: a bare string is parsed as HTML, so dictated text containing `<`/`&` would be
-  interpreted as markup instead of inserted literally. Both the note log's composer and its entry editor wire
-  `useDictationMic`'s `onAppendFinal` straight to `editorRef.current?.appendText(txt)`.
+  via an `editorRef` (`useImperativeHandle`), not by pushing a new `value`.
+  ★★★ **`appendText` SPLITS POSITION FROM FOCUS, and this line described the pre-split call from
+  0.211.0 until 0.251.0.** It used to read `editor.chain().focus().insertContent(...)`, which inserts at the SELECTION —
+  the doc START on an editor nobody has clicked into — so a dictated line PREPENDED on the live route while
+  the lazy wrapper's replay (`{focus:false}` → `appendPos`) APPENDED, and which one a user got was decided by
+  whether Tiptap's chunk had arrived. Today POSITION follows an `everFocused` ref (the caret once the user
+  has been in this editor, otherwise `appendPos`, the end of the last textblock) and FOCUS follows
+  `opts.focus`; the two are independent, and a REPLAY runs at `attach`, where `everFocused` is still
+  false — so both routes agree. `docs/open-followups.md` §192.
+  ★★ THE REASON IS THE REPLAY'S TIMING, NOT THE LINE'S ORIGIN. An earlier revision said a queued line
+  "is by definition dictated before the editor existed"; that premise is false and the conclusion does
+  not need it.
+  ★★ Either way `insertContent` MUST take a TEXT NODE object, never a bare string: a bare string is parsed
+  as HTML, so dictated text containing `<`/`&` would be interpreted as markup instead of inserted literally.
+  ★★★ **DO NOT WIRE `onAppendFinal` STRAIGHT TO `editorRef.current?.appendText(txt)`** — this line
+  described exactly that as the pattern to copy from 0.211.0 until 0.250.0, and it is SILENT DATA LOSS. The mic is a
+  SIBLING of the editor, so it paints and is operable while the editor is still loading; `appendText` is a
+  no-op until Tiptap is live, and the `?.` swallows the miss with no throw and no toast. Render the editor
+  from `rich-text-editor-lazy.tsx` (every consumer does) and append through ITS handle, which owns a queue
+  and replays on arrival — see the `RichTextEditor` docstring there.
+  ★★ **THAT QUEUE IS UNBOUNDED ON PURPOSE, AND REPORTS RATHER THAN DROPS.** A cap could only be enforced
+  by discarding a transcript, which is the exact loss the queue exists to close — so the answer to "what
+  if the chunk never arrives?" is a diagnostic, not a limit: one `warn` under the code
+  `richText.appendQueueStalled` after `QUEUE_STALL_MS`, ONCE per mounted editor (re-arming would evict the
+  rest of the capped ring), and NOT AT ALL when the editor unmounts first — a Cancel discards the queue
+  deliberately, and reporting it would name the user's own decision as a defect. `rich-text-editor-lazy.stall.test.tsx`
+  mocks the chunk to never resolve, which is the only place the LOSING side of that race is reachable;
+  every other suite in the family wins it by a microtask.
+  ★ The replay is the module-scope `flushPending(handle, queued, sink)` rather than a closure, so its THROW
+  path is reachable with a fake handle instead of a rigged ProseMirror transaction. A throw re-queues the
+  thrower AND everything behind it: the caller swaps the queue out of `pending` before calling (re-pushing
+  into the array being iterated is an infinite loop, not a retry), so whatever the loop does not reach is
+  unreachable by every later attach — one bad append used to discard every LATER one, silently.
+  ★★ "Is the ref populated?" is the WRONG guard: `useImperativeHandle` has deps `[editor]` and `editor` is
+  null on the first render, so React attaches a DEAD handle first — a populated ref whose appends vanish.
+  The raw handle in `rich-text-editor.tsx` returns a boolean for that reason, and it has exactly ONE reader
+  in the app: the wrapper. A consumer never sees it.
   ★★ `Task.notes` was RENAMED to `Task.description` (rich HTML) — NO back-compat decoder / NO runtime
   migration; Turso `COLUMN_RENAMES` `{from:"notes",to:"description"}` self-heals; historical notes folded into
   `noteLog` ONLY in the sample generator (Description starts empty); CSV task column renamed + goldens regen.

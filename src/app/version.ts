@@ -2,10 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.249.0";
-export const APP_BUILD_DATE = "2026-08-19"; // 0.249.0: documents can be edited by hand, block by block (Modesitt)
+export const APP_VERSION = "0.251.0";
+export const APP_BUILD_DATE = "2026-08-20"; // 0.251.0: a dictated line lands in the same place whether or not the editor chunk had arrived (Larson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.249.x line is "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
+ *  0.251.x line is "Larson" (Rich Larson, SF author).
+ *  0.250.x was "McAuley" (Paul McAuley, SF author).
+ *  0.249.x was "Modesitt" (L.E. Modesitt Jr., SF/fantasy author).
  *  0.248.x was "Bujold" (Lois McMaster Bujold, SF/fantasy author).
  *  0.247.x was "Butcher" (Jim Butcher, fantasy author).
  *  0.246.x was "Bodard" (Aliette de Bodard, SF/fantasy author).
@@ -37,7 +39,17 @@ export const APP_BUILD_DATE = "2026-08-19"; // 0.249.0: documents can be edited 
  *  name — the only defence is looking at CHANGELOG.md first. ★★ Match the NAME,
  *  not the dash: older CHANGELOG entries use an em-dash and newer ones a hyphen,
  *  so a dash-anchored grep reports used names as free. */
-export const APP_MILESTONE = "Modesitt";
+// ★★★ A NINTH VERSION SITE, AND THE ONLY ONE USERS SEE. 0.248.0 shipped with
+// APP_VERSION "0.248.0" beside APP_MILESTONE "Butcher" — the 0.247.x name — so
+// `APP_VERSION_LABEL` rendered `0.248.0 "Butcher"` in Settings, the top bar and the
+// Version popover, while CHANGELOG.md, the README badge and the docstring above all
+// said "Bujold". Nothing compares them, and no gate reads either constant.
+// ★★ THE CHECKLIST IS NOT AT FAULT — AGENTS.md's "Releasing:" bullet names the
+// milestone in its first clause, beside APP_VERSION and APP_BUILD_DATE. An earlier
+// version of this comment blamed the checklist for not counting it, which sends the
+// next maintainer to add an item that is already there. What failed was execution.
+// Bump BOTH together.
+export const APP_MILESTONE = "Larson";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -319,4 +331,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightActorAttribution",
   "versionHighlightChangeNotesTimelog",
   "versionHighlightBlockEditing",
+  "versionHighlightLazyEditor",
+  "versionHighlightDictationPosition",
 ] as const;

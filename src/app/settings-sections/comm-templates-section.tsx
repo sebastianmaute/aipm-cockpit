@@ -17,12 +17,7 @@ import { Button } from "../button";
 import { Input, Select } from "../form-controls";
 import { reportSilentFailure } from "../guard-feedback";
 import { useToastContext } from "../toast-context";
-import dynamic from "next/dynamic";
-
-const RichTextEditor = dynamic(() => import("../rich-text-editor").then((m) => m.RichTextEditor), {
-  ssr: false,
-  loading: () => <div className="min-h-40 rounded-md border border-line bg-surface-muted" />,
-});
+import { RichTextEditor } from "../rich-text-editor-lazy";
 
 const CAT_LABEL_KEY: Record<CommTemplateCategory, TranslationKey> = {
   "status-inquiry": "commTplCat_statusInquiry",

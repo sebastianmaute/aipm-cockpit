@@ -18,7 +18,7 @@
 import { useCallback, useRef, useState } from "react";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Lang, t } from "./i18n";
-import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor";
+import { RichTextEditor, type RichTextEditorHandle } from "./rich-text-editor-lazy";
 import { canEditNote } from "./note-log";
 import { htmlToText } from "./sanitize-html";
 // A note body renders stored HTML through the shared sanitized sink, which
@@ -60,7 +60,7 @@ interface NoteEntryRowProps {
   onDelete: (id: number) => void;
 }
 
-export function NoteEntryRow(props: NoteEntryRowProps) {
+function NoteEntryRow(props: NoteEntryRowProps) {
   const { entry, editing, self, resources, tz, lang, labelSuffix, dictation } = props;
   const canEdit = canEditNote(entry, self);
   const suffix = labelSuffix ? ` – ${labelSuffix}` : "";
@@ -70,7 +70,14 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
   // which take this same string — announced identically (WCAG 2.4.6). Naming
   // them from one const is what stops that recurring.
   const editLabel = `${t(lang, "edit")}${suffix}`;
-  const editEditorRef = useRef<RichTextEditorHandle>(null);
+  const editEditor = useRef<RichTextEditorHandle | null>(null);
+  // ★ The queue that makes this safe lives in `rich-text-editor-lazy.tsx`, NOT
+  //   here — see its `RichTextEditor` docstring. A row-scoped queue outlived the
+  //   editor it was for and spliced an abandoned transcript into the stored note
+  //   the next time the row was opened.
+  const appendToEdit = useCallback((txt: string) => {
+    editEditor.current?.appendText(txt);
+  }, []);
   // The editor owns its own content; append through the handle rather than
   // re-feeding `value`, which Tiptap binds only at mount (see rich-text-editor.tsx).
   const { mic: editMic, registration: editDictationReg } = useDictationMic({
@@ -82,7 +89,7 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
     // one inside the task editor), and without it both mics announce
     // identically — WCAG 2.4.6.
     label: editLabel,
-    onAppendFinal: (txt) => editEditorRef.current?.appendText(txt),
+    onAppendFinal: appendToEdit,
   });
 
   return (
@@ -112,7 +119,7 @@ export function NoteEntryRow(props: NoteEntryRowProps) {
               commitOnEnter
               label={editLabel}
               lang={lang}
-              editorRef={editEditorRef}
+              editorRef={editEditor}
             />
           </div>
           <div className="flex justify-end gap-2">
@@ -185,7 +192,10 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
   const composerLabel = labelSuffix
     ? `${t(lang, "noteLogPlaceholder")} – ${labelSuffix}`
     : t(lang, "noteLogPlaceholder");
-  const composerEditorRef = useRef<RichTextEditorHandle>(null);
+  const composerEditor = useRef<RichTextEditorHandle | null>(null);
+  const appendToComposer = useCallback((txt: string) => {
+    composerEditor.current?.appendText(txt);
+  }, []);
   // Appended through the imperative handle rather than re-feeding `value` —
   // Tiptap binds `content` only at mount, and Web Speech fires `onFinal`
   // repeatedly per hold, so a value-based push would need to remount the
@@ -200,7 +210,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
     // ★★ ONE expression for the mic AND the composer beside it — see
     // `editLabel` in NoteEntryRow for what a second spelling of this cost.
     label: composerLabel,
-    onAppendFinal: (txt) => composerEditorRef.current?.appendText(txt),
+    onAppendFinal: appendToComposer,
   });
 
   const handleAdd = useCallback(() => {
@@ -245,7 +255,7 @@ export function NoteLogPanel(props: NoteLogPanelProps) {
             commitOnEnter
             label={composerLabel}
             lang={lang}
-            editorRef={composerEditorRef}
+            editorRef={composerEditor}
           />
         </div>
         <div className="mt-2 flex justify-end gap-2">
