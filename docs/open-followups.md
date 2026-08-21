@@ -6971,7 +6971,17 @@ width before the branch renders, so there is no group to reflow.
 
 ---
 
-## 113. The documents roadmap — block editor, entity attachment, images — designed, UNIMPLEMENTED
+## 113. The documents roadmap — block editor, entity attachment, images — S3a/S4/S3b/S3b-2/S3c-1 SHIPPED; S3c-2 (OOXML media) open
+
+★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
+that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
+block slice — add/delete/reorder, shipped 0.252.0 "Brust" under the plain label "S3c" — all
+shipped before images did. Because the design document (below) defines "S3c" as *images*, that
+release collided two different scopes under one label and would have read as closing the images
+work with nothing decided. The structural slice is retagged **S3b-2** here and in the design
+document; images now own **S3c-1** (shipped 0.253.0 — see `docs/AGENTS/documents.md`'s "Asset
+images (S3c-1)" section for the as-built architecture) and **S3c-2** (OOXML media parts —
+still open, own follow-up entry). See also `docs/work-inventory.md` §3.
 
 ★★★ **Recorded here for the reason §44 exists.** The design document lives in the gitignored tree,
 so on any other machine it does not exist. Per this file's own rule there is no link to it; the
@@ -6979,7 +6989,7 @@ decisions are reproduced below in enough detail to resume without it. Designed 2
 0.222.0 "Charnas" (`e2316f4f`). It supersedes the ~18-line S3/S4 outlines that shipped inside the
 S1 design document and **reorders them**.
 
-**Four releases, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
+**Six slices now, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
 pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 
 | | Ships | New persisted state |
@@ -6988,7 +6998,9 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed. ★★ The parenthetical this cell used to carry — "Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk" — was RIGHT on both clauses, and is precisely why Next's own nonce machinery could not cover this and `readCspNonce()` has to read the nonce off the DOM. An earlier correction here declared it wrong; that was an over-correction against a claim it never made (it says "client chunk", not "Turbopack-shipped CSS chunk"). The theory that was actually disproved — Turbopack shipping prosemirror CSS in a lazily-loaded chunk — lived in §54, not in this cell. The injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
-| **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
+| **S3b-2** | the structural slice S3b deferred: block add / delete / reorder — SHIPPED 0.252.0 "Brust" under the plain label "S3c"; retagged here | free — same blob |
+| **S3c-1** | images end to end, Turso-gated — SHIPPED 0.253.0 | metadata slice + one out-of-`TABLE_NAMES` side table (`document_asset_data`) |
+| **S3c-2** | OOXML media parts (`word/media/`, relationship ids, EMU sizing) for the images S3c-1 shipped — open | none (write-path shape unchanged) |
 
 ### The decisions that are expensive to re-derive
 
@@ -13223,3 +13235,71 @@ node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of 
 ★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
 back otherwise clean.
+
+## 202. OOXML media machinery for document images — S3c-2, open
+
+**Status:** open — no scaffolding exists yet.
+
+S3c-1 (0.253.0) shipped document images end to end for the HTML/preview/standalone paths, but
+`doc-render-docx.ts` and `doc-render-pptx.ts` disclose a **visible translated placeholder naming
+the asset** rather than embedding it — a deliberate choice (a silent drop would be worse), not a
+finished feature. Real media parts are unbuilt: `[Content_Types].xml` Default entries, `_rels`
+parts, `word/media/`, `<w:drawing>` / `<wp:inline>` / `<a:blip r:embed>` for DOCX, the PPTX
+equivalent, and EMU extents scaled to `CONTENT_WIDTH` from each asset's stored `width`/`height`.
+This is the largest unknown left in the documents roadmap — no existing renderer code touches
+binary media parts of any kind. See `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`'s
+S3c-1 section ("Out of scope for S3c-1") and `docs/AGENTS/documents.md`'s "Asset images (S3c-1)"
+section for what S3c-1 did ship.
+
+## 203. The asset library is outside axe coverage, and this is unfixable at the gate
+
+**Status:** open — by construction, not an oversight to close.
+
+`AssetLibrary`'s surface is Turso-gated (`tursoConfig !== null`) and `e2e/a11y.spec.ts`'s
+`A11Y_VIEWS` scan runs against `e2e/seed.ts`'s FILE-mode seed, so the axe gate never renders this
+surface at all — the same blind spot documented in `AGENTS.md`'s hard-constraints section for
+every other Turso-gated view (chat thread sidebar, Snapshots/Trends, version history).
+
+★★ Compounding it: even a scanned run could not catch a duplicate-accessible-name regression here.
+Measured against the installed axe-core 4.12.1 (`AGENTS.md`'s a11y bullet carries the reproduce
+command): of 105 rules, 69 carry one of the four tags `e2e/a11y.spec.ts` requests, and not one of
+them flags two controls sharing an accessible name. So `asset-library.test.tsx`'s row-unique-name
+unit test (≥2 seeded rows) is not merely the best detector for this surface — it is the **only**
+one that will ever exist, at any gate configuration. Do not read a future green axe run, however
+the seed is widened, as covering this.
+
+## 204. Unverified whether `chat_threads` and `committee_report_versions` are cleaned on project delete
+
+**Status:** open — a question to probe, not a confirmed defect.
+
+S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
+`deleteAllAssetDataForProject` for the new `document_asset_data` side table, non-fatally (via
+`logDiag`) — leaked image bytes are recoverable, a half-deleted project is not. `chat_threads`
+(`chat-threads-schema.ts`) and `committee_report_versions` (`committee-report-versions-schema.ts`)
+are side tables of the same out-of-`TABLE_NAMES` shape, predating this slice. It was NOT verified
+during S3c-1 whether project deletion also cleans those two, or whether they leak rows for a
+deleted project today. Probe `turso-portfolio.ts`'s `hardDeleteProject` for calls parallel to
+`deleteAllAssetDataForProject` before assuming either way.
+
+## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
+
+**Status:** open — jsdom cannot exercise the mechanism; no manual check recorded yet.
+
+A dangling image reference (asset deleted, byte row missing) renders via a CSS trick:
+`img[data-asset-missing]::before { content: "⚠" }`. Pseudo-element content on a replaced element
+with no `src` is documented to render consistently across major browsers only in that exact
+no-`src` shape, and jsdom has no rendering engine to test it at all. What IS pinned by tests is the
+`data-asset-missing` attribute being set and the border/background styling classes being applied —
+not that the glyph actually paints. Eye-verify in a real browser (Chromium at minimum) before
+relying on this as the user-visible signal for a broken image reference.
+
+## 206. `documents-history-modal.tsx` does not resolve images
+
+**Status:** open — deliberate scope cut in S3c-1, not yet scheduled.
+
+The version-history preview surface (`DocumentsHistoryModal`, opened via each document row's
+"History" button) renders a `DocVersion`'s stored block content but was not wired to
+`attachAssetImages` when S3c-1 landed image rendering elsewhere (the live preview, standalone
+HTML). A document version containing an image block renders that block without its picture in the
+history modal today. Fixing it means threading the same asset-resolution the live preview uses
+into the history modal's render path.

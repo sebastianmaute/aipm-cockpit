@@ -531,6 +531,107 @@ the UNLINKED one first, deliberately.
 ★ **One accepted behaviour:** a read-only popout renders no link field AND no chips — the field is
 withheld rather than drawn inert, per the no-false-affordance rule.
 
+## Asset images (S3c-1)
+
+Shipped 0.253.0, Turso-gated (`tursoConfig !== null`, same rule as version history). Design lived
+in `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`'s S3c-1 section; open
+follow-ups are `docs/open-followups.md` §202–§206. This section replaces "S3c" as a bare label —
+see `docs/open-followups.md` §113 for why that label collided with a different slice.
+
+★★★ **TWO STORES, NOT ONE.** Asset METADATA (`DocumentAsset` — id, name, mime, size, optional
+width/height, content `hash`, `createdAt`; `document-asset.ts`) is an ordinary workspace slice on
+all six write paths, exactly like `documents`/`documentVersions`. Asset BYTES live as base64 TEXT
+in `document_asset_data`, a side table reached only through `document-assets-schema.ts` (pure
+statement builders) and `document-assets-store.ts` (async CRUD) — mirroring the existing
+out-of-`TABLE_NAMES` pattern (`comm-templates-store.ts`, `committee-report-versions-schema.ts`,
+`chat-threads-schema.ts`). `DocumentAsset` is deliberately **MIME-generic at the model layer** —
+format policy (PNG/JPEG/WebP only) lives entirely in the upload pipeline
+(`document-asset-upload.ts`), not in the sanitizer, so the same table/store/dedup/delete can serve
+a later non-image attachment slice with no migration.
+
+★★★ **`document_asset_data` is deliberately OUTSIDE `TABLE_NAMES`, and this is the same shape as
+`chat_threads` above.** A workspace save emits a per-table `DELETE` + full re-`INSERT` for every
+table `TABLE_NAMES` lists, so listing the byte table would wipe the entire image library on every
+single workspace save. Consequence: nothing cleans it automatically on ordinary project use, so
+`hardDeleteProject` (`turso-portfolio.ts`) calls `deleteAllAssetDataForProject` explicitly — and
+**non-fatally**, via `logDiag`, because leaked bytes are recoverable disk space and a half-deleted
+project is not. ★ It was NOT verified whether the two OLDER side tables of this shape —
+`chat_threads`, `committee_report_versions` — get the same cleanup; probe before assuming either
+way (§204).
+
+★★ **Metadata is written BEFORE bytes, and that ordering is the failure-mode design, not an
+accident.** If the byte write then fails, the asset degrades to the already-designed DANGLING case
+— visible in the library, self-describing, repaired by re-uploading over the same id — instead of
+an invisible orphan that would need its own reclaim mechanism. Pinned by a mutation-checked test in
+`use-document-assets.test.tsx`; do not reorder the two writes without re-checking that test's
+premise.
+
+★★ **The 32 MiB Turso ceiling is a MEASUREMENT, not a spec number, and it is SCOPED to one
+statement.** Probed 2026-08-21 against a real database: a single-statement pipeline carried a 32
+MiB text argument with no ceiling found; latency rose to ~6.6s at that size and ~1.8s at 6.7 MiB.
+The 5 MB `ASSET_STORED_MAX_BYTES` cap therefore sits at ~4.8× headroom under the measured point,
+so no chunking/streaming upload path was built. **The measurement does NOT cover batching several
+assets into one pipeline** — that is why the store writes one asset per request rather than
+coalescing a multi-image upload, and doing so later needs its own measurement first, not an
+extrapolation from this one.
+
+★ **Upload budget, all in `document-asset-upload.ts`** (verify current values with a grep — they
+are `SCREAMING_CASE` and therefore ungated by `docs:symbols:check`, per this repo's own rule):
+`ASSET_RAW_MAX_BYTES` 25 MB pre-decode ceiling · `ASSET_MAX_SOURCE_DIM` 8000 px header-only
+dimension guard (rejects a decompression-bomb image before decoding its pixels) · downscale to
+`ASSET_DOWNSCALE_W`×`ASSET_DOWNSCALE_H` (1920×1080) · `ASSET_STORED_MAX_BYTES` 5 MB applied AFTER
+downscale · `ASSET_MAX_PER_DOCUMENT` 20 images, enforced at insert · SHA-256 content-hash dedup
+(the `hash` field above), which also drives refcount-aware delete — deleting one document's
+reference to a shared asset does not delete a byte row another document still points at.
+
+★★ **Formats: `ASSET_MIME_ALLOWED` is PNG + JPEG + WebP, and both exclusions are permanent, not
+temporary gaps.** SVG is excluded on the same XSS-surface precedent as the branding image input
+(`branding-image-input.tsx`) — an SVG can carry script. GIF is excluded because the downscale step
+RE-ENCODES the image, which would silently destroy animation; there is no "downscale losslessly"
+option for an animated format.
+
+★★ **Rendering never inlines base64 into the live DOM string.** The preview resolves
+`<img data-asset-id>` to **blob object URLs** imperatively, in `document-asset-images.ts` — ten
+images at a few MB each would otherwise put tens of MB of base64 into the one
+`dangerouslySetInnerHTML` string `document-preview.tsx` builds. Standalone HTML export (and
+therefore PDF, which is that same standalone mode driven through the browser print dialog — there
+is still no PDF writer and no PDF dependency in this repo) inlines a `data:` URI instead, because a
+standalone file has no live JS to resolve a blob URL against. ★ The missing-image glyph
+(`img[data-asset-missing]::before { content: "⚠" }`, for a dangling reference) relies on
+pseudo-element rendering over a `src`-less replaced element — jsdom cannot render it, so only the
+attribute and border/background classes are test-pinned, not the glyph itself; eye-verify in a real
+browser before relying on it (§205). ★ `DocumentsHistoryModal`'s version-preview surface was NOT
+wired to the same asset-resolution — a version containing an image block renders without its
+picture there today (§206).
+
+★★★ **DOCX and PPTX emit a VISIBLE TRANSLATED PLACEHOLDER naming the asset — never a silent drop —
+and this is the finished behaviour of S3c-1, not a stub awaiting S3c-2.** Real OOXML media parts
+(`word/media/`, relationship ids, `<w:drawing>`/`<a:blip r:embed>`, EMU sizing from the stored
+`width`/`height`) are deferred to **S3c-2** (§202) — the largest unbuilt piece in the documents
+roadmap, with no existing scaffolding for binary media parts in either renderer.
+
+★★★ **Insertion does NOT go through the live rich-text editor, and this is load-bearing, not an
+oversight.** `@tiptap/extension-image` is NOT installed, and this is deliberate — do NOT add it as
+a shortcut for inline editing: `RICH_ALLOWED_TAGS` carries no `img` (only `DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS,
+"img"]` does), and `RichTextEditor`'s `onUpdate` runs `sanitizeRichHtml` on every keystroke — so an
+`<img>` pasted into a LIVE editor instance is destroyed on the very next update. That is exactly
+why `document-block-editors.tsx` already renders an image-bearing paragraph READ-ONLY via
+`paragraphHasImage`, rather than opening it in the live editor. Insertion instead appends a NEW
+paragraph block directly through `structural.insert`, in `documents-asset-section.tsx` — it never
+touches a live `RichTextEditor` instance at all.
+
+★ **No sanitizer was edited by this slice.** `<img data-asset-id>` and `alt` were already in the
+documents allow-list from S3a's `HTML_START` split (§114) — S3c-1 is a pure consumer of that
+existing allowance, not a change to it.
+
+★ **The asset library surface is outside axe coverage, structurally, not by omission.** Turso-gated
++ `e2e/seed.ts` seeds FILE mode → the a11y gate never renders it, the same blind spot as every
+other Turso-gated view. And axe-core 4.12.1 has no rule that flags two controls sharing an
+accessible name at any seed size (measured against the installed version — see `AGENTS.md`'s a11y
+hard-constraint bullet), so even a hypothetical future scan could not catch a row-label collision
+here. `asset-library.test.tsx`'s ≥2-row unique-name test is the only detector this surface will
+ever have (§203).
+
 ## Load/save wiring (app state)
 
 ★★ `documentVersions` was implemented in the model and all six write paths **before** it was

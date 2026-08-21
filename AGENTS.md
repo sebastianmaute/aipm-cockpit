@@ -1282,6 +1282,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `applyDocMutation` path) lives in **[`docs/AGENTS/documents.md`](docs/AGENTS/documents.md)** — open it
   before touching version history, deleted documents, or any "add a field to the six write paths" task,
   which it records a landmine for.
+  ★★ **Document images (S3c-1, Turso-gated)** — the asset metadata slice, the out-of-`TABLE_NAMES`
+  byte side table, upload caps, blob-URL rendering and why insertion bypasses the live rich-text
+  editor all live in `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section — open it before
+  touching anything under `document-asset*`.
 - **Activity log (`Workspace.activityLog`) → [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md).**
   Per-project audit trail persisted as a **meta-blob** (one JSON row in `meta`, like `insights` and
   `documents`), NOT via `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` **because it has
