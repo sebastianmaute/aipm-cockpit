@@ -1,7 +1,13 @@
 # Work inventory — open, planned and sketched
 
-> Compiled 2026-08-21 against `main` at 0.252.0 "Brust". **Every number here rots.** Each claim
-> carries the command that reproduces it — run the command, never quote the number.
+> Compiled 2026-08-21 against `main` at 0.252.0 "Brust"; sections 4, 5 and 7 re-measured later the
+> same day against `6c4e4162` (0.253.0 "Schroeder"). **Every number here rots.** Each claim carries
+> the command that reproduces it — run the command, never quote the number.
+>
+> ★★ It rotted inside one day: the register gained §201, `followups:check` moved by one, and a whole
+> tech-debt row was resolved while another was opened. That is the intended failure mode of this
+> file, not a defect in it — but it means a reader arriving a week from now should re-run before
+> believing any figure below.
 
 ## 1. Where the planning corpus lives — recovered, and now tracked
 
@@ -101,9 +107,20 @@ list, along with sp3 and sp4. A memory note calling it unmerged was stale. Do no
 
 ## 4. `docs/open-followups.md`
 
-**192 sections, numbered 1–200**, no duplicates, 8 gaps (17–20, 23, 25–27) left by the consolidation
-slice. Self-declared status splits **118 open, 57 closed, 9 unmarked, 7 unclear, 1 partial** — so
-**135 are not closed**.
+**193 sections, numbered 1–201**, no duplicates, 8 gaps (17–20, 23, 25–27) left by the consolidation
+slice. Re-measure with
+`grep -oE "^## [0-9]+." docs/open-followups.md | grep -oE "[0-9]+" | sort -n | tail -1` for the max
+and `grep -cE "^## [0-9]+." docs/open-followups.md` for the count.
+
+★ The hand-classified status split recorded at first compile — **118 open, 57 closed, 9 unmarked,
+7 unclear, 1 partial**, so **135 not closed** — covered 192 sections and has NOT been redone.
+§201 carries **no status suffix at all**, so on that same self-declared measure it joins *unmarked*
+(9→10) and *not closed* (135→136) while *open* stays at 118. It is substantively open, but saying
+that here would mix the two measures this paragraph exists to keep apart. Nothing checked whether
+anything else moved. ★★ Do not re-derive that split with a heading regex and call it a correction: a crude
+`open|CLOSED` match over the headings today returns **106 / 55 / 32-neither**, which disagrees with
+the hand count by twelve. That gap is not drift — it is the two incompatible status conventions
+below, and it is the measurement this file's own warning predicts.
 
 ★★ Status is recorded two incompatible ways: older entries put it in the heading (a struck-through
 title means closed), newer ones use a bolded Status line. Only 17 entries have the latter. Any
@@ -111,12 +128,18 @@ script that reads one form silently mis-classifies the other.
 
 ★★★ **A self-declared "open" is an upper bound, not a fact.** An entry can describe behaviour fixed
 two releases ago. `npm run followups:check` classifies entries by whether the symbols and paths they
-cite still exist — CLEAN 113, SYMBOL_MISSING 12, PATH_MISSING 3, PATH_THIRD_PARTY 1,
-NO_MACHINE_CLAIM 1. It **exits 0 regardless**, runs in no CI job, and its own output says it rules
+cite still exist — re-run 2026-08-21 at `6c4e4162`: CLEAN 113, **SYMBOL_MISSING 13**, PATH_MISSING 3,
+PATH_THIRD_PARTY 1, NO_MACHINE_CLAIM 1. It **exits 0 regardless**, runs in no CI job, and its own output says it rules
 claims out but never in. Treat SYMBOL_MISSING and PATH_MISSING as *probe this first*, never as
 *closed*.
 
 ★ It reports false positives on entries that quote filenames as prose rather than citing them.
+
+★★ **And its resolver walks `src`/`scripts`/`e2e` ONLY, so every `docs/` path it meets is reported
+PATH_MISSING whether or not the file exists** — §145 cites a `docs/superpowers/` spec that is
+present and tracked, and is flagged anyway. That blind spot got worse on 2026-08-21: until the
+planning corpus was tracked, a `docs/superpowers/` path genuinely was unresolvable for most readers;
+now it resolves for everyone except this script. Two of §200's three flags are the same shape.
 
 Rough thematic split of the 135, by heading keyword only — indicative, not authoritative:
 a11y and WCAG 21, rich text 14, doc accuracy 13, documents 8, tests and gates 8, AI and chat 7,
@@ -124,13 +147,23 @@ perf and bundle 7, integrations 6, UI panels 6, storage and codecs 3, security 1
 
 ## 5. Tech debt register
 
-`docs/tech-debt-register.md` — **TD-1, TD-2, TD-3, TD-5, TD-6 and TD-7 open**; TD-4 resolved. The
-next quarterly sweep is dated **2026-10-03**; owners are role placeholders, never assigned.
+`docs/tech-debt-register.md` — **TD-1, TD-2, TD-3, TD-5, TD-7 and TD-8 open**; TD-4 and TD-6
+resolved. The next quarterly sweep is dated **2026-10-03**; owners are role placeholders, never
+assigned. Re-derive with `grep -n "^| TD-" docs/tech-debt-register.md`.
 
-★★ **TD-6's numbers are stale.** It records duplication at about 1.92% total against a 2.4% gate.
-`AGENTS.md` records a later measurement of 1.19% against a 1.75 threshold. The entry's prose also
-carries a long inline history that has outgrown the table. Re-measure before acting:
-`npm run dup:check`.
+★★★ **TD-6 IS RESOLVED — the goal was already met and nobody had measured.** This file first
+recorded it as "stale numbers" (about 1.92% total against a 2.4% gate). Both figures were wrong and
+so was the framing: `npm run dup:check` reports **1.20%**, the Phase 1 baseline
+(`docs/baselines/jscpd-2026-07.json`) is **3.065%**, and 1.20/3.065 is **39%** against a ≤50%
+target. ★★ Two things got it there and neither alone would have: duplicated lines fell 2701→1833
+*and* the denominator grew 88k→153k — at the baseline's absolute line count today's tree would read
+1.77%, over the threshold. ★★ The row's whole "binding format" theory was also refuted: the gate
+compares ONE number, the total duplicated-LINE percentage, per `AGENTS.md`'s exit-code bisection.
+The deferred structural tail it had been saving for the last stretch was never needed.
+
+★ **TD-8 is new (recorded 2026-08-21):** heroicons and `lucide-react` ship side by side —
+**78** files against **1** — and nobody owns whether to migrate app-wide. Decision debt, not a
+defect; `docs/open-followups.md` §145 is the long form.
 
 ★ Dependency rows: `eslint` 10 is **BLOCKED** upstream via `eslint-config-next`, confirmed by an
 executed attempt. `@types/node` is deferred but its stated precondition — the runtime moving off
@@ -147,8 +180,14 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
 1. **S6 then S7** — design is already done and verified, and they are the last two UX-batch slices.
 2. **Document images** — a full design exists; settle the S3c label question first.
 3. **`optimize_wbs`** — carries an open design question, so it needs a decision before a plan.
-4. **Follow-up triage** — probe the 16 SYMBOL_MISSING and PATH_MISSING entries; they are the
-   cheapest closures available.
+4. **Follow-up triage** — probe the SYMBOL_MISSING and PATH_MISSING entries; they are the cheapest
+   closures available. Re-derive the count from `npm run followups:check` rather than quoting one:
+   it was 16 at both compiles today, but the split behind it moved (SYMBOL_MISSING 12→13), and
+   **three of the PATH_MISSING flags are the resolver's `docs/` blind spot, not real breakage** —
+   see section 4.
 5. **`@types/node`** — unblocked and self-contained.
+6. **Icon-package decision (TD-8 / §145)** — not a slice, a call: schedule the heroicons →
+   `lucide-react` migration or record that it is declined. Costs nothing today, and every new icon
+   added meanwhile is written against whichever precedent the author happened to open.
 
 ★ The archive-the-planning-tree item that led this list is **done** — see section 1.

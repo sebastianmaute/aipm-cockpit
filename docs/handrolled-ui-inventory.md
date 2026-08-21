@@ -18,6 +18,144 @@ the call site before converting anything.
 
 ---
 
+## Re-measured 2026-08-21, on `6c4e4162` (0.253.0)
+
+★★ **The snapshot below is NOT rewritten.** It is a dated audit of `63e4d768`; renumbering it to
+match today's tree destroys the only thing it is good for — the same reason
+`docs/security/findings-2026-07.md` is left alone. This section records what moved, and, more
+importantly, **which of the snapshot's reproduce commands stopped working, and why.**
+
+### ★★★ The bracket-expression glyph commands in this file no longer measure anything
+
+Every `grep -E` over a glyph *class* in Part 2 is now wrong by roughly **4.5x** — the narrow class
+returns **712** against a true **159** — and the cause is neither the tree nor a typo. In this environment (**GNU grep 3.0**, `LC_CTYPE=C.UTF-8`, `LANG`
+unset) a bracket expression containing any multibyte character **degrades to matching individual
+BYTES**. Every glyph in those classes is a 3-byte UTF-8 sequence beginning `\342`, so the class
+matches every line containing *any* `\342`-lead character — em-dash, en-dash, right-arrow, and
+most of this repo's comment prose. Proof, which needs no repo and no temp file:
+
+```bash
+S='em-dash \342\200\224\nen-dash \342\200\223\narrow \342\206\222\nascii\nstar \342\230\205\n'
+printf "$S" | grep -nE '[★]'   # prints lines 1, 2, 3 AND 5 — four hits for a ONE-member class
+printf "$S" | grep -nF '★'     # prints line 5 alone, which is correct
+```
+
+★★★ **This is strictly WIDER than the non-BMP landmine already recorded in Part 1, and that entry
+now reads as one special case of it.** Part 1 says the problem is `🗒` being outside the BMP. It is
+not: `[★]` alone — a single BMP glyph — over-matches, so **no** bracket expression over **any**
+non-ASCII glyph can be trusted here. Do not conclude "my glyphs are all BMP, so I am safe."
+
+★★ **It was NOT broken when the snapshot was taken, so this is environment drift, not an error
+that was always there.** At `63e4d768` there were **1397** em-dash lines in non-test `.tsx` —
+``git grep -F -- '—' 63e4d768 -- 'src/app/*.tsx' | grep -v "\.test\.tsx" | wc -l`` — and a
+byte-degraded grep would have returned at least all of those. The snapshot recorded **142**. So
+those figures were measured correctly and the tool changed underneath them. ★ `git grep -E`
+degrades the same way, so it is not the escape hatch.
+
+★ **`grep -F` and a bare glyph outside brackets are unaffected** — both are literal byte
+sequences and match correctly. Only the bracket form fails, which is why the snapshot's
+`grep -c ★` sub-counts are still sound while the totals they were subtracted from are not.
+
+**Use the node counter instead.** It is correct in every environment, and it is the only form
+whose output should be quoted here from now on:
+
+```js
+// glyph-lines.js — line counts per glyph over non-test .tsx, comment-first-token lines dropped
+const fs = require("fs"), path = require("path");
+function walk(d, o = []) { for (const e of fs.readdirSync(d, { withFileTypes: true })) {
+  const p = path.join(d, e.name);
+  if (e.isDirectory()) walk(p, o);
+  else if (e.name.endsWith(".tsx") && !e.name.endsWith(".test.tsx")) o.push(p);
+} return o; }
+const SET = [..."✓⚠✕×⋮▸▾▼▲↑↓•★⠿◀▶↩→←"];          // drop the last six for the plan's 13 + ★
+const isComment = (l) => /^\s*(\/\/|\*|\/\*|\{\/\*)/.test(l);
+let total = 0, star = 0; const per = Object.fromEntries(SET.map((g) => [g, 0]));
+for (const f of walk("src/app")) for (const line of fs.readFileSync(f, "utf8").split(/\r?\n/)) {
+  if (isComment(line)) continue;
+  let hit = false;
+  for (const g of SET) if (line.includes(g)) { per[g]++; hit = true; }
+  if (hit) { total++; if (line.includes("★")) star++; }
+}
+console.log("total / star / real:", total, star, total - star);
+console.log(per);
+```
+
+| glyph line counts | snapshot (grep, 2026-08-07) | today (node, 2026-08-21) |
+|---|---|---|
+| wide set (19 glyphs), total / `★` / real | 142 / 28 / 114 | **192 / 72 / 120** |
+| plan's 13 + `★`, total / `★` / real | 116 / 28 / 88 | **159 / 72 / 87** |
+
+★ The **real** figures barely moved (114→120 and 88→87) while `★` more than doubled. The growth is
+almost entirely this repo's own landmine markers on JSX-comment continuation lines — which is what
+the snapshot already said they were. **The glyph work itself has not grown.**
+
+### Part 1 headline counts
+
+| measure | snapshot (2026-08-07, `63e4d768`) | today (2026-08-21, `6c4e4162`) |
+|---|---|---|
+| non-test `.tsx` files scanned | 313 | **343** |
+| `<button` occurrences | 341 | **325** |
+| files containing one | 152 | **152** |
+| `<input` / `<select` / `<textarea` / `<table` | 115 / 37 / 10 / 17 | **118 / 47 / 10 / 18** |
+| `role="dialog"｜"tooltip"｜"listbox"` | 32 lines / 28 files | **39 / 31** |
+| files importing `XMarkIcon` | 13 | **25** |
+
+★★ **The offender population SHRANK while the tree grew** — 30 more non-test `.tsx` files and 16
+*fewer* `<button` occurrences. That is the figure here most worth acting on: hand-rolled
+`<button>`s are being retired faster than they are being added. ★ **Do not turn that into a
+percentage of the Part 1 tables.** The two deltas are not the same population — sites converted
+OUT while new ones arrived IN, and nothing here measured which named rows survived. The tables
+stay directionally right and every named site must still be re-read before conversion, exactly as
+the snapshot says.
+
+★★ `<select` rose 37→47 and the `role=…` line count 32→39, and **the growth is spread across five
+files each, not concentrated in one** — an earlier draft of this line credited both to the
+Documents block editor, which accounts for 3 of the 10 and 3 of the 7. Measured per file with
+`git grep -c "<select" <rev> -- 'src/app/*.tsx'` at both revisions and joined:
+`<select` +1 `change-panel` · **+2 `change-status-select` (new)** · +1 `dependencies-editor` ·
++3 `document-block-editors` · +3 `rich-text-toolbar`. `role=…` +1 `dashboard-panel` · +1
+`dashboard-tile-menu` · +3 `document-block-gutter` · +1 `rich-text-toolbar` · +2 `undo-control`.
+★ `change-status-select.tsx` is a **shared inline status select**, the exact sibling of
+`task-status-select.tsx`, which the Non-`<button>` table already tags **keep** — so 2 of the 10
+are a primitive, not an offender. Every other one is a genuinely new hand-rolled site.
+
+### Two claims re-verified, and one command that now lies about one of them
+
+★★★ **`grep -c aria-sort src/app/activity-log-panel.tsx` returns 2 today, and the claim it was
+attached to is STILL TRUE.** Part 2 names three raw-`<th>` families that set **no** `aria-sort`,
+so the glyph is their only sort-state channel. Two are unchanged (`resource-directory` 0,
+`roles-editor` 0). The third now returns **2** — and both hits are **prose inside a JSX comment**,
+which says in so many words that these headers have no `aria-sort`. The file still contains
+**zero** `aria-sort` attributes. ★★ This is the trap Part 1 already documents for `<button` (a
+mention inside a comment scans identically to an element) reappearing on a different attribute —
+and on a **continuation** line, so the first-non-space-token heuristic does not catch it either.
+**The claim survived; its evidence did not.** Read the `<th>`; do not count the string.
+
+★ The three families that DO set `aria-sort` are unchanged and still duplicate that state in the
+accessible name: `change-panel` **7** · `raid-panel-rows` **7** · `stakeholders-panel` **5**. The
+inverted RAID finding in Part 2 therefore stands exactly as written.
+
+### `DragHandle` has spread beyond the five reorder grips
+
+The "Drag handles — converted — none left hand-rolled" row still holds, and the primitive has
+since been adopted by two more surfaces. Re-measure with
+`grep -rn "<DragHandle" src/app --include="*.tsx" --exclude="*.test.tsx"` and read its OUTPUT:
+one line it returns is a doc comment in `drag-handle.tsx` quoting the same string, so the command
+matches itself. Today it names `budget-panel` · `dashboard-tile` · `document-block-gutter` ·
+`reports` · `resource-calendar-rows` (×2) · `roles-editor` (×2) · `task-manager-ui`.
+
+### What was NOT re-checked
+
+Stated plainly, because a re-measurement section's silence reads as "still true": every
+**per-site row** in Part 1 and Part 2 — the 141 convertible, 134 correctly-hand-rolled and 36
+IconButton-candidate sites, and every glyph row — was left exactly as the snapshot recorded it.
+Only the headline counts, the reproduce commands and the three claims named above were re-run.
+Those tables have had two weeks and ~30 new files to drift against; treat every line number in
+them as a grep target, never as a coordinate. The snapshot's own closing instruction still
+governs: **treat every unread row as unverified.**
+
+---
+
 ## Counts — reproduce, do not trust
 
 ```bash
