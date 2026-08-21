@@ -23,6 +23,7 @@ import {
   stripTrailingComment,
   symbolsIn,
   toArgv,
+  buildSelfExcludedSymbols,
 } from "./followup-claims-lib.mjs";
 
 const REGISTER_SAMPLE = [
@@ -860,5 +861,68 @@ describe("SYMBOL_THIRD_PARTY", () => {
     const e2 = { ...env, selfExcludedSymbols: new Set(["asyncWrapper"]) };
     const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), e2);
     expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+  });
+});
+
+describe("buildSelfExcludedSymbols", () => {
+  // ★★★ THE FIXTURE-ONLY NAME IS THE WHOLE TEST. Every other input passes under
+  // both the correct exclusion and an empty one, which is why this behaviour sat
+  // unpinned: reverting the CLI's two exclusion arguments left 186/186 green.
+  // The fake tree below is the separating input the real tree cannot provide —
+  // in the real one, every fixture name that matters is also in `src`.
+  const fakeTree = (exclude) => {
+    const fixture = [...SWEEP_SELF_FIXTURES][0];
+    const impl = [...SWEEP_SELF_FILES].filter((f) => f !== fixture);
+    const files = new Map([
+      ["src", ["realSrcName"]],
+      [fixture, ["quotedOnlyByTheFixture"]],
+      [impl[0], ["gateInternalName"]],
+    ]);
+    const add = (key, into) => {
+      if (exclude.has(key)) return;
+      for (const n of files.get(key) ?? []) into.add(n);
+    };
+    return { add, fixture, impl };
+  };
+
+  const run = (fixtureExclusion) => {
+    const { add, fixture, impl } = fakeTree(new Set());
+    const collect = (dir, into, exclude) => {
+      add("src", into);
+      for (const f of [fixture, ...impl]) if (!exclude.has(f)) add(f, into);
+    };
+    const collectFiles = (_files, into, exclude) => {
+      for (const f of [fixture, ...impl]) if (!exclude.has(f)) add(f, into);
+    };
+    // knownSymbols is what the CLI builds with SWEEP_SELF_FILES: src only.
+    const knownSymbols = new Set(["realSrcName"]);
+    return buildSelfExcludedSymbols({
+      knownSymbols,
+      rootFiles: [],
+      collect: (d, into, ex) => collect(d, into, fixtureExclusion ?? ex),
+      collectFiles: (f, into, ex) => collectFiles(f, into, fixtureExclusion ?? ex),
+      dirs: ["src"],
+    });
+  };
+
+  it("★★★ leaves a name quoted ONLY by the test fixture out of the self-excluded set", () => {
+    const out = run(null);
+    expect(out.has("quotedOnlyByTheFixture")).toBe(false);
+  });
+
+  it("★★★ admits an implementation-file name — that is the legitimate exclusion", () => {
+    const out = run(null);
+    expect(out.has("gateInternalName")).toBe(true);
+  });
+
+  it("★★★ MUTANT: an empty exclusion would downgrade the fixture-only name", () => {
+    // This is the pre-fix behaviour, asserted so the test above cannot be read
+    // as vacuous: with nothing excluded the fixture vouches for its own quote.
+    const out = run(new Set());
+    expect(out.has("quotedOnlyByTheFixture")).toBe(true);
+  });
+
+  it("never reports a name the known set already holds", () => {
+    expect(run(null).has("realSrcName")).toBe(false);
   });
 });

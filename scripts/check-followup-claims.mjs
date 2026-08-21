@@ -18,7 +18,7 @@ import { collectIdentifiers, collectIdentifiersFromFiles } from "./agents-symbol
 import {
   REGISTER,
   SWEEP_SELF_FILES,
-  SWEEP_SELF_FIXTURES,
+  buildSelfExcludedSymbols,
   classify,
   isClosed,
   parseEntries,
@@ -150,20 +150,14 @@ if (entries.length < 50) {
 // the shared walk refuses to:
 //   node --input-type=module -e "import{readFileSync}from'node:fs';import{collectIdentifiers,isGatedSymbolName,GATE_SELF_FILES}from'./scripts/agents-symbols-lib.mjs';import{SWEEP_SELF_FIXTURES}from'./scripts/followup-claims-lib.mjs';const w=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,w,SWEEP_SELF_FIXTURES);const o=new Set();for(const f of GATE_SELF_FILES)for(const m of readFileSync(f,'utf8').matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g))if(isGatedSymbolName(m[0])&&!w.has(m[0]))o.add(m[0]);console.log(o.size,[...o].sort().join(' '))"
 // Recorded rather than fixed, deliberately, and no register entry hits it today.
-const withSelf = new Set();
-for (const dir of ["src", "scripts", "e2e"]) {
-  try {
-    collectIdentifiers(dir, withSelf, SWEEP_SELF_FIXTURES);
-  } catch {
-    /* same posture, same caveat, as the sweep above */
-  }
-}
-// ★★ Same root files as the sweep above, with an EMPTY exclusion set — mirrors
-// the src/scripts/e2e pairing. Without this, a root file that ever joined
-// `SWEEP_SELF_FILES` would be misreported as SYMBOL_MISSING rather than
-// SYMBOL_SELF_EXCLUDED. There are none today; done correctly anyway.
-collectIdentifiersFromFiles(rootFiles, withSelf, SWEEP_SELF_FIXTURES);
-const selfExcludedSymbols = new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
+// ★★ The pass itself lives in `buildSelfExcludedSymbols` so a test can reach
+// it: inline here, reverting its exclusion argument left the suite green.
+const selfExcludedSymbols = buildSelfExcludedSymbols({
+  knownSymbols,
+  rootFiles,
+  collect: collectIdentifiers,
+  collectFiles: collectIdentifiersFromFiles,
+});
 
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
 // The reasoning, the "wider, not unconditional" guarantee and the derivation of

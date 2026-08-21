@@ -83,6 +83,53 @@ export const SWEEP_SELF_FILES = new Set([
  *  SELF_EXCLUDED sends nobody anywhere. */
 export const SWEEP_SELF_FIXTURES = new Set([path.join(HERE, "followup-claims-lib.test.mjs")]);
 
+/** The directories both symbol sweeps walk, in one place so the two passes
+ *  cannot disagree about scope. */
+export const SWEEP_DIRS = ["src", "scripts", "e2e"];
+
+/** The `withSelf` pass and its set difference, extracted from the CLI so the
+ *  ONE thing that matters about it is reachable from a test.
+ *
+ *  ★★★ WHAT THIS PINS IS THE EXCLUSION ARGUMENT, AND NOTHING ELSE COULD.
+ *  The behaviour — build a second identifier set that admits this sweep's
+ *  IMPLEMENTATION files but still excludes its FIXTURE, then subtract the
+ *  known set — lived inline in `check-followup-claims.mjs`, which no test
+ *  imports. Reverting both call sites to an empty exclusion set, i.e. undoing
+ *  the fix this function exists to hold, left the whole scripts suite green.
+ *  A constant whose SHAPE is pinned while its USE is not is not pinned.
+ *
+ *  ★★ The collectors are injected rather than imported so a test can simulate
+ *  a tree in which a name lives ONLY in the fixture — the single input that
+ *  separates the correct exclusion from the empty one. Nothing drawn from the
+ *  real tree can: every fixture name that matters is also in `src`.
+ *
+ *  ★ The catch keeps the CLI's posture, not the blocking gate's: this is a
+ *  REPORTING tool, so an unreadable directory OR file degrades the report
+ *  rather than stopping it. Do not copy this into a gate. */
+export function buildSelfExcludedSymbols({
+  knownSymbols,
+  rootFiles,
+  collect,
+  collectFiles,
+  dirs = SWEEP_DIRS,
+}) {
+  const withSelf = new Set();
+  for (const dir of dirs) {
+    try {
+      collect(dir, withSelf, SWEEP_SELF_FIXTURES);
+    } catch {
+      /* same posture, same caveat, as the known-symbol sweep */
+    }
+  }
+  // ★★ The SAME exclusion as the directory walk above, not an empty one — an
+  // earlier revision of this line passed an empty set and the comment beside it
+  // outlived the fix by describing the argument that had been replaced. A root
+  // file admitted here that the fixture pass must not see would be reported as
+  // the non-actionable SELF_EXCLUDED instead of the actionable MISSING.
+  collectFiles(rootFiles, withSelf, SWEEP_SELF_FIXTURES);
+  return new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
+}
+
 /** `## 42. Title` opens an entry. */
 export const ENTRY_RE = /^##\s+(\d+)\.\s+(.*)$/;
 
