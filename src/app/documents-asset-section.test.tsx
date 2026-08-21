@@ -1,9 +1,8 @@
 import { describe, expect, it, vi, beforeEach } from "vitest";
 import { render, screen, waitFor } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { useEffect } from "react";
-import { DocumentsAssetSection } from "./documents-asset-section";
-import { WorkspaceProvider, useWorkspace } from "./workspace-context";
+import { useState } from "react";
+import { DocumentsAssetSection, type DocumentAssetPaneProps } from "./documents-asset-section";
 import { FiltersProvider } from "./filters-context";
 import { t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
@@ -39,36 +38,69 @@ function fakeAsset(id: string, name = "chart.png"): DocumentAsset {
   return { id, name, mime: "image/png", size: 10, hash: id, createdAt: "2026-01-01T00:00:00.000Z" };
 }
 
-/** Seeds `ws.documentAssets` before the section under test ever reads it —
- *  `WorkspaceProvider` takes no seed prop, so a child that calls
- *  `setDocumentAssets` in an effect is the only way in. */
-function SeedAssets({ assets }: { assets: readonly DocumentAsset[] }) {
-  const ws = useWorkspace();
-  const setDocumentAssets = ws.setDocumentAssets;
-  useEffect(() => { setDocumentAssets(assets); }, [assets, setDocumentAssets]);
-  return null;
+/** Owns the `assets`/`setAssets` half of the bag with a plain `useState` —
+ *  the same shape `workspace-panels.tsx` gets for free from `useWorkspace()`
+ *  in production. No `WorkspaceProvider` needed here any more: the section
+ *  reads asset state from PROPS, never `useWorkspace()` (see
+ *  documents-asset-section.tsx's `DocumentAssetPaneProps` docstring — it must
+ *  stay prop-driven so documents-panel.tsx's provider-less tests keep
+ *  working). */
+function Harness({
+  tursoConfig = TURSO_CONFIG,
+  projectId = "p1",
+  isReadOnly,
+  seedAssets = [],
+  documents,
+  structural,
+  selected,
+}: {
+  tursoConfig?: TursoConfig | null;
+  projectId?: string;
+  isReadOnly?: boolean;
+  seedAssets?: readonly DocumentAsset[];
+  documents: readonly ProjectDocument[];
+  structural: BlockStructuralOps;
+  selected: ProjectDocument | null;
+}) {
+  const [assets, setAssets] = useState<readonly DocumentAsset[] | undefined>(seedAssets);
+  const assetPane: DocumentAssetPaneProps = { tursoConfig, projectId, assets, setAssets };
+  return (
+    <DocumentsAssetSection
+      lang="en-US"
+      assetPane={assetPane}
+      documents={documents}
+      structural={structural}
+      selected={selected}
+      isReadOnly={isReadOnly}
+    />
+  );
 }
 
 function renderSection(
-  props: Partial<Parameters<typeof DocumentsAssetSection>[0]> = {},
+  props: {
+    tursoConfig?: TursoConfig | null;
+    projectId?: string;
+    isReadOnly?: boolean;
+    documents?: readonly ProjectDocument[];
+    structural?: BlockStructuralOps;
+    selected?: ProjectDocument | null;
+  } = {},
   seedAssets: readonly DocumentAsset[] = [],
 ) {
   const structural = props.structural ?? fakeStructural();
   const selected = "selected" in props ? props.selected! : doc(1);
+  const documents = props.documents ?? [selected];
   const result = render(
     <FiltersProvider>
-      <WorkspaceProvider>
-        <SeedAssets assets={seedAssets} />
-        <DocumentsAssetSection
-          lang="en-US"
-          tursoConfig={TURSO_CONFIG}
-          projectId="p1"
-          documents={[selected]}
-          structural={structural}
-          selected={selected}
-          {...props}
-        />
-      </WorkspaceProvider>
+      <Harness
+        tursoConfig={props.tursoConfig}
+        projectId={props.projectId}
+        isReadOnly={props.isReadOnly}
+        seedAssets={seedAssets}
+        documents={documents}
+        structural={structural}
+        selected={selected}
+      />
     </FiltersProvider>,
   );
   return { structural, ...result };

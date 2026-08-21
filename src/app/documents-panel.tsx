@@ -22,7 +22,7 @@ import { type ProjectDocument, MAX_TITLE_CHARS } from "./document-model";
 import type { DocMutation, DocResult } from "./document-mutations";
 import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from "./document-versions";
 import type { Workspace } from "./workspace";
-import type { TursoConfig } from "./turso-config"; import { DocumentsAssetSection } from "./documents-asset-section";
+import { DocumentsAssetSection, type DocumentAssetPaneProps } from "./documents-asset-section";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { useDocumentEditMode, DocumentEditModeBody } from "./document-edit-mode";
@@ -178,9 +178,9 @@ export interface DocumentsPanelProps {
    *  pass a no-op — it draws a grip that looks draggable and does nothing").
    *  Required means tsc, not a reviewer, catches the next dropped call site. */
   onResetSize: () => void;
-  // Asset library gate (null disables) + byte-store scope. OPTIONAL, unlike
-  // onResetSize — missing here correctly means "disabled", not broken.
-  assetsTursoConfig?: TursoConfig | null; assetsProjectId?: string;
+  // Asset gate + byte-store scope + documentAssets, as ONE bag (house
+  // convention). OPTIONAL — absent here means "disabled", not broken.
+  assetPane?: DocumentAssetPaneProps;
 }
 
 const RENAME_TITLE_ID = "documents-rename-title";
@@ -194,7 +194,7 @@ export function DocumentsPanel({
   initialFormat = "docx",
   isReadOnly,
   onResetSize,
-  assetsTursoConfig = null, assetsProjectId = "default",
+  assetPane,
 }: DocumentsPanelProps) {
   // Lazy initialiser: reads storage ONCE at mount, never during a render body
   // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
@@ -706,10 +706,10 @@ export function DocumentsPanel({
           onUnlink={(docId, ref) => mutate({ kind: "unlink", id: docId, ref })}
           onOpenView={requestOpen}
         />
-        <DocumentsAssetSection lang={lang} tursoConfig={assetsTursoConfig} projectId={assetsProjectId}
+        <DocumentsAssetSection lang={lang} assetPane={assetPane}
           documents={documents} structural={structural} selected={selected} isReadOnly={isReadOnly} />
         <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
-          assetsTursoConfig={assetsTursoConfig} assetsProjectId={assetsProjectId} />
+          assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId ?? "default"} />
       </div>
 
       <DocumentsHistoryModal

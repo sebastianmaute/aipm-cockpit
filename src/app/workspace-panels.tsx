@@ -195,8 +195,12 @@ export function DocumentsTabPanel({
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}
-          assetsTursoConfig={assetsTursoConfig}
-          assetsProjectId={assetsProjectId}
+          assetPane={{
+            tursoConfig: assetsTursoConfig,
+            projectId: assetsProjectId,
+            assets: ws.documentAssets,
+            setAssets: ws.setDocumentAssets,
+          }}
         />
       </div>
     </div>

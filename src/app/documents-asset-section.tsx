@@ -31,13 +31,15 @@
 // only unambiguous target this architecture can express without a live
 // editor to point at.
 
-import { useCallback, useEffect, useMemo, useRef, useState, type ClipboardEvent, type DragEvent } from "react";
+import {
+  useCallback, useEffect, useMemo, useRef, useState,
+  type ClipboardEvent, type DragEvent, type Dispatch, type SetStateAction,
+} from "react";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { BlockStructuralOps } from "./use-document-editor";
 import type { TursoConfig } from "./turso-config";
 import type { DocumentAsset } from "./document-asset";
-import { useWorkspace } from "./workspace-context";
 import { useDocumentAssets, type UploadError } from "./use-document-assets";
 import { AssetLibrary } from "./asset-library";
 import { AssetLibraryModal } from "./asset-library-modal";
@@ -47,12 +49,28 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { ASSET_MIME_ALLOWED, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
 import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
 
-export interface DocumentsAssetSectionProps {
-  lang: Lang;
+/** ONE bag, house convention (AGENTS.md's `EntityCalendarProps` rule — "never
+ *  five flat props") over the asset gate + byte-store scope + the live
+ *  `documentAssets` slice. Threaded as PROPS, never read via `useWorkspace()`
+ *  here: this section is mounted UNCONDITIONALLY by documents-panel.tsx, whose
+ *  81 pre-existing tests render the panel WITHOUT a WorkspaceProvider (they
+ *  pass `ws` in as an explicit prop instead) — a context read here throws in
+ *  every one of them. */
+export interface DocumentAssetPaneProps {
   /** null disables the feature — see the gating note above. */
   tursoConfig: TursoConfig | null;
   /** Scopes the asset byte store. */
   projectId: string;
+  assets: readonly DocumentAsset[] | undefined;
+  setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+}
+
+export interface DocumentsAssetSectionProps {
+  lang: Lang;
+  /** Absent ⇒ the asset feature is disabled — mirrors what a null
+   *  `tursoConfig` alone used to mean, so the pre-existing documents-panel
+   *  call sites that predate this slice keep compiling with no asset prop. */
+  assetPane?: DocumentAssetPaneProps;
   /** Every document, for the library's "used in N documents" column. */
   documents: readonly ProjectDocument[];
   /** The SAME instance documents-panel.tsx already built for the selected
@@ -66,6 +84,7 @@ export interface DocumentsAssetSectionProps {
 }
 
 const EMPTY_ASSETS: readonly DocumentAsset[] = [];
+const NOOP_SET_ASSETS: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>> = () => {};
 
 const UPLOAD_ERROR_KEY: Record<UploadError, TranslationKey> = {
   format: "assetUploadErrorFormat",
@@ -78,14 +97,15 @@ const UPLOAD_ERROR_KEY: Record<UploadError, TranslationKey> = {
 };
 
 export function DocumentsAssetSection({
-  lang, tursoConfig, projectId, documents, structural, selected, isReadOnly,
+  lang, assetPane, documents, structural, selected, isReadOnly,
 }: DocumentsAssetSectionProps) {
-  const ws = useWorkspace();
-  const assets = ws.documentAssets ?? EMPTY_ASSETS;
+  const tursoConfig = assetPane?.tursoConfig ?? null;
+  const projectId = assetPane?.projectId ?? "default";
+  const assets = assetPane?.assets ?? EMPTY_ASSETS;
   const { upload, remove, rename, danglingIds, busyId, error, lastId } = useDocumentAssets({
     config: tursoConfig,
     assets,
-    setAssets: ws.setDocumentAssets,
+    setAssets: assetPane?.setAssets ?? NOOP_SET_ASSETS,
     projectId,
   });
 
