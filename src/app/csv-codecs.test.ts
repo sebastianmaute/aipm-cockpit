@@ -242,4 +242,18 @@ describe("documentAssets CSV", () => {
   it("keeps documentAssets out of EXPORT_SECTION_KEYS", () => {
     expect(EXPORT_SECTION_KEYS).not.toContain("documentAssets");
   });
+
+  // ★ The "no assets" test above at line 235 only ever exercises `undefined`
+  //   (via emptyWorkspace(), which never sets the field) — never an explicit
+  //   []. A guard written as `x && x.length` passes that against a mutant
+  //   that drops `.length`, since `[]` is truthy.
+  it("emits no section when documentAssets is an explicit empty array", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [] };
+    expect(workspaceToCsv(ws)).not.toContain(CSV_SECTION_DOCUMENT_ASSETS);
+  });
+
+  it("drops an all-garbage documentAssets section, leaving the key absent", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [{ ...asset, id: "" }] };
+    expect(csvToWorkspace(workspaceToCsv(ws)).documentAssets).toBeUndefined();
+  });
 });

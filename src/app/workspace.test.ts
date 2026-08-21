@@ -468,4 +468,17 @@ describe("documentAssets JSON round-trip", () => {
   it("does not count toward isWorkspaceEmpty", () => {
     expect(isWorkspaceEmpty({ ...emptyWorkspace(), documentAssets: [asset] })).toBe(true);
   });
+
+  // ★ The two tests above at line 454/458 only ever exercise `undefined`
+  //   (via emptyWorkspace(), which never sets the field) or a non-empty list —
+  //   never an explicit []. A guard written as `x && x.length` passes both of
+  //   those against a mutant that drops `.length`, since `[]` is truthy.
+  it("omits the key when documentAssets is an explicit empty array", () => {
+    expect(workspaceToJson({ ...emptyWorkspace(), documentAssets: [] })).not.toContain("documentAssets");
+  });
+
+  it("drops an all-garbage documentAssets list, leaving the key absent", () => {
+    const json = JSON.stringify({ tasks: [], raid: [], documentAssets: [{ name: "no id" }, null] });
+    expect(jsonToWorkspace(json).documentAssets).toBeUndefined();
+  });
 });
