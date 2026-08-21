@@ -16,7 +16,6 @@ import { isSafeHttpUrl } from "./document-link";
 import { Button } from "./button";
 import { RichTextToolbar } from "./rich-text-toolbar";
 import { t, type Lang } from "./i18n";
-import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 
 /** The position a deferred append should land at: the end of the document's
  *  LAST TEXTBLOCK, so the text joins that block instead of starting a new one.
@@ -114,67 +113,6 @@ export interface RichTextEditorProps {
    *  (the documents block editor at a narrow pane) docks it ABOVE the document,
    *  i.e. the position it already occupies logically. */
   toolbarContainer?: HTMLElement | null;
-  /** ★ Reusable image-drop/paste plumbing (S3c-1). Optional and currently
-   *  wired to no live consumer in this repo — Tiptap's schema has no image
-   *  node and this editor's `onUpdate` always sanitizes through
-   *  `sanitizeRichHtml` (no `img` on its allow-list), so nothing here can
-   *  hold an image; document images are inserted OUTSIDE this editor, as a
-   *  new block, by documents-asset-section.tsx. Kept generic and tested in
-   *  isolation for whichever future consumer needs it. */
-  onImageFiles?: (files: File[]) => void;
-}
-
-/** `list` is admitted at whatever type the caller's own File-bearing object
- *  carries (`ClipboardEvent.clipboardData?.files` / `DragEvent.dataTransfer
- *  .files`), filtered to the mime types this app treats as an image upload. */
-function imageFilesFrom(list: FileList | null | undefined): File[] {
-  return Array.from(list ?? []).filter((f) =>
-    (ASSET_MIME_ALLOWED as readonly string[]).includes(f.type));
-}
-
-/** ★★★ PURE CORE, EXPORTED SO A TEST CAN DRIVE IT DIRECTLY — no ProseMirror
- *  or jsdom clipboard machinery, no ref, no React. Takes the ALREADY-RESOLVED
- *  handler value, not a ref: the caller (below) dereferences
- *  `onImageFilesRef.current` itself, inside its own inline `handlePaste`
- *  callback, exactly like the pre-existing `handleKeyDown` dereferences
- *  `onCommitRef.current`/`commitOnEnterRef.current`.
- *  ★★ THAT SPLIT IS LOAD-BEARING, NOT STYLE. An earlier cut passed the REF
- *  OBJECT itself into a builder called during render — `useEditor(...)` runs
- *  every render — and `react-hooks/refs` flagged it FATAL ("Cannot access
- *  refs during render"): the linter cannot see that a function receiving a
- *  ref defers its `.current` read, so it blanket-refuses passing a ref
- *  anywhere as a call argument. Passing the resolved VALUE instead (never the
- *  ref) sidesteps the rule while keeping the read on the correct side of
- *  render — inside the stored callback, invoked later by ProseMirror's own
- *  event dispatch. */
-export function handleImagePaste(
-  onImageFiles: ((files: File[]) => void) | undefined,
-  event: { clipboardData?: { files?: FileList | null } | null },
-): boolean {
-  // ★★ Returns TRUE only when image files were actually taken. Returning true
-  // unconditionally would swallow every ordinary HTML and text paste, which
-  // the rich-text sanitizers already own — a regression across every rich
-  // field, not just documents.
-  if (!onImageFiles) return false;
-  const files = imageFilesFrom(event.clipboardData?.files);
-  if (!files.length) return false;
-  onImageFiles(files);
-  return true;
-}
-
-/** ★★★ A block REORDER drag carries NO files, so this returns false for it
- *  and the gutter's reorder grip keeps working. The two share the HTML5 drag
- *  channel; this check is the only thing separating them. */
-export function handleImageDrop(
-  onImageFiles: ((files: File[]) => void) | undefined,
-  event: { dataTransfer?: { files?: FileList | null } | null; preventDefault: () => void },
-): boolean {
-  if (!onImageFiles) return false;
-  const files = imageFilesFrom(event.dataTransfer?.files);
-  if (!files.length) return false;
-  event.preventDefault();
-  onImageFiles(files);
-  return true;
 }
 
 // ★★ THE MARKDOWN INPUT RULES ARE DELIBERATELY ON. Seven StarterKit extensions
@@ -283,11 +221,9 @@ export function RichTextEditor(props: RichTextEditorProps) {
   const onChangeRef = useRef(onChange);
   const onCommitRef = useRef(props.onCommit);
   const commitOnEnterRef = useRef(props.commitOnEnter);
-  const onImageFilesRef = useRef(props.onImageFiles);
   useEffect(() => { onChangeRef.current = onChange; }, [onChange]);
   useEffect(() => { onCommitRef.current = props.onCommit; }, [props.onCommit]);
   useEffect(() => { commitOnEnterRef.current = props.commitOnEnter; }, [props.commitOnEnter]);
-  useEffect(() => { onImageFilesRef.current = props.onImageFiles; }, [props.onImageFiles]);
 
   // ★★★ POSITION, NOT FOCUS. `appendText` used to let `opts.focus` decide BOTH
   //   where the text goes and whether to focus, which made the insert position a
@@ -380,11 +316,6 @@ export function RichTextEditor(props: RichTextEditorProps) {
         }
         return false;
       },
-      // Dereferences the ref INSIDE the callback (never passes the ref
-      // itself anywhere) — see handleImagePaste's own doc comment for why
-      // that split is load-bearing, not style.
-      handlePaste: (_view, event) => handleImagePaste(onImageFilesRef.current, event),
-      handleDrop: (_view, event) => handleImageDrop(onImageFilesRef.current, event),
     },
     onUpdate: ({ editor }: { editor: Editor }) => onChangeRef.current(sanitizeRichHtml(editor.getHTML())),
     // Sets the ref above. Fires for a user click AND for our own chained
