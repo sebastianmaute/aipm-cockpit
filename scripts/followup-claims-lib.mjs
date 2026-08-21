@@ -380,8 +380,20 @@ function assertedAbsent(name, isPath, absent) {
  *
  *  ★★★ AN ALLOWLIST IS A HOLE, AND THE REASON IS THE ONLY THING KEEPING IT SMALL.
  *  Every entry is a name a genuinely stale claim can hide behind. Add one only
- *  after confirming the name is absent from `src`/`scripts`/`e2e` AND present in
- *  the package named, and never merely to make a report look tidy.
+ *  after confirming the name is absent from EVERY TREE THIS GATE SWEEPS AND
+ *  present in the package named, and never merely to make a report look tidy.
+ *  ★★★ THAT IS FOUR DIRECTORIES PLUS THE REPO ROOT, and checking only the first
+ *  three is how a dead entry got in. One of this map's original four entries
+ *  named a vitest config key absent from `src`/`scripts`/`e2e` but set at the
+ *  ROOT — so the root scan in `check-followup-claims.mjs` put it in
+ *  `knownSymbols` and the entry could never fire. It was added and killed by the
+ *  SAME commit, which is why "I checked the three directories" is not a check.
+ *  Confirm against the sweep the CLI actually runs, never against a grep of the
+ *  three directories:
+ *
+ *    node --input-type=module -e "import{collectIdentifiers,collectIdentifiersFromFiles}from'./scripts/agents-symbols-lib.mjs';import{readdirSync}from'node:fs';const k=new Set();for(const d of ['src','scripts','e2e'])collectIdentifiers(d,k,new Set());collectIdentifiersFromFiles(readdirSync('.',{withFileTypes:true}).filter(e=>e.isFile()&&/[.](mjs|cjs|js|jsx|ts|tsx)$/.test(e.name)).map(e=>e.name),k,new Set());console.log(k.has(process.argv[1]))" -- NAME
+ *
+ *  A `true` there means the entry would be dead. Do not add it.
  *  ★★ `knownSymbols.has(s)` is checked FIRST, so an entry for a name that also
  *  exists in repo code is dead — and worse than dead: if that name later leaves
  *  the tree, this map silently masks the stale claim instead of reporting it.
@@ -390,7 +402,6 @@ function assertedAbsent(name, isPath, absent) {
  *  `check-doc-claims.mjs` already records for its own third-party bucket. */
 export const THIRD_PARTY_SYMBOLS = new Map([
   ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
-  ["asyncUtilTimeout", "@testing-library/dom — config key read by wait-for.js"],
   ["getScope", "eslint-plugin-react-hooks — context feature detection"],
   ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
 ]);
@@ -437,21 +448,38 @@ export function classify(entry, env) {
       // vouch for the names it checks — see that constant's three-star note. The
       // consequence was a permanent SYMBOL_MISSING on §138, which documents this
       // sweep and therefore names its internals: `markedNear`, `toArgv` and
-      // `collectIdentifiers` are all in the tree, in 5, 3 and 5 files.
+      // `collectIdentifiers` are all in the tree — every file holding them is a
+      // swept-self or gate-self file, which is the whole point. ★ No count is
+      // quoted: one was, and it was wrong for `collectIdentifiers` on the day it
+      // was written. Read today's with
+      // `grep -rl "collectIdentifiers" src scripts e2e | wc -l`.
       // ★★ Reported, never dropped. "I was not allowed to look" is a different
       // statement from "it is gone", and collapsing them into CLEAN is exactly
       // the circularity the exclusion exists to prevent.
-      // ★★ THREE WAYS A NAME CAN BE UNFINDABLE AND ONLY ONE IS REPO DEBT: the
+      // ★★ FOUR WAYS A NAME CAN BE UNFINDABLE AND ONLY ONE IS REPO DEBT: the
       // sweep is forbidden to look (SWEEP_SELF_FILES), the name belongs to a
-      // package rather than to us, or it is genuinely gone. Only the last is
+      // package rather than to us, it lives ONLY in the symbol gate's own
+      // self-excluded files, or it is genuinely gone. Only the last is
       // actionable — and collapsing any of the others into CLEAN would be worse.
+      // ★★★ THE THIRD WAY IS THE ONE WITH NO VERDICT, and it is a live gap, not
+      // a theoretical one. `collectIdentifiers` skips GATE_SELF_FILES
+      // UNCONDITIONALLY — the exclusion is inside the shared walk, not in the
+      // `alsoExclude` argument — so those files are absent from `withSelf` as
+      // well as from `knownSymbols`, and the set difference below cannot see
+      // them. A name living only there therefore reports SYMBOL_MISSING: the
+      // exact false positive the SELF_EXCLUDED verdict exists to remove, one
+      // layer down. Measured 2026-08-21 — `compareX` sits in
+      // `agents-symbols-lib.mjs` and its test and nowhere else, and classifies
+      // SYMBOL_MISSING. Nothing in the register cites such a name today, which
+      // is why this is recorded rather than fixed; widening `withSelf` to admit
+      // GATE_SELF_FILES is the fix if one ever appears.
       // ★★★ THIRD-PARTY IS TESTED FIRST AND THE ORDER IS NOT COSMETIC. Every name
       // in `THIRD_PARTY_SYMBOLS` is ALSO self-excluded, necessarily and by
       // construction: the map's own literal keys sit in THIS file, which is a
       // `SWEEP_SELF_FILES` member, and they appear nowhere else in the tree —
       // which is precisely why they were unfindable to begin with. So `withSelf`
-      // holds them, `knownSymbols` does not, and the set difference claims all
-      // four before the map is ever consulted. Testing self-exclusion first makes
+      // holds them, `knownSymbols` does not, and the set difference claims EVERY
+      // ONE before the map is ever consulted. Testing self-exclusion first makes
       // this map DEAD CODE. Measured 2026-08-21: `SYMBOL_THIRD_PARTY` was absent
       // from the tally entirely and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
       // ★★ Third-party is also the more specific claim — it names the owning
