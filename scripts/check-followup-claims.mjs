@@ -66,7 +66,15 @@ for (const dir of ["src", "scripts", "e2e"]) {
 const ROOT_CODE_RE = /\.(?:mjs|cjs|js|jsx|ts|tsx)$/;
 // ★ Non-recursive by construction (`readdirSync(".")` with no `withFileTypes`
 // recursion) — root only, `node_modules` is never entered.
-const rootFiles = readdirSync(".", { encoding: "utf8" }).filter((f) => ROOT_CODE_RE.test(f));
+// ★★ `isFile()` is load-bearing, not defensive noise: a DIRECTORY named with a
+// code extension would otherwise be handed to `readFileSync`, which throws
+// EISDIR. `collectIdentifiers`'s own walk never had this problem because it
+// tests `isDirectory()` first; a flat root listing has to do the same. Filtering
+// here keeps the shared primitive able to fail loudly for the BLOCKING symbol
+// gate — see its no-try/catch note.
+const rootFiles = readdirSync(".", { withFileTypes: true })
+  .filter((e) => e.isFile() && ROOT_CODE_RE.test(e.name))
+  .map((e) => e.name);
 collectIdentifiersFromFiles(rootFiles, knownSymbols, SWEEP_SELF_FILES);
 // A scan that finds nothing passes everything — the same floor both sibling
 // gates carry, for the same reason.

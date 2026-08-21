@@ -199,12 +199,16 @@ export function collectIdentifiersFromFiles(files, into, alsoExclude = new Set()
   for (const file of files) {
     const abs = path.resolve(file);
     if (GATE_SELF_FILES.has(abs) || alsoExclude.has(abs)) continue;
-    let src;
-    try {
-      src = fs.readFileSync(file, "utf8");
-    } catch {
-      continue; // absent in a partial checkout — same posture as the walk
-    }
+    // ★★★ NO try/catch HERE, DELIBERATELY. `check-agents-symbols.mjs` is a
+    // BLOCKING gate and calls this (via `collectIdentifiers`) unwrapped, so an
+    // unreadable file must throw and stop the run. Swallowing it would drop that
+    // file's identifiers and report a spurious missing symbol instead — a false
+    // FAILURE rather than a false pass, but still a gate lying about why.
+    // ★★ An earlier cut of this extraction did add a catch, to protect the root
+    // scan in `check-followup-claims.mjs` from a DIRECTORY whose name ends in a
+    // code extension. That is the caller's problem and the caller now filters on
+    // `isFile()`, which removes the failure instead of hiding it.
+    const src = fs.readFileSync(file, "utf8");
     for (const m of src.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) into.add(m[0]);
   }
 }
