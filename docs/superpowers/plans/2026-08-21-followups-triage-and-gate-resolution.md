@@ -775,6 +775,258 @@ git commit -m "docs: retire a dead gitignore claim and label section 44's names 
 
 ---
 
+## Task 6a: Two more classes the sweep cannot see
+
+**Files:**
+- Modify: `scripts/agents-symbols-lib.mjs`
+- Modify: `scripts/check-followup-claims.mjs`
+- Modify: `scripts/followup-claims-lib.mjs`
+- Test: `scripts/agents-symbols-lib.test.mjs`, `scripts/followup-claims-lib.test.mjs`
+
+**Why this task exists.** It was not in the original plan. The probe of Task 7's eleven `SYMBOL_MISSING` entries found that **three of them name symbols that exist**, unreachable for two distinct structural reasons — the same shape as §138 and `SYMBOL_SELF_EXCLUDED`, which Task 3 closed. Measured 2026-08-21:
+
+| entry | symbols | where they actually live |
+|---|---|---|
+| §51 | `asyncWrapper`, `asyncUtilTimeout` | `@testing-library/dom` — `config.js`, `wait-for.js` |
+| §53 | `getScope`, `contextOrFilename` | `eslint-plugin-react-hooks`, `eslint-plugin-react` |
+| §189 | `globalIgnores` | `eslint.config.mjs` — the **repo root** |
+
+★★ Both entries' claims were re-verified as accurate against the installed packages, so this is not doc rot: it is the gate reporting debt no probe can ever discharge. The gate already classifies third-party **paths** and **citations** (`THIRD_PARTY_KINDS`); it has no equivalent for **symbols**.
+
+★★★ **DO NOT FIX EITHER BY WIDENING `knownSymbols` INDISCRIMINATELY.** Every name added to that set is a name a genuinely stale claim can hide behind. The sweep's value falls as its size grows, which is why Change A narrows where `collectSources()` does not.
+
+### Change A — §189: the symbol sweep never looks at the repo root
+
+`collectSources()` in `doc-claims-lib.mjs` already scans the root, and its own comment says why: root-level config files are cited too, and omitting them made every such citation look deleted. The **symbol** sweep does not — `collectIdentifiers` takes a directory, and `check-followup-claims.mjs` passes only `src`, `scripts`, `e2e`. So `globalIgnores`, imported at `eslint.config.mjs:1` and used at `:9`, is missing forever.
+
+- [ ] **Step A1: Write the failing test**
+
+Append to `scripts/agents-symbols-lib.test.mjs` (this belongs with the walk, not with the classifier):
+
+```javascript
+describe("collectIdentifiersFromFiles", () => {
+  it("collects identifiers from an explicit file list", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("globalIgnores")).toBe(true);
+  });
+
+  // ★★ ANTI-VACUITY: a name that appears nowhere must still be absent.
+  it("does not invent identifiers", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("noSuchIdentifierAnywhere")).toBe(false);
+  });
+
+  // ★ Honours the same exclusion set as the directory walk.
+  it("honours alsoExclude", () => {
+    const into = new Set();
+    const excl = new Set([path.resolve("eslint.config.mjs")]);
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into, excl);
+    expect(into.has("globalIgnores")).toBe(false);
+  });
+});
+```
+
+★ Check whether that test file already imports `path`; add it only if missing. Lint is `--max-warnings=0`, so an unused or duplicate import is fatal.
+
+- [ ] **Step A2: Run it, confirm it fails**
+
+```bash
+npx vitest run scripts/agents-symbols-lib.test.mjs -t "collectIdentifiersFromFiles"
+```
+
+Expected: FAIL with `collectIdentifiersFromFiles is not a function`.
+
+- [ ] **Step A3: Extract the file-level half of `collectIdentifiers`**
+
+In `scripts/agents-symbols-lib.mjs`, factor the per-file body out and have the directory walk delegate to it, so **one** identifier regex and **one** exclusion check serve both:
+
+```javascript
+/** The per-file half of `collectIdentifiers`, exported so a caller can pass an
+ *  explicit list instead of a directory.
+ *
+ *  ★★ EXTRACTED, NOT DUPLICATED. A second copy of the identifier regex or of the
+ *  exclusion check is how two gates drift — the whole reason this module exists.
+ *  `collectIdentifiers` calls this, so the directory walk and the file list
+ *  cannot disagree about what an identifier is, or about who is excluded. */
+export function collectIdentifiersFromFiles(files, into, alsoExclude = new Set()) {
+  for (const file of files) {
+    const abs = path.resolve(file);
+    if (GATE_SELF_FILES.has(abs) || alsoExclude.has(abs)) continue;
+    let src;
+    try {
+      src = fs.readFileSync(file, "utf8");
+    } catch {
+      continue; // absent in a partial checkout — same posture as the walk
+    }
+    for (const m of src.matchAll(/[A-Za-z_$][A-Za-z0-9_$]*/g)) into.add(m[0]);
+  }
+}
+```
+
+★ `collectIdentifiers` keeps its own `CODE_EXT` filter and `SKIP_DIRS` recursion; only the read-and-scan half moves.
+
+★★★ **`check-agents-symbols.mjs` IS A BLOCKING CI GATE (`agents-symbol-check`) AND THIS MUST NOT CHANGE ITS BEHAVIOUR.** The extraction is behaviour-preserving by construction — same regex, same exclusion, same `into` — and `agents-symbols-lib.test.mjs` pins `GATE_SELF_FILES` membership and proves each entry load-bearing. Run that file's whole suite, not just the new block.
+
+★ Do **not** give the root scan to `check-agents-symbols.mjs`. Its corpus is `AGENTS.md` and `docs/AGENTS/`, its behaviour is out of scope here, and widening a blocking gate to fix a reporting one is the wrong direction.
+
+- [ ] **Step A4: Use it from the follow-up sweep only**
+
+In `scripts/check-followup-claims.mjs`, after the existing `src`/`scripts`/`e2e` loop:
+
+```javascript
+// ★★★ ROOT-LEVEL CONFIG IS CODE THIS REGISTER CITES, AND THE DIRECTORY WALK
+// CANNOT SEE IT. `collectSources()` scans the root for exactly this reason and
+// says so in its own comment; the SYMBOL sweep did not, so `globalIgnores` —
+// imported and used in `eslint.config.mjs` — read as missing forever (§189).
+// ★★★ JSON IS DELIBERATELY EXCLUDED HERE, unlike `collectSources()`, and the
+// asymmetry is the point: `package-lock.json` sits at the root, and feeding it
+// to a SYMBOL index would inject every dependency name into `knownSymbols` —
+// after which a genuinely stale claim could resolve against a package name and
+// never be reported. A PATH index may hold that file; a SYMBOL index must not.
+const ROOT_CODE_RE = /\.(?:mjs|cjs|js|jsx|ts|tsx)$/;
+const rootFiles = readdirSync(".", { encoding: "utf8" }).filter((f) => ROOT_CODE_RE.test(f));
+collectIdentifiersFromFiles(rootFiles, knownSymbols, SWEEP_SELF_FILES);
+```
+
+★ `readdirSync(".")` is non-recursive, so this is the root only — `node_modules` is never entered.
+
+★★ Task 3's `selfExcludedSymbols` set difference must receive the SAME root files with an EMPTY exclusion set. Otherwise a root file that ever joined `SWEEP_SELF_FILES` would be misreported as self-excluded rather than missing. There are none today; write it correctly anyway.
+
+★ `readdirSync` was removed from this file's imports in Task 2. Re-add it, and add `collectIdentifiersFromFiles`.
+
+### Change B — §51/§53: symbols that live in `node_modules`
+
+- [ ] **Step B1: Write the failing test**
+
+Append to `scripts/followup-claims-lib.test.mjs`:
+
+```javascript
+describe("SYMBOL_THIRD_PARTY", () => {
+  const entry = (body) => ({ n: 1, title: "t", startLine: 1, body });
+  const env = {
+    knownSymbols: new Set(["realSymbol"]),
+    selfExcludedSymbols: new Set(),
+    resolve: () => ["src/x.ts"],
+    lineCounts: { get: () => 1000 },
+  };
+
+  it("labels a known upstream symbol as third-party", () => {
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+    expect(r.verdict).toBe("SYMBOL_THIRD_PARTY");
+  });
+
+  // ★★★ ANTI-VACUITY. Without this, allowlisting everything passes the test above.
+  it("still reports an unknown symbol as SYMBOL_MISSING", () => {
+    const r = classify(entry(["A note about `noSuchSymbolAnywhere` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_MISSING"]);
+  });
+
+  // ★★ Not repo debt, so it must not stand in front of debt that is.
+  it("does not hide a real SYMBOL_MISSING behind itself", () => {
+    const r = classify(entry(["`asyncWrapper` and also `noSuchSymbolAnywhere`."]), env);
+    expect(r.verdict).toBe("SYMBOL_MISSING");
+  });
+
+  // ★★ An allowlisted name that IS in the tree is not third-party — the repo wins.
+  it("prefers the tree over the allowlist", () => {
+    const e2 = { ...env, knownSymbols: new Set(["asyncWrapper"]) };
+    expect(classify(entry(["`asyncWrapper` here."]), e2).problems).toEqual([]);
+  });
+});
+```
+
+- [ ] **Step B2: Run it, confirm the first and third fail**
+
+```bash
+npx vitest run scripts/followup-claims-lib.test.mjs -t "SYMBOL_THIRD_PARTY"
+```
+
+- [ ] **Step B3: Implement**
+
+In `scripts/followup-claims-lib.mjs`, beside the other constants:
+
+```javascript
+/** Symbols this register cites that belong to INSTALLED PACKAGES, not to this
+ *  repo — each with the package, so the claim stays checkable.
+ *
+ *  ★★★ AN ALLOWLIST IS A HOLE, AND THE REASON IS THE ONLY THING KEEPING IT SMALL.
+ *  Every entry is a name a genuinely stale claim can hide behind. Add one only
+ *  after confirming the name is absent from `src`/`scripts`/`e2e` AND present in
+ *  the package named, and never merely to make a report look tidy.
+ *  ★★ `knownSymbols.has(s)` is checked FIRST, so an entry for a name that also
+ *  exists in repo code is dead — and worse than dead: if that name later leaves
+ *  the tree, this map silently masks the stale claim instead of reporting it.
+ *  That is the same trap `agents-symbols-lib.mjs`'s ALLOWLIST documents.
+ *  ★★ These rot on any upgrade and NOTHING will say so — the standing hazard
+ *  `check-doc-claims.mjs` already records for its own third-party bucket. */
+export const THIRD_PARTY_SYMBOLS = new Map([
+  ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
+  ["asyncUtilTimeout", "@testing-library/dom — config key read by wait-for.js"],
+  ["getScope", "eslint-plugin-react-hooks — context feature detection"],
+  ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
+]);
+```
+
+Then extend the `if (!present)` branch in `classify` so all three cases are chosen in one place:
+
+```javascript
+      // ★★ THREE WAYS A NAME CAN BE UNFINDABLE AND ONLY ONE IS REPO DEBT: the
+      // sweep is forbidden to look (SWEEP_SELF_FILES), the name belongs to a
+      // package rather than to us, or it is genuinely gone. Only the last is
+      // actionable — and collapsing any of the others into CLEAN would be worse.
+      const kind = env.selfExcludedSymbols?.has(s)
+        ? "SYMBOL_SELF_EXCLUDED"
+        : THIRD_PARTY_SYMBOLS.has(s)
+          ? "SYMBOL_THIRD_PARTY"
+          : "SYMBOL_MISSING";
+      problems.push({ kind, detail: s });
+```
+
+And add it to the non-actionable tier beside `SYMBOL_SELF_EXCLUDED`:
+
+```javascript
+  const NON_ACTIONABLE = new Set([...THIRD_PARTY_KINDS, "SYMBOL_SELF_EXCLUDED", "SYMBOL_THIRD_PARTY"]);
+```
+
+- [ ] **Step 4: Tests, lint, gate**
+
+```bash
+npx vitest run scripts/ ; echo "EXIT=$?"
+npx eslint --max-warnings=0 scripts/ ; echo "EXIT=$?"
+node scripts/check-followup-claims.mjs > /tmp/fup-6a.txt 2>&1; echo "EXIT=$?"
+tail -4 /tmp/fup-6a.txt
+```
+
+`npx vitest run scripts/` is deliberate and is the widest run in this slice before Task 11 — Change A touches a module a BLOCKING gate shares, so its whole suite must run.
+
+Expected: `SYMBOL_MISSING` falls **11 → 8**; `SYMBOL_THIRD_PARTY=2` appears (§51, §53).
+
+★★ §189 is the number to check by hand rather than predict. `globalIgnores` now resolves, but §189 cites other names too — confirm whether it lands in `CLEAN` or keeps a different problem, and reconcile before assuming.
+
+★★★ **If the tally differs from that, STOP and diff the entry list.** Three real defects in this slice were found exactly that way.
+
+- [ ] **Step 5: Prove the blocking gates did not move**
+
+```bash
+node scripts/check-agents-symbols.mjs ; echo "EXIT=$?"
+npm run docs:claims:check > /tmp/claims-6a.txt 2>&1; echo "EXIT=$?"
+diff /tmp/claims-before.txt /tmp/claims-6a.txt && echo "IDENTICAL"
+```
+
+Both `EXIT=0`, and `IDENTICAL`. Change A edits a module `check-agents-symbols.mjs` imports, so this step is not optional.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add scripts/agents-symbols-lib.mjs scripts/agents-symbols-lib.test.mjs scripts/check-followup-claims.mjs scripts/followup-claims-lib.mjs scripts/followup-claims-lib.test.mjs
+git commit -m "fix: classify upstream and root-config symbols instead of reporting them missing"
+```
+
+---
+
 ## Task 7: Probe the eleven
 
 **Files:**
