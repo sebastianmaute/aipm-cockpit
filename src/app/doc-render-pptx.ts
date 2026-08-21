@@ -70,6 +70,7 @@ import {
 } from "./rich-text-runs";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
+import { htmlEscape } from "./download";
 // ★★ `resolveDataSection` comes from the NEUTRAL doc-data-section module, NOT
 // from a sibling renderer. Importing it from doc-render-docx would typecheck
 // and work, and would also drag the DOCX OOXML builders into this graph and
@@ -80,7 +81,7 @@ import { resolveDataSection } from "./doc-data-section";
 import type { ExportCell } from "./export-sections";
 import { cellText } from "./export-sections";
 import type { Workspace } from "./workspace";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 
 export type DocSlide = { title: string; body: DocBlock[] };
 
@@ -194,12 +195,31 @@ function tableLines(
   return lines;
 }
 
+// ★★★ Same reason doc-render-docx.ts carries the identical pair: media parts
+// land in a later slice (S3c-2), and `htmlToRichLines` — SHARED with that
+// renderer precisely so the two cannot drift — has no `<img>` handling, so an
+// `<img data-asset-id>` left in `block.html` would reach the DOMParser walk as
+// an unrecognised void element and vanish SILENTLY. Substituted on the RAW
+// html, before descriptionHtml's upgrade and before the parse, so the
+// placeholder is ordinary text by the time either runs.
+const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
+
+/** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
+ *  a dangling id (row deleted, byte store empty) falls back to the id itself
+ *  rather than a blank name. */
+function withImagePlaceholders(html: string, assetNames: ReadonlyMap<string, string>, lang: Lang): string {
+  return html.replace(IMG_TAG_RE, (_tag, id: string) =>
+    htmlEscape(t(lang, "assetExportPlaceholder", assetNames.get(id) ?? id)));
+}
+
 /** The lines ONE block contributes. Blank lines inside a block's own output
  *  are artifacts — an empty table row, an editor's empty `<p>` — and the
  *  caller strips them; the deliberate gap BETWEEN blocks is added by the
  *  caller too. ★ A horizontal rule is NOT such an artifact even though it
  *  carries no text: see `isBlankLine`. */
-function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
+function blockLines(
+  block: DocBlock, ws: Workspace, lang: Lang, assetNames: ReadonlyMap<string, string>,
+): SlideLine[] {
   switch (block.type) {
     case "heading":
       return [block.text];
@@ -213,7 +233,7 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
       // any tag at all, so an allow-list-derived classifier would escape the
       // whole value instead. Same composition as doc-render-docx's richParas;
       // the reasoning lives on html-start.ts's "render" member.
-      return [...htmlToRichLines(descriptionHtml(block.html, RENDER_SINK))];
+      return [...htmlToRichLines(descriptionHtml(withImagePlaceholders(block.html, assetNames, lang), RENDER_SINK))];
 
     case "bullets":
       return block.items.map((item, i) => `${bulletMarker(block.ordered, i)} ${item}`);
@@ -263,9 +283,11 @@ function blockLines(block: DocBlock, ws: Workspace, lang: Lang): SlideLine[] {
  *  consecutive paragraphs abutted with no visual gap and read as one. The
  *  distinction that makes stripping safe here: a blank INSIDE one block's
  *  output is an artifact, a blank BETWEEN two blocks is typography. */
-function slideLines(slide: DocSlide, ws: Workspace, lang: Lang): SlideLine[] {
+function slideLines(
+  slide: DocSlide, ws: Workspace, lang: Lang, assetNames: ReadonlyMap<string, string>,
+): SlideLine[] {
   const blocks = slide.body
-    .map((block) => blockLines(block, ws, lang).filter((line) => !isBlankLine(line)))
+    .map((block) => blockLines(block, ws, lang, assetNames).filter((line) => !isBlankLine(line)))
     .filter((lines) => lines.length > 0);
   return blocks.flatMap((lines, i) => (i === 0 ? lines : ["", ...lines]));
 }
@@ -503,6 +525,7 @@ function buildContentSlide(title: string, lines: SlideLine[], lang: Lang): strin
  *  matching `buildPptx`, so a deck is never zero slides even when the document
  *  has no blocks. */
 export function renderDocumentPptx(doc: ProjectDocument, ws: Workspace, lang: Lang): Blob {
+  const assetNames = new Map((ws.documentAssets ?? []).map((a) => [a.id, a.name]));
   const slideXmls: string[] = [
     wrapPptxSlide(
       pptxBackgroundRect(COLOR_DARK_BLUE) + pptxTitleSubtitleShapes(doc.title, "", lang),
@@ -510,7 +533,7 @@ export function renderDocumentPptx(doc: ProjectDocument, ws: Workspace, lang: La
   ];
 
   for (const slide of segmentIntoSlides(doc.blocks)) {
-    const lines = slideLines(slide, ws, lang);
+    const lines = slideLines(slide, ws, lang, assetNames);
     // A slide whose only block resolved to nothing (an empty dataSection) has
     // no title and no lines left — the same blank-slide defect segmentation
     // drops, caught one stage later because resolution needs the workspace.

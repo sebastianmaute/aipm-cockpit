@@ -4079,4 +4079,5 @@ export const de: Record<TranslationKey, string> = {
   assetUploadErrorEmpty: "Diese Datei ist leer.",
   assetUploadErrorDecode: "Dieses Bild konnte nicht dekodiert werden.",
   assetUploadErrorStorageWrite: "Das Bild konnte nicht gespeichert werden. Erneut hochladen, um es noch einmal zu versuchen.",
+  assetExportPlaceholder: "[Bild: {0}]",
 };

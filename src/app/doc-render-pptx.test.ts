@@ -28,6 +28,8 @@ import {
 import type { DocBlock, ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
 import type { RunMark } from "./rich-text-runs";
+import type { DocumentAsset } from "./document-asset";
+import { t } from "./i18n";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -1098,5 +1100,58 @@ describe("new RichLine kinds in a document paragraph block (§141(b))", () => {
     const by = runsByText(xml);
     expect(by.get("bold item")!.attrs.b).toBe("1");
     expect(by.get("• ")!.attrs.b).toBeUndefined();
+  });
+});
+
+// S3c-1: PPTX has no media parts yet (a later slice, S3c-2) — same reasoning
+// as doc-render-docx.test.ts's mirror suite. An `<img data-asset-id>` must
+// DISCLOSE as a translated placeholder run naming the asset rather than vanish
+// through `htmlToRichLines` (shared with the DOCX renderer), which has no
+// `<img>` handling at all.
+describe("renderDocumentPptx — S3c-1 image placeholders", () => {
+  function assetMeta(id: string, name: string): DocumentAsset {
+    return { id, name, mime: "image/png", size: 3, hash: "h", createdAt: "2026-08-06T00:00:00.000Z" };
+  }
+
+  async function onlyContentSlideWithWs(html: string, w: Workspace): Promise<string> {
+    const all = await slides(doc([{ type: "paragraph", html }]), w);
+    expect(all).toHaveLength(2);
+    return all[1];
+  }
+
+  /** Every visible word on the content slide, one string. */
+  const textOf = async (html: string, w: Workspace): Promise<string> =>
+    textNodes(await onlyContentSlideWithWs(html, w)).join("");
+
+  it("replaces an <img data-asset-id> with a translated placeholder naming the asset", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const text = await textOf('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "sunset.png"));
+  });
+
+  it("does not drop the paragraph the image sat in — surrounding text survives", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const text = await textOf('<p>Before <img data-asset-id="a1"> After</p>', wsWithAsset);
+    expect(text).toBe(`Before ${t("en-US", "assetExportPlaceholder", "sunset.png")} After`);
+  });
+
+  it("falls back to the asset id when the asset is dangling (no metadata for it)", async () => {
+    const text = await textOf('<p><img data-asset-id="a1"></p>', ws);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "a1"));
+  });
+
+  it("emits well-formed XML and the literal name when the asset name carries XML-special characters", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", `Q3 & "roadmap" <final>`)] } as Workspace;
+    const xml = await onlyContentSlideWithWs('<p><img data-asset-id="a1"></p>', wsWithAsset);
+    expect(() => parseXml(xml)).not.toThrow();
+    const text = await textOf('<p><img data-asset-id="a1"></p>', wsWithAsset);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", `Q3 & "roadmap" <final>`));
+  });
+
+  it("never emits a raw <img> tag or data-asset-id into a slide part", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const xml = await onlyContentSlideWithWs('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
+    expect(xml).not.toContain("<img");
+    expect(xml).not.toContain("data-asset-id");
   });
 });

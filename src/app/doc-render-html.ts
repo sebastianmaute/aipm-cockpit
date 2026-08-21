@@ -178,11 +178,43 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
   }
 }
 
+// ★ Matches the WHOLE `<img>` tag carrying a `data-asset-id`, capturing the
+// id — never just the attribute, since the replacement below appends an
+// attribute to the tag rather than rewriting the value in place.
+const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
+
+/** STANDALONE-ONLY. A single downloadable file has to be self-contained, so
+ *  this is the one place base64 is correct — `document-asset-images.ts` (the
+ *  preview) deliberately never inlines it, and this must not run in preview
+ *  mode either (same reason, plus it would be redundant work on every
+ *  keystroke the memoized preview exists to avoid).
+ *
+ *  ★★ `assets` carries base64 DATA but not the MIME the data: URI needs —
+ *  that lives on the metadata record, `ws.documentAssets`, not in the byte
+ *  map. An id present in `assets` with no resolvable mime is treated as
+ *  unresolved rather than guessed at (an `<img>` with a wrong or missing
+ *  MIME is a browser content-sniffing gamble, not a safe fallback). */
+function inlineDocumentImages(html: string, assets: Record<string, string>, mimeById: ReadonlyMap<string, string>): string {
+  return html.replace(IMG_TAG_RE, (tag, id: string) => {
+    const data = assets[id];
+    const mime = mimeById.get(id);
+    const selfClosing = tag.endsWith("/>");
+    const withoutClose = tag.slice(0, selfClosing ? -2 : -1);
+    const addedAttr =
+      data && mime ? ` src="data:${mime};base64,${data}"` : ` data-asset-missing="true"`;
+    return `${withoutClose}${addedAttr}${selfClosing ? " />" : ">"}`;
+  });
+}
+
 export function renderDocumentHtml(
   doc: ProjectDocument,
   ws: Workspace,
   lang: Lang,
   mode: DocHtmlMode,
+  // ★ OPTIONAL and trailing so every existing call site keeps compiling and
+  // behaving identically — see `inlineDocumentImages`'s own doc comment for
+  // why it only ever applies in standalone mode.
+  assets?: Record<string, string>,
 ): string {
   const body = doc.blocks
     .map((b) => renderBlock(b, ws, lang))
@@ -190,6 +222,10 @@ export function renderDocumentHtml(
     .join("\n");
 
   if (mode === "preview") return body;
+
+  const inlinedBody = assets
+    ? inlineDocumentImages(body, assets, new Map((ws.documentAssets ?? []).map((a) => [a.id, a.mime])))
+    : body;
 
   // ★★ lang comes from the ARGUMENT, never a hardcoded "en". Every member of
   // Lang ("en-US" | "en-GB" | "de") is already a valid BCP-47 tag. A German
@@ -206,7 +242,7 @@ export function renderDocumentHtml(
 </head>
 <body>
   <header><h1>${htmlEscape(doc.title)}</h1></header>
-  ${body}
+  ${inlinedBody}
   <footer>Acme — AI PM Cockpit</footer>
 </body>
 </html>`;

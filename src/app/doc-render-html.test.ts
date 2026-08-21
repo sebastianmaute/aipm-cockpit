@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { renderDocumentHtml } from "./doc-render-html";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { DocumentAsset } from "./document-asset";
 import { PRINT_STYLES } from "./download";
 
 // A Workspace has ~30 required slices and this renderer reads only the ones the
@@ -388,5 +389,59 @@ describe("renderDocumentHtml — modes", () => {
       { type: "bullets", items: ["Second"] },
     ]);
     expect(html.indexOf("First")).toBeLessThan(html.indexOf("Second"));
+  });
+});
+
+// S3c-1: images are referenced in block html as `<img data-asset-id="…">`
+// and never inlined into stored HTML — the `assets` param is the ONLY place
+// this renderer is handed real bytes, and only standalone mode may use them
+// (see inlineDocumentImages's own doc comment on doc-render-html.ts).
+describe("renderDocumentHtml — S3c-1 image inlining", () => {
+  function assetMeta(id: string, mime: string): DocumentAsset {
+    return { id, name: `${id}.png`, mime, size: 3, hash: "h", createdAt: "2026-08-06T00:00:00.000Z" };
+  }
+
+  const withImage = [{ type: "paragraph", html: '<p><img data-asset-id="a1" alt="Sunset"></p>' }] as const;
+
+  it("does nothing in preview mode, even when assets are supplied", () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
+    const withAssets = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "preview", { a1: "QUJD" });
+    const withoutAssets = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "preview");
+    expect(withAssets).toBe(withoutAssets);
+    expect(withAssets).not.toContain("base64");
+    expect(withAssets).toContain('data-asset-id="a1"');
+  });
+
+  it("standalone with no assets argument is byte-identical to before this slice", () => {
+    const html = renderDocumentHtml(doc([...withImage]), ws, "en-US", "standalone");
+    expect(html).toContain('<img data-asset-id="a1" alt="Sunset">');
+    expect(html).not.toContain("data-asset-missing");
+    expect(html).not.toContain("base64");
+  });
+
+  it("standalone inlines a known asset as a base64 data: URI, using the mime from ws.documentAssets", () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { a1: "QUJD" });
+    expect(html).toContain('src="data:image/png;base64,QUJD"');
+    expect(html).toContain('data-asset-id="a1"');
+    expect(html).not.toContain("data-asset-missing");
+  });
+
+  it("marks a referenced id absent from the assets map as missing, without a src", () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "image/png")] } as Workspace;
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", {});
+    expect(html).toContain('data-asset-missing="true"');
+    expect(html).not.toContain("src=");
+  });
+
+  // ★★ THE MIME DEFECT THIS RENDERER MUST NOT REPEAT: bytes with no resolvable
+  // mime are treated as unresolved rather than guessed at — an <img> src with a
+  // wrong or absent MIME is a content-sniffing gamble, not a safe fallback.
+  it("marks an id present in the assets map as missing when no mime is known for it", () => {
+    // ws carries no documentAssets metadata for "a1" at all.
+    const html = renderDocumentHtml(doc([...withImage]), ws, "en-US", "standalone", { a1: "QUJD" });
+    expect(html).toContain('data-asset-missing="true"');
+    expect(html).not.toContain("src=");
+    expect(html).not.toContain("base64");
   });
 });

@@ -4139,6 +4139,11 @@ const enUS = {
   assetUploadErrorEmpty: "That file is empty.",
   assetUploadErrorDecode: "That image could not be decoded.",
   assetUploadErrorStorageWrite: "The image could not be saved. Re-upload to retry.",
+  // ★ DOCX/PPTX cannot embed the actual bytes yet (media parts land in a later
+  // slice, S3c-2) — a translated placeholder run DISCLOSES the image rather
+  // than silently dropping it. HTML standalone export inlines the real bytes
+  // instead and never reaches this string.
+  assetExportPlaceholder: "[Image: {0}]",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;
