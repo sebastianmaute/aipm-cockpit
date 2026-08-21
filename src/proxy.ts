@@ -72,7 +72,18 @@ function buildCsp(nonce: string): string {
     "worker-src 'self'",
     styleElem,
     "style-src-attr 'unsafe-inline'",
-    "img-src 'self' data:",
+    // ★★ blob: is LOAD-BEARING, not tidy-away-able. Document asset images are
+    // rendered from object URLs — `document-asset-images.ts` attachAssetImages
+    // mints URL.createObjectURL(blob) and assigns it to img.src — and CSP
+    // 'self' does NOT match a blob: URL. Without this every document image is
+    // blocked ("Loading the image 'blob:http://…' violates … img-src"), in dev
+    // and prod alike (IS_DEV branches only script/style, never img-src).
+    // Nothing automated catches a regression here: jsdom enforces no CSP and no
+    // e2e spec touches document assets — the proxy unit test is the only guard.
+    // ★ object-src 'none' below remains the guard against the usual blob:
+    // escalation (a blob: <object>/<embed> executing as a document); img-src
+    // can only ever decode an image.
+    "img-src 'self' data: blob:",
     "font-src 'self'",
     "connect-src 'self' https://api.anthropic.com https://*.turso.io https://graph.microsoft.com https://login.microsoftonline.com http://localhost:* http://127.0.0.1:*",
     "frame-src https://login.microsoftonline.com",

