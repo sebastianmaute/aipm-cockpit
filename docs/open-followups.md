@@ -13,9 +13,30 @@ enough detail to resume without re-deriving the finding. Closed items move to "D
 `superpowers/audit-campaign-remaining.md` were gitignored, so they were never in the repo and are
 recoverable only from the local archive described below. Everything worth keeping from all three is
 reproduced here — nothing in this file requires reading them, and each fact was re-verified against
-0.203.0 on the way in rather than copied forward. ★ Do not add a link pointing into
-`docs/superpowers/`: that whole tree is gitignored, so such a link is dead for everyone but the
-machine that wrote it.
+0.203.0 on the way in rather than copied forward.
+
+★★★ **`docs/superpowers/` IS TRACKED AS OF 2026-08-21 (0.253.0), AND MANY ENTRIES BELOW STILL SAY
+OTHERWISE.** The ignore rule was dropped and the whole corpus committed — 218 specs and 238 plans,
+298 of them recovered from zip archives that were their only copy. The rule that stood here said
+never to link into that tree, because such a link was "dead for everyone but the machine that wrote
+it". Links into it now resolve for everyone, so that prohibition is retired.
+★★ **The two documents named above are NOT among the recovered set.** `r5-calendar-followups.md` and
+`audit-campaign-remaining.md` are still lost, so the paragraph above holds for them unchanged — the
+recovery did not undo the loss that motivated this file, it only stopped the next one.
+★★★ **THE SWEEP IS NOT DONE, AND THIS NOTE IS NOT A SUBSTITUTE FOR IT.** Entries written before this
+date describe the tree as gitignored, local-only, or invisible to anyone else's checkout, and those
+words are now false wherever they appear. §44 and §113 are the sharpest cases: each exists BECAUSE
+the design it points at was unreadable outside one machine, and that premise has changed — neither
+entry has been rewritten. Read "gitignored" anywhere below as a claim about the past, and verify it
+before relying on it. Reproduce today's remaining count with:
+
+```bash
+grep -cniE "superpowers.{0,80}(gitignor|local-only|one machine|not in the repo)" docs/open-followups.md
+```
+
+★ That grep matches THIS note too, because the note quotes the words it hunts — the same
+self-matching property recorded elsewhere in this file. `docs/work-inventory.md` records what the
+recovery found and what remains designed-but-unbuilt.
 
 **Deliberately NOT absorbed:** [`tech-debt-register.md`](tech-debt-register.md) is a different
 artifact class — owner-assigned, quarterly-reviewed, next sweep **2026-10-03**. Copying TD-1/2/3/5/6/7
