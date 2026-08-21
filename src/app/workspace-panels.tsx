@@ -13,6 +13,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { getTursoConfig } from "./turso-config";
 import { loadPortfolioMode, loadCurrentTursoProjectId } from "./portfolio-mode";
 import { loadRegistry } from "./projects-registry";
+import { isSafeMode } from "./safe-mode";
 import type { Lang } from "./i18n";
 
 const loading = () => <PanelSkeleton />;
@@ -147,7 +148,39 @@ export function DocumentsTabPanel({
   const { settings } = useSettings();
   const tursoUrl = settings.integrations?.turso?.databaseUrl;
   const tursoToken = settings.integrations?.turso?.authToken;
-  const assetsTursoConfig = useMemo(() => getTursoConfig(tursoUrl, tursoToken), [tursoUrl, tursoToken]);
+  //
+  // ★★★ SAFE MODE REFUSES TO OPERATE — it must never silently RE-PARTITION the
+  // byte store. Both Turso readers below FORCE a degraded value under `?safe=1`
+  // (portfolio-mode.ts: `loadPortfolioMode` returns "file" and
+  // `loadCurrentTursoProjectId` returns null), while `loadRegistry()` carries no
+  // such guard. So without this gate a Turso-portfolio user entering Safe Mode
+  // would swap the byte-lookup key to the FILE registry's project id (or
+  // "default") while the METADATA — which rides the workspace, not this key —
+  // stayed put: every asset reads as dangling, every embedded image breaks, and
+  // an upload writes bytes under a key normal-mode boot never looks at.
+  // `deleteAllAssetDataForProject` is keyed the same way, so those orphans would
+  // then survive project deletion too.
+  //
+  // ★★ STABILISING THE KEY INSTEAD IS INCOHERENT, NOT MERELY UGLY. Safe Mode
+  // also boots settings at `defaultStorageConfig` (`kind: "browser"`), so the
+  // metadata half comes from the BROWSER backend whatever this key says. No
+  // project id makes the two halves agree, and reconstructing the real one by
+  // reading MODE_KEY/CURRENT_TURSO_PROJECT_KEY raw would defeat, from inside a
+  // view component, the guards portfolio-mode.ts exists to apply. Disabling is
+  // the only sound answer, and a null `tursoConfig` is already exactly that
+  // (documents-asset-section.tsx's `enabled` gate) — no new state, and it
+  // cannot move or rewrite a byte.
+  //
+  // ★★ Safe Mode ALSO defaulting `settings.integrations` does not make this
+  // redundant: `getTursoConfig` falls back to NEXT_PUBLIC_TURSO_DATABASE_URL, so
+  // an env-configured deployment returns a non-null config from default settings
+  // alone. That is the reachable path this gate closes, and the one a test that
+  // leans on the settings coupling would pass vacuously.
+  const safeMode = isSafeMode();
+  const assetsTursoConfig = useMemo(
+    () => (safeMode ? null : getTursoConfig(tursoUrl, tursoToken)),
+    [safeMode, tursoUrl, tursoToken],
+  );
   // ★★ Project id scoping the asset byte store's `(id, project_id)` rows.
   // `DocumentsTabPanel` has no `currentProjectId` PROP — workspace-section.tsx
   // is baselined at exactly 1000 lines with zero headroom, so it cannot be
@@ -156,6 +189,10 @@ export function DocumentsTabPanel({
   // last-selected project id, or the file registry's current entry. Read
   // fresh each render (no effect) — synchronous localStorage reads in render
   // are pure and this repo already relies on that elsewhere.
+  // ★ That expression is only TRUSTWORTHY because of the gate above: it is
+  // consumed solely alongside a non-null `tursoConfig`, and Safe Mode — the one
+  // state in which its two inputs disagree about which portfolio is loaded —
+  // forces that config to null. Do not reuse it anywhere that lacks the gate.
   const assetsProjectId =
     loadPortfolioMode() === "turso"
       ? (loadCurrentTursoProjectId() ?? "default")
