@@ -9965,39 +9965,53 @@ floating notes window off Open Points' notes badge) to drive a REAL browser: foc
 trigger, asserts `ArrowRight` moves focus to Bold without changing `.ProseMirror`'s content, and
 asserts one `Tab` leaves the tagged toolbar row entirely. Passed on the first run.
 
-## 145. Two icon packages now coexist, and the migration decision behind it lives nowhere durable — open, a decision, measured
+## 145. The heroicons → `lucide-react` migration is unowned — open, a decision, measured
 
 Opened 2026-08-11 with the icon-only rich-text toolbar (`0.233.0 "Reed"`). `rich-text-toolbar.tsx`
 imports `lucide-react` for its icon set (Tiptap's own reference toolbar
 [uses it](https://template.tiptap.dev/preview/templates/simple), and it ships filled/outline pairs
-heroicons does not); every other icon in the app still comes from `@heroicons/react`. Measured, not
-assumed: `grep -rln "lucide-react" src/app --include="*.tsx" --include="*.ts"` returns exactly
-**one** file, `rich-text-toolbar.tsx`; `grep -rln "@heroicons/react" src/app` returns **75**. Both
-packages sit in `package.json` `dependencies` side by side.
+heroicons does not); every other icon in the app still comes from `@heroicons/react`. Both packages
+sit in `package.json` `dependencies` side by side.
 
-★ The decision to scope it to one file rather than replace heroicons app-wide was made deliberately
-during brainstorming for this slice, and the reasoning — a full app-wide icon migration is its own
-project, out of scope here — is recorded ONLY in
-`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`. That tree is gitignored
-(`spec-location-superpowers-default`), so the decision and its rationale are invisible to anyone who
-doesn't have this local checkout — not in `AGENTS.md`, not in `docs/CODEMAPS/dependencies.md`, not
-here until this entry. `docs:symbols:check`/`docs:claims:check` cannot flag the gap either: there is
-no broken citation to catch, just a decision that was never written into a tracked file.
+Re-measured 2026-08-21 at `6c4e4162`:
+`grep -rln "lucide-react" src/app --include="*.tsx" --include="*.ts" | wc -l` returns **1**
+(`rich-text-toolbar.tsx`, unchanged since the day it landed — the scoping has held across two
+releases and one later slice that extended the toolbar's own lucide imports);
+`grep -rln "@heroicons/react" src/app | wc -l` returns **78**.
 
-★★ Nothing is BROKEN by the coexistence — the two packages don't conflict, and this toolbar's icons
-render correctly. The risk is a slow one: the next person adding an icon anywhere in the app now has
-two equally-real precedents to copy, and nothing in a tracked doc says which one is the default for
-new code (heroicons, by volume and by not being the one carrying a "verify against 1.31.0's real
-barrel exports" caveat in its own spec).
+★★★ **THIS ENTRY'S ORIGINAL PREMISE IS DEAD, AND SAYING SO IS THE POINT OF THE ENTRY.** It was
+titled "the migration decision behind it lives nowhere durable" and argued that the rationale was
+"invisible to anyone who doesn't have this local checkout" because it lived only in
+`docs/superpowers/specs/2026-08-11-rich-text-toolbar-icons-design.md`, in a gitignored tree.
+**That tree was un-ignored in `0.253.0 "Schroeder"` (2026-08-21) and the whole corpus committed** —
+that spec is tracked, and the reasoning it carries (a full app-wide icon migration is its own
+project, out of scope for a toolbar slice) is readable by anyone with the repo. ★ This is a
+concrete instance of the sweep §200 records as unfinished: entries written while the tree was
+ignored still describe it that way, and this one had the ignored-ness as its *thesis*, not as an
+aside. Grep for the rest rather than trusting that this was the only one.
 
-### Closing it
+★★ **Option (a) is DONE, and this entry said it was "done partially".** `docs/CODEMAPS/dependencies.md`
+carries the row it asked for, in the runtime-dependency table, stating that `lucide-react` has ONE
+consumer, that heroicons is still the app-wide icon set, and "do not reach for lucide elsewhere
+without deciding to switch". That is exactly what (a) specified, in exactly the file (a) named.
+★ Its file count was **77** against a measured **78** and has been corrected in place — a one-off
+drift, not a reason to distrust the row.
 
-Either (a) write the scope decision into `docs/CODEMAPS/dependencies.md` (or a `tech-debt-register.md`
-row) so it survives outside this one contributor's local `docs/superpowers/` tree, stating plainly
-that heroicons remains the default for new code and lucide-react is scoped to
-`rich-text-toolbar.tsx` until a dedicated migration slice says otherwise; or (b) actually run the
-app-wide migration as its own brainstormed project, which retires the question rather than
-documenting it. Neither has been done — this entry is (a) done partially, by existing at all.
+### What is actually still open
+
+Only **(b)**: whether to run the app-wide migration at all. Nothing has been brainstormed, specced,
+planned or scheduled for it, and there is no roadmap slot. The two packages do not conflict and
+nothing is broken by the coexistence.
+
+★★ The risk is slow and unchanged: the next person adding an icon anywhere in the app has two
+equally-real precedents to copy. What has changed is that a tracked doc now answers which one wins
+— **heroicons, by volume (78 files against 1) and by being the default the dependencies codemap
+names** — so a new contributor reaching for lucide outside the toolbar is now making a documented
+mistake rather than an undocumented guess.
+
+★ Recorded as a dependency-ownership row in `docs/tech-debt-register.md` (TD-8) so it sits beside
+the other unowned upgrade decisions rather than only here. Closing this entry means either
+scheduling the migration or deciding, in that row, not to.
 
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 

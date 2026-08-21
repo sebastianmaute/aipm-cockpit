@@ -8,6 +8,122 @@ tree `908e56cf3d2a…`, identical parent) left behind when that commit's message
 resolves in the authoring clone until gc and nowhere else. Amending a commit invalidates every sha
 already written into prose — check the citations after any amend.
 
+## Re-measured 2026-08-21, on `6c4e4162` (0.253.0)
+
+★★ **The snapshot below is NOT rewritten.** It is a dated audit of `176b823a`, including its
+retractions, and renumbering it to today's tree destroys the record of how it failed. This section
+records what the same scan finds now. **The Class A/B batch shipped and it holds** — nothing that
+was fixed has regressed — but the open surface has been refilled by work that landed since.
+
+### The scan, re-run unchanged
+
+The script under "Reproduce" was extracted from this file verbatim and executed. No edits.
+
+| measure | snapshot (2026-08-07) | today (2026-08-21) |
+|---|---|---|
+| button-family elements scanned | 573 | **621** |
+| …carrying a `title=` | 142 | **178** |
+| **icon/glyph-only** elements | 87 | **100** |
+| …with `title=` — covered | 49 | **70** |
+| …**without** `title=` — the classification surface | 38 | **30** |
+| …**without any name prop** | 16 | **20** |
+
+Plain greps from "Baseline": `title=` occurrences **388 → 438**; `<InfoTooltip` mounts
+**147 → 147** (unmoved); files containing an `aria-label` **190 → 208**.
+
+★★ **Titled coverage rose 49→70 out of a population that grew 87→100, and the untitled surface
+fell 38→30.** That is the batch landing and staying landed. The rise in "without any name prop"
+(16→20) is **not** a regression — see the decomposition below; all four new members are comment
+prose.
+
+### The 30 decompose exactly, and 8 of them are new Class A rows
+
+| bucket | snapshot | today |
+|---|---|---|
+| comment prose (a `<button` written inside a comment) | 13 | **17** |
+| a primitive's own internals | 2 | **2** |
+| **real controls to classify** | 23 | **11** |
+
+★ **The 17 / 2 / 11 sums to 30**, and the 17 + 2 + 1 name defect sums to the 20 unnamed — same
+arithmetic the snapshot used, still checkable. The four new comment-prose lines are
+`document-editor.tsx`, and `drag-handle.tsx` ×3; each was opened and each is a docstring
+discussing native `<button>` semantics, not markup.
+
+★★ **The real-control count fell 23 → 11: 21 of the original 23 were fixed, and 9 further sites
+are reported today — 8 of them real rows and 1 a known scan phantom.**
+The two that remain from the original 23 are exactly the two the snapshot left open on purpose:
+**B1** (`settings-menu.tsx`, held pending the modern shell's own route to Settings) and the
+**blocked-on-i18n** row (`stakeholder-recipient-input.tsx`, still a hardcoded English
+``aria-label={`Remove ${name}`}``, still needing translation before it can be Class A).
+
+The nine new ones, each opened and read at its site:
+
+| Control | File | Existing accessible name | Class |
+|---|---|---|---|
+| Rename thread · Delete thread | `chat-thread-list.tsx` (×2) | `label={renameLabel}` · `label={t(lang, "chatThreadDelete", name)}` | **A** — verb + row-unique object |
+| Move item up · down · Remove item | `document-block-editors.tsx` (×3) | ``aria-label={qualify(t(lang, "documentsMoveItemUp", …))}`` and peers | **A** — verb + object + index |
+| Remove column · Remove row | `document-table-editor.tsx` (×2) | ``aria-label={qualify(t(lang, "documentsRemoveColumn", …))}`` and peer | **A** — verb + object + index |
+| Block actions menu | `document-block-gutter.tsx` | `aria-label={rowName("documentsBlockActions")}` | **B, borderline** — see below |
+| Restore version | `documents-history-modal.tsx` | — | **NOT A ROW** — see below |
+
+★★ **The gutter's actions trigger goes to B, not A, and the precedent is B2 in this document.**
+"Block actions" names a **container**, not an outcome, exactly as "More actions" does — and B2 was
+demoted for that reason after being called the strongest candidate for reclassification. Applying
+the rule the other way here would be the failure mode the Class section warns about: once the
+mechanical fix ships, nobody reopens the row. ★ The other eight are clean Class A — the fix at
+each is `title={<the same expression>}`, zero new strings, and every one of them sits beside a
+control that already has one.
+
+★★★ **`documents-history-modal.tsx`'s Restore button is the KNOWN scan false positive, and it has
+recurred in the same file for the same reason.** The ★★★ under "Reproduce" measured this on
+2026-08-08: an apostrophe inside a `//` comment **inside a JSX opening tag** opens a string the
+scanner never closes, so it runs past the tag's `>` and swallows what follows. The offending
+apostrophe today is in "workspace-context's", inside that button's own attribute block. The
+control renders `{t(lang, "documentsRestore")}` as **visible text** — it is neither icon-only nor
+untitled, and it is not a row. ★★ The warning predicted this would recur and it did, in the file
+it was measured on. **Open the file before opening a row.**
+
+### Still open, unchanged
+
+- **name defect — 1 row.** `workspace-section-chrome.tsx`'s collapse/expand control still takes
+  its accessible name from `title` alone, with no `aria-label`. The scan still reports it as the
+  single element that is `hasTitle=true, named=false`. `title` is still never the fix; add an
+  `aria-label` carrying the same expression and keep the `title`.
+- **B1**, held for the reason stated in the snapshot.
+- **The blocked-on-i18n row**, which needs translating before it becomes a plain Class A.
+- **The 15 hardcoded-English accessible names** — `docs/open-followups.md` §109 still carries them
+  and is still open.
+
+### ★★★ The non-BMP grep warning in this file is too narrow, and the correction matters here
+
+The warning under "Reproduce" says to keep **non-BMP** characters out of any grep attached to a
+number. Measured today, the real rule is wider: in this environment (**GNU grep 3.0**,
+`LC_CTYPE=C.UTF-8`, `LANG` unset) a bracket expression containing **any** multibyte character
+degrades to matching individual **bytes**, so a class of purely BMP glyphs over-matches too:
+
+```bash
+S='em-dash \342\200\224\nen-dash \342\200\223\narrow \342\206\222\nascii\nstar \342\230\205\n'
+printf "$S" | grep -nE '[★]'   # prints lines 1, 2, 3 AND 5 — four hits for a ONE-member class
+printf "$S" | grep -nF '★'     # prints line 5 alone, which is correct
+```
+
+★ Nothing in **this** document is affected — its counts come from the node script, and `residue()`
+is a JavaScript regex, which is not subject to this. It matters because this file's warning is
+what a reader carries away, and `docs/handrolled-ui-inventory.md` — whose Part 2 totals **are**
+built from bracket expressions — is broken by it today. That file's own re-measurement section
+carries the detail and the node replacement.
+
+### One census corrected
+
+The closing section says `docs:symbols:check` "reported 9 doc(s)" and "reports 10 since main's
+`docs/AGENTS/documents.md` merged". It reports **12** today (`AGENTS.md` plus eleven files in
+`docs/AGENTS/`), which is the point that sentence was making: the figure is a census of a glob and
+moves whenever anyone adds a subsystem doc. Read it off the gate's own summary line, and note the
+substance is unchanged — **this file is still not in that glob**, so a green run says nothing
+about any name in it.
+
+---
+
 ## Status — updated 2026-08-07, after implementation
 
 | Bucket | State |
