@@ -689,7 +689,32 @@ git diff --stat docs/baselines/followup-claims.json
 git diff docs/baselines/followup-claims.json | grep -E '^[-+].*"verdict"' | sort | uniq -c
 ```
 
-Expected: verdict changes confined to §131, §138, §145 and §200, plus the `generated` date and `commit` fields.
+★★★ **THE DIFF IS MUCH LARGER THAN THIS SLICE AND THAT IS NOT A FINDING.** An earlier revision here expected "verdict changes confined to §131, §138, §145 and §200, plus the `generated` date and `commit` fields", which was wrong about the baseline rather than about the slice: the committed snapshot was generated **2026-08-10** at `9c0c9658` and holds **93** entries against today's 131. Measured — 44 entries added and 6 closed in between, which is nearly all of the ~870-line diff.
+
+★★ A line-level `grep` over `"verdict"` cannot separate the two, because an ADDED entry contributes a `+` verdict line indistinguishable from a CHANGED one — and §145 and §200 both postdate the old snapshot, so the two entries this slice most obviously moved do not appear as changes at all. Compare the entry sets semantically instead (the array key is `results`, not `entries`):
+
+```bash
+git show HEAD:docs/baselines/followup-claims.json > /tmp/snap-old.json
+node -e "
+const o=require('/tmp/snap-old.json'), n=require('./docs/baselines/followup-claims.json');
+console.log(o.generated, o.results.length, '->', n.generated, n.results.length);
+const om=new Map(o.results.map(e=>[e.n,e.verdict])), nm=new Map(n.results.map(e=>[e.n,e.verdict]));
+console.log('added:', [...nm.keys()].filter(k=>!om.has(k)).join(','));
+console.log('removed:', [...om.keys()].filter(k=>!nm.has(k)).join(','));
+[...nm.keys()].filter(k=>om.has(k)&&om.get(k)!==nm.get(k)).forEach(k=>console.log('  §'+k+': '+om.get(k)+' -> '+nm.get(k)));
+"
+```
+
+★ On Windows, `node -e` cannot read a Git-Bash `/tmp` path — write the temp file somewhere node can resolve.
+
+★★ **The check that actually works is against the branch-point capture, not against the snapshot.** `/tmp/followups-before.txt` holds the gate's own output at `98ee220a`; the flagged-entry count there must exceed today's by exactly the entries this slice cleared:
+
+```bash
+grep -cE "^  §" /tmp/followups-before.txt      # 17 at 98ee220a
+node scripts/check-followup-claims.mjs | grep -cE "^  §"   # 14
+```
+
+★★ Verified 2026-08-21 that this separation is load-bearing: the semantic compare surfaced §113 `SYMBOL_MISSING → CLEAN`, which is **not** this slice — it was already `CLEAN` at the branch point, so it is drift from between 2026-08-10 and `98ee220a`. Attributing it here would have been a false finding in the other direction.
 
 - [ ] **Step 3: Commit**
 
