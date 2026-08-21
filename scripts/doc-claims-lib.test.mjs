@@ -629,6 +629,23 @@ describe("collectResolutionSources", () => {
 });
 
 describe("keepPresentRootDocs", () => {
+  // ★★★ PINS THE CALL SITE, NOT THE FUNCTION. The four cases above all passed
+  // with `keepPresentRootDocs` DELETED from `collectResolutionSources` — the
+  // mutant that motivated the extraction survived the extraction. Only an
+  // injected `exists` can separate the two, because every real ROOT_DOCS file
+  // is on disk.
+  it("★★★ drops a ROOT_DOCS entry the injected exists reports absent", () => {
+    const victim = [...ROOT_DOCS][0];
+    const withGuard = collectResolutionSources({ exists: (p) => p !== victim });
+    const unguarded = collectResolutionSources();
+    expect(unguarded).toContain(victim);
+    expect(withGuard).not.toContain(victim);
+  });
+
+  it("keeps every ROOT_DOCS entry when exists is truthful", () => {
+    const idx = collectResolutionSources();
+    for (const d of ROOT_DOCS) expect(idx).toContain(d);
+  });
   // ★★★ THIS BLOCK EXISTS BECAUSE A MUTANT SURVIVED. Deleting the guard from
   // `collectResolutionSources` left all of that function's tests green: every
   // `ROOT_DOCS` file is on disk, so a fixture drawn from the real tree cannot

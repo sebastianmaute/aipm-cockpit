@@ -211,7 +211,17 @@ export function keepPresentRootDocs(docs, rootDocs = ROOT_DOCS, exists = existsS
   return docs.filter((d) => (rootDocs.includes(d) ? exists(d) : true));
 }
 
-export function collectResolutionSources() {
+/** ★★★ `exists` IS INJECTED FOR ONE REASON: THE CALL SITE BELOW WAS UNPINNED.
+ *  `keepPresentRootDocs` is tested in both directions, but DELETING ITS CALL
+ *  from the array below left the entire scripts suite green — every real
+ *  ROOT_DOCS file is on disk, so no fixture drawn from the tree can tell the
+ *  guarded index from the unguarded one. Extraction pinned the function and not
+ *  its use, which is the half that matters. This parameter is the separating
+ *  input.
+ *  ★ Scoped deliberately to the ROOT_DOCS guard. The asset walk below keeps the
+ *  real `existsSync`: it pairs with `statSync` on the same path and injecting a
+ *  liar there would test nothing that exists. */
+export function collectResolutionSources({ exists = existsSync } = {}) {
   const codeTreeDocs = [];
   for (const dir of ["src", "scripts", "e2e"]) {
     let entries;
@@ -256,7 +266,7 @@ export function collectResolutionSources() {
       ...collectSources(),
       // ★ `[]` — the follow-up resolver is the one caller entitled to see the
       // planning corpus. See `collectDocs`.
-      ...keepPresentRootDocs(collectDocs([])),
+      ...keepPresentRootDocs(collectDocs([]), ROOT_DOCS, exists),
       ...codeTreeDocs,
       ...docAssets,
     ]),
