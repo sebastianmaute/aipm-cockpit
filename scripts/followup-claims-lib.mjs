@@ -375,6 +375,26 @@ function assertedAbsent(name, isPath, absent) {
   return false;
 }
 
+/** Symbols this register cites that belong to INSTALLED PACKAGES, not to this
+ *  repo — each with the package, so the claim stays checkable.
+ *
+ *  ★★★ AN ALLOWLIST IS A HOLE, AND THE REASON IS THE ONLY THING KEEPING IT SMALL.
+ *  Every entry is a name a genuinely stale claim can hide behind. Add one only
+ *  after confirming the name is absent from `src`/`scripts`/`e2e` AND present in
+ *  the package named, and never merely to make a report look tidy.
+ *  ★★ `knownSymbols.has(s)` is checked FIRST, so an entry for a name that also
+ *  exists in repo code is dead — and worse than dead: if that name later leaves
+ *  the tree, this map silently masks the stale claim instead of reporting it.
+ *  That is the same trap `agents-symbols-lib.mjs`'s ALLOWLIST documents.
+ *  ★★ These rot on any upgrade and NOTHING will say so — the standing hazard
+ *  `check-doc-claims.mjs` already records for its own third-party bucket. */
+export const THIRD_PARTY_SYMBOLS = new Map([
+  ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
+  ["asyncUtilTimeout", "@testing-library/dom — config key read by wait-for.js"],
+  ["getScope", "eslint-plugin-react-hooks — context feature detection"],
+  ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
+]);
+
 /** `env` is injected so this stays pure and testable:
  *    knownSymbols : Set<string>      identifiers present in src/scripts/e2e
  *    resolve      : (path) => path[] doc-claims-lib's resolveCandidates, bound
@@ -421,7 +441,29 @@ export function classify(entry, env) {
       // ★★ Reported, never dropped. "I was not allowed to look" is a different
       // statement from "it is gone", and collapsing them into CLEAN is exactly
       // the circularity the exclusion exists to prevent.
-      const kind = env.selfExcludedSymbols?.has(s) ? "SYMBOL_SELF_EXCLUDED" : "SYMBOL_MISSING";
+      // ★★ THREE WAYS A NAME CAN BE UNFINDABLE AND ONLY ONE IS REPO DEBT: the
+      // sweep is forbidden to look (SWEEP_SELF_FILES), the name belongs to a
+      // package rather than to us, or it is genuinely gone. Only the last is
+      // actionable — and collapsing any of the others into CLEAN would be worse.
+      // ★★★ THIRD-PARTY IS TESTED FIRST AND THE ORDER IS NOT COSMETIC. Every name
+      // in `THIRD_PARTY_SYMBOLS` is ALSO self-excluded, necessarily and by
+      // construction: the map's own literal keys sit in THIS file, which is a
+      // `SWEEP_SELF_FILES` member, and they appear nowhere else in the tree —
+      // which is precisely why they were unfindable to begin with. So `withSelf`
+      // holds them, `knownSymbols` does not, and the set difference claims all
+      // four before the map is ever consulted. Testing self-exclusion first makes
+      // this map DEAD CODE. Measured 2026-08-21: `SYMBOL_THIRD_PARTY` was absent
+      // from the tally entirely and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+      // ★★ Third-party is also the more specific claim — it names the owning
+      // package — so it should outrank "appears only in our own files" wherever
+      // both hold. Pinned by "prefers third-party over self-excluded when a name
+      // is in both"; every other test in that block passes under EITHER order and
+      // cannot catch a regression here.
+      const kind = THIRD_PARTY_SYMBOLS.has(s)
+        ? "SYMBOL_THIRD_PARTY"
+        : env.selfExcludedSymbols?.has(s)
+          ? "SYMBOL_SELF_EXCLUDED"
+          : "SYMBOL_MISSING";
       problems.push({ kind, detail: s });
     }
   }
@@ -486,7 +528,7 @@ export function classify(entry, env) {
   const THIRD_PARTY_KINDS = new Set(["CITE_THIRD_PARTY", "PATH_THIRD_PARTY"]);
   // ★★ Not repo debt either, for the same reason and with the same consequence:
   // a finding no probe can resolve must not stand in front of one that can.
-  const NON_ACTIONABLE = new Set([...THIRD_PARTY_KINDS, "SYMBOL_SELF_EXCLUDED"]);
+  const NON_ACTIONABLE = new Set([...THIRD_PARTY_KINDS, "SYMBOL_SELF_EXCLUDED", "SYMBOL_THIRD_PARTY"]);
   const done = problems.find((p) => p.kind === "ASSERTED_ABSENT_NOW_PRESENT");
   const actionable = problems.find((p) => !NON_ACTIONABLE.has(p.kind));
   const verdict = done

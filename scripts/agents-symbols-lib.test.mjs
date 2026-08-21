@@ -24,6 +24,7 @@ import {
   ALLOWLIST,
   GATE_SELF_FILES,
   collectIdentifiers,
+  collectIdentifiersFromFiles,
   isGatedSymbolName,
   markedNear,
 } from "./agents-symbols-lib.mjs";
@@ -171,5 +172,28 @@ describe("ABSENCE_MARKERS / ALLOWLIST", () => {
     // un-suppresses a correct doc.
     expect(ABSENCE_MARKERS).toContain("never existed");
     expect(ABSENCE_MARKERS).toContain("NOT built");
+  });
+});
+
+describe("collectIdentifiersFromFiles", () => {
+  it("collects identifiers from an explicit file list", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("globalIgnores")).toBe(true);
+  });
+
+  // ★★ ANTI-VACUITY: a name that appears nowhere must still be absent.
+  it("does not invent identifiers", () => {
+    const into = new Set();
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into);
+    expect(into.has("noSuchIdentifierAnywhere")).toBe(false);
+  });
+
+  // ★ Honours the same exclusion set as the directory walk.
+  it("honours alsoExclude", () => {
+    const into = new Set();
+    const excl = new Set([path.resolve("eslint.config.mjs")]);
+    collectIdentifiersFromFiles(["eslint.config.mjs"], into, excl);
+    expect(into.has("globalIgnores")).toBe(false);
   });
 });

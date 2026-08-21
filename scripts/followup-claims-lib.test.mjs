@@ -791,3 +791,53 @@ describe("SYMBOL_SELF_EXCLUDED", () => {
     expect(r.problems).toEqual([]);
   });
 });
+
+describe("SYMBOL_THIRD_PARTY", () => {
+  const entry = (body) => ({ n: 1, title: "t", startLine: 1, body });
+  const env = {
+    knownSymbols: new Set(["realSymbol"]),
+    selfExcludedSymbols: new Set(),
+    resolve: () => ["src/x.ts"],
+    lineCounts: { get: () => 1000 },
+  };
+
+  it("labels a known upstream symbol as third-party", () => {
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+    expect(r.verdict).toBe("SYMBOL_THIRD_PARTY");
+  });
+
+  // ★★★ ANTI-VACUITY. Without this, allowlisting everything passes the test above.
+  it("still reports an unknown symbol as SYMBOL_MISSING", () => {
+    const r = classify(entry(["A note about `noSuchSymbolAnywhere` here."]), env);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_MISSING"]);
+  });
+
+  // ★★ Not repo debt, so it must not stand in front of debt that is.
+  it("does not hide a real SYMBOL_MISSING behind itself", () => {
+    const r = classify(entry(["`asyncWrapper` and also `noSuchSymbolAnywhere`."]), env);
+    expect(r.verdict).toBe("SYMBOL_MISSING");
+  });
+
+  // ★★ An allowlisted name that IS in the tree is not third-party — the repo wins.
+  it("prefers the tree over the allowlist", () => {
+    const e2 = { ...env, knownSymbols: new Set(["asyncWrapper"]) };
+    expect(classify(entry(["`asyncWrapper` here."]), e2).problems).toEqual([]);
+  });
+
+  // ★★★ THE ORDER OF THE TERNARY IS LOAD-BEARING AND THIS IS THE ONLY TEST THAT
+  // PINS IT. Every allowlisted name is ALSO self-excluded in the real run: the
+  // allowlist's own literal keys live in `followup-claims-lib.mjs`, a
+  // `SWEEP_SELF_FILES` member, and nowhere else in the tree. So `withSelf` holds
+  // them, `knownSymbols` does not, and the set difference claims all four. Check
+  // self-exclusion first and the map can NEVER fire — measured, `SYMBOL_THIRD_PARTY`
+  // did not appear in the tally at all and §51/§53 read `SYMBOL_SELF_EXCLUDED`.
+  // ★★ The other four tests in this block pass under EITHER order, because their
+  // `env` sets `selfExcludedSymbols` to an empty set. Only an env where a name is
+  // in BOTH sets can tell the two apart — which is the real run's shape.
+  it("prefers third-party over self-excluded when a name is in both", () => {
+    const e2 = { ...env, selfExcludedSymbols: new Set(["asyncWrapper"]) };
+    const r = classify(entry(["RTL wraps it in `asyncWrapper` here."]), e2);
+    expect(r.problems.map((p) => p.kind)).toEqual(["SYMBOL_THIRD_PARTY"]);
+  });
+});

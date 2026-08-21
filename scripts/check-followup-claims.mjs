@@ -11,10 +11,10 @@
 //   node scripts/check-followup-claims.mjs --run-repro       also execute
 //                                                           allowlisted
 //                                                           reproduce commands
-import { readFileSync, writeFileSync } from "node:fs";
+import { readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { spawnSync } from "node:child_process";
 import { collectResolutionSources, countLines, resolveCandidates } from "./doc-claims-lib.mjs";
-import { collectIdentifiers } from "./agents-symbols-lib.mjs";
+import { collectIdentifiers, collectIdentifiersFromFiles } from "./agents-symbols-lib.mjs";
 import {
   REGISTER,
   SWEEP_SELF_FILES,
@@ -54,6 +54,20 @@ for (const dir of ["src", "scripts", "e2e"]) {
     /* partial checkout — the floor is what decides whether that is survivable */
   }
 }
+// ★★★ ROOT-LEVEL CONFIG IS CODE THIS REGISTER CITES, AND THE DIRECTORY WALK
+// CANNOT SEE IT. `collectSources()` scans the root for exactly this reason and
+// says so in its own comment; the SYMBOL sweep did not, so `globalIgnores` —
+// imported and used in `eslint.config.mjs` — read as missing forever (§189).
+// ★★★ JSON IS DELIBERATELY EXCLUDED HERE, unlike `collectSources()`, and the
+// asymmetry is the point: `package-lock.json` sits at the root, and feeding it
+// to a SYMBOL index would inject every dependency name into `knownSymbols` —
+// after which a genuinely stale claim could resolve against a package name and
+// never be reported. A PATH index may hold that file; a SYMBOL index must not.
+const ROOT_CODE_RE = /\.(?:mjs|cjs|js|jsx|ts|tsx)$/;
+// ★ Non-recursive by construction (`readdirSync(".")` with no `withFileTypes`
+// recursion) — root only, `node_modules` is never entered.
+const rootFiles = readdirSync(".", { encoding: "utf8" }).filter((f) => ROOT_CODE_RE.test(f));
+collectIdentifiersFromFiles(rootFiles, knownSymbols, SWEEP_SELF_FILES);
 // A scan that finds nothing passes everything — the same floor both sibling
 // gates carry, for the same reason.
 if (knownSymbols.size < 1000) {
@@ -78,6 +92,11 @@ for (const dir of ["src", "scripts", "e2e"]) {
     /* same posture as the sweep above — the floor decides what is survivable */
   }
 }
+// ★★ Same root files as the sweep above, with an EMPTY exclusion set — mirrors
+// the src/scripts/e2e pairing. Without this, a root file that ever joined
+// `SWEEP_SELF_FILES` would be misreported as SYMBOL_MISSING rather than
+// SYMBOL_SELF_EXCLUDED. There are none today; done correctly anyway.
+collectIdentifiersFromFiles(rootFiles, withSelf, new Set());
 const selfExcludedSymbols = new Set([...withSelf].filter((s) => !knownSymbols.has(s)));
 
 // ★★★ THE RESOLVER IS WIDER THAN `check-doc-claims.mjs`'s, AND IT HAS TO BE.
