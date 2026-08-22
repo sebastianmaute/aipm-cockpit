@@ -214,8 +214,9 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
  *   and this side errs toward KEEPING — the failure it guards against is
  *   silent data loss, so a stray blank paragraph is the cheap direction.
  *
- *  ★★ Case-INSENSITIVE, unlike the identical-shaped `IMG_TAG_RE` in the three
- *   renderers, which only ever see html already lower-cased by DOMPurify. This
+ *  ★★ Case-INSENSITIVE, unlike the identical-shaped `IMG_TAG_RE` the three
+ *   renderers share (`document-export-assets.ts`), which only ever sees html
+ *   already lower-cased by DOMPurify. This
  *   one runs BEFORE any allow-list pass on the load path
  *   (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — see
  *   document-rich-fields.ts), so a hand-edited or imported `<IMG DATA-ASSET-ID>`

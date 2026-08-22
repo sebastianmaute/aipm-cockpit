@@ -78,6 +78,7 @@ import { htmlEscape } from "./download";
 // forbids it; the plan's `from "./doc-render-html"` is wrong for the same
 // reason (and that module never exported it — it kept a private copy).
 import { resolveDataSection } from "./doc-data-section";
+import { IMG_TAG_RE } from "./document-export-assets";
 import type { ExportCell } from "./export-sections";
 import { cellText } from "./export-sections";
 import type { Workspace } from "./workspace";
@@ -202,7 +203,6 @@ function tableLines(
 // an unrecognised void element and vanish SILENTLY. Substituted on the RAW
 // html, before descriptionHtml's upgrade and before the parse, so the
 // placeholder is ordinary text by the time either runs.
-const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
 
 /** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
  *  a dangling id (row deleted, byte store empty) falls back to the id itself

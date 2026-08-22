@@ -34,6 +34,7 @@ import {
 } from "./ooxml-docx-primitives";
 import { bulletMarker } from "./rich-text-runs";
 import { resolveDataSection } from "./doc-data-section";
+import { IMG_TAG_RE } from "./document-export-assets";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
@@ -69,7 +70,6 @@ function para(text: string, style?: string): string {
 // was ever there. This substitutes a translated placeholder run naming the asset
 // instead, on the RAW html BEFORE the parse — so it participates in the walk as
 // ordinary text and inherits whatever paragraph/list-item context surrounds it.
-const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
 
 /** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
  *  a dangling id (row deleted, byte store empty) falls back to the id itself

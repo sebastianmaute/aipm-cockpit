@@ -56,6 +56,7 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
+import { IMG_TAG_RE } from "./document-export-assets";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
@@ -178,11 +179,6 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
       return `<div class="page-break"></div>`;
   }
 }
-
-// ★ Matches the WHOLE `<img>` tag carrying a `data-asset-id`, capturing the
-// id — never just the attribute, since the replacement below appends an
-// attribute to the tag rather than rewriting the value in place.
-const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
 
 /** Base64 alphabet only. `data` reaches this sink from a Turso column that
  *  validates no charset, so anything outside the alphabet means the row is not
