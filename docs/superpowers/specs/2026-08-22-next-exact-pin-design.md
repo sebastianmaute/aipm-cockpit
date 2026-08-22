@@ -218,8 +218,12 @@ instead.
 
 ### 6.2 `docs/work-inventory.md`
 
-Two corrections, both the same error: the icon migration is recorded as shipping
-**0.254.0 "Bisson"** in §3 and §5. It shipped as **0.255.0**; 0.254.0 was **"Yoshinaga"**.
+Three corrections, all the same error: the icon migration is recorded as shipping
+**0.254.0 "Bisson"** in §3, §5 and §7. It shipped as **0.255.0**; 0.254.0 was **"Yoshinaga"**.
+
+★ This said "two … §3 and §5" until implementation counted them. The spec was written
+from a grep of §3 and §5 alone and never swept the file — the same class of error the
+slice is correcting, committed while correcting it.
 
 That is exactly the version-collision class that bit during the icon slice's own review —
 `main` shipped 0.254.0 while the branch was in review, and the branch had to renumber. The

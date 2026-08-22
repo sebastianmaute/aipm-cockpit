@@ -77,7 +77,7 @@ git log origin/main --merges --pretty=%s | grep -oE "Merge branch '[^']+'" | sor
 Four items have approved designs and no implementation. These are the roadmap.
 
 ★ A fifth row sat here until 2026-08-22 — the app-wide icon migration, which was the opposite shape
-(a decision with no design yet). It has since been specced, built and shipped in 0.254.0 "Bisson",
+(a decision with no design yet). It has since been specced, built and shipped in 0.255.0 "Bisson",
 so it is no longer backlog; `docs/tech-debt-register.md` TD-8 carries it under Resolved.
 
 | Item | Design lives in | Evidence it is unbuilt |
@@ -193,7 +193,7 @@ target. ★★ Two things got it there and neither alone would have: duplicated 
 compares ONE number, the total duplicated-LINE percentage, per `AGENTS.md`'s exit-code bisection.
 The deferred structural tail it had been saving for the last stretch was never needed.
 
-★★ **TD-8 is RESOLVED — the migration shipped in 0.254.0 "Bisson" (2026-08-22).** `@heroicons/react`
+★★ **TD-8 is RESOLVED — the migration shipped in 0.255.0 "Bisson" (2026-08-22).** `@heroicons/react`
 is gone from `package.json`, every former call site imports the `src/app/icons.ts` barrel, and an
 ESLint rule blocks the package's return. Re-derive rather than quoting:
 `grep -rln "@heroicons/react" src/app | wc -l` returns **0**.
@@ -228,7 +228,7 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
    The four survivors are deliberately non-actionable; see section 4 for what caused the flags and
    where each was fixed. Nothing here is a pickable slice any more.
 5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
-6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.254.0 "Bisson". No longer a pickable
+6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.255.0 "Bisson". No longer a pickable
    slice, and no longer a decision to make.
 
 ★ The archive-the-planning-tree item that led this list is **done** — see section 1.
