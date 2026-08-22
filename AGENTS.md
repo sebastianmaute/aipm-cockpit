@@ -650,8 +650,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `id INTEGER PRIMARY KEY` — a rowid alias, the one column type SQLite ENFORCES — and
   `insertStmt`/`tenantInsert` bind it as `{type:"integer"}`. Every spec minted a number until
   `DocumentAsset` (a `crypto.randomUUID()`), whose INSERT rides the SAME `BEGIN…COMMIT` as tasks,
-  RAID, milestones, plan and meta: a real engine answers `datatype mismatch`, COMMIT is never
-  reached, and ONE such row stops the WHOLE workspace from ever saving. `EntitySpec.idKind`
+  RAID, milestones, plan and meta: a real engine answers `datatype mismatch` and EVERY save then
+  reports failure.
+  ★★★ **BUT "COMMIT IS NEVER REACHED, SO NOTHING IS SAVED" IS FALSE, AND THE TRUTH IS WORSE.**
+  That is what this bullet said. A libSQL `/v2/pipeline` batch does NOT abort at a failing
+  statement — it returns an error for that ONE statement and keeps executing, so COMMIT runs,
+  returns ok, and commits everything that succeeded. `runTursoPipeline` then scans the results,
+  sees the error, and calls `rollbackBestEffort` AGAINST AN ALREADY-COMMITTED TRANSACTION — which
+  changes nothing — before throwing. So the user is shown a failed save **while the workspace was
+  in fact written, minus the rejected row**, and a reader who believes the old claim will not go
+  looking for partially-written data. ★★ Measured against a live database, not reasoned from the
+  SQLite docs, and pinned by `documents-images-interactive.spec.ts`'s "the pre-idKind DDL rejects
+  the insert — and the batch still COMMITS around it", whose comment names the assertion to
+  rewrite if the engine ever starts aborting batches. ★ That spec SKIPS without a live database
+  (it parses `.env.local` itself — playwright does not), so CI is green on it and silent about
+  this: the claim is only ever re-checked by someone running it against a real Turso project.
+  `EntitySpec.idKind`
   defaults to `"integer"`, so an omission is silent at every layer that does not execute SQL — and
   a DDL-string-matching test cannot see it either (`entity-persistence-registry.test.ts` never
   executes a statement). `turso-schema.execute.test.ts` runs the real statements against

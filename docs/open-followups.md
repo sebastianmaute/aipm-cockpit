@@ -13528,13 +13528,28 @@ below applies to the single-tenant layout alone.
 
 **Symptom.** On an affected single-tenant database the FIRST image upload still fails: the metadata row's id is a
 `crypto.randomUUID()` string going into an INTEGER-typed primary key, so SQLite answers
-`datatype mismatch`. Because a workspace save is emitted as ONE `BEGIN … COMMIT` pipeline, that
-single row aborts the whole transaction — so it is not just the image that fails to save, it is
-**every subsequent workspace save**, indefinitely. There is no in-app repair path, and the message
+`datatype mismatch`. A workspace save is emitted as ONE `BEGIN … COMMIT` pipeline, and every
+subsequent save then REPORTS failure, indefinitely. There is no in-app repair path, and the message
 the user gets is `turso-pipeline.ts`'s pass-through of SQLite's own text — `Turso error: datatype
 mismatch` — which names neither the table nor the column, so nothing points at the cause. The id is
 minted in `use-document-assets.ts` (`crypto.randomUUID()`); the INTEGER column is a rowid alias, and
 a non-integer value into one is what SQLite rejects.
+
+★★★ **IT DOES NOT ABORT THE TRANSACTION, AND THIS ENTRY SAID IT DID.** The wording above was
+"that single row aborts the whole transaction", which implies the rest of the save is discarded.
+It is not. A libSQL `/v2/pipeline` batch keeps executing after a failing statement: it returns an
+error for that ONE statement, COMMIT still runs and returns ok, and everything that succeeded is
+committed. `runTursoPipeline` then sees the error in the results and calls `rollbackBestEffort`
+against a transaction that has ALREADY COMMITTED, so the rollback changes nothing, and throws.
+
+So the real failure mode is **a save the user is told failed, on a workspace that was in fact
+written, minus the rejected row** — silent partial persistence presented as a total failure. That
+is worse than the documented behaviour, not milder: someone who believes the old claim will not go
+looking for partially-written data, and will not suspect that a later save's "failure" already
+changed the database. Measured against a live database, not reasoned from the SQLite docs.
+
+★★ The remedy below is unaffected — it repairs the DDL, and is correct either way. What changes is
+what you should EXPECT to find in the database beforehand: not an untouched workspace.
 
 **Why the fix does not reach it.** `f43c41a8` corrects NEW databases only, and three separate
 mechanisms each independently prevent it reaching an existing one:

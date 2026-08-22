@@ -53,9 +53,23 @@ export interface PipelineResultLike {
  *
  *  ★★★ THE TWO MUST AGREE. `id INTEGER PRIMARY KEY` is a rowid ALIAS, which is
  *  the one column type SQLite enforces — a non-numeric value is rejected with
- *  "datatype mismatch", and because every workspace INSERT rides ONE
- *  BEGIN…COMMIT, that one row kills the whole save. So an entity minting a
+ *  "datatype mismatch", and every workspace save then reports failure. So an
+ *  entity minting a
  *  non-numeric id (`document_assets`, a crypto.randomUUID()) must declare
+ *
+ *  ★★★ "THAT ONE ROW KILLS THE WHOLE SAVE" WAS THE WORDING HERE, AND IT IS
+ *  FALSE IN THE HALF THAT MATTERS. A libSQL /v2/pipeline batch does NOT abort
+ *  at a failing statement — it returns an error for that ONE statement and
+ *  keeps executing, so COMMIT runs, returns ok, and commits everything that
+ *  succeeded. `runTursoPipeline` then scans the results, sees the error and
+ *  calls `rollbackBestEffort` against an ALREADY-COMMITTED transaction, which
+ *  changes nothing, before throwing. Every save does report failure; the
+ *  workspace is NOT left untouched. The user is shown a failed save while the
+ *  data WAS written, minus the rejected row — and a reader who believes the
+ *  old wording will never go looking for partially-written data. Measured
+ *  against a live database and pinned by the e2e spec named in AGENTS.md's
+ *  idKind bullet, not reasoned from the SQLite docs.
+ *
  *  "text", which switches BOTH the DDL and the arg binding. The tenant DDL
  *  emits a plain `id INTEGER` (composite PK), whose affinity SQLite does NOT
  *  enforce — but the Hrana wire type still must, since `{type:"integer"}`
