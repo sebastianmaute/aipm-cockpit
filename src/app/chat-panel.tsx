@@ -779,9 +779,7 @@ function ChatPanelInner({
                     input={item.input}
                     result={item.result}
                     error={item.error}
-                    lang={lang}
-                    tursoConfig={tursoConfig}
-                    projectId={projectId}
+                    lang={lang} tursoConfig={tursoConfig} projectId={projectId}
                   />
                 )}
               </li>
