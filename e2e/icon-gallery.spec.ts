@@ -26,6 +26,10 @@ test.describe("icon gallery", () => {
 
   test("keeps every gallery glyph out of the accessibility tree", async ({ page }) => {
     await page.goto("/icon-gallery");
+    // ★★ Without this count the test is VACUOUS: filter(...).length on an empty
+    // node list is 0, so it passed green against a page with no icons at all
+    // (measured by repointing the goto at /recovery). Give the zero a denominator.
+    await expect(page.locator("[data-icon-cell] svg")).toHaveCount(69);
     const exposed = await page.locator("[data-icon-cell] svg").evaluateAll((nodes) =>
       nodes.filter((n) => n.getAttribute("aria-hidden") !== "true").length,
     );

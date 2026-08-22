@@ -94,8 +94,19 @@ long after the directory it named stopped existing.
 ```bash
 npm run dev                 # next dev (public next ^16.2.11 — read node_modules/next/dist/docs for version behavior)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
-                            # param is FATAL — no argsIgnorePattern; re-check after every extract.
+npm run lint                # eslint  ★★★ THERE IS NO --max-warnings GATE ANYWHERE, and this line
+                            # asserted one for months: it said "CI --max-warnings=0: an unused import/var
+                            # is FATAL". The `lint:` job runs `npm run lint`, which is bare `eslint`
+                            # (`grep -n -A6 '^lint:' .gitlab-ci.yml`), and `@typescript-eslint/no-unused-vars`
+                            # is severity 1 — a WARNING. Measured, not reasoned: a probe file with an unused
+                            # import gives `0 errors, 2 warnings` and EXIT=0 under the CI command, and tsc
+                            # cannot cover it either — `noUnusedLocals` does not exist in tsconfig.json. So an unused
+                            # import/var SHIPS GREEN. Verify severity with:
+                            #   npx eslint --print-config src/app/icons.ts   (read .rules)
+                            # ★★ The old claim was self-refuting — the ★ five lines below already said
+                            # `npm run lint` is bare eslint, so the file asserted both. Treat unused vars as
+                            # a convention this repo keeps by hand; `_`-prefixed params are NOT exempt
+                            # (no argsIgnorePattern), so re-check after every extract — that half was right.
                             # react-hooks/exhaustive-deps REJECTS an `obj.member` dep (e.g.
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
@@ -104,9 +115,9 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npm run lint` itself is bare `eslint` with NO `--max-warnings` flag, so it
-                            # EXITS 0 even when warnings are present — it does not reproduce the CI gate.
-                            # Check the actual gate locally with `npx eslint --max-warnings=0 src/app`.
+                            # ★ `npx eslint --max-warnings=0 src/app` is therefore STRICTER than CI, not a
+                            # reproduction of it — useful as a self-imposed check, but a clean run there
+                            # proves more than the pipeline demands, and a red one does not mean CI fails.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is

@@ -17,6 +17,21 @@ test("visual: icon gallery", async ({ page }) => {
     fullPage: true,
     animations: "disabled",
     caret: "hide",
-    maxDiffPixelRatio: 0.01,
+    // ★★★ ZERO TOLERANCE, and both weaker settings were MEASURED before choosing.
+    // This was `maxDiffPixelRatio: 0.01` — on a 1280x1400 full-page shot that is a
+    // budget of ~17,900 pixels, and this sheet exists to catch a CHANGED GLYPH.
+    // Repointing four icon rows at different lucide glyphs moved 1154 pixels and
+    // the gate PASSED: it waved through precisely the class of change it is for.
+    // ★★ The obvious repair, an absolute `maxDiffPixels: 100`, is ALSO too loose,
+    // and only a mutant showed it. A gross swap costs ~290 pixels per glyph, but a
+    // SUBTLE one costs far less: Bell -> BellRing at `h-6 w-6`, under Playwright's
+    // default per-pixel `threshold: 0.2`, differs by SIX pixels. 6 < 100, so the
+    // budget that catches the loud swaps is blind to the quiet ones — and the quiet
+    // ones are the dangerous kind, since nobody spots them by eye either.
+    // ★ 0 is affordable here because this render is deterministic: three clean runs
+    // in a row at tolerance 0 passed, and the 6-pixel mutant failed. Do NOT trade it
+    // back for a ratio — a ratio scales with the page, so adding icons silently buys
+    // more slack. If this ever flakes on a new machine, re-baseline; do not loosen.
+    maxDiffPixels: 0,
   });
 });

@@ -70,6 +70,14 @@ describe("ColumnResizeHandle", () => {
     // Under lucide, EllipsisVertical is three <circle> dots and no <path> —
     // assert the grip drew geometry at all, not a <path> specifically.
     expect(svg!.children.length).toBeGreaterThan(0);
+    // ★★ children.length alone is vacuous — a <title> child satisfies it, and a
+    // grip returning <svg aria-hidden><title/></svg> survived as a mutant. Pin
+    // that every child is a real shape element.
+    expect(
+      Array.from(svg!.children).every((c) =>
+        /^(path|line|circle|rect|polyline|polygon|ellipse)$/.test(c.tagName),
+      ),
+    ).toBe(true);
   });
 
   it("is decorative and 6px wide with the col-resize cursor", () => {

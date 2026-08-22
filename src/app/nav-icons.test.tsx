@@ -17,6 +17,15 @@ describe("NavIcon", () => {
       // nav icon, so a path-specific assertion is wrong for this loop
       // specifically, not merely fragile. Assert the svg drew SOME geometry.
       expect(svg!.children.length).toBeGreaterThan(0);
+      // ★★★ children.length ALONE IS VACUOUS and shipped that way: a <title> or
+      // <g> satisfies it, so a NavIcon bypassing the icon map entirely and
+      // returning <svg><title/></svg> for every view kept this test green
+      // (measured as a surviving mutant). Pin that every child is a real shape.
+      expect(
+        Array.from(svg!.children).every((c) =>
+          /^(path|line|circle|rect|polyline|polygon|ellipse)$/.test(c.tagName),
+        ),
+      ).toBe(true);
       unmount();
     }
   });
@@ -32,6 +41,9 @@ describe("NavIcon", () => {
     //   every icon, so exact equality is no longer possible. What this test is
     //   actually for is that a custom className REPLACES the default size
     //   rather than joining it — so assert the default is absent.
-    expect(custom).not.toContain("h-5");
+    // ★★ NOT toContain("h-5"): that names ONE class and is blind to the rest of
+    //    the default. A partial leak (`w-5 ${className}`) survived it as a
+    //    mutant while a full leak was caught — match the whole family instead.
+    expect(custom).not.toMatch(/\b[hw]-5\b/);
   });
 });

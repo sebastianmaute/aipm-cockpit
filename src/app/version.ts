@@ -278,7 +278,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightAiSettingsTool",
   "versionHighlightProjectOverrides",
   "versionHighlightProjectViewMode",
-  "versionHighlightIconSet",
   "versionHighlightInsights",
   "versionHighlightInsightsRecommend",
   "versionHighlightInsightsOutcome",
@@ -338,4 +337,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightLazyEditor",
   "versionHighlightDictationPosition",
   "versionHighlightBlockStructure",
+  "versionHighlightIconSet",
 ] as const;

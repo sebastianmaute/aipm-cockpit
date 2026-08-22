@@ -151,7 +151,7 @@ plan", and explained that the naive form "misses multi-line JSX and reports fewe
 Every part of that is wrong. The plan contains no such command (`grep -nE "141|122" <plan>` returns
 nothing). And three independent sweeps of the same tree at the base commit disagree: an
 import-scoped sweep counting only locally-bound names gives **70**, a broader one gives **123**, and
-the naive `git grep -hoE "<[A-Z][A-Za-z0-9]*Icon"` gives **144** — so the naive form OVER-counts
+the naive `git grep -hoE "<[A-Z][A-Za-z0-9]*Icon\b"` gives **144** — so the naive form OVER-counts
 (it catches `<NavIcon` and other `Icon`-suffixed wrappers), the opposite of the stated failure mode.
 The spread is real, not sloppiness: icons reached through a MAP (`nav-icons.tsx` renders `<Icon />`
 from a lookup) are call sites by one definition and not by another, and no definition is canonical.
