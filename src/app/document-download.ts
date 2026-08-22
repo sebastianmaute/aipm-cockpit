@@ -13,6 +13,8 @@ import type { ProjectDocument } from "./document-model";
 import { renderDocumentHtml } from "./doc-render-html";
 import { renderDocumentDocx } from "./doc-render-docx";
 import { renderDocumentPptx } from "./doc-render-pptx";
+import { loadExportAssets, NO_EXPORT_ASSETS } from "./document-export-assets";
+import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
@@ -113,6 +115,11 @@ export function withAutoPrint(html: string): string {
     : html + AUTO_PRINT_SCRIPT;
 }
 
+/** Shown in the print tab while the bytes load. Deliberately minimal and
+ *  unstyled: it is replaced within a tick or two, and anything richer would
+ *  flash. */
+const PREPARING_HTML = "<!doctype html><title></title>";
+
 /**
  * Hand the user `doc` as a file.
  *
@@ -121,42 +128,59 @@ export function withAutoPrint(html: string): string {
  * the plain HTML as a download rather than nothing at all; without that branch
  * the button appears dead for everyone running a strict blocker.
  */
-export function downloadDocument(
+export async function downloadDocument(
   doc: ProjectDocument,
   format: DocFormat,
   ws: Workspace,
   lang: Lang,
-): void {
+  /** Resolves one asset id to base64. Omitted (no Turso config, Safe Mode)
+   *  means every image is disclosed as missing rather than the export
+   *  failing. */
+  load?: AssetByteLoader,
+): Promise<void> {
   if (typeof window === "undefined") return;
   const today = new Date().toISOString().slice(0, 10);
 
   if (format === "pdf") {
-    const html = renderDocumentHtml(doc, ws, lang, "standalone");
-    // A top-level tab, not an iframe: browsers drive the print dialog more
-    // reliably from one, and it leaves the user Ctrl+P if auto-print misfires.
+    // ★★★ OPEN FIRST, BEFORE ANY `await`. `window.open` is only permitted
+    // inside the user gesture, and awaiting the bytes SPENDS that gesture — so
+    // the popup blocker fires for EVERY user and the fallback below silently
+    // stops meaning "blocked" and becomes the normal path. The tab is a
+    // top-level one rather than an iframe: browsers drive the print dialog
+    // more reliably from one, and it leaves the user Ctrl+P if auto-print
+    // misfires.
     const tab = window.open("", "_blank");
     if (!tab) {
+      const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
       // ★ The fallback file is the PLAIN document. A downloaded file that
       // opens the print dialog by itself when double-clicked is hostile; the
       // user prints it when they decide to.
       triggerDownload(
         documentFilename(doc, "html", today),
-        new Blob([html], { type: HTML_MIME }),
+        new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets)], { type: HTML_MIME }),
       );
       return;
     }
+    tab.document.open();
+    tab.document.write(PREPARING_HTML);
+    const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
+    const html = renderDocumentHtml(doc, ws, lang, "standalone", assets);
+    // ★★ A SECOND open() RESETS the document. Without it the real document is
+    // APPENDED to the placeholder, so the tab prints a file with two <title>
+    // elements and a stray doctype in the middle of the body.
     tab.document.open();
     tab.document.write(withAutoPrint(html));
     tab.document.close();
     return;
   }
 
+  const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
   const blob =
     format === "html"
-      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone")], { type: HTML_MIME })
+      ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets)], { type: HTML_MIME })
       : format === "docx"
-        ? renderDocumentDocx(doc, ws, lang)
-        : renderDocumentPptx(doc, ws, lang);
+        ? renderDocumentDocx(doc, ws, lang, assets)
+        : renderDocumentPptx(doc, ws, lang, assets);
 
   triggerDownload(documentFilename(doc, format, today), blob);
 }

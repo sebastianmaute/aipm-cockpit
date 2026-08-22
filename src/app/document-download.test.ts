@@ -19,6 +19,7 @@ import {
   MAX_FILENAME_STEM,
 } from "./document-download";
 import { triggerDownload } from "./download";
+import { loadExportAssets } from "./document-export-assets";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
@@ -26,6 +27,16 @@ import type { Workspace } from "./workspace";
 vi.mock("./download", async (importOriginal) => {
   const actual = await importOriginal<typeof import("./download")>();
   return { ...actual, triggerDownload: vi.fn() };
+});
+
+// ★★ SPIED, NOT STUBBED — the real implementation still runs (the spread keeps
+// every other export, which doc-render-html.ts imports from here too). The
+// only thing the spy buys is the one property no OUTPUT can show: whether the
+// loader machinery is entered at all when there is no loader to enter it with.
+// See the "no loader" test below for why that is worth an assertion.
+vi.mock("./document-export-assets", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./document-export-assets")>();
+  return { ...actual, loadExportAssets: vi.fn(actual.loadExportAssets) };
 });
 
 const DOCX_MIME = "application/vnd.openxmlformats-officedocument.wordprocessingml.document";
@@ -64,6 +75,71 @@ const named = (title: string): ProjectDocument => ({ ...doc, title });
 
 /** The mock's calls, typed. */
 const downloads = () => vi.mocked(triggerDownload).mock.calls;
+
+const ASSET_ID = "asset-1";
+/** A 1x1 PNG's first bytes. Only the ALPHABET matters here — the standalone
+ *  renderer validates base64 with a character-class regex and never decodes. */
+const PNG_B64 = "iVBORw0KGgo=";
+
+const docWithImage = (): ProjectDocument => ({
+  ...doc,
+  blocks: [{ type: "paragraph", html: `<p><img data-asset-id="${ASSET_ID}" alt="chart"></p>` }],
+});
+
+/** Same document with no `<img>` at all — the "nothing to load" case. */
+const docWithNoImages = (): ProjectDocument => ({
+  ...doc,
+  blocks: [{ type: "paragraph", html: "<p>no pictures here</p>" }],
+});
+
+/** The metadata half. `assets.inlined` carries the BYTES; the mime the data:
+ *  URI needs lives on `ws.documentAssets`, so an inlining assertion needs
+ *  both. ★ `hash` is required on DocumentAsset — omitting it fails tsc while
+ *  vitest stays green. */
+const wsWithAsset: Workspace = {
+  ...ws,
+  documentAssets: [
+    {
+      id: ASSET_ID,
+      name: "chart.png",
+      mime: "image/png",
+      size: 8,
+      hash: "a".repeat(64),
+      createdAt: "2026-08-06T00:00:00.000Z",
+    },
+  ],
+};
+
+/** A stand-in for the print tab that models the ONE property the write order
+ *  depends on: `document.open()` RESETS the document, so the second write
+ *  REPLACES the placeholder instead of appending to it.
+ *
+ *  ★★ A bare `vi.fn()` for `open` would make that invisible — dropping the
+ *  second `open()` leaves every call-count assertion green while the tab would
+ *  really print a file with two <title> elements and a doctype mid-body. The
+ *  fake is what turns "the final html IS the document" into a real assertion
+ *  rather than one about which functions were called. */
+function fakeTab(onWrite?: () => void) {
+  const state = { html: "" };
+  const win = {
+    document: {
+      open: () => {
+        state.html = "";
+      },
+      write: (chunk: string) => {
+        state.html += chunk;
+        onWrite?.();
+      },
+      close: () => {},
+    },
+  } as unknown as Window;
+  return {
+    win,
+    get html() {
+      return state.html;
+    },
+  };
+}
 
 describe("documentFilename", () => {
   it("slugifies the title and appends the date and extension", () => {
@@ -139,12 +215,13 @@ describe("withAutoPrint", () => {
 describe("downloadDocument", () => {
   beforeEach(() => {
     vi.mocked(triggerDownload).mockClear();
+    vi.mocked(loadExportAssets).mockClear();
     vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
   });
   afterEach(() => vi.unstubAllGlobals());
 
   it("routes html to the HTML renderer and names the file .html", async () => {
-    downloadDocument(doc, "html", ws, "en-US");
+    await downloadDocument(doc, "html", ws, "en-US");
     expect(downloads()).toHaveLength(1);
     const [name, blob] = downloads()[0];
     expect(name).toMatch(/^q1-status-review-\d{4}-\d{2}-\d{2}\.html$/);
@@ -162,9 +239,9 @@ describe("downloadDocument", () => {
 
   // The MIME is set by the package builder inside each renderer, so asserting
   // it proves the right renderer ran — a filename alone would not.
-  it("routes docx and pptx to their own renderers", () => {
-    downloadDocument(doc, "docx", ws, "en-US");
-    downloadDocument(doc, "pptx", ws, "en-US");
+  it("routes docx and pptx to their own renderers", async () => {
+    await downloadDocument(doc, "docx", ws, "en-US");
+    await downloadDocument(doc, "pptx", ws, "en-US");
     expect(downloads()).toHaveLength(2);
     expect(downloads()[0][0]).toMatch(/\.docx$/);
     expect(downloads()[0][1].type).toBe(DOCX_MIME);
@@ -172,16 +249,15 @@ describe("downloadDocument", () => {
     expect(downloads()[1][1].type).toBe(PPTX_MIME);
   });
 
-  it("opens a print tab for pdf, writes the auto-printing HTML, and downloads nothing", () => {
-    const write = vi.fn();
-    const open = vi.fn(() => ({ document: { open: vi.fn(), write, close: vi.fn() } }));
+  it("opens a print tab for pdf, writes the auto-printing HTML, and downloads nothing", async () => {
+    const tab = fakeTab();
+    const open = vi.fn(() => tab.win);
     vi.stubGlobal("open", open);
 
-    downloadDocument(doc, "pdf", ws, "en-US");
+    await downloadDocument(doc, "pdf", ws, "en-US");
 
     expect(open).toHaveBeenCalledWith("", "_blank");
-    expect(write).toHaveBeenCalledTimes(1);
-    const written = write.mock.calls[0][0] as string;
+    const written = tab.html;
     // Full document, not the preview fragment — a printed PDF with no heading
     // is the failure mode if this ever slips to "preview".
     expect(written).toContain("<!DOCTYPE html>");
@@ -195,7 +271,7 @@ describe("downloadDocument", () => {
   it("falls back to a plain .html download when the popup is blocked", async () => {
     vi.stubGlobal("open", vi.fn(() => null));
 
-    downloadDocument(doc, "pdf", ws, "en-US");
+    await downloadDocument(doc, "pdf", ws, "en-US");
 
     expect(downloads()).toHaveLength(1);
     const [name, blob] = downloads()[0];
@@ -207,9 +283,125 @@ describe("downloadDocument", () => {
     expect(await blob.text()).not.toContain("window.print");
   });
 
-  it("does nothing at all without a window (SSR)", () => {
+  it("does nothing at all without a window (SSR)", async () => {
     vi.stubGlobal("window", undefined);
-    downloadDocument(doc, "html", ws, "en-US");
+    await downloadDocument(doc, "html", ws, "en-US");
     expect(downloads()).toHaveLength(0);
+  });
+});
+
+// ★★★ THE ORDERING IS THE WHOLE POINT OF THE ASYNC REWRITE. `window.open` is
+// only permitted inside the user gesture; an `await` before it SPENDS that
+// gesture, so the popup blocker fires for EVERY user and the `!tab` fallback —
+// written for the genuinely-blocked case — silently becomes the normal path.
+describe("downloadDocument with asset bytes", () => {
+  beforeEach(() => {
+    vi.mocked(triggerDownload).mockClear();
+    vi.mocked(loadExportAssets).mockClear();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("opens the print tab BEFORE awaiting bytes, so the gesture is not spent", async () => {
+    const order: string[] = [];
+    const tab = fakeTab(() => order.push("write"));
+    vi.stubGlobal("open", () => {
+      order.push("open");
+      return tab.win;
+    });
+    const load = vi.fn(async () => {
+      order.push("load");
+      return PNG_B64;
+    });
+
+    await downloadDocument(docWithImage(), "pdf", wsWithAsset, "en-US", load);
+
+    // ★ A POSITIVE full-sequence assertion, deliberately not an `indexOf`
+    // comparison: `indexOf` returns -1 for an absent entry and -1 is less than
+    // every real index, so a mutant that DELETES an emission stays green.
+    expect(order).toEqual(["open", "write", "load", "write"]);
+    expect(load).toHaveBeenCalledWith(ASSET_ID);
+  });
+
+  it("replaces the placeholder rather than appending the document to it", async () => {
+    const tab = fakeTab();
+    vi.stubGlobal("open", () => tab.win);
+
+    await downloadDocument(docWithImage(), "pdf", wsWithAsset, "en-US", async () => PNG_B64);
+
+    // Exactly one document: one doctype, one <title>, and nothing before the
+    // doctype. The placeholder is gone, not merely followed.
+    expect(tab.html.startsWith("<!DOCTYPE html>")).toBe(true);
+    expect(tab.html.toLowerCase().split("<!doctype html>")).toHaveLength(2);
+    expect(tab.html.split("<title>")).toHaveLength(2);
+    expect(tab.html).toContain(`src="data:image/png;base64,${PNG_B64}"`);
+    expect(tab.html).toContain("window.print");
+  });
+
+  it("still falls back to an html download when the popup is blocked", async () => {
+    vi.stubGlobal("open", vi.fn(() => null));
+
+    await downloadDocument(docWithImage(), "pdf", wsWithAsset, "en-US", async () => PNG_B64);
+
+    expect(downloads()).toHaveLength(1);
+    const [name, blob] = downloads()[0];
+    // ★ .html, never .pdf — there is no PDF writer anywhere in this module.
+    expect(name).toMatch(/\.html$/);
+    const text = await blob.text();
+    // The fallback carries the bytes too: a blocked popup must not silently
+    // cost the user their images as well as their print dialog.
+    expect(text).toContain(`src="data:image/png;base64,${PNG_B64}"`);
+    expect(text).not.toContain("window.print");
+  });
+
+  it("does not load any bytes for a document with no images", async () => {
+    const load = vi.fn(async () => PNG_B64);
+
+    await downloadDocument(docWithNoImages(), "docx", ws, "en-US", load);
+
+    expect(load).not.toHaveBeenCalled();
+    expect(downloads()).toHaveLength(1);
+  });
+
+  it("inlines the loaded bytes into the html and OOXML downloads alike", async () => {
+    await downloadDocument(docWithImage(), "html", wsWithAsset, "en-US", async () => PNG_B64);
+    await downloadDocument(docWithImage(), "docx", wsWithAsset, "en-US", async () => PNG_B64);
+    await downloadDocument(docWithImage(), "pptx", wsWithAsset, "en-US", async () => PNG_B64);
+
+    expect(downloads()).toHaveLength(3);
+    const html = await downloads()[0][1].text();
+    expect(html).toContain(`src="data:image/png;base64,${PNG_B64}"`);
+    // ★★ ATTRIBUTE-WITH-VALUE, not the bare substring: the standalone page
+    // styles carry an `img[data-asset-missing]` CSS rule, so the bare name is
+    // present in EVERY standalone output and asserting on it would chase a
+    // failure that is not one.
+    expect(html).not.toContain('data-asset-missing="true"');
+    // A package is a zip; asserting its size beats zero proves the renderer
+    // ran, and the MIMEs prove WHICH one.
+    expect(downloads()[1][1].type).toBe(DOCX_MIME);
+    expect(downloads()[2][1].type).toBe(PPTX_MIME);
+  });
+
+  // ★★★ THE OUTPUT CANNOT SEE THIS ONE, so the spy is the only detector.
+  // Dropping the `load ? … : NO_EXPORT_ASSETS` guard produces a BYTE-IDENTICAL
+  // file: `loadExportAssets` would call `undefined(id)`, its own try/catch in
+  // document-export-assets.ts turns the TypeError into `missing`, and a missing
+  // id renders exactly as an id in no bucket does. Measured — that mutant
+  // survived the whole suite. It is worth pinning anyway, because the export
+  // then depends on ANOTHER module's catch staying as wide as it is today:
+  // narrow it to network errors (a reasonable future change) and this call site
+  // starts throwing away the user's whole document over an absent loader.
+  it("discloses every image as missing when no loader is supplied, without entering the loader", async () => {
+    await downloadDocument(docWithImage(), "html", wsWithAsset, "en-US");
+
+    const html = await downloads()[0][1].text();
+    expect(html).toContain('data-asset-missing="true"');
+    expect(html).not.toContain("base64,");
+    expect(loadExportAssets).not.toHaveBeenCalled();
+  });
+
+  it("does enter the loader when one IS supplied, so the spy above is not vacuous", async () => {
+    await downloadDocument(docWithImage(), "html", wsWithAsset, "en-US", async () => PNG_B64);
+    expect(loadExportAssets).toHaveBeenCalledTimes(1);
   });
 });
