@@ -135,7 +135,16 @@ Expected: `EXIT=0`.
 npm outdated next; echo "EXIT=$?"
 ```
 
-Expected: **no output, `EXIT=0`.** `next` is no longer outdated relative to its own specifier. This is the inverse of Step 1 and is what proves the pin took effect.
+Expected: the **Wanted** column now reads `16.2.11` where it read `16.3.2`. That column is the tell.
+
+★★ **`npm outdated` STILL EXITS 1 AND STILL PRINTS A ROW, and an earlier revision of this step said it would go silent with `EXIT=0`.** That was wrong about the command's semantics, not about the pin: `npm outdated` reports any package whose **Latest** exceeds **Current**, whatever the specifier says, so a correctly pinned package that upstream has moved past is reported forever. Measured after the pin landed:
+
+```
+Package  Current   Wanted  Latest
+next     16.2.11  16.2.11  16.3.2
+```
+
+with `EXIT=1`. Pre-pin the same row read `Wanted 16.3.2`. So neither the exit code nor silence proves anything here — read the Wanted column, which is the only part the specifier controls.
 
 - [ ] **Step 8: Confirm the installed tree did not move**
 
@@ -377,7 +386,7 @@ Next.js 16.3 is unowned — the version is now pinned, the upgrade is not
 New Notes cell (single line in the file):
 
 ```
-★★ **The drift half of this row is CLOSED as of 0.255.1** — `next` is pinned exactly at `16.2.11`, matching `react`, `react-dom` and `eslint-config-next`, and the rule is written down in `CONTRIBUTING.md` under "Dependencies". What remains is owning the upgrade itself. ★★★ **THIS ROW USED TO IMPLY THE PIPELINE WAS EXPOSED, AND IT IS NOT.** It said "any install that does not honour the lock" moves the version; all four CI install sites are `npm ci`, which installs strictly from the lockfile and errors on a `package.json`/lock mismatch, so CI could never drift. The real route was always a `package-lock.json` merge conflict resolved the wrong way — committed, then installed faithfully and reported green — which is precisely what an exact specifier now prevents. ★ Release timeline, so the gap is a date and not a rotting "days old" figure: 16.2.11 (our pin) 2026-07-21 · 16.2.12 2026-07-25 · 16.3.0 2026-08-03 · 16.3.1 2026-08-13 · 16.3.2 2026-08-21. Re-derive with `npm view next time --json` — ★★ that command returns a ONE-ELEMENT ARRAY, not an object, so a script that iterates the parsed value directly finds nothing and reports no drift. ★ `npm outdated next` is no longer the tell: it is silent now that the specifier is exact. Compare against `npm view next version` instead. ★★ The bump needs the browser gates the pin was exempt from (e2e, axe, `e2e:smoke:prod`) — a framework minor can move rendering and CSP behaviour — plus a decision on whether `eslint-config-next` moves in step (pinned at `16.2.6` while `next` was at `16.2.11`, so lockstep is not required) and a check against the ESLint 10 block in `docs/open-followups.md` §53 and §45, which lives in that package's bundled `eslint-plugin-react`. ★ The installed `node_modules/next/dist/docs/` ships with the INSTALLED version, so 16.2.11's copy cannot describe 16.3 — read it after upgrading, not before. Design: `docs/superpowers/specs/2026-08-22-next-exact-pin-design.md` §5.
+★★ **The drift half of this row is CLOSED as of 0.255.1** — `next` is pinned exactly at `16.2.11`, matching `react`, `react-dom` and `eslint-config-next`, and the rule is written down in `CONTRIBUTING.md` under "Dependencies". What remains is owning the upgrade itself. ★★★ **THIS ROW USED TO IMPLY THE PIPELINE WAS EXPOSED, AND IT IS NOT.** It said "any install that does not honour the lock" moves the version; all four CI install sites are `npm ci`, which installs strictly from the lockfile and errors on a `package.json`/lock mismatch, so CI could never drift. The real route was always a `package-lock.json` merge conflict resolved the wrong way — committed, then installed faithfully and reported green — which is precisely what an exact specifier now prevents. ★ Release timeline, so the gap is a date and not a rotting "days old" figure: 16.2.11 (our pin) 2026-07-21 · 16.2.12 2026-07-25 · 16.3.0 2026-08-03 · 16.3.1 2026-08-13 · 16.3.2 2026-08-21. Re-derive with `npm view next time --json` — ★★ that command returns a ONE-ELEMENT ARRAY, not an object, so a script that iterates the parsed value directly finds nothing and reports no drift. ★★ `npm outdated next` still EXITS 1 and still prints a row — it reports on Latest-vs-Current and ignores the specifier, so a pinned package upstream has moved past is reported forever. The pin shows up in the **Wanted** column alone (`16.3.2` → `16.2.11`). Reading the exit code or an absence of output as "no drift" gets it exactly backwards; compare against `npm view next version` instead. ★★ The bump needs the browser gates the pin was exempt from (e2e, axe, `e2e:smoke:prod`) — a framework minor can move rendering and CSP behaviour — plus a decision on whether `eslint-config-next` moves in step (pinned at `16.2.6` while `next` was at `16.2.11`, so lockstep is not required) and a check against the ESLint 10 block in `docs/open-followups.md` §53 and §45, which lives in that package's bundled `eslint-plugin-react`. ★ The installed `node_modules/next/dist/docs/` ships with the INSTALLED version, so 16.2.11's copy cannot describe 16.3 — read it after upgrading, not before. Design: `docs/superpowers/specs/2026-08-22-next-exact-pin-design.md` §5.
 ```
 
 - [ ] **Step 4: Verify the table still parses and the gates pass**
@@ -409,8 +418,9 @@ package.json/lock mismatch. The real route was a lockfile merge conflict
 resolved the wrong way, and an exact specifier is what closes it.
 
 Records the release timeline as dates rather than a "days old" figure that
-rots, and notes that `npm outdated next` is no longer the tell now that the
-specifier is exact — it is silent by construction. Carries the array-shaped
+rots, and corrects what `npm outdated next` proves: it reports on
+Latest-vs-Current and ignores the specifier, so it still exits 1 after the
+pin and only the Wanted column moved. Carries the array-shaped
 `npm view next time --json` trap, which reports no drift when parsed wrong.
 EOF
 )"
