@@ -13342,12 +13342,24 @@ grep -n "noUnused" tsconfig.json                    # -> EXIT=1, absent
 npx eslint --print-config src/app/icons.ts          # read .rules, filter for severity
 ```
 
-★★ **THE FIX IS ONE LINE TODAY, and that is a measured claim rather than an assumption.** The usual
-reason a ratchet like this stays off is that switching it on goes red on pre-existing debt. It does
-not here — `npx eslint --max-warnings=0` over the whole repo exits **0** with no warning output at
-all, so the flag can be added to `npm run lint` (or to the `lint:` job) without a cleanup pass in
-front of it. Re-measure before acting; the number that matters is that run's exit code, not this
-sentence.
+★★ **THE CONFIG CHANGE IS ONE LINE TODAY; THE SLICE IS NOT.** The usual reason a ratchet stays off is
+that switching it on goes red on existing debt. Not here — and the exit code alone would not prove
+that, since a run that lints NOTHING also exits 0. Measured with a per-file report instead:
+
+```bash
+npx eslint --max-warnings=0 -f json -o /tmp/lint.json; echo "EXIT=$?"
+node -e "const r=require('/tmp/lint.json');console.log(r.length,'files',
+  r.reduce((a,f)=>a+f.warningCount,0),'warnings',r.reduce((a,f)=>a+f.errorCount,0),'errors')"
+```
+
+→ **1800 files linted, 0 warnings, 0 errors.** So no cleanup pass is needed in front of it.
+★★ **But budget for the doc ripple, which is most of the work.** Roughly six sentences across
+`AGENTS.md`, `CONTRIBUTING.md`, `docs/CODEMAPS/architecture.md` and this file assert the gate is
+ABSENT, and every one goes false the moment it is added — enumerate with
+`grep -rn -- "--max-warnings" AGENTS.md CONTRIBUTING.md docs/`. This entry closes with them.
+★★★ **PUT THE FLAG IN `package.json`'s `lint` SCRIPT, NOT IN THE `lint:` JOB.** Adding it to the CI
+job only re-creates the exact divergence that caused this whole confusion: `npm run lint` passing
+locally while CI enforces something stricter. One script line keeps local and CI identical.
 
 ★★ **Two routes, and they are not equivalent.** Adding `--max-warnings=0` promotes EVERY
 warning-severity rule to blocking at once, including `react-hooks/exhaustive-deps`. Promoting the
