@@ -22,13 +22,13 @@ Every row was reproduced against the tree at `0ff948bb`. Re-run before trusting 
 | Files importing heroicons | **78** | `grep -rln "@heroicons/react" src/app \| wc -l` |
 | Import paths in use | **`@heroicons/react/24/outline` only** — no `solid`, no `/20` | `grep -rhoE 'from "@heroicons/react/[^"]+"' src e2e scripts \| sort \| uniq -c` |
 | Distinct **source** icon names | **69** | the import-scoped sweep in §1 below |
-| Import specifiers | **150** · icon JSX call sites ~**141** | same sweep |
+| Import specifiers | **150** · icon JSX call sites: NOT QUOTABLE, see §4.3 | same sweep |
 | lucide exports the same name | **25** of 69 | §5 |
 | `lucide-react` installed | `^1.31.0`, one consumer (`rich-text-toolbar.tsx`) | `grep -rln "lucide-react" src/app` |
 | heroicons IMPORTED by tests | **zero** `*.test.tsx`, **zero** `e2e/` | `grep -rln "@heroicons" src --include=*.test.tsx; grep -rn "heroicons" e2e` |
-| heroicons ASSUMED by tests | **3 assertions in 2 files** — and this row did not exist until execution proved it. See §5.5 | `npx vitest run src/app/nav-icons src/app/task-manager-ui` |
+| heroicons ASSUMED by tests | **3 assertions in 2 files** — and this row did not exist until execution proved it. See §5.5 | HISTORICAL: true at the BASE commit only. The obvious command (`npx vitest run src/app/nav-icons src/app/task-manager-ui`) now passes, because the fix is in — it proves the opposite of what a reader expects. To see the coupling, run it at `0ff948bb` with the barrel in place, or read the §5.5 table. |
 | `data-slot="icon"` (heroicons emits it) | referenced **nowhere** in `src`/`e2e`/CSS | `grep -rn 'data-slot' src e2e --include=*.ts --include=*.tsx --include=*.css` |
-| Call sites passing `aria-hidden` | **122** · passing `aria-label`/`role` **0** · passing `aria-hidden={false}` **0** | see §4.3 |
+| Call sites passing `aria-label`/`role` | **0** · passing `aria-hidden={false}` **0** — the zeros are the load-bearing half | see §4.3 |
 | Icon-typed props | **one** annotation repo-wide (`nav-icons.tsx`) | `grep -rln "SVGProps<SVGSVGElement>" src --include=*.tsx --include=*.ts` |
 | Aliased imports | **one** — `PrinterIcon as PrinterHeroIcon` (`task-manager-ui.tsx`), dodging a local `PrinterIcon` wrapper in the same file | `grep -rn "PrinterHeroIcon" src` |
 
@@ -73,7 +73,7 @@ current for this work; 1.33.0 exists and is out of scope).
 | Question | Decision |
 |---|---|
 | Visual outcome | **Preserve today's look.** Nearest-glyph target for every icon; any visible change is a defect, not a refresh |
-| Import shape | **Central barrel** `src/app/icons.ts`. The 78 files change their import line only; the 141 JSX call sites are untouched |
+| Import shape | **Central barrel** `src/app/icons.ts`. The 78 files change their import line only; every JSX call site is untouched |
 | Stroke-weight mechanism | **CSS rule on `.lucide`**, not `LucideProvider` — see §4.2 |
 | Does the pin cover the existing rich-text toolbar? | **Yes.** It ships at lucide's default 2 today and gets lighter. Two stroke weights in one app is the inconsistency this slice exists to remove |
 | Contact sheet | **Kept permanently** as a gallery route + spec, not deleted after the comparison |
@@ -134,20 +134,62 @@ was wrong; caught in review of Task 2.)
 lucide sets `width`/`height` **attributes**; every call site sizes with Tailwind `h-*`/`w-*`, and
 CSS beats presentation attributes, so rendered sizes do not move.
 
-a11y is a no-op across all 141 call sites, which is a measured claim and not an optimistic one.
+a11y is a no-op at every call site, which is a measured claim and not an optimistic one.
 heroicons sets `aria-hidden="true"` unconditionally and spreads caller props after, so a caller can
 override it. lucide sets it **conditionally** — its `Icon` component adds the attribute only when
 the icon has no children and the caller passed no a11y prop of its own.
 
-With **122** sites passing `aria-hidden` explicitly, **0** passing a name or `role`, and **0**
-passing `aria-hidden={false}`, both packages produce `aria-hidden="true"` at every site. The
+With **0** sites passing a name or `role` and **0** passing `aria-hidden={false}`, both packages
+produce `aria-hidden="true"` at every site. The
 remaining sites relying on the implicit default keep getting it, because they pass no a11y prop and
 no children. ★ lucide is the safer of the two here: pass `aria-label` to a heroicon and it stays
 hidden anyway; pass one to a lucide icon and it is correctly exposed.
 
-Reproduce the three counts with a sweep over icon JSX opening tags in `src/app`, extracting
-`aria-*` and `role=` occurrences — the exact form is in the slice's plan, because the naive version
-misses multi-line JSX and reports fewer sites than exist.
+★★★ **DO NOT QUOTE A CALL-SITE TOTAL HERE, AND AN EARLIER REVISION OF THIS SECTION QUOTED TWO.**
+It said ~141 JSX call sites and 122 passing `aria-hidden`, attributed the sweep to "the slice's
+plan", and explained that the naive form "misses multi-line JSX and reports fewer sites than exist".
+Every part of that is wrong. The plan contains no such command (`grep -nE "141|122" <plan>` returns
+nothing). And three independent sweeps of the same tree at the base commit disagree: an
+import-scoped sweep counting only locally-bound names gives **70**, a broader one gives **123**, and
+the naive `git grep -hoE "<[A-Z][A-Za-z0-9]*Icon"` gives **144** — so the naive form OVER-counts
+(it catches `<NavIcon` and other `Icon`-suffixed wrappers), the opposite of the stated failure mode.
+The spread is real, not sloppiness: icons reached through a MAP (`nav-icons.tsx` renders `<Icon />`
+from a lookup) are call sites by one definition and not by another, and no definition is canonical.
+★★ **The ZEROS are what this section actually rests on, and they reproduce under every definition** —
+no call site passes `aria-label`, `role`, or `aria-hidden={false}`, so no site can observe lucide's
+conditional. Verify those three, and quote no total:
+
+```bash
+# ★★ NOT a bare `git grep` for aria-label over src/app — that returns 757 hits and reads as a
+# REFUTATION of the sentence above. It counts every aria-label in the tree, not the ones on an
+# ICON. Scope it to icon JSX opening tags, using the BROADEST definition of one, so that a zero
+# here implies a zero under every narrower definition:
+cat > /tmp/zeros.mjs <<'EOF'
+import { execSync } from "node:child_process";
+const BASE = process.argv[2] || "0ff948bb";
+const files = execSync(`git grep -l "@heroicons/react" ${BASE} -- src/app`, { encoding: "utf8" })
+  .trim().split("\n").map(l => l.slice(BASE.length + 1));
+let tags = 0, label = 0, role = 0, hiddenFalse = 0;
+// Broadest possible definition of "icon call site": ANY <XxxIcon ...> opening tag,
+// multi-line safe. If the zeros hold here they hold under every narrower definition.
+const RE = /<[A-Z][A-Za-z0-9]*Icon(?=[\s/>])[\s\S]*?\/?>/g;
+for (const f of files) {
+  const src = execSync(`git show ${BASE}:${f}`, { encoding: "utf8", maxBuffer: 1 << 28 });
+  for (const m of src.matchAll(RE)) {
+    tags++;
+    if (/aria-label/.test(m[0])) label++;
+    if (/\brole=/.test(m[0])) role++;
+    if (/aria-hidden=\{false\}/.test(m[0])) hiddenFalse++;
+  }
+}
+console.log(`icon JSX opening tags scanned: ${tags}`);
+console.log(`  aria-label:          ${label}`);
+console.log(`  role=:               ${role}`);
+console.log(`  aria-hidden={false}: ${hiddenFalse}`);
+EOF
+node /tmp/zeros.mjs
+# Verified 2026-08-22: 131 tags scanned, all three counts 0.
+```
 
 ### 4.4 The gallery route
 
@@ -300,7 +342,11 @@ spec's claim to be pinning canonical names. The two rows in §5.3 now carry the 
 so the rest of the table stands. Read the file, and let `displayName` be the arbiter:
 
 ```bash
-grep -l "export { default } from" node_modules/lucide-react/dist/esm/icons/*.mjs
+# WRONG — this lists every shim in lucide (257 files), not the ones among the 69.
+#   grep -l "export { default } from" node_modules/.../icons/*.mjs
+# Scope it to the barrel: run the script in §5.5 and swap its final test for
+#   if (body.startsWith("export { default }")) out.push(...)
+# Barrel-scoped answer today: ZERO — every one of the 69 resolves to a canonical file.
 ```
 
 ★ This is the THIRD defect in this slice's own instruments — the kebab bug above, a row-counting
@@ -326,7 +372,40 @@ ellipsis icons `<circle>`s, `Squares2X2Icon` and `StopIcon` `<rect>`s. Two of th
 surfaces with tests. Re-derive rather than trusting the list:
 
 ```bash
-grep -L '"path"' node_modules/lucide-react/dist/esm/icons/*.mjs
+# ★★★ NOT `grep -L '"path"' node_modules/.../icons/*.mjs` — that returns 328 files, of which
+# 257 are SHIMS that contain no "path" string only because they are one-line re-exports
+# (`alert-triangle.mjs` is in that list; its target draws three). An unscoped command here is
+# worse than none: it reports icons as path-less that draw paths. Resolve through the ROOT entry.
+cat > /tmp/nopath.mjs <<'EOF'
+import fs from "node:fs";
+const dir = "node_modules/lucide-react/dist/esm";
+const MARK = " } from './icons/";
+const byName = new Map();
+for (const line of fs.readFileSync(`${dir}/lucide-react.mjs`, "utf8").split("\n")) {
+  const i = line.indexOf(MARK);
+  if (i < 0) continue;
+  const rest = line.slice(i + MARK.length);
+  const file = rest.slice(0, rest.indexOf(".mjs'"));
+  for (const seg of line.slice(0, i).replace("export {", "").split(",")) {
+    const nm = seg.trim().replace("default as ", "");
+    if (nm) byName.set(nm, file);
+  }
+}
+const out = [];
+for (const raw of fs.readFileSync("src/app/icons.ts", "utf8").split("\n")) {
+  const t = raw.trim();
+  if (!t.endsWith(",") || t.startsWith("//")) continue;
+  const parts = t.slice(0, -1).split(" as ");
+  const src = parts[0].trim(), app = (parts[1] || parts[0]).trim();
+  if (!/^[A-Z]\w*Icon$/.test(src)) continue;
+  const file = byName.get(src);
+  if (!file) { out.push(`UNRESOLVED ${src}`); continue; }
+  if (!fs.readFileSync(`${dir}/icons/${file}.mjs`, "utf8").includes('"path"')) out.push(`${app} -> ${file}`);
+}
+console.log(out.join("\n") + `\n(${out.length} barrel rows render no <path>)`);
+EOF
+node /tmp/nopath.mjs
+# Verified 2026-08-22: prints exactly the five named above, and zero UNRESOLVED.
 ```
 
 ★★ The grip test is the sharpest instance, because it **documented its own assumption in a comment**
@@ -351,10 +430,19 @@ instrument that sees it.
 
 ## 6. Verification
 
-1. **Gallery + contact sheet (kept).** `e2e/icon-gallery.spec.ts` screenshots the route as a visual
-   baseline and asserts the computed stroke width is `1.5` — the **only** place the §4.2 pin can be
-   proved, since jsdom has no CSS. Captured once on `main` before the swap and once after; the pair
-   is the glyph-fidelity review, and §5.2 is what to look at first.
+1. **Gallery + contact sheet (kept).** TWO specs, and they do NOT run in the same places — an
+   earlier revision of this bullet bundled them into one sentence and attributed the screenshot to
+   the CI spec, whose own opening comment says "No screenshot here on purpose".
+   ★ `e2e/icon-gallery.spec.ts` is the CI half: it asserts the barrel count, that every glyph is
+   `aria-hidden`, and that the computed stroke width is `1.5px` — the **only** place the §4.2 pin can
+   be proved, since jsdom has no CSS. It runs on every pipeline.
+   ★★ `e2e/icon-gallery.visual.spec.ts` holds the SCREENSHOT baseline, and it does **not** run in CI.
+   `playwright.config.ts` gives the `chromium` project `testIgnore: /visual\.spec\.ts/` and `npm run e2e`
+   is `--project=chromium`, so the screenshot half is reachable only through the opt-in `visual`
+   project. Every committed baseline is `-win32`; a Linux runner has none and would not be asked for
+   one. Reproduce: `grep -nE "testIgnore|testMatch" playwright.config.ts` and `find e2e -name "*.png"`.
+   ★ So the glyph-fidelity review is a HUMAN gate, not a pipeline one. Captured once on `main` before
+   the swap and once after; the pair is that review, and §5.2 is what to look at first.
    ★ A gallery is the most stable screenshot in the repo — no seeded data, no dates, no layout —
    which is why it is a reasonable permanent baseline where app-screen baselines have rotted.
 2. **Barrel export test** pinning the exact export list, so a dropped icon is a red test rather than
@@ -396,7 +484,11 @@ Only the §5.2 shortlist review does. Do not read a green pipeline as glyph corr
 ★ Those four are inside `docs:claims:check`'s scope. This spec is not — the gate skips
 `docs/superpowers/`.
 
-★★ `AGENTS.md` gets **one** line, not a section: new icons come from `src/app/icons.ts`. Its own
+★★ `AGENTS.md` gets **one BULLET**, not a section: new icons come from `src/app/icons.ts`. ★ It said
+"one line" and what shipped is a ~14-line bullet — the extra lines are the two glyph traps, the
+no-`<path>` rule and the stroke pin, each of which has already cost a defect, so the growth was
+earned rather than drift. The rule it is testing itself against is the file's own: a bullet past ~60
+lines of subsystem detail belongs in `docs/AGENTS/`. Its own
 header records that the file regrew 111% in fifteen days by accepting plausible additions; a mapping
 table belongs here.
 

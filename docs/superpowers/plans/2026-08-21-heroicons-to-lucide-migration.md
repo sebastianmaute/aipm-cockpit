@@ -947,7 +947,7 @@ Expected: no output and `EXIT=1` (grep matched nothing). The compare page from T
 
 **Files:** `src/app/nav-icons.tsx` · `src/app/rich-text-toolbar.tsx` · `src/app/toggle-button.tsx` · `src/app/toggle-button.test.tsx` · `src/app/i18n.ts` · `src/app/i18n.de.ts`
 
-★★★ **Discovered mid-execution; neither the spec nor the original plan had it.** Converting the imports leaves **10** references to heroicons in `src` prose, and two of them become FALSE rather than merely dated. Re-derive the list before starting:
+★★★ **Discovered mid-execution; neither the spec nor the original plan had it.** Converting the imports leaves a handful of heroicons references in `src` prose, and two of them become FALSE rather than merely dated. ★★ **This step once bolded a count of 10 and NO reading of the tree ever produced it** — at the commit that authored this step the command below returned 14, or 12 excluding the compare page, or 7 excluding that and `icons.ts`'s own deliberate mentions. The count moves with every edit to this very step's targets, which is why it is no longer quoted. Re-derive the list before starting:
 
 ```bash
 grep -rn "heroicons\|Heroicon" src --include=*.tsx --include=*.ts | grep -v 'from "@heroicons'
@@ -989,7 +989,7 @@ npx tsc --noEmit; echo "TSC=$?"
 grep -rn "heroicons\|Heroicon" src --include=*.tsx --include=*.ts | grep -v 'from "@heroicons' | grep -v icon-gallery/compare
 ```
 
-Expected: the DE string shows real umlauts and no curly quotes, `TSC=0`, and the final grep returns only `icons.ts`'s own deliberate mentions (it documents the migration). The compare page is excluded because Task 9 deletes it.
+Expected: the DE string shows real umlauts and no curly quotes, `TSC=0`, and the final grep returns hits in exactly FOUR files — `icons.ts` (its own deliberate mentions; it documents the migration), `version.ts`, `i18n.ts` and `i18n.de.ts`. ★★★ **The last three are REQUIRED to survive and an earlier Expected here demanded they not** — it said the grep returns "only `icons.ts`", which contradicts this task's own Step 3 ("★★ Reword the VALUES… do NOT rename the key", so `versionHighlightHeroicons` stays in both i18n files) and Task 11 (which mandates the `APP_BUILD_DATE` comment). A step whose Expected cannot be satisfied by following the step is worse than no Expected: the reader either edits working code to reach it or learns to ignore the line. The compare page is excluded because Task 9 deletes it.
 
 ★ The i18n encoding test bans ASCII substitutes (`fuer`, `druecken`), so "Oberflaeche" is not an escape route — the umlauts must be real.
 

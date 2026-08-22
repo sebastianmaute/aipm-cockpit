@@ -439,10 +439,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
-  `opacity-0` is NOT load-bearing: heroicons DEFAULTS `aria-hidden` on every icon (its own attributes
-  come first and `props` spread after, so a caller can override it — a default, not a hard-code), so the glyph is
-  out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
-  a11y tree was the reason — it is inert, and a test written to pin it could not fail.
+  `opacity-0` is NOT load-bearing: the marker span carries its OWN explicit `aria-hidden="true"`, so the
+  glyph is out of the a11y tree in both states either way. ★★ DO NOT restore the old reason for that —
+  it said heroicons DEFAULTS `aria-hidden` on every icon, which was true of heroicons and is FALSE under
+  lucide, whose `Icon.mjs` adds it only when the caller passes NO a11y prop
+  (`...!children && !hasA11yProp(rest) && { "aria-hidden": "true" }`). The conclusion survived the icon
+  migration only because the call site was already explicit; a NEW glyph that relies on the library
+  defaulting it would be in the a11y tree. An earlier revision of this bullet claimed the a11y tree was
+  the reason — it is inert, and a test written to pin it could not fail.
   ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
   default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
   toolbar, where stealing focus from the editor collapses the selection the command is about to
