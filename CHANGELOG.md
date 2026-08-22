@@ -14,8 +14,8 @@ longer carries its own changelog comment.
 
 - **Document images, end to end (Turso-gated).** Upload an image by file picker,
   clipboard paste or drag-and-drop; manage it in a shared asset library with
-  per-asset usage counts; insert it into a document; see it render in the
-  preview and in HTML/PDF export.
+  per-asset usage counts; insert it into a document; see it render in the live
+  preview. Export wiring is not finished — see *Known limitations*.
 - **Two stores, deliberately separate.** Asset *metadata* (`DocumentAsset`) is a
   normal workspace slice carried on all six write paths — JSON, CSV, Markdown,
   Turso single-tenant, Turso multi-tenant and IndexedDB. Asset *bytes* live as
@@ -40,9 +40,19 @@ longer carries its own changelog comment.
 
 ### Changed
 
-- Standalone HTML export inlines image bytes as a data URI, which is also how
-  PDF export works — through the browser print dialog, with no PDF writer and no
-  new dependency.
+- The standalone HTML renderer can inline image bytes as a validated `data:`
+  URI, which is also how PDF export would work — through the browser print
+  dialog, with no PDF writer and no new dependency. The sink is built, format-
+  and base64-validated, and tested; no production caller passes it the assets
+  yet (see *Known limitations*).
+- `img-src` in `src/proxy.ts` now allows `blob:`. The preview resolves assets to
+  blob object URLs, so without it every document image was blocked by CSP — in
+  dev and prod alike.
+- `ENTITY_SPECS` rows may declare `idKind: "text"`. `DocumentAsset` is the first
+  entity in the registry with a string id, and the schema builder emitted
+  `id INTEGER PRIMARY KEY` unconditionally — a rowid alias, one of the few types
+  SQLite enforces — so a single such row aborted the shared `BEGIN … COMMIT` and
+  with it every workspace save.
 - DOCX and PPTX export emit a **visible placeholder naming the omitted image**,
   never a silent drop. Real OOXML media parts are deferred.
 - The preview resolves image ids to **blob object URLs** rather than inlining
@@ -63,6 +73,15 @@ longer carries its own changelog comment.
 - The asset library is Turso-gated and the e2e seed runs in file mode, so the
   a11y gate never renders it; its unit tests are the only detector for that
   surface.
+- **HTML and PDF export omit the image entirely** — no `src`, and no placeholder
+  either, so the export is silently short a picture. DOCX and PPTX are better
+  here: both name the omitted asset. Tracked in `docs/open-followups.md` as
+  §210.
+- **A Turso database written by an older build cannot take an upload.** Its
+  `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the first image
+  aborts that save and every save after it, with a `datatype mismatch` message
+  naming neither table nor column, and there is no in-app repair path. Tracked
+  as §211.
 
 ## [0.253.0] - 2026-08-21 "Schroeder"
 
