@@ -17,6 +17,29 @@ const eslintConfig = defineConfig([
     "coverage/**",
     ".claude/**",
   ]),
+  {
+    rules: {
+      "no-restricted-imports": [
+        "error",
+        {
+          paths: [
+            {
+              name: "@heroicons/react",
+              message:
+                "Icons come from src/app/icons.ts. @heroicons/react was removed app-wide (tech-debt TD-8).",
+            },
+          ],
+          patterns: [
+            {
+              group: ["@heroicons/react/*"],
+              message:
+                "Icons come from src/app/icons.ts. @heroicons/react was removed app-wide (tech-debt TD-8).",
+            },
+          ],
+        },
+      ],
+    },
+  },
 ]);
 
 export default eslintConfig;
