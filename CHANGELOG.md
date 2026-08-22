@@ -8,6 +8,19 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.254.0] - 2026-08-22 "Bisson"
+
+### Changed
+- **One icon set app-wide.** Every icon now comes from `src/app/icons.ts`, backed by `lucide-react`; `@heroicons/react` is removed from the project and an ESLint rule blocks its return. The interface is unchanged by design — the previous set's 1.5 stroke weight is pinned in `globals.css`, and each of the 69 icons was matched to its nearest equivalent by glyph rather than by name.
+- Two icons carried the **same name in both packages while drawing different things**, and were remapped: lucide's `Bolt` is a hardware nut rather than a lightning flash (Activity), and its `ChartBar` is horizontal where the previous one was vertical (Workload). `src/app/icons.test.ts` pins all 69 mappings against each component's own `displayName`, so a row repointed at a plausible-but-wrong glyph fails the suite rather than passing a name check.
+- The rich-text toolbar, which already used `lucide-react`, now shares that same 1.5 stroke weight instead of the library default — so the app no longer draws two icon weights.
+
+### Added
+- A dev-only `/icon-gallery` route with a CI spec and a visual baseline, so icon choices stay reviewable and the stroke-weight pin is asserted in a real browser (jsdom sees no CSS, so no unit test can observe it).
+
+### Fixed
+- Three tests asserted on the previous icon library's internals — that every icon renders a `<path>`, and that a custom class is the element's entire class string. Five of the 69 icons render no `<path>` at all, and `lucide-react` prepends its own classes; the tests now assert that an icon drew geometry and that a custom size class replaces the default rather than joining it.
+
 ## [0.253.0] - 2026-08-21 "Schroeder"
 
 ### Changed
