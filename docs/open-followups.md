@@ -10058,6 +10058,20 @@ defect:** 78 files stay on `@heroicons/react` until the migration slice runs, ne
 `lucide-react`, and no gate enforces either side. Do not read the mix as license to revert the
 default, and do not "fix" it by hand-converting files outside a scheduled migration slice.
 
+★★ **THE DECIDED WORK SHIPPED — 0.254.0 "Bisson", 2026-08-22.** The app-wide migration ran as its
+own slice, as this entry said it must. `src/app/icons.ts` is the barrel every former call site now
+imports; `@heroicons/react` is gone from `package.json`; an ESLint `no-restricted-imports` rule
+blocks its return. The "deliberate mixed state" recorded above as ACCEPTED is over — there is one
+icon package. Re-derive rather than quoting: `grep -rln "@heroicons/react" src/app | wc -l` returns
+**0**. Design and plan: `docs/superpowers/specs/2026-08-21-heroicons-to-lucide-migration-design.md`.
+
+★★★ **The migration found two glyphs that would have shipped WRONG under a name-for-name codemod**,
+and both were inside the 25 names lucide happens to spell identically — the set that reads as safe.
+lucide's `Bolt` is a hardware nut rather than a lightning flash (**Activity**), and its `ChartBar`
+is horizontal where heroicons' is vertical (**Workload**). Found by reading path data, not by
+reasoning about names. Recorded here because the lesson outlives this entry: when swapping icon
+packages, a shared NAME is not a shared GLYPH, and no gate in this repo can tell you otherwise.
+
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 
 Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:

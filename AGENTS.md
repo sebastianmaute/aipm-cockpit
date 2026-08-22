@@ -800,6 +800,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
+- **Icons come from `src/app/icons.ts`**, never from `lucide-react` directly (the sole exception is
+  `rich-text-toolbar.tsx`, whose set came from Tiptap's reference toolbar) and never from
+  `@heroicons/react`, which was REMOVED app-wide in 0.254.0 — a `no-restricted-imports` rule makes a
+  reintroduction fatal, and its `patterns` half is the load-bearing one because every old call site
+  imported the `/24/outline` SUBPATH. ★★ The barrel re-exports lucide under the OLD heroicons names
+  on purpose, so a name there is NOT a claim about what lucide calls that glyph.
+  ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
+  horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
+  every row by `displayName`, which is alias-invariant. ★★ **Five of the 69 render no `<path>`**
+  (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
+  lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
+  `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
+  pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
+  `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you
