@@ -1980,12 +1980,12 @@ every number here as a measurement with a date, not a property.
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
   --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
   2026-07-31. Nothing is red.
-- ★★ eslint 10 is a major landing. ★★★ THIS ENTRY USED TO SAY "against a `--max-warnings=0` gate, so any
-  rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate (CI
-  runs bare `eslint`), so only a rule landing at severity 2 can fail the build; a new WARNING ships
-  green. That shrinks this item's blast radius, so re-scope it before quoting the old size. Any rule added, renamed or
-  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
-  edits, which a major would likely require. That is a slice with its own verification, not an install.
+- ★★ eslint 10 is a major landing. ★★★ THIS BULLET USED TO SAY "against a `--max-warnings=0` gate, so
+  any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate
+  (CI runs bare `eslint`, see §202), so only a rule landing at severity **2** can fail the build; a new
+  WARNING ships green. That shrinks this item's blast radius — re-scope it before quoting the old size.
+  There is also a hook blocking `eslint.config.mjs` edits, which a major would likely require. That is
+  a slice with its own verification, not an install.
 
 ★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
 reasoned about — do not repeat them.**
@@ -13321,3 +13321,50 @@ that finds it is the `node -e` command above.)
 ★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
 back otherwise clean.
+
+## 202. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI
+
+**Status:** open — the docs that misdescribed this were corrected in 0.254.0; the gate itself is
+untouched, deliberately, because turning it on affects every future MR and was out of scope for an
+icon migration.
+
+CI's `lint:` job runs `npm run lint`, that script is bare `eslint`, and no `--max-warnings` flag
+exists anywhere in the repo's config. `@typescript-eslint/no-unused-vars` resolves to severity **1**
+(a warning), so it cannot fail the job — and `tsconfig.json` sets neither `noUnusedLocals` nor
+`noUnusedParameters`, so the typechecker does not cover it either. An unused import or variable
+reaches `main` with every gate green.
+
+```bash
+grep -n -A6 '^lint:' .gitlab-ci.yml                 # script: - npm run lint
+node -e "console.log(require('./package.json').scripts.lint)"   # -> eslint
+grep -rn -- "--max-warnings" .gitlab-ci.yml package.json eslint.config.mjs   # -> nothing
+grep -n "noUnused" tsconfig.json                    # -> EXIT=1, absent
+npx eslint --print-config src/app/icons.ts          # read .rules, filter for severity
+```
+
+★★ **THE FIX IS ONE LINE TODAY, and that is a measured claim rather than an assumption.** The usual
+reason a ratchet like this stays off is that switching it on goes red on pre-existing debt. It does
+not here — `npx eslint --max-warnings=0` over the whole repo exits **0** with no warning output at
+all, so the flag can be added to `npm run lint` (or to the `lint:` job) without a cleanup pass in
+front of it. Re-measure before acting; the number that matters is that run's exit code, not this
+sentence.
+
+★★ **Two routes, and they are not equivalent.** Adding `--max-warnings=0` promotes EVERY
+warning-severity rule to blocking at once, including `react-hooks/exhaustive-deps`. Promoting the
+single rule in `eslint.config.mjs` (`"@typescript-eslint/no-unused-vars": "error"`) is narrower.
+★ `eslint.config.mjs` is protected by a hook, so an agent cannot edit it — that route needs a human.
+
+★★★ **IT CONFLICTS WITH §53 (ESLint 10, blocked upstream) AND WITH §45's eslint-10 bullet — read both
+first.** ★ An earlier draft of this paragraph cited "§7 B4", which is a different item entirely; the
+number was carried over from an unrelated line in this file rather than looked up. Their blast radius
+depends on this gate being OFF: with no `--max-warnings`, a major eslint landing
+can only fail the build by adding or changing a rule at severity **2**, and a new warning ships
+green. Adding the gate re-creates exactly the "any rule added, renamed or changed-by-default becomes
+an instant fatal build" risk that entry was re-scoped away from in 0.254.0. Sequence the two
+deliberately; doing this one first makes the upgrade harder, not easier.
+
+★ Why it surfaced: the 0.254.0 icon migration rewrote the import line of 78 files, and "an unused
+import would have been caught by the gate" was the natural assumption while reviewing it. It is
+false. That branch was clean — but by `tsc` and a per-file import-name diff, not by any gate. The
+docs asserting otherwise (`AGENTS.md`, `docs/CODEMAPS/architecture.md`, `docs/AGENTS/dashboard.md`,
+and two places in this file) were corrected in that release; `CONTRIBUTING.md` had it right already.
