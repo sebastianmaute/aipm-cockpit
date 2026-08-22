@@ -1327,6 +1327,40 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(paraTexts(xml)).toEqual(["T", "before", "", "after"]);
   });
 
+  // ★★★ A RULE IS CONTENT THAT CARRIES NO TEXT, which is the one shape where
+  // "does this fragment have visible text?" and "does this fragment emit
+  // anything?" give different answers — and the emptiness gate in
+  // `paragraphBlock` is asked about a fragment that a split has already stripped
+  // of its own tags. `DocBlock` has no rule member (document-model.ts), so an
+  // <hr> can ONLY reach a renderer inside a paragraph's html: exactly the string
+  // this split cuts up. `hr` is in RICH_ALLOWED_TAGS and therefore in
+  // DOCUMENT_ALLOWED_TAGS, so `sanitizeDocumentHtml` preserves one — no toolbar
+  // control emits it, but AI-authored and pasted html both can, and
+  // "renders a horizontal rule as a bordered paragraph" above already pins the
+  // no-image shape of the very same fixture.
+  it("keeps a horizontal rule that FOLLOWS an inlined image", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p><hr>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain("<w:drawing>");
+    // The rule renders as a paragraph wearing a bottom border (HR_PARAGRAPH,
+    // ooxml-docx-primitives.ts) — it has no run, so no text assertion can see it.
+    expect(xml).toContain("<w:pBdr>");
+  });
+
+  it("keeps a horizontal rule that PRECEDES an inlined image", async () => {
+    // The mirror arm: the leading segment, not the trailing one.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<hr><p><img data-asset-id="a1"></p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain("<w:drawing>");
+    expect(xml).toContain("<w:pBdr>");
+  });
+
   it("renders unchanged when no assets are passed at all", async () => {
     const a = await unzipBytes(renderDocumentDocx(imageDoc(`<p>x</p>`), emptyWorkspace(), "en-US"));
     const b = await unzipBytes(

@@ -209,26 +209,16 @@ function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, Docum
   return { drawingFor, parts };
 }
 
-/** Whether an HTML fragment carries anything a reader would see.
+/** What `docxRichParagraphs` returns for a value that yields NO lines — a
+ *  valid but contentless paragraph, which it is obliged to emit because a
+ *  `<w:tc>` with no block-level child makes Word reject the whole file. Here it
+ *  is read as a SIGNAL: this fragment had nothing to say.
  *
- *  ★★★ A BARE `.trim()` IS NOT THIS TEST, and using one brackets every
- *  image-only paragraph with blank paragraphs. Splitting `<p><img></p>` around
- *  the tag leaves the fragments `<p>` and `</p>` — non-blank as STRINGS, empty
- *  as PROSE. An image-only paragraph is precisely what the block editor
- *  inserts, so that is the DOMINANT shape here, not an edge case.
- *
- *  ★★ Asked AFTER `withImagePlaceholders` has run, never before. A segment can
- *  still hold an `<img>` this renderer DECLINED to embed, and its placeholder
- *  text is the reader's only disclosure that an image was ever there — strip
- *  the tag before substituting and the segment reads as empty, gets dropped,
- *  and that is the S3c-1 defect all over again.
- *
- *  ★ The tag strip is deliberately crude (it stops at the first `>`, even
- *  inside a quoted attribute). Over-keeping is the safe direction: the cost is
- *  an empty paragraph, where under-keeping loses text. */
-function hasVisibleText(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").trim() !== "";
-}
+ *  ★ Comparing against the sentinel rather than re-deriving the line list is
+ *  what keeps ONE parse in play. The alternative — calling `htmlToRichLines`
+ *  here as well — would duplicate `docxRichParagraphs`' own `descriptionHtml`
+ *  classification step, and the two copies would then have to agree forever. */
+const EMPTY_PARAGRAPH = "<w:p/>";
 
 /** Wrap a fragment so the rich pipeline treats it as MARKUP.
  *
@@ -268,9 +258,34 @@ function paragraphBlock(
   drawingFor: (id: string) => string | null,
 ): string {
   const out: string[] = [];
+  /** Render one segment, and keep it unless it produced nothing.
+   *
+   *  ★★★ THE QUESTION IS "DOES THIS EMIT ANYTHING?", NOT "DOES THIS HAVE TEXT?",
+   *  and the two disagree on exactly one shape: a HORIZONTAL RULE is content
+   *  that carries NO text. An earlier cut of this gate stripped the fragment's
+   *  tags and tested the remainder — measured, that DROPPED the rule in
+   *  `<p><img data-asset-id></p><hr>`, in the leading and trailing segment
+   *  alike. `DocBlock` has no rule member, so an `<hr>` can ONLY reach a
+   *  renderer inside a paragraph's html — precisely the string this function
+   *  cuts up — and `hr` is in `DOCUMENT_ALLOWED_TAGS`, so `sanitizeDocumentHtml`
+   *  preserves one. Pinned by "keeps a horizontal rule that FOLLOWS / PRECEDES
+   *  an inlined image".
+   *
+   *  ★★ WHY DOCX KEEPS A GATE THAT PPTX DELETED. `doc-render-pptx-slides.ts`
+   *  drops blank lines per block itself, so the same gate there was pure
+   *  redundancy and removing it was right. Nothing in this file does that:
+   *  `docxRichParagraphs` MUST return a paragraph for an empty value, so without
+   *  this check every image-only paragraph — the shape the block editor actually
+   *  inserts — is bracketed by two blank `<w:p>`. Same finding, opposite remedy;
+   *  do not port one file's answer to the other.
+   *
+   *  ★ Placeholders are substituted BEFORE the render, so a segment holding an
+   *  image this renderer DECLINED still emits its S3c-1 disclosure and is kept.
+   *  That now falls out of asking the right question, where before it rested on
+   *  the order two separate steps happened to run in. */
   const pushSegment = (fragment: string): void => {
-    const substituted = withImagePlaceholders(fragment, byId, lang);
-    if (hasVisibleText(substituted)) out.push(docxRichParagraphs(asMarkup(substituted)));
+    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)));
+    if (xml !== EMPTY_PARAGRAPH) out.push(xml);
   };
 
   let last = 0;
@@ -287,7 +302,7 @@ function paragraphBlock(
   // ★★ THIS ARM IS THE WHOLE COMPATIBILITY STORY. A paragraph with no embedded
   // image goes through UNTOUCHED — one call, on the original string — so it is
   // byte-identical to what this file produced before the split existed, and
-  // `hasVisibleText` cannot reach it to drop a deliberately blank paragraph.
+  // the emit check cannot reach it to drop a deliberately blank paragraph.
   if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang));
   pushSegment(html.slice(last));
   return out.join("");
