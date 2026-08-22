@@ -3,7 +3,7 @@
 // Mirrors the essentials task-row.tsx shows in the table (priority, health,
 // Jira/RAID/change badges) but laid out for a narrow column. The status
 // <select> and badges are shared with the row via TaskStatusSelect / RaidBadge.
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "./icons";
 import { type Lang, priorityLabel, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";

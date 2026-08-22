@@ -14,7 +14,7 @@
 // useTemplates()/useWorkspace() and builds the workspace + toast side effects.
 
 import { useCallback, useId, useMemo, useRef, useState } from "react";
-import { BookmarkIcon, RectangleStackIcon } from "@heroicons/react/24/outline";
+import { BookmarkIcon, RectangleStackIcon } from "./icons";
 import { PopoverPanel } from "./popover-panel";
 import { Checkbox, Input, Select } from "./form-controls";
 import { type Lang, t } from "./i18n";
