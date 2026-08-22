@@ -21,9 +21,21 @@
 // those bytes, so `findDuplicate` matched it and returned before any byte write
 // was attempted. `upload` now consults `danglingRef` alongside the hash — a
 // HEALTHY duplicate still short-circuits, a DANGLING one falls through to the
-// byte write REUSING its id, so every `<img data-asset-id>` already placed in a
-// document keeps resolving. Pinned by use-document-assets.test.tsx's "dangling
+// byte write REUSING its id. Pinned by use-document-assets.test.tsx's "dangling
 // retry (§212)" block; do not narrow that guard back to the hash alone.
+//
+// ★★★ REUSING THE ID IS NOT ENOUGH TO MAKE A PLACED IMAGE RENDER AGAIN, AND
+// THREE PLACES CLAIMED IT WAS. `document-preview.tsx` resolves every
+// `<img data-asset-id>` to a blob URL in an effect keyed on
+// `[html, documentAssets, tursoConfig, projectId, ...]`, and a repair writes NO
+// metadata — so `documentAssets` keeps its identity, `html` is unchanged, that
+// effect never re-runs, and the placed image keeps the `data-asset-missing`
+// marker it was stamped with. The library row went healthy while the picture in
+// the document stayed broken, on the SAME pane. `notifyAssetRepaired` (see
+// `document-asset-repairs.ts` for why a module store and not a prop) is what
+// closes that, and `attachAssetImages` now CLEARS the stale marker when a
+// resolve succeeds — without that the image gets its `src` back and keeps the
+// dashed red `img[data-asset-missing]` frame `globals.css` draws around it.
 //
 // ★★ `busyId` is set only around the byte write (~1.8s measured for a 5MB
 // image) — the visible-latency step, not the whole call. `AssetLibrary`
@@ -55,6 +67,7 @@ import {
   bytesToBase64, type ImageEncoder, type UploadRejection, type PixelSize, type EncodedImage,
 } from "./document-asset-upload";
 import { saveAssetData, deleteAssetData, loadAssetDataIds } from "./document-assets-store";
+import { notifyAssetRepaired } from "./document-asset-repairs";
 import type { TursoConfig } from "./turso-config";
 
 export type UploadError = UploadRejection | "storageWrite";
@@ -284,12 +297,23 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
       // marked dangling for bytes that now exist. (A set-state in an effect
       // BODY is a fatal lint error here; this is an async continuation of a
       // callback, which is fine.)
+      // ★★ READ BEFORE THE CLEAR — `commitDangling` writes the mirror through,
+      // so asking afterwards always answers "no". This is the ONE condition
+      // that means "bytes changed but metadata did not": every other successful
+      // write appends or rewrites a row, which every consumer already watches.
+      const wasDangling = danglingRef.current.has(asset.id);
       commitDangling((prev) => {
         if (!prev.has(asset.id)) return prev;
         const next = new Set(prev);
         next.delete(asset.id);
         return next;
       });
+      // ★★★ THE ONLY THING THAT MAKES AN ALREADY-PLACED IMAGE RENDER AGAIN —
+      // see the file header. Deliberately NOT fired for a first-time upload:
+      // that commits metadata, which re-runs the preview's resolve effect on
+      // its own, and firing here too would revoke and re-mint every blob URL in
+      // the document a second time for nothing.
+      if (wasDangling) notifyAssetRepaired();
     } catch {
       // The metadata row stays — that IS the dangling case: visible,
       // self-describing, and repairable by re-uploading the same image, which

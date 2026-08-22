@@ -1,6 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act, waitFor } from "@testing-library/react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useDocumentAssets, encodeViaCanvas } from "./use-document-assets";
 import { hashBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
@@ -333,6 +333,82 @@ describe("useDocumentAssets — concurrent uploads compose", () => {
     const byId = Object.fromEntries(result.current.assets.map((a) => [a.id, a.name]));
     expect(byId["seed"]).toBe("renamed.png");
     expect(Object.values(byId)).toContain("new.png");
+  });
+});
+
+// ★★★ THE TWO WRITE-PATH GUARDS INSIDE `commitDangling`, WHICH A COLD REVIEW
+// FOUND BOTH SURVIVING 20/20 MUTANTS. Neither is visible through the §212
+// tests above: those assert WHAT the set contains, and both of these guards
+// are about what happens when the set does NOT change and about WHEN the
+// change becomes readable. Each test below is the minimal input that can tell
+// the guarded code from the unguarded code.
+describe("useDocumentAssets — commitDangling's two guards", () => {
+  /** Counts how often a consumer effect keyed on `danglingIds` re-runs.
+   *  `seen` is created ONCE per test and passed in, never minted inside the
+   *  render callback — a fresh identity each render would re-run the effect
+   *  every render and measure nothing. */
+  function useDanglingWatchHost(seen: () => void) {
+    // ★★ `config: null` ON PURPOSE. The diff effect is the OTHER writer of
+    //    `danglingIds`, and it is armed by the metadata commit — i.e. BEFORE
+    //    the byte write whose success path this test is about — so leaving it
+    //    live makes the count race `saveAssetData`. The hook's own
+    //    `if (!config) return` short-circuits it, leaving `commitDangling` as
+    //    the only writer and the count deterministic.
+    const [assets, setAssets] = useState<readonly DocumentAsset[] | undefined>([]);
+    const api = useDocumentAssets({
+      config: null as never, assets: assets ?? [], setAssets, projectId: "p1",
+    });
+    const { danglingIds } = api;
+    useEffect(() => { seen(); }, [danglingIds, seen]);
+    return api;
+  }
+
+  it("does not disturb consumers when the clear has nothing to remove", async () => {
+    // MUTANT D: delete `if (!prev.has(asset.id)) return prev;` and this reads 2.
+    // A first-time upload's success path ALWAYS runs the clear, and its id was
+    // never dangling — so without the bail-out every upload in the app hands
+    // every `danglingIds` consumer a fresh, content-identical Set.
+    const seen = vi.fn();
+    const { result } = renderHook(() => useDanglingWatchHost(seen));
+    expect(seen).toHaveBeenCalledTimes(1);
+
+    await act(async () => { await result.current.upload(pngFile("fresh.png")); });
+
+    expect(saveAssetData).toHaveBeenCalledTimes(1);
+    expect(seen).toHaveBeenCalledTimes(1);
+  });
+
+  it("lets a repair's clear be seen by a SECOND upload in the same tick", async () => {
+    // MUTANT E: delete `danglingRef.current = fn(danglingRef.current);` from
+    // `commitDangling` — the entire reason that function exists rather than a
+    // bare `setDanglingIds` — and this reads 3.
+    //
+    // ★★★ THE THIRD UPLOAD MUST SHARE THE REPAIR'S `act()`. The §212 block's
+    // own third upload sits in its own `act()`, which flushes the state update
+    // and lets the `danglingIds` -> `danglingRef` sync EFFECT refill the mirror
+    // — so the mirror write-through is never the thing under test there and
+    // the mutant walks. Inside one `act()` the effect has not run, so the
+    // mirror is the ONLY record that the row went healthy. This is the
+    // production fan-out shape the file header names: N uploads out of ONE
+    // render, all sharing one closure.
+    vi.mocked(saveAssetData).mockRejectedValueOnce(new Error("network"));
+
+    const { result } = renderHook(() => useAssetsHost([]));
+    let first: DocumentAsset | null = null;
+    await act(async () => { first = await result.current.upload(pngFile("chart.png")); });
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
+    expect(saveAssetData).toHaveBeenCalledTimes(1);
+
+    const { upload } = result.current;
+    await act(async () => {
+      await upload(pngFile("chart.png"));   // the repair: writes bytes, clears the mirror
+      await upload(pngFile("chart.png"));   // must read the CLEARED mirror and short-circuit
+    });
+
+    // 1 failed write + 1 repair. A third call means the second upload still
+    // saw a dangling row and re-wrote bytes that were already there.
+    expect(saveAssetData).toHaveBeenCalledTimes(2);
+    expect(result.current.assets).toHaveLength(1);
   });
 });
 
