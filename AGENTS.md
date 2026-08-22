@@ -444,8 +444,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
   `opacity-0` is NOT load-bearing: the marker `CheckIcon` carries its own explicit `aria-hidden="true"`,
   so the glyph is out of the a11y tree either way. ★★ Do NOT restore the old reason ("heroicons defaults
-  `aria-hidden`") — lucide sets it only when the icon has no children AND the caller passed no a11y prop,
-  so a NEW glyph relying on the library default would be exposed.
+  `aria-hidden`") — lucide sets it only when the icon has no children AND the caller passed no a11y
+  prop (`node_modules/lucide-react/dist/esm/Icon.mjs`: `...!children && !hasA11yProp(rest) && {
+  "aria-hidden": "true" }`), so a NEW glyph relying on the library default would be exposed.
   ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
   default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
   toolbar, where stealing focus from the editor collapses the selection the command is about to
@@ -817,27 +818,29 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
   pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
   `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
-  ★★★ **`/icon-gallery` 404s IN DEV AFTER ANY `npm run build`, and it is the repo's only route that
-  can.** The page guards itself with `if (process.env.NODE_ENV === "production") notFound();` — the
-  only such guard in `src` — and that value is CONSTANT-FOLDED at build time, so the compiled chunk
-  literally holds `if ("production" === "production") notFound()`. A production build leaves that
-  chunk in `.next`, `next dev` serves it, and the guard fires unconditionally no matter what the dev
-  server's real env is. That is why the 404 is DETERMINISTIC rather than flaky, and why it hits this
-  route alone. ★★ Any NEW route that adds a `NODE_ENV === "production"` guard inherits the trap.
-  Measured, not reasoned: with a `BUILD_ID` in `.next`, three consecutive `curl /icon-gallery` gave
-  404/404/404 while `/` gave 200 on the same warm server; after `Remove-Item -Recurse -Force .next`
-  and a restart, 200/200/200 with 69 cells. It bites the visual/gallery e2e specs as
-  `toHaveCount` "Received: 0", which reads like a broken selector.
-  ★★ **THAT SYMPTOM HAS A SECOND, UNRELATED CAUSE — do not apply this remedy to it.** Each
-  `npx playwright test` invocation starts and tears down its OWN webServer, so a run launched while
-  the previous one is still releasing port 3000 attaches to a dying server and gets the same
-  `Received: 0`, with NO `BUILD_ID` present. Its remedy is the opposite: stop chaining invocations
-  and use `--repeat-each=N` inside ONE lifecycle (5/5 green that way). ★★★ ROUTE ON FILE STATE, NOT ON A
-  REQUEST: `ls .next/BUILD_ID` — present ⇒ stale production chunks, delete `.next`; absent ⇒ you
-  chained invocations. A `curl` does NOT discriminate in the case you actually need it, because
-  Playwright tears its webServer down in BOTH modes, so a post-mortem curl gets connection-refused
-  either way (one observed run printed `status=000` while still writing a 404 body to the output
-  file — a server caught mid-teardown). Curl confirms only while a hand-started server is still up.
+  ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
+  this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
+  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — the other two hits are `!==`), so
+  a dev server serving anything stale for that route 404s while every sibling route is fine. It
+  reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
+  selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,
+  `Remove-Item -Recurse -Force .next`, restart.
+  ★★★ **DO NOT BLAME `npm run build` FOR IT — an earlier revision of this bullet did, at length,
+  and the cause was never established.** It asserted that a build leaves production chunks in
+  `.next` which `next dev` then serves, with the guard constant-folded true. That mechanism is
+  refuted by Next 16's own docs (`node_modules/next/dist/docs/.../version-16.md` "Concurrent `dev`
+  and `build`": dev outputs to `.next/dev`, build to the root, precisely so the two do not
+  conflict), and the reproduction does not reproduce — stop → build → start → curl now gives
+  200/200/200 three times over, as does building while dev runs. The 404 was real and clearing
+  `.next` did fix it; the build correlation was spurious. ★★ It also prescribed
+  `ls .next/BUILD_ID` as a router, which is worse than useless: `BUILD_ID` survives ANY past build
+  (CI, `e2e:smoke:prod`), so on a machine that has ever built it is permanently present.
+  ★★ **THE SAME SYMPTOM HAS A SECOND CAUSE with the opposite remedy.** Chained `npx playwright
+  test` invocations race their own webServer: `playwright.config.ts` sets `reuseExistingServer:
+  !process.env.CI`, so locally a run ATTACHES to a server the previous invocation is still
+  releasing and gets the same `Received: 0`. Fix that one by not chaining — `--repeat-each=N`
+  inside ONE invocation (5/5 green). A post-mortem `curl` cannot tell the two apart, since the
+  server is gone by then either way.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you

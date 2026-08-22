@@ -1980,7 +1980,10 @@ every number here as a measurement with a date, not a property.
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
   --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
   2026-07-31. Nothing is red.
-- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
+- ★★ eslint 10 is a major landing. ★★★ THIS ENTRY USED TO SAY "against a `--max-warnings=0` gate, so any
+  rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate (CI
+  runs bare `eslint`), so only a rule landing at severity 2 can fail the build; a new WARNING ships
+  green. That shrinks this item's blast radius, so re-scope it before quoting the old size. Any rule added, renamed or
   changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
   edits, which a major would likely require. That is a slice with its own verification, not an install.
 
@@ -5654,8 +5657,11 @@ It read: the app is CI-green under `lint --max-warnings=0`, **therefore no commi
 fatal lint violation** — any finding claiming one is a false positive by construction. There is no
 `--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
 and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
-a finding reporting one is not a false positive. Only severity-2 rules (`react-hooks/purity`,
-`react-hooks/set-state-in-effect`) actually fail the job. Verify with `npx eslint --print-config
+a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
+many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
+them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
+correct and this line must not be read as contradicting it. List them rather than trusting any count
+here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config
 src/app/icons.ts`. The four dispositions above were checked individually and stand on their own
 evidence; it is the shortcut that is retired.
 
