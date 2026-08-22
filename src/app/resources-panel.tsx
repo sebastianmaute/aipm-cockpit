@@ -61,7 +61,7 @@ import { EmptyState } from "./empty-state";
 import { useResizable } from "./use-resizable";
 import { useSortableFilter, type SortDir } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
-import { EyeSlashIcon } from "@heroicons/react/24/outline";
+import { EyeSlashIcon } from "./icons";
 import { ToggleButton } from "./toggle-button";
 import { CalendarSyncControls } from "./calendar-sync-controls";
 import { ViewCallout } from "./view-callout";

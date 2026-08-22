@@ -4,7 +4,7 @@ import { createPortal } from "react-dom";
 import { type Lang, t } from "./i18n";
 import { RACI_ROLES, type RaciRole } from "./types";
 import { useDismissable } from "./use-dismissable";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 
 interface RaciChipPickerProps {
   value: RaciRole | "";

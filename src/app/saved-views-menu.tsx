@@ -4,7 +4,7 @@ import { useState } from "react";
 
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { Input, Select } from "./form-controls";
 

@@ -9,7 +9,7 @@ import { useState } from "react";
 import { type Lang, t } from "./i18n";
 import { EditModalShell, ModalFieldError, ModalEditFooter } from "./edit-modal-chrome";
 import { Input, Textarea } from "./form-controls";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import { useDraggable } from "./use-draggable";

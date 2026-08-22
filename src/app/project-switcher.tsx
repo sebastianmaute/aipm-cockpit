@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowPathIcon, BriefcaseIcon, CheckIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, BriefcaseIcon, CheckIcon, ChevronDownIcon } from "./icons";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { type Lang, t } from "./i18n";
 import { type ProjectRegistryEntry } from "./projects-registry";

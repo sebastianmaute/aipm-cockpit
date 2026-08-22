@@ -13,7 +13,7 @@
 // behavior is lifted from the now-removed ContactInput.
 
 import { Fragment, useCallback, useId, useMemo, useRef, useState } from "react";
-import { ExclamationTriangleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon, XMarkIcon } from "./icons";
 import type React from "react";
 import type { Contact } from "./contacts";
 import { Dot } from "./dot";

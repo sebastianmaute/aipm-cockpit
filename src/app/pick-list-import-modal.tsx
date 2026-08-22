@@ -8,7 +8,7 @@
 // since row content genuinely diverges (contact name+email vs event+date+type).
 
 import { type ReactNode } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { Banner } from "./banner";
 import { Button } from "./button";
 import { Modal } from "./modal";

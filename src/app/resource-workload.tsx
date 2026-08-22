@@ -8,7 +8,7 @@ import { ABSENCE_TYPES, type Absence, type AbsenceType, type RaidItem, type Reso
 import { absenceBg, absenceLegendBg } from "./absence-style";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { FOCUS_RING, INTERACTIVE, TRANSITION } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { WorkloadOverdueTriage } from "./resource-workload-triage";

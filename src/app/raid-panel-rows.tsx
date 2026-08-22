@@ -6,7 +6,7 @@
 // destructured to the same local names the inline JSX used, so the markup is
 // reproduced verbatim.
 import type React from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "./icons";
 import { Checkbox } from "./form-controls";
 import { type Lang, t } from "./i18n";
 import { Badge } from "./badge";
