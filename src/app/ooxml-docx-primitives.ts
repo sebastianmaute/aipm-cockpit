@@ -15,6 +15,7 @@
 // eval, so an import is still harmless — but do not call the rich path from a
 // node script, and never move a rich-text PARSE into export-sections.ts.
 import { type ZipEntry, buildZip } from "./zip";
+import { contentTypeFor, type MediaPart } from "./ooxml-media";
 import {
   COLOR_DARK_BLUE,
   COLOR_LIGHT_GREY,
@@ -521,7 +522,24 @@ export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
+  /** ★★★ ADDITIVE BY CONTRACT. The workspace exporter calls this with two or
+   *  three arguments and its bytes are PINNED by the export-ooxml golden
+   *  suite, so an empty array must add no Default entry, no part and no
+   *  relationship. If that suite goes red for this slice, the contract broke —
+   *  do not regenerate the fixture. */
+  media: readonly MediaPart[] = [],
 ): Blob {
+  // ★★ Relationship ids are minted by the CALLER, because the body XML already
+  // references them by the time it gets here. rId1 is the styles part; a media
+  // part claiming it would replace styles with an image and Word would open a
+  // document with no Title style and no error. Cheap to assert, invisible
+  // otherwise.
+  for (const part of media) {
+    if (part.relId === "rId1") {
+      throw new Error(`media relId "rId1" is reserved for the styles part (${part.path})`);
+    }
+  }
+
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -544,10 +562,18 @@ export function buildDocxPackage(
   </w:style>${extraStyles}
 </w:styles>`;
 
+  // ★ One `Default` per DISTINCT extension — OPC forbids repeating one, and a
+  // package carrying two `<Default Extension="png">` entries is a file Word
+  // refuses to open. Empty media yields the empty string, which is the
+  // byte-identity half of the contract above.
+  const mediaDefaults = [...new Set(media.map((m) => m.extension))]
+    .map((ext) => `\n  <Default Extension="${ext}" ContentType="${contentTypeFor(ext)}"/>`)
+    .join("");
+
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="xml" ContentType="application/xml"/>
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>${mediaDefaults}
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>`;
@@ -557,9 +583,20 @@ export function buildDocxPackage(
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
+  // ★★ The Target is PART-RELATIVE to `word/`, because the relationship part it
+  // sits in is `word/_rels/document.xml.rels`. A package-absolute
+  // `word/media/image1.png` here resolves to `word/word/media/…` and the image
+  // silently does not render.
+  const mediaRels = media
+    .map(
+      (m) =>
+        `\n  <Relationship Id="${m.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.path.slice("word/media/".length)}"/>`,
+    )
+    .join("");
+
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${mediaRels}
 </Relationships>`;
 
   const entries: ZipEntry[] = [
@@ -568,6 +605,7 @@ export function buildDocxPackage(
     { path: "word/_rels/document.xml.rels", data: docRels },
     { path: "word/document.xml", data: documentXml },
     { path: "word/styles.xml", data: stylesXml },
+    ...media.map((m) => ({ path: m.path, data: m.data })),
   ];
 
   return buildZip(

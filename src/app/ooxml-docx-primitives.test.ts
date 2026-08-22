@@ -27,6 +27,8 @@ import { buildDocx } from "./export-docx";
 import type { ExportSection } from "./export-sections";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
+import { unzipBytes, partText } from "../test/unzip-bytes";
+import type { MediaPart } from "./ooxml-media";
 
 /** A4 in twips (1/1440 inch). Portrait is the landscape pair transposed. */
 const A4_LONG = "16838";
@@ -268,5 +270,67 @@ describe("the workspace exporter's page is untouched", () => {
     const xml = await documentXml(blob);
     expect(gridWidths(xml)).toEqual([4840, 4840, 4840]);
     expect(tableWidth(xml)).toBeLessThanOrEqual((await geometry(blob)).usableWidth);
+  });
+});
+
+// ★★★ THE ADDITIVE-BY-CONTRACT SUITE. `buildDocxPackage` is SHARED with the
+// workspace exporter, whose exact bytes are pinned by the `export-ooxml` golden
+// suite. An empty `media` array must add no `Default` entry, no part and no
+// relationship — so the byte-identity test below is the one that matters, and
+// a red `export-ooxml` for this parameter is a BROKEN CONTRACT, never a fixture
+// to regenerate.
+//
+// ★ Bytes are read back with `../test/unzip-bytes`, not this file's own
+// `readZipEntries`: that one decodes every part as UTF-8, which turns invalid
+// UTF-8 into U+FFFD and so cannot byte-compare an image.
+describe("buildDocxPackage media parts", () => {
+  const png: MediaPart = {
+    path: "word/media/image1.png",
+    data: new Uint8Array([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+    extension: "png",
+    relId: "rId2",
+  };
+
+  it("is byte-identical to the no-argument call when media is empty", async () => {
+    const a = await unzipBytes(buildDocxPackage("<w:p/>", "", "portrait"));
+    const b = await unzipBytes(buildDocxPackage("<w:p/>", "", "portrait", []));
+    expect([...a.keys()].sort()).toEqual([...b.keys()].sort());
+    for (const [path, bytes] of a) {
+      expect(Array.from(b.get(path)!)).toEqual(Array.from(bytes));
+    }
+    // And the empty case adds NO image machinery at all.
+    expect(partText(a, "[Content_Types].xml")).not.toContain("image/");
+    expect(partText(a, "word/_rels/document.xml.rels")).not.toContain("/image");
+  });
+
+  it("writes the part bytes verbatim", async () => {
+    const parts = await unzipBytes(buildDocxPackage("<w:p/>", "", "portrait", [png]));
+    expect(Array.from(parts.get("word/media/image1.png")!)).toEqual(Array.from(png.data));
+  });
+
+  it("declares the extension and relates the id to the part", async () => {
+    const parts = await unzipBytes(buildDocxPackage("<w:p/>", "", "portrait", [png]));
+    expect(partText(parts, "[Content_Types].xml")).toContain(
+      `<Default Extension="png" ContentType="image/png"/>`,
+    );
+    const rels = partText(parts, "word/_rels/document.xml.rels");
+    expect(rels).toContain(`Id="rId2"`);
+    expect(rels).toContain(`Target="media/image1.png"`);
+    // The styles relationship must survive unshifted.
+    expect(rels).toContain(`Id="rId1"`);
+    expect(rels).toContain(`Target="styles.xml"`);
+  });
+
+  it("declares each extension ONCE even with several images of that type", async () => {
+    const second: MediaPart = { ...png, path: "word/media/image2.png", relId: "rId3" };
+    const parts = await unzipBytes(buildDocxPackage("<w:p/>", "", "portrait", [png, second]));
+    const types = partText(parts, "[Content_Types].xml");
+    expect(types.match(/<Default Extension="png"/g)).toHaveLength(1);
+  });
+
+  it("refuses rId1, which would silently detach the styles part", () => {
+    expect(() =>
+      buildDocxPackage("<w:p/>", "", "portrait", [{ ...png, relId: "rId1" }]),
+    ).toThrow(/rId1/);
   });
 });
