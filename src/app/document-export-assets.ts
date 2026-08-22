@@ -85,14 +85,19 @@ export type ExportAssets = {
  *  caller mutating it would poison every later export.
  *
  *  ★★ THE GUARANTEE IS THE READONLY TYPES, NOT `Object.freeze`, and crediting
- *  the wrong mechanism is how the protection gets deleted as redundant.
- *  `Object.freeze` on the outer object does NOT protect the two `Set`s —
- *  `NO_EXPORT_ASSETS.omitted.add("x")` succeeds at runtime. What stops every
- *  mutation is `ReadonlySet` / `Readonly<Record<…>>` on `ExportAssets`, which
- *  is COMPILE-TIME ONLY. The outer freeze is kept as a second line for the
- *  `inlined` field alone (a type-legal write would then throw under module
- *  strict mode instead of silently landing), which is why the field must NOT
- *  be cast back to a mutable `Record`. */
+ *  the wrong mechanism is how the real protection gets deleted as redundant.
+ *  Freeze is SHALLOW and a `Set`'s contents are not properties, so it does not
+ *  protect the two `Set`s at all. What stops every mutation is `ReadonlySet` /
+ *  `Readonly<Record<…>>` on `ExportAssets`, and that is COMPILE-TIME ONLY.
+ *  Measured, not reasoned — of the three writes a caller could attempt here,
+ *  the freezes stop exactly two: `NO_EXPORT_ASSETS.omitted.add("x")` SUCCEEDS
+ *  and leaves the shared value poisoned for every later export, while
+ *  replacing `.inlined` (outer freeze) and writing a key on it (the INNER
+ *  freeze) both throw. The freezes are therefore a partial runtime backstop
+ *  for an untyped caller, nothing more.
+ *
+ *  ★ `inlined` must NOT be cast back to a mutable `Record` — that cast was
+ *  the one way to make a write to this shared value both compile AND throw. */
 export const NO_EXPORT_ASSETS: ExportAssets = Object.freeze({
   inlined: Object.freeze({}),
   omitted: new Set<string>(),
