@@ -61,14 +61,15 @@ describe("ColumnResizeHandle", () => {
     return { handle, onMouseDown };
   }
 
-  it("renders an always-visible grip (an aria-hidden heroicon svg)", () => {
+  it("renders an always-visible grip (an aria-hidden svg)", () => {
     const { handle } = renderHandle();
     expect(handle).toBeTruthy();
     const svg = handle.querySelector("svg");
     expect(svg).toBeTruthy();
     expect(svg).toHaveAttribute("aria-hidden", "true");
-    // EllipsisVerticalIcon (⋮ grip) renders path geometry, not <circle> dots.
-    expect(svg!.querySelector("path")).toBeTruthy();
+    // Under lucide, EllipsisVertical is three <circle> dots and no <path> —
+    // assert the grip drew geometry at all, not a <path> specifically.
+    expect(svg!.children.length).toBeGreaterThan(0);
   });
 
   it("is decorative and 6px wide with the col-resize cursor", () => {
