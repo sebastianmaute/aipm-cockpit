@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from "react";
+import type { AppIcon } from "./icons";
 import {
   AcademicCapIcon,
   ArrowsRightLeftIcon,
@@ -30,7 +30,7 @@ import {
   TableCellsIcon,
   UserGroupIcon,
   UsersIcon,
-} from "@heroicons/react/24/outline";
+} from "./icons";
 
 import type { AppView } from "./nav-config";
 
@@ -42,7 +42,7 @@ interface NavIconProps {
 // Single 24x24 line-icon glyph per nav view (sourced from the `icons.ts` barrel). Icons are
 // decorative: the button carries the accessible name (visible label when
 // expanded, aria-label when collapsed), so every glyph is aria-hidden.
-const NAV_ICON: Record<AppView, ComponentType<SVGProps<SVGSVGElement>>> = {
+const NAV_ICON: Record<AppView, AppIcon> = {
   projects: BriefcaseIcon,
   "portfolio-health": ChartBarSquareIcon,
   "open-points": ListBulletIcon,

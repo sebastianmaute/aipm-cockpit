@@ -4,7 +4,7 @@
 // (RAID / change / milestone / stakeholder). The tasks table keeps its own
 // inline button in task-row.tsx (shipped SP1); this component de-dups the four
 // SP2 panels so the ✨ markup lives in one place. Presentational + props-only.
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 

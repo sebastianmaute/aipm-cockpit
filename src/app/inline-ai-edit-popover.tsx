@@ -8,7 +8,7 @@ import { usePopoverDismiss } from "./use-popover-dismiss";
 import { useFocusTrap } from "./use-focus-trap";
 import { MODAL_BACKDROP_CLASS } from "./modal";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { Button } from "./button";
 import { AiTriggerButton } from "./ai-trigger-button";
 import { IconButton } from "./icon-button";
