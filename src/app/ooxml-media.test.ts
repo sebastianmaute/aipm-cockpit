@@ -115,6 +115,13 @@ describe("fitExtent", () => {
     expect(fitExtent({ width: NaN, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: -10, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: 10, height: -10 }, 1_000_000, 1_000_000)).toBeNull();
+    // ★★★ BOTH infinite is the case the bottom `cxEmu < 1` guard CANNOT catch:
+    // scale is 0, both dimensions come out NaN, and every comparison against
+    // NaN is false. The one-at-a-time cases above are caught by whichever
+    // dimension stayed finite and rounded to 0 — so without this line,
+    // deleting `positiveFinite` passes the whole suite while emitting
+    // cx="NaN" into the drawing XML.
+    expect(fitExtent({ width: Infinity, height: Infinity }, 1_000_000, 1_000_000)).toBeNull();
   });
 
   it("rounds rather than truncates, in both directions", () => {
