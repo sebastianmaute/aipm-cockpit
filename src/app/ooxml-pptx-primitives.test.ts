@@ -155,17 +155,24 @@ describe("buildPptxPackage media", () => {
       "ppt/slides/slide1.xml",
       "ppt/theme/theme1.xml",
     ]);
-    // The part this task rewrites, pinned as exact bytes.
+    // The part this task rewrites, pinned as exact bytes — newlines included.
     //
-    // ★★★ NEWLINES ARE NORMALISED AND MUST BE. This XML comes out of a template
-    // literal in a SOURCE file, and `.gitattributes` does not pin that file, so
-    // with `core.autocrlf=true` the committed blob is LF while the Windows
-    // worktree is CRLF — the same code emits CRLF locally and LF in CI.
-    // Hard-coding either one makes this test fail on the other platform for a
-    // reason that is not a defect. Everything else here IS byte-exact.
-    expect(
-      partText(parts, "ppt/slides/_rels/slide1.xml.rels").replace(/\r\n/g, "\n"),
-    ).toBe(
+    // ★★ BYTE-EXACT OVER XML BUILT FROM A TEMPLATE LITERAL IS PORTABLE, even
+    // though this source file is CRLF in a Windows worktree and LF in the
+    // committed blob (`core.autocrlf=true`, and `.gitattributes` pins only
+    // *.md and two named files — not `src/app/*.ts`). ECMAScript normalises
+    // <CR><LF> to <LF> in a template literal's COOKED value, so the source's
+    // line endings never reach the string: the source is CRLF, the string is
+    // LF, on every platform.
+    //
+    // ★★ MEASURED THROUGH THIS EXACT PATH, not reasoned from the spec and not
+    // from a standalone node probe — a temporary spec calling this builder
+    // under vitest reported EMITTED_CR=0 EMITTED_LF=3 for this very part while
+    // the source file held 659 CR bytes. An earlier revision of this comment
+    // claimed the opposite ("the same code emits CRLF locally and LF in CI")
+    // and normalised \r\n away here, which silently weakened the assertion:
+    // a real line-ending change in the emitted XML would have passed.
+    expect(partText(parts, "ppt/slides/_rels/slide1.xml.rels")).toBe(
       `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
