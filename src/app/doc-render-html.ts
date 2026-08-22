@@ -56,7 +56,7 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
-import { IMG_TAG_RE } from "./document-export-assets";
+import { IMG_TAG_RE, NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
@@ -64,7 +64,7 @@ import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 
 export type DocHtmlMode = "preview" | "standalone";
 
@@ -91,7 +91,23 @@ const DOCUMENT_PAGE_STYLES = `
     ul[data-type="taskList"] { list-style: none; padding-left: 0; }
     li[data-type="taskItem"] { display: flex; gap: 0.5rem; }
     li[data-type="taskItem"]::before { content: "\\2610"; }
-    li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611"; }`;
+    li[data-type="taskItem"][data-checked="true"]::before { content: "\\2611"; }
+    /* ★★★ A standalone export loads NO app stylesheet. globals.css styles this
+       marker for the live preview, and that file is not here — so without this
+       rule the attribute would be set and NOTHING would draw it, which reads to
+       a user as an image that simply vanished. An image element with no src
+       collapses to nothing, hence the explicit minimums.
+       ★★ This text is INSIDE the emitted stylesheet, so it ships in every
+       standalone file — keep it free of angle-bracketed tag names, which is
+       what a mode test asserts on (a literal one here made that test red).
+       Palette-safe by construction: currentColor and opacity only, no hex,
+       no gradient, no shadow. */
+    img[data-asset-missing] {
+      min-width: 6rem;
+      min-height: 4rem;
+      border: 1px dashed currentColor;
+      opacity: 0.6;
+    }`;
 
 /** ONE table renderer for both the `table` block and a resolved dataSection.
  *
@@ -222,16 +238,44 @@ function assetSrcAttr(data: string | undefined, mime: string | undefined): strin
  *
  *  ★★ `assets` carries base64 DATA but not the MIME the data: URI needs —
  *  that lives on the metadata record, `ws.documentAssets`, not in the byte
- *  map. An id present in `assets` with no resolvable mime is treated as
+ *  map. An id present in `assets.inlined` with no resolvable mime is treated as
  *  unresolved rather than guessed at (an `<img>` with a wrong or missing
- *  MIME is a browser content-sniffing gamble, not a safe fallback). */
-function inlineDocumentImages(html: string, assets: Record<string, string>, mimeById: ReadonlyMap<string, string>): string {
+ *  MIME is a browser content-sniffing gamble, not a safe fallback).
+ *
+ *  ★★★ OMITTED IS NOT MISSING. The budget decided not to carry these bytes; the
+ *  image still exists and the user's document is intact. Disclosing it with the
+ *  broken-image marker would say the opposite, so it gets the same translated
+ *  placeholder DOCX and PPTX use — and replaces the `<img>` ENTIRELY, because
+ *  an `<img>` with no src is precisely what the marker branch is for.
+ *
+ *  ★★ The placeholder is substituted AFTER `sanitizeDocumentHtml` has already
+ *  run on the paragraph, so `htmlEscape` here is the ONLY thing between a
+ *  user-renamed asset and script execution in a file people open in a browser.
+ *  Never drop it, and never move this substitution to a pre-sanitize position
+ *  "for symmetry with docx" — that renderer substitutes pre-parse because its
+ *  own parser has no `<img>` handling at all, a reason that does not apply
+ *  here. */
+function inlineDocumentImages(
+  html: string,
+  assets: ExportAssets,
+  mimeById: ReadonlyMap<string, string>,
+  nameById: ReadonlyMap<string, string>,
+  lang: Lang,
+): string {
   return html.replace(IMG_TAG_RE, (tag, id: string) => {
-    const data = assets[id];
-    const mime = mimeById.get(id);
+    if (assets.omitted.has(id)) {
+      return htmlEscape(t(lang, "assetExportPlaceholder", nameById.get(id) ?? id));
+    }
+    // ★★ UNREACHABLE VIA `renderDocumentHtml`, and kept deliberately. Every
+    // paragraph reaching here has been through `sanitizeDocumentHtml`, which
+    // re-serialises via the DOM — and the HTML serialiser writes a void element
+    // with NO trailing slash, so this is false for every input the renderer can
+    // be given (measured: a `<img … />` in stored HTML arrives as `<img … >`).
+    // A mutant replacing it with `false` therefore survives the whole suite.
+    // It stays for a caller that hands this function un-sanitized HTML.
     const selfClosing = tag.endsWith("/>");
     const withoutClose = tag.slice(0, selfClosing ? -2 : -1);
-    const addedAttr = assetSrcAttr(data, mime) ?? ` data-asset-missing="true"`;
+    const addedAttr = assetSrcAttr(assets.inlined[id], mimeById.get(id)) ?? ` data-asset-missing="true"`;
     return `${withoutClose}${addedAttr}${selfClosing ? " />" : ">"}`;
   });
 }
@@ -241,10 +285,16 @@ export function renderDocumentHtml(
   ws: Workspace,
   lang: Lang,
   mode: DocHtmlMode,
-  // ★ OPTIONAL and trailing so every existing call site keeps compiling and
-  // behaving identically — see `inlineDocumentImages`'s own doc comment for
-  // why it only ever applies in standalone mode.
-  assets?: Record<string, string>,
+  // ★★ TRAILING AND DEFAULTED so every existing call site keeps compiling — but
+  // NOT behaving identically any more, and that is deliberate. A caller that
+  // passes nothing now gets `NO_EXPORT_ASSETS`, under which a referenced id
+  // sits in no bucket and is disclosed with `data-asset-missing`. The tag was
+  // previously left untouched, which renders to exactly the same nothing (an
+  // `<img>` with no src) while saying nothing about it. Marking it is the
+  // honest reading, and it is what makes a caller that FORGOT the assets
+  // visible instead of silent. See `inlineDocumentImages` for why this only
+  // ever applies in standalone mode.
+  assets: ExportAssets = NO_EXPORT_ASSETS,
 ): string {
   const body = doc.blocks
     .map((b) => renderBlock(b, ws, lang))
@@ -253,9 +303,18 @@ export function renderDocumentHtml(
 
   if (mode === "preview") return body;
 
-  const inlinedBody = assets
-    ? inlineDocumentImages(body, assets, new Map((ws.documentAssets ?? []).map((a) => [a.id, a.mime])))
-    : body;
+  // ★ ONE pass over `ws.documentAssets`, two maps out of it — the mime the
+  // data: URI needs and the display name the omitted placeholder needs. Built
+  // here rather than threaded as two arguments from the caller so they cannot
+  // be derived from different lists.
+  const metas = ws.documentAssets ?? [];
+  const inlinedBody = inlineDocumentImages(
+    body,
+    assets,
+    new Map(metas.map((a) => [a.id, a.mime])),
+    new Map(metas.map((a) => [a.id, a.name])),
+    lang,
+  );
 
   // ★★ lang comes from the ARGUMENT, never a hardcoded "en". Every member of
   // Lang ("en-US" | "en-GB" | "de") is already a valid BCP-47 tag. A German
