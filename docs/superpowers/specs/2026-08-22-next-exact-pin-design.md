@@ -58,7 +58,8 @@ installs. The lock protects the *install*; the exact spec protects the *lock*.
 **In.** `next` pinned to exactly `16.2.11` · the matching `package-lock.json` spec update ·
 a written dependency-pinning policy in `CONTRIBUTING.md` · the required correction to
 `AGENTS.md`, which currently states the caret · TD-1 rewritten to own only the 16.3 bump ·
-two version errors corrected in `docs/work-inventory.md`.
+two version errors corrected in `docs/work-inventory.md` · a **patch release as 0.255.1**
+across every version carrier, see §8.
 
 **Out.** The 16.3 upgrade itself — its own slice, see §5. The other 28 packages
 `npm outdated` reports as drifted. Any change to `react`, `react-dom` or
@@ -265,9 +266,60 @@ and discards the failure diagnostic — a failing suite then reads as green.
 
 ## 8. Release shape
 
-**No version bump, no `CHANGELOG.md` entry.** Nothing user-facing changes. Precedent: the
-followups-triage slice merged 44 commits with no bump. The five-place version drift trap in
-`CONTRIBUTING.md` is therefore not engaged.
+**Patch bump to 0.255.1, with a `CHANGELOG.md` entry.**
+
+★★ **The codename does NOT change — 0.255.1 is still "Bisson".** Patch releases inherit their
+minor series' milestone: 0.211.1 and 0.211.2 are both "Samatar", 0.202.1 through 0.202.4 are
+all "Beukes". 122 patch entries in `CHANGELOG.md` follow this, and `APP_MILESTONE`'s own
+docstring already states that the 0.255.x *line* is Bisson. So `APP_MILESTONE` is untouched
+and no new codename is minted.
+
+★★ **Verify a codename by full-file grep, never by an extracted list.** Building a used-name
+list with a regex over the `## [x.y.z] - date "Name"` heading form silently undercounts:
+older entries use an **em dash** where recent ones use a hyphen, so a hyphen-only pattern
+returned 194 names for 255 releases. `Kowal`, `Kiernan` and `Muir` all read "free" against
+that list and are all taken (0.37.0, 0.38.0, 0.35.0). Not needed for this slice — recorded
+because the next slice that *does* mint a codename will reach for exactly that method.
+
+### 8.1 The carriers
+
+All are currently consistent at 0.255.0 — the icon slice bumped them correctly, so this slice
+starts from a clean base and must not be the one that restarts the drift.
+
+★★★ **DO NOT COUNT THE CARRIERS BY GREPPING THE VERSION STRING, AND DO NOT SED IT.** The
+string `0.255.0` occurs **12** times across these files and **two of those must not change**:
+
+```bash
+grep -c "0\.255\.0" src/app/version.ts package.json package-lock.json README.md docs/CODEMAPS/*.md
+```
+
+- `src/app/version.ts` has 2 — `APP_VERSION`, plus the trailing comment on `APP_BUILD_DATE`.
+  That comment is rewritten by hand to describe 0.255.1, not version-substituted.
+- `docs/CODEMAPS/dependencies.md` has 2 — the generated header (a carrier) **and a prose
+  sentence, "the app's ONLY icon set since 0.255.0", which is a historical fact about the
+  icon migration.** Bumping it would assert that lucide became the sole icon set in 0.255.1.
+  Leave it alone.
+
+An earlier draft of this section asserted "eight carriers" and then made "eight hits" a
+success criterion. Both numbers were invented, neither was measured, and they counted
+different things. Edit each carrier deliberately.
+
+| Place | Change |
+|---|---|
+| `src/app/version.ts` | `APP_VERSION` to `0.255.1`; the `APP_BUILD_DATE` trailing comment re-summarised. `APP_BUILD_DATE` itself stays `2026-08-22` — same day. `APP_MILESTONE` **unchanged**. |
+| `CHANGELOG.md` | new entry, heading form `## [0.255.1] - 2026-08-22 "Bisson"` — hyphen, not em dash, matching the recent entries |
+| `package.json` | `version` |
+| `package-lock.json` | `version` **twice** — the root one and the root package entry |
+| `README.md` | the shields badge — **version only**; the codename in it is already Bisson |
+| `docs/CODEMAPS/*.md` (5 files) | the `App <version> "<codename>"` field in the generated header |
+
+★ In the codemap headers, change **only** the App version. Those headers also carry a
+"counts re-verified <date> at <sha>" clause, and nothing was regenerated and no source file
+moved — editing that clause would assert a re-verification that did not happen.
+
+★ **No `versionHighlight*` key.** The Version popover surfaces user-facing highlights; a
+dependency pin is not one. `APP_HIGHLIGHT_KEYS` is untouched, which also means no EN/DE
+string pair and no `i18n.de.ts` edit — so the umlaut-corruption hazard is not engaged.
 
 ★★ Before pushing, `git fetch` and diff `origin/main`'s `src/app/version.ts` against this
 branch. The icon slice collided at exactly this step because `main` released while it was in
@@ -287,4 +339,12 @@ pipeline.
 5. No surviving `^16.2` in `AGENTS.md` or `CONTRIBUTING.md`.
 6. TD-1 describes the 16.3 bump only, and its reproduce commands work against the pinned tree.
 7. `docs/work-inventory.md` contains no `0.254.0 "Bisson"`.
-8. The full gate chain in §7 is green, each exit code read unpiped.
+8. Every carrier reads `0.255.1`, and the only surviving `0.255.0` in the tree is the
+   historical prose in `docs/CODEMAPS/dependencies.md` — verified by reading the sweep's
+   output, not by counting it:
+   `grep -n "0\.255\.0" src/app/version.ts package.json package-lock.json README.md docs/CODEMAPS/*.md`
+   must return exactly that one line, and the matching `0.255.1` sweep must show
+   `package-lock.json` twice and each codemap header once.
+9. `APP_MILESTONE` still reads `Bisson`, and `APP_HIGHLIGHT_KEYS` is unchanged.
+10. The new `CHANGELOG.md` heading uses a hyphen, matching the recent entries.
+11. The full gate chain in §7 is green, each exit code read unpiped.
