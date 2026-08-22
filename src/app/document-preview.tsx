@@ -31,11 +31,18 @@
 // paragraph path is unguarded — worse than an uncited claim, because the note
 // advertises itself as checked. Line numbers rot on the next edit above them.
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useRef, useSyncExternalStore } from "react";
 import { type Lang } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
+import { attachAssetImages } from "./document-asset-images";
+import { loadAssetData } from "./document-assets-store";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
+import {
+  subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
+} from "./document-asset-repairs";
 
 export interface DocumentPreviewProps {
   lang: Lang;
@@ -44,9 +51,19 @@ export interface DocumentPreviewProps {
    *  competing with it. */
   doc: ProjectDocument | null;
   ws: Workspace;
+  // Same asset-library gate `documents-panel.tsx` threads to
+  // `DocumentsAssetSection` (null disables). Resolves `<img data-asset-id>`
+  // references left in the rendered HTML to real bytes — see the effect
+  // below. Optional: missing here correctly means "no images resolve" (every
+  // referenced image renders its missing-asset marker), not broken, since
+  // document images are Turso-gated (S3c-1).
+  tursoConfig?: TursoConfig | null;
+  projectId?: string;
 }
 
-export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
+export function DocumentPreview({
+  lang, doc, ws, tursoConfig = null, projectId = ASSET_PARTITION_FALLBACK,
+}: DocumentPreviewProps) {
   // ★★ MEMOIZED, and the cost it avoids is not theoretical. `renderDocumentHtml`
   // runs DOMPurify once PER PARAGRAPH block and `resolveDataSection` once per
   // dataSection block — and that one projects the WHOLE workspace through
@@ -61,6 +78,69 @@ export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
     () => (doc ? renderDocumentHtml(doc, ws, lang, "preview") : ""),
     [doc, ws, lang],
   );
+
+  // ★★★ MEMOIZED FOR ITS IDENTITY, NOT FOR THE ALLOCATION — and without it NO
+  // image in this pane renders reliably at all. React 19 diffs host props by
+  // `Object.is` and treats `dangerouslySetInnerHTML` like any other
+  // (`updateProperties`'s `_propKey8 === propKey` guard in
+  // `react-dom-client.development.js`), so an inline `{{ __html: html }}` is a
+  // NEW object every render and React re-assigns `domElement.innerHTML` —
+  // rebuilding this whole subtree — on EVERY re-render, byte-identical `html`
+  // or not. The effect below then does NOT re-run (its deps are unchanged), so
+  // every `src` and every marker it wrote is gone for good: a rename keystroke,
+  // a dangling-diff landing, any parent render at all blanks the images
+  // permanently. Measured, not reasoned — a node the effect had stamped was
+  // `isConnected` at write time and a DIFFERENT node was in the document a tick
+  // later. Pinned by "keeps a resolved image across an unrelated re-render".
+  const bodyHtml = useMemo(() => ({ __html: html }), [html]);
+
+  // `ws.documentAssets` is an obj-member dep — react-hooks/exhaustive-deps
+  // rejects that shape directly in a dependency array, so it is hoisted to a
+  // local first (AGENTS.md's `snapshots.rebaselineNow` note carries the same
+  // rule).
+  const documentAssets = ws.documentAssets;
+
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  // ★★★ THE ONE SIGNAL NO PROP CARRIES. A §212 repair re-writes an asset's
+  // BYTES over its existing id and writes NO metadata — so `documentAssets`
+  // keeps its identity and `html` is unchanged, and without this the effect
+  // below never re-runs: the picture already placed in this document stays
+  // stamped `data-asset-missing` while the library row beside it (same pane)
+  // goes healthy. Bumping the assets array's identity instead would re-run it,
+  // and would also mark the workspace dirty and write every table — see
+  // `document-asset-repairs.ts` for that measurement and for why the signal
+  // rides its own wire.
+  const assetRepairGeneration = useSyncExternalStore(
+    subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
+  );
+
+  // ★★★ IMPERATIVE, NOT REACT STATE — see document-asset-images.ts's own doc
+  // comment for why: the body below is one dangerouslySetInnerHTML string, so
+  // there is no React element to hand a `src`, and this needs no state at all
+  // (react-hooks/set-state-in-effect is banned and fatal regardless).
+  // ★★ MUST SIT ABOVE THE `!doc` EARLY RETURN, same reason as the memo above.
+  // A null `doc` means no preview body mounts this render, so `bodyRef.current`
+  // is null and the effect below is a no-op — it still has to be CALLED,
+  // unconditionally, every render.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el) return;
+    let cancelled = false;
+    let detach: (() => void) | null = null;
+    const mimeFor = (id: string) => documentAssets?.find((a) => a.id === id)?.mime;
+    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor).then((d) => {
+      // The subtree may have been replaced (a new `html` landed) or this
+      // component may have unmounted before the byte loads resolved — either
+      // way, revoke rather than leave the blob URLs it minted dangling.
+      if (cancelled) { d(); return; }
+      detach = d;
+    });
+    return () => {
+      cancelled = true;
+      detach?.();
+    };
+  }, [html, documentAssets, tursoConfig, projectId, assetRepairGeneration]);
 
   if (!doc) return null;
 
@@ -89,9 +169,10 @@ export function DocumentPreview({ lang, doc, ws }: DocumentPreviewProps) {
         {doc.title}
       </h2>
       <div
+        ref={bodyRef}
         data-document-preview-body
         className="text-sm text-foreground"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={bodyHtml}
       />
     </section>
   );

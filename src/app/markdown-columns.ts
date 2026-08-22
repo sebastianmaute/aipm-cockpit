@@ -22,6 +22,7 @@ import type {
   Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 
 export const MD_COLUMNS: Array<{ key: keyof Task; label: string }> = [
   { key: "id", label: "ID" },
@@ -110,6 +111,20 @@ export const EVENTS_MD_COLUMNS: Array<{ key: keyof CalendarEvent; label: string 
   { key: "sendInvitations", label: "SendInvitations" },
   { key: "localModifiedAt", label: "LocalModified" },
   { key: "outlookEventId", label: "OutlookEventId" },
+];
+
+// Same 8 fields as DOCUMENT_ASSETS_CSV_COLUMNS (csv-codecs-core.ts), same
+// order — markdown-codecs-decode.ts derives its alias map from this list
+// rather than hand-writing one (see the EVENTS_MD_ALIASES precedent there).
+export const DOCUMENT_ASSETS_MD_COLUMNS: Array<{ key: keyof DocumentAsset; label: string }> = [
+  { key: "id", label: "ID" },
+  { key: "name", label: "Name" },
+  { key: "mime", label: "Type" },
+  { key: "size", label: "Size" },
+  { key: "width", label: "Width" },
+  { key: "height", label: "Height" },
+  { key: "hash", label: "Hash" },
+  { key: "createdAt", label: "Created" },
 ];
 
 export const SHIFTS_MD_COLUMNS: readonly { col: string; label: string }[] = [

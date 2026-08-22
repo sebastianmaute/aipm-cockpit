@@ -14,9 +14,11 @@
 
 import { act, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
-import { lazy, Suspense, type ComponentType } from "react";
+import { lazy, Suspense, type ComponentType, type Dispatch, type SetStateAction } from "react";
 import type { DocMutation, DocResult } from "./document-mutations";
 import type { DocVersionSource } from "./document-versions";
+import type { DocumentAsset } from "./document-asset";
+import type { TursoConfig } from "./turso-config";
 
 // Stand `dynamic()` up as React.lazy + Suspense.
 // ★★ The loader MUST stay deferred until render. An eager `loader()` here runs
@@ -39,6 +41,23 @@ vi.mock("next/dynamic", () => ({
   },
 }));
 
+// ★★ `getTursoConfig` falls back to NEXT_PUBLIC_TURSO_DATABASE_URL, which no
+// test can set portably, so this shim lets a case FORCE a config — standing in
+// for an env-configured deployment. It is deliberately NOT a `vi.fn`: it must
+// survive any `clearAllMocks`/`restoreAllMocks`, and a spy whose implementation
+// is wiped mid-file would silently start returning `undefined`. With
+// `forced === null` it delegates to the real implementation, so every other case
+// exercises the genuine settings → config derivation.
+const turso = vi.hoisted(() => ({ forced: null as TursoConfig | null }));
+vi.mock("./turso-config", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("./turso-config")>();
+  return {
+    ...actual,
+    getTursoConfig: (url?: string, token?: string) =>
+      turso.forced ?? actual.getTursoConfig(url, token),
+  };
+});
+
 /** ★ The pane's own key. NOT `aipm-cockpit:documents-size-full`, which belongs
  *  to knowledge-panel.tsx — that feature was called "Documents" before the
  *  Knowledge rename, so the near-miss is easy to write and impossible to see. */
@@ -55,12 +74,48 @@ vi.mock("./documents-panel", () => ({
 import { DocumentsTabPanel } from "./workspace-panels";
 import { WorkspaceProvider } from "./workspace-context";
 import { FiltersProvider } from "./filters-context";
+import { SETTINGS_KEY } from "./use-settings";
+import { emptyRegistry, saveRegistry } from "./projects-registry";
+import { savePortfolioMode, saveCurrentTursoProjectId } from "./portfolio-mode";
+import { __resetSafeModeCache } from "./safe-mode";
 
-function renderTab(isPopout: boolean) {
+/** A loopback URL so `getTursoConfig` needs no auth token: it requires one only
+ *  for `https://` endpoints. That keeps the settings fixture clear of the
+ *  device-sealed secret path, which never hydrates in jsdom. */
+const TURSO_URL = "http://127.0.0.1:8080";
+const FILE_PROJECT_ID = "proj-file-7";
+
+/** Seeds the two localStorage sources `DocumentsTabPanel` reads DIRECTLY for
+ *  the asset pane: settings (→ the Turso gate) and the file registry (→ the
+ *  byte store's partition key). Portfolio mode is left at "file". */
+function seedFilePortfolioWithTurso() {
+  window.localStorage.setItem(
+    SETTINGS_KEY,
+    JSON.stringify({ integrations: { turso: { enabled: true, databaseUrl: TURSO_URL } } }),
+  );
+  saveRegistry({
+    projects: [
+      { id: FILE_PROJECT_ID, name: "File project", code: "FP", storageConfig: { kind: "browser" } },
+    ],
+    currentProjectId: FILE_PROJECT_ID,
+  });
+}
+
+function renderTab(isPopout: boolean, seed?: () => void) {
   seen.length = 0;
-  // `test:shuffle` reorders tests within a file, so the size key one case
-  // seeds must not leak into the next.
+  // `test:shuffle` reorders tests within a file, so nothing one case seeds may
+  // leak into the next — the size key, and now the four sources the asset pane
+  // is derived from (settings, the file registry, portfolio mode, the safe-mode
+  // URL flag + its module-level memo).
   window.localStorage.removeItem(SIZE_KEY);
+  window.localStorage.removeItem(SETTINGS_KEY);
+  saveRegistry(emptyRegistry());
+  savePortfolioMode("file");
+  saveCurrentTursoProjectId(null);
+  window.history.replaceState({}, "", "/");
+  __resetSafeModeCache();
+  turso.forced = null;
+  seed?.();
   return render(
     <FiltersProvider>
       <WorkspaceProvider>
@@ -210,5 +265,114 @@ describe("DocumentsTabPanel — call-site wiring", () => {
         expect.objectContaining({ title: "Before", op: "rename", source: "user" }),
       ]),
     );
+  });
+});
+
+// ★★★ The `assetPane` bag was, until these cases, entirely unwired-tested: a
+// mutation audit DELETED all six lines of it from workspace-panels.tsx and this
+// file stayed 7/7 green, because nothing in it mentioned assets at all.
+// documents-asset-section.test.tsx cannot cover the seam either — it builds a
+// `DocumentAssetPaneProps` itself, so a bag that never leaves the call site is
+// invisible there. Every member is asserted through an OBSERVABLE CONSEQUENCE
+// rather than by prop identity: with the bag gone `tursoConfig` falls back to
+// null and `documents-asset-section.tsx` disables the whole library silently.
+describe("DocumentsTabPanel — the assetPane bag", () => {
+  const assetPaneOf = (props: Record<string, unknown>) =>
+    props.assetPane as {
+      tursoConfig: TursoConfig | null;
+      projectId: string;
+      assets: readonly DocumentAsset[] | undefined;
+      setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+    };
+
+  const ASSET: DocumentAsset = {
+    id: "a1", name: "diagram.png", mime: "image/png",
+    size: 1234, width: 40, height: 20, hash: "h", createdAt: "2026-08-21T00:00:00.000Z",
+  };
+
+  it("derives a LIVE tursoConfig from settings — the library's only enable gate", async () => {
+    // ★★ Drop the `tursoConfig:` line and this reads `undefined`, which
+    // `documents-asset-section.tsx` coalesces to null → the whole surface
+    // renders its "Turso only" empty state with no error anywhere. Asserted on
+    // the DERIVED value, not merely on presence: a hardcoded `null` (the other
+    // cheap wrong answer, and the one Safe Mode legitimately produces) fails it.
+    renderTab(false, seedFilePortfolioWithTurso);
+    await screen.findByTestId("documents-panel-stub");
+    await waitFor(() =>
+      expect(assetPaneOf(seen.at(-1)!).tursoConfig).toEqual({ httpUrl: TURSO_URL, authToken: "" }),
+    );
+  });
+
+  it("scopes the byte store to the CURRENT project, not a constant", async () => {
+    // ★★ Drop the `projectId:` line and the section falls back to the literal
+    // "default", so every asset row is looked up under a partition the app never
+    // wrote to. The seeded id is deliberately unlike "default" so the fallback
+    // cannot pass by coincidence.
+    renderTab(false, seedFilePortfolioWithTurso);
+    await screen.findByTestId("documents-panel-stub");
+    expect(assetPaneOf(seen.at(-1)!).projectId).toBe(FILE_PROJECT_ID);
+  });
+
+  it("threads the LIVE documentAssets slice — `assets` and `setAssets` are two halves of one seam", async () => {
+    // ★★★ DRIVE IT. `documentAssets` starts as `undefined`, so a shape or
+    // presence assertion cannot tell the real slice from a dropped prop. Writing
+    // through `setAssets` and watching `assets` arrive on the NEXT render is the
+    // only assertion that fails for BOTH single-line deletions: without
+    // `setAssets:` the call throws (undefined is not a function), and without
+    // `assets:` the write lands in the context but never comes back to the pane.
+    renderTab(false, seedFilePortfolioWithTurso);
+    await screen.findByTestId("documents-panel-stub");
+    expect(assetPaneOf(seen.at(-1)!).assets).toBeUndefined();
+
+    act(() => {
+      assetPaneOf(seen.at(-1)!).setAssets([ASSET]);
+    });
+
+    await waitFor(() =>
+      expect(assetPaneOf(seen.at(-1)!).assets).toEqual([
+        expect.objectContaining({ id: "a1", name: "diagram.png" }),
+      ]),
+    );
+  });
+
+  it("REFUSES in Safe Mode: no tursoConfig, so the byte store is never re-partitioned", async () => {
+    // ★★★ THE SAFE-MODE DATA-PARTITIONING GUARD. `loadPortfolioMode` and
+    // `loadCurrentTursoProjectId` both force a degraded value under `?safe=1`
+    // while `loadRegistry()` does not, so the byte-lookup key would silently
+    // become the FILE registry's project id while the metadata — which rides the
+    // workspace — stayed where it was. Since Safe Mode also boots the workspace
+    // onto the browser backend, no key can make the two halves agree; the only
+    // sound answer is to disable the surface.
+    //
+    // ★★★ THE FORCED CONFIG IS WHAT MAKES THIS NON-VACUOUS. Safe Mode ALSO makes
+    // `useSettings` ignore stored settings, so a settings-seeded fixture would
+    // yield a null config with the guard DELETED and pass either way. Forcing a
+    // config stands in for a NEXT_PUBLIC_TURSO_DATABASE_URL deployment, where
+    // default settings still produce a live config — the reachable path.
+    renderTab(false, () => {
+      seedFilePortfolioWithTurso();
+      turso.forced = { httpUrl: "https://db.turso.io", authToken: "tok" };
+      window.history.replaceState({}, "", "/?safe=1");
+      __resetSafeModeCache();
+    });
+    await screen.findByTestId("documents-panel-stub");
+    // Give the settings-hydration effect a turn: this must hold at rest, not
+    // merely on the first render.
+    await act(async () => { await Promise.resolve(); });
+    expect(assetPaneOf(seen.at(-1)!).tursoConfig).toBeNull();
+  });
+
+  it("the CONTROL for Safe Mode: the same forced config IS passed in normal mode", async () => {
+    // ★★ Without this, hardcoding `tursoConfig: null` would satisfy the case
+    // above while disabling the asset library for everyone.
+    renderTab(false, () => {
+      seedFilePortfolioWithTurso();
+      turso.forced = { httpUrl: "https://db.turso.io", authToken: "tok" };
+    });
+    await screen.findByTestId("documents-panel-stub");
+    expect(assetPaneOf(seen.at(-1)!).tursoConfig).toEqual({
+      httpUrl: "https://db.turso.io",
+      authToken: "tok",
+    });
   });
 });

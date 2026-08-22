@@ -470,6 +470,26 @@ block would silently drop it on the next save of any other meta slice.
 ★ `dirtyWorkspaceTables` maps a `documentVersions` reference change to `meta`, so an in-place
 mutation of the array skips the save entirely.
 
+★★ **THE THREE MARKDOWN DECODE STOP-RULES NEED THREE KILLING CASES, NOT ONE.**
+`markdown-codecs-decode.ts` stops the generic table walk at `## Documents`, `## Document versions`
+and `## Activity Log`, but only ONE adversarial test existed and it exercised the third — deleting
+either of the other two left the whole suite green. `markdown-codecs.test.ts` now runs an
+`it.each` over the three headings, each case proved to go red against the deletion of exactly its
+own rule. Any future stop-rule added there needs its own case in that table; a shared "the walk
+stops" test is not coverage.
+
+★★ **`documentAssets` is EXCLUDED from `isWorkspaceEmpty`, and the reason is the `documents`
+precedent — NOT the `activityLog` one.** The exclusion itself is right (an asset-only workspace is
+near-unreachable, and leaving it out of the record count is the safe direction for a guard whose
+whole job is refusing to overwrite a populated project). But the comment justifying it originally
+cited `activityLog`, whose reasoning does not transfer at all: `activityLog` is excluded because
+ORDINARY USE auto-appends to it, so counting it would let a transient empty read overwrite real
+data. `documentAssets` rows come only from an explicit user upload, which is behaviourally
+`documents` — and `documents` IS counted. The code did not change; the model it taught anyone
+extending the slice did. ★ `documentAssets` is likewise absent from `nonEmptyCollectionCount` and
+`workspaceRecordCount` (the SAVE-time mass-deletion thresholds), on the same reasoning; all three
+live in `workspace-metrics.ts`.
+
 ## Entity links (`document-ref.ts`)
 
 A document names the tasks, milestones, RAID items and changes it is about, via
@@ -530,6 +550,417 @@ the UNLINKED one first, deliberately.
 
 ★ **One accepted behaviour:** a read-only popout renders no link field AND no chips — the field is
 withheld rather than drawn inert, per the no-false-affordance rule.
+
+## Asset images (S3c-1)
+
+Shipped 0.254.0 "Yoshinaga", Turso-gated (`tursoConfig !== null`, same rule as version history).
+Design lived in `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`'s S3c-1
+section. ★★ Its open follow-ups start at `docs/open-followups.md` §202, and **no range is quoted
+here on purpose** — the very commit that wrote "§202–§207" added §208 and §209 in the same diff, so
+a range is stale before it is committed and nothing gates it. Derive today's set:
+`awk '/^## [0-9]+\./{h=$0} /S3c-1|document_assets|documentAssets|asset librar|document image|data-asset/{print h}' docs/open-followups.md | sort -u`
+(it also returns the older documents-roadmap entries §113/§115/§117/§140, which are genuinely
+related). This section replaces "S3c" as a
+bare label —
+see `docs/open-followups.md` §113 for why that label collided with a different slice.
+
+★★★ **EVERYTHING BELOW DESCRIBES THE POST-FIX-ROUND CODE.** The slice shipped its first cut with a
+fully green gate suite — eslint, tsc, the whole unit suite, the coverage floors, axe and prod-smoke
+— and was **non-functional** on the one backend it is gated to: no image could be uploaded without
+killing every subsequent workspace save, and no image could be displayed at all. Four cold reviews
+and seven fix commits closed that. The per-landmine paragraphs below say what each gate could not
+see; read them as a list of what NOT to reintroduce, not as history.
+
+★★★ **TWO STORES, NOT ONE.** Asset METADATA (`DocumentAsset` — id, name, mime, size, optional
+width/height, content `hash`, `createdAt`; `document-asset.ts`) is an ordinary workspace slice on
+all six write paths, exactly like `documents`/`documentVersions`. Asset BYTES live as base64 TEXT
+in `document_asset_data`, a side table reached only through `document-assets-schema.ts` (pure
+statement builders) and `document-assets-store.ts` (async CRUD) — mirroring the existing
+out-of-`TABLE_NAMES` pattern (`comm-templates-store.ts`, `committee-report-versions-schema.ts`,
+`chat-threads-schema.ts`). `DocumentAsset` is deliberately **MIME-generic at the model layer** —
+format policy (PNG/JPEG/WebP only) lives entirely in the upload pipeline
+(`document-asset-upload.ts`), not in the sanitizer, so the same table/store/dedup/delete can serve
+a later non-image attachment slice with no migration.
+
+★★★ **`DocumentAsset` IS THE FIRST STRING-ID ENTITY IN `ENTITY_SPECS`, AND A FUTURE ONE MUST
+DECLARE `idKind: "text"`.** `colDdl` rendered ANY column named `id` as `id INTEGER PRIMARY KEY` — a
+rowid alias, the one column type SQLite actually ENFORCES — and `insertStmt`/`tenantInsert` bound
+`id` as `{type:"integer"}`. That was correct for every pre-existing spec, all of which mint a
+number; `DocumentAsset` mints a `crypto.randomUUID()`, so a real engine answers `datatype mismatch`.
+The asset INSERT rides the SAME `BEGIN…COMMIT` as tasks, RAID, milestones, budgets, plan and meta,
+so **every workspace save reported failure from then on** — and the feature is Turso-gated, so it
+reached exactly the users who could reach it.
+★★★ IT DID NOT DIE MID-TRANSACTION, AND THIS PARAGRAPH SAID IT DID. A libSQL `/v2/pipeline` batch
+does not abort at a failing statement: it errors that ONE statement, keeps executing, and COMMIT
+still runs and succeeds. `runTursoPipeline` then calls `rollbackBestEffort` against an
+already-committed transaction — which changes nothing — and throws. So the workspace WAS written,
+minus the rejected row, behind a message saying the save failed. Measured against a live database;
+`docs/open-followups.md` §211 and AGENTS.md's `idKind` bullet carry the same correction. `EntitySpec.idKind` (`turso-schema.ts`) now selects the pair:
+`"text"` gives `id TEXT PRIMARY KEY` single-tenant, a plain `id TEXT` inside the composite tenant
+PK, and a text-bound arg. ★ It DEFAULTS to `"integer"`, which is what keeps every other spec
+byte-identical and is also what makes omitting it silent. Enumerate today's declarers with
+`grep -n 'idKind: "' src/app/turso-schema.ts` — one line per spec that declares it.
+
+★★ **NO STRING-MATCHING TEST COULD HAVE CAUGHT THAT, which is why `turso-schema.execute.test.ts`
+exists.** `entity-persistence-registry.test.ts` proves the Turso paths by matching DDL TEXT and
+never executes a statement — its own fixture id would have been rejected too, had anything run it.
+The new suite executes the real statements against `node:sqlite`, generalised over `ENTITY_SPECS`
+so every future entity is pinned without being named. It ALSO asserts every `{type:"integer"}` arg
+is a decimal i64, because the tenant layout's `id INTEGER` is a plain column whose affinity SQLite
+does NOT enforce — a UUID slips through the engine there, and only the Hrana wire contract rejects
+it. ★★★ Its FIRST version was vacuous in the nastiest available way: the fixture READ `idKind`, so
+deleting the field made the fixture switch to a numeric id and every assertion stayed green over
+the restored bug. It now derives the id kind from OBSERVED builder behaviour. A fixture that
+consults the field under test adapts to its own mutant.
+
+★ **Related, and fixed in the same commit:** `existingColumnsFromPragma` (`turso-migrate.ts`)
+treated a zero-row `PRAGMA table_info` — i.e. the table does not exist — as a table with no
+columns, and emitted `ALTER TABLE` against it. Masked for the whole life of that module because
+both load paths prepend the full DDL first; `document_assets` is the first new table to depend on
+that ordering. `turso-migrate.ts` itself never has to know which `idKind` a table uses: `id` is
+always created WITH the table, so the migrator only ever ADDs TEXT columns.
+
+★★★ **`document_asset_data` is deliberately OUTSIDE `TABLE_NAMES`, and this is the same shape as
+`chat_threads` above.** A workspace save emits a per-table `DELETE` + full re-`INSERT` for every
+table `TABLE_NAMES` lists, so listing the byte table would wipe the entire image library on every
+single workspace save. Consequence: nothing cleans it automatically on ordinary project use, so
+`hardDeleteProject` (`turso-portfolio.ts`) calls `deleteAllAssetDataForProject` explicitly — and
+**non-fatally**, via `logDiag`, because leaked bytes are recoverable disk space and a half-deleted
+project is not. ★ It was NOT verified whether the two OLDER side tables of this shape —
+`chat_threads`, `committee_report_versions` — get the same cleanup; probe before assuming either
+way (§204).
+
+★★★ **THE TWO HALVES SIT ON OPPOSITE SIDES OF `TABLE_NAMES`, AND BOTH SIDES ARE LOAD-BEARING.**
+The METADATA table `document_assets` **IS** in `TABLE_NAMES` — not by a separate listing, but
+because `TABLE_NAMES` is DERIVED from `ENTITY_SPECS` (`turso-schema.ts`), so an `ENTITY_SPECS` row
+puts a table in it automatically. Only the BYTES are outside. Reading that as "assets are
+out-of-`TABLE_NAMES`" flatly, and acting on it, breaks the slice in whichever direction you get
+wrong: adding the byte table wipes the entire image library on the next workspace save; removing
+the metadata row from the registry orphans every byte row and leaves the library empty. Verify with
+`grep -n 'TABLE_NAMES: readonly' src/app/turso-schema.ts`, which shows the derivation on one line.
+
+★★ **SINGLE-TENANT METADATA HAS NO `project_id` COLUMN AND THE BYTE TABLE ALWAYS DOES**, so the two
+halves are partitioned by different things and cannot be guaranteed to agree. `colDdl` emits no
+project column at all for the single-DB layout (the whole database IS the project), while
+`DOCUMENT_ASSET_DATA_DDL` is one shape for both layouts — `PRIMARY KEY (id, project_id)` always —
+and the key it is given comes from a UI-level read of the portfolio/registry state, not from the
+workspace the metadata rode in on. Nothing reconciles them. The consequence is recorded as §207;
+the mitigations that ARE in place are the Safe Mode refusal below and the `hardDeleteProject`
+cleanup above.
+★★ **The partition key is `ASSET_PARTITION_FALLBACK` when the caller has none, and it is NEVER
+`""`.** `AssetDataRow.projectId`'s docstring claimed `""` was the single-tenant key for as long as
+this feature existed and NO call site ever produced one — anything written by a caller who believed
+it would have been invisible to every session that resolves the key the way the code does. The
+docstring was corrected TO the code rather than the reverse (bytes already stored are keyed the
+current way, and this table has no version marker to drive a migration), and
+`documents-asset-section.tsx` normalises a blank id to the named constant with `||`, not `??`, so a
+future caller following the old claim cannot open a second partition. ★ The fallback is a REAL key,
+not a sentinel for "unpartitioned": every input to it is deterministic, so a later session in the
+same state finds the same bytes — see §207 for why that makes it sound and Safe Mode unsound.
+
+★★★ **THE ASSET LIBRARY REFUSES TO OPERATE IN SAFE MODE RATHER THAN RE-PARTITIONING BYTES.**
+`DocumentsTabPanel` (`workspace-panels.tsx`) derives the byte store's key from `loadPortfolioMode()`
+and `loadCurrentTursoProjectId()`, and BOTH force a degraded value under `?safe=1` (mode `"file"`,
+id `null`) while `loadRegistry()` carries no such guard. Without a gate, a Turso-portfolio user
+entering Safe Mode silently swapped the byte-lookup key to the file registry's id — metadata does
+NOT move, since it rides the workspace — so every asset read as dangling, every embedded image
+broke, and any upload wrote bytes under a key normal-mode boot never looks at.
+`deleteAllAssetDataForProject` is keyed the same way, so those orphans then survived project
+deletion too. ★★ It is reachable with NO user action on an env-configured deployment:
+`getTursoConfig` falls back to `NEXT_PUBLIC_TURSO_*` BEFORE consulting settings, so default Safe
+Mode settings still yield a live config — and a test leaning on the settings coupling passes
+vacuously over exactly that path.
+★★★ **REFUSING BEATS STABILISING THE KEY, and this is not fastidiousness — there is no coherent key
+to stabilise TO.** Safe Mode also boots settings at `defaultStorageConfig` (`kind: "browser"`), so
+the metadata half comes from a DIFFERENT workspace whatever the key says; pinning an id would pair
+one project's bytes with another project's workspace, which is worse than showing nothing.
+Reconstructing the real id would additionally mean reading the raw mode/project keys from inside a
+view component, defeating the two guards `portfolio-mode.ts` exists to apply. So `isSafeMode()`
+forces `tursoConfig` to null and the surface renders its existing empty state: no read, no write,
+no byte moved — reusing the disable gate the feature already documents rather than inventing state.
+
+★★ **The `assetPane` bag was ENTIRELY untested at the wiring seam, and the panel's own tests cannot
+see it by construction** — they render the component and supply the props themselves, so an
+unpassed prop is invisible to every one of them. Deleting the whole bag from this call site left
+`workspace-panels.documents.test.tsx` green, and that file contained zero occurrences of "Asset".
+Wiring-level cases now assert observable consequences, each proved to die against deletion of its
+own line. Any new prop threaded through this call site needs a case THERE, not in the panel suite.
+
+★★ **Metadata is written BEFORE bytes, and that ordering is the failure-mode design, not an
+accident.** If the byte write then fails, the asset degrades to the already-designed DANGLING case
+— visible in the library, self-describing, repaired by re-uploading over the same id — instead of
+an invisible orphan that would need its own reclaim mechanism. Pinned by a mutation-checked test in
+`use-document-assets.test.tsx`; do not reorder the two writes without re-checking that test's
+premise.
+
+★★★ **ALL THREE METADATA WRITERS GO THROUGH ONE FUNCTIONAL-UPDATE PATH, `commitAssets`, AND THAT
+IS WHAT MAKES THE ORDERING ABOVE MEAN ANYTHING.** `setAssets` was originally typed to discard the
+functional form — a value-only setter is ASSIGNABLE to `Dispatch<SetStateAction<…>>`, so narrowing
+the deps type compiled and quietly removed the only way concurrent writers can compose — and
+`upload` wrote `setAssets([...assets, asset])` off a render-scope closure. Three call sites fan out
+N concurrent uploads sharing ONE closure, so dropping three files lost two metadata rows **whose
+bytes had already been written**: precisely the orphan state the metadata-first ordering exists to
+prevent. The stale read also made two identical files dropped together both mint an id, defeating
+dedup. ★★ `rename` and `remove` carried the IDENTICAL clobber — a rename landing during an
+in-flight upload dropped the uploaded row — so the fix is one writer, not three patched ones:
+`commitAssets(fn)` updates a committed-list mirror (`assetsRef`, for reads inside the SAME tick,
+before React has re-rendered) and calls `setAssets` with a functional update.
+★★ **Every `fn` MUST be a pure array transform.** It runs once against the mirror and once in the
+state updater, and React double-invokes the updater under StrictMode — ids and timestamps are
+minted BEFORE `commitAssets` is called, never inside one. Never put a `setState`, a mint, or any
+other effect in an `fn`.
+
+★★★ **`upload` RETURNS THE ASSET, NOT ITS ID, AND THE CALLER INSERTS FROM THE AWAITED RESULT.**
+An id-keyed lookup cannot find a just-minted row: by definition it is absent from the render
+closure the insert callback closed over. The previous shape armed a boolean ref before the await
+and reacted to a `lastId` state change, and was broken three ways at once — (a) re-inserting an
+ALREADY-STORED image was a silent no-op, because the dedup branch set `lastId` to the value it
+already held and React bailed out of the re-render so the effect never ran; (b) every rejection
+path returns without touching `lastId`, so the arm was never cleared and the NEXT ordinary Upload
+press appended that image to the open document unbidden; (c) one boolean cannot carry N files, so a
+multi-file paste inserted exactly one. Awaiting the result deleted the arm ref, the last-inserted
+ref and the effect outright. ★ `uploadAndInsert` runs the uploads CONCURRENTLY (`Promise.all`) but
+inserts in the caller's file order.
+
+★★★ **`insertAssets` IS A BATCH FUNCTION EVEN FOR THE SINGLE-ASSET PICKER PATH, AND COLLAPSING IT
+BACK TO A PER-ASSET ONE REOPENS TWO DEFECTS.** Both come from the same root: `selected` is frozen
+for the whole synchronous loop, so N per-asset calls all evaluate against the SAME pre-batch state.
+(1) **The cap did not hold across a batch** — `assetIdsInDocument(selected)` returned the same id
+set every time, so at 19 stored images a 5-file paste had all five pass the
+`>= ASSET_MAX_PER_DOCUMENT` test and the document ended with 24. A running `present` set inside the
+loop is what holds it WITHIN a batch; holding it ACROSS batches is free, since the next batch
+re-reads the by-then-updated document. (2) **The insert index did not advance** —
+`structural.insert` is a `splice(index, 0, block)` against LIVE state while `selected.blocks.length`
+is frozen, so N inserts at one index put each new block BEFORE the previous one and a 3-image paste
+landed in REVERSE order. ★★ The pre-existing "inserts in the pasted order" test compared the order
+of the CALLS, which was right all along; nothing looked at the INDEX they carried. A test over an
+ordered sequence of calls is not a test of where the results land.
+★★ **The running state is deliberately OPTIMISTIC — it does not consult the `DocResult`
+`structural.insert` returns.** Threading the returned document back in was the other candidate and
+is worse here for a failure-mode reason, not a taste one: `structuralOp` returns `undefined` the
+moment the open document changed underneath (`use-document-editor.ts`), so a result-driven counter
+silently stops counting exactly when it is handed nothing — and every test stub returning a bare
+`undefined` would DISABLE the cap while staying green. Counting locally cannot be switched off by a
+caller, and it errs toward skipping rather than overshooting, which is the safe direction for a cap.
+★ One cap decision is announced for the WHOLE batch, after it: a per-asset `setCapMessage` let a
+later file that inserted fine CLEAR the message a skipped earlier one had just set.
+★ `insertAssets` takes ASSETS, not ids; `insertAssetById` is the id-keyed wrapper the picker uses,
+and the picker only ever names an already-rendered row.
+
+★★ **The `alt` text is `htmlEscape`d at the seam and DOMPurify does not substitute for that.**
+`asset.name` is `file.name` verbatim on upload, free text via rename, and fully attacker-controlled
+in an imported workspace (`sanitizeDocumentAsset` keeps it as-is). Interpolated raw, a name of the
+`x"><a href="…">Click here</a><img alt="` shape CLOSES the img and opens an anchor — and
+`sanitizeDocumentHtml` then PASSES it, because `a` is allow-listed and an `https:` href satisfies
+the URI regexp. The planted link persists into `block.html` and rides into standalone HTML, DOCX
+and PPTX. Never hand a sanitizer a string that was already malformed when it was built. (The id is
+escaped too, for the same reason at lower stakes.)
+
+★★ **`encodeViaCanvas` returns `outBlob.type`, never the REQUESTED mime.** `canvas.toBlob` falls
+back to `image/png` silently on an unsupported type, so trusting the request would store a mime
+that misdescribes the bytes — and still pass the export allowlist, since the recorded mime is what
+that allowlist reads.
+
+★★ **The 32 MiB Turso ceiling is a MEASUREMENT, not a spec number, and it is SCOPED to one
+statement.** Probed 2026-08-21 against a real database: a single-statement pipeline carried a 32
+MiB text argument with no ceiling found; latency rose to ~6.6s at that size and ~1.8s at 6.7 MiB.
+The 5 MB `ASSET_STORED_MAX_BYTES` cap therefore sits at ~4.8× headroom under the measured point,
+so no chunking/streaming upload path was built. **The measurement does NOT cover batching several
+assets into one pipeline** — that is why the store writes one asset per request rather than
+coalescing a multi-image upload, and doing so later needs its own measurement first, not an
+extrapolation from this one.
+
+★ **Upload budget, all in `document-asset-upload.ts`** (verify current values with a grep — they
+are `SCREAMING_CASE` and therefore ungated by `docs:symbols:check`, per this repo's own rule):
+`ASSET_RAW_MAX_BYTES` 25 MB pre-decode ceiling · `ASSET_MAX_SOURCE_DIM` 8000 px header-only
+dimension guard (rejects a decompression-bomb image before decoding its pixels) · downscale to
+`ASSET_DOWNSCALE_W`×`ASSET_DOWNSCALE_H` (1920×1080) · `ASSET_STORED_MAX_BYTES` 5 MB applied AFTER
+downscale · `ASSET_MAX_PER_DOCUMENT` 20 images, enforced at insert · SHA-256 content-hash dedup
+(the `hash` field above), which also drives refcount-aware delete — deleting one document's
+reference to a shared asset does not delete a byte row another document still points at.
+
+★★★ **THE JPEG DIMENSION WALK RUNS ON FULLY UNTRUSTED BYTES AND ITS DOCSTRING ONCE LIED ABOUT
+WHICH MARKERS IT TREATS AS STANDALONE.** `readJpegDimensions` feeds the decompression-bomb guard
+(`ASSET_MAX_SOURCE_DIM`). Its comment claimed the walk treats SOI/RST0-7/TEM as standalone; the
+code tested `0xD9` — that is EOI, not SOI. A second SOI was therefore read as length-carrying, the
+walk desynchronised, and a 12000×12000 image prefixed with a duplicate SOI plus a decoy SOF0 at
+the jump target reported 100×100 and sailed past the 8000 px cap. ★★ It was unreachable in
+practice ONLY because Chromium refuses to decode a file with a duplicate SOI — i.e. the guard's
+correctness rested on a decoder-side accident, which is not a property to rely on. Fixed by adding
+`0xD8`; the docstring now matches the code.
+★★ **Two guard branches in the same function survived deletion with the suite green**, and how they
+survived is the transferable part: the SOS stop (`marker === 0xda`) had a test that passed for the
+WRONG REASON — the fixture's scan data was shorter than its declared length, so the mutant ran off
+the end and returned `null` too, same answer by a different mechanism (the fixture now carries a
+plausible SOF0 INSIDE the scan data). And `len < 2` was reasoned to be an equivalent mutant and is
+NOT: the `isSof` branch reads width/height BEFORE the pointer advance, so that guard is what stops
+a malformed JPEG handing attacker-chosen dimensions to the bomb check. All three are now pinned by
+tests watched to fail against their own mutants.
+
+★★ **Formats: `ASSET_MIME_ALLOWED` is PNG + JPEG + WebP, and both exclusions are permanent, not
+temporary gaps.** SVG is excluded on the same XSS-surface precedent as the branding image input
+(`branding-image-input.tsx`) — an SVG can carry script. GIF is excluded because the downscale step
+RE-ENCODES the image, which would silently destroy animation; there is no "downscale losslessly"
+option for an animated format.
+
+★★ **Rendering never inlines base64 into the live DOM string.** The preview resolves
+`<img data-asset-id>` to **blob object URLs** imperatively, in `document-asset-images.ts` — ten
+images at a few MB each would otherwise put tens of MB of base64 into the one
+`dangerouslySetInnerHTML` string `document-preview.tsx` builds.
+★★★ **THAT REQUIRES `blob:` IN THE CSP `img-src`, AND ITS ABSENCE BROKE EVERY DOCUMENT IMAGE IN
+DEV AND PROD ALIKE.** The directive was `'self' data:`; `'self'` does NOT match a `blob:` URL, so
+the browser refused every image load — and refused it INVISIBLY, because the `src` is set and only
+the fetch is blocked, so there is no broken-image marker to notice. Measured in Chromium against
+that exact directive. Nothing in the UNIT suite can see it — jsdom enforces no CSP — and at the
+time no e2e spec touched document assets either, which left `src/proxy.test.ts` asserting the
+directive STRING as the only guard. ★★ That gap is now closed by `e2e/documents-images.spec.ts`,
+the only layer that can watch a document image actually fail: it drives a real Chromium page to a
+seeded document and polls each `<img>`'s `naturalWidth`/`naturalHeight` against that asset's own
+stored size. **Nothing weaker detects this bug** — a CSP-refused image keeps its `src`, stays in
+the DOM and stays "visible", so presence, visibility, a `blob:`-src check and a screenshot all pass
+against it; only a decoded bitmap has a non-zero `naturalWidth`. It separates the two failure modes
+deliberately (no blob: src / `data-asset-missing` = the byte store never delivered, which says
+nothing about CSP; blob: src with `naturalWidth` 0 = the browser refused the load, the CSP
+signature), and additionally asserts that the page reported no `securitypolicyviolation` on ANY
+directive, so a future `connect-src` or `style-src` narrowing trips it too. Deleting that spec
+returns this whole class to undetectable. ★ Note
+`IS_DEV` branches only `scriptExtras` and `styleElem` — never `img-src` — which is why this was NOT
+a prod-only defect like the CSP class recorded elsewhere in this repo. ★ `object-src 'none'`
+remains the guard against the usual `blob:` escalation; `img-src` can only ever decode an image.
+Standalone HTML export (and
+therefore PDF, which is that same standalone mode driven through the browser print dialog — there
+is still no PDF writer and no PDF dependency in this repo) inlines a `data:` URI instead, because a
+standalone file has no live JS to resolve a blob URL against.
+★★★ **THAT `data:` URI IS A VALIDATED SINK, NOT AN INTERPOLATION.** `doc-render-html.ts` built
+`src="data:${mime};base64,${data}"` with no escaping and no allowlist. The mime reaches it through
+the LOAD path's `sanitizeText`, which only trims and clips — it strips no quotes and never consults
+the upload allowlist — so a hostile project file carrying a mime of the
+`image/png" onerror="…` shape yielded a live `onerror`, firing IMMEDIATELY because the resulting
+src is undecodable. On the PDF branch that HTML is written into a `window.open("", "_blank")`, an
+`about:blank` that inherits the opener's origin, so it would run in the app origin. `assetSrcAttr`
+now validates the mime against `ASSET_MIME_ALLOWED` (imported, never restated, so upload policy and
+render policy cannot drift) and the data against the base64 alphabet, falling through to the
+existing `data-asset-missing` branch on a miss. ★★ **Escaping alone would NOT have been enough** —
+an escaped `image/svg+xml` is still an XSS surface, and the load path admits it while upload does
+not; the allowlist is the part that matters. ★★ It was not reachable at the time only because no
+production caller passes the optional `assets` argument — the sink is one wiring line from live, so
+do not downgrade it on reachability grounds. ★ Its tests assert on PARSED attributes off a jsdom
+element rather than substrings of the raw string: a raw-string assertion is the class of test that
+let this ship.
+★ The missing-image glyph
+(`img[data-asset-missing]::before { content: "⚠" }`, for a dangling reference) relies on
+pseudo-element rendering over a `src`-less replaced element — jsdom cannot render it, so only the
+attribute and border/background classes are test-pinned, not the glyph itself; eye-verify in a real
+browser before relying on it (§205). ★ `DocumentsHistoryModal`'s version-preview surface was NOT
+wired to the same asset-resolution — a version containing an image block renders without its
+picture there today (§206).
+
+★★★ **DOCX and PPTX emit a VISIBLE TRANSLATED PLACEHOLDER naming the asset — never a silent drop —
+and this is the finished behaviour of S3c-1, not a stub awaiting S3c-2.** Real OOXML media parts
+(`word/media/`, relationship ids, `<w:drawing>`/`<a:blip r:embed>`, EMU sizing from the stored
+`width`/`height`) are deferred to **S3c-2** (§202) — the largest unbuilt piece in the documents
+roadmap, with no existing scaffolding for binary media parts in either renderer.
+
+★★★ **Insertion does NOT go through the live rich-text editor, and this is load-bearing, not an
+oversight.** `@tiptap/extension-image` is NOT installed, and this is deliberate — do NOT add it as
+a shortcut for inline editing: `RICH_ALLOWED_TAGS` carries no `img` (only `DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS,
+"img"]` does), and `RichTextEditor`'s `onUpdate` runs `sanitizeRichHtml` on every keystroke — so an
+`<img>` pasted into a LIVE editor instance is destroyed on the very next update. That is exactly
+why `document-block-editors.tsx` already renders an image-bearing paragraph READ-ONLY via
+`paragraphHasImage`, rather than opening it in the live editor. Insertion instead appends a NEW
+paragraph block directly through `structural.insert`, in `documents-asset-section.tsx` — it never
+touches a live `RichTextEditor` instance at all.
+
+★★★ **THE LOADER USED TO EAT EVERY IMAGE-ONLY PARAGRAPH, AND `ASSET_IMG_RE` (`document-model.ts`)
+IS WHAT STOPS IT.** An inserted image IS a paragraph whose entire html is the `<img>` tag —
+`sanitizeBlock` dropped a paragraph at `htmlTextLength(html) === 0`, and `htmlTextLength` strips
+every tag and does not project `alt`, so such a block measured zero and was discarded on ALL SIX
+load paths at once. It rendered in the authoring session (in memory) and was simply gone after the
+next reload, with no error and nothing in the truncation diagnostic. ★★ Fixed on the LOAD side
+deliberately, not at the writer: that also repairs documents already stored broken, which no
+write-side change could reach. ★★ The predicate is scoped to a NON-EMPTY `data-asset-id`, not to
+`<img>` at large, because a bare `<img>` here can never become anything — the document allow-list
+grants `img` only `alt` and `data-asset-id` and deliberately NO `src`, and the resolver plus all
+three renderers key off a non-empty `data-asset-id` — so keeping one would reintroduce exactly the
+accumulating invisible blank paragraph the empty-drop exists to prevent. ★★ It is case-INSENSITIVE
+and admits every legal attribute spelling — unlike the renderers' regexes, which are
+double-quoted-only because they only ever see DOMPurify-lowercased, normalised html. **They are no
+longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
+them, widening only this one to match its own threat model (it runs BEFORE any allow-list pass on
+the load path, so it must survive hand-edited and imported html). §209 tracks the five spellings of
+this attribute contract and why they cannot simply be unified. ★ It is deliberately NOT `/g` — a
+global regex carries `lastIndex` across `.test` calls and would drop every OTHER image-only
+paragraph in a document.
+★★ Consequence for any e2e or fixture work: BEFORE this fix a seeded image-only paragraph did not
+survive to render, so a spec written against one went vacuously green. `e2e/seed.ts` now seeds BOTH
+shapes — a captioned figure AND an image-only paragraph — and **they are not interchangeable, so do
+not "simplify" the seed down to one.** The captioned figure is valid whatever the block-drop rules
+do, which makes it the stable carrier of the CSP/render assertion above. The image-only paragraph
+is the shape `documents-asset-section.tsx` actually inserts, and it is what carries this guard's
+only END-TO-END coverage: proved by mutation, reverting `ASSET_IMG_RE` deletes that block at load,
+so `e2e/documents-images.spec.ts` finds no `<img>` for it and goes red rather than losing user
+images silently again. ★★ That is an e2e-LAYER claim only — the guard itself is pinned directly,
+and more thoroughly, by `document-model.test.ts` (image-only paragraph on the load path, on the
+`normalizeBlockForStorage` commit path, twice in one document to catch a `/g` `lastIndex` carry, and
+across every attribute spelling the widened pattern admits). ★★ **Do not quote a number for that
+last set** — an earlier draft of this sentence said "all three quoting styles" and was already
+stale: `e5597c78` widened `ASSET_IMG_RE` to a five-way alternation over `\s*=\s*`, so double-,
+single- and UNQUOTED values, upper-cased tags and spaces around the `=` are each a separate branch,
+and the test lists them one fixture per line precisely so a mutant keeping the wrong subset cannot
+stay green. Read today's off the declaration:
+`grep -n -A 1 "const ASSET_IMG_RE" src/app/document-model.ts`. Do not read either layer as making
+the other redundant. ★ The two assets are seeded at DIFFERENT dimensions on purpose — each
+`<img>` is asserted against its own stored size, so a resolver pointing both at the same bytes
+cannot pass.
+
+★ **No sanitizer was edited by this slice.** `<img data-asset-id>` and `alt` were already in the
+documents allow-list from S3a's `HTML_START` split (§114) — S3c-1 is a pure consumer of that
+existing allowance, not a change to it.
+
+★ **The asset library surface is outside axe coverage, structurally, not by omission.** Turso-gated
++ `e2e/seed.ts` seeds FILE mode → the a11y gate never renders it, the same blind spot as every
+other Turso-gated view. And axe-core 4.12.1 has no rule that flags two controls sharing an
+accessible name at any seed size (measured against the installed version — see `AGENTS.md`'s a11y
+hard-constraint bullet), so even a hypothetical future scan could not catch a row-label collision
+here. `asset-library.test.tsx`'s ≥2-row unique-name test is the only detector this surface will
+ever have (§203).
+
+★★★ **ROW LABELS CARRY AN OCCURRENCE INDEX ONLY WHEN A NAME IS AMBIGUOUS, AND THE ESCALATION LOOP
+IS LOAD-BEARING.** Asset names are NOT unique and cannot be made so: upload takes `file.name`
+verbatim and Chrome names EVERY pasted clipboard image `image.png`; `findDuplicate` is hash-only,
+so two DIFFERENT images sharing a filename both get rows; and rename accepts a string already in
+use. Every per-row control was labelled `${verb} – ${asset.name}`, so two rows could both read
+"Delete – image.png" (WCAG 2.4.6). `buildRowTokens` returns id → display token: a name unique in
+the RENDERED list is used bare — so the common case is now cleaner than before — and only rows
+actually sharing a name are numbered, all of them including the first. ★★ The escalation loop is
+not defensive padding: a user can rename a third row to literally `image.png (1)`, at which point
+the GENERATED token for a colliding pair's first row collides with that row's BARE one — a
+disambiguator re-creating the exact defect it closes. Bumping until the token set is free makes
+uniqueness hold by construction. ★ The disambiguator is deliberately NOT the id (36 characters of
+UUID read aloud on every control trades a 2.4.6 failure for a worse experience for the same users)
+and NOT a whole-list positional ordinal (it shifts under sorting); the tokens derive from the
+SORTED rows, so the index follows what is on screen. ★ `rowLabel` keeps the verb at the FRONT so
+the accessible name still CONTAINS each control's visible text (WCAG 2.5.3).
+★★★ **THE FIXTURE IS THE TEST HERE.** The pre-fix unit test used two DISTINCT names, so it passed
+whether or not collisions were possible — the only possible detector, detecting nothing. It now
+seeds two rows SHARING a name. ★★ And a uniqueness-ONLY assertion (`Set` size === row count) does
+NOT prove the behaviour either: the escalation loop preserves uniqueness even with the occurrence
+index removed, so the tests assert the specific expected tokens.
+
+★ **Three smaller a11y/i18n defects on this surface, all worth not reintroducing:** both
+`role="status"` regions were CONDITIONALLY MOUNTED, so no upload error and no cap message was ever
+announced — a live region must exist BEFORE its text changes, so they are always mounted with the
+text toggled. The disabled state told popout users "Images need a Turso project" even on a fully
+configured Turso project, which sends the reader to check storage settings that are already
+correct — read-only now has its own message, keyed off which condition actually failed. The
+paste/drop zone was a role-less focusable `div` carrying an `aria-label` ARIA prohibits on a
+generic role; it is a `role="group"`. ★ Separately, focus was dropped to `<body>` after every
+rename commit or cancel (`setEditingId(null)` unmounts the focused control) and now returns to the
+row's rename button; and the dangling state was announced to NOBODY — a `title` on a
+non-focusable span with no text exposes no accessible name — so it carries `sr-only` text beside
+the `aria-hidden` glyph. ★ `formatBytes` hard-coded a `.` decimal separator and rendered "3.0 KB"
+in German; both branches route through `Intl.NumberFormat`, so the grouping separator is localised
+too. Never reach for `toFixed` there again.
 
 ## Load/save wiring (app state)
 

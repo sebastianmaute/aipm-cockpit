@@ -328,6 +328,25 @@ describe("WorkspaceProvider", () => {
     expect(result.current.features).toEqual(["raid"]);
   });
 
+  test("exposes documentAssets state and setter, defaulting to undefined like calendarEvents", () => {
+    const { result } = renderHook(() => useWorkspace(), { wrapper });
+    expect(result.current.documentAssets).toBeUndefined();
+    act(() =>
+      result.current.setDocumentAssets([
+        {
+          id: "asset-1",
+          name: "diagram.png",
+          mime: "image/png",
+          size: 1234,
+          hash: "abc123",
+          createdAt: "2026-08-06T00:00:00.000Z",
+        },
+      ]),
+    );
+    expect(result.current.documentAssets).toHaveLength(1);
+    expect(result.current.documentAssets?.[0].id).toBe("asset-1");
+  });
+
   test("context value is referentially stable across unrelated parent re-renders", () => {
     let consumerRenders = 0;
     const Consumer = memo(function Consumer() {

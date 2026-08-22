@@ -21,6 +21,7 @@ import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-s
 import type { ExportSection } from "./export-sections";
 import type { ProjectDocument, DocBlock } from "./document-model";
 import type { Workspace } from "./workspace";
+import type { DocumentAsset } from "./document-asset";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -1153,5 +1154,63 @@ describe("DOCX invariants Word fails silently on", () => {
     // that never drives `justify` — i.e. exactly the input the mapping exists
     // for would go untested while the test claimed to sweep the domain.
     expect(new Set(used)).toEqual(new Set(LEGAL));
+  });
+});
+
+// S3c-1: DOCX has no media parts yet (a later slice, S3c-2) — an
+// `<img data-asset-id>` must DISCLOSE as a translated placeholder run naming
+// the asset rather than vanish through `htmlToRichLines`, which has no `<img>`
+// handling at all.
+describe("renderDocumentDocx — S3c-1 image placeholders", () => {
+  function assetMeta(id: string, name: string): DocumentAsset {
+    return { id, name, mime: "image/png", size: 3, hash: "h", createdAt: "2026-08-06T00:00:00.000Z" };
+  }
+
+  const docWithImage = (html: string, w: Workspace = ws): [ProjectDocument, Workspace] => [
+    doc([{ type: "paragraph", html }]),
+    w,
+  ];
+
+  /** Every visible word in the document, one string. */
+  const textOf = async (d: ProjectDocument, w: Workspace = ws): Promise<string> =>
+    textNodes(await documentXml(d, w)).join("");
+
+  it("replaces an <img data-asset-id> with a translated placeholder naming the asset", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const [d, w] = docWithImage('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
+    const text = await textOf(d, w);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "sunset.png"));
+  });
+
+  it("does not drop the paragraph the image sat in — surrounding text survives in the SAME paragraph", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const [d, w] = docWithImage('<p>Before <img data-asset-id="a1"> After</p>', wsWithAsset);
+    const xml = await documentXml(d, w);
+    const texts = paraTexts(xml);
+    // paraTexts[0] is always the title paragraph ("Report").
+    expect(texts[1]).toBe(`Before ${t("en-US", "assetExportPlaceholder", "sunset.png")} After`);
+  });
+
+  it("falls back to the asset id when the asset is dangling (no metadata for it)", async () => {
+    const [d, w] = docWithImage('<p><img data-asset-id="a1"></p>');
+    const text = await textOf(d, w);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "a1"));
+  });
+
+  it("emits well-formed XML and the literal name when the asset name carries XML-special characters", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", `Q3 & "roadmap" <final>`)] } as Workspace;
+    const [d, w] = docWithImage('<p><img data-asset-id="a1"></p>', wsWithAsset);
+    const xml = await documentXml(d, w);
+    expect(() => parseXml(xml)).not.toThrow();
+    const text = await textOf(d, w);
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", `Q3 & "roadmap" <final>`));
+  });
+
+  it("never emits a raw <img> tag into document.xml", async () => {
+    const wsWithAsset = { ...ws, documentAssets: [assetMeta("a1", "sunset.png")] } as Workspace;
+    const [d, w] = docWithImage('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
+    const xml = await documentXml(d, w);
+    expect(xml).not.toContain("<img");
+    expect(xml).not.toContain("data-asset-id");
   });
 });

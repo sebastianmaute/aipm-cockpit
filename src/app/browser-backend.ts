@@ -12,6 +12,7 @@ import { sanitizeInsights } from "./insights/sanitize-insights";
 import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
+import { sanitizeDocumentAsset, type DocumentAsset } from "./document-asset";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
 import { type CalendarEvent, sanitizeCalendarEvent } from "./calendar-event";
 import { migrateTask } from "./task-status";
@@ -80,6 +81,7 @@ const KV_CALENDAR_EVENTS_KEY = "calendarEvents";
 const KV_DOCUMENTS_KEY = "documents";
 const KV_DOCUMENT_VERSIONS_KEY = "documentVersions";
 const KV_ACTIVITY_LOG_KEY = "activityLog";
+const KV_DOCUMENT_ASSETS_KEY = "documentAssets";
 import {
   type StorageBackend,
   type Workspace,
@@ -162,6 +164,7 @@ export class BrowserBackend implements StorageBackend {
     let documents: Workspace["documents"] | undefined;
     let documentVersions: Workspace["documentVersions"] | undefined;
     let activityLog: Workspace["activityLog"] | undefined;
+    let documentAssets: Workspace["documentAssets"] | undefined;
     try {
       // Independent stores/keys — fetch in parallel instead of ~16 awaits in
       // sequence. Result assembly below keeps the original order/defaults.
@@ -193,6 +196,7 @@ export class BrowserBackend implements StorageBackend {
         idbDocuments,
         idbDocumentVersions,
         idbActivityLog,
+        idbDocumentAssets,
       ] = await Promise.all([
         idbGetAll<Task>(IDB_TASKS_STORE),
         idbGetAll<RaidItem>(IDB_RAID_STORE),
@@ -221,6 +225,7 @@ export class BrowserBackend implements StorageBackend {
         idbGet(KV_DOCUMENTS_KEY),
         idbGet(KV_DOCUMENT_VERSIONS_KEY),
         idbGet(KV_ACTIVITY_LOG_KEY),
+        idbGet(KV_DOCUMENT_ASSETS_KEY),
       ]);
       tasks = idbTasks;
       raid = idbRaid;
@@ -308,6 +313,15 @@ export class BrowserBackend implements StorageBackend {
         const log = sanitizeActivityLog(idbActivityLog);
         activityLog = log.length ? log : undefined;
       }
+      // Optional list: garbage rows dropped individually (sanitizeDocumentAsset
+      // never throws); junk/empty list sanitizes to [] → keep undefined.
+      {
+        const rawAssets = Array.isArray(idbDocumentAssets) ? idbDocumentAssets : [];
+        const assets = rawAssets
+          .map((a) => sanitizeDocumentAsset(a))
+          .filter((a): a is DocumentAsset => a !== null);
+        documentAssets = assets.length ? assets : undefined;
+      }
     } catch {
       // IDB unavailable or upgrade failed. Fall through — the legacy
       // migration block below will still try localStorage, and if that's
@@ -350,6 +364,7 @@ export class BrowserBackend implements StorageBackend {
     if (documents) raw.documents = documents;
     if (documentVersions) raw.documentVersions = documentVersions;
     if (activityLog) raw.activityLog = activityLog;
+    if (documentAssets) raw.documentAssets = documentAssets;
     const ws = migrateWorkspaceV10(raw);
 
     try {
@@ -510,6 +525,10 @@ export class BrowserBackend implements StorageBackend {
       ws.activityLog && ws.activityLog.length
         ? idbSet(KV_ACTIVITY_LOG_KEY, ws.activityLog)
         : idbDelete(KV_ACTIVITY_LOG_KEY),
+      // Delete-on-absent so a cleared asset list doesn't linger and reload stale.
+      ws.documentAssets && ws.documentAssets.length
+        ? idbSet(KV_DOCUMENT_ASSETS_KEY, ws.documentAssets)
+        : idbDelete(KV_DOCUMENT_ASSETS_KEY),
     ]);
 
     // Refresh baselines so the next save's diff is computed against what's

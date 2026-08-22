@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.254.0";
-export const APP_BUILD_DATE = "2026-08-22"; // 0.254.0: one icon set app-wide — heroicons retired (Bisson)
+export const APP_VERSION = "0.255.0";
+export const APP_BUILD_DATE = "2026-08-22"; // 0.255.0: one icon set app-wide — heroicons retired (Bisson)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.254.x line is "Bisson" (Terry Bisson, SF author).
+ *  0.255.x line is "Bisson" (Terry Bisson, SF author).
+ *  0.254.x was "Yoshinaga" (Fumi Yoshinaga, SF/fantasy manga author).
  *  0.253.x was "Schroeder" (Karl Schroeder, SF author).
  *  0.252.x was "Brust" (Steven Brust, fantasy author).
  *  0.251.x was "Larson" (Rich Larson, SF author).
@@ -337,5 +338,6 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightLazyEditor",
   "versionHighlightDictationPosition",
   "versionHighlightBlockStructure",
+  "versionHighlightDocumentImages",
   "versionHighlightIconSet",
 ] as const;

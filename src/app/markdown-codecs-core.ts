@@ -80,6 +80,11 @@ import {
   CHANGES_MD_COLUMNS,
   STAKEHOLDERS_MD_COLUMNS,
 } from "./markdown-columns";
+// documentAssetsToMarkdown lives in its own file, not here — extracted to
+// keep this file under the file-size ratchet (docs/baselines/file-sizes.json
+// has no entry for this file, so it is a hard "NEW file over 800" failure,
+// not a ratchet warning). See document-asset-markdown.ts's header.
+import { documentAssetsToMarkdown } from "./document-asset-markdown";
 
 /** Serializes status as "## Project Status" + "- field: value" bullets.
  *
@@ -372,7 +377,9 @@ export function markdownToProject(md: string): ProjectMeta | null {
 
 // --- Markdown serialization ------------------------------------------------
 
-function mdEscape(value: string): string {
+// Exported so document-asset-markdown.ts (split out to stay under the
+// file-size ratchet) can reuse it rather than duplicating the escaping rules.
+export function mdEscape(value: string): string {
   return value
     .replace(/\\/g, "\\\\")
     .replace(/\|/g, "\\|")
@@ -668,6 +675,18 @@ export function workspaceToMarkdown(ws: Workspace, config?: ExportConfig): strin
   // existed (the golden fixtures pin those bytes).
   if (config === undefined && ws.documentVersions && ws.documentVersions.length)
     mdParts.push(documentVersionsToMarkdown(ws.documentVersions));
+  // Document asset metadata — STORAGE-ONLY, same `config === undefined` gate
+  // as documents/documentVersions above, deliberately NOT an
+  // `enabled("documentAssets")` call like calendarEvents uses: documentAssets
+  // is not (and should not become) an ExportSectionKey — it is internal
+  // metadata backing `<img data-asset-id>` references inside document blocks,
+  // not user-facing content a document export would ever want to include (see
+  // the identical deviation note in csv-codecs-config.ts). Row-table SHAPE
+  // mirrors calendarEvents; gating mirrors documents/documentVersions/
+  // activityLog. Emitted only when present, so an asset-less workspace
+  // serializes byte-for-byte as it did before the field existed.
+  if (config === undefined && ws.documentAssets && ws.documentAssets.length)
+    mdParts.push(documentAssetsToMarkdown(ws.documentAssets));
   // Activity log — STORAGE-ONLY, same gate as documents/documentVersions above:
   // an entry's `changes` is an internal audit trail, not a user-facing export.
   // Emitted only when present, so a log-less workspace serializes byte-for-byte

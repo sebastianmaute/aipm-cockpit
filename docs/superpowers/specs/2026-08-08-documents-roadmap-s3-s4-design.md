@@ -1,7 +1,11 @@
-# Documents — the block editor, entity attachment and images (S3a · S4 · S3b · S3c)
+# Documents — the block editor, entity attachment and images (S3a · S4 · S3b · S3b-2 · S3c-1 · S3c-2)
 
 Date: 2026-08-08
-Status: design approved, unimplemented
+Status: **S3a · S4 · S3b · S3b-2 (structural blocks) · S3c-1 (images) all SHIPPED.**
+Only S3c-2 (OOXML media parts) remains "design approved, unimplemented" — see the S3c
+section below. Updated 2026-08-21; this line was stale for three releases (S3a/S4/S3b
+shipped without anyone flipping it) — re-derive from `CHANGELOG.md`, don't trust a
+status line, this one included.
 Baseline: 0.222.0 "Charnas", `main` @ `e2316f4f`
 
 > Supersedes the S3 and S4 outlines in `2026-08-06-ai-document-authoring-design.md:414-432`.
@@ -270,7 +274,9 @@ versioning policy on an `{kind, id}` pair rather than on images.
 | *(before S3b)* | §54 spike → decision → fix · the `HTML_START` classifier split (six rich fields) | none |
 | **S4** | `linkedEntities`, chips on four entities, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor, all marks, per-type editors, block-content editing, alignment | free — same blob |
-| **S3c** | images end to end | metadata slice + one out-of-`TABLE_NAMES` side table |
+| **S3b-2** | the structural slice deferred by S3b below: block add / remove / reorder | free — same blob |
+| **S3c-1** | images end to end (this label was "S3c" before the split below) | metadata slice + one out-of-`TABLE_NAMES` side table |
+| **S3c-2** | OOXML media parts for the images S3c-1 shipped | none (write-path shape unchanged) |
 
 ★ Three of the four cost nothing on the write paths.
 
@@ -402,13 +408,24 @@ holds one table.
 
 ## Out of scope for S3b
 
-- Block add / remove / reorder, and a figure block with a caption — the structural slice.
+- Block add / remove / reorder — the structural slice, **shipped separately as S3b-2**
+  in 0.252.0 "Brust". A figure block with a caption is still out of scope (no such block
+  kind exists in `DocBlock`).
 - Search and replace: its extension's licence is unverified and it is orthogonal.
 - Marks inside `heading.text`, `bullets.items` or table cells — those are plain `string`.
 
 ---
 
-# S3c — images
+# S3c-1 — images
+
+★★★ **THIS SECTION WAS "S3c" UNTIL 2026-08-21.** S3b-2 (structural blocks: add / delete /
+reorder) shipped in 0.252.0 under the plain "S3c" label — a scope collision with the images
+work this section describes, which had not shipped. Reading 0.252.0 as closing "S3c" would
+have retired the images design without anyone deciding to
+(`docs/open-followups.md` §113, `docs/work-inventory.md` §3). Images now own **S3c-1**
+(this section, shipped 0.253.0 — see `docs/AGENTS/documents.md`'s "Asset images (S3c-1)"
+section for the as-built architecture) and **S3c-2** (OOXML media parts, still open — see
+"Out of scope for S3c-1" below). The label "S3c" alone is retired; always say which half.
 
 Turso-gated on `tursoConfig !== null` (decision 5). Metadata as a workspace slice; bytes
 in `document_asset_data`, an out-of-`TABLE_NAMES` store module mirroring the four that
@@ -418,17 +435,22 @@ measurement of decision 9 gates planning.
 Surfaces: an asset list in the Documents tab with usage counts, rename, delete with the
 shared dangling marker, and insertion into a paragraph as `<img data-asset-id>`.
 
-**OOXML media machinery** — the largest unknown in the roadmap, with no existing
-scaffolding: `[Content_Types].xml` Default entries, `_rels` parts, `word/media/`,
-`<w:drawing>` / `<wp:inline>` / `<a:blip r:embed>`, and EMU extents scaled to
-`CONTENT_WIDTH` from the stored `{width, height}`.
+**OOXML media machinery — this IS S3c-2, not part of what shipped.** The largest unknown
+in the roadmap, with no existing scaffolding: `[Content_Types].xml` Default entries,
+`_rels` parts, `word/media/`, `<w:drawing>` / `<wp:inline>` / `<a:blip r:embed>`, and EMU
+extents scaled to `CONTENT_WIDTH` from the stored `{width, height}`. S3c-1 shipped without
+it — DOCX/PPTX disclose a visible translated placeholder naming the asset instead of
+embedding it (`docs/open-followups.md` tracks S3c-2 as its own entry).
 
 ★ The preview must resolve `data-asset-id` to a **blob object URL**, not inline base64 —
 `document-preview.tsx` builds one HTML string through `dangerouslySetInnerHTML`, and ten
 images would put ~67 MB of base64 in it. Render images lazily.
 
-## Out of scope for S3c
+## Out of scope for S3c-1
 
+- OOXML media parts — **this is S3c-2**, see above.
 - Images on any non-Turso backend. The table exists and stays empty there.
 - Images in the workspace JSON export (decision 6, accepted).
 - SVG, permanently — the branding precedent excludes it as an XSS surface.
+- GIF — decided during S3c-1 build, not in the original design: downscaling re-encodes
+  and would silently destroy animation.

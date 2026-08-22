@@ -439,3 +439,58 @@ describe("activityLog sanitize-and-cap on load", () => {
     expect((ws.activityLog ?? [])[0]?.changes).toEqual(changes);
   });
 });
+
+describe("documentAssets JSON round-trip", () => {
+  const asset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+
+  it("round-trips documentAssets through JSON", () => {
+    const json = workspaceToJson({ ...emptyWorkspace(), documentAssets: [asset] });
+    expect(jsonToWorkspace(json).documentAssets?.[0]).toEqual(asset);
+  });
+
+  it("omits the key entirely when there are no assets (byte-stable)", () => {
+    expect(workspaceToJson(emptyWorkspace())).not.toContain("documentAssets");
+  });
+
+  it("drops garbage rows individually rather than failing the load", () => {
+    // jsonToWorkspace requires the tasks/raid envelope (see wsWithActivityLog
+    // above) or it treats the input as malformed and returns emptyWorkspace().
+    const json = JSON.stringify({ tasks: [], raid: [], documentAssets: [asset, { name: "no id" }, null] });
+    expect(jsonToWorkspace(json).documentAssets).toHaveLength(1);
+  });
+
+  // ★★ isWorkspaceEmpty feeds the LOAD guard that refuses an incoming empty
+  //    workspace. documentAssets rows are created only by an explicit user
+  //    upload — behaviourally the SAME precedent as `documents` (which DOES
+  //    count toward isWorkspaceEmpty) — so this is NOT the activityLog rule
+  //    (activityLog is excluded because it is auto-appended by ordinary use,
+  //    where counting it would let a transient empty read overwrite a
+  //    populated project). The exclusion here is still the safe direction:
+  //    an asset-only workspace (uploads with no document ever referencing
+  //    them) is near-unreachable, since the asset library lives inside the
+  //    Documents panel rather than standing on its own — so leaving
+  //    documentAssets uncounted costs nothing in practice while keeping the
+  //    guard's surface area small. documentAssets is likewise absent from
+  //    nonEmptyCollectionCount / workspaceRecordCount (the SAVE-time
+  //    mass-deletion thresholds) for the same reason — not tested separately
+  //    here, but see workspace-metrics.ts's isWorkspaceEmpty for all three.
+  it("does not count toward isWorkspaceEmpty", () => {
+    expect(isWorkspaceEmpty({ ...emptyWorkspace(), documentAssets: [asset] })).toBe(true);
+  });
+
+  // ★ The two tests above at line 454/458 only ever exercise `undefined`
+  //   (via emptyWorkspace(), which never sets the field) or a non-empty list —
+  //   never an explicit []. A guard written as `x && x.length` passes both of
+  //   those against a mutant that drops `.length`, since `[]` is truthy.
+  it("omits the key when documentAssets is an explicit empty array", () => {
+    expect(workspaceToJson({ ...emptyWorkspace(), documentAssets: [] })).not.toContain("documentAssets");
+  });
+
+  it("drops an all-garbage documentAssets list, leaving the key absent", () => {
+    const json = JSON.stringify({ tasks: [], raid: [], documentAssets: [{ name: "no id" }, null] });
+    expect(jsonToWorkspace(json).documentAssets).toBeUndefined();
+  });
+});

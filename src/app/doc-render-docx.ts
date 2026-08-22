@@ -34,8 +34,9 @@ import {
 } from "./ooxml-docx-primitives";
 import { bulletMarker } from "./rich-text-runs";
 import { resolveDataSection } from "./doc-data-section";
+import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
-import type { Lang } from "./i18n";
+import { t, type Lang } from "./i18n";
 
 /** ★★ A project document is PROSE, so it is PORTRAIT — `doc-render-html.ts`
  *  overrides `@page` to portrait for these same documents and explains why
@@ -60,12 +61,32 @@ function para(text: string, style?: string): string {
   return `<w:p>${pPr}<w:r>${docxCellRuns(text)}</w:r></w:p>`;
 }
 
-function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
+// ★★★ Media parts (the real embedded bytes) land in a later slice (S3c-2) —
+// this file has no way to attach one yet. `docxRichParagraphs` -> `htmlToRichLines`
+// (rich-text-runs.ts) has no `<img>` handling at all, so an `<img data-asset-id>`
+// left in `block.html` would reach the DOMParser walk as an unrecognised void
+// element and vanish SILENTLY, with nothing in the exported file to say an image
+// was ever there. This substitutes a translated placeholder run naming the asset
+// instead, on the RAW html BEFORE the parse — so it participates in the walk as
+// ordinary text and inherits whatever paragraph/list-item context surrounds it.
+const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
+
+/** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
+ *  a dangling id (row deleted, byte store empty) falls back to the id itself
+ *  rather than a blank name. */
+function withImagePlaceholders(html: string, assetNames: ReadonlyMap<string, string>, lang: Lang): string {
+  return html.replace(IMG_TAG_RE, (_tag, id: string) =>
+    htmlEscape(t(lang, "assetExportPlaceholder", assetNames.get(id) ?? id)));
+}
+
+function renderBlock(
+  block: DocBlock, ws: Workspace, lang: Lang, assetNames: ReadonlyMap<string, string>,
+): string {
   switch (block.type) {
     case "heading":
       return para(block.text, `Heading${block.level}`);
     case "paragraph":
-      return docxRichParagraphs(block.html);
+      return docxRichParagraphs(withImagePlaceholders(block.html, assetNames, lang));
     case "bullets":
       return block.items
         .map((item, i) => para(`${bulletMarker(block.ordered, i)} ${item}`, "ListParagraph"))
@@ -94,8 +115,9 @@ export function renderDocumentDocx(
   ws: Workspace,
   lang: Lang,
 ): Blob {
+  const assetNames = new Map((ws.documentAssets ?? []).map((a) => [a.id, a.name]));
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang)).join("");
+    doc.blocks.map((b) => renderBlock(b, ws, lang, assetNames)).join("");
   return buildDocxPackage(body, DOC_STYLES, PAGE);
 }

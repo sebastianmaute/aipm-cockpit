@@ -65,8 +65,14 @@ describe("existingColumnsFromPragma", () => {
     };
     expect(existingColumnsFromPragma(res)).toEqual(["id", "title"]);
   });
-  it("returns [] for an empty result that still carries cols metadata (table absent, known shape)", () => {
-    expect(existingColumnsFromPragma(pragmaResult([]))).toEqual([]);
+  it("returns the null sentinel for ZERO ROWS even when cols metadata is present (table absent)", () => {
+    // ★★ A table that EXISTS always has at least one column, so `PRAGMA
+    // table_info` returning zero rows means the table is ABSENT — not that it
+    // exists with no columns. Reporting `[]` here would make every expected
+    // column look "missing" and emit `ALTER TABLE … ADD COLUMN` against a table
+    // that is not there, which errors. The null sentinel says "do not ALTER";
+    // the DDL both load paths prepend is what creates the table.
+    expect(existingColumnsFromPragma(pragmaResult([]))).toBeNull();
   });
   it("returns the null sentinel when cols metadata is absent and no name column found (schema drift)", () => {
     expect(existingColumnsFromPragma(undefined)).toBeNull();
@@ -150,13 +156,43 @@ describe("buildColumnEnsureAlters", () => {
   });
 
   it("aligns specs to pragmaResults by index", () => {
-    const results = [pragmaResult([]), pragmaResult([])]; // both tables absent
+    // ★★ BOTH TABLES ARE PRESENT here (non-empty PRAGMA rows) — an absent-table
+    // fixture cannot test alignment any more, because a zero-row result is the
+    // null sentinel for EVERY spec and so produces the same empty output
+    // whichever spec it is paired with.
+    //
+    // ★★★ The two results are deliberately CROSS-SHAPED: result[0] holds the
+    // MILESTONES column set and result[1] holds the TASKS one. Correct
+    // index-alignment therefore finds every expected column missing, while ANY
+    // mispairing (results reversed, or one result reused for both specs) finds
+    // them all present and emits a DIFFERENT list — so this genuinely fails on a
+    // pairing bug rather than merely on a counting one.
+    const results = [
+      pragmaResult(["id", "name", "outlookEventId"]), // paired with the TASKS spec
+      pragmaResult(["id", "taskName"]), // paired with the MILESTONES spec
+    ];
     const alters = buildColumnEnsureAlters(specs, results).map((s) => s.sql);
     expect(alters).toEqual([
       'ALTER TABLE "tasks" ADD COLUMN "taskName" TEXT',
       'ALTER TABLE "milestones" ADD COLUMN "name" TEXT',
       'ALTER TABLE "milestones" ADD COLUMN "outlookEventId" TEXT',
     ]);
+    // The control for the paragraph above: swap the results and NOTHING is
+    // emitted, because each spec then meets a table that already has its
+    // columns. Without this, an implementation ignoring `pragmaResults`
+    // entirely and altering everything would satisfy the assertion above.
+    expect(buildColumnEnsureAlters(specs, [results[1], results[0]])).toEqual([]);
+  });
+
+  it("emits NO alters for tables the PRAGMA reports as ABSENT (zero rows)", () => {
+    // ★★★ This is what the alignment case above used to assert the OPPOSITE of.
+    // Zero PRAGMA rows means the table does not exist, so an `ALTER TABLE …
+    // ADD COLUMN` against it would error out the whole migrate pipeline. It went
+    // unnoticed while every table was created by the full DDL both load paths
+    // prepend before any save; `document_assets` is the first brand-new table
+    // to reach this helper without that cover.
+    const results = [pragmaResult([]), pragmaResult([])]; // both tables absent
+    expect(buildColumnEnsureAlters(specs, results)).toEqual([]);
   });
 });
 

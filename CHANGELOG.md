@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.254.0] - 2026-08-22 "Bisson"
+## [0.255.0] - 2026-08-22 "Bisson"
 
 ### Changed
 - **One icon set app-wide.** Every icon now comes from `src/app/icons.ts`, backed by `lucide-react`; `@heroicons/react` is removed from the project and an ESLint rule blocks its return. The interface is unchanged by design — the previous set's 1.5 stroke weight is pinned in `globals.css`, and each of the 69 icons was matched to its nearest equivalent by glyph rather than by name.
@@ -20,6 +20,121 @@ longer carries its own changelog comment.
 
 ### Fixed
 - Three tests asserted on the previous icon library's internals — that every icon renders a `<path>`, and that a custom class is the element's entire class string. Five of the 69 icons render no `<path>` at all, and `lucide-react` prepends its own classes; the tests now assert that an icon drew geometry and that a custom size class replaces the default rather than joining it.
+
+## [0.254.0] - 2026-08-22 "Yoshinaga"
+
+### Added
+
+- **Document images, end to end (Turso-gated).** Upload an image by file picker,
+  clipboard paste or drag-and-drop; manage it in a shared asset library with
+  per-asset usage counts; insert it into a document; see it render in the live
+  preview. Export wiring is not finished — see *Known limitations*.
+- **Two stores, deliberately separate.** Asset *metadata* (`DocumentAsset`) is a
+  normal workspace slice carried on all six write paths — JSON, CSV, Markdown,
+  Turso single-tenant, Turso multi-tenant and IndexedDB. Asset *bytes* live as
+  base64 in `document_asset_data`, a side table kept out of `TABLE_NAMES`
+  because a workspace save deletes and re-inserts every table it owns, which
+  would wipe the library on every save.
+- **Metadata-first write order, and the failed upload is repairable.** The
+  metadata row is committed before the bytes, so a failed upload degrades to
+  the *dangling* case — a visible, self-describing row — rather than leaving an
+  invisible orphan needing a reclaim action. Re-uploading the same image
+  retries the byte write **over the existing id**, so an image already placed
+  in a document keeps the reference it had and does not need to be re-inserted.
+  The preview picks the repair up without a reload: a successful repair writes
+  no metadata, so nothing the preview watches changes, and it is told through a
+  small module store instead — bumping the assets array's identity to force the
+  refresh would have marked the whole workspace dirty and written every table.
+  A repaired image also loses its broken-asset marker, which had been left in
+  place on the element.
+- **Upload budget.** 25 MB raw ceiling checked before any decode; a header-only
+  8000px dimension guard against decompression bombs; downscale to 1920x1080; a
+  5 MB stored cap applied *after* downscale; 20 images per document enforced at
+  insert; SHA-256 content-hash dedup so one image referenced from twenty
+  documents is one row.
+- **Formats: PNG, JPEG and WebP** at the upload gate. SVG is refused there as an
+  XSS surface, and the export sink re-checks the allowlist. GIF is excluded because downscaling re-encodes and would silently
+  destroy animation.
+- **Project deletion now drops a project's asset bytes.** The side table sits
+  outside `TABLE_NAMES`, so nothing cleaned it automatically. The cleanup is
+  non-fatal: leaked bytes are recoverable, a half-deleted project is not.
+
+### Changed
+
+- The standalone HTML renderer can inline image bytes as a validated `data:`
+  URI, which is also how PDF export would work — through the browser print
+  dialog, with no PDF writer and no new dependency. The sink is built, format-
+  and base64-validated, and tested; no production caller passes it the assets
+  yet (see *Known limitations*).
+- `img-src` in `src/proxy.ts` now allows `blob:`. The preview resolves assets to
+  blob object URLs, so without it every document image was blocked by CSP — in
+  dev and prod alike.
+- `ENTITY_SPECS` rows may declare `idKind: "text"`. `DocumentAsset` is the first
+  entity in the registry with a string id, and both Turso layouts assumed an
+  integer one. The single-tenant builder emitted `id INTEGER PRIMARY KEY` — a
+  rowid alias, one of the few types SQLite enforces — so one such row made every
+  workspace save report failure. It did NOT abort the shared `BEGIN … COMMIT`:
+  libSQL errors the one statement and keeps going, COMMIT still runs, and the
+  rest is written — so an affected save reported failure over a workspace that
+  had in fact been partly persisted. The multi-tenant
+  builder emitted `id INTEGER` under a composite `PRIMARY KEY (id, project_id)`,
+  which is affinity only and is not enforced; its failure came from binding the
+  id as an integer argument. Both are fixed.
+- DOCX and PPTX export emit a **visible placeholder naming the omitted image**,
+  never a silent drop. Real OOXML media parts are deferred.
+- The preview resolves image ids to **blob object URLs** rather than inlining
+  base64, which for ten images would put roughly 67 MB into a single HTML
+  string.
+- **Document images stopped rendering a few seconds after a document was
+  opened**, and did not come back until it was re-selected. React 19 compares
+  host props by identity, `dangerouslySetInnerHTML` included, so the preview's
+  inline `{{ __html }}` object made React re-assign `innerHTML` on every
+  re-render even when the HTML was byte-identical — replacing every `<img>` in
+  the pane. The effect that resolves those images to blob URLs correctly did
+  not re-run (nothing it depends on had changed), so the fresh elements were
+  never given a `src` at all. The object is now memoised on the HTML string.
+  Any parent re-render triggered it, so `e2e/documents-images.spec.ts` was
+  passing or failing depending on whether one landed inside its sampling
+  window — it was sampling a race, not flaking.
+- The asset library refuses to open in **Safe Mode** rather than operating on a
+  re-partitioned byte store. Safe Mode forces a degraded project id, which would
+  make every asset read as dangling and write uploads under a key normal boot
+  never looks at.
+- `workspace.ts`, `csv-codecs-core.ts` and `markdown-codecs-core.ts` were split
+  (`workspace-metrics.ts`, `document-asset-codecs.ts`,
+  `document-asset-markdown.ts`) to stay under the 800-line file-size ratchet.
+
+
+### Known limitations
+
+- DOCX and PPTX disclose images rather than embedding them.
+- The asset library is Turso-gated and the e2e seed runs in file mode, so the
+  a11y gate never renders it; its unit tests are the only detector for that
+  surface.
+- **HTML and PDF export omit the image entirely** — no `src`, and no placeholder
+  either, so the export is silently short a picture. DOCX and PPTX are better
+  here: both name the omitted asset. Tracked in `docs/open-followups.md` as
+  §210.
+- **A SINGLE-TENANT Turso database written by an older build cannot take an
+  upload.** Its `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the
+  first image makes that save — and every save after it — report failure, with
+  a `datatype mismatch` message naming neither table nor column, and there is
+  no in-app repair path. The batch is not aborted, so the rest of the workspace
+  is still committed: an affected database holds partly-written data behind a
+  failure message, which is worse than it sounds and is why the remedy matters. Multi-tenant databases are unaffected — that column was never a
+  rowid alias — and self-heal on upgrade. Tracked as §211.
+- **A successful upload can still show a dangling marker.** If a background
+  check of which assets have bytes is already in flight when the upload
+  finishes, the older answer lands last and re-marks the new row as missing its
+  bytes. The bytes are fine and the image renders; only the library's marker is
+  wrong, and it stays wrong until something else changes the asset list.
+  Tracked as §213.
+- **On single-tenant Turso, asset metadata is global while the bytes are keyed
+  by project.** A user holding several projects in the file registry sees every
+  asset read as dangling after switching. Tracked as §207.
+- **The version-history modal does not resolve images.** Opening History on a
+  document containing an image shows the block without the picture. Tracked as
+  §206.
 
 ## [0.253.0] - 2026-08-21 "Schroeder"
 

@@ -1,5 +1,5 @@
 import { describe, it, test, expect } from "vitest";
-import { SCHEMA_DDL, TABLE_NAMES, selectStatements, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables, type PipelineResultLike } from "./turso-schema";
+import { SCHEMA_DDL, TABLE_NAMES, ENTITY_SPECS, selectStatements, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables, type PipelineResultLike } from "./turso-schema";
 import { emptyWorkspace } from "./storage";
 import type { ActivityEntry } from "./activity-log";
 
@@ -305,5 +305,26 @@ describe("turso activityLog (meta KV)", () => {
       (s) => s.sql.startsWith("INSERT INTO meta") && s.args?.some((a) => a.value === "activityLog"),
     );
     expect(metaInsert).toBeUndefined();
+  });
+});
+
+describe("documentAssets entity spec", () => {
+  it("is registered in ENTITY_SPECS", () => {
+    const spec = ENTITY_SPECS.find((s) => s.table === "document_assets");
+    expect(spec).toBeDefined();
+    expect(spec?.wsKey).toBe("documentAssets");
+  });
+
+  it("puts document_assets IN TABLE_NAMES (it is workspace data)", () => {
+    expect(TABLE_NAMES).toContain("document_assets");
+  });
+
+  // ★★ The BYTES table is the opposite — Task 10 pins that separately.
+  it("keeps document_asset_data OUT of TABLE_NAMES", () => {
+    expect(TABLE_NAMES).not.toContain("document_asset_data");
+  });
+
+  it("derives DDL for the metadata table", () => {
+    expect(SCHEMA_DDL.some((s) => s.includes("CREATE TABLE IF NOT EXISTS document_assets"))).toBe(true);
   });
 });

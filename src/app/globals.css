@@ -208,6 +208,29 @@ li[data-type="taskItem"][data-checked="true"]::before { content: "\2611"; }
   stroke-width: 1.5;
 }
 
+/* S3c-1 — a document image whose bytes never resolved: a dangling asset id,
+   no Turso config, or the byte load threw. `attachAssetImages`
+   (document-asset-images.ts) marks it rather than leaving a bare broken-image
+   icon with no explanation. Border + background are reliable on an <img>
+   with no `src` set at all; the classic "style a broken image" ::before glyph
+   trick (mirrored from the task-item checkbox glyph above) works for the same
+   reason that one does — no `src` means the element renders as if it were
+   non-replaced, so generated content applies. The accessible name still comes
+   from the block author's own `alt`, unaffected by this being aria-hidden by
+   construction (a pseudo-element is never exposed to the a11y tree). */
+img[data-asset-missing] {
+  display: inline-block;
+  min-width: 3rem;
+  min-height: 2rem;
+  border: 1px dashed var(--rag-red-text);
+  background-color: var(--surface-muted);
+  color: var(--rag-red-text);
+  font-size: 0.75rem;
+}
+img[data-asset-missing]::before {
+  content: "\26A0\FE0E ";
+}
+
 /* Print: DIN A4 page, strip surface chrome, preserve semantic accents.
    See docs/superpowers/specs/2026-05-28-print-reports-design.md. */
 @media print {

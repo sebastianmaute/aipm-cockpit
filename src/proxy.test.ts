@@ -1,9 +1,19 @@
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { NextRequest } from "next/server";
 import { proxy } from "./proxy";
 
 function cspFor(url = "http://localhost:3000/"): string {
   const res = proxy(new NextRequest(new Request(url)));
+  return res.headers.get("Content-Security-Policy") ?? "";
+}
+
+/** ★ `IS_DEV` is read ONCE at module scope, so flipping the branch needs a
+ *  fresh module instance — a plain `vi.stubEnv` after import changes nothing. */
+async function cspForNodeEnv(nodeEnv: string): Promise<string> {
+  vi.resetModules();
+  vi.stubEnv("NODE_ENV", nodeEnv);
+  const mod = await import("./proxy");
+  const res = mod.proxy(new NextRequest(new Request("http://localhost:3000/")));
   return res.headers.get("Content-Security-Policy") ?? "";
 }
 
@@ -51,6 +61,45 @@ describe("proxy CSP — worker-src", () => {
     // script loads — so the SW needs its own worker-src or registration is blocked.
     const worker = directive(cspFor(), "worker-src");
     expect(worker).toContain("'self'");
+  });
+});
+
+describe("proxy CSP — img-src", () => {
+  afterEach(() => {
+    vi.unstubAllEnvs();
+    vi.resetModules();
+  });
+
+  it("allows blob: so document asset images can render from object URLs", () => {
+    // Regression: img-src was "'self' data:" and `attachAssetImages` assigns a
+    // URL.createObjectURL(blob) to img.src. 'self' does NOT match blob:, so
+    // Chromium blocked EVERY document image with
+    // "Loading the image 'blob:http://…' violates … img-src 'self' data:".
+    const img = directive(cspFor(), "img-src");
+    expect(img).toContain("blob:");
+  });
+
+  it("allows blob: in the production branch too, not just dev", async () => {
+    // IS_DEV branches only script-src and style-src-elem — img-src is shared.
+    // Assert the branch actually FLIPPED first, or this test is vacuous: a
+    // failed env stub would silently re-measure the dev build.
+    const prodCsp = await cspForNodeEnv("production");
+    expect(directive(prodCsp, "style-src-elem")).toContain("'nonce-");
+    expect(directive(prodCsp, "style-src-elem")).not.toContain("'unsafe-inline'");
+    expect(directive(prodCsp, "img-src")).toContain("blob:");
+
+    const devCsp = await cspForNodeEnv("development");
+    expect(directive(devCsp, "style-src-elem")).toContain("'unsafe-inline'");
+    expect(directive(devCsp, "img-src")).toContain("blob:");
+  });
+
+  it("keeps img-src otherwise tight — no wildcard, no remote hosts", () => {
+    const img = directive(cspFor(), "img-src");
+    expect(img).toBe("img-src 'self' data: blob:");
+  });
+
+  it("keeps object-src 'none' — the guard against blob: escalation", () => {
+    expect(directive(cspFor(), "object-src")).toContain("'none'");
   });
 });
 
