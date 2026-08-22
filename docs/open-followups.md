@@ -13334,9 +13334,23 @@ that finds it is the `node -e` command above.)
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
 back otherwise clean.
 
-## 202. OOXML media machinery for document images — S3c-2, open
+## 202. OOXML media machinery for document images — S3c-2 — CLOSED 2026-08-22
 
-**Status:** open — no scaffolding exists yet.
+**Status:** CLOSED 2026-08-22 by 0.256.0 "Khaw". Every part this entry called unbuilt now exists.
+`ooxml-media.ts` is the DOM-free unit leaf (`emuFromPx`, `emuFromTwips`, `fitExtent`,
+`mediaExtension`, `contentTypeFor`, the `MediaPart` shape); `buildDocxPackage` and
+`buildPptxPackage` take media parts and emit the `[Content_Types].xml` `Default` entries, the
+`_rels` entries and the binary `word/media/` / `ppt/media/` parts; `docxInlineDrawing` and
+`pptxPicture` emit the drawing XML. Extents come from each asset's stored `width`/`height`
+through `fitExtent`. The standalone-HTML half was §210.
+
+★★★ **WHAT IS STILL NOT COVERED, AND NOTHING IN THIS REPO CAN COVER IT.** Every OOXML
+assertion in the suite is unzip-and-byte-compare: `unzipBytes` (`src/test/unzip-bytes.ts`) returns
+each part's raw bytes and the tests check part presence, part bytes and document-XML substrings.
+**No test opens the produced file in Word or PowerPoint, and none can** — there is no Office
+automation here, and no `.docx`/`.pptx` byte fixture to compare a package against (§216). A green
+suite proves the package is the one the builders meant to write, never that Word accepts it. The
+owed manual pass is §219.
 
 S3c-1 (0.254.0) shipped document images for the **live preview**, which resolves each
 `<img data-asset-id>` to a blob object URL in `document-asset-images.ts`. ★★ It did NOT finish the
@@ -13549,9 +13563,26 @@ by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and d
 them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
 records elsewhere; nothing gates them agreeing.
 
-## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either
+## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either — CLOSED 2026-08-22
 
-**Status:** open — the sink is built and tested; only the wiring is missing.
+**Status:** CLOSED 2026-08-22 by 0.256.0 "Khaw". `renderDocumentHtml` now receives assets on both
+production paths and `inlineDocumentImages` runs outside its own tests: `downloadDocument` is
+`async` and loads bytes through `loadExportAssets` for the html and pdf branches alike.
+
+★★ **The gesture problem this entry called the trap was solved by ORDERING, not by pre-loading.**
+The pdf branch calls `window.open` FIRST, inside the user gesture, and only then awaits the bytes,
+writing into the already-open tab. So no user lands on the popup-blocker fallback, and the panel
+does not have to guess ahead of the click which document will be exported.
+
+★★ **Both halves of the "the glyph cannot fire either" finding are closed too.** The
+`data-asset-missing` attribute is now stamped on a real export (the fallback branch runs), and the
+rule that styles it lives in `DOCUMENT_PAGE_STYLES`, which a standalone export inlines — so it no
+longer depends on `globals.css`, which such a file never loads. A third disclosure branch sits
+beside it: an image whose bytes exist but fell outside the inline budget renders the same translated
+placeholder text the OOXML renderers use, rather than a broken-image box.
+
+★★★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX STATE** and is kept because the mechanism is the
+argument for the ordering that was chosen. Read it as the diagnosis, never as today's behaviour.
 
 **Symptom.** Export a document containing an image as **HTML** or **PDF** and the image is simply
 absent from the file. Not a placeholder, not a broken-image marker, not a warning glyph — an
@@ -13944,3 +13975,132 @@ even less than a branch's, and nobody should read it as coverage.
 **Reproduce today's state:** run `npx playwright test e2e/documents-images-interactive.spec.ts
 --project=chromium` with no `.env.local` and no exported pair — `12 skipped`, exit 0. That is
 exactly what every CI pipeline does.
+
+## 216. There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests
+
+**Status:** open — a real gap, deliberately not closed in 0.256.0.
+
+★★★ **THE SPEC AND THE PLAN FOR THIS SLICE BOTH ASSERTED THAT THE GOLDEN SUITE PINS THESE
+BYTES. IT DOES NOT**, and Ground Rule 1 of that plan rested on the claim. `src/app/__fixtures__/`
+holds `golden-workspace.csv` and `golden-workspace.md` and nothing else;
+`golden-workspace.test.ts` contains no occurrence of "docx" or "pptx" in any case; and
+`export-ooxml.test.ts` asserts part PRESENCE and document-XML SUBSTRINGS
+(`toContain`/`not.toContain`), never whole-package byte equality. Both documents were corrected in
+the same commit that opened this entry.
+
+**Measured 2026-08-22, not reasoned.** Hardcoding a `<Default Extension="png"/>` into the
+EMPTY-media case of BOTH builders and running the three suites reddens **four** tests and leaves
+`export-ooxml.test.ts` **green** (`4 failed | 57 passed`, that one suite file the only passing one):
+`ooxml-docx-primitives.test.ts`'s "is byte-identical to the no-argument call when media is empty"
+and "declares each extension ONCE even with several images of that type";
+`ooxml-pptx-primitives.test.ts`'s "gives a media-free deck the same parts as before" and "writes the
+bytes verbatim and declares the extension once".
+
+★★★ **AND NEITHER "BYTE" TEST CAUGHT IT BY ITS BYTE COMPARISON. THIS IS THE WHOLE
+ENTRY.** Re-run with the mutant in the DOCX builder alone and vitest names the failing line: it is
+`expect(partText(a, "[Content_Types].xml")).not.toContain("image/")`, a trailing SUBSTRING
+assertion — not the loop above it that byte-compares every part. That loop cannot fail here,
+because it compares `buildDocxPackage(body, "", "portrait")` against
+`buildDocxPackage(body, "", "portrait", [])`: **the builder against ITSELF**. Any change that moves
+the 3-argument and 4-argument shapes EQUALLY — a reordered `[Content_Types].xml`, a different zip
+entry order, a changed default style, a dropped part — keeps both sides in step and passes. The
+test proves the `media` parameter is ADDITIVE; it proves nothing about what the package contains.
+And on the PPTX side "leaves the media-free package byte-for-byte what it was" SURVIVED the mutant
+outright: it pins the sorted PART-KEY set, one `slide1.xml.rels` part as exact bytes, and the
+absence of any `ppt/media/` entry, never reading `[Content_Types].xml` at all. Its own comment
+calls it "THE ONLY PIN ON THIS BUILDER'S MEDIA-FREE BYTES" — true of the parts it names, false
+of the package.
+
+**Why it matters.** What actually caught the mutant, in all four cases, was a hand-written assertion
+naming the specific string a specific change would produce. That is the coverage this slice has: a
+list of things somebody thought to check. A committed fixture — or a part-path-plus-digest
+manifest — would instead fail on ANY change to the package a document with no images gets,
+including the ones nobody anticipated. Nothing here does that today.
+
+**Not free.** A `.docx` fixture is a binary blob in git that every unrelated formatting change
+invalidates, and regenerating it to make a pipeline pass is exactly the "re-baseline to admit your
+own change" failure the file-size and doc-claims gates exist to prevent. Whoever closes this should
+choose deliberately between a committed package and a checked-in MANIFEST (sorted part paths +
+per-part digest), which is diffable and cannot be regenerated thoughtlessly.
+
+## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
+
+**Status:** open — deliberate in 0.256.0; a size cost, never a correctness one.
+
+An `<img data-asset-id>` appearing twice in one document mints TWO media parts holding IDENTICAL
+bytes, in both renderers. DOCX: `createMediaMinter`'s own docstring says so. PPTX:
+`createDeckMedia`'s minting runs once per image line as the slide is assembled, so a repeated id
+yields two parts at two paths. The exported file is correct and opens correctly; it is simply larger
+than it needs to be, by the full byte size of every repeat.
+
+★★ **DEDUPLICATING IS NOT "REUSE THE RELATIONSHIP ID", and that is why it was not done.** Two
+identities are conflated on one counter today. A media PART may legitimately be shared — two
+references can point at one `word/media/imageN.png` through one relationship. A picture's SHAPE
+identity may not: `wp:docPr` (DOCX) and `p:cNvPr` (PPTX) each need an id unique within their
+document or slide — `docxInlineDrawing`'s own parameter docstring records that Word tolerates a
+duplicate and Pages does not — and today `createMediaMinter` passes the SAME running index as
+both the part number and the shape id. Sharing the part without splitting that counter produces
+duplicate shape ids, i.e. a correctness regression traded for a size win. Closing this means
+introducing a second counter first.
+
+★ **The PPTX scoping rule interacts with this and must not be inverted.** Media part PATHS are
+unique DECK-wide (`createDeckMedia` keeps its part counter in the outer closure) while relationship
+ids are PER-SLIDE and restart at `rId2` (`rId1` is the slide layout, and `buildPptxPackage` throws
+if a media part claims it). Swapping those two scopes yields valid XML with the WRONG image on a
+slide — no schema error, and no test failure that names the cause. Any dedup work touches exactly
+this code.
+
+## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver
+
+**Status:** open — both patterns are individually correct; the DIVERGENCE is the defect.
+
+Two patterns read asset ids out of a document and they do not agree on what an asset reference is:
+
+- `ASSET_ID_RE` (`document-asset-usage.ts`) matches a `data-asset-id` attribute on ANY element. It
+  backs `assetIdsInDocument`, which `documents-asset-section.tsx` uses to enforce
+  `ASSET_MAX_PER_DOCUMENT`.
+- `IMG_TAG_RE` (`document-export-assets.ts`) requires an `<img` tag. It backs `documentAssetIds`,
+  which decides what `loadExportAssets` fetches.
+
+So a `<span data-asset-id="x">` consumes one of a document's asset slots and blocks a real image
+from being added, while contributing nothing to any export and appearing in no bucket — not
+`inlined`, not `omitted`, not `missing`. Nothing tells the user why the cap was reached.
+
+★★ **Neither pattern should simply be made to match the other.** The export resolver is
+deliberately tag-anchored: it must only fetch bytes for something it can actually draw. The usage
+scanner is deliberately tag-agnostic: a reference the sanitizer preserved on a non-`img` element is
+still a reference for the purposes of deletion safety and the usage count. The fix is to make the
+divergence VISIBLE — one shared helper returning both sets, or a test that asserts what each
+pattern deliberately does not see — not to collapse them.
+
+★ A `<span data-asset-id>` is not reachable through the product's own insertion path today, which
+is why this is a follow-up and not a bug: it arrives through an AI write, a hand-edited blob or an
+import. That also means no test currently seeds one.
+
+## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
+
+**Status:** open — OWED manual verification, not automatable in this repo.
+
+Nothing here can open an Office file. `unzipBytes` proves the package holds the parts and bytes the
+builders intended; it says nothing about whether Word, LibreOffice Writer or PowerPoint ACCEPT the
+result. Every OOXML claim in `docs/AGENTS/documents.md` and in the 0.256.0 changelog entry is a
+claim about the package, not about the reader.
+
+**What is owed, in full:**
+
+1. Export a document holding two images as `.docx`; open it in **Word** AND in **LibreOffice
+   Writer**. Check that both images render, at the size the stored dimensions imply, in the right
+   order, with the surrounding paragraphs intact around the split.
+2. Export the same document as `.pptx`; open it in **PowerPoint**. Check that pictures fall inside
+   the body box, that a long document paginates without a picture running off a slide, and that
+   nothing overlaps the text box.
+3. Export as **PDF** through the print dialog and confirm the images are in the produced file —
+   that is the standalone HTML renderer, not a PDF writer, so it exercises §210's fix.
+4. The OVER-BUDGET case: a document whose images exceed `EXPORT_INLINE_BUDGET_BYTES`. HTML and PDF
+   must show the named placeholder; DOCX and PPTX must still carry every image.
+5. The DANGLING case: an asset whose byte row is missing. Every format must name it in a visible
+   placeholder and no format may drop it silently.
+
+★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
+against its own spec reading and still be rejected by Word over a part relationship or content-type
+detail no substring assertion looks at.

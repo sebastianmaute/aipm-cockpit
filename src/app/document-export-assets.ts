@@ -44,8 +44,13 @@ export const IMG_TAG_RE =
 /** Every asset id the document references, in document order, deduplicated.
  *
  *  ★ Order is load-bearing twice over: it numbers the OOXML media parts
- *  deterministically (so the golden comparison is stable) and it decides which
- *  images survive the byte budget. */
+ *  deterministically and it decides which images survive the byte budget.
+ *
+ *  ★★ There is NO golden comparison over the OOXML packages — an earlier
+ *  wording here said the determinism kept one "stable". The determinism still
+ *  matters (a part path that moved between runs would be untestable at all),
+ *  but nothing outside each builder's own unit test reads these bytes. See
+ *  docs/open-followups.md §216. */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {

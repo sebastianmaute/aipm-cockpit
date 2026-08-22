@@ -8,6 +8,64 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.256.0] - 2026-08-22 "Khaw"
+
+### Added
+
+- **Documents export with their images in them, in every format.** Until now a
+  document containing an image exported with a text placeholder naming that
+  image, in Word and PowerPoint, and with nothing at all in HTML and PDF — an
+  empty gap where the picture should have been. Now the `.docx` and `.pptx`
+  files carry the picture itself, and an HTML or PDF export embeds it directly
+  in the file, so the document can be sent on as a single attachment with
+  nothing to link back to.
+- **An image that cannot be drawn is still named, never dropped.** If an
+  image's stored data is missing, or its format or size is not something the
+  export can use, every format writes a visible placeholder naming it. This was
+  already true of Word and PowerPoint; HTML and PDF now match, and the marker
+  that shows an unavailable image is carried inside the exported file rather
+  than relying on the app's own stylesheet, which an exported file never loads.
+- **PDF export no longer risks a blocked tab.** The export opens its print tab
+  first and loads the image data into it afterwards, so a document with images
+  behaves exactly like one without.
+
+### Known limitations
+
+- **Word and PowerPoint carry every image a document holds. HTML and PDF stop
+  at about 25 MB in total.** Those two formats have to embed image data as text
+  inside the file itself, which inflates it by roughly a third, and past that
+  point the result stops being something a mail client will carry or a browser
+  will open comfortably. Images beyond the budget appear as the named
+  placeholder. The limit is a judgement call, not something the file format
+  imposes.
+- **An image whose dimensions were never recorded stays a placeholder in Word
+  and PowerPoint.** Those formats need a concrete size for every picture, and
+  guessing one would show the image distorted. HTML and PDF are unaffected —
+  they let the browser size it.
+- **PowerPoint slide overflow is bounded but not measured.** Pagination counts
+  lines of text, not the lines a slide actually renders, so a line that wraps
+  is under-counted and a slide can run slightly longer than intended. Pictures
+  are also placed below all of a slide's text, whatever position the image had
+  in the original paragraph order.
+- **Nothing in this project can open the files it produces.** Verification is
+  by unpacking each export and comparing its parts and bytes. Opening the
+  `.docx` in Word and in LibreOffice Writer, and the `.pptx` in PowerPoint, is
+  still outstanding and is tracked as `docs/open-followups.md` §219.
+
+### Internal
+
+- Closed `docs/open-followups.md` §202 (no OOXML media machinery existed) and
+  §210 (standalone HTML and PDF carried an image element with no source and no
+  placeholder). Opened §216—§219.
+- §216 records a correction worth naming: the design spec and the
+  implementation plan for this slice both asserted that the existing golden
+  export suite pins the `.docx` and `.pptx` package bytes. It does not — there
+  is no such fixture in this repository, and the only pins are the two package
+  builders' own unit tests, which compare each builder against itself. Both
+  documents were corrected rather than left standing as a record of a safety
+  property that was never there.
+- No file-size or coverage baseline moved in this release.
+
 ## [0.255.1] - 2026-08-22 "Bisson"
 
 ### Changed

@@ -21,7 +21,19 @@
 
 ## Ground rules for this slice
 
-1. **Never regenerate `src/app/__fixtures__/golden-*` or the `export-ooxml` fixtures.** They are the guard that the empty-media path stayed byte-identical. A diff there means a bug, not a fixture to refresh.
+★★★ **CORRECTION, 2026-08-22, AFTER IMPLEMENTATION.** This plan asserted that the
+`export-ooxml` golden suite pins the `.docx`/`.pptx` package bytes. **IT DOES NOT.** There is no
+`.docx` or `.pptx` byte fixture anywhere in this repository — `src/app/__fixtures__/` holds
+`golden-workspace.csv` and `golden-workspace.md` and nothing else, `golden-workspace.test.ts`
+never mentions either format, and `export-ooxml.test.ts` asserts part PRESENCE and document-XML
+SUBSTRINGS, never package bytes. Measured: hardcoding a `<Default Extension="png"/>` into the
+empty-media case reddens the new byte-identity tests in `ooxml-docx-primitives.test.ts` /
+`ooxml-pptx-primitives.test.ts` and leaves `export-ooxml.test.ts` GREEN. The corrected text is
+below; the gap it leaves is `docs/open-followups.md` §216. Left as a record rather than deleted,
+because a plan that survives as evidence of a safety property nobody had is worse than one that
+says it was wrong.
+
+1. **Never regenerate `src/app/__fixtures__/golden-*` or the `export-ooxml` fixtures.** ★★★ **CORRECTED: they are NOT "the guard that the empty-media path stayed byte-identical" — they cannot see it at all.** The no-regeneration rule still stands on its own merits. The actual guard must be a hand-written byte-identity test beside each package builder, and this ground rule rested on a property that was never there (§216).
 2. **Renderers stay synchronous.** Only `document-download.ts` and the new `document-export-assets.ts` are async.
 3. Commit after every task. Run `npx tsc --noEmit` before each commit — vitest never typechecks.
 
@@ -371,8 +383,9 @@ export const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
 /** Every asset id the document references, in document order, deduplicated.
  *
  *  ★ Order is load-bearing twice over: it numbers the OOXML media parts
- *  deterministically (so the golden comparison is stable) and it decides which
- *  images survive the byte budget. */
+ *  deterministically and it decides which images survive the byte budget.
+ *  (The drafted wording here said "so the golden comparison is stable"; there
+ *  is no golden comparison over these packages — §216.) */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {
@@ -747,11 +760,14 @@ export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
-  /** ★★★ ADDITIVE BY CONTRACT. The workspace exporter calls this with two or
-   *  three arguments and its bytes are PINNED by the export-ooxml golden
-   *  suite, so an empty array must add no Default entry, no part and no
-   *  relationship. If that suite goes red for this slice, the contract broke —
-   *  do not regenerate the fixture. */
+  /** ★★★ ADDITIVE BY CONTRACT. The workspace exporter calls this with two
+   *  or three arguments, so an empty array must add no Default entry, no part
+   *  and no relationship.
+   *
+   *  ★★★ CORRECTED AFTER IMPLEMENTATION: the docstring drafted here said
+   *  those bytes are PINNED by the export-ooxml golden suite. They are not.
+   *  The comment as SHIPPED says so at length and names the measurement; read
+   *  `ooxml-docx-primitives.ts`, not this snippet. (§216) */
   media: readonly MediaPart[] = [],
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
@@ -815,7 +831,7 @@ Run:
 ```bash
 npx vitest run src/app/ooxml-docx-primitives.test.ts src/app/export-ooxml.test.ts --reporter=dot
 ```
-Expected: PASS. **`export-ooxml.test.ts` must be green without touching a fixture** — that is the whole point of the empty-media contract.
+Expected: PASS. **`export-ooxml.test.ts` must be green without touching a fixture.** ★★ CORRECTED: that is a NECESSARY condition, not a sufficient one, and this line implied it was the proof. `export-ooxml.test.ts` stays green even when the empty-media contract is broken (measured — see the banner at the top of this file). The real check is the byte-identity test in `ooxml-docx-primitives.test.ts`. (§216)
 
 - [ ] **Step 5: Typecheck and commit**
 

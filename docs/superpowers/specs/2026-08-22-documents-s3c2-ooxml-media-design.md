@@ -1,6 +1,19 @@
 # Documents S3c-2 — real image bytes in every export format
 
-**Status:** design approved 2026-08-22, unimplemented.
+**Status:** IMPLEMENTED and shipped as 0.256.0 "Khaw", 2026-08-22.
+
+★★★ **CORRECTION, 2026-08-22, AFTER IMPLEMENTATION.** This spec asserted that the
+`export-ooxml` golden suite pins the `.docx`/`.pptx` package bytes. **IT DOES NOT.** There is no
+`.docx` or `.pptx` byte fixture anywhere in this repository — `src/app/__fixtures__/` holds
+`golden-workspace.csv` and `golden-workspace.md` and nothing else, `golden-workspace.test.ts`
+never mentions either format, and `export-ooxml.test.ts` asserts part PRESENCE and document-XML
+SUBSTRINGS, never package bytes. Measured: hardcoding a `<Default Extension="png"/>` into the
+empty-media case reddens the new byte-identity tests in `ooxml-docx-primitives.test.ts` /
+`ooxml-pptx-primitives.test.ts` and leaves `export-ooxml.test.ts` GREEN. The corrected text is
+below; the gap it leaves is `docs/open-followups.md` §216. Left as a record rather than deleted,
+because a plan that survives as evidence of a safety property nobody had is worse than one that
+says it was wrong.
+
 
 **Goal.** A document containing images exports with those images actually present — embedded as
 OOXML media parts in `.docx` and `.pptx`, and as `data:` URIs in standalone HTML and the PDF that
@@ -125,9 +138,13 @@ absorb most of their remaining headroom under the 800-line ratchet.
 `buildDocxPackage` gains an optional trailing `media: MediaPart[] = []`.
 
 ★★★ **The empty case must be byte-identical to today.** The workspace exporter shares this
-function and its bytes are pinned by the `export-ooxml` golden suite. An empty array must add no
-`Default` entry, no part and no relationship. A red golden suite means the additive contract broke,
-and regenerating the fixture would mask it.
+function, so an empty array must add no `Default` entry, no part and no relationship.
+★★★ **CORRECTED:** this paragraph said those bytes are "pinned by the `export-ooxml` golden
+suite". They are not — see the banner at the top of this file. The contract has to be pinned by a
+NEW byte-identity test written beside the builder itself, comparing the 3-argument call against the
+4-argument one, plus an assertion that the empty package contains no `image/` at all. Note what
+that shape can and cannot see: it proves the parameter is ADDITIVE, and it is blind to any change
+that moves both call shapes equally (§216).
 
 Non-empty adds: one `<Default Extension="...">` per distinct extension, `word/media/*` parts, and
 one `<Relationship>` per image in `word/_rels/document.xml.rels`, numbered after the existing
@@ -249,8 +266,11 @@ Blob, unzip it, and assert against what came out.
 
 Four anti-vacuity requirements, each of which passes green if written the obvious way:
 
-1. **The no-media path is byte-identical.** The `export-ooxml` golden suite is the guard. Do not
-   regenerate its fixtures for this slice — a diff there means the additive default broke
+1. **The no-media path is byte-identical.** ★★★ **CORRECTED — the `export-ooxml` golden
+   suite is NOT the guard and cannot be; see the banner at the top of this file.** The guard has to
+   be a hand-written byte-identity test per builder. Still do not regenerate any fixture for this
+   slice, but do not expect `export-ooxml` to go red if the additive default breaks: measured, it
+   does not (§216)
 2. **`fitExtent` under a property test** — aspect ratio preserved within rounding, never exceeds
    either bound
 3. **Cost-based pagination needs a fixture where an image actually forces a break.** A fixture whose

@@ -9,7 +9,7 @@ import { APP_HIGHLIGHT_KEYS, APP_VERSION, APP_MILESTONE } from "./version";
 // reported it, because until this file NOTHING asserted the ordering at all.
 describe("APP_HIGHLIGHT_KEYS", () => {
   it("ends with the current release's highlight, so the newest note renders last", () => {
-    expect(APP_HIGHLIGHT_KEYS.at(-1)).toBe("versionHighlightIconSet");
+    expect(APP_HIGHLIGHT_KEYS.at(-1)).toBe("versionHighlightDocumentImageExport");
   });
 
   it("has no duplicate keys", () => {
