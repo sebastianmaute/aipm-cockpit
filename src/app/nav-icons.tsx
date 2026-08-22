@@ -80,7 +80,13 @@ const NAV_ICON: Record<AppView, AppIcon> = {
   timelog: ClockIcon,
 };
 
-export function NavIcon({ view, className = "h-5 w-5 shrink-0" }: NavIconProps) {
+// The default sizing applied when a caller passes no className. EXPORTED so
+// `nav-icons.test.tsx` can derive its "the custom class replaced the default"
+// assertion from this string instead of restating the tokens — two successive
+// revisions of that test hardcoded a subset and each missed a real leak.
+export const NAV_ICON_CLASS = "h-5 w-5 shrink-0";
+
+export function NavIcon({ view, className = NAV_ICON_CLASS }: NavIconProps) {
   const Icon = NAV_ICON[view];
   return <Icon aria-hidden="true" focusable="false" className={className} />;
 }

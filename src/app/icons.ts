@@ -33,7 +33,14 @@
 //                 draws the diagonals into the corners -> Shrink, whose
 //                 construction is identical to heroicons'.
 //   RectangleStackIcon  `Layers` is three isometric diamonds; heroicons draws a
-//                 FLAT stack of rounded rectangles -> SquareStack.
+//                 FLAT, HEAD-ON card stack: three tiers, each centred on x=12,
+//                 progressively wider (12/15/18), body at the bottom ->
+//                 GalleryVerticalEnd, which is the same construction (10/14/18,
+//                 all centred, big rect last). ★★ NOT `SquareStack`, which was
+//                 the first correction here and is a DIAGONAL cascade (elements
+//                 centred on x=6/12/18) — flat, so better than `Layers`, but a
+//                 lateral move rather than a match. Two reviewers reached
+//                 GalleryVerticalEnd independently.
 // ★★ Accepted losses, recorded so a gallery eye-check is not read as "identical":
 // `PresentationChartLine` loses the rising line inside the screen (lucide 1.31 has
 // no better target), `Bars3BottomLeft`'s stair pattern differs (long/long/half vs
@@ -74,8 +81,12 @@
 //      the canonical-vs-shim note above).
 //   3. The hardcoded count in `icons.test.ts`'s "exports N icons" ratchet. This
 //      is the AUTHORITATIVE one; 4 and 5 are downstream observations of it.
-//   4. `e2e/icon-gallery.spec.ts`'s `toHaveCount(69)` — the chromium project, so
-//      CI runs it and a stale number reds the pipeline.
+//   4. BOTH `toHaveCount(69)` calls in `e2e/icon-gallery.spec.ts` (lines 13 and
+//      32 — the second was added by the same commit that wrote this list, and
+//      the list said "the" call, singular, for exactly that reason). It is the
+//      chromium project, so CI runs it and a stale number reds the pipeline.
+//      Re-derive with `git grep -n "toHaveCount(69)" -- e2e` rather than
+//      trusting this count.
 //   5. `e2e/icon-gallery.visual.spec.ts`'s `toHaveCount(69)`, plus its committed
 //      `icon-gallery-visual-win32.png` baseline, which the grid reflow invalidates
 //      (`npm run e2e:visual:update`). Opt-in `visual` project — NOT run in CI, so
@@ -149,7 +160,7 @@ export {
   PresentationIcon as PresentationChartLineIcon,
   PrinterIcon,
   CircleQuestionMarkIcon as QuestionMarkCircleIcon,
-  SquareStackIcon as RectangleStackIcon,
+  GalleryVerticalEndIcon as RectangleStackIcon,
   ShieldCheckIcon,
   SparklesIcon,
   LayoutGridIcon as Squares2X2Icon,

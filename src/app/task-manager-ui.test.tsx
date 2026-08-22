@@ -78,6 +78,13 @@ describe("ColumnResizeHandle", () => {
         /^(path|line|circle|rect|polyline|polygon|ellipse)$/.test(c.tagName),
       ),
     ).toBe(true);
+    // ★★★ AND PIN WHICH GLYPH. Shape alone cannot tell EllipsisVertical from
+    // Trash, nor from the HORIZONTAL Ellipsis (also three <circle>s) — both
+    // survived as mutants against the shape check alone. lucide's
+    // `lucide-<kebab>` class is the only thing in the DOM that identifies the
+    // glyph, and a grip that silently became a horizontal ellipsis would read
+    // as a drag affordance pointing the wrong way.
+    expect(Array.from(svg!.classList)).toContain("lucide-ellipsis-vertical");
   });
 
   it("is decorative and 6px wide with the col-resize cursor", () => {

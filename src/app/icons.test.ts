@@ -69,7 +69,7 @@ const EXPECTED: Record<string, string> = {
   // Same rename class as Bars3BottomLeftIcon above: CircleHelp/CircleHelpIcon
   // now re-export CircleQuestionMark verbatim.
   QuestionMarkCircleIcon: "CircleQuestionMark",
-  RectangleStackIcon: "SquareStack",
+  RectangleStackIcon: "GalleryVerticalEnd",
   ShieldCheckIcon: "ShieldCheck",
   SparklesIcon: "Sparkles",
   Squares2X2Icon: "LayoutGrid",
