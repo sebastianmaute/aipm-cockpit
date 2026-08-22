@@ -1,6 +1,8 @@
+import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
 import { emuFromPx, mediaExtension, fitExtent, EMU_PER_INCH } from "./ooxml-media";
+import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 
 describe("mediaExtension", () => {
   it("maps every allowed mime and rejects everything else", () => {
@@ -10,6 +12,28 @@ describe("mediaExtension", () => {
     // SVG is permanently excluded upstream; a miss must be null, never a guess.
     expect(mediaExtension("image/svg+xml")).toBeNull();
     expect(mediaExtension("")).toBeNull();
+  });
+
+  it("covers every mime the upload path admits", () => {
+    // ★★ The switch is deliberately a literal, so this is the only thing
+    // stopping the two lists from drifting. A fourth allowed mime with no case
+    // here would export as a placeholder in OOXML while HTML kept the image.
+    for (const mime of ASSET_MIME_ALLOWED) {
+      expect(mediaExtension(mime)).not.toBeNull();
+    }
+    expect(ASSET_MIME_ALLOWED.length).toBeGreaterThan(0); // guard against a vacuous loop
+  });
+});
+
+describe("module contract", () => {
+  it("does not touch the DOM", () => {
+    // Guard: this module must stay usable under bare node (both renderers
+    // that import it are synchronous and one runs at build/export time with
+    // no browser present). A source scan is the enforcement — mirrors
+    // document-model.test.ts's "does not touch the DOM".
+    const src = readFileSync("src/app/ooxml-media.ts", "utf8");
+    const codeOnly = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+    expect(codeOnly).not.toMatch(/DOMParser|\bBlob\b|\batob\b|\bwindow\b|\bdocument\b\s*\./);
   });
 });
 
@@ -74,5 +98,40 @@ describe("fitExtent", () => {
       ),
       { numRuns: 500 },
     );
+  });
+
+  it("rejects a bound too small to hold anything, rather than clamping past it", () => {
+    // Without the >= 1 bound guard these return {cxEmu:1, cyEmu:1} — an extent
+    // LARGER than the box it was asked to fit into.
+    expect(fitExtent({ width: 100, height: 100 }, 0, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: 100, height: 100 }, 1_000_000, 0)).toBeNull();
+    expect(fitExtent({ width: 100, height: 100 }, -5, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: 100, height: 100 }, NaN, 1_000_000)).toBeNull();
+  });
+
+  it("rejects a non-finite or negative dimension", () => {
+    expect(fitExtent({ width: Infinity, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: 10, height: Infinity }, 1_000_000, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: NaN, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: -10, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: 10, height: -10 }, 1_000_000, 1_000_000)).toBeNull();
+  });
+
+  it("rounds rather than truncates, in both directions", () => {
+    // Every INTEGER px maps to an exact EMU (914400/96 = 9525), so rounding only
+    // engages on fractional input — which is why every existing example landed on
+    // an exact integer and none of them could tell round from floor.
+    expect(emuFromPx(0.5)).toBe(4763); // floor would give 4762
+    // 97px tall at a 0.5 scale is 461962.5 EMU — the one example that separates
+    // the two modes inside fitExtent itself.
+    expect(fitExtent({ width: 192, height: 97 }, EMU_PER_INCH, 10 * EMU_PER_INCH))
+      .toEqual({ cxEmu: 914400, cyEmu: 461963 });
+  });
+
+  it("rejects a source dimension too small to round to a single EMU", () => {
+    // 1e-5 px x 9525 = 0.09525 EMU, which rounds to 0. The old Math.max(1, …)
+    // clamp turned that into an invisible 1-EMU picture; null falls back to the
+    // placeholder, which is the honest disclosure.
+    expect(fitExtent({ width: 1e-5, height: 1e-5 }, 1_000_000, 1_000_000)).toBeNull();
   });
 });

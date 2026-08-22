@@ -6,7 +6,7 @@
 //
 // ★★ It is its own file rather than living in either primitives module because
 // BOTH need it, and because ooxml-docx-primitives.ts and ooxml-pptx-primitives.ts
-// are each within ~230 lines of the 800-line ratchet.
+// are both close enough to the 800-line ratchet that neither can absorb it.
 
 /** EMUs (English Metric Units) per inch — the OOXML coordinate unit. */
 export const EMU_PER_INCH = 914400;
@@ -52,6 +52,11 @@ export function contentTypeFor(ext: MediaExtension): string {
 
 export type Extent = { cxEmu: number; cyEmu: number };
 
+/** A dimension the OOXML geometry can actually use. */
+function positiveFinite(n: number | undefined): n is number {
+  return typeof n === "number" && Number.isFinite(n) && n > 0;
+}
+
 /**
  * Aspect-preserving fit of a pixel dimension pair into an EMU box.
  *
@@ -70,14 +75,44 @@ export function fitExtent(
   maxHeightEmu: number,
 ): Extent | null {
   const { width, height } = dim;
-  if (!width || !height || width <= 0 || height <= 0) return null;
+  // ★★ Number.isFinite, not truthiness: `!width` catches undefined/0/NaN and
+  // `width <= 0` catches negatives, but NEITHER catches Infinity — which
+  // produces scale 0, then NaN * 0, and emits cx="NaN" into the drawing XML.
+  // A malformed extent is a file Word refuses to open, which is the exact
+  // failure this module's null return exists to avoid. The load path's own
+  // sanitizer already rejects all four (document-asset.ts `dim()` admits only
+  // Number.isFinite(n) && n > 0), so this is defence at the boundary, not a
+  // live bug — but this function is exported and its callers grow.
+  if (!positiveFinite(width) || !positiveFinite(height)) return null;
+  // ★★★ A BOX UNDER 1 EMU CANNOT HOLD AN IMAGE, and without this the clamp
+  // below returns an extent that EXCEEDS the bound it was given: at
+  // maxWidthEmu 0 the scale is 0, both dimensions round to 0, and Math.max(1,…)
+  // lifts them back to 1. Not reachable from today's two call sites (both pass
+  // module constants in the millions) — it becomes reachable the moment a
+  // pagination pass hands in REMAINING space. Rejecting is right: the caller's
+  // fallback is the placeholder, which is honest, where a 1-EMU picture is not.
+  if (!(maxWidthEmu >= 1) || !(maxHeightEmu >= 1)) return null;
   const naturalCx = emuFromPx(width);
   const naturalCy = emuFromPx(height);
   const scale = Math.min(1, maxWidthEmu / naturalCx, maxHeightEmu / naturalCy);
-  return {
-    cxEmu: Math.max(1, Math.round(naturalCx * scale)),
-    cyEmu: Math.max(1, Math.round(naturalCy * scale)),
-  };
+  const cxEmu = Math.round(naturalCx * scale);
+  const cyEmu = Math.round(naturalCy * scale);
+  // ★★★ A SUB-1-EMU RESULT IS REJECTED, NOT CLAMPED, and the clamp that used to
+  // sit here is why. `Math.max(1, …)` violated this function's own postcondition:
+  // at a bound below 1 EMU it returned an extent WIDER than the box it was asked
+  // to fit into. The bound guard above closes that case — but the clamp stayed
+  // reachable by a second route, a sub-pixel SOURCE dimension: width 1e-5 makes
+  // `naturalCx` round to 0, `maxWidthEmu / 0` is Infinity, scale is 1, and the
+  // clamp lifts a zero extent back to 1. That emits a picture the reader cannot
+  // see, where the caller's fallback — the placeholder — at least says something
+  // is there. Deleting the clamp alone would be worse still: `cx="0"` is a
+  // zero-area frame Word and PowerPoint render broken.
+  //
+  // ★★ The payoff is that the return is now TOTAL in one direction: either a
+  // usable extent, with both dimensions >= 1 AND within both bounds, or null.
+  // There is no third shape for a caller to handle.
+  if (cxEmu < 1 || cyEmu < 1) return null;
+  return { cxEmu, cyEmu };
 }
 
 /** One embedded image, as both package builders consume it. */
