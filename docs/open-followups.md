@@ -13877,3 +13877,69 @@ import would have been caught by the gate" was the natural assumption while revi
 false. That branch was clean — but by `tsc` and a per-file import-name diff, not by any gate. The
 docs asserting otherwise (`AGENTS.md`, `docs/CODEMAPS/architecture.md`, `docs/AGENTS/dashboard.md`,
 and two places in this file) were corrected in that release; `CONTRIBUTING.md` had it right already.
+## 215. CI has no live Turso database, so the twelve tests that prove document images work never run there
+
+**Status:** open — the tests exist, pass locally against a real database, and SKIP in every CI pipeline.
+
+**What is unverified in CI.** `e2e/documents-images-interactive.spec.ts` gates both its describes on
+`test.skip(!LIVE, …)`, where `LIVE` comes from `readEnvLocal()` — `process.env` first, then a parse
+of `.env.local`. CI has neither, so all twelve skip and the `e2e` job is green while proving nothing
+about:
+
+- that the SQL this app emits is ACCEPTED by a real engine at all (the `idKind` seam that shipped
+  broken was exactly this class);
+- that a byte actually lands and reads back — every upload test re-reads its bytes over a second
+  connection and byte-compares them;
+- the §212 repair against a real store;
+- the §211 remedy, and the batch behaviour the same entry documents;
+- that Safe Mode's `safeMode ? null :` gate is load-bearing — which is only isolable when the
+  config comes from ENV rather than settings.
+
+★★★ **NOTHING ELSE IN THE REPO COVERS THIS, and the nearest thing is misleading.**
+`entity-persistence-registry.test.ts` matches DDL STRINGS and never executes a statement.
+`turso-schema.execute.test.ts` does execute, but against `node:sqlite` — a different engine reached
+a different way, so it cannot see anything about how libSQL handles a BATCH over `/v2/pipeline`.
+That is not a hypothetical gap: §211's correction (a failing statement does NOT abort the batch;
+COMMIT still runs and the rest is committed) is measurable ONLY against a real libSQL endpoint, and
+is therefore pinned by a spec CI always skips. The claim is documented in five places and guarded in
+none of them.
+
+**No code change is needed to make it run.** `readEnvLocal()` prefers `process.env`, so setting
+`NEXT_PUBLIC_TURSO_DATABASE_URL` and `NEXT_PUBLIC_TURSO_AUTH_TOKEN` in the job environment is
+sufficient. What needs deciding is where the database comes from.
+
+**Option (a) — a hosted throwaway Turso database + masked CI variables.** Closest to production,
+and the only option that exercises the real network path. Costs below.
+
+**Option (b) — run `libsql-server` (`tursodb`) as a GitLab CI *service* container.** Preferred, and
+the reason is not cost: it speaks the same Hrana `/v2/pipeline` protocol, so the batch semantics
+this is meant to pin are real, while every hazard below either disappears or becomes per-job.
+There is no credential to leak, no shared state between pipelines, and no cleanup to get wrong.
+It does NOT cover Turso's hosted behaviour (auth, TLS, rate limits, statement size limits over the
+wire), so it is a narrower proof than (a) — say so wherever the result is quoted.
+
+**Hazards any implementation must handle — all four are load-bearing.**
+
+★★★ **The §211 probe runs `DROP TABLE IF EXISTS document_assets`, which is NOT partition-scoped.**
+It destroys EVERY project's asset metadata in whatever database it is pointed at, not just the e2e
+partition, and a hard failure mid-probe leaves the table dropped. This must never be pointed at a
+database holding anything, and that is a property of the DATABASE, not of the test.
+
+★★ **Concurrent pipelines would collide.** The spec uses fixed fixture ids under one project
+partition, and the probe drops a shared table. Two MR pipelines against one database corrupt each
+other's results in both directions. Option (b) gives isolation for free; option (a) needs a database
+per pipeline, or a `resource_group` to serialise the job.
+
+★★★ **`NEXT_PUBLIC_*` variables are INLINED INTO THE CLIENT BUNDLE at build time.** Under option (a)
+the auth token would be baked into `.next/` and published as a job artifact — downloadable by anyone
+who can read the pipeline. That makes a masked variable NOT sufficient on its own: the database must
+be a throwaway holding nothing else, and the token must be rotatable and treated as public.
+This is a good reason to prefer (b).
+
+★ **Forked-MR pipelines do not receive protected variables**, so the suite would skip there. That is
+acceptable and correct — it skips cleanly, it does not fail — but it means a fork's green `e2e` says
+even less than a branch's, and nobody should read it as coverage.
+
+**Reproduce today's state:** run `npx playwright test e2e/documents-images-interactive.spec.ts
+--project=chromium` with no `.env.local` and no exported pair — `12 skipped`, exit 0. That is
+exactly what every CI pipeline does.
