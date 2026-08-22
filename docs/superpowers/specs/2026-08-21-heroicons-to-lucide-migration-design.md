@@ -26,7 +26,7 @@ Every row was reproduced against the tree at `0ff948bb`. Re-run before trusting 
 | lucide exports the same name | **25** of 69 | §5 |
 | `lucide-react` installed | `^1.31.0`, one consumer (`rich-text-toolbar.tsx`) | `grep -rln "lucide-react" src/app` |
 | heroicons IMPORTED by tests | **zero** `*.test.tsx`, **zero** `e2e/` | `grep -rln "@heroicons" src --include=*.test.tsx; grep -rn "heroicons" e2e` |
-| heroicons ASSUMED by tests | **3 assertions in 2 files** — and this row did not exist until execution proved it. See §5.5 | HISTORICAL: true at the BASE commit only. The obvious command (`npx vitest run src/app/nav-icons src/app/task-manager-ui`) now passes, because the fix is in — it proves the opposite of what a reader expects. To see the coupling, run it at `0ff948bb` with the barrel in place, or read the §5.5 table. |
+| heroicons ASSUMED by tests | **3 assertions in 2 files** — and this row did not exist until execution proved it. See §5.5 | HISTORICAL: true at the BASE commit only. The obvious command (`npx vitest run src/app/nav-icons src/app/task-manager-ui`) now passes, because the fix is in — it proves the opposite of what a reader expects. To see the coupling, read the §5.5 table — it cannot be re-run at the base commit, where `src/app/icons.ts` does not exist. |
 | `data-slot="icon"` (heroicons emits it) | referenced **nowhere** in `src`/`e2e`/CSS | `grep -rn 'data-slot' src e2e --include=*.ts --include=*.tsx --include=*.css` |
 | Call sites passing `aria-label`/`role` | **0** · passing `aria-hidden={false}` **0** — the zeros are the load-bearing half | see §4.3 |
 | Icon-typed props | **one** annotation repo-wide (`nav-icons.tsx`) | `grep -rln "SVGProps<SVGSVGElement>" src --include=*.tsx --include=*.ts` |
@@ -145,25 +145,19 @@ remaining sites relying on the implicit default keep getting it, because they pa
 no children. ★ lucide is the safer of the two here: pass `aria-label` to a heroicon and it stays
 hidden anyway; pass one to a lucide icon and it is correctly exposed.
 
-★★★ **DO NOT QUOTE A CALL-SITE TOTAL HERE, AND AN EARLIER REVISION OF THIS SECTION QUOTED TWO.**
-It said ~141 JSX call sites and 122 passing `aria-hidden`, attributed the sweep to "the slice's
-plan", and explained that the naive form "misses multi-line JSX and reports fewer sites than exist".
-Every part of that is wrong. The plan contains no such command (`grep -nE "141|122" <plan>` returns
-nothing). And three independent sweeps of the same tree at the base commit disagree: an
-import-scoped sweep counting only locally-bound names gives **70**, a broader one gives **123**, and
-the naive `git grep -hoE "<[A-Z][A-Za-z0-9]*Icon\b"` gives **144** — so the naive form OVER-counts
-(it catches `<NavIcon` and other `Icon`-suffixed wrappers), the opposite of the stated failure mode.
-The spread is real, not sloppiness: icons reached through a MAP (`nav-icons.tsx` renders `<Icon />`
-from a lookup) are call sites by one definition and not by another, and no definition is canonical.
-★★ **The ZEROS are what this section actually rests on, and they reproduce under every definition** —
-no call site passes `aria-label`, `role`, or `aria-hidden={false}`, so no site can observe lucide's
-conditional. Verify those three, and quote no total:
+★★★ **Quote no call-site total.** Sweeps of the base tree disagree by definition, not by care:
+icons reached through a MAP (`nav-icons.tsx` renders `<Icon />` from a lookup) are call sites under
+one reading and not another, and none is canonical. The only one with an attached command is the
+naive `git grep -hoE "<[A-Z][A-Za-z0-9]*Icon\b" 0ff948bb -- src/app | wc -l` → **144**, and that one
+OVER-counts (it catches `<NavIcon` and other `Icon`-suffixed wrappers).
+★★ **The ZEROS are what this section rests on**: no icon call site passes `aria-label`, `role`, or
+`aria-hidden={false}`, so none can observe lucide's conditional. Verify those three:
 
 ```bash
-# ★★ NOT a bare `git grep` for aria-label over src/app — that returns 757 hits and reads as a
-# REFUTATION of the sentence above. It counts every aria-label in the tree, not the ones on an
-# ICON. Scope it to icon JSX opening tags, using the BROADEST definition of one, so that a zero
-# here implies a zero under every narrower definition:
+# ★★ NOT a bare `git grep` for aria-label over src/app — that returns 757 hits and answers a
+# different question (every aria-label in the tree, not the ones on an ICON). ★ The regex needs a
+# name ending in `Icon`, so `nav-icons.tsx`'s `<Icon />` map site is NOT scanned — check it by
+# hand (aria-hidden/focusable only). Scope it to icon JSX opening tags:
 cat > /tmp/zeros.mjs <<'EOF'
 import { execSync } from "node:child_process";
 const BASE = process.argv[2] || "0ff948bb";
@@ -344,8 +338,15 @@ so the rest of the table stands. Read the file, and let `displayName` be the arb
 ```bash
 # WRONG — this lists every shim in lucide (257 files), not the ones among the 69.
 #   grep -l "export { default } from" node_modules/.../icons/*.mjs
-# Scope it to the barrel: run the script in §5.5 and swap its final test for
-#   if (body.startsWith("export { default }")) out.push(...)
+# Scope it to the barrel: run the §5.5 script with its final test swapped for
+#   if (fs.readFileSync(`${dir}/icons/${file}.mjs`, "utf8").includes("export { default } from"))
+# (and relabel its summary line, which still says "render no <path>").
+# ★★★ THE FIRST VERSION OF THIS SWAP WAS BROKEN TWICE AND STILL "AGREED" WITH THE ANSWER BELOW.
+# It said `body.startsWith("export { default }")` — but `body` is defined nowhere in the §5.5
+# script (ReferenceError), and `startsWith` is false for EVERY lucide icon file regardless,
+# because all 2025 of them open with a license comment. It returned zero by construction, which
+# is the answer, so nothing looked wrong. A check that agrees with your prior is the one you
+# stop examining — the same failure this section is about, authored into its own correction.
 # Barrel-scoped answer today: ZERO — every one of the 69 resolves to a canonical file.
 ```
 
@@ -430,9 +431,7 @@ instrument that sees it.
 
 ## 6. Verification
 
-1. **Gallery + contact sheet (kept).** TWO specs, and they do NOT run in the same places — an
-   earlier revision of this bullet bundled them into one sentence and attributed the screenshot to
-   the CI spec, whose own opening comment says "No screenshot here on purpose".
+1. **Gallery + contact sheet (kept).** TWO specs, and they do NOT run in the same places.
    ★ `e2e/icon-gallery.spec.ts` is the CI half: it asserts the barrel count, that every glyph is
    `aria-hidden`, and that the computed stroke width is `1.5px` — the **only** place the §4.2 pin can
    be proved, since jsdom has no CSS. It runs on every pipeline.
@@ -484,11 +483,7 @@ Only the §5.2 shortlist review does. Do not read a green pipeline as glyph corr
 ★ Those four are inside `docs:claims:check`'s scope. This spec is not — the gate skips
 `docs/superpowers/`.
 
-★★ `AGENTS.md` gets **one BULLET**, not a section: new icons come from `src/app/icons.ts`. ★ It said
-"one line" and what shipped is a ~14-line bullet — the extra lines are the two glyph traps, the
-no-`<path>` rule and the stroke pin, each of which has already cost a defect, so the growth was
-earned rather than drift. The rule it is testing itself against is the file's own: a bullet past ~60
-lines of subsystem detail belongs in `docs/AGENTS/`. Its own
+★★ `AGENTS.md` gets **one BULLET**, not a section: new icons come from `src/app/icons.ts`. Its own
 header records that the file regrew 111% in fifteen days by accepting plausible additions; a mapping
 table belongs here.
 

@@ -94,20 +94,13 @@ long after the directory it named stopped existing.
 ```bash
 npm run dev                 # next dev (public next ^16.2.11 — read node_modules/next/dist/docs for version behavior)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint  ★★★ THERE IS NO --max-warnings GATE ANYWHERE, and this line
-                            # asserted one for months: it said "CI --max-warnings=0: an unused import/var
-                            # is FATAL". The `lint:` job runs `npm run lint`, which is bare `eslint`
-                            # (`grep -n -A6 '^lint:' .gitlab-ci.yml`), and `@typescript-eslint/no-unused-vars`
-                            # is severity 1 — a WARNING. Measured, not reasoned: a probe file with an unused
-                            # import gives `0 errors, 2 warnings` and EXIT=0 under the CI command, and tsc
-                            # cannot cover it either — `noUnusedLocals` does not exist in tsconfig.json. So an unused
-                            # import/var SHIPS GREEN. Verify severity with:
+npm run lint                # eslint — ★★★ there is NO `--max-warnings` gate: CI's `lint:` job runs bare
+                            # `npm run lint`, `@typescript-eslint/no-unused-vars` is severity 1, and
+                            # `noUnusedLocals` does not exist in tsconfig.json — so an unused import/var
+                            # SHIPS GREEN. Keep them out by hand; `_`-prefixed params are NOT exempt
+                            # (no argsIgnorePattern), so re-check after every extract. Verify severity:
                             #   npx eslint --print-config src/app/icons.ts   (read .rules)
-                            # ★★ The old claim was self-refuting — the ★ five lines below already said
-                            # `npm run lint` is bare eslint, so the file asserted both. Treat unused vars as
-                            # a convention this repo keeps by hand; `_`-prefixed params are NOT exempt
-                            # (no argsIgnorePattern), so re-check after every extract — that half was right.
-                            # react-hooks/exhaustive-deps REJECTS an `obj.member` dep (e.g.
+                            # react-hooks/exhaustive-deps (severity 1, so NOT fatal) rejects an `obj.member` dep (e.g.
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
                             # in a component RENDER body too (not just useMemo) — capture via a lazy
@@ -115,9 +108,8 @@ npm run lint                # eslint  ★★★ THERE IS NO --max-warnings GATE 
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npx eslint --max-warnings=0 src/app` is therefore STRICTER than CI, not a
-                            # reproduction of it — useful as a self-imposed check, but a clean run there
-                            # proves more than the pipeline demands, and a red one does not mean CI fails.
+                            # ★ `npx eslint --max-warnings=0 src/app` is STRICTER than CI, not a
+                            # reproduction of it.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
@@ -450,14 +442,10 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
-  `opacity-0` is NOT load-bearing: the marker span carries its OWN explicit `aria-hidden="true"`, so the
-  glyph is out of the a11y tree in both states either way. ★★ DO NOT restore the old reason for that —
-  it said heroicons DEFAULTS `aria-hidden` on every icon, which was true of heroicons and is FALSE under
-  lucide, whose `Icon.mjs` adds it only when the caller passes NO a11y prop
-  (`...!children && !hasA11yProp(rest) && { "aria-hidden": "true" }`). The conclusion survived the icon
-  migration only because the call site was already explicit; a NEW glyph that relies on the library
-  defaulting it would be in the a11y tree. An earlier revision of this bullet claimed the a11y tree was
-  the reason — it is inert, and a test written to pin it could not fail.
+  `opacity-0` is NOT load-bearing: the marker `CheckIcon` carries its own explicit `aria-hidden="true"`,
+  so the glyph is out of the a11y tree either way. ★★ Do NOT restore the old reason ("heroicons defaults
+  `aria-hidden`") — lucide sets it only when the icon has no children AND the caller passed no a11y prop,
+  so a NEW glyph relying on the library default would be exposed.
   ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
   default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
   toolbar, where stealing focus from the editor collapses the selection the command is about to
@@ -829,6 +817,27 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
   pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
   `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
+  ★★★ **`/icon-gallery` 404s IN DEV AFTER ANY `npm run build`, and it is the repo's only route that
+  can.** The page guards itself with `if (process.env.NODE_ENV === "production") notFound();` — the
+  only such guard in `src` — and that value is CONSTANT-FOLDED at build time, so the compiled chunk
+  literally holds `if ("production" === "production") notFound()`. A production build leaves that
+  chunk in `.next`, `next dev` serves it, and the guard fires unconditionally no matter what the dev
+  server's real env is. That is why the 404 is DETERMINISTIC rather than flaky, and why it hits this
+  route alone. ★★ Any NEW route that adds a `NODE_ENV === "production"` guard inherits the trap.
+  Measured, not reasoned: with a `BUILD_ID` in `.next`, three consecutive `curl /icon-gallery` gave
+  404/404/404 while `/` gave 200 on the same warm server; after `Remove-Item -Recurse -Force .next`
+  and a restart, 200/200/200 with 69 cells. It bites the visual/gallery e2e specs as
+  `toHaveCount` "Received: 0", which reads like a broken selector.
+  ★★ **THAT SYMPTOM HAS A SECOND, UNRELATED CAUSE — do not apply this remedy to it.** Each
+  `npx playwright test` invocation starts and tears down its OWN webServer, so a run launched while
+  the previous one is still releasing port 3000 attaches to a dying server and gets the same
+  `Received: 0`, with NO `BUILD_ID` present. Its remedy is the opposite: stop chaining invocations
+  and use `--repeat-each=N` inside ONE lifecycle (5/5 green that way). ★★★ ROUTE ON FILE STATE, NOT ON A
+  REQUEST: `ls .next/BUILD_ID` — present ⇒ stale production chunks, delete `.next`; absent ⇒ you
+  chained invocations. A `curl` does NOT discriminate in the case you actually need it, because
+  Playwright tears its webServer down in BOTH modes, so a post-mortem curl gets connection-refused
+  either way (one observed run printed `status=000` while still writing a 404 body to the output
+  file — a server caught mid-teardown). Curl confirms only while a hand-started server is still up.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you

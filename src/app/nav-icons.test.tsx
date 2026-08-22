@@ -108,6 +108,18 @@ describe("NavIcon", () => {
     expect(unpinned).toEqual([]);
   });
 
+  // ★★★ A LITERAL RATCHET, and it must stay literal. Deriving the leak check
+  // from NAV_ICON_CLASS (below) made that check drift-proof but pinned NOTHING
+  // about the constant's CONTENT — and the positive assertion was a single
+  // hardcoded token, so shrinking the default to just "h-5" passed the whole
+  // file. Every nav icon would lose its width and its flex-shrink guard, i.e. a
+  // visibly squashed sidebar, with four green tests. Measured as a surviving
+  // mutant. Deriving BOTH halves from the constant is what makes the positive
+  // half tautological, which is precisely why this one is spelled out.
+  it("pins the default sizing classes", () => {
+    expect(NAV_ICON_CLASS).toBe("h-5 w-5 shrink-0");
+  });
+
   it("uses the default size class, or a custom className when provided", () => {
     const { container: a } = render(<NavIcon view="open-points" />);
     expect(a.querySelector("svg")!.getAttribute("class")).toContain("h-5");

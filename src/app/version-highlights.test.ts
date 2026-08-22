@@ -16,8 +16,12 @@ describe("APP_HIGHLIGHT_KEYS", () => {
     expect(new Set(APP_HIGHLIGHT_KEYS).size).toBe(APP_HIGHLIGHT_KEYS.length);
   });
 
-  // ★ Deliberately loose: this is a reminder to bump the key above when the
-  // version moves, not a pin on the version string itself.
+  // ★★★ WHAT THIS FILE DOES NOT COVER, because it reads like it does: it is NOT
+  // a release-bump guard. `at(-1)` is pinned to a LITERAL key, so bumping
+  // `APP_VERSION` without adding a highlight at all leaves every test here
+  // green. It guards ORDERING — that a key which exists is last — and nothing
+  // about whether the release remembered to add one.
+  // ★ The assertion below is deliberately loose for the same reason.
   it("names a released version and milestone", () => {
     expect(APP_VERSION).toMatch(/^\d+\.\d+\.\d+$/);
     expect(APP_MILESTONE.length).toBeGreaterThan(0);

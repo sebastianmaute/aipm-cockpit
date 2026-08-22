@@ -5649,10 +5649,15 @@ plausibly make again:
 - *"Pure modules import React/i18n"* (`action-ai.ts`, `ai-project-proposal.ts`,
   `chat-attachments.ts`) — verifiably clean; non-findings.
 
-★ The frame that produced all four is worth keeping: the app is CI-green under
-`lint --max-warnings=0` and `tsc --noEmit`, **therefore no committed code can hold a fatal lint
-violation** — any finding claiming one is a false positive by construction. Check that before
-believing a severity label.
+★★★ THE FRAME THAT PRODUCED ALL FOUR IS FALSE, AND IT TOLD READERS TO DISMISS TRUE FINDINGS.
+It read: the app is CI-green under `lint --max-warnings=0`, **therefore no committed code can hold a
+fatal lint violation** — any finding claiming one is a false positive by construction. There is no
+`--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
+and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
+a finding reporting one is not a false positive. Only severity-2 rules (`react-hooks/purity`,
+`react-hooks/set-state-in-effect`) actually fail the job. Verify with `npx eslint --print-config
+src/app/icons.ts`. The four dispositions above were checked individually and stand on their own
+evidence; it is the shortcut that is retired.
 
 **Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
 

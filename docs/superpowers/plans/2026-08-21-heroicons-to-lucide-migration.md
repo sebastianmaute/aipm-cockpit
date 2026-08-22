@@ -947,7 +947,7 @@ Expected: no output and `EXIT=1` (grep matched nothing). The compare page from T
 
 **Files:** `src/app/nav-icons.tsx` · `src/app/rich-text-toolbar.tsx` · `src/app/toggle-button.tsx` · `src/app/toggle-button.test.tsx` · `src/app/i18n.ts` · `src/app/i18n.de.ts`
 
-★★★ **Discovered mid-execution; neither the spec nor the original plan had it.** Converting the imports leaves a handful of heroicons references in `src` prose, and two of them become FALSE rather than merely dated. ★★ **This step once bolded a count of 10 and NO reading of the tree ever produced it** — at the commit that authored this step the command below returned 14, or 12 excluding the compare page, or 7 excluding that and `icons.ts`'s own deliberate mentions. The count moves with every edit to this very step's targets, which is why it is no longer quoted. Re-derive the list before starting:
+★★★ **Discovered mid-execution; neither the spec nor the original plan had it.** Converting the imports leaves a handful of heroicons references in `src` prose, and two of them become FALSE rather than merely dated. ★★ **Re-derive the list; quote no total.** (This step once bolded 10, which no reading of the tree produces. Its replacement then quoted three totals to argue against quoting totals — and got one of them wrong, reaching 7 only via a `grep -v "icons.ts"` that substring-matches `nav-icons.tsx`; the correct figure is 8.)
 
 ```bash
 grep -rn "heroicons\|Heroicon" src --include=*.tsx --include=*.ts | grep -v 'from "@heroicons'
