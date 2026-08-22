@@ -59,8 +59,11 @@ longer carries its own changelog comment.
 - `ENTITY_SPECS` rows may declare `idKind: "text"`. `DocumentAsset` is the first
   entity in the registry with a string id, and both Turso layouts assumed an
   integer one. The single-tenant builder emitted `id INTEGER PRIMARY KEY` — a
-  rowid alias, one of the few types SQLite enforces — so one such row aborted
-  the shared `BEGIN … COMMIT` and with it every workspace save. The multi-tenant
+  rowid alias, one of the few types SQLite enforces — so one such row made every
+  workspace save report failure. It did NOT abort the shared `BEGIN … COMMIT`:
+  libSQL errors the one statement and keeps going, COMMIT still runs, and the
+  rest is written — so an affected save reported failure over a workspace that
+  had in fact been partly persisted. The multi-tenant
   builder emitted `id INTEGER` under a composite `PRIMARY KEY (id, project_id)`,
   which is affinity only and is not enforced; its failure came from binding the
   id as an integer argument. Both are fixed.
@@ -101,10 +104,18 @@ longer carries its own changelog comment.
   §210.
 - **A SINGLE-TENANT Turso database written by an older build cannot take an
   upload.** Its `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the
-  first image aborts that save and every save after it, with a `datatype
-  mismatch` message naming neither table nor column, and there is no in-app
-  repair path. Multi-tenant databases are unaffected — that column was never a
+  first image makes that save — and every save after it — report failure, with
+  a `datatype mismatch` message naming neither table nor column, and there is
+  no in-app repair path. The batch is not aborted, so the rest of the workspace
+  is still committed: an affected database holds partly-written data behind a
+  failure message, which is worse than it sounds and is why the remedy matters. Multi-tenant databases are unaffected — that column was never a
   rowid alias — and self-heal on upgrade. Tracked as §211.
+- **A successful upload can still show a dangling marker.** If a background
+  check of which assets have bytes is already in flight when the upload
+  finishes, the older answer lands last and re-marks the new row as missing its
+  bytes. The bytes are fine and the image renders; only the library's marker is
+  wrong, and it stays wrong until something else changes the asset list.
+  Tracked as §213.
 - **On single-tenant Turso, asset metadata is global while the bytes are keyed
   by project.** A user holding several projects in the file registry sees every
   asset read as dangling after switching. Tracked as §207.

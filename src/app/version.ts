@@ -52,7 +52,7 @@ export const APP_BUILD_DATE = "2026-08-22"; // 0.254.0: document images end to e
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Schroeder";
+export const APP_MILESTONE = "Yoshinaga";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
@@ -337,4 +337,5 @@ export const APP_HIGHLIGHT_KEYS = [
   "versionHighlightLazyEditor",
   "versionHighlightDictationPosition",
   "versionHighlightBlockStructure",
+  "versionHighlightDocumentImages",
 ] as const;

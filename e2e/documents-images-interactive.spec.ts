@@ -49,10 +49,14 @@
 // against that image's OWN dimensions, so a resolver pointing two elements at
 // one set of bytes cannot pass either.
 //
-// ★★ THE DATABASE IS TREATED AS DESTROYABLE BUT NOT AS EMPTY. Everything this
-// file writes is scoped to the e2e project partition and cleaned up in
-// `afterAll`; the §211 probe at the end deliberately breaks a table and then
-// repairs it, and runs LAST for that reason.
+// ★★★ THROWAWAY DATABASE ONLY. Everything this file WRITES is scoped to the e2e
+// project partition and cleaned up in `afterAll` — but the §211 probe at the end
+// runs `DROP TABLE IF EXISTS document_assets`, which is NOT partition-scoped and
+// destroys EVERY project's asset metadata in that database, not just `e2e-1`'s.
+// It recreates the table and runs LAST for that reason, but a hard failure
+// mid-probe leaves it dropped. Never point this at a database you care about.
+// (An earlier revision of this header said only that writes are partition-scoped
+// and cleaned up, which reads as far safer than a DROP TABLE actually is.)
 
 import { readFileSync, existsSync } from "node:fs";
 import type { Page, Route } from "@playwright/test";
@@ -865,9 +869,12 @@ test.describe("document images — live Turso", () => {
 // two apart.
 //
 // ★★ THE HONEST SCOPE OF WHAT THIS REPRODUCES. It proves the ENGINE half: the
-// bad DDL rejects the insert, and because the insert rides one shared
-// BEGIN…COMMIT the transaction never commits, so a co-resident write in the
-// same batch is lost with it. It does NOT drive the app into that state,
+// bad DDL rejects the insert, and the batch KEEPS GOING — COMMIT still runs, so
+// a co-resident write in the same batch SURVIVES. That is what the assertion
+// below measures, and an earlier revision of this very comment claimed the
+// opposite ("the transaction never commits, so a co-resident write is lost"),
+// contradicting the test 120 lines beneath it. It does NOT drive the app into
+// that state,
 // because the workspace save only emits these statements when
 // `settings.storageConfig.kind === "turso"`, and `e2e/seed.ts` seeds the
 // BROWSER backend — asset METADATA rides IndexedDB there while only the BYTES

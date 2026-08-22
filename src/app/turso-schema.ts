@@ -54,8 +54,8 @@ export interface PipelineResultLike {
  *  ★★★ THE TWO MUST AGREE. `id INTEGER PRIMARY KEY` is a rowid ALIAS, which is
  *  the one column type SQLite enforces — a non-numeric value is rejected with
  *  "datatype mismatch", and every workspace save then reports failure. So an
- *  entity minting a
- *  non-numeric id (`document_assets`, a crypto.randomUUID()) must declare
+ *  entity minting a non-numeric id (`document_assets`, a crypto.randomUUID())
+ *  must declare "text", which switches BOTH the DDL and the arg binding.
  *
  *  ★★★ "THAT ONE ROW KILLS THE WHOLE SAVE" WAS THE WORDING HERE, AND IT IS
  *  FALSE IN THE HALF THAT MATTERS. A libSQL /v2/pipeline batch does NOT abort

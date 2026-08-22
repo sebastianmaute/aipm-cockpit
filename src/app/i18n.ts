@@ -4016,6 +4016,8 @@ const enUS = {
   versionHighlightDictationPosition: "Dictating into a note that already has text now adds to the end of it, rather than sometimes inserting at the start.",
   versionHighlightBlockStructure: "Generated documents can now be restructured by hand, not only re-worded. Every block in the editor carries its own handle and menu: add a block above or below it and choose any block kind, delete it after a confirmation, or move it — by dragging the handle, or with the up and down arrow keys while the handle has focus. A block being dragged is dimmed and the position it would land in is marked, so a drop is never a guess. Structural changes are recorded in the document's version history exactly like a text edit, so an earlier arrangement can be restored.",
 
+  versionHighlightDocumentImages: "Documents can now hold images. Drop one onto the document, paste it from the clipboard, or pick a file: it is checked, downscaled if it is larger than it needs to be, and stored in your Turso project, while the document itself keeps only a reference — so a workspace file never carries image bytes. An image library lists every image in the project with its name, its size and how many documents use it, lets you rename or delete one, and clearly marks any whose stored bytes are missing. Word and PowerPoint exports name an omitted image in a visible placeholder rather than dropping it silently. Images need a Turso project; without one the rest of the document editor is unchanged.",
+
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
   insightAcknowledge: "Acknowledge",
