@@ -13503,11 +13503,30 @@ falls through to the `data-asset-missing` branch on a miss, and is unit-tested a
 attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
 be downgraded on reachability grounds.
 
-## 211. A Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
+## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
 
-**Status:** open — inert unless a real Turso database was written by a build older than `f43c41a8`.
+**Status:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
+than `f43c41a8`.
 
-**Symptom.** On such a database the FIRST image upload still fails: the metadata row's id is a
+★★★ **SINGLE-TENANT ONLY, and an earlier revision of this entry said "a Turso DB" flatly.** The
+MULTI-TENANT builder never emitted a rowid alias: `tenantColDdl` emits a bare `id INTEGER` and the
+table carries a composite `PRIMARY KEY (id, project_id)`, which gives that column INTEGER AFFINITY
+and nothing more — SQLite does not enforce affinity. Measured against `node:sqlite` v24, the same
+engine the executing tests use, rather than reasoned:
+
+```
+CREATE TABLE single (id INTEGER PRIMARY KEY, name TEXT);
+  -> INSERT of a UUID string REJECTED: datatype mismatch
+CREATE TABLE tenant (id INTEGER, name TEXT, project_id TEXT, PRIMARY KEY (id, project_id));
+  -> INSERT of a UUID string ACCEPTED, typeof(id) = text
+```
+
+The pre-fix TENANT failure was real but lived in `tenantInsert`, which bound the id as
+`{type: "integer"}` — a CODE defect, corrected by `f43c41a8` on every database at once. So a
+multi-tenant portfolio SELF-HEALS on the first save after upgrade and needs no remedy. Everything
+below applies to the single-tenant layout alone.
+
+**Symptom.** On an affected single-tenant database the FIRST image upload still fails: the metadata row's id is a
 `crypto.randomUUID()` string going into an INTEGER-typed primary key, so SQLite answers
 `datatype mismatch`. Because a workspace save is emitted as ONE `BEGIN … COMMIT` pipeline, that
 single row aborts the whole transaction — so it is not just the image that fails to save, it is
@@ -13533,7 +13552,7 @@ mechanisms each independently prevent it reaching an existing one:
 case, so every one of them exercises the corrected DDL. Reproducing this needs a database created by
 the older code — which means it will never be caught by the suite, only by a user.
 
-**Practical remedy** on an affected database: `DROP TABLE document_assets` (the next save recreates
+**Practical remedy** on an affected single-tenant database: `DROP TABLE document_assets` (the next save recreates
 it from the corrected `SCHEMA_DDL`). ★ This is safe in a narrow and specific sense that should not be
 overstated: the bytes live in a SEPARATE side table outside `TABLE_NAMES`, so dropping the metadata
 table cannot destroy any image data. But the metadata itself — asset name, mime, dimensions, the id
@@ -13541,3 +13560,47 @@ that `<img data-asset-id>` references — is NOT re-derivable from the bytes. An
 already been stored loses its metadata and its document references dangle; recovery is re-upload.
 On an affected DB no upload ever succeeded, so in practice the table is empty and the drop costs
 nothing — but check before assuming that.
+
+## 212. A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry
+
+**Status:** open — the recovery path the code documents three times does not exist.
+
+**Symptom.** An upload whose BYTE write fails leaves a metadata row marked dangling in the asset
+library (the intended, designed outcome). The user re-uploads the same image to fix it. Nothing
+happens: no byte write is attempted, no error is shown, and the row stays dangling forever.
+
+**Mechanism.** `upload` in `use-document-assets.ts` hashes the processed bytes and consults
+`findDuplicate` BEFORE minting a row, returning early on a hit:
+
+```
+const duplicate = findDuplicate(assetsRef.current, hash);
+if (duplicate) {
+  // Reuse — no metadata write, no byte write.
+  return duplicate;
+}
+```
+
+The dangling row is still in `assetsRef.current` and still carries the hash of exactly those bytes,
+so the re-upload matches it and returns. `findDuplicate` matches on hash alone and knows nothing
+about `danglingIds`.
+
+★★ **Deterministic, not probabilistic, for any image at or under the downscale target.**
+`processUpload` re-encodes ONLY when `targetSize` differs from the source, assigning
+`chosen = { bytes, mime }` otherwise — so a small image stores its ORIGINAL bytes and the second
+hash is bit-identical by construction. A downscaled image relies on canvas encode determinism,
+which is not guaranteed. The larger the image, the likelier the retry accidentally works: exactly
+the wrong way round for a recovery path.
+
+★★★ **THREE COMMENTS IN THE FILE ASSERT THE OPPOSITE**, which is how it survived two review
+rounds: the module header, the `catch` block ("repaired by re-uploading over the same id") and the
+trailing `return asset` note all describe the repair as working. Corrected in place — a comment
+documenting an unreachable path is worse than none, because the next reader stops looking.
+
+**What no test catches.** `use-document-assets.test.tsx` has a dangling case and a dedup case; they
+pass independently and nothing composes them. The minimal detector uploads, fails the byte write,
+then uploads THE SAME FILE again and asserts a second `saveAssetData` call.
+
+**Options, none taken yet.** (a) Pass `danglingIds` into the dedup check so a dangling hit falls
+through to the byte write, reusing the existing id — which repairs the placement too, since the id
+does not change. (b) A per-row Retry control in the asset library calling `saveAssetData` directly.
+(a) is the smaller change and covers the paste/drop path as well, which has no UI to hang (b) on.

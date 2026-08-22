@@ -23,16 +23,16 @@ longer carries its own changelog comment.
   because a workspace save deletes and re-inserts every table it owns, which
   would wipe the library on every save.
 - **Metadata-first write order.** The metadata row is committed before the
-  bytes, so a failed upload degrades to the already-designed *dangling* case —
-  visible, self-describing and repaired by re-uploading over the same id —
-  rather than leaving an invisible orphan needing a reclaim action.
+  bytes, so a failed upload degrades to the *dangling* case — a visible,
+  self-describing row — rather than leaving an invisible orphan needing a
+  reclaim action. It is not yet repairable in place; see *Known limitations*.
 - **Upload budget.** 25 MB raw ceiling checked before any decode; a header-only
   8000px dimension guard against decompression bombs; downscale to 1920x1080; a
   5 MB stored cap applied *after* downscale; 20 images per document enforced at
   insert; SHA-256 content-hash dedup so one image referenced from twenty
   documents is one row.
-- **Formats: PNG, JPEG and WebP.** SVG is excluded permanently as an XSS
-  surface. GIF is excluded because downscaling re-encodes and would silently
+- **Formats: PNG, JPEG and WebP** at the upload gate. SVG is refused there as an
+  XSS surface, and the export sink re-checks the allowlist. GIF is excluded because downscaling re-encodes and would silently
   destroy animation.
 - **Project deletion now drops a project's asset bytes.** The side table sits
   outside `TABLE_NAMES`, so nothing cleaned it automatically. The cleanup is
@@ -49,23 +49,26 @@ longer carries its own changelog comment.
   blob object URLs, so without it every document image was blocked by CSP — in
   dev and prod alike.
 - `ENTITY_SPECS` rows may declare `idKind: "text"`. `DocumentAsset` is the first
-  entity in the registry with a string id, and the schema builder emitted
-  `id INTEGER PRIMARY KEY` unconditionally — a rowid alias, one of the few types
-  SQLite enforces — so a single such row aborted the shared `BEGIN … COMMIT` and
-  with it every workspace save.
+  entity in the registry with a string id, and both Turso layouts assumed an
+  integer one. The single-tenant builder emitted `id INTEGER PRIMARY KEY` — a
+  rowid alias, one of the few types SQLite enforces — so one such row aborted
+  the shared `BEGIN … COMMIT` and with it every workspace save. The multi-tenant
+  builder emitted `id INTEGER` under a composite `PRIMARY KEY (id, project_id)`,
+  which is affinity only and is not enforced; its failure came from binding the
+  id as an integer argument. Both are fixed.
 - DOCX and PPTX export emit a **visible placeholder naming the omitted image**,
   never a silent drop. Real OOXML media parts are deferred.
 - The preview resolves image ids to **blob object URLs** rather than inlining
   base64, which for ten images would put roughly 67 MB into a single HTML
   string.
-- `workspace.ts` and `csv-codecs-core.ts` were split (`workspace-metrics.ts`,
-  `document-asset-codecs.ts`) to stay under the 800-line file-size ratchet.
+- The asset library refuses to open in **Safe Mode** rather than operating on a
+  re-partitioned byte store. Safe Mode forces a degraded project id, which would
+  make every asset read as dangling and write uploads under a key normal boot
+  never looks at.
+- `workspace.ts`, `csv-codecs-core.ts` and `markdown-codecs-core.ts` were split
+  (`workspace-metrics.ts`, `document-asset-codecs.ts`,
+  `document-asset-markdown.ts`) to stay under the 800-line file-size ratchet.
 
-### Fixed
-
-- Removed unused image paste/drop plumbing from `RichTextEditor`: the shared
-  editor has no image node and its update path strips `img`, so the prop was a
-  false affordance for every rich field in the app.
 
 ### Known limitations
 
@@ -77,11 +80,23 @@ longer carries its own changelog comment.
   either, so the export is silently short a picture. DOCX and PPTX are better
   here: both name the omitted asset. Tracked in `docs/open-followups.md` as
   §210.
-- **A Turso database written by an older build cannot take an upload.** Its
-  `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the first image
-  aborts that save and every save after it, with a `datatype mismatch` message
-  naming neither table nor column, and there is no in-app repair path. Tracked
-  as §211.
+- **A dangling asset cannot be repaired in place.** If the byte write fails the
+  metadata row survives and is marked dangling, but re-uploading the same image
+  hits the content-hash dedup and returns the existing row without retrying the
+  bytes. Recovery today means deleting and re-uploading, which mints a new id
+  and breaks any placement already made. Tracked as §212.
+- **A SINGLE-TENANT Turso database written by an older build cannot take an
+  upload.** Its `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the
+  first image aborts that save and every save after it, with a `datatype
+  mismatch` message naming neither table nor column, and there is no in-app
+  repair path. Multi-tenant databases are unaffected — that column was never a
+  rowid alias — and self-heal on upgrade. Tracked as §211.
+- **On single-tenant Turso, asset metadata is global while the bytes are keyed
+  by project.** A user holding several projects in the file registry sees every
+  asset read as dangling after switching. Tracked as §207.
+- **The version-history modal does not resolve images.** Opening History on a
+  document containing an image shows the block without the picture. Tracked as
+  §206.
 
 ## [0.253.0] - 2026-08-21 "Schroeder"
 

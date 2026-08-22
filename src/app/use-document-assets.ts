@@ -10,9 +10,18 @@
 // nobody references — an orphan that would need a reclaim/GC action to ever
 // find again. Metadata-first instead degrades a failed upload to the DANGLING
 // case: a real row in the library, visibly marked (`AssetLibrary`'s
-// `data-dangling-marker`), repairable by re-uploading over the same id. The
-// metadata row is deliberately left in place on a byte-write failure — no
-// rollback — because that row IS the recovery path.
+// `data-dangling-marker`). The metadata row is deliberately left in place on a
+// byte-write failure — no rollback — because that row is what makes the
+// failure visible at all.
+//
+// ★★★ IT IS NOT YET REPAIRABLE, AND THIS COMMENT SAID IT WAS. Three separate
+// notes in this file described the fix as "re-upload over the same id"; the
+// dedup short-circuit in `upload` makes that unreachable — the dangling row
+// carries the hash of exactly those bytes, so `findDuplicate` matches it and
+// returns before any byte write is attempted. Deterministic for any image at
+// or under the downscale target, since those bytes are stored verbatim.
+// `docs/open-followups.md` §212 carries the mechanism and the two candidate
+// fixes. Do not re-assert the repair here until one of them lands.
 //
 // ★★ `busyId` is set only around the byte write (~1.8s measured for a 5MB
 // image) — the visible-latency step, not the whole call. `AssetLibrary`
@@ -210,6 +219,12 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     const duplicate = findDuplicate(assetsRef.current, hash);
     if (duplicate) {
       // Reuse — no metadata write, no byte write.
+      // ★★★ THIS ALSO SWALLOWS THE RETRY OF A DANGLING ROW (§212): the match is
+      // on hash alone and knows nothing about `danglingIds`, so re-uploading a
+      // failed asset returns here instead of writing the bytes. Passing
+      // `danglingIds` in so a dangling hit falls through — reusing the id, which
+      // keeps existing `<img data-asset-id>` placements working — is candidate
+      // (a) in that entry. Anything changing this branch should read it first.
       return duplicate;
     }
 
@@ -235,16 +250,17 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     try {
       await saveAssetData(config, { id, projectId, data: bytesToBase64(processed.image.bytes) });
     } catch {
-      // The metadata row stays — that IS the dangling case: visible,
-      // self-describing, repaired by re-uploading over the same id.
+      // The metadata row stays — that IS the dangling case: visible and
+      // self-describing. NOT repairable in place today (§212).
       setError("storageWrite");
     } finally {
       setBusyId(null);
     }
-    // ★ Returned even after a failed byte write, deliberately: the row exists,
-    // the library marks it dangling, and re-uploading over the same id repairs
-    // it. Returning null instead would silently drop a paste/drop insert while
-    // the row it refers to is sitting right there in the library.
+    // ★ Returned even after a failed byte write, deliberately: the row exists
+    // and the library marks it dangling. Returning null instead would silently
+    // drop a paste/drop insert while the row it refers to is sitting right
+    // there in the library. ★★ This is NOT a claim that the asset can be
+    // repaired — see the header and §212.
     return asset;
   }, [commitAssets, config, projectId]);
 
