@@ -19,6 +19,22 @@ export function emuFromPx(px: number): number {
   return Math.round((px * EMU_PER_INCH) / PX_PER_INCH);
 }
 
+/** Twips (twentieths of a point, 1440 to the inch) per EMU's inch.
+ *
+ *  ★★★ WordprocessingML PAGE geometry is in TWIPS while DRAWING geometry is in
+ *  EMU, and the two are only ever a few lines apart. `ooxml-docx-primitives.ts`
+ *  measures pages in twips (`PAGE_GEOMETRY`, `buildDocxTable`'s
+ *  `contentWidthTwips`), so a content width handed straight to `fitExtent` as a
+ *  maxWidthEmu is off by a factor of 635 — it clamps a full-width image to about
+ *  a hundredth of an inch. Valid XML, green tests, an invisible picture. This
+ *  helper exists so the conversion is spelled at the call site instead of
+ *  assumed. */
+export const EMU_PER_TWIP = EMU_PER_INCH / 1440;
+
+export function emuFromTwips(twips: number): number {
+  return Math.round(twips * EMU_PER_TWIP);
+}
+
 export type MediaExtension = "png" | "jpeg" | "webp";
 
 /** mime → the extension used by BOTH the part name and the
@@ -84,6 +100,13 @@ export function fitExtent(
   // Number.isFinite(n) && n > 0), so this is defence at the boundary, not a
   // live bug — but this function is exported and its callers grow.
   if (!positiveFinite(width) || !positiveFinite(height)) return null;
+  // ★★ INTEGER bounds only. EMU is an integer unit, and a fractional bound
+  // breaks this function's postcondition outright: at maxWidthEmu 100.6 the
+  // rounded result is 101, i.e. WIDER than the box. Rejecting is honest and
+  // costs nothing — every real caller passes an integer, and a caller that
+  // computes a bound (a pagination pass handing in remaining space) should
+  // floor it before asking, not discover the overshoot in Word.
+  if (!Number.isInteger(maxWidthEmu) || !Number.isInteger(maxHeightEmu)) return null;
   // ★★★ A BOX UNDER 1 EMU CANNOT HOLD AN IMAGE, and without this the clamp
   // below returns an extent that EXCEEDS the bound it was given: at
   // maxWidthEmu 0 the scale is 0, both dimensions round to 0, and Math.max(1,…)
@@ -91,7 +114,7 @@ export function fitExtent(
   // module constants in the millions) — it becomes reachable the moment a
   // pagination pass hands in REMAINING space. Rejecting is right: the caller's
   // fallback is the placeholder, which is honest, where a 1-EMU picture is not.
-  if (!(maxWidthEmu >= 1) || !(maxHeightEmu >= 1)) return null;
+  if (maxWidthEmu < 1 || maxHeightEmu < 1) return null;
   const naturalCx = emuFromPx(width);
   const naturalCy = emuFromPx(height);
   const scale = Math.min(1, maxWidthEmu / naturalCx, maxHeightEmu / naturalCy);
@@ -111,7 +134,14 @@ export function fitExtent(
   // ★★ The payoff is that the return is now TOTAL in one direction: either a
   // usable extent, with both dimensions >= 1 AND within both bounds, or null.
   // There is no third shape for a caller to handle.
-  if (cxEmu < 1 || cyEmu < 1) return null;
+  //
+  // ★★★ `!(x >= 1)` NOT `x < 1` — the negated form also rejects NaN, and NaN is
+  // reachable from a FINITE input: emuFromPx overflows to Infinity above
+  // ~1.97e302 px, Infinity * 0 is NaN, and every comparison against NaN is
+  // false. The previous round closed the Infinity case on the INPUT side with
+  // positiveFinite; this closes the same shape on the OUTPUT side, where an
+  // overflow that happens INSIDE this function lands.
+  if (!(cxEmu >= 1) || !(cyEmu >= 1)) return null;
   return { cxEmu, cyEmu };
 }
 

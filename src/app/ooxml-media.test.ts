@@ -1,7 +1,14 @@
 import { readFileSync } from "node:fs";
 import { describe, it, expect } from "vitest";
 import fc from "fast-check";
-import { emuFromPx, mediaExtension, fitExtent, EMU_PER_INCH } from "./ooxml-media";
+import {
+  emuFromPx,
+  emuFromTwips,
+  mediaExtension,
+  fitExtent,
+  EMU_PER_INCH,
+  EMU_PER_TWIP,
+} from "./ooxml-media";
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 
 describe("mediaExtension", () => {
@@ -41,6 +48,17 @@ describe("emuFromPx", () => {
   it("converts at 96 CSS px per inch", () => {
     expect(emuFromPx(96)).toBe(EMU_PER_INCH);
     expect(emuFromPx(0)).toBe(0);
+  });
+});
+
+describe("emuFromTwips", () => {
+  it("converts at 1440 twips per inch", () => {
+    expect(EMU_PER_TWIP).toBe(635);
+    expect(emuFromTwips(1440)).toBe(EMU_PER_INCH);
+    expect(emuFromTwips(0)).toBe(0);
+    // The real A4-portrait content width the docx renderer will pass: 11906
+    // wide less two 907 margins = 10092 twips = 7.008 inch.
+    expect(emuFromTwips(10092)).toBe(6_408_420);
   });
 });
 
@@ -109,18 +127,45 @@ describe("fitExtent", () => {
     expect(fitExtent({ width: 100, height: 100 }, NaN, 1_000_000)).toBeNull();
   });
 
+  it("rejects a non-integer bound, which Math.round would cross", () => {
+    // 1000px at a 100.6 EMU bound rounds to 101 — wider than the box.
+    expect(fitExtent({ width: 1000, height: 1000 }, 100.6, 1_000_000)).toBeNull();
+    expect(fitExtent({ width: 1000, height: 1000 }, 1_000_000, 100.6)).toBeNull();
+  });
+
+  it("rejects an extent that overflowed to NaN from a finite dimension", () => {
+    // emuFromPx overflows above ~1.97e302 px: 1.9e302 still yields a clean
+    // extent, 2e302 yields NaN. positiveFinite cannot see this — the INPUTS are
+    // finite; the overflow happens inside this function.
+    expect(fitExtent({ width: 1.9e302, height: 1.9e302 }, 1_000_000, 1_000_000))
+      .toEqual({ cxEmu: 1_000_000, cyEmu: 1_000_000 });
+    expect(fitExtent({ width: 2e302, height: 2e302 }, 1_000_000, 1_000_000)).toBeNull();
+  });
+
   it("rejects a non-finite or negative dimension", () => {
     expect(fitExtent({ width: Infinity, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: 10, height: Infinity }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: NaN, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: -10, height: 10 }, 1_000_000, 1_000_000)).toBeNull();
     expect(fitExtent({ width: 10, height: -10 }, 1_000_000, 1_000_000)).toBeNull();
-    // ★★★ BOTH infinite is the case the bottom `cxEmu < 1` guard CANNOT catch:
-    // scale is 0, both dimensions come out NaN, and every comparison against
-    // NaN is false. The one-at-a-time cases above are caught by whichever
-    // dimension stayed finite and rounded to 0 — so without this line,
-    // deleting `positiveFinite` passes the whole suite while emitting
-    // cx="NaN" into the drawing XML.
+    // ★★★ BOTH negative is the one shape ONLY `positiveFinite` catches, and it
+    // is the reason that guard cannot be dropped now that the output guard
+    // rejects NaN. Measured: with the input guard deleted this returns
+    // {cxEmu: 1000000, cyEmu: 1000000} — the two negatives cancel (scale is
+    // itself negative), so it is not a NaN or a zero the output guard could
+    // see, but a plausible-looking extent invented from nonsense input.
+    expect(fitExtent({ width: -10, height: -10 }, 1_000_000, 1_000_000)).toBeNull();
+    // ★★★ BOTH infinite PROVES NOTHING ABOUT WHICH GUARD REJECTED IT, and an
+    // earlier revision of this comment claimed it did — it read "the case the
+    // bottom `cxEmu < 1` guard CANNOT catch". That stopped being true when that
+    // guard became `!(cxEmu >= 1)`: scale is 0, both dimensions come out NaN,
+    // and the negated form rejects NaN too. So this line passes with EITHER
+    // guard alone, and neither is evidence for the other.
+    // ★★ The assertion that actually pins `positiveFinite` is the both-NEGATIVE
+    // pair ABOVE (measured: the output guard lets it through), and the one that
+    // pins the output guard is the NaN-from-a-finite-dimension test above that.
+    // This line is kept because it is the shape the input guard was written for,
+    // not because it discriminates.
     expect(fitExtent({ width: Infinity, height: Infinity }, 1_000_000, 1_000_000)).toBeNull();
   });
 
