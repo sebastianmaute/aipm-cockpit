@@ -1,7 +1,7 @@
 // src/app/actions-panel.tsx
 "use client";
 import { useMemo, useState } from "react";
-import { SparklesIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon, XMarkIcon } from "./icons";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { FieldError } from "./field-feedback";
 import { AiTriggerButton } from "./ai-trigger-button";

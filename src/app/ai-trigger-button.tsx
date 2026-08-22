@@ -1,6 +1,6 @@
 "use client";
 import { type ReactNode } from "react";
-import { StopIcon } from "@heroicons/react/24/outline";
+import { StopIcon } from "./icons";
 import { Button, type ButtonSize, type ButtonVariant } from "./button";
 import { t, type Lang, type TranslationKey } from "./i18n";
 

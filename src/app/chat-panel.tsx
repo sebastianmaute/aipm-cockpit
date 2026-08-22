@@ -1,7 +1,7 @@
 "use client";
 
 import { memo, useEffect, useRef, useState } from "react";
-import { PaperClipIcon } from "@heroicons/react/24/outline";
+import { PaperClipIcon } from "./icons";
 import { type ToolDispatcher, runTool } from "./chat-tools";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { type OperatingGuide } from "./operating-guide";

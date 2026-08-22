@@ -10,7 +10,7 @@
 //
 // Milestone push/pull is deliberately NOT routed through this (milestone is
 // manual-only, with no enable toggle — a different shape).
-import { ArrowDownTrayIcon, ArrowUpTrayIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowUpTrayIcon, CalendarDaysIcon } from "./icons";
 import { Button } from "./button";
 import { ToggleButton } from "./toggle-button";
 import { type Lang, t, type TranslationKey } from "./i18n";

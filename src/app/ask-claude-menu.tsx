@@ -5,7 +5,7 @@
 // onAsk(promptBody) — wired upstream to requestChat(body, true), which switches
 // to the chat tab and auto-sends.
 import { useRef, useState } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "./icons";
 import { usePopoverDismiss } from "./use-popover-dismiss";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";

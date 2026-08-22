@@ -12,7 +12,7 @@
 // marker (WCAG 1.4.1) below are pinned ONLY by chat-thread-list.test.tsx.
 
 import { useRef, useState } from "react";
-import { PencilIcon, TrashIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { PencilIcon, TrashIcon, PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { Button } from "./button";
 import { IconButton } from "./icon-button";

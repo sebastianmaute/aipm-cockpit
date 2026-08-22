@@ -32,7 +32,7 @@ import { useToastContext } from "./toast-context";
 import { DocumentLinksGroup } from "./knowledge-links-field-gated";
 import { InfoTooltip } from "./info-tooltip";
 import { INTERACTIVE } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { Button } from "./button";
 import {

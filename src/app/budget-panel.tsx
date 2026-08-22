@@ -1,6 +1,6 @@
 "use client";
 import { Fragment, useCallback, useMemo, useState } from "react";
-import { ArrowPathIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon } from "./icons";
 import { type Lang, t, localeFor } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import { computeBudgetReport, bucketActivePeriods, effectiveBudgetHours, costIsKnowable, type BucketReport, type CciValue } from "./budget-report";
