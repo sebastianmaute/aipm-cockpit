@@ -63,7 +63,9 @@ export function buildPptx(sections: ExportSection[], lang: Lang): Blob {
     }
   }
 
-  return buildPptxPackage(slideXmls);
+  // Task 9 gave every slide its own relationships; these two exporters
+  // author no images, so each slide declares an empty media list.
+  return buildPptxPackage(slideXmls.map((xml) => ({ xml, media: [] })));
 }
 
 // ---- PPTX sub-builders ----------------------------------------------------

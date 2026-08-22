@@ -12,7 +12,9 @@
 // `wrapPptxSlide`, not by this file.
 import { describe, expect, it } from "vitest";
 
-import { pptxPicture } from "./ooxml-pptx-primitives";
+import { unzipBytes, partText } from "../test/unzip-bytes";
+
+import { buildPptxPackage, pptxPicture } from "./ooxml-pptx-primitives";
 
 describe("pptxPicture", () => {
   it("places and sizes the shape and embeds by relationship id", () => {
@@ -77,5 +79,99 @@ describe("pptxPicture", () => {
     for (const value of values) {
       expect(value).toBe("say &quot;hi&quot;");
     }
+  });
+});
+
+// ★★ The package assertions below read PART BYTES, not substrings of a
+// fragment, so they use `unzipBytes` rather than the TextDecoder-per-part
+// helper `export-ooxml.test.ts` carries — an image part decoded as UTF-8 turns
+// invalid sequences into U+FFFD, which would fail for correct output.
+describe("buildPptxPackage media", () => {
+  const png = {
+    path: "ppt/media/image1.png",
+    data: new Uint8Array([0x89, 0x50, 0x4e, 0x47]),
+    extension: "png" as const,
+    relId: "rId2",
+  };
+
+  it("gives a media-free deck the same parts as before", async () => {
+    const parts = await unzipBytes(buildPptxPackage([{ xml: "<p:sld/>", media: [] }]));
+    expect(partText(parts, "ppt/slides/_rels/slide1.xml.rels")).toContain("slideLayout1.xml");
+    expect(partText(parts, "[Content_Types].xml")).not.toContain("image/");
+  });
+
+  it("writes per-slide rels so slide 2's image is not visible to slide 1", async () => {
+    const parts = await unzipBytes(
+      buildPptxPackage([
+        { xml: "<p:sld/>", media: [] },
+        { xml: "<p:sld/>", media: [png] },
+      ]),
+    );
+    expect(partText(parts, "ppt/slides/_rels/slide1.xml.rels")).not.toContain("rId2");
+    const rels2 = partText(parts, "ppt/slides/_rels/slide2.xml.rels");
+    expect(rels2).toContain(`Id="rId2"`);
+    expect(rels2).toContain(`Target="../media/image1.png"`);
+    // rId1 stays the layout on every slide.
+    expect(rels2).toContain("slideLayout1.xml");
+  });
+
+  it("writes the bytes verbatim and declares the extension once", async () => {
+    const parts = await unzipBytes(buildPptxPackage([{ xml: "<p:sld/>", media: [png] }]));
+    expect(Array.from(parts.get("ppt/media/image1.png")!)).toEqual(Array.from(png.data));
+    const types = partText(parts, "[Content_Types].xml");
+    expect(types.match(/<Default Extension="png"/g)).toHaveLength(1);
+  });
+
+  it("refuses rId1, which is the slide layout on every slide", () => {
+    expect(() =>
+      buildPptxPackage([{ xml: "<p:sld/>", media: [{ ...png, relId: "rId1" }] }]),
+    ).toThrow(/rId1/);
+  });
+
+  it("leaves the media-free package byte-for-byte what it was", async () => {
+    // ★★★ THE ONLY PIN ON THIS BUILDER'S MEDIA-FREE BYTES. There is no .pptx
+    // golden fixture in this repo (`src/app/__fixtures__/` holds only
+    // golden-workspace.csv and .md) and `export-ooxml.test.ts` asserts part
+    // PRESENCE and slide-XML SUBSTRINGS, never package bytes — so nothing else
+    // can see an accidental change to the deck a document with no images gets.
+    //
+    // ★★★ THE EXPECTATIONS ARE FROZEN LITERALS, NOT A SECOND CALL. The obvious
+    // form of this test — build the same deck twice and diff the two — is
+    // VACUOUS: `media` is a REQUIRED field, so there is no second spelling of
+    // "no media" to compare against, and diffing a deterministic function with
+    // itself passes with the whole feature deleted, doubled, or emitting
+    // garbage. Only a literal written out by hand can fail.
+    const parts = await unzipBytes(buildPptxPackage([{ xml: "<p:sld/>", media: [] }]));
+    expect([...parts.keys()].sort()).toEqual([
+      "[Content_Types].xml",
+      "_rels/.rels",
+      "ppt/_rels/presentation.xml.rels",
+      "ppt/presentation.xml",
+      "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+      "ppt/slideLayouts/slideLayout1.xml",
+      "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+      "ppt/slideMasters/slideMaster1.xml",
+      "ppt/slides/_rels/slide1.xml.rels",
+      "ppt/slides/slide1.xml",
+      "ppt/theme/theme1.xml",
+    ]);
+    // The part this task rewrites, pinned as exact bytes.
+    //
+    // ★★★ NEWLINES ARE NORMALISED AND MUST BE. This XML comes out of a template
+    // literal in a SOURCE file, and `.gitattributes` does not pin that file, so
+    // with `core.autocrlf=true` the committed blob is LF while the Windows
+    // worktree is CRLF — the same code emits CRLF locally and LF in CI.
+    // Hard-coding either one makes this test fail on the other platform for a
+    // reason that is not a defect. Everything else here IS byte-exact.
+    expect(
+      partText(parts, "ppt/slides/_rels/slide1.xml.rels").replace(/\r\n/g, "\n"),
+    ).toBe(
+      `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+</Relationships>`,
+    );
+    // And no image machinery leaks into an image-free deck.
+    expect([...parts.keys()].some((p) => p.startsWith("ppt/media/"))).toBe(false);
   });
 });
