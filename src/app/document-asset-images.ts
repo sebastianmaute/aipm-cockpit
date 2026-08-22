@@ -50,8 +50,20 @@ export async function attachAssetImages(
 
   for (const img of imgs) {
     const url = urls.get(img.getAttribute("data-asset-id") ?? "");
-    if (url) img.setAttribute("src", url);
-    else img.setAttribute("data-asset-missing", "true");
+    // ★★★ CLEARING THE MARKER IS NOT SYMMETRY FOR ITS OWN SAKE. This function
+    // is re-run over the SAME subtree whenever a §212 repair lands (the preview
+    // effect's `assetRepairGeneration` dependency) — `html` has not changed, so
+    // React never replaces the innerHTML and these are the very elements a
+    // previous, failed run stamped. Setting `src` alone leaves
+    // `data-asset-missing` behind, and `globals.css` draws a dashed red frame
+    // plus a min-size box around `img[data-asset-missing]` regardless of `src`
+    // (only the `::before` warning glyph drops out, because a replaced element
+    // has no generated content). The repaired image would render inside a
+    // broken-image frame.
+    if (url) {
+      img.setAttribute("src", url);
+      img.removeAttribute("data-asset-missing");
+    } else img.setAttribute("data-asset-missing", "true");
   }
 
   return () => { for (const url of urls.values()) URL.revokeObjectURL(url); };

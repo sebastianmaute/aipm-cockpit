@@ -58,6 +58,24 @@ describe("attachAssetImages", () => {
     detach();
   });
 
+  // ★★★ THE SECOND RUN IS THE REAL ONE. A §212 repair re-runs this over the
+  // SAME subtree — `html` has not changed, so React never replaces the
+  // innerHTML and these are the elements the FAILED run stamped. Leaving
+  // `data-asset-missing` on keeps `globals.css`'s dashed red frame and min-size
+  // box around an image that now has perfectly good bytes.
+  it("clears a stale missing marker when a later run resolves the same element", async () => {
+    const el = root('<img data-asset-id="a1">');
+    const first = await attachAssetImages(el, async () => null);
+    expect(el.querySelector("img")?.getAttribute("data-asset-missing")).toBe("true");
+    first();
+
+    const second = await attachAssetImages(el, async () => "QUJD");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    second();
+  });
+
   it("revokes every object URL it created when detached", async () => {
     const el = root('<img data-asset-id="a1"><img data-asset-id="a2">');
     const detach = await attachAssetImages(el, async () => "QUJD");
