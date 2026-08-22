@@ -522,11 +522,22 @@ export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
-  /** ★★★ ADDITIVE BY CONTRACT. The workspace exporter calls this with two or
-   *  three arguments and its bytes are PINNED by the export-ooxml golden
-   *  suite, so an empty array must add no Default entry, no part and no
-   *  relationship. If that suite goes red for this slice, the contract broke —
-   *  do not regenerate the fixture. */
+  /** ★★★ ADDITIVE BY CONTRACT: an empty array must add no Default entry, no
+   *  part and no relationship, because the workspace exporter shares this
+   *  builder and calls it with two or three arguments.
+   *
+   *  ★★★ AND THE ONLY THING ENFORCING THAT IS THIS FILE'S OWN TEST —
+   *  "is byte-identical to the no-argument call when media is empty", plus its
+   *  companion assertion that the empty package contains no `image/` at all.
+   *  An earlier revision of this comment said the contract was pinned by the
+   *  `export-ooxml` golden suite. It is not, and a reader who believed that
+   *  would be looking at a gate that cannot see them: there is no .docx byte
+   *  fixture anywhere in the repo (`src/app/__fixtures__/` holds only
+   *  golden-workspace.csv and .md), `golden-workspace.test.ts` never mentions
+   *  docx, and `export-ooxml.test.ts` asserts part PRESENCE and document.xml
+   *  SUBSTRINGS — never package bytes, never this part's content. Measured,
+   *  not assumed: hardcoding a `<Default Extension="png"/>` into the empty
+   *  case reddens the two tests here and leaves `export-ooxml` GREEN. */
   media: readonly MediaPart[] = [],
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
