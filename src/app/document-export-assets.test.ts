@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  documentAssetIds, loadExportAssets, EXPORT_INLINE_BUDGET_BYTES,
+  documentAssetIds, loadExportAssets, EXPORT_INLINE_BUDGET_BYTES, IMG_TAG_RE,
 } from "./document-export-assets";
 import type { ProjectDocument } from "./document-model";
 
@@ -30,6 +30,20 @@ describe("documentAssetIds", () => {
       blocks: [{ type: "heading", level: 1, text: `<img data-asset-id="x">` }],
     };
     expect(documentAssetIds(d)).toEqual([]);
+  });
+
+  it("matches an id even when another attribute contains a bare '>'", () => {
+    // Reachable via the asset rename control: sanitizeText passes `>` through,
+    // and the HTML serialiser does not re-escape it inside an attribute.
+    expect(documentAssetIds(doc([`<p><img data-asset-id="7" alt="chart>v2.png"></p>`])))
+      .toEqual(["7"]);
+    expect(documentAssetIds(doc([`<p><img alt="chart>v2.png" data-asset-id="7"></p>`])))
+      .toEqual(["7"]);
+  });
+
+  it("does not leave fragments behind when substituting such a tag", () => {
+    const html = `<p><img data-asset-id="7" alt="chart>v2.png"></p>`;
+    expect(html.replace(IMG_TAG_RE, "[PH]")).toBe(`<p>[PH]</p>`);
   });
 });
 
@@ -70,6 +84,31 @@ describe("loadExportAssets", () => {
     expect(Object.keys(out.inlined)).toEqual(["a"]);
     expect([...out.omitted].sort()).toEqual(["b", "c"]);
     expect([...out.missing]).toEqual([]);
+  });
+
+  it("routes an unrenderable id to missing WITHOUT charging the budget", async () => {
+    // 60-byte images, 100-byte budget. Without the predicate, "bad" would spend
+    // 60 and push "good" into omitted. With it, "good" still fits.
+    const load = vi.fn(async () => b64OfBytes(60));
+    const out = await loadExportAssets(
+      doc([`<p><img data-asset-id="bad"><img data-asset-id="good"></p>`]),
+      load, 100, (id) => id !== "bad",
+    );
+    expect(Object.keys(out.inlined)).toEqual(["good"]);
+    expect([...out.missing]).toEqual(["bad"]);
+    expect([...out.omitted]).toEqual([]);
+  });
+
+  it("treats a present-but-empty row as renderable-if-the-caller-says-so", async () => {
+    // An empty string is a present-but-empty row, distinct from an absent one.
+    // It costs no budget; whether it is usable is the caller's question.
+    const load = vi.fn(async () => "");
+    const out = await loadExportAssets(doc([`<p><img data-asset-id="e"></p>`]), load);
+    expect(out.inlined).toEqual({ e: "" });
+    const declined = await loadExportAssets(
+      doc([`<p><img data-asset-id="e"></p>`]), load, undefined, () => false,
+    );
+    expect([...declined.missing]).toEqual(["e"]);
   });
 
   it("has a budget expressed in bytes, not images", () => {
