@@ -1179,10 +1179,16 @@ reverse) would compute a wrong deleted-documents list.
 ★ `useBroadcastSync` takes a **free string** `kind` over one shared `BroadcastChannel` — there is
 no key union, registry or allowlist, so a new channel needs no registration anywhere.
 
-★ The two channel registrations are deliberately **paired on one source line**:
-`use-storage-backend.ts` sits exactly at the 800-line ratchet, and the gate counts
-`split("\n").length`, i.e. `wc -l` **+ 1** (see `AGENTS.md`'s `size:check` entry). Splitting them
-re-breaks the gate.
+★ The two channel registrations are deliberately **paired on one source line**, because
+`use-storage-backend.ts` is within a line or two of the 800-line cap and the gate counts
+`split("\n").length`, i.e. `wc -l` **+ 1** (see `AGENTS.md`'s `size:check` entry).
+★★ **CORRECTED: this said the file "sits exactly at" 800 and that splitting them "re-breaks the
+gate". Measured, it is 799** — so a split reaches 800, which the gate PASSES (`if (n <= LIMIT)
+continue`), and it takes TWO added lines to fail. Keep them paired anyway; the margin is one line
+and the next edit to this file spends it. §220 carries the wider problem, which is that
+`documents-panel.tsx` and `document-block-editors.tsx` are both AT 800 already. Never quote a line
+count here — measure it:
+`node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`.
 
 ## Test coverage — what is and is not pinned
 

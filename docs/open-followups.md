@@ -14104,3 +14104,45 @@ claim about the package, not about the reader.
 ★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
 against its own spec reading and still be rejected by Word over a part relationship or content-type
 detail no substring assertion looks at.
+
+## 220. `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent
+
+**Status:** open — pre-existing, NOT caused by S3c-2, and the next contributor hits it first.
+
+`src/app/documents-panel.tsx` measures **800** by the gate's own arithmetic
+(`readFileSync().split("\n").length`, i.e. `wc -l` **+ 1** — `wc -l` reports 799). It has **no
+entry** in `docs/baselines/file-sizes.json`. Read `check-file-sizes.mjs` and the consequence is
+exact: `if (n <= LIMIT) continue` lets 800 through, and at 801 an unbaselined file is reported as
+`NEW file over 800`. So the headroom is **zero lines**, and there is no ratchet grace to fall back
+on — the baseline protects only files that were ALREADY oversized when it was written (four of
+them). Any net line added to this file fails `file-size-ratchet` outright.
+
+★★ **THE ONE CHEAP SEAM WAS SPENT BY THIS SLICE AND CANNOT BE SPENT AGAIN.** S3c-2 had to
+thread an asset-byte loader into two `downloadDocument` calls. It absorbed the cost by moving
+`assetPaneLoader` OUT to `documents-asset-section.tsx` and calling it inline at both sites, for a
+net-zero line diff. That worked once because there happened to be a helper worth relocating. The
+next change to this file has no such trick available and will simply be blocked.
+
+★★ **IT IS NOT ONE FILE.** `document-block-editors.tsx` is in the IDENTICAL position — 800
+by the gate's count, no baseline entry, zero headroom — and `use-chat-dispatcher.ts` and
+`use-storage-backend.ts` sit at 799, i.e. one line each. Reproduce the whole near-cap set rather
+than trusting this list, which rots on any commit: walk `src` for `.ts`/`.tsx`, take
+`split("\n").length`, and print every file at 780—800 that `docs/baselines/file-sizes.json` does
+not name. Both documents files being at the cap at once is what makes this a scheduling problem
+rather than a one-file annoyance.
+
+**What closing it looks like.** The gantt pattern, as its own task: orchestrator +
+`documents-panel-rows` / `documents-panel-toolbar` presentational leaves taking data and handlers
+as props, done BEFORE the cap forces it rather than under a red pipeline. Doing it inside a feature
+slice is what produces the "absorb it with a trick" commits this entry describes. **Do NOT close it
+by adding a baseline entry** — baselining a file to admit growth is the "re-baseline to make the
+pipeline pass" failure the gate exists to prevent, and it would silently convert a hard cap into an
+open-ended ratchet for the two largest surfaces in the documents feature.
+
+★★★ **A CORRECTION THIS ENTRY FORCED, AND THE REASON TO MEASURE RATHER THAN QUOTE.**
+`docs/AGENTS/documents.md` said `use-storage-backend.ts` "sits exactly at the 800-line ratchet" and
+concluded that splitting its two paired `useBroadcastSync` registrations onto separate lines
+"re-breaks the gate". It measures **799**, so a split takes it to 800, which PASSES — the
+conclusion was false in the one direction a reader would act on, and it would take TWO added lines
+to fail. Corrected in the same commit that opened this entry. An off-by-one in a cap claim is not
+cosmetic: at this margin it is the whole claim.
