@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.254.0";
-export const APP_BUILD_DATE = "2026-08-21"; // 0.254.0: document images end to end, Turso-gated (Yoshinaga)
+export const APP_BUILD_DATE = "2026-08-22"; // 0.254.0: document images end to end, Turso-gated (Yoshinaga)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.254.x line is "Yoshinaga" (Fumi Yoshinaga, SF/fantasy manga author).
  *  0.253.x was "Schroeder" (Karl Schroeder, SF author).

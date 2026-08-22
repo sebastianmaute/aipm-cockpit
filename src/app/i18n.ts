@@ -4145,8 +4145,20 @@ const enUS = {
   assetUploadErrorStorageWrite: "The image could not be saved. Re-upload to retry.",
   // ★ DOCX/PPTX cannot embed the actual bytes yet (media parts land in a later
   // slice, S3c-2) — a translated placeholder run DISCLOSES the image rather
-  // than silently dropping it. HTML standalone export inlines the real bytes
-  // instead and never reaches this string.
+  // than silently dropping it.
+  // ★★ AND HTML STANDALONE REACHES IT TOO, though this comment said it never
+  // did. `renderDocumentHtml`'s `assets` argument — the one that would inline
+  // real bytes — is OPTIONAL, TRAILING, and passed by NO production caller, so
+  // standalone HTML emits this placeholder as well. That is
+  // `docs/open-followups.md` §210, and the old claim here contradicted it.
+  // Verify by grepping the repo for calls to that renderer and reading each
+  // hit: four are real calls (two in `document-download.ts`, one in
+  // `document-preview.tsx`, one in `documents-history-modal.tsx`) and every
+  // one stops at `mode`. ★ Read the hits, do NOT count the lines — the grep
+  // also returns the declaration in `doc-render-html.ts`, a prose comment in
+  // `document-preview.tsx`, and THIS COMMENT, which names the function and so
+  // matches itself. Do not restore the old claim without first making some
+  // caller actually pass `assets`.
   assetExportPlaceholder: "[Image: {0}]",
 } as const;
 
