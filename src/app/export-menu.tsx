@@ -9,7 +9,7 @@
 // what each output looks like before they pick one.
 
 import { useCallback, useRef, useState } from "react";
-import { ArrowDownTrayIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon } from "./icons";
 import { PopoverPanel } from "./popover-panel";
 import { INTERACTIVE } from "./interaction-styles";
 import { type ExportFormat, exportWorkspace } from "./export";

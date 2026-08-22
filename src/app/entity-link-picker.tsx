@@ -20,7 +20,7 @@ import { useId, useRef, useState } from "react";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 
 /** One selectable/selected entity, flattened to what the picker renders. */

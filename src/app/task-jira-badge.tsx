@@ -9,7 +9,7 @@
 // row AND on the Kanban card — the board renders cards OUTSIDE RowContextProvider,
 // so the badge must never call useTaskRowContext(). Imports nothing from task-row.
 import { memo, type ReactNode } from "react";
-import { ArrowPathRoundedSquareIcon, LockClosedIcon } from "@heroicons/react/24/outline";
+import { ArrowPathRoundedSquareIcon, LockClosedIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 

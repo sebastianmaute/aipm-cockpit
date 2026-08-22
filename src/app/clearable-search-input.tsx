@@ -22,7 +22,7 @@
 // i18n-free (the EntityLinkPicker convention): the caller passes an
 // already-translated `clearLabel`.
 import { useRef, type ReactNode } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 export interface ClearableSearchInputProps {

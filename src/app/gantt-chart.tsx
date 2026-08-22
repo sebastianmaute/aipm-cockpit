@@ -17,7 +17,7 @@
 // ternary is how the two drift.
 
 import { useRef } from "react";
-import { PlusIcon } from "@heroicons/react/24/outline";
+import { PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { GanttDependencyLayer, GanttHeader } from "./gantt-chrome";
 import { GanttGridLayer, GanttNonWorkingLayer } from "./gantt-overlays";

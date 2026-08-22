@@ -6,7 +6,7 @@
 // Y = influence (High at top -> Low at bottom), matching the stakeholder map.
 // Clicking a cell reports BOTH influence and interest in one onPick call.
 
-import { EnvelopeIcon } from "@heroicons/react/24/outline";
+import { EnvelopeIcon } from "./icons";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { INFLUENCE_INTEREST_LEVELS, type InfluenceInterest } from "./types";
 

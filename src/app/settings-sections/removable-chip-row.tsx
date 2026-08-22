@@ -1,7 +1,7 @@
 "use client";
 
 import type { ReactNode } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "../icons";
 import { INTERACTIVE } from "../interaction-styles";
 
 interface RemovableChipRowProps {

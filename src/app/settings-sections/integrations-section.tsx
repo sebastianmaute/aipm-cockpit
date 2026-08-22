@@ -1,7 +1,7 @@
 "use client";
 
 import { useId, useState } from "react";
-import { ArrowPathIcon, CalendarDaysIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, CalendarDaysIcon } from "../icons";
 import { ToggleButton } from "../toggle-button";
 import { type Lang, t } from "../i18n";
 import { FieldNotice } from "../field-feedback";

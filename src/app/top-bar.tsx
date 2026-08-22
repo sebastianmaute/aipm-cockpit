@@ -1,5 +1,5 @@
 "use client";
-import { Bars3Icon, BellIcon, ChatBubbleLeftRightIcon } from "@heroicons/react/24/outline";
+import { Bars3Icon, BellIcon, ChatBubbleLeftRightIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { ProjectSwitcher, type ProjectSwitcherProps } from "./project-switcher";
 import { CountBadge } from "./count-badge";

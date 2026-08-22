@@ -4,7 +4,7 @@
 // the action menus) and the VersionInfoModal (opened from the sidebar version
 // line and the Settings footer). Single source of truth for the "about" panel.
 
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { Modal } from "./modal";

@@ -1,5 +1,5 @@
 "use client";
-import { CheckIcon } from "@heroicons/react/24/outline";
+import { CheckIcon } from "./icons";
 import type { ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 
@@ -143,10 +143,13 @@ export function ToggleButton({
           assistive tech, so this closes the gap for SIGHTED users specifically.
           ★ The glyph reaches no accessible name because an `<svg>` with no
           `<title>` contributes no text — full stop. The `aria-hidden` below is
-          BELT-AND-BRACES, NOT the mechanism — heroicons already DEFAULTS it on
-          every icon. ★ It is a default, not a hard-code: heroicons spreads
-          `props` AFTER its own attributes, so this explicit value overrides
-          rather than duplicates. Keep it; "redundant" is the wrong reading.
+          the SOLE source of that attribute, NOT belt-and-braces — lucide adds
+          its own default only when the caller passes no a11y prop at all, and
+          this component always does. ★ It is a default, not a hard-code
+          either: dropping the explicit value would let lucide's own
+          conditional default take over instead, since nothing else in `rest`
+          supplies an a11y prop — same rendered output, opposite mechanism.
+          Keep it; "redundant" is the wrong reading.
           Stated because a test asserting otherwise was written here, and could
           not fail.
           ★★ It is rendered in BOTH states and merely `invisible` when off, so

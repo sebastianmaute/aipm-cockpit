@@ -9,7 +9,7 @@
 // renders <WorkspaceTabStrip> only in that mode, matching the former inline
 // guards exactly. The component reproduces the prior markup verbatim.
 import type React from "react";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon } from "./icons";
 import { t } from "./i18n";
 import { openPopoutWindow } from "./broadcast-sync";
 import { TabButton, ResetSizeButton } from "./task-manager-ui";

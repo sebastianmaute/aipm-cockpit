@@ -19,7 +19,7 @@
 // says "Custom".
 
 import { useCallback, useRef, useState } from "react";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon } from "./icons";
 import type { Lang, TranslationKey } from "./i18n";
 import { t } from "./i18n";
 import { MODAL_FIELDS, type FieldTier, type ModalId } from "./modal-fields";

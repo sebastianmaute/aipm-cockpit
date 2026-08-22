@@ -7,7 +7,7 @@
 // AHEAD of `.tsx`, so a sibling `task-kanban.tsx` would silently hijack the
 // engine import (see AGENTS.md).
 import { useMemo } from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { TASK_STATUSES, type ChangeItem, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import { statusLabelKey } from "./task-status-ui";

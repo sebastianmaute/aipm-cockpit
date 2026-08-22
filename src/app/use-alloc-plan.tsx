@@ -16,7 +16,7 @@
 // key can never reach a write.
 
 import { type Dispatch, type ReactNode, type SetStateAction, useCallback, useEffect, useRef, useState } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Absence, type Discipline, type Grade, type Resource, type ResourcePlan, type Role } from "./types";

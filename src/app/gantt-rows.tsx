@@ -2,7 +2,7 @@
 // GanttTaskRow (draggable task row + absence bands + drag-editable bar) and
 // GanttMilestoneRow (a diamond at the milestone's date). Presentational —
 // GanttPanel owns the data, drag state, and handlers and threads them in.
-import { Bars2Icon } from "@heroicons/react/24/outline";
+import { Bars2Icon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { type Absence, type Milestone, type Resource, type Task } from "./types";

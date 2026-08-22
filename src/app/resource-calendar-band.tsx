@@ -23,7 +23,7 @@
 // as they were long before the band existed.
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { CalendarChip } from "./calendar-chip";
 import type { CalendarEvent } from "./calendar-event";

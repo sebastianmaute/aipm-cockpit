@@ -1,7 +1,7 @@
 "use client";
 
 import { type ReactNode } from "react";
-import { ArrowsPointingInIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { ArrowsPointingInIcon, XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 import { useVoiceCommand } from "./voice-command-context";

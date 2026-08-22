@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { Cog6ToothIcon } from "@heroicons/react/24/outline";
+import { Cog6ToothIcon } from "./icons";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { PopoverPanel } from "./popover-panel";
 import { Checkbox } from "./form-controls";

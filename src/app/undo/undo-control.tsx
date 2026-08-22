@@ -1,6 +1,6 @@
 "use client";
 import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ArrowUturnLeftIcon, ArrowUturnRightIcon, ChevronDownIcon } from "../icons";
 import { t, type Lang, type TranslationKey } from "../i18n";
 import { FOCUS_RING, INTERACTIVE } from "../interaction-styles";
 import { PopoverPanel } from "../popover-panel";

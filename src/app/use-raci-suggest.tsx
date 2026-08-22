@@ -30,7 +30,7 @@
 // exactly once per touched stakeholder.
 
 import { type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { SparklesIcon } from "@heroicons/react/24/outline";
+import { SparklesIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { type Settings, aiKeyIfEnabled, isAiEnabled } from "./settings-types";
 import { type Milestone, type Stakeholder } from "./types";

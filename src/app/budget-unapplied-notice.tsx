@@ -12,7 +12,7 @@
 //   healthy because they recompute live. That contradiction is the reported
 //   bug, and the unattributed branch below is the only place the app admits it.
 import { useMemo } from "react";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { buildApplyPlan, bucketsMissingAllocations } from "./timelog-apply";
 import { loadActualsCache } from "./timelog-actuals-store";

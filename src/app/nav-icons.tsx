@@ -1,4 +1,4 @@
-import type { ComponentType, SVGProps } from "react";
+import type { AppIcon } from "./icons";
 import {
   AcademicCapIcon,
   ArrowsRightLeftIcon,
@@ -30,7 +30,7 @@ import {
   TableCellsIcon,
   UserGroupIcon,
   UsersIcon,
-} from "@heroicons/react/24/outline";
+} from "./icons";
 
 import type { AppView } from "./nav-config";
 
@@ -39,10 +39,10 @@ interface NavIconProps {
   className?: string;
 }
 
-// Single 24x24 line-icon glyph per nav view (heroicons outline). Icons are
+// Single 24x24 line-icon glyph per nav view (sourced from the `icons.ts` barrel). Icons are
 // decorative: the button carries the accessible name (visible label when
 // expanded, aria-label when collapsed), so every glyph is aria-hidden.
-const NAV_ICON: Record<AppView, ComponentType<SVGProps<SVGSVGElement>>> = {
+const NAV_ICON: Record<AppView, AppIcon> = {
   projects: BriefcaseIcon,
   "portfolio-health": ChartBarSquareIcon,
   "open-points": ListBulletIcon,
@@ -80,7 +80,13 @@ const NAV_ICON: Record<AppView, ComponentType<SVGProps<SVGSVGElement>>> = {
   timelog: ClockIcon,
 };
 
-export function NavIcon({ view, className = "h-5 w-5 shrink-0" }: NavIconProps) {
+// The default sizing applied when a caller passes no className. EXPORTED so
+// `nav-icons.test.tsx` can derive its "the custom class replaced the default"
+// assertion from this string instead of restating the tokens — two successive
+// revisions of that test hardcoded a subset and each missed a real leak.
+export const NAV_ICON_CLASS = "h-5 w-5 shrink-0";
+
+export function NavIcon({ view, className = NAV_ICON_CLASS }: NavIconProps) {
   const Icon = NAV_ICON[view];
   return <Icon aria-hidden="true" focusable="false" className={className} />;
 }

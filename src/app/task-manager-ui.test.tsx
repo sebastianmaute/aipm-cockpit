@@ -61,14 +61,30 @@ describe("ColumnResizeHandle", () => {
     return { handle, onMouseDown };
   }
 
-  it("renders an always-visible grip (an aria-hidden heroicon svg)", () => {
+  it("renders an always-visible grip (an aria-hidden svg)", () => {
     const { handle } = renderHandle();
     expect(handle).toBeTruthy();
     const svg = handle.querySelector("svg");
     expect(svg).toBeTruthy();
     expect(svg).toHaveAttribute("aria-hidden", "true");
-    // EllipsisVerticalIcon (⋮ grip) renders path geometry, not <circle> dots.
-    expect(svg!.querySelector("path")).toBeTruthy();
+    // Under lucide, EllipsisVertical is three <circle> dots and no <path> —
+    // assert the grip drew geometry at all, not a <path> specifically.
+    expect(svg!.children.length).toBeGreaterThan(0);
+    // ★★ children.length alone is vacuous — a <title> child satisfies it, and a
+    // grip returning <svg aria-hidden><title/></svg> survived as a mutant. Pin
+    // that every child is a real shape element.
+    expect(
+      Array.from(svg!.children).every((c) =>
+        /^(path|line|circle|rect|polyline|polygon|ellipse)$/.test(c.tagName),
+      ),
+    ).toBe(true);
+    // ★★★ AND PIN WHICH GLYPH. Shape alone cannot tell EllipsisVertical from
+    // Trash, nor from the HORIZONTAL Ellipsis (also three <circle>s) — both
+    // survived as mutants against the shape check alone. lucide's
+    // `lucide-<kebab>` class is the only thing in the DOM that identifies the
+    // glyph, and a grip that silently became a horizontal ellipsis would read
+    // as a drag affordance pointing the wrong way.
+    expect(Array.from(svg!.classList)).toContain("lucide-ellipsis-vertical");
   });
 
   it("is decorative and 6px wide with the col-resize cursor", () => {

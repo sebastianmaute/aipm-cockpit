@@ -1,5 +1,5 @@
 "use client";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { SidebarNav } from "./sidebar-nav";
 import type { AppView, NavGroup } from "./nav-config";

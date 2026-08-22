@@ -8,7 +8,7 @@
 // `onOpen`. Same rule, same reason, as task-raid-badge.tsx.
 
 import { memo } from "react";
-import { DocumentTextIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 

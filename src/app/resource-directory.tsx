@@ -5,7 +5,7 @@
 // selects. Clicking the name cell opens the edit modal.
 
 import { memo, useMemo, useState } from "react";
-import { ArrowDownTrayIcon, EyeSlashIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, EyeSlashIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { birthdayMonthDay } from "./birthdays";
 import { resourceDisplayName, roleLabel } from "./resource-foundation";

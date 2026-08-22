@@ -4,7 +4,7 @@
 // ★ A SEPARATE FILE because document-block-editors.tsx sits at exactly 800 of
 //  the 800-line ratchet with zero headroom. Nothing here may move there.
 import { useCallback, useEffect, useRef, useState, type DragEvent, type KeyboardEvent } from "react";
-import { EllipsisHorizontalIcon } from "@heroicons/react/24/outline";
+import { EllipsisHorizontalIcon } from "./icons";
 import { t, type Lang, type TranslationKey } from "./i18n";
 import type { DocBlock } from "./document-model";
 import { ADDABLE_BLOCK_TYPES, type AddableBlockType } from "./document-block-seeds";

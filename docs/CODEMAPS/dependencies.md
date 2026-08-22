@@ -1,9 +1,9 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.254.0 "Yoshinaga" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.255.0 "Bisson" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 
-Deliberately small. **Fifteen runtime dependencies**, seven of which are Tiptap packages on one
-version line — so the count of independent vendors is nine. Timezones use native `Intl`,
+Deliberately small. **Fourteen runtime dependencies**, seven of which are Tiptap packages on one
+version line — so the count of independent vendors is eight. Timezones use native `Intl`,
 drag-and-drop is native HTML5, OOXML export is hand-rolled over an in-tree zip writer, and every AI
 call is a raw `fetch`.
 
@@ -17,10 +17,9 @@ It said **nine** for six releases after five Tiptap extensions and `lucide-react
 | `next` | ^16.2.11 | framework (public fork; read `node_modules/next/dist/docs` — APIs differ from training data) |
 | `react` / `react-dom` | 19.2.4 | UI. React 19 delegates events on `document`, which is why `stopPropagation` cannot contain a key from a document-level listener |
 | `@azure/msal-browser` | ^5.16.0 | M365 sign-in; owns its own token cache (app stores no M365 secret) |
-| `@heroicons/react` | ^2.2.0 | icon set — **being retired**. 78 files still import it (measured 2026-08-21, `grep -rln "@heroicons/react" src/app`); those are pending conversion, not correct. The app-wide swap onto `lucide-react` is scheduled but not started — `docs/tech-debt-register.md` TD-8 |
 | `@tiptap/react` + `@tiptap/starter-kit` | ^3.27.1 | rich-text editor (lazy `ssr:false` — needs `Range.getClientRects` stubs in jsdom) |
 | `@tiptap/extension-``list` `text-align` `highlight` `superscript` `subscript` | ^3.27.1 | the toolbar beyond starter-kit: task lists, alignment, highlight, super/subscript. ★★ Each declares its own commands via `declare module '@tiptap/core'` INSIDE its package, so `toggleHighlight`/`toggleSuperscript`/`toggleSubscript` do not exist on the chained-commands type until some file in the TS program imports that module — a toolbar calling them while only the EDITOR imports the extensions is green in vitest and red in tsc |
-| `lucide-react` | ^1.31.0 | the **target** icon set — the default for all new code, decided 2026-08-21. Currently ONE consumer, `rich-text-toolbar.tsx`; `@heroicons/react`'s other **78** files are pending conversion in a scheduled-but-not-started migration, not a second valid default — `docs/tech-debt-register.md` TD-8, closed as a decision at `docs/open-followups.md` §145. Re-measure rather than quoting: `grep -rln "@heroicons/react" src/app` / `grep -rln "lucide-react" src/app --include="*.tsx" --include="*.ts"`. |
+| `lucide-react` | ^1.31.0 | the app's ONLY icon set since 0.255.0. **2 importers**: `src/app/icons.ts` (the barrel every other file goes through) and `rich-text-toolbar.tsx` (grandfathered — its set came from Tiptap's reference toolbar). ★ A third file, `icons.test.ts`, matches a bare `lucide-react` grep on a COMMENT and is not an importer — quote importers, not string hits. `@heroicons/react` was REMOVED app-wide in the same release and an ESLint `no-restricted-imports` rule (both a `paths` and a `patterns` entry, the latter load-bearing because every old call site used the `/24/outline` SUBPATH) makes its return a fatal lint error. Re-measure rather than quoting: `grep -rln "@heroicons/react" src/app | wc -l` returns **0**. See `docs/tech-debt-register.md` TD-8 (resolved) and `docs/superpowers/specs/2026-08-21-heroicons-to-lucide-migration-design.md`. |
 | `dompurify` | ^3.4.10 | HTML sanitize for the note log, the seven rich description fields, and anything the AI writes into them. ★★ must not run at module-eval (no DOM under SSR → 500) **and must never be reached from `rich-text-plain.ts` or an entity sanitizer** — those run under bare Node in the sample generator, where the call throws and `jsonToWorkspace` swallows it into an empty workspace (see [data.md](data.md)) |
 | `date-holidays` | ^3.28.0 | public-holiday calendar |
 

@@ -2,7 +2,7 @@
 
 import { useId, useState } from "react";
 import type React from "react";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { FieldNotice } from "./field-feedback";
 import { type Lang, t } from "./i18n";
 import {

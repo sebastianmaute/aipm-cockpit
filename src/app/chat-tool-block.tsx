@@ -5,7 +5,7 @@
 // room for the document-tool file card below without growing that file.
 
 import { useState } from "react";
-import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "@heroicons/react/24/outline";
+import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";

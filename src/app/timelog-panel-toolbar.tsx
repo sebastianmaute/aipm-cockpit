@@ -5,7 +5,7 @@
 // passes values + handlers. Left group = fetch controls (customer scope, Clear,
 // Fetch, Refresh); right group = view utilities (Print, column/size resets).
 
-import { ArrowPathIcon, ArrowPathRoundedSquareIcon } from "@heroicons/react/24/outline";
+import { ArrowPathIcon, ArrowPathRoundedSquareIcon } from "./icons";
 import { t, type Lang } from "./i18n";
 import { TimelogCustomerScope } from "./timelog-customer-scope";
 import { INTERACTIVE } from "./interaction-styles";

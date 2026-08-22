@@ -27,7 +27,7 @@ import {
   Squares2X2Icon,
   SunIcon,
   UserMinusIcon,
-} from "@heroicons/react/24/outline";
+} from "./icons";
 import { Button } from "./button";
 import { PopoverPanel } from "./popover-panel";
 import { ToggleButton } from "./toggle-button";

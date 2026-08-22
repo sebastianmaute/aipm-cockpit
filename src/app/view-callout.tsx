@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { InformationCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon, XMarkIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import type { AppView } from "./nav-config";
 import { VIEW_CALLOUTS } from "./view-callouts";

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { QuestionMarkCircleIcon, XMarkIcon } from "@heroicons/react/24/outline";
+import { QuestionMarkCircleIcon, XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { type Lang, t } from "./i18n";
 import { HelpContentPane } from "./help-content-pane";

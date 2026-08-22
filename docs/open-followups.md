@@ -1980,9 +1980,12 @@ every number here as a measurement with a date, not a property.
 - ★★ **The blocking gate is unaffected and green.** `.gitlab-ci.yml:99` is `npm audit --omit=dev
   --audit-level=high` — dev deps excluded. `dependency-audit` passed in all three pipelines on
   2026-07-31. Nothing is red.
-- ★★ eslint 10 is a major landing against a **`--max-warnings=0`** gate, so any rule added, renamed or
-  changed-by-default becomes an instant fatal build. There is also a hook blocking `eslint.config.mjs`
-  edits, which a major would likely require. That is a slice with its own verification, not an install.
+- ★★ eslint 10 is a major landing. ★★★ THIS BULLET USED TO SAY "against a `--max-warnings=0` gate, so
+  any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate
+  (CI runs bare `eslint`, see §202), so only a rule landing at severity **2** can fail the build; a new
+  WARNING ships green. That shrinks this item's blast radius — re-scope it before quoting the old size.
+  There is also a hook blocking `eslint.config.mjs` edits, which a major would likely require. That is
+  a slice with its own verification, not an install.
 
 ★★★ **The npm-`overrides` workaround was tried and it does not work. Both forms were EXECUTED, not
 reasoned about — do not repeat them.**
@@ -5649,10 +5652,18 @@ plausibly make again:
 - *"Pure modules import React/i18n"* (`action-ai.ts`, `ai-project-proposal.ts`,
   `chat-attachments.ts`) — verifiably clean; non-findings.
 
-★ The frame that produced all four is worth keeping: the app is CI-green under
-`lint --max-warnings=0` and `tsc --noEmit`, **therefore no committed code can hold a fatal lint
-violation** — any finding claiming one is a false positive by construction. Check that before
-believing a severity label.
+★★★ THE FRAME THAT PRODUCED ALL FOUR IS FALSE, AND IT TOLD READERS TO DISMISS TRUE FINDINGS.
+It read: the app is CI-green under `lint --max-warnings=0`, **therefore no committed code can hold a
+fatal lint violation** — any finding claiming one is a false positive by construction. There is no
+`--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
+and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
+a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
+many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
+them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
+correct and this line must not be read as contradicting it. List them rather than trusting any count
+here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config
+src/app/icons.ts`. The four dispositions above were checked individually and stand on their own
+evidence; it is the shortcut that is retired.
 
 **Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
 
@@ -10070,6 +10081,20 @@ defect:** 78 files stay on `@heroicons/react` until the migration slice runs, ne
 `lucide-react`, and no gate enforces either side. Do not read the mix as license to revert the
 default, and do not "fix" it by hand-converting files outside a scheduled migration slice.
 
+★★ **THE DECIDED WORK SHIPPED — 0.254.0 "Bisson", 2026-08-22.** The app-wide migration ran as its
+own slice, as this entry said it must. `src/app/icons.ts` is the barrel every former call site now
+imports; `@heroicons/react` is gone from `package.json`; an ESLint `no-restricted-imports` rule
+blocks its return. The "deliberate mixed state" recorded above as ACCEPTED is over — there is one
+icon package. Re-derive rather than quoting: `grep -rln "@heroicons/react" src/app | wc -l` returns
+**0**. Design and plan: `docs/superpowers/specs/2026-08-21-heroicons-to-lucide-migration-design.md`.
+
+★★★ **The migration found two glyphs that would have shipped WRONG under a name-for-name codemod**,
+and both were inside the 25 names lucide happens to spell identically — the set that reads as safe.
+lucide's `Bolt` is a hardware nut rather than a lightning flash (**Activity**), and its `ChartBar`
+is horizontal where heroicons' is vertical (**Workload**). Found by reading path data, not by
+reasoning about names. Recorded here because the lesson outlives this entry: when swapping icon
+packages, a shared NAME is not a shared GLYPH, and no gate in this repo can tell you otherwise.
+
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 
 Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
@@ -13793,3 +13818,62 @@ set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
 ★ A test needs to control the resolution ORDER of `loadAssetDataIds` and `saveAssetData`
 independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
 whichever order the harness happens to produce, which is the shape that let this go unnoticed.
+
+## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI
+
+**Status:** open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
+untouched, deliberately, because turning it on affects every future MR and was out of scope for an
+icon migration.
+
+CI's `lint:` job runs `npm run lint`, that script is bare `eslint`, and no `--max-warnings` flag
+exists anywhere in the repo's config. `@typescript-eslint/no-unused-vars` resolves to severity **1**
+(a warning), so it cannot fail the job — and `tsconfig.json` sets neither `noUnusedLocals` nor
+`noUnusedParameters`, so the typechecker does not cover it either. An unused import or variable
+reaches `main` with every gate green.
+
+```bash
+grep -n -A6 '^lint:' .gitlab-ci.yml                 # script: - npm run lint
+node -e "console.log(require('./package.json').scripts.lint)"   # -> eslint
+grep -rn -- "--max-warnings" .gitlab-ci.yml package.json eslint.config.mjs   # -> nothing
+grep -n "noUnused" tsconfig.json                    # -> EXIT=1, absent
+npx eslint --print-config src/app/icons.ts          # read .rules, filter for severity
+```
+
+★★ **THE CONFIG CHANGE IS ONE LINE TODAY; THE SLICE IS NOT.** The usual reason a ratchet stays off is
+that switching it on goes red on existing debt. Not here — and the exit code alone would not prove
+that, since a run that lints NOTHING also exits 0. Measured with a per-file report instead:
+
+```bash
+npx eslint --max-warnings=0 -f json -o /tmp/lint.json; echo "EXIT=$?"
+node -e "const r=require('/tmp/lint.json');console.log(r.length,'files',
+  r.reduce((a,f)=>a+f.warningCount,0),'warnings',r.reduce((a,f)=>a+f.errorCount,0),'errors')"
+```
+
+→ **1800 files linted, 0 warnings, 0 errors.** So no cleanup pass is needed in front of it.
+★★ **But budget for the doc ripple, which is most of the work.** Roughly six sentences across
+`AGENTS.md`, `CONTRIBUTING.md`, `docs/CODEMAPS/architecture.md` and this file assert the gate is
+ABSENT, and every one goes false the moment it is added — enumerate with
+`grep -rn -- "--max-warnings" AGENTS.md CONTRIBUTING.md docs/`. This entry closes with them.
+★★★ **PUT THE FLAG IN `package.json`'s `lint` SCRIPT, NOT IN THE `lint:` JOB.** Adding it to the CI
+job only re-creates the exact divergence that caused this whole confusion: `npm run lint` passing
+locally while CI enforces something stricter. One script line keeps local and CI identical.
+
+★★ **Two routes, and they are not equivalent.** Adding `--max-warnings=0` promotes EVERY
+warning-severity rule to blocking at once, including `react-hooks/exhaustive-deps`. Promoting the
+single rule in `eslint.config.mjs` (`"@typescript-eslint/no-unused-vars": "error"`) is narrower.
+★ `eslint.config.mjs` is protected by a hook, so an agent cannot edit it — that route needs a human.
+
+★★★ **IT CONFLICTS WITH §53 (ESLint 10, blocked upstream) AND WITH §45's eslint-10 bullet — read both
+first.** ★ An earlier draft of this paragraph cited "§7 B4", which is a different item entirely; the
+number was carried over from an unrelated line in this file rather than looked up. Their blast radius
+depends on this gate being OFF: with no `--max-warnings`, a major eslint landing
+can only fail the build by adding or changing a rule at severity **2**, and a new warning ships
+green. Adding the gate re-creates exactly the "any rule added, renamed or changed-by-default becomes
+an instant fatal build" risk that entry was re-scoped away from in 0.255.0. Sequence the two
+deliberately; doing this one first makes the upgrade harder, not easier.
+
+★ Why it surfaced: the 0.255.0 icon migration rewrote the import line of 78 files, and "an unused
+import would have been caught by the gate" was the natural assumption while reviewing it. It is
+false. That branch was clean — but by `tsc` and a per-file import-name diff, not by any gate. The
+docs asserting otherwise (`AGENTS.md`, `docs/CODEMAPS/architecture.md`, `docs/AGENTS/dashboard.md`,
+and two places in this file) were corrected in that release; `CONTRIBUTING.md` had it right already.

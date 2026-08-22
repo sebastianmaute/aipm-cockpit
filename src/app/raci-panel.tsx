@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import { Input } from "./form-controls";
 import { ClearableSearchInput } from "./clearable-search-input";

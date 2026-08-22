@@ -7,7 +7,7 @@
 // `help-menu.tsx`; the composer + entry list live in the shared `NoteLogPanel`,
 // so the same body can also be mounted inside the task editor.
 
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 // `Lang` no longer needs importing here: the props are derived from
 // NoteLogPanelProps, which already types `lang`.

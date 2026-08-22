@@ -74,8 +74,11 @@ git log origin/main --merges --pretty=%s | grep -oE "Merge branch '[^']+'" | sor
 
 ## 3. Designed but NOT built — the real backlog
 
-Four items have approved designs and no implementation, plus one item below that is the opposite
-shape: a decision with no design yet. These are the roadmap.
+Four items have approved designs and no implementation. These are the roadmap.
+
+★ A fifth row sat here until 2026-08-22 — the app-wide icon migration, which was the opposite shape
+(a decision with no design yet). It has since been specced, built and shipped in 0.254.0 "Bisson",
+so it is no longer backlog; `docs/tech-debt-register.md` TD-8 carries it under Resolved.
 
 | Item | Design lives in | Evidence it is unbuilt |
 |---|---|---|
@@ -83,7 +86,6 @@ shape: a decision with no design yet. These are the roadmap.
 | **S7 — Outlook pull + exception reconciliation** | same roadmap | same |
 | **S3c-2 — OOXML media parts for document images** | documents roadmap; `docs/open-followups.md` §202 | DOCX/PPTX still disclose a visible placeholder naming the asset instead of embedding it; no OOXML media-part code exists anywhere in the renderers |
 | **`optimize_wbs`** | multi-surface roadmap, Release 4 | `docs/open-followups.md` section 3, "never built — owed from R4"; the name appears in no source file |
-| **App-wide `@heroicons/react` → `lucide-react` icon migration** | decision recorded 2026-08-21 in `docs/tech-debt-register.md` TD-8 and `docs/open-followups.md` §145 (closed as a decision); **no spec yet** | 78 files still import `@heroicons/react` (`grep -rln "@heroicons/react" src/app`); nothing has been brainstormed or planned for the conversion itself — that is its own slice |
 
 ★★★ **THE "S3c" LABEL AMBIGUITY IS DISCHARGED — corrected 2026-08-21.** The documents roadmap
 originally defined "S3c" as *images end to end*, and 0.252.0 shipped **structural blocks** (add,
@@ -177,7 +179,7 @@ perf and bundle 7, integrations 6, UI panels 6, storage and codecs 3, security 1
 
 ## 5. Tech debt register
 
-`docs/tech-debt-register.md` — **TD-1, TD-2, TD-3, TD-5, TD-7 and TD-8 open**; TD-4 and TD-6
+`docs/tech-debt-register.md` — **TD-1, TD-2, TD-3, TD-5 and TD-7 open**; TD-4, TD-6 and TD-8
 resolved. The next quarterly sweep is dated **2026-10-03**; owners are role placeholders, never
 assigned. Re-derive with `grep -n "^| TD-" docs/tech-debt-register.md`.
 
@@ -191,13 +193,17 @@ target. ★★ Two things got it there and neither alone would have: duplicated 
 compares ONE number, the total duplicated-LINE percentage, per `AGENTS.md`'s exit-code bisection.
 The deferred structural tail it had been saving for the last stretch was never needed.
 
-★ **TD-8 (recorded and decided 2026-08-21, still unscheduled):** heroicons and `lucide-react` ship
-side by side — **78** files against **1** — and the app-wide migration is owned and decided but has
-no spec and no date; new code defaults to `lucide-react` effective now. ★★ The register said
-"scheduled" and this line agreed with it; §3 below, in the same file, said **no spec yet**. §3 was
-the accurate one — a decision to do the work is not a schedule for it. Decision debt, not a
-defect; `docs/open-followups.md` §145 (closed as a decision) is the long form, and §3 above carries
-the still-unspecced migration itself as a backlog row.
+★★ **TD-8 is RESOLVED — the migration shipped in 0.254.0 "Bisson" (2026-08-22).** `@heroicons/react`
+is gone from `package.json`, every former call site imports the `src/app/icons.ts` barrel, and an
+ESLint rule blocks the package's return. Re-derive rather than quoting:
+`grep -rln "@heroicons/react" src/app | wc -l` returns **0**.
+
+★ What this row said before is worth keeping as a record of how the entry read while it was open:
+heroicons and `lucide-react` shipped side by side, 78 files against 1, owned and decided but with no
+spec and no date. The register at that time said "scheduled" while §3 of this same file said **no
+spec yet** — §3 was the accurate one, because a decision to do the work is not a schedule for it.
+That distinction is the reason the slice got a spec of its own instead of being folded into the
+decision that authorised it.
 
 ★ Dependency rows: `eslint` 10 is **BLOCKED** upstream via `eslint-config-next`, confirmed by an
 executed attempt. `@types/node` **landed in this slice** — bumped `^20` → `^24` with zero `tsc`
@@ -222,8 +228,7 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
    The four survivors are deliberately non-actionable; see section 4 for what caused the flags and
    where each was fixed. Nothing here is a pickable slice any more.
 5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
-6. **Icon-package decision (TD-8 / §145)** — not a slice, a call: schedule the heroicons →
-   `lucide-react` migration or record that it is declined. Costs nothing today, and every new icon
-   added meanwhile is written against whichever precedent the author happened to open.
+6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.254.0 "Bisson". No longer a pickable
+   slice, and no longer a decision to make.
 
 ★ The archive-the-planning-tree item that led this list is **done** — see section 1.

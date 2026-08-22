@@ -94,9 +94,13 @@ long after the directory it named stopped existing.
 ```bash
 npm run dev                 # next dev (public next ^16.2.11 — read node_modules/next/dist/docs for version behavior)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint  (CI --max-warnings=0: an unused import/var or `_`-prefixed
-                            # param is FATAL — no argsIgnorePattern; re-check after every extract.
-                            # react-hooks/exhaustive-deps REJECTS an `obj.member` dep (e.g.
+npm run lint                # eslint — ★★★ there is NO `--max-warnings` gate: CI's `lint:` job runs bare
+                            # `npm run lint`, `@typescript-eslint/no-unused-vars` is severity 1, and
+                            # `noUnusedLocals` does not exist in tsconfig.json — so an unused import/var
+                            # SHIPS GREEN. Keep them out by hand; `_`-prefixed params are NOT exempt
+                            # (no argsIgnorePattern), so re-check after every extract. Verify severity:
+                            #   npx eslint --print-config src/app/icons.ts   (read .rules)
+                            # react-hooks/exhaustive-deps (severity 1, so NOT fatal) rejects an `obj.member` dep (e.g.
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
                             # in a component RENDER body too (not just useMemo) — capture via a lazy
@@ -104,9 +108,8 @@ npm run lint                # eslint  (CI --max-warnings=0: an unused import/var
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npm run lint` itself is bare `eslint` with NO `--max-warnings` flag, so it
-                            # EXITS 0 even when warnings are present — it does not reproduce the CI gate.
-                            # Check the actual gate locally with `npx eslint --max-warnings=0 src/app`.
+                            # ★ `npx eslint --max-warnings=0 src/app` is STRICTER than CI, not a
+                            # reproduction of it.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
@@ -439,10 +442,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `invisible` when off, so the button keeps ONE width — conditional rendering would make the button
   ~20px narrower when off, moving a toolbar's neighbouring controls under the pointer on every click
   (reasoned, not measured — jsdom has no layout, so nothing here can test it). ★ `invisible` vs
-  `opacity-0` is NOT load-bearing: heroicons DEFAULTS `aria-hidden` on every icon (its own attributes
-  come first and `props` spread after, so a caller can override it — a default, not a hard-code), so the glyph is
-  out of the a11y tree in both states either way. An earlier revision of this bullet claimed the
-  a11y tree was the reason — it is inert, and a test written to pin it could not fail.
+  `opacity-0` is NOT load-bearing: the marker `CheckIcon` carries its own explicit `aria-hidden="true"`,
+  so the glyph is out of the a11y tree either way. ★★ Do NOT restore the old reason ("heroicons defaults
+  `aria-hidden`") — lucide sets it only when the icon has no children AND the caller passed no a11y
+  prop (`node_modules/lucide-react/dist/esm/Icon.mjs`: `...!children && !hasA11yProp(rest) && {
+  "aria-hidden": "true" }`), so a NEW glyph relying on the library default would be exposed.
   ★★ **`preventFocusSteal` is OPT-IN, and that is load-bearing.** It suppresses the `mousedown`
   default so the click cannot pull focus off whatever the toggle acts ON — needed by the rich-text
   toolbar, where stealing focus from the editor collapses the selection the command is about to
@@ -828,6 +832,43 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   dark+mockup (3.5/4.4:1). Tier colour MUST ride the DOT/STRIPE (non-text, AA-exempt), never tinted small text (bit the
   tier count + hero eyebrow; both now muted). ★ the `actions` (Next actions) view is now in axe `A11Y_VIEWS` (hash-nav in
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
+- **Icons come from `src/app/icons.ts`**, never from `lucide-react` directly (the sole exception is
+  `rich-text-toolbar.tsx`, whose set came from Tiptap's reference toolbar) and never from
+  `@heroicons/react`, which was REMOVED app-wide in 0.254.0 — a `no-restricted-imports` rule makes a
+  reintroduction fatal, and its `patterns` half is the load-bearing one because every old call site
+  imported the `/24/outline` SUBPATH. ★★ The barrel re-exports lucide under the OLD heroicons names
+  on purpose, so a name there is NOT a claim about what lucide calls that glyph.
+  ★★★ A NAME MATCH IS NOT A GLYPH MATCH: lucide's `Bolt` is a hardware nut and its `ChartBar` is
+  horizontal, so both were remapped — check `/icon-gallery` in dev, and note `icons.test.ts` pins
+  every row by `displayName`, which is alias-invariant. ★★ **Five of the 69 render no `<path>`**
+  (`Bars2Icon` a `<line>`, both ellipsis icons `<circle>`, `Squares2X2Icon`/`StopIcon` `<rect>`), and
+  lucide prepends its own `lucide lucide-<name>` classes — so an icon test must assert on
+  `svg.children.length`, never `querySelector("path")`, and never on an exact `class` string. Three
+  pre-existing tests broke on exactly that. ★ Line weight is pinned to heroicons' 1.5 by a
+  `globals.css` rule on `.lucide`; that file is unlayered, so overriding it needs `stroke-[2]!`.
+  ★★ **A stale `.next` makes `/icon-gallery` 404 in dev, and it is the only route that can show
+  this.** The page is the repo's sole `if (process.env.NODE_ENV === "production") notFound();`
+  guard (`grep -rn NODE_ENV src --include=*.ts --include=*.tsx` — the other two hits are `!==`), so
+  a dev server serving anything stale for that route 404s while every sibling route is fine. It
+  reaches the gallery/visual e2e specs as `toHaveCount` "Received: 0", which reads like a broken
+  selector. Remedy is the one this file already gives for a corrupted dev cache: stop the server,
+  `Remove-Item -Recurse -Force .next`, restart.
+  ★★★ **DO NOT BLAME `npm run build` FOR IT — an earlier revision of this bullet did, at length,
+  and the cause was never established.** It asserted that a build leaves production chunks in
+  `.next` which `next dev` then serves, with the guard constant-folded true. That mechanism is
+  refuted by Next 16's own docs (`node_modules/next/dist/docs/.../version-16.md` "Concurrent `dev`
+  and `build`": dev outputs to `.next/dev`, build to the root, precisely so the two do not
+  conflict), and the reproduction does not reproduce — stop → build → start → curl now gives
+  200/200/200 three times over, as does building while dev runs. The 404 was real and clearing
+  `.next` did fix it; the build correlation was spurious. ★★ It also prescribed
+  `ls .next/BUILD_ID` as a router, which is worse than useless: `BUILD_ID` survives ANY past build
+  (CI, `e2e:smoke:prod`), so on a machine that has ever built it is permanently present.
+  ★★ **THE SAME SYMPTOM HAS A SECOND CAUSE with the opposite remedy.** Chained `npx playwright
+  test` invocations race their own webServer: `playwright.config.ts` sets `reuseExistingServer:
+  !process.env.CI`, so locally a run ATTACHES to a server the previous invocation is still
+  releasing and gets the same `Received: 0`. Fix that one by not chaining — `--repeat-each=N`
+  inside ONE invocation (5/5 green). A post-mortem `curl` cannot tell the two apart, since the
+  server is gone by then either way.
 - **Top bar in TWO independent places**, both built in `task-manager.tsx`: classic `AppHeader`
   (`appHeaderEl`, used by classic main-window `legacyTree`) and modern `ModernShell` `topBarMenus` slot
   (DEFAULT layout). A new top-bar control must wire into BOTH or it's invisible in whichever layout you

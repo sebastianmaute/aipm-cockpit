@@ -6,7 +6,7 @@
 // no-hand-roll / no-DS-sprawl rule). The accessible name is row-UNIQUE — it
 // incorporates the entity name — because the RAID table is axe-scanned and N
 // identical "Notes log" labels would fail WCAG 2.4.6.
-import { DocumentTextIcon } from "@heroicons/react/24/outline";
+import { DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { INTERACTIVE } from "./interaction-styles";
 

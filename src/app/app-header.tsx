@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { BellIcon, ChatBubbleLeftRightIcon, PlusIcon } from "@heroicons/react/24/outline";
+import { BellIcon, ChatBubbleLeftRightIcon, PlusIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { type Command } from "./voice";
 import { type StorageKind } from "./storage";

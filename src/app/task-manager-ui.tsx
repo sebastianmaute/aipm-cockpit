@@ -5,7 +5,7 @@ import {
   BackspaceIcon,
   PrinterIcon as PrinterHeroIcon,
   ViewColumnsIcon,
-} from "@heroicons/react/24/outline";
+} from "./icons";
 import type React from "react";
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { FOCUS_RING } from "./interaction-styles";

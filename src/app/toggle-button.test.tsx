@@ -61,9 +61,11 @@ describe("ToggleButton", () => {
   // ★ There was a second test here asserting the marker stays out of the
   //   accessible name. It was DELETED as vacuous, and the reason is worth
   //   keeping: `CheckIcon` renders a bare `<path>`, so it can contribute
-  //   nothing to name-from-content in any state, and heroicons defaults
-  //   `aria-hidden` on every icon regardless of what this file passes. No
-  //   single-change mutation could fail it. Don't re-add that shape.
+  //   nothing to name-from-content in any state, and this component always
+  //   passes an explicit `aria-hidden`, which lucide takes as the SOLE
+  //   source of that attribute (it only adds its own default when no a11y
+  //   prop is passed at all). No single-change mutation could fail it.
+  //   Don't re-add that shape.
   // ★ `disabled` was declared long before anything passed it. It must stay a real
   //   disabled <button> — clicking must not reach onToggle.
   it("does not fire onToggle while disabled", () => {
