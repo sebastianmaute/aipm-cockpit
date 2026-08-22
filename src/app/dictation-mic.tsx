@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { MicrophoneIcon } from "@heroicons/react/24/outline";
+import { MicrophoneIcon } from "./icons";
 import type { Lang } from "./i18n";
 import { t } from "./i18n";
 import type { Settings } from "./settings-types";

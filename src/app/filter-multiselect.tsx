@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { ChevronDownIcon } from "@heroicons/react/24/outline";
+import { ChevronDownIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { PopoverPanel } from "./popover-panel";
 import { Checkbox } from "./form-controls";

@@ -1,6 +1,6 @@
 "use client";
 import type React from "react";
-import { EllipsisVerticalIcon } from "@heroicons/react/24/outline";
+import { EllipsisVerticalIcon } from "./icons";
 import { TRANSITION } from "./interaction-styles";
 
 /** Grip focus ring — deliberately `focus-visible:`, NOT the shared FOCUS_RING
