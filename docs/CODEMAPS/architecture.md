@@ -1,8 +1,8 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.255.0 "Bisson" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.255.1 "Bisson" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 
-Single Next.js app (public `next ^16.2.11`, React 19.2.4), **no server database and no backend of
+Single Next.js app (public `next` pinned exactly at 16.2.11, React 19.2.4), **no server database and no backend of
 its own**. All project data lives client-side; the only server code is a set of thin same-origin
 proxies that exist to add auth + SSRF guards to third-party calls the browser cannot make directly,
 plus request-time middleware issuing a per-request CSP nonce.

@@ -8,6 +8,15 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.255.1] - 2026-08-22 "Bisson"
+
+### Changed
+- **`next` is now pinned to an exact version** rather than a caret range. The lockfile already held 16.2.11, but the specifier allowed 16.3.2, so a `package-lock.json` merge conflict resolved the wrong way could have moved the framework silently — and every gate would have stayed green. `react`, `react-dom` and `eslint-config-next` were already pinned this way; the rule is now written down in `CONTRIBUTING.md`.
+
+### Fixed
+- The tech-debt register implied CI could drift onto a newer Next.js. It could not — every CI install site uses `npm ci`, which installs strictly from the lockfile. The row now describes the real exposure and is re-scoped to the 16.3 upgrade, which remains open.
+- Three documents — `AGENTS.md`, `docs/work-inventory.md` and `docs/open-followups.md` — recorded the heroicons-to-lucide migration as shipping in 0.254.0. It shipped as 0.255.0; 0.254.0 was "Yoshinaga", a different slice released the same day. The `AGENTS.md` occurrence names no codename, so the codename-qualified search that found the other two could never have reached it.
+
 ## [0.255.0] - 2026-08-22 "Bisson"
 
 ### Changed

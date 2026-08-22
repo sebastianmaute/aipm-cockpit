@@ -68,6 +68,11 @@ next-env.d.ts
 *.sqlite3-wal
 # Local UI-demo recorder artifacts (not part of the repo)
 /demo/
+/.demo-tmp/
+
+# Archived slice-doc bundles. Kept on disk deliberately, but binaries do not
+# belong in git history — once committed they inflate every future clone forever.
+/docs/superpowers/_archive-slice-docs-*.zip
 
 # Agent-skill tooling artifacts (installed skills + lockfile — not part of the app)
 /.agents/

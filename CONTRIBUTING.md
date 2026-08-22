@@ -273,6 +273,32 @@ because an entry's `changes` carries old and new values.
 `logMode`, the two load funnels, and the three incompatible completion-trend
 delta shapes.
 
+### Dependencies
+
+**Framework-coupled packages are pinned exactly, with no range:** `next`,
+`react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
+caret so upstream fixes flow without a slice each. ★ Read that cost honestly: a caret admits
+MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — no 16.3 tarball has
+ever entered the lock (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
+risk was the specifier, not an install that happened.
+
+`npm ci` — which is what all four CI install sites use — already installs
+strictly from `package-lock.json`, so an exact pin is *not* what makes an
+install reproducible. It protects the **specifier**, which is what a lockfile
+merge conflict resolves against: a conflict resolved the wrong way is
+committed, and CI then installs it faithfully and reports green.
+
+For `next` specifically, a silent minor bump moves the tree off the version
+the `AGENTS.md` opening warning is calibrated against — and every gate stays
+green while it happens.
+
+Adding a framework-coupled dependency? Pin it exactly and add it to this list.
+Verify the current split with:
+
+```bash
+node -e "const p=require('./package.json');const all={...p.dependencies,...p.devDependencies};console.log(Object.entries(all).filter(function(x){return /^[0-9]/.test(x[1])}).map(function(x){return x[0]+'@'+x[1]}).join(', '))"
+```
+
 ### Versioning
 On a noteworthy change, update `src/app/version.ts`:
 - `APP_VERSION` (semver)

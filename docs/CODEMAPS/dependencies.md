@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.255.0 "Bisson" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.255.1 "Bisson" | Files scanned: package.json, vitest.config.ts, playwright.config.ts, src/proxy.ts | Token estimate: ~750 -->
 
 # Dependencies
 
@@ -14,7 +14,7 @@ It said **nine** for six releases after five Tiptap extensions and `lucide-react
 
 | Package | Version | Used for |
 |---|---|---|
-| `next` | ^16.2.11 | framework (public fork; read `node_modules/next/dist/docs` — APIs differ from training data) |
+| `next` | 16.2.11 (exact — see CONTRIBUTING.md "Dependencies") | framework (a public npm package, NOT a fork — the lock resolves it from registry.npmjs.org; read `node_modules/next/dist/docs` — APIs differ from training data) |
 | `react` / `react-dom` | 19.2.4 | UI. React 19 delegates events on `document`, which is why `stopPropagation` cannot contain a key from a document-level listener |
 | `@azure/msal-browser` | ^5.16.0 | M365 sign-in; owns its own token cache (app stores no M365 secret) |
 | `@tiptap/react` + `@tiptap/starter-kit` | ^3.27.1 | rich-text editor (lazy `ssr:false` — needs `Range.getClientRects` stubs in jsdom) |
