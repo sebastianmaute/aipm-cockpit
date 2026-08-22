@@ -240,6 +240,52 @@ export function pptxAccentBar(colorRgb: string): string {
 </p:sp>`;
 }
 
+
+/** One embedded image as a `<p:pic>` shape.
+ *
+ *  ★ `descr` is PowerPoint's alt text. The asset name goes there so the
+ *  exported deck is not a wall of undescribed images.
+ *
+ *  ★★ `noChangeAspect` stops a user's first drag from stretching the picture —
+ *  the extent is already aspect-correct from `fitExtent`, and without this
+ *  PowerPoint lets a corner handle distort it.
+ *
+ *  ★★ The `r:` prefix on `r:embed` is NOT declared here. `wrapPptxSlide` binds
+ *  it on `<p:sld>` and every shape this module emits is spliced in there, so a
+ *  local `xmlns:r` would be redundant. Verified by reading `wrapPptxSlide`, not
+ *  by a test — these tests substring-match, so no assertion in this repo can
+ *  see an unbound prefix. Splice a `<p:pic>` into anything else and check the
+ *  binding first. */
+export function pptxPicture(opts: {
+  id: number;
+  name: string;
+  descr: string;
+  relId: string;
+  xEmu: number;
+  yEmu: number;
+  cxEmu: number;
+  cyEmu: number;
+}): string {
+  return `<p:pic>
+  <p:nvPicPr>
+    <p:cNvPr id="${opts.id}" name="${xmlEscape(opts.name)}" descr="${xmlEscape(opts.descr)}"/>
+    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>
+    <p:nvPr/>
+  </p:nvPicPr>
+  <p:blipFill>
+    <a:blip r:embed="${opts.relId}"/>
+    <a:stretch><a:fillRect/></a:stretch>
+  </p:blipFill>
+  <p:spPr>
+    <a:xfrm>
+      <a:off x="${opts.xEmu}" y="${opts.yEmu}"/>
+      <a:ext cx="${opts.cxEmu}" cy="${opts.cyEmu}"/>
+    </a:xfrm>
+    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+  </p:spPr>
+</p:pic>`;
+}
+
 /**
  * The Title (id 2) + Subtitle (id 3) textbox pair shared by the cover slide
  * and the section-divider slides — identical coords/sizes/colours, only the
