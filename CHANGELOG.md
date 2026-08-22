@@ -15,7 +15,7 @@ longer carries its own changelog comment.
 
 ### Fixed
 - The tech-debt register implied CI could drift onto a newer Next.js. It could not — every CI install site uses `npm ci`, which installs strictly from the lockfile. The row now describes the real exposure and is re-scoped to the 16.3 upgrade, which remains open.
-- `docs/work-inventory.md` and `docs/open-followups.md` both recorded the heroicons-to-lucide migration as shipping in 0.254.0 "Bisson". It shipped as 0.255.0; 0.254.0 was "Yoshinaga", a different slice released the same day.
+- Three documents — `AGENTS.md`, `docs/work-inventory.md` and `docs/open-followups.md` — recorded the heroicons-to-lucide migration as shipping in 0.254.0. It shipped as 0.255.0; 0.254.0 was "Yoshinaga", a different slice released the same day. The `AGENTS.md` occurrence names no codename, so the codename-qualified search that found the other two could never have reached it.
 
 ## [0.255.0] - 2026-08-22 "Bisson"
 

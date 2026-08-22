@@ -837,7 +837,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `e2e/a11y.spec.ts` — Dashboard sub-child, sidebar entry may be collapsed at scan time).
 - **Icons come from `src/app/icons.ts`**, never from `lucide-react` directly (the sole exception is
   `rich-text-toolbar.tsx`, whose set came from Tiptap's reference toolbar) and never from
-  `@heroicons/react`, which was REMOVED app-wide in 0.254.0 — a `no-restricted-imports` rule makes a
+  `@heroicons/react`, which was REMOVED app-wide in 0.255.0 — a `no-restricted-imports` rule makes a
   reintroduction fatal, and its `patterns` half is the load-bearing one because every old call site
   imported the `/24/outline` SUBPATH. ★★ The barrel re-exports lucide under the OLD heroicons names
   on purpose, so a name there is NOT a claim about what lucide calls that glyph.

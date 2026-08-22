@@ -2,7 +2,7 @@
 
 # Architecture
 
-Single Next.js app (public `next ^16.2.11`, React 19.2.4), **no server database and no backend of
+Single Next.js app (public `next` pinned exactly at 16.2.11, React 19.2.4), **no server database and no backend of
 its own**. All project data lives client-side; the only server code is a set of thin same-origin
 proxies that exist to add auth + SSRF guards to third-party calls the browser cannot make directly,
 plus request-time middleware issuing a per-request CSP nonce.

@@ -61,8 +61,9 @@ a written dependency-pinning policy in `CONTRIBUTING.md` · the required correct
 two version errors corrected in `docs/work-inventory.md` · a **patch release as 0.255.1**
 across every version carrier, see §8.
 
-**Out.** The 16.3 upgrade itself — its own slice, see §5. The other 28 packages
-`npm outdated` reports as drifted. Any change to `react`, `react-dom` or
+**Out.** The 16.3 upgrade itself — its own slice, see §5. The other packages
+`npm outdated` reports as drifted (a count deliberately NOT quoted — it moves upstream between
+any two runs; read it off `npm outdated --json`). Any change to `react`, `react-dom` or
 `eslint-config-next`, all three already correctly pinned. Pinning the other 31 caret
 dependencies, considered and rejected in §3.2. A CI gate enforcing the policy, also
 considered and rejected in §3.2.
@@ -85,7 +86,7 @@ take a patch. 16.2.12 is not privileged by the current range either — `^16.2.1
 Regenerate with `npm install --package-lock-only`.
 
 ★★ **The diff must be exactly the `next` spec string under the root package's `dependencies`.**
-npm re-resolves opportunistically, and 28 packages currently show available drift, so a stale
+npm re-resolves opportunistically, and many packages show available drift at any moment, so a stale
 lock can pick up unrelated bumps in the same command. Read the whole diff, never just
 `--stat`. If anything other than `next` moved: `git checkout -- package-lock.json` and edit
 the one spec string by hand.
@@ -229,7 +230,7 @@ That is exactly the version-collision class that bit during the icon slice's own
 `main` shipped 0.254.0 while the branch was in review, and the branch had to renumber. The
 error is now written into the file the backlog is navigated by, which is how it propagates.
 
-★ Correct the two version strings only. Do **not** refresh the file's measured figures in the
+★ Correct the three version strings only. Do **not** refresh the file's measured figures in the
 same pass: the file's own header says every number in it rots and must be re-derived by the
 reader, and a partial refresh produces a document that looks freshly measured and is not.
 

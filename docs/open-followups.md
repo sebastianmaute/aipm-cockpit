@@ -13877,6 +13877,7 @@ import would have been caught by the gate" was the natural assumption while revi
 false. That branch was clean — but by `tsc` and a per-file import-name diff, not by any gate. The
 docs asserting otherwise (`AGENTS.md`, `docs/CODEMAPS/architecture.md`, `docs/AGENTS/dashboard.md`,
 and two places in this file) were corrected in that release; `CONTRIBUTING.md` had it right already.
+
 ## 215. CI has no live Turso database, so the twelve tests that prove document images work never run there
 
 **Status:** open — the tests exist, pass locally against a real database, and SKIP in every CI pipeline.
@@ -13901,7 +13902,7 @@ about:
 a different way, so it cannot see anything about how libSQL handles a BATCH over `/v2/pipeline`.
 That is not a hypothetical gap: §211's correction (a failing statement does NOT abort the batch;
 COMMIT still runs and the rest is committed) is measurable ONLY against a real libSQL endpoint, and
-is therefore pinned by a spec CI always skips. The claim is documented in five places and guarded in
+is therefore pinned by a spec CI always skips. The claim is documented in four LIVE places (`AGENTS.md`, `docs/AGENTS/documents.md`, §211 here, and a comment in `turso-schema.ts`) and guarded in
 none of them.
 
 **No code change is needed to make it run.** `readEnvLocal()` prefers `process.env`, so setting

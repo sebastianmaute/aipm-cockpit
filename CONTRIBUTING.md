@@ -277,7 +277,8 @@ delta shapes.
 
 **Framework-coupled packages are pinned exactly, with no range:** `next`,
 `react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
-caret so patch releases flow without a slice each.
+caret so upstream fixes flow without a slice each. ★ Read that cost honestly: a caret admits
+MINOR releases, not just patches — this section exists because `^16.2.11` resolved to `16.3.2`.
 
 `npm ci` — which is what all four CI install sites use — already installs
 strictly from `package-lock.json`, so an exact pin is *not* what makes an
