@@ -133,14 +133,31 @@ Non-empty adds: one `<Default Extension="...">` per distinct extension, `word/me
 one `<Relationship>` per image in `word/_rels/document.xml.rels`, numbered after the existing
 `rId1` (styles).
 
-In the body, `withImagePlaceholders` becomes `withImageDrawings`. An **inlined** asset yields
-`<w:drawing><wp:inline>` sized by `fitExtent` capped at `CONTENT_WIDTH` — the same constant that
-already sizes tables, so an image cannot overflow a page a table fits. An **omitted** or **missing**
-asset keeps today's translated placeholder run.
+In the body, an **inlined** asset yields `<w:drawing><wp:inline>` sized by `fitExtent` capped at
+`CONTENT_WIDTH` — the same constant that already sizes tables, so an image cannot overflow a page a
+table fits. An **omitted** or **missing** asset keeps today's translated placeholder run.
 
-★ Both branches still substitute on the RAW html BEFORE the parse, preserving the existing property
-that the substitution participates in the DOMParser walk and inherits its surrounding
-paragraph/list context.
+★★★ **THE TWO BRANCHES CANNOT SHARE THE SUBSTITUTION POINT, and an earlier revision of this section
+said they could.** It claimed both would substitute on the RAW html BEFORE the parse, "preserving
+the existing property that the substitution participates in the DOMParser walk". That is true of
+the placeholder because a placeholder is TEXT. It is false of a drawing: `docxRichParagraphs` feeds
+the html to `htmlToRichLines`, which parses with DOMParser, and a `<w:drawing>` blob put through an
+HTML parse is mangled — the WordprocessingML would not survive to the output.
+
+So the paragraph is **split around inlined images**:
+
+- html segments between images go through `docxRichParagraphs` unchanged, still carrying the
+  placeholder substitution for any omitted/missing image inside them
+- each inlined image becomes its OWN `<w:p>` holding a single drawing run
+
+★★ Consequence, accepted: an image that sat inline with text gets its own paragraph in the `.docx`.
+This matches how the product actually inserts images — the block editor produces image-only
+paragraphs — so the common case is unaffected, and the alternative (teaching the shared
+`rich-text-runs.ts` walk an `<img>` run kind) changes a module three registers depend on for a
+layout case that does not arise.
+
+★ Omitted and missing images keep the existing inline behaviour exactly, so today's placeholder
+tests stay valid as written.
 
 ### PPTX
 
