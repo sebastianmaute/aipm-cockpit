@@ -25,7 +25,8 @@ Every row was reproduced against the tree at `0ff948bb`. Re-run before trusting 
 | Import specifiers | **150** · icon JSX call sites ~**141** | same sweep |
 | lucide exports the same name | **25** of 69 | §5 |
 | `lucide-react` installed | `^1.31.0`, one consumer (`rich-text-toolbar.tsx`) | `grep -rln "lucide-react" src/app` |
-| heroicons referenced in tests | **zero** `*.test.tsx`, **zero** `e2e/` | `grep -rln "@heroicons" src --include=*.test.tsx; grep -rn "heroicons" e2e` |
+| heroicons IMPORTED by tests | **zero** `*.test.tsx`, **zero** `e2e/` | `grep -rln "@heroicons" src --include=*.test.tsx; grep -rn "heroicons" e2e` |
+| heroicons ASSUMED by tests | **3 assertions in 2 files** — and this row did not exist until execution proved it. See §5.5 | `npx vitest run src/app/nav-icons src/app/task-manager-ui` |
 | `data-slot="icon"` (heroicons emits it) | referenced **nowhere** in `src`/`e2e`/CSS | `grep -rn 'data-slot' src e2e --include=*.ts --include=*.tsx --include=*.css` |
 | Call sites passing `aria-hidden` | **122** · passing `aria-label`/`role` **0** · passing `aria-hidden={false}` **0** | see §4.3 |
 | Icon-typed props | **one** annotation repo-wide (`nav-icons.tsx`) | `grep -rln "SVGProps<SVGSVGElement>" src --include=*.tsx --include=*.ts` |
@@ -96,6 +97,14 @@ whose props omit `ref`, so it does not cleanly satisfy `ComponentType<SVGProps<S
 `LucideIcon`) and both call sites adopt it. **If `nav-icons.tsx` typechecks unchanged, that is a
 finding to record, not a step to skip** — it would mean the assignability concern is wrong, and this
 spec should be corrected rather than the annotation left straddling two types.
+
+★★★ **MEASURED DURING EXECUTION: `nav-icons.tsx` TYPECHECKED UNMODIFIED. The concern above is
+WRONG.** A lucide `ForwardRefExoticComponent` whose props omit `ref` IS assignable to
+`ComponentType<SVGProps<SVGSVGElement>>` under this tree's TypeScript, with zero errors. The
+annotation was switched to `AppIcon` anyway, for one type over both call sites — but as a
+consistency choice, not a fix. The paragraph above is left standing rather than deleted because the
+instruction it carries is the part that worked: it forced the executing agent to REPORT that tsc
+passed instead of silently skipping the step, which is how this correction exists at all.
 
 The barrel must stay **side-effect-free** (pure `export { X as Y } from "lucide-react"`) so
 tree-shaking is unaffected. No default export, no runtime values, no wrapper components.
@@ -297,6 +306,46 @@ grep -l "export { default } from" node_modules/lucide-react/dist/esm/icons/*.mjs
 ★ This is the THIRD defect in this slice's own instruments — the kebab bug above, a row-counting
 regex that also ignored digits, and now an existence check that could not see a shim. Each reported
 confidently. **An instrument's green is a claim about the instrument first.**
+
+### 5.5 The coupling an import sweep cannot see
+
+★★★ **THIS SPEC CLAIMED THE MIGRATION HAD NO TEST COUPLING. IT WAS WRONG, AND THE MEASUREMENT THAT
+PRODUCED THE CLAIM WAS CORRECT.** §0 established that no `*.test.tsx` and nothing in `e2e/` imports
+`@heroicons/react` — true then, true now. The conclusion drawn from it — that tests were therefore
+unaffected — does not follow. **Three assertions in two files were coupled to heroicons through its
+RENDERED OUTPUT**, which no import sweep can reach:
+
+| File | Assertion | Why it broke |
+|---|---|---|
+| `nav-icons.test.tsx` | `svg.querySelector("path")` non-null for every nav view | `Squares2X2Icon` (Dashboard) is lucide's `LayoutGrid` — four `<rect>`, no `<path>` |
+| `nav-icons.test.tsx` | `getAttribute("class")` equals `"custom-size"` exactly | lucide prepends `lucide lucide-<name>` to every icon, so exact equality is impossible |
+| `task-manager-ui.test.tsx` | `svg.querySelector("path")` truthy for the ⋮ grip | lucide's `EllipsisVertical` is three `<circle>`, no `<path>` |
+
+★★ **Five of the 69 barrel icons render no `<path>` whatsoever** — `Bars2Icon` a `<line>`, both
+ellipsis icons `<circle>`s, `Squares2X2Icon` and `StopIcon` `<rect>`s. Two of those five sit on
+surfaces with tests. Re-derive rather than trusting the list:
+
+```bash
+grep -L '"path"' node_modules/lucide-react/dist/esm/icons/*.mjs
+```
+
+★★ The grip test is the sharpest instance, because it **documented its own assumption in a comment**
+— *"EllipsisVerticalIcon (⋮ grip) renders path geometry, not `<circle>` dots"* — which was accurate
+about heroicons and is now precisely inverted. A comment stating the fact it depends on is the best
+case; nothing gated it, and nothing could have.
+
+★ Both `path` assertions were proxies for *"the icon drew something"*. They now assert that directly
+(`svg.children.length > 0`). The class assertion kept its real intent — that a custom class
+REPLACES the default size rather than joining it — via `not.toContain("h-5")`; a bare
+`toContain("custom-size")` would have been WEAKER than the test it replaced, passing even with the
+default size still applied.
+
+★★★ **The lesson generalises past icons.** "Does anything import the thing I am replacing" is a
+question about *coupling by name*. Swapping a rendering library also changes *coupling by output*:
+element types, attribute values, class strings, DOM shape. The second kind is invisible to every
+sweep that looks at imports, and in this repo it is the kind that fails. When replacing anything
+that RENDERS, run the affected suites before concluding the blast radius — the suite is the only
+instrument that sees it.
 
 ---
 
