@@ -10081,7 +10081,7 @@ defect:** 78 files stay on `@heroicons/react` until the migration slice runs, ne
 `lucide-react`, and no gate enforces either side. Do not read the mix as license to revert the
 default, and do not "fix" it by hand-converting files outside a scheduled migration slice.
 
-★★ **THE DECIDED WORK SHIPPED — 0.254.0 "Bisson", 2026-08-22.** The app-wide migration ran as its
+★★ **THE DECIDED WORK SHIPPED — 0.255.0 "Bisson", 2026-08-22.** The app-wide migration ran as its
 own slice, as this entry said it must. `src/app/icons.ts` is the barrel every former call site now
 imports; `@heroicons/react` is gone from `package.json`; an ESLint `no-restricted-imports` rule
 blocks its return. The "deliberate mixed state" recorded above as ACCEPTED is over — there is one
