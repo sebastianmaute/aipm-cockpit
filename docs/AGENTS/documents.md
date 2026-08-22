@@ -555,7 +555,12 @@ withheld rather than drawn inert, per the no-false-affordance rule.
 
 Shipped 0.254.0 "Yoshinaga", Turso-gated (`tursoConfig !== null`, same rule as version history).
 Design lived in `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`'s S3c-1
-section; open follow-ups are `docs/open-followups.md` §202–§207. This section replaces "S3c" as a
+section. ★★ Its open follow-ups start at `docs/open-followups.md` §202, and **no range is quoted
+here on purpose** — the very commit that wrote "§202–§207" added §208 and §209 in the same diff, so
+a range is stale before it is committed and nothing gates it. Derive today's set:
+`awk '/^## [0-9]+\./{h=$0} /S3c-1|document_assets|documentAssets|asset librar|document image|data-asset/{print h}' docs/open-followups.md | sort -u`
+(it also returns the older documents-roadmap entries §113/§115/§117/§140, which are genuinely
+related). This section replaces "S3c" as a
 bare label —
 see `docs/open-followups.md` §113 for why that label collided with a different slice.
 
@@ -801,8 +806,19 @@ images at a few MB each would otherwise put tens of MB of base64 into the one
 DEV AND PROD ALIKE.** The directive was `'self' data:`; `'self'` does NOT match a `blob:` URL, so
 the browser refused every image load — and refused it INVISIBLY, because the `src` is set and only
 the fetch is blocked, so there is no broken-image marker to notice. Measured in Chromium against
-that exact directive. Nothing automated could see it: jsdom enforces no CSP, and no e2e spec
-touches document assets at all, so `src/proxy.test.ts` is the only guard there will be. ★ Note
+that exact directive. Nothing in the UNIT suite can see it — jsdom enforces no CSP — and at the
+time no e2e spec touched document assets either, which left `src/proxy.test.ts` asserting the
+directive STRING as the only guard. ★★ That gap is now closed by `e2e/documents-images.spec.ts`,
+the only layer that can watch a document image actually fail: it drives a real Chromium page to a
+seeded document and polls each `<img>`'s `naturalWidth`/`naturalHeight` against that asset's own
+stored size. **Nothing weaker detects this bug** — a CSP-refused image keeps its `src`, stays in
+the DOM and stays "visible", so presence, visibility, a `blob:`-src check and a screenshot all pass
+against it; only a decoded bitmap has a non-zero `naturalWidth`. It separates the two failure modes
+deliberately (no blob: src / `data-asset-missing` = the byte store never delivered, which says
+nothing about CSP; blob: src with `naturalWidth` 0 = the browser refused the load, the CSP
+signature), and additionally asserts that the page reported no `securitypolicyviolation` on ANY
+directive, so a future `connect-src` or `style-src` narrowing trips it too. Deleting that spec
+returns this whole class to undetectable. ★ Note
 `IS_DEV` branches only `scriptExtras` and `styleElem` — never `img-src` — which is why this was NOT
 a prod-only defect like the CSP class recorded elsewhere in this repo. ★ `object-src 'none'`
 remains the guard against the usual `blob:` escalation; `img-src` can only ever decode an image.
@@ -861,14 +877,36 @@ write-side change could reach. ★★ The predicate is scoped to a NON-EMPTY `da
 `<img>` at large, because a bare `<img>` here can never become anything — the document allow-list
 grants `img` only `alt` and `data-asset-id` and deliberately NO `src`, and the resolver plus all
 three renderers key off a non-empty `data-asset-id` — so keeping one would reintroduce exactly the
-accumulating invisible blank paragraph the empty-drop exists to prevent. ★ It is case-INSENSITIVE
-(unlike the same-shaped regexes in the renderers, which only ever see DOMPurify-lowercased html)
-because it runs BEFORE any allow-list pass on the load path, and it is deliberately NOT `/g` — a
+accumulating invisible blank paragraph the empty-drop exists to prevent. ★★ It is case-INSENSITIVE
+and admits every legal attribute spelling — unlike the renderers' regexes, which are
+double-quoted-only because they only ever see DOMPurify-lowercased, normalised html. **They are no
+longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
+them, widening only this one to match its own threat model (it runs BEFORE any allow-list pass on
+the load path, so it must survive hand-edited and imported html). §209 tracks the five spellings of
+this attribute contract and why they cannot simply be unified. ★ It is deliberately NOT `/g` — a
 global regex carries `lastIndex` across `.test` calls and would drop every OTHER image-only
 paragraph in a document.
-★ Consequence for any e2e or fixture work: a seeded image-only paragraph did not survive to render,
-so a spec written against one went vacuously green. `e2e/seed.ts` seeds a CAPTIONED figure, which
-is the realistic shape and is robust either way.
+★★ Consequence for any e2e or fixture work: BEFORE this fix a seeded image-only paragraph did not
+survive to render, so a spec written against one went vacuously green. `e2e/seed.ts` now seeds BOTH
+shapes — a captioned figure AND an image-only paragraph — and **they are not interchangeable, so do
+not "simplify" the seed down to one.** The captioned figure is valid whatever the block-drop rules
+do, which makes it the stable carrier of the CSP/render assertion above. The image-only paragraph
+is the shape `documents-asset-section.tsx` actually inserts, and it is what carries this guard's
+only END-TO-END coverage: proved by mutation, reverting `ASSET_IMG_RE` deletes that block at load,
+so `e2e/documents-images.spec.ts` finds no `<img>` for it and goes red rather than losing user
+images silently again. ★★ That is an e2e-LAYER claim only — the guard itself is pinned directly,
+and more thoroughly, by `document-model.test.ts` (image-only paragraph on the load path, on the
+`normalizeBlockForStorage` commit path, twice in one document to catch a `/g` `lastIndex` carry, and
+across every attribute spelling the widened pattern admits). ★★ **Do not quote a number for that
+last set** — an earlier draft of this sentence said "all three quoting styles" and was already
+stale: `e5597c78` widened `ASSET_IMG_RE` to a five-way alternation over `\s*=\s*`, so double-,
+single- and UNQUOTED values, upper-cased tags and spaces around the `=` are each a separate branch,
+and the test lists them one fixture per line precisely so a mutant keeping the wrong subset cannot
+stay green. Read today's off the declaration:
+`grep -n -A 1 "const ASSET_IMG_RE" src/app/document-model.ts`. Do not read either layer as making
+the other redundant. ★ The two assets are seeded at DIFFERENT dimensions on purpose — each
+`<img>` is asserted against its own stored size, so a resolver pointing both at the same bytes
+cannot pass.
 
 ★ **No sanitizer was edited by this slice.** `<img data-asset-id>` and `alt` were already in the
 documents allow-list from S3a's `HTML_START` split (§114) — S3c-1 is a pure consumer of that

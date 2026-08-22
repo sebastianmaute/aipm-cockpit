@@ -156,7 +156,8 @@ export function DocumentsTabPanel({
   // `loadCurrentTursoProjectId` returns null), while `loadRegistry()` carries no
   // such guard. So without this gate a Turso-portfolio user entering Safe Mode
   // would swap the byte-lookup key to the FILE registry's project id (or
-  // "default") while the METADATA — which rides the workspace, not this key —
+  // `ASSET_PARTITION_FALLBACK`) while the METADATA — which rides the workspace,
+  // not this key —
   // stayed put: every asset reads as dangling, every embedded image breaks, and
   // an upload writes bytes under a key normal-mode boot never looks at.
   // `deleteAllAssetDataForProject` is keyed the same way, so those orphans would
@@ -173,8 +174,9 @@ export function DocumentsTabPanel({
   // cannot move or rewrite a byte.
   //
   // ★★ Safe Mode ALSO defaulting `settings.integrations` does not make this
-  // redundant: `getTursoConfig` falls back to NEXT_PUBLIC_TURSO_DATABASE_URL, so
-  // an env-configured deployment returns a non-null config from default settings
+  // redundant: NEXT_PUBLIC_TURSO_DATABASE_URL takes PRECEDENCE over the settings
+  // value in `getTursoConfig` (it is not a fallback — env wins when set), so an
+  // env-configured deployment returns a non-null config from default settings
   // alone. That is the reachable path this gate closes, and the one a test that
   // leans on the settings coupling would pass vacuously.
   const safeMode = isSafeMode();

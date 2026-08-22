@@ -13240,10 +13240,18 @@ back otherwise clean.
 
 **Status:** open — no scaffolding exists yet.
 
-S3c-1 (0.254.0) shipped document images end to end for the HTML/preview/standalone paths, but
-`doc-render-docx.ts` and `doc-render-pptx.ts` disclose a **visible translated placeholder naming
-the asset** rather than embedding it — a deliberate choice (a silent drop would be worse), not a
-finished feature. Real media parts are unbuilt: `[Content_Types].xml` Default entries, `_rels`
+S3c-1 (0.254.0) shipped document images for the **live preview**, which resolves each
+`<img data-asset-id>` to a blob object URL in `document-asset-images.ts`. ★★ It did NOT finish the
+standalone path, and an earlier wording of this entry said it had ("end to end for the
+HTML/preview/standalone paths"), which told the reader the only remaining gap was OOXML. It is not:
+`renderDocumentHtml`'s `assets` argument is optional and **no production caller passes it**, so an
+exported HTML file — and the PDF that is that same standalone mode through the print dialog —
+carries an `<img>` with no source at all. That is tracked separately as §210; read it before
+scoping any "images are done except DOCX/PPTX" work.
+
+Against that, `doc-render-docx.ts` and `doc-render-pptx.ts` disclose a **visible translated
+placeholder naming the asset** rather than embedding it — a deliberate choice (a silent drop would
+be worse), not a finished feature, and strictly more than the standalone HTML path manages today. Real media parts are unbuilt: `[Content_Types].xml` Default entries, `_rels`
 parts, `word/media/`, `<w:drawing>` / `<wp:inline>` / `<a:blip r:embed>` for DOCX, the PPTX
 equivalent, and EMU extents scaled to `CONTENT_WIDTH` from each asset's stored `width`/`height`.
 This is the largest unknown left in the documents roadmap — no existing renderer code touches
@@ -13415,9 +13423,16 @@ so it matches strings the other four do not, deliberately: its module header rec
 already-sanitized stored html, where a literal `data-asset-id="…"` in TEXT would already have been
 escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fix round) is case-INSENSITIVE,
 non-global, requires a NON-empty id and captures nothing.
+★★ **`ASSET_IMG_RE` diverged FURTHER in `e5597c78` and the gap is now wider than the rest of this
+entry implies.** The other four read a double-quoted value only; this one was widened to an
+alternation over `\s*=\s*` covering double-quoted, single-quoted and unquoted values, because it
+alone runs BEFORE any allow-list pass and so must survive hand-edited and imported html. Read the
+current spelling rather than any restatement:
+`grep -n -A 1 "const ASSET_IMG_RE" src/app/document-model.ts`.
 ★ Read the emptiness difference carefully before "unifying" it: `ASSET_ID_RE`'s permissive `[^"]*`
-is narrowed by a `.filter((id) => id.length > 0)` at its only call site, so it and `ASSET_IMG_RE`'s
-`[^"]+` agree on emptiness — through two different mechanisms, in two different files. A shared
+is narrowed by a `.filter((id) => id.length > 0)` at its only call site, so it and `ASSET_IMG_RE`
+still agree on emptiness — every branch of that alternation requires at least one character —
+through two different mechanisms, in two different files. A shared
 module has to keep the variation as parameters rather than flatten it. ★★ Only `ASSET_IMG_RE`
 carries a per-divergence justification at its own declaration; the other four are explained by their
 surrounding module comments or not at all, so do not expect the code to tell you which differences
@@ -13435,3 +13450,94 @@ carry an asset image" predicate, with the global/case/emptiness differences as o
 by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and depending on none of
 them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
 records elsewhere; nothing gates them agreeing.
+
+## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either
+
+**Status:** open — the sink is built and tested; only the wiring is missing.
+
+**Symptom.** Export a document containing an image as **HTML** or **PDF** and the image is simply
+absent from the file. Not a placeholder, not a broken-image marker, not a warning glyph — an
+`<img data-asset-id="…" alt="…">` element with no `src` attribute at all. DOCX and PPTX are BETTER
+here: both emit a visible translated placeholder naming the asset (§202). The live preview is
+unaffected — it resolves blob object URLs imperatively in `document-asset-images.ts` and never
+goes through this path.
+
+**Mechanism.** `renderDocumentHtml`'s `assets` parameter is optional and trailing, and no
+production caller passes it:
+
+```
+grep -rn "renderDocumentHtml(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+returns six lines: the declaration, one COMMENT in `document-preview.tsx`, and FOUR real calls —
+`document-preview.tsx` and `documents-history-modal.tsx` (both `"preview"` mode, which returns
+before any asset handling; the latter is separately §206) and `document-download.ts` twice, the pdf
+branch and the html branch. **Every one of the four passes exactly four arguments.** So
+`inlineDocumentImages` never runs outside its own tests. The documents allow-list grants `img` only `alt` and `data-asset-id` and deliberately
+NO `src`, so the tag reaches the output exactly as stored.
+
+★★ **The warning glyph cannot fire either, for TWO independent reasons, and that is the non-obvious
+half.** (a) The `img[data-asset-missing]` rules key off an attribute stamped ONLY inside
+`inlineDocumentImages` — it is the fallback branch when `assetSrcAttr` declines — so with no
+`assets` argument the attribute is never stamped. (b) Even if it were, those rules live in
+`src/app/globals.css`, the APP stylesheet. A standalone export inlines `PRINT_STYLES` +
+`DOCUMENT_PAGE_STYLES` into its own `<style>` and loads nothing else, and neither of those carries
+an `img[data-asset-missing]` rule (verify: `grep -n "asset-missing" src/app/globals.css` finds them,
+`grep -n "asset-missing" src/app/doc-render-html.ts` finds only the code that stamps the attribute).
+So fixing the wiring alone would produce an attribute nothing styles. Reading "the missing-image
+glyph exists" as "an absent image is disclosed in exports" is the mistake to avoid — it is disclosed
+in the live PREVIEW, which does load `globals.css`.
+
+★★★ **THIS IS NOT A ONE-LINE WIRE-UP, and estimating it as one is the trap.** `downloadDocument` is
+**synchronous**, and its pdf branch calls `window.open` inside the user-gesture context. Loading
+asset bytes is asynchronous (the byte side table is a separate store — see `docs/AGENTS/documents.md`'s
+"Asset images (S3c-1)" section). Awaiting the bytes before `window.open` spends the gesture, so every
+user lands on the popup-blocker fallback path that exists for the genuinely-blocked case — turning a
+missing image into a broken export button. Closing this properly means either pre-loading the bytes
+BEFORE the gesture (the panel knows which document is selected long before the click) or
+restructuring the export entry point so the async work happens outside the gesture-sensitive branch.
+
+★ **What is already done.** `assetSrcAttr` — the `data:` URI sink — is built, validates the mime
+against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload against the base64 alphabet,
+falls through to the `data-asset-missing` branch on a miss, and is unit-tested against PARSED
+attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
+be downgraded on reachability grounds.
+
+## 211. A Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
+
+**Status:** open — inert unless a real Turso database was written by a build older than `f43c41a8`.
+
+**Symptom.** On such a database the FIRST image upload still fails: the metadata row's id is a
+`crypto.randomUUID()` string going into an INTEGER-typed primary key, so SQLite answers
+`datatype mismatch`. Because a workspace save is emitted as ONE `BEGIN … COMMIT` pipeline, that
+single row aborts the whole transaction — so it is not just the image that fails to save, it is
+**every subsequent workspace save**, indefinitely. There is no in-app repair path, and the message
+the user gets is `turso-pipeline.ts`'s pass-through of SQLite's own text — `Turso error: datatype
+mismatch` — which names neither the table nor the column, so nothing points at the cause. The id is
+minted in `use-document-assets.ts` (`crypto.randomUUID()`); the INTEGER column is a rowid alias, and
+a non-integer value into one is what SQLite rejects.
+
+**Why the fix does not reach it.** `f43c41a8` corrects NEW databases only, and three separate
+mechanisms each independently prevent it reaching an existing one:
+
+- `SCHEMA_DDL` uses `CREATE TABLE IF NOT EXISTS`, a no-op against a table that already exists — so
+  the corrected `id TEXT PRIMARY KEY` DDL is never executed there.
+- `turso-migrate.ts` only ever emits `ALTER TABLE … ADD COLUMN … TEXT`. Its own module header states
+  why: `id` is created WITH the table and so always pre-exists, which is exactly the assumption that
+  makes it unable to repair an `id` of the wrong TYPE. SQLite could not do it with `ALTER` anyway.
+- `SCHEMA_VERSION` is written into `meta` but drives no migration runner. Verify:
+  `grep -rn "schema_version" src/app --include=*.ts | grep -v "\.test\."` returns only the two
+  WRITE sites (single-tenant and tenant schema builders) and no reader.
+
+★★ **No test can see this, structurally.** The executing Turso tests build a fresh database per
+case, so every one of them exercises the corrected DDL. Reproducing this needs a database created by
+the older code — which means it will never be caught by the suite, only by a user.
+
+**Practical remedy** on an affected database: `DROP TABLE document_assets` (the next save recreates
+it from the corrected `SCHEMA_DDL`). ★ This is safe in a narrow and specific sense that should not be
+overstated: the bytes live in a SEPARATE side table outside `TABLE_NAMES`, so dropping the metadata
+table cannot destroy any image data. But the metadata itself — asset name, mime, dimensions, the id
+that `<img data-asset-id>` references — is NOT re-derivable from the bytes. Any asset that had
+already been stored loses its metadata and its document references dangle; recovery is re-upload.
+On an affected DB no upload ever succeeded, so in practice the table is empty and the drop costs
+nothing — but check before assuming that.
