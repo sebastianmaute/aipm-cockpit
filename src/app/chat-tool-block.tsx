@@ -4,12 +4,14 @@
 // Extracted from chat-panel.tsx (which is file-size-ratchet baselined) to make
 // room for the document-tool file card below without growing that file.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { downloadDocument, type DocFormat } from "./document-download";
+import { loadAssetData } from "./document-assets-store";
+import type { TursoConfig } from "./turso-config";
 import { DOC_FORMATS } from "./documents-toolbar";
 import { DOCUMENT_TOOL_DEFS } from "./chat-tool-defs-documents";
 import { Button } from "./button";
@@ -320,6 +322,8 @@ function DocumentCard({
   droppedReasons,
   removed,
   lang,
+  tursoConfig,
+  projectId,
 }: {
   docId: number;
   title: string;
@@ -328,8 +332,27 @@ function DocumentCard({
   droppedReasons: number;
   removed: number;
   lang: Lang;
+  /** The asset byte store, for the download's image loader. A null config (or
+   *  an absent projectId) means the feature is off, and the export discloses
+   *  each image as missing rather than failing — the same signal
+   *  documents-panel.tsx sends from its own gate. */
+  tursoConfig?: TursoConfig | null;
+  projectId?: string;
 }) {
   const ws = useWorkspace();
+  // ★★★ THIS CARD MUST CARRY THE SAME LOADER THE DOCUMENTS PANE DOES. The
+  // fifth argument of `downloadDocument` is OPTIONAL, so omitting it compiles,
+  // runs, and produces a file — one whose images are dashed placeholder boxes.
+  // Two identical-looking Download buttons would then export different bytes,
+  // and no gate in this repo can see it (there is no `no-floating-promises`
+  // rule, and tsc is satisfied by the optional parameter).
+  const assetLoader = useMemo(
+    () =>
+      tursoConfig && projectId
+        ? (id: string) => loadAssetData(tursoConfig, id, projectId)
+        : undefined,
+    [tursoConfig, projectId],
+  );
   // Navigation is the shell's, not this card's: requestOpen sets the active
   // tab AND writes the deep-link hash that useHashView turns into a
   // `pendingOpen` for the target panel — the same call global-search-box and
@@ -389,7 +412,7 @@ function DocumentCard({
               size="sm"
               disabled={!liveDoc}
               onClick={() => {
-                if (liveDoc) downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang);
+                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader);
               }}
               aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
               className="inline-flex items-center gap-1.5"
@@ -416,12 +439,17 @@ export function ToolBlock({
   result,
   error,
   lang,
+  tursoConfig,
+  projectId,
 }: {
   name: string;
   input: unknown;
   result: string;
   error: boolean;
   lang: Lang;
+  /** Forwarded verbatim to the document card's download loader. */
+  tursoConfig?: TursoConfig | null;
+  projectId?: string;
 }) {
   const [open, setOpen] = useState(false);
 
@@ -438,6 +466,8 @@ export function ToolBlock({
         droppedReasons={card.droppedReasons}
         removed={card.removed}
         lang={lang}
+        tursoConfig={tursoConfig}
+        projectId={projectId}
       />
     );
   }

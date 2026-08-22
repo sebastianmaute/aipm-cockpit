@@ -50,6 +50,8 @@ import { htmlEscape } from "./download";
 import { ASSET_MIME_ALLOWED, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
 import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
+import { loadAssetData } from "./document-assets-store";
+import type { AssetByteLoader } from "./document-asset-images";
 
 /** ONE bag, house convention (AGENTS.md's `EntityCalendarProps` rule — "never
  *  five flat props") over the asset gate + byte-store scope + the live
@@ -65,6 +67,42 @@ export interface DocumentAssetPaneProps {
   projectId: string;
   assets: readonly DocumentAsset[] | undefined;
   setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+}
+
+/**
+ * The export-time image loader for a pane, or `undefined` when the asset
+ * feature is off.
+ *
+ * ★★★ IT LIVES HERE, NOT IN documents-panel.tsx, PURELY FOR SIZE. That file
+ * sits at EXACTLY the 800-line ratchet cap (`check-file-sizes.mjs` counts
+ * `split("
+").length`, i.e. `wc -l` + 1), so it has room for neither the
+ * derivation nor its comment — the same pressure that split this whole file
+ * out of it. The panel folds this onto its existing import of this module and
+ * calls it inline at both download sites, which costs zero net lines.
+ *
+ * ★★★ WITHOUT IT THE EXPORT SILENTLY LOSES EVERY IMAGE, and nothing in this
+ * repo would say so. `downloadDocument`'s loader is its OPTIONAL fifth
+ * argument, and there is no `no-floating-promises` rule configured here, so a
+ * call site that omits it typechecks, lints and produces a file — one whose
+ * images are dashed "missing asset" boxes, exactly as before this slice.
+ * `documents-panel.test.tsx` pins BOTH of that pane's download sites
+ * separately, because covering one leaves the other free to drop it.
+ *
+ * ★ `undefined` rather than a loader that throws is the DOCUMENTED "no assets
+ * available" signal: `loadExportAssets` then discloses each image as missing
+ * instead of failing the whole export. So both halves of the guard matter —
+ * a loader built unconditionally would call the byte store with a null config
+ * on every image of every file-mode export.
+ *
+ * ★ Called at CLICK time, not memoized in render: it reads the live pane bag,
+ * and a fresh closure per click costs nothing (a download is one gesture).
+ */
+export function assetPaneLoader(pane: DocumentAssetPaneProps | undefined): AssetByteLoader | undefined {
+  const config = pane?.tursoConfig ?? null;
+  const projectId = pane?.projectId;
+  if (!config || !projectId) return undefined;
+  return (id: string) => loadAssetData(config, id, projectId);
 }
 
 export interface DocumentsAssetSectionProps {
