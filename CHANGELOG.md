@@ -22,10 +22,12 @@ longer carries its own changelog comment.
   base64 in `document_asset_data`, a side table kept out of `TABLE_NAMES`
   because a workspace save deletes and re-inserts every table it owns, which
   would wipe the library on every save.
-- **Metadata-first write order.** The metadata row is committed before the
-  bytes, so a failed upload degrades to the *dangling* case — a visible,
-  self-describing row — rather than leaving an invisible orphan needing a
-  reclaim action. It is not yet repairable in place; see *Known limitations*.
+- **Metadata-first write order, and the failed upload is repairable.** The
+  metadata row is committed before the bytes, so a failed upload degrades to
+  the *dangling* case — a visible, self-describing row — rather than leaving an
+  invisible orphan needing a reclaim action. Re-uploading the same image
+  retries the byte write **over the existing id**, so any placement already
+  made in a document starts rendering rather than needing to be re-inserted.
 - **Upload budget.** 25 MB raw ceiling checked before any decode; a header-only
   8000px dimension guard against decompression bombs; downscale to 1920x1080; a
   5 MB stored cap applied *after* downscale; 20 images per document enforced at
@@ -80,11 +82,6 @@ longer carries its own changelog comment.
   either, so the export is silently short a picture. DOCX and PPTX are better
   here: both name the omitted asset. Tracked in `docs/open-followups.md` as
   §210.
-- **A dangling asset cannot be repaired in place.** If the byte write fails the
-  metadata row survives and is marked dangling, but re-uploading the same image
-  hits the content-hash dedup and returns the existing row without retrying the
-  bytes. Recovery today means deleting and re-uploading, which mints a new id
-  and breaks any placement already made. Tracked as §212.
 - **A SINGLE-TENANT Turso database written by an older build cannot take an
   upload.** Its `document_assets.id` column stays `INTEGER PRIMARY KEY`, so the
   first image aborts that save and every save after it, with a `datatype

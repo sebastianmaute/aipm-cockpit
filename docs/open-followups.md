@@ -13563,7 +13563,32 @@ nothing — but check before assuming that.
 
 ## 212. A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry
 
-**Status:** open — the recovery path the code documents three times does not exist.
+**Status:** CLOSED — candidate (a) shipped; the recovery path the code documented three times now exists.
+
+**What shipped.** `upload` in `use-document-assets.ts` consults a `danglingRef` mirror of
+`danglingIds` alongside the hash: a HEALTHY duplicate short-circuits exactly as before (no metadata
+write, no byte write), while a DANGLING one falls through to `saveAssetData` REUSING the existing
+row's id — no second metadata row, and every `<img data-asset-id>` already placed in a document
+keeps resolving. The mirror follows `assetsRef`'s established shape, because `upload` awaits three
+times before it consults the set and taking `danglingIds` into the callback's deps would hand the
+fan-out call sites a stale callback instead of a stale read. On success the id is cleared from
+`danglingIds` EXPLICITLY through a new pure `commitDangling` writer: the diff effect is keyed on
+`assets`, and a repair writes no metadata, so nothing else would ever take the row's marker off.
+The failure path is unchanged — the metadata row survives, `setError("storageWrite")`, the asset is
+still returned — so a retry that fails again simply stays repairable.
+
+**What pins it.** `use-document-assets.test.tsx`'s "dangling retry (§212)" block: the composed
+detector (fail the byte write, assert dangling, re-upload the SAME file, assert a SECOND
+`saveAssetData` call carrying the ORIGINAL id, one metadata row, and the id gone from
+`danglingIds`), a healthy-duplicate short-circuit so deleting the dedup branch cannot pass, the
+retry-fails-again path, and a gated write proving `busyId` covers the retry. Mutation-proved 3/3:
+dropping `!danglingRef.current.has(...)` from the guard, dropping the explicit clear, and
+unconditionally appending the metadata row each fail with an AssertionError naming the expectation.
+★ Correcting this also exposed a latent fixture defect in the pre-existing "reuses an existing
+asset instead of storing a duplicate" test — its seeded row was DANGLING by construction
+(`loadAssetDataIds` mocked to `[]`) and it passed only because the diff effect's async continuation
+had not landed before the upload read the set; two flushed microtasks turned it red. The fixture
+now reports the row's bytes.
 
 **Symptom.** An upload whose BYTE write fails leaves a metadata row marked dangling in the asset
 library (the intended, designed outcome). The user re-uploads the same image to fix it. Nothing
@@ -13596,11 +13621,53 @@ rounds: the module header, the `catch` block ("repaired by re-uploading over the
 trailing `return asset` note all describe the repair as working. Corrected in place — a comment
 documenting an unreachable path is worse than none, because the next reader stops looking.
 
-**What no test catches.** `use-document-assets.test.tsx` has a dangling case and a dedup case; they
-pass independently and nothing composes them. The minimal detector uploads, fails the byte write,
-then uploads THE SAME FILE again and asserts a second `saveAssetData` call.
+**What no test caught (until this fix).** `use-document-assets.test.tsx` had a dangling case and a
+dedup case; they passed independently and nothing composed them. The minimal detector uploads, fails
+the byte write, then uploads THE SAME FILE again and asserts a second `saveAssetData` call — that is
+now the first test of the "dangling retry (§212)" block described above.
 
-**Options, none taken yet.** (a) Pass `danglingIds` into the dedup check so a dangling hit falls
+**Options as they stood; (a) is what shipped.** (a) Pass `danglingIds` into the dedup check so a dangling hit falls
 through to the byte write, reusing the existing id — which repairs the placement too, since the id
 does not change. (b) A per-row Retry control in the asset library calling `saveAssetData` directly.
 (a) is the smaller change and covers the paste/drop path as well, which has no UI to hang (b) on.
+
+## 213. A late-landing dangling diff can overwrite a healthy asset back to dangling
+
+**Status:** open — pre-existing, surfaced (not caused) by the §212 work, and NOT closed by it.
+
+**Symptom.** A FRESH upload succeeds — bytes written, no error — and the asset library still
+shows the row marked dangling, permanently. Nothing the user can do from the library clears it;
+only an unrelated edit that changes the `assets` array re-runs the diff and repairs the display.
+The bytes are fine throughout, so this is a disclosure defect, not data loss.
+
+**Mechanism.** Two async paths race, and the loser wins. `upload` commits the metadata row
+BEFORE writing the bytes (the deliberate ordering §212 and the file header describe), so the
+`assets` change immediately re-fires the dangling-diff effect while `saveAssetData` is still in
+flight — measured at ~1.8s for a 5 MB image by the comment on `busyId`. That diff calls
+`loadAssetDataIds`, which correctly reports the new id as absent. Then:
+
+```
+load resolves, then save resolves  -> marked dangling, then cleared   OK
+save resolves, then load resolves  -> cleared (no-op), then RE-MARKED  stuck
+```
+
+★★ **The clear cannot defend itself, because the diff REPLACES the whole set.** The effect
+builds a fresh `next` from `assets` minus `present` and calls
+`setDanglingIds((prev) => setsEqual(prev, next) ? prev : next)` — `prev` is consulted only to
+avoid a needless re-render, never merged. So a late continuation discards the clear entirely
+rather than reconciling with it, and the effect deps are `[config, projectId, assets]`, none of
+which change again on a successful upload. Nothing re-runs it.
+
+**Why §212 neither caused nor closed it.** Before that fix there was no clear at all, so this
+window already existed and was simply never named. The §212 REPAIR path is immune by
+construction — a retry writes no metadata, so `assets` does not change and the effect never
+re-arms — which is why its tests are green and say nothing about this.
+
+**Candidate fix.** Have the effect ignore ids this session is known to have written: a
+`wroteBytesRef` populated on a successful `saveAssetData` and subtracted from `next` before the
+set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
+`use-document-assets.ts` claims otherwise.
+
+★ A test needs to control the resolution ORDER of `loadAssetDataIds` and `saveAssetData`
+independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
+whichever order the harness happens to produce, which is the shape that let this go unnoticed.

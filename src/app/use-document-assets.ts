@@ -14,14 +14,16 @@
 // byte-write failure — no rollback — because that row is what makes the
 // failure visible at all.
 //
-// ★★★ IT IS NOT YET REPAIRABLE, AND THIS COMMENT SAID IT WAS. Three separate
-// notes in this file described the fix as "re-upload over the same id"; the
-// dedup short-circuit in `upload` makes that unreachable — the dangling row
-// carries the hash of exactly those bytes, so `findDuplicate` matches it and
-// returns before any byte write is attempted. Deterministic for any image at
-// or under the downscale target, since those bytes are stored verbatim.
-// `docs/open-followups.md` §212 carries the mechanism and the two candidate
-// fixes. Do not re-assert the repair here until one of them lands.
+// ★★★ THE DANGLING ROW IS REPAIRED BY RE-UPLOADING THE SAME IMAGE, AND THAT
+// ONLY BECAME TRUE IN THIS RELEASE (§212, candidate (a) — CLOSED). Three
+// earlier notes in this file asserted the repair while the dedup short-circuit
+// in `upload` made it unreachable: the dangling row carries the hash of exactly
+// those bytes, so `findDuplicate` matched it and returned before any byte write
+// was attempted. `upload` now consults `danglingRef` alongside the hash — a
+// HEALTHY duplicate still short-circuits, a DANGLING one falls through to the
+// byte write REUSING its id, so every `<img data-asset-id>` already placed in a
+// document keeps resolving. Pinned by use-document-assets.test.tsx's "dangling
+// retry (§212)" block; do not narrow that guard back to the hash alone.
 //
 // ★★ `busyId` is set only around the byte write (~1.8s measured for a 5MB
 // image) — the visible-latency step, not the whole call. `AssetLibrary`
@@ -170,6 +172,30 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     [setAssets],
   );
 
+  // ★★ A MIRROR OF `danglingIds`, for the same reason `assetsRef` mirrors the
+  // list: `upload` awaits three times before it consults the set, so the
+  // render-scope value it closed over is already history. Taking `danglingIds`
+  // into `upload`'s dep list instead would mint a NEW `upload` on every diff
+  // while the fan-out call sites still hold the one they captured — trading a
+  // stale read for a stale callback.
+  const danglingRef = useRef<ReadonlySet<string>>(danglingIds);
+  useEffect(() => {
+    danglingRef.current = danglingIds;
+  }, [danglingIds]);
+
+  /** The only writer of `setDanglingIds` outside the diff effect below, and the
+   *  same shape as `commitAssets`: `fn` MUST BE PURE — it runs once against the
+   *  mirror and once in the state updater, which React double-invokes under
+   *  StrictMode. Returning `prev` unchanged is what keeps a no-op clear from
+   *  re-rendering. */
+  const commitDangling = useCallback(
+    (fn: (prev: ReadonlySet<string>) => ReadonlySet<string>) => {
+      danglingRef.current = fn(danglingRef.current);
+      setDanglingIds(fn);
+    },
+    [],
+  );
+
   // ★★★ `react-hooks/set-state-in-effect` is BANNED and fatal. The diff runs
   // in the effect's ASYNC CONTINUATION, never synchronously in the effect
   // body — mirrors use-comm-templates.ts's load effect. `cancelled` guards
@@ -217,20 +243,23 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     // closure here is what makes two identical files pasted at once mint two
     // rows for one image.
     const duplicate = findDuplicate(assetsRef.current, hash);
-    if (duplicate) {
-      // Reuse — no metadata write, no byte write.
-      // ★★★ THIS ALSO SWALLOWS THE RETRY OF A DANGLING ROW (§212): the match is
-      // on hash alone and knows nothing about `danglingIds`, so re-uploading a
-      // failed asset returns here instead of writing the bytes. Passing
-      // `danglingIds` in so a dangling hit falls through — reusing the id, which
-      // keeps existing `<img data-asset-id>` placements working — is candidate
-      // (a) in that entry. Anything changing this branch should read it first.
+    // ★★★ THE DANGLING CONDITION IS LOAD-BEARING (§212). `findDuplicate` matches
+    // on hash alone, and a dangling row carries the hash of exactly the bytes
+    // whose write failed — so on the hash alone this branch swallowed the retry
+    // of every asset it was supposed to make repairable. A HEALTHY duplicate
+    // still returns here with no metadata write and no byte write; a DANGLING
+    // one falls through to the byte write below.
+    if (duplicate && !danglingRef.current.has(duplicate.id)) {
       return duplicate;
     }
 
-    const id = crypto.randomUUID();
-    const asset: DocumentAsset = {
-      id,
+    // The dangling duplicate IS the retry target. Its metadata row already
+    // exists, so nothing may be appended, and its id must not change: a fresh
+    // id would repair the library while orphaning every `<img data-asset-id>`
+    // already placed in a document.
+    const retryOf = duplicate;
+    const asset: DocumentAsset = retryOf ?? {
+      id: crypto.randomUUID(),
       name: file.name,
       mime: processed.image.mime,
       size: processed.image.bytes.length,
@@ -244,14 +273,27 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     // byte write below without re-running the mutation check that pins it
     // (use-document-assets.test.ts, "commits the metadata row BEFORE writing
     // the bytes").
-    commitAssets((prev) => [...prev, asset]);
+    if (!retryOf) commitAssets((prev) => [...prev, asset]);
 
-    setBusyId(id);
+    setBusyId(asset.id);
     try {
-      await saveAssetData(config, { id, projectId, data: bytesToBase64(processed.image.bytes) });
+      await saveAssetData(config, { id: asset.id, projectId, data: bytesToBase64(processed.image.bytes) });
+      // ★★★ CLEAR THE ID EXPLICITLY — NOTHING ELSE WILL. The diff effect that
+      // builds `danglingIds` is keyed on `assets`, and a repair writes NO
+      // metadata, so a successful retry leaves that effect dormant and the row
+      // marked dangling for bytes that now exist. (A set-state in an effect
+      // BODY is a fatal lint error here; this is an async continuation of a
+      // callback, which is fine.)
+      commitDangling((prev) => {
+        if (!prev.has(asset.id)) return prev;
+        const next = new Set(prev);
+        next.delete(asset.id);
+        return next;
+      });
     } catch {
-      // The metadata row stays — that IS the dangling case: visible and
-      // self-describing. NOT repairable in place today (§212).
+      // The metadata row stays — that IS the dangling case: visible,
+      // self-describing, and repairable by re-uploading the same image, which
+      // now lands back on this same id (see the dedup branch above).
       setError("storageWrite");
     } finally {
       setBusyId(null);
@@ -259,10 +301,10 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     // ★ Returned even after a failed byte write, deliberately: the row exists
     // and the library marks it dangling. Returning null instead would silently
     // drop a paste/drop insert while the row it refers to is sitting right
-    // there in the library. ★★ This is NOT a claim that the asset can be
-    // repaired — see the header and §212.
+    // there in the library. ★ On a retry this is the EXISTING row, id and all,
+    // so a caller re-inserting it points at the placement it already had.
     return asset;
-  }, [commitAssets, config, projectId]);
+  }, [commitAssets, commitDangling, config, projectId]);
 
   const rename = useCallback((id: string, name: string) => {
     if (!assetsRef.current.some((a) => a.id === id)) return;

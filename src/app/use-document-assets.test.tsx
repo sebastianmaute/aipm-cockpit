@@ -107,6 +107,13 @@ describe("useDocumentAssets — write order", () => {
   });
 
   it("reuses an existing asset instead of storing a duplicate", async () => {
+    // ★★ `loadAssetDataIds` must report a1's BYTES, or the diff effect marks the
+    //    seeded row DANGLING and the upload becomes a §212 repair — which writes
+    //    bytes and fails the assertion below. Measured, not reasoned: with the
+    //    default `[]` this test passed only because the effect's async
+    //    continuation had not landed by the time `upload` read the set; two
+    //    flushed microtasks before the upload turned it red.
+    vi.mocked(loadAssetDataIds).mockResolvedValue(["a1"]);
     const existing: DocumentAsset[] = [
       { id: "a1", name: "x.png", mime: "image/png", size: 3, hash: await knownHash(), createdAt: "" },
     ];
@@ -156,6 +163,114 @@ describe("useDocumentAssets — write order", () => {
     renderHook(() => useDocumentAssets({ config: null, assets, setAssets: vi.fn(), projectId: "p1" }));
     await Promise.resolve();
     expect(loadAssetDataIds).not.toHaveBeenCalled();
+  });
+});
+
+// ★★★ §212 — A DANGLING ROW MUST BE REPAIRABLE BY RE-UPLOADING THE SAME IMAGE.
+// The two halves of this already existed and passed independently: a dangling
+// case and a dedup case. Nothing ever uploaded the same file TWICE, which is
+// the only shape that reaches the defect — `findDuplicate` matches on hash
+// alone, so the failed row swallowed its own retry and the recovery path three
+// comments in the hook described did not exist.
+describe("useDocumentAssets — dangling retry (§212)", () => {
+  it("re-writes the bytes over the SAME id when a dangling row is re-uploaded", async () => {
+    vi.mocked(saveAssetData).mockRejectedValueOnce(new Error("network"));
+
+    const { result } = renderHook(() => useAssetsHost([]));
+    let first: DocumentAsset | null = null;
+    await act(async () => { first = await result.current.upload(pngFile("chart.png")); });
+
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
+    expect(saveAssetData).toHaveBeenCalledTimes(1);
+    expect(result.current.error).toBe("storageWrite");
+
+    let second: DocumentAsset | null = null;
+    await act(async () => { second = await result.current.upload(pngFile("chart.png")); });
+
+    // The retry writes the bytes AGAIN, under the id that is already placed in
+    // whatever documents reference it — a fresh id would repair the library
+    // and orphan every `<img data-asset-id>`.
+    expect(saveAssetData).toHaveBeenCalledTimes(2);
+    expect(saveAssetData).toHaveBeenLastCalledWith(
+      config, expect.objectContaining({ id: first!.id, projectId: "p1" }),
+    );
+    expect(result.current.assets).toHaveLength(1);
+    expect(result.current.assets[0]!.id).toBe(first!.id);
+    expect(second!.id).toBe(first!.id);
+    expect(result.current.error).toBeNull();
+
+    // ★★★ `loadAssetDataIds` deliberately still returns [] here. The effect
+    //     that builds `danglingIds` is keyed on `assets`, and a successful
+    //     repair writes NO metadata — so it never runs again, and nothing but
+    //     an explicit clear in the success path can take this id back out.
+    //     Re-mocking the store would let a re-diff pass this for the hook.
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(false));
+
+    // ...and the row is a healthy duplicate again, so a THIRD upload of the
+    // same image short-circuits. A second observable for the same clear.
+    await act(async () => { await result.current.upload(pngFile("chart.png")); });
+    expect(saveAssetData).toHaveBeenCalledTimes(2);
+  });
+
+  it("still short-circuits a HEALTHY duplicate without touching the byte store", async () => {
+    // ★ Without this, a "fix" that simply deletes the dedup branch — writing
+    //   the bytes of every re-uploaded image over the existing row — passes
+    //   the test above.
+    vi.mocked(loadAssetDataIds).mockResolvedValue(["a1"]);
+    const existing: DocumentAsset[] = [
+      { id: "a1", name: "x.png", mime: "image/png", size: 24, hash: await knownHash(), createdAt: "" },
+    ];
+    const { result } = renderHook(() => useAssetsHost(existing));
+    await waitFor(() => expect(loadAssetDataIds).toHaveBeenCalled());
+
+    let returned: DocumentAsset | null = null;
+    await act(async () => { returned = await result.current.upload(pngFile()); });
+
+    expect(saveAssetData).not.toHaveBeenCalled();
+    expect(result.current.assets).toHaveLength(1);
+    expect(returned!.id).toBe("a1");
+  });
+
+  it("leaves the row dangling and reports the error when the retry fails too", async () => {
+    vi.mocked(saveAssetData).mockRejectedValue(new Error("network"));
+
+    const { result } = renderHook(() => useAssetsHost([]));
+    let first: DocumentAsset | null = null;
+    await act(async () => { first = await result.current.upload(pngFile("chart.png")); });
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
+
+    await act(async () => { await result.current.upload(pngFile("chart.png")); });
+
+    expect(saveAssetData).toHaveBeenCalledTimes(2);
+    expect(result.current.assets).toHaveLength(1);
+    expect(result.current.error).toBe("storageWrite");
+    expect(result.current.danglingIds.has(first!.id)).toBe(true);
+  });
+
+  it("marks the row busy for the retry write, exactly as for a first write", async () => {
+    vi.mocked(saveAssetData).mockRejectedValueOnce(new Error("network"));
+
+    const { result } = renderHook(() => useAssetsHost([]));
+    let first: DocumentAsset | null = null;
+    await act(async () => { first = await result.current.upload(pngFile("chart.png")); });
+    await waitFor(() => expect(result.current.danglingIds.has(first!.id)).toBe(true));
+    expect(result.current.busyId).toBeNull();
+
+    // ★ A gate, not a resolved promise: `busyId` is set and cleared around the
+    //   byte write with no render in between, so the only way to observe it is
+    //   to hold the write open.
+    let release!: () => void;
+    vi.mocked(saveAssetData).mockImplementationOnce(
+      () => new Promise<void>((resolve) => { release = resolve; }),
+    );
+
+    let pending!: Promise<DocumentAsset | null>;
+    act(() => { pending = result.current.upload(pngFile("chart.png")); });
+    await waitFor(() => expect(saveAssetData).toHaveBeenCalledTimes(2));
+
+    expect(result.current.busyId).toBe(first!.id);
+    await act(async () => { release(); await pending; });
+    expect(result.current.busyId).toBeNull();
   });
 });
 
