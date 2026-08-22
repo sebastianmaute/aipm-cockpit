@@ -12,7 +12,14 @@
 // a `toContain("&amp;")` assertion would happily pass double-escaped text.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentPptx, segmentIntoSlides, paginateLines } from "./doc-render-pptx";
+import {
+  renderDocumentPptx,
+  segmentIntoSlides,
+  paginateLines,
+  lineCost,
+  canEmbedPptxAsset,
+  type SlideLine,
+} from "./doc-render-pptx";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import {
@@ -30,6 +37,9 @@ import type { Workspace } from "./workspace";
 import type { RunMark } from "./rich-text-runs";
 import type { DocumentAsset } from "./document-asset";
 import { t } from "./i18n";
+import { unzipBytes, partText } from "../test/unzip-bytes";
+import { base64ToBytes } from "./document-asset-upload";
+import type { ExportAssets } from "./document-export-assets";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -1153,5 +1163,255 @@ describe("renderDocumentPptx — S3c-1 image placeholders", () => {
     const xml = await onlyContentSlideWithWs('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
     expect(xml).not.toContain("<img");
     expect(xml).not.toContain("data-asset-id");
+  });
+});
+
+// ─── S3c-2: image lines, cost-based pagination, placed pictures ──────────────
+//
+// ★★ The placement assertions resolve the WHOLE reference chain — slide XML →
+// r:embed → THAT slide's own _rels → Target → the media part's bytes. An
+// assertion on any single link passes while a slide points at another slide's
+// image, and nothing else in this repo can see that: there is no .pptx byte
+// fixture, and export-ooxml.test.ts reads part PRESENCE and slide-XML
+// SUBSTRINGS only.
+
+describe("cost-based paginateLines", () => {
+  /** One body line in EMU, spelled out rather than imported from the module
+   *  under test — an expectation derived from the constant it is checking
+   *  asserts nothing. 14pt body (BODY_SIZE 1400 hundredths) × 1.2 spacing ×
+   *  12700 EMU per point. */
+  const ONE_LINE_EMU = (1400 / 100) * 1.2 * 12700;
+
+  const img = (heightEmu: number): SlideLine => ({
+    kind: "image",
+    id: "a1",
+    cxEmu: 100,
+    cyEmu: heightEmu,
+  });
+
+  it("still costs a text line as one", () => {
+    expect(lineCost("hello")).toBe(1);
+    expect(lineCost("")).toBe(1);
+  });
+
+  it("costs an image by its height in line-heights", () => {
+    expect(lineCost(img(ONE_LINE_EMU))).toBe(1);
+    expect(lineCost(img(ONE_LINE_EMU * 2.1))).toBe(3);
+    // A picture shorter than a line still occupies one.
+    expect(lineCost(img(1))).toBe(1);
+  });
+
+  it("breaks the slide when an image no longer fits", () => {
+    // Budget 4: three text lines, then an image costing 2 — the image moves on.
+    const chunks = paginateLines(["a", "b", "c", img(ONE_LINE_EMU * 2)], 4);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toEqual(["a", "b", "c"]);
+    expect(chunks[1]).toHaveLength(1);
+  });
+
+  it("puts an over-budget image on a slide of its own instead of looping", () => {
+    // ★ 500 line-heights is far taller than the body box, i.e. a line
+    // `slideLines` cannot produce — deliberately so, because it proves the walk
+    // terminates on its own rather than leaning on the cap to stay honest.
+    const chunks = paginateLines([img(ONE_LINE_EMU * 500), "after"], 4);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.flat()).toHaveLength(2);
+  });
+
+  it("never drops an image at a chunk boundary the way it drops a blank", () => {
+    const image = img(ONE_LINE_EMU);
+    const chunks = paginateLines(["a", "b", image], 2);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.flat()).toHaveLength(3);
+    expect(chunks[1][0]).toEqual(image);
+  });
+
+  it("keeps the existing text-only behaviour exactly", () => {
+    expect(paginateLines(["a", "b", "c"], 2)).toEqual([["a", "b"], ["c"]]);
+    expect(paginateLines([], 2)).toEqual([[]]);
+  });
+});
+
+describe("renderDocumentPptx — S3c-2 placed pictures", () => {
+  /** An 8-byte PNG header, plus a DIFFERENT 8 bytes. Two payloads, so a slide
+   *  showing the wrong image fails as a byte mismatch rather than merely as a
+   *  path count. */
+  const PNG_B64 = "iVBORw0KGgo=";
+  const OTHER_B64 = "AAECAwQFBgc=";
+
+  /** ★ `hash` is REQUIRED on `DocumentAsset`; `width`/`height` are the optional
+   *  pair the extent needs, so a fixture omitting them is the declined case. */
+  const sized = (over: Partial<DocumentAsset> = {}): DocumentAsset => ({
+    id: "a1",
+    name: "chart.png",
+    mime: "image/png",
+    size: 8,
+    width: 480,
+    height: 240,
+    hash: "h",
+    createdAt: "2026-08-06T00:00:00.000Z",
+    ...over,
+  });
+
+  const wsWith = (...list: DocumentAsset[]): Workspace =>
+    ({ tasks: [], raid: [], documentAssets: list }) as unknown as Workspace;
+
+  const inlined = (map: Record<string, string>): ExportAssets => ({
+    inlined: map,
+    omitted: new Set(),
+    missing: new Set(),
+  });
+
+  const para = (html: string): DocBlock => ({ type: "paragraph", html });
+
+  const zipOf = (
+    blocks: DocBlock[], w: Workspace, assets: ExportAssets,
+  ): Promise<Map<string, Uint8Array>> =>
+    unzipBytes(renderDocumentPptx(doc(blocks), w, "en-US", assets));
+
+  const mediaPaths = (zip: Map<string, Uint8Array>): string[] =>
+    [...zip.keys()].filter((path) => path.startsWith("ppt/media/")).sort();
+
+  /** The y of every `<p:pic>` on a slide, in document order. ★ Matched from the
+   *  `<p:pic>` open tag, because the background rect, the accent bar and every
+   *  text box emit a byte-identical `<a:off …/>` of their own. */
+  const pictureYs = (xml: string): number[] =>
+    [...xml.matchAll(/<p:pic>[\s\S]*?<a:off x="\d+" y="(\d+)"/g)].map((m) => Number(m[1]));
+
+  /** Every picture slide `n` shows, resolved through THAT slide's own rels. */
+  function slidePictures(
+    zip: Map<string, Uint8Array>, n: number,
+  ): { relId: string; path: string; bytes: number[] }[] {
+    const xml = partText(zip, `ppt/slides/slide${n}.xml`);
+    const rels = partText(zip, `ppt/slides/_rels/slide${n}.xml.rels`);
+    return [...xml.matchAll(/<a:blip r:embed="(rId\d+)"\/>/g)].map((m) => {
+      const relId = m[1];
+      const target = new RegExp(`Id="${relId}"[^>]*Target="\\.\\./media/([^"]+)"`).exec(rels);
+      if (!target) throw new Error(`slide${n} embeds ${relId}, which its own rels never declare`);
+      const path = `ppt/media/${target[1]}`;
+      const bytes = zip.get(path);
+      if (!bytes) throw new Error(`slide${n} resolves ${relId} to ${path}, absent from the package`);
+      return { relId, path, bytes: Array.from(bytes) };
+    });
+  }
+
+  it("places a picture below the body text and embeds its bytes", async () => {
+    const zip = await zipOf(
+      [para('<p>intro<img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+
+    // Slide 2 is the first CONTENT slide — slide 1 is the deck's title slide.
+    const pics = slidePictures(zip, 2);
+    expect(pics).toHaveLength(1);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    // BODY_BOX.yEmu 1188720 + ONE body line of 213360 EMU: the paragraph's
+    // "intro" is the only text line, and the picture goes UNDER it.
+    expect(pictureYs(xml)).toEqual([1402080]);
+    // 480×240 CSS px at 96 dpi, inside the body box unscaled.
+    expect(xml).toContain('<a:ext cx="4572000" cy="2286000"/>');
+  });
+
+  it("takes the picture's alt text from the asset name, escaped", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized({ name: 'Q3 & "roadmap" <final>.png' })),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(xml).toContain('descr="Q3 &amp; &quot;roadmap&quot; &lt;final&gt;.png"');
+    expect(() => parseXml(xml)).not.toThrow();
+  });
+
+  it("keeps the placeholder for an omitted asset and writes no media part", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+    );
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");
+  });
+
+  it("keeps the placeholder for an inlined asset with no stored dimensions", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized({ width: undefined, height: undefined })),
+      inlined({ a1: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");
+  });
+
+  it("numbers media parts DECK-WIDE while every slide's relationship ids restart at rId2", async () => {
+    const zip = await zipOf(
+      [
+        para('<p><img data-asset-id="a1"></p>'),
+        { type: "pageBreak" },
+        para('<p><img data-asset-id="a2"></p>'),
+      ],
+      wsWith(sized(), sized({ id: "a2", name: "second.png" })),
+      inlined({ a1: PNG_B64, a2: OTHER_B64 }),
+    );
+    // Deck-wide: ppt/media/ is ONE directory shared by every slide, so two
+    // pictures on two slides must still take two distinct part names.
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png", "ppt/media/image2.png"]);
+
+    const first = slidePictures(zip, 2);
+    const second = slidePictures(zip, 3);
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    // Per-slide: rId1 is the slide LAYOUT on every slide, so both start at rId2.
+    expect(first[0].relId).toBe("rId2");
+    expect(second[0].relId).toBe("rId2");
+    // …and each slide resolves to ITS OWN bytes. Swapping the two numbering
+    // rules yields valid XML carrying the wrong image here, which is the whole
+    // reason this test compares payloads and not counts.
+    expect(first[0].path).not.toBe(second[0].path);
+    expect(first[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    expect(second[0].bytes).toEqual(Array.from(base64ToBytes(OTHER_B64)));
+  });
+
+  it("gives two pictures on ONE slide distinct parts, distinct rels and stacked positions", async () => {
+    const small = { width: 96, height: 48 };
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><p><img data-asset-id="a2"></p>')],
+      wsWith(sized(small), sized({ id: "a2", name: "second.png", ...small })),
+      inlined({ a1: PNG_B64, a2: OTHER_B64 }),
+    );
+    const pics = slidePictures(zip, 2);
+    expect(pics.map((p) => p.relId)).toEqual(["rId2", "rId3"]);
+    expect(pics.map((p) => p.path)).toEqual(["ppt/media/image1.png", "ppt/media/image2.png"]);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    expect(pics[1].bytes).toEqual(Array.from(base64ToBytes(OTHER_B64)));
+
+    // 96px = 914400 EMU wide, 48px = 457200 EMU tall; the second sits exactly
+    // one picture-height below the first rather than on top of it.
+    const ys = pictureYs(partText(zip, "ppt/slides/slide2.xml"));
+    expect(ys).toEqual([1188720, 1188720 + 457200]);
+  });
+
+  it("leaves an image-free document's package untouched by the new parameter", async () => {
+    const zip = await zipOf([para("<p>plain</p>")], wsWith(sized()), inlined({ a1: PNG_B64 }));
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/_rels/slide2.xml.rels")).not.toContain("rId2");
+  });
+
+  describe("canEmbedPptxAsset", () => {
+    it("declines an absent row, a mime outside the allow-list and a dimensionless asset", () => {
+      expect(canEmbedPptxAsset(undefined)).toBe(false);
+      expect(canEmbedPptxAsset(sized({ mime: "image/svg+xml" }))).toBe(false);
+      expect(canEmbedPptxAsset(sized({ width: undefined }))).toBe(false);
+      expect(canEmbedPptxAsset(sized({ height: 0 }))).toBe(false);
+    });
+
+    it("accepts a sized asset in an allowed mime", () => {
+      expect(canEmbedPptxAsset(sized())).toBe(true);
+      expect(canEmbedPptxAsset(sized({ mime: "image/jpeg" }))).toBe(true);
+    });
   });
 });
