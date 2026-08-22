@@ -15,7 +15,7 @@
 // eval, so an import is still harmless — but do not call the rich path from a
 // node script, and never move a rich-text PARSE into export-sections.ts.
 import { type ZipEntry, buildZip } from "./zip";
-import { contentTypeFor, type MediaPart } from "./ooxml-media";
+import { contentTypeFor, type Extent, type MediaPart } from "./ooxml-media";
 import {
   COLOR_DARK_BLUE,
   COLOR_LIGHT_GREY,
@@ -623,4 +623,47 @@ export function buildDocxPackage(
     entries,
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   );
+}
+
+/** One embedded image as an inline drawing, ready to sit inside a `<w:r>`.
+ *
+ *  ★ `descr` is what Word exposes as alt text, so the asset's name goes there
+ *  rather than being dropped — an image with no alternative text is a WCAG
+ *  1.1.1 failure in the exported document, and nothing downstream can add it.
+ *
+ *  ★★ `name` and `descr` are both escaped. `name` is derived from the asset id
+ *  (a UUID) and is safe today, but an XML attribute assembled by
+ *  interpolation is exactly the shape that stops being safe when someone later
+ *  passes the user-supplied asset name. */
+export function docxInlineDrawing(opts: {
+  relId: string;
+  /** Unique within the document — Word tolerates duplicates, Pages does not. */
+  id: number;
+  name: string;
+  descr: string;
+  extent: Extent;
+}): string {
+  const { relId, id, name, descr, extent } = opts;
+  return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+  <wp:extent cx="${extent.cxEmu}" cy="${extent.cyEmu}"/>
+  <wp:docPr id="${id}" name="${xmlEscape(name)}" descr="${xmlEscape(descr)}"/>
+  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+      <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+        <pic:nvPicPr>
+          <pic:cNvPr id="${id}" name="${xmlEscape(name)}" descr="${xmlEscape(descr)}"/>
+          <pic:cNvPicPr/>
+        </pic:nvPicPr>
+        <pic:blipFill>
+          <a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </pic:blipFill>
+        <pic:spPr>
+          <a:xfrm><a:off x="0" y="0"/><a:ext cx="${extent.cxEmu}" cy="${extent.cyEmu}"/></a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </pic:spPr>
+      </pic:pic>
+    </a:graphicData>
+  </a:graphic>
+</wp:inline></w:drawing>`;
 }

@@ -22,7 +22,12 @@
 // appearing in a style name or in a user's prose.
 
 import { describe, it, expect } from "vitest";
-import { buildDocxPackage, buildDocxTable, docxContentWidth } from "./ooxml-docx-primitives";
+import {
+  buildDocxPackage,
+  buildDocxTable,
+  docxContentWidth,
+  docxInlineDrawing,
+} from "./ooxml-docx-primitives";
 import { buildDocx } from "./export-docx";
 import type { ExportSection } from "./export-sections";
 import { readZipEntries } from "./unzip";
@@ -332,5 +337,56 @@ describe("buildDocxPackage media parts", () => {
     expect(() =>
       buildDocxPackage("<w:p/>", "", "portrait", [{ ...png, relId: "rId1" }]),
     ).toThrow(/rId1/);
+  });
+});
+
+describe("docxInlineDrawing", () => {
+  it("embeds by relationship id and sizes in EMU", () => {
+    const xml = docxInlineDrawing({
+      relId: "rId2",
+      id: 7,
+      name: "image1.png",
+      descr: "A chart",
+      // ★ cx and cy are DELIBERATELY different, and both lines are asserted
+      // separately: Word reads the size from BOTH <wp:extent> and <a:ext>, and
+      // a disagreement between them is a real corruption. Equal values would
+      // let either line be transposed with this test still green.
+      extent: { cxEmu: 914400, cyEmu: 457200 },
+    });
+    expect(xml).toContain(`r:embed="rId2"`);
+    expect(xml).toContain(`<wp:extent cx="914400" cy="457200"/>`);
+    expect(xml).toContain(`<a:ext cx="914400" cy="457200"/>`);
+  });
+
+  it("escapes the description, which is user-supplied", () => {
+    const xml = docxInlineDrawing({
+      relId: "rId2",
+      id: 7,
+      name: "image1.png",
+      descr: `a "&" <b>`,
+      extent: { cxEmu: 1, cyEmu: 1 },
+    });
+    expect(xml).toContain("&amp;");
+    expect(xml).not.toContain(`<b>`);
+  });
+
+  // ★★ `descr` lands inside an XML ATTRIBUTE, so a bare double quote closes it
+  // early and corrupts the package — a failure the &amp;/<b> test above cannot
+  // see, because neither character it checks is the one that breaks an
+  // attribute. Assert on the attribute VALUE, not on the whole blob: the
+  // document is full of legitimate quotes.
+  it("escapes a double quote inside the descr attribute", () => {
+    const xml = docxInlineDrawing({
+      relId: "rId2",
+      id: 7,
+      name: "image1.png",
+      descr: `say "hi"`,
+      extent: { cxEmu: 1, cyEmu: 1 },
+    });
+    const values = [...xml.matchAll(/descr="([^"]*)"/g)].map((m) => m[1]);
+    expect(values).toHaveLength(2);
+    for (const value of values) {
+      expect(value).toBe("say &quot;hi&quot;");
+    }
   });
 });
