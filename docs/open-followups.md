@@ -13659,9 +13659,43 @@ rather than reconciling with it, and the effect deps are `[config, projectId, as
 which change again on a successful upload. Nothing re-runs it.
 
 **Why §212 neither caused nor closed it.** Before that fix there was no clear at all, so this
-window already existed and was simply never named. The §212 REPAIR path is immune by
-construction — a retry writes no metadata, so `assets` does not change and the effect never
-re-arms — which is why its tests are green and say nothing about this.
+window already existed and was simply never named.
+
+★★★ **THE §212 REPAIR PATH IS NOT "IMMUNE BY CONSTRUCTION", AND THIS ENTRY SAID IT WAS.** The
+sentence that stood here — "a retry writes no metadata, so `assets` does not change and the effect
+never re-arms" — is true only of a diff that would have to be armed AFTER the repair. It says
+nothing about one already IN FLIGHT, which is the entire failure mode this entry is about, so it
+claimed immunity from the very race it describes. Refuted by measurement, not by reading: seed a
+dangling row; arm a diff by ANY unrelated `assets` change and hold its `loadAssetDataIds` open
+(a `rename` in a test — in the app, a sibling upload in the same multi-file drop, or any edit to
+the library); run the repair so it succeeds and clears; then let the held diff resolve. The row is
+re-marked dangling and STAYS that way, because the diff REPLACES the whole set rather than merging
+— the same mechanism as the fresh-upload case above, reached from the other direction. Probed
+against the post-§212 tree with a throwaway spec built exactly that way; it observed
+`danglingIds.has("a1") === true` after the repair had already cleared it, with `loadAssetDataIds`
+called twice and nothing re-arming afterwards.
+
+**Mitigation that the entry lacked.** Post-§212 the stuck state is at least USER-REPAIRABLE, in
+both directions. The row reads dangling, so re-uploading that image falls through the dedup guard
+and re-writes its bytes — which is exactly the §212 repair path, and it clears the marker again.
+The bytes were never at risk; what is stuck is a marker, and the user now has a way to unstick it.
+That is not a fix, and a user who does not know to try it still sees a permanently wrong marker.
+
+**Re-arming the diff after a successful repair is NOT the fix, and this was measured.** It looks
+like one — a dep change runs the previous effect's cleanup, setting `cancelled`, so the stale
+continuation would bail and a fresher diff would supersede it. But `use-document-assets.test.tsx`'s
+§212 test deliberately leaves `loadAssetDataIds` returning `[]` so that the explicit clear is the
+ONLY thing that can un-mark the row, and a re-armed diff re-marks it: adding a repair generation to
+the effect's deps turns "re-writes the bytes over the SAME id when a dangling row is re-uploaded"
+red at its `danglingIds.has(first.id)` assertion. "Fixing" that fixture to report the written bytes
+would let the drop-the-clear mutant survive, i.e. it would trade this open defect for a weaker proof
+of a closed one. Whatever closes §213 has to leave that test's shape intact.
+
+**Not the same defect as the preview blanking, though they were found together.** A separate
+0.254.0 fix makes a successful repair re-resolve `<img data-asset-id>` in `document-preview.tsx`
+(a `notifyAssetRepaired` module store) and stops React re-assigning the preview's `innerHTML` on
+every render. Neither touches `danglingIds`: this entry's marker race is unchanged in either
+direction by that work.
 
 **Candidate fix.** Have the effect ignore ids this session is known to have written: a
 `wroteBytesRef` populated on a successful `saveAssetData` and subtracted from `next` before the

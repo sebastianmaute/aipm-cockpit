@@ -26,8 +26,14 @@ longer carries its own changelog comment.
   metadata row is committed before the bytes, so a failed upload degrades to
   the *dangling* case — a visible, self-describing row — rather than leaving an
   invisible orphan needing a reclaim action. Re-uploading the same image
-  retries the byte write **over the existing id**, so any placement already
-  made in a document starts rendering rather than needing to be re-inserted.
+  retries the byte write **over the existing id**, so an image already placed
+  in a document keeps the reference it had and does not need to be re-inserted.
+  The preview picks the repair up without a reload: a successful repair writes
+  no metadata, so nothing the preview watches changes, and it is told through a
+  small module store instead — bumping the assets array's identity to force the
+  refresh would have marked the whole workspace dirty and written every table.
+  A repaired image also loses its broken-asset marker, which had been left in
+  place on the element.
 - **Upload budget.** 25 MB raw ceiling checked before any decode; a header-only
   8000px dimension guard against decompression bombs; downscale to 1920x1080; a
   5 MB stored cap applied *after* downscale; 20 images per document enforced at
@@ -63,6 +69,17 @@ longer carries its own changelog comment.
 - The preview resolves image ids to **blob object URLs** rather than inlining
   base64, which for ten images would put roughly 67 MB into a single HTML
   string.
+- **Document images stopped rendering a few seconds after a document was
+  opened**, and did not come back until it was re-selected. React 19 compares
+  host props by identity, `dangerouslySetInnerHTML` included, so the preview's
+  inline `{{ __html }}` object made React re-assign `innerHTML` on every
+  re-render even when the HTML was byte-identical — replacing every `<img>` in
+  the pane. The effect that resolves those images to blob URLs correctly did
+  not re-run (nothing it depends on had changed), so the fresh elements were
+  never given a `src` at all. The object is now memoised on the HTML string.
+  Any parent re-render triggered it, so `e2e/documents-images.spec.ts` was
+  passing or failing depending on whether one landed inside its sampling
+  window — it was sampling a race, not flaking.
 - The asset library refuses to open in **Safe Mode** rather than operating on a
   re-partitioned byte store. Safe Mode forces a degraded project id, which would
   make every asset read as dangling and write uploads under a key normal boot
