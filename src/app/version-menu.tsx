@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
-import { InformationCircleIcon } from "@heroicons/react/24/outline";
+import { InformationCircleIcon } from "./icons";
 import { PopoverPanel } from "./popover-panel";
 import { type Lang, t } from "./i18n";
 import { VersionInfo } from "./version-info";

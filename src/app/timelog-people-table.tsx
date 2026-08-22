@@ -9,7 +9,7 @@ import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { INTERACTIVE } from "./interaction-styles";
-import { XMarkIcon } from "@heroicons/react/24/outline";
+import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import type { RowSelection } from "./use-row-selection";
