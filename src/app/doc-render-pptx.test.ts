@@ -668,7 +668,12 @@ describe("renderDocumentPptx — blocks", () => {
         { type: "heading", level: 2, text: "BBB" },
       ]),
     );
-    expect(text.indexOf("AAA")).toBeLessThan(text.indexOf("BBB"));
+    // ★★★ NOT `indexOf(a) < indexOf(b)`: indexOf returns -1 for a MISSING
+    // entry and -1 is less than every real index, so that form stays GREEN when
+    // the first block is dropped outright. Extract the whole ordered list — it
+    // pins presence, order AND the deliberate blank line between two blocks in
+    // one assertion.
+    expect(text).toEqual(["AAA", "", "BBB"]);
   });
 });
 
@@ -1399,6 +1404,74 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     const zip = await zipOf([para("<p>plain</p>")], wsWith(sized()), inlined({ a1: PNG_B64 }));
     expect(mediaPaths(zip)).toEqual([]);
     expect(partText(zip, "ppt/slides/_rels/slide2.xml.rels")).not.toContain("rId2");
+  });
+
+  it("keeps the text on BOTH sides of an embedded image, with no literal markup", async () => {
+    const zip = await zipOf(
+      [para('<p>before<img data-asset-id="a1">after</p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    const texts = textNodes(xml);
+    // ★★★ THE TAIL FRAGMENT IS `after</p>`, whose only `<` opens a CLOSING tag —
+    // which `CONTAINS_TAG` (html-start.ts) deliberately does not match. Without
+    // `asMarkup`'s <div> wrapper it is classified as legacy PLAIN TEXT, escaped,
+    // and a reader sees `after</p>` on the slide. ★★ The failure is TAIL-ONLY
+    // and therefore asymmetric: the head `<p>before` matches the classifier on
+    // its own, so a test that only checks the head passes over the defect.
+    expect(texts).toContain("before");
+    expect(texts).toContain("after");
+    expect(texts.some((line) => line.includes("</p>"))).toBe(false);
+    expect(pictureYs(xml)).toHaveLength(1);
+  });
+
+  it("does not bracket an image-only paragraph with blank body lines", async () => {
+    // The block editor's own shape. Splitting it leaves the fragments `<p>` and
+    // `</p>` — non-blank as STRINGS, empty as PROSE — so a `.trim()` test here
+    // would put a blank line either side of the picture.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(textNodes(xml)).toEqual([]);
+    // No body text box at all: an empty one still emits a stray blank <a:p>.
+    expect(xml).not.toContain('name="Body"');
+    // …so the picture sits at the very top of the body box.
+    expect(pictureYs(xml)).toEqual([1188720]);
+  });
+
+  it("keeps a horizontal rule that follows an image in the same paragraph", async () => {
+    // ★★★ A RULE CARRIES NO TEXT BUT IS CONTENT — `isBlankLine`'s `hr` arm says
+    // so, and this is the one fragment shape where "has visible text" and "emits
+    // a line" disagree. The trailing fragment here strips to "", so a
+    // visible-text gate would DROP the rule; the blank filter in `slideLines`
+    // keeps it, because it asks about the LINES rather than about the markup.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><hr>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(textNodes(xml).join("")).toContain("—");
+    expect(pictureYs(xml)).toHaveLength(1);
+  });
+
+  it("keeps the placeholder for a DECLINED image sharing a paragraph with an embedded one", async () => {
+    // ★★★ The fragment AFTER the embedded image is `<img data-asset-id="a2"></p>`,
+    // which strips to "" — so a gate asked on the RAW markup drops it, and with
+    // it the S3c-1 disclosure that is the reader's only sign the second image
+    // was ever there. Any such gate must be asked AFTER the placeholder pass,
+    // or not at all.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"><img data-asset-id="a2"></p>')],
+      wsWith(sized(), sized({ id: "a2", name: "unsized.png", width: undefined, height: undefined })),
+      inlined({ a1: PNG_B64, a2: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    expect(textNodes(partText(zip, "ppt/slides/slide2.xml")).join("")).toContain("unsized.png");
   });
 
   describe("canEmbedPptxAsset", () => {

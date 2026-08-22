@@ -200,18 +200,6 @@ function withImagePlaceholders(
     htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
 }
 
-/** Whether an HTML fragment carries anything a reader would see.
- *
- *  ★★★ A BARE `.trim()` IS NOT THIS TEST. Splitting `<p><img></p>` around the
- *  tag leaves the fragments `<p>` and `</p>` — non-blank as STRINGS, empty as
- *  PROSE — and an image-only paragraph is precisely what the block editor
- *  inserts, so that is the DOMINANT shape here, not an edge case. The tag strip
- *  is deliberately crude (it stops at the first `>`, even inside a quoted
- *  attribute): over-keeping costs one empty line, under-keeping loses text. */
-function hasVisibleText(html: string): boolean {
-  return html.replace(/<[^>]*>/g, "").trim() !== "";
-}
-
 /** Wrap a split fragment so the rich pipeline still treats it as MARKUP.
  *
  *  ★★★ SPLITTING HTML BREAKS THE `isHtmlStart` PRECONDITION, and the symptom
@@ -221,8 +209,28 @@ function hasVisibleText(html: string): boolean {
  *  read as `b</p>` in PowerPoint. A `<div>` reconciles a fragment unbalanced in
  *  EITHER direction and `htmlToRichLines` emits no line for the wrapper itself.
  *
- *  ★ Only the SPLIT path wraps — an image-free paragraph never reaches here, so
- *  its emitted bytes are unchanged. */
+ *  ★ Only the SPLIT path wraps — an image-free paragraph is handed to the rich
+ *  pipeline whole, so its emitted bytes are unchanged.
+ *
+ *  ★★★ THERE IS DELIBERATELY NO "does this fragment have visible text?" GATE
+ *  HERE, and `doc-render-docx.ts` DOES have one — the asymmetry is real, not an
+ *  omission. Splitting `<p><img></p>` leaves `<p>` and `</p>`, non-blank as
+ *  STRINGS and empty as PROSE, which is the block editor's own dominant shape;
+ *  that renderer needs a gate because nothing downstream of it strips a blank
+ *  paragraph, while HERE `slideLines` already drops every blank line a block
+ *  emits. Measured, not reasoned: neutralising a visible-text gate to `true`
+ *  left all 100 tests green, including the one asserting an image-only
+ *  paragraph adds no body line at all.
+ *
+ *  ★★★ AND A GATE HERE WAS ACTIVELY WRONG TWICE, both caught by test:
+ *  (1) it DROPPED A HORIZONTAL RULE. `isBlankLine`'s `hr` arm says a rule is
+ *  content though it carries no text, so "has visible text" and "emits a line"
+ *  disagree on exactly that fragment — and the markup test loses.
+ *  (2) asked on the RAW fragment, i.e. BEFORE `withImagePlaceholders`, it
+ *  DROPPED THE DISCLOSURE for a DECLINED image sharing a paragraph with an
+ *  embedded one: `<img data-asset-id="a2"></p>` strips to "", so the reader's
+ *  only sign the second image existed was deleted — the S3c-1 defect again.
+ *  Asking about the LINES instead of about the markup is immune to both. */
 function asMarkup(fragment: string): string {
   return `<div>${fragment}</div>`;
 }
@@ -256,14 +264,15 @@ function paragraphLines(html: string, ctx: RenderCtx): SlideLine[] {
     const embed = ctx.assets.inlined[id] ? pptxEmbedFor(ctx.byId.get(id)) : null;
     if (!embed) continue;
     const at = match.index ?? 0;
-    const head = html.slice(cut, at);
-    if (hasVisibleText(head)) out.push(...richLines(asMarkup(head)));
+    // ★ Emitted UNCONDITIONALLY — `slideLines` strips the blank a structural
+    //   fragment yields, and asking about the markup instead loses an `hr` and
+    //   a declined image's placeholder (see `asMarkup`).
+    out.push(...richLines(asMarkup(html.slice(cut, at))));
     out.push({ kind: "image", id, cxEmu: embed.extent.cxEmu, cyEmu: embed.extent.cyEmu });
     cut = at + match[0].length;
   }
   if (out.length === 0) return richLines(html);
-  const tail = html.slice(cut);
-  if (hasVisibleText(tail)) out.push(...richLines(asMarkup(tail)));
+  out.push(...richLines(asMarkup(html.slice(cut))));
   return out;
 }
 
