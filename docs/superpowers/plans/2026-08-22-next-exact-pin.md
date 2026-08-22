@@ -687,7 +687,15 @@ Expected: all four `=0`, and the claims summary still reads **none added**.
 
 - [ ] **Step 3: Record what was deliberately NOT run**
 
-No browser gates: `e2e`, the axe gate, `e2e:visual`, `e2e:smoke:prod`. The installed dependency tree is byte-identical before and after this slice and no runtime code changed, so there is nothing for a browser to observe.
+No browser gates: `e2e`, the axe gate, `e2e:visual`, `e2e:smoke:prod`. The installed dependency tree is byte-identical before and after this slice.
+
+★★★ **"AND NO RUNTIME CODE CHANGED" WAS THE ORIGINAL SECOND HALF OF THAT SENTENCE AND IT IS FALSE.** `src/app/version.ts` is runtime code, and `APP_VERSION_LABEL` is threaded into `ModernShell` (`task-manager.tsx`) and rendered in Settings and the version-info modal. A version bump DOES change what a browser paints. The exemption survives, but only for three reasons that had to be checked one at a time — none of which is "nothing changed":
+
+1. `e2e/a11y.spec.ts`'s version guard imports `APP_VERSION` from source and compares it to the served app's `data-app-version`. Both sides move together, because its job is catching a STALE SERVER, not pinning a literal.
+2. `e2e/visual.spec.ts` (dashboard · gantt · open-points, all of which paint the shell) runs at `maxDiffPixelRatio: 0.01`. A single glyph changing `0` to `1` is orders of magnitude inside that budget.
+3. The ZERO-tolerance baseline — `e2e/icon-gallery.visual.spec.ts`, `maxDiffPixels: 0` — targets `/icon-gallery`, a standalone page that renders no shell and no version string. Verified: its `page.tsx` references neither `ModernShell` nor `APP_VERSION`.
+
+★★ So a future slice must NOT reuse this exemption by analogy. Reason 2 is a BUDGET, not an immunity: a change that repaints more of the shell can exceed 1% while sounding just as harmless as a version bump, and reason 3 holds only while that page stays shell-free.
 
 ★★ This exemption is specific to *this* slice and does not transfer to the 16.3 bump, which changes the framework and needs all of them.
 
