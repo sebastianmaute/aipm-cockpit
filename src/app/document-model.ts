@@ -221,9 +221,28 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
  *   document-rich-fields.ts), so a hand-edited or imported `<IMG DATA-ASSET-ID>`
  *   reaches it verbatim and must not be dropped before it can be normalised.
  *
+ *  ★★★ ALL THREE HTML QUOTING STYLES, FOR THE SAME REASON THE `/i` EXISTS —
+ *   and for a while only the double-quoted one was covered, which made the
+ *   flag's own justification wider than the pattern under it. Whatever writes
+ *   `<IMG DATA-ASSET-ID>` in caps is hand-written or foreign HTML, and that is
+ *   precisely the input class that spells attributes `id='x'` or bare `id=x`;
+ *   both are valid HTML5 and both measure zero visible text, so under the old
+ *   pattern the block was DELETED on load with no error. Erring toward keeping
+ *   costs at worst one stray blank paragraph the user can see and delete;
+ *   erring toward dropping is silent data loss, so the pattern is widened to
+ *   the docstring rather than the docstring narrowed to the pattern.
+ *   ★★ The unquoted branch excludes `"` and `'` (not merely whitespace and
+ *   `>`), so `data-asset-id=""` and `data-asset-id=''` still fail every branch
+ *   and are still dropped — an empty value renders nothing on every surface,
+ *   which is the case the block below deliberately keeps out.
+ *   ★ Still DOM-free: string/regex only. This module must not reach for
+ *   DOMPurify or the allow-list's own predicate (a comment-stripped source
+ *   scan in document-model.test.ts enforces that).
+ *
  *  ★ NOT `/g` — a global regex carries `lastIndex` across `.test` calls and
  *   would drop every other image-only paragraph in a document. */
-const ASSET_IMG_RE = /<img\b[^>]*\bdata-asset-id="[^"]+"/i;
+const ASSET_IMG_RE =
+  /<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
 
 function sanitizeBlock(raw: unknown): DocBlock | null {
   if (!raw || typeof raw !== "object") return null;

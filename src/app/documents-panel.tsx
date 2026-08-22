@@ -709,7 +709,7 @@ export function DocumentsPanel({
         <DocumentsAssetSection lang={lang} assetPane={assetPane}
           documents={documents} structural={structural} selected={selected} isReadOnly={isReadOnly} />
         <DocumentEditModeBody lang={lang} doc={selected} ws={ws} editing={editing} narrow={narrowPane} isReadOnly={isReadOnly} onCommitBlock={commitBlock} structural={structural}
-          assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId ?? "default"} />
+          assetsTursoConfig={assetPane?.tursoConfig ?? null} assetsProjectId={assetPane?.projectId} />
       </div>
 
       <DocumentsHistoryModal

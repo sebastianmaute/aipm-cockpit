@@ -155,6 +155,44 @@ describe("sanitizeProjectDocuments", () => {
     ]);
   });
 
+  it("keeps an image-only paragraph whatever quoting style the attribute uses", () => {
+    // ★★★ REGRESSION: the exemption's own docstring justified its `/i` flag on
+    // "a hand-edited or imported `<IMG DATA-ASSET-ID>`" — but the pattern read
+    // only DOUBLE-quoted values, so the very input class the flag was there to
+    // survive was still deleted on load if it happened to spell the attribute
+    // `id='x'` or bare `id=x`. Both are valid HTML5, both measure zero visible
+    // text, and the drop is silent. Each of these is a SEPARATE alternative in
+    // the pattern, so they are listed one per line rather than folded into one
+    // fixture: a single string would go green again the moment any one branch
+    // survived a mutation.
+    const single = "<p><img data-asset-id='a1B_2-x' alt='Burn-up chart'></p>";
+    const unquoted = "<p><img data-asset-id=a1B_2-x alt=chart></p>";
+    const upperSingle = "<P><IMG DATA-ASSET-ID='a1B_2-x'></P>";
+    const upperUnquoted = "<P><IMG DATA-ASSET-ID=a1B_2-x></P>";
+    // Spaces around `=` are legal too, and `\s*=\s*` is what admits them.
+    const spaced = '<p><img alt="chart" data-asset-id = "a1B_2-x"></p>';
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: single },
+          { type: "paragraph", html: unquoted },
+          { type: "paragraph", html: upperSingle },
+          { type: "paragraph", html: upperUnquoted },
+          { type: "paragraph", html: spaced },
+        ],
+      }),
+    ]);
+    // Shapes, not a count — a count stays green against a mutant that keeps the
+    // wrong subset, which for a five-way alternation is the likely mutant.
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: single },
+      { type: "paragraph", html: unquoted },
+      { type: "paragraph", html: upperSingle },
+      { type: "paragraph", html: upperUnquoted },
+      { type: "paragraph", html: spaced },
+    ]);
+  });
+
   it("still drops a text-free paragraph that references no asset image", () => {
     // The behaviour the exemption must NOT regress. Every entry here projects
     // to no visible text AND can render nothing: the document allow-list gives
@@ -169,6 +207,14 @@ describe("sanitizeProjectDocuments", () => {
           { type: "paragraph", html: "<p><br></p>" },
           { type: "paragraph", html: "<p><img alt='no id'></p>" },
           { type: "paragraph", html: '<p><img data-asset-id=""></p>' },
+          // ★★ The widening to single-quoted and UNQUOTED values must not
+          // swallow the empty ones with it. The unquoted branch therefore
+          // excludes `"` and `'` rather than just whitespace and `>`: with a
+          // bare `[^\s>]+` the two characters of `""` ARE a non-empty unquoted
+          // value and every one of these would be kept.
+          { type: "paragraph", html: "<p><img data-asset-id=''></p>" },
+          { type: "paragraph", html: "<p><img data-asset-id=></p>" },
+          { type: "paragraph", html: "<p><img data-asset-id></p>" },
           { type: "paragraph", html: 9 as never },
           { type: "paragraph", html: '<p><img data-asset-id="kept"></p>' },
         ],

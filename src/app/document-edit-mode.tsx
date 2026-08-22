@@ -23,6 +23,7 @@ import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { DocumentEditor, NARROW_PANE_PX } from "./document-editor";
 import { DocumentPreview } from "./document-preview";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import {
   useDocumentEditor, type UseDocumentEditorDeps, type BlockStructuralOps,
 } from "./use-document-editor";
@@ -70,7 +71,11 @@ export interface DocumentEditModeBodyProps {
   // (null disables) — `DocumentPreview` needs it to resolve
   // `<img data-asset-id>` references to real bytes. Optional: missing here
   // correctly means "no images resolve", not broken.
-  assetsTursoConfig?: TursoConfig | null; assetsProjectId?: string;
+  assetsTursoConfig?: TursoConfig | null;
+  /** The asset byte store's partition key, verbatim from the pane. Optional
+   *  AND allowed to be "" — both are normalised to `ASSET_PARTITION_FALLBACK`
+   *  below, never to a literal here. See that constant's docstring. */
+  assetsProjectId?: string;
 }
 
 /** Preview by default; the block editor once toggled on. Popout mirrors stay
@@ -86,7 +91,7 @@ export function DocumentEditModeBody({
   onCommitBlock,
   structural,
   assetsTursoConfig = null,
-  assetsProjectId = "default",
+  assetsProjectId,
 }: DocumentEditModeBodyProps) {
   if (editing && !isReadOnly && doc) {
     return (
@@ -105,7 +110,17 @@ export function DocumentEditModeBody({
       doc={doc}
       ws={ws}
       tursoConfig={assetsTursoConfig}
-      projectId={assetsProjectId}
+      // ★★★ THE READ SIDE OF THE PARTITION KEY, AND IT MUST NORMALISE THE SAME
+      // WAY THE WRITE SIDE DOES — `||`, never `??`, and never a bare literal.
+      // `documents-asset-section.tsx` (the WRITE seam) and
+      // `workspace-panels.tsx` (the producer) both fold "" into
+      // `ASSET_PARTITION_FALLBACK` with `||`. A `??` here would read an
+      // empty-string project id back under "" while the bytes sat under
+      // "default": every image in the preview dangles while the asset library
+      // above it lists the same rows as perfectly healthy. Latent only as long
+      // as `workspace-panels.tsx` stays the sole producer — which is exactly
+      // the invariant a second producer would break without a word.
+      projectId={assetsProjectId || ASSET_PARTITION_FALLBACK}
     />
   );
 }

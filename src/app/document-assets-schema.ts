@@ -19,8 +19,29 @@ import { rowObjects, txt, type PipelineResultLike, type SqlStmt } from "./turso-
 
 /** The partition key used when the caller has no project id to give — a Turso
  *  portfolio with nothing selected yet, or a file registry with no current
- *  entry. Named here, beside the column whose meaning it carries, so the two
- *  call sites that need it cannot drift into two different literals.
+ *  entry. Named here, beside the column whose meaning it carries, so no call
+ *  site has to spell the literal.
+ *
+ *  ★★★ NO COUNT IS QUOTED, AND THE PREVIOUS ONE ROTTED THE ONLY WAY IT COULD:
+ *  it said "the two call sites that need it" while FOUR sites needed it and
+ *  two of them still held a bare `"default"` — one of those on the READ side
+ *  and spelled with `??`, so an empty-string project id wrote under this key
+ *  and read back under "". Enumerate instead, both spellings in one sweep:
+ *    grep -rn 'ASSET_PARTITION_FALLBACK\|"default"' src/app/documents-asset-section.tsx \
+ *      src/app/workspace-panels.tsx src/app/documents-panel.tsx \
+ *      src/app/document-edit-mode.tsx src/app/document-preview.tsx
+ *  Hits inside comments are prose; a bare `"default"` in CODE is a site that
+ *  can drift. There are none left: every one of the five now names this
+ *  constant. `document-preview.tsx`'s defaulted prop was the last, and it was
+ *  harmless only because `document-edit-mode.tsx` happened to hand it an
+ *  already-normalised value — the same "safe because of a distant invariant"
+ *  shape as the drift this constant exists to prevent, which is why it was
+ *  closed rather than left resting on that.
+ *
+ *  ★★ FOLD "" IN WITH `||`, NEVER `??`. `??` keeps "" as a real key, which is
+ *  the one value AssetDataRow.projectId promises never to see; the write seam
+ *  (documents-asset-section.tsx), the producer (workspace-panels.tsx) and the
+ *  read seam (document-edit-mode.tsx) all use `||` for that reason.
  *
  *  ★★★ IT IS A REAL KEY, NOT A SENTINEL FOR "unpartitioned". Bytes written
  *  under it are found again by any later session in the SAME state, because

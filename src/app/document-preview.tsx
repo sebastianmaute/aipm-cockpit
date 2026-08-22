@@ -39,6 +39,7 @@ import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
 import { attachAssetImages } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 
 export interface DocumentPreviewProps {
   lang: Lang;
@@ -58,7 +59,7 @@ export interface DocumentPreviewProps {
 }
 
 export function DocumentPreview({
-  lang, doc, ws, tursoConfig = null, projectId = "default",
+  lang, doc, ws, tursoConfig = null, projectId = ASSET_PARTITION_FALLBACK,
 }: DocumentPreviewProps) {
   // ★★ MEMOIZED, and the cost it avoids is not theoretical. `renderDocumentHtml`
   // runs DOMPurify once PER PARAGRAPH block and `resolveDataSection` once per
