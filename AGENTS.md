@@ -92,7 +92,10 @@ long after the directory it named stopped existing.
 ## Commands
 
 ```bash
-npm run dev                 # next dev (public next ^16.2.11 — read node_modules/next/dist/docs for version behavior)
+npm run dev                 # next dev (public next, pinned EXACTLY at 16.2.11 — a caret here would let a
+                            # lockfile merge resolved the wrong way move the framework silently. Framework-coupled
+                            # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
+                            # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
 npm run build               # next build (prebuild checks script-docs are in sync)
 npm run lint                # eslint — ★★★ there is NO `--max-warnings` gate: CI's `lint:` job runs bare
                             # `npm run lint`, `@typescript-eslint/no-unused-vars` is severity 1, and
