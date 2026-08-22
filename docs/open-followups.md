@@ -13902,7 +13902,7 @@ about:
 a different way, so it cannot see anything about how libSQL handles a BATCH over `/v2/pipeline`.
 That is not a hypothetical gap: §211's correction (a failing statement does NOT abort the batch;
 COMMIT still runs and the rest is committed) is measurable ONLY against a real libSQL endpoint, and
-is therefore pinned by a spec CI always skips. The claim is documented in four LIVE places (`AGENTS.md`, `docs/AGENTS/documents.md`, §211 here, and a comment in `turso-schema.ts`) and guarded in
+is therefore pinned by a spec CI always skips. The claim is documented in four places outside that spec (`AGENTS.md`, `docs/AGENTS/documents.md`, §211 here, and a comment in `turso-schema.ts`) and guarded in
 none of them.
 
 **No code change is needed to make it run.** `readEnvLocal()` prefers `process.env`, so setting

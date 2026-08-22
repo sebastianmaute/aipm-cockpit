@@ -278,7 +278,9 @@ delta shapes.
 **Framework-coupled packages are pinned exactly, with no range:** `next`,
 `react`, `react-dom`, `eslint-config-next`. Every other dependency carries a
 caret so upstream fixes flow without a slice each. ★ Read that cost honestly: a caret admits
-MINOR releases, not just patches — this section exists because `^16.2.11` resolved to `16.3.2`.
+MINOR releases, not just patches — this section exists because `^16.2.11` ADMITS `16.3.2`. ★ It never resolved to it — the lock has
+held 16.2.11 throughout (`git log --all -S'next/-/next-16.3' -- package-lock.json` is empty). The
+risk was the specifier, not an install that happened.
 
 `npm ci` — which is what all four CI install sites use — already installs
 strictly from `package-lock.json`, so an exact pin is *not* what makes an

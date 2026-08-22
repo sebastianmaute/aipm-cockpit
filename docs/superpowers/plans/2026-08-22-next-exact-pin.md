@@ -695,7 +695,7 @@ No browser gates: `e2e`, the axe gate, `e2e:visual`, `e2e:smoke:prod`. The insta
 2. `e2e/visual.spec.ts` (dashboard · gantt · open-points, all of which paint the shell) MASKS the version label outright — `mask: [page.locator('button[title="Version history"]')]`, the sidebar control whose `title` is `versionHistory` and whose body holds the version string, with the spec's own comment saying it "churns every release". So a bump is invisible to these three screenshots STRUCTURALLY. ★★ The budget beside it (`maxDiffPixelRatio: 0.01`) would also have absorbed one glyph, and an earlier revision of this reason cited ONLY the budget — one layer short of the real guarantee, in the very correction round that exists to document reading one layer short.
 3. The ZERO-tolerance baseline — `e2e/icon-gallery.visual.spec.ts`, `maxDiffPixels: 0` — targets `/icon-gallery`, a standalone page that renders no shell and no version string. Verified: its `page.tsx` references neither `ModernShell` nor `APP_VERSION`.
 
-★★ So a future slice must NOT reuse this exemption by analogy. Reason 2 is a BUDGET, not an immunity: a change that repaints more of the shell can exceed 1% while sounding just as harmless as a version bump, and reason 3 holds only while that page stays shell-free.
+★★ So a future slice must NOT reuse this exemption by analogy. Reason 2 masks the version control and NOTHING else: a change that repaints more of the shell can exceed 1% while sounding just as harmless as a version bump, and reason 3 holds only while that page stays shell-free.
 
 ★★ This exemption is specific to *this* slice and does not transfer to the 16.3 bump, which changes the framework and needs all of them.
 
