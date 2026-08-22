@@ -20,7 +20,7 @@
 // editor to surface.
 
 import { useEffect, useMemo, useRef, useState, type DragEvent } from "react";
-import { ExclamationTriangleIcon } from "@heroicons/react/24/outline";
+import { ExclamationTriangleIcon } from "./icons";
 import { t, localeFor, type Lang } from "./i18n";
 import type { DocumentAsset } from "./document-asset";
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
