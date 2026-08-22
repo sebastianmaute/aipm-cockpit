@@ -6,6 +6,7 @@ import type { Lang } from "./i18n";
 import type { Task } from "./types";
 import type { ProjectDocument } from "./document-model";
 import type { DocVersion } from "./document-versions";
+import type { DocumentAsset } from "./document-asset";
 import type { StorageConfig } from "./storage";
 import { useStorageBackend } from "./use-storage-backend";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
@@ -188,8 +189,8 @@ function makeArgs(overrides: Partial<Parameters<typeof useStorageBackend>[0]> = 
 function makeProbe(args: Parameters<typeof useStorageBackend>[0]) {
   return function useProbe() {
     const backend = useStorageBackend(args);
-    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog } = useWorkspace();
-    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, activityLog, setActivityLog };
+    const { tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog } = useWorkspace();
+    return { ...backend, tasks, raid, absences, shifts, setTasks, changes, setChanges, project, documents, setDocuments, documentVersions, setDocumentVersions, documentAssets, setDocumentAssets, activityLog, setActivityLog };
   };
 }
 
@@ -540,6 +541,77 @@ describe("useStorageBackend — save effect", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(result.current.documentVersions).toEqual([]);
+  });
+
+  // ── documentAssets ─────────────────────────────────────────────────────────
+  // `documentAssets` is an OPTIONAL slice, like `calendarEvents` — `undefined`
+  // means "absent", never `[]` — implemented across all six persistence paths
+  // but, until this wiring, never carried into or out of live React state.
+  const SAMPLE_ASSET: DocumentAsset = {
+    id: "asset-1",
+    name: "diagram.png",
+    mime: "image/png",
+    size: 1234,
+    width: 100,
+    height: 80,
+    hash: "abc123",
+    createdAt: "2026-08-06T00:00:00.000Z",
+  };
+
+  it("persists a DOCUMENT-ASSETS-ONLY change — the autosave deps-array guard", async () => {
+    // Same shape (and same reason) as the documents/documentVersions-only tests
+    // above: the deps array is what decides whether a change re-triggers a
+    // save, so nothing but `documentAssets` may be mutated here. This one
+    // assertion covers BOTH failure modes — omitted from the deps array, no
+    // save fires at all; omitted from the save literal, the payload lacks the
+    // key (the exact miss the enumeration landmine describes).
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    mockBackend.save.mockClear();
+
+    await act(async () => { result.current.setDocumentAssets([SAMPLE_ASSET]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(mockBackend.save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        documentAssets: [expect.objectContaining({ id: "asset-1", name: "diagram.png", hash: "abc123" })],
+      }),
+    );
+  });
+
+  it("restores documentAssets from a loaded workspace", async () => {
+    // The other half of the round trip: an asset present in the backend's
+    // workspace has to reach React state, or the asset library renders empty
+    // over a project that does have uploaded images.
+    mockBackend.load.mockResolvedValue({
+      tasks: [], raid: [], absences: [], shifts: [],
+      documentAssets: [SAMPLE_ASSET],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentAssets).toEqual([
+      expect.objectContaining({ id: "asset-1", name: "diagram.png", hash: "abc123" }),
+    ]);
+  });
+
+  it("defaults documentAssets to undefined when the loaded workspace has none", async () => {
+    // ★ OPTIONAL in context, unlike `documents`/`documentVersions` — mirrors
+    // `calendarEvents`. `undefined` here (never `[]`) is the correct absent
+    // state; the upload hook always passes a concrete array as an argument
+    // rather than spreading context state, so there is no `[...prev]` call
+    // here that `undefined` would break.
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.documentAssets).toBeUndefined();
   });
 
   it("localizes the cross-tab lock-timeout save failure instead of toasting the raw English error", async () => {

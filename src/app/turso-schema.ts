@@ -15,6 +15,7 @@ import {
   stakeholderFieldToString, buildStakeholderFromObj,
   calendarEventFieldToString, buildCalendarEventFromObj,
   decodeRatesMap,
+  DOCUMENT_ASSETS_CSV_COLUMNS, documentAssetFieldToString, buildDocumentAssetFromObj,
 } from "./csv-codecs";
 import {
   emptyWorkspace, migrateWorkspaceV10, sanitizeProjectStatus, type Workspace,
@@ -38,6 +39,7 @@ import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 
 interface SqlArg { type: "text" | "integer" | "null"; value?: string }
 export interface SqlStmt { sql: string; args?: SqlArg[] }
@@ -47,10 +49,39 @@ export interface PipelineResultLike {
   error?: { message?: string };
 }
 
+/** How an entity's `id` column is typed in SQLite AND bound on the wire.
+ *
+ *  ★★★ THE TWO MUST AGREE. `id INTEGER PRIMARY KEY` is a rowid ALIAS, which is
+ *  the one column type SQLite enforces — a non-numeric value is rejected with
+ *  "datatype mismatch", and every workspace save then reports failure. So an
+ *  entity minting a non-numeric id (`document_assets`, a crypto.randomUUID())
+ *  must declare "text", which switches BOTH the DDL and the arg binding.
+ *
+ *  ★★★ "THAT ONE ROW KILLS THE WHOLE SAVE" WAS THE WORDING HERE, AND IT IS
+ *  FALSE IN THE HALF THAT MATTERS. A libSQL /v2/pipeline batch does NOT abort
+ *  at a failing statement — it returns an error for that ONE statement and
+ *  keeps executing, so COMMIT runs, returns ok, and commits everything that
+ *  succeeded. `runTursoPipeline` then scans the results, sees the error and
+ *  calls `rollbackBestEffort` against an ALREADY-COMMITTED transaction, which
+ *  changes nothing, before throwing. Every save does report failure; the
+ *  workspace is NOT left untouched. The user is shown a failed save while the
+ *  data WAS written, minus the rejected row — and a reader who believes the
+ *  old wording will never go looking for partially-written data. Measured
+ *  against a live database and pinned by the e2e spec named in AGENTS.md's
+ *  idKind bullet, not reasoned from the SQLite docs.
+ *
+ *  "text", which switches BOTH the DDL and the arg binding. The tenant DDL
+ *  emits a plain `id INTEGER` (composite PK), whose affinity SQLite does NOT
+ *  enforce — but the Hrana wire type still must, since `{type:"integer"}`
+ *  carries a decimal i64 as a string. */
+export type EntityIdKind = "integer" | "text";
+
 export interface EntitySpec<T> {
   table: string;
   wsKey: keyof Workspace;
   columns: readonly string[];
+  /** Defaults to "integer" — every entity but `document_assets` mints a number. */
+  idKind?: EntityIdKind;
   get: (ws: Workspace) => readonly T[];
   toRow: (e: T, col: string) => string;
   fromObj: (obj: Record<string, string>) => T | null;
@@ -76,17 +107,19 @@ export const ENTITY_SPECS: EntitySpec<unknown>[] = [
   spec<ChangeItem>({ table: "changes", wsKey: "changes", columns: CHANGES_CSV_COLUMNS, get: (w) => w.changes ?? [], toRow: changeFieldToString as unknown as (e: ChangeItem, col: string) => string, fromObj: buildChangeFromObj }),
   spec<Stakeholder>({ table: "stakeholders", wsKey: "stakeholders", columns: STAKEHOLDERS_CSV_COLUMNS, get: (w) => w.stakeholders ?? [], toRow: stakeholderFieldToString as unknown as (e: Stakeholder, col: string) => string, fromObj: buildStakeholderFromObj }),
   spec<CalendarEvent>({ table: "calendar_events", wsKey: "calendarEvents", columns: EVENTS_CSV_COLUMNS, get: (w) => w.calendarEvents ?? [], toRow: calendarEventFieldToString as unknown as (e: CalendarEvent, col: string) => string, fromObj: buildCalendarEventFromObj }),
+  spec<DocumentAsset>({ table: "document_assets", wsKey: "documentAssets", columns: DOCUMENT_ASSETS_CSV_COLUMNS, idKind: "text", get: (w) => w.documentAssets ?? [], toRow: documentAssetFieldToString, fromObj: buildDocumentAssetFromObj }),
 ] as unknown as EntitySpec<unknown>[];
 
 export const PLAN_COLUMNS = ["startDate", "endDate", "granularity", "currency", "budgetFollowsPlan"] as const;
 export const FX_COLUMNS = ["base", "date", "fetchedAt", "rates"] as const;
 
-export function colDdl(columns: readonly string[]): string {
-  return columns.map((c) => (c === "id" ? "id INTEGER PRIMARY KEY" : `"${c}" TEXT`)).join(", ");
+export function colDdl(columns: readonly string[], idKind: EntityIdKind = "integer"): string {
+  const idDdl = idKind === "text" ? "id TEXT PRIMARY KEY" : "id INTEGER PRIMARY KEY";
+  return columns.map((c) => (c === "id" ? idDdl : `"${c}" TEXT`)).join(", ");
 }
 
 export const SCHEMA_DDL: string[] = [
-  ...ENTITY_SPECS.map((s) => `CREATE TABLE IF NOT EXISTS ${s.table} (${colDdl(s.columns)})`),
+  ...ENTITY_SPECS.map((s) => `CREATE TABLE IF NOT EXISTS ${s.table} (${colDdl(s.columns, s.idKind)})`),
   `CREATE TABLE IF NOT EXISTS plan (id INTEGER PRIMARY KEY, ${PLAN_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")})`,
   `CREATE TABLE IF NOT EXISTS fx_rates (id INTEGER PRIMARY KEY, ${FX_COLUMNS.map((c) => `"${c}" TEXT`).join(", ")})`,
   `CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT)`,
@@ -275,12 +308,14 @@ export function rowsToWorkspace(
 // need re-creation / sample re-import (as with documentLinks/resource-fk columns).
 const SCHEMA_VERSION = "12";
 
-function insertStmt(table: string, columns: readonly string[], values: string[]): SqlStmt {
+function insertStmt(table: string, columns: readonly string[], values: string[], idKind: EntityIdKind = "integer"): SqlStmt {
   const colList = columns.map((c) => `"${c}"`).join(", ");
   const placeholders = columns.map(() => "?").join(", ");
   return {
     sql: `INSERT INTO ${table} (${colList}) VALUES (${placeholders})`,
-    args: columns.map((c, i) => (c === "id" ? { type: "integer", value: values[i] } : { type: "text", value: values[i] })),
+    // The id column keeps its historical verbatim pass-through on the integer
+    // path (no Number() round-trip) — only the ARG TYPE is decided here.
+    args: columns.map((c, i) => (c === "id" && idKind !== "text" ? { type: "integer", value: values[i] } : txt(values[i]))),
   };
 }
 
@@ -337,7 +372,7 @@ export function workspaceToStatements(ws: Workspace, dirtyTables?: ReadonlySet<s
   for (const s of ENTITY_SPECS) {
     if (!isDirty(s.table)) continue;
     for (const e of s.get(ws)) {
-      out.push(insertStmt(s.table, s.columns, s.columns.map((c) => s.toRow(e, c))));
+      out.push(insertStmt(s.table, s.columns, s.columns.map((c) => s.toRow(e, c)), s.idKind));
     }
   }
   if (isDirty("plan")) {

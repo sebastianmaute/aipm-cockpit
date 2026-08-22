@@ -10,8 +10,14 @@
 //
 // This module reads each table's actual columns via PRAGMA table_info and emits
 // `ALTER TABLE … ADD COLUMN … TEXT` for any spec column the DB is missing. All
-// entity columns are TEXT except `id INTEGER PRIMARY KEY` (always pre-exists),
-// so we only ever ADD TEXT columns and never touch `id`.
+// entity columns are TEXT except `id`, which comes in TWO kinds (turso-schema's
+// EntitySpec.idKind): `id INTEGER PRIMARY KEY` for the entities that mint a
+// number, and `id TEXT PRIMARY KEY` for those that mint a string
+// (`document_assets`, a crypto.randomUUID()). In the tenant schema both drop
+// the single-column PK (`id INTEGER` / `id TEXT` inside a composite PK). Either
+// way `id` is created WITH the table and so always pre-exists, which is why we
+// only ever ADD TEXT columns and never touch `id` — this module never has to
+// know which kind a table uses.
 //
 // The module is pure + i18n-free: it builds SqlStmt arrays and parses PRAGMA
 // results. The backend (turso-backend.ts) runs the resulting statements.
@@ -106,19 +112,26 @@ export function pragmaStatements(tables: readonly string[]): SqlStmt[] {
  * table_info returns rows of (cid, name, type, notnull, dflt_value, pk). The
  * `name` is normally the 2nd column, but we look it up by the result's own
  * `cols` metadata (robust to column ordering) and fall back to index 1.
- * An empty/missing result for a known shape (table does not exist yet) yields [].
  *
- * Returns `null` as an "unknown schema" sentinel when the result carries NO
- * `cols` metadata AND no `"name"` column could be located — i.e. the PRAGMA
- * shape drifted and we cannot trust the parse. Callers must treat `null` as
+ * Returns `null` as an "unknown schema" sentinel in TWO cases, both meaning
  * "do not ALTER" rather than "no columns → ALTER everything" (which would
- * spuriously re-add existing columns and fail the save with a duplicate column).
+ * spuriously re-add existing columns and fail the save with a duplicate column):
+ *
+ *  1. the result carries NO `cols` metadata AND no `"name"` column could be
+ *     located — the PRAGMA shape drifted and the parse cannot be trusted;
+ *  2. the result carries full metadata but ZERO ROWS. A table that exists
+ *     always has at least one column, so zero rows means the table does NOT
+ *     exist — and ALTERing a nonexistent table errors outright. This branch
+ *     used to return `[]`, which was masked only because both load paths
+ *     prepend the full CREATE-TABLE DDL before any save; it became
+ *     load-bearing once a genuinely NEW table (`document_assets`) shipped.
  */
 export function existingColumnsFromPragma(res: PipelineResultLike | undefined): string[] | null {
   const cols = res?.response?.result?.cols ?? [];
   const rows = res?.response?.result?.rows ?? [];
   const namedIdx = cols.findIndex((c) => c?.name === "name");
   if (cols.length === 0 && namedIdx < 0) return null; // unknown schema — do not infer columns
+  if (rows.length === 0) return null; // table absent — ALTER would error, and DDL creates it
   const nameIdx = namedIdx < 0 ? 1 : namedIdx; // table_info's canonical column order
   const out: string[] = [];
   for (const row of rows) {

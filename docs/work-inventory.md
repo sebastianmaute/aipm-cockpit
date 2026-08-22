@@ -81,18 +81,22 @@ shape: a decision with no design yet. These are the roadmap.
 |---|---|---|
 | **S6 — Outlook push for calendar events** (incl. invitations + confirm) | UX-batch roadmap plus its own spec/plan pair | no `CHANGELOG.md` match for calendar-event push |
 | **S7 — Outlook pull + exception reconciliation** | same roadmap | same |
-| **Document images, end to end, Turso-gated** | documents roadmap; summarised in `docs/open-followups.md` section 113 | no image block kind exists; `document-model.ts` and `doc-render-html.ts` carry comments anticipating a later images slice |
+| **S3c-2 — OOXML media parts for document images** | documents roadmap; `docs/open-followups.md` §202 | DOCX/PPTX still disclose a visible placeholder naming the asset instead of embedding it; no OOXML media-part code exists anywhere in the renderers |
 | **`optimize_wbs`** | multi-surface roadmap, Release 4 | `docs/open-followups.md` section 3, "never built — owed from R4"; the name appears in no source file |
 | **App-wide `@heroicons/react` → `lucide-react` icon migration** | decision recorded 2026-08-21 in `docs/tech-debt-register.md` TD-8 and `docs/open-followups.md` §145 (closed as a decision); **no spec yet** | 78 files still import `@heroicons/react` (`grep -rln "@heroicons/react" src/app`); nothing has been brainstormed or planned for the conversion itself — that is its own slice |
 
-★★★ **THE "S3c" LABEL IS AMBIGUOUS AND THE AMBIGUITY HIDES THE IMAGES SLICE.** The documents
-roadmap defines S3c as *images end to end*. What actually shipped under that label in 0.252.0 was
-**structural blocks** (add, delete, reorder) — a different scope. Reading the release as closing S3c
-retires the images design without anyone deciding to. The images work is open.
+★★★ **THE "S3c" LABEL AMBIGUITY IS DISCHARGED — corrected 2026-08-21.** The documents roadmap
+originally defined "S3c" as *images end to end*, and 0.252.0 shipped **structural blocks** (add,
+delete, reorder) under that same plain label — a scope collision that would have retired the images
+design by accident. That slice is now retagged **S3b-2** in the design document and in
+`docs/open-followups.md` §113. Images shipped as **S3c-1** in 0.253.0 (metadata slice on all six
+write paths + `document_asset_data`, a `TABLE_NAMES`-excluded side table for the bytes) — see
+`docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section for the as-built architecture. Only
+**S3c-2** (OOXML media parts, the table row above) remains open.
 
-★ The rest of the documents roadmap **is** done: S3a, S4 and S3b all shipped. Its spec header still
-reads "design approved, unimplemented" — stale, and stale in the dangerous direction, because it
-makes finished work look pending while the genuinely pending images slice sits in the same file.
+★ The rest of the documents roadmap is now fully shipped: S3a, S4, S3b, S3b-2 and S3c-1. Its own
+spec header used to read "design approved, unimplemented" for the whole file, unchanged since
+2026-08-08 — that has been corrected in place.
 
 ### Roadmaps and their true state
 
@@ -100,7 +104,8 @@ makes finished work look pending while the genuinely pending images slice sits i
   so. A, E and B are marked "TBD" in the roadmap but **have shipped** (Manual % complete; project
   config in Settings → General plus the theme gallery; the dated note log and rich descriptions).
   Only **S6 and S7** remain. The roadmap's own status column is therefore wrong for three rows.
-- **Documents roadmap (S3a, S4, S3b, S3c).** See above — images only.
+- **Documents roadmap (S3a, S4, S3b, S3b-2, S3c-1, S3c-2).** See above — only S3c-2 (OOXML media
+  parts) is open.
 - **Multi-surface roadmap, Releases 1–5.** R4 left `optimize_wbs` unbuilt; R5 is where S6 and S7 are
   owed from.
 
@@ -207,7 +212,9 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
 ## 7. Suggested sequence
 
 1. **S6 then S7** — design is already done and verified, and they are the last two UX-batch slices.
-2. **Document images** — a full design exists; settle the S3c label question first.
+2. **S3c-2 — OOXML media parts** — the S3c label question is settled (2026-08-21, see section 3);
+   images (S3c-1) shipped and only the OOXML embedding half remains, with a design already sketched
+   in the documents roadmap's S3c-1 section under "OOXML media machinery".
 3. **`optimize_wbs`** — carries an open design question, so it needs a decision before a plan.
 4. **Follow-up triage** — done in this slice. `npm run followups:check` now reads **CLEAN 125**,
    NO_MACHINE_CLAIM 1, SYMBOL_THIRD_PARTY 2, PATH_THIRD_PARTY 1, SYMBOL_SELF_EXCLUDED 1 —

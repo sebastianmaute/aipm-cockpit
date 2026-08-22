@@ -46,6 +46,7 @@ import {
   type Task,
 } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import type { DocumentAsset } from "./document-asset";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import { migrateTask } from "./task-status";
 import {
@@ -75,6 +76,7 @@ import {
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_DOCUMENTS,
   CSV_SECTION_DOCUMENT_VERSIONS,
+  CSV_SECTION_DOCUMENT_ASSETS,
   CSV_SECTION_ACTIVITY,
   buildCalendarEventFromObj,
   buildChangeFromObj,
@@ -84,6 +86,7 @@ import {
   parseCsv,
   parseHealthOverride,
 } from "./csv-codecs-core";
+import { buildDocumentAssetFromObj } from "./document-asset-codecs";
 import {
   csvToFeatures,
   csvToFieldVisibility,
@@ -158,6 +161,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   settingsOverridesText: string;
   documentsText: string;
   documentVersionsText: string;
+  documentAssetsText: string;
   activityLogText: string;
 } {
   // ★★★ QUOTE-AWARE, NOT `csv.split(/\r?\n/)`. A raw split breaks a quoted
@@ -257,7 +261,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // csv-section-split.test.ts — the outcome assertions there all survive the
   // mutation, so only that one closes it.
   const lines = scan.unterminatedQuote ? csv.split(/\r?\n/) : scan.lines;
-  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "activityLog" | null = null;
+  let mode: "tasks" | "raid" | "absences" | "calendarEvents" | "shifts" | "resources" | "roles" | "disciplines" | "grades" | "plan" | "budgets" | "fxrates" | "status" | "milestones" | "changes" | "stakeholders" | "project" | "fieldVis" | "functions" | "steering" | "timelogLinks" | "knowledgeItems" | "insights" | "settingsOverrides" | "documents" | "documentVersions" | "documentAssets" | "activityLog" | null = null;
   const tasksLines: string[] = [];
   const raidLines: string[] = [];
   const absencesLines: string[] = [];
@@ -284,6 +288,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   const settingsOverridesLines: string[] = [];
   const documentsLines: string[] = [];
   const documentVersionsLines: string[] = [];
+  const documentAssetsLines: string[] = [];
   const activityLogLines: string[] = [];
   for (const line of lines) {
     const trimmed = line.trimStart();
@@ -321,6 +326,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     if (trimmed.startsWith(CSV_SECTION_SETTINGS_OVERRIDES)) { mode = "settingsOverrides"; continue; }
     if (trimmed.startsWith(CSV_SECTION_DOCUMENTS)) { mode = "documents"; continue; }
     if (trimmed.startsWith(CSV_SECTION_DOCUMENT_VERSIONS)) { mode = "documentVersions"; continue; }
+    if (trimmed.startsWith(CSV_SECTION_DOCUMENT_ASSETS)) { mode = "documentAssets"; continue; }
     if (trimmed.startsWith(CSV_SECTION_ACTIVITY)) { mode = "activityLog"; continue; }
     if (trimmed.startsWith(CSV_SECTION_PROJECT)) { mode = "project"; continue; }
     if (trimmed.startsWith(CSV_SECTION_STATUS)) { mode = "status"; continue; }
@@ -353,6 +359,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     else if (mode === "settingsOverrides") settingsOverridesLines.push(line);
     else if (mode === "documents") documentsLines.push(line);
     else if (mode === "documentVersions") documentVersionsLines.push(line);
+    else if (mode === "documentAssets") documentAssetsLines.push(line);
     else if (mode === "activityLog") activityLogLines.push(line);
     // (else: line before the first marker — drop it.)
   }
@@ -386,6 +393,7 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
     // multi-line cell would come back with its breaks rewritten.
     documentsText: documentsLines.join("\r\n"),
     documentVersionsText: documentVersionsLines.join("\r\n"),
+    documentAssetsText: documentAssetsLines.join("\r\n"),
     activityLogText: activityLogLines.join("\r\n"),
   };
 }
@@ -534,6 +542,16 @@ function csvToShifts(csv: string, diag?: ImportDiag): Shift[] {
   return decodeCsvSection(csv, sanitizeShift, diag);
 }
 
+/** Decodes a `# DOCUMENT ASSETS` section into DocumentAsset[]. Same
+ *  row-table shape as `csvToCalendarEvents` — a header row keyed by
+ *  {@link DOCUMENT_ASSETS_CSV_COLUMNS} — NOT the single `config,<json>` blob
+ *  shape `documents`/`documentVersions`/`activityLog` use (those hold a whole
+ *  document/version list per cell; asset metadata is one row per asset,
+ *  matching calendarEvents). Bytes never appear here — only metadata. */
+function csvToDocumentAssets(csv: string, diag?: ImportDiag): DocumentAsset[] {
+  return decodeCsvSection(csv, buildDocumentAssetFromObj, diag);
+}
+
 function csvToMilestones(csv: string, diag?: ImportDiag): Milestone[] {
   return decodeCsvSection(csv, buildMilestoneFromObj, diag);
 }
@@ -609,6 +627,13 @@ export function csvToWorkspace(csv: string, diag?: ImportDiag): Workspace {
   if (s.documentVersionsText.trim()) {
     const versions = csvToDocumentVersions(s.documentVersionsText, diag);
     if (versions) ws.documentVersions = versions;
+  }
+  // Assign only when the decoded list is non-empty — same "stay free of the
+  // key" shape as documents/documentVersions above, so an asset-less
+  // workspace round-trips without ever gaining a `documentAssets` key.
+  if (s.documentAssetsText.trim()) {
+    const assets = csvToDocumentAssets(s.documentAssetsText, diag);
+    if (assets.length) ws.documentAssets = assets;
   }
   if (s.activityLogText.trim()) {
     const log = csvToActivityLog(s.activityLogText);

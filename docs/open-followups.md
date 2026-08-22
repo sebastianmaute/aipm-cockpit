@@ -7005,7 +7005,17 @@ width before the branch renders, so there is no group to reflow.
 
 ---
 
-## 113. The documents roadmap — block editor, entity attachment, images — designed, UNIMPLEMENTED
+## 113. The documents roadmap — block editor, entity attachment, images — S3a/S4/S3b/S3b-2/S3c-1 SHIPPED; S3c-2 (OOXML media) open
+
+★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
+that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
+block slice — add/delete/reorder, shipped 0.252.0 "Brust" under the plain label "S3c" — all
+shipped before images did. Because the design document (below) defines "S3c" as *images*, that
+release collided two different scopes under one label and would have read as closing the images
+work with nothing decided. The structural slice is retagged **S3b-2** here and in the design
+document; images now own **S3c-1** (shipped 0.254.0 — see `docs/AGENTS/documents.md`'s "Asset
+images (S3c-1)" section for the as-built architecture) and **S3c-2** (OOXML media parts —
+still open, own follow-up entry). See also `docs/work-inventory.md` §3.
 
 ★★★ **Recorded here for the reason §44 exists.** The design document lives in the gitignored tree,
 so on any other machine it does not exist. Per this file's own rule there is no link to it; the
@@ -7013,7 +7023,7 @@ decisions are reproduced below in enough detail to resume without it. Designed 2
 0.222.0 "Charnas" (`e2316f4f`). It supersedes the ~18-line S3/S4 outlines that shipped inside the
 S1 design document and **reorders them**.
 
-**Four releases, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
+**Six slices now, in this order — S4 moved AHEAD of the editor**, because it settles the dangling
 pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 
 | | Ships | New persisted state |
@@ -7022,7 +7032,9 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | *(before S3b)* | ~~**§54** — spike first~~ **DONE, §54 CLOSED 2026-08-09.** No spike needed. ★★ The parenthetical this cell used to carry — "Next applies nonces during SSR; §54's offender is injected at runtime by a client chunk" — was RIGHT on both clauses, and is precisely why Next's own nonce machinery could not cover this and `readCspNonce()` has to read the nonce off the DOM. An earlier correction here declared it wrong; that was an over-correction against a claim it never made (it says "client chunk", not "Turbopack-shipped CSS chunk"). The theory that was actually disproved — Turbopack shipping prosemirror CSS in a lazily-loaded chunk — lived in §54, not in this cell. The injector is `@tiptap/core`'s own `Editor.injectCSS()` over a JS string constant. Fixed via Tiptap's `injectNonce`; the CSP is unchanged. · the `HTML_START` classifier split, six rich fields in scope | none |
 | **S4** | `linkedEntities` on `ProjectDocument`, chips on task/milestone/RAID/change, filter, deep-link, dangling | free — a field inside the existing `documents` blob |
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
-| **S3c** | images end to end, Turso-gated | metadata slice + one out-of-`TABLE_NAMES` side table |
+| **S3b-2** | the structural slice S3b deferred: block add / delete / reorder — SHIPPED 0.252.0 "Brust" under the plain label "S3c"; retagged here | free — same blob |
+| **S3c-1** | images end to end, Turso-gated — SHIPPED 0.254.0 | metadata slice + one out-of-`TABLE_NAMES` side table (`document_asset_data`) |
+| **S3c-2** | OOXML media parts (`word/media/`, relationship ids, EMU sizing) for the images S3c-1 shipped — open | none (write-path shape unchanged) |
 
 ### The decisions that are expensive to re-derive
 
@@ -13296,3 +13308,488 @@ that finds it is the `node -e` command above.)
 ★ Found on 2026-08-21 while closing the NUL that tracking the planning tree exposed. It is NOT a
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
 back otherwise clean.
+
+## 202. OOXML media machinery for document images — S3c-2, open
+
+**Status:** open — no scaffolding exists yet.
+
+S3c-1 (0.254.0) shipped document images for the **live preview**, which resolves each
+`<img data-asset-id>` to a blob object URL in `document-asset-images.ts`. ★★ It did NOT finish the
+standalone path, and an earlier wording of this entry said it had ("end to end for the
+HTML/preview/standalone paths"), which told the reader the only remaining gap was OOXML. It is not:
+`renderDocumentHtml`'s `assets` argument is optional and **no production caller passes it**, so an
+exported HTML file — and the PDF that is that same standalone mode through the print dialog —
+carries an `<img>` with no source at all. That is tracked separately as §210; read it before
+scoping any "images are done except DOCX/PPTX" work.
+
+Against that, `doc-render-docx.ts` and `doc-render-pptx.ts` disclose a **visible translated
+placeholder naming the asset** rather than embedding it — a deliberate choice (a silent drop would
+be worse), not a finished feature, and strictly more than the standalone HTML path manages today. Real media parts are unbuilt: `[Content_Types].xml` Default entries, `_rels`
+parts, `word/media/`, `<w:drawing>` / `<wp:inline>` / `<a:blip r:embed>` for DOCX, the PPTX
+equivalent, and EMU extents scaled to `CONTENT_WIDTH` from each asset's stored `width`/`height`.
+This is the largest unknown left in the documents roadmap — no existing renderer code touches
+binary media parts of any kind. See `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`'s
+S3c-1 section ("Out of scope for S3c-1") and `docs/AGENTS/documents.md`'s "Asset images (S3c-1)"
+section for what S3c-1 did ship.
+
+## 203. The asset library is outside axe coverage, and this is unfixable at the gate
+
+**Status:** open — by construction, not an oversight to close.
+
+`AssetLibrary`'s surface is Turso-gated (`tursoConfig !== null`) and `e2e/a11y.spec.ts`'s
+`A11Y_VIEWS` scan runs against `e2e/seed.ts`'s FILE-mode seed, so the axe gate never renders this
+surface at all — the same blind spot documented in `AGENTS.md`'s hard-constraints section for
+every other Turso-gated view (chat thread sidebar, Snapshots/Trends, version history).
+
+★★ Compounding it: even a scanned run could not catch a duplicate-accessible-name regression here.
+Measured against the installed axe-core 4.12.1 (`AGENTS.md`'s a11y bullet carries the reproduce
+command): of 105 rules, 69 carry one of the four tags `e2e/a11y.spec.ts` requests, and not one of
+them flags two controls sharing an accessible name. So `asset-library.test.tsx`'s row-unique-name
+unit test (≥2 seeded rows) is not merely the best detector for this surface — it is the **only**
+one that will ever exist, at any gate configuration. Do not read a future green axe run, however
+the seed is widened, as covering this.
+
+## 204. Unverified whether `chat_threads` and `committee_report_versions` are cleaned on project delete
+
+**Status:** open — a question to probe, not a confirmed defect.
+
+S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
+`deleteAllAssetDataForProject` for the new `document_asset_data` side table, non-fatally (via
+`logDiag`) — leaked image bytes are recoverable, a half-deleted project is not. `chat_threads`
+(`chat-threads-schema.ts`) and `committee_report_versions` (`committee-report-versions-schema.ts`)
+are side tables of the same out-of-`TABLE_NAMES` shape, predating this slice. It was NOT verified
+during S3c-1 whether project deletion also cleans those two, or whether they leak rows for a
+deleted project today. Probe `turso-portfolio.ts`'s `hardDeleteProject` for calls parallel to
+`deleteAllAssetDataForProject` before assuming either way.
+
+## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
+
+**Status:** open — jsdom cannot exercise the mechanism; no manual check recorded yet.
+
+A dangling image reference (asset deleted, byte row missing) renders via a CSS trick:
+`img[data-asset-missing]::before { content: "⚠" }`. Pseudo-element content on a replaced element
+with no `src` is documented to render consistently across major browsers only in that exact
+no-`src` shape, and jsdom has no rendering engine to test it at all. What IS pinned by tests is the
+`data-asset-missing` attribute being set and the border/background styling classes being applied —
+not that the glyph actually paints. Eye-verify in a real browser (Chromium at minimum) before
+relying on this as the user-visible signal for a broken image reference.
+
+## 206. `documents-history-modal.tsx` does not resolve images
+
+**Status:** open — deliberate scope cut in S3c-1, not yet scheduled.
+
+The version-history preview surface (`DocumentsHistoryModal`, opened via each document row's
+"History" button) renders a `DocVersion`'s stored block content but was not wired to
+`attachAssetImages` when S3c-1 landed image rendering elsewhere (the live preview, standalone
+HTML). A document version containing an image block renders that block without its picture in the
+history modal today. Fixing it means threading the same asset-resolution the live preview uses
+into the history modal's render path.
+
+## 207. Single-tenant asset metadata is global while the bytes are always partitioned
+
+**Status:** open — a known asymmetry with a mitigation, deliberately not patched in the S3c-1 fix
+round.
+
+The two halves of a document image are partitioned by different things and nothing reconciles them.
+METADATA (`DocumentAsset`) rides `ENTITY_SPECS`, so in the SINGLE-TENANT Turso layout its table
+`document_assets` has no `project_id` column at all — the database IS the project and the metadata
+set is global to it (`colDdl`, `turso-schema.ts`). BYTES live in `document_asset_data`, whose DDL is
+ONE shape for both layouts: `PRIMARY KEY (id, project_id)`, unconditionally
+(`document-assets-schema.ts`). And the key it is given comes from a UI-level read of portfolio /
+registry state in `DocumentsTabPanel` (`workspace-panels.tsx`), not from the workspace the metadata
+arrived with.
+
+Consequence: one global metadata set can face SEVERAL byte partitions. A user on single-tenant Turso
+STORAGE whose file registry holds several projects keeps the same metadata rows across a project
+switch but reads bytes under a different key — so every asset reads as dangling, and every embedded
+image breaks, until they switch back.
+
+★ **Nothing is LOST, and that is why this is deferred rather than patched.** The bytes stay under
+the key that wrote them; re-selecting the original project restores them. The visible failure is the
+already-designed dangling state, which is self-describing.
+
+★★ **Two nearby things are NOT this entry and must not be re-opened as one.** (a) The Safe Mode
+variant is CLOSED — `workspace-panels.tsx` refuses the asset library under `?safe=1` rather than
+letting the key move under a workspace whose metadata did not move; see `docs/AGENTS/documents.md`'s
+"Asset images (S3c-1)" for why refusing beat stabilising. (b) The no-project fallback key
+(`ASSET_PARTITION_FALLBACK`, `"default"`) was examined and is NOT a mis-partition: every input to it
+is deterministic, so a later session in the same state finds the same bytes, and `createBackend`
+(`storage.ts`) constructs a SINGLE-TENANT `TursoBackend` whenever `tursoProjectId` is null or empty
+— so a Turso portfolio with nothing selected is a working configuration with a real workspace on
+screen, not a broken state to refuse.
+
+Closing it properly means keying the byte store on the BACKEND LAYOUT rather than on portfolio /
+registry state: tenant → the tenant project id, single-tenant → one fixed key. That decision belongs
+to the layer that builds the backend, which already distinguishes the two, not to a view component.
+It also needs a migration story that does not exist: every byte already stored is keyed the current
+way and `document_asset_data` carries no version marker to drive a re-key, so changing the scheme
+would orphan an existing library rather than move it.
+
+## 208. `capHtmlText` silently strips an image from any paragraph over the visible-text cap
+
+**Status:** open — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round. Fixing it
+in place would weaken a DoS bound.
+
+Every paragraph that survives `sanitizeBlock` (`document-model.ts`) then passes through
+`capHtmlText(html, MAX_HTML_TEXT_CHARS)`. `capHtmlText` (`rich-text-plain.ts`) measures VISIBLE text
+and, when it exceeds the cap, returns `plainToHtml(text.slice(0, cut))` — and `plainToHtml`
+(`sanitize-html.ts`) builds `"<p>"` + HTML-escaped text (newlines to `<br>`) + `"</p>"`. It
+therefore discards ALL markup, `<img data-asset-id>` included. So a paragraph carrying an image plus
+more than `MAX_HTML_TEXT_CHARS` of visible text loses the image on load, silently.
+
+Measured, not reasoned — a probe against the real functions:
+
+```bash
+cat > probe-cap.ts <<'TS'
+import { capHtmlText, htmlTextLength } from "./src/app/rich-text-plain";
+const img = '<img data-asset-id="a1" alt="c">';
+for (const h of [`<p>${img} caption</p>`, `<p>${img} ${"x".repeat(20001)}</p>`, `<p>${img}</p>`])
+  console.log(htmlTextLength(h), capHtmlText(h, 20000).includes("data-asset-id"));
+TS
+npx vite-node probe-cap.ts; rm probe-cap.ts
+```
+→ `7 true` · `20001 false` · `0 true` (run 2026-08-21, exit 0). Three lines: an image with a
+short caption keeps its image; the same image past the cap LOSES it; an image-only paragraph
+projects to zero visible characters, which is the unreachability below.
+
+★★ **`vite-node` HAS NO `-e` FLAG** — it takes files only (`npx vite-node --help`), so the
+tempting one-liner form of this probe exits 1 with "No files specified" and reads like a broken
+repo. Write the file. ★ Read the cap off `MAX_HTML_TEXT_CHARS` in `document-model.ts` rather than
+trusting the `20000` literal above.
+
+★★ **It is PRE-EXISTING behaviour, not something S3c-1 introduced.** Losing ALL formatting on the
+truncation branch is by design, and `sanitizeAiDocumentRichText`'s cap docstring in
+`ai-rich-text.ts` already records a MEASURED instance of it from a different direction: a
+model-authored paragraph of 10,006 visible characters came out at 4,999 with its `<mark>` gone.
+What changed with S3c-1 is that a paragraph can now carry an image, so the loss became
+consequential rather than cosmetic.
+
+★★ **It is UNREACHABLE from the images feature itself**, which is why it is latent rather than live.
+An inserted image paragraph is the `<img>` tag alone — third probe line above, zero visible
+characters — so the cap can never fire on one. Reaching this needs a hand-edited or imported
+document that puts an image and >20k characters of visible text in ONE paragraph.
+
+★★★ **DO NOT "FIX" IT BY SKIPPING THE CAP WHEN AN IMAGE IS PRESENT.** The cap is a DoS bound on
+stored block size, and an exemption keyed on markup the attacker controls hands them the bypass.
+The real fix is HTML-AWARE truncation — cut the visible text while preserving the surrounding
+markup — which is a change to `capHtmlText` and therefore to every rich-text sink in the app, not to
+`document-model.ts`. ★ Note the module split: the block-drop repair that closed the sibling defect
+(`ASSET_IMG_RE`, §209) landed in `document-model.ts`, while `capHtmlText` is in `rich-text-plain.ts`
+and `plainToHtml` in `sanitize-html.ts` — so this cannot be closed where that one was.
+
+## 209. One `data-asset-id` pattern, five hand-maintained spellings
+
+**Status:** open — a drift risk, not a defect. Nothing here is broken; nothing keeps the shared
+part of the five in step either.
+
+Reproduce the set:
+
+```bash
+grep -rn 'data-asset-id="' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep "RE = "
+```
+
+★★ **They are NOT five copies of one regex — they are one pattern family in five spellings**, and
+that is the more useful framing, because it rules out the mechanical fix. Three (`IMG_TAG_RE` in
+`doc-render-html.ts`, `doc-render-docx.ts` and `doc-render-pptx.ts`) are byte-identical, global, and
+capture the id. `ASSET_ID_RE` (`document-asset-usage.ts`) is attribute-only with NO `<img>` anchor —
+so it matches strings the other four do not, deliberately: its module header records that it runs on
+already-sanitized stored html, where a literal `data-asset-id="…"` in TEXT would already have been
+escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fix round) is case-INSENSITIVE,
+non-global, requires a NON-empty id and captures nothing.
+★★ **`ASSET_IMG_RE` diverged FURTHER in `e5597c78` and the gap is now wider than the rest of this
+entry implies.** The other four read a double-quoted value only; this one was widened to an
+alternation over `\s*=\s*` covering double-quoted, single-quoted and unquoted values, because it
+alone runs BEFORE any allow-list pass and so must survive hand-edited and imported html. Read the
+current spelling rather than any restatement:
+`grep -n -A 1 "const ASSET_IMG_RE" src/app/document-model.ts`.
+★ Read the emptiness difference carefully before "unifying" it: `ASSET_ID_RE`'s permissive `[^"]*`
+is narrowed by a `.filter((id) => id.length > 0)` at its only call site, so it and `ASSET_IMG_RE`
+still agree on emptiness — every branch of that alternation requires at least one character —
+through two different mechanisms, in two different files. A shared
+module has to keep the variation as parameters rather than flatten it. ★★ Only `ASSET_IMG_RE`
+carries a per-divergence justification at its own declaration; the other four are explained by their
+surrounding module comments or not at all, so do not expect the code to tell you which differences
+are load-bearing.
+
+★★ **They could not be shared as things stand**, which is why the fix round left all five.
+`document-asset-usage.ts`'s `assetIdsInBlock` is the natural home and is NOT exported; and
+`document-asset-usage.ts` already depends on `document-model.ts` (an `import type` of `DocBlock` /
+`ProjectDocument` today), so consolidating there would point a core model module at one of its own
+consumers — an inversion, and a real runtime cycle the moment either side of that pair needs a VALUE
+import (a type-only import is erased, so today's direction is safe by accident, not by design). This repo already carries a standing cycle trap in exactly that graph (§92).
+
+The clean shape is a small pure module both sides import — id extraction and the "does this block
+carry an asset image" predicate, with the global/case/emptiness differences as options — depended on
+by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and depending on none of
+them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
+records elsewhere; nothing gates them agreeing.
+
+## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either
+
+**Status:** open — the sink is built and tested; only the wiring is missing.
+
+**Symptom.** Export a document containing an image as **HTML** or **PDF** and the image is simply
+absent from the file. Not a placeholder, not a broken-image marker, not a warning glyph — an
+`<img data-asset-id="…" alt="…">` element with no `src` attribute at all. DOCX and PPTX are BETTER
+here: both emit a visible translated placeholder naming the asset (§202). The live preview is
+unaffected — it resolves blob object URLs imperatively in `document-asset-images.ts` and never
+goes through this path.
+
+**Mechanism.** `renderDocumentHtml`'s `assets` parameter is optional and trailing, and no
+production caller passes it:
+
+```
+grep -rn "renderDocumentHtml(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+returns six lines: the declaration, one COMMENT in `document-preview.tsx`, and FOUR real calls —
+`document-preview.tsx` and `documents-history-modal.tsx` (both `"preview"` mode, which returns
+before any asset handling; the latter is separately §206) and `document-download.ts` twice, the pdf
+branch and the html branch. **Every one of the four passes exactly four arguments.** So
+`inlineDocumentImages` never runs outside its own tests. The documents allow-list grants `img` only `alt` and `data-asset-id` and deliberately
+NO `src`, so the tag reaches the output exactly as stored.
+
+★★ **The warning glyph cannot fire either, for TWO independent reasons, and that is the non-obvious
+half.** (a) The `img[data-asset-missing]` rules key off an attribute stamped ONLY inside
+`inlineDocumentImages` — it is the fallback branch when `assetSrcAttr` declines — so with no
+`assets` argument the attribute is never stamped. (b) Even if it were, those rules live in
+`src/app/globals.css`, the APP stylesheet. A standalone export inlines `PRINT_STYLES` +
+`DOCUMENT_PAGE_STYLES` into its own `<style>` and loads nothing else, and neither of those carries
+an `img[data-asset-missing]` rule (verify: `grep -n "asset-missing" src/app/globals.css` finds them,
+`grep -n "asset-missing" src/app/doc-render-html.ts` finds only the code that stamps the attribute).
+So fixing the wiring alone would produce an attribute nothing styles. Reading "the missing-image
+glyph exists" as "an absent image is disclosed in exports" is the mistake to avoid — it is disclosed
+in the live PREVIEW, which does load `globals.css`.
+
+★★★ **THIS IS NOT A ONE-LINE WIRE-UP, and estimating it as one is the trap.** `downloadDocument` is
+**synchronous**, and its pdf branch calls `window.open` inside the user-gesture context. Loading
+asset bytes is asynchronous (the byte side table is a separate store — see `docs/AGENTS/documents.md`'s
+"Asset images (S3c-1)" section). Awaiting the bytes before `window.open` spends the gesture, so every
+user lands on the popup-blocker fallback path that exists for the genuinely-blocked case — turning a
+missing image into a broken export button. Closing this properly means either pre-loading the bytes
+BEFORE the gesture (the panel knows which document is selected long before the click) or
+restructuring the export entry point so the async work happens outside the gesture-sensitive branch.
+
+★ **What is already done.** `assetSrcAttr` — the `data:` URI sink — is built, validates the mime
+against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload against the base64 alphabet,
+falls through to the `data-asset-missing` branch on a miss, and is unit-tested against PARSED
+attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
+be downgraded on reachability grounds.
+
+## 211. A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever
+
+**Status:** open — inert unless a real SINGLE-TENANT Turso database was written by a build older
+than `f43c41a8`.
+
+★★★ **SINGLE-TENANT ONLY, and an earlier revision of this entry said "a Turso DB" flatly.** The
+MULTI-TENANT builder never emitted a rowid alias: `tenantColDdl` emits a bare `id INTEGER` and the
+table carries a composite `PRIMARY KEY (id, project_id)`, which gives that column INTEGER AFFINITY
+and nothing more — SQLite does not enforce affinity. Measured against `node:sqlite` v24, the same
+engine the executing tests use, rather than reasoned:
+
+```
+CREATE TABLE single (id INTEGER PRIMARY KEY, name TEXT);
+  -> INSERT of a UUID string REJECTED: datatype mismatch
+CREATE TABLE tenant (id INTEGER, name TEXT, project_id TEXT, PRIMARY KEY (id, project_id));
+  -> INSERT of a UUID string ACCEPTED, typeof(id) = text
+```
+
+The pre-fix TENANT failure was real but lived in `tenantInsert`, which bound the id as
+`{type: "integer"}` — a CODE defect, corrected by `f43c41a8` on every database at once. So a
+multi-tenant portfolio SELF-HEALS on the first save after upgrade and needs no remedy. Everything
+below applies to the single-tenant layout alone.
+
+**Symptom.** On an affected single-tenant database the FIRST image upload still fails: the metadata row's id is a
+`crypto.randomUUID()` string going into an INTEGER-typed primary key, so SQLite answers
+`datatype mismatch`. A workspace save is emitted as ONE `BEGIN … COMMIT` pipeline, and every
+subsequent save then REPORTS failure, indefinitely. There is no in-app repair path, and the message
+the user gets is `turso-pipeline.ts`'s pass-through of SQLite's own text — `Turso error: datatype
+mismatch` — which names neither the table nor the column, so nothing points at the cause. The id is
+minted in `use-document-assets.ts` (`crypto.randomUUID()`); the INTEGER column is a rowid alias, and
+a non-integer value into one is what SQLite rejects.
+
+★★★ **IT DOES NOT ABORT THE TRANSACTION, AND THIS ENTRY SAID IT DID.** The wording above was
+"that single row aborts the whole transaction", which implies the rest of the save is discarded.
+It is not. A libSQL `/v2/pipeline` batch keeps executing after a failing statement: it returns an
+error for that ONE statement, COMMIT still runs and returns ok, and everything that succeeded is
+committed. `runTursoPipeline` then sees the error in the results and calls `rollbackBestEffort`
+against a transaction that has ALREADY COMMITTED, so the rollback changes nothing, and throws.
+
+So the real failure mode is **a save the user is told failed, on a workspace that was in fact
+written, minus the rejected row** — silent partial persistence presented as a total failure. That
+is worse than the documented behaviour, not milder: someone who believes the old claim will not go
+looking for partially-written data, and will not suspect that a later save's "failure" already
+changed the database. Measured against a live database, not reasoned from the SQLite docs.
+
+★★ The remedy below is unaffected — it repairs the DDL, and is correct either way. What changes is
+what you should EXPECT to find in the database beforehand: not an untouched workspace.
+
+**Why the fix does not reach it.** `f43c41a8` corrects NEW databases only, and three separate
+mechanisms each independently prevent it reaching an existing one:
+
+- `SCHEMA_DDL` uses `CREATE TABLE IF NOT EXISTS`, a no-op against a table that already exists — so
+  the corrected `id TEXT PRIMARY KEY` DDL is never executed there.
+- `turso-migrate.ts` only ever emits `ALTER TABLE … ADD COLUMN … TEXT`. Its own module header states
+  why: `id` is created WITH the table and so always pre-exists, which is exactly the assumption that
+  makes it unable to repair an `id` of the wrong TYPE. SQLite could not do it with `ALTER` anyway.
+- `SCHEMA_VERSION` is written into `meta` but drives no migration runner. Verify:
+  `grep -rn "schema_version" src/app --include=*.ts | grep -v "\.test\."` returns only the two
+  WRITE sites (single-tenant and tenant schema builders) and no reader.
+
+★★ **No test can see this, structurally.** The executing Turso tests build a fresh database per
+case, so every one of them exercises the corrected DDL. Reproducing this needs a database created by
+the older code — which means it will never be caught by the suite, only by a user.
+
+**Practical remedy** on an affected single-tenant database: `DROP TABLE document_assets` (the next save recreates
+it from the corrected `SCHEMA_DDL`). ★ This is safe in a narrow and specific sense that should not be
+overstated: the bytes live in a SEPARATE side table outside `TABLE_NAMES`, so dropping the metadata
+table cannot destroy any image data. But the metadata itself — asset name, mime, dimensions, the id
+that `<img data-asset-id>` references — is NOT re-derivable from the bytes. Any asset that had
+already been stored loses its metadata and its document references dangle; recovery is re-upload.
+On an affected DB no upload ever succeeded, so in practice the table is empty and the drop costs
+nothing — but check before assuming that.
+
+## 212. A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry
+
+**Status:** CLOSED — candidate (a) shipped; the recovery path the code documented three times now exists.
+
+**What shipped.** `upload` in `use-document-assets.ts` consults a `danglingRef` mirror of
+`danglingIds` alongside the hash: a HEALTHY duplicate short-circuits exactly as before (no metadata
+write, no byte write), while a DANGLING one falls through to `saveAssetData` REUSING the existing
+row's id — no second metadata row, and every `<img data-asset-id>` already placed in a document
+keeps resolving. The mirror follows `assetsRef`'s established shape, because `upload` awaits three
+times before it consults the set and taking `danglingIds` into the callback's deps would hand the
+fan-out call sites a stale callback instead of a stale read. On success the id is cleared from
+`danglingIds` EXPLICITLY through a new pure `commitDangling` writer: the diff effect is keyed on
+`assets`, and a repair writes no metadata, so nothing else would ever take the row's marker off.
+The failure path is unchanged — the metadata row survives, `setError("storageWrite")`, the asset is
+still returned — so a retry that fails again simply stays repairable.
+
+**What pins it.** `use-document-assets.test.tsx`'s "dangling retry (§212)" block: the composed
+detector (fail the byte write, assert dangling, re-upload the SAME file, assert a SECOND
+`saveAssetData` call carrying the ORIGINAL id, one metadata row, and the id gone from
+`danglingIds`), a healthy-duplicate short-circuit so deleting the dedup branch cannot pass, the
+retry-fails-again path, and a gated write proving `busyId` covers the retry. Mutation-proved 3/3:
+dropping `!danglingRef.current.has(...)` from the guard, dropping the explicit clear, and
+unconditionally appending the metadata row each fail with an AssertionError naming the expectation.
+★ Correcting this also exposed a latent fixture defect in the pre-existing "reuses an existing
+asset instead of storing a duplicate" test — its seeded row was DANGLING by construction
+(`loadAssetDataIds` mocked to `[]`) and it passed only because the diff effect's async continuation
+had not landed before the upload read the set; two flushed microtasks turned it red. The fixture
+now reports the row's bytes.
+
+**Symptom.** An upload whose BYTE write fails leaves a metadata row marked dangling in the asset
+library (the intended, designed outcome). The user re-uploads the same image to fix it. Nothing
+happens: no byte write is attempted, no error is shown, and the row stays dangling forever.
+
+**Mechanism.** `upload` in `use-document-assets.ts` hashes the processed bytes and consults
+`findDuplicate` BEFORE minting a row, returning early on a hit:
+
+```
+const duplicate = findDuplicate(assetsRef.current, hash);
+if (duplicate) {
+  // Reuse — no metadata write, no byte write.
+  return duplicate;
+}
+```
+
+The dangling row is still in `assetsRef.current` and still carries the hash of exactly those bytes,
+so the re-upload matches it and returns. `findDuplicate` matches on hash alone and knows nothing
+about `danglingIds`.
+
+★★ **Deterministic, not probabilistic, for any image at or under the downscale target.**
+`processUpload` re-encodes ONLY when `targetSize` differs from the source, assigning
+`chosen = { bytes, mime }` otherwise — so a small image stores its ORIGINAL bytes and the second
+hash is bit-identical by construction. A downscaled image relies on canvas encode determinism,
+which is not guaranteed. The larger the image, the likelier the retry accidentally works: exactly
+the wrong way round for a recovery path.
+
+★★★ **THREE COMMENTS IN THE FILE ASSERT THE OPPOSITE**, which is how it survived two review
+rounds: the module header, the `catch` block ("repaired by re-uploading over the same id") and the
+trailing `return asset` note all describe the repair as working. Corrected in place — a comment
+documenting an unreachable path is worse than none, because the next reader stops looking.
+
+**What no test caught (until this fix).** `use-document-assets.test.tsx` had a dangling case and a
+dedup case; they passed independently and nothing composed them. The minimal detector uploads, fails
+the byte write, then uploads THE SAME FILE again and asserts a second `saveAssetData` call — that is
+now the first test of the "dangling retry (§212)" block described above.
+
+**Options as they stood; (a) is what shipped.** (a) Pass `danglingIds` into the dedup check so a dangling hit falls
+through to the byte write, reusing the existing id — which repairs the placement too, since the id
+does not change. (b) A per-row Retry control in the asset library calling `saveAssetData` directly.
+(a) is the smaller change and covers the paste/drop path as well, which has no UI to hang (b) on.
+
+## 213. A late-landing dangling diff can overwrite a healthy asset back to dangling
+
+**Status:** open — pre-existing, surfaced (not caused) by the §212 work, and NOT closed by it.
+
+**Symptom.** A FRESH upload succeeds — bytes written, no error — and the asset library still
+shows the row marked dangling, permanently. Nothing the user can do from the library clears it;
+only an unrelated edit that changes the `assets` array re-runs the diff and repairs the display.
+The bytes are fine throughout, so this is a disclosure defect, not data loss.
+
+**Mechanism.** Two async paths race, and the loser wins. `upload` commits the metadata row
+BEFORE writing the bytes (the deliberate ordering §212 and the file header describe), so the
+`assets` change immediately re-fires the dangling-diff effect while `saveAssetData` is still in
+flight — measured at ~1.8s for a 5 MB image by the comment on `busyId`. That diff calls
+`loadAssetDataIds`, which correctly reports the new id as absent. Then:
+
+```
+load resolves, then save resolves  -> marked dangling, then cleared   OK
+save resolves, then load resolves  -> cleared (no-op), then RE-MARKED  stuck
+```
+
+★★ **The clear cannot defend itself, because the diff REPLACES the whole set.** The effect
+builds a fresh `next` from `assets` minus `present` and calls
+`setDanglingIds((prev) => setsEqual(prev, next) ? prev : next)` — `prev` is consulted only to
+avoid a needless re-render, never merged. So a late continuation discards the clear entirely
+rather than reconciling with it, and the effect deps are `[config, projectId, assets]`, none of
+which change again on a successful upload. Nothing re-runs it.
+
+**Why §212 neither caused nor closed it.** Before that fix there was no clear at all, so this
+window already existed and was simply never named.
+
+★★★ **THE §212 REPAIR PATH IS NOT "IMMUNE BY CONSTRUCTION", AND THIS ENTRY SAID IT WAS.** The
+sentence that stood here — "a retry writes no metadata, so `assets` does not change and the effect
+never re-arms" — is true only of a diff that would have to be armed AFTER the repair. It says
+nothing about one already IN FLIGHT, which is the entire failure mode this entry is about, so it
+claimed immunity from the very race it describes. Refuted by measurement, not by reading: seed a
+dangling row; arm a diff by ANY unrelated `assets` change and hold its `loadAssetDataIds` open
+(a `rename` in a test — in the app, a sibling upload in the same multi-file drop, or any edit to
+the library); run the repair so it succeeds and clears; then let the held diff resolve. The row is
+re-marked dangling and STAYS that way, because the diff REPLACES the whole set rather than merging
+— the same mechanism as the fresh-upload case above, reached from the other direction. Probed
+against the post-§212 tree with a throwaway spec built exactly that way; it observed
+`danglingIds.has("a1") === true` after the repair had already cleared it, with `loadAssetDataIds`
+called twice and nothing re-arming afterwards.
+
+**Mitigation that the entry lacked.** Post-§212 the stuck state is at least USER-REPAIRABLE, in
+both directions. The row reads dangling, so re-uploading that image falls through the dedup guard
+and re-writes its bytes — which is exactly the §212 repair path, and it clears the marker again.
+The bytes were never at risk; what is stuck is a marker, and the user now has a way to unstick it.
+That is not a fix, and a user who does not know to try it still sees a permanently wrong marker.
+
+**Re-arming the diff after a successful repair is NOT the fix, and this was measured.** It looks
+like one — a dep change runs the previous effect's cleanup, setting `cancelled`, so the stale
+continuation would bail and a fresher diff would supersede it. But `use-document-assets.test.tsx`'s
+§212 test deliberately leaves `loadAssetDataIds` returning `[]` so that the explicit clear is the
+ONLY thing that can un-mark the row, and a re-armed diff re-marks it: adding a repair generation to
+the effect's deps turns "re-writes the bytes over the SAME id when a dangling row is re-uploaded"
+red at its `danglingIds.has(first.id)` assertion. "Fixing" that fixture to report the written bytes
+would let the drop-the-clear mutant survive, i.e. it would trade this open defect for a weaker proof
+of a closed one. Whatever closes §213 has to leave that test's shape intact.
+
+**Not the same defect as the preview blanking, though they were found together.** A separate
+0.254.0 fix makes a successful repair re-resolve `<img data-asset-id>` in `document-preview.tsx`
+(a `notifyAssetRepaired` module store) and stops React re-assigning the preview's `innerHTML` on
+every render. Neither touches `danglingIds`: this entry's marker race is unchanged in either
+direction by that work.
+
+**Candidate fix.** Have the effect ignore ids this session is known to have written: a
+`wroteBytesRef` populated on a successful `saveAssetData` and subtracted from `next` before the
+set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
+`use-document-assets.ts` claims otherwise.
+
+★ A test needs to control the resolution ORDER of `loadAssetDataIds` and `saveAssetData`
+independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
+whichever order the harness happens to produce, which is the shape that let this go unnoticed.

@@ -261,6 +261,9 @@ export const de: Record<TranslationKey, string> = {
   print: "Drucken",
   printHint: "Browser-Druckdialog für ein A4-Handout öffnen",
   delete: "Löschen",
+  rename: "Umbenennen",
+  insert: "Einfügen",
+  upload: "Hochladen",
   sendInquiry: "Anfrage senden",
 
   showMore: "Mehr anzeigen",
@@ -3957,6 +3960,8 @@ export const de: Record<TranslationKey, string> = {
   versionHighlightDictationPosition: "Wenn Sie in eine Notiz diktieren, die bereits Text enthält, wird das Gesagte jetzt am Ende angefügt, statt manchmal an den Anfang gesetzt zu werden.",
   versionHighlightBlockStructure: "Erzeugte Dokumente lassen sich jetzt nicht nur umformulieren, sondern auch umbauen. Jeder Block im Editor hat einen eigenen Griff und ein eigenes Menü: Sie können darüber oder darunter einen Block einfügen und dabei jede Blockart wählen, den Block nach einer Rückfrage löschen oder ihn verschieben — durch Ziehen am Griff oder mit den Pfeiltasten nach oben und unten, solange der Griff den Fokus hat. Ein Block, der gerade gezogen wird, wird abgeblendet, und die Stelle, an der er landen würde, wird markiert; ein Ablegen ist also nie ein Ratespiel. Strukturänderungen werden genau wie eine Textänderung in der Versionsgeschichte des Dokuments festgehalten, sodass sich eine frühere Anordnung wiederherstellen lässt.",
 
+  versionHighlightDocumentImages: "Dokumente können jetzt Bilder enthalten. Ziehen Sie ein Bild auf das Dokument, fügen Sie es aus der Zwischenablage ein oder wählen Sie eine Datei aus: Es wird geprüft, bei Bedarf verkleinert und in Ihrem Turso-Projekt gespeichert, während im Dokument selbst nur ein Verweis liegt — eine Arbeitsbereichsdatei enthält also nie Bilddaten. Eine Bildbibliothek listet alle Bilder des Projekts mit Name, Größe und der Zahl der Dokumente auf, die sie verwenden, erlaubt Umbenennen und Löschen und kennzeichnet deutlich jedes Bild, dessen gespeicherte Daten fehlen. Word- und PowerPoint-Exporte nennen ein ausgelassenes Bild in einem sichtbaren Platzhalter, statt es stillschweigend wegzulassen. Bilder benötigen ein Turso-Projekt; ohne ein solches bleibt der übrige Dokumenteneditor unverändert.",
+
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Erkenntnisse",
   insightAcknowledge: "Bestätigen",
@@ -4054,4 +4059,28 @@ export const de: Record<TranslationKey, string> = {
   allocPlanSkipAlreadySet: "bereits auf diesem Wert",
   activityAiAllocationPlan: "KI hat {0} Planungszellen geplant",
   activityAiDocumentWrite: "Assistent hat ein Dokument bearbeitet",
+
+  // Asset library (S3c-1 — document images)
+  assetLibraryTitle: "Bildbibliothek",
+  assetLibraryEmpty: "Noch keine Bilder.",
+  assetLibrarySize: "Größe",
+  assetLibraryUsage: "Verwendet in",
+  assetLibraryActions: "Aktionen",
+  assetLibraryTotalSize: "Gesamtgröße: {0}",
+  assetLibraryDangling: "Bilddaten fehlen",
+  assetLibraryDeleteConfirm: "{0} löschen?",
+  assetLibraryDeleteConfirmUsed: "{0} löschen? Es wird in {1} Dokument(en) verwendet und hinterlässt dort ein defektes Bild.",
+  assetLibraryTursoOnly: "Bilder benötigen ein Turso-Projekt. Dokumente funktionieren mit jedem Backend.",
+  assetLibraryReadOnly: "Bilder sind hier schreibgeschützt – fügen Sie sie im Hauptfenster hinzu.",
+  assetLibraryInsert: "Bild einfügen",
+  assetLibraryMaxPerDocument: "Dieses Dokument enthält bereits die maximale Anzahl von {0} Bildern.",
+  assetLibraryPasteDropZone: "Bild einfügen oder hierher ziehen, um es hinzuzufügen",
+  assetUploadErrorFormat: "Nicht unterstütztes Bildformat. Verwenden Sie PNG, JPEG oder WebP.",
+  assetUploadErrorTooLargeRaw: "Dieses Bild ist zu groß zum Hochladen.",
+  assetUploadErrorTooLargeStored: "Dieses Bild ist auch nach der Verkleinerung noch zu groß.",
+  assetUploadErrorDimensions: "Die Abmessungen dieses Bildes konnten nicht gelesen werden.",
+  assetUploadErrorEmpty: "Diese Datei ist leer.",
+  assetUploadErrorDecode: "Dieses Bild konnte nicht dekodiert werden.",
+  assetUploadErrorStorageWrite: "Das Bild konnte nicht gespeichert werden. Erneut hochladen, um es noch einmal zu versuchen.",
+  assetExportPlaceholder: "[Bild: {0}]",
 };

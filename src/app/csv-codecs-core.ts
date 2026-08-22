@@ -166,6 +166,14 @@ export const EVENTS_CSV_COLUMNS: Array<keyof CalendarEvent> = [
   "outlookEventId",
 ];
 
+// DOCUMENT_ASSETS_CSV_COLUMNS / documentAssetFieldToString /
+// buildDocumentAssetFromObj / documentAssetsToCsv moved to
+// ./document-asset-codecs.ts when this file crossed the 800-line file-size
+// ratchet — re-exported via the ./csv-codecs barrel, NOT from here (a
+// re-export back into this file would create a core -> document-asset-codecs
+// -> core cycle). A caller importing them directly from this file must
+// switch to "./document-asset-codecs" or the "./csv-codecs" barrel.
+
 // Columns persisted for Shift items in CSV and Markdown. Per-weekday hours
 // are flattened into 7 columns (Sun..Sat) so spreadsheets can show them
 // side-by-side. Order matches the header row emitted by the encoder.

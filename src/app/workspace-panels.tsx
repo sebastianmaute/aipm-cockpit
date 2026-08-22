@@ -4,10 +4,17 @@
 // loads so the first visit to a view shimmers into place instead of flashing
 // blank. The fallback is prop-less (no `lang` in this module scope) → decorative.
 import dynamic from "next/dynamic";
+import { useMemo } from "react";
 import { PanelSkeleton } from "./skeleton";
 import { useWorkspace } from "./workspace-context";
+import { useSettings } from "./use-settings";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
+import { getTursoConfig } from "./turso-config";
+import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
+import { loadPortfolioMode, loadCurrentTursoProjectId } from "./portfolio-mode";
+import { loadRegistry } from "./projects-registry";
+import { isSafeMode } from "./safe-mode";
 import type { Lang } from "./i18n";
 
 const loading = () => <PanelSkeleton />;
@@ -132,6 +139,67 @@ export function DocumentsTabPanel({
   isPopout: boolean;
 }) {
   const ws = useWorkspace();
+  // ★★ The asset library's Turso gate. Mirrors workspace-section.tsx's
+  // `chatTursoConfig` pattern exactly (see AGENTS.md's AI Assistant sidebar
+  // bullet): `getTursoConfig` returns a FRESH object every call, so the
+  // `useMemo` on the credential STRINGS (not the settings object) is
+  // load-bearing — an unstable identity would re-fire useDocumentAssets'
+  // dangling-diff effect on every render. Hoisted to locals because
+  // exhaustive-deps rejects an `obj.member` dependency.
+  const { settings } = useSettings();
+  const tursoUrl = settings.integrations?.turso?.databaseUrl;
+  const tursoToken = settings.integrations?.turso?.authToken;
+  //
+  // ★★★ SAFE MODE REFUSES TO OPERATE — it must never silently RE-PARTITION the
+  // byte store. Both Turso readers below FORCE a degraded value under `?safe=1`
+  // (portfolio-mode.ts: `loadPortfolioMode` returns "file" and
+  // `loadCurrentTursoProjectId` returns null), while `loadRegistry()` carries no
+  // such guard. So without this gate a Turso-portfolio user entering Safe Mode
+  // would swap the byte-lookup key to the FILE registry's project id (or
+  // `ASSET_PARTITION_FALLBACK`) while the METADATA — which rides the workspace,
+  // not this key —
+  // stayed put: every asset reads as dangling, every embedded image breaks, and
+  // an upload writes bytes under a key normal-mode boot never looks at.
+  // `deleteAllAssetDataForProject` is keyed the same way, so those orphans would
+  // then survive project deletion too.
+  //
+  // ★★ STABILISING THE KEY INSTEAD IS INCOHERENT, NOT MERELY UGLY. Safe Mode
+  // also boots settings at `defaultStorageConfig` (`kind: "browser"`), so the
+  // metadata half comes from the BROWSER backend whatever this key says. No
+  // project id makes the two halves agree, and reconstructing the real one by
+  // reading MODE_KEY/CURRENT_TURSO_PROJECT_KEY raw would defeat, from inside a
+  // view component, the guards portfolio-mode.ts exists to apply. Disabling is
+  // the only sound answer, and a null `tursoConfig` is already exactly that
+  // (documents-asset-section.tsx's `enabled` gate) — no new state, and it
+  // cannot move or rewrite a byte.
+  //
+  // ★★ Safe Mode ALSO defaulting `settings.integrations` does not make this
+  // redundant: NEXT_PUBLIC_TURSO_DATABASE_URL takes PRECEDENCE over the settings
+  // value in `getTursoConfig` (it is not a fallback — env wins when set), so an
+  // env-configured deployment returns a non-null config from default settings
+  // alone. That is the reachable path this gate closes, and the one a test that
+  // leans on the settings coupling would pass vacuously.
+  const safeMode = isSafeMode();
+  const assetsTursoConfig = useMemo(
+    () => (safeMode ? null : getTursoConfig(tursoUrl, tursoToken)),
+    [safeMode, tursoUrl, tursoToken],
+  );
+  // ★★ Project id scoping the asset byte store's `(id, project_id)` rows.
+  // `DocumentsTabPanel` has no `currentProjectId` PROP — workspace-section.tsx
+  // is baselined at exactly 1000 lines with zero headroom, so it cannot be
+  // threaded through — so this reads the SAME two sources task-manager.tsx's
+  // `landingProjectId` combines, directly: Turso portfolio mode's
+  // last-selected project id, or the file registry's current entry. Read
+  // fresh each render (no effect) — synchronous localStorage reads in render
+  // are pure and this repo already relies on that elsewhere.
+  // ★ That expression is only TRUSTWORTHY because of the gate above: it is
+  // consumed solely alongside a non-null `tursoConfig`, and Safe Mode — the one
+  // state in which its two inputs disagree about which portfolio is loaded —
+  // forces that config to null. Do not reuse it anywhere that lacks the gate.
+  const assetsProjectId =
+    loadPortfolioMode() === "turso"
+      ? (loadCurrentTursoProjectId() || ASSET_PARTITION_FALLBACK)
+      : (loadRegistry().currentProjectId || ASSET_PARTITION_FALLBACK);
   // ★★ The RESIZABLE PANE, and the reason the reset-size control is not a lie.
   // The toolbar has always drawn one, but `onResetSize` was optional, the panel
   // fell back to a no-op, and this call site never passed it — so the button
@@ -167,6 +235,12 @@ export function DocumentsTabPanel({
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}
+          assetPane={{
+            tursoConfig: assetsTursoConfig,
+            projectId: assetsProjectId,
+            assets: ws.documentAssets,
+            setAssets: ws.setDocumentAssets,
+          }}
         />
       </div>
     </div>

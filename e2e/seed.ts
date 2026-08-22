@@ -46,6 +46,50 @@ const SEED_WORKSPACE: Record<string, unknown> = {
         { type: "paragraph", html: "<p>Agenda and owners for the kickoff session.</p>" },
         { type: "bullets", items: ["Scope walkthrough", "Risk review"] },
         { type: "table", caption: "Owners", columns: ["Area", "Owner"], rows: [["Scope", "Dana"], ["Risk", "Ravi"]] },
+        // ★★ WHY THIS FIGURE IS CAPTIONED, and why the caption is now a CHOICE
+        // rather than a requirement. `document-model.ts`'s sanitizeBlock used to do
+        // a bare `if (htmlTextLength(html) === 0) return null` for a paragraph, and
+        // `htmlTextLength` -> `htmlPlainProjection` (rich-text-plain.ts) strips EVERY
+        // tag without counting `alt` — so a paragraph whose entire html was an
+        // `<img>` projected to "" and the block was DROPPED on load, on all six
+        // paths. Seeded image-only, this block would have silently not existed by
+        // the time the page rendered and documents-images.spec.ts would have gone
+        // vacuously green against a document containing no image.
+        // FIXED by ASSET_IMG_RE in sanitizeBlock, so an image-only paragraph now
+        // survives. The caption stays because a captioned figure is the realistic
+        // shape and costs the spec nothing. Re-measure before trusting either way —
+        // BOTH blocks should appear in the output; if the FIRST one vanishes, the
+        // load-side guard has regressed and every user-inserted image is being
+        // deleted on load again:
+        //   printf '%s' 'import {sanitizeProjectDocuments} from "./src/app/document-model";
+        //   const b=[{type:"paragraph",html:`<img data-asset-id="a" alt="x">`},
+        //   {type:"paragraph",html:`<p><img data-asset-id="b" alt="x"> cap</p>`}];
+        //   console.log(JSON.stringify(sanitizeProjectDocuments([{id:1,title:"T",
+        //   blocks:b,createdAt:"",updatedAt:""}])[0].blocks));' > probe.tmp.ts
+        //   npx vite-node probe.tmp.ts && rm probe.tmp.ts
+        // (vite-node takes FILES ONLY — it has no -e flag; that form exits 1. This
+        // command was run against the post-fix tree and printed both blocks.)
+        { type: "paragraph", html: '<p><img data-asset-id="e2e-asset-1" alt="Burndown chart"> Figure 1 — burndown at kickoff.</p>' },
+        // ★★★ THE IMAGE-ONLY SHAPE, AND IT IS THE MORE IMPORTANT OF THE TWO.
+        // This is EXACTLY what the product inserts: documents-asset-section.tsx
+        // builds `<img data-asset-id=… alt=…>` and nothing else, so this block —
+        // not the captioned one above — is the faithful reproduction of a real
+        // user-inserted image. It is only seedable at all because `d183be6d`
+        // added ASSET_IMG_RE; before that it was deleted on every load.
+        // ★★ That makes it a live REGRESSION DETECTOR for the load-side guard:
+        // revert d183be6d and this block stops existing, so
+        // documents-images.spec.ts never finds its second image and goes RED —
+        // instead of the silent data loss going unnoticed a second time. Keep
+        // BOTH blocks: the captioned one is valid under either behaviour and so
+        // protects the CSP/render assertion from any future change to
+        // block-dropping rules, while this one protects the drop rule itself.
+        // ★ A SECOND asset, not a re-reference of e2e-asset-1: two ids let the
+        // spec assert each image's own dimensions (8x8 vs 4x4), so a resolver
+        // that pointed both `<img>`s at the same bytes could not pass. Distinct
+        // bytes, and therefore a distinct `hash`, also keep the pair consistent
+        // with upload dedup, which is hash-keyed and would never mint two rows
+        // for identical content.
+        { type: "paragraph", html: '<img data-asset-id="e2e-asset-2" alt="Velocity sparkline">' },
         { type: "dataSection", key: "milestones" },
         { type: "pageBreak" },
       ],
@@ -60,6 +104,39 @@ const SEED_WORKSPACE: Record<string, unknown> = {
       // test-only row never forces a golden regeneration. The sample's own
       // document carries a LABELLED link, so both shapes are seeded.
       linkedEntities: [{ kind: "task", id: 1 }],
+    },
+  ],
+  // The METADATA half of the seeded image (S3c-1). The BYTES are deliberately
+  // NOT here and never can be: they live in the `document_asset_data` Turso
+  // side table, which no file-mode backend has — see E2E_DOCUMENT_ASSET and
+  // installAssetByteStore below for the other half, and for why a spec that
+  // wants a REAL rendered image has to opt into it.
+  // ★ Fields mirror `DocumentAsset` (document-asset.ts). `width`/`height` are
+  // the real dimensions of the PNG in E2E_DOCUMENT_ASSET, so a spec may assert
+  // naturalWidth/naturalHeight against them rather than against `> 0` alone.
+  // ★★ `mime` is what `DocumentPreview` feeds attachAssetImages' `mimeFor`, so
+  // a wrong value here would mint a type-less Blob and leave the render to
+  // content sniffing — the seeded value must stay in step with the real bytes.
+  documentAssets: [
+    {
+      id: "e2e-asset-1",
+      name: "burndown.png",
+      mime: "image/png",
+      size: 84,
+      width: 8,
+      height: 8,
+      hash: "ae6850aab39f9fe52b1d62bfeb98c3ccfafc346aeb04ee45e728ba39a10fa20f",
+      createdAt: "2026-06-01T00:00:00.000Z",
+    },
+    {
+      id: "e2e-asset-2",
+      name: "velocity.png",
+      mime: "image/png",
+      size: 83,
+      width: 4,
+      height: 4,
+      hash: "8742b458059c03e5240932d82d1dbbd1708c8b99ca7a93a5041286a8d83669bd",
+      createdAt: "2026-06-01T00:00:00.000Z",
     },
   ],
   // ★ e2e-only, for the same reason as `documents` above: the master is the
@@ -259,6 +336,12 @@ function seedIndexedDb(ws: Record<string, unknown>): Promise<void> {
     milestones: "milestones", changes: "changes", stakeholders: "stakeholders", project: "project",
     documents: "documents", documentVersions: "documentVersions",
     insights: "insights", timelogLinks: "timelogLinks",
+    // ★ Checked against browser-backend.ts's KV_DOCUMENT_ASSETS_KEY, per the
+    // rule above — the value is the IDB kv key, not the workspace field name,
+    // and here the two coincide. Without this row the `documentAssets` slice
+    // authored above is silently dropped and every seeded image renders its
+    // missing-asset marker no matter what the byte store says.
+    documentAssets: "documentAssets",
   };
   return new Promise((resolve, reject) => {
     // ★ The version is hardcoded here but derived from IDB_VERSION in idb.ts.
@@ -303,6 +386,178 @@ export const test = base.extend({
 });
 
 export { expect };
+
+/** The seeded document image: metadata mirrored from SEED_WORKSPACE's
+ *  `documentAssets` row, plus the BYTES that slice can never carry.
+ *
+ *  A real 8x8 RGB PNG, 84 bytes, built by hand (zlib IDAT + correct CRCs) so it
+ *  actually DECODES — a placeholder that merely looks like base64 would still
+ *  produce an `<img>` with a blob: src and `naturalWidth === 0`, which is the
+ *  exact failure signature a CSP regression produces. The bytes and `hash` were
+ *  generated together; regenerate both or neither. */
+export const E2E_DOCUMENT_ASSET = {
+  id: "e2e-asset-1",
+  name: "burndown.png",
+  mime: "image/png",
+  width: 8,
+  height: 8,
+  byteLength: 84,
+  base64:
+    "iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAIAAABLbSncAAAAG0lEQVR4nGOQt5r8//9/TJIBq6i81WSGQakDANWYfSG99zMiAAAAAElFTkSuQmCC",
+} as const;
+
+/** The image behind the IMAGE-ONLY paragraph block — the shape
+ *  documents-asset-section.tsx actually inserts. See that block's comment in
+ *  SEED_WORKSPACE for why the pair exists.
+ *
+ *  ★ DELIBERATELY 4x4, not another 8x8: the spec asserts each image's own
+ *  dimensions, so a resolver that pointed both `<img>` elements at the same
+ *  bytes would fail rather than pass. Distinct bytes also mean a distinct
+ *  `hash`, which keeps the pair consistent with the hash-keyed upload dedup. */
+export const E2E_DOCUMENT_ASSET_IMAGE_ONLY = {
+  id: "e2e-asset-2",
+  name: "velocity.png",
+  mime: "image/png",
+  width: 4,
+  height: 4,
+  byteLength: 83,
+  base64:
+    "iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAGklEQVR4nGM4IaD3//9/CMkAZ50Q0GPAKQMAR6EgGSlBvb8AAAAASUVORK5CYII=",
+} as const;
+
+/** Both seeded assets, for the byte-store stub's id lookup. */
+const E2E_DOCUMENT_ASSETS = [E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY] as const;
+
+/**
+ * Make the seeded document image RENDER — opt-in, per spec.
+ *
+ * ★★★ WHY THIS IS NEEDED AT ALL, and why the seed cannot just carry the bytes:
+ * a `DocumentAsset` row is workspace data and rides IndexedDB like any other
+ * slice, but its BYTES live in `document_asset_data`, a Turso side table
+ * (document-assets-schema.ts) deliberately kept out of TABLE_NAMES. There is no
+ * file-mode equivalent. `loadAssetData(null, ...)` reaches
+ * `runTursoPipeline(null, ...)`, which THROWS StorageNotReadyError;
+ * attachAssetImages swallows that and stamps `data-asset-missing="true"`. So a
+ * plain file-mode seed can only ever produce the DANGLING state — the img never
+ * even gets a blob: src, and a spec built on it could not observe a CSP
+ * `img-src` regression, because no image load is ever attempted.
+ *
+ * ★★ THE GATE IS `tursoConfig !== null`, NOT THE STORAGE BACKEND, and that is
+ * what makes this possible without distorting anything. task-manager.tsx builds
+ * it as `getTursoConfig(settings.integrations?.turso?.databaseUrl, ...authToken)`
+ * — read off the INTEGRATIONS settings and completely independent of
+ * `settings.storageConfig.kind`. The workspace therefore keeps loading from
+ * IndexedDB exactly as every other spec sees it, while the asset byte store
+ * comes alive. (It also means the sidebar is unaffected: nav pruning is
+ * `filterNavGroups(settings.features, settings.storageConfig.kind)`, which this
+ * does not touch.)
+ *
+ * ★★ EVERYTHING CLIENT-SIDE STAYS REAL. Only the remote database is stubbed —
+ * there is no Turso server in CI and there never will be. The spec still
+ * exercises getTursoConfig, loadAssetData, runTursoPipeline's real fetch, the
+ * real base64 decode, the real Blob + URL.createObjectURL, the real
+ * `img.src = blob:` assignment, Chromium's real CSP enforcement and a real PNG
+ * decode. Stubbing the transport is the only part that is not the product.
+ *
+ * ★★★ `location.origin` IS THE DATABASE URL ON PURPOSE — three constraints
+ * intersect and only this satisfies all three:
+ *   - CSP: `connect-src` (src/proxy.ts) admits 'self', so a same-origin POST is
+ *     allowed. Route interception happens in the network layer, but CSP is
+ *     enforced in the RENDERER first — a connect-src-blocked request never
+ *     reaches the handler at all, so an arbitrary host would silently degrade
+ *     to the dangling case and look like a product failure.
+ *   - CORS: same-origin means no preflight. A cross-origin pipeline POST sends
+ *     `Content-Type: application/json`, which is not a simple request, and the
+ *     OPTIONS preflight is not reliably interceptable.
+ *   - getTursoConfig: plaintext http is accepted ONLY for loopback hosts, and
+ *     token-less ONLY for those — so `http://localhost:<port>` needs no
+ *     authToken and never engages the sealed-secret machinery (`writeSettings`
+ *     blanks `integrations.turso.authToken`; an empty one has nothing to blank).
+ *     A local self-hosted tursodb is a genuinely supported configuration, so
+ *     this is a real product shape, not a test-only one.
+ * ★ Consequence: pointing PLAYWRIGHT_BASE_URL at a NON-loopback host makes
+ * getTursoConfig return null and every image dangle. That fails loudly on the
+ * naturalWidth assertion rather than passing quietly, which is the right way
+ * round.
+ *
+ * ★ The service worker cannot swallow the request: public/sw.js registers no
+ * `fetch` handler at all, so nothing competes with the route.
+ *
+ * Call BEFORE gotoApp — the init script has to land before the app boots.
+ */
+export async function installAssetByteStore(page: Page): Promise<void> {
+  // Settings are a SHALLOW merge over defaults in use-settings.ts
+  // (`{...defaultSettings, ...parsed}`), so writing this one key leaves
+  // storageConfig and everything else at its default. `integrations` is not
+  // deep-merged, which is fine: m365 is optional and nothing here needs it.
+  await page.addInitScript(() => {
+    localStorage.setItem(
+      "aipm-cockpit:settings",
+      JSON.stringify({ integrations: { turso: { enabled: true, databaseUrl: location.origin } } }),
+    );
+  });
+
+  await page.route("**/v2/pipeline", async (route) => {
+    const body = route.request().postDataJSON() as
+      | { requests?: { type?: string; stmt?: { sql?: string; args?: { value?: string }[] } }[] }
+      | null;
+    const requests = body?.requests ?? [];
+
+    // ★★ ONE RESULT PER REQUEST, IN ORDER — non-negotiable. Callers index the
+    // array positionally (`results[DOCUMENT_ASSET_DATA_DDL.length]`), so a
+    // short array silently yields `undefined`, `rowObjects` returns [] and the
+    // asset reads as dangling. Every non-asset statement therefore still gets
+    // an empty ok: enabling tursoConfig also wakes comm-templates, operating
+    // guides and the action-learning store, and each must get a well-formed
+    // reply rather than an error that could surface a banner mid-scan.
+    const results = requests.map((r) => {
+      const sql = r?.stmt?.sql ?? "";
+      const args = r?.stmt?.args ?? [];
+      if (!/FROM\s+document_asset_data/i.test(sql)) return ok([], []);
+
+      // ★ The ids-only select bills itself as `'' AS data` — the library diffs
+      // ids to mark rows dangling and must never pull bytes.
+      const idsOnly = /''\s+AS\s+data/i.test(sql);
+      // ★★ MATCHED ON ID ALONE, project_id DELIBERATELY IGNORED. The partition
+      // key is `assetPane.projectId`, which is being reworked
+      // (ASSET_PARTITION_FALLBACK) and differs between the single-tenant and
+      // tenant layouts. This spec's subject is whether an image RENDERS, not
+      // how bytes are partitioned; keying on it here would make the spec fail
+      // for a reason it does not test. Pin partitioning separately if wanted.
+      // ★ The ids select must return EVERY seeded id, not just the first: the
+      // hook diffs this set against the metadata slice, so a short list would
+      // mark the missing rows dangling in the library even though their bytes
+      // resolve fine in the preview.
+      const cols = ["id", "project_id", "data"];
+      if (idsOnly) return ok(cols, E2E_DOCUMENT_ASSETS.map((a) => [a.id, "", ""]));
+      const wanted = E2E_DOCUMENT_ASSETS.find((a) => args.some((arg) => arg?.value === a.id));
+      if (!wanted) return ok(cols, []);
+      return ok(cols, [[wanted.id, "", wanted.base64]]);
+    });
+
+    await route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({ baton: null, base_url: null, results }),
+    });
+  });
+}
+
+/** A libSQL `/v2/pipeline` execute result, in the shape `rowObjects`
+ *  (turso-schema.ts) destructures: `response.result.cols[].name` +
+ *  `response.result.rows[][].value`. */
+function ok(cols: string[], rows: string[][]) {
+  return {
+    type: "ok" as const,
+    response: {
+      type: "execute" as const,
+      result: {
+        cols: cols.map((name) => ({ name })),
+        rows: rows.map((row) => row.map((value) => ({ type: "text", value }))),
+      },
+    },
+  };
+}
 
 /** Primary sidebar views worth smoke-checking. Names match their accessible labels. */
 export const PRIMARY_VIEWS = [

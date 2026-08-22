@@ -258,6 +258,9 @@ const enUS = {
   print: "Print",
   printHint: "Open the browser print dialog for an A4 handout",
   delete: "Delete",
+  rename: "Rename",
+  insert: "Insert",
+  upload: "Upload",
   sendInquiry: "Send inquiry",
 
   show: "Show",
@@ -4013,6 +4016,8 @@ const enUS = {
   versionHighlightDictationPosition: "Dictating into a note that already has text now adds to the end of it, rather than sometimes inserting at the start.",
   versionHighlightBlockStructure: "Generated documents can now be restructured by hand, not only re-worded. Every block in the editor carries its own handle and menu: add a block above or below it and choose any block kind, delete it after a confirmation, or move it — by dragging the handle, or with the up and down arrow keys while the handle has focus. A block being dragged is dimmed and the position it would land in is marked, so a drop is never a guess. Structural changes are recorded in the document's version history exactly like a text edit, so an earlier arrangement can be restored.",
 
+  versionHighlightDocumentImages: "Documents can now hold images. Drop one onto the document, paste it from the clipboard, or pick a file: it is checked, downscaled if it is larger than it needs to be, and stored in your Turso project, while the document itself keeps only a reference — so a workspace file never carries image bytes. An image library lists every image in the project with its name, its size and how many documents use it, lets you rename or delete one, and clearly marks any whose stored bytes are missing. Word and PowerPoint exports name an omitted image in a visible placeholder rather than dropping it silently. Images need a Turso project; without one the rest of the document editor is unchanged.",
+
   // Dashboard Insights card (#6B SP1)
   insightsCardTitle: "Insights",
   insightAcknowledge: "Acknowledge",
@@ -4113,6 +4118,50 @@ const enUS = {
   allocPlanSkipAlreadySet: "already at that value",
   activityAiAllocationPlan: "AI planned {0} allocation cells",
   activityAiDocumentWrite: "Assistant edited a document",
+
+  // Asset library (S3c-1 — document images)
+  assetLibraryTitle: "Image library",
+  assetLibraryEmpty: "No images yet.",
+  assetLibrarySize: "Size",
+  assetLibraryUsage: "Used in",
+  assetLibraryActions: "Actions",
+  assetLibraryTotalSize: "Total size: {0}",
+  assetLibraryDangling: "Image data missing",
+  assetLibraryDeleteConfirm: "Delete {0}?",
+  assetLibraryDeleteConfirmUsed:
+    "Delete {0}? It is used in {1} document(s) and will leave a broken image there.",
+  assetLibraryTursoOnly: "Images need a Turso project. Documents work on every backend.",
+  // ★★ SEPARATE FROM assetLibraryTursoOnly ON PURPOSE. A read-only popout on a
+  // fully configured Turso project is not a storage problem, and telling the
+  // reader it is sends them to check settings that are already correct.
+  assetLibraryReadOnly: "Images are read-only here — add them in the main window.",
+  assetLibraryInsert: "Insert image",
+  assetLibraryMaxPerDocument: "This document already has the maximum of {0} images.",
+  assetLibraryPasteDropZone: "Paste or drop an image to add it",
+  assetUploadErrorFormat: "Unsupported image format. Use PNG, JPEG or WebP.",
+  assetUploadErrorTooLargeRaw: "That image is too large to upload.",
+  assetUploadErrorTooLargeStored: "That image is still too large after downscaling.",
+  assetUploadErrorDimensions: "That image's dimensions could not be read.",
+  assetUploadErrorEmpty: "That file is empty.",
+  assetUploadErrorDecode: "That image could not be decoded.",
+  assetUploadErrorStorageWrite: "The image could not be saved. Re-upload to retry.",
+  // ★ DOCX/PPTX cannot embed the actual bytes yet (media parts land in a later
+  // slice, S3c-2) — a translated placeholder run DISCLOSES the image rather
+  // than silently dropping it.
+  // ★★ AND HTML STANDALONE REACHES IT TOO, though this comment said it never
+  // did. `renderDocumentHtml`'s `assets` argument — the one that would inline
+  // real bytes — is OPTIONAL, TRAILING, and passed by NO production caller, so
+  // standalone HTML emits this placeholder as well. That is
+  // `docs/open-followups.md` §210, and the old claim here contradicted it.
+  // Verify by grepping the repo for calls to that renderer and reading each
+  // hit: four are real calls (two in `document-download.ts`, one in
+  // `document-preview.tsx`, one in `documents-history-modal.tsx`) and every
+  // one stops at `mode`. ★ Read the hits, do NOT count the lines — the grep
+  // also returns the declaration in `doc-render-html.ts`, a prose comment in
+  // `document-preview.tsx`, and THIS COMMENT, which names the function and so
+  // matches itself. Do not restore the old claim without first making some
+  // caller actually pass `assets`.
+  assetExportPlaceholder: "[Image: {0}]",
 } as const;
 
 export type TranslationKey = keyof typeof enUS;

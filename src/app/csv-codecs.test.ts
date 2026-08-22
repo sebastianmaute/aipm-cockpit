@@ -4,6 +4,8 @@ import {
   workspaceToCsv, csvToWorkspace, statusToCsv, csvToStatus,
   calendarEventsToCsv, csvToCalendarEvents, EVENTS_CSV_COLUMNS,
   CSV_SECTION_ACTIVITY,
+  DOCUMENT_ASSETS_CSV_COLUMNS, documentAssetsToCsv, buildDocumentAssetFromObj,
+  CSV_SECTION_DOCUMENT_ASSETS,
 } from "./csv-codecs";
 import { workspaceToMarkdown, markdownToWorkspace } from "./markdown-codecs";
 import { workspaceToJson, jsonToWorkspace, emptyWorkspace } from "./workspace";
@@ -186,5 +188,72 @@ describe("csv activityLog section", () => {
 
   it("keeps activityLog out of EXPORT_SECTION_KEYS", () => {
     expect(EXPORT_SECTION_KEYS).not.toContain("activityLog");
+  });
+});
+
+describe("documentAssets CSV", () => {
+  const asset = {
+    id: "a1", name: "chart.png", mime: "image/png", size: 1024,
+    width: 800, height: 600, hash: "abc123", createdAt: "2026-08-21T10:00:00.000Z",
+  };
+
+  it("round-trips an asset through the CSV codec", () => {
+    const csv = documentAssetsToCsv([asset]);
+    const [, row] = csv.split("\r\n");
+    const cells = row.split(",");
+    const obj: Record<string, string> = {};
+    DOCUMENT_ASSETS_CSV_COLUMNS.forEach((c, i) => { obj[c] = cells[i]; });
+    expect(buildDocumentAssetFromObj(obj)).toEqual(asset);
+  });
+
+  it("emits CRLF line endings, matching every other CSV section", () => {
+    expect(documentAssetsToCsv([asset])).toContain("\r\n");
+  });
+
+  it("leaves an absent dimension as an empty cell, not the string 'undefined'", () => {
+    const pdf = { ...asset, mime: "application/pdf", width: undefined, height: undefined };
+    const [, row] = documentAssetsToCsv([pdf]).split("\r\n");
+    expect(row).not.toContain("undefined");
+  });
+
+  // ★ Pins the DEVIATION from calendarEvents: asset metadata is internal
+  // (backs `<img data-asset-id>` references in document blocks) and is not
+  // an ExportSectionKey — same storage-only shape as documents/
+  // documentVersions/activityLog, not the exportable enabled() shape
+  // calendarEvents uses. See the comment in csv-codecs-config.ts.
+  it("is STORAGE-ONLY: present without a config, absent with one", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [asset] };
+    expect(workspaceToCsv(ws)).toContain(CSV_SECTION_DOCUMENT_ASSETS);
+    expect(workspaceToCsv(ws, defaultExportConfig)).not.toContain(CSV_SECTION_DOCUMENT_ASSETS);
+  });
+
+  it("round-trips documentAssets through CSV storage", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [asset] };
+    expect(csvToWorkspace(workspaceToCsv(ws)).documentAssets).toEqual([asset]);
+  });
+
+  it("emits no section and stays free of the key when there are no assets", () => {
+    const ws = emptyWorkspace();
+    const csv = workspaceToCsv(ws);
+    expect(csv).not.toContain(CSV_SECTION_DOCUMENT_ASSETS);
+    expect(csvToWorkspace(csv).documentAssets).toBeUndefined();
+  });
+
+  it("keeps documentAssets out of EXPORT_SECTION_KEYS", () => {
+    expect(EXPORT_SECTION_KEYS).not.toContain("documentAssets");
+  });
+
+  // ★ The "no assets" test above at line 235 only ever exercises `undefined`
+  //   (via emptyWorkspace(), which never sets the field) — never an explicit
+  //   []. A guard written as `x && x.length` passes that against a mutant
+  //   that drops `.length`, since `[]` is truthy.
+  it("emits no section when documentAssets is an explicit empty array", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [] };
+    expect(workspaceToCsv(ws)).not.toContain(CSV_SECTION_DOCUMENT_ASSETS);
+  });
+
+  it("drops an all-garbage documentAssets section, leaving the key absent", () => {
+    const ws = { ...emptyWorkspace(), documentAssets: [{ ...asset, id: "" }] };
+    expect(csvToWorkspace(workspaceToCsv(ws)).documentAssets).toBeUndefined();
   });
 });

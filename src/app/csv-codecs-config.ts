@@ -47,6 +47,7 @@ import {
   CSV_SECTION_SETTINGS_OVERRIDES,
   CSV_SECTION_DOCUMENTS,
   CSV_SECTION_DOCUMENT_VERSIONS,
+  CSV_SECTION_DOCUMENT_ASSETS,
   CSV_SECTION_ACTIVITY,
   CSV_SECTION_TASKS,
   absencesToCsv,
@@ -66,6 +67,7 @@ import {
   stakeholdersToCsv,
   tasksToCsv,
 } from "./csv-codecs-core";
+import { documentAssetsToCsv } from "./document-asset-codecs";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
 import {
   sanitizeProjectDocuments,
@@ -716,6 +718,21 @@ export function workspaceToCsv(ws: Workspace, config?: ExportConfig): string {
   // are unchanged — golden-workspace.test pins them.
   if (config === undefined && ws.documentVersions && ws.documentVersions.length)
     csvPush(CSV_SECTION_DOCUMENT_VERSIONS, documentVersionsToCsv(ws.documentVersions, neutralize));
+  // Document asset metadata — STORAGE-ONLY, same `config === undefined` gate as
+  // documents/documentVersions above. ★ DEVIATION FROM THE PLAN: the plan's
+  // snippet gated this on `enabled("documentAssets")`, mirroring calendarEvents.
+  // But "documentAssets" is not (and should not become) an ExportSectionKey —
+  // it is internal asset-metadata backing `<img data-asset-id>` references
+  // inside document blocks, not user-facing content a document export would
+  // ever want to include, and it is not in EXPORT_SECTION_KEYS (workspace.ts's
+  // own JSON codec already treats it as storage-only: present only when
+  // non-empty, with no export gate). Adding a key to EXPORT_SECTION_KEYS would
+  // also force edits to the exhaustive `Record<ExportSectionKey, …>` maps in
+  // export-section-labels.ts and export-sections.ts, the Settings export
+  // toggle UI, and the AI document tool's dataSection enum — all well outside
+  // this task's scope. Bytes are never stored here (side table, later task).
+  if (config === undefined && ws.documentAssets && ws.documentAssets.length)
+    csvPush(CSV_SECTION_DOCUMENT_ASSETS, documentAssetsToCsv(ws.documentAssets, neutralize));
   // Activity log — STORAGE-ONLY, same `config === undefined` gate as documents /
   // documentVersions just above: it is an internal audit trail, not user-facing
   // content. Emitted last so an activity-less workspace's bytes are unchanged —
