@@ -554,7 +554,7 @@ over-reported in both directions — which is why every row here was read rather
 | `tasks-section.tsx:741` | `aria-label` is on a `role="dialog"`. The `<button>` that opens it is at `:728` and **already has a `title`**. |
 | `gantt-chart.tsx:293` | `aria-label` is on the add-task **row** `<div>`, which renders visible text "Add task". Not a button, not icon-only. |
 | `roles-editor.tsx:414` | An `<input>`, not a control this audit covers. |
-| `calendar-chip.tsx:62` · `raid-panel-rows.tsx:372` · `tasks-section.tsx:1030` | Real buttons, but each renders **visible text** beside its icon. Not icon-only. |
+| `calendar-chip.tsx` `CalendarChip` · `raid-panel-rows.tsx` `raidAddItem` add-row button · `tasks-section.tsx` `addTask` add-row button | Real buttons, but each renders **visible text** beside its icon. Not icon-only. |
 | `icon-button.tsx:70` | The `IconButton` primitive's own element — listed under "keep". |
 
 **Six real rows it missed**, and the reason is the same in five of them: its filter *requires*
