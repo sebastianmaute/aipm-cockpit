@@ -542,6 +542,32 @@ npx playwright test e2e/a11y.spec.ts --project=chromium -g "Documents" --workers
 
 **Scene:** §223. The allowlist is hand-restated at every consumer with its own cast, and nothing makes the next consumer correct.
 
+### ★★★ CORRECTIONS — a read-only pre-verification pass falsified part of this task before it was dispatched. Read these BEFORE the steps below; where they conflict, THESE win.
+
+**C1. `CandidateResult` has SIX rejection reasons, not three.** This task's Step 1 test comment implied the union was `format` / `empty` / `tooLargeRaw`. The real type (`document-asset-upload.ts`, `UploadRejection`) is `"format" | "tooLargeRaw" | "tooLargeStored" | "dimensions" | "empty" | "decode"` — the last three come from the later decode/downscale stages. An exhaustive `switch` written from the old three will not compile; a non-exhaustive one silently mishandles three reasons.
+
+**C2. THREE of the seven sites are ALREADY COVERED, and one of those tests is better than what this plan proposed to write.** Do NOT add a duplicate — that mistake was already made once in this slice (see the header of `documents-deleted-section.test.tsx`).
+  - `assetPolicy`: `document-download.test.ts` "declines a mime outside the upload allowlist on the inline sinks" already drives `downloadDocument` for html AND pdf and invokes the predicate in BOTH directions. Its own comment explains why both directions are required: `() => false` passes the SVG case alone and `() => true` passes the allowed case alone, so only the pair kills both mutants. A single-direction test would be a REGRESSION in rigour.
+  - `pptxEmbedFor`: `doc-render-pptx.test.ts` already asserts `canEmbedPptxAsset(sized({ mime: "image/svg+xml" }))` is false.
+  - The extent asymmetry is pinned by `document-download.test.ts` too.
+
+**C3. THE REAL COVERAGE HOLE IS THE MIRROR IMAGE OF WHAT THIS PLAN ASSUMED: `canEmbedDocxAsset` has NO direct test anywhere.** `grep -rn "canEmbedDocxAsset" src/app --include=*.test.ts` returns only comment mentions. Write THAT one. "Seven converted sites, seven assertions" was the wrong target — the right target is: every site ends the task with a test that observes it, whoever wrote it.
+
+**C4. FOUR of the seven sites are not directly callable.** `assetSrcAttr` and `assetPolicy` are module-private and cannot be imported at all; `docxEmbedFor` / `pptxEmbedFor` are reachable only through `canEmbedDocxAsset` / `canEmbedPptxAsset`. Only `checkUploadCandidate` is directly exported. This plan flagged that for `assetPolicy` alone; it applies to four.
+
+**C5. ★★★ THE TWO INTAKE FILTERS ARE DELIBERATELY ASYMMETRIC AND A TIDY-UP BREAKS ONE.** `handlePaste` filters FIRST and calls `preventDefault()` only if a file survived; `handleDrop` calls `preventDefault()` BEFORE filtering. That is correct in both cases — a paste of ordinary text must fall through to the default handler, a drop must not. Substitute the predicate expression INSIDE each `.filter(...)` and change nothing else. Any control-flow assertion must pin the ordering PER HANDLER.
+
+**C6. The two sites' guards are not the same guard.** `assetPolicy` writes `mime !== undefined && includes(mime)`; `assetSrcAttr` opens `if (!data || !mime) return null;`, which also rejects `""`. The helper is behaviour-preserving at both (`""` is not a member either way), but do not describe them as one shape.
+
+**C7. Two MORE hand-restatements of the allowlist exist that this sweep does not reach, and NEITHER is a defect to fix here.**
+  - `mediaExtension` (`ooxml-media.ts`) is a literal mime→extension switch, consulted immediately after the allowlist test at BOTH OOXML sites. It cannot be absorbed by a boolean predicate. It is ALREADY DEFENDED: `ooxml-media.test.ts` "covers every mime the upload path admits" loops `ASSET_MIME_ALLOWED` asserting each maps to a non-null extension, with an explicit guard against a vacuous loop. Leave both alone.
+  - `readHeaderDimensions` (`document-asset-upload.ts`) dispatches mime→parser by literal comparison. Lower blast radius (a new mime yields null dimensions → a `dimensions` rejection). Out of scope; record it, do not fix it.
+
+**C8. Do not claim the OOXML predicate saves budget.** `assetPolicy`'s doc comment is an explicit correction of that exact false claim: the OOXML branch's budget is `Number.POSITIVE_INFINITY`, so the usual filter-first argument cannot apply to the two sinks that pass the predicate. It buys the three-bucket contract, not headroom. Re-committing that error in a comment or commit message is a documented regression.
+
+**C9. `doc-render-html.ts` carries a ~55-line docstring above the mime check recording two previously-shipped defects at that exact spot, including a base64 alphabet regex that was wrong in both directions. It must travel UNTOUCHED — do not reflow it while editing the line below it.**
+
+
 - [ ] **Step 1: Write the failing test first**
 
 **Seven converted sites, seven assertions**, sized off the real split: one upload gate, four render/policy guards, two intake filters. They do NOT all fit one table — the four are reachable in three different shapes, `assetPolicy` is module-private and must be driven through its caller, and the two intake filters need a control-flow assertion rather than a return value. Write them as the groups below, and count to seven yourself at the end.
