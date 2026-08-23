@@ -146,6 +146,11 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
+                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.8 either — it exits with a CACError
+                            # before running anything, which reads like a broken suite. `--maxWorkers=N` DOES
+                            # exist and is the fix when a saturated machine kills the fork pool (measured: 8x
+                            # "Failed to start forks worker" reported as `Test Files no tests` at EXIT=1 —
+                            # ground rule 2's false-green shape, but red).
                             # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
                             # reporter module and errors at startup, which reads like a broken test run.
                             # Use `--reporter=dot`.
@@ -351,6 +356,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).
+  ★★★ **`sed -i` UNDER GIT BASH RE-LINES A WHOLE CRLF FILE TO LF, AND `core.autocrlf=true` HIDES IT.**
+  This is the OPPOSITE failure from the node-anchor one below and far harder to notice: not a silent
+  no-op, but a silent whole-file rewrite. Because the repo sets `autocrlf=true`, the committed blob and
+  `git diff` are both unaffected — a 4-line change goes on reporting as 4 lines — so nothing in the
+  normal review path can see that five source files were re-lined. Measured on 2026-08-23 while
+  converting the asset-mime casts; caught only by an explicit byte check, never by a gate. After ANY
+  `sed -i` on a tracked source file, verify each one:
+  ```bash
+  node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');console.log((s.match(/(?<!)
+/g)||[]).length)" <file>   # must be 0
+  ```
   Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch via node utf8 write, re-verify. File is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
