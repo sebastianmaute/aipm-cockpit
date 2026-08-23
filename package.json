@@ -1,6 +1,6 @@
 {
   "name": "aipm-cockpit",
-  "version": "0.255.2",
+  "version": "0.255.1",
   "private": true,
   "license": "EUPL-1.2",
   "engines": {
