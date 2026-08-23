@@ -150,9 +150,10 @@ describe("reconcileStatusFromDate", () => {
   });
 
   it("Done with no date demotes to the default status and invents nothing", () => {
-    const out = reconcileStatusFromDate(base({ status: "Done" }));
+    const t = base({ status: "Done" });
+    const out = reconcileStatusFromDate(t);
     expect(out.status).toBe("To Do");
-    expect(out.completedDate).toBeFalsy();
+    expect(out.completedDate).toBe(t.completedDate); // untouched, not merely falsy
   });
 
   it("treats an empty-string completedDate as absent, like isTaskDelivered does", () => {
@@ -160,10 +161,25 @@ describe("reconcileStatusFromDate", () => {
     expect(out.status).toBe("To Do");
   });
 
+  it("promotes a dated Cancelled row to Done — the date wins, and a real date is never deleted", () => {
+    // Cancelled is terminal-but-NOT-delivered (task-closed.ts), so a Cancelled row
+    // carrying a completedDate violates the pair invariant and must be repaired.
+    // Date-wins is the approved rule: promote, never blank the date.
+    const out = reconcileStatusFromDate(base({ status: "Cancelled", completedDate: "2026-03-04" }));
+    expect(out.status).toBe("Done");
+    expect(out.completedDate).toBe("2026-03-04");
+  });
+
   it("does not mutate its argument", () => {
     const t = base({ status: "To Do", completedDate: "2026-03-04" });
     reconcileStatusFromDate(t);
     expect(t.status).toBe("To Do");
+  });
+
+  it("does not mutate its argument on the demotion branch either", () => {
+    const t = base({ status: "Done" });
+    reconcileStatusFromDate(t);
+    expect(t.status).toBe("Done");
   });
 
   it("is idempotent", () => {
