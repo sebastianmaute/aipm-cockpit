@@ -19,7 +19,8 @@ import {
   MAX_FILENAME_STEM,
 } from "./document-download";
 import { triggerDownload } from "./download";
-import { loadExportAssets } from "./document-export-assets";
+import { EXPORT_INLINE_BUDGET_BYTES, loadExportAssets } from "./document-export-assets";
+import { unzipBytes } from "../test/unzip-bytes";
 import { defaultResourcePlan } from "./resource-foundation";
 import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
@@ -108,6 +109,16 @@ const wsWithAsset: Workspace = {
       createdAt: "2026-08-06T00:00:00.000Z",
     },
   ],
+};
+
+/** `wsWithAsset`'s asset carries no width/height, so `canEmbedDocxAsset` and
+ *  `canEmbedPptxAsset` both DECLINE it — `fitExtent` has nothing to build an
+ *  extent from. That is right for the tests above (which only assert which
+ *  renderer ran) and useless for a renderability assertion, which needs the
+ *  predicate to be able to say TRUE. */
+const wsWithSizedAsset: Workspace = {
+  ...ws,
+  documentAssets: [{ ...wsWithAsset.documentAssets![0], width: 640, height: 480 }],
 };
 
 /** A stand-in for the print tab that models the ONE property the write order
@@ -403,5 +414,97 @@ describe("downloadDocument with asset bytes", () => {
   it("does enter the loader when one IS supplied, so the spy above is not vacuous", async () => {
     await downloadDocument(docWithImage(), "html", wsWithAsset, "en-US", async () => PNG_B64);
     expect(loadExportAssets).toHaveBeenCalledTimes(1);
+  });
+});
+
+// ★★★ BUDGET AND RENDERABILITY ARE PER FORMAT, NOT PER DOWNLOAD. Both used to
+// be resolved ONCE per download and handed to whichever renderer ran, which was
+// wrong in two independent ways at the same time: the 25 MB inline budget — a
+// property of base64-inside-the-file, which only HTML and PDF do — truncated
+// DOCX and PPTX exports that store bytes as native zip entries; and the
+// `isRenderable` predicate the OOXML renderers export for exactly this call was
+// never passed, so bytes were charged for assets they then declined.
+describe("downloadDocument asset policy per format", () => {
+  beforeEach(() => {
+    vi.mocked(triggerDownload).mockClear();
+    vi.mocked(loadExportAssets).mockClear();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:x"), revokeObjectURL: vi.fn() });
+    // pdf needs a tab to write into; every other format ignores this.
+    vi.stubGlobal("open", () => fakeTab().win);
+  });
+  afterEach(() => vi.unstubAllGlobals());
+
+  /** The one call's arguments. Asserting the call COUNT here is what stops a
+   *  later `[0]` from silently reading a stale call from a previous format. */
+  const loadArgs = () => {
+    const calls = vi.mocked(loadExportAssets).mock.calls;
+    expect(calls).toHaveLength(1);
+    return calls[0];
+  };
+
+  it("budgets the inline sinks and leaves the OOXML ones unbounded", async () => {
+    const cases = [
+      ["html", EXPORT_INLINE_BUDGET_BYTES],
+      ["pdf", EXPORT_INLINE_BUDGET_BYTES],
+      ["docx", Number.POSITIVE_INFINITY],
+      ["pptx", Number.POSITIVE_INFINITY],
+    ] as const;
+
+    for (const [format, budget] of cases) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
+      expect(loadArgs()[2], format).toBe(budget);
+    }
+  });
+
+  it("passes a renderability predicate to the OOXML formats and none to the inline ones", async () => {
+    for (const format of ["html", "pdf"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
+      // ★ The inline sinks deliberately filter NOTHING: renderDocumentHtml can
+      // inline any allowed mime, and `assetSrcAttr` declines an unusable asset
+      // at render time anyway.
+      expect(loadArgs()[3], format).toBeUndefined();
+    }
+
+    for (const format of ["docx", "pptx"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
+      const isRenderable = loadArgs()[3];
+      expect(typeof isRenderable, format).toBe("function");
+      // ★★★ INVOKING IT IS THE POINT. "is a function" is a TYPE assertion and a
+      // predicate closing over an EMPTY map satisfies it while declining every
+      // id — the exact mutant this pair of assertions exists to kill. The true
+      // case can only pass if the closure really resolved the id through
+      // `ws.documentAssets`.
+      expect(isRenderable!(ASSET_ID), format).toBe(true);
+      expect(isRenderable!("no-such-asset"), format).toBe(false);
+    }
+  });
+
+  it("does not filter or budget anything when there is no loader at all", async () => {
+    await downloadDocument(docWithImage(), "docx", wsWithSizedAsset, "en-US");
+    expect(loadExportAssets).not.toHaveBeenCalled();
+  });
+
+  // ★★ THE BEHAVIOURAL HALF. The call-argument assertions above prove the
+  // WIRING; this one proves the OUTPUT, so the property survives a refactor
+  // that changes how the budget reaches loadExportAssets. It is slow on
+  // purpose — the budget is a real 25 MB and cannot be injected, so the only
+  // way to be over it is to actually be over it.
+  it("still embeds an image the inline budget would have dropped", async () => {
+    // One image alone past the budget: 26,250,000 decoded bytes against a
+    // 26,214,400 cap, so `spent + bytes > budgetBytes` is true on the FIRST
+    // asset and the inline sinks omit it outright.
+    const huge = "A".repeat(35_000_000);
+    expect(Math.floor((huge.length * 3) / 4)).toBeGreaterThan(EXPORT_INLINE_BUDGET_BYTES);
+
+    await downloadDocument(docWithImage(), "docx", wsWithSizedAsset, "en-US", async () => huge);
+
+    expect(downloads()).toHaveLength(1);
+    const zip = await unzipBytes(downloads()[0][1]);
+    const media = [...zip.keys()].filter((p) => p.startsWith("word/media/"));
+    expect(media).toHaveLength(1);
+    expect(zip.get(media[0])!.length).toBe(Math.floor((huge.length * 3) / 4));
   });
 });

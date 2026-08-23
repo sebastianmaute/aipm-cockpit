@@ -11,9 +11,15 @@
 
 import type { ProjectDocument } from "./document-model";
 import { renderDocumentHtml } from "./doc-render-html";
-import { renderDocumentDocx } from "./doc-render-docx";
-import { renderDocumentPptx } from "./doc-render-pptx";
-import { loadExportAssets, NO_EXPORT_ASSETS } from "./document-export-assets";
+import { canEmbedDocxAsset, renderDocumentDocx } from "./doc-render-docx";
+import { canEmbedPptxAsset, renderDocumentPptx } from "./doc-render-pptx";
+import {
+  EXPORT_INLINE_BUDGET_BYTES,
+  loadExportAssets,
+  NO_EXPORT_ASSETS,
+} from "./document-export-assets";
+import type { ExportAssets } from "./document-export-assets";
+import type { DocumentAsset } from "./document-asset";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
 import type { Workspace } from "./workspace";
@@ -120,6 +126,73 @@ export function withAutoPrint(html: string): string {
  *  flash. */
 const PREPARING_HTML = "<!doctype html><title></title>";
 
+/** How ONE format wants its assets resolved.
+ *
+ *  ★★★ BUDGET AND RENDERABILITY ARE PROPERTIES OF THE SINK, NOT OF THE
+ *  DOWNLOAD — so there is no single `ExportAssets` that is correct for all four
+ *  formats, and computing one once per download was silently wrong in both
+ *  directions. HTML and PDF embed bytes as base64 INSIDE the file, which
+ *  inflates them by about a third, so they take the 25 MB budget. DOCX and
+ *  PPTX store bytes as real zip entries at native size, so budgeting them
+ *  truncated exports that had no reason to be truncated: `ASSET_STORED_MAX_BYTES`
+ *  (5 MB) × `ASSET_MAX_PER_DOCUMENT` (20) reaches 100 MB, so six large images
+ *  already turned into placeholders in Word.
+ *
+ *  ★★ `Number.POSITIVE_INFINITY` really is unbounded here rather than merely
+ *  very large: `loadExportAssets` charges with `spent + bytes > budgetBytes`,
+ *  and a finite sum is never greater than Infinity, so nothing is ever omitted
+ *  and `spent` stays finite. */
+function assetPolicy(
+  format: DocFormat,
+  ws: Workspace,
+): { budgetBytes: number; isRenderable?: (id: string) => boolean } {
+  if (format !== "docx" && format !== "pptx") {
+    // ★ The `!tab` PDF fallback renders HTML, so "pdf" belongs here with it.
+    return { budgetBytes: EXPORT_INLINE_BUDGET_BYTES };
+  }
+  // ★★ The predicate the OOXML renderers already own, adapted from the id
+  //  `loadExportAssets` knows to the metadata row they ask about. The two
+  //  signatures cannot meet without this adapter and nobody had written one —
+  //  which is how the predicate went unpassed while three docstrings said it
+  //  was live. One map, built from the SAME list the renderers build theirs
+  //  from.
+  //
+  //  ★★★ IT BUYS THE THREE-BUCKET CONTRACT HERE, NOT BUDGET HEADROOM, and
+  //  saying otherwise is the claim this change exists to stop repeating. The
+  //  usual reason to filter first — an undrawable asset spending budget a later
+  //  good image needs — cannot apply to the two sinks that pass the predicate,
+  //  because those are exactly the UNBUDGETED ones. What it does buy is that an
+  //  undrawable id lands in `missing` rather than `inlined`-but-undrawable, the
+  //  fourth state no bucket describes, and that its base64 is never held. The
+  //  emitted package is byte-identical either way (measured), so only the
+  //  argument assertions in document-download.test.ts can see this.
+  const byId = new Map<string, DocumentAsset>(
+    (ws.documentAssets ?? []).map((a) => [a.id, a]),
+  );
+  const canEmbed = format === "docx" ? canEmbedDocxAsset : canEmbedPptxAsset;
+  return {
+    budgetBytes: Number.POSITIVE_INFINITY,
+    isRenderable: (id: string) => canEmbed(byId.get(id)),
+  };
+}
+
+/** Resolve every image `format` needs, under that format's own policy.
+ *
+ *  ★ No loader (no Turso config, Safe Mode) short-circuits BEFORE
+ *  `loadExportAssets`: entering it with `undefined` would produce a
+ *  byte-identical file via its own catch, so only this guard keeps the export
+ *  independent of how wide that catch stays. */
+async function assetsFor(
+  doc: ProjectDocument,
+  ws: Workspace,
+  format: DocFormat,
+  load: AssetByteLoader | undefined,
+): Promise<ExportAssets> {
+  if (!load) return NO_EXPORT_ASSETS;
+  const { budgetBytes, isRenderable } = assetPolicy(format, ws);
+  return loadExportAssets(doc, load, budgetBytes, isRenderable);
+}
+
 /**
  * Hand the user `doc` as a file.
  *
@@ -151,7 +224,7 @@ export async function downloadDocument(
     // misfires.
     const tab = window.open("", "_blank");
     if (!tab) {
-      const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
+      const assets = await assetsFor(doc, ws, format, load);
       // ★ The fallback file is the PLAIN document. A downloaded file that
       // opens the print dialog by itself when double-clicked is hostile; the
       // user prints it when they decide to.
@@ -163,7 +236,7 @@ export async function downloadDocument(
     }
     tab.document.open();
     tab.document.write(PREPARING_HTML);
-    const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
+    const assets = await assetsFor(doc, ws, format, load);
     const html = renderDocumentHtml(doc, ws, lang, "standalone", assets);
     // ★★ A SECOND open() RESETS the document. Without it the real document is
     // APPENDED to the placeholder, so the tab prints a file with two <title>
@@ -174,7 +247,7 @@ export async function downloadDocument(
     return;
   }
 
-  const assets = load ? await loadExportAssets(doc, load) : NO_EXPORT_ASSETS;
+  const assets = await assetsFor(doc, ws, format, load);
   const blob =
     format === "html"
       ? new Blob([renderDocumentHtml(doc, ws, lang, "standalone", assets)], { type: HTML_MIME })

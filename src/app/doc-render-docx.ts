@@ -155,12 +155,35 @@ function docxEmbedFor(
 /** Whether an asset can become a docx drawing at all — the metadata-only half
  *  of the decision, with no reference to whether its bytes were loaded.
  *
- *  ★★★ EXPORTED because `loadExportAssets` takes this as its `isRenderable`
- *  predicate and asks it BEFORE charging the byte budget. If the call site
- *  re-implements these conditions instead of calling this, the two drift and
- *  the symptom is silent: bytes are spent on an asset that is then declined,
- *  and a later, perfectly good image is pushed into `omitted` instead. One
- *  function, two callers. */
+ *  ★★★ EXPORTED because `document-download.ts` passes it to `loadExportAssets`
+ *  as the `isRenderable` predicate for the DOCX sink. The two signatures do not
+ *  meet directly — `isRenderable` is asked about an ID, this asks about a
+ *  metadata ROW — so that call site adapts it through a map built from
+ *  `ws.documentAssets`, the same list this renderer builds its own `byId` from.
+ *  A call site that re-implements these conditions instead of calling this
+ *  drifts from the drawing silently.
+ *
+ *  ★★★ WHAT IT BUYS HERE IS THE THREE-BUCKET CONTRACT, NOT BUDGET HEADROOM —
+ *  and this comment asserted the opposite for a release in which NOTHING passed
+ *  the predicate at all. `loadExportAssets` asks it before charging the budget
+ *  so an undrawable asset cannot push a good one into `omitted`; but the DOCX
+ *  sink runs UNBUDGETED (`Number.POSITIVE_INFINITY`), so nothing is ever
+ *  omitted there and there is no headroom to protect. What the predicate does
+ *  do is route an undrawable id to `missing` rather than leaving it
+ *  `inlined`-but-undrawable — the fourth state no bucket describes, named in
+ *  `loadExportAssets`' own docstring — and keep its base64 out of memory.
+ *
+ *  ★★ SO NO OUTPUT TEST CAN SEE THIS. Measured, not reasoned: rendering an
+ *  undrawable asset with the bytes inlined and with the id in `missing` yields
+ *  BYTE-IDENTICAL packages, because `drawingFor` falls through to the same
+ *  placeholder either way. (The same comparison for a DRAWABLE asset differs,
+ *  so that identity is not vacuous.) The wiring is pinned in
+ *  `document-download.test.ts` by asserting the argument `loadExportAssets`
+ *  receives, and invoking it — nowhere else.
+ *
+ *  ★ "One function, two callers" describes `docxEmbedFor`, not this wrapper:
+ *  the conditions are written once there and read by both this predicate and
+ *  the drawing. This wrapper has exactly one production caller. */
 export function canEmbedDocxAsset(meta: DocumentAsset | undefined): boolean {
   return docxEmbedFor(meta) !== null;
 }

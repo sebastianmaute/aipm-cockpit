@@ -1000,9 +1000,30 @@ from the document.
 
 ★ `isRenderable` is asked BEFORE the budget is charged, so an asset the renderer cannot draw
 never spends budget a later good image needs. It has **no default** — omitting it means no
-renderability filtering at all, which is right for the HTML sink (it can inline any allowed mime)
-and wrong for the OOXML ones. `NO_EXPORT_ASSETS` is the frozen empty triple, returned for a
+renderability filtering at all. `NO_EXPORT_ASSETS` is the frozen empty triple, returned for a
 document with no images so a caller never branches on `undefined`.
+
+★★★ **THAT RATIONALE DOES NOT APPLY TO THE SINKS THAT ACTUALLY PASS IT, AND FOR ONE RELEASE
+NOTHING PASSED IT AT ALL.** `canEmbedDocxAsset` and `canEmbedPptxAsset` were written for this
+parameter and were then never handed to it — `document-download.ts` resolved ONE `ExportAssets`
+per download and gave it to every format — so `canEmbedDocxAsset` shipped as a dead export while
+three ★★★ docstrings asserted the protection was live. `document-download.ts` now resolves assets
+PER FORMAT (`assetPolicy`), and the two OOXML sinks are exactly the UNBUDGETED ones, so no
+budget headroom is at stake for them: what the predicate buys there is the three-bucket contract
+— an undrawable id lands in `missing` instead of `inlined`-but-undrawable, the fourth state no
+bucket describes — plus keeping its base64 out of memory. ★★ The emitted DOCX/PPTX bytes are
+IDENTICAL either way (measured: `drawingFor` falls through to the same placeholder), so no output
+test can see it; the wiring is pinned in `document-download.test.ts` by asserting — and
+INVOKING — the argument `loadExportAssets` receives, and nowhere else.
+
+★★ **THE HTML SINK IS THE ONE THAT HAS BUDGET TO LOSE, AND IT DELIBERATELY PASSES NO PREDICATE.**
+That is right for the common case — it can inline any allowed mime, and `assetSrcAttr` declines an
+unusable asset at render time — but it is not a closed hole: `assetSrcAttr` also declines a mime
+outside `ASSET_MIME_ALLOWED` and a payload failing its base64 check, and `sanitizeDocumentAsset`
+does NOT enforce the mime allowlist on load, so an imported workspace can carry a row whose bytes
+are fetched, charged to the 25 MB budget, and then dropped to a placeholder. Not fixed, and cheap
+to close the day it matters: give the inline sinks a predicate of their own rather than reusing an
+OOXML one, whose geometry conditions HTML does not share.
 
 ★★ **`EXPORT_INLINE_BUDGET_BYTES` (25 MB) IS A JUDGEMENT CALL, NOT A LIMIT ANYTHING IMPOSES.**
 Nothing in the HTML spec, the print pipeline or the browser breaks at 25 MB; base64 inflates bytes
