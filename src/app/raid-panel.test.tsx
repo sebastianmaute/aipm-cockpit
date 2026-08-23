@@ -151,6 +151,38 @@ describe("RaidPanel sortable column headers", () => {
       screen.queryByRole("button", { name: /caused by/i }),
     ).toBeNull();
   });
+
+  // axe has NO rule for a missing or wrong aria-sort, in any view at any seed
+  // size, so this test is the only coverage this register will ever have.
+  it("announces sort state through aria-sort, not through the button name", () => {
+    renderPanel(makeProps({ raid: raidItems }));
+    const header = () => screen.getByRole("columnheader", { name: /severity/i });
+    // The ANCHORED button name is the assertion that matters: while the sort
+    // glyph sits INSIDE the name it reads "Severity ▲" once sorted, and an
+    // unanchored match would pass either way.
+    const btn = () => screen.getByRole("button", { name: /^severity$/i });
+
+    expect(header()).toHaveAttribute("aria-sort", "none");
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "descending");
+    // Third click returns to unsorted — PanelSort's third state is null.
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "none");
+  });
+
+  // WCAG 2.5.3 label-in-name: the column's VISIBLE text is "#", so "#" must be
+  // CONTAINED in its accessible name. An aria-label of "ID" replaced the name
+  // outright, leaving the visible label nowhere in it. axe cannot see this —
+  // label-content-name-mismatch is experimental (excluded by default) and does
+  // not apply to this role anyway — so a unit test is the only possible detector.
+  it("names the id column by its visible # label, keeping the meaning on hover", () => {
+    renderPanel(makeProps({ raid: raidItems }));
+    const btn = screen.getByRole("button", { name: "#" });
+    expect(btn.textContent).toContain("#");
+    expect(btn).toHaveAttribute("title", t("en-US", "id"));
+  });
 });
 
 describe("RaidPanel tooltips", () => {
