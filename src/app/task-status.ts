@@ -49,6 +49,9 @@ export function migrateTask(task: Task): Task {
  *  "In Progress" into "To Do" purely because it carries no resolution date.
  *  Those paths derive both fields from one `statusKey` read and need nothing
  *  from here (AGENTS.md, task status model).
+ *  ★ That reason is about the REMOTE side, which has a `statusCategory`. The
+ *  conflict merge's LOCAL arm does not; it is a separate question, weighed and
+ *  DEFERRED in open-followups §227 — do not act on it without the user.
  *
  *  ★★ Not a load-path repair either. `migrateTask` runs on all six load paths
  *  and only backfills an ABSENT/INVALID status; teaching IT to reconcile would

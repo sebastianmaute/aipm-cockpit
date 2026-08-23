@@ -12220,7 +12220,10 @@ bucket in the `else` arm, and that bucket is `isTaskOutOfScope` = `isTaskClosed 
 (`task-closed.ts`), which a row WITH a date fails. So a `Cancelled`-with-date row landed in
 `stats.completed` and in the on-time/late split, and never in `stats.cancelled`. Promoting `status`
 to `Done` makes the stored field agree with the score the app was already giving it; leaving it
-`Cancelled` would preserve a label no surface honoured. ★ The rule is date-trusting, not
+`Cancelled` would keep a label every completion count already contradicted — though `health.ts` does
+honour it (it tests `status === "Cancelled"` BEFORE `isTaskDelivered`), so the promotion moves that
+row's health driver from `cancelled` to `completed` and its badge from "Cancelled" to "Done".
+★ The rule is date-trusting, not
 Cancelled-specific: a `Cancelled` row with NO date is untouched, like every other non-`Done` status.
 
 ```bash
@@ -12402,7 +12405,7 @@ local edit; the issue is transitioned to done in Jira. The patch carries a real 
 and accepting remote writes it while `status` stays non-`Done`. → **a completion date on an open row.**
 
 ★ Picking LOCAL for `completedDate` is consistent in both directions, because `status` is already the
-local one. It is the REMOTE pick — the default — that splits the pair.
+local one — see §227 for the already-split case. It is the REMOTE pick — the default — that splits the pair.
 
 **Consequence, derived from `task-closed.ts` rather than asserted.** `isTaskClosed` reads `status`,
 `isTaskDelivered` reads `completedDate`, and `isTaskOutOfScope` is the conjunction
@@ -14605,9 +14608,9 @@ It did not make the merge a normaliser, and the shape of the code says why: `mer
 no-op. Only the remote arm writes anything.
 
 ```bash
-# the seed, the branch, and the single status write — read the hits, do not count them: this file's
-# own comment about the rule matches too (the self-referential-grep trap this repo records)
-grep -n "merged: Task|merged.status" src/app/use-jira-sync.ts
+# read the hits, do not count them: this file's own comment about the rule matches too (the
+# self-referential-grep trap this repo records)
+grep -nE "merged: Task|merged\.status" src/app/use-jira-sync.ts
 # the guard that also fires on the affected pick
 grep -n "completionChanged && merged.completedDate" -A 2 src/app/use-jira-sync.ts
 ```
