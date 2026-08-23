@@ -1342,6 +1342,32 @@ grep -oE '"src/app/(tasks-section|task-manager)\.tsx": [0-9]+' docs/baselines/fi
 Both must now read **below** their baselines (1081 and 3020). The gate metric is `wc -l` + 1, which
 is what the node command reports.
 
+- [ ] **Step 4b: Apply the sort-header bag to `tasks-section.tsx` — the Task 4 work deferred to here**
+
+★★★ **This is the one piece of Task 4 that was NOT done, and it is easy to lose between tasks.**
+`tasks-section.tsx` holds 11 `<SortResizeTh>` call sites and was excluded from Task 4 because all
+eleven are single-line JSX: removing four props shortens each line but deletes none, so the bag is
+pure addition — the file went 1081 → 1082 against a zero-headroom baseline and `size:check` failed.
+Tasks 13–14 have now removed roughly 40 lines from this same file, so the headroom exists.
+
+★ Do NOT restore a parked snapshot — Task 13 rewrote a different region of this file, so any
+pre-Task-13 copy is stale. Re-run the transform fresh.
+
+The shape is the simple one: a single bag built from the file's split state and its hoisted
+`toggleSort`, placed with the other `const` declarations; spread `{...th}` FIRST on all eleven
+sites; every per-column prop preserved. Read the file for the real local names.
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/tasks-section.tsx','utf8').split('\n').length)"
+npx vitest run src/app/tasks-section.test.tsx > /tmp/t14b.log 2>&1; echo "EXIT=$?"
+grep -E "Tests |FAIL" /tmp/t14b.log
+npx tsc --noEmit; echo "TSC_EXIT=$?"
+npm run size:check > /tmp/size14b.log 2>&1; echo "SIZE_EXIT=$?"; tail -5 /tmp/size14b.log
+```
+
+`SIZE_EXIT` must be 0. If it is not, the headroom from Tasks 13–14 did not materialise — report
+that rather than bumping the baseline or deleting a blank line to squeeze under the gate.
+
 - [ ] **Step 5: Commit**
 
 ```bash
