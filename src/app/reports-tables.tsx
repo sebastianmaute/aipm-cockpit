@@ -7,6 +7,7 @@ import {
   useSortableFilter,
   TableFilter,
   SortResizeTh,
+  useSortHeaderProps,
   type SortDir,
 } from "./report-table";
 import { type Lang, t } from "./i18n";
@@ -115,6 +116,7 @@ export function GroupOrLabelTable({
     [],
   );
   const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
+  const th = useSortHeaderProps(sort.key, sort.dir, click, onStartResize);
 
   if (rows.length === 0) {
     return <EmptyState compact title={t(lang, emptyKey)} />;
@@ -129,25 +131,19 @@ export function GroupOrLabelTable({
           head={
             <tr>
               <SortResizeTh
+                {...th}
                 label={t(lang, headerKey)}
                 sortCol="name"
                 resizeCol="label"
                 width={colWidths.label}
-                sortKey={sort.key}
-                sortDir={sort.dir}
-                onSort={click}
-                onResize={onStartResize}
               />
               {GROUP_NUMERIC_COLS.map(({ key, labelKey }) => (
                 <SortResizeTh
+                  {...th}
                   key={key}
                   label={t(lang, labelKey)}
                   sortCol={key}
                   width={colWidths[key]}
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={click}
-                  onResize={onStartResize}
                   align="right"
                 />
               ))}
@@ -202,6 +198,7 @@ export function AssigneeTable({
     [],
   );
   const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
+  const th = useSortHeaderProps(sort.key, sort.dir, click, onStartResize);
 
   return (
     <div>
@@ -214,24 +211,18 @@ export function AssigneeTable({
           head={
             <tr>
               <SortResizeTh
+                {...th}
                 label={t(lang, "assignee")}
                 sortCol="assignee"
                 width={colWidths.assignee}
-                sortKey={sort.key}
-                sortDir={sort.dir}
-                onSort={click}
-                onResize={onStartResize}
               />
               {ASSIGNEE_NUMERIC_COLS.map(({ key, labelKey }) => (
                 <SortResizeTh
+                  {...th}
                   key={key}
                   label={t(lang, labelKey)}
                   sortCol={key}
                   width={colWidths[key]}
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={click}
-                  onResize={onStartResize}
                   align="right"
                 />
               ))}

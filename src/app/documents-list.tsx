@@ -11,7 +11,7 @@ import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
-import { type SortDir, SortResizeTh } from "./report-table";
+import { type SortDir, SortResizeTh, useSortHeaderProps } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
@@ -85,6 +85,8 @@ export function DocumentsList({
   flashId,
   containerRef,
 }: DocumentsListProps) {
+  const th = useSortHeaderProps(sortKey, sortDir, onSort, onResize);
+
   if (documents.length === 0) {
     return <EmptyState title={t(lang, "documentsNoneYet")} />;
   }
@@ -96,32 +98,23 @@ export function DocumentsList({
         head={
           <tr>
             <SortResizeTh
+              {...th}
               label={t(lang, "documentsTitleLabel")}
               sortCol="title"
               width={colWidths.title}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={onSort}
-              onResize={onResize}
             />
             <SortResizeTh
+              {...th}
               label={t(lang, "documentsBlockCount")}
               sortCol="blocks"
               width={colWidths.blocks}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={onSort}
-              onResize={onResize}
               align="right"
             />
             <SortResizeTh
+              {...th}
               label={t(lang, "documentsUpdated")}
               sortCol="updated"
               width={colWidths.updated}
-              sortKey={sortKey}
-              sortDir={sortDir}
-              onSort={onSort}
-              onResize={onResize}
             />
             {/* Non-sortable, non-resizable — a raw <th> with no handle, per the
                 convention for header cells with nothing to sort. The label is

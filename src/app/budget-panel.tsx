@@ -25,7 +25,7 @@ import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton } from "./tas
 import { DataTable } from "./data-table";
 import { useResizable } from "./use-resizable";
 import { RagBadge } from "./rag-badge";
-import { TableFilter, SortResizeTh, nextSortDir, type SortDir } from "./report-table";
+import { TableFilter, SortResizeTh, useSortHeaderProps, nextSortDir, type SortDir } from "./report-table";
 import {
   ratioHealth, marginHealth, costPerformanceHealth, costPerformanceIndexHealth,
   winLossHealth, planVsBudgetHealth,
@@ -248,6 +248,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const [roleFilter, setRoleFilter] = useState("");
   const [bucketFilter, setBucketFilter] = useState("");
   const [roleSort, setRoleSort] = useState<SortDir>("off");
+  const th = useSortHeaderProps("role", roleSort, () => setRoleSort((d) => nextSortDir(d)), startResize);
 
   // `bucketId:roleId` keys. Collapsed by default and deliberately NOT persisted:
   // this is a momentary "who is behind this line?", not a view preference.
@@ -592,14 +593,11 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         <span className="sr-only">{t(lang, "budgetRoleStatus")}</span>
                       </th>
                       <SortResizeTh
+                        {...th}
                         label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
                         sortCol="role"
                         width={colWidths.role}
                         stickyLeft={DOT_COL_PX}
-                        sortKey="role"
-                        sortDir={roleSort}
-                        onSort={() => setRoleSort((d) => nextSortDir(d))}
-                        onResize={startResize}
                       />
                       {/* Fixed Total column. Its offset tracks the LIVE role width —
                           the role column is user-resizable, so a hardcoded offset
