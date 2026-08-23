@@ -1352,6 +1352,71 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");
   });
 
+  // ─── a byte row this renderer cannot decode ────────────────────────────────
+  //
+  // ★★★ THE END-TO-END LEVEL EXISTS BECAUSE THE UNIT LEVEL CANNOT SEE THIS.
+  // `doc-render-pptx-slides.test.ts` proves `mint` DECLINES a malformed row;
+  // it says nothing about what the reader is then shown. PPTX splits into two
+  // decision points where docx keeps one — `paragraphLines` decides an <img>
+  // becomes an ImageLine and STRIPS the tag, so `withImagePlaceholders` never
+  // sees it, and `buildContentSlide` answers a null mint with "". Measured
+  // before the fix: this exact fixture produced a BLANK slide — no <p:pic>, no
+  // Body text box, no placeholder, empty ppt/media/ — while the identical
+  // fixture through `renderDocumentDocx` disclosed the row. The fix is that
+  // the DECISION now applies the same decode the minting does, so a row it
+  // cannot decode is left in the fragment for the placeholder pass.
+  //
+  // ★★ EACH CASE IS A DIFFERENT atob OUTCOME and one alone is not enough:
+  // "a!b" is a CHARSET fault, "abcde" a LENGTH fault whose every character IS
+  // in the base64 alphabet, and " " does NOT THROW AT ALL — `atob` strips ASCII
+  // whitespace before decoding, so it yields a TRUTHY `Uint8Array(0)` that both
+  // minting sites' `if (!data)` used to wave through as a zero-byte media part.
+  it.each([
+    ["a charset fault", "a!b"],
+    ["a length fault whose characters are all in the alphabet", "abcde"],
+    ["ASCII whitespace, which atob accepts as a zero-byte decode", "\t\r\n "],
+  ])("discloses an image whose stored base64 has %s, and still emits the deck", async (_label, bad) => {
+    const zip = await zipOf(
+      [para('<p>before<img data-asset-id="a1">after</p>')],
+      wsWith(sized()),
+      inlined({ a1: bad }),
+    );
+    // Nothing was minted — in particular no ZERO-BYTE part for the blank row.
+    expect(mediaPaths(zip)).toEqual([]);
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    // ★★ THE ASSERTION IS THAT THE READER IS TOLD, not merely that nothing
+    //  threw: the pre-fix renderer returned a perfectly valid package whose
+    //  slide was silently empty, so `expect(() => …).not.toThrow()` and a bare
+    //  media-count check both passed against it.
+    const text = textNodes(xml).join("|");
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    // …and the prose either side survived, which is the whole point.
+    expect(text).toContain("before");
+    expect(text).toContain("after");
+    expect(() => parseXml(xml)).not.toThrow();
+  });
+
+  it("still places a GOOD picture when a sibling row's base64 is malformed", async () => {
+    // ★★ Anti-vacuity for the three above: without this, a renderer that
+    //  declined EVERY image would pass all of them. One bad row must cost
+    //  exactly one picture, never the other — and the survivor must be image1,
+    //  because a decline that had already claimed the deck-wide index would
+    //  leave a numbering gap.
+    const small = { width: 96, height: 48 };
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><p><img data-asset-id="a2"></p>')],
+      wsWith(sized(small), sized({ id: "a2", name: "good.png", ...small })),
+      inlined({ a1: "a!b", a2: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    const pics = slidePictures(zip, 2);
+    expect(pics).toHaveLength(1);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    // The declined row still discloses, on the same slide as the good picture.
+    expect(textNodes(partText(zip, "ppt/slides/slide2.xml")).join("|"))
+      .toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+  });
+
   it("numbers media parts DECK-WIDE while every slide's relationship ids restart at rId2", async () => {
     const zip = await zipOf(
       [

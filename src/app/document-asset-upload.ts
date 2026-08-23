@@ -277,13 +277,24 @@ export function base64ToBytes(b64: string): Uint8Array {
 /** `base64ToBytes` for data that arrives from STORAGE rather than from our own
  *  encoder: returns null instead of throwing.
  *
- *  ★★★ THE CALLERS ARE SYNCHRONOUS RENDERERS INSIDE AN UN-AWAITED PROMISE.
+ *  ★★★ THE CALLERS ARE SYNCHRONOUS RENDERERS INSIDE A PROMISE NOBODY AWAITS.
  *  `renderDocumentDocx`/`renderDocumentPptx` run inside `downloadDocument`, and
- *  all three of its production call sites `void` that promise — so a throw from
- *  the decode reached NO catch anywhere and the user lost the WHOLE export,
- *  with no file and no message, over one malformed byte row. Both minting sites
- *  already have a `return null` path to the placeholder; this routes a bad row
- *  down it, which is what that path is for.
+ *  all three of its production call sites `void` that promise — nothing
+ *  downstream can retry or resume it — so a throw from the decode costs the
+ *  user the WHOLE export over one malformed byte row: no file. Both minting
+ *  sites already have a `return null` path to the placeholder; this routes a
+ *  bad row down it, which is what that path is for.
+ *
+ *  ★★★ THEY DO GET A MESSAGE, AND ONLY BECAUSE OF THE HANDLERS — do not read
+ *  the `void` above as implying otherwise. Each of those three sites attaches
+ *  `.catch((e) => reportDownloadFailure(showToast, lang, e))`, which reaches
+ *  `reportSilentFailure` → `logDiag` + an error toast; they landed in the SAME
+ *  commit as this guard, so "no message" was never true of a shipped tree (an
+ *  earlier revision of this docstring said it was). The two halves are not
+ *  redundant and neither substitutes for the other: the handler turns a lost
+ *  export into a REPORTED lost export, this guard is what keeps the export.
+ *  Deleting a handler re-opens the silent failure for every OTHER throw on that
+ *  path. Verify: `git grep -n "downloadDocument(" -- src | grep -v "\.test\."`.
  *
  *  ★★ The premise is `doc-render-html.ts`'s, restated because it holds for all
  *  three sinks and only one of them acted on it: these bytes come back from a
@@ -302,15 +313,39 @@ export function base64ToBytes(b64: string): Uint8Array {
 Ggo="` decodes to the same
  *  8 bytes as its unwrapped form while the regex REJECTS it — a line-wrapped
  *  row would silently become a placeholder in a document that could have shown
- *  the image. Only `atob` knows what `atob` accepts; asking it is the guard. */
+ *  the image. Only `atob` knows what `atob` accepts; asking it is the guard.
+ *
+ *  ★★★ A ZERO-LENGTH DECODE IS A REJECTION TOO, AND IT NEVER THROWS — which is
+ *  why the catch alone was not enough. The whitespace-stripping above is the
+ *  same door: `atob("")`, `atob(" ")` and `atob("\t\r\n ")` all return "" and
+ *  raise nothing, and the `Uint8Array(0)` that came back is TRUTHY. Both OOXML
+ *  minting sites guard with `if (!data) return null`, so a whitespace-only
+ *  stored row rode through them and landed a ZERO-BYTE `word/media/image1.png`
+ *  / `ppt/media/image1.png` in the package, referenced by a real `<w:drawing>`
+ *  / `<p:pic>` and disclosed by no placeholder. Measured, not reasoned.
+ *  ★★ REJECTED HERE RATHER THAN AT THE TWO CALL SITES ON PURPOSE: a zero-byte
+ *  image is undrawable at every sink, one place cannot drift from the other,
+ *  and a third consumer inherits the guard. `doc-render-html.ts` already
+ *  declines the same input for an unrelated reason (its `BASE64_RE` rejects
+ *  whitespace outright), so this brings the OOXML sinks level with the sink
+ *  that was accidentally right.
+ *  ★ The name is therefore slightly generous — this returns null for a string
+ *  `atob` ACCEPTS. Kept anyway: every consumer wants bytes it can draw and none
+ *  has ever wanted an empty decode (enumerate them with
+ *  `grep -rn safeBase64ToBytes src/app --include=*.ts`), and the raw
+ *  `base64ToBytes` is still there for anyone who genuinely does. */
 export function safeBase64ToBytes(b64: string): Uint8Array | null {
+  let bytes: Uint8Array;
   try {
-    return base64ToBytes(b64);
+    bytes = base64ToBytes(b64);
   } catch {
     // Nothing to recover: the row is not what it claims to be. The caller's
     // existing null path already discloses it as an undrawable asset.
     return null;
   }
+  // Same null, same call-site path — an empty row is as undrawable as a
+  // malformed one, it simply arrives without an exception.
+  return bytes.length > 0 ? bytes : null;
 }
 
 /** SHA-256 over the STORED bytes, lowercase hex. Drives dedup and makes delete

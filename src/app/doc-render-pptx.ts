@@ -91,6 +91,7 @@ import {
   type ExportAssets,
 } from "./document-export-assets";
 import type { DocumentAsset } from "./document-asset";
+import { safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import { cellText } from "./export-sections";
 import type { Workspace } from "./workspace";
@@ -271,8 +272,28 @@ function paragraphLines(html: string, ctx: RenderCtx): SlideLine[] {
   //   `.exec()` loop here would carry position between unrelated callers.
   for (const match of html.matchAll(IMG_TAG_RE)) {
     const id = match[1];
-    const embed = ctx.assets.inlined[id] ? pptxEmbedFor(ctx.byId.get(id)) : null;
+    const b64 = ctx.assets.inlined[id];
+    const embed = b64 ? pptxEmbedFor(ctx.byId.get(id)) : null;
     if (!embed) continue;
+    // ★★★ THE DECODE BELONGS TO THE DECISION, NOT ONLY TO THE MINTING, and
+    //   this is the structural difference from `doc-render-docx.ts`. There,
+    //   `drawingFor` IS both — a decline leaves the `<img>` in the segment and
+    //   the placeholder pass substitutes it. Here the two are separated by
+    //   pagination (part paths are deck-wide, relationship ids per slide, so
+    //   nothing can be minted until slides are known), and this side is the one
+    //   holding the disclosure: pushing an `ImageLine` STRIPS the tag, so
+    //   `withImagePlaceholders` never sees it again. A row `mint` would later
+    //   refuse therefore produced a BLANK slide — no picture, no body text, no
+    //   placeholder — where docx produced the disclosure from the same fixture.
+    //   Measured, not reasoned; pinned by "discloses an image whose stored
+    //   base64 has …" in `doc-render-pptx.test.ts`.
+    // ★★ SO THE TWO SITES' CHECKS MUST STAY IDENTICAL: `createDeckMedia`'s
+    //   `mint` asks the same three questions in the same order, and its own
+    //   docstring says why it may not add a fourth. `continue` here is the
+    //   `!embed` arm's behaviour exactly — leave the tag where it is.
+    // ★ Same function, so "decodable" cannot mean two things; the bytes are
+    //   deliberately discarded rather than threaded (see `mint`'s docstring).
+    if (!safeBase64ToBytes(b64)) continue;
     const at = match.index ?? 0;
     // ★ Emitted UNCONDITIONALLY — `slideLines` strips the blank a structural
     //   fragment yields, and asking about the markup instead loses an `hr` and

@@ -209,13 +209,17 @@ function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, Docum
     const embed = docxEmbedFor(meta);
     if (!meta || !embed) return null;
 
-    // ★★ DECODE BEFORE ANY STATE MOVES. `safeBase64ToBytes` declines a row
-    //   whose bytes are not decodable instead of throwing out of this render —
-    //   which, since every `downloadDocument` call site `void`s its promise,
-    //   used to cost the user the entire export over one bad row. Declining
-    //   lands on the SAME placeholder an undrawable asset already gets, and
-    //   doing it here rather than after `parts.push` keeps the part numbering
-    //   gap-free.
+    // ★★ DECODE BEFORE ANY STATE MOVES. `safeBase64ToBytes` declines a row it
+    //   cannot turn into drawable bytes — malformed OR empty — instead of
+    //   throwing out of this render, which would cost the user the entire
+    //   export over one bad row: this render is synchronous inside a promise
+    //   `downloadDocument`'s call sites `void`, so nothing downstream can retry
+    //   it. (They DO surface a message — each site attaches a `.catch` to
+    //   `reportDownloadFailure` — so the handler and this guard close different
+    //   halves and neither makes the other redundant; the docstring on
+    //   `safeBase64ToBytes` carries the detail.) Declining lands on the SAME
+    //   placeholder an undrawable asset already gets, and doing it here rather
+    //   than after `parts.push` keeps the part numbering gap-free.
     const data = safeBase64ToBytes(b64);
     if (!data) return null;
 

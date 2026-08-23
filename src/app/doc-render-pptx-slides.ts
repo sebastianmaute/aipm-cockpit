@@ -359,19 +359,46 @@ export function createDeckMedia(ctx: RenderCtx) {
   return function slideMedia() {
     const parts: MediaPart[] = [];
     /** The part for one image line, or null if its bytes or metadata have gone
-     *  since `paragraphLines` accepted it. Unreachable by construction — the
-     *  same two checks minted the line — and skipping the picture is the only
-     *  honest fallback if it ever becomes reachable. */
+     *  since `paragraphLines` accepted it.
+     *
+     *  ★★★ UNREACHABLE BY CONSTRUCTION — AND THAT IS A PROPERTY OF THE OTHER
+     *  FILE, NOT OF THIS ONE. `paragraphLines` (`doc-render-pptx.ts`) applies
+     *  these three checks, in this order, before it mints the `ImageLine`; a
+     *  check added HERE and not THERE breaks the invariant silently, and did:
+     *  the decode below was once this site's alone, which made `mint` the only
+     *  place a picture could be declined — and this file has nothing to decline
+     *  WITH. Skipping the picture is all `buildContentSlide` can do, and a
+     *  skipped picture on a slide whose `<img>` tag `paragraphLines` already
+     *  stripped is a BLANK SLIDE: no `<p:pic>`, no body text, no placeholder.
+     *  Every other pptx decline reason leaves the tag in the fragment for
+     *  `withImagePlaceholders`, which is the only thing that tells the reader an
+     *  image was there. So the null path is a genuine last resort, not a
+     *  disclosure route — keep the decision complete upstream.
+     *  ★ Pinned from both sides: `doc-render-pptx-slides.test.ts` proves this
+     *  function DECLINES a malformed row, and `doc-render-pptx.test.ts`'s
+     *  "discloses an image whose stored base64 has …" proves the reader is told,
+     *  which only the upstream check can deliver. Neither test alone is enough. */
     function mint(line: ImageLine): MediaPart | null {
       const b64 = ctx.assets.inlined[line.id];
       const embed = pptxEmbedFor(ctx.byId.get(line.id));
       if (!b64 || !embed) return null;
       // ★★ DECODE BEFORE `partCount` MOVES. `safeBase64ToBytes` declines a row
-      //   whose bytes are not decodable instead of throwing out of this
-      //   render — which, since every `downloadDocument` call site `void`s its
-      //   promise, used to cost the user the entire deck over one bad row.
+      //   it cannot turn into drawable bytes — malformed OR empty — instead of
+      //   throwing out of this render, which would cost the user the entire
+      //   deck over one bad row: the render is synchronous inside a promise
+      //   `downloadDocument`'s call sites `void`, so nothing downstream can
+      //   retry it. (They DO surface a message — each site attaches a `.catch`
+      //   to `reportDownloadFailure` — so neither half makes the other
+      //   redundant; `safeBase64ToBytes`' docstring carries the detail.)
       //   Bumping the DECK-WIDE counter first would leave a gap in
       //   `ppt/media/`, so the decline has to happen above it.
+      // ★★ THE SECOND EVALUATION OF THIS PREDICATE IS DELIBERATE — see the
+      //   docstring. `paragraphLines` decodes to DECIDE and throws the bytes
+      //   away; this decodes to USE them. Threading the bytes on `ImageLine`
+      //   instead would spend one decode, but it would also make this guard
+      //   unreachable from any test, and this is the site where the deck-wide
+      //   counter moves. Both sites call this ONE function, so they cannot
+      //   disagree about what is decodable.
       const data = safeBase64ToBytes(b64);
       if (!data) return null;
       partCount += 1;

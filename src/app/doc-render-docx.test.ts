@@ -1343,6 +1343,30 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(paraTexts(xml).join("|")).toContain("after");
   });
 
+  // ★★★ A WHITESPACE-ONLY ROW DOES NOT THROW, so the catch above never saw it.
+  //  `atob` strips ASCII whitespace BEFORE decoding — the very property that
+  //  lets a line-WRAPPED row through — so " " decodes to zero bytes, and a
+  //  `Uint8Array(0)` is TRUTHY. `drawingFor`'s `if (!data) return null` passed
+  //  it, and the package took a ZERO-BYTE `word/media/image1.png` referenced by
+  //  a real `<w:drawing>` with no placeholder anywhere. Measured, not reasoned.
+  //  ★★ ASSERT THE MEDIA COUNT, NOT MERELY THE PLACEHOLDER: the pre-fix output
+  //  emitted a media part AND no placeholder, so either assertion alone catches
+  //  it — but a future regression that emitted BOTH would slip a count-free test.
+  it.each([
+    ["a single space", " "],
+    ["mixed ASCII whitespace", "\t\r\n "],
+  ])("declines an image whose stored base64 is %s rather than minting a zero-byte part", async (_label, blank) => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p>before<img data-asset-id="a1">after</p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: blank }),
+    ));
+    expect(mediaPaths(zip)).toHaveLength(0);
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    expect(paraTexts(xml).join("|")).toContain("before");
+    expect(paraTexts(xml).join("|")).toContain("after");
+  });
+
   it("still embeds a GOOD image when a sibling row's base64 is malformed", async () => {
     // ★★ Anti-vacuity for the pair above: without this, a renderer that dropped
     //  EVERY image would pass both of them. One bad row must cost exactly one
