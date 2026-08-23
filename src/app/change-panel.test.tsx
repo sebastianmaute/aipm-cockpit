@@ -69,6 +69,40 @@ describe("ChangePanel", () => {
     const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect(getByRole("button", { name: /add/i })).toBeTruthy();
   });
+
+  // axe has NO rule for a missing or wrong aria-sort, in any view at any seed
+  // size, so this test is the only coverage the sort state will ever have.
+  it("announces sort state through aria-sort, not through the button name", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    expect(getByRole("columnheader", { name: /title/i })).toHaveAttribute("aria-sort", "none");
+
+    // The anchored name is the assertion that matters: while the sort glyph sits
+    // INSIDE the button, the name reads "Title ▲" once sorted and this fails.
+    fireEvent.click(getByRole("button", { name: /^title$/i }));
+    expect(getByRole("columnheader", { name: /title/i })).toHaveAttribute("aria-sort", "ascending");
+
+    fireEvent.click(getByRole("button", { name: /^title$/i }));
+    expect(getByRole("columnheader", { name: /title/i })).toHaveAttribute("aria-sort", "descending");
+
+    // Third click returns to unsorted — the third state of PanelSort is null.
+    fireEvent.click(getByRole("button", { name: /^title$/i }));
+    expect(getByRole("columnheader", { name: /title/i })).toHaveAttribute("aria-sort", "none");
+
+    // The glyph stays VISIBLE but is out of the accessible name.
+    expect(getByRole("button", { name: /^title$/i })).toBeInTheDocument();
+  });
+
+  // WCAG 2.5.3 label-in-name: the column's visible text is "#", so "#" must be
+  // CONTAINED in its accessible name. An aria-label of "ID" replaced the name
+  // outright and the visible label was nowhere in it. axe cannot see this —
+  // label-content-name-mismatch is experimental (excluded by default) and does
+  // not apply to this role anyway, so a unit test is the only possible detector.
+  it("names the id column by its visible # label, keeping the meaning on hover", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    const btn = getByRole("button", { name: "#" });
+    expect(btn.textContent).toContain("#");
+    expect(btn).toHaveAttribute("title", t("en-US", "id"));
+  });
   it("opens the editor when a row is clicked", () => {
     const { getByText, getByDisplayValue } = render(<ChangePanel {...base} />, { wrapper: Providers });
     fireEvent.click(getByText("Alpha scope"));

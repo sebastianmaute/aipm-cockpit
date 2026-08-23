@@ -57,7 +57,7 @@ import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { buildBulkFieldEdits } from "./undo/field-groups";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
-import { InfoTooltip } from "./info-tooltip";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Select } from "./form-controls";
@@ -376,15 +376,19 @@ function ChangePanelBody({
     CHANGE_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+  // PanelSort.key is a bare `string`, so narrow ONCE here rather than leaving
+  // seven unchecked sortCol call sites: the explicit generic is what makes a
+  // typo in `sortCol` a compile error.
+  const th = useSortHeaderProps<ChangeSortKey>(
+    (pf.sort?.key ?? null) as ChangeSortKey | null,
+    pf.sort?.dir ?? "off",
+    toggleSort,
+    startResize,
+  );
   const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:change-size");
 
   const filtersActive =
     search.trim() !== "" || typeFilter !== "All" || statusFilter !== "All";
-
-  const sortArrow = (key: ChangeSortKey) =>
-    sort?.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
-  const ariaSort = (key: ChangeSortKey): "ascending" | "descending" | "none" =>
-    sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
 
   const toolbar = (
     <PaneToolbar>
@@ -512,61 +516,25 @@ function ChangePanelBody({
                   />
               </th>
               {!hiddenSet.has("id") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={ariaSort("id")}>
-                <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  #{sortArrow("id")}
-                </button>
-                <ColumnResizeHandle col="id" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label="#" sortCol="id" width={colWidths.id} title={t(lang, "id")} />
               )}
               {!hiddenSet.has("type") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.type, minWidth: colWidths.type }} aria-sort={ariaSort("type")}>
-                <button type="button" onClick={() => toggleSort("type")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldType")}{sortArrow("type")}
-                </button>
-                <ColumnResizeHandle col="type" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldType")} sortCol="type" width={colWidths.type} />
               )}
               {!hiddenSet.has("title") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={ariaSort("title")}>
-                <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldTitle")}{sortArrow("title")}
-                </button>
-                <ColumnResizeHandle col="title" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldTitle")} sortCol="title" width={colWidths.title} />
               )}
               {!hiddenSet.has("impact") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.impact, minWidth: colWidths.impact }} aria-sort={ariaSort("impact")}>
-                <button type="button" onClick={() => toggleSort("impact")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldImpact")}{sortArrow("impact")}
-                </button>
-                <InfoTooltip text={t(lang, "changeFieldImpactHint")} />
-                <ColumnResizeHandle col="impact" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldImpact")} sortCol="impact" width={colWidths.impact} hint={t(lang, "changeFieldImpactHint")} />
               )}
               {!hiddenSet.has("status") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={ariaSort("status")}>
-                <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldStatus")}{sortArrow("status")}
-                </button>
-                <ColumnResizeHandle col="status" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldStatus")} sortCol="status" width={colWidths.status} />
               )}
               {!hiddenSet.has("requestedBy") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.requestedBy, minWidth: colWidths.requestedBy }} aria-sort={ariaSort("requestedBy")}>
-                <button type="button" onClick={() => toggleSort("requestedBy")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldRequestedBy")}{sortArrow("requestedBy")}
-                </button>
-                <ColumnResizeHandle col="requestedBy" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldRequestedBy")} sortCol="requestedBy" width={colWidths.requestedBy} />
               )}
               {!hiddenSet.has("raisedDate") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.raisedDate, minWidth: colWidths.raisedDate }} aria-sort={ariaSort("raisedDate")}>
-                <button type="button" onClick={() => toggleSort("raisedDate")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-                  {t(lang, "changeFieldRaisedDate")}{sortArrow("raisedDate")}
-                </button>
-                <ColumnResizeHandle col="raisedDate" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "changeFieldRaisedDate")} sortCol="raisedDate" width={colWidths.raisedDate} />
               )}
               {!hiddenSet.has("notesLog") && (
               <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
