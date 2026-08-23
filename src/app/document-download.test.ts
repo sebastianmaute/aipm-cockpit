@@ -457,16 +457,68 @@ describe("downloadDocument asset policy per format", () => {
     }
   });
 
-  it("passes a renderability predicate to the OOXML formats and none to the inline ones", async () => {
-    for (const format of ["html", "pdf"] as const) {
+  it("passes a renderability predicate to EVERY format, inline sinks included", async () => {
+    // ★★★ HTML USED TO GET NONE, AND IT IS THE SINK THAT COULD LEAST AFFORD IT.
+    //  The inline sinks are the only BUDGETED ones, so they are the only place
+    //  an unrenderable row costs something: its bytes are fetched, charged
+    //  against the 25 MB budget — evicting a good image into `omitted` — and
+    //  then dropped to a placeholder by `assetSrcAttr` anyway. The OOXML sinks
+    //  run unbudgeted and had the predicate; html/pdf ran budgeted and did not.
+    //
+    //  ★★ IT IS REACHABLE BECAUSE THE LOAD PATH DOES NOT ENFORCE THE ALLOWLIST.
+    //  `sanitizeDocumentAsset` runs `mime` through `sanitizeText`, which trims
+    //  and clips and nothing else — verified by reading it, not assumed — so an
+    //  imported or hand-edited workspace really can carry `image/svg+xml` here.
+    for (const format of ["html", "pdf", "docx", "pptx"] as const) {
       vi.mocked(loadExportAssets).mockClear();
       await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
-      // ★ The inline sinks deliberately filter NOTHING: renderDocumentHtml can
-      // inline any allowed mime, and `assetSrcAttr` declines an unusable asset
-      // at render time anyway.
-      expect(loadArgs()[3], format).toBeUndefined();
+      expect(typeof loadArgs()[3], format).toBe("function");
     }
+  });
 
+  it("declines a mime outside the upload allowlist on the inline sinks", async () => {
+    const wsSvg: Workspace = {
+      ...ws,
+      documentAssets: [{ ...wsWithSizedAsset.documentAssets![0], mime: "image/svg+xml" }],
+    };
+    for (const format of ["html", "pdf"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsSvg, "en-US", async () => PNG_B64);
+      const isRenderable = loadArgs()[3];
+      // ★★★ INVOKING IT IS THE POINT, in BOTH directions. "is a function" is a
+      //  TYPE assertion that a predicate returning a constant also satisfies —
+      //  `() => false` passes the SVG case alone and `() => true` passes the
+      //  allowed case alone, so only the pair kills both mutants.
+      expect(isRenderable!(ASSET_ID), format).toBe(false);
+      expect(isRenderable!("no-such-asset"), format).toBe(false);
+
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);
+      expect(loadArgs()[3]!(ASSET_ID), format).toBe(true);
+    }
+  });
+
+  it("does NOT require dimensions on the inline sinks, where the OOXML ones do", async () => {
+    // ★★★ THE ASYMMETRY IS THE DESIGN, NOT AN OVERSIGHT. `wsWithAsset` carries
+    //  no width/height. A drawing has to be PLACED in a fixed page or slide
+    //  box, so `canEmbedDocxAsset`/`canEmbedPptxAsset` need an extent and
+    //  decline without one. HTML places nothing and needs no extent — the same
+    //  image renders there perfectly well. Reusing an OOXML predicate on the
+    //  inline sinks "for symmetry" would put a placeholder in a file that could
+    //  have shown the picture, which is a worse bug than the one being fixed.
+    for (const format of ["html", "pdf"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithAsset, "en-US", async () => PNG_B64);
+      expect(loadArgs()[3]!(ASSET_ID), format).toBe(true);
+    }
+    for (const format of ["docx", "pptx"] as const) {
+      vi.mocked(loadExportAssets).mockClear();
+      await downloadDocument(docWithImage(), format, wsWithAsset, "en-US", async () => PNG_B64);
+      expect(loadArgs()[3]!(ASSET_ID), format).toBe(false);
+    }
+  });
+
+  it("resolves the predicate through ws.documentAssets on the OOXML formats", async () => {
     for (const format of ["docx", "pptx"] as const) {
       vi.mocked(loadExportAssets).mockClear();
       await downloadDocument(docWithImage(), format, wsWithSizedAsset, "en-US", async () => PNG_B64);

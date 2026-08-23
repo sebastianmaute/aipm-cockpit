@@ -49,7 +49,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
-import { ASSET_MIME_ALLOWED, base64ToBytes } from "./document-asset-upload";
+import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
@@ -209,6 +209,16 @@ function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, Docum
     const embed = docxEmbedFor(meta);
     if (!meta || !embed) return null;
 
+    // ★★ DECODE BEFORE ANY STATE MOVES. `safeBase64ToBytes` declines a row
+    //   whose bytes are not decodable instead of throwing out of this render —
+    //   which, since every `downloadDocument` call site `void`s its promise,
+    //   used to cost the user the entire export over one bad row. Declining
+    //   lands on the SAME placeholder an undrawable asset already gets, and
+    //   doing it here rather than after `parts.push` keeps the part numbering
+    //   gap-free.
+    const data = safeBase64ToBytes(b64);
+    if (!data) return null;
+
     const index = parts.length + 1;
     // ★ The part name derives from the INDEX, never from the asset's
     //   user-supplied name — a name must never become a zip path.
@@ -216,7 +226,7 @@ function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, Docum
     const relId = `rId${index + 1}`;
     parts.push({
       path: `word/media/${name}`,
-      data: base64ToBytes(b64),
+      data,
       extension: embed.ext,
       relId,
     });

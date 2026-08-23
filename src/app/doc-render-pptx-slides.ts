@@ -39,7 +39,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
-import { ASSET_MIME_ALLOWED, base64ToBytes } from "./document-asset-upload";
+import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
 import type { Workspace } from "./workspace";
@@ -366,12 +366,20 @@ export function createDeckMedia(ctx: RenderCtx) {
       const b64 = ctx.assets.inlined[line.id];
       const embed = pptxEmbedFor(ctx.byId.get(line.id));
       if (!b64 || !embed) return null;
+      // ★★ DECODE BEFORE `partCount` MOVES. `safeBase64ToBytes` declines a row
+      //   whose bytes are not decodable instead of throwing out of this
+      //   render — which, since every `downloadDocument` call site `void`s its
+      //   promise, used to cost the user the entire deck over one bad row.
+      //   Bumping the DECK-WIDE counter first would leave a gap in
+      //   `ppt/media/`, so the decline has to happen above it.
+      const data = safeBase64ToBytes(b64);
+      if (!data) return null;
       partCount += 1;
       const part: MediaPart = {
         // ★ The part name derives from the INDEX, never from the asset's
         //   user-supplied name — a name must never become a zip path.
         path: `ppt/media/image${partCount}.${embed.ext}`,
-        data: base64ToBytes(b64),
+        data,
         extension: embed.ext,
         relId: `rId${parts.length + 2}`,
       };

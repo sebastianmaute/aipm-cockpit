@@ -32,7 +32,7 @@ import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sour
 import { DocumentLinksSection } from "./document-links-section";
 import { resolveDocRef } from "./document-ref";
 import { useDocumentEntityFilter } from "./use-document-entity-filter";
-import { downloadDocument, type DocFormat } from "./document-download";
+import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
 import { useColumnResize } from "./use-column-resize";
 import { type SortDir, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
@@ -571,7 +571,7 @@ export function DocumentsPanel({
       <DocumentsToolbar
         lang={lang}
         onNew={handleCreate}
-        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane)); }}
+        onDownload={() => { if (selected) void downloadDocument(selected, format, ws, lang, assetPaneLoader(assetPane)).catch((e) => reportDownloadFailure(showToast, lang, e)); }}
         canDownload={selected !== null}
         format={format}
         onFormatChange={chooseFormat}
@@ -607,7 +607,7 @@ export function DocumentsPanel({
           onRename={(doc) => setRenaming({ id: doc.id, draft: doc.title })}
           onDuplicate={handleDuplicate}
           onDelete={handleDelete}
-          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane))}
+          onDownload={(doc) => void downloadDocument(doc, format, ws, lang, assetPaneLoader(assetPane)).catch((e) => reportDownloadFailure(showToast, lang, e))}
           onOpenHistory={handleOpenHistory}
           isReadOnly={isReadOnly}
           flashId={flashId}

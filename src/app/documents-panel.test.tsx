@@ -32,7 +32,19 @@ const headingTextName = (index: number) =>
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
 // with the right document and format.
-vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
+// ★★ `downloadDocument` ONLY. `reportDownloadFailure` is left REAL — it is the
+// disclosure under test, and a `vi.fn()` for it would reduce the assertion to
+// "we called the thing we mocked", which passes with the toast key, the
+// diagnostic code and `reportSilentFailure` itself all wrong. Keeping it real
+// lets the spy below see the actual translated string a user would read.
+//
+// ★ `async () => {}` rather than `vi.fn()`: the handler now chains `.catch` on
+// the returned promise, and a mock returning `undefined` would throw a
+// TypeError at the call site — which reads as a broken panel, not a broken mock.
+vi.mock("./document-download", async (orig) => ({
+  ...(await orig<typeof import("./document-download")>()),
+  downloadDocument: vi.fn(async () => {}),
+}));
 
 // ★★ EVERY export is mocked, not just the one under test: the asset section
 // this pane mounts calls `loadAssetDataIds` from an effect and the CRUD writers
@@ -615,6 +627,39 @@ describe("DocumentsPanel", () => {
       // would "fix" it by deleting the very argument this slice adds.
       undefined,
     );
+  });
+
+  // ★★★ BOTH CALL SITES, NOT ONE. The toolbar button and the row button are
+  //  two separate expressions that each had to gain a `.catch`, so a single
+  //  test would leave the other silent — which is exactly the shape that let
+  //  this card's asset LOADER diverge from the pane's once already.
+  it.each([
+    ["the toolbar button", "Download"],
+    ["a row control", "Download – Alpha"],
+  ])("tells the user when the export rejects, from %s", async (_label, buttonName) => {
+    // The byte store is a NETWORK call, so a rejection here is ordinary
+    // operation, not just a malformed row.
+    vi.mocked(downloadDocument).mockRejectedValueOnce(new Error("byte store down"));
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+    // ★★ THE ASSERTION IS THE STRING A USER WOULD READ, not that some spy was
+    //  called. `reportDownloadFailure` is deliberately unmocked, so this pins
+    //  the whole chain — catch → reportSilentFailure → the EN copy that already
+    //  says "nothing was downloaded", which is precisely what happened.
+    await waitFor(() => {
+      expect(showToastSpy).toHaveBeenCalledWith("error", t("en-US", "guardExportFailed"));
+    });
+  });
+
+  it("shows NO toast when the export resolves", async () => {
+    // ★★ ANTI-VACUITY. Without this, a panel that toasted on EVERY download
+    //  would pass the pair above — and a spurious "export failed" on a
+    //  successful export is its own defect.
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(downloadDocument).toHaveBeenCalledTimes(1));
+    expect(showToastSpy).not.toHaveBeenCalled();
   });
 
   it("downloads the ROW's document, not the selected one, from a row control", () => {

@@ -9,7 +9,8 @@ import { ArrowDownTrayIcon, ArrowRightIcon, DocumentTextIcon } from "./icons";
 import { type Lang, t } from "./i18n";
 import { useWorkspace } from "./workspace-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
-import { downloadDocument, type DocFormat } from "./document-download";
+import { downloadDocument, reportDownloadFailure, type DocFormat } from "./document-download";
+import { useToastContext } from "./toast-context";
 import { loadAssetData } from "./document-assets-store";
 import type { TursoConfig } from "./turso-config";
 import { DOC_FORMATS } from "./documents-toolbar";
@@ -340,6 +341,10 @@ function DocumentCard({
   projectId?: string;
 }) {
   const ws = useWorkspace();
+  // ★ This card renders inside the chat transcript, which owns no toast of its
+  //   own, so it reads the ambient one. `useToastContext` defaults to a no-op,
+  //   so a transcript mounted with no provider still renders.
+  const showToast = useToastContext();
   // ★★★ THIS CARD MUST CARRY THE SAME LOADER THE DOCUMENTS PANE DOES. The
   // fifth argument of `downloadDocument` is OPTIONAL, so omitting it compiles,
   // runs, and produces a file — one whose images are dashed placeholder boxes.
@@ -412,7 +417,11 @@ function DocumentCard({
               size="sm"
               disabled={!liveDoc}
               onClick={() => {
-                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader);
+                // ★★ THE SAME DISCLOSURE THE DOCUMENTS PANE GIVES. Without it a
+                //   rejected export is silent here too — and this button has
+                //   already had to be fixed once for diverging from that pane.
+                if (liveDoc) void downloadDocument(liveDoc, CARD_DOWNLOAD_FORMAT, ws, lang, assetLoader)
+                  .catch((e) => reportDownloadFailure(showToast, lang, e));
               }}
               aria-label={`${t(lang, "documentsDownload")}${nameQualifier}`}
               className="inline-flex items-center gap-1.5"

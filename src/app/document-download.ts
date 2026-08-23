@@ -20,10 +20,12 @@ import {
 } from "./document-export-assets";
 import type { ExportAssets } from "./document-export-assets";
 import type { DocumentAsset } from "./document-asset";
+import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
 import type { Workspace } from "./workspace";
 import type { Lang } from "./i18n";
+import { reportSilentFailure } from "./guard-feedback";
 
 export type DocFormat = "html" | "docx" | "pptx" | "pdf";
 
@@ -146,9 +148,39 @@ function assetPolicy(
   format: DocFormat,
   ws: Workspace,
 ): { budgetBytes: number; isRenderable?: (id: string) => boolean } {
+  // ★ ONE map for both branches — two maps built from the same list, threaded
+  //  into two predicates, is the shape that drifts.
+  const byId = new Map<string, DocumentAsset>(
+    (ws.documentAssets ?? []).map((a) => [a.id, a]),
+  );
   if (format !== "docx" && format !== "pptx") {
     // ★ The `!tab` PDF fallback renders HTML, so "pdf" belongs here with it.
-    return { budgetBytes: EXPORT_INLINE_BUDGET_BYTES };
+    // ★★★ HTML IS THE ONE SINK WHERE THE BUDGET CAN ACTUALLY BE SPENT, so it
+    //  is the one sink where an unrenderable row COSTS something — the harm the
+    //  OOXML predicates are exempt from by being unbudgeted. `sanitizeDocumentAsset`
+    //  does NOT enforce the mime allowlist on load (verified: it only truncates
+    //  the string via `sanitizeText`), so an imported or hand-edited workspace
+    //  can carry an `image/svg+xml` row whose bytes are fetched, charged against
+    //  the 25 MB budget — pushing a good image into `omitted` — and then dropped
+    //  to a placeholder by `assetSrcAttr` anyway. Asking first is what stops a
+    //  row that can never be drawn from evicting one that can.
+    //
+    //  ★★★ NO DIMENSION CHECK, and the asymmetry with the two OOXML predicates
+    //  is the POINT rather than an omission. `canEmbedDocxAsset`/`canEmbedPptxAsset`
+    //  require an EXTENT because a drawing has to be placed in a fixed page or
+    //  slide box; HTML places nothing and needs no extent, so an image with no
+    //  recorded width or height renders here perfectly well. Reusing an OOXML
+    //  predicate for symmetry would DECLINE that image and put a placeholder in
+    //  a file that could have shown it. This is deliberately the metadata-only
+    //  half of what `assetSrcAttr` will check again at render time — the mime
+    //  allowlist, shared by import so the two cannot drift, and nothing else.
+    return {
+      budgetBytes: EXPORT_INLINE_BUDGET_BYTES,
+      isRenderable: (id: string) => {
+        const mime = byId.get(id)?.mime;
+        return mime !== undefined && (ASSET_MIME_ALLOWED as readonly string[]).includes(mime);
+      },
+    };
   }
   // ★★ The predicate the OOXML renderers already own, adapted from the id
   //  `loadExportAssets` knows to the metadata row they ask about. The two
@@ -166,9 +198,6 @@ function assetPolicy(
   //  fourth state no bucket describes, and that its base64 is never held. The
   //  emitted package is byte-identical either way (measured), so only the
   //  argument assertions in document-download.test.ts can see this.
-  const byId = new Map<string, DocumentAsset>(
-    (ws.documentAssets ?? []).map((a) => [a.id, a]),
-  );
   const canEmbed = format === "docx" ? canEmbedDocxAsset : canEmbedPptxAsset;
   return {
     budgetBytes: Number.POSITIVE_INFINITY,
@@ -256,4 +285,30 @@ export async function downloadDocument(
         : renderDocumentPptx(doc, ws, lang, assets);
 
   triggerDownload(documentFilename(doc, format, today), blob);
+}
+
+/** Disclose a `downloadDocument` rejection to the user.
+ *
+ *  ★★★ EVERY PRODUCTION CALL SITE `void`s THE PROMISE, so without a `.catch`
+ *  a rejection is completely silent: no file, no message, and the user is left
+ *  believing a button did nothing. The byte store is a NETWORK call, so this is
+ *  reachable in normal operation and not merely by a malformed row.
+ *
+ *  ★★ It lives HERE rather than being hand-rolled at each site so the diagnostic
+ *  code and the message key cannot drift between two Download buttons that are
+ *  meant to be the same feature — the same drift `assetLoader` already had to be
+ *  fixed for on the chat card. `export-menu.tsx` sets the precedent for the
+ *  shape (`reportSilentFailure` + `guardExportFailed`), and reusing that key is
+ *  deliberate: it already says "nothing was downloaded", in EN and DE, which is
+ *  exactly what happened.
+ *
+ *  ★ `showToast` is a PARAMETER, not a context read, so this stays callable from
+ *  a component, a hook or a plain handler — the convention `guard-feedback.ts`
+ *  established for the same reason. */
+export function reportDownloadFailure(
+  showToast: (kind: "info" | "error", text: string) => void,
+  lang: Lang,
+  err: unknown,
+): void {
+  reportSilentFailure(showToast, lang, "document.download.failed", err, "guardExportFailed");
 }

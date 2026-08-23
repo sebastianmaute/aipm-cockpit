@@ -274,6 +274,45 @@ export function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
+/** `base64ToBytes` for data that arrives from STORAGE rather than from our own
+ *  encoder: returns null instead of throwing.
+ *
+ *  ★★★ THE CALLERS ARE SYNCHRONOUS RENDERERS INSIDE AN UN-AWAITED PROMISE.
+ *  `renderDocumentDocx`/`renderDocumentPptx` run inside `downloadDocument`, and
+ *  all three of its production call sites `void` that promise — so a throw from
+ *  the decode reached NO catch anywhere and the user lost the WHOLE export,
+ *  with no file and no message, over one malformed byte row. Both minting sites
+ *  already have a `return null` path to the placeholder; this routes a bad row
+ *  down it, which is what that path is for.
+ *
+ *  ★★ The premise is `doc-render-html.ts`'s, restated because it holds for all
+ *  three sinks and only one of them acted on it: these bytes come back from a
+ *  Turso column that validates no charset, so "we wrote it, so it decodes" is
+ *  not a claim this decode may rely on.
+ *
+ *  ★★★ A CATCH, NOT A REGEX PRE-CHECK, AND THAT IS THE MEASURED CHOICE RATHER
+ *  THAN THE LAZY ONE. `doc-render-html.ts`'s alphabet test is the right guard
+ *  THERE because that sink interpolates into a data: URI and never decodes, so
+ *  its only question is what may enter an attribute. Reused here it would be
+ *  wrong in BOTH directions. Too weak: `atob("abcde")` throws "not correctly
+ *  encoded" while passing it, as do "=", "====", "ab=c", "QQ=" and "AAAA=" —
+ *  a whole family of length and padding faults no alphabet test can see, so the
+ *  throw this exists to stop would still get through. Too strong: `atob` strips
+ *  ASCII whitespace before decoding, so `"iVBORw0K
+Ggo="` decodes to the same
+ *  8 bytes as its unwrapped form while the regex REJECTS it — a line-wrapped
+ *  row would silently become a placeholder in a document that could have shown
+ *  the image. Only `atob` knows what `atob` accepts; asking it is the guard. */
+export function safeBase64ToBytes(b64: string): Uint8Array | null {
+  try {
+    return base64ToBytes(b64);
+  } catch {
+    // Nothing to recover: the row is not what it claims to be. The caller's
+    // existing null path already discloses it as an undrawable asset.
+    return null;
+  }
+}
+
 /** SHA-256 over the STORED bytes, lowercase hex. Drives dedup and makes delete
  *  refcount-aware: a logo referenced from twenty documents is one row. */
 export async function hashBytes(bytes: Uint8Array): Promise<string> {

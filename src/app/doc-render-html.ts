@@ -199,7 +199,14 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
 /** Base64 alphabet only. `data` reaches this sink from a Turso column that
  *  validates no charset, so anything outside the alphabet means the row is not
  *  what it claims to be — and every byte of it would land inside an attribute
- *  value. */
+ *  value.
+ *
+ *  ★★ DELIBERATELY NOT SHARED WITH `safeBase64ToBytes`, which the two OOXML
+ *  sinks decode through. This sink INTERPOLATES and never decodes, so its only
+ *  question is what may enter an attribute; a sink that decodes has to ask what
+ *  `atob` accepts, which is both wider (whitespace is stripped) and narrower
+ *  (length and padding are checked) than this alphabet. One regex for both
+ *  would be wrong for one of them — see that function for the measurements. */
 const BASE64_RE = /^[A-Za-z0-9+/=]+$/;
 
 /** ★★★ THE SINK VALIDATES — it does NOT inherit trust from the load path.

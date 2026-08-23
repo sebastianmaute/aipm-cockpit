@@ -1310,6 +1310,57 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(partText(zip, "word/document.xml")).toContain("chart.png");
   });
 
+  // ★★★ EACH CASE IS A DIFFERENT atob FAILURE MODE, and one of them alone is
+  //  not enough. "a!b" is a CHARSET fault ("Invalid character"); "abcde" is a
+  //  LENGTH fault ("not correctly encoded") whose every character IS in the
+  //  base64 alphabet. A guard written as an alphabet regex — the shape
+  //  `doc-render-html.ts` correctly uses for its non-decoding sink — passes the
+  //  second one straight into the decode, so a suite testing only "a!b" would
+  //  report this closed while the export still dies on a length fault.
+  //
+  //  ★★★ AND THE ASSERTION IS THAT A PACKAGE COMES BACK, NOT THAT NOTHING
+  //  THROWS. `expect(...).not.toThrow()` would pass against a renderer that
+  //  swallowed the row and emitted a corrupt zip. The user's whole document is
+  //  what was at stake here: the render is synchronous inside an un-awaited
+  //  `downloadDocument`, so before this guard a single bad byte row cost them
+  //  the file AND the message. Assert the surviving prose and the placeholder.
+  it.each([
+    ["a charset fault", "a!b"],
+    ["a length fault whose characters are all in the alphabet", "abcde"],
+  ])("declines an image whose stored base64 has %s, and still emits the document", async (_label, bad) => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p>before<img data-asset-id="a1">after</p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: bad }),
+    ));
+    // No media part was minted — the row never reached the zip.
+    expect(mediaPaths(zip)).toHaveLength(0);
+    const xml = partText(zip, "word/document.xml");
+    // The SAME placeholder an undrawable asset already gets...
+    expect(xml).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    // ...and the prose either side of it survived, which is the whole point:
+    // the user got their document, minus one image they could not have had.
+    expect(paraTexts(xml).join("|")).toContain("before");
+    expect(paraTexts(xml).join("|")).toContain("after");
+  });
+
+  it("still embeds a GOOD image when a sibling row's base64 is malformed", async () => {
+    // ★★ Anti-vacuity for the pair above: without this, a renderer that dropped
+    //  EVERY image would pass both of them. One bad row must cost exactly one
+    //  image, never the other.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"><img data-asset-id="a2"></p>`),
+      { ...emptyWorkspace(), documentAssets: [asset(), asset({ id: "a2", name: "good.png" })] } as Workspace,
+      "en-US", inlinedAssets({ a1: "a!b", a2: PNG_B64 }),
+    ));
+    const media = mediaPaths(zip);
+    expect(media).toHaveLength(1);
+    expect(Array.from(zip.get(media[0])!)).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    // ★ The surviving part is image1, not image2 — declining happens BEFORE the
+    //  index is claimed, so the numbering has no gap for Word to trip over.
+    expect(media[0]).toBe("word/media/image1.png");
+    expect(partText(zip, "word/document.xml")).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+  });
+
   it("keeps the text either side of an inlined image, in order", async () => {
     const zip = await unzipBytes(renderDocumentDocx(
       imageDoc(`<p>before<img data-asset-id="a1">after</p>`),

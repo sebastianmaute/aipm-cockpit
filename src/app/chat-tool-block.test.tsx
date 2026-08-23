@@ -1,6 +1,6 @@
 import { describe, it, expect, vi, beforeEach, beforeAll } from "vitest";
 import { useEffect, useRef, type ReactNode } from "react";
-import { render, screen, within } from "@testing-library/react";
+import { render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { ToolBlock } from "./chat-tool-block";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -8,14 +8,26 @@ import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
 import { FiltersProvider } from "./filters-context";
 import type { ProjectDocument } from "./document-model";
 import { downloadDocument } from "./document-download";
+import { ToastProvider } from "./toast-context";
 import { loadAssetData } from "./document-assets-store";
 import type { TursoConfig } from "./turso-config";
-import { loadI18n, type Lang } from "./i18n";
+import { loadI18n, t, type Lang } from "./i18n";
 
 // The real one opens tabs / triggers Blob downloads — neither is meaningful in
 // jsdom, and the module has its own suite (mirrors documents-panel.test.tsx's
 // own mock of this same module for the same reason).
-vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
+// ★★ `downloadDocument` ONLY. `reportDownloadFailure` is left REAL — it is the
+// disclosure under test, and mocking it would reduce the assertion to "we
+// called the thing we mocked", which passes with the toast key, the diagnostic
+// code and `reportSilentFailure` itself all wrong.
+//
+// ★ `async () => {}` rather than `vi.fn()`: the handler chains `.catch` on the
+// returned promise, and a mock returning `undefined` throws a TypeError at the
+// call site — which reads as a broken card, not a broken mock.
+vi.mock("./document-download", async (orig) => ({
+  ...(await orig<typeof import("./document-download")>()),
+  downloadDocument: vi.fn(async () => {}),
+}));
 
 // The asset byte store talks to Turso over HTTP. Every export is stubbed (not
 // just the one this card uses) so nothing in the tree can reach the network.
@@ -78,14 +90,22 @@ function TabProbe() {
   );
 }
 
+/** ★ A REAL provider, not a `vi.mock` of `useToastContext`. The context has a
+ *  no-op default, so a mocked hook would make "no toast" and "no provider"
+ *  indistinguishable — and the card is meant to work in both. Matching
+ *  documents-panel.test.tsx, whose own toast assertions read the same spy. */
+const showToastSpy = vi.fn();
+
 function renderTree(documents: ProjectDocument[], children: ReactNode) {
   return render(
     <FiltersProvider>
       <WorkspaceProvider>
         <WorkspaceTabProvider>
+          <ToastProvider value={{ showToast: showToastSpy, showToastAction: vi.fn() }}>
           <SeedDocuments documents={documents} />
           <TabProbe />
           {children}
+          </ToastProvider>
         </WorkspaceTabProvider>
       </WorkspaceProvider>
     </FiltersProvider>,
@@ -188,6 +208,7 @@ function expectPlainToolBlock(name: string) {
 
 beforeEach(() => {
   vi.mocked(downloadDocument).mockClear();
+  showToastSpy.mockClear();
 });
 
 describe("ToolBlock — document file card", () => {
@@ -337,6 +358,39 @@ describe("ToolBlock — document file card", () => {
     // Nothing for the Documents view to select on arrival, so Open would be a
     // false affordance.
     expect(screen.getByRole("button", { name: openName("Steering deck", 4) })).toBeDisabled();
+  });
+
+  it("tells the user when the export rejects", async () => {
+    // ★★★ THIS BUTTON IS NOT THE PANE'S. It is a second, independent call site
+    //  that `void`ed its promise, so a rejection here — the byte store is a
+    //  NETWORK call — left the user with no file and no message at all. The
+    //  card has already had to be fixed once for diverging from the pane; this
+    //  pins the other half of that parity.
+    const user = userEvent.setup();
+    vi.mocked(downloadDocument).mockRejectedValueOnce(new Error("byte store down"));
+    const result = JSON.stringify({ id: 4, title: "Steering deck", blockCount: 12 });
+    renderTool("create_document", result, false, [doc(4, "Steering deck", 12)]);
+
+    await user.click(screen.getByRole("button", { name: downloadName("Steering deck", 4) }));
+
+    // ★★ THE STRING A USER WOULD READ, not that a spy fired.
+    //  `reportDownloadFailure` is deliberately unmocked, so this pins the whole
+    //  chain and the copy it lands on.
+    await waitFor(() => {
+      expect(showToastSpy).toHaveBeenCalledWith("error", t("en-US", "guardExportFailed"));
+    });
+  });
+
+  it("shows NO toast when the export resolves", async () => {
+    // ★★ ANTI-VACUITY: a card that toasted on EVERY download would pass above.
+    const user = userEvent.setup();
+    const result = JSON.stringify({ id: 4, title: "Steering deck", blockCount: 12 });
+    renderTool("create_document", result, false, [doc(4, "Steering deck", 12)]);
+
+    await user.click(screen.getByRole("button", { name: downloadName("Steering deck", 4) }));
+
+    await waitFor(() => expect(downloadDocument).toHaveBeenCalledTimes(1));
+    expect(showToastSpy).not.toHaveBeenCalled();
   });
 
   it("downloads the live document when Download is clicked", async () => {
