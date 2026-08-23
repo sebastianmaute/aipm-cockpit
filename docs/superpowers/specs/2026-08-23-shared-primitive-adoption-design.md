@@ -169,7 +169,14 @@ of each existing `aria-label`.
 leaves an unstyled `<th>` at the UA `bold` (700), so converted headers render LIGHTER than any
 hand-rolled `<th>` left beside them in the same row. Wherever a panel keeps non-sortable raw
 headers (a select-all checkbox, a notes column), add `font-medium` to them in the same commit so
-the row stays uniform. jsdom has no layout, so no unit test can see this in either direction.
+the row stays uniform.
+
+★★ The CASCADE is measured, not inferred (checked against the installed files during Task 6):
+`node_modules/tailwindcss/preflight.css` resets `font-weight` on `h1`-`h6` ONLY - there is no `th`
+rule - `globals.css` declares no `font-weight` at all, and `TABLE_HEAD_CLASS` sets only size and
+colour. So an unstyled `<th>` genuinely keeps the UA `bold`. What is NOT measured is the rendered
+result in a browser: jsdom has no layout, so no unit test can see it either way. **The eye-verify
+is therefore to confirm the row READS uniform - not to confirm the cascade, which is settled.**
 
 ★★ **Known loss, not a free win:** dropping the glyph from the announced name means
 VoiceOver/Safari, which does not announce `aria-sort`, goes from "Title up-arrow" to "Title".
