@@ -226,7 +226,13 @@ export function SortResizeTh<K extends string>({
    *  ★ `null` is a real value here, not an oversight: several panels hold sort
    *  as `{ key, dir } | null` (`PanelSort`). It is only ever compared against
    *  `sortCol`, so a null key makes every column inactive and every
-   *  `aria-sort` "none", which is exactly right for an unsorted table. */
+   *  `aria-sort` "none", which is exactly right for an unsorted table.
+   *
+   *  ★★ The `sortCol` guarantee holds only while `K` is inferred from a
+   *  literal union. A caller passing a bare-`string` key (e.g. `PanelSort.key`)
+   *  infers `K = string`, and every `sortCol` then typechecks — narrow ONCE at
+   *  the binding site with an explicit generic rather than leaving each call
+   *  site unchecked. */
   sortKey: K | null;
   sortDir: SortDir;
   onSort: (col: K) => void;
