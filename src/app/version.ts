@@ -3,7 +3,7 @@
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
 export const APP_VERSION = "0.256.0";
-export const APP_BUILD_DATE = "2026-08-22"; // 0.256.0: real image bytes in every document export format (Khaw)
+export const APP_BUILD_DATE = "2026-08-23"; // 0.256.0: real image bytes in every document export format (Khaw)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.256.x line is "Khaw" (Cassandra Khaw, SF/horror author).
  *  0.255.x was "Bisson" (Terry Bisson, SF author).
