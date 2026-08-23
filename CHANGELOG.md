@@ -52,12 +52,15 @@ longer carries its own changelog comment.
   `.docx` in Word and in LibreOffice Writer, and the `.pptx` in PowerPoint, is
   still outstanding and is tracked as `docs/open-followups.md` §219.
 - **A PowerPoint export gets longer than you expect: a picture takes a slide of
-  its own.** A slide holds sixteen lines of body text, and any image taller than
-  about 360 pixels is scaled to fill the slide's whole body area — which costs
-  seventeen. So a picture never shares a slide with text, and the paragraphs
-  around it move to the slides either side. A document alternating prose and
-  screenshots therefore produces roughly one slide per picture plus one per run
-  of text. Tracked as `docs/open-followups.md` §222.
+  its own.** A slide holds sixteen lines of body text, and an ordinary picture —
+  one at least about 360 pixels tall and no more than about 2.4 times as wide as
+  it is tall — is scaled to fill the slide's whole body area, which
+  costs seventeen. So such a picture never shares a slide with text, and the
+  paragraphs around it move to the slides either side. A document alternating
+  prose and screenshots therefore produces roughly one slide per picture plus one
+  per run of text. A much wider picture — a panorama or a banner — is sized to
+  the slide's width instead, is shorter on the slide, and can still share it.
+  Tracked as `docs/open-followups.md` §222.
 - **A WebP image may not appear in older versions of Word and PowerPoint.**
   WebP uploads are accepted and are written into `.docx` and `.pptx` unchanged.
   Current Microsoft 365 draws them; Word 2016, 2019 and 2021, and older Mac
@@ -70,7 +73,7 @@ longer carries its own changelog comment.
 
 - Closed `docs/open-followups.md` §202 (no OOXML media machinery existed) and
   §210 (standalone HTML and PDF carried an image element with no source and no
-  placeholder). Opened §216—§222.
+  placeholder). Opened §216—§223.
 - §216 records a correction worth naming: the design spec and the
   implementation plan for this slice both asserted that the existing golden
   export suite pins the `.docx` and `.pptx` package bytes. It does not — there
@@ -79,14 +82,19 @@ longer carries its own changelog comment.
   documents were corrected rather than left standing as a record of a safety
   property that was never there. A later pass found that same false claim still
   standing verbatim in `ooxml-docx-primitives.test.ts` — the correction commit
-  had touched only the `.ts` — which is the copy a reader opens when a test
-  actually goes red. It is now corrected there too.
+  had touched only the non-test `.ts` beside it — which is the copy a reader
+  opens when a test actually goes red. It is now corrected there too.
 - §221 and §222 are the two limits the release review turned up: a WebP embed
   that older Office builds cannot draw and does not disclose, and an image
   costing one slide line MORE than a whole slide so that it always lands alone.
   Both are described in user terms under Known limitations above; neither is
   fixed, and both are measurable only by opening the produced files (§219 items
   6 and 7).
+- §223 records a maintainability gap the same review turned up: the asset mime
+  allowlist is not enforced by the load-path sanitizer — deliberately — so every
+  consumer restates the same check by hand, and nothing makes the next one do
+  it. Every consumer that exists today is correct; the entry says why narrowing
+  the storage layer is the wrong remedy.
 - No file-size or coverage baseline moved in this release.
 
 ## [0.255.1] - 2026-08-22 "Bisson"

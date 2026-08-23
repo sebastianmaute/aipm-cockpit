@@ -967,7 +967,7 @@ too. Never reach for `toFixed` there again.
 Shipped 0.256.0 "Khaw". Design in
 `docs/superpowers/specs/2026-08-22-documents-s3c2-ooxml-media-design.md`. It closed
 `docs/open-followups.md` §202 (no OOXML media machinery) and §210 (standalone HTML/PDF carried an
-`<img>` with no `src` and no placeholder); it opened §216—§222. Before S3c-2 every export
+`<img>` with no `src` and no placeholder); it opened §216—§223. Before S3c-2 every export
 format substituted a translated placeholder naming the asset; now DOCX and PPTX carry real media
 parts, and standalone HTML — which is also the PDF path, through the print dialog — inlines a
 `data:` URI.
@@ -1052,10 +1052,10 @@ entries, since two `png` defaults is itself a rejected file.
 `docs/open-followups.md` §216 BEFORE TRUSTING THEM.** There is NO `.docx` or `.pptx` byte fixture
 in this repo (`src/app/__fixtures__/` holds `golden-workspace.csv` and `.md` and nothing else) and
 `export-ooxml.test.ts` asserts part presence and XML substrings, never package bytes. The DOCX
-"byte-identical" test compares the 3-argument call against the 4-argument one — **the builder
-against itself** — so it proves the parameter is ADDITIVE and nothing about what the package
-contains; measured, a mutant was caught by a trailing `not.toContain("image/")` assertion beside
-that loop, not by the loop. The design spec and the implementation plan for this slice BOTH claimed
+"byte-identical" test lives in `ooxml-docx-primitives.test.ts`, NOT in `export-ooxml.test.ts`, and
+compares the 3-argument call against the 4-argument one — **the builder against itself** — so it
+proves the parameter is ADDITIVE and nothing about what the package contains; measured, a mutant
+was caught by a trailing `not.toContain("image/")` assertion beside that loop, not by the loop. The design spec and the implementation plan for this slice BOTH claimed
 the golden suite pinned these bytes, and both were corrected when it did not.
 
 ### DOCX: why the paragraph is SPLIT
@@ -1185,6 +1185,12 @@ shared, and today one running index serves as both); and `ASSET_ID_RE` counts a 
 ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
 `<span data-asset-id>` consumes a slot and reaches no export bucket at all (§218).
 
+★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
+does NOT enforce `ASSET_MIME_ALLOWED` on load, so every consumer restates the allowlist check by
+hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today, and a new
+consumer that forgets one gets no signal from any gate. §223 carries the four kinds of use and the
+argument against narrowing the storage layer; do NOT close it there.
+
 ★★★ **TWO MORE WERE FOUND IN REVIEW AND ARE DISCLOSED RATHER THAN FIXED, and BOTH are silent.**
 (a) `image/webp` is on `ASSET_MIME_ALLOWED` and survives every downstream layer — `processUpload`
 does not even re-encode a webp already inside the downscale cap, `mediaExtension` maps it and
@@ -1194,9 +1200,12 @@ insertion as current-Microsoft-365-only, so an older perpetual Word is expected 
 frame WITH NO PLACEHOLDER, because nothing here believes anything failed (§221; the decision was
 to document rather than decline it, and the reasoning is in that entry).
 (b) An image fitted to the full body box costs `ceil(3474720 / 213360)` = **17** slide lines
-against a `BODY_LINES_PER_SLIDE` of **16**, so it can never share a slide. The trigger is a HEIGHT
-threshold, not an aspect ratio — measured, any stored height above **358 px** reaches it — so
-essentially every screenshot lands alone and lengthens the deck (§222).
+against a `BODY_LINES_PER_SLIDE` of **16**, so such an image can never share a slide. ★★ It takes
+BOTH a stored height of **359 px or more** AND an aspect ratio `w/h` below **≈2.41** — above that
+the image is width-bound, never reaches the box height, and costs less (a 4000×1080 image costs
+11). So essentially every screenshot and camera image lands alone and lengthens the deck, while a
+panorama does not. §222 carries the arithmetic, the fitted-height table and two reproduce scripts;
+do not restate the rule as a height threshold alone, which is how it was written here first.
 ★★ Neither is measurable here: §221's format claim is sourced from the spec and Microsoft's docs,
 not observed, and §219 items 6 and 7 carry both owed checks.
 

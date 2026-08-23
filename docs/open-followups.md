@@ -14218,24 +14218,63 @@ matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
   than a whole slide. `doc-render-pptx-slides.ts` already names the 17 in a comment; what is
   recorded here is the CONSEQUENCE.
 
-Measured through the real `fitExtent` + `lineCost` (not derived by hand):
+Measured through the real `fitExtent` + `lineCost` — reproduce with the script below, which
+replicates `emuFromPx` / `fitExtent` / `lineCost` from the constants those three read:
 
-| stored size | fitted `cyEmu` | `lineCost` |
-|---|---|---|
-| 1920×1080 | 3474720 | 17 |
-| 1600×900 | 3474720 | 17 |
-| 800×600 | 3474720 | 17 |
-| 1080×1080 | 3474720 | 17 |
-| 400×300 | 2857500 | 14 |
-| 4000×1080 | 1371600 | 11 |
+| stored size | fitted `cyEmu` | `lineCost` | bound by |
+|---|---|---|---|
+| 1920×1080 | 3474720 | 17 | height |
+| 1600×900 | 3474720 | 17 | height |
+| 800×600 | 3474720 | 17 | height |
+| 1080×1080 | 3474720 | 17 | height |
+| 400×300 | 2857500 | 14 | neither — fits unscaled |
+| 4000×1080 | 2221992 | 11 | width |
 
-★★★ **THE RULE IS A HEIGHT THRESHOLD, NOT AN ASPECT RATIO.** The cost reaches 17 for ANY image
-whose stored height exceeds **358 px** — at 96 dpi (9525 EMU/px) that is where the fitted height
-first passes `16 × BODY_LINE_EMU`. Measured by sweeping height: 358 px costs 16, 359 px costs 17.
-Aspect ratio only matters once the image is wide enough to become width-bound instead
-(4000×1080 → 11). Framing this as "16:9 screenshots" understates it — a 4:3 800×600 photo behaves
-identically, and `ASSET_DOWNSCALE_H` is 1080, so essentially every screenshot and camera image
-qualifies.
+```bash
+node -e '
+const emuFromPx = px => Math.round(px * 914400 / 96);          // EMU_PER_INCH / PX_PER_INCH
+const BOX = { cx: 8229600, cy: 3474720 };                       // BODY_BOX
+const L = Math.round((1400 / 100) * 1.2 * 12700);               // BODY_LINE_EMU = 213360
+const fit = (w, h) => { const nx = emuFromPx(w), ny = emuFromPx(h);
+  return Math.round(ny * Math.min(1, BOX.cx / nx, BOX.cy / ny)); };
+const cost = (w, h) => Math.max(1, Math.ceil(fit(w, h) / L));
+console.log("BODY_LINES_PER_SLIDE", Math.floor(BOX.cy / L), "full-box cost", Math.ceil(BOX.cy / L));
+for (const [w, h] of [[1920,1080],[1600,900],[800,600],[1080,1080],[400,300],[4000,1080]])
+  console.log(w + "x" + h, "cy=" + fit(w, h), "cost=" + cost(w, h));
+'
+```
+
+★★★ **IT TAKES BOTH A HEIGHT AND AN ASPECT RATIO, AND AN EARLIER REVISION OF THIS ENTRY CLAIMED
+HEIGHT ALONE.** It read "the cost reaches 17 for ANY image whose stored height exceeds 358 px",
+and the `4000×1080` row in the table above refutes it: that image is 1080 px tall and costs 11.
+The fitted height is `min(9525·h, BODY_BOX.cyEmu, BODY_BOX.cxEmu·h/w)` — a WIDE image is clamped
+by the box's WIDTH and never reaches the box's height — and the cost is 17 exactly when that
+figure passes `16 × BODY_LINE_EMU` = 3413760. So BOTH of:
+
+- **stored height ≥ 359 px.** At 96 dpi (9525 EMU/px) 358 px is 3409950 EMU, one line-height short;
+  359 px is 3419475 and over.
+- **`w / h` below `BODY_BOX.cxEmu / (16 × BODY_LINE_EMU)` ≈ 2.4107.** At or above that the image is
+  width-bound and its fitted height lands under the threshold, whatever its height.
+
+The conjunction is EXACTLY equivalent to `lineCost === 17` — a scan of 915,200 (w, h) pairs over
+`1 ≤ h ≤ 1600`, `1 ≤ w ≤ 4000` step 7 found zero disagreements:
+
+```bash
+node -e '
+const emuFromPx = px => Math.round(px * 914400 / 96);
+const BOX = { cx: 8229600, cy: 3474720 }, L = 213360;
+const cost = (w, h) => { const nx = emuFromPx(w), ny = emuFromPx(h);
+  return Math.max(1, Math.ceil(Math.round(ny * Math.min(1, BOX.cx / nx, BOX.cy / ny)) / L)); };
+let bad = 0, n = 0;
+for (let h = 1; h <= 1600; h++) for (let w = 1; w <= 4000; w += 7) {
+  n++; if (((h >= 359 && w / h < BOX.cx / (16 * L))) !== (cost(w, h) === 17)) bad++; }
+console.log("checked", n, "mismatches", bad);
+'
+```
+
+Framing this as "16:9 screenshots" still understates it — a 4:3 800×600 photo behaves identically,
+and `ASSET_DOWNSCALE_H` is 1080, so essentially every screenshot and camera image at an ordinary
+aspect ratio qualifies. What does NOT qualify is a panorama or a wide banner.
 
 **Consequence.** An image never shares a slide with anything. `paginateLines` over
 `["intro paragraph", IMAGE, "para two", "para three"]` measured:
@@ -14278,21 +14317,40 @@ decline it, and every one of them does so by restating the same expression by ha
 grep -rn "ASSET_MIME_ALLOWED" src/app --include=*.ts --include=*.tsx | grep -v ".test."
 ```
 
-Read the hits rather than counting them — they are three different KINDS of use and only one kind
-is a guard. There is the upload gate; there are the render/policy guards, each spelled
-`(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` with its own cast; and there are the
-file-picker `accept`/filter uses, which are affordances and stop nothing. A reader who counts the
-grep gets a number that includes all three.
+★★ **READ THE HITS; THE TOTAL MEANS NOTHING.** Most of what that grep returns is not a use of the
+policy at all — six `import` lines, the declaration itself and two prose comments. What is left
+is FOUR different kinds, not the three an earlier revision of this entry named:
+
+- **The upload gate** — `checkUploadCandidate` (`document-asset-upload.ts`), the one place a file
+  is refused entry.
+- **Four render/policy guards** — `docxEmbedFor` (`doc-render-docx.ts`), `assetSrcAttr`
+  (`doc-render-html.ts`), `pptxEmbedFor` (`doc-render-pptx-slides.ts`) and `assetPolicy`'s
+  html/pdf branch (`document-download.ts`), each spelled
+  `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` with its own cast.
+  (`canEmbedDocxAsset`/`canEmbedPptxAsset` are one-line wrappers over the first and third; the
+  cast lives in the `*EmbedFor` pair.)
+- **Two intake filters** — `handlePaste` and `handleDrop` (`documents-asset-section.tsx`). ★★★
+  **THESE ARE NOT AFFORDANCES AND THE EARLIER TAXONOMY SAID THEY WERE.** Each filters the pasted
+  or dropped `FileList` and returns early when nothing survives, so both gate `uploadAndInsert` —
+  and `handlePaste` calls `e.preventDefault()` ONLY when a file survived, so deleting its filter
+  would make the editor swallow every ordinary text paste. They change control flow twice over.
+- **One affordance** — `asset-library.tsx`'s `accept={ASSET_MIME_ALLOWED.join(",")}`. This one
+  really does stop nothing: `accept` is a hint to the file picker and the user can pick "all
+  files" past it.
 
 **The trap.** A new consumer of `documentAssets` inherits an unfiltered list and gets no signal at
 all if it forgets the check: the row is well-formed, the mime is a plausible string, and the only
 symptom is whatever that sink does with bytes it should never have been handed. No gate can see
-this — the four existing guards were each added by hand, and one of them (`assetPolicy`'s html/pdf
-branch) did not exist until 2026-08-22, which is exactly the shape being described.
+this — the four render/policy guards were each added by hand, and one of them (`assetPolicy`'s
+html/pdf branch) did not exist until this slice's own review round: `git log -S"function
+assetPolicy" -- src/app/document-download.ts` names the single commit that introduced it. That is
+exactly the shape being described.
 
 **Remedy when someone takes it.** Export one `isAllowedAssetMime(mime: string | undefined):
-boolean` from `document-asset-upload.ts` beside the constant, and have the render guards call it
-instead of restating the cast. It removes six copies of the same `as readonly string[]` and gives
+boolean` from `document-asset-upload.ts` beside the constant, and have the other consumers call it
+instead of restating the cast. Seven sites spell that cast today —
+`grep -rc "ASSET_MIME_ALLOWED as readonly string\[\]" src/app --include=*.ts --include=*.tsx |
+grep -v ":0$"` — and six of them go, the seventh becoming the helper's own body. It also gives
 the next consumer something to find. ★ It does NOT make the check automatic and must not be sold
 as though it did — a consumer that calls nothing is still wrong, and only a test can catch that.
 
