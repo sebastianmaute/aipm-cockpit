@@ -103,10 +103,14 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
  *
  * Usage: `const th = useSortHeaderProps<MyKey>(sort?.key ?? null, sort?.dir ?? "off", toggleSort, startResize)`
  * then `<SortResizeTh {...th} label={...} sortCol="id" width={w.id} />`.
- * ★ The explicit `<MyKey>` generic is mandatory, same reason as `SortResizeTh`'s
- *   own `sortKey` caveat: a `PanelSort.key` is a bare `string`, and passing it
- *   unnarrowed infers `K = string`, silently defeating the `sortCol`
- *   literal-union check this hook exists to carry through.
+ * ★ The explicit `<MyKey>` generic is required only when the key SOURCE is a
+ *   bare `string` — same reason as `SortResizeTh`'s own `sortKey` caveat:
+ *   `PanelSort.key` is a bare `string`, so passing it unnarrowed infers
+ *   `K = string` and silently defeats the `sortCol` literal-union check this
+ *   hook exists to carry through. The four `PanelSort` panels therefore pass
+ *   it; the report panels do NOT and must not be "fixed" to — they hold sort
+ *   as a local `SortState<K extends string>` over a real literal union (e.g.
+ *   `SortState<SeveritySortKey>`), so `K` already infers correctly there.
  */
 export function useSortHeaderProps<K extends string>(
   sortKey: K | null,
