@@ -746,3 +746,88 @@ describe("ActivityLogPanel", () => {
     expect(field.value).toBe("");
   });
 });
+
+describe("ActivityLogPanel sortable column headers", () => {
+  // This table announced its sort state NOWHERE: three hand-rolled sortable
+  // headers and zero aria-sort attributes. Its source held exactly two matches
+  // for the string and BOTH were prose inside a JSX comment saying the headers
+  // lacked it — so a grep of the file read as covered. axe has NO rule for a
+  // missing aria-sort, in any view at any seed size, so these two tests are the
+  // only detector that will ever exist for this.
+
+  // Scoped to the log table and anchored on the NON-sortable actor header, so
+  // the scope itself can never move with the sort state.
+  const table = () =>
+    screen.getByRole("columnheader", { name: t("en-US", "activityHeaderActor") }).closest("table")!;
+
+  // Reached through the BUTTON rather than matched by name: before the
+  // conversion the ACTIVE header named itself "When ↓" (measured with
+  // computeAccessibleName), glyph and all, so an exact lookup for "When" could
+  // not find it. The primitive's arrow is aria-hidden, so the name is the label.
+  const headerFor = (label: string) =>
+    within(table()).getByRole("button", { name: label }).closest("th");
+
+  // A string `name` is an EXACT match, so each lookup also pins that column's
+  // i18n label KEY — note the sort key is `timestamp` while the label key is
+  // `activityHeaderWhen`, and a header wired to the wrong string fails here.
+  const SORTABLE = [
+    ["timestamp", t("en-US", "activityHeaderWhen")],
+    ["kind", t("en-US", "activityHeaderKind")],
+    ["message", t("en-US", "activityHeaderMessage")],
+  ] as const;
+
+  it("announces sort state through aria-sort, which it did not carry at all before", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    // The panel mounts sorted by "when", DESCENDING — so one header already
+    // reports a real state, and the other two must SAY "none" rather than leave
+    // the attribute off entirely.
+    expect(headerFor(t("en-US", "activityHeaderWhen"))).toHaveAttribute("aria-sort", "descending");
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "none");
+    expect(headerFor(t("en-US", "activityHeaderMessage"))).toHaveAttribute("aria-sort", "none");
+    // The actor column is deliberately not sortable: it carries no sort button,
+    // so it must not claim a sort state either.
+    expect(
+      screen.getByRole("columnheader", { name: t("en-US", "activityHeaderActor") }),
+    ).not.toHaveAttribute("aria-sort");
+
+    const kind = () => within(table()).getByRole("button", { name: t("en-US", "activityHeaderKind") });
+    await user.click(kind());
+    // Re-queried after every click: a stale node would report the state the
+    // header had before the render that changed it.
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "ascending");
+    // toggleSort flips the direction when the key is unchanged.
+    await user.click(kind());
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "descending");
+  });
+
+  // The explicit <SortKey> generic stops a GARBAGE sortCol, but not one real
+  // column's key pasted onto another header: every key is still a valid SortKey,
+  // tsc exits 0, that column silently missorts, and nothing else here sees it.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one
+  // sortCol both light up on a single click. So after clicking a column, exactly
+  // ONE header may report a non-"none" aria-sort, and it must be that column's
+  // own — the count alone would miss a swap onto a hidden column, the identity
+  // alone would miss the duplicate.
+  //
+  // ★ Known limit: this catches a PASTE (one key duplicated onto a second
+  // header), not a full EXCHANGE of two headers' keys — an exchange leaves no
+  // duplicate and passes here.
+  it("wires each sortable header to its own column, not a neighbour's", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    const sorted = () =>
+      within(table())
+        .getAllByRole("columnheader")
+        .filter((th) => (th.getAttribute("aria-sort") ?? "none") !== "none");
+
+    for (const [key, label] of SORTABLE) {
+      await user.click(within(table()).getByRole("button", { name: label }));
+      const own = headerFor(label);
+      expect(sorted(), "clicking " + key + " lit up the wrong number of headers").toHaveLength(1);
+      expect(sorted()[0], "clicking " + key + " sorted a different column").toBe(own);
+    }
+  });
+});
