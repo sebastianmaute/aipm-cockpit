@@ -825,7 +825,7 @@ export function buildDocxPackage(
 }
 ```
 
-- [ ] **Step 4: Run the tests, including the golden guard**
+- [ ] **Step 4: Run the tests** ★★ CORRECTED: this step was titled "Run the tests, including the golden guard". There is no golden guard for these bytes — see the note below and §216.
 
 Run:
 ```bash
@@ -2071,7 +2071,7 @@ Record the result of each in the MR description. An unopened `.docx` is an unver
 
 ## Self-review
 
-**Spec coverage.** Every spec section maps to a task: the async spine → 2 and 12; the gesture fix → 12; call sites → 13; `ooxml-media.ts` → 1; DOCX → 5, 6, 7; PPTX → 8, 9, 10; HTML/PDF → 11; the byte budget → 2 and 11; error handling → 2; testing → throughout, with the four anti-vacuity requirements landing in 1 (property), 5 (golden), 10 (forced break) and 2 (over-budget fixture); docs and release → 14; what no test reaches → 15 Step 5.
+**Spec coverage.** Every spec section maps to a task: the async spine → 2 and 12; the gesture fix → 12; call sites → 13; `ooxml-media.ts` → 1; DOCX → 5, 6, 7; PPTX → 8, 9, 10; HTML/PDF → 11; the byte budget → 2 and 11; error handling → 2; testing → throughout, with the four anti-vacuity requirements landing in 1 (property), 5 (byte-identity — ★★ CORRECTED: this said "golden", the same false premise §216 records; the pin is `ooxml-docx-primitives.test.ts`'s byte-identity test, not a fixture), 10 (forced break) and 2 (over-budget fixture); docs and release → 14; what no test reaches → 15 Step 5.
 
 **Two things this plan adds that the spec did not name**, both discovered while writing it:
 

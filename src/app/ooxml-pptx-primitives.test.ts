@@ -159,8 +159,18 @@ describe("buildPptxPackage media", () => {
     //
     // ★★ BYTE-EXACT OVER XML BUILT FROM A TEMPLATE LITERAL IS PORTABLE, even
     // though this source file is CRLF in a Windows worktree and LF in the
-    // committed blob (`core.autocrlf=true`, and `.gitattributes` pins only
-    // *.md and two named files — not `src/app/*.ts`). ECMAScript normalises
+    // committed blob (`core.autocrlf=true`, and `.gitattributes` names this
+    // file in none of its rules).
+    //
+    // ★★ CORRECTED SUPPORTING FACT, same conclusion: that parenthesis used to
+    // read ".gitattributes pins only *.md and two named files — not
+    // `src/app/*.ts`", and BOTH halves were wrong. It names THREE files, and one
+    // of them IS a `src/app/*.ts` — `operating-guide-builtin.generated.ts`,
+    // pinned `text eol=lf`; the other two are the golden fixtures, pinned
+    // `-text`. The conclusion is untouched because none of the three is this
+    // file, and the portability below rests on the ECMAScript cooked-value rule
+    // rather than on any git setting. Run `cat .gitattributes` and count rather
+    // than trusting either wording. ECMAScript normalises
     // <CR><LF> to <LF> in a template literal's COOKED value, so the source's
     // line endings never reach the string: the source is CRLF, the string is
     // LF, on every platform.

@@ -51,19 +51,42 @@ longer carries its own changelog comment.
   by unpacking each export and comparing its parts and bytes. Opening the
   `.docx` in Word and in LibreOffice Writer, and the `.pptx` in PowerPoint, is
   still outstanding and is tracked as `docs/open-followups.md` §219.
+- **A PowerPoint export gets longer than you expect: a picture takes a slide of
+  its own.** A slide holds sixteen lines of body text, and any image taller than
+  about 360 pixels is scaled to fill the slide's whole body area — which costs
+  seventeen. So a picture never shares a slide with text, and the paragraphs
+  around it move to the slides either side. A document alternating prose and
+  screenshots therefore produces roughly one slide per picture plus one per run
+  of text. Tracked as `docs/open-followups.md` §222.
+- **A WebP image may not appear in older versions of Word and PowerPoint.**
+  WebP uploads are accepted and are written into `.docx` and `.pptx` unchanged.
+  Current Microsoft 365 draws them; Word 2016, 2019 and 2021, and older Mac
+  Office, are expected to show an empty picture frame instead — and, unlike
+  every other case here, with no placeholder text explaining it, because
+  nothing in the export detects a problem. Use PNG or JPEG if the file has to
+  open on an older Office. Tracked as `docs/open-followups.md` §221.
 
 ### Internal
 
 - Closed `docs/open-followups.md` §202 (no OOXML media machinery existed) and
   §210 (standalone HTML and PDF carried an image element with no source and no
-  placeholder). Opened §216—§219.
+  placeholder). Opened §216—§222.
 - §216 records a correction worth naming: the design spec and the
   implementation plan for this slice both asserted that the existing golden
   export suite pins the `.docx` and `.pptx` package bytes. It does not — there
   is no such fixture in this repository, and the only pins are the two package
   builders' own unit tests, which compare each builder against itself. Both
   documents were corrected rather than left standing as a record of a safety
-  property that was never there.
+  property that was never there. A later pass found that same false claim still
+  standing verbatim in `ooxml-docx-primitives.test.ts` — the correction commit
+  had touched only the `.ts` — which is the copy a reader opens when a test
+  actually goes red. It is now corrected there too.
+- §221 and §222 are the two limits the release review turned up: a WebP embed
+  that older Office builds cannot draw and does not disclose, and an image
+  costing one slide line MORE than a whole slide so that it always lands alone.
+  Both are described in user terms under Known limitations above; neither is
+  fixed, and both are measurable only by opening the produced files (§219 items
+  6 and 7).
 - No file-size or coverage baseline moved in this release.
 
 ## [0.255.1] - 2026-08-22 "Bisson"

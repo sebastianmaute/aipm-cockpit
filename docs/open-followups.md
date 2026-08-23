@@ -14100,6 +14100,13 @@ claim about the package, not about the reader.
    must show the named placeholder; DOCX and PPTX must still carry every image.
 5. The DANGLING case: an asset whose byte row is missing. Every format must name it in a visible
    placeholder and no format may drop it silently.
+6. The **WebP** case (§221), and specifically in an OLDER Word if one is reachable — Word 2016,
+   2019 or 2021 perpetual, or a non-subscription Mac Office. Upload a `.webp`, export `.docx` and
+   `.pptx`, and record what those builds draw. Current Microsoft 365 is expected to render it and
+   is NOT the case worth spending a session on; the perpetual builds are.
+7. The **deck length** case (§222): export a document mixing prose and one ordinary screenshot as
+   `.pptx` and count the slides. The picture is expected to sit alone on its own slide, which is a
+   layout question a reader answers instantly and no assertion here can.
 
 ★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
 against its own spec reading and still be rejected by Word over a part relationship or content-type
@@ -14146,3 +14153,107 @@ concluded that splitting its two paired `useBroadcastSync` registrations onto se
 conclusion was false in the one direction a reader would act on, and it would take TWO added lines
 to fail. Corrected in the same commit that opened this entry. An off-by-one in a cap claim is not
 cosmetic: at this margin it is the whole claim.
+
+## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing
+
+**Status:** open — DISCLOSED, deliberately not fixed. Decision recorded below.
+
+`ASSET_MIME_ALLOWED` admits `image/webp` alongside png and jpeg, and every layer downstream
+carries it through to the package unchanged. The chain, verified in code:
+
+- `processUpload` re-encodes ONLY when a downscale is actually needed
+  (`if (target.width !== src.width || target.height !== src.height)`). A webp already within
+  `ASSET_DOWNSCALE_W`×`ASSET_DOWNSCALE_H` is therefore never re-encoded at all — its original
+  bytes and its `image/webp` mime go straight to storage.
+- When a downscale IS needed, `pickSmaller(original, reencoded)` returns the ORIGINAL — bytes and
+  mime together — whenever the re-encode did not come out smaller. So the webp mime survives that
+  branch too.
+- `docxEmbedFor` and `pptxEmbedFor` both test `ASSET_MIME_ALLOWED` and then `mediaExtension`,
+  which maps `image/webp` → `"webp"`; `contentTypeFor` turns that into
+  `<Default Extension="webp" ContentType="image/webp"/>`.
+
+So a webp reaches the reader as a real media part. WebP is not among the blip formats ECMA-376
+assumes, and Microsoft documents WebP insertion as working in current Microsoft 365 builds only
+(for PowerPoint on Mac, subscription builds only). Word 2016 / 2019 / 2021 perpetual and older Mac
+Office are expected to show a blank or errored picture frame.
+
+★★★ **THE FAILURE IS SILENT, AND THAT IS THE WHOLE ENTRY.** There is no placeholder, because
+nothing in this repo believes anything went wrong: the renderer emitted a valid part, a valid
+content-type override and a valid relationship, and every gate agrees. The disclosure the S3c-1
+placeholder exists to give — "this image is here, we could not draw it" — is exactly what a reader
+on an older build does NOT get. An undrawable PNG would at least have been declined by
+`mediaExtension`; a webp is declined by nobody.
+
+★★ **NOT MEASURED IN THIS REPO, AND IT CANNOT BE.** Nothing here opens an Office file (§219). The
+format-support statement above is read off ECMA-376 and Microsoft's own documentation, not
+observed — it is the one claim in this entry that is sourced rather than verified. §219 item 6
+carries the owed check.
+
+**Options considered.**
+
+1. **Transcode webp → png at embed time** using the browser canvas the upload path already
+   injects. Correct output everywhere, but it puts an encode on the export path, inflates the
+   stored-vs-emitted byte relationship the DOCX/PPTX sinks currently keep at 1:1, and needs a
+   decision about failure (a transcode that throws mid-export has no good answer).
+2. **Decline webp in `mediaExtension`** so both OOXML sinks fall back to the honest named
+   placeholder. One line, and it converts a silent failure into a visible one.
+3. **Document it.**
+
+**DECISION: 3, document it for now.** Option 2 is tempting precisely because it is one line, but
+it would degrade a case that works correctly in current Microsoft 365 — which is most users — in
+order to improve a case that fails on builds we have not yet confirmed fail. That trade needs the
+§219 measurement first. Option 1 is the real fix if the measurement says the perpetual builds
+matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
+
+## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck
+
+**Status:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it.
+
+`paginateLines` charges an image line `lineCost = ceil(cyEmu / BODY_LINE_EMU)` against a budget of
+`BODY_LINES_PER_SLIDE`. Both numbers are derived, and they cross:
+
+- `BODY_BOX.cyEmu` = 3474720, `BODY_LINE_EMU` = 213360 → `BODY_LINES_PER_SLIDE` =
+  `floor(3474720 / 213360)` = **16**.
+- An image fitted to the full box height costs `ceil(3474720 / 213360)` = **17** — one line MORE
+  than a whole slide. `doc-render-pptx-slides.ts` already names the 17 in a comment; what is
+  recorded here is the CONSEQUENCE.
+
+Measured through the real `fitExtent` + `lineCost` (not derived by hand):
+
+| stored size | fitted `cyEmu` | `lineCost` |
+|---|---|---|
+| 1920×1080 | 3474720 | 17 |
+| 1600×900 | 3474720 | 17 |
+| 800×600 | 3474720 | 17 |
+| 1080×1080 | 3474720 | 17 |
+| 400×300 | 2857500 | 14 |
+| 4000×1080 | 1371600 | 11 |
+
+★★★ **THE RULE IS A HEIGHT THRESHOLD, NOT AN ASPECT RATIO.** The cost reaches 17 for ANY image
+whose stored height exceeds **358 px** — at 96 dpi (9525 EMU/px) that is where the fitted height
+first passes `16 × BODY_LINE_EMU`. Measured by sweeping height: 358 px costs 16, 359 px costs 17.
+Aspect ratio only matters once the image is wide enough to become width-bound instead
+(4000×1080 → 11). Framing this as "16:9 screenshots" understates it — a 4:3 800×600 photo behaves
+identically, and `ASSET_DOWNSCALE_H` is 1080, so essentially every screenshot and camera image
+qualifies.
+
+**Consequence.** An image never shares a slide with anything. `paginateLines` over
+`["intro paragraph", IMAGE, "para two", "para three"]` measured:
+
+- with a 1920×1080 image (cost 17) → **3** chunks: `[intro] [IMAGE] [para two, para three]`
+- with a 400×300 image (cost 14) → **2** chunks: `[intro, IMAGE, para two] [para three]`
+
+So a document alternating prose and screenshots produces roughly one slide per image plus one per
+prose run. Users notice deck LENGTH long before they notice picture placement, which is why this
+is worth a changelog line and not just a code comment.
+
+★★ **THE "FIVE SLIDES FROM ONE HEADING, ONE 400×300 IMAGE AND TWO PARAGRAPHS" PROBE THAT
+MOTIVATED THIS ENTRY DID NOT REPRODUCE.** A 400×300 image costs 14, not 17, and shares its slide —
+see the table. The effect is real and the arithmetic above is measured; that particular probe's
+numbers are not, and are recorded here only so nobody re-derives the entry from them.
+
+**What closing it looks like.** Either cap an image's fitted height at
+`BODY_LINES_PER_SLIDE × BODY_LINE_EMU` (3413760) rather than `BODY_BOX.cyEmu` — one constant, and
+it makes a full-height picture exactly fill a slide instead of overflowing it by one line — or
+accept image-per-slide as the layout and say so in the UI. The first is cheap and changes emitted
+bytes, so it needs its own before/after on §219's manual pass.

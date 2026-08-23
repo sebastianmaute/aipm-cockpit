@@ -967,7 +967,7 @@ too. Never reach for `toFixed` there again.
 Shipped 0.256.0 "Khaw". Design in
 `docs/superpowers/specs/2026-08-22-documents-s3c2-ooxml-media-design.md`. It closed
 `docs/open-followups.md` §202 (no OOXML media machinery) and §210 (standalone HTML/PDF carried an
-`<img>` with no `src` and no placeholder); it opened §216—§219. Before S3c-2 every export
+`<img>` with no `src` and no placeholder); it opened §216—§222. Before S3c-2 every export
 format substituted a translated placeholder naming the asset; now DOCX and PPTX carry real media
 parts, and standalone HTML — which is also the PDF path, through the print dialog — inlines a
 `data:` URI.
@@ -1080,11 +1080,25 @@ requires a `<` followed by a LETTER, so a CLOSING tag deliberately does not matc
 `<p>a<img>b</p>` around the image and the tail is `b</p>`, whose only `<` is that closing tag: it
 classifies as legacy PLAIN TEXT, is escaped, and Word shows `b</p>` verbatim. Both renderers wrap
 every fragment through `asMarkup` (a `<div>`) before the rich path.
-★★ **IT IS NOT A TAIL-ONLY DEFECT** — a fragment can be unbalanced in EITHER direction (an
-unclosed `<p>` at the head, an orphan `</p>` at the tail), which is exactly why the wrapper is a
-`<div>` the parser reconciles both ways, and why EVERY segment is wrapped rather than just the
-last one. The leading fragment usually happens to carry an opening tag, which is what makes this
-easy to under-diagnose from one example.
+★★★ **TWO SEPARATE PROPERTIES RIDE ON THAT ONE WRAPPER, AND THIS PARAGRAPH USED TO CONFLATE
+THEM.** It read "IT IS NOT A TAIL-ONLY DEFECT — a fragment can be unbalanced in EITHER direction",
+which answers a question the CLASSIFIER never asks. Keep the two apart:
+
+- **Classification.** `CONTAINS_TAG` is UNANCHORED, so a fragment misclassifies only when it
+  contains markup and NO OPENING TAG. A HEAD fragment is never one — it either opens a tag or holds
+  no markup at all, and escaping pure text is a no-op. So this failure IS confined to the tail…
+  ★★ …and, once a styled paragraph holds MORE THAN ONE image, to the MIDDLE fragments as well,
+  which is the case this file and `doc-render-pptx.test.ts` both previously missed. Measured
+  through the real `isHtmlStart(value, RENDER_SINK)` (value FIRST, sink second):
+  `"<p>a"`, `"<p>a<em>b"` and `"<p>x</p><p>"` classify HTML; `"b</p>"`, `"</em>"` and
+  `"</em></strong>"` classify PLAIN.
+- **Parser reconciliation.** THIS is the "unbalanced in EITHER direction" property, and it is why
+  the wrapper is a `<div>` rather than merely some opening tag: an unclosed `<p>` at the head and
+  an orphan `</p>` at the tail both reconcile inside one well-formed container.
+
+EVERY segment is wrapped because classification needs it for tails and middles while reconciliation
+needs it for heads. The leading fragment usually happens to carry an opening tag, which is what
+makes the whole thing easy to under-diagnose from one example.
 
 ★★★ **PAGE GEOMETRY IS IN TWIPS, DRAWING GEOMETRY IS IN EMU, AND THEY SIT A FEW LINES
 APART.** `PAGE_GEOMETRY` and `docxContentWidth` are twips (A4 portrait content width = 10092);
@@ -1170,6 +1184,21 @@ because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the re
 shared, and today one running index serves as both); and `ASSET_ID_RE` counts a `data-asset-id` on
 ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
 `<span data-asset-id>` consumes a slot and reaches no export bucket at all (§218).
+
+★★★ **TWO MORE WERE FOUND IN REVIEW AND ARE DISCLOSED RATHER THAN FIXED, and BOTH are silent.**
+(a) `image/webp` is on `ASSET_MIME_ALLOWED` and survives every downstream layer — `processUpload`
+does not even re-encode a webp already inside the downscale cap, `mediaExtension` maps it and
+`contentTypeFor` emits `<Default Extension="webp" ContentType="image/webp"/>` — so it ships as a
+real media part. WebP is outside the blip formats ECMA-376 assumes and Microsoft documents its
+insertion as current-Microsoft-365-only, so an older perpetual Word is expected to draw a blank
+frame WITH NO PLACEHOLDER, because nothing here believes anything failed (§221; the decision was
+to document rather than decline it, and the reasoning is in that entry).
+(b) An image fitted to the full body box costs `ceil(3474720 / 213360)` = **17** slide lines
+against a `BODY_LINES_PER_SLIDE` of **16**, so it can never share a slide. The trigger is a HEIGHT
+threshold, not an aspect ratio — measured, any stored height above **358 px** reaches it — so
+essentially every screenshot lands alone and lengthens the deck (§222).
+★★ Neither is measurable here: §221's format claim is sourced from the spec and Microsoft's docs,
+not observed, and §219 items 6 and 7 carry both owed checks.
 
 ## Load/save wiring (app state)
 

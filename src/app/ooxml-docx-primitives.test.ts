@@ -279,11 +279,26 @@ describe("the workspace exporter's page is untouched", () => {
 });
 
 // ★★★ THE ADDITIVE-BY-CONTRACT SUITE. `buildDocxPackage` is SHARED with the
-// workspace exporter, whose exact bytes are pinned by the `export-ooxml` golden
-// suite. An empty `media` array must add no `Default` entry, no part and no
-// relationship — so the byte-identity test below is the one that matters, and
-// a red `export-ooxml` for this parameter is a BROKEN CONTRACT, never a fixture
-// to regenerate.
+// workspace exporter, so an empty `media` array must add no `Default` entry, no
+// part and no relationship.
+//
+// ★★★ THE ONLY THING ENFORCING THAT IS THE BYTE-IDENTITY TEST BELOW, plus its
+// companion assertion that the empty package contains no `image/` at all. An
+// earlier revision of this comment said the exporter's bytes are "pinned by the
+// `export-ooxml` golden suite" and that a red `export-ooxml` here is "a BROKEN
+// CONTRACT, never a fixture to regenerate". Both halves were false, and this is
+// the file a reader opens WHEN A TEST GOES RED — so it sent them to a gate that
+// cannot see this contract and to a fixture that does not exist. There is no
+// `.docx` byte fixture anywhere in the repo (`src/app/__fixtures__/` holds only
+// golden-workspace.csv and .md), `golden-workspace.test.ts` never mentions docx,
+// and `export-ooxml.test.ts` asserts part PRESENCE and document.xml SUBSTRINGS —
+// never package bytes. Measured, not assumed: hardcoding a
+// `<Default Extension="png"/>` into the empty case reddens the two tests here
+// and leaves `export-ooxml` GREEN.
+//
+// ★ The same correction landed on `buildDocxPackage`'s own docstring in
+// `ooxml-docx-primitives.ts`; that commit touched only the `.ts`, which is how
+// this copy outlived it. `ooxml-pptx-primitives.test.ts` states it correctly.
 //
 // ★ Bytes are read back with `../test/unzip-bytes`, not this file's own
 // `readZipEntries`: that one decodes every part as UTF-8, which turns invalid

@@ -1417,9 +1417,28 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
     // ★★★ THE TAIL FRAGMENT IS `after</p>`, whose only `<` opens a CLOSING tag —
     // which `CONTAINS_TAG` (html-start.ts) deliberately does not match. Without
     // `asMarkup`'s <div> wrapper it is classified as legacy PLAIN TEXT, escaped,
-    // and a reader sees `after</p>` on the slide. ★★ The failure is TAIL-ONLY
-    // and therefore asymmetric: the head `<p>before` matches the classifier on
-    // its own, so a test that only checks the head passes over the defect.
+    // and a reader sees `after</p>` on the slide.
+    //
+    // ★★★ TWO SEPARATE PROPERTIES RIDE ON THAT ONE WRAPPER — do not merge them,
+    // and note that `doc-render-pptx.ts`'s `asMarkup` docstring and
+    // `docs/AGENTS/documents.md` each state only one of the two.
+    //   CLASSIFICATION. `CONTAINS_TAG` is UNANCHORED, so a fragment misclassifies
+    //   only when it contains markup and NO OPENING TAG. A HEAD fragment is never
+    //   one — it either opens a tag or holds no markup at all, and escaping pure
+    //   text is a no-op — so the head `<p>before` matches the classifier on its
+    //   own and a test that only checks the head passes over the defect.
+    //   ★★ "TAIL-ONLY" is still too narrow, which an earlier revision of this
+    //   comment asserted flatly: once a styled paragraph holds MORE THAN ONE
+    //   image the MIDDLE fragment can be closing-only too. Measured through the
+    //   real `isHtmlStart(value, RENDER_SINK)` — value FIRST, sink second —
+    //   `"<p>a"`, `"<p>a<em>b"` and `"<p>x</p><p>"` classify HTML, while
+    //   `"b</p>"`, `"</em>"` and `"</em></strong>"` classify PLAIN.
+    //   PARSER RECONCILIATION. This is the "unbalanced in EITHER direction"
+    //   property, and it is why the wrapper is a `<div>` rather than merely some
+    //   opening tag: an unclosed `<p>` at the head and an orphan `</p>` at the
+    //   tail both reconcile inside one well-formed container.
+    // EVERY fragment is wrapped because classification needs it for tails and
+    // middles while reconciliation needs it for heads.
     expect(texts).toContain("before");
     expect(texts).toContain("after");
     expect(texts.some((line) => line.includes("</p>"))).toBe(false);
