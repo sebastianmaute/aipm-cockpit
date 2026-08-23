@@ -171,4 +171,58 @@ describe("attachAssetImages", () => {
     expect(blob.type).toBe("");
     detach();
   });
+
+  // ★★★ THE EIGHTH CONSUMER OF THE ASSET-MIME ALLOWLIST — the one no search
+  // for the constant could find, because it never spelled one. A stored row
+  // whose mime is outside `ASSET_MIME_ALLOWED` (an `image/svg+xml` written by
+  // an older build, a hand-edited JSON workspace, a desynchronised metadata
+  // table) minted a Blob carrying that type verbatim, and an SVG object URL in
+  // an `<img>` is a script-bearing document. Declined down the SAME marker
+  // path a missing byte row already uses.
+  it("declines an asset whose stored mime is outside the allowlist", async () => {
+    const el = root('<img data-asset-id="evil">');
+    const detach = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");
+    const img = el.querySelector("img");
+    expect(img?.hasAttribute("src")).toBe(false);
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    detach();
+  });
+
+  // ★★★ THE GUARD IS TRUTHY, NOT `!== undefined`, AND THIS TEST IS THE ONLY
+  // THING THAT SAYS SO. `sanitizeDocumentAsset` requires an `id` and nothing
+  // else; its mime is `sanitizeText(o.mime, ASSET_MIME_MAX)`, which returns
+  // "" for anything non-string. So a row with a missing, blank or non-string
+  // mime survives sanitising as `mime === ""` on EVERY load path, and has
+  // always rendered — the Blob simply carries no type and the browser sniffs.
+  // `isAllowedAssetMime("")` is false, so the plausible `mime !== undefined`
+  // spelling would DECLINE it and stamp the repair marker on a working image.
+  it("still renders an asset whose stored mime is the empty string", async () => {
+    const el = root('<img data-asset-id="blankmime">');
+    const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
+    const detach = await attachAssetImages(el, async () => "QUJD", () => "");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("");
+    detach();
+  });
+
+  // ★★ A LOOKUP THAT MISSES IS NOT THE SAME CASE AS NO LOOKUP AT ALL, which is
+  // why this is not a duplicate of "mints a typeless Blob when no mime lookup
+  // is supplied" above. `documentAssets` is an OPTIONAL slice left `undefined`
+  // when empty, metadata rows are dropped INDIVIDUALLY on load while the byte
+  // rows are untouched, and metadata and bytes live in different tables with
+  // different lifecycles (§207 records them desynchronising in production) —
+  // four mechanisms that hand a live `mimeFor` an id it knows nothing about.
+  it("falls through to a typeless Blob when the mime lookup misses", async () => {
+    const el = root('<img data-asset-id="orphan">');
+    const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
+    const detach = await attachAssetImages(el, async () => "QUJD", () => undefined);
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("");
+    detach();
+  });
 });
