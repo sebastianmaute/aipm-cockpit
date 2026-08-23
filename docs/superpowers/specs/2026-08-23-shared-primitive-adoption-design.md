@@ -233,6 +233,18 @@ state and have other consumers.
 
 - **Per converted file:** assert `aria-sort` on every header across all three states, `"off"`
   included. This is the property nothing else can catch — axe has no rule for it.
+- ★★★ **Per converted file: a SWAPPED-`sortCol` test.** The explicit generic stops a garbage key
+  but NOT a swap between two REAL columns — paste `sortCol="influence"` onto the Interest header
+  and it typechecks, missorts silently, and no gate sees it. With five to eleven near-identical
+  call sites written by copy-paste, this is the live risk of the whole slice. The detector falls
+  out of the primitive's own `active` computation (`sortKey === sortCol && sortDir !== "off"`):
+  two headers sharing a `sortCol` both light up on one click. So **after clicking a column's
+  button, exactly ONE header must report a non-`none` `aria-sort`, and it must be that column's**.
+  Assert both halves — the count AND the identity; the count alone misses a swap onto a hidden
+  column, the identity alone misses the duplicate. Mutation-prove it by putting one real column's
+  key on another's header and confirming the test reddens.
+  ★ This is also what makes per-column claims MEASURED rather than inferred: without it only the
+  one column a test happens to click has any coverage of its own wiring.
 - **Adapters:** mutation-check both. Flip `null` to `"asc"` in `fromNullableSort` and confirm the
   suite reddens. A surviving mutant is a question, not a pass.
 - **Part C:** assert byte-identical rendered DOM on one existing report panel before and after.

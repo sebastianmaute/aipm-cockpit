@@ -1403,6 +1403,27 @@ npm run docs:claims:check > /tmp/claims.log 2>&1; echo "CLAIMS_EXIT=$?"; tail -3
 
 All must be 0. `dup:check` must stay under the 1.75 threshold; it reads ~1.20% after Task 3, up from 1.18% (see Task 3 Step 4).
 
+- [ ] **Step 1b: Retrofit the swapped-`sortCol` test to the two panels converted without it**
+
+★★ `change-panel` (Task 6) and `stakeholders-panel` (Task 7) were converted BEFORE the
+swapped-`sortCol` detector was designed, so between them 10 of 12 columns have no coverage of
+their own `label`/`sortCol` wiring. Every later conversion carries the test; these two do not.
+
+Add it to `src/app/change-panel.test.tsx` (7 columns) and `src/app/stakeholders-panel.test.tsx`
+(5 columns), in the shape the design document's Testing section specifies: click each column's
+button, assert exactly ONE header reports a non-`none` `aria-sort`, and assert it is that
+column's own header. Preserve each file's existing interaction style.
+
+**Mutation-prove both** by moving one real column's key onto another header and confirming the
+test reddens — a swap detector that cannot see a swap is worse than none, because it reads as
+coverage.
+
+```bash
+npx vitest run src/app/change-panel.test.tsx src/app/stakeholders-panel.test.tsx > /tmp/t15b.log 2>&1; echo "EXIT=$?"
+grep -E "Tests |FAIL" /tmp/t15b.log
+npx tsc --noEmit; echo "TSC_EXIT=$?"
+```
+
 - [ ] **Step 2: Run the shuffled suite**
 
 New tests were added, so this is the only local reproduction of the `unit-tests-shuffled` gate:
