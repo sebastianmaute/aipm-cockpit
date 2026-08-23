@@ -220,8 +220,14 @@ export function SortResizeTh<K extends string>({
   resizeCol?: string;
   /** Inline column width; omit for colgroup-sized tables. */
   width?: number;
-  /** The table's active sort key — also fixes `K` so `sortCol` must be valid. */
-  sortKey: K;
+  /** The table's active sort key, or `null` when the table is unsorted — also
+   *  fixes `K` so `sortCol` must be valid.
+   *
+   *  ★ `null` is a real value here, not an oversight: several panels hold sort
+   *  as `{ key, dir } | null` (`PanelSort`). It is only ever compared against
+   *  `sortCol`, so a null key makes every column inactive and every
+   *  `aria-sort` "none", which is exactly right for an unsorted table. */
+  sortKey: K | null;
   sortDir: SortDir;
   onSort: (col: K) => void;
   /** Omit for a sortable but non-resizable column — no handle is rendered. */

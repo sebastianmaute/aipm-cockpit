@@ -103,6 +103,22 @@ describe("SortResizeTh", () => {
     const btn = screen.getByRole("button", { name: "Due" });
     expect(btn.textContent).toContain("↑");
   });
+
+  it("reports aria-sort none on every column when the table is unsorted (sortKey null)", () => {
+    render(
+      <table><thead><tr>
+        <SortResizeTh label="Title" sortCol="title" sortKey={null} sortDir="off" onSort={() => {}} />
+        <SortResizeTh label="Owner" sortCol="owner" sortKey={null} sortDir="off" onSort={() => {}} />
+      </tr></thead></table>,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    expect(headers).toHaveLength(2);
+    for (const th of headers) {
+      expect(th).toHaveAttribute("aria-sort", "none");
+      expect(th.textContent).not.toContain("↑");
+      expect(th.textContent).not.toContain("↓");
+    }
+  });
 });
 
 describe("ReportCard", () => {
