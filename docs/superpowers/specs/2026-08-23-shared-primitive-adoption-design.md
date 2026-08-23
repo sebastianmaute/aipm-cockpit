@@ -245,6 +245,13 @@ state and have other consumers.
   key on another's header and confirming the test reddens.
   ★ This is also what makes per-column claims MEASURED rather than inferred: without it only the
   one column a test happens to click has any coverage of its own wiring.
+
+  ★★★ **THE BLINDNESS IS MEASURED, not argued** (Task 8, 2026-08-23): with `sortCol="status"`
+  changed to `"severity"` on the RAID Status header, **`npx tsc --noEmit` exits 0** and all 46
+  other tests in that file stay green — including three that match the severity header by name.
+  Only the swap test reddens (`expected [...] to have a length of 1 but got 2`). So no typechecker,
+  no existing test and no gate in this repo can see a swapped column; this test is the sole
+  detector, and it must be mutation-proved on every panel or it is decoration.
 - **Adapters:** mutation-check both. Flip `null` to `"asc"` in `fromNullableSort` and confirm the
   suite reddens. A surviving mutant is a question, not a pass.
 - **Part C:** assert byte-identical rendered DOM on one existing report panel before and after.
