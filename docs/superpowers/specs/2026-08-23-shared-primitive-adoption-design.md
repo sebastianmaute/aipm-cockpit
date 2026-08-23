@@ -110,11 +110,21 @@ recorded for `<button` in the inventory doc.
 
 Two defects, not one:
 
-- **`activity-log-panel` and `resource-directory` announce no sort state at all** (zero real
-  `aria-sort`). axe has **no rule** for a missing `aria-sort`, so the gate is permanently silent
-  here and unit tests are the only possible coverage.
-- **`change-panel`, `stakeholders-panel`, `raid-panel-rows`, `roles-editor` keep the sort glyph
-  inside the button's accessible name** — the double announcement the primitive removes.
+★★★ **CORRECTED 2026-08-23 (measured, after Task 6).** The split below originally put
+`roles-editor` in the second group. It belongs in the FIRST: it has four sortable headers and
+**zero** `aria-sort` attributes. Three panels announce nothing, not two. Reproduce per panel with
+`grep -c aria-sort src/app/<panel>.tsx`, then READ the hits — `activity-log-panel`'s two are prose
+inside a JSX comment (its own follow-up note), not attributes.
+
+- **`activity-log-panel`, `resource-directory` and `roles-editor` announce no sort state at all**
+  (zero real `aria-sort`). axe has **no rule** for a missing `aria-sort`, so the gate is
+  permanently silent here and unit tests are the only possible coverage. Their conversions close
+  a real a11y gap; the test must assert state appears where there was none.
+- **`change-panel`, `stakeholders-panel` and `raid-panel-rows` already set `aria-sort`** but keep
+  the sort glyph inside the button's accessible name — the double announcement the primitive
+  removes. For these three the `aria-sort` half of the conversion is a behavioural NO-OP; what
+  changes for a user is the glyph leaving the name, plus any label-in-name fix. Do not describe
+  these conversions as adding `aria-sort` — it is already there, hand-rolled.
 
 ### Two families, two adapters
 
@@ -153,6 +163,13 @@ of each existing `aria-label`.
   Convert to `label="#"` plus `title={t(lang, "id")}`. Fix it; do not carry it forward.
 - `roles-editor` sets no `aria-label` at all, so conversion is name-neutral there. Its per-header
   `InfoTooltip` maps onto the primitive's existing `hint` prop.
+
+★★ **The `font-medium` change is NOT panel-wide — it splits a single header ROW.** Measured in
+`change-panel` during Task 6: the primitive emits `font-medium` (500) while Tailwind preflight
+leaves an unstyled `<th>` at the UA `bold` (700), so converted headers render LIGHTER than any
+hand-rolled `<th>` left beside them in the same row. Wherever a panel keeps non-sortable raw
+headers (a select-all checkbox, a notes column), add `font-medium` to them in the same commit so
+the row stays uniform. jsdom has no layout, so no unit test can see this in either direction.
 
 ★★ **Known loss, not a free win:** dropping the glyph from the announced name means
 VoiceOver/Safari, which does not announce `aria-sort`, goes from "Title up-arrow" to "Title".
