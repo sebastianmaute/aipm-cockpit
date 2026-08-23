@@ -81,6 +81,30 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
   return { sorted, click };
 }
 
+/**
+ * Bundles the four `SortResizeTh` props that are identical for every column of
+ * one table — the repetition that made these header blocks the top tsx clone
+ * cluster (TD-6).
+ *
+ * ★ Returns a props OBJECT, never a bound component. A component built inside a
+ *   hook gets a new identity every render, which remounts every header on every
+ *   render; an object does not.
+ *
+ * Usage: `const th = useSortHeaderProps<MyKey>(sort?.key ?? null, sort?.dir ?? "off", toggleSort, startResize)`
+ * then `<SortResizeTh {...th} label={...} sortCol="id" width={w.id} />`.
+ */
+export function useSortHeaderProps<K extends string>(
+  sortKey: K | null,
+  sortDir: SortDir,
+  onSort: (col: K) => void,
+  onResize?: (col: string, e: React.MouseEvent) => void,
+) {
+  return useMemo(
+    () => ({ sortKey, sortDir, onSort, onResize }),
+    [sortKey, sortDir, onSort, onResize],
+  );
+}
+
 export function TableFilter({
   lang,
   value,
