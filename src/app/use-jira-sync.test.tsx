@@ -1,6 +1,6 @@
 import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import type { Task } from "./types";
+import type { Task, TaskStatus } from "./types";
 import type { JiraIssue } from "./jira-api";
 import { JiraApiError } from "./jira-api";
 import type { Settings } from "./settings-types";
@@ -498,6 +498,67 @@ describe("useJiraSync — handleResolveConflicts", () => {
     expect(result.current.jiraConflicts.length).toBeGreaterThan(0);
   }
 
+  /** The invariant under test, asserted as a property rather than spot-checked
+   *  on two fields, so a future field rename cannot quietly skip it. */
+  function expectPairConsistent(task: Task) {
+    expect(task.status === "Done").toBe(!!task.completedDate);
+  }
+
+  /** A COMPLETE picks record. `ConflictResolution.picks` is a REQUIRED
+   *  `Record<ConflictFieldKey, "local" | "remote">`, so every key must be
+   *  present even though the merge loop only ever reads the keys that actually
+   *  appear in `conflict.fields`. */
+  function picksAll(
+    overrides: Partial<Record<import("./jira-api").ConflictFieldKey, "local" | "remote">> = {},
+  ): Record<import("./jira-api").ConflictFieldKey, "local" | "remote"> {
+    return {
+      taskName: "remote",
+      assignee: "remote",
+      assigneeEmail: "remote",
+      dueDate: "remote",
+      priority: "remote",
+      labels: "remote",
+      description: "remote",
+      completedDate: "remote",
+      ...overrides,
+    };
+  }
+
+  /** Queue a conflict whose ONLY differing field is completedDate.
+   *  ★★★ The existing setupConflict mocks a taskName-only diff, which is why
+   *  this arm of the merge loop has never run: the loop iterates
+   *  conflict.fields and only then reads picks[field.key], so a picks entry
+   *  with no matching field is inert. Widening the diff mock is the whole point
+   *  of this helper — a test that reuses setupConflict passes against the
+   *  unfixed code. */
+  async function setupCompletionConflict(
+    result: { current: ReturnType<ReturnType<typeof makeProbe>> },
+    remote: { status: TaskStatus; completedDate: string | undefined; done: boolean },
+    localCompletedDate: string | undefined,
+  ) {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: { summary: "Remote name", updated: "2026-05-10T00:00:00" },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(remote.done);
+    (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+      taskName: "Remote name",
+      status: remote.status,
+      completedDate: remote.completedDate,
+    });
+    (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReturnValue([
+      { key: "completedDate", localValue: localCompletedDate, remoteValue: remote.completedDate },
+    ]);
+    await act(async () => { await result.current.handleJiraSync(); });
+    expect(result.current.jiraConflicts.length).toBeGreaterThan(0);
+    // Guard: prove the diff really carries the completion field, so a future
+    // edit to the mock cannot silently return this suite to the taskName-only
+    // shape that made the arm unreachable.
+    expect(result.current.jiraConflicts[0].fields.map((f) => f.key)).toContain("completedDate");
+  }
+
   it("'keep local' resolution → task unchanged, updateIssue called with local value", async () => {
     const localTask = makeTask({
       id: 1, jiraKey: "TEST-1", taskName: "Local name",
@@ -613,6 +674,137 @@ describe("useJiraSync — handleResolveConflicts", () => {
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
     expect(jiraApi.updateIssue).not.toHaveBeenCalled();  // read-only guard short-circuited the push
+  });
+
+  // ── The completedDate arm of the merge loop (open-followups §183) ──────────
+  // `status` is not a ConflictFieldKey, so the loop can never write it: picking
+  // a side for the completion DATE leaves the LOCAL status in place, splitting
+  // the `status === "Done" ⟺ completedDate set` pair. The two remote-pick tests
+  // below are RED until the fix writes both halves from the picked side.
+  //
+  // transitionIssueTo derivation — the guard is
+  //   if (anyLocalPicked) { … if (completionChanged && merged.completedDate && !conflict.remoteDone) … }
+  // so it needs FOUR things at once: a local pick anywhere in the diff, the
+  // completion arm having run, a truthy merged completedDate, and a remote issue
+  // that is NOT already done. Of the four cases only (a)/pick-local satisfies
+  // all four — the two pick-remote cases never enter the push block at all, and
+  // (b)/pick-local merges an undefined local date. Exactly one, as expected.
+
+  it("conflict (a): local Done, issue reopened, pick remote → status follows Jira, pair consistent", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", status: "Done", completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "In Progress", completedDate: undefined, done: false },
+      "2026-04-01",
+    );
+    vi.clearAllMocks();
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "remote" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    const merged = result.current.currentTasks[0];
+    expect(merged.completedDate).toBeFalsy();
+    expect(merged.status).toBe("In Progress");   // NOT left at the local "Done"
+    expectPairConsistent(merged);
+    // Nothing was picked local, so the push block is skipped entirely.
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
+  });
+
+  it("conflict (b): local open, issue completed, pick remote → Jira's date, not today", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", status: "In Progress",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "Done", completedDate: "2026-05-09", done: true },
+      undefined,
+    );
+    vi.clearAllMocks();
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "remote" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    const merged = result.current.currentTasks[0];
+    expect(merged.completedDate).toBe("2026-05-09"); // Jira's resolution date
+    expect(merged.status).toBe("Done");              // NOT left at the local "In Progress"
+    expectPairConsistent(merged);
+    expect(jiraApi.updateIssue).not.toHaveBeenCalled();
+    expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
+  });
+
+  it("conflict (a): pick local → the local pair survives intact", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", status: "Done", completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "In Progress", completedDate: undefined, done: false },
+      "2026-04-01",
+    );
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({});
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    (jiraApi.transitionIssueTo as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "local" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    const merged = result.current.currentTasks[0];
+    expect(merged.completedDate).toBe("2026-04-01");
+    expect(merged.status).toBe("Done");
+    expectPairConsistent(merged);
+    // The ONLY case that satisfies the whole transition guard: a local pick, a
+    // truthy merged completedDate, and a remote issue that is not already done.
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+    expect(jiraApi.transitionIssueTo).toHaveBeenCalledWith(
+      expect.objectContaining({ siteUrl: "https://acme.atlassian.net" }),
+      "TEST-1",
+      "done",
+    );
+  });
+
+  it("conflict (b): pick local → stays open, no date adopted", async () => {
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", status: "In Progress",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "Done", completedDate: "2026-05-09", done: true },
+      undefined,
+    );
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({});
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "local" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    const merged = result.current.currentTasks[0];
+    expect(merged.completedDate).toBeFalsy();
+    expect(merged.status).toBe("In Progress");
+    expectPairConsistent(merged);
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+    // Local pick, but the merged completedDate is undefined → guard fails.
+    expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
   });
 });
 
