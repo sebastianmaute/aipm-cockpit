@@ -28,6 +28,7 @@ import { DocumentsDeletedSection } from "./documents-deleted-section";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { useDocumentEditMode, DocumentEditModeBody } from "./document-edit-mode";
 import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentsRenameModal } from "./documents-rename-modal";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
 import { DocumentLinksSection } from "./document-links-section";
@@ -40,10 +41,6 @@ import { useConfirm } from "./confirm-dialog";
 import { useToastContext } from "./toast-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
-import { Button } from "./button";
-import { Input } from "./form-controls";
 
 // --- pure presentation helpers --------------------------------------------
 // i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
@@ -183,8 +180,6 @@ export interface DocumentsPanelProps {
   // convention). OPTIONAL — absent here means "disabled", not broken.
   assetPane?: DocumentAssetPaneProps;
 }
-
-const RENAME_TITLE_ID = "documents-rename-title";
 
 export function DocumentsPanel({
   lang,
@@ -706,43 +701,14 @@ export function DocumentsPanel({
       />
 
       {renaming && (
-        <Modal open onClose={() => setRenaming(null)} ariaLabelledby={RENAME_TITLE_ID} align="center">
-          <div
-            data-modal-panel
-            className="relative flex w-[420px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
-          >
-            <ModalHeader
-              lang={lang}
-              title={t(lang, "documentsRename")}
-              titleId={RENAME_TITLE_ID}
-              onClose={() => setRenaming(null)}
-            />
-            <div className="flex flex-col gap-4 p-6">
-              <label className="flex flex-col gap-1 text-sm text-foreground">
-                {/* A visible <label> IS the accessible name — a placeholder is
-                    not, and a placeholder-only input fails the axe gate even
-                    though it looks labeled. */}
-                {t(lang, "documentsTitleLabel")}
-                <Input
-                  autoFocus
-                  value={renaming.draft}
-                  onChange={(e) => setRenaming((prev) => (prev ? { ...prev, draft: e.target.value } : prev))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing) commitRename();
-                  }}
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setRenaming(null)}>
-                  {t(lang, "cancel")}
-                </Button>
-                <Button variant="primary" size="sm" onClick={commitRename}>
-                  {t(lang, "documentsRename")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Modal>
+        <DocumentsRenameModal
+          lang={lang}
+          draft={renaming.draft}
+          onDraftChange={(next) =>
+            setRenaming((prev) => (prev ? { ...prev, draft: next } : prev))}
+          onCancel={() => setRenaming(null)}
+          onCommit={commitRename}
+        />
       )}
     </div>
   );
