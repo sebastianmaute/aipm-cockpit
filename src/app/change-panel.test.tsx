@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { fireEvent, render } from "@testing-library/react";
+import { fireEvent, render, within } from "@testing-library/react";
 import { useEffect, useRef, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
@@ -90,6 +90,70 @@ describe("ChangePanel", () => {
 
     // The glyph stays VISIBLE but is out of the accessible name.
     expect(getByRole("button", { name: /^title$/i })).toBeInTheDocument();
+  });
+
+  // The explicit <ChangeSortKey> generic on useSortHeaderProps stops a GARBAGE
+  // sortCol, but it cannot stop one REAL column's key pasted onto another header:
+  // every key is still a valid ChangeSortKey, `npx tsc --noEmit` exits 0, that
+  // column silently missorts, and no gate in this repo can see it. Seven
+  // near-identical call sites make that the live risk here.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one sortCol
+  // both light up on a single click. So after clicking a column, EXACTLY one
+  // header may report a non-"none" aria-sort, and it must be that column's own.
+  // The count alone would miss a paste onto a HIDDEN column; the identity alone
+  // would miss the duplicate — both halves are needed.
+  //
+  // ★ KNOWN LIMIT: this catches a PASTE (which leaves a duplicate), not a full
+  //   EXCHANGE of two headers' keys. An exchange leaves no duplicate, so exactly
+  //   one header still lights up and it is still the one the label lookup finds.
+  it("wires each sortable header to its own column, not a neighbour's", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+    // Scoped to the header ROW, not the table: body cells carry buttons too, and
+    // an unscoped lookup could resolve a column label to a row control. Anchored
+    // on the "#" header, so the scope is this table's row and no other.
+    const headerRow = getByRole("button", { name: "#" }).closest("tr") as HTMLElement;
+    const sorted = () =>
+      Array.from(headerRow.querySelectorAll("th")).filter(
+        (th) => (th.getAttribute("aria-sort") ?? "none") !== "none",
+      );
+    // Matched by BUTTON, then up to the <th>. Matching a <th> by name would break
+    // on `impact`, whose InfoTooltip text is absorbed into the header's own name.
+    const headerFor = (label: string) =>
+      within(headerRow).getByRole("button", { name: label }).closest("th");
+
+    // A string `name` is an EXACT match, so each lookup also pins that column's
+    // i18n label key — a header wired to the wrong string fails here too, which
+    // nothing else in this suite checks.
+    // ★ "#" is deliberate for `id`: the VISIBLE label is "#" and "ID" lives in the
+    //   title. That is the WCAG 2.5.3 label-in-name fix, not a typo.
+    const columns = [
+      ["id", "#"],
+      ["type", t("en-US", "changeFieldType")],
+      ["title", t("en-US", "changeFieldTitle")],
+      ["impact", t("en-US", "changeFieldImpact")],
+      ["status", t("en-US", "changeFieldStatus")],
+      ["requestedBy", t("en-US", "changeFieldRequestedBy")],
+      ["raisedDate", t("en-US", "changeFieldRaisedDate")],
+    ] as const;
+
+    // Positive observable: all seven render, and none claims a sort yet.
+    for (const [, label] of columns) expect(headerFor(label)).toHaveAttribute("aria-sort", "none");
+    expect(sorted()).toHaveLength(0);
+
+    for (const [key, label] of columns) {
+      // toggleSort cycles asc → desc → null, but it resets to "asc" whenever the
+      // KEY changes, so one pass over seven distinct columns never re-enters it.
+      fireEvent.click(within(headerRow).getByRole("button", { name: label }));
+      // Re-queried AFTER the click. Comparing against a node captured before it
+      // could be comparing against something detached, which would make the
+      // identity half unfalsifiable.
+      const own = headerFor(label);
+      expect(sorted(), `clicking ${key} lit up the wrong number of headers`).toHaveLength(1);
+      expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
+      expect(own).toHaveAttribute("aria-sort", "ascending");
+    }
   });
 
   // WCAG 2.5.3 label-in-name: the column's visible text is "#", so "#" must be

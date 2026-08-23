@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
@@ -321,5 +321,66 @@ describe("Stakeholders sortable headers", () => {
     expect(header()).toHaveAttribute("aria-sort", "descending");
     fireEvent.click(button());
     expect(header()).toHaveAttribute("aria-sort", "none");
+  });
+
+  // The explicit <StakeholderSortKey> generic on useSortHeaderProps stops a
+  // GARBAGE sortCol, but it cannot stop one REAL column's key pasted onto another
+  // header: every key is still a valid StakeholderSortKey, `npx tsc --noEmit`
+  // exits 0, that column silently missorts, and no gate in this repo can see it.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one sortCol
+  // both light up on a single click. So after clicking a column, EXACTLY one
+  // header may report a non-"none" aria-sort, and it must be that column's own.
+  // The count alone would miss a paste onto a HIDDEN column; the identity alone
+  // would miss the duplicate — both halves are needed.
+  //
+  // ★ KNOWN LIMIT: this catches a PASTE (which leaves a duplicate), not a full
+  //   EXCHANGE of two headers' keys. An exchange leaves no duplicate, so exactly
+  //   one header still lights up and it is still the one the label lookup finds.
+  it("wires each sortable header to its own column, not a neighbour's", () => {
+    renderStakeholders({ stakeholders: items });
+    // Scoped to the header ROW, not the table: this panel renders each row's name
+    // as a BUTTON, so an unscoped lookup could resolve a column label to a row.
+    const headerRow = screen
+      .getByRole("button", { name: t("en-US", "stakeholderFieldName") })
+      .closest("tr") as HTMLElement;
+    const sorted = () =>
+      Array.from(headerRow.querySelectorAll("th")).filter(
+        (th) => (th.getAttribute("aria-sort") ?? "none") !== "none",
+      );
+    // Matched by BUTTON, then up to the <th>. Matching a <th> by name would break
+    // on `influence` and `interest`, whose InfoTooltip text is absorbed into the
+    // header's own accessible name.
+    const headerFor = (label: string) =>
+      within(headerRow).getByRole("button", { name: label }).closest("th");
+
+    // A string `name` is an EXACT match, so each lookup also pins that column's
+    // i18n label key — a header wired to the wrong string fails here too, which
+    // nothing else in this suite checks.
+    const columns = [
+      ["name", t("en-US", "stakeholderFieldName")],
+      ["organization", t("en-US", "stakeholderFieldOrganization")],
+      ["category", t("en-US", "stakeholderFieldCategory")],
+      ["influence", t("en-US", "stakeholderFieldInfluence")],
+      ["interest", t("en-US", "stakeholderFieldInterest")],
+    ] as const;
+
+    // Positive observable: all five render, and none claims a sort yet.
+    for (const [, label] of columns) expect(headerFor(label)).toHaveAttribute("aria-sort", "none");
+    expect(sorted()).toHaveLength(0);
+
+    for (const [key, label] of columns) {
+      // toggleSort cycles asc → desc → null, but it resets to "asc" whenever the
+      // KEY changes, so one pass over five distinct columns never re-enters it.
+      fireEvent.click(within(headerRow).getByRole("button", { name: label }));
+      // Re-queried AFTER the click. Comparing against a node captured before it
+      // could be comparing against something detached, which would make the
+      // identity half unfalsifiable.
+      const own = headerFor(label);
+      expect(sorted(), `clicking ${key} lit up the wrong number of headers`).toHaveLength(1);
+      expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
+      expect(own).toHaveAttribute("aria-sort", "ascending");
+    }
   });
 });
