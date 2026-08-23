@@ -13413,9 +13413,25 @@ no-`src` shape, and jsdom has no rendering engine to test it at all. What IS pin
 not that the glyph actually paints. Eye-verify in a real browser (Chromium at minimum) before
 relying on this as the user-visible signal for a broken image reference.
 
-## 206. `documents-history-modal.tsx` does not resolve images
+## 206. `documents-history-modal.tsx` does not resolve images — CLOSED 2026-08-23
 
-**Status:** open — deliberate scope cut in S3c-1, not yet scheduled.
+**Status:** CLOSED 2026-08-23 by `c0c1f22e`. `HistoryRow` threads asset access into its Preview
+disclosure and calls the same `attachAssetImages` the live preview uses, so a version containing an
+image block now renders that image in the history modal. Two decisions went with it:
+
+★★ **A NEW NARROW READ-ONLY TYPE, NOT `DocumentAssetPaneProps`.** The obvious move — reuse the asset
+pane's existing prop bag — would hand a read-only history surface `setAssets`, a WRITE capability it
+must never hold, and a capability a component "merely happens not to use" is how one gets used later
+without anyone deciding to. `HistoryAssetAccess` (`documents-history-modal.tsx`) carries three
+read-only fields instead: `tursoConfig`, `projectId`, and the metadata rows for the stored mime. It
+is OPTIONAL on the modal's props, so a file-mode reader with no bag degrades to the pre-§206
+behaviour — blocks render, images do not resolve — and never to broken markup.
+
+★ **It also subscribes to the asset-repair generation** (`subscribeAssetRepairs` /
+`getAssetRepairGeneration`), mirroring `document-preview.tsx`. Without that dependency a §212 repair
+completing while the modal is open would leave an open preview's image missing until the row was
+collapsed and reopened: a repair changes BYTES, not `html`, so nothing else in the effect's
+dependency list moves.
 
 The version-history preview surface (`DocumentsHistoryModal`, opened via each document row's
 "History" button) renders a `DocVersion`'s stored block content but was not wired to
@@ -14051,6 +14067,15 @@ if a media part claims it). Swapping those two scopes yields valid XML with the 
 slide — no schema error, and no test failure that names the cause. Any dedup work touches exactly
 this code.
 
+★ **SCOPED INTO `fix/documents-headroom-asset-policy` ON 2026-08-23 AND DROPPED. Still open,
+unstarted.** It was cut because the change this entry describes — introducing a second counter so a
+media part can be shared while shape ids stay unique — cannot be verified here: §219 records that
+nothing in this repo has ever opened a produced `.docx` or `.pptx` in the applications that read
+them, and §216 that there is no package-byte fixture either. Splitting those counters would
+therefore ship on unzip-and-inspect evidence alone, against a failure mode (`wp:docPr` / `p:cNvPr`
+collisions) whose whole point is that one reader tolerates it and another does not. The manual pass
+§219 asks for is the prerequisite, not an optional follow-up.
+
 ## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver
 
 **Status:** open — both patterns are individually correct; the DIVERGENCE is the defect.
@@ -14113,9 +14138,12 @@ claim about the package, not about the reader.
 against its own spec reading and still be rejected by Word over a part relationship or content-type
 detail no substring assertion looks at.
 
-## 220. `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent
+## 220. `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent — CLOSED 2026-08-23
 
-**Status:** open — pre-existing, NOT caused by S3c-2, and the next contributor hits it first.
+**Status:** CLOSED 2026-08-23 by `fix/documents-headroom-asset-policy`. Both files this entry names
+as its SUBJECT now have real headroom, and no baseline entry was added. The text below is kept as
+written; the closing note at the end of the entry records what it got right, the one claim it got
+wrong, and what it leaves behind unaddressed.
 
 `src/app/documents-panel.tsx` measures **800** by the gate's own arithmetic
 (`readFileSync().split("\n").length`, i.e. `wc -l` **+ 1** — `wc -l` reports 799). It has **no
@@ -14154,6 +14182,56 @@ concluded that splitting its two paired `useBroadcastSync` registrations onto se
 conclusion was false in the one direction a reader would act on, and it would take TWO added lines
 to fail. Corrected in the same commit that opened this entry. An off-by-one in a cap claim is not
 cosmetic: at this margin it is the whole claim.
+
+**CLOSED 2026-08-23 — what the extracts actually were, and what is left.** Both subject files now
+have headroom: `documents-panel.tsx` **733** (was 800) and `document-block-editors.tsx` **649** (was
+800), measured with the gate's own arithmetic —
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/documents-panel.tsx','utf8').split('\n').length)"
+node -e "console.log(require('fs').readFileSync('src/app/document-block-editors.tsx','utf8').split('\n').length)"
+```
+
+Three pure moves did it — the deleted-documents
+section and the rename modal out of `documents-panel.tsx` into `documents-deleted-section.tsx` and
+`documents-rename-modal.tsx`, and `BulletsBlockEditor` out of `document-block-editors.tsx` into
+`bullets-block-editor.tsx`. ★ Each new module is deliberately NOT re-exported from the file it left:
+a re-export would make the two modules import each other, and the point of the move is that the
+extracted surface has no reason to be reached through its former host.
+★★ **No baseline entry was added**, as this entry demanded. `docs/baselines/file-sizes.json` still
+names exactly the same four files, none of them a documents file — the first command below prints
+nothing, the second names them:
+
+```
+git diff 2a1cfdef..HEAD -- docs/baselines/file-sizes.json
+node -e "console.log(Object.keys(require('./docs/baselines/file-sizes.json')).join(' '))"
+```
+
+★★★ **THE ★★ ABOVE — "THE ONE CHEAP SEAM WAS SPENT BY THIS SLICE AND CANNOT BE SPENT AGAIN" — WAS
+WRONG, AND IT IS THE ONLY CLAIM HERE THAT WOULD HAVE CHANGED SOMEONE'S BEHAVIOUR.** It told the next
+contributor that the file had no trick left and that the next change to it "will simply be blocked",
+which is precisely the argument someone reaches for a baseline entry with the moment a pipeline goes
+red — the one remedy this entry forbids. Three seams were found in an afternoon, none of them a
+relocated helper: each was a whole cohesive surface that had no business living in an orchestrator.
+Read the original ★★ as a claim about what ONE slice happened to find under time pressure, never as
+a claim about what the file contains.
+
+★ **The prescribed remedy was NOT what was done, and that is worth saying rather than glossing.**
+This entry called for the gantt pattern — `documents-panel-rows` / `documents-panel-toolbar`
+presentational leaves. What landed instead extracts self-contained SURFACES and leaves the
+orchestrator's row/toolbar structure untouched. The gantt split therefore remains fully available if
+either file returns to the cap; it was not consumed by this close.
+
+★★ **WHAT THIS CLOSE DOES NOT ADDRESS — stated, not closed over.** The ★★ "IT IS NOT ONE FILE"
+paragraph also names `use-chat-dispatcher.ts` and `use-storage-backend.ts` at **799** with no
+baseline entry. Both are STILL at 799, re-measured 2026-08-23 with the command above, so each has
+room for exactly ONE net added line before `file-size-ratchet` reports it as `NEW file over 800`.
+Neither is a documents file and neither was in this branch's scope. They appear in this entry as
+CONTEXT for its scheduling argument, never as its subject — so closing here retires the two-files-at-
+800 problem and leaves the two-files-at-799 fact exactly as true as it was. Anyone adding a line to
+either still hits the cap with no ratchet grace, and the near-cap sweep this entry prescribes (walk
+`src` for `.ts`/`.tsx`, take `split("\n").length`, print every file at 780—800 that
+`docs/baselines/file-sizes.json` does not name) is still the right first move.
 
 ## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing
 
@@ -14310,10 +14388,15 @@ cost ≤ 15, so the cap has to be at or under `15 × BODY_LINE_EMU` = 3200400 �
 beside the picture, and a picture ~8% shorter than the box (`1 - 3200400 / 3474720`). The first is
 cheap and changes emitted bytes, so it needs its own before/after on §219's manual pass.
 
-## 223. The asset mime allowlist is hand-restated at every consumer, with no shared predicate
+## 223. The asset mime allowlist is hand-restated at every consumer, with no shared predicate — CLOSED 2026-08-23
 
-**Status:** open — and ONE consumer has already forgotten (see the ★★★ below). The defect is that
-nothing makes the next one correct, and the layer that could have is deliberately not doing it.
+**Status:** CLOSED 2026-08-23 by `fix/documents-headroom-asset-policy` — and closed on BOTH halves,
+which is the part to check before believing it. `ce2ac498` converted the casts to one shared
+predicate; `6b858b82` gave `document-preview.tsx`'s consumer the check it never had. The ★★★ below
+predicts the exact failure of doing only the first and closing on it ("someone converts the six
+casts, closes §223 as a refactor and never touches the consumer that checks nothing"), so both
+commits are named here so the record shows the prediction was HONOURED rather than tripped. The text
+below is kept as written; the closing note at the end of the entry carries the measurements.
 
 **Why the load path is NOT the bug.** `sanitizeDocumentAsset` (`document-asset.ts`) runs
 `mime: sanitizeText(o.mime, ASSET_MIME_MAX)` and never consults `ASSET_MIME_ALLOWED`, so an
@@ -14396,6 +14479,43 @@ recorded width and height; the html sink deliberately does not, because HTML pla
 the ★★★ in `assetPolicy`). One shared mime predicate is right; one shared "is this usable"
 predicate would re-introduce the asymmetry defect that comment exists to stop.
 
+**CLOSED 2026-08-23 — both halves, and the two sites that deliberately stay hand-written.**
+`isAllowedAssetMime(mime: string | undefined): boolean` is exported from `document-asset-upload.ts`
+beside the constant, exactly as the remedy above specified. Seven hand-written casts became one: six
+consumers call the helper, and the seventh IS the helper's body. Reproduce both directions —
+
+```
+grep -rn "ASSET_MIME_ALLOWED as readonly string\[\]" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+grep -rn "isAllowedAssetMime" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+the first returning the single surviving line inside `isAllowedAssetMime`, the second naming every
+call site. ★ `asset-library.tsx`'s `accept={ASSET_MIME_ALLOWED.join(",")}` is untouched and correctly
+so — it needs the LIST, not a predicate.
+
+★★ **THE SECOND HALF IS THE ONE THAT MATTERED, AND IT DID NOT RIDE THE SWEEP.** `attachAssetImages`
+(`document-asset-images.ts`) now DECLINES an asset whose stored mime is outside the allowlist,
+routing it down the `data-asset-missing` disclosure path the missing-byte-row case already uses,
+instead of minting a Blob carrying that type verbatim. That is a behaviour change on a surface that
+never spelled the constant — which is why this entry said it "cannot ride a mechanical sweep of the
+casts" — and it is a separate commit (`6b858b82`) on purpose.
+
+★★★ **THE NEW GUARD IS SPELLED TRUTHY, AND THE STRICTER-LOOKING SPELLING WOULD BREAK WORKING
+IMAGES.** That trap has its own entry, §225, because it is the thing the next reader of that line
+will get wrong.
+
+★ **TWO SITES STILL RESTATE THE THREE MIMES BY HAND. Neither is a defect — recorded so that "one
+shared predicate" is never read as "the three mimes are written once".**
+`mediaExtension` (`ooxml-media.ts`) maps a mime to a file EXTENSION rather than to a boolean, so no
+predicate can absorb it. Its previously-unpinned direction — the switch drifting WIDER than the
+allowlist — is now closed by a set-equality source scan in `ooxml-media.test.ts` ("accepts EXACTLY
+the allowlist, and nothing beyond it"), and that test's own comment records why the scan has to be at
+the SOURCE: the allowlist guards in `docxEmbedFor`/`pptxEmbedFor` re-decide the same question one
+line later, so deleting either is an equivalent mutant no fixture can observe.
+`readHeaderDimensions` (`document-asset-upload.ts`) branches per mime to parse a header and returns
+`null` for anything it does not recognise, so it FAILS CLOSED: a new mime yields no dimensions, and a
+missing extent is itself a rejection at the OOXML sinks.
+
 ## 224. Timelog bookings are fetched only on demand — no interval job, and no delta notice
 
 **Status:** open — a feature request, not a defect. Nothing misbehaves today.
@@ -14464,4 +14584,66 @@ with NO `aggregates` at all. So the before-image is already persisted per projec
 grep -n -A 3 "type JobCadence" src/app/scheduled-jobs/types.ts
 grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts
 grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
+```
+
+## 225. `attachAssetImages` builds a TYPELESS `Blob` when no metadata row matches, leaving the mime to content sniffing
+
+**Status:** open — DELIBERATE, not an oversight. Recorded because the obvious tightening is a
+REGRESSION, and the next person to read that line will reach for it.
+
+`attachAssetImages` (`document-asset-images.ts`) resolves every `<img data-asset-id>` in a rendered
+document by loading its bytes and minting a blob URL. Its mime lookup (`mimeFor`) is optional and can
+miss; when it yields nothing, the function builds `new Blob([bytes])` with NO type and the browser
+falls back to content-sniffing the bytes. That is how every image on this path rendered before a mime
+was passed at all, and it still renders correctly.
+
+**Why declining an unknown mime is not the fix it looks like.** FOUR independent mechanisms produce a
+lookup that misses on an asset whose BYTES are perfectly good, so a decline would blank images that
+work today:
+
+- `documentAssets` is an OPTIONAL workspace slice, deliberately left `undefined` rather than `[]`
+  when empty — `workspace.ts`'s own comment: "an all-garbage/empty list stays off the key rather than
+  emitting []".
+- Metadata rows are dropped INDIVIDUALLY on load (`sanitizeDocumentAsset` per row, then a filter),
+  and the byte rows are untouched by that filter — so one malformed row removes a mime without
+  removing an image.
+- Metadata and bytes live in DIFFERENT tables with different lifecycles. §207 records them
+  desynchronising in production; §212 and §213 are the repair paths.
+- The `<img data-asset-id>` reference itself lives in a THIRD slice, the documents meta-blob, written
+  on its own schedule.
+
+★★★ **THE GUARD IS SPELLED TRUTHY, AND `mime !== undefined` WOULD BREAK WORKING IMAGES. THIS IS THE
+TRAP THIS ENTRY EXISTS FOR.** The disallowed-mime check added by `6b858b82` (§223) reads
+`if (mime && !isAllowedAssetMime(mime)) return;`. The stricter-looking `mime !== undefined && …` is
+wrong, and concretely so: `sanitizeDocumentAsset` (`document-asset.ts`) requires only an `id`, and
+its mime is `sanitizeText(o.mime, ASSET_MIME_MAX)`, which returns `""` for anything non-string
+(`sanitizeText` in `sanitize-core.ts` — `if (typeof s !== "string") return ""`). So a row with a
+missing, blank or non-string mime SURVIVES sanitising as `mime === ""` on every load path, and such
+an asset has always rendered by sniffing. `isAllowedAssetMime("")` is false, so the `!== undefined`
+spelling would DECLINE it and stamp the repair marker on an image the user can see working. Truthy
+also mirrors the ternary on the very next line, so the guard and the Blob construction cannot
+disagree about what "no mime" means. Both branches are pinned by `document-asset-images.test.ts`
+("declines an asset whose stored mime is outside the allowlist" and "still renders an asset whose
+stored mime is the empty string"), and both were mutation-proved. The reasoning is repeated as a
+comment at the line itself, because someone tightening it will be reading the code, not this file.
+
+★★ **BOUNDED, by the same argument as §223 and with the same honest limit.** The blob URL is only
+ever assigned to `<img src>`, where a sniffed document runs no script; and `src/proxy.ts` serves
+`script-src 'self' 'nonce-…' 'strict-dynamic'` with no `'unsafe-inline'` plus `object-src 'none'` —
+reproduce with `grep -n "script-src\|object-src" src/proxy.ts`. ★ REASONED FROM SPEC, NOT MEASURED:
+the remaining step — that a blob document inherits its creator's policy — is a claim nothing in this
+repo can execute. Read it as a reason not to panic, never as proof.
+
+**What closing it would look like.** Not a guard at this line. Either make the metadata lookup
+reliable enough that a miss really is an anomaly, which is §207 / §212 / §213 territory, or record
+the mime ALONGSIDE the bytes so the two cannot desynchronise at all — at which point this fallback
+becomes dead code and can be deleted against evidence instead of argued about.
+
+**Verify the shape claims:**
+
+```
+grep -n -B 20 -A 3 "if (mime && !isAllowedAssetMime(mime)) return;" src/app/document-asset-images.ts
+grep -n -A 14 "export function sanitizeDocumentAsset" src/app/document-asset.ts
+grep -n -A 4 "export function sanitizeText" src/app/sanitize-core.ts
+grep -n -B 3 -A 6 "documentAssets" src/app/workspace.ts
 ```
