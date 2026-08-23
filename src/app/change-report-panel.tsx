@@ -13,6 +13,7 @@ import {
   TableFilter,
   SortResizeTh,
   useSortableFilter,
+  useSortHeaderProps,
   type SortDir,
 } from "./report-table";
 import {
@@ -197,11 +198,13 @@ function CountHead({
   w: { label: number; count: number };
   sr: (col: string, e: React.MouseEvent) => void;
 }) {
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
+
   return (
     <thead className={TABLE_HEAD_CLASS}>
       <tr>
-        <SortResizeTh label={t(lang, labelKey)} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "changeReportCount")} sortCol="count" width={w.count} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh {...th} label={t(lang, labelKey)} sortCol="name" resizeCol="label" width={w.label} />
+        <SortResizeTh {...th} label={t(lang, "changeReportCount")} sortCol="count" width={w.count} align="right" />
       </tr>
     </thead>
   );
@@ -391,16 +394,17 @@ function TopPendingTable({ lang, items, colResize }: { lang: Lang; items: readon
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "changeReportTopPending")}>
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "changeFieldTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "changeFieldImpact")} sortCol="impact" width={w.impact} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "changeFieldRaisedDate")} sortCol="raised" width={w.raised} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "id")} sortCol="id" width={w.id} />
+              <SortResizeTh {...th} label={t(lang, "changeFieldTitle")} sortCol="name" resizeCol="title" width={w.title} />
+              <SortResizeTh {...th} label={t(lang, "changeFieldImpact")} sortCol="impact" width={w.impact} />
+              <SortResizeTh {...th} label={t(lang, "changeFieldRaisedDate")} sortCol="raised" width={w.raised} />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
