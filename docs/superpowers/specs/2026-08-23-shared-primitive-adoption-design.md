@@ -10,6 +10,20 @@ Adopt three primitives this repo already owns, at the call sites that never took
 theme: *use the primitive that exists*. The by-products are a real a11y gap closed, the top
 empirical duplication cluster reduced, and both zero-headroom files moved down.
 
+★★★ **The duplication by-product did NOT materialise, measured 2026-08-23 after Task 3.**
+`dup:check` moved 1.18% → 1.20% (1844 → 1870 duplicated lines), apples-to-apples on one commit.
+The gate compares duplicated **lines**, and collapsing four per-column props into one `{...th}`
+spread removes ~814 tokens while ADDING 15 lines — so tokens-per-line falls, jscpd's
+`--min-tokens 50` window spans MORE lines for the same token count, and every pre-existing clone
+in those files got LONGER in lines. A token-denominated metric would have fallen; the one the
+gate actually reads rose. The a11y gap and the two zero-headroom files are unaffected and remain
+the real justification for this slice. Do not "fix" this by re-baselining anything: the gate
+passes at 1.75 with wide margin, and the rise is an artifact of the metric, not new duplication.
+
+★ One GENUINE new clone did appear and is worth a follow-up: `CountHead` (change-report-panel)
+and `RaidCountHead` (raid-report-panel) converged into near-identical bodies once their
+per-column props collapsed. Consolidating them is out of scope here.
+
 ★★ **Every number below was measured on 2026-08-23 against `0993d04e` and rots.** Each carries the
 command that reproduces it. Run the command; never quote the number.
 
@@ -183,7 +197,9 @@ state and have other consumers.
   `task-manager.tsx` (TD-5) are both at their baselines with zero headroom, so this moves the only
   direction available. The gate metric is `wc -l` **+ 1**; measure it with a node one-liner that
   splits the file on newlines and reports the array length.
-- `dup:check` — 1.19% against a 1.75 threshold on 2026-08-23. Headroom either way.
+- `dup:check` — measured 1.20% against a 1.75 threshold after Task 3, UP from 1.18%. See the
+  duplication note under "Goal": the gate counts LINES, so this refactor inflates it by design.
+  Headroom is wide either way; the requirement is that it stay UNDER the threshold, not that it fall.
 - **axe** — `change-panel`, `stakeholders-panel`, `raid-panel-rows`, `resource-directory`
   (Resources defaults to the directory) and Reports are all scanned. Use `--workers=1` for any
   multi-view run: local defaults to CPU-count while CI runs serially, and the contention failure

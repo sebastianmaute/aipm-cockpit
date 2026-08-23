@@ -2,7 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Adopt three primitives this repo already owns at the call sites that never took them up, closing a real `aria-sort` gap and removing the top tsx duplication cluster.
+**Goal:** Adopt three primitives this repo already owns at the call sites that never took them up, closing a real `aria-sort` gap. (The duplication reduction this originally claimed did NOT
+materialise — see Task 3 Step 4. The gate counts LINES and this refactor trades tokens for lines.)
 
 **Architecture:** `SortResizeTh`'s `sortKey` prop widens to `K | null` (it is read in exactly one place), which lets every existing sort-state shape in the app feed it without a bespoke adapter. A new `useSortHeaderProps` bundles the four props identical across a table's columns. Six panels then drop their hand-rolled header trio, and `tasks-section` drops its inline copy of `ColumnConfigPopover` along with the three props that plumbed it.
 
@@ -414,15 +415,19 @@ git status --porcelain -uall   # must not list __dom-probe
 ★ An untracked file in `src/app` is charged by the coverage gate even though `git diff HEAD` cannot
 see it — `git status --porcelain -uall` is the check that catches it.
 
-- [ ] **Step 4: Confirm the duplication actually fell**
+- [ ] **Step 4: Measure the duplication (it RISES — this is expected)**
 
 ```bash
 npm run dup:check > /tmp/dup-after3.log 2>&1; echo "EXIT=$?"
 grep -E "Total:|Found" /tmp/dup-after3.log
 ```
 
-Record the number. Compare against 1858 duplicated lines / 1.19% measured on 2026-08-23. It must
-not rise.
+★★★ MEASURED 2026-08-23: it goes 1.18% → 1.20% (1844 → 1870 duplicated lines),
+apples-to-apples on one commit. This was expected to FALL and does not. `dup:check` compares
+duplicated **lines**; collapsing four props into `{...th}` removes ~814 tokens while ADDING 15
+lines, so jscpd's `--min-tokens 50` window spans more lines per clone and every pre-existing
+clone in these files grew in line count. Record the number and confirm it stays under the 1.75
+threshold. Do NOT revert the refactor or re-baseline anything over this.
 
 - [ ] **Step 5: Commit**
 
@@ -1347,7 +1352,7 @@ npm run docs:symbols:check > /tmp/sym.log 2>&1; echo "SYM_EXIT=$?"
 npm run docs:claims:check > /tmp/claims.log 2>&1; echo "CLAIMS_EXIT=$?"; tail -3 /tmp/claims.log
 ```
 
-All must be 0. `dup:check` must not exceed the 1.19% baseline measured on 2026-08-23.
+All must be 0. `dup:check` must stay under the 1.75 threshold; it reads ~1.20% after Task 3, up from 1.18% (see Task 3 Step 4).
 
 - [ ] **Step 2: Run the shuffled suite**
 
