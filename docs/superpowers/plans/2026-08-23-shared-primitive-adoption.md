@@ -1408,11 +1408,115 @@ results in the final report rather than inventing a commit.
 
 ---
 
+### Task 16: Bump the patch version to 0.255.2
+
+**Files:**
+- Modify: `src/app/version.ts`, `package.json`, `package-lock.json`, `README.md`,
+  `docs/CODEMAPS/architecture.md`, `docs/CODEMAPS/backend.md`, `docs/CODEMAPS/data.md`,
+  `docs/CODEMAPS/dependencies.md`, `docs/CODEMAPS/frontend.md`, `CHANGELOG.md`
+
+Refactor-only normally carries no bump; this one was requested explicitly.
+
+★★ **0.255.2, not 0.256.0.** The unshipped `feat/documents-s3c2-ooxml-media` branch has already
+claimed `0.256.0 "Khaw"`. A patch keeps the minor-series milestone, exactly as 0.255.1 kept
+"Bisson" from 0.255.0.
+
+★★ **No `versionHighlight*` key, and therefore no i18n edit.** 0.255.1 added none either.
+`version-highlights.test.ts` reads like a release-bump guard and its own comment says it is not —
+`at(-1)` is pinned to the literal `"versionHighlightIconSet"`, so bumping without adding a
+highlight leaves it green. Adding one would both redden that test and put this branch into
+`i18n.ts`, the one file that conflicts with S3c-2.
+
+- [ ] **Step 1: Confirm all eight sites currently agree**
+
+They were verified consistent at `0.255.1` on 2026-08-23, but drift is the normal state here — this
+file's own history records `package.json` stuck six releases behind and `package-lock.json` eleven.
+
+```bash
+grep -nE "APP_VERSION =|APP_BUILD_DATE =|APP_MILESTONE =" src/app/version.ts
+grep -n '"version"' package.json | head -1
+grep -n '"version": "0\.' package-lock.json | head -2
+grep -n "badge/version" README.md
+grep -h -oE 'App [0-9.]+ "[A-Za-z]+"' docs/CODEMAPS/*.md
+```
+
+Every one must read `0.255.1` / `Bisson`. If any disagrees, fix it to 0.255.1 in a separate commit
+first, so the bump commit stays readable.
+
+- [ ] **Step 2: Edit all eight**
+
+- `src/app/version.ts`: `APP_VERSION` to `"0.255.2"`; `APP_BUILD_DATE` to the real build date with
+  its trailing comment rewritten to `// 0.255.2: shared-primitive adoption (Bisson)`.
+  **Leave `APP_MILESTONE` at `"Bisson"`** — the codename tracks the minor series.
+- `package.json`: the top-level `"version"`.
+- `package-lock.json`: **both** occurrences — the root `"version"` and the one under `packages[""]`.
+  The third match (`0.21.2`) is a dependency; do not touch it.
+- `README.md`: the shields badge, which encodes version **and** codename —
+  `version-v0.255.2_%22Bisson%22-2e7d32`.
+- All five `docs/CODEMAPS/*.md` `Generated:` headers: version only, codename unchanged.
+
+- [ ] **Step 3: Add the CHANGELOG entry**
+
+Insert above the `## [0.255.1]` heading, matching the existing style (prose entries, not bullets of
+file names):
+
+```markdown
+## [0.255.2] - 2026-08-23 "Bisson"
+
+### Changed
+- **Six data tables now announce their sort state properly.** The changes, stakeholders, RAID, activity-log, resource-directory and roles tables each hand-rolled their own sortable header instead of using the shared one. Two of them — the activity log and the resource directory — announced their sort order nowhere at all, so a screen-reader user could not tell which column a table was sorted by; the other four repeated it inside the button's name, where it was read out twice. All six now carry a real `aria-sort`.
+- The tasks view's column-configuration popover was a copy of the shared one it had been extracted from, and had drifted: it was clipped by its own toolbar rather than floating above it, and its gear button's hover state did nothing.
+
+### Fixed
+- The changes table's `#` column announced itself as "ID" while displaying "#", so its spoken name did not contain its visible label (WCAG 2.5.3). It now announces "#", with "ID" available on hover.
+- The RAID table typed its sort direction as a free-form string, accepting values that are not directions.
+```
+
+★ Do **not** put a `[session link removed]...` URL in `CHANGELOG.md`.
+
+- [ ] **Step 4: Verify nothing else pins the old version**
+
+```bash
+grep -rn "0\.255\.1" --include="*.ts" --include="*.tsx" --include="*.json" --include="*.md" . \
+  | grep -v node_modules | grep -v "^\./CHANGELOG.md" | grep -v "\.next/"
+```
+
+Expected: no hits outside `CHANGELOG.md`'s historical entries. A hit anywhere else is a ninth site
+this plan did not know about — record it.
+
+- [ ] **Step 5: Run the gates that read the version**
+
+```bash
+npx vitest run src/app/version-highlights.test.ts > /tmp/t16.log 2>&1; echo "EXIT=$?"
+grep -E "Tests |FAIL" /tmp/t16.log
+npx tsc --noEmit; echo "TSC_EXIT=$?"
+```
+
+★ `e2e/a11y.spec.ts` carries a guard asserting the **served** app's `data-app-version` matches this
+checkout. If e2e is run after this task against an already-running dev server, that guard fails
+because the server predates the bump — restart the server, do not edit the guard.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add src/app/version.ts package.json package-lock.json README.md docs/CODEMAPS/ CHANGELOG.md
+git commit -m "chore(release): 0.255.2
+
+Patch bump for the shared-primitive adoption slice. 0.255.2 rather than
+0.256.0: the unshipped documents OOXML branch has already claimed 0.256.0
+as Khaw. The milestone stays Bisson - the codename tracks the minor series.
+
+No versionHighlight key, matching 0.255.1: version-highlights.test.ts pins
+at(-1) to a literal, so adding one would redden it, and it would put this
+branch into i18n.ts - the only file that conflicts with the S3c-2 branch."
+```
+
+---
+
 ## What this plan does NOT do
 
-- **No release.** No version bump, no `CHANGELOG.md` entry, no push, no MR. This is refactor-only,
-  and the repo's rule is that refactor-only carries no bump. Releasing is a separate, explicitly
-  requested step.
+- **No push and no MR.** The bump in Task 16 prepares a release; it does not perform one. Pushing,
+  opening an MR, polling the pipeline and merging on green are separate, explicitly requested steps.
 - **No combobox or dialog work.** Both clusters were surveyed and rejected with reasons recorded in
   the design document.
 - **No new i18n key.**
