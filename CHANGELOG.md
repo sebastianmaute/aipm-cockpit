@@ -8,6 +8,11 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.257.0] - 2026-08-23 "Shepard"
+
+### Fixed
+- **The `status` / `completedDate` pair can no longer be split by template import or by resolving a Jira conflict.** The app asks two different questions about a finished task — one reads the status, the other reads the completion date — so a row where the two disagree was counted complete on one tile and open on another, in the same render. Resolving a Jira conflict hit this on the default path: accepting the remote value for a completion date wrote the date and left the status local, either producing a done row with no date — dropped from both terms of the completion percentage and reported as cancelled scope, which raised the reported percentage for every other row — or a completion date on a row the task table still listed as open. Importing a template could store the same shape. Both paths now write the two fields together.
+
 ## [0.256.1] - 2026-08-23 "Khaw"
 
 ### Changed
