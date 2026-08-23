@@ -90,8 +90,23 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
  *   hook gets a new identity every render, which remounts every header on every
  *   render; an object does not.
  *
+ * ★★ That said, the memo is NOT a performance guarantee. It only HITS while
+ *   `onSort`/`onResize` are themselves stable: true for `useSortableFilter`'s
+ *   `useCallback`'d `click` (deps `[sort.key, sort.dir, setSort]`, so the bag
+ *   changes only when the sort itself does), false for a bare arrow handler
+ *   built fresh in the caller's body — the four `PanelSort` panels bust it
+ *   every render. And even where it hits, nothing today reads the returned
+ *   object's identity: `SortResizeTh` is a plain unmemoized component, so a
+ *   stable bag prevents no re-render. It becomes load-bearing the moment a
+ *   header is wrapped in `memo()` (this repo already does that for
+ *   `ResourcesPanel`) — until then, don't cite it as a reason anything is fast.
+ *
  * Usage: `const th = useSortHeaderProps<MyKey>(sort?.key ?? null, sort?.dir ?? "off", toggleSort, startResize)`
  * then `<SortResizeTh {...th} label={...} sortCol="id" width={w.id} />`.
+ * ★ The explicit `<MyKey>` generic is mandatory, same reason as `SortResizeTh`'s
+ *   own `sortKey` caveat: a `PanelSort.key` is a bare `string`, and passing it
+ *   unnarrowed infers `K = string`, silently defeating the `sortCol`
+ *   literal-union check this hook exists to carry through.
  */
 export function useSortHeaderProps<K extends string>(
   sortKey: K | null,
