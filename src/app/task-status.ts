@@ -32,6 +32,38 @@ export function migrateTask(task: Task): Task {
   return out;
 }
 
+/** Force the pair `status === "Done"` ⟺ `completedDate` set by trusting the DATE.
+ *
+ *  - a `completedDate` present  ⇒ `status` becomes "Done"
+ *  - `status === "Done"` with no date ⇒ `status` becomes DEFAULT_TASK_STATUS
+ *  - anything else is returned BY REFERENCE, unchanged
+ *
+ *  Invents no date and deletes none. Emptiness is `!!completedDate`, the same
+ *  test `isTaskDelivered` (task-closed.ts) uses — defining "has a date" twice
+ *  is how the two would drift.
+ *
+ *  ★★★ FOR SEED / IMPORT DATA ONLY. Today that is `sanitizeSeedTask`
+ *  (templates.ts), whose two reads of the pair are independent. Do NOT call it
+ *  on either Jira path: Jira's status comes from `statusCategory`, not from
+ *  date presence, so this would rewrite a reopened issue's genuine
+ *  "In Progress" into "To Do" purely because it carries no resolution date.
+ *  Those paths derive both fields from one `statusKey` read and need nothing
+ *  from here (AGENTS.md, task status model).
+ *
+ *  ★★ Not a load-path repair either. `migrateTask` runs on all six load paths
+ *  and only backfills an ABSENT/INVALID status; teaching IT to reconcile would
+ *  change every backend's load behaviour and would apply this date-wins rule
+ *  to Jira rows, where it is wrong. */
+export function reconcileStatusFromDate(task: Task): Task {
+  if (task.completedDate) {
+    return task.status === "Done" ? task : { ...task, status: "Done" };
+  }
+  if (task.status === "Done") {
+    return { ...task, status: DEFAULT_TASK_STATUS };
+  }
+  return task;
+}
+
 /** Sort index following TASK_STATUSES order. Unknown => end. */
 export function statusSortIndex(status: string): number {
   const i = TASK_STATUSES.indexOf(status as TaskStatus);

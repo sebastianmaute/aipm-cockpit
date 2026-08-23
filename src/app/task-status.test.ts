@@ -4,6 +4,7 @@ import {
   applyStatusChange,
   migrateTask,
   statusSortIndex,
+  reconcileStatusFromDate,
 } from "./task-status";
 import type { Task, TaskStatus } from "./types";
 
@@ -128,5 +129,51 @@ describe("migrateTask createdDate backfill", () => {
   it("returns the same reference when nothing needs migrating", () => {
     const input = { ...base, createdDate: "2026-01-15" };
     expect(migrateTask(input)).toBe(input);
+  });
+});
+
+describe("reconcileStatusFromDate", () => {
+  it("leaves a consistent Done row untouched", () => {
+    const t = base({ status: "Done", completedDate: "2026-03-04" });
+    expect(reconcileStatusFromDate(t)).toBe(t); // same reference — nothing changed
+  });
+
+  it("leaves a consistent open row untouched", () => {
+    const t = base({ status: "In Progress" });
+    expect(reconcileStatusFromDate(t)).toBe(t);
+  });
+
+  it("a date on a non-Done row forces Done and KEEPS the date", () => {
+    const out = reconcileStatusFromDate(base({ status: "To Do", completedDate: "2026-03-04" }));
+    expect(out.status).toBe("Done");
+    expect(out.completedDate).toBe("2026-03-04");
+  });
+
+  it("Done with no date demotes to the default status and invents nothing", () => {
+    const out = reconcileStatusFromDate(base({ status: "Done" }));
+    expect(out.status).toBe("To Do");
+    expect(out.completedDate).toBeFalsy();
+  });
+
+  it("treats an empty-string completedDate as absent, like isTaskDelivered does", () => {
+    const out = reconcileStatusFromDate(base({ status: "Done", completedDate: "" }));
+    expect(out.status).toBe("To Do");
+  });
+
+  it("does not mutate its argument", () => {
+    const t = base({ status: "To Do", completedDate: "2026-03-04" });
+    reconcileStatusFromDate(t);
+    expect(t.status).toBe("To Do");
+  });
+
+  it("is idempotent", () => {
+    for (const t of [
+      base({ status: "To Do", completedDate: "2026-03-04" }),
+      base({ status: "Done" }),
+      base({ status: "Cancelled", completedDate: "2026-03-04" }),
+    ]) {
+      const once = reconcileStatusFromDate(t);
+      expect(reconcileStatusFromDate(once)).toEqual(once);
+    }
   });
 });
