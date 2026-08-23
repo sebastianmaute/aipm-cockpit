@@ -161,8 +161,10 @@ describe("useSortHeaderProps", () => {
       const th = useSortHeaderProps<"title">(null, "off", () => {});
       return <table><thead><tr><SortResizeTh {...th} label="Title" sortCol="title" /></tr></thead></table>;
     }
-    const { container } = render(<Table />);
-    expect(container.querySelector(".cursor-col-resize")).toBeNull();
+    render(<Table />);
+    const th = screen.getByRole("columnheader");
+    expect(th).toHaveTextContent("Title");
+    expect(th.querySelectorAll(".cursor-col-resize")).toHaveLength(0);
   });
 });
 
