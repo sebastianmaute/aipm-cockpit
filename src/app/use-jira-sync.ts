@@ -180,6 +180,10 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               jiraKey: issue.key,
               jiraIssueType: row.jiraIssueType ?? patch.jiraIssueType,
               remoteDone: isIssueDone(issue),
+              // ★ Non-optional by construction: issueToTaskFields returns
+              //   `Partial<Task> & { status: TaskStatus }`, so this is the same
+              //   single `statusKey` read that produced patch.completedDate.
+              remoteStatus: patch.status,
               fields: diffs,
             });
             next.push(row);

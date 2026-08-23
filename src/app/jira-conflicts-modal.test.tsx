@@ -52,6 +52,7 @@ const CONFLICT: ConflictItem = {
   jiraKey: "PROJ-7",
   jiraIssueType: "Story",
   remoteDone: false,
+  remoteStatus: "To Do",
   fields: [
     { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
     { key: "priority", localValue: "High", remoteValue: "Low" },
