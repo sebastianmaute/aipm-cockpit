@@ -95,18 +95,18 @@ export function PlanningTable({
         <table className="w-full text-left text-sm">
           <thead className={TABLE_HEAD_CLASS}>
             <tr>
-              <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="assignee" width={planColWidths.assignee}     />
+              <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="assignee" width={planColWidths.assignee} />
               {periods.map((p) => (
                 <th key={p.key} className="relative px-3 py-2 font-medium tabular-nums" style={{ width: planColWidths.period, minWidth: planColWidths.period }}>
                   {p.key}
                   <ColumnResizeHandle col="period" onMouseDown={planStartResize} />
                 </th>
               ))}
-              <SortResizeTh {...th} label={t(lang, "planningCapacityHours")} sortCol="capacityHours" width={planColWidths.capacityHours}     align="right" />
-              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="capacityDays" width={planColWidths.capacityDays}     align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internalCost" width={planColWidths.internalCost}     align="right" hint={t(lang, "resourcesInternalCostHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="externalCost" width={planColWidths.externalCost}     align="right" hint={t(lang, "resourcesExternalCostHint")} />
-              <SortResizeTh {...th} label={t(lang, "resourcesMargin")} sortCol="margin" width={planColWidths.margin}     align="right" hint={t(lang, "resourcesMarginHint")} />
+              <SortResizeTh {...th} label={t(lang, "planningCapacityHours")} sortCol="capacityHours" width={planColWidths.capacityHours} align="right" />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="capacityDays" width={planColWidths.capacityDays} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internalCost" width={planColWidths.internalCost} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="externalCost" width={planColWidths.externalCost} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesMargin")} sortCol="margin" width={planColWidths.margin} align="right" hint={t(lang, "resourcesMarginHint")} />
             </tr>
           </thead>
           {(() => {
