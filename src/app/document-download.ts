@@ -137,8 +137,15 @@ const PREPARING_HTML = "<!doctype html><title></title>";
  *  inflates them by about a third, so they take the 25 MB budget. DOCX and
  *  PPTX store bytes as real zip entries at native size, so budgeting them
  *  truncated exports that had no reason to be truncated: `ASSET_STORED_MAX_BYTES`
- *  (5 MB) × `ASSET_MAX_PER_DOCUMENT` (20) reaches 100 MB, so six large images
- *  already turned into placeholders in Word.
+ *  (5 MB) × `ASSET_MAX_PER_DOCUMENT` (20) reaches 100 MB, four times the budget.
+ *  ★ COUNT IT, do not estimate it — the charge is `spent + bytes > budgetBytes`,
+ *  a STRICT `>`, so five 5 MB images land `spent` at exactly 25 MB and pass; the
+ *  SIXTH is the first to be omitted. An earlier revision here said "six large
+ *  images already turned into placeholders", which is false for five of the six.
+ *  ★ "in Word" is deliberate and still correct: this is the PRE-`assetPolicy`
+ *  behaviour this branch exists to remove, when docx carried the inline budget
+ *  too. Verify with:
+ *    node -e "let s=0,M=1048576;for(let i=1;i<=6;i++){if(s+5*M>25*M)console.log(i,'omitted');else{s+=5*M;console.log(i,'inline',s/M+'MB')}}"
  *
  *  ★★ `Number.POSITIVE_INFINITY` really is unbounded here rather than merely
  *  very large: `loadExportAssets` charges with `spent + bytes > budgetBytes`,

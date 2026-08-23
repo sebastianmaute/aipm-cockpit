@@ -20,11 +20,15 @@ longer carries its own changelog comment.
   in the file, so the document can be sent on as a single attachment with
   nothing to link back to.
 - **An image that cannot be drawn is still named, never dropped.** If an
-  image's stored data is missing, or its format or size is not something the
-  export can use, every format writes a visible placeholder naming it. This was
-  already true of Word and PowerPoint; HTML and PDF now match, and the marker
-  that shows an unavailable image is carried inside the exported file rather
-  than relying on the app's own stylesheet, which an exported file never loads.
+  image's stored data is missing or unreadable, or its format or size is not
+  something the export can use, every format writes a visible placeholder
+  naming it, and no format writes an empty picture in its place. Word and
+  PowerPoint already did this for an image whose data was absent or whose size
+  was unknown; PowerPoint now does it for unreadable data too, where it had
+  been leaving a blank space on the slide with nothing to notice it by. HTML
+  and PDF match throughout, and the marker that shows an unavailable image is
+  carried inside the exported file rather than relying on the app's own
+  stylesheet, which an exported file never loads.
 - **PDF export no longer risks a blocked tab.** The export opens its print tab
   first and loads the image data into it afterwards, so a document with images
   behaves exactly like one without.
