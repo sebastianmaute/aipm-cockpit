@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import {
   isTaskFinished,
   applyStatusChange,
@@ -6,7 +7,7 @@ import {
   statusSortIndex,
   reconcileStatusFromDate,
 } from "./task-status";
-import type { Task, TaskStatus } from "./types";
+import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 
 const base = (over: Partial<Task> = {}): Task =>
   ({
@@ -191,5 +192,24 @@ describe("reconcileStatusFromDate", () => {
       const once = reconcileStatusFromDate(t);
       expect(reconcileStatusFromDate(once)).toEqual(once);
     }
+  });
+
+  it("output always satisfies status===Done ⟺ completedDate set", () => {
+    // ★ NOT fc.date(): it can emit an Invalid Date whose .toISOString() throws —
+    //   green under vitest, red at runtime. Map an integer ms range instead.
+    const isoDay = fc
+      .integer({ min: 0, max: 4102444800000 }) // 1970-01-01 .. 2100-01-01
+      .map((ms) => new Date(ms).toISOString().slice(0, 10));
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...TASK_STATUSES),
+        fc.oneof(fc.constant(undefined), fc.constant(""), isoDay),
+        (status, completedDate) => {
+          const out = reconcileStatusFromDate(base({ status, completedDate }));
+          expect(out.status === "Done").toBe(!!out.completedDate);
+        },
+      ),
+      { numRuns: 300 },
+    );
   });
 });
