@@ -1360,9 +1360,16 @@ describe("renderDocumentPptx — S3c-2 placed pictures", () => {
   // decision points where docx keeps one — `paragraphLines` decides an <img>
   // becomes an ImageLine and STRIPS the tag, so `withImagePlaceholders` never
   // sees it, and `buildContentSlide` answers a null mint with "". Measured
-  // before the fix: this exact fixture produced a BLANK slide — no <p:pic>, no
-  // Body text box, no placeholder, empty ppt/media/ — while the identical
-  // fixture through `renderDocumentDocx` disclosed the row. The fix is that
+  // before the fix: this exact fixture lost BOTH the picture and its disclosure
+  // — no <p:pic>, no placeholder, empty ppt/media/ — while the identical
+  // fixture through `renderDocumentDocx` disclosed the row. ★★ IT KEPT ITS BODY,
+  // and an earlier revision of this comment said "a BLANK slide — no <p:pic>, no
+  // Body text box, no placeholder": the pre-fix loop pushed the fragments either
+  // side of the <img> UNCONDITIONALLY (`git show 849703b4:src/app/doc-render-pptx.ts`),
+  // so `textLines` held "before"/"after" and `buildContentSlide`, which gates the
+  // Body on `textLines.length`, emitted it. A wholly blank slide takes the
+  // image-ONLY paragraph — see "does not bracket an image-only paragraph with
+  // blank body lines", which shows that shape emitting no Body at all. The fix is that
   // the DECISION now applies the same decode the minting does, so a row it
   // cannot decode is left in the fragment for the placeholder pass.
   //

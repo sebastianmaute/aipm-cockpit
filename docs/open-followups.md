@@ -13627,7 +13627,8 @@ BEFORE the gesture (the panel knows which document is selected long before the c
 restructuring the export entry point so the async work happens outside the gesture-sensitive branch.
 
 ★ **What is already done.** `assetSrcAttr` — the `data:` URI sink — is built, validates the mime
-against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload against the base64 alphabet,
+against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload by DECODING it through the
+shared `safeBase64ToBytes` — an alphabet regex sat here first and was wrong in both directions —
 falls through to the `data-asset-missing` branch on a miss, and is unit-tested against PARSED
 attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
 be downgraded on reachability grounds.
@@ -14274,10 +14275,18 @@ console.log("checked", n, "mismatches", bad);
 
 Framing this as "16:9 screenshots" still understates it — a 4:3 800×600 photo behaves identically,
 and `ASSET_DOWNSCALE_H` is 1080, so essentially every screenshot and camera image at an ordinary
-aspect ratio qualifies. What does NOT qualify is a panorama or a wide banner.
+aspect ratio qualifies. What does NOT qualify is a panorama or a wide banner. ★★ **NOT-17 IS NOT
+THE SAME AS SHARING** — a 2500×1000 banner costs 16, misses the conjunction above, and still lands
+alone. Cost 17 is a sufficient condition for landing alone, never the criterion; the criterion is
+in Consequence.
 
-**Consequence.** An image never shares a slide with anything. `paginateLines` over
-`["intro paragraph", IMAGE, "para two", "para three"]` measured:
+**Consequence.** An image lands alone exactly when its `lineCost` reaches **16**, the whole budget
+— not when it reaches 17. `paginateLines` is one forward pass, so a line of cost `c` joins a
+non-empty chunk only while `1 + c ≤ 16` and admits a following line only while `c + 1 ≤ 16`: 15
+shares, 16 does not. In stored pixels that is `h ≥ 337` AND `w / h < BODY_BOX.cxEmu / (15 ×
+BODY_LINE_EMU)` ≈ 2.5714, which agreed with `lineCost(w, h) >= 16` on every one of the same
+915,200 pairs — rerun the scan above with `h >= 337`, `15 * L` and `cost(w, h) >= 16` substituted.
+`paginateLines` over `["intro paragraph", IMAGE, "para two", "para three"]` measured:
 
 - with a 1920×1080 image (cost 17) → **3** chunks: `[intro] [IMAGE] [para two, para three]`
 - with a 400×300 image (cost 14) → **2** chunks: `[intro, IMAGE, para two] [para three]`
@@ -14291,16 +14300,20 @@ MOTIVATED THIS ENTRY DID NOT REPRODUCE.** A 400×300 image costs 14, not 17, and
 see the table. The effect is real and the arithmetic above is measured; that particular probe's
 numbers are not, and are recorded here only so nobody re-derives the entry from them.
 
-**What closing it looks like.** Either cap an image's fitted height at
-`BODY_LINES_PER_SLIDE × BODY_LINE_EMU` (3413760) rather than `BODY_BOX.cyEmu` — one constant, and
-it makes a full-height picture exactly fill a slide instead of overflowing it by one line — or
-accept image-per-slide as the layout and say so in the UI. The first is cheap and changes emitted
-bytes, so it needs its own before/after on §219's manual pass.
+**What closing it looks like.** Either cap an image's fitted height BELOW `BODY_LINES_PER_SLIDE ×
+BODY_LINE_EMU` rather than at `BODY_BOX.cyEmu`, or accept image-per-slide as the layout and say so
+in the UI. ★★★ **CAPPING AT THAT PRODUCT CHANGES NOTHING, AND AN EARLIER REVISION HERE PRESCRIBED
+IT** as the fix that "makes a full-height picture exactly fill a slide instead of overflowing it by
+one line". 3413760 EMU costs `ceil(3413760 / 213360)` = 16, which IS the whole budget, so
+`paginateLines` still breaks before and after it and the deck is exactly as long. Sharing needs
+cost ≤ 15, so the cap has to be at or under `15 × BODY_LINE_EMU` = 3200400 — one line of text
+beside the picture, and a picture ~8% shorter than the box (`1 - 3200400 / 3474720`). The first is
+cheap and changes emitted bytes, so it needs its own before/after on §219's manual pass.
 
 ## 223. The asset mime allowlist is hand-restated at every consumer, with no shared predicate
 
-**Status:** open — every consumer that exists today is correct. The defect is that nothing makes
-the next one correct, and the layer that could have is deliberately not doing it.
+**Status:** open — and ONE consumer has already forgotten (see the ★★★ below). The defect is that
+nothing makes the next one correct, and the layer that could have is deliberately not doing it.
 
 **Why the load path is NOT the bug.** `sanitizeDocumentAsset` (`document-asset.ts`) runs
 `mime: sanitizeText(o.mime, ASSET_MIME_MAX)` and never consults `ASSET_MIME_ALLOWED`, so an
@@ -14338,6 +14351,27 @@ is FOUR different kinds, not the three an earlier revision of this entry named:
   really does stop nothing: `accept` is a hint to the file picker and the user can pick "all
   files" past it.
 
+★★★ **AND THAT GREP CANNOT SEE THE ONE CONSUMER THAT CHECKS NOTHING.** `document-preview.tsx` reads
+the stored mime straight off the row and hands it to `attachAssetImages`, which builds
+`new Blob([bytes], { type: mime })` — no allowlist, no cast, and so no hit for any search that
+spells the constant. An earlier revision of this entry therefore called every consumer correct.
+Sweep the mime READERS instead, which finds a consumer by what it touches rather than by what it
+names:
+
+```
+grep -rn "\.mime\b" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "recorder\|mimeType"
+```
+
+★★ **BOUNDED, NOT HARMLESS — AND DELIBERATELY NOT ITS OWN ENTRY.** The blob URL is only ever
+assigned to `<img src>`, where an `image/svg+xml` blob runs no script. Opening that blob in a tab by
+hand would be a genuine same-origin navigation, but `src/proxy.ts` serves `script-src 'self'
+'nonce-…' 'strict-dynamic'` with no `'unsafe-inline'` plus `object-src 'none'` — reproduce with
+`grep -n "script-src\|object-src" src/proxy.ts`. ★ REASONED, NOT MEASURED: the remaining step, that
+a blob document inherits its creator's policy, is a spec claim nothing in this repo can execute.
+Read it as a reason not to panic, not as proof. It is recorded HERE because it is
+not a second defect but exactly the shape this entry predicts: split out, someone converts the six
+casts, closes §223 as a refactor and never touches the consumer that checks nothing.
+
 **The trap.** A new consumer of `documentAssets` inherits an unfiltered list and gets no signal at
 all if it forgets the check: the row is well-formed, the mime is a plausible string, and the only
 symptom is whatever that sink does with bytes it should never have been handed. No gate can see
@@ -14351,7 +14385,10 @@ boolean` from `document-asset-upload.ts` beside the constant, and have the other
 instead of restating the cast. Seven sites spell that cast today —
 `grep -rc "ASSET_MIME_ALLOWED as readonly string\[\]" src/app --include=*.ts --include=*.tsx |
 grep -v ":0$"` — and six of them go, the seventh becoming the helper's own body. It also gives
-the next consumer something to find. ★ It does NOT make the check automatic and must not be sold
+the next consumer something to find. ★★ `document-preview.tsx` must GAIN a call it never had, which
+is a behaviour change rather than a refactor — the preview hands the browser whatever mime the row
+carries today — and cannot ride a mechanical sweep of the casts.
+★ It does NOT make the check automatic and must not be sold
 as though it did — a consumer that calls nothing is still wrong, and only a test can catch that.
 
 **Do not fold in the extent check.** `canEmbedDocxAsset`/`canEmbedPptxAsset` also require a

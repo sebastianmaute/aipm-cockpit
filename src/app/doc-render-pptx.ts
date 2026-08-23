@@ -283,10 +283,19 @@ function paragraphLines(html: string, ctx: RenderCtx): SlideLine[] {
     //   nothing can be minted until slides are known), and this side is the one
     //   holding the disclosure: pushing an `ImageLine` STRIPS the tag, so
     //   `withImagePlaceholders` never sees it again. A row `mint` would later
-    //   refuse therefore produced a BLANK slide — no picture, no body text, no
-    //   placeholder — where docx produced the disclosure from the same fixture.
+    //   refuse therefore lost BOTH the picture and its disclosure, where docx
+    //   produced the disclosure from the same fixture.
+    //   ★★ HOW MUCH OF THE SLIDE GOES DEPENDS ON THE PARAGRAPH, and an earlier
+    //   revision here said "a BLANK slide — no picture, no body text, no
+    //   placeholder" flatly. That is the image-ONLY paragraph (`<p><img></p>`,
+    //   the shape the block editor inserts): `slideLines` strips the blanks
+    //   around the `ImageLine`, so `textLines` is empty and `buildContentSlide`
+    //   emits no Body at all — pinned by "does not bracket an image-only
+    //   paragraph with blank body lines". With prose in the paragraph the
+    //   fragments either side are pushed unconditionally, so the slide kept its
+    //   Title and a Body and lost only the picture and the placeholder.
     //   Measured, not reasoned; pinned by "discloses an image whose stored
-    //   base64 has …" in `doc-render-pptx.test.ts`.
+    //   base64 has …" in `doc-render-pptx.test.ts` — which uses the PROSE shape.
     // ★★ SO THE TWO SITES' CHECKS MUST STAY IDENTICAL: `createDeckMedia`'s
     //   `mint` asks the same three questions in the same order, and its own
     //   docstring says why it may not add a fourth. `continue` here is the

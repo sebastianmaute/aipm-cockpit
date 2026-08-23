@@ -141,10 +141,12 @@ const PREPARING_HTML = "<!doctype html><title></title>";
  *  ★ COUNT IT, do not estimate it — the charge is `spent + bytes > budgetBytes`,
  *  a STRICT `>`, so five 5 MB images land `spent` at exactly 25 MB and pass; the
  *  SIXTH is the first to be omitted. An earlier revision here said "six large
- *  images already turned into placeholders", which is false for five of the six.
- *  ★ "in Word" is deliberate and still correct: this is the PRE-`assetPolicy`
- *  behaviour this branch exists to remove, when docx carried the inline budget
- *  too. Verify with:
+ *  images already turned into placeholders in Word", which is false for five of
+ *  the six. ★ Only the COUNT was wrong: before `assetPolicy`, `loadExportAssets`
+ *  defaulted `budgetBytes` to `EXPORT_INLINE_BUDGET_BYTES` and no caller
+ *  overrode it, so Word really was budgeted then —
+ *  `git show db9feb80^:src/app/document-export-assets.ts | grep -n budgetBytes`.
+ *  Verify the split with:
  *    node -e "let s=0,M=1048576;for(let i=1;i<=6;i++){if(s+5*M>25*M)console.log(i,'omitted');else{s+=5*M;console.log(i,'inline',s/M+'MB')}}"
  *
  *  ★★ `Number.POSITIVE_INFINITY` really is unbounded here rather than merely

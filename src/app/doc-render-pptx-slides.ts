@@ -369,7 +369,10 @@ export function createDeckMedia(ctx: RenderCtx) {
      *  place a picture could be declined — and this file has nothing to decline
      *  WITH. Skipping the picture is all `buildContentSlide` can do, and a
      *  skipped picture on a slide whose `<img>` tag `paragraphLines` already
-     *  stripped is a BLANK SLIDE: no `<p:pic>`, no body text, no placeholder.
+     *  stripped leaves nothing that says an image was ever there — and for the
+     *  image-ONLY paragraph the block editor inserts, nothing on the slide at
+     *  all: no `<p:pic>`, no body text, no placeholder. (A paragraph with prose
+     *  around the image keeps its Body; `doc-render-pptx.ts` carries the split.)
      *  Every other pptx decline reason leaves the tag in the fragment for
      *  `withImagePlaceholders`, which is the only thing that tells the reader an
      *  image was there. So the null path is a genuine last resort, not a
@@ -399,6 +402,13 @@ export function createDeckMedia(ctx: RenderCtx) {
       //   unreachable from any test, and this is the site where the deck-wide
       //   counter moves. Both sites call this ONE function, so they cannot
       //   disagree about what is decodable.
+      // ★ WHAT THE DUPLICATION COSTS, so the trade is priced rather than
+      //   asserted: one extra `atob` plus byte copy per embeddable row — ~170 ms
+      //   at the documented cap (`ASSET_STORED_MAX_BYTES` 5 MiB ×
+      //   `ASSET_MAX_PER_DOCUMENT` 20), measured under node at 164/175/171 ms
+      //   over three runs by timing `base64ToBytes` across twenty
+      //   `Buffer.alloc(5 * 1024 * 1024).toString("base64")` rows. Paid once per
+      //   export, never on a keystroke path.
       const data = safeBase64ToBytes(b64);
       if (!data) return null;
       partCount += 1;

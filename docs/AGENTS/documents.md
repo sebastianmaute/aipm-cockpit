@@ -839,8 +839,12 @@ the upload allowlist — so a hostile project file carrying a mime of the
 src is undecodable. On the PDF branch that HTML is written into a `window.open("", "_blank")`, an
 `about:blank` that inherits the opener's origin, so it would run in the app origin. `assetSrcAttr`
 now validates the mime against `ASSET_MIME_ALLOWED` (imported, never restated, so upload policy and
-render policy cannot drift) and the data against the base64 alphabet, falling through to the
-existing `data-asset-missing` branch on a miss. ★★ **Escaping alone would NOT have been enough** —
+render policy cannot drift) and the data by DECODING it through the shared `safeBase64ToBytes`,
+falling through to the existing `data-asset-missing` branch on a miss. ★★ An alphabet regex sat in
+that second slot first and was wrong in BOTH directions — it passed `"abcde"` and `"===="`, which
+`atob` rejects, and rejected a line-wrapped row, which `atob` accepts; only `atob` knows what `atob`
+takes. The regex is deleted — `grep -rn BASE64_RE src` exits 1 with no output.
+★★ **Escaping alone would NOT have been enough** —
 an escaped `image/svg+xml` is still an XSS surface, and the load path admits it while upload does
 not; the allowlist is the part that matters. ★★ It was not reachable at the time only because no
 production caller passes the optional `assets` argument — the sink is one wiring line from live, so
@@ -1186,10 +1190,13 @@ ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img
 `<span data-asset-id>` consumes a slot and reaches no export bucket at all (§218).
 
 ★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
-does NOT enforce `ASSET_MIME_ALLOWED` on load, so every consumer restates the allowlist check by
-hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today, and a new
-consumer that forgets one gets no signal from any gate. §223 carries the four kinds of use and the
-argument against narrowing the storage layer; do NOT close it there.
+does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by
+hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today — and a
+consumer that forgets gets no signal from any gate. ★★★ **ONE ALREADY HAS**: `document-preview.tsx`
+hands the raw stored mime to `attachAssetImages`, which types its Blob with it and consults
+nothing — and because it never names the constant, no grep for the constant can find it. §223
+carries the four kinds of use, the mime-reader sweep that DOES find it, and the argument against
+narrowing the storage layer; do NOT close it there.
 
 ★★★ **TWO MORE WERE FOUND IN REVIEW AND ARE DISCLOSED RATHER THAN FIXED, and BOTH are silent.**
 (a) `image/webp` is on `ASSET_MIME_ALLOWED` and survives every downstream layer — `processUpload`
@@ -1200,12 +1207,14 @@ insertion as current-Microsoft-365-only, so an older perpetual Word is expected 
 frame WITH NO PLACEHOLDER, because nothing here believes anything failed (§221; the decision was
 to document rather than decline it, and the reasoning is in that entry).
 (b) An image fitted to the full body box costs `ceil(3474720 / 213360)` = **17** slide lines
-against a `BODY_LINES_PER_SLIDE` of **16**, so such an image can never share a slide. ★★ It takes
-BOTH a stored height of **359 px or more** AND an aspect ratio `w/h` below **≈2.41** — above that
+against a `BODY_LINES_PER_SLIDE` of **16**, so such an image can never share a slide. ★★ Reaching
+17 takes BOTH a stored height of **359 px or more** AND an aspect ratio `w/h` below **≈2.41** — above that
 the image is width-bound, never reaches the box height, and costs less (a 4000×1080 image costs
-11). So essentially every screenshot and camera image lands alone and lengthens the deck, while a
-panorama does not. §222 carries the arithmetic, the fitted-height table and two reproduce scripts;
-do not restate the rule as a height threshold alone, which is how it was written here first.
+11). ★★★ **BUT 17 IS NOT THE LANDS-ALONE RULE AND THIS PARAGRAPH ONCE READ AS IF IT WERE**
+("essentially every screenshot lands alone, while a panorama does not"). A line lands alone at cost
+**16**, the whole budget: a 2500×1000 banner costs 16 and lands alone, while a 4000×1080 one costs
+11 and shares. §222 carries the arithmetic, the fitted-height table and two reproduce scripts; do
+not restate either rule as a height threshold alone, which is how this was written here first.
 ★★ Neither is measurable here: §221's format claim is sourced from the spec and Microsoft's docs,
 not observed, and §219 items 6 and 7 carry both owed checks.
 

@@ -19,19 +19,31 @@ longer carries its own changelog comment.
   files carry the picture itself, and an HTML or PDF export embeds it directly
   in the file, so the document can be sent on as a single attachment with
   nothing to link back to.
-- **An image that cannot be drawn is still named, never dropped.** If an
+- **An image that cannot be drawn is still disclosed, never dropped.** If an
   image's stored data is missing or unreadable, or its format or size is not
-  something the export can use, every format writes a visible placeholder
-  naming it, and no format writes an empty picture in its place. Word and
-  PowerPoint already did this for an image whose data was absent or whose size
-  was unknown; PowerPoint now does it for unreadable data too, where it had
-  been leaving a blank space on the slide with nothing to notice it by. HTML
-  and PDF match throughout, and the marker that shows an unavailable image is
-  carried inside the exported file rather than relying on the app's own
-  stylesheet, which an exported file never loads.
+  something the export can use, the file says so where the picture would have
+  been: Word and PowerPoint write a visible placeholder naming the image, and
+  HTML and PDF mark the empty frame as unavailable — naming it instead when it
+  was the size limit that dropped it. No format — Word and PowerPoint
+  included — writes an empty picture in its place. This is the first release in
+  which a picture can fail to be drawn at all; before it, no format embedded
+  one. HTML and PDF decide what they can draw by actually decoding the stored
+  data rather than by inspecting it, so an image stored across several lines is
+  drawn rather than marked, and data that only looks well-formed is marked
+  rather than left as a broken picture. That marker is carried inside the
+  exported file rather than relying on the app's own stylesheet, which an
+  exported file never loads.
 - **PDF export no longer risks a blocked tab.** The export opens its print tab
   first and loads the image data into it afterwards, so a document with images
   behaves exactly like one without.
+
+### Fixed
+
+- **An image the app cannot read is now marked as unavailable in the document
+  preview.** A picture whose stored data was blank had its marker stripped —
+  the dashed red frame and warning sign every other unavailable image carries —
+  so the reader saw a bare broken-image icon with nothing to say what was wrong.
+  It is now marked like the rest.
 
 ### Known limitations
 
@@ -57,13 +69,13 @@ longer carries its own changelog comment.
   still outstanding and is tracked as `docs/open-followups.md` §219.
 - **A PowerPoint export gets longer than you expect: a picture takes a slide of
   its own.** A slide holds sixteen lines of body text, and an ordinary picture —
-  one at least about 360 pixels tall and no more than about 2.4 times as wide as
-  it is tall — is scaled to fill the slide's whole body area, which
-  costs seventeen. So such a picture never shares a slide with text, and the
-  paragraphs around it move to the slides either side. A document alternating
-  prose and screenshots therefore produces roughly one slide per picture plus one
-  per run of text. A much wider picture — a panorama or a banner — is sized to
-  the slide's width instead, is shorter on the slide, and can still share it.
+  one at least about 340 pixels tall and no more than about two and a half times
+  as wide as it is tall — is scaled large enough to consume all sixteen. So such
+  a picture never shares a slide with text, and the paragraphs around it move to
+  the slides either side. A document alternating prose and screenshots therefore
+  produces roughly one slide per picture plus one per run of text. Only a wider
+  picture — a panorama or a banner — or a shorter one is scaled down far enough
+  to leave room for text beside it.
   Tracked as `docs/open-followups.md` §222.
 - **A WebP image may not appear in older versions of Word and PowerPoint.**
   WebP uploads are accepted and are written into `.docx` and `.pptx` unchanged.
@@ -90,15 +102,17 @@ longer carries its own changelog comment.
   opens when a test actually goes red. It is now corrected there too.
 - §221 and §222 are the two limits the release review turned up: a WebP embed
   that older Office builds cannot draw and does not disclose, and an image
-  costing one slide line MORE than a whole slide so that it always lands alone.
+  charged a whole slide's line budget so that it always lands alone.
   Both are described in user terms under Known limitations above; neither is
   fixed, and both are measurable only by opening the produced files (§219 items
   6 and 7).
 - §223 records a maintainability gap the same review turned up: the asset mime
   allowlist is not enforced by the load-path sanitizer — deliberately — so every
   consumer restates the same check by hand, and nothing makes the next one do
-  it. Every consumer that exists today is correct; the entry says why narrowing
-  the storage layer is the wrong remedy.
+  it. One consumer — the in-app preview — already has not, and it is invisible
+  to any search for the constant because it never names it; the entry carries the
+  sweep that finds it, and why narrowing the storage layer is still the wrong
+  remedy.
 - No file-size or coverage baseline moved in this release.
 
 ## [0.255.1] - 2026-08-22 "Bisson"

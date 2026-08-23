@@ -294,18 +294,22 @@ export function base64ToBytes(b64: string): Uint8Array {
  *  redundant and neither substitutes for the other: the handler turns a lost
  *  export into a REPORTED lost export, this guard is what keeps the export.
  *  Deleting a handler re-opens the silent failure for every OTHER throw on that
- *  path. Verify: `git grep -n "downloadDocument(" -- src | grep -v "\.test\."`.
+ *  path. Verify — the `-A1` is load-bearing, because one of the three sites puts
+ *  its handler on the NEXT line, so the bare form reads as a refutation:
+ *    git grep -nA1 -E "void downloadDocument[(]" -- src | grep -v "\.test\."
  *
- *  ★★ The premise is `doc-render-html.ts`'s, restated because it holds for all
- *  three sinks and only one of them acted on it: these bytes come back from a
- *  Turso column that validates no charset, so "we wrote it, so it decodes" is
- *  not a claim this decode may rely on.
+ *  ★★ THE PREMISE, first written down in `doc-render-html.ts` and true for every
+ *  consumer: these bytes come back from a Turso column that validates no
+ *  charset, so "we wrote it, so it decodes" is not a claim any of them may rely
+ *  on. All of them now act on it, through this function.
  *
  *  ★★★ A CATCH, NOT A REGEX PRE-CHECK, AND THAT IS THE MEASURED CHOICE RATHER
- *  THAN THE LAZY ONE. `doc-render-html.ts`'s alphabet test is the right guard
- *  THERE because that sink interpolates into a data: URI and never decodes, so
- *  its only question is what may enter an attribute. Reused here it would be
- *  wrong in BOTH directions. Too weak: `atob("abcde")` throws "not correctly
+ *  THAN THE LAZY ONE. An alphabet test — /^[A-Za-z0-9+/=]+$/ — is wrong in BOTH
+ *  directions, at EVERY sink. An earlier revision here defended it as "the right
+ *  guard" for `doc-render-html.ts`, on the grounds that that sink interpolates
+ *  into a data: URI and never decodes so its only question is what may enter an
+ *  attribute; that argument fell, the regex is gone, and the html sink now calls
+ *  this function like the rest. Too weak: `atob("abcde")` throws "not correctly
  *  encoded" while passing it, as do "=", "====", "ab=c", "QQ=" and "AAAA=" —
  *  a whole family of length and padding faults no alphabet test can see, so the
  *  throw this exists to stop would still get through. Too strong: `atob` strips
@@ -323,17 +327,19 @@ Ggo="` decodes to the same
  *  stored row rode through them and landed a ZERO-BYTE `word/media/image1.png`
  *  / `ppt/media/image1.png` in the package, referenced by a real `<w:drawing>`
  *  / `<p:pic>` and disclosed by no placeholder. Measured, not reasoned.
- *  ★★ REJECTED HERE RATHER THAN AT THE TWO CALL SITES ON PURPOSE: a zero-byte
- *  image is undrawable at every sink, one place cannot drift from the other,
- *  and a third consumer inherits the guard. `doc-render-html.ts` already
- *  declines the same input for an unrelated reason (its `BASE64_RE` rejects
- *  whitespace outright), so this brings the OOXML sinks level with the sink
- *  that was accidentally right.
+ *  ★★ REJECTED HERE RATHER THAN AT THE CALL SITES ON PURPOSE: a zero-byte image
+ *  is undrawable at EVERY sink, one place cannot drift from five, and a new
+ *  consumer inherits the guard. That has already paid twice — `doc-render-html.ts`
+ *  and `document-asset-images.ts` (the live preview) each moved onto this after
+ *  their own hand-rolled check was measured wrong. FIVE call sites today, in five
+ *  files; enumerate them WITH the declaration by:
+ *    grep -rn "safeBase64ToBytes[(]" src/app --include=*.ts | grep -v "\.test\."
+ *  (the bracket class is deliberate — spelling the bare call would make this
+ *  comment match itself and report a sixth site).
  *  ★ The name is therefore slightly generous — this returns null for a string
  *  `atob` ACCEPTS. Kept anyway: every consumer wants bytes it can draw and none
- *  has ever wanted an empty decode (enumerate them with
- *  `grep -rn safeBase64ToBytes src/app --include=*.ts`), and the raw
- *  `base64ToBytes` is still there for anyone who genuinely does. */
+ *  has ever wanted an empty decode, and the raw `base64ToBytes` is still there
+ *  for anyone who genuinely does. */
 export function safeBase64ToBytes(b64: string): Uint8Array | null {
   let bytes: Uint8Array;
   try {
