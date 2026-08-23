@@ -24,6 +24,18 @@ passes at 1.75 with wide margin, and the rise is an artifact of the metric, not 
 and `RaidCountHead` (raid-report-panel) converged into near-identical bodies once their
 per-column props collapsed. Consolidating them is out of scope here.
 
+★ A second follow-up, found in review and PRE-EXISTING (not caused by this slice):
+`CountTableBody` in `change-report-panel.tsx` is a pure pass-through that declares the same
+four-prop signature as `CountHead` beside it and reads none of them. Collapsing it removes a
+whole duplicated prop-list layer. Worth doing BEFORE the pattern is copied into more panels.
+
+★★ The canonical adoption pattern, pinned here because nothing in the code enforces it:
+import `useSortHeaderProps` alongside `SortResizeTh`; call it ONCE, immediately after `w`/`sr`
+are derived and BEFORE any early return (a hook after a conditional return is a real bug tests
+may not catch); spread `{...th}` FIRST, then the per-column props in the order all 50 Task-3
+call sites already use — `label`, `sortCol`, `resizeCol`, `width`, `align`, `hint`. The bag's
+four field names collide with none of those, so nothing relies on prop-clobber order.
+
 ★★ **Every number below was measured on 2026-08-23 against `0993d04e` and rots.** Each carries the
 command that reproduces it. Run the command; never quote the number.
 
