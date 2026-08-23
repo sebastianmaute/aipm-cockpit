@@ -190,8 +190,14 @@ is therefore to confirm the row READS uniform - not to confirm the cascade, whic
 VoiceOver/Safari, which does not announce `aria-sort`, goes from "Title up-arrow" to "Title".
 Standard-correct and already recorded in `AGENTS.md`. Do not re-litigate it as pure gain.
 
-★ `roles-editor` hovers `text-ui-green` where the primitive uses the shared table-head accent
-token. Conversion normalises it — a deliberate visual change.
+★★ **FOUR panels change hover colour, not one** (measured 2026-08-23 with
+`grep -c hover:text-ui-green src/app/<panel>.tsx`): `stakeholders-panel` (5 sites),
+`resource-directory` (7), `roles-editor` (4) and `activity-log-panel` (3) all hover
+`text-ui-green`, where the primitive uses the shared `--table-head-accent` token — and the
+primitive ALSO paints the ACTIVE column in that token, which none of them did. `change-panel` and
+`raid-panel-rows` already used the accent, so they are unaffected. Both tokens are sanctioned, so
+this is normalisation, not a palette break — but it is a visible colour change on four panels and
+belongs on the eye-verify list, not just the one panel this line used to name.
 
 ★ `activity-log-panel`'s fourth header is deliberately non-sortable *because* a fourth hand-rolled
 sort button would deepen this debt (its own comment says so, and names this conversion as the
