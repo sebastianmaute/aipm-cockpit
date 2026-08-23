@@ -258,6 +258,21 @@ state and have other consumers.
   LABEL key: a swapped label throws not-found. Nothing else in the suite checks that a header
   renders the string it is supposed to. So one test covers both `sortCol` wiring and `label`
   correctness — use an exact string name, never a loose regex, or you give up the second half.
+
+  *** IT DETECTS A PASTE, NOT AN EXCHANGE - this section overclaimed and is corrected here.**
+  Everything above says the test catches a swap between two real columns. That is true only of a
+  DUPLICATE: one real key pasted onto a second header, which is the realistic copy-paste error and
+  is what every mutation in Tasks 8-10 exercised. A full EXCHANGE - header A takes Bs key while B
+  takes As - creates no duplicate, so exactly one header still lights up and it is still the one
+  the label lookup finds. **Count and identity both pass.** Reasoned through in Task 10 and not
+  refuted: clicking A calls onSort(B), sortKey becomes B, and the only header whose sortCol is B
+  is A itself.
+
+  * Catching an exchange needs an ORDERING observable - a fixture where the two columns sort to
+  DIFFERENT row orders, asserted on the rows rather than on the header. roles-editor has none: its
+  single-role fixture cannot order anything, and in its two-role fixture all four columns happen to
+  sort identically. Not built anywhere in this slice; recorded so nobody reads the existing tests
+  as covering it.
 - **Adapters:** mutation-check both. Flip `null` to `"asc"` in `fromNullableSort` and confirm the
   suite reddens. A surviving mutant is a question, not a pass.
 - **Part C:** assert byte-identical rendered DOM on one existing report panel before and after.
