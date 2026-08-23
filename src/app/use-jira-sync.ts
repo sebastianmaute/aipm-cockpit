@@ -371,6 +371,22 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         } else if (field.key === "completedDate") {
           merged.completedDate =
             typeof value === "string" && value ? value : undefined;
+          // ★★★ Write BOTH halves of the coupled pair from the side the user
+          //   picked. `status` is deliberately not a ConflictFieldKey: offering
+          //   it as its own row would let the user pick local for one half and
+          //   remote for the other, i.e. construct the split pair by hand.
+          //   Taking both from one side inherits the guarantee the pull path
+          //   already has — issueToTaskFields derives completedDate and status
+          //   from ONE statusKey read, so remoteStatus and the remote date
+          //   cannot disagree; the local pair is held consistent by the local
+          //   write paths (applyStatusChange, and template import since it
+          //   started reconciling).
+          // ★★ NOT applyStatusChange here: it would stamp `today` over Jira's
+          //   real resolution date, which is why every Jira write site bypasses
+          //   that engine. NOT reconcileStatusFromDate either: it decides status
+          //   from date PRESENCE and would rewrite a reopened issue's genuine
+          //   "In Progress" into "To Do".
+          merged.status = pick === "local" ? original.status : conflict.remoteStatus;
           completionChanged = true;
         } else if (
           field.key === "taskName" ||
