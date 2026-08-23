@@ -252,6 +252,12 @@ state and have other consumers.
   Only the swap test reddens (`expected [...] to have a length of 1 but got 2`). So no typechecker,
   no existing test and no gate in this repo can see a swapped column; this test is the sole
   detector, and it must be mutation-proved on every panel or it is decoration.
+
+  ★★ **It is a DUAL detector, and the second half is free.** Looking each column up by an EXACT
+  button name (RTL treats a string `name` as a full-string match) also pins that column+s i18n
+  LABEL key: a swapped label throws not-found. Nothing else in the suite checks that a header
+  renders the string it is supposed to. So one test covers both `sortCol` wiring and `label`
+  correctness — use an exact string name, never a loose regex, or you give up the second half.
 - **Adapters:** mutation-check both. Flip `null` to `"asc"` in `fromNullableSort` and confirm the
   suite reddens. A surviving mutant is a question, not a pass.
 - **Part C:** assert byte-identical rendered DOM on one existing report panel before and after.
