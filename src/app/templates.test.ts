@@ -41,6 +41,46 @@ describe("sanitizeTemplates", () => {
     }]);
     expect(out[0].seed?.tasks?.[1].dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
+
+  it("reconciles an inconsistent seed status/completedDate pair — the date wins", () => {
+    const out = sanitizeTemplates([{
+      id: "t", name: "T", features: [], fieldVisibility: {},
+      seed: { tasks: [
+        // a delivery date on an open row → becomes Done, date preserved
+        { id: 1, taskName: "date but open", assignee: "", assigneeEmail: "", dueDate: "",
+          lastUpdateDate: "", priority: "Low", blockers: "", description: "",
+          status: "To Do", completedDate: "2026-03-04" },
+        // Done with no date → demoted, nothing invented
+        { id: 2, taskName: "done but dateless", assignee: "", assigneeEmail: "", dueDate: "",
+          lastUpdateDate: "", priority: "Low", blockers: "", description: "",
+          status: "Done" },
+      ] },
+    }]);
+    const tasks = out[0].seed!.tasks!;
+    expect(tasks[0].status).toBe("Done");
+    expect(tasks[0].completedDate).toBe("2026-03-04"); // a real date is never deleted
+    expect(tasks[1].status).toBe("To Do");
+    expect(tasks[1].completedDate).toBeFalsy();        // and never invented
+  });
+
+  it("leaves an already-consistent seed pair alone", () => {
+    const out = sanitizeTemplates([{
+      id: "t", name: "T", features: [], fieldVisibility: {},
+      seed: { tasks: [
+        { id: 1, taskName: "done", assignee: "", assigneeEmail: "", dueDate: "",
+          lastUpdateDate: "", priority: "Low", blockers: "", description: "",
+          status: "Done", completedDate: "2026-03-04" },
+        { id: 2, taskName: "open", assignee: "", assigneeEmail: "", dueDate: "",
+          lastUpdateDate: "", priority: "Low", blockers: "", description: "",
+          status: "In Progress" },
+      ] },
+    }]);
+    const tasks = out[0].seed!.tasks!;
+    expect(tasks[0].status).toBe("Done");
+    expect(tasks[0].completedDate).toBe("2026-03-04");
+    expect(tasks[1].status).toBe("In Progress");
+    expect(tasks[1].completedDate).toBeFalsy();
+  });
 });
 
 describe("a captured task description survives the template round trip", () => {

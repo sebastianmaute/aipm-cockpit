@@ -1,5 +1,5 @@
 import { sanitizeFeatures, type FeatureModuleId } from "./feature-modules";
-import { migrateTask } from "./task-status";
+import { migrateTask, reconcileStatusFromDate } from "./task-status";
 import type { Workspace } from "./workspace";
 import {
   sanitizeFieldVisibility,
@@ -199,9 +199,17 @@ function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
-  // Derive a valid workflow status (Done-if-completedDate, else To Do) for
-  // legacy/sparse seed content; a present-and-valid status is preserved.
-  return migrateTask(task);
+  // `migrateTask` derives a valid workflow status (Done-if-completedDate, else
+  // To Do) for legacy/sparse seed content; a present-and-valid status is left
+  // alone, EVEN when it contradicts `completedDate` — its only status write is
+  // guarded `if (!statusOk)`. So the pair is reconciled after it, by trusting
+  // the date: this function reads `status` (a bare cast) and `completedDate`
+  // (via sanitizeIsoDate) independently, and nothing else would reconcile them.
+  // ★ Order is immaterial to the outcome — `migrateTask`'s
+  //   `if (statusOk && createdOk)` short-circuit never fires here, because this
+  //   function never assigns `createdDate`. Reconcile-last is chosen for
+  //   readability: the pair is then the final word.
+  return reconcileStatusFromDate(migrateTask(task));
 }
 
 function sanitizeRiskScale(raw: unknown): 1 | 2 | 3 | 4 | 5 | undefined {
