@@ -418,6 +418,11 @@ describe("DocumentsHistoryModal", () => {
     );
 
     expect(screen.getByRole("button", { name: /Restore/ })).toBeDisabled();
+    // ★★ NOT a discriminating assertion, and it is here only to document that.
+    // An `innerHTML` re-assignment replaces the div's CHILDREN; React never
+    // recreates the host element, so this line passes under the defect and under
+    // the fix alike. The two assertions below are the ones that pin it — do not
+    // read this one as the test's teeth.
     expect(document.getElementById("documents-history-preview-32")).toBe(panel);
     expect(panel?.firstChild).toBe(beforeFirst);
     expect(panel?.querySelector("h2")).toBe(beforeHeading);
@@ -620,6 +625,18 @@ describe("DocumentsHistoryModal — asset images in a version Preview", () => {
     const { rerender } = render(tree(access()));
     await user.click(screen.getByRole("button", { name: /Preview/ }));
     await waitFor(() => expect(loadAssetData).toHaveBeenCalledTimes(1));
+    // ★★★ CAPTURED BEFORE THE RE-RENDER SO THIS TEST ALSO COMPOSES THE MEMO
+    // WITH THE EFFECT — the one thing neither half pins on its own. The memo's
+    // own test proves the subtree survives an unrelated re-render, and the count
+    // below proves the bag's identity does not re-trigger the load; NEITHER
+    // notices if a resolved image is left blank. Reverting the `previewHtml`
+    // memo rebuilds this subtree, the effect does not re-run to repair it (its
+    // deps are unchanged), and the picture is gone for good — with the call
+    // count still reading 1. That is the shipped `document-preview.tsx`
+    // showstopper reproduced here, and only an assertion on the NODE and its
+    // `src` can see it.
+    const img = screen.getByAltText("chart");
+    await waitFor(() => expect(img.getAttribute("src")).toMatch(/^blob:/));
 
     rerender(tree(access()));
     // ★ A REAL FLUSH, not a bare `waitFor` on the count: the load fires from
@@ -628,5 +645,9 @@ describe("DocumentsHistoryModal — asset images in a version Preview", () => {
     // synchronous poll under the defect too, and assert nothing.
     await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
     expect(loadAssetData).toHaveBeenCalledTimes(1);
+    // Same NODE, still carrying its resolved `src`. Identity first: a rebuilt
+    // subtree is byte-identical, so only the node says it was replaced.
+    expect(screen.getByAltText("chart")).toBe(img);
+    expect(img.getAttribute("src")).toMatch(/^blob:/);
   });
 });

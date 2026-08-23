@@ -215,6 +215,18 @@ describe("attachAssetImages", () => {
   // rows are untouched, and metadata and bytes live in different tables with
   // different lifecycles (§207 records them desynchronising in production) —
   // four mechanisms that hand a live `mimeFor` an id it knows nothing about.
+  // ★★ WHAT THIS DOES AND DOES NOT BUY, because the distinction was overstated
+  // once already. A MISS and an absent lookup converge on the identical value
+  // (`mime === undefined`) one line above the guard, so NO one-token mutation of
+  // the guard separates them: the `!== undefined` mutant leaves both green and
+  // the drop-the-truthiness mutant reddens both. What this test genuinely covers
+  // is the OPTIONAL CALL itself — mutate `mimeFor?.(id)` to `mimeFor!(id)` and
+  // this stays green while the no-lookup test throws. It is kept because the
+  // miss is a distinct DOMAIN case with four real mechanisms behind it (an
+  // optional slice set to undefined when empty; rows dropped individually on
+  // load while bytes survive; metadata and bytes in different tables with
+  // different lifecycles, per §207; and the `<img>` reference living in a third
+  // slice) — not because it discriminates a distinct branch here.
   it("falls through to a typeless Blob when the mime lookup misses", async () => {
     const el = root('<img data-asset-id="orphan">');
     const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
