@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.256.1 "Khaw" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.256.2 "Khaw" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 

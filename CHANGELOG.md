@@ -8,6 +8,32 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.256.2] - 2026-08-23 "Khaw"
+
+### Fixed
+
+- **Images now appear when you preview an earlier version of a document.**
+  Opening a version from a document's history rendered its text but left every
+  picture in it blank, with nothing to say why. The version-history preview drew
+  each block without ever resolving the images it referenced. A version's
+  pictures now appear there exactly as they do in the document itself.
+- **An image stored in a format the app does not accept is no longer drawn.**
+  Uploads have always been limited to PNG, JPEG and WebP, but a document
+  carrying an image recorded as something else — from an older build, a
+  hand-edited workspace file, or stored data that had drifted from its record —
+  was handed to the browser as it stood. Such an image now shows the same
+  "unavailable" frame a deleted one does. An image with no recorded format at
+  all is unaffected and still appears.
+- A document preview no longer rebuilds itself from scratch every time something
+  unrelated changes in the view around it. That rebuild is what had stopped the
+  images fix above from holding.
+
+### Internal
+
+- Two oversized source files were split into smaller ones, and seven
+  hand-written copies of the image-format rule became a single shared one. No
+  behaviour changed. No file-size or coverage baseline moved in this release.
+
 ## [0.256.1] - 2026-08-23 "Khaw"
 
 ### Changed
