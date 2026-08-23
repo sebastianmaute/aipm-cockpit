@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, within } from "@testing-library/react";
 import { describe, it, expect, vi } from "vitest";
+import userEvent from "@testing-library/user-event";
 import { RolesEditor } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
@@ -386,6 +387,104 @@ describe("RolesEditor rate-card table", () => {
     // their own handles, which stay live and would mask this.
     for (const row of dataRows()) {
       expect(within(row).queryByRole("button", { name: /reorder/i })).toBeNull();
+    }
+  });
+});
+
+
+describe("RolesEditor sortable column headers", () => {
+  // The rate card announced its sort state NOWHERE: four hand-rolled sortable
+  // headers and zero aria-sort attributes, the state carried only as a ▲/▼ glyph
+  // inside each button's accessible name. axe has NO rule for a missing aria-sort,
+  // in any view at any seed size, so these tests are the only detector that will
+  // ever exist for it.
+
+  // Scoped to the rate-card table: the discipline and grade reference lists below
+  // it render their own rows, and a stray <th> from either would inflate every
+  // count here. Anchored on the NON-sortable basis header so the scope itself can
+  // never move with the sort state — anchoring it on a sort button made a failure
+  // in the swap test surface as "cannot find the Discipline button" instead of the
+  // assertion it was there to make.
+  const rateCard = () =>
+    screen.getByRole("columnheader", { name: new RegExp(t("en-US", "rolesRateBasis"), "i") }).closest("table")!;
+
+  // The <th>'s own accessible name absorbs the InfoTooltip badge beside the label
+  // (measured before the change: the discipline header names as "Discipline i"),
+  // so the header is reached through its BUTTON rather than matched by name.
+  const headerFor = (label: string) =>
+    within(rateCard()).getByRole("button", { name: label }).closest("th");
+
+  // A string `name` is an EXACT match, so each lookup also pins that column's i18n
+  // label key — a header wired to the wrong string fails here too. The labels stay
+  // glyph-free because the primitive's sort arrow is aria-hidden.
+  const SORTABLE = [
+    ["discipline", t("en-US", "rolesDiscipline"), t("en-US", "rolesDisciplineHint")],
+    ["grade", t("en-US", "rolesGrade"), t("en-US", "rolesGradeHint")],
+    ["internal", t("en-US", "rolesInternalRate"), t("en-US", "rolesInternalRateHint")],
+    ["external", t("en-US", "rolesExternalRate"), t("en-US", "rolesExternalRateHint")],
+  ] as const;
+
+  it("announces sort state through aria-sort and keeps each column's hint", async () => {
+    renderEditor();
+    // Unsorted on mount: `sort` is null, so no column may claim a sort — but every
+    // sortable header must SAY so rather than leave the attribute off entirely.
+    for (const [, label] of SORTABLE) expect(headerFor(label)).toHaveAttribute("aria-sort", "none");
+    // Every hint badge survives the conversion — the hand-rolled span wrapping the
+    // button and the InfoTooltip is exactly what the primitive's `hint` prop
+    // renders. Matched by the tooltip's accessible name (InfoTooltip is a focusable
+    // span with role=button whose aria-label is the hint text), which pins each
+    // column's hint KEY too: a header handed a neighbour's hint fails here.
+    for (const [, , hint] of SORTABLE) {
+      expect(within(rateCard()).getByRole("button", { name: hint })).toBeInTheDocument();
+    }
+
+    const btn = () => within(rateCard()).getByRole("button", { name: t("en-US", "rolesDiscipline") });
+    await userEvent.click(btn());
+    expect(headerFor(t("en-US", "rolesDiscipline"))).toHaveAttribute("aria-sort", "ascending");
+    await userEvent.click(btn());
+    expect(headerFor(t("en-US", "rolesDiscipline"))).toHaveAttribute("aria-sort", "descending");
+  });
+
+  // ROLES_COL_WIDTHS is a fixed const with no persistence and no setter, so the
+  // rate card sorts but does not resize. `onResize` is therefore OMITTED rather
+  // than stubbed: a no-op handler still draws a grip that looks draggable and does
+  // nothing, the false affordance the primitive documents as worse than no handle.
+  it("renders no resize grip - these columns are fixed width", () => {
+    renderEditor();
+    // POSITIVE observable FIRST. Without it this passes on a table that failed to
+    // render at all, which is exactly how a bare absence assertion ships green.
+    const table = rateCard();
+    for (const [, label] of SORTABLE) expect(headerFor(label)).toBeInTheDocument();
+    expect(table.querySelectorAll(".cursor-col-resize")).toHaveLength(0);
+  });
+
+  // The explicit <SortKey> generic stops a GARBAGE sortCol, but it cannot stop one
+  // real column's key pasted onto another header: every key is still a valid
+  // SortKey, tsc exits 0, that column silently missorts, and no gate here sees it.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one sortCol
+  // both light up on a single click. So after clicking a column, EXACTLY one header
+  // may report a non-"none" aria-sort, and it must be that column's own. The count
+  // alone would miss a swap onto a hidden column; the identity alone would miss the
+  // duplicate — both halves are needed.
+  it("wires each sortable header to its own column, not a neighbour's", async () => {
+    renderEditor();
+    const sorted = () =>
+      within(rateCard())
+        .getAllByRole("columnheader")
+        .filter((th) => (th.getAttribute("aria-sort") ?? "none") !== "none");
+
+    for (const [key, label] of SORTABLE) {
+      // toggleSort resets the direction to "asc" whenever the KEY changes, so one
+      // pass over the four never re-enters the asc/desc flip.
+      await userEvent.click(within(rateCard()).getByRole("button", { name: label }));
+      // Re-queried after the click rather than reused: a stale node would make the
+      // identity check compare against something no longer in the document.
+      const own = headerFor(label);
+      expect(sorted(), "clicking " + key + " lit up the wrong number of headers").toHaveLength(1);
+      expect(sorted()[0], "clicking " + key + " sorted a different column").toBe(own);
+      expect(own).toHaveAttribute("aria-sort", "ascending");
     }
   });
 });

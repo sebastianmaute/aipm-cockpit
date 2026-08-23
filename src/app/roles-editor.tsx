@@ -8,6 +8,7 @@ import { ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import { InfoTooltip } from "./info-tooltip";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 import { dayFromHour, materializeRoleRates } from "./role-rates";
 import { SegmentedControl } from "./segmented-control";
@@ -98,6 +99,13 @@ export function RolesEditor({
   function toggleSort(key: SortKey) {
     setSort((s) => (s?.key === key ? { key, dir: s.dir === "asc" ? "desc" : "asc" } : { key, dir: "asc" }));
   }
+  // Bound ONCE for the four sortable headers. `sort` is null until a column is
+  // clicked, which the primitive reads as "no column active" — every aria-sort
+  // then reports "none", which is exactly right for an unsorted table. `toggleSort`
+  // never produces null afterwards, so "off" only ever describes the initial state.
+  // NO `onResize`: ROLES_COL_WIDTHS is fixed, so no grip must render — a no-op
+  // handler would draw one that looks draggable and does nothing.
+  const th = useSortHeaderProps<SortKey>(sort?.key ?? null, sort?.dir ?? "off", toggleSort);
 
   const sortedRoles = useMemo(() => {
     const arr = [...roles];
@@ -220,38 +228,36 @@ export function RolesEditor({
           <div className={INNER_TABLE_CLASS}>
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
-                <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.discipline, minWidth: ROLES_COL_WIDTHS.discipline }}>
-                  <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("discipline")} className="inline-flex items-center gap-1 hover:text-ui-green">
-                      {t(lang, "rolesDiscipline")}{sort?.key === "discipline" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
-                    <InfoTooltip text={t(lang, "rolesDisciplineHint")} />
-                  </span>
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.grade, minWidth: ROLES_COL_WIDTHS.grade }}>
-                  <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("grade")} className="inline-flex items-center gap-1 hover:text-ui-green">
-                      {t(lang, "rolesGrade")}{sort?.key === "grade" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
-                    <InfoTooltip text={t(lang, "rolesGradeHint")} />
-                  </span>
-                </th>
-                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internal, minWidth: ROLES_COL_WIDTHS.internal }}>
-                  <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("internal")} className="inline-flex items-center gap-1 hover:text-ui-green">
-                      {t(lang, "rolesInternalRate")}{sort?.key === "internal" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
-                    <InfoTooltip text={t(lang, "rolesInternalRateHint")} />
-                  </span>
-                </th>
-                <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.external, minWidth: ROLES_COL_WIDTHS.external }}>
-                  <span className="inline-flex items-center gap-1">
-                    <button type="button" onClick={() => toggleSort("external")} className="inline-flex items-center gap-1 hover:text-ui-green">
-                      {t(lang, "rolesExternalRate")}{sort?.key === "external" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-                    </button>
-                    <InfoTooltip text={t(lang, "rolesExternalRateHint")} />
-                  </span>
-                </th>
+                <SortResizeTh
+                  {...th}
+                  label={t(lang, "rolesDiscipline")}
+                  sortCol="discipline"
+                  width={ROLES_COL_WIDTHS.discipline}
+                  hint={t(lang, "rolesDisciplineHint")}
+                />
+                <SortResizeTh
+                  {...th}
+                  label={t(lang, "rolesGrade")}
+                  sortCol="grade"
+                  width={ROLES_COL_WIDTHS.grade}
+                  hint={t(lang, "rolesGradeHint")}
+                />
+                <SortResizeTh
+                  {...th}
+                  label={t(lang, "rolesInternalRate")}
+                  sortCol="internal"
+                  width={ROLES_COL_WIDTHS.internal}
+                  align="right"
+                  hint={t(lang, "rolesInternalRateHint")}
+                />
+                <SortResizeTh
+                  {...th}
+                  label={t(lang, "rolesExternalRate")}
+                  sortCol="external"
+                  width={ROLES_COL_WIDTHS.external}
+                  align="right"
+                  hint={t(lang, "rolesExternalRateHint")}
+                />
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internalDay, minWidth: ROLES_COL_WIDTHS.internalDay }}>
                   <span className="inline-flex items-center justify-end gap-1">
                     {t(lang, "rolesInternalRateDay")}
@@ -270,7 +276,7 @@ export function RolesEditor({
                     <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
                   </span>
                 </th>
-                <th className="px-3 py-2" />
+                <th className="px-3 py-2 font-medium" />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {sortedRoles.map((r) => {
