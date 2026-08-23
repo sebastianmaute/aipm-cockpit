@@ -21,15 +21,22 @@
 // seeded app and never opens this modal, so the collision does not exist at
 // scan time. Do not read a green axe run as covering anything below.
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { Button } from "./button";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import type { ProjectDocument } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
+import type { TursoConfig } from "./turso-config";
 import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./document-versions";
 import { renderDocumentHtml } from "./doc-render-html";
+import { attachAssetImages } from "./document-asset-images";
+import { loadAssetData } from "./document-assets-store";
+import {
+  subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
+} from "./document-asset-repairs";
 import { emptyWorkspace, type Workspace } from "./workspace";
 
 const HISTORY_TITLE_ID = "documents-history-title";
@@ -61,6 +68,27 @@ const VERSION_OP_LABEL: Record<DocVersionOp, TranslationKey> = {
  *  no gain the user asked for. */
 function stamp(savedAt: string): string {
   return savedAt.slice(0, 16).replace("T", " ");
+}
+
+/** Read-only asset access for resolving `<img data-asset-id>` in a version
+ *  preview — the renderer emits those with no `src`, so without this a version
+ *  holding an image previews it as a broken-image icon (open-followups §206).
+ *
+ *  ★★ A NEW, NARROWER TYPE RATHER THAN `DocumentAssetPaneProps`, which also
+ *  carries `setAssets`. This surface is read-only over assets and must not be
+ *  handed a setter: taking the wider type would leave a write capability the
+ *  component merely happens not to use, which is how one gets used later
+ *  without anyone deciding to. It is also the type the C10 note on the effect
+ *  below is about — three separately-stable fields, deliberately not one
+ *  object identity. */
+export interface HistoryAssetAccess {
+  /** null disables the feature — mirrors `DocumentAssetPaneProps.tursoConfig`. */
+  tursoConfig: TursoConfig | null;
+  /** Scopes the asset byte store's `(id, project_id)` rows. */
+  projectId: string;
+  /** Metadata rows, for the stored MIME. Absent (or a miss) is NOT an error —
+   *  `attachAssetImages` falls back to a typeless Blob. */
+  assets: readonly DocumentAsset[] | undefined;
 }
 
 export interface DocumentsHistoryModalProps {
@@ -108,6 +136,10 @@ export interface DocumentsHistoryModalProps {
    *  the live-document preview, where the data and the document are both
    *  current. */
   ws?: Workspace;
+  /** OPTIONAL: absent degrades to the pre-§206 behaviour — blocks render,
+   *  images do not resolve — never to broken markup. Document images are
+   *  Turso-gated (S3c-1), so a file-mode reader legitimately has no bag. */
+  assetAccess?: HistoryAssetAccess;
 }
 
 interface HistoryRowProps {
@@ -116,12 +148,13 @@ interface HistoryRowProps {
   onRestore: (versionId: number) => void;
   isReadOnly?: boolean;
   ws?: Workspace;
+  assetAccess?: HistoryAssetAccess;
 }
 
 /** One version row: `title · savedAt · source · op · block count`, a Preview
  *  disclosure and Restore. Its own component ONLY because the disclosure needs
  *  a hook per row, and hooks cannot live inside a `.map` callback. */
-function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowProps) {
+function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }: HistoryRowProps) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const previewId = `documents-history-preview-${v.id}`;
 
@@ -206,6 +239,74 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
   // which asserts NODE IDENTITY — markup assertions pass under the defect.
   const previewHtml = useMemo(() => ({ __html: html }), [html]);
 
+  const bodyRef = useRef<HTMLDivElement | null>(null);
+
+  // ★★★ C10 — THE BAG'S THREE FIELDS ARE HOISTED, AND THE EFFECT DEPENDS ON
+  // THESE, NEVER ON `assetAccess`. `workspace-panels.tsx` builds the pane's
+  // asset bag as an INLINE literal at the `DocumentsPanelLazy` mount, so the
+  // object reaching this component has a NEW identity on every render of the
+  // Documents tabpanel while its members stay reference-stable. Listing the bag
+  // would re-run the effect — an UNCACHED Turso round trip per image — on every
+  // unrelated re-render: the same `Object.is` identity failure `previewHtml`
+  // above exists to fix, one level up.
+  // ★ Hoisting is required regardless of where the bag is built:
+  // `react-hooks/exhaustive-deps` rejects an `obj.member` dep outright, so
+  // `[assetAccess.projectId]` is not an available spelling.
+  // Pinned by "does not re-fetch the bytes when the caller hands it a fresh bag
+  // object", which counts loader calls across an unrelated re-render.
+  const assetTursoConfig = assetAccess?.tursoConfig ?? null;
+  const assetProjectId = assetAccess?.projectId;
+  const assetList = assetAccess?.assets;
+
+  // ★★★ THE ONE SIGNAL NO PROP CARRIES, exactly as in `document-preview.tsx`: a
+  // §212 repair rewrites an asset's BYTES over its existing id and writes NO
+  // metadata, so `assetList` keeps its identity and `previewHtml` is unchanged.
+  // Without this the picture in an OPEN version preview stays missing while the
+  // library row beside it goes healthy.
+  const assetRepairGeneration = useSyncExternalStore(
+    subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
+  );
+
+  // ★★★ IMPERATIVE, NOT REACT STATE — the body below is one
+  // dangerouslySetInnerHTML string, so there is no React element to hand a
+  // `src` (and `react-hooks/set-state-in-effect` is banned and fatal anyway).
+  // See `document-asset-images.ts`'s own header; this mirrors the live preview.
+  //
+  // ★★ THE PER-REOPEN REFETCH IS ACCEPTED, DELIBERATELY. `html` above collapses
+  // to `""` while the disclosure is closed, so close → reopen recomputes it,
+  // changes `previewHtml`, and re-runs this effect — re-fetching the bytes. It
+  // is neither a leak nor a correctness bug: the prior open's teardown revokes
+  // its blob URLs first, and on the CLOSE transition the subtree is empty, so
+  // `attachAssetImages` finds no `img[data-asset-id]` and exits through its own
+  // no-op early return. A cache is NOT the answer here — it carries its own
+  // invalidation question (a §212 repair rewrites bytes under a stable id) and
+  // an unreviewed one buried in a wiring change is worse than a known repeated
+  // cost. This comment exists so the next reader finds a decision rather than
+  // an oversight.
+  //
+  // ★ Guarded on `assetProjectId === undefined` rather than on `assetAccess`:
+  // `projectId` is required on the bag, so undefined means no bag — and naming
+  // `assetAccess` in the body would drag the unstable object back into the deps.
+  useEffect(() => {
+    const el = bodyRef.current;
+    if (!el || assetProjectId === undefined) return;
+    let cancelled = false;
+    let detach: (() => void) | null = null;
+    const mimeFor = (id: string) => assetList?.find((a) => a.id === id)?.mime;
+    attachAssetImages(el, (id) => loadAssetData(assetTursoConfig, id, assetProjectId), mimeFor)
+      .then((d) => {
+        // The subtree may have been replaced (the disclosure closed, a new
+        // version landed) or the row may have unmounted before the byte loads
+        // resolved — revoke rather than leave the blob URLs it minted dangling.
+        if (cancelled) { d(); return; }
+        detach = d;
+      });
+    return () => {
+      cancelled = true;
+      detach?.();
+    };
+  }, [previewHtml, assetTursoConfig, assetProjectId, assetList, assetRepairGeneration]);
+
   const blockCount =
     v.blocks.length === 1
       ? t(lang, "documentsVersionBlocksOne")
@@ -276,6 +377,7 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
           axe's scrollable-region-focusable, the same fix `document-preview.tsx`
           carries. `hidden` keeps it out of the tab order while collapsed. */}
       <div
+        ref={bodyRef}
         id={previewId}
         hidden={!previewOpen}
         tabIndex={0}
@@ -296,6 +398,7 @@ export function DocumentsHistoryModal({
   lang,
   isReadOnly,
   ws,
+  assetAccess,
 }: DocumentsHistoryModalProps) {
   if (!open || !doc) return null;
 
@@ -350,6 +453,7 @@ export function DocumentsHistoryModal({
                   onRestore={onRestore}
                   isReadOnly={isReadOnly}
                   ws={ws}
+                  assetAccess={assetAccess}
                 />
               ))}
             </ul>

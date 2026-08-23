@@ -683,6 +683,23 @@ export function DocumentsPanel({
         // Deliberately NOT `ws.documentVersions` for the `versions` prop above
         // — see that prop's own note.
         ws={ws}
+        // ★★ §206: a version's Preview renders `<img data-asset-id>` with no
+        // `src` — the renderer references images by id — so without this a
+        // version holding an image previewed a broken-image icon. Same three
+        // read-only fields `DocumentsAssetSection` and `DocumentEditModeBody`
+        // above already get from `assetPane`, deliberately NOT the whole
+        // `DocumentAssetPaneProps`: that bag also carries `setAssets`, and this
+        // surface must not be handed a setter it merely happens not to use.
+        // ★ The literal below is a fresh object every render — `assetPane`
+        // itself already is one (workspace-panels.tsx builds it inline at the
+        // mount), so nothing is lost. The identity is handled INSIDE the modal,
+        // which hoists the three fields before its effect's dependency array
+        // reads them; see the C10 note there.
+        assetAccess={
+          assetPane
+            ? { tursoConfig: assetPane.tursoConfig, projectId: assetPane.projectId, assets: assetPane.assets }
+            : undefined
+        }
         onClose={() => setHistoryFor(null)}
         // ★★ A restore is a mutation like any other, so it goes through the
         // same single entry point — and through `handleRestore`, not a

@@ -1,10 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentsHistoryModal, type HistoryAssetAccess } from "./documents-history-modal";
 import type { DocVersion, DocVersionOp } from "./document-versions";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
 import { emptyWorkspace, type Workspace } from "./workspace";
+
+// ★ The byte store is the ONE thing this component reaches outside itself. The
+// renderer is deliberately NOT mocked anywhere in this file (every other case
+// asserts real rendered markup), so the image fixture below goes through the
+// real `sanitizeDocumentHtml` too — which is what proves `data-asset-id`
+// actually survives to the DOM the effect queries.
+vi.mock("./document-assets-store", () => ({
+  loadAssetData: vi.fn(), saveAssetData: vi.fn(), deleteAssetData: vi.fn(), loadAssetDataIds: vi.fn(),
+}));
+import { loadAssetData } from "./document-assets-store";
 
 const PARAGRAPH: DocBlock = { type: "paragraph", html: "<p>Hello preview</p>" };
 const HEADING: DocBlock = { type: "heading", level: 2, text: "Section A" };
@@ -499,5 +510,123 @@ describe("DocumentsHistoryModal — a version's dataSection in the Preview", () 
     // Not a bare heading over an empty table either — the section is absent
     // whole, which is what makes the failure invisible in the running app.
     expect(panel.querySelector("h2")).toBeNull();
+  });
+});
+
+// ★★★ open-followups §206: this modal renders a version's blocks through
+// `renderDocumentHtml` — the SAME renderer `document-preview.tsx` uses — but was
+// never wired to `attachAssetImages`. The renderer emits `<img data-asset-id>`
+// with NO `src` by design (an image is referenced by id; see sanitize-html.ts),
+// so a version containing an image previewed that block as a broken-image icon
+// and nothing said why.
+//
+// ★★ THE FIX LANDS IN `HistoryRow`, not in the modal, because that is where the
+// render happens — one expanded preview per row, each with its own subtree.
+describe("DocumentsHistoryModal — asset images in a version Preview", () => {
+  const TURSO = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
+
+  const ASSETS: readonly DocumentAsset[] = [{
+    id: "a1", name: "chart.png", mime: "image/png", size: 3,
+    hash: "0".repeat(64), createdAt: "2026-08-01T00:00:00.000Z",
+  }];
+
+  /** ★ An image IS a paragraph whose whole html is the `<img>` tag
+   *  (`document-model.ts` states that contract) — there is no `image` block
+   *  type to reach for. `a1` is inside `data-asset-id`'s own charset/length
+   *  guard, so it survives the real sanitizer. */
+  const IMAGE: DocBlock = { type: "paragraph", html: '<p><img data-asset-id="a1" alt="chart"></p>' };
+
+  /** HEADING is the POSITIVE OBSERVABLE every case below needs: without it,
+   *  "the image did not resolve" is indistinguishable from "the Preview never
+   *  opened", which is the state a broken disclosure would also produce. */
+  const version: DocVersion = { ...VERSIONS[0], id: 50, blocks: [HEADING, IMAGE] };
+
+  /** A FRESH bag object each call, deliberately — see the C10 case below. */
+  const access = (): HistoryAssetAccess => ({ tursoConfig: TURSO, projectId: "p1", assets: ASSETS });
+
+  beforeEach(() => {
+    vi.stubGlobal("URL", {
+      ...URL, createObjectURL: vi.fn(() => "blob:version-image"), revokeObjectURL: vi.fn(),
+    });
+    vi.mocked(loadAssetData).mockReset().mockResolvedValue("QUJD");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function openPreview(over: Partial<Parameters<typeof DocumentsHistoryModal>[0]> = {}) {
+    const user = userEvent.setup();
+    renderModal({ versions: [version], ...over });
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    const panel = document.getElementById("documents-history-preview-50");
+    expect(panel).not.toBeNull();
+    return panel as HTMLElement;
+  }
+
+  it("resolves a version's image to blob bytes when the asset bag is supplied", async () => {
+    const panel = await openPreview({ assetAccess: access() });
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    await waitFor(() => expect(img!.getAttribute("src")).toBe("blob:version-image"));
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    // The bag's OWN three fields reached the loader — a `src` alone would also
+    // appear if the effect fetched against some other project's partition.
+    expect(loadAssetData).toHaveBeenCalledWith(TURSO, "a1", "p1");
+  });
+
+  it("still renders the version's blocks when no asset bag is supplied", async () => {
+    // ★★ An ABSENT bag must degrade to the pre-§206 behaviour — blocks render,
+    // images do not resolve — never to broken markup or a marker the user has
+    // no repair path for. Documents images are Turso-gated, so this is the
+    // shape every file-mode reader sees.
+    const panel = await openPreview();
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    expect(img!.hasAttribute("src")).toBe(false);
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    expect(loadAssetData).not.toHaveBeenCalled();
+  });
+
+  // ★★★ C10 MADE OBSERVABLE, and it is the whole reason the effect depends on
+  // three hoisted locals rather than on the bag. `workspace-panels.tsx` builds
+  // `assetPane={{ tursoConfig, projectId, assets, setAssets }}` as an INLINE
+  // literal at the `DocumentsPanelLazy` mount, so the bag reaching this
+  // component has a NEW identity on every render of the Documents tabpanel
+  // while its three members stay reference-stable. Depending on the bag would
+  // therefore re-run the effect — an UNCACHED Turso round trip — on every
+  // unrelated re-render: the same `Object.is` identity failure `previewHtml`
+  // exists to fix, one level up, introduced while fixing something else.
+  //
+  // Mutation surface: put the bag itself in the dependency array and this
+  // reports 2.
+  it("does not re-fetch the bytes when the caller hands it a fresh bag object", async () => {
+    const user = userEvent.setup();
+    const tree = (bag: HistoryAssetAccess) => (
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={[version]}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+        lang="en-US"
+        assetAccess={bag}
+      />
+    );
+    const { rerender } = render(tree(access()));
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    await waitFor(() => expect(loadAssetData).toHaveBeenCalledTimes(1));
+
+    rerender(tree(access()));
+    // ★ A REAL FLUSH, not a bare `waitFor` on the count: the load fires from
+    // inside `attachAssetImages`'s `Promise.all`, so it lands a microtask after
+    // the effect. `waitFor(…toHaveBeenCalledTimes(1))` would pass on its first
+    // synchronous poll under the defect too, and assert nothing.
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(loadAssetData).toHaveBeenCalledTimes(1);
   });
 });
