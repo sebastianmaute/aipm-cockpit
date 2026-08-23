@@ -773,6 +773,7 @@ describe("ActivityLogPanel sortable column headers", () => {
   const SORTABLE = [
     ["timestamp", t("en-US", "activityHeaderWhen")],
     ["kind", t("en-US", "activityHeaderKind")],
+    ["actor", t("en-US", "activityHeaderActor")],
     ["message", t("en-US", "activityHeaderMessage")],
   ] as const;
 
@@ -784,12 +785,13 @@ describe("ActivityLogPanel sortable column headers", () => {
     // the attribute off entirely.
     expect(headerFor(t("en-US", "activityHeaderWhen"))).toHaveAttribute("aria-sort", "descending");
     expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "none");
+    expect(headerFor(t("en-US", "activityHeaderActor"))).toHaveAttribute("aria-sort", "none");
     expect(headerFor(t("en-US", "activityHeaderMessage"))).toHaveAttribute("aria-sort", "none");
-    // The actor column is deliberately not sortable: it carries no sort button,
-    // so it must not claim a sort state either.
-    expect(
-      screen.getByRole("columnheader", { name: t("en-US", "activityHeaderActor") }),
-    ).not.toHaveAttribute("aria-sort");
+    // The actor column BECAME sortable once the row moved onto the primitive -
+    // it was held back only because a fourth hand-rolled sort button would have
+    // deepened the aria-sort debt. It now carries a button and a real state,
+    // asserted above; the assertion that it had NO aria-sort lived here and is
+    // deliberately gone rather than relaxed.
 
     const kind = () => within(table()).getByRole("button", { name: t("en-US", "activityHeaderKind") });
     await user.click(kind());
@@ -829,5 +831,35 @@ describe("ActivityLogPanel sortable column headers", () => {
       expect(sorted(), "clicking " + key + " lit up the wrong number of headers").toHaveLength(1);
       expect(sorted()[0], "clicking " + key + " sorted a different column").toBe(own);
     }
+  });
+  // ★★ The ROW-ORDER assertion is the load-bearing half. aria-sort alone
+  // passes with the comparator's actor branch deleted entirely — the header
+  // would announce a sort that never happened.
+  // ★ Labels come from t(), not hardcoded: the comparator sorts on the
+  // DERIVED actorLabel (what the cell renders), so the expected order is
+  // computed the same way rather than assuming how AI/User collate.
+  it("sorts by actor, and actually reorders the rows", async () => {
+    const user = userEvent.setup();
+    const aiLabel = t("en-US", "activityActorAi");
+    const userLabel = t("en-US", "activityActorUser");
+    const [firstLabel] = [aiLabel, userLabel].sort((a, b) => a.localeCompare(b));
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "1", actor: "user" }),
+          entry({ id: "2", actor: "ai" }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    const actorLabel = t("en-US", "activityHeaderActor");
+    await user.click(within(table()).getByRole("button", { name: actorLabel }));
+    expect(headerFor(actorLabel)).toHaveAttribute("aria-sort", "ascending");
+
+    // Header order is When, Kind, Actor, Message - so the actor cell is index 2.
+    const firstRow = within(table()).getAllByRole("row")[1];
+    const cells = Array.from(firstRow.querySelectorAll("td"));
+    expect(cells[2]?.textContent).toContain(firstLabel);
   });
 });

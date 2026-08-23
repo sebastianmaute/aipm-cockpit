@@ -97,7 +97,7 @@ interface Props {
   onClear: () => void;
 }
 
-type SortKey = "timestamp" | "kind" | "message";
+type SortKey = "timestamp" | "kind" | "message" | "actor";
 type SortDir = "asc" | "desc";
 type SearchMode = "literal" | "wildcard" | "regex";
 type GroupFilter = ActivityGroup | "all";
@@ -313,6 +313,13 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
         cmp = a.timestamp.localeCompare(b.timestamp);
       } else if (sortKey === "kind") {
         cmp = a.kind.localeCompare(b.kind);
+      } else if (sortKey === "actor") {
+        // The DERIVED label, never `entry.actor` — see `enriched`. `actor` is
+        // OPTIONAL on ActivityEntry and a non-string one reaches this panel,
+        // so a raw `.localeCompare` here is the same defect that threw on
+        // first render for `timestamp`. `actorLabel` is always a string and
+        // is what the cell renders, so the order matches what is on screen.
+        cmp = a.actorLabel.localeCompare(b.actorLabel);
       } else {
         cmp = a.message.localeCompare(b.message);
       }
@@ -499,19 +506,17 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
                   width={colWidths.kind}
                   title={t(lang, "sortBy", t(lang, "activityHeaderKind"))}
                 />
-                {/* ★★ Deliberately NOT sortable, so it stays a raw <th>: a fourth
-                    sort button would be a control nobody asked for, and a cell
-                    that does not sort must not claim an aria-sort either. Its
-                    classes match what `SortResizeTh` emits, so the header row
-                    keeps one weight and one case — the uppercase this cell used
-                    to carry was the only uppercase table header in the app. */}
-                <th
-                  className="relative px-3 py-2 font-medium"
-                  style={{ width: colWidths.actor, minWidth: colWidths.actor }}
-                >
-                  {t(lang, "activityHeaderActor")}
-                  <ColumnResizeHandle col="actor" onMouseDown={startResize} />
-                </th>
+                {/* ★ Sortable since the row moved onto `SortResizeTh`. It was
+                    held back only because a FOURTH hand-rolled sort button
+                    would have deepened the aria-sort debt the other three
+                    carried; the primitive removes that cost. */}
+                <SortResizeTh
+                  {...th}
+                  label={t(lang, "activityHeaderActor")}
+                  sortCol="actor"
+                  width={colWidths.actor}
+                  title={t(lang, "sortBy", t(lang, "activityHeaderActor"))}
+                />
                 <SortResizeTh
                   {...th}
                   label={t(lang, "activityHeaderMessage")}
