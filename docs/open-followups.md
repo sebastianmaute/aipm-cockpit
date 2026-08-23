@@ -14647,3 +14647,69 @@ grep -n -A 14 "export function sanitizeDocumentAsset" src/app/document-asset.ts
 grep -n -A 4 "export function sanitizeText" src/app/sanitize-core.ts
 grep -n -B 3 -A 6 "documentAssets" src/app/workspace.ts
 ```
+
+## 226. `use-chat-dispatcher.ts` and `use-storage-backend.ts` sit at 799 with no baseline entry — TWO net lines fail the ratchet
+
+**Status:** open — a HAZARD, not a defect. Nothing is broken today, and no gate is red. Carried out
+of §220 so this fact does not retire with that entry's close.
+
+**The measurement.** Both files read **799** by the gate's own arithmetic and **798** from `wc -l`:
+
+```
+node -e "console.log(require('fs').readFileSync('src/app/use-chat-dispatcher.ts','utf8').split('\n').length)"
+node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
+wc -l src/app/use-chat-dispatcher.ts src/app/use-storage-backend.ts
+```
+
+`check-file-sizes.mjs` counts `readFileSync(f, "utf8").split("\n").length`, which for a
+newline-terminated file is `wc -l` **+ 1**. Budgeting a change from `wc -l` therefore overstates the
+available room by exactly one line — AGENTS.md's `size:check` entry records that mistake costing a
+build on `use-storage-backend.ts`, which is why the node command above, not `wc -l`, is the one to
+run before adding to either file.
+
+★★★ **THE HEADROOM IS ONE LINE, NOT ZERO, AND SAYING "ZERO" REPEATS THE VERY OFF-BY-ONE THIS ENTRY
+IS ABOUT.** `LIMIT` is 800 and the check reads `if (n <= LIMIT) continue`, so a file AT gate-800
+PASSES. From 799, one net added line lands at 800 and passes; the SECOND lands at 801 and is
+reported as `NEW file over 800`, because neither file has a baseline entry to fall back on. That is
+exactly the reading §220's own closing correction establishes for this file ("it would take TWO
+added lines to fail"), and it is what separates these two from §220's SUBJECT files, which sat at
+gate-800 with genuinely zero room. Read the gate rather than trusting either number:
+`grep -n "LIMIT" scripts/check-file-sizes.mjs`.
+
+**Where this came from.** §220's ★★ "IT IS NOT ONE FILE" paragraph named these two as CONTEXT for
+its scheduling argument; its SUBJECT was the two documents files, `documents-panel.tsx` and
+`document-block-editors.tsx`, both then at gate-800. Those were fixed on
+`fix/documents-headroom-asset-policy` (733 and 649) and §220 closed 2026-08-23 — at which point the
+only live record of these two would have gone with it. A closed entry is searchable, but nobody
+greps closed entries for what is going to bite them next. Read §220 for the ratchet's semantics and
+the prescribed remedy; this entry is only about these two files.
+
+★★★ **DO NOT ASSUME THESE TWO ARE HARD — AND DO NOT REPEAT §220'S MISTAKE ABOUT THEM.** §220
+asserted that the one cheap extract seam in its subject file "was spent by this slice and cannot be
+spent again", and that the next change to it "will simply be blocked". That was FALSE, and it is the
+single claim in §220 that would have changed someone's behaviour: three seams were found in one
+afternoon — a deleted-documents section, a rename modal and a block editor, each a whole cohesive
+surface rather than a relocated helper. **Nobody has surveyed `use-chat-dispatcher.ts` or
+`use-storage-backend.ts` for an extraction seam at all.** The precedent is that the survey is worth
+doing BEFORE concluding there is nothing cheap left, because the pessimistic conclusion is precisely
+what argues someone into the remedy the next paragraph forbids.
+
+★★ **DO NOT CLOSE THIS BY ADDING A BASELINE ENTRY** — the same prohibition §220 carries, for the
+same reason. Baselining a file to admit growth is the "re-baseline to make the pipeline pass"
+failure the gate exists to prevent, and it converts a hard cap into an open-ended ratchet.
+`docs/baselines/file-sizes.json` names exactly four files today, none of them either of these, and
+`fix/documents-headroom-asset-policy` added none:
+
+```
+node -e "console.log(Object.keys(require('./docs/baselines/file-sizes.json')).join(' '))"
+```
+
+**Honest scope.** No user-visible behaviour is wrong. The entire cost is that the next person to
+touch either file gets a red pipeline for what looked like a small change and has to discover the
++1 arithmetic themselves — the discovery this entry exists to skip.
+
+★ **The near-cap sweep §220 prescribes needs one filter that §220 does not mention.** The gate skips
+`.test.` and `.property.` files and exempts the two i18n dictionaries (`check-file-sizes.mjs`'s own
+`filter` chain and its `EXEMPT` list), so a raw walk of `src` reports files it will never charge — a
+test file at 781 shows up in the 780—800 band and is pure noise. Apply the same filters, or check any
+hit against the gate before acting on it.
