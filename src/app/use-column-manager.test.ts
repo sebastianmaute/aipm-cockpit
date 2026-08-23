@@ -21,11 +21,6 @@ describe("useColumnManager", () => {
       const { result } = renderHook(() => useColumnManager());
       expect(result.current.hiddenCols).toEqual(new Set(["estimate", "spent", "createdDate"]));
     });
-
-    it("colConfigOpen is false initially", () => {
-      const { result } = renderHook(() => useColumnManager());
-      expect(result.current.colConfigOpen).toBe(false);
-    });
   });
 
   describe("localStorage hydration", () => {

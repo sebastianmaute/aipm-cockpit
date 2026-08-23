@@ -218,9 +218,6 @@ function TaskManagerInner() {
     sizedWidths,
     hiddenCols,
     setHiddenCols,
-    colConfigOpen,
-    setColConfigOpen,
-    colConfigRef,
     resetColWidths,
     startColResize,
   } = useColumnManager();
@@ -2422,9 +2419,6 @@ function TaskManagerInner() {
       hiddenCols={hiddenCols}
       setHiddenCols={setHiddenCols}
       sizedWidths={sizedWidths}
-      colConfigOpen={colConfigOpen}
-      setColConfigOpen={setColConfigOpen}
-      colConfigRef={colConfigRef}
       startColResize={startColResize}
       resetColWidths={resetColWidths}
       tableRef={tableRef}

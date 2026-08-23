@@ -1,17 +1,8 @@
 // src/app/use-column-manager.ts
 "use client";
 
-import {
-  type Dispatch,
-  type RefObject,
-  type SetStateAction,
-  useCallback,
-  useEffect,
-  useRef,
-  useState,
-} from "react";
+import { type Dispatch, type SetStateAction, useEffect, useState } from "react";
 import { useColumnResize } from "./use-column-resize";
-import { usePopoverDismiss } from "./use-popover-dismiss";
 
 const HIDDEN_COLS_KEY = "aipm-cockpit:hidden-cols";
 /** Columns hidden on a fresh install. */
@@ -30,8 +21,12 @@ export { DEFAULT_COL_WIDTHS };
 
 /** Open Points table column state. The width/drag/reset concern delegates to the
  *  shared `useColumnResize` (tableId "open-points-v2"); this hook adds the
- *  hidden-columns set and the column-config dropdown's open state + outside-click
- *  dismiss (via the shared `usePopoverDismiss`).
+ *  hidden-columns set.
+ *
+ *  ★ The column-config dropdown's open state and its outside-click dismiss used
+ *  to live here too. `ColumnConfigPopover` owns both now — it holds its own
+ *  `open` and `PopoverPanel` owns dismiss — so nothing outside needs either a
+ *  flag or a ref, and this hook is back to being about persisted state alone.
  *
  *  ★★ WHY THE ID WAS BUMPED off "open-points" rather than migrated. The old blob
  *  cannot distinguish a width the user DRAGGED from one that is merely the
@@ -54,9 +49,6 @@ export function useColumnManager(): {
   sizedWidths: Partial<Record<string, number>>;
   hiddenCols: Set<string>;
   setHiddenCols: Dispatch<SetStateAction<Set<string>>>;
-  colConfigOpen: boolean;
-  setColConfigOpen: Dispatch<SetStateAction<boolean>>;
-  colConfigRef: RefObject<HTMLDivElement | null>;
   resetColWidths: () => void;
   startColResize: (col: string, e: React.MouseEvent) => void;
 } {
@@ -94,18 +86,10 @@ export function useColumnManager(): {
     } catch { /* non-fatal */ }
   }, [hiddenCols]);
 
-  const [colConfigOpen, setColConfigOpen] = useState(false);
-  const colConfigRef = useRef<HTMLDivElement | null>(null);
-  const closeColConfig = useCallback(() => setColConfigOpen(false), []);
-  usePopoverDismiss(colConfigOpen, colConfigRef, closeColConfig);
-
   return {
     sizedWidths,
     hiddenCols,
     setHiddenCols,
-    colConfigOpen,
-    setColConfigOpen,
-    colConfigRef,
     resetColWidths,
     startColResize,
   };
