@@ -935,6 +935,23 @@ MSG
 
 **Scene:** §206. The modal renders a version's blocks through `renderDocumentHtml` but was never wired to `attachAssetImages`, so a version containing an image block renders that block without its picture. The render happens in **`HistoryRow`** — the preview is a per-row disclosure, and the row is already its own component because the disclosure needs a hook per row.
 
+### ★★★ CORRECTIONS — pre-verified against the real code. Where these conflict with the steps below, THESE win.
+
+All ten premises for Tasks 7-8 were confirmed, including that `document-preview.tsx`'s memo comment is real and MEASURED ("a node the effect had stamped was `isConnected` at write time and a DIFFERENT node was in the document a tick later"). Two things the plan did NOT account for:
+
+**C10. ★★★ `assetAccess` MUST NOT BE AN INLINE OBJECT IN THE DEP ARRAY — as written, this plan causes a re-fetch on every parent render.** Step 3 lists the effect deps as `[bodyHtml, assetAccess, repairGeneration]` and Step 4 says to "pass the three read-only fields at the mount". Done literally, the panel builds a NEW bag object every render, so `assetAccess` has a new identity every render, so the effect re-runs every render — and `loadAssetData` is an uncached Turso round trip (see C11). This is the same `Object.is` failure Task 7 exists to fix, one level up, and it would be introduced BY the fix.
+  Do ONE of these, and say in the commit which:
+  - hoist the three fields to local consts in `HistoryRow` and depend on THOSE (`react-hooks/exhaustive-deps` rejects an `obj.member` dep outright — AGENTS.md records this — so hoisting is required regardless), or
+  - `useMemo` the bag at the panel's mount site keyed on the three fields.
+  ★ Note `document-preview.tsx` does not hit this because it takes `documentAssets`/`tursoConfig`/`projectId` as SEPARATE props and depends on them individually. Mirroring its DEP LIST while changing its PROP SHAPE is what introduces the defect — mirror the precedent's structure, not just its dep names.
+
+**C11. `HistoryRow` re-fetches asset bytes on every close/reopen of the same row, and `document-preview.tsx` never has this shape.** `HistoryRow`'s `html` memo depends on `previewOpen` and collapses to `""` when closed, so open -> close -> reopen recomputes it and the effect re-runs. `loadAssetData` (`document-assets-store.ts`) is a real Turso round trip with NO caching anywhere in `document-assets-store.ts` or `document-asset-images.ts` (verified). `document-preview.tsx`'s memo depends on `[doc, ws, lang]` with no visibility toggle, so it never repeats a load for the same document.
+  ★ This is NOT a leak and NOT a correctness bug: the prior open's teardown revokes its blob URLs before the next run, and on the CLOSE transition `html` is `""` so `attachAssetImages` finds zero `img[data-asset-id]` and exits through its own no-op early return.
+  ★★ ACCEPT IT, do not fix it here — caching asset bytes is its own slice with its own invalidation question, and inventing one inside a wiring commit is how an unreviewed cache ships. But say so EXPLICITLY in a code comment at the effect, so the next reader finds a decision rather than an oversight. A silent repeated cost reads as a bug to whoever measures it next.
+
+**C12. Confirmed facts the steps depend on:** `HistoryRow` has NO ref today — Task 8 must add one. `assetPane` IS already in scope in `documents-panel.tsx` but is NOT currently passed to `<DocumentsHistoryModal>`. `documents-history-modal.test.tsx` renders through a `renderModal(over = {})` helper that supplies no asset bag by default, so a new prop breaks zero tests IF optional — and a REQUIRED one fails at `tsc`, never at vitest, which does not typecheck.
+
+
 - [ ] **Step 1: Write the failing test** — a version with an image block resolves to a blob `src` when the bag is supplied, and renders without one (no crash, no marker churn) when it is absent.
 
 - [ ] **Step 2: Add the narrow prop type**
