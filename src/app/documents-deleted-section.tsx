@@ -38,7 +38,7 @@ export function DocumentsDeletedSection({
           (a file of `MAX_DOCUMENTS + 5` documents capped to
           `MAX_DOCUMENTS` while ALL its versions survive) produce a milder
           version of the same thing.
-          ★★ `deleted.length > documents.length` is the test because it is
+          ★★ `deleted.length > documentCount` is the test because it is
           the shape a genuine workflow does not have: deleting more
           documents than you currently hold is normal over a long
           project, but not while the surviving set is SMALLER than the
