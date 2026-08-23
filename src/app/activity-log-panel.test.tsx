@@ -862,4 +862,35 @@ describe("ActivityLogPanel sortable column headers", () => {
     const cells = Array.from(firstRow.querySelectorAll("td"));
     expect(cells[2]?.textContent).toContain(firstLabel);
   });
+  // ★★★ e2e CANNOT SEE THIS PANEL. `e2e/seed.ts` never seeds `activityLog`, so the
+  // Activity view renders its empty state with no table — measured: the
+  // header-row-uniformity spec reported 11 cells for it, and all 11 were the
+  // unconditionally-mounted RAID panel's, not this one's. This is the only
+  // detector for either property below.
+  //
+  // ★ A class assertion is weaker than the computed weight that spec reads. Note
+  // this panel now has NO raw `<th>` — all four headers are `SortResizeTh` since
+  // the actor column became sortable — so today the only way to fail this is to
+  // change the PRIMITIVE, which is what it was mutation-proved against. It still
+  // earns its place: it catches a future raw cell added to this row without
+  // `font-medium`, and it pins the absence of the `uppercase tracking-wide` these
+  // three sort labels carried as the last such headers in the app.
+  it("keeps every header on one weight and none of them shouting", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[entry({ id: "1" }), entry({ id: "2" })]} onClear={() => {}} />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    // Positive observable: the empty state renders no headers at all, which is
+    // exactly how the e2e version of this check went vacuous.
+    expect(headers).toHaveLength(4);
+    for (const th of headers) {
+      const label = th.textContent?.trim() || "(blank)";
+      expect(th.className, `header ${label} is off the row weight`).toContain("font-medium");
+      expect(th.className, `header ${label} is still uppercase`).not.toContain("uppercase");
+      const btn = th.querySelector("button");
+      if (btn) {
+        expect(btn.className, `sort button ${label} is still uppercase`).not.toContain("uppercase");
+      }
+    }
+  });
 });
