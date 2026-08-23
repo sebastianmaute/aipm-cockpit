@@ -90,6 +90,13 @@ a test file each.
   breaks any script string containing one. Use `String.fromCharCode(10)` instead of an escape.
 - ★★ `git show HEAD:<path>` writes an LF blob under `core.autocrlf=true`, so a file restored that
   way shows as modified against an unchanged tree. Re-normalise to CRLF after restoring.
+- ★★★ **`git hash-object` AND `git diff --exit-code` BOTH report CLEAN on a revert that changed
+  every line ending.** Measured in Task 11: a mutation revert wrote `report-table.tsx` back LF-only
+  against a CRLF working tree, and neither check saw it, because git NORMALISES line endings before
+  hashing. Five task briefs in this plan told implementers to prove a revert with exactly those two
+  commands — that instruction is INSUFFICIENT. Also count the line endings:
+  `node -e "const s=require('fs').readFileSync('<file>','utf8');console.log((s.match(/\r\n/g)||[]).length,(s.match(/(?<!\r)\n/g)||[]).length)"`
+  — the second number must be 0 on a CRLF file.
 - ★ `git checkout -- <path>` is blocked by policy in subagent sessions. Restore via `git show`
   plus the CRLF re-normalisation above.
 - The size gate counts `wc -l` **+ 1**. Read the real number with:
@@ -1447,7 +1454,25 @@ grep -E "passed|failed" /tmp/axe.log
 ★ If it reddens, read the failure **body**, not the summary line. A real violation names a rule id
 and an impact; a contention timeout names neither.
 
-- [ ] **Step 4: Eye-verify the three font-weight changes**
+- [ ] **Step 4: Eye-verify every visible change the conversions made**
+
+★★ The list below was assembled from what each conversion actually MEASURED, not from what this
+plan predicted. jsdom has no layout and these panels carry no visual baseline, so **nothing in the
+unit suite or the axe gate can see any of it.** The cascades are settled; what needs eyes is
+whether each surface still reads right.
+
+| surface | change |
+|---|---|
+| Changes, Stakeholders, RAID | header row weight: converted headers emit `font-medium` (500) while an unstyled `<th>` keeps the UA `bold` (700) — raw cells in those rows were given `font-medium` so the row stays uniform |
+| Stakeholders, Resources directory, Roles, Activity | hover moves `text-ui-green` → `--table-head-accent` |
+| all six | the ACTIVE column is now tinted in the accent token; none of the six did this before |
+| all six | sort glyph `▲`/`▼` → `↑`/`↓`, and it leaves the accessible name (stays visible, now `aria-hidden`) |
+| Activity log | the three sort labels lose `uppercase tracking-wide` and render normal-case; the raw actor cell had the same classes dropped so the row does not split. These were the LAST uppercase `<th>` labels in the app |
+| Changes, RAID | the `#` column's accessible name changes from `ID` to `#`, with `ID` moved to `title` (hover-only) |
+| Resources directory | every header's accessible name changes from `Sort by X` to `X`, with `Sort by X` kept as `title` |
+
+★ Resources → **Calendar** and the Roles rate-card are NOT axe-scanned (Resources defaults to the
+directory), so those two surfaces have never been scanned and are not covered by Step 3 either.
 
 `change-panel`, `stakeholders-panel` and `raid-panel-rows` render their `<th>` without
 `font-medium` today, and `SortResizeTh` always emits it. **No test in this repo can see this** —
