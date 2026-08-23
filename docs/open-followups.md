@@ -14257,3 +14257,46 @@ numbers are not, and are recorded here only so nobody re-derives the entry from 
 it makes a full-height picture exactly fill a slide instead of overflowing it by one line — or
 accept image-per-slide as the layout and say so in the UI. The first is cheap and changes emitted
 bytes, so it needs its own before/after on §219's manual pass.
+
+## 223. The asset mime allowlist is hand-restated at every consumer, with no shared predicate
+
+**Status:** open — every consumer that exists today is correct. The defect is that nothing makes
+the next one correct, and the layer that could have is deliberately not doing it.
+
+**Why the load path is NOT the bug.** `sanitizeDocumentAsset` (`document-asset.ts`) runs
+`mime: sanitizeText(o.mime, ASSET_MIME_MAX)` and never consults `ASSET_MIME_ALLOWED`, so an
+imported or hand-edited workspace carrying an `image/svg+xml` row survives load intact. That is
+deliberate and the module header says so at ★★: the record is mime-GENERIC by contract, format
+policy belongs to the upload pipeline, and narrowing it at the storage layer would make a stored
+row unreadable after the policy changed. Do not "fix" this by adding the check there — the
+argument against it is sound, and this entry is not asking for it.
+
+**What the consequence actually is.** Because the store admits anything, EVERY consumer has to
+decline it, and every one of them does so by restating the same expression by hand:
+
+```
+grep -rn "ASSET_MIME_ALLOWED" src/app --include=*.ts --include=*.tsx | grep -v ".test."
+```
+
+Read the hits rather than counting them — they are three different KINDS of use and only one kind
+is a guard. There is the upload gate; there are the render/policy guards, each spelled
+`(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` with its own cast; and there are the
+file-picker `accept`/filter uses, which are affordances and stop nothing. A reader who counts the
+grep gets a number that includes all three.
+
+**The trap.** A new consumer of `documentAssets` inherits an unfiltered list and gets no signal at
+all if it forgets the check: the row is well-formed, the mime is a plausible string, and the only
+symptom is whatever that sink does with bytes it should never have been handed. No gate can see
+this — the four existing guards were each added by hand, and one of them (`assetPolicy`'s html/pdf
+branch) did not exist until 2026-08-22, which is exactly the shape being described.
+
+**Remedy when someone takes it.** Export one `isAllowedAssetMime(mime: string | undefined):
+boolean` from `document-asset-upload.ts` beside the constant, and have the render guards call it
+instead of restating the cast. It removes six copies of the same `as readonly string[]` and gives
+the next consumer something to find. ★ It does NOT make the check automatic and must not be sold
+as though it did — a consumer that calls nothing is still wrong, and only a test can catch that.
+
+**Do not fold in the extent check.** `canEmbedDocxAsset`/`canEmbedPptxAsset` also require a
+recorded width and height; the html sink deliberately does not, because HTML places no box (see
+the ★★★ in `assetPolicy`). One shared mime predicate is right; one shared "is this usable"
+predicate would re-introduce the asymmetry defect that comment exists to stop.

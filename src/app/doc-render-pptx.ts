@@ -99,8 +99,18 @@ import { t, type Lang } from "./i18n";
 export type DocSlide = { title: string; body: DocBlock[] };
 
 // ★ Re-exported so this module stays the ONE public face of the pptx document
-//   renderer — `document-download.ts` and the export-assets budget both address
-//   it, and the split above is an internal seam they should not have to know.
+//   renderer: `document-download.ts` imports `canEmbedPptxAsset` from HERE, not
+//   from the slides module, so the two-file split stays an internal seam.
+//   ★★ `lineCost` and `paginateLines` have NO non-test consumer anywhere — this
+//   file reaches `paginateLines` by the direct import above, not through this
+//   line — so the re-export serves `doc-render-pptx.test.ts` alone. Deleting it
+//   breaks only that suite.
+//   ★★ NONE of it rides a budget. An earlier revision of this comment said “the
+//   export-assets budget” addressed it, which was wrong twice over:
+//   `document-export-assets.ts` never imports this predicate (it takes an opaque
+//   `isRenderable` callback and cannot name its source), and `assetPolicy` hands
+//   docx/pptx `budgetBytes: Number.POSITIVE_INFINITY` — the OOXML path is
+//   deliberately unbudgeted, so there is no budget here to address anything.
 export { canEmbedPptxAsset, lineCost, paginateLines } from "./doc-render-pptx-slides";
 export type { ImageLine, SlideLine } from "./doc-render-pptx-slides";
 
