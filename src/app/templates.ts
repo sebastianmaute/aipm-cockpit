@@ -205,10 +205,20 @@ function sanitizeSeedTask(raw: unknown): Task | null {
   // guarded `if (!statusOk)`. So the pair is reconciled after it, by trusting
   // the date: this function reads `status` (a bare cast) and `completedDate`
   // (via sanitizeIsoDate) independently, and nothing else would reconcile them.
-  // ★ Order is immaterial to the outcome — `migrateTask`'s
-  //   `if (statusOk && createdOk)` short-circuit never fires here, because this
-  //   function never assigns `createdDate`. Reconcile-last is chosen for
-  //   readability: the pair is then the final word.
+  // ★ Order is immaterial to the outcome, and NOT because of `migrateTask`'s
+  //   `if (statusOk && createdOk)` short-circuit — order would be immaterial
+  //   even where that short-circuit DOES fire, so quoting it here would be the
+  //   wrong mechanism for a right answer (§182 warns about exactly that). The
+  //   real reason is that neither function can undo the other:
+  //   `reconcileStatusFromDate` rewrites `status` and nothing else, so it can
+  //   never disturb the `createdDate` backfill; and `migrateTask` writes
+  //   `status` ONLY when it is absent/invalid, and then to a value reconcile
+  //   agrees with (date set => "Done"; else DEFAULT_TASK_STATUS, which reconcile
+  //   leaves alone because it is not "Done"). Run reconcile first and it leaves
+  //   a VALID status, which migrate's guarded write skips — except on the one
+  //   case reconcile leaves untouched (invalid status, no date), where migrate
+  //   yields the same DEFAULT_TASK_STATUS it would have yielded first.
+  //   Reconcile-last is chosen for readability: the pair is then the final word.
   return reconcileStatusFromDate(migrateTask(task));
 }
 

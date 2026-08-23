@@ -920,7 +920,9 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   patch's pair cannot drift. **The Jira CONFLICT merge** (`handleResolveConflicts`): its
   `completedDate` branch writes `merged.status` beside the date, BOTH from the side the user picked —
   remote from `conflict.remoteStatus`, carried on `ConflictItem` off that SAME patch (a fourth
-  `issueToTaskFields` call, at the conflict-QUEUE site), local from `original.status`.
+  `issueToTaskFields` call, at the conflict-QUEUE site), local from `original.status` — which is a
+  RE-WRITE OF WHAT IS ALREADY THERE, so this one holds the invariant only given consistent input
+  (the ★★ pass-through paragraph below, and §227).
   **Template import** (`sanitizeSeedTask`): its two reads of the seed are independent, so it ends by
   calling `reconcileStatusFromDate`, which trusts the DATE — a date present forces `Done`, a `Done`
   with no date demotes to `DEFAULT_TASK_STATUS`, and nothing is invented or deleted.
@@ -930,13 +932,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   the pull path). `reconcileStatusFromDate` decides `status` from date PRESENCE, so it would rewrite
   a reopened issue's genuine "In Progress" into "To Do" purely because the issue carries no date.
   Each mechanism is correct for its own source of truth and wrong for the other two.
+  ★ SCOPE THAT SECOND REASON TO THE REMOTE SIDE. A reopened issue's status comes from Jira's
+  `statusCategory`, which is what date-presence would trample; the conflict merge's LOCAL arm has no
+  `statusCategory` to respect, so the reopened-issue argument does not reach it. That arm is a
+  separate question with its own arguments both ways, weighed and DEFERRED in §227 — do not read this
+  prohibition as having settled it, and do not act on §227 without the user.
   ★★ Re-derive both sets rather than trusting any list here: the engine's callers with
   `grep -rn "applyStatusChange(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — which
   also returns the declaration itself and one `change-log.ts` COMMENT, so it is not a caller count — and
   the pair-writers with a sweep admitting BOTH the property-literal and the ASSIGNMENT shape — a bare
   `completedDate:` misses `templates.ts` and the conflict merge outright, and
   `docs/open-followups.md` §180 carries a form that returns all four. ★ Three kinds of hit in it are not
-  writers: `i18n`/`jira-conflicts-modal` are LABEL maps, the two `*-codecs-decode` hits are load paths,
+  writers: `i18n` is a LABEL map and so is ONE of `jira-conflicts-modal`'s three hits — the other two
+  are the completion-note comment and the `f.key === "completedDate"` render condition 0.257.0 added,
+  and neither writes anything; the two `*-codecs-decode` hits are load paths,
   and every `use-task-row-handlers` hit is an undo BEFORE/AFTER capture of what the engine already
   returned. Read the hit, don't count it.
   ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
@@ -944,15 +953,30 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
   task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
   NOT repaired. The invariant is held by the WRITERS, not at load — all four of them since 0.257.0,
-  by the three mechanisms listed above.
-  ★★ ALL FOUR WRITERS HOLD IT SINCE 0.257.0, and that is a claim about the four paths in `src`, NOT
-  about the DATA. A workspace blob written by an older build, hand-edited, or imported from a
+  by the three mechanisms listed above, GIVEN CONSISTENT INPUT. Read the ★★ pass-through paragraph
+  below before relying on that for the CONFLICT merge, which is the one that needs the qualifier.
+  ★★ ALL FOUR WRITERS HOLD IT SINCE 0.257.0 GIVEN CONSISTENT INPUT, and that is a claim about the
+  four paths in `src`, NOT about the DATA. A workspace blob written by an older build, hand-edited, or imported from a
   third-party template can still carry a split pair, and nothing reconciles it on load.
   `sanitizeSeedTask` (§182) and the Jira CONFLICT merge (§183) were the two that did not hold it;
   both entries record what each used to do and what a split pair costs on the surfaces — the two
   halves of `task-closed.ts` read DIFFERENT fields, so one such row is counted complete and counted
   open in the same render. The old wording caused three separate defects in one session — every
   reader concluded load normalises the pair and wrote that into code comments and commit messages.
+  ★★★ READ "GIVEN CONSISTENT INPUT" LITERALLY, BECAUSE ONE OF THE FOUR NEEDS IT: the CONFLICT merge
+  is a PASS-THROUGH, not a normaliser, while the other three hold the invariant whatever they are
+  handed. `merged` is seeded `{ ...original }` and `status` is written exactly ONCE, inside the
+  `completedDate` branch — so the `pick === "local"` arm assigns `original.status` over
+  `original.status`, a provable no-op, and only the remote arm writes anything. A local row that is
+  ALREADY split (an older build, a hand-edited blob, a pre-fix resolution) therefore SURVIVES a local
+  pick and is re-emitted split, AFTER 0.257.0 — and, because that pick also satisfies the
+  `completionChanged && merged.completedDate && !conflict.remoteDone` guard, the merge transitions
+  the ISSUE to done while the row still reads "In Progress". Routing that arm through
+  `reconcileStatusFromDate` is the obvious code fix; it was identified and DELIBERATELY DEFERRED as
+  a design decision outside the approved spec, with the arguments both ways, in §227. Reproduce:
+  `grep -n "merged: Task|merged.status" src/app/use-jira-sync.ts` — THREE hits: the seed, the single
+  write, and a COMMENT hit, which is this same rule recorded at the source. Read the hits; the
+  self-referential grep is why a count here would be wrong the moment the comment moved.
   ★★ Do NOT close the remaining DATA gap by teaching `migrateTask` to reconcile. It runs on all six
   load paths, so that changes every backend's load behaviour, and it would apply the date-wins rule
   to Jira rows, where it is wrong.

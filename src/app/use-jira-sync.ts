@@ -378,14 +378,26 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           //   Taking both from one side inherits the guarantee the pull path
           //   already has — issueToTaskFields derives completedDate and status
           //   from ONE statusKey read, so remoteStatus and the remote date
-          //   cannot disagree; the local pair is held consistent by the local
-          //   write paths (applyStatusChange, and template import since it
-          //   started reconciling).
+          //   cannot disagree.
+          // ★★ The LOCAL arm is a PASS-THROUGH, not a normaliser, and it does
+          //   NOT inherit that guarantee: `merged` is already `{ ...original }`,
+          //   so `merged.status = original.status` writes what is already there
+          //   — a no-op. This branch therefore re-emits whatever the local row
+          //   HOLDS. Rows the local writers produced are consistent
+          //   (applyStatusChange by construction, template import since it
+          //   started reconciling), but a row that was ALREADY split — an older
+          //   build, a hand-edited blob, a pre-fix resolution — survives a local
+          //   pick unchanged. Repairing it here is a deliberate deferral rather
+          //   than an oversight (open-followups §227).
           // ★★ NOT applyStatusChange here: it would stamp `today` over Jira's
           //   real resolution date, which is why every Jira write site bypasses
           //   that engine. NOT reconcileStatusFromDate either: it decides status
           //   from date PRESENCE and would rewrite a reopened issue's genuine
-          //   "In Progress" into "To Do".
+          //   "In Progress" into "To Do". ★ Scope that second reason to the
+          //   REMOTE arm: a reopened issue's status comes from statusCategory,
+          //   which date-presence would trample. The LOCAL arm has no
+          //   statusCategory to respect, so this reason does not reach it and
+          //   is not what keeps it out — §227 weighs the actual argument there.
           merged.status = pick === "local" ? original.status : conflict.remoteStatus;
           completionChanged = true;
         } else if (
