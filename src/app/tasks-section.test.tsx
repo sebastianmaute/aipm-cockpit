@@ -1250,7 +1250,6 @@ describe("TasksSection", () => {
       expect(dialog.getAllByRole("checkbox")).toHaveLength(CONFIGURABLE_COLS.length);
     });
 
-
     // The column manager is the shared `ColumnConfigPopover` now. It was
     // EXTRACTED from this file and this call site was never converted, so four
     // panels used the primitive while the original kept its own copy — and that
