@@ -61,7 +61,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
-import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
+import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
@@ -196,19 +196,6 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
   }
 }
 
-/** Base64 alphabet only. `data` reaches this sink from a Turso column that
- *  validates no charset, so anything outside the alphabet means the row is not
- *  what it claims to be — and every byte of it would land inside an attribute
- *  value.
- *
- *  ★★ DELIBERATELY NOT SHARED WITH `safeBase64ToBytes`, which the two OOXML
- *  sinks decode through. This sink INTERPOLATES and never decodes, so its only
- *  question is what may enter an attribute; a sink that decodes has to ask what
- *  `atob` accepts, which is both wider (whitespace is stripped) and narrower
- *  (length and padding are checked) than this alphabet. One regex for both
- *  would be wrong for one of them — see that function for the measurements. */
-const BASE64_RE = /^[A-Za-z0-9+/=]+$/;
-
 /** ★★★ THE SINK VALIDATES — it does NOT inherit trust from the load path.
  *  `sanitizeDocumentAsset` runs `mime` through `sanitizeText`, which only trims
  *  and clips: it strips no `"`, `<` or `>`, and it never consults the upload
@@ -229,11 +216,47 @@ const BASE64_RE = /^[A-Za-z0-9+/=]+$/;
  *  absent, never rendered as a broken URI.
  *
  *  ★ Returns the whole ATTRIBUTE, not a boolean, so the only interpolation of
- *  either value lives inside the guard that just validated both. */
+ *  either value lives inside the guard that just validated both.
+ *
+ *  ★★★ THE BYTE CHECK IS `safeBase64ToBytes`, NOT AN ALPHABET REGEX, AND THIS
+ *  SINK USED TO GET THAT WRONG. It held `/^[A-Za-z0-9+\/=]+$/` on the argument
+ *  that it interpolates rather than decodes, so its only question was what may
+ *  enter an attribute. That argument is false in BOTH directions, measured
+ *  against the installed runtime rather than reasoned:
+ *
+ *  - TOO WEAK. `atob` throws on `"abcde"` (length fault) and on `"===="`
+ *    (padding-only) — both pass the alphabet test outright, so this sink emitted
+ *    `src="data:image/png;base64,abcde"`, a URI no browser can decode, and
+ *    stamped NO `data-asset-missing` because a src had been produced. The reader
+ *    got a broken-image icon with no disclosure — the same shape of defect the
+ *    OOXML sinks closed, left standing on the one sink people print from.
+ *  - TOO STRONG. `atob` strips ASCII whitespace first, so a LINE-WRAPPED row
+ *    ("iVBORw0K\r\nGgo=") decodes to the same bytes as its unwrapped form while
+ *    the regex rejected it — a perfectly good image degraded to a placeholder,
+ *    and the OOXML sinks would have rendered it. Whitespace inside the
+ *    attribute is inert to a data: URI (WHATWG forgiving-base64 decode strips
+ *    it) and cannot terminate a quoted attribute; see the charset note below.
+ *
+ *  ★★ THE ATTRIBUTE-SAFETY PROPERTY THE REGEX WAS THERE FOR SURVIVES, and it is
+ *  `atob`'s own charset that carries it: beyond the base64 alphabet the only
+ *  characters `atob` accepts are TAB (09), LF (0a), FF (0c), CR (0d) and SPACE
+ *  (20) — never `"`, `<` or `>`. Measured, not reasoned:
+ *  `node -e "const a=[];for(let c=0;c<256;c++){try{atob('AAA'+String.fromCharCode(c)+'A');a.push(c.toString(16))}catch{}};console.log(a.join(' '))"`
+ *  → `09 0a 0c 0d 20`. So anything that decodes is, by construction, safe to
+ *  interpolate into a double-quoted attribute value.
+ *
+ *  ★ COST, measured at the documented cap (`ASSET_STORED_MAX_BYTES` 5 MiB ×
+ *  `ASSET_MAX_PER_DOCUMENT` 20 = ~140 MB of base64 in one document): the old
+ *  regex 223 ms, this decode 579 ms. Paid ONCE per download/print and never in
+ *  preview — `renderDocumentHtml` returns before `inlineDocumentImages` in
+ *  preview mode — so it is not on any keystroke path. If it ever needs to be
+ *  cheaper, a bare `try { atob(data) }` with a length check measures 119 ms
+ *  (the per-byte `Uint8Array` copy is the whole difference), but it would be a
+ *  second hand-rolled guard beside this one; reuse was the better trade here. */
 function assetSrcAttr(data: string | undefined, mime: string | undefined): string | null {
   if (!data || !mime) return null;
   if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(mime)) return null;
-  if (!BASE64_RE.test(data)) return null;
+  if (!safeBase64ToBytes(data)) return null;
   return ` src="data:${mime};base64,${data}"`;
 }
 

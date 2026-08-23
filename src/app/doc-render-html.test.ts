@@ -513,6 +513,44 @@ describe("renderDocumentHtml — S3c-1 image inlining is validated at the SINK",
     expect(img.getAttribute("src")).toBeNull();
     expect(img.getAttribute("data-asset-missing")).toBe("true");
   });
+
+  // ★★★ AN ALPHABET REGEX IS WRONG IN BOTH DIRECTIONS AS A BASE64 VALIDITY
+  // TEST, and this sink was the last one still using one. Every row below is
+  // pure alphabet, so the old `/^[A-Za-z0-9+/=]+$/` passed it and emitted a
+  // `data:` URI no browser can decode — with NO `data-asset-missing`, because a
+  // src had been produced. Reproduce the premise:
+  //   node -e "for(const s of ['abcde','====','ab=c','QQ=']){try{atob(s);console.log(s,'ok')}catch{console.log(s,'THROW')}}"
+  it.each([
+    ["a length fault", "abcde"],
+    ["padding only", "===="],
+    ["misplaced padding", "ab=c"],
+    ["a short final quantum", "QQ="],
+  ])("declines %s rather than emitting an undecodable data: URI", (_label, data) => {
+    const img = renderedImg("image/png", data);
+    expect(img.getAttribute("src")).toBeNull();
+    expect(img.getAttribute("data-asset-missing")).toBe("true");
+  });
+
+  // The whitespace-only row: `atob` returns "" and raises NOTHING, so a
+  // catch-only guard cannot see it either. It is undrawable at every sink.
+  it("declines a whitespace-only row, which atob accepts and decodes to nothing", () => {
+    const img = renderedImg("image/png", "\t\r\n ");
+    expect(img.getAttribute("src")).toBeNull();
+    expect(img.getAttribute("data-asset-missing")).toBe("true");
+  });
+
+  // ★★ THE OTHER DIRECTION. `atob` strips ASCII whitespace before decoding, so
+  // a line-wrapped row is a GOOD image — the OOXML sinks render it, and this
+  // one used to reject it because the regex saw the newline. Whitespace inside
+  // the attribute is inert (WHATWG forgiving-base64 decode strips it) and
+  // cannot terminate a quoted value: beyond the alphabet, `atob` accepts only
+  // 09/0a/0c/0d/20, never `"`.
+  it("renders a line-wrapped base64 row — atob strips interior whitespace", () => {
+    const img = renderedImg("image/png", "iVBORw0K\nGgo=");
+    expect(img.getAttribute("data-asset-missing")).toBeNull();
+    expect(img.getAttribute("src")).toBe("data:image/png;base64,iVBORw0K\nGgo=");
+    expect(img.getAttribute("onerror")).toBeNull();
+  });
 });
 
 // ★★★ S3c-2: THE THREE BUCKETS ARE THREE DIFFERENT MESSAGES TO THE READER of
