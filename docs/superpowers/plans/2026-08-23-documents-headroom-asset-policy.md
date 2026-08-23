@@ -746,6 +746,36 @@ MSG
 
 **Scene:** This is the consumer **no search for the constant can find** — it reads the stored mime through `mimeFor` and builds a `Blob` carrying that type, with no allowlist and no cast. It is a **behaviour change**, not a refactor, and cannot ride Task 5's mechanical sweep.
 
+### ★★★ CORRECTIONS — pre-verified. THE GUARD AS PLANNED BREAKS WORKING IMAGES. These win over the steps below.
+
+**C13. ★★★ THERE IS A FOURTH CASE, AND THE PLANNED GUARD REGRESSES IT.** The plan models three cases reaching the mime line: (a) no lookup supplied, (b) a lookup that MISSED, (c) a lookup that hit a disallowed mime. There is a fourth:
+
+  **(d) a lookup that HITS a row whose `mime` is the EMPTY STRING.** `sanitizeDocumentAsset` requires only `id`; `mime` comes from `sanitizeText(o.mime, ASSET_MIME_MAX)`, and `sanitizeText` returns `""` for anything non-string (verified: `if (typeof s !== "string") return "";`). So a row with a missing, blank or non-string mime SURVIVES sanitising with `mime === ""`, on every load path.
+
+  - **Today** the line reads `const blob = mime ? new Blob([bytes], { type: mime }) : new Blob([bytes]);` — a TRUTHY test, so `""` falls through to the typeless Blob and **the image RENDERS** via `<img>` content sniffing.
+  - **Under the planned `if (mime !== undefined && !isAllowedAssetMime(mime)) return;`** — `"" !== undefined` is TRUE and `isAllowedAssetMime("")` is FALSE, so the asset is **DECLINED and stamped `data-asset-missing`**. A currently-rendering image becomes a broken one.
+
+  ★★★ **Write the guard TRUTHY, mirroring the ternary two lines below it:**
+  ```ts
+  if (mime && !isAllowedAssetMime(mime)) return;
+  ```
+  That keeps (a), (b) and (d) on the fall-through path and declines only (c) — a KNOWN-BAD mime, which is the entire point of the task. It is a one-token difference from the planned spelling and it is the difference between a fix and a regression.
+  ★★ The plan's long comment calling `mime !== undefined` "load-bearing" was half right: the DISTINCTION is load-bearing, the SPELLING was wrong. Rewrite that comment to name all four cases and say why the test is truthy — do not paste the planned wording, which argues for the spelling that breaks (d).
+
+**C14. Case (b) IS real — the test for it is not vacuous.** Four independent mechanisms produce a lookup that misses on an asset that has bytes: `documentAssets` is an OPTIONAL slice deliberately set to `undefined` when empty (`browser-backend.ts`, and the JSON writer omits the key); metadata rows are dropped INDIVIDUALLY on load while bytes are untouched; metadata and bytes live in DIFFERENT tables with different lifecycles (`document_assets` is inside the workspace save's per-table DELETE sweep, `document_asset_data` deliberately is not — §207 records the two desynchronising in production); and the `<img data-asset-id>` reference itself lives in a third slice, the documents meta-blob. The module's own `AssetMimeLookup` docstring already names it: "Absent (or a miss) falls back to no type at all — the browser's existing behaviour, not a regression."
+  Assert (b) and (c) DISTINGUISHABLY: **(b) → `src` set, `data-asset-missing` absent, `blob.type === ""`; (c) → no `src`, `data-asset-missing === "true"`.**
+
+**C15. ★★★ ONLY TWO NEW TESTS, NOT THREE — case (a) is ALREADY COVERED.** `document-asset-images.test.ts` already has "mints a typeless Blob when no mime lookup is supplied", asserting `blob.type === ""`. Adding another is the third duplicate-coverage mistake on this branch. Reuse that file's existing fixtures: `root('<img data-asset-id="a1">')`, the inline `async () => "QUJD"` loader, and its `vi.stubGlobal("URL", …)` / `vi.unstubAllGlobals()` pattern — its own comment warns that a bare unrestored `vi.spyOn` leaks into the next test. Read the Blob via `(URL.createObjectURL as unknown as ReturnType<typeof vi.fn>).mock.calls[0][0] as Blob`.
+
+**C16. The decline path is genuinely DISCLOSED, not silent.** `globals.css` styles `img[data-asset-missing]` with a dashed frame and a `::before` warning glyph, and `doc-render-html.ts` embeds its own copy of that rule for the standalone export. Three e2e/unit suites assert it. ★ The frame is drawn REGARDLESS of `src`, which is why the success branch must keep REMOVING the attribute.
+
+**C17. Placement: the guard goes in `attachAssetImages`, not in `document-preview.tsx`.** §223's stated remedy names the caller. Putting it in the shared function is the better call — it defends the SECOND caller that Task 8 is about to create — but it is a divergence from the register's wording and it is what makes case (a) reachable at all. Say which you chose in the commit message.
+
+**C18. ★★★ DO NOT CLOSE §223 ON TASK 5 ALONE.** The register entry predicts that exact mistake in its own text: "someone converts the six casts, closes §223 as a refactor and never touches the consumer that checks nothing." §223 closes only once BOTH Task 5 and Task 6 have landed.
+
+**C19. §206 and Task 6 interact, and the order matters.** Task 8 wires `attachAssetImages` into the history modal, creating the SECOND production caller — and a `DocVersion` is a retained before-image, so its block HTML can reference asset ids whose metadata row was since removed by the refcount-aware delete while the version lives on. That makes the history modal the strongest case-(b) generator in the app. With the truthy guard this is harmless (typeless Blob, image renders); with the planned `mime !== undefined` spelling it would mark healthy pictures missing. One more reason C13 is not a style preference.
+
+
 - [ ] **Step 1: Write three failing tests**
 
 ```ts
