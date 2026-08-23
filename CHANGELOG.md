@@ -8,6 +8,17 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.256.1] - 2026-08-23 "Khaw"
+
+### Changed
+- **Six data tables now announce their sort state properly.** The changes, stakeholders, RAID, resource-directory, roles and activity-log tables each hand-rolled their own sortable header instead of using the shared one. Three of them — the resource directory, the roles rate card and the activity log — announced their sort order **nowhere at all**, so a screen-reader user could not tell which column a table was sorted by; the other three repeated it inside the button's name, where it was read out twice. All six now carry a real `aria-sort`, and the sort arrow stays visible while leaving the announced name.
+- The activity log's **By** column can now be sorted. It was deliberately left unsortable because a fourth hand-rolled sort button would have made the same problem worse; folding the table onto the shared header removed that cost.
+- The tasks view's column-configuration popover was a copy of the shared one it had originally been extracted from, and had drifted: it was clipped by its own toolbar rather than floating above it, and its gear button's hover state did nothing.
+- Header rows no longer render at two different weights, and the activity log's headers are no longer the only shouting ones in the app.
+
+### Fixed
+- The changes and RAID tables' `#` column announced itself as "ID" while displaying "#", so its spoken name did not contain its visible label (WCAG 2.5.3). Both now announce "#", with "ID" available on hover.
+- The RAID table typed its sort direction as a free-form string, accepting values that are not directions.
 ## [0.256.0] - 2026-08-23 "Khaw"
 
 ### Added
