@@ -10,11 +10,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import {
   ParagraphBlockEditor,
   HeadingBlockEditor,
-  BulletsBlockEditor,
   TableBlockEditor,
   DataSectionBlockEditor,
   PageBreakBlockEditor,
 } from "./document-block-editors";
+import { BulletsBlockEditor } from "./bullets-block-editor";
 import type { ReactElement } from "react";
 import { t, type Lang } from "./i18n";
 import type { DocBlock, ProjectDocument } from "./document-model";
