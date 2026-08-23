@@ -12,7 +12,14 @@
 // a `toContain("&amp;")` assertion would happily pass double-escaped text.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentPptx, segmentIntoSlides, paginateLines } from "./doc-render-pptx";
+import {
+  renderDocumentPptx,
+  segmentIntoSlides,
+  paginateLines,
+  lineCost,
+  canEmbedPptxAsset,
+  type SlideLine,
+} from "./doc-render-pptx";
 import { readZipEntries } from "./unzip";
 import { decodeUtf8 } from "./office-xml";
 import {
@@ -30,6 +37,9 @@ import type { Workspace } from "./workspace";
 import type { RunMark } from "./rich-text-runs";
 import type { DocumentAsset } from "./document-asset";
 import { t } from "./i18n";
+import { unzipBytes, partText } from "../test/unzip-bytes";
+import { base64ToBytes } from "./document-asset-upload";
+import type { ExportAssets } from "./document-export-assets";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -658,7 +668,12 @@ describe("renderDocumentPptx — blocks", () => {
         { type: "heading", level: 2, text: "BBB" },
       ]),
     );
-    expect(text.indexOf("AAA")).toBeLessThan(text.indexOf("BBB"));
+    // ★★★ NOT `indexOf(a) < indexOf(b)`: indexOf returns -1 for a MISSING
+    // entry and -1 is less than every real index, so that form stays GREEN when
+    // the first block is dropped outright. Extract the whole ordered list — it
+    // pins presence, order AND the deliberate blank line between two blocks in
+    // one assertion.
+    expect(text).toEqual(["AAA", "", "BBB"]);
   });
 });
 
@@ -1153,5 +1168,414 @@ describe("renderDocumentPptx — S3c-1 image placeholders", () => {
     const xml = await onlyContentSlideWithWs('<p><img data-asset-id="a1" alt="Sunset"></p>', wsWithAsset);
     expect(xml).not.toContain("<img");
     expect(xml).not.toContain("data-asset-id");
+  });
+});
+
+// ─── S3c-2: image lines, cost-based pagination, placed pictures ──────────────
+//
+// ★★ The placement assertions resolve the WHOLE reference chain — slide XML →
+// r:embed → THAT slide's own _rels → Target → the media part's bytes. An
+// assertion on any single link passes while a slide points at another slide's
+// image, and nothing else in this repo can see that: there is no .pptx byte
+// fixture, and export-ooxml.test.ts reads part PRESENCE and slide-XML
+// SUBSTRINGS only.
+
+describe("cost-based paginateLines", () => {
+  /** One body line in EMU, spelled out rather than imported from the module
+   *  under test — an expectation derived from the constant it is checking
+   *  asserts nothing. 14pt body (BODY_SIZE 1400 hundredths) × 1.2 spacing ×
+   *  12700 EMU per point. */
+  const ONE_LINE_EMU = (1400 / 100) * 1.2 * 12700;
+
+  const img = (heightEmu: number): SlideLine => ({
+    kind: "image",
+    id: "a1",
+    cxEmu: 100,
+    cyEmu: heightEmu,
+  });
+
+  it("still costs a text line as one", () => {
+    expect(lineCost("hello")).toBe(1);
+    expect(lineCost("")).toBe(1);
+  });
+
+  it("costs an image by its height in line-heights", () => {
+    expect(lineCost(img(ONE_LINE_EMU))).toBe(1);
+    expect(lineCost(img(ONE_LINE_EMU * 2.1))).toBe(3);
+    // A picture shorter than a line still occupies one.
+    expect(lineCost(img(1))).toBe(1);
+  });
+
+  it("breaks the slide when an image no longer fits", () => {
+    // Budget 4: three text lines, then an image costing 2 — the image moves on.
+    const chunks = paginateLines(["a", "b", "c", img(ONE_LINE_EMU * 2)], 4);
+    expect(chunks).toHaveLength(2);
+    expect(chunks[0]).toEqual(["a", "b", "c"]);
+    expect(chunks[1]).toHaveLength(1);
+  });
+
+  it("puts an over-budget image on a slide of its own instead of looping", () => {
+    // ★ 500 line-heights is far taller than the body box, i.e. a line
+    // `slideLines` cannot produce — deliberately so, because it proves the walk
+    // terminates on its own rather than leaning on the cap to stay honest.
+    const chunks = paginateLines([img(ONE_LINE_EMU * 500), "after"], 4);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.flat()).toHaveLength(2);
+  });
+
+  it("never drops an image at a chunk boundary the way it drops a blank", () => {
+    const image = img(ONE_LINE_EMU);
+    const chunks = paginateLines(["a", "b", image], 2);
+    expect(chunks).toHaveLength(2);
+    expect(chunks.flat()).toHaveLength(3);
+    expect(chunks[1][0]).toEqual(image);
+  });
+
+  it("keeps the existing text-only behaviour exactly", () => {
+    expect(paginateLines(["a", "b", "c"], 2)).toEqual([["a", "b"], ["c"]]);
+    expect(paginateLines([], 2)).toEqual([[]]);
+  });
+});
+
+describe("renderDocumentPptx — S3c-2 placed pictures", () => {
+  /** An 8-byte PNG header, plus a DIFFERENT 8 bytes. Two payloads, so a slide
+   *  showing the wrong image fails as a byte mismatch rather than merely as a
+   *  path count. */
+  const PNG_B64 = "iVBORw0KGgo=";
+  const OTHER_B64 = "AAECAwQFBgc=";
+
+  /** ★ `hash` is REQUIRED on `DocumentAsset`; `width`/`height` are the optional
+   *  pair the extent needs, so a fixture omitting them is the declined case. */
+  const sized = (over: Partial<DocumentAsset> = {}): DocumentAsset => ({
+    id: "a1",
+    name: "chart.png",
+    mime: "image/png",
+    size: 8,
+    width: 480,
+    height: 240,
+    hash: "h",
+    createdAt: "2026-08-06T00:00:00.000Z",
+    ...over,
+  });
+
+  const wsWith = (...list: DocumentAsset[]): Workspace =>
+    ({ tasks: [], raid: [], documentAssets: list }) as unknown as Workspace;
+
+  const inlined = (map: Record<string, string>): ExportAssets => ({
+    inlined: map,
+    omitted: new Set(),
+    missing: new Set(),
+  });
+
+  const para = (html: string): DocBlock => ({ type: "paragraph", html });
+
+  const zipOf = (
+    blocks: DocBlock[], w: Workspace, assets: ExportAssets,
+  ): Promise<Map<string, Uint8Array>> =>
+    unzipBytes(renderDocumentPptx(doc(blocks), w, "en-US", assets));
+
+  const mediaPaths = (zip: Map<string, Uint8Array>): string[] =>
+    [...zip.keys()].filter((path) => path.startsWith("ppt/media/")).sort();
+
+  /** The y of every `<p:pic>` on a slide, in document order. ★ Matched from the
+   *  `<p:pic>` open tag, because the background rect, the accent bar and every
+   *  text box emit a byte-identical `<a:off …/>` of their own. */
+  const pictureYs = (xml: string): number[] =>
+    [...xml.matchAll(/<p:pic>[\s\S]*?<a:off x="\d+" y="(\d+)"/g)].map((m) => Number(m[1]));
+
+  /** Every picture slide `n` shows, resolved through THAT slide's own rels. */
+  function slidePictures(
+    zip: Map<string, Uint8Array>, n: number,
+  ): { relId: string; path: string; bytes: number[] }[] {
+    const xml = partText(zip, `ppt/slides/slide${n}.xml`);
+    const rels = partText(zip, `ppt/slides/_rels/slide${n}.xml.rels`);
+    return [...xml.matchAll(/<a:blip r:embed="(rId\d+)"\/>/g)].map((m) => {
+      const relId = m[1];
+      const target = new RegExp(`Id="${relId}"[^>]*Target="\\.\\./media/([^"]+)"`).exec(rels);
+      if (!target) throw new Error(`slide${n} embeds ${relId}, which its own rels never declare`);
+      const path = `ppt/media/${target[1]}`;
+      const bytes = zip.get(path);
+      if (!bytes) throw new Error(`slide${n} resolves ${relId} to ${path}, absent from the package`);
+      return { relId, path, bytes: Array.from(bytes) };
+    });
+  }
+
+  it("places a picture below the body text and embeds its bytes", async () => {
+    const zip = await zipOf(
+      [para('<p>intro<img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+
+    // Slide 2 is the first CONTENT slide — slide 1 is the deck's title slide.
+    const pics = slidePictures(zip, 2);
+    expect(pics).toHaveLength(1);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    // BODY_BOX.yEmu 1188720 + ONE body line of 213360 EMU: the paragraph's
+    // "intro" is the only text line, and the picture goes UNDER it.
+    expect(pictureYs(xml)).toEqual([1402080]);
+    // 480×240 CSS px at 96 dpi, inside the body box unscaled.
+    expect(xml).toContain('<a:ext cx="4572000" cy="2286000"/>');
+  });
+
+  it("takes the picture's alt text from the asset name, escaped", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized({ name: 'Q3 & "roadmap" <final>.png' })),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(xml).toContain('descr="Q3 &amp; &quot;roadmap&quot; &lt;final&gt;.png"');
+    expect(() => parseXml(xml)).not.toThrow();
+  });
+
+  it("keeps the placeholder for an omitted asset and writes no media part", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+    );
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");
+  });
+
+  it("keeps the placeholder for an inlined asset with no stored dimensions", async () => {
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized({ width: undefined, height: undefined })),
+      inlined({ a1: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/slide2.xml")).toContain("chart.png");
+  });
+
+  // ─── a byte row this renderer cannot decode ────────────────────────────────
+  //
+  // ★★★ THE END-TO-END LEVEL EXISTS BECAUSE THE UNIT LEVEL CANNOT SEE THIS.
+  // `doc-render-pptx-slides.test.ts` proves `mint` DECLINES a malformed row;
+  // it says nothing about what the reader is then shown. PPTX splits into two
+  // decision points where docx keeps one — `paragraphLines` decides an <img>
+  // becomes an ImageLine and STRIPS the tag, so `withImagePlaceholders` never
+  // sees it, and `buildContentSlide` answers a null mint with "". Measured
+  // before the fix: this exact fixture lost BOTH the picture and its disclosure
+  // — no <p:pic>, no placeholder, empty ppt/media/ — while the identical
+  // fixture through `renderDocumentDocx` disclosed the row. ★★ IT KEPT ITS BODY,
+  // and an earlier revision of this comment said "a BLANK slide — no <p:pic>, no
+  // Body text box, no placeholder": the pre-fix loop pushed the fragments either
+  // side of the <img> UNCONDITIONALLY (`git show 849703b4:src/app/doc-render-pptx.ts`),
+  // so `textLines` held "before"/"after" and `buildContentSlide`, which gates the
+  // Body on `textLines.length`, emitted it. A wholly blank slide takes the
+  // image-ONLY paragraph — see "does not bracket an image-only paragraph with
+  // blank body lines", which shows that shape emitting no Body at all. The fix is that
+  // the DECISION now applies the same decode the minting does, so a row it
+  // cannot decode is left in the fragment for the placeholder pass.
+  //
+  // ★★ EACH CASE IS A DIFFERENT atob OUTCOME and one alone is not enough:
+  // "a!b" is a CHARSET fault, "abcde" a LENGTH fault whose every character IS
+  // in the base64 alphabet, and " " does NOT THROW AT ALL — `atob` strips ASCII
+  // whitespace before decoding, so it yields a TRUTHY `Uint8Array(0)` that both
+  // minting sites' `if (!data)` used to wave through as a zero-byte media part.
+  it.each([
+    ["a charset fault", "a!b"],
+    ["a length fault whose characters are all in the alphabet", "abcde"],
+    ["ASCII whitespace, which atob accepts as a zero-byte decode", "\t\r\n "],
+  ])("discloses an image whose stored base64 has %s, and still emits the deck", async (_label, bad) => {
+    const zip = await zipOf(
+      [para('<p>before<img data-asset-id="a1">after</p>')],
+      wsWith(sized()),
+      inlined({ a1: bad }),
+    );
+    // Nothing was minted — in particular no ZERO-BYTE part for the blank row.
+    expect(mediaPaths(zip)).toEqual([]);
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    // ★★ THE ASSERTION IS THAT THE READER IS TOLD, not merely that nothing
+    //  threw: the pre-fix renderer returned a perfectly valid package whose
+    //  slide was silently empty, so `expect(() => …).not.toThrow()` and a bare
+    //  media-count check both passed against it.
+    const text = textNodes(xml).join("|");
+    expect(text).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    // …and the prose either side survived, which is the whole point.
+    expect(text).toContain("before");
+    expect(text).toContain("after");
+    expect(() => parseXml(xml)).not.toThrow();
+  });
+
+  it("still places a GOOD picture when a sibling row's base64 is malformed", async () => {
+    // ★★ Anti-vacuity for the three above: without this, a renderer that
+    //  declined EVERY image would pass all of them. One bad row must cost
+    //  exactly one picture, never the other — and the survivor must be image1,
+    //  because a decline that had already claimed the deck-wide index would
+    //  leave a numbering gap.
+    const small = { width: 96, height: 48 };
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><p><img data-asset-id="a2"></p>')],
+      wsWith(sized(small), sized({ id: "a2", name: "good.png", ...small })),
+      inlined({ a1: "a!b", a2: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    const pics = slidePictures(zip, 2);
+    expect(pics).toHaveLength(1);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    // The declined row still discloses, on the same slide as the good picture.
+    expect(textNodes(partText(zip, "ppt/slides/slide2.xml")).join("|"))
+      .toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+  });
+
+  it("numbers media parts DECK-WIDE while every slide's relationship ids restart at rId2", async () => {
+    const zip = await zipOf(
+      [
+        para('<p><img data-asset-id="a1"></p>'),
+        { type: "pageBreak" },
+        para('<p><img data-asset-id="a2"></p>'),
+      ],
+      wsWith(sized(), sized({ id: "a2", name: "second.png" })),
+      inlined({ a1: PNG_B64, a2: OTHER_B64 }),
+    );
+    // Deck-wide: ppt/media/ is ONE directory shared by every slide, so two
+    // pictures on two slides must still take two distinct part names.
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png", "ppt/media/image2.png"]);
+
+    const first = slidePictures(zip, 2);
+    const second = slidePictures(zip, 3);
+    expect(first).toHaveLength(1);
+    expect(second).toHaveLength(1);
+    // Per-slide: rId1 is the slide LAYOUT on every slide, so both start at rId2.
+    expect(first[0].relId).toBe("rId2");
+    expect(second[0].relId).toBe("rId2");
+    // …and each slide resolves to ITS OWN bytes. Swapping the two numbering
+    // rules yields valid XML carrying the wrong image here, which is the whole
+    // reason this test compares payloads and not counts.
+    expect(first[0].path).not.toBe(second[0].path);
+    expect(first[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    expect(second[0].bytes).toEqual(Array.from(base64ToBytes(OTHER_B64)));
+  });
+
+  it("gives two pictures on ONE slide distinct parts, distinct rels and stacked positions", async () => {
+    const small = { width: 96, height: 48 };
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><p><img data-asset-id="a2"></p>')],
+      wsWith(sized(small), sized({ id: "a2", name: "second.png", ...small })),
+      inlined({ a1: PNG_B64, a2: OTHER_B64 }),
+    );
+    const pics = slidePictures(zip, 2);
+    expect(pics.map((p) => p.relId)).toEqual(["rId2", "rId3"]);
+    expect(pics.map((p) => p.path)).toEqual(["ppt/media/image1.png", "ppt/media/image2.png"]);
+    expect(pics[0].bytes).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    expect(pics[1].bytes).toEqual(Array.from(base64ToBytes(OTHER_B64)));
+
+    // 96px = 914400 EMU wide, 48px = 457200 EMU tall; the second sits exactly
+    // one picture-height below the first rather than on top of it.
+    const ys = pictureYs(partText(zip, "ppt/slides/slide2.xml"));
+    expect(ys).toEqual([1188720, 1188720 + 457200]);
+  });
+
+  it("leaves an image-free document's package untouched by the new parameter", async () => {
+    const zip = await zipOf([para("<p>plain</p>")], wsWith(sized()), inlined({ a1: PNG_B64 }));
+    expect(mediaPaths(zip)).toEqual([]);
+    expect(partText(zip, "ppt/slides/_rels/slide2.xml.rels")).not.toContain("rId2");
+  });
+
+  it("keeps the text on BOTH sides of an embedded image, with no literal markup", async () => {
+    const zip = await zipOf(
+      [para('<p>before<img data-asset-id="a1">after</p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    const texts = textNodes(xml);
+    // ★★★ THE TAIL FRAGMENT IS `after</p>`, whose only `<` opens a CLOSING tag —
+    // which `CONTAINS_TAG` (html-start.ts) deliberately does not match. Without
+    // `asMarkup`'s <div> wrapper it is classified as legacy PLAIN TEXT, escaped,
+    // and a reader sees `after</p>` on the slide.
+    //
+    // ★★★ TWO SEPARATE PROPERTIES RIDE ON THAT ONE WRAPPER — do not merge them,
+    // and note that `doc-render-pptx.ts`'s `asMarkup` docstring and
+    // `docs/AGENTS/documents.md` each state only one of the two.
+    //   CLASSIFICATION. `CONTAINS_TAG` is UNANCHORED, so a fragment misclassifies
+    //   only when it contains markup and NO OPENING TAG. A HEAD fragment is never
+    //   one — it either opens a tag or holds no markup at all, and escaping pure
+    //   text is a no-op — so the head `<p>before` matches the classifier on its
+    //   own and a test that only checks the head passes over the defect.
+    //   ★★ "TAIL-ONLY" is still too narrow, which an earlier revision of this
+    //   comment asserted flatly: once a styled paragraph holds MORE THAN ONE
+    //   image the MIDDLE fragment can be closing-only too. Measured through the
+    //   real `isHtmlStart(value, RENDER_SINK)` — value FIRST, sink second —
+    //   `"<p>a"`, `"<p>a<em>b"` and `"<p>x</p><p>"` classify HTML, while
+    //   `"b</p>"`, `"</em>"` and `"</em></strong>"` classify PLAIN.
+    //   PARSER RECONCILIATION. This is the "unbalanced in EITHER direction"
+    //   property, and it is why the wrapper is a `<div>` rather than merely some
+    //   opening tag: an unclosed `<p>` at the head and an orphan `</p>` at the
+    //   tail both reconcile inside one well-formed container.
+    // EVERY fragment is wrapped because classification needs it for tails and
+    // middles while reconciliation needs it for heads.
+    expect(texts).toContain("before");
+    expect(texts).toContain("after");
+    expect(texts.some((line) => line.includes("</p>"))).toBe(false);
+    expect(pictureYs(xml)).toHaveLength(1);
+  });
+
+  it("does not bracket an image-only paragraph with blank body lines", async () => {
+    // The block editor's own shape. Splitting it leaves the fragments `<p>` and
+    // `</p>` — non-blank as STRINGS, empty as PROSE — so a `.trim()` test here
+    // would put a blank line either side of the picture.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(textNodes(xml)).toEqual([]);
+    // No body text box at all: an empty one still emits a stray blank <a:p>.
+    expect(xml).not.toContain('name="Body"');
+    // …so the picture sits at the very top of the body box.
+    expect(pictureYs(xml)).toEqual([1188720]);
+  });
+
+  it("keeps a horizontal rule that follows an image in the same paragraph", async () => {
+    // ★★★ A RULE CARRIES NO TEXT BUT IS CONTENT — `isBlankLine`'s `hr` arm says
+    // so, and this is the one fragment shape where "has visible text" and "emits
+    // a line" disagree. The trailing fragment here strips to "", so a
+    // visible-text gate would DROP the rule; the blank filter in `slideLines`
+    // keeps it, because it asks about the LINES rather than about the markup.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"></p><hr>')],
+      wsWith(sized()),
+      inlined({ a1: PNG_B64 }),
+    );
+    const xml = partText(zip, "ppt/slides/slide2.xml");
+    expect(textNodes(xml).join("")).toContain("—");
+    expect(pictureYs(xml)).toHaveLength(1);
+  });
+
+  it("keeps the placeholder for a DECLINED image sharing a paragraph with an embedded one", async () => {
+    // ★★★ The fragment AFTER the embedded image is `<img data-asset-id="a2"></p>`,
+    // which strips to "" — so a gate asked on the RAW markup drops it, and with
+    // it the S3c-1 disclosure that is the reader's only sign the second image
+    // was ever there. Any such gate must be asked AFTER the placeholder pass,
+    // or not at all.
+    const zip = await zipOf(
+      [para('<p><img data-asset-id="a1"><img data-asset-id="a2"></p>')],
+      wsWith(sized(), sized({ id: "a2", name: "unsized.png", width: undefined, height: undefined })),
+      inlined({ a1: PNG_B64, a2: PNG_B64 }),
+    );
+    expect(mediaPaths(zip)).toEqual(["ppt/media/image1.png"]);
+    expect(textNodes(partText(zip, "ppt/slides/slide2.xml")).join("")).toContain("unsized.png");
+  });
+
+  describe("canEmbedPptxAsset", () => {
+    it("declines an absent row, a mime outside the allow-list and a dimensionless asset", () => {
+      expect(canEmbedPptxAsset(undefined)).toBe(false);
+      expect(canEmbedPptxAsset(sized({ mime: "image/svg+xml" }))).toBe(false);
+      expect(canEmbedPptxAsset(sized({ width: undefined }))).toBe(false);
+      expect(canEmbedPptxAsset(sized({ height: 0 }))).toBe(false);
+    });
+
+    it("accepts a sized asset in an allowed mime", () => {
+      expect(canEmbedPptxAsset(sized())).toBe(true);
+      expect(canEmbedPptxAsset(sized({ mime: "image/jpeg" }))).toBe(true);
+    });
   });
 });

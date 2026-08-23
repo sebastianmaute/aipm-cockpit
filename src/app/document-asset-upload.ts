@@ -274,6 +274,86 @@ export function base64ToBytes(b64: string): Uint8Array {
   return out;
 }
 
+/** `base64ToBytes` for data that arrives from STORAGE rather than from our own
+ *  encoder: returns null instead of throwing.
+ *
+ *  ★★★ THE CALLERS ARE SYNCHRONOUS RENDERERS INSIDE A PROMISE NOBODY AWAITS.
+ *  `renderDocumentDocx`/`renderDocumentPptx` run inside `downloadDocument`, and
+ *  all three of its production call sites `void` that promise — nothing
+ *  downstream can retry or resume it — so a throw from the decode costs the
+ *  user the WHOLE export over one malformed byte row: no file. Both minting
+ *  sites already have a `return null` path to the placeholder; this routes a
+ *  bad row down it, which is what that path is for.
+ *
+ *  ★★★ THEY DO GET A MESSAGE, AND ONLY BECAUSE OF THE HANDLERS — do not read
+ *  the `void` above as implying otherwise. Each of those three sites attaches
+ *  `.catch((e) => reportDownloadFailure(showToast, lang, e))`, which reaches
+ *  `reportSilentFailure` → `logDiag` + an error toast; they landed in the SAME
+ *  commit as this guard, so "no message" was never true of a shipped tree (an
+ *  earlier revision of this docstring said it was). The two halves are not
+ *  redundant and neither substitutes for the other: the handler turns a lost
+ *  export into a REPORTED lost export, this guard is what keeps the export.
+ *  Deleting a handler re-opens the silent failure for every OTHER throw on that
+ *  path. Verify — the `-A1` is load-bearing, because one of the three sites puts
+ *  its handler on the NEXT line, so the bare form reads as a refutation:
+ *    git grep -nA1 -E "void downloadDocument[(]" -- src | grep -v "\.test\."
+ *
+ *  ★★ THE PREMISE, first written down in `doc-render-html.ts` and true for every
+ *  consumer: these bytes come back from a Turso column that validates no
+ *  charset, so "we wrote it, so it decodes" is not a claim any of them may rely
+ *  on. All of them now act on it, through this function.
+ *
+ *  ★★★ A CATCH, NOT A REGEX PRE-CHECK, AND THAT IS THE MEASURED CHOICE RATHER
+ *  THAN THE LAZY ONE. An alphabet test — /^[A-Za-z0-9+/=]+$/ — is wrong in BOTH
+ *  directions, at EVERY sink. An earlier revision here defended it as "the right
+ *  guard" for `doc-render-html.ts`, on the grounds that that sink interpolates
+ *  into a data: URI and never decodes so its only question is what may enter an
+ *  attribute; that argument fell, the regex is gone, and the html sink now calls
+ *  this function like the rest. Too weak: `atob("abcde")` throws "not correctly
+ *  encoded" while passing it, as do "=", "====", "ab=c", "QQ=" and "AAAA=" —
+ *  a whole family of length and padding faults no alphabet test can see, so the
+ *  throw this exists to stop would still get through. Too strong: `atob` strips
+ *  ASCII whitespace before decoding, so `"iVBORw0K
+Ggo="` decodes to the same
+ *  8 bytes as its unwrapped form while the regex REJECTS it — a line-wrapped
+ *  row would silently become a placeholder in a document that could have shown
+ *  the image. Only `atob` knows what `atob` accepts; asking it is the guard.
+ *
+ *  ★★★ A ZERO-LENGTH DECODE IS A REJECTION TOO, AND IT NEVER THROWS — which is
+ *  why the catch alone was not enough. The whitespace-stripping above is the
+ *  same door: `atob("")`, `atob(" ")` and `atob("\t\r\n ")` all return "" and
+ *  raise nothing, and the `Uint8Array(0)` that came back is TRUTHY. Both OOXML
+ *  minting sites guard with `if (!data) return null`, so a whitespace-only
+ *  stored row rode through them and landed a ZERO-BYTE `word/media/image1.png`
+ *  / `ppt/media/image1.png` in the package, referenced by a real `<w:drawing>`
+ *  / `<p:pic>` and disclosed by no placeholder. Measured, not reasoned.
+ *  ★★ REJECTED HERE RATHER THAN AT THE CALL SITES ON PURPOSE: a zero-byte image
+ *  is undrawable at EVERY sink, one place cannot drift from five, and a new
+ *  consumer inherits the guard. That has already paid twice — `doc-render-html.ts`
+ *  and `document-asset-images.ts` (the live preview) each moved onto this after
+ *  their own hand-rolled check was measured wrong. FIVE call sites today, in five
+ *  files; enumerate them WITH the declaration by:
+ *    grep -rn "safeBase64ToBytes[(]" src/app --include=*.ts | grep -v "\.test\."
+ *  (the bracket class is deliberate — spelling the bare call would make this
+ *  comment match itself and report a sixth site).
+ *  ★ The name is therefore slightly generous — this returns null for a string
+ *  `atob` ACCEPTS. Kept anyway: every consumer wants bytes it can draw and none
+ *  has ever wanted an empty decode, and the raw `base64ToBytes` is still there
+ *  for anyone who genuinely does. */
+export function safeBase64ToBytes(b64: string): Uint8Array | null {
+  let bytes: Uint8Array;
+  try {
+    bytes = base64ToBytes(b64);
+  } catch {
+    // Nothing to recover: the row is not what it claims to be. The caller's
+    // existing null path already discloses it as an undrawable asset.
+    return null;
+  }
+  // Same null, same call-site path — an empty row is as undrawable as a
+  // malformed one, it simply arrives without an exception.
+  return bytes.length > 0 ? bytes : null;
+}
+
 /** SHA-256 over the STORED bytes, lowercase hex. Drives dedup and makes delete
  *  refcount-aware: a logo referenced from twenty documents is one row. */
 export async function hashBytes(bytes: Uint8Array): Promise<string> {

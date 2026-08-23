@@ -13334,9 +13334,23 @@ that finds it is the `node -e` command above.)
 regression from that change — it predates it, and the same sweep over the newly tracked corpus came
 back otherwise clean.
 
-## 202. OOXML media machinery for document images — S3c-2, open
+## 202. OOXML media machinery for document images — S3c-2 — CLOSED 2026-08-22
 
-**Status:** open — no scaffolding exists yet.
+**Status:** CLOSED 2026-08-22 by 0.256.0 "Khaw". Every part this entry called unbuilt now exists.
+`ooxml-media.ts` is the DOM-free unit leaf (`emuFromPx`, `emuFromTwips`, `fitExtent`,
+`mediaExtension`, `contentTypeFor`, the `MediaPart` shape); `buildDocxPackage` and
+`buildPptxPackage` take media parts and emit the `[Content_Types].xml` `Default` entries, the
+`_rels` entries and the binary `word/media/` / `ppt/media/` parts; `docxInlineDrawing` and
+`pptxPicture` emit the drawing XML. Extents come from each asset's stored `width`/`height`
+through `fitExtent`. The standalone-HTML half was §210.
+
+★★★ **WHAT IS STILL NOT COVERED, AND NOTHING IN THIS REPO CAN COVER IT.** Every OOXML
+assertion in the suite is unzip-and-byte-compare: `unzipBytes` (`src/test/unzip-bytes.ts`) returns
+each part's raw bytes and the tests check part presence, part bytes and document-XML substrings.
+**No test opens the produced file in Word or PowerPoint, and none can** — there is no Office
+automation here, and no `.docx`/`.pptx` byte fixture to compare a package against (§216). A green
+suite proves the package is the one the builders meant to write, never that Word accepts it. The
+owed manual pass is §219.
 
 S3c-1 (0.254.0) shipped document images for the **live preview**, which resolves each
 `<img data-asset-id>` to a blob object URL in `document-asset-images.ts`. ★★ It did NOT finish the
@@ -13549,9 +13563,26 @@ by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and d
 them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
 records elsewhere; nothing gates them agreeing.
 
-## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either
+## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either — CLOSED 2026-08-22
 
-**Status:** open — the sink is built and tested; only the wiring is missing.
+**Status:** CLOSED 2026-08-22 by 0.256.0 "Khaw". `renderDocumentHtml` now receives assets on both
+production paths and `inlineDocumentImages` runs outside its own tests: `downloadDocument` is
+`async` and loads bytes through `loadExportAssets` for the html and pdf branches alike.
+
+★★ **The gesture problem this entry called the trap was solved by ORDERING, not by pre-loading.**
+The pdf branch calls `window.open` FIRST, inside the user gesture, and only then awaits the bytes,
+writing into the already-open tab. So no user lands on the popup-blocker fallback, and the panel
+does not have to guess ahead of the click which document will be exported.
+
+★★ **Both halves of the "the glyph cannot fire either" finding are closed too.** The
+`data-asset-missing` attribute is now stamped on a real export (the fallback branch runs), and the
+rule that styles it lives in `DOCUMENT_PAGE_STYLES`, which a standalone export inlines — so it no
+longer depends on `globals.css`, which such a file never loads. A third disclosure branch sits
+beside it: an image whose bytes exist but fell outside the inline budget renders the same translated
+placeholder text the OOXML renderers use, rather than a broken-image box.
+
+★★★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX STATE** and is kept because the mechanism is the
+argument for the ordering that was chosen. Read it as the diagnosis, never as today's behaviour.
 
 **Symptom.** Export a document containing an image as **HTML** or **PDF** and the image is simply
 absent from the file. Not a placeholder, not a broken-image marker, not a warning glyph — an
@@ -13596,7 +13627,8 @@ BEFORE the gesture (the panel knows which document is selected long before the c
 restructuring the export entry point so the async work happens outside the gesture-sensitive branch.
 
 ★ **What is already done.** `assetSrcAttr` — the `data:` URI sink — is built, validates the mime
-against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload against the base64 alphabet,
+against `ASSET_MIME_ALLOWED` (imported, never restated) and the payload by DECODING it through the
+shared `safeBase64ToBytes` — an alphabet regex sat here first and was wrong in both directions —
 falls through to the `data-asset-missing` branch on a miss, and is unit-tested against PARSED
 attributes rather than raw substrings. It is one wiring line from live, which is also why it must not
 be downgraded on reachability grounds.
@@ -13944,3 +13976,492 @@ even less than a branch's, and nobody should read it as coverage.
 **Reproduce today's state:** run `npx playwright test e2e/documents-images-interactive.spec.ts
 --project=chromium` with no `.env.local` and no exported pair — `12 skipped`, exit 0. That is
 exactly what every CI pipeline does.
+
+## 216. There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests
+
+**Status:** open — a real gap, deliberately not closed in 0.256.0.
+
+★★★ **THE SPEC AND THE PLAN FOR THIS SLICE BOTH ASSERTED THAT THE GOLDEN SUITE PINS THESE
+BYTES. IT DOES NOT**, and Ground Rule 1 of that plan rested on the claim. `src/app/__fixtures__/`
+holds `golden-workspace.csv` and `golden-workspace.md` and nothing else;
+`golden-workspace.test.ts` contains no occurrence of "docx" or "pptx" in any case; and
+`export-ooxml.test.ts` asserts part PRESENCE and document-XML SUBSTRINGS
+(`toContain`/`not.toContain`), never whole-package byte equality. Both documents were corrected in
+the same commit that opened this entry.
+
+**Measured 2026-08-22, not reasoned.** Hardcoding a `<Default Extension="png"/>` into the
+EMPTY-media case of BOTH builders and running the three suites reddens **four** tests and leaves
+`export-ooxml.test.ts` **green** (`4 failed | 57 passed`, that one suite file the only passing one):
+`ooxml-docx-primitives.test.ts`'s "is byte-identical to the no-argument call when media is empty"
+and "declares each extension ONCE even with several images of that type";
+`ooxml-pptx-primitives.test.ts`'s "gives a media-free deck the same parts as before" and "writes the
+bytes verbatim and declares the extension once".
+
+★★★ **AND NEITHER "BYTE" TEST CAUGHT IT BY ITS BYTE COMPARISON. THIS IS THE WHOLE
+ENTRY.** Re-run with the mutant in the DOCX builder alone and vitest names the failing line: it is
+`expect(partText(a, "[Content_Types].xml")).not.toContain("image/")`, a trailing SUBSTRING
+assertion — not the loop above it that byte-compares every part. That loop cannot fail here,
+because it compares `buildDocxPackage(body, "", "portrait")` against
+`buildDocxPackage(body, "", "portrait", [])`: **the builder against ITSELF**. Any change that moves
+the 3-argument and 4-argument shapes EQUALLY — a reordered `[Content_Types].xml`, a different zip
+entry order, a changed default style, a dropped part — keeps both sides in step and passes. The
+test proves the `media` parameter is ADDITIVE; it proves nothing about what the package contains.
+And on the PPTX side "leaves the media-free package byte-for-byte what it was" SURVIVED the mutant
+outright: it pins the sorted PART-KEY set, one `slide1.xml.rels` part as exact bytes, and the
+absence of any `ppt/media/` entry, never reading `[Content_Types].xml` at all. Its own comment
+calls it "THE ONLY PIN ON THIS BUILDER'S MEDIA-FREE BYTES" — true of the parts it names, false
+of the package.
+
+**Why it matters.** What actually caught the mutant, in all four cases, was a hand-written assertion
+naming the specific string a specific change would produce. That is the coverage this slice has: a
+list of things somebody thought to check. A committed fixture — or a part-path-plus-digest
+manifest — would instead fail on ANY change to the package a document with no images gets,
+including the ones nobody anticipated. Nothing here does that today.
+
+**Not free.** A `.docx` fixture is a binary blob in git that every unrelated formatting change
+invalidates, and regenerating it to make a pipeline pass is exactly the "re-baseline to admit your
+own change" failure the file-size and doc-claims gates exist to prevent. Whoever closes this should
+choose deliberately between a committed package and a checked-in MANIFEST (sorted part paths +
+per-part digest), which is diffable and cannot be regenerated thoughtlessly.
+
+## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
+
+**Status:** open — deliberate in 0.256.0; a size cost, never a correctness one.
+
+An `<img data-asset-id>` appearing twice in one document mints TWO media parts holding IDENTICAL
+bytes, in both renderers. DOCX: `createMediaMinter`'s own docstring says so. PPTX:
+`createDeckMedia`'s minting runs once per image line as the slide is assembled, so a repeated id
+yields two parts at two paths. The exported file is correct and opens correctly; it is simply larger
+than it needs to be, by the full byte size of every repeat.
+
+★★ **DEDUPLICATING IS NOT "REUSE THE RELATIONSHIP ID", and that is why it was not done.** Two
+identities are conflated on one counter today. A media PART may legitimately be shared — two
+references can point at one `word/media/imageN.png` through one relationship. A picture's SHAPE
+identity may not: `wp:docPr` (DOCX) and `p:cNvPr` (PPTX) each need an id unique within their
+document or slide — `docxInlineDrawing`'s own parameter docstring records that Word tolerates a
+duplicate and Pages does not — and today `createMediaMinter` passes the SAME running index as
+both the part number and the shape id. Sharing the part without splitting that counter produces
+duplicate shape ids, i.e. a correctness regression traded for a size win. Closing this means
+introducing a second counter first.
+
+★ **The PPTX scoping rule interacts with this and must not be inverted.** Media part PATHS are
+unique DECK-wide (`createDeckMedia` keeps its part counter in the outer closure) while relationship
+ids are PER-SLIDE and restart at `rId2` (`rId1` is the slide layout, and `buildPptxPackage` throws
+if a media part claims it). Swapping those two scopes yields valid XML with the WRONG image on a
+slide — no schema error, and no test failure that names the cause. Any dedup work touches exactly
+this code.
+
+## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver
+
+**Status:** open — both patterns are individually correct; the DIVERGENCE is the defect.
+
+Two patterns read asset ids out of a document and they do not agree on what an asset reference is:
+
+- `ASSET_ID_RE` (`document-asset-usage.ts`) matches a `data-asset-id` attribute on ANY element. It
+  backs `assetIdsInDocument`, which `documents-asset-section.tsx` uses to enforce
+  `ASSET_MAX_PER_DOCUMENT`.
+- `IMG_TAG_RE` (`document-export-assets.ts`) requires an `<img` tag. It backs `documentAssetIds`,
+  which decides what `loadExportAssets` fetches.
+
+So a `<span data-asset-id="x">` consumes one of a document's asset slots and blocks a real image
+from being added, while contributing nothing to any export and appearing in no bucket — not
+`inlined`, not `omitted`, not `missing`. Nothing tells the user why the cap was reached.
+
+★★ **Neither pattern should simply be made to match the other.** The export resolver is
+deliberately tag-anchored: it must only fetch bytes for something it can actually draw. The usage
+scanner is deliberately tag-agnostic: a reference the sanitizer preserved on a non-`img` element is
+still a reference for the purposes of deletion safety and the usage count. The fix is to make the
+divergence VISIBLE — one shared helper returning both sets, or a test that asserts what each
+pattern deliberately does not see — not to collapse them.
+
+★ A `<span data-asset-id>` is not reachable through the product's own insertion path today, which
+is why this is a follow-up and not a bug: it arrives through an AI write, a hand-edited blob or an
+import. That also means no test currently seeds one.
+
+## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
+
+**Status:** open — OWED manual verification, not automatable in this repo.
+
+Nothing here can open an Office file. `unzipBytes` proves the package holds the parts and bytes the
+builders intended; it says nothing about whether Word, LibreOffice Writer or PowerPoint ACCEPT the
+result. Every OOXML claim in `docs/AGENTS/documents.md` and in the 0.256.0 changelog entry is a
+claim about the package, not about the reader.
+
+**What is owed, in full:**
+
+1. Export a document holding two images as `.docx`; open it in **Word** AND in **LibreOffice
+   Writer**. Check that both images render, at the size the stored dimensions imply, in the right
+   order, with the surrounding paragraphs intact around the split.
+2. Export the same document as `.pptx`; open it in **PowerPoint**. Check that pictures fall inside
+   the body box, that a long document paginates without a picture running off a slide, and that
+   nothing overlaps the text box.
+3. Export as **PDF** through the print dialog and confirm the images are in the produced file —
+   that is the standalone HTML renderer, not a PDF writer, so it exercises §210's fix.
+4. The OVER-BUDGET case: a document whose images exceed `EXPORT_INLINE_BUDGET_BYTES`. HTML and PDF
+   must show the named placeholder; DOCX and PPTX must still carry every image.
+5. The DANGLING case: an asset whose byte row is missing. Every format must name it in a visible
+   placeholder and no format may drop it silently.
+6. The **WebP** case (§221), and specifically in an OLDER Word if one is reachable — Word 2016,
+   2019 or 2021 perpetual, or a non-subscription Mac Office. Upload a `.webp`, export `.docx` and
+   `.pptx`, and record what those builds draw. Current Microsoft 365 is expected to render it and
+   is NOT the case worth spending a session on; the perpetual builds are.
+7. The **deck length** case (§222): export a document mixing prose and one ordinary screenshot as
+   `.pptx` and count the slides. The picture is expected to sit alone on its own slide, which is a
+   layout question a reader answers instantly and no assertion here can.
+
+★ Item 1 is the one that historically fails in this class: an OOXML package can be byte-perfect
+against its own spec reading and still be rejected by Word over a part relationship or content-type
+detail no substring assertion looks at.
+
+## 220. `documents-panel.tsx` sits at EXACTLY the 800-line cap with no baseline entry, and the cheap extract seam is spent
+
+**Status:** open — pre-existing, NOT caused by S3c-2, and the next contributor hits it first.
+
+`src/app/documents-panel.tsx` measures **800** by the gate's own arithmetic
+(`readFileSync().split("\n").length`, i.e. `wc -l` **+ 1** — `wc -l` reports 799). It has **no
+entry** in `docs/baselines/file-sizes.json`. Read `check-file-sizes.mjs` and the consequence is
+exact: `if (n <= LIMIT) continue` lets 800 through, and at 801 an unbaselined file is reported as
+`NEW file over 800`. So the headroom is **zero lines**, and there is no ratchet grace to fall back
+on — the baseline protects only files that were ALREADY oversized when it was written (four of
+them). Any net line added to this file fails `file-size-ratchet` outright.
+
+★★ **THE ONE CHEAP SEAM WAS SPENT BY THIS SLICE AND CANNOT BE SPENT AGAIN.** S3c-2 had to
+thread an asset-byte loader into two `downloadDocument` calls. It absorbed the cost by moving
+`assetPaneLoader` OUT to `documents-asset-section.tsx` and calling it inline at both sites, for a
+net-zero line diff. That worked once because there happened to be a helper worth relocating. The
+next change to this file has no such trick available and will simply be blocked.
+
+★★ **IT IS NOT ONE FILE.** `document-block-editors.tsx` is in the IDENTICAL position — 800
+by the gate's count, no baseline entry, zero headroom — and `use-chat-dispatcher.ts` and
+`use-storage-backend.ts` sit at 799, i.e. one line each. Reproduce the whole near-cap set rather
+than trusting this list, which rots on any commit: walk `src` for `.ts`/`.tsx`, take
+`split("\n").length`, and print every file at 780—800 that `docs/baselines/file-sizes.json` does
+not name. Both documents files being at the cap at once is what makes this a scheduling problem
+rather than a one-file annoyance.
+
+**What closing it looks like.** The gantt pattern, as its own task: orchestrator +
+`documents-panel-rows` / `documents-panel-toolbar` presentational leaves taking data and handlers
+as props, done BEFORE the cap forces it rather than under a red pipeline. Doing it inside a feature
+slice is what produces the "absorb it with a trick" commits this entry describes. **Do NOT close it
+by adding a baseline entry** — baselining a file to admit growth is the "re-baseline to make the
+pipeline pass" failure the gate exists to prevent, and it would silently convert a hard cap into an
+open-ended ratchet for the two largest surfaces in the documents feature.
+
+★★★ **A CORRECTION THIS ENTRY FORCED, AND THE REASON TO MEASURE RATHER THAN QUOTE.**
+`docs/AGENTS/documents.md` said `use-storage-backend.ts` "sits exactly at the 800-line ratchet" and
+concluded that splitting its two paired `useBroadcastSync` registrations onto separate lines
+"re-breaks the gate". It measures **799**, so a split takes it to 800, which PASSES — the
+conclusion was false in the one direction a reader would act on, and it would take TWO added lines
+to fail. Corrected in the same commit that opened this entry. An off-by-one in a cap claim is not
+cosmetic: at this margin it is the whole claim.
+
+## 221. A stored `image/webp` is embedded verbatim into `.docx`/`.pptx`, and builds that cannot draw it show nothing
+
+**Status:** open — DISCLOSED, deliberately not fixed. Decision recorded below.
+
+`ASSET_MIME_ALLOWED` admits `image/webp` alongside png and jpeg, and every layer downstream
+carries it through to the package unchanged. The chain, verified in code:
+
+- `processUpload` re-encodes ONLY when a downscale is actually needed
+  (`if (target.width !== src.width || target.height !== src.height)`). A webp already within
+  `ASSET_DOWNSCALE_W`×`ASSET_DOWNSCALE_H` is therefore never re-encoded at all — its original
+  bytes and its `image/webp` mime go straight to storage.
+- When a downscale IS needed, `pickSmaller(original, reencoded)` returns the ORIGINAL — bytes and
+  mime together — whenever the re-encode did not come out smaller. So the webp mime survives that
+  branch too.
+- `docxEmbedFor` and `pptxEmbedFor` both test `ASSET_MIME_ALLOWED` and then `mediaExtension`,
+  which maps `image/webp` → `"webp"`; `contentTypeFor` turns that into
+  `<Default Extension="webp" ContentType="image/webp"/>`.
+
+So a webp reaches the reader as a real media part. WebP is not among the blip formats ECMA-376
+assumes, and Microsoft documents WebP insertion as working in current Microsoft 365 builds only
+(for PowerPoint on Mac, subscription builds only). Word 2016 / 2019 / 2021 perpetual and older Mac
+Office are expected to show a blank or errored picture frame.
+
+★★★ **THE FAILURE IS SILENT, AND THAT IS THE WHOLE ENTRY.** There is no placeholder, because
+nothing in this repo believes anything went wrong: the renderer emitted a valid part, a valid
+content-type override and a valid relationship, and every gate agrees. The disclosure the S3c-1
+placeholder exists to give — "this image is here, we could not draw it" — is exactly what a reader
+on an older build does NOT get. An undrawable PNG would at least have been declined by
+`mediaExtension`; a webp is declined by nobody.
+
+★★ **NOT MEASURED IN THIS REPO, AND IT CANNOT BE.** Nothing here opens an Office file (§219). The
+format-support statement above is read off ECMA-376 and Microsoft's own documentation, not
+observed — it is the one claim in this entry that is sourced rather than verified. §219 item 6
+carries the owed check.
+
+**Options considered.**
+
+1. **Transcode webp → png at embed time** using the browser canvas the upload path already
+   injects. Correct output everywhere, but it puts an encode on the export path, inflates the
+   stored-vs-emitted byte relationship the DOCX/PPTX sinks currently keep at 1:1, and needs a
+   decision about failure (a transcode that throws mid-export has no good answer).
+2. **Decline webp in `mediaExtension`** so both OOXML sinks fall back to the honest named
+   placeholder. One line, and it converts a silent failure into a visible one.
+3. **Document it.**
+
+**DECISION: 3, document it for now.** Option 2 is tempting precisely because it is one line, but
+it would degrade a case that works correctly in current Microsoft 365 — which is most users — in
+order to improve a case that fails on builds we have not yet confirmed fail. That trade needs the
+§219 measurement first. Option 1 is the real fix if the measurement says the perpetual builds
+matter; it is a slice, not a patch. Revisit when §219 item 6 has an answer.
+
+## 222. One ordinary screenshot costs MORE than a whole PPTX slide, so it always lands alone and lengthens the deck
+
+**Status:** open — a layout/UX consequence of the pagination arithmetic, not a defect in it.
+
+`paginateLines` charges an image line `lineCost = ceil(cyEmu / BODY_LINE_EMU)` against a budget of
+`BODY_LINES_PER_SLIDE`. Both numbers are derived, and they cross:
+
+- `BODY_BOX.cyEmu` = 3474720, `BODY_LINE_EMU` = 213360 → `BODY_LINES_PER_SLIDE` =
+  `floor(3474720 / 213360)` = **16**.
+- An image fitted to the full box height costs `ceil(3474720 / 213360)` = **17** — one line MORE
+  than a whole slide. `doc-render-pptx-slides.ts` already names the 17 in a comment; what is
+  recorded here is the CONSEQUENCE.
+
+Measured through the real `fitExtent` + `lineCost` — reproduce with the script below, which
+replicates `emuFromPx` / `fitExtent` / `lineCost` from the constants those three read:
+
+| stored size | fitted `cyEmu` | `lineCost` | bound by |
+|---|---|---|---|
+| 1920×1080 | 3474720 | 17 | height |
+| 1600×900 | 3474720 | 17 | height |
+| 800×600 | 3474720 | 17 | height |
+| 1080×1080 | 3474720 | 17 | height |
+| 400×300 | 2857500 | 14 | neither — fits unscaled |
+| 4000×1080 | 2221992 | 11 | width |
+
+```bash
+node -e '
+const emuFromPx = px => Math.round(px * 914400 / 96);          // EMU_PER_INCH / PX_PER_INCH
+const BOX = { cx: 8229600, cy: 3474720 };                       // BODY_BOX
+const L = Math.round((1400 / 100) * 1.2 * 12700);               // BODY_LINE_EMU = 213360
+const fit = (w, h) => { const nx = emuFromPx(w), ny = emuFromPx(h);
+  return Math.round(ny * Math.min(1, BOX.cx / nx, BOX.cy / ny)); };
+const cost = (w, h) => Math.max(1, Math.ceil(fit(w, h) / L));
+console.log("BODY_LINES_PER_SLIDE", Math.floor(BOX.cy / L), "full-box cost", Math.ceil(BOX.cy / L));
+for (const [w, h] of [[1920,1080],[1600,900],[800,600],[1080,1080],[400,300],[4000,1080]])
+  console.log(w + "x" + h, "cy=" + fit(w, h), "cost=" + cost(w, h));
+'
+```
+
+★★★ **IT TAKES BOTH A HEIGHT AND AN ASPECT RATIO, AND AN EARLIER REVISION OF THIS ENTRY CLAIMED
+HEIGHT ALONE.** It read "the cost reaches 17 for ANY image whose stored height exceeds 358 px",
+and the `4000×1080` row in the table above refutes it: that image is 1080 px tall and costs 11.
+The fitted height is `min(9525·h, BODY_BOX.cyEmu, BODY_BOX.cxEmu·h/w)` — a WIDE image is clamped
+by the box's WIDTH and never reaches the box's height — and the cost is 17 exactly when that
+figure passes `16 × BODY_LINE_EMU` = 3413760. So BOTH of:
+
+- **stored height ≥ 359 px.** At 96 dpi (9525 EMU/px) 358 px is 3409950 EMU, one line-height short;
+  359 px is 3419475 and over.
+- **`w / h` below `BODY_BOX.cxEmu / (16 × BODY_LINE_EMU)` ≈ 2.4107.** At or above that the image is
+  width-bound and its fitted height lands under the threshold, whatever its height.
+
+The conjunction is EXACTLY equivalent to `lineCost === 17` — a scan of 915,200 (w, h) pairs over
+`1 ≤ h ≤ 1600`, `1 ≤ w ≤ 4000` step 7 found zero disagreements:
+
+```bash
+node -e '
+const emuFromPx = px => Math.round(px * 914400 / 96);
+const BOX = { cx: 8229600, cy: 3474720 }, L = 213360;
+const cost = (w, h) => { const nx = emuFromPx(w), ny = emuFromPx(h);
+  return Math.max(1, Math.ceil(Math.round(ny * Math.min(1, BOX.cx / nx, BOX.cy / ny)) / L)); };
+let bad = 0, n = 0;
+for (let h = 1; h <= 1600; h++) for (let w = 1; w <= 4000; w += 7) {
+  n++; if (((h >= 359 && w / h < BOX.cx / (16 * L))) !== (cost(w, h) === 17)) bad++; }
+console.log("checked", n, "mismatches", bad);
+'
+```
+
+Framing this as "16:9 screenshots" still understates it — a 4:3 800×600 photo behaves identically,
+and `ASSET_DOWNSCALE_H` is 1080, so essentially every screenshot and camera image at an ordinary
+aspect ratio qualifies. What does NOT qualify is a panorama or a wide banner. ★★ **NOT-17 IS NOT
+THE SAME AS SHARING** — a 2500×1000 banner costs 16, misses the conjunction above, and still lands
+alone. Cost 17 is a sufficient condition for landing alone, never the criterion; the criterion is
+in Consequence.
+
+**Consequence.** An image lands alone exactly when its `lineCost` reaches **16**, the whole budget
+— not when it reaches 17. `paginateLines` is one forward pass, so a line of cost `c` joins a
+non-empty chunk only while `1 + c ≤ 16` and admits a following line only while `c + 1 ≤ 16`: 15
+shares, 16 does not. In stored pixels that is `h ≥ 337` AND `w / h < BODY_BOX.cxEmu / (15 ×
+BODY_LINE_EMU)` ≈ 2.5714, which agreed with `lineCost(w, h) >= 16` on every one of the same
+915,200 pairs — rerun the scan above with `h >= 337`, `15 * L` and `cost(w, h) >= 16` substituted.
+`paginateLines` over `["intro paragraph", IMAGE, "para two", "para three"]` measured:
+
+- with a 1920×1080 image (cost 17) → **3** chunks: `[intro] [IMAGE] [para two, para three]`
+- with a 400×300 image (cost 14) → **2** chunks: `[intro, IMAGE, para two] [para three]`
+
+So a document alternating prose and screenshots produces roughly one slide per image plus one per
+prose run. Users notice deck LENGTH long before they notice picture placement, which is why this
+is worth a changelog line and not just a code comment.
+
+★★ **THE "FIVE SLIDES FROM ONE HEADING, ONE 400×300 IMAGE AND TWO PARAGRAPHS" PROBE THAT
+MOTIVATED THIS ENTRY DID NOT REPRODUCE.** A 400×300 image costs 14, not 17, and shares its slide —
+see the table. The effect is real and the arithmetic above is measured; that particular probe's
+numbers are not, and are recorded here only so nobody re-derives the entry from them.
+
+**What closing it looks like.** Either cap an image's fitted height BELOW `BODY_LINES_PER_SLIDE ×
+BODY_LINE_EMU` rather than at `BODY_BOX.cyEmu`, or accept image-per-slide as the layout and say so
+in the UI. ★★★ **CAPPING AT THAT PRODUCT CHANGES NOTHING, AND AN EARLIER REVISION HERE PRESCRIBED
+IT** as the fix that "makes a full-height picture exactly fill a slide instead of overflowing it by
+one line". 3413760 EMU costs `ceil(3413760 / 213360)` = 16, which IS the whole budget, so
+`paginateLines` still breaks before and after it and the deck is exactly as long. Sharing needs
+cost ≤ 15, so the cap has to be at or under `15 × BODY_LINE_EMU` = 3200400 — one line of text
+beside the picture, and a picture ~8% shorter than the box (`1 - 3200400 / 3474720`). The first is
+cheap and changes emitted bytes, so it needs its own before/after on §219's manual pass.
+
+## 223. The asset mime allowlist is hand-restated at every consumer, with no shared predicate
+
+**Status:** open — and ONE consumer has already forgotten (see the ★★★ below). The defect is that
+nothing makes the next one correct, and the layer that could have is deliberately not doing it.
+
+**Why the load path is NOT the bug.** `sanitizeDocumentAsset` (`document-asset.ts`) runs
+`mime: sanitizeText(o.mime, ASSET_MIME_MAX)` and never consults `ASSET_MIME_ALLOWED`, so an
+imported or hand-edited workspace carrying an `image/svg+xml` row survives load intact. That is
+deliberate and the module header says so at ★★: the record is mime-GENERIC by contract, format
+policy belongs to the upload pipeline, and narrowing it at the storage layer would make a stored
+row unreadable after the policy changed. Do not "fix" this by adding the check there — the
+argument against it is sound, and this entry is not asking for it.
+
+**What the consequence actually is.** Because the store admits anything, EVERY consumer has to
+decline it, and every one of them does so by restating the same expression by hand:
+
+```
+grep -rn "ASSET_MIME_ALLOWED" src/app --include=*.ts --include=*.tsx | grep -v ".test."
+```
+
+★★ **READ THE HITS; THE TOTAL MEANS NOTHING.** Most of what that grep returns is not a use of the
+policy at all — six `import` lines, the declaration itself and two prose comments. What is left
+is FOUR different kinds, not the three an earlier revision of this entry named:
+
+- **The upload gate** — `checkUploadCandidate` (`document-asset-upload.ts`), the one place a file
+  is refused entry.
+- **Four render/policy guards** — `docxEmbedFor` (`doc-render-docx.ts`), `assetSrcAttr`
+  (`doc-render-html.ts`), `pptxEmbedFor` (`doc-render-pptx-slides.ts`) and `assetPolicy`'s
+  html/pdf branch (`document-download.ts`), each spelled
+  `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` with its own cast.
+  (`canEmbedDocxAsset`/`canEmbedPptxAsset` are one-line wrappers over the first and third; the
+  cast lives in the `*EmbedFor` pair.)
+- **Two intake filters** — `handlePaste` and `handleDrop` (`documents-asset-section.tsx`). ★★★
+  **THESE ARE NOT AFFORDANCES AND THE EARLIER TAXONOMY SAID THEY WERE.** Each filters the pasted
+  or dropped `FileList` and returns early when nothing survives, so both gate `uploadAndInsert` —
+  and `handlePaste` calls `e.preventDefault()` ONLY when a file survived, so deleting its filter
+  would make the editor swallow every ordinary text paste. They change control flow twice over.
+- **One affordance** — `asset-library.tsx`'s `accept={ASSET_MIME_ALLOWED.join(",")}`. This one
+  really does stop nothing: `accept` is a hint to the file picker and the user can pick "all
+  files" past it.
+
+★★★ **AND THAT GREP CANNOT SEE THE ONE CONSUMER THAT CHECKS NOTHING.** `document-preview.tsx` reads
+the stored mime straight off the row and hands it to `attachAssetImages`, which builds
+`new Blob([bytes], { type: mime })` — no allowlist, no cast, and so no hit for any search that
+spells the constant. An earlier revision of this entry therefore called every consumer correct.
+Sweep the mime READERS instead, which finds a consumer by what it touches rather than by what it
+names:
+
+```
+grep -rn "\.mime\b" src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep -v "recorder\|mimeType"
+```
+
+★★ **BOUNDED, NOT HARMLESS — AND DELIBERATELY NOT ITS OWN ENTRY.** The blob URL is only ever
+assigned to `<img src>`, where an `image/svg+xml` blob runs no script. Opening that blob in a tab by
+hand would be a genuine same-origin navigation, but `src/proxy.ts` serves `script-src 'self'
+'nonce-…' 'strict-dynamic'` with no `'unsafe-inline'` plus `object-src 'none'` — reproduce with
+`grep -n "script-src\|object-src" src/proxy.ts`. ★ REASONED, NOT MEASURED: the remaining step, that
+a blob document inherits its creator's policy, is a spec claim nothing in this repo can execute.
+Read it as a reason not to panic, not as proof. It is recorded HERE because it is
+not a second defect but exactly the shape this entry predicts: split out, someone converts the six
+casts, closes §223 as a refactor and never touches the consumer that checks nothing.
+
+**The trap.** A new consumer of `documentAssets` inherits an unfiltered list and gets no signal at
+all if it forgets the check: the row is well-formed, the mime is a plausible string, and the only
+symptom is whatever that sink does with bytes it should never have been handed. No gate can see
+this — the four render/policy guards were each added by hand, and one of them (`assetPolicy`'s
+html/pdf branch) did not exist until this slice's own review round: `git log -S"function
+assetPolicy" -- src/app/document-download.ts` names the single commit that introduced it. That is
+exactly the shape being described.
+
+**Remedy when someone takes it.** Export one `isAllowedAssetMime(mime: string | undefined):
+boolean` from `document-asset-upload.ts` beside the constant, and have the other consumers call it
+instead of restating the cast. Seven sites spell that cast today —
+`grep -rc "ASSET_MIME_ALLOWED as readonly string\[\]" src/app --include=*.ts --include=*.tsx |
+grep -v ":0$"` — and six of them go, the seventh becoming the helper's own body. It also gives
+the next consumer something to find. ★★ `document-preview.tsx` must GAIN a call it never had, which
+is a behaviour change rather than a refactor — the preview hands the browser whatever mime the row
+carries today — and cannot ride a mechanical sweep of the casts.
+★ It does NOT make the check automatic and must not be sold
+as though it did — a consumer that calls nothing is still wrong, and only a test can catch that.
+
+**Do not fold in the extent check.** `canEmbedDocxAsset`/`canEmbedPptxAsset` also require a
+recorded width and height; the html sink deliberately does not, because HTML places no box (see
+the ★★★ in `assetPolicy`). One shared mime predicate is right; one shared "is this usable"
+predicate would re-introduce the asymmetry defect that comment exists to stop.
+
+## 224. Timelog bookings are fetched only on demand — no interval job, and no delta notice
+
+**Status:** open — a feature request, not a defect. Nothing misbehaves today.
+
+**What is wanted.** A configurable-interval job that pulls Timelog bookings while the app is
+open, catches up a run missed while it was closed the next time the user opens it, and tells the
+user WHAT CHANGED since the previous pull rather than silently refreshing a cache.
+
+**What already exists, and what it does not buy.**
+
+- `useTimelogSync` is on-demand BY CONTRACT — its own module header opens "On-demand fetch of
+  Timelog bookings". Every fetch is a user gesture: it runs under `runGuarded` with an abort
+  signal and raises a BLOCKING loading modal with a Cancel button. None of that survives being
+  hung on a timer — a modal that appears every N minutes over whatever the user is doing is worse
+  than no polling at all. The background path needs its own quiet entry point.
+- Nothing polls today. `grep -rni "poll\|autoSync\|interval" src/app/use-timelog-sync.ts
+  src/app/timelog-types.ts` returns NOTHING.
+- The scheduled-jobs subsystem is the natural host and is ALREADY catch-up-capable: `isDue`
+  (`scheduled-jobs/schedule.ts`) is true when `lastRunAt < currentSlot`, so a job whose slot
+  passed while the app was shut runs on next open with no extra machinery. Half the ask is free.
+- ★ Calendar auto-sync is NOT the precedent it looks like. `useCalendarAutoSync` is
+  push-on-content-change, keyed by a `contentKey`, not an interval PULL. Citing it as one leads
+  straight to the wrong design.
+
+**Three things that are NOT free.**
+
+- ★★ `JobCadence` has no interval variant. It is `{kind:"daily"} | {kind:"weekly"}` and BOTH
+  carry a `timeOfDay` — every cadence is a wall-clock SLOT, and the catch-up property above is a
+  property OF slots. `currentSlot` has no meaning for "every 30 minutes", so `isDue` must be
+  extended deliberately, never inherited. Decide explicitly what a MISSED interval means: one
+  run on open, or none.
+- ★★ `TICK_INTERVAL_MS` is 5 minutes (`use-scheduled-job-runner.ts`), so any configured interval
+  under 5 minutes is a lie unless the tick changes too. Floor the setting at the tick, or move
+  both together.
+- ★★ `ScheduledJob.type` is the single-member union `"portfolioAnalysis"`. Widening it touches
+  the store, the settings section, the runner's dispatch and the sanitizer — and a persisted
+  `type` that no longer parses must DEGRADE, not silently drop the job.
+
+**The delta is the actual feature, and the baseline mostly exists.** `loadActualsCache(projectId)`
+returns an `ActualsCacheEntry` whose ONLY required field is `fetchedAt` — `aggregates`, `users`,
+`projectRefs` and `partial` are all optional, and a directory-only "Load people" persists an entry
+with NO `aggregates` at all. So the before-image is already persisted per project and a diff over
+`aggregates` needs no second store, but "no baseline yet" is a real state the delta must render as
+"first pull", never as "everything is new". Put the diff in an i18n-free engine, not in the hook.
+
+**Two hard constraints on any implementation.**
+
+- ★★★ A background pull must NEVER apply. Applying is confirm-gated (`timelog-apply-confirm.tsx`)
+  because it writes actuals onto the plan; a timer that applies is silent data mutation. The job
+  notifies, the human applies.
+- ★★★ A `partial` result must never become the new baseline. `canApplyToBudget`
+  (`timelog-guards.ts`) is `!isPopout && rowCount > 0 && !isPartial`, and the field's own comment
+  explains why — a short aggregate ERASES the missing project's booked hours on apply. ★★ Read it
+  as `=== true`; ABSENT MEANS COMPLETE, deliberately (§172). A partial background fetch
+  overwriting the cache would make the NEXT delta wrong in both directions, with nothing to
+  report it.
+- ★ The API token is device-sealed (`timelogApiToken`) but is NOT passphrase-wrappable today —
+  `isPassphraseLocked` is only ever asked about `anthropicApiKey` and `tursoAuthToken`
+  (`grep -rn "isPassphraseLocked(" src/app | grep -v ".test."`), so the timelog token hydrates on
+  load and needs no unlock. The skip conditions are an unconfigured integration and a degraded
+  crypto path, not a locked secret. The job must skip and say why, never fail.
+
+**Verify the shape claims:**
+
+```
+grep -n -A 3 "type JobCadence" src/app/scheduled-jobs/types.ts
+grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts
+grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
+```

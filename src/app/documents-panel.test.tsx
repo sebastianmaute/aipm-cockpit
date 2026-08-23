@@ -18,6 +18,9 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { emptyWorkspace } from "./workspace";
 import { buttonNames } from "../test/toolbar-order";
 import { downloadDocument } from "./document-download";
+import { loadAssetData } from "./document-assets-store";
+import type { DocumentAssetPaneProps } from "./documents-asset-section";
+import type { TursoConfig } from "./turso-config";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 
@@ -29,7 +32,36 @@ const headingTextName = (index: number) =>
 // The real one opens tabs and triggers blob downloads — neither works in jsdom,
 // and the module has its own suite. Here we only pin that the panel calls it
 // with the right document and format.
-vi.mock("./document-download", () => ({ downloadDocument: vi.fn() }));
+// ★★ `downloadDocument` ONLY. `reportDownloadFailure` is left REAL — it is the
+// disclosure under test, and a `vi.fn()` for it would reduce the assertion to
+// "we called the thing we mocked", which passes with the toast key, the
+// diagnostic code and `reportSilentFailure` itself all wrong. Keeping it real
+// lets the spy below see the actual translated string a user would read.
+//
+// ★ `async () => {}` rather than `vi.fn()`: the handler now chains `.catch` on
+// the returned promise, and a mock returning `undefined` would throw a
+// TypeError at the call site — which reads as a broken panel, not a broken mock.
+vi.mock("./document-download", async (orig) => ({
+  ...(await orig<typeof import("./document-download")>()),
+  downloadDocument: vi.fn(async () => {}),
+}));
+
+// ★★ EVERY export is mocked, not just the one under test: the asset section
+// this pane mounts calls `loadAssetDataIds` from an effect and the CRUD writers
+// from its handlers, so a partial factory would leave those `undefined` and the
+// render would throw for a reason unrelated to anything asserted here.
+//
+// ★★ `loadAssetData` RESOLVES A VALUE rather than no-opping. The loader
+// assertion below AWAITS it, and a `vi.fn()` returning `undefined` would make
+// that await throw inside the test rather than at the assertion — a mock that
+// no-ops the method under test hides its own mutant.
+vi.mock("./document-assets-store", () => ({
+  loadAssetData: vi.fn(async () => "QUJD"),
+  loadAssetDataIds: vi.fn(async () => []),
+  saveAssetData: vi.fn(async () => {}),
+  deleteAssetData: vi.fn(async () => {}),
+  deleteAllAssetDataForProject: vi.fn(async () => {}),
+}));
 
 // ★★ REQUIRED, not hygiene: the panel now PERSISTS the chosen format to
 // localStorage, so without this the format test leaks "pptx" into every later
@@ -586,7 +618,48 @@ describe("DocumentsPanel", () => {
       "docx",
       expect.anything(),
       "en-US",
+      // ★ The FIFTH argument is the asset byte loader, and `undefined` is the
+      // real value here: this pane was rendered with no `assetPane`, so the
+      // feature is off and every image discloses itself as missing. Spelling it
+      // out rather than trimming the assertion is what keeps the arity pinned —
+      // `toHaveBeenCalledWith` matches arity exactly, so a four-argument
+      // expectation would go RED the moment the loader is wired, and a reader
+      // would "fix" it by deleting the very argument this slice adds.
+      undefined,
     );
+  });
+
+  // ★★★ BOTH CALL SITES, NOT ONE. The toolbar button and the row button are
+  //  two separate expressions that each had to gain a `.catch`, so a single
+  //  test would leave the other silent — which is exactly the shape that let
+  //  this card's asset LOADER diverge from the pane's once already.
+  it.each([
+    ["the toolbar button", "Download"],
+    ["a row control", "Download – Alpha"],
+  ])("tells the user when the export rejects, from %s", async (_label, buttonName) => {
+    // The byte store is a NETWORK call, so a rejection here is ordinary
+    // operation, not just a malformed row.
+    vi.mocked(downloadDocument).mockRejectedValueOnce(new Error("byte store down"));
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+    // ★★ THE ASSERTION IS THE STRING A USER WOULD READ, not that some spy was
+    //  called. `reportDownloadFailure` is deliberately unmocked, so this pins
+    //  the whole chain — catch → reportSilentFailure → the EN copy that already
+    //  says "nothing was downloaded", which is precisely what happened.
+    await waitFor(() => {
+      expect(showToastSpy).toHaveBeenCalledWith("error", t("en-US", "guardExportFailed"));
+    });
+  });
+
+  it("shows NO toast when the export resolves", async () => {
+    // ★★ ANTI-VACUITY. Without this, a panel that toasted on EVERY download
+    //  would pass the pair above — and a spurious "export failed" on a
+    //  successful export is its own defect.
+    renderPanel([doc(1, "Alpha")]);
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+    await waitFor(() => expect(downloadDocument).toHaveBeenCalledTimes(1));
+    expect(showToastSpy).not.toHaveBeenCalled();
   });
 
   it("downloads the ROW's document, not the selected one, from a row control", () => {
@@ -599,6 +672,14 @@ describe("DocumentsPanel", () => {
       "docx",
       expect.anything(),
       "en-US",
+      // ★ The FIFTH argument is the asset byte loader, and `undefined` is the
+      // real value here: this pane was rendered with no `assetPane`, so the
+      // feature is off and every image discloses itself as missing. Spelling it
+      // out rather than trimming the assertion is what keeps the arity pinned —
+      // `toHaveBeenCalledWith` matches arity exactly, so a four-argument
+      // expectation would go RED the moment the loader is wired, and a reader
+      // would "fix" it by deleting the very argument this slice adds.
+      undefined,
     );
   });
 
@@ -617,7 +698,7 @@ describe("DocumentsPanel", () => {
       </PanelHost>,
     );
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US");
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pdf", expect.anything(), "en-US", undefined);
   });
 
   // ★★ EVERY format must actually REACH downloadDocument. A test that only
@@ -637,6 +718,7 @@ describe("DocumentsPanel", () => {
         format,
         expect.anything(),
         "en-US",
+        undefined,
       );
     },
   );
@@ -658,7 +740,7 @@ describe("DocumentsPanel", () => {
     // And it must reach the DOWNLOAD, not merely repaint the control: a restore
     // that fixed the select but not the state would look identical here.
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pptx", expect.anything(), "en-US");
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "pptx", expect.anything(), "en-US", undefined);
   });
 
   it("ignores a corrupt stored format rather than passing it through", () => {
@@ -674,7 +756,7 @@ describe("DocumentsPanel", () => {
     window.localStorage.setItem("aipm-cockpit:documents-format", "exe");
     renderPanel([doc(1, "Alpha")]);
     fireEvent.click(screen.getByRole("button", { name: "Download" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "docx", expect.anything(), "en-US");
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "docx", expect.anything(), "en-US", undefined);
   });
 
   it("passes the picked format to a ROW download too", () => {
@@ -685,7 +767,7 @@ describe("DocumentsPanel", () => {
       target: { value: "html" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Download – Alpha" }));
-    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "html", expect.anything(), "en-US");
+    expect(downloadDocument).toHaveBeenCalledWith(expect.anything(), "html", expect.anything(), "en-US", undefined);
   });
 
   it("disables the toolbar download when there is nothing to download", () => {
@@ -2081,5 +2163,84 @@ describe("DocumentsPanel — document-switch commit guard", () => {
     text.blur();
 
     expect(await screen.findByText(/not found/i)).toBeInTheDocument();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// The asset byte loader — the export's fifth argument.
+//
+// ★★★ WHY THIS NEEDS ITS OWN TESTS AT ALL. `downloadDocument`'s loader
+// parameter is OPTIONAL, and this repo configures no `no-floating-promises`
+// rule, so a call site that never passes it compiles, typechecks, lints and
+// runs. The only visible symptom is an exported file whose images are dashed
+// "missing asset" boxes — which is exactly what the pane did before this slice,
+// so nothing looks broken. Nothing but a test can catch a regression here.
+describe("DocumentsPanel — asset loader", () => {
+  const TURSO_CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
+
+  function assetPaneProps(tursoConfig: TursoConfig | null, projectId: string): DocumentAssetPaneProps {
+    return { tursoConfig, projectId, assets: [], setAssets: () => {} };
+  }
+
+  function renderWithAssets(assetPane: DocumentAssetPaneProps | undefined) {
+    vi.mocked(downloadDocument).mockClear();
+    vi.mocked(loadAssetData).mockClear();
+    return render(
+      <PanelHost>
+        <DocumentsPanel
+          lang="en-US"
+          documents={[doc(1, "Alpha"), doc(2, "Beta")]}
+          mutateDocuments={inertMutate}
+          documentVersions={[]}
+          ws={emptyWorkspace()}
+          assetPane={assetPane}
+          onResetSize={() => {}}
+        />
+      </PanelHost>,
+    );
+  }
+
+  /** The loader as the pane actually handed it over, so every assertion below
+   *  runs against the real closure rather than a re-built stand-in. */
+  function capturedLoader() {
+    expect(downloadDocument).toHaveBeenCalledTimes(1);
+    return vi.mocked(downloadDocument).mock.calls[0][4];
+  }
+
+  // ★★★ BOTH SITES, SEPARATELY. The toolbar button and the per-row button are
+  // two independent call sites in this file, and covering only one leaves the
+  // other free to drop the argument with the suite green — measured by dropping
+  // it at one site at a time, each of which reddens exactly one of these two.
+  it.each([
+    ["the toolbar download", "Download"],
+    ["a row download", "Download – Alpha"],
+  ])("passes a loader scoped to THIS project from %s", async (_label, buttonName) => {
+    renderWithAssets(assetPaneProps(TURSO_CONFIG, "proj-42"));
+    fireEvent.click(screen.getByRole("button", { name: buttonName }));
+
+    const loader = capturedLoader();
+    expect(loader).toBeTypeOf("function");
+    // ★★★ INVOKING IT IS THE POINT. `toBeTypeOf("function")` alone passes for a
+    // loader closing over the WRONG config or the WRONG project id — and the
+    // project id is the asset store's partition key, so a wrong one reads
+    // another project's images into this project's export. The only way to see
+    // that is to run the closure and look at what it asks the store for.
+    await expect(loader!("asset-9")).resolves.toBe("QUJD");
+    expect(loadAssetData).toHaveBeenCalledWith(TURSO_CONFIG, "asset-9", "proj-42");
+  });
+
+  // ★ THE NEGATIVE BRANCH OF THE SAME useMemo. Without this the guard is
+  // unpinned and a loader could be built unconditionally — one that would call
+  // `loadAssetData` with a null config on every image of every export in file
+  // mode. `undefined` is the documented "no assets available" signal.
+  it.each([
+    ["no asset pane at all", undefined],
+    ["an asset pane with no Turso config", "null-config"],
+  ])("passes NO loader when there is %s", (_label, kind) => {
+    renderWithAssets(kind === undefined ? undefined : assetPaneProps(null, "proj-42"));
+    fireEvent.click(screen.getByRole("button", { name: "Download" }));
+
+    expect(capturedLoader()).toBeUndefined();
+    expect(loadAssetData).not.toHaveBeenCalled();
   });
 });

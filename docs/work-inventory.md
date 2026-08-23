@@ -91,7 +91,7 @@ so it is no longer backlog; `docs/tech-debt-register.md` TD-8 carries it under R
 originally defined "S3c" as *images end to end*, and 0.252.0 shipped **structural blocks** (add,
 delete, reorder) under that same plain label — a scope collision that would have retired the images
 design by accident. That slice is now retagged **S3b-2** in the design document and in
-`docs/open-followups.md` §113. Images shipped as **S3c-1** in 0.253.0 (metadata slice on all six
+`docs/open-followups.md` §113. Images shipped as **S3c-1** in 0.254.0 "Yoshinaga" (metadata slice on all six
 write paths + `document_asset_data`, a `TABLE_NAMES`-excluded side table for the bytes) — see
 `docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section for the as-built architecture. Only
 **S3c-2** (OOXML media parts, the table row above) remains open.

@@ -1363,6 +1363,22 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   shipped its first cut non-functional on its only backend behind a fully green gate suite (lint,
   tsc, unit + coverage floors, axe, prod-smoke), and that section is the list of what not to
   reintroduce.
+  ★★ **Image BYTES in every export format (S3c-2)** — the three-bucket
+  `loadExportAssets` contract (`omitted` is a POLICY call, `missing` is a DATA problem; do not
+  collapse them), the additive `media` parameter on both package builders, the forced DOCX
+  paragraph split, cost-based PPTX pagination, and the 25 MB inline budget that applies to HTML/PDF
+  ONLY, live in the same file's "Image bytes in every export format (S3c-2)" section.
+  ★★★ **THREE THINGS THERE HAVE ALREADY COST REAL WORK AND ARE NOT DERIVABLE FROM THE CODE
+  YOU ARE LOOKING AT:** page geometry is TWIPS and drawing geometry is EMU a few lines apart (factor
+  635, `EMU_PER_TWIP` — passing twips through clamps every image to a hundredth of an inch, valid
+  XML and green tests); PPTX media part PATHS are unique deck-wide while relationship ids are
+  PER-SLIDE restarting at `rId2` (reversing them puts the wrong image on a slide, with no schema
+  error); and splitting rich HTML re-enters the per-sink `isHtmlStart` landmine, because
+  `CONTAINS_TAG` needs `<` plus a LETTER so a fragment carrying only a CLOSING tag is classified as
+  plain text and escaped into the reader's document. ★★ **NOTHING HERE CAN OPEN A `.docx` OR A
+  `.pptx`** — verification is unzip-and-byte-compare, the manual pass is owed
+  (`docs/open-followups.md` §219), and §216 records that the `export-ooxml` golden suite does NOT
+  pin these package bytes, which both this slice's spec and its plan claimed it did.
 - **Activity log (`Workspace.activityLog`) → [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md).**
   Per-project audit trail persisted as a **meta-blob** (one JSON row in `meta`, like `insights` and
   `documents`), NOT via `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` **because it has
