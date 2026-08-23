@@ -32,7 +32,7 @@ import { formatDisplayTimestamp } from "./tz-display";
 import { SegmentedControl } from "./segmented-control";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
+import { PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
@@ -212,7 +212,7 @@ function ActivityLogPanelInner({ lang, entries, onClear }: Props) {
     ACTIVITY_LOG_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
-  // Bound ONCE for the three sortable headers. `SortKey` has no unsorted
+  // Bound ONCE for all four sortable headers. `SortKey` has no unsorted
   // member and `sortDir` is already a subtype of `SortDir`, so some column is
   // always sorted here and "off" is unreachable — the binding stays correct for
   // that state without a branch for it.
