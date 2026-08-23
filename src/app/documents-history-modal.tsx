@@ -185,6 +185,27 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
     [previewOpen, v, ws, lang],
   );
 
+  // ★★★ MEMOIZED FOR ITS IDENTITY, NOT TO SAVE AN ALLOCATION — and `html`
+  // being memoized above buys none of this. React 19 diffs host props by
+  // `Object.is` and gives `dangerouslySetInnerHTML` no special treatment, so an
+  // inline `{{ __html: html }}` literal is a NEW object on every render and
+  // React re-assigns `domElement.innerHTML` — tearing down and rebuilding this
+  // whole panel — on EVERY re-render of this row, byte-identical `html` or not.
+  // `document-preview.tsx` carries the measured account and the precedent fix;
+  // this mirrors it.
+  //
+  // ★★ The damage is INERT here only for as long as nothing attaches anything
+  // to this subtree. The moment an effect stamps a node inside it — resolving
+  // an asset image's `src`, say — that effect does NOT re-run to repair the
+  // rebuild (its deps are unchanged), so every node it wrote is gone for good
+  // and any parent render at all blanks the panel permanently. That is the
+  // shipped defect `document-preview.tsx` records, and fixing it here BEFORE
+  // anything depends on it is the whole point of this memo.
+  //
+  // Pinned by "does not rebuild the preview subtree on an unrelated re-render",
+  // which asserts NODE IDENTITY — markup assertions pass under the defect.
+  const previewHtml = useMemo(() => ({ __html: html }), [html]);
+
   const blockCount =
     v.blocks.length === 1
       ? t(lang, "documentsVersionBlocksOne")
@@ -260,7 +281,7 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws }: HistoryRowP
         tabIndex={0}
         data-documents-history-preview
         className="max-h-64 overflow-auto rounded-md border border-line bg-surface-muted p-2 text-xs text-foreground"
-        dangerouslySetInnerHTML={{ __html: html }}
+        dangerouslySetInnerHTML={previewHtml}
       />
     </li>
   );

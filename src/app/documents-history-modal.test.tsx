@@ -351,6 +351,67 @@ describe("DocumentsHistoryModal", () => {
     expect(panel?.innerHTML ?? "").not.toContain("alert(1)");
   });
 
+  // ★★★ IDENTITY, NOT MARKUP. A rebuilt subtree is BYTE-IDENTICAL, so an
+  // `innerHTML` / `toHaveTextContent` assertion PASSES under the defect and
+  // only the NODE can tell you React re-assigned `innerHTML`. That is exactly
+  // how the same defect hid in `document-preview.tsx`, which carries the
+  // measured account: React 19 diffs host props by `Object.is` and treats
+  // `dangerouslySetInnerHTML` like any other prop, so an inline
+  // `{{ __html: html }}` literal is a NEW object every render and this whole
+  // panel is torn down and rebuilt on EVERY re-render, byte-identical `html`
+  // or not.
+  //
+  // ★ `isReadOnly` is the unrelated prop: it reaches `HistoryRow` but is NOT in
+  // the `html` memo's dep array (`[previewOpen, v, ws, lang]`) — it only
+  // disables Restore. The disabled assertion below is the positive control that
+  // the re-render actually reached this row, so a passing identity check cannot
+  // be a render that never happened.
+  it("does not rebuild the preview subtree on an unrelated re-render", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onRestore = vi.fn();
+    // ★ One array, reused across both renders, so `v` keeps its identity — the
+    // memo dep this test is NOT probing.
+    const versions: readonly DocVersion[] = [
+      { ...VERSIONS[0], id: 32, blocks: [HEADING, PARAGRAPH] },
+    ];
+    const { rerender } = render(
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={versions}
+        onClose={onClose}
+        onRestore={onRestore}
+        lang="en-US"
+      />,
+    );
+
+    // The disclosure must be OPEN or there is no subtree to preserve at all.
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    const panel = document.getElementById("documents-history-preview-32");
+    const beforeFirst = panel?.firstChild ?? null;
+    const beforeHeading = panel?.querySelector("h2") ?? null;
+    expect(beforeFirst).not.toBeNull();
+    expect(beforeHeading?.textContent).toBe("Section A");
+
+    rerender(
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={versions}
+        onClose={onClose}
+        onRestore={onRestore}
+        lang="en-US"
+        isReadOnly
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Restore/ })).toBeDisabled();
+    expect(document.getElementById("documents-history-preview-32")).toBe(panel);
+    expect(panel?.firstChild).toBe(beforeFirst);
+    expect(panel?.querySelector("h2")).toBe(beforeHeading);
+  });
+
   it("labels an assistant-written version differently from a user-written one", () => {
     renderModal();
     const rows = within(screen.getByRole("list")).getAllByRole("listitem");
