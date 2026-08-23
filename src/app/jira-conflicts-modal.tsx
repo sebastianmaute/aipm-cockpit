@@ -223,6 +223,16 @@ export function JiraConflictsModal({
                               🔒
                             </span>
                           )}
+                          {/* The completion pick moves `status` as well as the
+                              date (both halves come from one side -- see the
+                              completedDate branch of handleResolveConflicts).
+                              Without this line a status change hides behind a
+                              date label. */}
+                          {f.key === "completedDate" && (
+                            <span className="mt-0.5 block text-[10px] font-normal text-muted-foreground">
+                              {t(lang, "jiraConflictCompletionNote")}
+                            </span>
+                          )}
                         </td>
                         <td className="px-2 py-2 align-top">
                           <label
