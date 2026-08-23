@@ -49,7 +49,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
-import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
+import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
@@ -144,7 +144,7 @@ function docxEmbedFor(
   meta: DocumentAsset | undefined,
 ): { ext: MediaExtension; extent: Extent } | null {
   if (!meta) return null;
-  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(meta.mime)) return null;
+  if (!isAllowedAssetMime(meta.mime)) return null;
   const ext = mediaExtension(meta.mime);
   if (!ext) return null;
   const extent = fitExtent(meta, CONTENT_WIDTH_EMU, MAX_IMAGE_HEIGHT_EMU);

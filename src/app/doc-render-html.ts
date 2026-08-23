@@ -61,7 +61,7 @@ import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
 import { htmlEscape, exportCellHtml, PRINT_STYLES } from "./download";
-import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
+import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
@@ -256,7 +256,7 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
  *  second hand-rolled guard beside this one; reuse was the better trade here. */
 function assetSrcAttr(data: string | undefined, mime: string | undefined): string | null {
   if (!data || !mime) return null;
-  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(mime)) return null;
+  if (!isAllowedAssetMime(mime)) return null;
   if (!safeBase64ToBytes(data)) return null;
   return ` src="data:${mime};base64,${data}"`;
 }

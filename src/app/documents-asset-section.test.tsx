@@ -403,6 +403,66 @@ describe("documents asset paste and drop insertion", () => {
     expect(structural.insert).not.toHaveBeenCalled();
   });
 
+  /** A file the intake filter must reject. Deliberately NOT a malformed image:
+   *  the upload pipeline rejects a broken PNG on its own, so a bad-PNG fixture
+   *  cannot tell a working filter from a deleted one. */
+  const textFile = () => new File(["hello"], "notes.txt", { type: "text/plain" });
+
+  const statusText = () =>
+    Array.from(pasteZone().querySelectorAll('[role="status"]'))
+      .map((r) => r.textContent ?? "").join(" ");
+
+  /** Dispatches like `pasteFiles`/`dropFiles` but KEEPS the dispatch result,
+   *  which is `false` exactly when a handler called `preventDefault`. */
+  async function intake(kind: "paste" | "drop", files: readonly File[]): Promise<boolean> {
+    let notCancelled = true;
+    await act(async () => {
+      notCancelled = kind === "paste"
+        ? fireEvent.paste(pasteZone(), { clipboardData: { files, items: [], types: ["Files"] } })
+        : fireEvent.drop(pasteZone(), { dataTransfer: { files, items: [], types: ["Files"] } });
+      await Promise.resolve();
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    return notCancelled;
+  }
+
+  // ★★★ BOTH INTAKE FILTERS WERE ENTIRELY UNOBSERVED. Measured, not assumed:
+  // neutering `handlePaste`'s `.filter(...)` to `() => true` left all 29 tests
+  // in this file GREEN. `structural.insert` alone cannot see it — the upload
+  // pipeline rejects a text file too, so nothing is inserted either way. What
+  // separates a working filter from a deleted one is that a filtered file never
+  // reaches the pipeline AT ALL, so no format rejection is ever announced.
+  //
+  // ★★★ THE `preventDefault` ORDERING IS OPPOSITE IN THE TWO HANDLERS AND BOTH
+  // ARE CORRECT, so it is pinned PER HANDLER and never shared. `handlePaste`
+  // calls it AFTER the filter, so pasting ordinary TEXT falls through to the
+  // default paste handler; `handleDrop` calls it BEFORE, so the browser never
+  // navigates away to a dropped file even when nothing is accepted. Harmonising
+  // them would break one or the other, and this pair is what says so.
+  it("filters a pasted non-image out, leaving the default paste handler to run", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const notCancelled = await intake("paste", [textFile()]);
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(statusText()).not.toContain(t("en-US", "assetUploadErrorFormat"));
+    expect(notCancelled).toBe(true);
+  });
+
+  it("filters a dropped non-image out, but still cancels the drop itself", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const notCancelled = await intake("drop", [textFile()]);
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(statusText()).not.toContain(t("en-US", "assetUploadErrorFormat"));
+    expect(notCancelled).toBe(false);
+  });
+
   it("uploads a pasted image without inserting it when no document is selected", async () => {
     const { structural } = renderSection({ selected: null, documents: [] });
     await pasteFiles([pngFile("orphan.png")]);

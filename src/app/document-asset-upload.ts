@@ -14,6 +14,27 @@ import type { DocumentAsset } from "./document-asset";
  *  destroy animation. */
 export const ASSET_MIME_ALLOWED = ["image/png", "image/jpeg", "image/webp"] as const;
 
+/**
+ * The single asset-mime policy predicate.
+ *
+ * ★★★ IT DOES NOT MAKE THE CHECK AUTOMATIC, and must not be sold as though it
+ * did. A consumer that calls nothing is still wrong and no gate can see it: the
+ * row is well-formed, the mime is a plausible string, and the only symptom is
+ * whatever that sink does with bytes it should never have been handed. This
+ * exists so the next consumer has something to FIND, and so the existing
+ * spellings cannot drift apart. Only a test catches a consumer that forgets.
+ *
+ * ★★ Takes `string | undefined` because `assetPolicy` (`document-download.ts`)
+ * already had to write the undefined guard by hand; folding it in here is what
+ * lets that site become a bare call. The callers it replaces were NOT one
+ * shape — `assetSrcAttr` (`doc-render-html.ts`) rejects `""` a line earlier via
+ * its own `!mime` guard — but `""` is not a member of the list either way, so
+ * every conversion is behaviour-preserving.
+ */
+export function isAllowedAssetMime(mime: string | undefined): boolean {
+  return mime !== undefined && (ASSET_MIME_ALLOWED as readonly string[]).includes(mime);
+}
+
 /** Bounds what is read into memory at all, before any decode. */
 export const ASSET_RAW_MAX_BYTES = 25 * 1024 * 1024;
 
@@ -46,7 +67,7 @@ export type CandidateResult =
 /** Cheap pre-flight: mime and raw size only. Runs before a single byte is
  *  decoded, which is the whole point of the raw ceiling. */
 export function checkUploadCandidate(file: Pick<File, "type" | "size">): CandidateResult {
-  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(file.type)) {
+  if (!isAllowedAssetMime(file.type)) {
     return { ok: false, reason: "format" };
   }
   if (file.size <= 0) return { ok: false, reason: "empty" };

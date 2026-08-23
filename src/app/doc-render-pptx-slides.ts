@@ -39,7 +39,7 @@ import {
   type MediaExtension,
   type MediaPart,
 } from "./ooxml-media";
-import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
+import { isAllowedAssetMime, safeBase64ToBytes } from "./document-asset-upload";
 import type { DocumentAsset } from "./document-asset";
 import type { ExportAssets } from "./document-export-assets";
 import type { Workspace } from "./workspace";
@@ -544,7 +544,7 @@ export function pptxEmbedFor(
   meta: DocumentAsset | undefined,
 ): { ext: MediaExtension; extent: Extent } | null {
   if (!meta) return null;
-  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(meta.mime)) return null;
+  if (!isAllowedAssetMime(meta.mime)) return null;
   const ext = mediaExtension(meta.mime);
   if (!ext) return null;
   const extent = fitExtent(meta, BODY_BOX.cxEmu, BODY_BOX.cyEmu);

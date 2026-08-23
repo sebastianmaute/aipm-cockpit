@@ -10,7 +10,7 @@
 // textContent, so they fail on both malformed output AND on double-escaping.
 
 import { describe, it, expect } from "vitest";
-import { renderDocumentDocx } from "./doc-render-docx";
+import { renderDocumentDocx, canEmbedDocxAsset } from "./doc-render-docx";
 import { buildDocx } from "./export-docx";
 import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
@@ -1473,5 +1473,47 @@ describe("renderDocumentDocx — S3c-2 embedded images", () => {
     expect(new Set(rels).size).toBe(2);           // distinct relationship ids
     expect(rels).not.toContain("rId1");           // rId1 is the styles part
     expect(mediaPaths(zip)).toHaveLength(2);
+  });
+
+  /** ★★★ THIS PREDICATE HAD NO DIRECT TEST AT ALL, while its PPTX twin had one
+   *  and `assetPolicy`'s inline predicate had one. Its own branches were
+   *  reachable only through `document-download.test.ts`, whose allow-list case
+   *  loops html/pdf ONLY, and whose OOXML cases feed either an ALLOWED mime or
+   *  a dimensionless asset. That file stays GREEN under every mutant below.
+   *
+   *  ★★★ BOTH DIRECTIONS, for the reason `document-download.test.ts` states at
+   *  its own allow-list test: a predicate returning a CONSTANT satisfies a
+   *  one-direction test. `() => false` passes the decline cases alone and
+   *  `() => true` passes the accept cases alone, so only the pair kills both
+   *  mutants.
+   *
+   *  ★★★ WHAT THIS PINS IS THE DECISION, NOT THE `isAllowedAssetMime` LINE, and
+   *  the difference is measurable rather than pedantic: deleting that call from
+   *  `docxEmbedFor` ALONE leaves this test green. `mediaExtension`'s domain is
+   *  exactly `ASSET_MIME_ALLOWED` (`ooxml-media.ts` — a three-case switch), so
+   *  the very next line re-decides the same question and masks it. Deleting
+   *  BOTH mime guards is what turns the svg assertion red (measured, both ways).
+   *  So that single line is an EQUIVALENT MUTANT today and no fixture can
+   *  observe it without mocking `ooxml-media`; it is kept as the defence against
+   *  the two lists DIVERGING, the other direction of which `ooxml-media.test.ts`
+   *  already pins. Do not read a green run here as covering that line, and do
+   *  not delete it as dead because a mutant survived.
+   *
+   *  ★★ The declines are ONE PER CONDITION and are not interchangeable: the
+   *  mime case must carry real dimensions, or `fitExtent` rejects it first and
+   *  the assertion passes with BOTH mime guards deleted — a vacuity that would
+   *  make even the composite mutant above survive. */
+  describe("canEmbedDocxAsset", () => {
+    it("declines an absent row, a mime outside the allow-list and a dimensionless asset", () => {
+      expect(canEmbedDocxAsset(undefined)).toBe(false);
+      expect(canEmbedDocxAsset(asset({ mime: "image/svg+xml" }))).toBe(false);
+      expect(canEmbedDocxAsset(asset({ width: undefined }))).toBe(false);
+      expect(canEmbedDocxAsset(asset({ height: 0 }))).toBe(false);
+    });
+
+    it("accepts a sized asset in an allowed mime", () => {
+      expect(canEmbedDocxAsset(asset())).toBe(true);
+      expect(canEmbedDocxAsset(asset({ mime: "image/jpeg" }))).toBe(true);
+    });
   });
 });

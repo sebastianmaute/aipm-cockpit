@@ -20,7 +20,7 @@ import {
 } from "./document-export-assets";
 import type { ExportAssets } from "./document-export-assets";
 import type { DocumentAsset } from "./document-asset";
-import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
+import { isAllowedAssetMime } from "./document-asset-upload";
 import type { AssetByteLoader } from "./document-asset-images";
 import { triggerDownload } from "./download";
 import type { Workspace } from "./workspace";
@@ -185,10 +185,7 @@ function assetPolicy(
     //  allowlist, shared by import so the two cannot drift, and nothing else.
     return {
       budgetBytes: EXPORT_INLINE_BUDGET_BYTES,
-      isRenderable: (id: string) => {
-        const mime = byId.get(id)?.mime;
-        return mime !== undefined && (ASSET_MIME_ALLOWED as readonly string[]).includes(mime);
-      },
+      isRenderable: (id: string) => isAllowedAssetMime(byId.get(id)?.mime),
     };
   }
   // ★★ The predicate the OOXML renderers already own, adapted from the id

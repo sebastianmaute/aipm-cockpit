@@ -47,7 +47,7 @@ import { Button } from "./button";
 import { EmptyState } from "./empty-state";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { htmlEscape } from "./download";
-import { ASSET_MIME_ALLOWED, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
+import { isAllowedAssetMime, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
 import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { loadAssetData } from "./document-assets-store";
@@ -282,8 +282,10 @@ export function DocumentsAssetSection({
 
   function handlePaste(e: ClipboardEvent<HTMLDivElement>) {
     if (!enabled) return;
-    const files = Array.from(e.clipboardData?.files ?? []).filter((f) =>
-      (ASSET_MIME_ALLOWED as readonly string[]).includes(f.type));
+    // ★★ `preventDefault` is AFTER the filter here and BEFORE it in `handleDrop`,
+    // deliberately: pasting ordinary TEXT must fall through to the default paste
+    // handler. Do not harmonise the two.
+    const files = Array.from(e.clipboardData?.files ?? []).filter((f) => isAllowedAssetMime(f.type));
     if (!files.length) return;
     e.preventDefault();
     void uploadAndInsert(files);
@@ -292,8 +294,7 @@ export function DocumentsAssetSection({
   function handleDrop(e: DragEvent<HTMLDivElement>) {
     if (!enabled) return;
     e.preventDefault();
-    const files = Array.from(e.dataTransfer.files).filter((f) =>
-      (ASSET_MIME_ALLOWED as readonly string[]).includes(f.type));
+    const files = Array.from(e.dataTransfer.files).filter((f) => isAllowedAssetMime(f.type));
     if (!files.length) return;
     void uploadAndInsert(files);
   }
