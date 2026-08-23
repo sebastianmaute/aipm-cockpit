@@ -1,0 +1,212 @@
+# Shared-primitive adoption — design
+
+**Date:** 2026-08-23
+**Branch:** `refactor/shared-primitive-adoption`, cut from `origin/main` at `0993d04e` (0.255.1 "Bisson")
+**Status:** design approved, unimplemented
+
+## Goal
+
+Adopt three primitives this repo already owns, at the call sites that never took them up. One
+theme: *use the primitive that exists*. The by-products are a real a11y gap closed, the top
+empirical duplication cluster reduced, and both zero-headroom files moved down.
+
+★★ **Every number below was measured on 2026-08-23 against `0993d04e` and rots.** Each carries the
+command that reproduces it. Run the command; never quote the number.
+
+## Why these three
+
+`docs/handrolled-ui-inventory.md` is a dated audit whose per-site rows were last verified
+2026-08-07 and explicitly **not** re-checked since. It was a starting point only — every claim
+here was re-measured.
+
+Two other clusters were surveyed and **rejected**, recorded so they are not re-surveyed:
+
+- **`role="dialog"` outside `modal.tsx` (25 files).** Not a slice. `notes-window.tsx` *is* the
+  shared floating-window primitive — `note-log-panel.tsx`'s only match is a comment saying it
+  delegates window chrome to it. `tour-overlay.tsx` and `modern-shell.tsx` are one-offs.
+  Everything else already sits on `PopoverPanel` / `usePopoverDismiss`.
+- **Combobox (`resource-picker`, `entity-link-picker`, `stakeholder-recipient-input`).** Genuine
+  duplication of what `useCombobox` provides, but the initial highlight differs across the three
+  (`-1` / `0` / `0`-with-clamp) and each divergence carries a reasoned comment. Conversion would
+  change keyboard behaviour. Deferred deliberately, not overlooked.
+
+## Part C — stop 82 call sites repeating four props
+
+`SortResizeTh<K>` takes eight props, of which `sortKey`, `sortDir`, `onSort` and `onResize` are
+identical for every column in a given table. That repetition is the top tsx clone cluster.
+
+Reproduce the adoption count and the clone ranking:
+
+```bash
+grep -ro "<SortResizeTh" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l
+npm run dup:check > /tmp/dup.log 2>&1; echo "EXIT=$?"
+grep -oE 'app.[a-zA-Z0-9/_-]+\.tsx' /tmp/dup.log | sed 's/^app.//' | sort | uniq -c | sort -rn | head
+```
+
+At time of writing: 82 invocations across 12 files; `change-report-panel` appears in 17 clones,
+`raid-report-panel` 13, `change-panel` 12. The highest-fanout single clone is a four-column header
+block repeated into `raid-report-panel` x3 and `resources-report` x1.
+
+**Design.** A new export in `report-table.tsx`:
+
+```
+useSortHeaderProps<K extends string>(sortKey, sortDir, onSort, onResize?)
+  -> { sortKey, sortDir, onSort, onResize }   // one memoized object
+```
+
+Call sites become `<SortResizeTh {...th} label={...} sortCol="id" width={w.id} />`.
+
+★ Rejected alternatives, with the reason, so they are not re-proposed:
+
+- **A bound component returned from a hook** (`const Th = useSortHeader(...)`). Rejected: a new
+  component identity per render remounts every header on every render.
+- **A declarative `SortHeaderRow` taking an array of column descriptors.** Bigger cut, but it
+  rewrites all 82 working call sites to buy it, and `stickyLeft`'s width-clamp coupling
+  (documented on the prop itself) is exactly the detail an array flattening loses. Reconsider only
+  if the prop bag proves insufficient.
+
+**Constraint:** the rendered DOM must be byte-identical. Reports is axe-scanned.
+
+## Part B — six files still hand-roll the header `SortResizeTh` encapsulates
+
+Each hand-rolls the `<th class="relative px-3 py-2 font-medium">` plus sort `<button>` plus
+`ColumnResizeHandle` trio — precisely what the primitive wraps.
+
+```bash
+for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel resource-directory roles-editor; do
+  echo "$f th=$(grep -c '<th' src/app/$f.tsx) aria-sort=$(grep -c 'aria-sort' src/app/$f.tsx)"
+done
+```
+
+★★ **`activity-log-panel`'s two `aria-sort` matches are prose inside a JSX comment** — the file
+contains zero real attributes. Read the `<th>`; do not count the string. The same trap is already
+recorded for `<button` in the inventory doc.
+
+Two defects, not one:
+
+- **`activity-log-panel` and `resource-directory` announce no sort state at all** (zero real
+  `aria-sort`). axe has **no rule** for a missing `aria-sort`, so the gate is permanently silent
+  here and unit tests are the only possible coverage.
+- **`change-panel`, `stakeholders-panel`, `raid-panel-rows`, `roles-editor` keep the sort glyph
+  inside the button's accessible name** — the double announcement the primitive removes.
+
+### Two families, two adapters
+
+★★ Classify by the **sort state's shape**, not by the file's type aliases. An earlier cut of this
+design put `roles-editor` in family 2 by reading its `type SortKey` alone; its `setSort` holds a
+nullable object, so it is family 1.
+
+| family | shape | files |
+|---|---|---|
+| 1 — nullable object | `{ key, dir }` or `null` | `change-panel`, `stakeholders-panel`, `raid-panel-rows`, `roles-editor` |
+| 2 — split state | separate `sortKey` and 2-state `sortDir` | `activity-log-panel`, `resource-directory` |
+
+- `fromNullableSort` — `null` maps to `"off"`.
+- `fromSplitSort` — an empty or absent key maps to `"off"`. `resource-directory` encodes unsorted
+  as `sortKey: ""`; `activity-log-panel` has no unsorted state, so `"off"` is unreachable there —
+  the adapter must still be correct for it rather than silently relying on that.
+
+★ `raid-panel-rows` types its direction as a bare `string` (`type SortState` holds `key: string`
+and `dir: string`). Tighten it to the real union **first**, as its own commit — it is a latent bug
+independent of this work.
+
+### Accessible names change in every converted file — deliberately
+
+`SortHeaderButton` renders `label` as the button's content and sets **no** `aria-label`, so the
+accessible name becomes the visible text.
+
+**Rule: `label` is the visible text; extra intent goes in `title`.** This is not a mechanical port
+of each existing `aria-label`.
+
+- `resource-directory` today: visible `Assignee`, name `Sort by Assignee`. Conformant now — WCAG
+  2.5.3 is **containment, not prefix**. After conversion the name is `Assignee` and the "Sort by"
+  wording moves to `title`. Still conformant; still a change.
+- `change-panel` today: visible `#`, name `ID`. The visible text is **not contained** in the name —
+  a label-in-name gap today, in an axe-scanned view, which the gate cannot see (the relevant axe
+  rule is `experimental` and excluded by default, and does not apply to this role in any case).
+  Convert to `label="#"` plus `title={t(lang, "id")}`. Fix it; do not carry it forward.
+- `roles-editor` sets no `aria-label` at all, so conversion is name-neutral there. Its per-header
+  `InfoTooltip` maps onto the primitive's existing `hint` prop.
+
+★★ **Known loss, not a free win:** dropping the glyph from the announced name means
+VoiceOver/Safari, which does not announce `aria-sort`, goes from "Title up-arrow" to "Title".
+Standard-correct and already recorded in `AGENTS.md`. Do not re-litigate it as pure gain.
+
+★ `roles-editor` hovers `text-ui-green` where the primitive uses the shared table-head accent
+token. Conversion normalises it — a deliberate visual change.
+
+★ `activity-log-panel`'s fourth header is deliberately non-sortable *because* a fourth hand-rolled
+sort button would deepen this debt (its own comment says so, and names this conversion as the
+follow-up). Making it sortable is in scope once the reason is gone.
+
+★★ `activity-log-panel` carries a comparator that **threw on first render** under the default
+`timestamp` sort with two or more entries. Conversion must not disturb that guard.
+
+## Part A — `tasks-section` duplicates `ColumnConfigPopover`
+
+The primitive's own docstring reads *"Mirrors the tasks-view column manager."* It was extracted
+**from** `tasks-section` and the original was never converted. Four panels adopted it
+(`change-panel`, `milestones-panel`, `raid-panel-toolbar`, `stakeholders-panel`).
+
+Three real divergences in the inline copy:
+
+- **Not portaled.** It renders `absolute` inside the toolbar, so it is subject to the toolbar's
+  `overflow` clip. `PopoverPanel` portals to `<body>` for exactly this reason.
+- **A raw checkbox input** where the primitive uses the `Checkbox` primitive.
+- **`hover:text-muted-foreground`** — hovering changes nothing. The primitive hovers to
+  `text-foreground`.
+
+★ Dismissal is **not** a divergence: `use-column-manager.ts` wires `usePopoverDismiss`. An earlier
+reading of this slice guessed it was missing; it is not.
+
+**Design.** `ColumnConfigPopover` owns its own open state, so the conversion deletes the inline
+block *and* the plumbing behind it: `colConfigOpen`, `setColConfigOpen` and `colConfigRef` leave
+`TasksSectionProps`, `task-manager.tsx`'s threading, and `useColumnManager`'s return type, along
+with its `usePopoverDismiss` call. `hiddenCols` and `setHiddenCols` stay — they are the persisted
+state and have other consumers.
+
+## Testing
+
+- **Per converted file:** assert `aria-sort` on every header across all three states, `"off"`
+  included. This is the property nothing else can catch — axe has no rule for it.
+- **Adapters:** mutation-check both. Flip `null` to `"asc"` in `fromNullableSort` and confirm the
+  suite reddens. A surviving mutant is a question, not a pass.
+- **Part C:** assert byte-identical rendered DOM on one existing report panel before and after.
+- **Part A:** assert the three deleted props are gone from the prop contract, and that the
+  checklist renders through the primitive.
+- Any table gaining a per-row control gets a two-row test for row-unique naming. axe cannot see a
+  duplicate accessible name at any seed size, in any view.
+
+## Gates
+
+- `size:check` — all six B files and `tasks-section` shrink. `tasks-section.tsx` (TD-7) and
+  `task-manager.tsx` (TD-5) are both at their baselines with zero headroom, so this moves the only
+  direction available. The gate metric is `wc -l` **+ 1**; measure it with a node one-liner that
+  splits the file on newlines and reports the array length.
+- `dup:check` — 1.19% against a 1.75 threshold on 2026-08-23. Headroom either way.
+- **axe** — `change-panel`, `stakeholders-panel`, `raid-panel-rows`, `resource-directory`
+  (Resources defaults to the directory) and Reports are all scanned. Use `--workers=1` for any
+  multi-view run: local defaults to CPU-count while CI runs serially, and the contention failure
+  prints as a timeout with no violation text.
+- `npx tsc --noEmit` after every test edit — vitest never typechecks.
+
+## Out of scope
+
+- The combobox and dialog clusters (rejected above, with reasons).
+- Any new i18n key. The labels already exist, and staying out of `i18n.ts` keeps this branch
+  conflict-free against the unshipped `feat/documents-s3c2-ooxml-media`, which edits both
+  dictionaries. If a key turns out to be needed, that is a deliberate decision, not a drive-by.
+- Splitting any file. Extraction here only removes lines.
+
+## Relationship to unshipped work
+
+`feat/documents-s3c2-ooxml-media` (0.256.0 "Khaw") is built, green and unpushed. Measured
+2026-08-23: **zero source-file overlap** with this slice. Reproduce by diffing that branch's
+`src/app` file list against the file list in the plan:
+
+```bash
+git diff --name-only origin/main..feat/documents-s3c2-ooxml-media -- src/app | sort
+```
+
+The only contended files at release time are `version.ts` and `CHANGELOG.md`, which is a release
+ordering question, not a development one.
