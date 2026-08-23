@@ -507,7 +507,7 @@ function ChangePanelBody({
           tbodyClassName="divide-y divide-line"
           head={<>
             <tr>
-              <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+              <th className="px-3 py-2 font-medium" style={{ width: 36, minWidth: 36 }}>
                 <Checkbox
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
@@ -537,7 +537,7 @@ function ChangePanelBody({
                 <SortResizeTh {...th} label={t(lang, "changeFieldRaisedDate")} sortCol="raisedDate" width={colWidths.raisedDate} />
               )}
               {!hiddenSet.has("notesLog") && (
-              <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
+              <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
                 {t(lang, "noteLogTitle")}
                 <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
               </th>
