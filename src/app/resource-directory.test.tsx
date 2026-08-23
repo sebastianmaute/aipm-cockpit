@@ -334,4 +334,31 @@ describe("ResourceDirectory sortable column headers", () => {
       expect(own).toHaveAttribute("aria-sort", "ascending");
     }
   });
+  // ★★★ The e2e header-row-uniformity spec CANNOT see this cell. It is gated on
+  // `bulkEnabled = !!onBulkEditResources`, and the e2e seed passes no such
+  // handler, so the cell never renders there and a dropped `font-medium` measures
+  // as a uniform row. Measured: mutating it left that spec green at 37 cells, all
+  // 500. This is the only detector for that one cell.
+  //
+  // ★ A class assertion is weaker than the computed weight the e2e spec reads —
+  // it cannot prove what the browser renders — but it does detect the regression
+  // it exists for: the primitive emits `font-medium` and Tailwind preflight leaves
+  // a raw `<th>` at the UA `bold`, so a row mixing them renders at two weights.
+  it("keeps the bulk-select header on the same weight as the converted ones", () => {
+    render(
+      <ResourceDirectory
+        {...common}
+        resources={twoResources}
+        onBulkEditResources={vi.fn()}
+      />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    // Positive observable: the bulk column is what makes this row longer than the
+    // seven sortable headers, so its absence must fail here rather than pass.
+    expect(headers.length).toBeGreaterThan(7);
+    for (const th of headers) {
+      expect(th.className, `header "${th.textContent?.trim()}" is off the row weight`)
+        .toContain("font-medium");
+    }
+  });
 });

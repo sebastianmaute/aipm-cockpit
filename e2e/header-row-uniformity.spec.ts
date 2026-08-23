@@ -11,22 +11,49 @@
 // eye-verify here — this measures it instead, because an owed manual check rots
 // and a gate does not.
 //
+// ★★ THIS FILE COVERS ALL SIX VIEWS - but NOT every cell in them. An earlier cut
+// measured only four while its own comment claimed six; Resources and Manage roles
+// were simply missing. Found by a whole-branch review, not a per-task one.
+//
+// *** THE RESOURCES LINE IS BLIND TO THE ONE CELL THAT NEEDED THE FIX. The resource
+// directory bulk-select <th> is gated on `bulkEnabled = !!onBulkEditResources`, and
+// the e2e seed passes no such handler, so it never renders here. Measured: removing
+// its `font-medium` leaves this spec GREEN at 37 cells, all 500. That cell is
+// covered ONLY by a unit test in `resource-directory.test.tsx`, which asserts the
+// CLASS rather than the computed weight. Do not read a green Resources run as
+// covering it.
+// comment claimed to close the gap for six — Resources and Manage roles were
+// simply missing from the list, so a dropped `font-medium` on the resource
+// directory's bulk-select cell or the roles table's trailing cell would have
+// shipped silently. Found by a whole-branch review, not by a per-task one.
+//
 // ★ The uppercase assertion guards the activity log specifically: its three sort
 // labels carried `uppercase tracking-wide` — the last such headers in the app —
 // and the primitive emits neither.
 import { test, expect, gotoApp, openView, waitForViewSettled } from "./seed";
 
+// All SIX panels the slice converted. `hash` is for a view whose sidebar entry
+// is a child that may be collapsed at scan time — the same fallback
+// `e2e/a11y.spec.ts` uses for its own sub-children.
 const VIEWS = [
   { label: "Changes" },
   { label: "Stakeholders" },
   { label: "RAID" },
   { label: "Activity" },
+  { label: "Resources" },
+  { label: "Manage roles", hash: "#manage-roles" },
 ] as const;
 
-for (const { label } of VIEWS) {
+for (const view of VIEWS) {
+  const label = view.label;
+  const hash = (view as { hash?: string }).hash;
   test(`header row is uniform in ${label}`, async ({ page }) => {
     await gotoApp(page);
-    await openView(page, label);
+    if (hash) {
+      await page.evaluate((h) => { window.location.hash = h; }, hash);
+    } else {
+      await openView(page, label);
+    }
     await waitForViewSettled(page);
 
     const cells = await page.evaluate(() => {
