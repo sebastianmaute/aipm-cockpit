@@ -12211,6 +12211,25 @@ DATE: a `completedDate` present forces `Done`; `Done` with no date demotes to
 is invented and no date is deleted — the alternative direction would have to fabricate a delivery
 date, which then flows into the on-time/late split and earned value.
 
+★★ **A `Cancelled` row carrying a `completedDate` is promoted to `Done`, and that is deliberate.**
+It is the function's least obvious semantic call — `Cancelled` is terminal, so overwriting it looks
+like data loss — and it is recorded here because it is recorded nowhere else, not in the design spec
+either. The reason is that the app ALREADY scored such a row as delivered, before this branch:
+`computeStats` (`reports-stats.ts`) tests `isTaskDelivered` FIRST and only reaches its `cancelled`
+bucket in the `else` arm, and that bucket is `isTaskOutOfScope` = `isTaskClosed && !isTaskDelivered`
+(`task-closed.ts`), which a row WITH a date fails. So a `Cancelled`-with-date row landed in
+`stats.completed` and in the on-time/late split, and never in `stats.cancelled`. Promoting `status`
+to `Done` makes the stored field agree with the score the app was already giving it; leaving it
+`Cancelled` would preserve a label no surface honoured. ★ The rule is date-trusting, not
+Cancelled-specific: a `Cancelled` row with NO date is untouched, like every other non-`Done` status.
+
+```bash
+# delivered is tested first; the cancelled bucket is the else-arm
+grep -n "const isDelivered = isTaskDelivered" -A 14 src/app/reports-stats.ts
+# and that bucket's predicate excludes anything carrying a date
+grep -n "export function isTaskOutOfScope" -A 2 src/app/task-closed.ts
+```
+
 ★ The entry above weighs two options (trust `status`, trust `completedDate`). A THIRD was
 considered and rejected in the design round — that templates carry no completion at all, since
 `templateFromWorkspace` re-seeds a NEW project with a date earned in a DIFFERENT one — and is
@@ -12321,7 +12340,10 @@ never running once.
 
 ```bash
 # no completedDate in any pre-fix fixture's `fields` array — only in the inert `picks` maps
-git show origin/main:src/app/use-jira-sync.test.tsx | grep -n 'key: "taskName"|key: "completedDate"'
+# ★ -E is LOAD-BEARING: without it the `|` is a LITERAL, the command exits 1 printing nothing
+#   whether or not the claim holds, and an ABSENCE argument then reads as confirmed by a broken
+#   command. Corrected form returns FOUR `taskName` lines and no `completedDate` line.
+git show origin/main:src/app/use-jira-sync.test.tsx | grep -nE 'key: "taskName"|key: "completedDate"'
 # the loop that makes that decisive: fields first, picks second
 grep -n "for (const field of conflict.fields" -A 1 src/app/use-jira-sync.ts
 ```
@@ -14567,3 +14589,73 @@ measured that combination.
 was not yet reserved on `origin/main` (max 224 there, measured). The gap closes when that branch
 merges. Minting the same number twice is a failure this register has already recorded happening
 twice (§202 → §214 → §215).
+
+## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair
+
+**Status:** open — identified while reviewing the §183 fix, and deliberately NOT fixed in the same
+round. **Severity:** low-to-medium (no NEW split pair is created from consistent input; an existing
+one is propagated, and one Jira write fires against a row that does not read Done).
+
+§183 made `handleResolveConflicts` (`use-jira-sync.ts`) write `status` beside `completedDate`, both
+from the side the user picked. That closed the case where the two halves came from DIFFERENT sides.
+It did not make the merge a normaliser, and the shape of the code says why: `merged` is seeded
+`const merged: Task = { ...original }`, and `status` is written EXACTLY ONCE, inside the
+`field.key === "completedDate"` branch. So the `pick === "local"` arm evaluates to
+`merged.status = original.status` — assigning a field the value it already carries, a provable
+no-op. Only the remote arm writes anything.
+
+```bash
+# the seed, the branch, and the single status write — read the hits, do not count them: this file's
+# own comment about the rule matches too (the self-referential-grep trap this repo records)
+grep -n "merged: Task|merged.status" src/app/use-jira-sync.ts
+# the guard that also fires on the affected pick
+grep -n "completionChanged && merged.completedDate" -A 2 src/app/use-jira-sync.ts
+```
+
+**Consequence.** The other three writers of the pair hold the invariant whatever input they are
+handed; this one holds it only given consistent input. Take a LOCAL row that is already split —
+written by a build older than 0.257.0, hand-edited, imported from a third-party template, or left
+behind by a pre-fix resolution — say `status: "In Progress"` with a `completedDate` set. Its issue is
+not done in Jira, so `issueToTaskFields` maps `completedDate` to `undefined`; the two values differ,
+so `diffTaskAgainstIssue` queues a `completedDate` row. The user picks **local** for it. The merge
+writes the local date back and re-writes the local status over itself, and the row is stored split
+again — freshly written, AFTER 0.257.0. Picking local is the arm §183's own text calls "consistent in
+both directions", and it is, for the well-formed rows that entry was reasoning about.
+
+**Second-order effect, and it is the part that leaves the app.** That same pick satisfies every term
+of `completionChanged && merged.completedDate && !conflict.remoteDone` — the local pick sets
+`anyLocalPicked`, so the push arm runs; the branch sets `completionChanged`; the local date is
+truthy; and the issue is not done remotely. So `transitionIssueTo(creds, conflict.jiraKey, "done")`
+fires and moves the JIRA ISSUE to done, while the local row the user is looking at still reads
+"In Progress". This is not a new guard — it is the pre-existing one behaving exactly as written; what
+is new is noticing that a split local row can reach it.
+
+**Why it is left open: the fix is a design decision, not a correction.** Routing the local arm
+through `reconcileStatusFromDate` (`task-status.ts`) would repair the pair in place and is a
+one-expression change. It was identified during the §183 review round and deliberately deferred,
+because it is outside the approved spec for that slice and it changes a promise made to the user.
+Both arguments, so the next reader does not have to re-derive them:
+
+- **For.** AGENTS.md forbids routing "either Jira path" through `reconcileStatusFromDate`, and the
+  stated reason is that deciding `status` from date PRESENCE would rewrite a reopened issue's genuine
+  "In Progress" into "To Do". That objection is about the REMOTE side: a reopened issue's status comes
+  from Jira's `statusCategory`, which date-presence would trample. The LOCAL side has no
+  `statusCategory` to respect — its status is whatever the workspace stored — so the objection does
+  not reach this arm, and the prohibition is over-general here.
+- **Against.** The user picked "keep my local value". Repairing the pair on that pick silently
+  rewrites a field they were not shown and did not arbitrate — `status` is deliberately not a
+  `ConflictFieldKey` — which is a different promise from the one the modal makes. It also picks a
+  winner (the DATE) in a conflict the user was never asked about, on a row whose split may itself
+  encode something the date does not know.
+
+★ It SELF-HEALS on the same terms §183 and §226 do: the merge clears `localModifiedAt` and stamps
+`lastSyncedAt`, so the next sync in which the issue changes takes the plain pull branch and rewrites
+both fields off one `issueToTaskFields` patch. A row whose issue never changes again stays split.
+
+★★ Not reachable from data this codebase now writes — every `src` writer produces a consistent pair
+since 0.257.0 — so this is a DATA-gap consequence, the same class §182 and §183 both close their
+entries with. It is filed separately because the repair site is in `src` and is one expression away,
+which makes it much more tempting to "just fix" than the load-path repair those entries rule out.
+
+★ Not determined: how many stored rows are actually split. Nothing has counted them, and nothing can
+without reading real workspaces.
