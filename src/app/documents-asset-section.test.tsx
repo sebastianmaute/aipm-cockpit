@@ -463,6 +463,34 @@ describe("documents asset paste and drop insertion", () => {
     expect(notCancelled).toBe(false);
   });
 
+  // ★★★ THE POSITIVE ANCHOR FOR THE TWO NEGATIVE ASSERTIONS ABOVE. Both intake
+  // tests kill their mutant partly (paste) or ENTIRELY (drop) via `statusText()`
+  // NOT containing the format error — and a negative assertion is worth only
+  // what its positive counterpart is worth. For drop it is the SOLE
+  // discriminator: `notCancelled` is false either way there, because that
+  // handler calls preventDefault BEFORE filtering. So without this test, a
+  // change that stopped the status region rendering `assetUploadErrorFormat`
+  // specifically would make the drop test vacuous with nothing going red.
+  //
+  // ★★ It has to arrive through the PICKER. Paste and drop filter the file out
+  // by mime before `checkUploadCandidate` ever sees it — which is exactly what
+  // the two tests above assert — so neither can reach the format rejection.
+  // `applyAccept: false` is required because the input carries an `accept` list
+  // and userEvent honours it by default, silently dropping the file and passing
+  // this test for the wrong reason.
+  it("announces a format rejection when a non-image arrives through the picker", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const d = doc(1, []);
+    const { structural, container } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, textFile());
+
+    expect(await screen.findByText(t("en-US", "assetUploadErrorFormat"))).toBeInTheDocument();
+    expect(structural.insert).not.toHaveBeenCalled();
+  });
+
   it("uploads a pasted image without inserting it when no document is selected", async () => {
     const { structural } = renderSection({ selected: null, documents: [] });
     await pasteFiles([pngFile("orphan.png")]);
