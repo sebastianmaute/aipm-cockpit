@@ -12202,7 +12202,28 @@ read it before editing one of them.
 
 ---
 
-## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — open
+## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — CLOSED 2026-08-23
+
+**Status:** CLOSED 2026-08-23 by 0.257.0 "Shepard". `sanitizeSeedTask` now ends
+`return reconcileStatusFromDate(migrateTask(task));`. The new pure engine function trusts the
+DATE: a `completedDate` present forces `Done`; `Done` with no date demotes to
+`DEFAULT_TASK_STATUS` (`"To Do"`); anything already consistent comes back BY REFERENCE. Nothing
+is invented and no date is deleted — the alternative direction would have to fabricate a delivery
+date, which then flows into the on-time/late split and earned value.
+
+★ The entry above weighs two options (trust `status`, trust `completedDate`). A THIRD was
+considered and rejected in the design round — that templates carry no completion at all, since
+`templateFromWorkspace` re-seeds a NEW project with a date earned in a DIFFERENT one — and is
+recorded rather than lost, in
+`docs/superpowers/specs/2026-08-23-task-status-pair-invariant-design.md`.
+
+★ The entry's own suggested one-liner (route the seed through `applyStatusChange`) was NOT taken.
+That engine stamps `today` when it sets `Done`, so it would overwrite a template's genuine
+delivery date with the import date.
+
+★★ This repairs the WRITER, not the DATA. A workspace that already holds a split pair from a past
+import still holds it; nothing reconciles on load, and deliberately so — see the ★★ against
+`migrateTask` at the end of this entry, which still stands.
 
 The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load — and NOT by
 all of them. FOUR paths write the pair. Two hold it, by two DIFFERENT mechanisms:
@@ -12276,7 +12297,42 @@ status.
 
 ---
 
-## 183. The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data — open
+## 183. The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data — CLOSED 2026-08-23
+
+**Status:** CLOSED 2026-08-23 by 0.257.0 "Shepard". The merge's `completedDate` branch now writes
+`merged.status` alongside the date, taking BOTH from the side the user picked: remote from
+`conflict.remoteStatus` (a new required field on `ConflictItem`, filled at the queue site from the
+`issueToTaskFields` patch that site already computes), local from `original.status`.
+
+★ This holds the invariant by the SAME mechanism the pull path already uses — one `statusKey` read
+deriving both fields — rather than by a new rule. None of the three options weighed at the end of
+this entry was taken: adding `status` to `ConflictFieldKey` would let the user construct the split
+pair by hand; re-deriving status from the resolved date cannot tell a reopened issue's genuine
+"In Progress" from "To Do"; and `applyStatusChange` would stamp `today` over Jira's resolution
+date.
+
+★★ The "Not determined" paragraph above is now partly answered. The merge's `completedDate` arm
+HAS been exercised, by four tests in `use-jira-sync.test.tsx` covering both directions at both
+picks. It could not have run before, and that is DERIVED rather than sampled: the loop iterates
+`conflict.fields` and only then reads `picks[field.key]`, and every conflict fixture on
+`origin/main` seeded a `taskName`-only `fields` array — so the four pre-existing `picks`
+entries naming `completedDate` were inert, and the field looked covered in four places while
+never running once.
+
+```bash
+# no completedDate in any pre-fix fixture's `fields` array — only in the inert `picks` maps
+git show origin/main:src/app/use-jira-sync.test.tsx | grep -n 'key: "taskName"|key: "completedDate"'
+# the loop that makes that decisive: fields first, picks second
+grep -n "for (const field of conflict.fields" -A 1 src/app/use-jira-sync.ts
+```
+
+★ The `transitionIssueTo` question this entry raises is only PARTLY settled. The four tests pin
+WHICH of the four cases fires it — exactly one, direction (a) at the LOCAL pick — but nothing has
+measured whether that shortens the window for either direction in practice, which is what the
+paragraph actually asked.
+
+★★ This repairs the WRITER, not the DATA. A row already split by a past resolution stays split
+until its issue changes again and the plain pull branch rewrites both fields off one patch.
 
 `handleResolveConflicts` (`use-jira-sync.ts`) seeds its output row from the LOCAL one —
 `const merged: Task = { ...original }` — then overwrites, per conflict field, whichever side the user
@@ -14465,3 +14521,49 @@ grep -n -A 3 "type JobCadence" src/app/scheduled-jobs/types.ts
 grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts
 grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
 ```
+
+## 226. The conflict path ignores a remote status change when the completion date does not differ
+
+**Status:** open — a gap the §183 fix deliberately did not close. **Severity:** low (a stale value,
+never an incoherent one).
+
+§183 made the conflict merge write `status` and `completedDate` from ONE side. It reaches
+`status` only from INSIDE the `field.key === "completedDate"` branch, so it fires only when a
+completion conflict is actually queued — which requires the two `completedDate` values to differ.
+
+When the remote **status** differs but the **date** does not — local "In Progress", remote "To Do",
+neither carrying a `completedDate` — no completion row is queued, `status` is never written, and
+the row keeps its LOCAL status indefinitely even though the user picked "remote" for every field
+they were shown.
+
+```bash
+# the union the modal can offer — eight members, no `status`
+grep -n "export type ConflictFieldKey" -A 10 src/app/jira-api.ts
+# the only status write on this path, and the branch it sits in
+grep -n 'field.key === "completedDate"' -A 24 src/app/use-jira-sync.ts
+```
+
+★★ The pair stays internally CONSISTENT throughout, which is why this is NOT §183 and why none of
+§183's consequences apply — no surface disagrees with another about this row. The defect is
+staleness, not incoherence.
+
+★ It SELF-HEALS on the same terms §183 did: the merge clears `localModifiedAt` and stamps
+`lastSyncedAt`, so the next sync in which the issue changes takes the plain pull branch, which
+writes both fields off one `issueToTaskFields` patch. A row whose issue never changes again keeps
+the stale status.
+
+★ Fixing it means deciding whether `status` should be diffed at all on the conflict path, which
+reopens the question §183's fix deliberately closed: a user cannot arbitrate `status`
+independently of `completedDate` without being able to construct the split pair by hand. A fix
+probably has to keep the two as ONE row whose value is the PAIR, rather than adding a second row.
+
+★ Not determined: whether this is reachable often enough to matter. A Jira status move without a
+resolution-date change is an ordinary transition (To Do → In Progress), so it is likely common on
+its own; but it also needs a simultaneous local edit to queue any conflict at all, and nothing has
+measured that combination.
+
+★★ **§225 is deliberately absent from this register on this branch.** It is claimed by
+`feat/timelog-booking-review-tl1`, which was unpushed when this entry was written, so the number
+was not yet reserved on `origin/main` (max 224 there, measured). The gap closes when that branch
+merges. Minting the same number twice is a failure this register has already recorded happening
+twice (§202 → §214 → §215).
