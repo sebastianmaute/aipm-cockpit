@@ -59,15 +59,16 @@ describe("ResourceDirectory", () => {
 
   it("sorts by name when the Name header is clicked", () => {
     render(<ResourceDirectory {...common} resources={twoResources} />);
-    // Click the sort button in the Name (Assignee) column header
-    fireEvent.click(screen.getByRole("button", { name: /sort by assignee/i }));
+    // Click the sort button in the Name (Assignee) column header. Its accessible
+    // name is now the VISIBLE label — "Sort by Assignee" moved to the title.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "assignee") }));
     const rows = screen.getAllByRole("row").slice(1); // skip header
     expect(within(rows[0]).getByText("Amy Bell")).toBeInTheDocument();
   });
 
   it("reverses to descending on a second click of the same header", () => {
     render(<ResourceDirectory {...common} resources={twoResources} />);
-    const nameHeader = screen.getByRole("button", { name: /sort by assignee/i });
+    const nameHeader = screen.getByRole("button", { name: t("en-US", "assignee") });
     fireEvent.click(nameHeader); // asc → Amy first
     fireEvent.click(nameHeader); // desc → Zoe first
     const rows = screen.getAllByRole("row").slice(1);
@@ -259,5 +260,105 @@ describe("ResourceDirectory", () => {
       }),
     );
     expect(field.value).toBe("");
+  });
+});
+
+describe("ResourceDirectory sortable column headers", () => {
+  // This table announced its sort state NOWHERE: seven hand-rolled headers and
+  // zero aria-sort attributes, the state carried only as a glyph inside each
+  // button's accessible name. axe has NO rule for a missing aria-sort, in any
+  // view at any seed size, so this test is the only detector that will ever exist.
+  it("announces sort state through aria-sort, which it did not carry at all before", () => {
+    render(<ResourceDirectory {...common} resources={twoResources} />);
+    // Unsorted on mount: sortKey is "" and matches no column. Every sortable
+    // header must SAY so rather than leave the attribute off entirely — no
+    // column may claim a sort it does not have. (The bulk-select th renders
+    // only when a bulk handler is passed, and `common` passes none.)
+    for (const th of screen.getAllByRole("columnheader")) {
+      expect(th).toHaveAttribute("aria-sort", "none");
+    }
+    // The EXACT string name is the assertion that matters: while the sort glyph
+    // sits inside the accessible name this reads "Department ▲" once sorted, and
+    // a substring match would pass either way.
+    const btn = () => screen.getByRole("button", { name: t("en-US", "resourceColDepartment") });
+    const header = () => screen.getByRole("columnheader", { name: /department/i });
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "descending");
+  });
+
+  // The explicit <SortKey> generic on useSortHeaderProps stops a GARBAGE sortCol,
+  // but it cannot stop a SWAP between two real columns: paste sortCol="email"
+  // onto the Phone header and every key is still a valid SortKey, it typechecks,
+  // that column silently missorts, and no gate in this repo can see it. Seven
+  // near-identical copy-pasted call sites make that the live risk here.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one sortCol
+  // both light up on a single click. So after clicking a column, EXACTLY one
+  // header may report a non-"none" aria-sort, and it must be that column's own.
+  // The count alone would miss a swap onto a hidden column; the identity alone
+  // would miss the duplicate — both halves are needed.
+  it("wires each sortable header to its own column, not a neighbour's", () => {
+    render(<ResourceDirectory {...common} resources={twoResources} />);
+    // Scoped to the directory table: a <th> rendered anywhere else on the pane
+    // would inflate the count and make the length check meaningless.
+    const table = screen.getByRole("button", { name: t("en-US", "assignee") }).closest("table")!;
+    const sorted = () =>
+      within(table)
+        .getAllByRole("columnheader")
+        .filter((th) => (th.getAttribute("aria-sort") ?? "none") !== "none");
+
+    // A string `name` is an EXACT match, so each lookup also pins that header's
+    // label key — a header wired to the wrong i18n string fails here too. The
+    // labels stay glyph-free because the sort arrow is aria-hidden.
+    const columns: readonly (readonly [string, string])[] = [
+      ["name", t("en-US", "assignee")],
+      ["role", t("en-US", "role")],
+      ["title", t("en-US", "resourceColTitle")],
+      ["department", t("en-US", "resourceColDepartment")],
+      ["phone", t("en-US", "resourceColPhone")],
+      ["email", t("en-US", "email")],
+      ["birthday", t("en-US", "resourceColBirthday")],
+    ];
+    for (const [key, label] of columns) {
+      // toggleSort resets the direction to "asc" whenever the KEY changes, so one
+      // pass over the seven never re-enters the asc/desc flip.
+      fireEvent.click(within(table).getByRole("button", { name: label }));
+      // Re-queried after the click rather than reused: a stale node would make
+      // the identity check compare against something no longer in the document.
+      const own = within(table).getByRole("button", { name: label }).closest("th");
+      expect(sorted(), `clicking ${key} lit up the wrong number of headers`).toHaveLength(1);
+      expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
+      expect(own).toHaveAttribute("aria-sort", "ascending");
+    }
+  });
+  // ★★★ The e2e header-row-uniformity spec CANNOT see this cell. It is gated on
+  // `bulkEnabled = !!onBulkEditResources`, and the e2e seed passes no such
+  // handler, so the cell never renders there and a dropped `font-medium` measures
+  // as a uniform row. Measured: mutating it left that spec green at 37 cells, all
+  // 500. This is the only detector for that one cell.
+  //
+  // ★ A class assertion is weaker than the computed weight the e2e spec reads —
+  // it cannot prove what the browser renders — but it does detect the regression
+  // it exists for: the primitive emits `font-medium` and Tailwind preflight leaves
+  // a raw `<th>` at the UA `bold`, so a row mixing them renders at two weights.
+  it("keeps the bulk-select header on the same weight as the converted ones", () => {
+    render(
+      <ResourceDirectory
+        {...common}
+        resources={twoResources}
+        onBulkEditResources={vi.fn()}
+      />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    // Positive observable: the bulk column is what makes this row longer than the
+    // seven sortable headers, so its absence must fail here rather than pass.
+    expect(headers.length).toBeGreaterThan(7);
+    for (const th of headers) {
+      expect(th.className, `header "${th.textContent?.trim()}" is off the row weight`)
+        .toContain("font-medium");
+    }
   });
 });

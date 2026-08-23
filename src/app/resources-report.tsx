@@ -17,6 +17,7 @@ import {
   TableFilter,
   SortResizeTh,
   useSortableFilter,
+  useSortHeaderProps,
   type SortDir,
 } from "./report-table";
 import { RagBadge } from "./rag-badge";
@@ -217,6 +218,7 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "resourcesReportByPeriod")}>
@@ -225,11 +227,11 @@ function ByPeriodTable({ lang, rows, colResize, days, money }: {
           className="min-w-full text-left text-sm"
           head={
             <tr>
-              <SortResizeTh label={t(lang, "resourcesReportByPeriod")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesMargin")} sortCol="margin" width={w.margin} align="right" hint={t(lang, "resourcesMarginHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "resourcesReportByPeriod")} sortCol="name" resizeCol="label" width={w.label} />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesMargin")} sortCol="margin" width={w.margin} align="right" hint={t(lang, "resourcesMarginHint")} />
             </tr>
           }
           tbodyClassName="divide-y divide-line"
@@ -285,6 +287,7 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
   const w = colResize.colWidths as Record<string, number>;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   if (rows.length === 0) return null;
 
@@ -296,11 +299,11 @@ function ByGroupTable({ lang, title, rows, colResize, days, money }: {
           className="min-w-full text-left text-sm"
           head={
             <tr>
-              <SortResizeTh label={title} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesReportHeadcount")} sortCol="headcount" width={w.headcount} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={title} sortCol="name" resizeCol="label" width={w.label} />
+              <SortResizeTh {...th} label={t(lang, "resourcesReportHeadcount")} sortCol="headcount" width={w.headcount} align="right" />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="days" width={w.days} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
             </tr>
           }
           tbodyClassName="divide-y divide-line"
@@ -347,6 +350,7 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
   const { sorted, click } = useSortableFilter(rows, sort, setSort, filter, getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "resourcesReportByResource")}>
@@ -356,12 +360,12 @@ function ByResourceTable({ lang, rows, colResize, days, money }: {
           className="min-w-full text-left text-sm"
           head={
             <tr>
-              <SortResizeTh label={t(lang, "assignee")} sortCol="name" width={w.name} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesRole")} sortCol="role" width={w.role} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesReportAvgUtil")} sortCol="avgUtil" width={w.avgUtil} align="right" hint={t(lang, "resourcesReportAvgUtilHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesCapacityDays")} sortCol="capDays" width={w.capDays} align="right" hint={t(lang, "resourcesCapacityDaysHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="name" width={w.name} />
+              <SortResizeTh {...th} label={t(lang, "resourcesRole")} sortCol="role" width={w.role} />
+              <SortResizeTh {...th} label={t(lang, "resourcesReportAvgUtil")} sortCol="avgUtil" width={w.avgUtil} align="right" hint={t(lang, "resourcesReportAvgUtilHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesCapacityDays")} sortCol="capDays" width={w.capDays} align="right" hint={t(lang, "resourcesCapacityDaysHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesInternalCost")} sortCol="internal" width={w.internal} align="right" hint={t(lang, "resourcesInternalCostHint")} />
+              <SortResizeTh {...th} label={t(lang, "resourcesExternalCost")} sortCol="external" width={w.external} align="right" hint={t(lang, "resourcesExternalCostHint")} />
             </tr>
           }
           tbodyClassName="divide-y divide-line"

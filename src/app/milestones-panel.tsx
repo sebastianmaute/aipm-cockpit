@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowDownTrayIcon, ArrowUpTrayIcon } from "./icons";
 import {
   SortResizeTh,
+  useSortHeaderProps,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -192,6 +193,7 @@ function MilestonesPanelBody({
   const { colWidths, startColResize, resetColWidths } =
     useColumnResize<MilestoneCol>("milestone", MILESTONE_COL_WIDTHS);
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, startResize);
 
   const tasksById = new Map(tasks.map((tk) => [tk.id, tk] as const));
 
@@ -460,24 +462,18 @@ function MilestonesPanelBody({
               </th>
               {!hiddenSet.has("name") && (
                 <SortResizeTh
+                  {...th}
                   label={t(lang, "milestonesColName")}
                   sortCol="name"
                   width={colWidths.name}
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={click}
-                  onResize={startResize}
                 />
               )}
               {!hiddenSet.has("date") && (
                 <SortResizeTh
+                  {...th}
                   label={t(lang, "milestonesColDate")}
                   sortCol="date"
                   width={colWidths.date}
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={click}
-                  onResize={startResize}
                 />
               )}
               {!hiddenSet.has("status") && (

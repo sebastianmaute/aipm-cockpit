@@ -13,7 +13,7 @@ import { nearestOccurrence } from "./recurrence";
 import { DataTable } from "./data-table";
 import { EmptyState } from "./empty-state";
 import { Button } from "./button";
-import { type SortDir, SortResizeTh, compareStrOrNum, nextSortDir } from "./report-table";
+import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 
 /** Compact, i18n'd recurrence summary for a list row — deliberately terser
  *  than export-sections.ts's `describeRecurrence` (which is English-only by
@@ -134,6 +134,8 @@ export function CalendarSeriesList({ lang, events, today, onEdit }: CalendarSeri
       : { key, dir: "asc" }));
   }
 
+  const th = useSortHeaderProps(sort.key, sort.dir, onSort);
+
   return (
     // Defaults OPEN (unlike the version-history `<details>` this pattern is
     // borrowed from): the whole point of this list is making an off-window
@@ -158,19 +160,15 @@ export function CalendarSeriesList({ lang, events, today, onEdit }: CalendarSeri
                       two remaining columns stay bare <th>s (AGENTS.md's rule
                       for header cells with nothing to sort). */}
                   <SortResizeTh
+                    {...th}
                     label={t(lang, "title")}
                     sortCol="title"
-                    sortKey={sort.key}
-                    sortDir={sort.dir}
-                    onSort={onSort}
                   />
                   <th className="px-3 py-2 font-medium">{t(lang, "calendarEventRepeat")}</th>
                   <SortResizeTh
+                    {...th}
                     label={t(lang, "calendarSeriesColNext")}
                     sortCol="next"
-                    sortKey={sort.key}
-                    sortDir={sort.dir}
-                    onSort={onSort}
                   />
                   <th className="px-3 py-2 font-medium">{t(lang, "edit")}</th>
                 </tr>

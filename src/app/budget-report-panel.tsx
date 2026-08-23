@@ -11,6 +11,7 @@ import {
   Tile,
   TableFilter,
   SortResizeTh,
+  useSortHeaderProps,
   useSortableFilter,
   type SortDir,
 } from "./report-table";
@@ -267,6 +268,7 @@ function BucketDetailTable({
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue, isUnknown);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   const cols: { key: DetailSortKey; col: DetailCol; label: string; align: "left" | "right"; hint?: string }[] = useMemo(
     () => [
@@ -298,15 +300,12 @@ function BucketDetailTable({
               <th className="px-2 py-2 text-left font-medium" style={{ width: 32, minWidth: 32 }}>{t(lang, "budgetRoleStatus")}</th>
               {cols.map((c) => (
                 <SortResizeTh
+                  {...th}
                   key={c.col}
                   label={c.label}
                   sortCol={c.key}
                   resizeCol={c.col}
                   width={w[c.col]}
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={click}
-                  onResize={sr}
                   align={c.align === "right" ? "right" : "left"}
                   hint={c.hint}
                 />

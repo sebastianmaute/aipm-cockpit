@@ -81,6 +81,49 @@ export function useSortableFilter<Row extends { name: string }, Key extends stri
   return { sorted, click };
 }
 
+/**
+ * Bundles the four `SortResizeTh` props that are identical for every column of
+ * one table — the repetition that made these header blocks the top tsx clone
+ * cluster (TD-6).
+ *
+ * ★ Returns a props OBJECT, never a bound component. A component built inside a
+ *   hook gets a new identity every render, which remounts every header on every
+ *   render; an object does not.
+ *
+ * ★★ That said, the memo is NOT a performance guarantee. It only HITS while
+ *   `onSort`/`onResize` are themselves stable: true for `useSortableFilter`'s
+ *   `useCallback`'d `click` (deps `[sort.key, sort.dir, setSort]`, so the bag
+ *   changes only when the sort itself does), false for a bare arrow handler
+ *   built fresh in the caller's body — the four `PanelSort` panels bust it
+ *   every render. And even where it hits, nothing today reads the returned
+ *   object's identity: `SortResizeTh` is a plain unmemoized component, so a
+ *   stable bag prevents no re-render. It becomes load-bearing the moment a
+ *   header is wrapped in `memo()` (this repo already does that for
+ *   `ResourcesPanel`) — until then, don't cite it as a reason anything is fast.
+ *
+ * Usage: `const th = useSortHeaderProps<MyKey>(sort?.key ?? null, sort?.dir ?? "off", toggleSort, startResize)`
+ * then `<SortResizeTh {...th} label={...} sortCol="id" width={w.id} />`.
+ * ★ The explicit `<MyKey>` generic is required only when the key SOURCE is a
+ *   bare `string` — same reason as `SortResizeTh`'s own `sortKey` caveat:
+ *   `PanelSort.key` is a bare `string`, so passing it unnarrowed infers
+ *   `K = string` and silently defeats the `sortCol` literal-union check this
+ *   hook exists to carry through. The four `PanelSort` panels therefore pass
+ *   it; the report panels do NOT and must not be "fixed" to — they hold sort
+ *   as a local `SortState<K extends string>` over a real literal union (e.g.
+ *   `SortState<SeveritySortKey>`), so `K` already infers correctly there.
+ */
+export function useSortHeaderProps<K extends string>(
+  sortKey: K | null,
+  sortDir: SortDir,
+  onSort: (col: K) => void,
+  onResize?: (col: string, e: React.MouseEvent) => void,
+) {
+  return useMemo(
+    () => ({ sortKey, sortDir, onSort, onResize }),
+    [sortKey, sortDir, onSort, onResize],
+  );
+}
+
 export function TableFilter({
   lang,
   value,
@@ -220,8 +263,20 @@ export function SortResizeTh<K extends string>({
   resizeCol?: string;
   /** Inline column width; omit for colgroup-sized tables. */
   width?: number;
-  /** The table's active sort key — also fixes `K` so `sortCol` must be valid. */
-  sortKey: K;
+  /** The table's active sort key, or `null` when the table is unsorted — also
+   *  fixes `K` so `sortCol` must be valid.
+   *
+   *  ★ `null` is a real value here, not an oversight: several panels hold sort
+   *  as `{ key, dir } | null` (`PanelSort`). It is only ever compared against
+   *  `sortCol`, so a null key makes every column inactive and every
+   *  `aria-sort` "none", which is exactly right for an unsorted table.
+   *
+   *  ★★ The `sortCol` guarantee holds only while `K` is inferred from a
+   *  literal union. A caller passing a bare-`string` key (e.g. `PanelSort.key`)
+   *  infers `K = string`, and every `sortCol` then typechecks — narrow ONCE at
+   *  the binding site with an explicit generic rather than leaving each call
+   *  site unchecked. */
+  sortKey: K | null;
   sortDir: SortDir;
   onSort: (col: K) => void;
   /** Omit for a sortable but non-resizable column — no handle is rendered. */

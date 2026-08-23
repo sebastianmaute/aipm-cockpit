@@ -29,7 +29,7 @@ import { EmptyState } from "./empty-state";
 import { Button } from "./button";
 import { Input } from "./form-controls";
 import { FilePickerButton } from "./file-picker-button";
-import { type SortDir, SortResizeTh, compareStrOrNum, nextSortDir } from "./report-table";
+import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
 
 export interface AssetLibraryProps {
@@ -221,6 +221,8 @@ export function AssetLibrary({
     Array.from(e.dataTransfer.files).forEach((file) => onUpload(file));
   }
 
+  const th = useSortHeaderProps(sort.key, sort.dir, onSort);
+
   return (
     <div
       onDragOver={(e) => e.preventDefault()}
@@ -250,18 +252,14 @@ export function AssetLibrary({
               <tr>
                 {/* No `onResize` — this component stores no column widths. */}
                 <SortResizeTh
+                  {...th}
                   label={t(lang, "name")}
                   sortCol="name"
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={onSort}
                 />
                 <SortResizeTh
+                  {...th}
                   label={t(lang, "assetLibrarySize")}
                   sortCol="size"
-                  sortKey={sort.key}
-                  sortDir={sort.dir}
-                  onSort={onSort}
                   align="right"
                 />
                 <th className="px-3 py-2 font-medium">{t(lang, "assetLibraryUsage")}</th>

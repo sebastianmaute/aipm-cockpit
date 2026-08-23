@@ -17,11 +17,12 @@ import { isRaidActiveForReview } from "./raid-review";
 import type { RaidCategory, RaidItem, Resource, Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
 import { ColumnResizeHandle } from "./task-manager-ui";
-import { InfoTooltip } from "./info-tooltip";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
+import type { PanelSort } from "./panel-views";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { NotesBadgeButton } from "./notes-badge-button";
@@ -37,14 +38,12 @@ const categoryPillClass: Record<RaidCategory, string> = {
   D: "bg-ui-green/15 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey",
 };
 
-type SortState = { key: string; dir: string } | null;
-
 export interface RaidTableProps {
   lang: Lang;
   hiddenSet: Set<string>;
   sel: ReturnType<typeof useRowSelection>;
   visibleIds: number[];
-  sort: SortState;
+  sort: PanelSort;
   toggleSort: (key: RaidSortKey) => void;
   colWidths: Record<keyof typeof RAID_COL_WIDTHS, number>;
   startResize: (col: string, e: React.MouseEvent) => void;
@@ -101,10 +100,19 @@ export function RaidTable({
   aiEditEnabled,
   onSendInquiry,
 }: RaidTableProps) {
+  // PanelSort.key is a bare `string`, so narrow ONCE here rather than leaving
+  // seven unchecked `sortCol` call sites: the explicit generic is what makes a
+  // typo in one of them a compile error.
+  const th = useSortHeaderProps<RaidSortKey>(
+    (sort?.key ?? null) as RaidSortKey | null,
+    sort?.dir ?? "off",
+    toggleSort,
+    startResize,
+  );
   return (
     <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>
-          <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+          <th className="px-3 py-2 font-medium" style={{ width: 36, minWidth: 36 }}>
             <Checkbox
               aria-label={t(lang, "selectAllVisibleRows")}
               checked={sel.allSelected(visibleIds)}
@@ -113,76 +121,40 @@ export function RaidTable({
               />
           </th>
           {!hiddenSet.has("id") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.id, minWidth: colWidths.id }} aria-sort={sort?.key === "id" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("id")} aria-label={t(lang, "id")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              #{sort?.key === "id" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="id" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label="#" sortCol="id" width={colWidths.id} title={t(lang, "id")} />
           )}
           {!hiddenSet.has("category") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.category, minWidth: colWidths.category }} aria-sort={sort?.key === "category" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("category")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidCategory")}{sort?.key === "category" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="category" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidCategory")} sortCol="category" width={colWidths.category} />
           )}
           {!hiddenSet.has("title") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.title, minWidth: colWidths.title }} aria-sort={sort?.key === "title" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("title")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidTitle")}{sort?.key === "title" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="title" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidTitle")} sortCol="title" width={colWidths.title} />
           )}
           {!hiddenSet.has("severity") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.severity, minWidth: colWidths.severity }} aria-sort={sort?.key === "severity" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("severity")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidSeverity")}{sort?.key === "severity" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <InfoTooltip text={t(lang, "raidSeverityHint")} />
-            <ColumnResizeHandle col="severity" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidSeverity")} sortCol="severity" width={colWidths.severity} hint={t(lang, "raidSeverityHint")} />
           )}
           {!hiddenSet.has("status") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.status, minWidth: colWidths.status }} aria-sort={sort?.key === "status" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("status")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidStatus")}{sort?.key === "status" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="status" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidStatus")} sortCol="status" width={colWidths.status} />
           )}
           {!hiddenSet.has("owner") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.owner, minWidth: colWidths.owner }} aria-sort={sort?.key === "owner" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("owner")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidOwner")}{sort?.key === "owner" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="owner" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidOwner")} sortCol="owner" width={colWidths.owner} />
           )}
           {!hiddenSet.has("targetDate") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.targetDate, minWidth: colWidths.targetDate }} aria-sort={sort?.key === "targetDate" ? (sort.dir === "asc" ? "ascending" : "descending") : "none"}>
-            <button type="button" onClick={() => toggleSort("targetDate")} className={`inline-flex items-center gap-1 hover:text-[var(--table-head-accent)] ${INTERACTIVE}`}>
-              {t(lang, "raidTargetDate")}{sort?.key === "targetDate" ? (sort.dir === "asc" ? " ▲" : " ▼") : ""}
-            </button>
-            <ColumnResizeHandle col="targetDate" onMouseDown={startResize} />
-          </th>
+            <SortResizeTh {...th} label={t(lang, "raidTargetDate")} sortCol="targetDate" width={colWidths.targetDate} />
           )}
           {!hiddenSet.has("linkedTasks") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.linkedTasks, minWidth: colWidths.linkedTasks }}>
+          <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.linkedTasks, minWidth: colWidths.linkedTasks }}>
             {t(lang, "raidLinkedTasks")}
             <ColumnResizeHandle col="linkedTasks" onMouseDown={startResize} />
           </th>
           )}
           {!hiddenSet.has("causedBy") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.causedBy, minWidth: colWidths.causedBy }}>
+          <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.causedBy, minWidth: colWidths.causedBy }}>
             {t(lang, "raidCausedBy")}
             <ColumnResizeHandle col="causedBy" onMouseDown={startResize} />
           </th>
           )}
           {!hiddenSet.has("notesLog") && (
-          <th className="relative px-3 py-2" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
+          <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.notesLog, minWidth: colWidths.notesLog }}>
             {t(lang, "noteLogTitle")}
             <ColumnResizeHandle col="notesLog" onMouseDown={startResize} />
           </th>

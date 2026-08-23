@@ -14,6 +14,7 @@ import {
   TableFilter,
   SortResizeTh,
   useSortableFilter,
+  useSortHeaderProps,
   type SortDir,
 } from "./report-table";
 import {
@@ -287,14 +288,15 @@ function StatusTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "raidReportByStatus")}>
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <SortResizeTh label={t(lang, "raidReportByStatus")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "raidReportByStatus")} sortCol="name" resizeCol="label" width={w.label} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
@@ -377,18 +379,19 @@ function TopOpenTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport[
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "raidReportTopOpen")}>
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategory")} sortCol="category" width={w.category} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColAge")} sortCol="ageDays" resizeCol="age" width={w.age} align="right" hint={t(lang, "raidReportColAgeHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "id")} sortCol="id" width={w.id} />
+              <SortResizeTh {...th} label={t(lang, "raidCategory")} sortCol="category" width={w.category} />
+              <SortResizeTh {...th} label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} />
+              <SortResizeTh {...th} label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} />
+              <SortResizeTh {...th} label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColAge")} sortCol="ageDays" resizeCol="age" width={w.age} align="right" hint={t(lang, "raidReportColAgeHint")} />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
@@ -427,16 +430,17 @@ function CategoryTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, "", getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <Section title={t(lang, "raidReportByCategory")}>
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <SortResizeTh label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColClosed")} sortCol="closed" width={w.closed} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColOverdue")} sortCol="overdue" width={w.overdue} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "raidReportByCategory")} sortCol="name" resizeCol="label" width={w.label} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColOpen")} sortCol="open" width={w.open} align="right" />
+              <SortResizeTh {...th} label={t(lang, "raidReportColClosed")} sortCol="closed" width={w.closed} align="right" />
+              <SortResizeTh {...th} label={t(lang, "raidReportColOverdue")} sortCol="overdue" width={w.overdue} align="right" />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((row) => (
@@ -517,6 +521,7 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
   const { sorted, click } = useSortableFilter(mapped, sort, setSort, filter, getValue);
   const w = colResize.colWidths;
   const sr = colResize.startColResize as (col: string, e: React.MouseEvent) => void;
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
 
   return (
     <div>
@@ -524,16 +529,16 @@ function DetailTable({ lang, rows, colResize }: { lang: Lang; rows: RaidReport["
       <div className="overflow-x-auto rounded-md border border-line">
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <SortResizeTh label={t(lang, "id")} sortCol="id" width={w.id} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidCategory")} sortCol="category" width={w.category} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidStatus")} sortCol="status" width={w.status} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColRaised")} sortCol="raisedDate" width={w.raisedDate} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColTarget")} sortCol="targetDate" width={w.targetDate} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColAge")} sortCol="ageDays" width={w.ageDays} align="right" hint={t(lang, "raidReportColAgeHint")} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-              <SortResizeTh label={t(lang, "raidReportColLinkedTasks")} sortCol="linkedTaskCount" width={w.linkedTaskCount} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+              <SortResizeTh {...th} label={t(lang, "id")} sortCol="id" width={w.id} />
+              <SortResizeTh {...th} label={t(lang, "raidCategory")} sortCol="category" width={w.category} />
+              <SortResizeTh {...th} label={t(lang, "raidTitle")} sortCol="name" resizeCol="title" width={w.title} />
+              <SortResizeTh {...th} label={t(lang, "raidSeverity")} sortCol="severity" width={w.severity} hint={t(lang, "raidSeverityHint")} />
+              <SortResizeTh {...th} label={t(lang, "raidStatus")} sortCol="status" width={w.status} />
+              <SortResizeTh {...th} label={t(lang, "raidOwner")} sortCol="owner" width={w.owner} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColRaised")} sortCol="raisedDate" width={w.raisedDate} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColTarget")} sortCol="targetDate" width={w.targetDate} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColAge")} sortCol="ageDays" width={w.ageDays} align="right" hint={t(lang, "raidReportColAgeHint")} />
+              <SortResizeTh {...th} label={t(lang, "raidReportColLinkedTasks")} sortCol="linkedTaskCount" width={w.linkedTaskCount} align="right" />
             </tr>
           </>} tbodyClassName="divide-y divide-line">
             {sorted.map((r) => (
@@ -582,15 +587,17 @@ function RaidCountHead({
   click: (k: RaidCountSortKey) => void;
   sr: (col: string, e: React.MouseEvent) => void;
 }) {
+  const th = useSortHeaderProps(sort.key, sort.dir, click, sr);
+
   return (
     <thead className={TABLE_HEAD_CLASS}>
       <tr>
-        <SortResizeTh label={t(lang, firstLabelKey)} sortCol="name" resizeCol="label" width={w.label} sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
-        <SortResizeTh label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" sortKey={sort.key} sortDir={sort.dir} onSort={click} onResize={sr} />
+        <SortResizeTh {...th} label={t(lang, firstLabelKey)} sortCol="name" resizeCol="label" width={w.label} />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryRisk")} sortCol="risks" width={w.risks} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryAssumption")} sortCol="assumptions" width={w.assumptions} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryIssue")} sortCol="issues" width={w.issues} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidCategoryDependency")} sortCol="dependencies" width={w.dependencies} align="right" />
+        <SortResizeTh {...th} label={t(lang, "raidReportColTotal")} sortCol="total" width={w.total} align="right" />
       </tr>
     </thead>
   );

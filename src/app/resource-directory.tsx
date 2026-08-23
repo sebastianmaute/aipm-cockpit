@@ -18,8 +18,9 @@ import { useRowSelection } from "./use-row-selection";
 import { BulkEditBar } from "./bulk-edit-bar";
 import { BulkEditPanel, selectField, textField, type BulkField } from "./bulk-edit-panel";
 import { useConfirm } from "./confirm-dialog";
-import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
+import { ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { DataTable } from "./data-table";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { EmptyState } from "./empty-state";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
 import { Checkbox, Input } from "./form-controls";
@@ -155,6 +156,12 @@ function ResourceDirectoryInner({
     }
   };
 
+  // Bound ONCE so the seven headers cannot drift apart. The explicit generic is
+  // what makes a typo'd `sortCol` a compile error; `sortDir` is already a subtype
+  // of SortDir and `sortKey` is already the union (its "" member matches no
+  // column, which is exactly the unsorted state), so neither needs a cast.
+  const th = useSortHeaderProps<SortKey>(sortKey, sortDir, toggleSort, startColResize);
+
   const rows = useMemo(() => {
     const roleName = (r: Resource): string => {
       const role = roles.find((x) => x.id === r.roleId);
@@ -191,9 +198,6 @@ function ResourceDirectoryInner({
     }
     return filtered;
   }, [resources, roles, disciplines, grades, filter, sortKey, sortDir, hideExternal]);
-
-  const sortIndicator = (key: SortKey) =>
-    sortKey === key ? (sortDir === "asc" ? " ▲" : " ▼") : "";
 
   const visibleIds = rows.map((r) => r.id);
   const roleOptions = [
@@ -321,7 +325,7 @@ function ResourceDirectoryInner({
           <DataTable className="w-full text-left text-sm" head={<>
               <tr>
                 {bulkEnabled && (
-                  <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+                  <th className="px-3 py-2 font-medium" style={{ width: 36, minWidth: 36 }}>
                     <Checkbox
                       aria-label={t(lang, "selectAllVisibleRows")}
                       checked={sel.allSelected(visibleIds)}
@@ -330,48 +334,13 @@ function ResourceDirectoryInner({
                     />
                   </th>
                 )}
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.name, minWidth: colWidths.name }}>
-                  <button type="button" onClick={() => toggleSort("name")} aria-label={t(lang, "sortBy", t(lang, "assignee"))} title={t(lang, "sortBy", t(lang, "assignee"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "assignee")}{sortIndicator("name")}
-                  </button>
-                  <ColumnResizeHandle col="name" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.role, minWidth: colWidths.role }}>
-                  <button type="button" onClick={() => toggleSort("role")} aria-label={t(lang, "sortBy", t(lang, "role"))} title={t(lang, "sortBy", t(lang, "role"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "role")}{sortIndicator("role")}
-                  </button>
-                  <ColumnResizeHandle col="role" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.title, minWidth: colWidths.title }}>
-                  <button type="button" onClick={() => toggleSort("title")} aria-label={t(lang, "sortBy", t(lang, "resourceColTitle"))} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "resourceColTitle")}{sortIndicator("title")}
-                  </button>
-                  <ColumnResizeHandle col="title" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.department, minWidth: colWidths.department }}>
-                  <button type="button" onClick={() => toggleSort("department")} aria-label={t(lang, "sortBy", t(lang, "resourceColDepartment"))} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "resourceColDepartment")}{sortIndicator("department")}
-                  </button>
-                  <ColumnResizeHandle col="department" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.phone, minWidth: colWidths.phone }}>
-                  <button type="button" onClick={() => toggleSort("phone")} aria-label={t(lang, "sortBy", t(lang, "resourceColPhone"))} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "resourceColPhone")}{sortIndicator("phone")}
-                  </button>
-                  <ColumnResizeHandle col="phone" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.email, minWidth: colWidths.email }}>
-                  <button type="button" onClick={() => toggleSort("email")} aria-label={t(lang, "sortBy", t(lang, "email"))} title={t(lang, "sortBy", t(lang, "email"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "email")}{sortIndicator("email")}
-                  </button>
-                  <ColumnResizeHandle col="email" onMouseDown={startColResize} />
-                </th>
-                <th className="relative px-3 py-2 font-medium" style={{ width: colWidths.birthday, minWidth: colWidths.birthday }}>
-                  <button type="button" onClick={() => toggleSort("birthday")} aria-label={t(lang, "sortBy", t(lang, "resourceColBirthday"))} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} className={`hover:text-ui-green ${INTERACTIVE}`}>
-                    {t(lang, "resourceColBirthday")}{sortIndicator("birthday")}
-                  </button>
-                  <ColumnResizeHandle col="birthday" onMouseDown={startColResize} />
-                </th>
+                <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="name" width={colWidths.name} title={t(lang, "sortBy", t(lang, "assignee"))} />
+                <SortResizeTh {...th} label={t(lang, "role")} sortCol="role" width={colWidths.role} title={t(lang, "sortBy", t(lang, "role"))} />
+                <SortResizeTh {...th} label={t(lang, "resourceColTitle")} sortCol="title" width={colWidths.title} title={t(lang, "sortBy", t(lang, "resourceColTitle"))} />
+                <SortResizeTh {...th} label={t(lang, "resourceColDepartment")} sortCol="department" width={colWidths.department} title={t(lang, "sortBy", t(lang, "resourceColDepartment"))} />
+                <SortResizeTh {...th} label={t(lang, "resourceColPhone")} sortCol="phone" width={colWidths.phone} title={t(lang, "sortBy", t(lang, "resourceColPhone"))} />
+                <SortResizeTh {...th} label={t(lang, "email")} sortCol="email" width={colWidths.email} title={t(lang, "sortBy", t(lang, "email"))} />
+                <SortResizeTh {...th} label={t(lang, "resourceColBirthday")} sortCol="birthday" width={colWidths.birthday} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
               {rows.map((r) => (

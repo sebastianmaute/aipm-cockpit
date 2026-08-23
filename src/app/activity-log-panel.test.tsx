@@ -746,3 +746,151 @@ describe("ActivityLogPanel", () => {
     expect(field.value).toBe("");
   });
 });
+
+describe("ActivityLogPanel sortable column headers", () => {
+  // This table announced its sort state NOWHERE: three hand-rolled sortable
+  // headers and zero aria-sort attributes. Its source held exactly two matches
+  // for the string and BOTH were prose inside a JSX comment saying the headers
+  // lacked it — so a grep of the file read as covered. axe has NO rule for a
+  // missing aria-sort, in any view at any seed size, so these two tests are the
+  // only detector that will ever exist for this.
+
+  // Scoped to the log table and anchored on the NON-sortable actor header, so
+  // the scope itself can never move with the sort state.
+  const table = () =>
+    screen.getByRole("columnheader", { name: t("en-US", "activityHeaderActor") }).closest("table")!;
+
+  // Reached through the BUTTON rather than matched by name: before the
+  // conversion the ACTIVE header named itself "When ↓" (measured with
+  // computeAccessibleName), glyph and all, so an exact lookup for "When" could
+  // not find it. The primitive's arrow is aria-hidden, so the name is the label.
+  const headerFor = (label: string) =>
+    within(table()).getByRole("button", { name: label }).closest("th");
+
+  // A string `name` is an EXACT match, so each lookup also pins that column's
+  // i18n label KEY — note the sort key is `timestamp` while the label key is
+  // `activityHeaderWhen`, and a header wired to the wrong string fails here.
+  const SORTABLE = [
+    ["timestamp", t("en-US", "activityHeaderWhen")],
+    ["kind", t("en-US", "activityHeaderKind")],
+    ["actor", t("en-US", "activityHeaderActor")],
+    ["message", t("en-US", "activityHeaderMessage")],
+  ] as const;
+
+  it("announces sort state through aria-sort, which it did not carry at all before", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    // The panel mounts sorted by "when", DESCENDING — so one header already
+    // reports a real state, and the other two must SAY "none" rather than leave
+    // the attribute off entirely.
+    expect(headerFor(t("en-US", "activityHeaderWhen"))).toHaveAttribute("aria-sort", "descending");
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "none");
+    expect(headerFor(t("en-US", "activityHeaderActor"))).toHaveAttribute("aria-sort", "none");
+    expect(headerFor(t("en-US", "activityHeaderMessage"))).toHaveAttribute("aria-sort", "none");
+    // The actor column BECAME sortable once the row moved onto the primitive -
+    // it was held back only because a fourth hand-rolled sort button would have
+    // deepened the aria-sort debt. It now carries a button and a real state,
+    // asserted above; the assertion that it had NO aria-sort lived here and is
+    // deliberately gone rather than relaxed.
+
+    const kind = () => within(table()).getByRole("button", { name: t("en-US", "activityHeaderKind") });
+    await user.click(kind());
+    // Re-queried after every click: a stale node would report the state the
+    // header had before the render that changed it.
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "ascending");
+    // toggleSort flips the direction when the key is unchanged.
+    await user.click(kind());
+    expect(headerFor(t("en-US", "activityHeaderKind"))).toHaveAttribute("aria-sort", "descending");
+  });
+
+  // The explicit <SortKey> generic stops a GARBAGE sortCol, but not one real
+  // column's key pasted onto another header: every key is still a valid SortKey,
+  // tsc exits 0, that column silently missorts, and nothing else here sees it.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one
+  // sortCol both light up on a single click. So after clicking a column, exactly
+  // ONE header may report a non-"none" aria-sort, and it must be that column's
+  // own — the count alone would miss a swap onto a hidden column, the identity
+  // alone would miss the duplicate.
+  //
+  // ★ Known limit: this catches a PASTE (one key duplicated onto a second
+  // header), not a full EXCHANGE of two headers' keys — an exchange leaves no
+  // duplicate and passes here.
+  it("wires each sortable header to its own column, not a neighbour's", async () => {
+    const user = userEvent.setup();
+    renderPanel(<ActivityLogPanel lang="en-US" entries={entries} onClear={() => {}} />);
+    const sorted = () =>
+      within(table())
+        .getAllByRole("columnheader")
+        .filter((th) => (th.getAttribute("aria-sort") ?? "none") !== "none");
+
+    for (const [key, label] of SORTABLE) {
+      await user.click(within(table()).getByRole("button", { name: label }));
+      const own = headerFor(label);
+      expect(sorted(), "clicking " + key + " lit up the wrong number of headers").toHaveLength(1);
+      expect(sorted()[0], "clicking " + key + " sorted a different column").toBe(own);
+    }
+  });
+  // ★★ The ROW-ORDER assertion is the load-bearing half. aria-sort alone
+  // passes with the comparator's actor branch deleted entirely — the header
+  // would announce a sort that never happened.
+  // ★ Labels come from t(), not hardcoded: the comparator sorts on the
+  // DERIVED actorLabel (what the cell renders), so the expected order is
+  // computed the same way rather than assuming how AI/User collate.
+  it("sorts by actor, and actually reorders the rows", async () => {
+    const user = userEvent.setup();
+    const aiLabel = t("en-US", "activityActorAi");
+    const userLabel = t("en-US", "activityActorUser");
+    const [firstLabel] = [aiLabel, userLabel].sort((a, b) => a.localeCompare(b));
+    renderPanel(
+      <ActivityLogPanel
+        lang="en-US"
+        entries={[
+          entry({ id: "1", actor: "user" }),
+          entry({ id: "2", actor: "ai" }),
+        ]}
+        onClear={() => {}}
+      />,
+    );
+    const actorLabel = t("en-US", "activityHeaderActor");
+    await user.click(within(table()).getByRole("button", { name: actorLabel }));
+    expect(headerFor(actorLabel)).toHaveAttribute("aria-sort", "ascending");
+
+    // Header order is When, Kind, Actor, Message - so the actor cell is index 2.
+    const firstRow = within(table()).getAllByRole("row")[1];
+    const cells = Array.from(firstRow.querySelectorAll("td"));
+    expect(cells[2]?.textContent).toContain(firstLabel);
+  });
+  // ★★★ e2e CANNOT SEE THIS PANEL. `e2e/seed.ts` never seeds `activityLog`, so the
+  // Activity view renders its empty state with no table — measured: the
+  // header-row-uniformity spec reported 11 cells for it, and all 11 were the
+  // unconditionally-mounted RAID panel's, not this one's. This is the only
+  // detector for either property below.
+  //
+  // ★ A class assertion is weaker than the computed weight that spec reads. Note
+  // this panel now has NO raw `<th>` — all four headers are `SortResizeTh` since
+  // the actor column became sortable — so today the only way to fail this is to
+  // change the PRIMITIVE, which is what it was mutation-proved against. It still
+  // earns its place: it catches a future raw cell added to this row without
+  // `font-medium`, and it pins the absence of the `uppercase tracking-wide` these
+  // three sort labels carried as the last such headers in the app.
+  it("keeps every header on one weight and none of them shouting", () => {
+    renderPanel(
+      <ActivityLogPanel lang="en-US" entries={[entry({ id: "1" }), entry({ id: "2" })]} onClear={() => {}} />,
+    );
+    const headers = screen.getAllByRole("columnheader");
+    // Positive observable: the empty state renders no headers at all, which is
+    // exactly how the e2e version of this check went vacuous.
+    expect(headers).toHaveLength(4);
+    for (const th of headers) {
+      const label = th.textContent?.trim() || "(blank)";
+      expect(th.className, `header ${label} is off the row weight`).toContain("font-medium");
+      expect(th.className, `header ${label} is still uppercase`).not.toContain("uppercase");
+      const btn = th.querySelector("button");
+      if (btn) {
+        expect(btn.className, `sort button ${label} is still uppercase`).not.toContain("uppercase");
+      }
+    }
+  });
+});

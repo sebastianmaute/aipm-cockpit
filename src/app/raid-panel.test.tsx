@@ -151,6 +151,84 @@ describe("RaidPanel sortable column headers", () => {
       screen.queryByRole("button", { name: /caused by/i }),
     ).toBeNull();
   });
+
+  // axe has NO rule for a missing or wrong aria-sort, in any view at any seed
+  // size, so this test is the only coverage this register will ever have.
+  it("announces sort state through aria-sort, not through the button name", () => {
+    renderPanel(makeProps({ raid: raidItems }));
+    const header = () => screen.getByRole("columnheader", { name: /severity/i });
+    // The ANCHORED button name is the assertion that matters: while the sort
+    // glyph sits INSIDE the name it reads "Severity ▲" once sorted, and an
+    // unanchored match would pass either way.
+    const btn = () => screen.getByRole("button", { name: /^severity$/i });
+
+    expect(header()).toHaveAttribute("aria-sort", "none");
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "descending");
+    // Third click returns to unsorted — PanelSort's third state is null.
+    fireEvent.click(btn());
+    expect(header()).toHaveAttribute("aria-sort", "none");
+  });
+
+  // WCAG 2.5.3 label-in-name: the column's VISIBLE text is "#", so "#" must be
+  // CONTAINED in its accessible name. An aria-label of "ID" replaced the name
+  // outright, leaving the visible label nowhere in it. axe cannot see this —
+  // label-content-name-mismatch is experimental (excluded by default) and does
+  // not apply to this role anyway — so a unit test is the only possible detector.
+  it("names the id column by its visible # label, keeping the meaning on hover", () => {
+    renderPanel(makeProps({ raid: raidItems }));
+    const btn = screen.getByRole("button", { name: "#" });
+    expect(btn.textContent).toContain("#");
+    expect(btn).toHaveAttribute("title", t("en-US", "id"));
+  });
+
+  // The explicit <RaidSortKey> generic on useSortHeaderProps stops a GARBAGE
+  // sortCol, but it cannot stop a SWAP between two real columns: paste
+  // sortCol="severity" onto the Status header and every key is still a valid
+  // RaidSortKey, it typechecks, that column silently missorts, and no gate in
+  // this repo can see it. Seven near-identical copy-pasted call sites make that
+  // the live risk here.
+  //
+  // The detector falls out of the primitive's own `active` rule
+  // (`sortKey === sortCol && sortDir !== "off"`): two headers sharing one
+  // sortCol both light up on a single click. So after clicking a column, EXACTLY
+  // one header may report a non-"none" aria-sort, and it must be that column's.
+  it("wires each sortable header to its own column, not a neighbour's", () => {
+    renderPanel(makeProps({ raid: raidItems }));
+    // Scoped to the register table: a <th> rendered anywhere else on the panel
+    // would silently inflate the count and make the length check meaningless.
+    const table = screen.getByRole("button", { name: "#" }).closest("table")!;
+    const sorted = () =>
+      within(table)
+        .getAllByRole("columnheader")
+        .filter((th) => (th.getAttribute("aria-sort") ?? "none") !== "none");
+
+    // A string `name` is an EXACT match, so each lookup also pins that header's
+    // label key — a header wired to the wrong i18n string fails here too. The
+    // labels stay glyph-free because the sort arrow is aria-hidden.
+    const columns: readonly (readonly [string, string])[] = [
+      ["id", "#"],
+      ["category", t("en-US", "raidCategory")],
+      ["title", t("en-US", "raidTitle")],
+      ["severity", t("en-US", "raidSeverity")],
+      ["status", t("en-US", "raidStatus")],
+      ["owner", t("en-US", "raidOwner")],
+      ["targetDate", t("en-US", "raidTargetDate")],
+    ];
+    for (const [key, label] of columns) {
+      // toggleSort resets to "asc" whenever the KEY changes, so one pass over the
+      // seven never re-enters the asc→desc→null cycle and needs no re-render.
+      fireEvent.click(within(table).getByRole("button", { name: label }));
+      // Re-queried after the click rather than reused: a stale node would make
+      // the identity check compare against something no longer in the document.
+      const own = within(table).getByRole("button", { name: label }).closest("th");
+      expect(sorted(), `clicking ${key} lit up the wrong number of headers`).toHaveLength(1);
+      expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
+      expect(own).toHaveAttribute("aria-sort", "ascending");
+    }
+  });
 });
 
 describe("RaidPanel tooltips", () => {

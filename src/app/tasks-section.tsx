@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, CheckCircleIcon, Cog6ToothIcon, EyeSlashIcon, PlusIcon } from "./icons";
+import { ArrowPathIcon, CheckCircleIcon, EyeSlashIcon, PlusIcon } from "./icons";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
@@ -46,6 +46,7 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { INTERACTIVE } from "./interaction-styles";
+import { ColumnConfigPopover } from "./column-config-popover";
 import { Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -58,7 +59,7 @@ import {
   ResetSizeButton,
   Th,
 } from "./task-manager-ui";
-import { SortResizeTh } from "./report-table";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { GUTTER_WIDTH_PX, colWidthStyle, tableMinWidthPx, visibleTaskCols } from "./open-points-table-geometry";
 
 /** Stable empty directory so a resource-less workspace keeps the row-context memo
@@ -121,9 +122,6 @@ export interface TasksSectionProps {
   /** ONLY the columns the user explicitly sized — an absent key is at its
    *  default, which is what lets taskName render width-free. */
   sizedWidths: Partial<Record<string, number>>;
-  colConfigOpen: boolean;
-  setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  colConfigRef: React.RefObject<HTMLDivElement | null>;
   startColResize: (col: string, e: React.MouseEvent) => void;
   resetColWidths: () => void;
   // resizable table
@@ -211,9 +209,6 @@ export function TasksSection({
   hiddenCols,
   setHiddenCols,
   sizedWidths,
-  colConfigOpen,
-  setColConfigOpen,
-  colConfigRef,
   startColResize,
   resetColWidths,
   tableRef,
@@ -545,6 +540,12 @@ export function TasksSection({
     }
   }
 
+  // The four props every one of the 11 sortable headers repeats verbatim. No
+  // explicit generic: `sortKey` is already the `SortKey` literal union (it comes
+  // from `useFilters`, not from a bare-string `PanelSort`), so `K` infers
+  // correctly and `sortCol` stays checked against it.
+  const th = useSortHeaderProps(sortKey, sortDir, toggleSort, startColResize);
+
   const visibleCols = useMemo(() => visibleTaskCols(hiddenCols), [hiddenCols]);
   const tableMinWidth = useMemo(() => tableMinWidthPx(visibleCols, sizedWidths), [visibleCols, sizedWidths]);
   const visibleColumnCount = visibleCols.length;
@@ -732,50 +733,18 @@ export function TasksSection({
           <option value="amber">{t(lang, "healthAmber")}</option>
           <option value="green">{t(lang, "healthGreen")}</option>
         </Select>
-        <div ref={colConfigRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setColConfigOpen((o) => !o)}
-            aria-label={t(lang, "colConfigTitle")}
-            title={t(lang, "colConfigTitle")}
-            aria-expanded={colConfigOpen}
-            className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground ${INTERACTIVE}`}
-          >
-            <Cog6ToothIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
-          {colConfigOpen && (
-            <div
-              role="dialog"
-              aria-label={t(lang, "colConfigTitle")}
-              className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-3"
-            >
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(lang, "colConfigTitle")}
-              </p>
-              <ul className="space-y-1">
-                {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
-                  <li key={key}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
-                      <input
-                        type="checkbox"
-                        checked={!hiddenCols.has(key)}
-                        onChange={() =>
-                          setHiddenCols((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                            return next;
-                          })
-                        }
-                        className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-                      />
-                      {t(lang, labelKey)}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <ColumnConfigPopover
+          lang={lang}
+          cols={CONFIGURABLE_COLS}
+          hidden={hiddenCols}
+          onToggle={(key) =>
+            setHiddenCols((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) { next.delete(key); } else { next.add(key); }
+              return next;
+            })
+          }
+        />
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
         <CalendarSyncControls
           lang={lang}
@@ -993,21 +962,21 @@ export function TasksSection({
                   />
                 </Th>
                 {!hiddenCols.has("status") && <Th padding="tight" onResize={(e) => startColResize("status", e)}><span className="sr-only">{t(lang, "health")}</span></Th>}
-                {!hiddenCols.has("id") && <SortResizeTh label={t(lang, "id")} sortCol="id" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "id"))} />}
-                <SortResizeTh label={t(lang, "task")} sortCol="taskName" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "task"))} />
-                {!hiddenCols.has("assignee") && <SortResizeTh label={t(lang, "assignee")} sortCol="assignee" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "assignee"))} />}
-                {!hiddenCols.has("startDate") && <SortResizeTh label={t(lang, "start")} sortCol="startDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "start"))} />}
-                {!hiddenCols.has("dueDate") && <SortResizeTh label={t(lang, "due")} sortCol="dueDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "due"))} />}
-                {!hiddenCols.has("lastUpdateDate") && <SortResizeTh label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
-                {!hiddenCols.has("createdDate") && <SortResizeTh label={t(lang, "colCreatedDate")} sortCol="createdDate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colCreatedDate"))} />}
-                {!hiddenCols.has("priority") && <SortResizeTh label={t(lang, "priority")} sortCol="priority" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "priority"))} />}
-                {!hiddenCols.has("taskStatus") && <SortResizeTh label={t(lang, "colTaskStatus")} sortCol="taskStatus" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
+                {!hiddenCols.has("id") && <SortResizeTh {...th} label={t(lang, "id")} sortCol="id" title={t(lang, "sortBy", t(lang, "id"))} />}
+                <SortResizeTh {...th} label={t(lang, "task")} sortCol="taskName" title={t(lang, "sortBy", t(lang, "task"))} />
+                {!hiddenCols.has("assignee") && <SortResizeTh {...th} label={t(lang, "assignee")} sortCol="assignee" title={t(lang, "sortBy", t(lang, "assignee"))} />}
+                {!hiddenCols.has("startDate") && <SortResizeTh {...th} label={t(lang, "start")} sortCol="startDate" title={t(lang, "sortBy", t(lang, "start"))} />}
+                {!hiddenCols.has("dueDate") && <SortResizeTh {...th} label={t(lang, "due")} sortCol="dueDate" title={t(lang, "sortBy", t(lang, "due"))} />}
+                {!hiddenCols.has("lastUpdateDate") && <SortResizeTh {...th} label={t(lang, "lastUpdate")} sortCol="lastUpdateDate" title={t(lang, "sortBy", t(lang, "lastUpdate"))} />}
+                {!hiddenCols.has("createdDate") && <SortResizeTh {...th} label={t(lang, "colCreatedDate")} sortCol="createdDate" title={t(lang, "sortBy", t(lang, "colCreatedDate"))} />}
+                {!hiddenCols.has("priority") && <SortResizeTh {...th} label={t(lang, "priority")} sortCol="priority" title={t(lang, "sortBy", t(lang, "priority"))} />}
+                {!hiddenCols.has("taskStatus") && <SortResizeTh {...th} label={t(lang, "colTaskStatus")} sortCol="taskStatus" title={t(lang, "sortBy", t(lang, "colTaskStatus"))} />}
                 {!hiddenCols.has("blockers") && <Th onResize={(e) => startColResize("blockers", e)}>{t(lang, "blockers")}</Th>}
                 {!hiddenCols.has("description") && <Th onResize={(e) => startColResize("description", e)}>{t(lang, "description")}</Th>}
                 {!hiddenCols.has("notesLog") && <Th onResize={(e) => startColResize("notesLog", e)}>{t(lang, "noteLogTitle")}</Th>}
                 {!hiddenCols.has("depRelations") && <Th onResize={(e) => startColResize("depRelations", e)}>{t(lang, "depRelations")}</Th>}
-                {!hiddenCols.has("estimate") && <SortResizeTh label={t(lang, "colEstimate")} sortCol="estimate" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
-                {!hiddenCols.has("spent") && <SortResizeTh label={t(lang, "colSpent")} sortCol="spent" sortKey={sortKey} sortDir={sortDir} onSort={toggleSort} onResize={startColResize} title={t(lang, "sortBy", t(lang, "colSpent"))} />}
+                {!hiddenCols.has("estimate") && <SortResizeTh {...th} label={t(lang, "colEstimate")} sortCol="estimate" title={t(lang, "sortBy", t(lang, "colEstimate"))} />}
+                {!hiddenCols.has("spent") && <SortResizeTh {...th} label={t(lang, "colSpent")} sortCol="spent" title={t(lang, "sortBy", t(lang, "colSpent"))} />}
                 <Th>
                   <span className="sr-only">{t(lang, "colActions")}</span>
                 </Th>

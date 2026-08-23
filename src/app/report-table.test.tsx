@@ -2,7 +2,7 @@ import { describe, expect, it, test, vi } from "vitest";
 import { fireEvent, render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { useRef } from "react";
-import { KpiGradientBar, ReportCard, Section, SortResizeTh, TableFilter, Tile } from "./report-table";
+import { KpiGradientBar, ReportCard, Section, SortResizeTh, TableFilter, Tile, useSortHeaderProps } from "./report-table";
 import { t } from "./i18n";
 
 function Harness() {
@@ -86,6 +86,22 @@ describe("SortResizeTh", () => {
     it("is 'none' when this column is named but the direction is off", () => {
       expect(renderTh("dueDate", "off")).toHaveAttribute("aria-sort", "none");
     });
+
+    it("reports aria-sort none on every column when the table is unsorted (sortKey null)", () => {
+      render(
+        <table><thead><tr>
+          <SortResizeTh label="Title" sortCol="title" sortKey={null} sortDir="off" onSort={() => {}} />
+          <SortResizeTh label="Owner" sortCol="owner" sortKey={null} sortDir="off" onSort={() => {}} />
+        </tr></thead></table>,
+      );
+      const headers = screen.getAllByRole("columnheader");
+      expect(headers).toHaveLength(2);
+      for (const th of headers) {
+        expect(th).toHaveAttribute("aria-sort", "none");
+        expect(th.textContent).not.toContain("↑");
+        expect(th.textContent).not.toContain("↓");
+      }
+    });
   });
 
   // With aria-sort carrying the state, the glyph in the name is a second,
@@ -102,6 +118,53 @@ describe("SortResizeTh", () => {
     // part of the computed name.
     const btn = screen.getByRole("button", { name: "Due" });
     expect(btn.textContent).toContain("↑");
+  });
+});
+
+describe("useSortHeaderProps", () => {
+  it("returns a stable object while its inputs are unchanged", () => {
+    const onSort = vi.fn();
+    const onResize = vi.fn();
+    const seen: unknown[] = [];
+    function Probe({ tick }: { tick: number }) {
+      const th = useSortHeaderProps<"a" | "b">("a", "asc", onSort, onResize);
+      seen.push(th);
+      return <span data-testid="tick">{tick}</span>;
+    }
+    const { rerender } = render(<Probe tick={1} />);
+    rerender(<Probe tick={2} />);
+    expect(seen).toHaveLength(2);
+    expect(seen[0]).toBe(seen[1]);
+  });
+
+  it("spreads into SortResizeTh and drives the active column", () => {
+    const onSort = vi.fn();
+    function Table() {
+      const th = useSortHeaderProps<"title" | "owner">("owner", "desc", onSort);
+      return (
+        <table><thead><tr>
+          <SortResizeTh {...th} label="Title" sortCol="title" />
+          <SortResizeTh {...th} label="Owner" sortCol="owner" />
+        </tr></thead></table>
+      );
+    }
+    render(<Table />);
+    const [title, owner] = screen.getAllByRole("columnheader");
+    expect(title).toHaveAttribute("aria-sort", "none");
+    expect(owner).toHaveAttribute("aria-sort", "descending");
+    fireEvent.click(screen.getByRole("button", { name: /owner/i }));
+    expect(onSort).toHaveBeenCalledWith("owner");
+  });
+
+  it("renders no resize grip when onResize is omitted", () => {
+    function Table() {
+      const th = useSortHeaderProps<"title">(null, "off", () => {});
+      return <table><thead><tr><SortResizeTh {...th} label="Title" sortCol="title" /></tr></thead></table>;
+    }
+    render(<Table />);
+    const th = screen.getByRole("columnheader");
+    expect(th).toHaveTextContent("Title");
+    expect(th.querySelectorAll(".cursor-col-resize")).toHaveLength(0);
   });
 });
 
