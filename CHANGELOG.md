@@ -19,6 +19,7 @@ longer carries its own changelog comment.
 ### Fixed
 - The changes and RAID tables' `#` column announced itself as "ID" while displaying "#", so its spoken name did not contain its visible label (WCAG 2.5.3). Both now announce "#", with "ID" available on hover.
 - The RAID table typed its sort direction as a free-form string, accepting values that are not directions.
+
 ## [0.256.0] - 2026-08-23 "Khaw"
 
 ### Added
