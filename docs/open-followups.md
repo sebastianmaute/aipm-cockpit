@@ -14395,3 +14395,73 @@ as though it did — a consumer that calls nothing is still wrong, and only a te
 recorded width and height; the html sink deliberately does not, because HTML places no box (see
 the ★★★ in `assetPolicy`). One shared mime predicate is right; one shared "is this usable"
 predicate would re-introduce the asymmetry defect that comment exists to stop.
+
+## 224. Timelog bookings are fetched only on demand — no interval job, and no delta notice
+
+**Status:** open — a feature request, not a defect. Nothing misbehaves today.
+
+**What is wanted.** A configurable-interval job that pulls Timelog bookings while the app is
+open, catches up a run missed while it was closed the next time the user opens it, and tells the
+user WHAT CHANGED since the previous pull rather than silently refreshing a cache.
+
+**What already exists, and what it does not buy.**
+
+- `useTimelogSync` is on-demand BY CONTRACT — its own module header opens "On-demand fetch of
+  Timelog bookings". Every fetch is a user gesture: it runs under `runGuarded` with an abort
+  signal and raises a BLOCKING loading modal with a Cancel button. None of that survives being
+  hung on a timer — a modal that appears every N minutes over whatever the user is doing is worse
+  than no polling at all. The background path needs its own quiet entry point.
+- Nothing polls today. `grep -rni "poll\|autoSync\|interval" src/app/use-timelog-sync.ts
+  src/app/timelog-types.ts` returns NOTHING.
+- The scheduled-jobs subsystem is the natural host and is ALREADY catch-up-capable: `isDue`
+  (`scheduled-jobs/schedule.ts`) is true when `lastRunAt < currentSlot`, so a job whose slot
+  passed while the app was shut runs on next open with no extra machinery. Half the ask is free.
+- ★ Calendar auto-sync is NOT the precedent it looks like. `useCalendarAutoSync` is
+  push-on-content-change, keyed by a `contentKey`, not an interval PULL. Citing it as one leads
+  straight to the wrong design.
+
+**Three things that are NOT free.**
+
+- ★★ `JobCadence` has no interval variant. It is `{kind:"daily"} | {kind:"weekly"}` and BOTH
+  carry a `timeOfDay` — every cadence is a wall-clock SLOT, and the catch-up property above is a
+  property OF slots. `currentSlot` has no meaning for "every 30 minutes", so `isDue` must be
+  extended deliberately, never inherited. Decide explicitly what a MISSED interval means: one
+  run on open, or none.
+- ★★ `TICK_INTERVAL_MS` is 5 minutes (`use-scheduled-job-runner.ts`), so any configured interval
+  under 5 minutes is a lie unless the tick changes too. Floor the setting at the tick, or move
+  both together.
+- ★★ `ScheduledJob.type` is the single-member union `"portfolioAnalysis"`. Widening it touches
+  the store, the settings section, the runner's dispatch and the sanitizer — and a persisted
+  `type` that no longer parses must DEGRADE, not silently drop the job.
+
+**The delta is the actual feature, and the baseline mostly exists.** `loadActualsCache(projectId)`
+returns an `ActualsCacheEntry` whose ONLY required field is `fetchedAt` — `aggregates`, `users`,
+`projectRefs` and `partial` are all optional, and a directory-only "Load people" persists an entry
+with NO `aggregates` at all. So the before-image is already persisted per project and a diff over
+`aggregates` needs no second store, but "no baseline yet" is a real state the delta must render as
+"first pull", never as "everything is new". Put the diff in an i18n-free engine, not in the hook.
+
+**Two hard constraints on any implementation.**
+
+- ★★★ A background pull must NEVER apply. Applying is confirm-gated (`timelog-apply-confirm.tsx`)
+  because it writes actuals onto the plan; a timer that applies is silent data mutation. The job
+  notifies, the human applies.
+- ★★★ A `partial` result must never become the new baseline. `canApplyToBudget`
+  (`timelog-guards.ts`) is `!isPopout && rowCount > 0 && !isPartial`, and the field's own comment
+  explains why — a short aggregate ERASES the missing project's booked hours on apply. ★★ Read it
+  as `=== true`; ABSENT MEANS COMPLETE, deliberately (§172). A partial background fetch
+  overwriting the cache would make the NEXT delta wrong in both directions, with nothing to
+  report it.
+- ★ The API token is device-sealed (`timelogApiToken`) but is NOT passphrase-wrappable today —
+  `isPassphraseLocked` is only ever asked about `anthropicApiKey` and `tursoAuthToken`
+  (`grep -rn "isPassphraseLocked(" src/app | grep -v ".test."`), so the timelog token hydrates on
+  load and needs no unlock. The skip conditions are an unconfigured integration and a degraded
+  crypto path, not a locked secret. The job must skip and say why, never fail.
+
+**Verify the shape claims:**
+
+```
+grep -n -A 3 "type JobCadence" src/app/scheduled-jobs/types.ts
+grep -n "TICK_INTERVAL_MS" src/app/use-scheduled-job-runner.ts
+grep -n -A 9 "interface ScheduledJob " src/app/scheduled-jobs/types.ts
+```

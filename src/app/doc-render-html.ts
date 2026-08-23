@@ -211,9 +211,10 @@ function renderBlock(block: DocBlock, ws: Workspace, lang: Lang): string {
  *  an XSS surface, and the upload allowlist excludes SVG while the load path
  *  does not — so the check is the ALLOWLIST uploads already obey
  *  (`ASSET_MIME_ALLOWED`, imported rather than restated so the two cannot
- *  drift), plus the base64 alphabet for the bytes. A miss falls through to the
- *  existing `data-asset-missing` branch: an unrenderable asset is marked
- *  absent, never rendered as a broken URI.
+ *  drift), plus a real decode through `safeBase64ToBytes` for the bytes (see the
+ *  ★★★ below). A miss falls through to the existing `data-asset-missing`
+ *  branch: an unrenderable asset is marked absent, never rendered as a broken
+ *  URI.
  *
  *  ★ Returns the whole ATTRIBUTE, not a boolean, so the only interpolation of
  *  either value lives inside the guard that just validated both.
