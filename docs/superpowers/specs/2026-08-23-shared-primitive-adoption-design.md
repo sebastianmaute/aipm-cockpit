@@ -161,6 +161,14 @@ of each existing `aria-label`.
   a label-in-name gap today, in an axe-scanned view, which the gate cannot see (the relevant axe
   rule is `experimental` and excluded by default, and does not apply to this role in any case).
   Convert to `label="#"` plus `title={t(lang, "id")}`. Fix it; do not carry it forward.
+
+  ★★ **`title` is not the only vehicle, and it is the WEAKER one — pick deliberately.** `title`
+  becomes the accessible DESCRIPTION and is hover-only: not keyboard-focusable, not reachable on
+  touch. `SortResizeTh`s existing `hint` prop renders an `InfoTooltip`, which is `tabIndex={0}`
+  with `onFocus` and `onClick` handlers, so it IS keyboard- and tap-reachable. It costs a visible
+  "i" badge. `title` was the right call for `#`→`ID` (two-character column, guessable meaning, and
+  2.5.3 is satisfied by the NAME matching the visible label wherever the extra meaning lives), but
+  a less guessable abbreviation wants `hint`. Do not default to `title` because this row did.
 - `roles-editor` sets no `aria-label` at all, so conversion is name-neutral there. Its per-header
   `InfoTooltip` maps onto the primitive's existing `hint` prop.
 
