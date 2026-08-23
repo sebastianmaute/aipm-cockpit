@@ -1,7 +1,7 @@
 "use client";
 import type React from "react";
 import { useCallback, useEffect, useMemo, useState, useSyncExternalStore } from "react";
-import { ArrowPathIcon, CheckCircleIcon, Cog6ToothIcon, EyeSlashIcon, PlusIcon } from "./icons";
+import { ArrowPathIcon, CheckCircleIcon, EyeSlashIcon, PlusIcon } from "./icons";
 import { type Lang, type TranslationKey, priorityLabel, t } from "./i18n";
 import { PRIORITIES, type ChangeItem, type Priority, type RaidItem, type Resource, type Task, type TaskStatus } from "./types";
 import type { ProjectDocument } from "./document-model";
@@ -46,6 +46,7 @@ import { ActionChips, chipsForView } from "./action-chips";
 import { ViewCallout } from "./view-callout";
 import { SavedViewsControl } from "./saved-views-control";
 import { INTERACTIVE } from "./interaction-styles";
+import { ColumnConfigPopover } from "./column-config-popover";
 import { Select } from "./form-controls";
 import { AddButton, PaneSearchInput } from "./pane-toolbar";
 import { AddFirstItemButton } from "./add-first-item-button";
@@ -121,9 +122,6 @@ export interface TasksSectionProps {
   /** ONLY the columns the user explicitly sized — an absent key is at its
    *  default, which is what lets taskName render width-free. */
   sizedWidths: Partial<Record<string, number>>;
-  colConfigOpen: boolean;
-  setColConfigOpen: React.Dispatch<React.SetStateAction<boolean>>;
-  colConfigRef: React.RefObject<HTMLDivElement | null>;
   startColResize: (col: string, e: React.MouseEvent) => void;
   resetColWidths: () => void;
   // resizable table
@@ -211,9 +209,6 @@ export function TasksSection({
   hiddenCols,
   setHiddenCols,
   sizedWidths,
-  colConfigOpen,
-  setColConfigOpen,
-  colConfigRef,
   startColResize,
   resetColWidths,
   tableRef,
@@ -732,50 +727,18 @@ export function TasksSection({
           <option value="amber">{t(lang, "healthAmber")}</option>
           <option value="green">{t(lang, "healthGreen")}</option>
         </Select>
-        <div ref={colConfigRef} className="relative">
-          <button
-            type="button"
-            onClick={() => setColConfigOpen((o) => !o)}
-            aria-label={t(lang, "colConfigTitle")}
-            title={t(lang, "colConfigTitle")}
-            aria-expanded={colConfigOpen}
-            className={`rounded-md p-1.5 text-muted-foreground hover:bg-surface-muted hover:text-muted-foreground ${INTERACTIVE}`}
-          >
-            <Cog6ToothIcon aria-hidden="true" className="h-4 w-4" />
-          </button>
-          {colConfigOpen && (
-            <div
-              role="dialog"
-              aria-label={t(lang, "colConfigTitle")}
-              className="absolute left-0 top-full z-40 mt-1 w-52 rounded-lg border border-line bg-surface p-3"
-            >
-              <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
-                {t(lang, "colConfigTitle")}
-              </p>
-              <ul className="space-y-1">
-                {CONFIGURABLE_COLS.map(({ key, labelKey }) => (
-                  <li key={key}>
-                    <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
-                      <input
-                        type="checkbox"
-                        checked={!hiddenCols.has(key)}
-                        onChange={() =>
-                          setHiddenCols((prev) => {
-                            const next = new Set(prev);
-                            if (next.has(key)) { next.delete(key); } else { next.add(key); }
-                            return next;
-                          })
-                        }
-                        className="h-3.5 w-3.5 rounded border-line text-ui-dark-blue focus:ring-ui-green"
-                      />
-                      {t(lang, labelKey)}
-                    </label>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        <ColumnConfigPopover
+          lang={lang}
+          cols={CONFIGURABLE_COLS}
+          hidden={hiddenCols}
+          onToggle={(key) =>
+            setHiddenCols((prev) => {
+              const next = new Set(prev);
+              if (next.has(key)) { next.delete(key); } else { next.add(key); }
+              return next;
+            })
+          }
+        />
         <SavedViewsControl lang={lang} hiddenCols={hiddenCols} setHiddenCols={setHiddenCols} />
         <CalendarSyncControls
           lang={lang}

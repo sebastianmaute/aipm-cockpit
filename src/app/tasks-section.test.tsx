@@ -181,9 +181,6 @@ function makeProps(): TasksSectionProps {
     hiddenCols: new Set(),
     setHiddenCols: vi.fn(),
     sizedWidths: {},
-    colConfigOpen: false,
-    setColConfigOpen: vi.fn(),
-    colConfigRef: React.createRef<HTMLDivElement>(),
     startColResize: vi.fn(),
     resetColWidths: vi.fn(),
     // resizable table
@@ -1247,9 +1244,52 @@ describe("TasksSection", () => {
 
       // …and the list really is what drives the popover, so the check above is
       // about the rendered control rather than an unused constant.
-      renderTable({ colConfigOpen: true });
+      renderTable();
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
       const dialog = within(screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") }));
       expect(dialog.getAllByRole("checkbox")).toHaveLength(CONFIGURABLE_COLS.length);
+    });
+
+
+    // The column manager is the shared `ColumnConfigPopover` now. It was
+    // EXTRACTED from this file and this call site was never converted, so four
+    // panels used the primitive while the original kept its own copy — and that
+    // copy had drifted in three ways. The one with a user-visible consequence is
+    // the portal: the inline panel rendered `absolute` inside the toolbar and was
+    // subject to its `overflow` clip, where `PopoverPanel` mounts to <body>.
+    it("renders the column checklist through the shared popover, portaled out of the toolbar", () => {
+      const setHiddenCols = vi.fn();
+      const { container } = renderTable({ setHiddenCols });
+      fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+      const dialog = screen.getByRole("dialog", { name: t("en-US", "colConfigTitle") });
+
+      // ★★ `dialog.closest("table")` is NOT the assertion to make here: the
+      //    toolbar is a SIBLING of the <table>, not inside it, so that check is
+      //    null before the conversion and after it and distinguishes nothing.
+      //    What actually differs is the portal — the panel leaves the tree React
+      //    rendered into `container` and becomes a direct child of <body>. Both
+      //    halves are needed: `contains` alone would also pass for a panel
+      //    portaled somewhere else entirely, and the parent check alone reads as
+      //    a fact about <body> rather than about this panel's escape.
+      expect(container.contains(dialog)).toBe(false);
+      expect(dialog.parentElement).toBe(document.body);
+
+      // Positive observable, and the ticked-means-VISIBLE convention: makeProps
+      // hides nothing, so every box starts checked.
+      const boxes = within(dialog).getAllByRole("checkbox");
+      expect(boxes).toHaveLength(CONFIGURABLE_COLS.length);
+      expect(boxes[0]).toBeChecked();
+
+      // `setHiddenCols` is a mock, so the box cannot re-render unchecked — assert
+      // on the FUNCTIONAL UPDATER instead, which is the thing that would actually
+      // be wrong if `onToggle` were miswired. Exercised in both directions: an
+      // untick hides the column, a re-tick shows it again.
+      fireEvent.click(boxes[0]);
+      expect(setHiddenCols).toHaveBeenCalledTimes(1);
+      const firstKey = CONFIGURABLE_COLS[0].key;
+      const updater = setHiddenCols.mock.calls[0][0] as (prev: Set<string>) => Set<string>;
+      expect([...updater(new Set())]).toEqual([firstKey]);
+      expect([...updater(new Set([firstKey]))]).toEqual([]);
     });
 
     // ★ The gutter is the one column tableMinWidthPx accounts for but does not
