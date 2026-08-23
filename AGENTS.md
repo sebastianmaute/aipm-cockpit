@@ -356,17 +356,35 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).
-  ★★★ **`sed -i` UNDER GIT BASH RE-LINES A WHOLE CRLF FILE TO LF, AND `core.autocrlf=true` HIDES IT.**
-  This is the OPPOSITE failure from the node-anchor one below and far harder to notice: not a silent
-  no-op, but a silent whole-file rewrite. Because the repo sets `autocrlf=true`, the committed blob and
-  `git diff` are both unaffected — a 4-line change goes on reporting as 4 lines — so nothing in the
-  normal review path can see that five source files were re-lined. Measured on 2026-08-23 while
-  converting the asset-mime casts; caught only by an explicit byte check, never by a gate. After ANY
-  `sed -i` on a tracked source file, verify each one:
+  ★★★ **`sed -i` UNDER GIT BASH RE-LINES A WHOLE CRLF FILE TO LF, AND `core.autocrlf=true` HIDES
+  IT FROM THE DIFF.** The OPPOSITE failure from the node-anchor one below — not a silent no-op but a
+  silent whole-file rewrite. `src/**` carries no `.gitattributes` entry (`git check-attr -a
+  src/app/icons.ts` prints nothing), so `autocrlf=true` governs it alone: blobs are LF, the working
+  tree is CRLF. A `sed -i` re-lines the working copy to LF, which then CLEANS to the very same blob,
+  so the diff body shows only the lines you meant to change. Measured 2026-08-23 in a throwaway repo:
+  a 10-line CRLF file, one substitution, `git diff --stat` reporting 1 insertion / 1 deletion while
+  the file went 150 bytes / 10 CRLF to 140 bytes / 0 CRLF. ★★ The SAME experiment at `autocrlf=false`
+  reports 10 insertions / 10 deletions — that control is what pins the attribution; without it this
+  is a correlation.
+  ★★ **IT CANNOT REACH THE REPOSITORY, which is the half that decides how much to care.** The clean
+  filter normalises either way, so the re-lined file commits to the byte-identical blob a
+  CRLF-preserving edit would have produced (measured with `git hash-object --path`). The damage is
+  LOCAL: it survives commits with `git status` reporting clean, and is undone the next time git
+  checks the file out. A hygiene trap, NOT a way to ship a defect — an earlier revision here implied
+  otherwise.
+  ★★ **And git DOES warn**, once per file, on `git diff` and `git add` (never on `git status`, in
+  either form) — so “invisible” was wrong too. The warning goes to STDERR, so it vanishes the moment
+  the command is piped or redirected: the same trap as the exit-code-through-a-pipe rule above.
+  ★ Check a file by hand — 0 means CRLF-clean. Run it against a known-LF file too, or you cannot
+  tell a working check from a vacuous one:
   ```bash
-  node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');console.log((s.match(/(?<!)
-/g)||[]).length)" <file>   # must be 0
+  node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');console.log((s.match(/(?<!\r)\n/g)||[]).length)" <file>
   ```
+  ★★ That line MUST carry the two-character escapes backslash-r and backslash-n. The first version
+  of it shipped with REAL CR and LF bytes in the regex — the only stray CR byte in this entire file
+  — and a JS regex literal cannot span a newline, so it died with an unterminated-regexp error for
+  every reader who pasted it. `file <path>` tells “ASCII text, with CRLF line terminators” from plain
+  “ASCII text” and has no escapes to corrupt.
   Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch via node utf8 write, re-verify. File is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
