@@ -10,7 +10,7 @@
 //
 // ★★ NEVER INLINE BASE64. Ten images would put ~67 MB into that one string.
 
-import { base64ToBytes } from "./document-asset-upload";
+import { safeBase64ToBytes } from "./document-asset-upload";
 
 export type AssetByteLoader = (id: string) => Promise<string | null>;
 
@@ -33,11 +33,22 @@ export async function attachAssetImages(
     try {
       const b64 = await load(id);
       if (!b64) return;
+      // ★★★ `safeBase64ToBytes`, NOT the raw `base64ToBytes`, and the CATCH
+      // below is not a substitute for it. A whitespace-only stored row
+      // ("\t\r\n ") decodes to ZERO bytes and raises NOTHING — `atob` strips
+      // ASCII whitespace before decoding — so the catch never fires, a
+      // zero-byte Blob gets an object URL, `url` is truthy, and the branch
+      // below then STRIPS `data-asset-missing` off the very element the repair
+      // affordance is drawn on. The reader is left with a bare broken-image
+      // icon and no disclosure at all. Declining here routes it down the same
+      // marker path the OOXML sinks already use.
+      const decoded = safeBase64ToBytes(b64);
+      if (!decoded) return;
       // `new Uint8Array(bytes)` re-wraps onto a fresh, non-shared ArrayBuffer —
-      // `base64ToBytes`'s return type is `Uint8Array<ArrayBufferLike>`, which
+      // the decoder's return type is `Uint8Array<ArrayBufferLike>`, which
       // admits SharedArrayBuffer and so does not satisfy BlobPart on its own
       // (mirrors the same re-wrap in use-document-assets.ts).
-      const bytes = new Uint8Array(base64ToBytes(b64));
+      const bytes = new Uint8Array(decoded);
       const mime = mimeFor?.(id);
       const blob = mime ? new Blob([bytes], { type: mime }) : new Blob([bytes]);
       urls.set(id, URL.createObjectURL(blob));

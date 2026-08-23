@@ -76,6 +76,67 @@ describe("attachAssetImages", () => {
     second();
   });
 
+  // ★★★ THE CATCH CANNOT SEE THIS ONE, WHICH IS WHY THE DECODE HAD TO MOVE TO
+  // `safeBase64ToBytes`. `atob` strips ASCII whitespace before decoding, so a
+  // whitespace-only stored row returns "" and raises NOTHING — the raw
+  // `base64ToBytes` this used to call handed back a truthy `Uint8Array(0)`, a
+  // zero-byte Blob got an object URL, and the resolve branch then REMOVED
+  // `data-asset-missing`. `globals.css` draws the dashed repair frame off that
+  // attribute, so stripping it leaves a bare broken-image icon disclosing
+  // nothing. Reproduce the premise:
+  //   node -e "console.log(atob('\t\r\n ').length)"  → 0
+  it("marks a whitespace-only byte row instead of minting a zero-byte blob URL", async () => {
+    const el = root('<img data-asset-id="blank">');
+    const detach = await attachAssetImages(el, async () => "\t\r\n ");
+    const img = el.querySelector("img");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    expect(img?.hasAttribute("src")).toBe(false);
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    detach();
+  });
+
+  // The other half of the same branch: a row that DOES throw already reached
+  // the marker via the catch, but only by accident of ordering — pinned so a
+  // future refactor cannot drop one of the two paths.
+  it("marks a row atob rejects outright (a length fault passes any alphabet test)", async () => {
+    const el = root('<img data-asset-id="bad">');
+    const detach = await attachAssetImages(el, async () => "abcde");
+    const img = el.querySelector("img");
+    expect(img?.hasAttribute("src")).toBe(false);
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    detach();
+  });
+
+  // ★★ THE OTHER DIRECTION, and the reason the guard is `atob` rather than an
+  // alphabet regex: `atob` strips interior whitespace, so a line-wrapped stored
+  // row is a GOOD image and must keep rendering. A regex-based guard would
+  // reject it.
+  it("still resolves a line-wrapped base64 row — atob strips interior whitespace", async () => {
+    const el = root('<img data-asset-id="wrapped">');
+    const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
+    const detach = await attachAssetImages(el, async () => "iVBORw0K\r\n  Ggo=");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+    expect(el.querySelector("img")?.hasAttribute("data-asset-missing")).toBe(false);
+    expect((createObjectURL.mock.calls[0][0] as Blob).size).toBe(8);
+    detach();
+  });
+
+  // ★★★ THE MARKER-STRIPPING HALF, asserted separately because the first test
+  // above passes on a FRESH element even with the fix reverted's src left
+  // unset. This is the §212 repair path: a failed run stamped the marker, and
+  // a later run over the SAME element must not clear it for a row that is
+  // still undrawable.
+  it("does not clear a stale missing marker when the retried row is still blank", async () => {
+    const el = root('<img data-asset-id="blank">');
+    const first = await attachAssetImages(el, async () => null);
+    expect(el.querySelector("img")?.getAttribute("data-asset-missing")).toBe("true");
+    first();
+
+    const second = await attachAssetImages(el, async () => "   ");
+    expect(el.querySelector("img")?.getAttribute("data-asset-missing")).toBe("true");
+    second();
+  });
+
   it("revokes every object URL it created when detached", async () => {
     const el = root('<img data-asset-id="a1"><img data-asset-id="a2">');
     const detach = await attachAssetImages(el, async () => "QUJD");
