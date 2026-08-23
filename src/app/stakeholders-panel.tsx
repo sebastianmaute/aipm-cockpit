@@ -32,9 +32,8 @@ import type { EntityPaneHintsProps } from "./workspace-section-types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { ColumnResizeHandle, PrintButton, ResetColWidthsButton, ResetSizeButton } from "./task-manager-ui";
-import { InfoTooltip } from "./info-tooltip";
+import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { resourceDisplayName } from "./resource-foundation";
-import { INTERACTIVE } from "./interaction-styles";
 import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
@@ -268,12 +267,15 @@ function StakeholdersPanelBody({
     STAKEHOLDER_COL_WIDTHS,
   );
   const startResize = startColResize as (col: string, e: React.MouseEvent) => void;
+  // PanelSort.key is a bare `string`, so narrow ONCE here: the explicit generic
+  // is what makes a typo in any of the five `sortCol` props a compile error.
+  const th = useSortHeaderProps<StakeholderSortKey>(
+    (pf.sort?.key ?? null) as StakeholderSortKey | null,
+    pf.sort?.dir ?? "off",
+    toggleSort,
+    startResize,
+  );
   const { ref: paneRef, reset: resetPaneSize } = useResizable("aipm-cockpit:stakeholder-size");
-
-  const sortArrow = (key: StakeholderSortKey) =>
-    sort?.key === key ? (sort.dir === "asc" ? " ▲" : " ▼") : "";
-  const ariaSort = (key: StakeholderSortKey): "ascending" | "descending" | "none" =>
-    sort?.key === key ? (sort.dir === "asc" ? "ascending" : "descending") : "none";
 
   // Build a resource lookup map for display in rows.
   const resourceById = useMemo(() => {
@@ -359,7 +361,7 @@ function StakeholdersPanelBody({
     >
         <DataTable className="min-w-full text-left text-sm" head={<>
             <tr>
-              <th className="px-3 py-2" style={{ width: 36, minWidth: 36 }}>
+              <th className="px-3 py-2 font-medium" style={{ width: 36, minWidth: 36 }}>
                 <Checkbox
                   aria-label={t(lang, "selectAllVisibleRows")}
                   checked={sel.allSelected(visibleIds)}
@@ -368,40 +370,14 @@ function StakeholdersPanelBody({
                 />
               </th>
               {!hiddenSet.has("name") && (
-              <th
-                className="relative px-3 py-2"
-                style={{ width: colWidths.name, minWidth: colWidths.name }}
-                aria-sort={ariaSort("name")}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("name")}
-                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
-                >
-                  {t(lang, "stakeholderFieldName")}{sortArrow("name")}
-                </button>
-                <ColumnResizeHandle col="name" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "stakeholderFieldName")} sortCol="name" width={colWidths.name} />
               )}
               {!hiddenSet.has("organization") && (
-              <th
-                className="relative px-3 py-2"
-                style={{ width: colWidths.organization, minWidth: colWidths.organization }}
-                aria-sort={ariaSort("organization")}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("organization")}
-                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
-                >
-                  {t(lang, "stakeholderFieldOrganization")}{sortArrow("organization")}
-                </button>
-                <ColumnResizeHandle col="organization" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "stakeholderFieldOrganization")} sortCol="organization" width={colWidths.organization} />
               )}
               {!hiddenSet.has("title") && (
               <th
-                className="relative px-3 py-2"
+                className="relative px-3 py-2 font-medium"
                 style={{ width: colWidths.title, minWidth: colWidths.title }}
               >
                 <span className="inline-flex items-center gap-1">
@@ -411,58 +387,17 @@ function StakeholdersPanelBody({
               </th>
               )}
               {!hiddenSet.has("category") && (
-              <th
-                className="relative px-3 py-2"
-                style={{ width: colWidths.category, minWidth: colWidths.category }}
-                aria-sort={ariaSort("category")}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("category")}
-                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
-                >
-                  {t(lang, "stakeholderFieldCategory")}{sortArrow("category")}
-                </button>
-                <ColumnResizeHandle col="category" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "stakeholderFieldCategory")} sortCol="category" width={colWidths.category} />
               )}
               {!hiddenSet.has("influence") && (
-              <th
-                className="relative px-3 py-2"
-                style={{ width: colWidths.influence, minWidth: colWidths.influence }}
-                aria-sort={ariaSort("influence")}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("influence")}
-                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
-                >
-                  {t(lang, "stakeholderFieldInfluence")}{sortArrow("influence")}
-                </button>
-                <InfoTooltip text={t(lang, "stakeholderFieldInfluenceHint")} />
-                <ColumnResizeHandle col="influence" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "stakeholderFieldInfluence")} sortCol="influence" width={colWidths.influence} hint={t(lang, "stakeholderFieldInfluenceHint")} />
               )}
               {!hiddenSet.has("interest") && (
-              <th
-                className="relative px-3 py-2"
-                style={{ width: colWidths.interest, minWidth: colWidths.interest }}
-                aria-sort={ariaSort("interest")}
-              >
-                <button
-                  type="button"
-                  onClick={() => toggleSort("interest")}
-                  className={`inline-flex items-center gap-1 hover:text-ui-green ${INTERACTIVE}`}
-                >
-                  {t(lang, "stakeholderFieldInterest")}{sortArrow("interest")}
-                </button>
-                <InfoTooltip text={t(lang, "stakeholderFieldInterestHint")} />
-                <ColumnResizeHandle col="interest" onMouseDown={startResize} />
-              </th>
+                <SortResizeTh {...th} label={t(lang, "stakeholderFieldInterest")} sortCol="interest" width={colWidths.interest} hint={t(lang, "stakeholderFieldInterestHint")} />
               )}
               {!hiddenSet.has("resource") && (
               <th
-                className="relative px-3 py-2"
+                className="relative px-3 py-2 font-medium"
                 style={{ width: colWidths.resource, minWidth: colWidths.resource }}
               >
                 <span className="inline-flex items-center gap-1">
@@ -473,7 +408,7 @@ function StakeholdersPanelBody({
               )}
               {!hiddenSet.has("email") && (
               <th
-                className="relative px-3 py-2"
+                className="relative px-3 py-2 font-medium"
                 style={{ width: colWidths.email, minWidth: colWidths.email }}
               >
                 <span className="inline-flex items-center gap-1">

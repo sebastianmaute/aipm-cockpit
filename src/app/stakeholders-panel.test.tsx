@@ -301,3 +301,25 @@ describe("Stakeholders bulk edit", () => {
     expect(onCaptureBulk.mock.invocationCallOrder[0]).toBeLessThan(onSave.mock.invocationCallOrder[0]);
   });
 });
+
+describe("Stakeholders sortable headers", () => {
+  // axe has NO rule for a missing or wrong aria-sort, in any view at any seed
+  // size, so this test is the only detector this panel will ever have.
+  //
+  // The ANCHORED button name is the load-bearing half: before the conversion
+  // the sort glyph sat INSIDE the accessible name, so an unanchored /organization/i
+  // would match either way and the test would pass against the defect.
+  it("announces sort state through aria-sort across the full asc/desc/none cycle", () => {
+    renderStakeholders({ stakeholders: items });
+    const header = () => screen.getByRole("columnheader", { name: /organization/i });
+    const button = () => screen.getByRole("button", { name: /^organization$/i });
+
+    expect(header()).toHaveAttribute("aria-sort", "none");
+    fireEvent.click(button());
+    expect(header()).toHaveAttribute("aria-sort", "ascending");
+    fireEvent.click(button());
+    expect(header()).toHaveAttribute("aria-sort", "descending");
+    fireEvent.click(button());
+    expect(header()).toHaveAttribute("aria-sort", "none");
+  });
+});
