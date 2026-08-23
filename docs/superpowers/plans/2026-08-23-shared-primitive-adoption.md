@@ -81,6 +81,17 @@ a test file each.
   `feat/documents-s3c2-ooxml-media`.
 - **Never `git commit --amend`** — this worktree shares its object store. New commits only.
 - Commit with a Bash heredoc, not a PowerShell here-string.
+- ★★★ **A test path that does not exist makes `vitest` print "no tests" and EXIT 0.** A task
+  step naming a missing test file is a SILENT FALSE GREEN. Three files named in Task 4's own
+  verify step did not exist (`reports-tables.test.tsx`, `resources-panel-rows.test.tsx`,
+  `documents-list.test.tsx`). **Confirm every test path in a task exists before trusting its run:**
+  `for p in <paths>; do [ -f "$p" ] || echo "MISSING: $p"; done`
+- ★★ Heredocs in this environment turn a `\n` inside a quoted body into a REAL newline, which
+  breaks any script string containing one. Use `String.fromCharCode(10)` instead of an escape.
+- ★★ `git show HEAD:<path>` writes an LF blob under `core.autocrlf=true`, so a file restored that
+  way shows as modified against an unchanged tree. Re-normalise to CRLF after restoring.
+- ★ `git checkout -- <path>` is blocked by policy in subagent sessions. Restore via `git show`
+  plus the CRLF re-normalisation above.
 - The size gate counts `wc -l` **+ 1**. Read the real number with:
   `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`
 
@@ -447,8 +458,14 @@ table now binds them once via useSortHeaderProps and spreads. No DOM change."
 **Files:**
 - Modify: `src/app/reports-tables.tsx`, `src/app/resources-panel-rows.tsx`,
   `src/app/budget-report-panel.tsx`, `src/app/budget-panel.tsx`, `src/app/documents-list.tsx`,
-  `src/app/milestones-panel.tsx`, `src/app/calendar-series-list.tsx`, `src/app/asset-library.tsx`,
-  `src/app/tasks-section.tsx`, `src/app/documents-panel.tsx`
+  `src/app/milestones-panel.tsx`, `src/app/calendar-series-list.tsx`, `src/app/asset-library.tsx`
+
+★★ MEASURED: `documents-panel.tsx` has **zero** `<SortResizeTh>` call sites and was wrongly listed
+here — its only mention of the name is a comment about the `onResize` false-affordance rule. Its
+three real sites live in `documents-list.tsx`. `budget-panel.tsx` was transformed and then
+REVERTED: one call site, a literal `sortKey="role"`, an inline-arrow `onSort` — no repetition to
+remove and a memo that can never hold. `tasks-section.tsx` is DEFERRED to after Task 14, which
+frees ~40 lines in it; applying the bag now grows the file past its zero-headroom size baseline.
 
 - [ ] **Step 1: Apply the same transformation**
 
@@ -460,13 +477,17 @@ Identical to Task 3. Two shape notes:
 - `documents-list.tsx` and `tasks-section.tsx` hold **split** state (`sortKey` + `sortDir`
   separately) rather than a `sort` object — pass those two directly:
   `const th = useSortHeaderProps(sortKey, sortDir, onSort, onResize)`.
-- `calendar-series-list.tsx` passes **no** `onResize` today. Keep it that way: omit the fourth
-  argument. Do not pass a no-op — that would draw a grip that looks draggable and does nothing.
+- `calendar-series-list.tsx` **and `asset-library.tsx`** pass **no** `onResize` today. Keep both
+  that way: omit the fourth argument. Do not pass a no-op — that would draw a grip that looks
+  draggable and does nothing. (The plan originally named only `calendar-series-list`.)
 
 - [ ] **Step 2: Run the affected suites**
 
 ```bash
-npx vitest run src/app/reports-tables.test.tsx src/app/resources-panel-rows.test.tsx src/app/budget-panel.test.tsx src/app/documents-list.test.tsx src/app/milestones-panel.test.tsx src/app/calendar-series-list.test.tsx src/app/asset-library.test.tsx src/app/tasks-section.test.tsx > /tmp/t4.log 2>&1; echo "EXIT=$?"
+# ★★ reports-tables.test.tsx / resources-panel-rows.test.tsx / documents-list.test.tsx DO NOT
+# EXIST. Naming them here would print "no tests" and exit 0 - a silent false green. These are
+# the suites that actually render those components:
+npx vitest run src/app/reports.test.tsx src/app/resources-panel.test.tsx src/app/documents-panel.test.tsx src/app/budget-panel.test.tsx src/app/milestones-panel.test.tsx src/app/calendar-series-list.test.tsx src/app/asset-library.test.tsx src/app/tasks-section.test.tsx > /tmp/t4.log 2>&1; echo "EXIT=$?"
 grep -E "Tests |FAIL" /tmp/t4.log
 npx tsc --noEmit; echo "TSC_EXIT=$?"
 ```
@@ -522,7 +543,9 @@ hiding — fix the mismatch, do not widen `PanelSort`.
 - [ ] **Step 3: Run the suite**
 
 ```bash
-npx vitest run src/app/raid-panel.test.tsx src/app/raid-panel-rows.test.tsx > /tmp/t5.log 2>&1; echo "EXIT=$?"
+# raid-panel-rows.test.tsx DOES NOT EXIST (Task 8 says so) - naming it here would print
+# "no tests" and exit 0. raid-panel-rows is covered through raid-panel.test.tsx.
+npx vitest run src/app/raid-panel.test.tsx > /tmp/t5.log 2>&1; echo "EXIT=$?"
 grep -E "Tests |FAIL" /tmp/t5.log
 ```
 
