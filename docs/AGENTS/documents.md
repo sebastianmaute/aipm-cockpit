@@ -839,8 +839,12 @@ the upload allowlist — so a hostile project file carrying a mime of the
 src is undecodable. On the PDF branch that HTML is written into a `window.open("", "_blank")`, an
 `about:blank` that inherits the opener's origin, so it would run in the app origin. `assetSrcAttr`
 now validates the mime against `ASSET_MIME_ALLOWED` (imported, never restated, so upload policy and
-render policy cannot drift) and the data against the base64 alphabet, falling through to the
-existing `data-asset-missing` branch on a miss. ★★ **Escaping alone would NOT have been enough** —
+render policy cannot drift) and the data by DECODING it through the shared `safeBase64ToBytes`,
+falling through to the existing `data-asset-missing` branch on a miss. ★★ An alphabet regex sat in
+that second slot first and was wrong in BOTH directions — it passed `"abcde"` and `"===="`, which
+`atob` rejects, and rejected a line-wrapped row, which `atob` accepts; only `atob` knows what `atob`
+takes. The regex is deleted — `grep -rn BASE64_RE src` exits 1 with no output.
+★★ **Escaping alone would NOT have been enough** —
 an escaped `image/svg+xml` is still an XSS surface, and the load path admits it while upload does
 not; the allowlist is the part that matters. ★★ It was not reachable at the time only because no
 production caller passes the optional `assets` argument — the sink is one wiring line from live, so
@@ -962,6 +966,258 @@ the `aria-hidden` glyph. ★ `formatBytes` hard-coded a `.` decimal separator an
 in German; both branches route through `Intl.NumberFormat`, so the grouping separator is localised
 too. Never reach for `toFixed` there again.
 
+## Image bytes in every export format (S3c-2)
+
+Shipped 0.256.0 "Khaw". Design in
+`docs/superpowers/specs/2026-08-22-documents-s3c2-ooxml-media-design.md`. It closed
+`docs/open-followups.md` §202 (no OOXML media machinery) and §210 (standalone HTML/PDF carried an
+`<img>` with no `src` and no placeholder); it opened §216—§223. Before S3c-2 every export
+format substituted a translated placeholder naming the asset; now DOCX and PPTX carry real media
+parts, and standalone HTML — which is also the PDF path, through the print dialog — inlines a
+`data:` URI.
+
+★★ **THE MODULE SPLIT IS DELIBERATE AND `ooxml-media.ts` IS A DOM-FREE LEAF.** It holds only
+unit math and shapes — `EMU_PER_INCH`, `EMU_PER_TWIP`, `emuFromPx`, `emuFromTwips`,
+`mediaExtension`, `contentTypeFor`, `fitExtent`, and the `Extent` / `MediaPart` types — so both
+package builders and both renderers can share it without either importing the other. Keep it free
+of DOM and of translation, exactly like `document-model.ts`.
+
+### The three-bucket contract (`document-export-assets.ts`)
+
+`loadExportAssets(doc, load, budgetBytes?, isRenderable?)` returns `{inlined, omitted, missing}`:
+`inlined` is id — base64, `omitted` and `missing` are id sets.
+
+★★★ **`omitted` AND `missing` ARE NOT TWO NAMES FOR THE SAME THING, AND COLLAPSING THEM
+LOSES THE ONLY DISTINCTION A USER CAN ACT ON.** `omitted` is a POLICY decision — the bytes exist
+and are usable, but the running budget was already spent, so a DIFFERENT export of the same
+document (a format with no budget, or a smaller selection) will carry it. `missing` is a DATA
+problem — there is no byte row, the load failed, or the renderer's own `isRenderable` declined
+it — and no format anywhere will ever carry it until the asset is repaired. Every sink discloses
+both, but a reader who is told "omitted" about a dangling asset goes looking for a setting that
+does not exist.
+
+★★ **ORDER IS LOAD-BEARING.** `documentAssetIds` returns ids in DOCUMENT order, de-duplicated,
+and the budget is charged serially over that list — so which images survive a tight budget is the
+order they appear in, not their size. Do not "optimise" this into a largest-first or smallest-first
+pass without deciding what the user should see; document order is the only rule that is obvious
+from the document.
+
+★ `isRenderable` is asked BEFORE the budget is charged, so an asset the renderer cannot draw
+never spends budget a later good image needs. It has **no default** — omitting it means no
+renderability filtering at all. `NO_EXPORT_ASSETS` is the frozen empty triple, returned for a
+document with no images so a caller never branches on `undefined`.
+
+★★★ **THAT RATIONALE DOES NOT APPLY TO THE SINKS THAT ACTUALLY PASS IT, AND FOR ONE RELEASE
+NOTHING PASSED IT AT ALL.** `canEmbedDocxAsset` and `canEmbedPptxAsset` were written for this
+parameter and were then never handed to it — `document-download.ts` resolved ONE `ExportAssets`
+per download and gave it to every format — so `canEmbedDocxAsset` shipped as a dead export while
+three ★★★ docstrings asserted the protection was live. `document-download.ts` now resolves assets
+PER FORMAT (`assetPolicy`), and the two OOXML sinks are exactly the UNBUDGETED ones, so no
+budget headroom is at stake for them: what the predicate buys there is the three-bucket contract
+— an undrawable id lands in `missing` instead of `inlined`-but-undrawable, the fourth state no
+bucket describes — plus keeping its base64 out of memory. ★★ The emitted DOCX/PPTX bytes are
+IDENTICAL either way (measured: `drawingFor` falls through to the same placeholder), so no output
+test can see it; the wiring is pinned in `document-download.test.ts` by asserting — and
+INVOKING — the argument `loadExportAssets` receives, and nowhere else.
+
+★★ **THE HTML SINK IS THE ONE THAT HAS BUDGET TO LOSE, AND IT DELIBERATELY PASSES NO PREDICATE.**
+That is right for the common case — it can inline any allowed mime, and `assetSrcAttr` declines an
+unusable asset at render time — but it is not a closed hole: `assetSrcAttr` also declines a mime
+outside `ASSET_MIME_ALLOWED` and a payload failing its base64 check, and `sanitizeDocumentAsset`
+does NOT enforce the mime allowlist on load, so an imported workspace can carry a row whose bytes
+are fetched, charged to the 25 MB budget, and then dropped to a placeholder. Not fixed, and cheap
+to close the day it matters: give the inline sinks a predicate of their own rather than reusing an
+OOXML one, whose geometry conditions HTML does not share.
+
+★★ **`EXPORT_INLINE_BUDGET_BYTES` (25 MB) IS A JUDGEMENT CALL, NOT A LIMIT ANYTHING IMPOSES.**
+Nothing in the HTML spec, the print pipeline or the browser breaks at 25 MB; base64 inflates bytes
+by about a third, and a single HTML file much past that stops being something a mail client will
+carry or a browser will open pleasantly. It applies ONLY to the inline-base64 sinks (HTML, and PDF
+through it). **DOCX and PPTX are not budgeted** — they store bytes as real zip entries at native
+size, so the same document exports complete as `.docx` and truncated as `.html`. That asymmetry is
+intentional and is stated in the changelog in user terms; if the number is ever revisited, revisit
+that sentence too.
+
+### The additive `media` parameter, and why empty must stay byte-identical
+
+`buildDocxPackage(bodyXml, extraStyles, page, media)` takes an OPTIONAL trailing
+`readonly MediaPart[]` defaulting to `[]`. `buildPptxPackage(slides)` takes `readonly PptxSlide[]`
+and each slide carries its OWN `media` — there is no deck-level media argument.
+
+★★★ **AN EMPTY `media` MUST PRODUCE THE PACKAGE THE 3-ARGUMENT CALL PRODUCED, BYTE FOR
+BYTE.** Every existing consumer — the workspace exporter, the committee report, every
+image-free document — goes through these builders, and an accidental extra `<Default>` entry or
+a shifted relationship id is a file Word or PowerPoint may refuse to open, with nothing in this
+repo able to notice. Both builders therefore throw if a media part claims `rId1` (the styles part
+in DOCX, the slide layout in PPTX) and both de-duplicate their `[Content_Types].xml` `Default`
+entries, since two `png` defaults is itself a rejected file.
+
+★★★ **THE TESTS THAT GUARD THAT ARE WEAKER THAN THEIR NAMES SUGGEST — SEE
+`docs/open-followups.md` §216 BEFORE TRUSTING THEM.** There is NO `.docx` or `.pptx` byte fixture
+in this repo (`src/app/__fixtures__/` holds `golden-workspace.csv` and `.md` and nothing else) and
+`export-ooxml.test.ts` asserts part presence and XML substrings, never package bytes. The DOCX
+"byte-identical" test lives in `ooxml-docx-primitives.test.ts`, NOT in `export-ooxml.test.ts`, and
+compares the 3-argument call against the 4-argument one — **the builder against itself** — so it
+proves the parameter is ADDITIVE and nothing about what the package contains; measured, a mutant
+was caught by a trailing `not.toContain("image/")` assertion beside that loop, not by the loop. The design spec and the implementation plan for this slice BOTH claimed
+the golden suite pinned these bytes, and both were corrected when it did not.
+
+### DOCX: why the paragraph is SPLIT
+
+★★★ **A `<w:drawing>` CANNOT GO THROUGH THE HTML PARSE, AND THAT IS WHAT FORCES THE SPLIT.**
+The placeholder path substitutes TEXT into `block.html` BEFORE `docxRichParagraphs` parses it,
+which is safe: text inherits whatever paragraph or list context surrounds it. A drawing is XML, and
+an HTML parse mangles it. Leaving the `<img>` in place is not an option either — `htmlToRichLines`
+has no `<img>` handling, so the tag reaches the DOMParser walk as an unrecognised void element and
+vanishes SILENTLY. So `paragraphBlock` cuts the html around each image that will actually embed,
+renders each fragment, and emits the drawing in its own `<w:p>` between them. Accepted consequence:
+an image that sat inline with text gets its own paragraph. The block editor inserts images as
+image-only paragraphs, so the shape the product actually produces is unaffected.
+
+★ An image-free paragraph never enters the split — `paragraphBlock`'s `out.length === 0` arm
+returns one call on the ORIGINAL string, so its bytes are what this file produced before S3c-2
+existed.
+
+★★★ **SPLITTING RICH HTML RE-ENTERS THE PER-SINK `isHtmlStart` LANDMINE FROM A NEW
+DIRECTION, AND THE SYMPTOM IS MARKUP IN THE READER'S DOCUMENT.** `CONTAINS_TAG` (`html-start.ts`)
+requires a `<` followed by a LETTER, so a CLOSING tag deliberately does not match. Slice
+`<p>a<img>b</p>` around the image and the tail is `b</p>`, whose only `<` is that closing tag: it
+classifies as legacy PLAIN TEXT, is escaped, and Word shows `b</p>` verbatim. Both renderers wrap
+every fragment through `asMarkup` (a `<div>`) before the rich path.
+★★★ **TWO SEPARATE PROPERTIES RIDE ON THAT ONE WRAPPER, AND THIS PARAGRAPH USED TO CONFLATE
+THEM.** It read "IT IS NOT A TAIL-ONLY DEFECT — a fragment can be unbalanced in EITHER direction",
+which answers a question the CLASSIFIER never asks. Keep the two apart:
+
+- **Classification.** `CONTAINS_TAG` is UNANCHORED, so a fragment misclassifies only when it
+  contains markup and NO OPENING TAG. A HEAD fragment is never one — it either opens a tag or holds
+  no markup at all, and escaping pure text is a no-op. So this failure IS confined to the tail…
+  ★★ …and, once a styled paragraph holds MORE THAN ONE image, to the MIDDLE fragments as well,
+  which is the case this file and `doc-render-pptx.test.ts` both previously missed. Measured
+  through the real `isHtmlStart(value, RENDER_SINK)` (value FIRST, sink second):
+  `"<p>a"`, `"<p>a<em>b"` and `"<p>x</p><p>"` classify HTML; `"b</p>"`, `"</em>"` and
+  `"</em></strong>"` classify PLAIN.
+- **Parser reconciliation.** THIS is the "unbalanced in EITHER direction" property, and it is why
+  the wrapper is a `<div>` rather than merely some opening tag: an unclosed `<p>` at the head and
+  an orphan `</p>` at the tail both reconcile inside one well-formed container.
+
+EVERY segment is wrapped because classification needs it for tails and middles while reconciliation
+needs it for heads. The leading fragment usually happens to carry an opening tag, which is what
+makes the whole thing easy to under-diagnose from one example.
+
+★★★ **PAGE GEOMETRY IS IN TWIPS, DRAWING GEOMETRY IS IN EMU, AND THEY SIT A FEW LINES
+APART.** `PAGE_GEOMETRY` and `docxContentWidth` are twips (A4 portrait content width = 10092);
+`fitExtent` takes EMU. The factor is 635 (`EMU_PER_TWIP`). Passing the twips figure straight
+through clamps every image to about a hundredth of an inch — valid XML, green tests, invisible in
+Word. `emuFromTwips` exists so the conversion is SPELLED at the call site
+(`CONTENT_WIDTH_EMU = emuFromTwips(CONTENT_WIDTH)`), and `doc-render-docx.test.ts`'s "sizes the
+image against the page width in EMU, not twips" pins it: a 480px-wide asset must emit
+`cx="4572000"` (480px at 96dpi = 5in). That test is the only thing between this and a silently
+microscopic picture.
+
+### PPTX: cost-based pagination, and the two scopes
+
+Lines are costed in body-line-heights. `BODY_LINE_EMU` is one body line; `BODY_LINES_PER_SLIDE` is
+`BODY_BOX` height divided by it; a text line costs 1 and an image line costs its height in whole
+lines, at least 1. `paginateLines` is a single FORWARD pass that consumes exactly one line per
+iteration and pushes an over-budget line onto a fresh chunk rather than re-testing it.
+
+★★ **THAT SINGLE-PASS SHAPE IS WHAT MAKES IT TOTAL — there is no `MAX_SLIDES` constant and
+adding one would hide a bug rather than fix it.** A pagination loop that can re-test the same line
+is the shape that hangs; this one cannot. If you change it, preserve the property, do not cap it.
+
+★★★ **MEDIA PART PATHS ARE UNIQUE DECK-WIDE WHILE RELATIONSHIP IDS ARE PER-SLIDE, RESTARTING
+AT `rId2`.** `createDeckMedia` keeps the part counter in the OUTER closure and mints a fresh
+relationship array INSIDE each slide (`rId1` is that slide's layout). Reversing the two scopes
+produces VALID XML with the WRONG image on a slide — no schema error, no test that names the
+cause. Read `PptxSlide`'s own docstring before touching either.
+
+★ Pictures stack BELOW all of a slide's text, whatever order the `<img>` sat in
+(`buildContentSlide` places every text line into one body text box, then each picture beneath it).
+Bounded, not measured: the line budget counts LINES, not RENDERED lines, so a wrapped line
+under-counts. Both facts are disclosed in the changelog.
+
+### The visible-text gate: the same finding, the opposite remedy
+
+★★★ **BOTH RENDERERS ONCE HAD A "does this fragment have visible text?" GATE. PPTX DELETED
+ITS COPY AND DOCX KEPT ONE.** Neither renderer declares a `hasVisibleText` any more — that name
+survives in `rich-text-runs.ts`, which is unrelated to any of this — so do not go looking for the
+symbol, and do not port one file's answer to the other; both files carry a comment saying so.
+
+- **PPTX:** the gate WAS the defect. `slideLines` already filters blank lines per block, so the
+  extra check was redundant — and it dropped an `<hr>` and a declined image's placeholder, both
+  of which are content carrying no text. It was removed. The warning lives in `doc-render-pptx.ts`.
+- **DOCX:** the gate is REQUIRED. `docxRichParagraphs` is obliged to emit a paragraph for an empty
+  value — a `<w:tc>` with no block-level child makes Word reject the whole file — so without a
+  check every image-only paragraph, the shape the block editor actually inserts, is bracketed by
+  two blank `<w:p>`. What changed is the QUESTION: it now asks "did this render to the
+  empty-paragraph sentinel?" (`EMPTY_PARAGRAPH`, i.e. `<w:p/>`) rather than "does this markup have
+  text?". The old form stripped tags and tested the remainder, which dropped a horizontal rule
+  either side of an image.
+
+★ Comparing against the sentinel rather than re-deriving the line list keeps ONE parse in play;
+re-parsing here would duplicate `docxRichParagraphs`' own classification step and the two copies
+would then have to agree forever.
+
+### Standalone HTML and PDF
+
+`renderDocumentHtml` now receives assets on both production paths. Three branches, not two: bytes
+present — a `data:` URI via `assetSrcAttr`; `omitted` — the same translated placeholder text
+the OOXML renderers use; `missing` — the `data-asset-missing` fallback. The rule that styles that
+attribute lives in `DOCUMENT_PAGE_STYLES`, which a standalone export INLINES — it must never be
+left to `globals.css`, which such a file never loads (that was half of §210).
+
+★★★ **`downloadDocument` IS ASYNC AND THE PDF BRANCH OPENS THE TAB BEFORE IT AWAITS
+ANYTHING.** `window.open` is only permitted inside the user gesture, and awaiting the bytes SPENDS
+that gesture — so an await-then-open ordering puts EVERY user on the popup-blocker fallback path
+that exists for the genuinely-blocked case, turning a missing image into a broken export button.
+Open first, write into the already-open tab. §210 estimated this as a one-line wire-up and it is
+not; the ordering IS the fix.
+
+### What is NOT verified, and cannot be here
+
+★★★ **NOTHING IN THIS REPO CAN OPEN A `.docx` OR A `.pptx`.** `unzipBytes`
+(`src/test/unzip-bytes.ts`) is a bytes-preserving unzip — deliberately not the TextDecoder-based
+sibling, which corrupts image bytes on invalid UTF-8 — and the tests compare part paths, part
+bytes and document-XML substrings. That proves the package is the one the builders MEANT to write.
+It says nothing about whether Word, LibreOffice Writer or PowerPoint accept it. The owed manual
+pass is enumerated in `docs/open-followups.md` §219, and no green run substitutes for it.
+
+★★ Two further known divergences are recorded rather than fixed: media parts are minted per
+OCCURRENCE, so one image used twice ships twice (§217 — deduplicating needs a SECOND counter,
+because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the relationship is
+shared, and today one running index serves as both); and `ASSET_ID_RE` counts a `data-asset-id` on
+ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
+`<span data-asset-id>` consumes a slot and reaches no export bucket at all (§218).
+
+★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
+does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by
+hand — seven copies of `(ASSET_MIME_ALLOWED as readonly string[]).includes(...)` today — and a
+consumer that forgets gets no signal from any gate. ★★★ **ONE ALREADY HAS**: `document-preview.tsx`
+hands the raw stored mime to `attachAssetImages`, which types its Blob with it and consults
+nothing — and because it never names the constant, no grep for the constant can find it. §223
+carries the four kinds of use, the mime-reader sweep that DOES find it, and the argument against
+narrowing the storage layer; do NOT close it there.
+
+★★★ **TWO MORE WERE FOUND IN REVIEW AND ARE DISCLOSED RATHER THAN FIXED, and BOTH are silent.**
+(a) `image/webp` is on `ASSET_MIME_ALLOWED` and survives every downstream layer — `processUpload`
+does not even re-encode a webp already inside the downscale cap, `mediaExtension` maps it and
+`contentTypeFor` emits `<Default Extension="webp" ContentType="image/webp"/>` — so it ships as a
+real media part. WebP is outside the blip formats ECMA-376 assumes and Microsoft documents its
+insertion as current-Microsoft-365-only, so an older perpetual Word is expected to draw a blank
+frame WITH NO PLACEHOLDER, because nothing here believes anything failed (§221; the decision was
+to document rather than decline it, and the reasoning is in that entry).
+(b) An image fitted to the full body box costs `ceil(3474720 / 213360)` = **17** slide lines
+against a `BODY_LINES_PER_SLIDE` of **16**, so such an image can never share a slide. ★★ Reaching
+17 takes BOTH a stored height of **359 px or more** AND an aspect ratio `w/h` below **≈2.41** — above that
+the image is width-bound, never reaches the box height, and costs less (a 4000×1080 image costs
+11). ★★★ **BUT 17 IS NOT THE LANDS-ALONE RULE AND THIS PARAGRAPH ONCE READ AS IF IT WERE**
+("essentially every screenshot lands alone, while a panorama does not"). A line lands alone at cost
+**16**, the whole budget: a 2500×1000 banner costs 16 and lands alone, while a 4000×1080 one costs
+11 and shares. §222 carries the arithmetic, the fitted-height table and two reproduce scripts; do
+not restate either rule as a height threshold alone, which is how this was written here first.
+★★ Neither is measurable here: §221's format claim is sourced from the spec and Microsoft's docs,
+not observed, and §219 items 6 and 7 carry both owed checks.
+
 ## Load/save wiring (app state)
 
 ★★ `documentVersions` was implemented in the model and all six write paths **before** it was
@@ -991,10 +1247,16 @@ reverse) would compute a wrong deleted-documents list.
 ★ `useBroadcastSync` takes a **free string** `kind` over one shared `BroadcastChannel` — there is
 no key union, registry or allowlist, so a new channel needs no registration anywhere.
 
-★ The two channel registrations are deliberately **paired on one source line**:
-`use-storage-backend.ts` sits exactly at the 800-line ratchet, and the gate counts
-`split("\n").length`, i.e. `wc -l` **+ 1** (see `AGENTS.md`'s `size:check` entry). Splitting them
-re-breaks the gate.
+★ The two channel registrations are deliberately **paired on one source line**, because
+`use-storage-backend.ts` is within a line or two of the 800-line cap and the gate counts
+`split("\n").length`, i.e. `wc -l` **+ 1** (see `AGENTS.md`'s `size:check` entry).
+★★ **CORRECTED: this said the file "sits exactly at" 800 and that splitting them "re-breaks the
+gate". Measured, it is 799** — so a split reaches 800, which the gate PASSES (`if (n <= LIMIT)
+continue`), and it takes TWO added lines to fail. Keep them paired anyway; the margin is one line
+and the next edit to this file spends it. §220 carries the wider problem, which is that
+`documents-panel.tsx` and `document-block-editors.tsx` are both AT 800 already. Never quote a line
+count here — measure it:
+`node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`.
 
 ## Test coverage — what is and is not pinned
 

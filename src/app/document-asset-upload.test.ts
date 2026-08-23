@@ -6,7 +6,7 @@ import {
   ASSET_MAX_PER_DOCUMENT, checkUploadCandidate,
   readHeaderDimensions, checkHeaderDimensions,
   targetSize, pickSmaller, checkStoredSize, processUpload,
-  bytesToBase64, base64ToBytes, hashBytes, findDuplicate,
+  bytesToBase64, base64ToBytes, safeBase64ToBytes, hashBytes, findDuplicate,
   type CandidateResult, type UploadRejection, type ImageEncoder,
 } from "./document-asset-upload";
 
@@ -437,6 +437,53 @@ describe("bytesToBase64 / base64ToBytes", () => {
 
   it("emits no data: prefix — the store holds raw base64", () => {
     expect(bytesToBase64(new Uint8Array([1, 2, 3]))).not.toContain("data:");
+  });
+});
+
+describe("safeBase64ToBytes", () => {
+  /** An 8-byte PNG header — short enough to byte-compare in an assertion. */
+  const PNG_B64 = "iVBORw0KGgo=";
+
+  it("decodes a well-formed row", () => {
+    // ★★ ANTI-VACUITY FOR EVERY REJECTION BELOW: without this, a function that
+    //  returned null unconditionally would pass all of them.
+    expect(Array.from(safeBase64ToBytes(PNG_B64)!)).toEqual(Array.from(base64ToBytes(PNG_B64)));
+  });
+
+  it("decodes a LINE-WRAPPED row, which is why the guard is a catch and not a regex", () => {
+    // `atob` strips ASCII whitespace before decoding; an alphabet regex would
+    // reject this and turn a perfectly good image into a placeholder.
+    expect(Array.from(safeBase64ToBytes("iVBORw0K\r\n  Ggo=")!))
+      .toEqual(Array.from(base64ToBytes(PNG_B64)));
+  });
+
+  it.each([
+    ["a charset fault", "a!b"],
+    ["a length fault whose characters are all in the alphabet", "abcde"],
+    ["a padding-only row", "="],
+  ])("returns null for %s", (_label, bad) => {
+    expect(() => base64ToBytes(bad)).toThrow(); // the raw decode really does throw
+    expect(safeBase64ToBytes(bad)).toBeNull();
+  });
+
+  // ★★★ THE DEGENERATE CASE RIDES THE SAME DOOR AS THE LINE-WRAPPED ONE AND
+  //  DOES NOT THROW. `atob` strips ASCII whitespace BEFORE decoding, so each of
+  //  these decodes to "" rather than raising — and the `Uint8Array(0)` that
+  //  comes back is TRUTHY, so both OOXML minting sites' `if (!data) return null`
+  //  passed it straight through and landed a ZERO-BYTE media part in the
+  //  package, referenced by a real drawing and disclosed by nothing.
+  //  ★★ Each case asserts `atob` ACCEPTS it first: that is what separates this
+  //  from the throwing rows above. A test that only asserted null would pass
+  //  against the pre-fix catch-only guard for the rows that DO throw, and this
+  //  block would then be pinning nothing new.
+  it.each([
+    ["an empty string", ""],
+    ["a single space", " "],
+    ["a newline", "\n"],
+    ["mixed ASCII whitespace", "\t\r\n "],
+  ])("returns null for %s, which atob ACCEPTS as a zero-byte decode", (_label, blank) => {
+    expect(base64ToBytes(blank)).toHaveLength(0); // does NOT throw
+    expect(safeBase64ToBytes(blank)).toBeNull();
   });
 });
 

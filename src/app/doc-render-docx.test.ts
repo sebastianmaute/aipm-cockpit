@@ -16,12 +16,15 @@ import { DOC_STYLES, buildDocxTable } from "./ooxml-docx-primitives";
 import { TASK_MARK_CHECKED } from "./rich-text-plain";
 import { t } from "./i18n";
 import { readZipEntries } from "./unzip";
+import { unzipBytes, partText } from "../test/unzip-bytes";
 import { decodeUtf8 } from "./office-xml";
 import { COLOR_DARK_BLUE, COLOR_MEDIUM_GREY, COLOR_TEXT } from "./export-ooxml-shared";
 import type { ExportSection } from "./export-sections";
 import type { ProjectDocument, DocBlock } from "./document-model";
-import type { Workspace } from "./workspace";
+import { emptyWorkspace, type Workspace } from "./workspace";
 import type { DocumentAsset } from "./document-asset";
+import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
+import { base64ToBytes } from "./document-asset-upload";
 
 const ws = { tasks: [], raid: [] } as unknown as Workspace;
 
@@ -1212,5 +1215,263 @@ describe("renderDocumentDocx — S3c-1 image placeholders", () => {
     const xml = await documentXml(d, w);
     expect(xml).not.toContain("<img");
     expect(xml).not.toContain("data-asset-id");
+  });
+});
+
+// S3c-2: media parts. The renderer now embeds real image bytes for every asset
+// the caller INLINED, and falls back to the S3c-1 placeholder for every other
+// reason (omitted by the budget, no byte row, no metadata, a mime outside the
+// allow-list, no stored dimensions to build an extent from).
+describe("renderDocumentDocx — S3c-2 embedded images", () => {
+  /** An 8-byte PNG header — short enough to byte-compare in an assertion. */
+  const PNG_B64 = "iVBORw0KGgo=";
+
+  const imageDoc = (html: string): ProjectDocument =>
+    doc([{ type: "paragraph", html }], "T");
+
+  /** ★ `hash` is REQUIRED on `DocumentAsset`; a fixture omitting it does not
+   *  compile. `width`/`height` are the optional pair the extent needs. */
+  const asset = (over: Partial<DocumentAsset> = {}): DocumentAsset => ({
+    id: "a1",
+    name: "chart.png",
+    mime: "image/png",
+    size: 8,
+    width: 480,
+    height: 240,
+    hash: "h",
+    createdAt: "2026-01-01T00:00:00.000Z",
+    ...over,
+  });
+
+  const wsWith = (...list: DocumentAsset[]): Workspace => ({
+    ...emptyWorkspace(),
+    documentAssets: list.length > 0 ? list : [asset()],
+  });
+
+  const inlinedAssets = (map: Record<string, string>): ExportAssets => ({
+    inlined: map,
+    omitted: new Set(),
+    missing: new Set(),
+  });
+
+  const mediaPaths = (zip: Map<string, Uint8Array>): string[] =>
+    [...zip.keys()].filter((p) => p.startsWith("word/media/"));
+
+  it("embeds an inlined image as a media part whose bytes match", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1" alt="chart"></p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const media = mediaPaths(zip);
+    expect(media).toHaveLength(1);
+    expect(Array.from(zip.get(media[0])!)).toEqual(Array.from(base64ToBytes(PNG_B64)));
+
+    const xml = partText(zip, "word/document.xml");
+    const relId = xml.match(/r:embed="(rId\d+)"/)?.[1];
+    expect(relId).toBeTruthy();
+    const rels = partText(zip, "word/_rels/document.xml.rels");
+    expect(rels).toContain(`Id="${relId}"`);
+    expect(rels).toContain(`Target="media/${media[0].slice("word/media/".length)}"`);
+  });
+
+  it("does not bracket an image-only paragraph with blank paragraphs", async () => {
+    // ★★★ THE SHAPE THE BLOCK EDITOR ACTUALLY INSERTS. Splitting `<p><img></p>`
+    // around the tag leaves the fragments `<p>` and `</p>`: non-blank as
+    // STRINGS, empty as PROSE. A renderer that emits a segment whenever
+    // `fragment.trim()` is truthy therefore wraps EVERY image in two blank
+    // paragraphs — well-formed, green against every other assertion here, and
+    // two spurious blank lines per image in Word.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    // The title paragraph, then the drawing's own paragraph — which carries no
+    // <w:t> at all, hence the empty string. Nothing either side of it.
+    expect(paraTexts(partText(zip, "word/document.xml"))).toEqual(["T", ""]);
+  });
+
+  it("keeps the placeholder when the asset was OMITTED by the budget", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p>`), wsWith(), "en-US",
+      { inlined: {}, omitted: new Set(["a1"]), missing: new Set() },
+    ));
+    expect(mediaPaths(zip)).toHaveLength(0);
+    expect(partText(zip, "word/document.xml")).toContain("chart.png");
+  });
+
+  it("keeps the placeholder when the asset has NO stored dimensions", async () => {
+    // OOXML needs a concrete extent; guessing one would stretch the image.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p>`),
+      wsWith(asset({ width: undefined, height: undefined })),
+      "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    expect(mediaPaths(zip)).toHaveLength(0);
+    expect(partText(zip, "word/document.xml")).toContain("chart.png");
+  });
+
+  // ★★★ EACH CASE IS A DIFFERENT atob FAILURE MODE, and one of them alone is
+  //  not enough. "a!b" is a CHARSET fault ("Invalid character"); "abcde" is a
+  //  LENGTH fault ("not correctly encoded") whose every character IS in the
+  //  base64 alphabet. A guard written as an alphabet regex — the shape
+  //  `doc-render-html.ts` correctly uses for its non-decoding sink — passes the
+  //  second one straight into the decode, so a suite testing only "a!b" would
+  //  report this closed while the export still dies on a length fault.
+  //
+  //  ★★★ AND THE ASSERTION IS THAT A PACKAGE COMES BACK, NOT THAT NOTHING
+  //  THROWS. `expect(...).not.toThrow()` would pass against a renderer that
+  //  swallowed the row and emitted a corrupt zip. The user's whole document is
+  //  what was at stake here: the render is synchronous inside an un-awaited
+  //  `downloadDocument`, so before this guard a single bad byte row cost them
+  //  the file AND the message. Assert the surviving prose and the placeholder.
+  it.each([
+    ["a charset fault", "a!b"],
+    ["a length fault whose characters are all in the alphabet", "abcde"],
+  ])("declines an image whose stored base64 has %s, and still emits the document", async (_label, bad) => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p>before<img data-asset-id="a1">after</p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: bad }),
+    ));
+    // No media part was minted — the row never reached the zip.
+    expect(mediaPaths(zip)).toHaveLength(0);
+    const xml = partText(zip, "word/document.xml");
+    // The SAME placeholder an undrawable asset already gets...
+    expect(xml).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    // ...and the prose either side of it survived, which is the whole point:
+    // the user got their document, minus one image they could not have had.
+    expect(paraTexts(xml).join("|")).toContain("before");
+    expect(paraTexts(xml).join("|")).toContain("after");
+  });
+
+  // ★★★ A WHITESPACE-ONLY ROW DOES NOT THROW, so the catch above never saw it.
+  //  `atob` strips ASCII whitespace BEFORE decoding — the very property that
+  //  lets a line-WRAPPED row through — so " " decodes to zero bytes, and a
+  //  `Uint8Array(0)` is TRUTHY. `drawingFor`'s `if (!data) return null` passed
+  //  it, and the package took a ZERO-BYTE `word/media/image1.png` referenced by
+  //  a real `<w:drawing>` with no placeholder anywhere. Measured, not reasoned.
+  //  ★★ ASSERT THE MEDIA COUNT, NOT MERELY THE PLACEHOLDER: the pre-fix output
+  //  emitted a media part AND no placeholder, so either assertion alone catches
+  //  it — but a future regression that emitted BOTH would slip a count-free test.
+  it.each([
+    ["a single space", " "],
+    ["mixed ASCII whitespace", "\t\r\n "],
+  ])("declines an image whose stored base64 is %s rather than minting a zero-byte part", async (_label, blank) => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p>before<img data-asset-id="a1">after</p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: blank }),
+    ));
+    expect(mediaPaths(zip)).toHaveLength(0);
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+    expect(paraTexts(xml).join("|")).toContain("before");
+    expect(paraTexts(xml).join("|")).toContain("after");
+  });
+
+  it("still embeds a GOOD image when a sibling row's base64 is malformed", async () => {
+    // ★★ Anti-vacuity for the pair above: without this, a renderer that dropped
+    //  EVERY image would pass both of them. One bad row must cost exactly one
+    //  image, never the other.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"><img data-asset-id="a2"></p>`),
+      { ...emptyWorkspace(), documentAssets: [asset(), asset({ id: "a2", name: "good.png" })] } as Workspace,
+      "en-US", inlinedAssets({ a1: "a!b", a2: PNG_B64 }),
+    ));
+    const media = mediaPaths(zip);
+    expect(media).toHaveLength(1);
+    expect(Array.from(zip.get(media[0])!)).toEqual(Array.from(base64ToBytes(PNG_B64)));
+    // ★ The surviving part is image1, not image2 — declining happens BEFORE the
+    //  index is claimed, so the numbering has no gap for Word to trip over.
+    expect(media[0]).toBe("word/media/image1.png");
+    expect(partText(zip, "word/document.xml")).toContain(t("en-US", "assetExportPlaceholder", "chart.png"));
+  });
+
+  it("keeps the text either side of an inlined image, in order", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p>before<img data-asset-id="a1">after</p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    // ★★★ THE PARAGRAPH LIST, NOT A PAIR OF indexOf COMPARISONS. `indexOf`
+    // returns -1 for a string that is NOT THERE, and -1 is less than every real
+    // index — so the ordering form is VACUOUS in the exact direction that
+    // matters: a renderer which DROPS the text before an image satisfies
+    // "before comes first". Measured, not reasoned: deleting the before-segment
+    // emission from `paragraphBlock` left the ordering version of this test
+    // GREEN. This form pins presence, order AND the split in one assertion —
+    // the empty entry is the drawing's own paragraph, which carries no <w:t>.
+    expect(paraTexts(xml)).toEqual(["T", "before", "", "after"]);
+  });
+
+  // ★★★ A RULE IS CONTENT THAT CARRIES NO TEXT, which is the one shape where
+  // "does this fragment have visible text?" and "does this fragment emit
+  // anything?" give different answers — and the emptiness gate in
+  // `paragraphBlock` is asked about a fragment that a split has already stripped
+  // of its own tags. `DocBlock` has no rule member (document-model.ts), so an
+  // <hr> can ONLY reach a renderer inside a paragraph's html: exactly the string
+  // this split cuts up. `hr` is in RICH_ALLOWED_TAGS and therefore in
+  // DOCUMENT_ALLOWED_TAGS, so `sanitizeDocumentHtml` preserves one — no toolbar
+  // control emits it, but AI-authored and pasted html both can, and
+  // "renders a horizontal rule as a bordered paragraph" above already pins the
+  // no-image shape of the very same fixture.
+  it("keeps a horizontal rule that FOLLOWS an inlined image", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p><hr>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain("<w:drawing>");
+    // The rule renders as a paragraph wearing a bottom border (HR_PARAGRAPH,
+    // ooxml-docx-primitives.ts) — it has no run, so no text assertion can see it.
+    expect(xml).toContain("<w:pBdr>");
+  });
+
+  it("keeps a horizontal rule that PRECEDES an inlined image", async () => {
+    // The mirror arm: the leading segment, not the trailing one.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<hr><p><img data-asset-id="a1"></p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    expect(xml).toContain("<w:drawing>");
+    expect(xml).toContain("<w:pBdr>");
+  });
+
+  it("renders unchanged when no assets are passed at all", async () => {
+    const a = await unzipBytes(renderDocumentDocx(imageDoc(`<p>x</p>`), emptyWorkspace(), "en-US"));
+    const b = await unzipBytes(
+      renderDocumentDocx(imageDoc(`<p>x</p>`), emptyWorkspace(), "en-US", NO_EXPORT_ASSETS),
+    );
+    expect(partText(a, "word/document.xml")).toBe(partText(b, "word/document.xml"));
+  });
+
+  it("sizes the image against the page width in EMU, not twips", async () => {
+    // ★★★ 10092 TWIPS of content width is 6_408_420 EMU. If the twips figure is
+    // passed straight through as a bound, a 480px image clamps to ~10092 EMU —
+    // about a hundredth of an inch. Valid XML, green everything, invisible in
+    // Word. This assertion is the only thing in the repo that can see it.
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"></p>`),
+      wsWith(), "en-US", inlinedAssets({ a1: PNG_B64 }),
+    ));
+    const cx = Number(partText(zip, "word/document.xml").match(/<wp:extent cx="(\d+)"/)?.[1]);
+    // 480px at 96dpi is 5in = 4_572_000 EMU, which fits inside 6_408_420 and is
+    // therefore emitted at natural size.
+    expect(cx).toBe(4_572_000);
+  });
+
+  it("numbers several images so each drawing resolves to its own part", async () => {
+    const zip = await unzipBytes(renderDocumentDocx(
+      imageDoc(`<p><img data-asset-id="a1"><img data-asset-id="a2"></p>`),
+      wsWith(
+        asset({ id: "a1", name: "one.png" }),
+        asset({ id: "a2", name: "two.png" }),
+      ),
+      "en-US", inlinedAssets({ a1: PNG_B64, a2: PNG_B64 }),
+    ));
+    const xml = partText(zip, "word/document.xml");
+    const rels = [...xml.matchAll(/r:embed="(rId\d+)"/g)].map((m) => m[1]);
+    expect(new Set(rels).size).toBe(2);           // distinct relationship ids
+    expect(rels).not.toContain("rId1");           // rId1 is the styles part
+    expect(mediaPaths(zip)).toHaveLength(2);
   });
 });

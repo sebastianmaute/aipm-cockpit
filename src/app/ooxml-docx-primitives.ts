@@ -15,6 +15,7 @@
 // eval, so an import is still harmless — but do not call the rich path from a
 // node script, and never move a rich-text PARSE into export-sections.ts.
 import { type ZipEntry, buildZip } from "./zip";
+import { contentTypeFor, type Extent, type MediaPart } from "./ooxml-media";
 import {
   COLOR_DARK_BLUE,
   COLOR_LIGHT_GREY,
@@ -521,7 +522,35 @@ export function buildDocxPackage(
   bodyXml: string,
   extraStyles = "",
   page: DocxPageLayout = "landscape",
+  /** ★★★ ADDITIVE BY CONTRACT: an empty array must add no Default entry, no
+   *  part and no relationship, because the workspace exporter shares this
+   *  builder and calls it with two or three arguments.
+   *
+   *  ★★★ AND THE ONLY THING ENFORCING THAT IS THIS FILE'S OWN TEST —
+   *  "is byte-identical to the no-argument call when media is empty", plus its
+   *  companion assertion that the empty package contains no `image/` at all.
+   *  An earlier revision of this comment said the contract was pinned by the
+   *  `export-ooxml` golden suite. It is not, and a reader who believed that
+   *  would be looking at a gate that cannot see them: there is no .docx byte
+   *  fixture anywhere in the repo (`src/app/__fixtures__/` holds only
+   *  golden-workspace.csv and .md), `golden-workspace.test.ts` never mentions
+   *  docx, and `export-ooxml.test.ts` asserts part PRESENCE and document.xml
+   *  SUBSTRINGS — never package bytes, never this part's content. Measured,
+   *  not assumed: hardcoding a `<Default Extension="png"/>` into the empty
+   *  case reddens the two tests here and leaves `export-ooxml` GREEN. */
+  media: readonly MediaPart[] = [],
 ): Blob {
+  // ★★ Relationship ids are minted by the CALLER, because the body XML already
+  // references them by the time it gets here. rId1 is the styles part; a media
+  // part claiming it would replace styles with an image and Word would open a
+  // document with no Title style and no error. Cheap to assert, invisible
+  // otherwise.
+  for (const part of media) {
+    if (part.relId === "rId1") {
+      throw new Error(`media relId "rId1" is reserved for the styles part (${part.path})`);
+    }
+  }
+
   const documentXml = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main">
   <w:body>
@@ -544,10 +573,18 @@ export function buildDocxPackage(
   </w:style>${extraStyles}
 </w:styles>`;
 
+  // ★ One `Default` per DISTINCT extension — OPC forbids repeating one, and a
+  // package carrying two `<Default Extension="png">` entries is a file Word
+  // refuses to open. Empty media yields the empty string, which is the
+  // byte-identity half of the contract above.
+  const mediaDefaults = [...new Set(media.map((m) => m.extension))]
+    .map((ext) => `\n  <Default Extension="${ext}" ContentType="${contentTypeFor(ext)}"/>`)
+    .join("");
+
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="xml" ContentType="application/xml"/>
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>${mediaDefaults}
   <Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/>
   <Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/>
 </Types>`;
@@ -557,9 +594,20 @@ export function buildDocxPackage(
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/>
 </Relationships>`;
 
+  // ★★ The Target is PART-RELATIVE to `word/`, because the relationship part it
+  // sits in is `word/_rels/document.xml.rels`. A package-absolute
+  // `word/media/image1.png` here resolves to `word/word/media/…` and the image
+  // silently does not render.
+  const mediaRels = media
+    .map(
+      (m) =>
+        `\n  <Relationship Id="${m.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="media/${m.path.slice("word/media/".length)}"/>`,
+    )
+    .join("");
+
   const docRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/>${mediaRels}
 </Relationships>`;
 
   const entries: ZipEntry[] = [
@@ -568,10 +616,54 @@ export function buildDocxPackage(
     { path: "word/_rels/document.xml.rels", data: docRels },
     { path: "word/document.xml", data: documentXml },
     { path: "word/styles.xml", data: stylesXml },
+    ...media.map((m) => ({ path: m.path, data: m.data })),
   ];
 
   return buildZip(
     entries,
     "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
   );
+}
+
+/** One embedded image as an inline drawing, ready to sit inside a `<w:r>`.
+ *
+ *  ★ `descr` is what Word exposes as alt text, so the asset's name goes there
+ *  rather than being dropped — an image with no alternative text is a WCAG
+ *  1.1.1 failure in the exported document, and nothing downstream can add it.
+ *
+ *  ★★ `name` and `descr` are both escaped. `name` is derived from the asset id
+ *  (a UUID) and is safe today, but an XML attribute assembled by
+ *  interpolation is exactly the shape that stops being safe when someone later
+ *  passes the user-supplied asset name. */
+export function docxInlineDrawing(opts: {
+  relId: string;
+  /** Unique within the document — Word tolerates duplicates, Pages does not. */
+  id: number;
+  name: string;
+  descr: string;
+  extent: Extent;
+}): string {
+  const { relId, id, name, descr, extent } = opts;
+  return `<w:drawing><wp:inline distT="0" distB="0" distL="0" distR="0" xmlns:wp="http://schemas.openxmlformats.org/drawingml/2006/wordprocessingDrawing">
+  <wp:extent cx="${extent.cxEmu}" cy="${extent.cyEmu}"/>
+  <wp:docPr id="${id}" name="${xmlEscape(name)}" descr="${xmlEscape(descr)}"/>
+  <a:graphic xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main">
+    <a:graphicData uri="http://schemas.openxmlformats.org/drawingml/2006/picture">
+      <pic:pic xmlns:pic="http://schemas.openxmlformats.org/drawingml/2006/picture">
+        <pic:nvPicPr>
+          <pic:cNvPr id="${id}" name="${xmlEscape(name)}" descr="${xmlEscape(descr)}"/>
+          <pic:cNvPicPr/>
+        </pic:nvPicPr>
+        <pic:blipFill>
+          <a:blip xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" r:embed="${relId}"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </pic:blipFill>
+        <pic:spPr>
+          <a:xfrm><a:off x="0" y="0"/><a:ext cx="${extent.cxEmu}" cy="${extent.cyEmu}"/></a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </pic:spPr>
+      </pic:pic>
+    </a:graphicData>
+  </a:graphic>
+</wp:inline></w:drawing>`;
 }

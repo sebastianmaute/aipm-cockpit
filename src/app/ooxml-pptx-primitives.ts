@@ -3,6 +3,7 @@
 // master/layout/theme and package boilerplate. Nothing here knows about
 // ExportSection — these are about the PresentationML format only. Shared ZIP
 // writer + palette live in export-ooxml-shared.ts.
+import { type MediaPart, contentTypeFor } from "./ooxml-media";
 import { type ZipEntry, buildZip } from "./zip";
 // Type-only, so this stays a format module at runtime — no i18n code is pulled
 // into the OOXML graph, only the union of valid BCP-47 tags the app can produce.
@@ -240,6 +241,52 @@ export function pptxAccentBar(colorRgb: string): string {
 </p:sp>`;
 }
 
+
+/** One embedded image as a `<p:pic>` shape.
+ *
+ *  ★ `descr` is PowerPoint's alt text. The asset name goes there so the
+ *  exported deck is not a wall of undescribed images.
+ *
+ *  ★★ `noChangeAspect` stops a user's first drag from stretching the picture —
+ *  the extent is already aspect-correct from `fitExtent`, and without this
+ *  PowerPoint lets a corner handle distort it.
+ *
+ *  ★★ The `r:` prefix on `r:embed` is NOT declared here. `wrapPptxSlide` binds
+ *  it on `<p:sld>` and every shape this module emits is spliced in there, so a
+ *  local `xmlns:r` would be redundant. Verified by reading `wrapPptxSlide`, not
+ *  by a test — these tests substring-match, so no assertion in this repo can
+ *  see an unbound prefix. Splice a `<p:pic>` into anything else and check the
+ *  binding first. */
+export function pptxPicture(opts: {
+  id: number;
+  name: string;
+  descr: string;
+  relId: string;
+  xEmu: number;
+  yEmu: number;
+  cxEmu: number;
+  cyEmu: number;
+}): string {
+  return `<p:pic>
+  <p:nvPicPr>
+    <p:cNvPr id="${opts.id}" name="${xmlEscape(opts.name)}" descr="${xmlEscape(opts.descr)}"/>
+    <p:cNvPicPr><a:picLocks noChangeAspect="1"/></p:cNvPicPr>
+    <p:nvPr/>
+  </p:nvPicPr>
+  <p:blipFill>
+    <a:blip r:embed="${opts.relId}"/>
+    <a:stretch><a:fillRect/></a:stretch>
+  </p:blipFill>
+  <p:spPr>
+    <a:xfrm>
+      <a:off x="${opts.xEmu}" y="${opts.yEmu}"/>
+      <a:ext cx="${opts.cxEmu}" cy="${opts.cyEmu}"/>
+    </a:xfrm>
+    <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+  </p:spPr>
+</p:pic>`;
+}
+
 /**
  * The Title (id 2) + Subtitle (id 3) textbox pair shared by the cover slide
  * and the section-divider slides — identical coords/sizes/colours, only the
@@ -445,13 +492,64 @@ export function buildPptxTheme(): string {
 </a:theme>`;
 }
 
-/** Assemble a .pptx package around a caller-supplied list of slide XML strings.
+/** One slide and the images it references.
+ *
+ *  ★★★ THE TWO IDENTIFIERS HERE ARE SCOPED DIFFERENTLY, AND SWAPPING THEM
+ *  PRODUCES VALID XML SHOWING THE WRONG IMAGE — a defect no schema check and
+ *  no substring assertion can see:
+ *    · `path` must be unique across the WHOLE DECK. Every media part lands in
+ *      the single `ppt/media/` directory, so two slides both minting
+ *      `ppt/media/image1.png` collapse into one zip entry and one of the two
+ *      images is silently replaced by the other.
+ *    · `relId` is scoped to ONE SLIDE. Each slide gets its own
+ *      `ppt/slides/_rels/slideN.xml.rels`, `rId1` is that slide's layout, and
+ *      image ids therefore restart at `rId2` on every slide. Numbering them
+ *      deck-wide is harmless but wasteful; numbering `path` per-slide is data
+ *      loss.
+ *  The caller mints both — the slide XML already references `relId` via
+ *  `r:embed` by the time it reaches this builder. */
+export type PptxSlide = { xml: string; media: readonly MediaPart[] };
+
+/** Assemble a .pptx package around a caller-supplied list of slides.
  *  Everything here — content types, presentation.xml sldIdList, all the rels,
- *  master/layout/theme — depends ONLY on the slide COUNT, so both the section
- *  exporter and any later renderer use this unchanged. */
-export function buildPptxPackage(slideXmls: string[]): Blob {
+ *  master/layout/theme — depends ONLY on the slide COUNT and each slide's own
+ *  media, so both the section exporter and any later renderer use this
+ *  unchanged.
+ *
+ *  ★★★ ADDITIVE BY CONTRACT: a deck whose every slide has empty `media` must
+ *  produce byte-for-byte the package this builder produced before images
+ *  existed — no `Default` entry, no `ppt/media/` part, no extra relationship.
+ *  The ONLY thing enforcing that is this file's own test, "leaves the
+ *  media-free package byte-for-byte what it was". There is no .pptx byte
+ *  fixture in this repo, and `export-ooxml.test.ts` asserts part PRESENCE and
+ *  slide-XML SUBSTRINGS — never package bytes — so a reader who assumes the
+ *  golden suite covers this is looking at a gate that cannot see it. */
+export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
+  // ★★ Relationship ids are minted by the CALLER, because the slide XML
+  // already references them by the time it gets here. rId1 is the slide
+  // LAYOUT on every slide; a media part claiming it would replace the layout
+  // with an image and PowerPoint would open a deck with no master styling and
+  // no error. Cheap to assert, invisible otherwise.
+  for (const slide of slides) {
+    for (const part of slide.media) {
+      if (part.relId === "rId1") {
+        throw new Error(`media relId "rId1" is reserved for the slide layout (${part.path})`);
+      }
+    }
+  }
+
+  // ★ One `Default` per DISTINCT extension across the WHOLE deck — OPC forbids
+  // repeating one, and two slides carrying a .png each must not yield two
+  // `<Default Extension="png">` entries (a file PowerPoint refuses to open).
+  // A media-free deck yields the empty string, which is the byte-identity half
+  // of the contract above.
+  const allMedia = slides.flatMap((s) => [...s.media]);
+  const mediaDefaults = [...new Set(allMedia.map((m) => m.extension))]
+    .map((ext) => `\n  <Default Extension="${ext}" ContentType="${contentTypeFor(ext)}"/>`)
+    .join("");
+
   // [Content_Types].xml — one Override per slide plus static parts.
-  const slideOverrides = slideXmls
+  const slideOverrides = slides
     .map(
       (_, i) =>
         `<Override PartName="/ppt/slides/slide${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>`,
@@ -461,7 +559,7 @@ export function buildPptxPackage(slideXmls: string[]): Blob {
   const contentTypes = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
   <Default Extension="xml" ContentType="application/xml"/>
-  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>${mediaDefaults}
   <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
@@ -470,7 +568,7 @@ export function buildPptxPackage(slideXmls: string[]): Blob {
 </Types>`;
 
   // presentation.xml — sldIdList with sequential IDs starting at 256.
-  const sldIds = slideXmls
+  const sldIds = slides
     .map((_, i) => `<p:sldId id="${256 + i}" r:id="rId${i + 2}"/>`)
     .join("");
 
@@ -489,7 +587,7 @@ export function buildPptxPackage(slideXmls: string[]): Blob {
   const presentationRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
   <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>
-  ${slideXmls
+  ${slides
     .map(
       (_, i) =>
         `<Relationship Id="rId${i + 2}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide${i + 1}.xml"/>`,
@@ -517,10 +615,20 @@ export function buildPptxPackage(slideXmls: string[]): Blob {
 
   const themeXml = buildPptxTheme();
 
-  // Each slide shares the same _rels (points at slideLayout1).
-  const slideRels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+  // Per-slide _rels: the layout at rId1, then THIS slide's images.
+  //
+  // ★★ The Target is PART-RELATIVE to `ppt/slides/`, because the relationship
+  // part it sits in is `ppt/slides/_rels/slideN.xml.rels`. A package-absolute
+  // `ppt/media/image1.png` here resolves to `ppt/slides/ppt/media/…` and the
+  // image silently does not render.
+  const slideRelsFor = (slide: PptxSlide): string => `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
-  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>${slide.media
+    .map(
+      (m) =>
+        `\n  <Relationship Id="${m.relId}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/${m.path.slice("ppt/media/".length)}"/>`,
+    )
+    .join("")}
 </Relationships>`;
 
   const entries: ZipEntry[] = [
@@ -534,10 +642,15 @@ export function buildPptxPackage(slideXmls: string[]): Blob {
     { path: "ppt/slideLayouts/_rels/slideLayout1.xml.rels", data: slideLayoutRels },
     { path: "ppt/theme/theme1.xml", data: themeXml },
   ];
-  for (let i = 0; i < slideXmls.length; i++) {
-    entries.push({ path: `ppt/slides/slide${i + 1}.xml`, data: slideXmls[i] });
-    entries.push({ path: `ppt/slides/_rels/slide${i + 1}.xml.rels`, data: slideRels });
+  for (let i = 0; i < slides.length; i++) {
+    entries.push({ path: `ppt/slides/slide${i + 1}.xml`, data: slides[i].xml });
+    entries.push({
+      path: `ppt/slides/_rels/slide${i + 1}.xml.rels`,
+      data: slideRelsFor(slides[i]),
+    });
   }
+  // Media parts are deck-wide and written ONCE each — see `PptxSlide`.
+  for (const part of allMedia) entries.push({ path: part.path, data: part.data });
 
   return buildZip(
     entries,

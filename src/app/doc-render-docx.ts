@@ -30,10 +30,27 @@ import {
   buildDocxTable,
   docxCellRuns,
   docxContentWidth,
+  docxInlineDrawing,
   docxRichParagraphs,
 } from "./ooxml-docx-primitives";
 import { bulletMarker } from "./rich-text-runs";
 import { resolveDataSection } from "./doc-data-section";
+import {
+  IMG_TAG_RE,
+  NO_EXPORT_ASSETS,
+  type ExportAssets,
+} from "./document-export-assets";
+import {
+  EMU_PER_INCH,
+  emuFromTwips,
+  fitExtent,
+  mediaExtension,
+  type Extent,
+  type MediaExtension,
+  type MediaPart,
+} from "./ooxml-media";
+import { ASSET_MIME_ALLOWED, safeBase64ToBytes } from "./document-asset-upload";
+import type { DocumentAsset } from "./document-asset";
 import { htmlEscape } from "./download";
 import type { Workspace } from "./workspace";
 import { t, type Lang } from "./i18n";
@@ -54,6 +71,32 @@ const PAGE: DocxPageLayout = "portrait";
 /** Every table in the document is laid out to the page the document declares. */
 const CONTENT_WIDTH = docxContentWidth(PAGE);
 
+/** The same measure in EMU, for the drawing geometry.
+ *
+ *  ★★★ PAGE GEOMETRY IS TWIPS AND DRAWING GEOMETRY IS EMU, and here the two
+ *  declarations sit one line apart. The factor is 635 (`EMU_PER_TWIP`), so
+ *  handing `CONTENT_WIDTH` straight to `fitExtent` as a `maxWidthEmu` clamps
+ *  every image to 10092 EMU — about a hundredth of an inch. That is valid XML,
+ *  a green suite, and an invisible sliver in Word; no gate in this repo can see
+ *  a unit error. `emuFromTwips` exists so the conversion is SPELLED rather than
+ *  assumed: 10092 twips = 6_408_420 EMU (7.008in of usable measure on A4
+ *  portrait, less its 907-twip side margins).
+ *
+ *  ★ `fitExtent` rejects a non-integer bound outright, and `emuFromTwips`
+ *  rounds — so this is an integer by construction. */
+const CONTENT_WIDTH_EMU = emuFromTwips(CONTENT_WIDTH);
+
+/** The tallest an embedded image may be drawn.
+ *
+ *  ★★ A JUDGEMENT CALL, stated as one. This layout's page is 16838 twips tall
+ *  (11.69in) less 1020 twips of margin top and bottom, so the content box is
+ *  about 10.27in — 4.5in is roughly 44% of it. It is chosen so a portrait photo
+ *  cannot push everything following it off the page, NOT derived from anything.
+ *  Move it on evidence; it is one constant precisely so that is cheap.
+ *
+ *  ★ Must stay an INTEGER — `fitExtent` declines a fractional bound. */
+const MAX_IMAGE_HEIGHT_EMU = Math.round(4.5 * EMU_PER_INCH);
+
 /** One paragraph. `docxCellRuns` already maps "\n" to <w:br/> and escapes each
  *  line, so text and table cells cannot diverge on either rule. */
 function para(text: string, style?: string): string {
@@ -61,32 +104,259 @@ function para(text: string, style?: string): string {
   return `<w:p>${pPr}<w:r>${docxCellRuns(text)}</w:r></w:p>`;
 }
 
-// ★★★ Media parts (the real embedded bytes) land in a later slice (S3c-2) —
-// this file has no way to attach one yet. `docxRichParagraphs` -> `htmlToRichLines`
-// (rich-text-runs.ts) has no `<img>` handling at all, so an `<img data-asset-id>`
-// left in `block.html` would reach the DOMParser walk as an unrecognised void
-// element and vanish SILENTLY, with nothing in the exported file to say an image
-// was ever there. This substitutes a translated placeholder run naming the asset
-// instead, on the RAW html BEFORE the parse — so it participates in the walk as
-// ordinary text and inherits whatever paragraph/list-item context surrounds it.
-const IMG_TAG_RE = /<img\b[^>]*\bdata-asset-id="([^"]*)"[^>]*>/g;
+// ★★ THE PLACEHOLDER IS THE FALLBACK NOW, NOT THE ONLY PATH. S3c-2 gave this
+// file real media parts, so an asset the caller INLINED becomes a `<w:drawing>`
+// in its own paragraph (`paragraphBlock`). Every other reason still falls
+// through to this substitution: omitted by the export budget, no byte row, no
+// metadata row, a mime outside the upload allow-list, or no stored dimensions.
+//
+// ★★★ WHY IT SUBSTITUTES ON THE RAW HTML, BEFORE THE PARSE — and why a drawing
+// CANNOT. `docxRichParagraphs` -> `htmlToRichLines` (rich-text-runs.ts) has no
+// `<img>` handling at all, so an `<img data-asset-id>` left in `block.html`
+// reaches the DOMParser walk as an unrecognised void element and vanishes
+// SILENTLY, with nothing in the exported file to say an image was ever there.
+// TEXT can go in before that parse and inherits whatever paragraph or list-item
+// context surrounds it. A `<w:drawing>` blob cannot: it is XML, and an HTML
+// parse mangles it. That is what FORCES the paragraph split below.
 
-/** `assetNames` resolves an id to the asset's display name (`ws.documentAssets`);
- *  a dangling id (row deleted, byte store empty) falls back to the id itself
- *  rather than a blank name. */
-function withImagePlaceholders(html: string, assetNames: ReadonlyMap<string, string>, lang: Lang): string {
+/** Resolves an id to the asset's display name; a dangling id (row deleted, byte
+ *  store empty) falls back to the id itself rather than a blank name.
+ *
+ *  ★ ONE map, not a parallel name map beside the metadata one — two maps built
+ *  from the same list and threaded down the same call chain is the shape that
+ *  drifts. */
+function withImagePlaceholders(
+  html: string, byId: ReadonlyMap<string, DocumentAsset>, lang: Lang,
+): string {
   return html.replace(IMG_TAG_RE, (_tag, id: string) =>
-    htmlEscape(t(lang, "assetExportPlaceholder", assetNames.get(id) ?? id)));
+    htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
+}
+
+/** The extension and geometry one asset embeds as, or null if it cannot embed
+ *  at all.
+ *
+ *  ★★ Deriving BOTH here is what keeps `canEmbedDocxAsset` and the drawing from
+ *  disagreeing: each condition is written once, and the drawing reuses what the
+ *  decision already computed instead of re-deriving it. Re-deriving would also
+ *  make each copy of a guard unobservable — a mutant in either one is masked by
+ *  the other, so the suite reports coverage it does not have. */
+function docxEmbedFor(
+  meta: DocumentAsset | undefined,
+): { ext: MediaExtension; extent: Extent } | null {
+  if (!meta) return null;
+  if (!(ASSET_MIME_ALLOWED as readonly string[]).includes(meta.mime)) return null;
+  const ext = mediaExtension(meta.mime);
+  if (!ext) return null;
+  const extent = fitExtent(meta, CONTENT_WIDTH_EMU, MAX_IMAGE_HEIGHT_EMU);
+  if (!extent) return null;
+  return { ext, extent };
+}
+
+/** Whether an asset can become a docx drawing at all — the metadata-only half
+ *  of the decision, with no reference to whether its bytes were loaded.
+ *
+ *  ★★★ EXPORTED because `document-download.ts` passes it to `loadExportAssets`
+ *  as the `isRenderable` predicate for the DOCX sink. The two signatures do not
+ *  meet directly — `isRenderable` is asked about an ID, this asks about a
+ *  metadata ROW — so that call site adapts it through a map built from
+ *  `ws.documentAssets`, the same list this renderer builds its own `byId` from.
+ *  A call site that re-implements these conditions instead of calling this
+ *  drifts from the drawing silently.
+ *
+ *  ★★★ WHAT IT BUYS HERE IS THE THREE-BUCKET CONTRACT, NOT BUDGET HEADROOM —
+ *  and this comment asserted the opposite for a release in which NOTHING passed
+ *  the predicate at all. `loadExportAssets` asks it before charging the budget
+ *  so an undrawable asset cannot push a good one into `omitted`; but the DOCX
+ *  sink runs UNBUDGETED (`Number.POSITIVE_INFINITY`), so nothing is ever
+ *  omitted there and there is no headroom to protect. What the predicate does
+ *  do is route an undrawable id to `missing` rather than leaving it
+ *  `inlined`-but-undrawable — the fourth state no bucket describes, named in
+ *  `loadExportAssets`' own docstring — and keep its base64 out of memory.
+ *
+ *  ★★ SO NO OUTPUT TEST CAN SEE THIS. Measured, not reasoned: rendering an
+ *  undrawable asset with the bytes inlined and with the id in `missing` yields
+ *  BYTE-IDENTICAL packages, because `drawingFor` falls through to the same
+ *  placeholder either way. (The same comparison for a DRAWABLE asset differs,
+ *  so that identity is not vacuous.) The wiring is pinned in
+ *  `document-download.test.ts` by asserting the argument `loadExportAssets`
+ *  receives, and invoking it — nowhere else.
+ *
+ *  ★ "One function, two callers" describes `docxEmbedFor`, not this wrapper:
+ *  the conditions are written once there and read by both this predicate and
+ *  the drawing. This wrapper has exactly one production caller. */
+export function canEmbedDocxAsset(meta: DocumentAsset | undefined): boolean {
+  return docxEmbedFor(meta) !== null;
+}
+
+/** Mints one media part per inlined image, numbering parts and relationship ids
+ *  in document order.
+ *
+ *  ★★ Relationship ids start at rId2 — rId1 is the styles part, and
+ *  `buildDocxPackage` throws if a media part claims it.
+ *
+ *  ★ Deliberately per OCCURRENCE, not per asset: one image referenced twice in
+ *  a document mints two parts holding the same bytes. Correct output, slightly
+ *  larger file; de-duplicating would need a second counter, because a drawing's
+ *  `docPr` id must stay unique even where the relationship is shared. */
+function createMediaMinter(assets: ExportAssets, byId: ReadonlyMap<string, DocumentAsset>) {
+  const parts: MediaPart[] = [];
+
+  /** The drawing run for `id`, or null to fall through to the placeholder. */
+  function drawingFor(id: string): string | null {
+    const b64 = assets.inlined[id];
+    if (!b64) return null;
+    const meta = byId.get(id);
+    const embed = docxEmbedFor(meta);
+    if (!meta || !embed) return null;
+
+    // ★★ DECODE BEFORE ANY STATE MOVES. `safeBase64ToBytes` declines a row it
+    //   cannot turn into drawable bytes — malformed OR empty — instead of
+    //   throwing out of this render, which would cost the user the entire
+    //   export over one bad row: this render is synchronous inside a promise
+    //   `downloadDocument`'s call sites `void`, so nothing downstream can retry
+    //   it. (They DO surface a message — each site attaches a `.catch` to
+    //   `reportDownloadFailure` — so the handler and this guard close different
+    //   halves and neither makes the other redundant; the docstring on
+    //   `safeBase64ToBytes` carries the detail.) Declining lands on the SAME
+    //   placeholder an undrawable asset already gets, and doing it here rather
+    //   than after `parts.push` keeps the part numbering gap-free.
+    const data = safeBase64ToBytes(b64);
+    if (!data) return null;
+
+    const index = parts.length + 1;
+    // ★ The part name derives from the INDEX, never from the asset's
+    //   user-supplied name — a name must never become a zip path.
+    const name = `image${index}.${embed.ext}`;
+    const relId = `rId${index + 1}`;
+    parts.push({
+      path: `word/media/${name}`,
+      data,
+      extension: embed.ext,
+      relId,
+    });
+    return `<w:r>${docxInlineDrawing({
+      relId,
+      id: index,
+      name,
+      descr: meta.name,
+      extent: embed.extent,
+    })}</w:r>`;
+  }
+
+  return { drawingFor, parts };
+}
+
+/** What `docxRichParagraphs` returns for a value that yields NO lines — a
+ *  valid but contentless paragraph, which it is obliged to emit because a
+ *  `<w:tc>` with no block-level child makes Word reject the whole file. Here it
+ *  is read as a SIGNAL: this fragment had nothing to say.
+ *
+ *  ★ Comparing against the sentinel rather than re-deriving the line list is
+ *  what keeps ONE parse in play. The alternative — calling `htmlToRichLines`
+ *  here as well — would duplicate `docxRichParagraphs`' own `descriptionHtml`
+ *  classification step, and the two copies would then have to agree forever. */
+const EMPTY_PARAGRAPH = "<w:p/>";
+
+/** Wrap a fragment so the rich pipeline treats it as MARKUP.
+ *
+ *  ★★★ SPLITTING HTML BREAKS THE `isHtmlStart` PRECONDITION, and the symptom is
+ *  literal markup in the exported document. `docxRichParagraphs` classifies its
+ *  argument through `descriptionHtml(html, RENDER_SINK)`, and that sink's regex
+ *  (`CONTAINS_TAG`, html-start.ts) requires a `<` followed by a LETTER — a
+ *  CLOSING tag deliberately does not match it. So slicing `<p>a<img>b</p>`
+ *  around the image leaves the tail `b</p>`, whose only `<` is that closing
+ *  tag: the value is classified as legacy PLAIN TEXT, escaped, and the reader
+ *  sees `b</p>` verbatim in Word. Measured, not reasoned — the assertion that
+ *  caught it is "keeps the text either side of an inlined image", and the
+ *  weaker `indexOf`-ordering form of that test could not see it.
+ *
+ *  ★★ A `<div>` is the right wrapper because a fragment can be unbalanced in
+ *  EITHER direction — an unclosed `<p>` at the head, an orphan `</p>` at the
+ *  tail — and the HTML parser reconciles both inside a wrapper. It is not a
+ *  formatting choice: `htmlToRichLines` emits no line for the wrapper itself.
+ *
+ *  ★ Only the SPLIT path wraps. An image-free paragraph never reaches here (see
+ *  `paragraphBlock`'s `out.length === 0` arm), so its bytes are untouched. */
+function asMarkup(fragment: string): string {
+  return `<div>${fragment}</div>`;
+}
+
+/** One paragraph block, SPLIT around every image that will actually embed.
+ *
+ *  ★★★ THE SPLIT IS FORCED, not stylistic — see the `<w:drawing>` note above.
+ *
+ *  ★★ Consequence, accepted: an image that sat inline with text gets its own
+ *  paragraph. The block editor inserts images as image-only paragraphs, so the
+ *  shape the product actually produces is unaffected. */
+function paragraphBlock(
+  html: string,
+  byId: ReadonlyMap<string, DocumentAsset>,
+  lang: Lang,
+  drawingFor: (id: string) => string | null,
+): string {
+  const out: string[] = [];
+  /** Render one segment, and keep it unless it produced nothing.
+   *
+   *  ★★★ THE QUESTION IS "DOES THIS EMIT ANYTHING?", NOT "DOES THIS HAVE TEXT?",
+   *  and the two disagree on exactly one shape: a HORIZONTAL RULE is content
+   *  that carries NO text. An earlier cut of this gate stripped the fragment's
+   *  tags and tested the remainder — measured, that DROPPED the rule in
+   *  `<p><img data-asset-id></p><hr>`, in the leading and trailing segment
+   *  alike. `DocBlock` has no rule member, so an `<hr>` can ONLY reach a
+   *  renderer inside a paragraph's html — precisely the string this function
+   *  cuts up — and `hr` is in `DOCUMENT_ALLOWED_TAGS`, so `sanitizeDocumentHtml`
+   *  preserves one. Pinned by "keeps a horizontal rule that FOLLOWS / PRECEDES
+   *  an inlined image".
+   *
+   *  ★★ WHY DOCX KEEPS A GATE THAT PPTX DELETED. `doc-render-pptx-slides.ts`
+   *  drops blank lines per block itself, so the same gate there was pure
+   *  redundancy and removing it was right. Nothing in this file does that:
+   *  `docxRichParagraphs` MUST return a paragraph for an empty value, so without
+   *  this check every image-only paragraph — the shape the block editor actually
+   *  inserts — is bracketed by two blank `<w:p>`. Same finding, opposite remedy;
+   *  do not port one file's answer to the other.
+   *
+   *  ★ Placeholders are substituted BEFORE the render, so a segment holding an
+   *  image this renderer DECLINED still emits its S3c-1 disclosure and is kept.
+   *  That now falls out of asking the right question, where before it rested on
+   *  the order two separate steps happened to run in. */
+  const pushSegment = (fragment: string): void => {
+    const xml = docxRichParagraphs(asMarkup(withImagePlaceholders(fragment, byId, lang)));
+    if (xml !== EMPTY_PARAGRAPH) out.push(xml);
+  };
+
+  let last = 0;
+  for (const match of html.matchAll(IMG_TAG_RE)) {
+    const drawing = drawingFor(match[1]);
+    // Not embeddable: leave the tag in the segment so the placeholder pass
+    // substitutes it exactly as it did before this slice.
+    if (!drawing) continue;
+    pushSegment(html.slice(last, match.index));
+    out.push(`<w:p>${drawing}</w:p>`);
+    last = match.index + match[0].length;
+  }
+
+  // ★★ THIS ARM IS THE WHOLE COMPATIBILITY STORY. A paragraph with no embedded
+  // image goes through UNTOUCHED — one call, on the original string — so it is
+  // byte-identical to what this file produced before the split existed, and
+  // the emit check cannot reach it to drop a deliberately blank paragraph.
+  if (out.length === 0) return docxRichParagraphs(withImagePlaceholders(html, byId, lang));
+  pushSegment(html.slice(last));
+  return out.join("");
 }
 
 function renderBlock(
-  block: DocBlock, ws: Workspace, lang: Lang, assetNames: ReadonlyMap<string, string>,
+  block: DocBlock,
+  ws: Workspace,
+  lang: Lang,
+  byId: ReadonlyMap<string, DocumentAsset>,
+  drawingFor: (id: string) => string | null,
 ): string {
   switch (block.type) {
     case "heading":
       return para(block.text, `Heading${block.level}`);
     case "paragraph":
-      return docxRichParagraphs(withImagePlaceholders(block.html, assetNames, lang));
+      return paragraphBlock(block.html, byId, lang, drawingFor);
     case "bullets":
       return block.items
         .map((item, i) => para(`${bulletMarker(block.ordered, i)} ${item}`, "ListParagraph"))
@@ -114,10 +384,21 @@ export function renderDocumentDocx(
   doc: ProjectDocument,
   ws: Workspace,
   lang: Lang,
+  /** ★ Defaulted so every existing three-argument caller keeps rendering
+   *  placeholders rather than breaking — an export that has not resolved bytes
+   *  (no Turso config, Safe Mode) passes nothing. */
+  assets: ExportAssets = NO_EXPORT_ASSETS,
 ): Blob {
-  const assetNames = new Map((ws.documentAssets ?? []).map((a) => [a.id, a.name]));
+  const byId = new Map((ws.documentAssets ?? []).map((a) => [a.id, a]));
+  const { drawingFor, parts } = createMediaMinter(assets, byId);
+
   const body =
     para(doc.title, "Title") +
-    doc.blocks.map((b) => renderBlock(b, ws, lang, assetNames)).join("");
-  return buildDocxPackage(body, DOC_STYLES, PAGE);
+    doc.blocks.map((b) => renderBlock(b, ws, lang, byId, drawingFor)).join("");
+
+  // ★ `parts` is populated BY the body render above — read it AFTER, never
+  //   before. Building the package first ships an empty media list against a
+  //   document.xml full of drawings whose relationships do not exist, which
+  //   Word reports as a corrupt file.
+  return buildDocxPackage(body, DOC_STYLES, PAGE, parts);
 }
