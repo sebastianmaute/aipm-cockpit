@@ -22,6 +22,7 @@ import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
+import type { PanelSort } from "./panel-views";
 import type { useRowSelection } from "./use-row-selection";
 import { InlineAiEditButton } from "./inline-ai-edit-button";
 import { NotesBadgeButton } from "./notes-badge-button";
@@ -37,14 +38,12 @@ const categoryPillClass: Record<RaidCategory, string> = {
   D: "bg-ui-green/15 text-ui-dark-blue dark:bg-ui-green/20 dark:text-ui-light-grey",
 };
 
-type SortState = { key: string; dir: string } | null;
-
 export interface RaidTableProps {
   lang: Lang;
   hiddenSet: Set<string>;
   sel: ReturnType<typeof useRowSelection>;
   visibleIds: number[];
-  sort: SortState;
+  sort: PanelSort;
   toggleSort: (key: RaidSortKey) => void;
   colWidths: Record<keyof typeof RAID_COL_WIDTHS, number>;
   startResize: (col: string, e: React.MouseEvent) => void;
