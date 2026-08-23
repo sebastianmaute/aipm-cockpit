@@ -912,16 +912,24 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the
   writer for every LOCAL status mutation — form save, the inline dropdown, bulk edit, the Mark-done CTA,
   the AI dispatcher and `handleCreateLinkedTask` all route through it.
-  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR, AND THIS BULLET SAID IT WAS. THREE other paths write
-  `status` and/or `completedDate` without it. TWO are deliberate: **Jira sync** — `issueToTaskFields`
-  builds the patch and `use-jira-sync` applies both fields verbatim; the Kanban bullet below carries
-  the reason (the engine would stamp `today` over Jira's resolution date), so read it there rather
-  than reasoning from here — and **template import**, where `sanitizeSeedTask` takes the two fields
-  from the raw seed INDEPENDENTLY and then calls `migrateTask`, which leaves a VALID-but-inconsistent
-  pair untouched (`docs/open-followups.md` §182 carries the mechanism, and it is NOT the short-circuit
-  below). Do NOT "complete the pattern" by routing either of those two through the engine. The THIRD
-  is not deliberate: the Jira CONFLICT merge writes `completedDate` alone
-  (`docs/open-followups.md` §183).
+  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR. FOUR paths write it, and they hold the invariant by
+  THREE DIFFERENT MECHANISMS, each WRONG for the other two paths — so do NOT "complete the pattern"
+  by routing one through another. **Jira sync's three PATCH-APPLICATION sites** (pull,
+  create, read-only): `issueToTaskFields` derives BOTH fields from one `statusKey` read
+  (`completedDate` through its `isDone` boolean, `status` through `jiraCategoryToStatus`), so that
+  patch's pair cannot drift. **The Jira CONFLICT merge** (`handleResolveConflicts`): its
+  `completedDate` branch writes `merged.status` beside the date, BOTH from the side the user picked —
+  remote from `conflict.remoteStatus`, carried on `ConflictItem` off that SAME patch (a fourth
+  `issueToTaskFields` call, at the conflict-QUEUE site), local from `original.status`.
+  **Template import** (`sanitizeSeedTask`): its two reads of the seed are independent, so it ends by
+  calling `reconcileStatusFromDate`, which trusts the DATE — a date present forces `Done`, a `Done`
+  with no date demotes to `DEFAULT_TASK_STATUS`, and nothing is invented or deleted.
+  ★★★ DO NOT ROUTE EITHER JIRA PATH THROUGH `applyStatusChange` **OR** THROUGH
+  `reconcileStatusFromDate`, however much one writer would look tidier. `applyStatusChange` would
+  stamp `today` over Jira's real resolution date (the Kanban bullet below carries the same reason for
+  the pull path). `reconcileStatusFromDate` decides `status` from date PRESENCE, so it would rewrite
+  a reopened issue's genuine "In Progress" into "To Do" purely because the issue carries no date.
+  Each mechanism is correct for its own source of truth and wrong for the other two.
   ★★ Re-derive both sets rather than trusting any list here: the engine's callers with
   `grep -rn "applyStatusChange(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — which
   also returns the declaration itself and one `change-log.ts` COMMENT, so it is not a caller count — and
@@ -935,18 +943,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
   ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
   task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
-  NOT repaired. The invariant is held by SOME of the WRITERS, not at load — `applyStatusChange` by construction,
-  and `issueToTaskFields` because BOTH fields derive from one `statusKey` read (`completedDate` through
-  its `isDone` boolean, `status` through `jiraCategoryToStatus`), so THAT PATCH's pair cannot drift.
-  ★★ TWO OF THE FOUR WRITERS DO NOT HOLD IT, so "held by the writers" is a claim about half of them —
-  and the ordinal this line used to carry ("the THIRD writer") named only one. `sanitizeSeedTask`
-  reads `status` and `completedDate` independently off the seed (§182), and the Jira CONFLICT merge
-  in `use-jira-sync` writes `completedDate` from the user's pick while leaving `status` at its LOCAL
-  value (§183) — the same `use-jira-sync` whose three non-conflict write sites DO hold it, so scope
-  any claim about that file to the path. Both are LIVE CODE PATHS that produce the bad pair — "an
-  imported or hand-edited blob" is not merely a hand-editing hazard. The old wording caused three
-  separate defects in one session — every reader concluded load normalises the pair and wrote that
-  into code comments and commit messages.
+  NOT repaired. The invariant is held by the WRITERS, not at load — all four of them since 0.257.0,
+  by the three mechanisms listed above.
+  ★★ ALL FOUR WRITERS HOLD IT SINCE 0.257.0, and that is a claim about the four paths in `src`, NOT
+  about the DATA. A workspace blob written by an older build, hand-edited, or imported from a
+  third-party template can still carry a split pair, and nothing reconciles it on load.
+  `sanitizeSeedTask` (§182) and the Jira CONFLICT merge (§183) were the two that did not hold it;
+  both entries record what each used to do and what a split pair costs on the surfaces — the two
+  halves of `task-closed.ts` read DIFFERENT fields, so one such row is counted complete and counted
+  open in the same render. The old wording caused three separate defects in one session — every
+  reader concluded load normalises the pair and wrote that into code comments and commit messages.
+  ★★ Do NOT close the remaining DATA gap by teaching `migrateTask` to reconcile. It runs on all six
+  load paths, so that changes every backend's load behaviour, and it would apply the date-wins rule
+  to Jira rows, where it is wrong.
   `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
   overdue/next-actions/health-red). ★★ SINCE 0.213.0 THE CALLER MUST SAY WHICH QUESTION IT IS ASKING —
   pure `task-closed.ts` exposes `isTaskClosed(task)` (= `isTaskFinished`, Done|Cancelled → "will this be
