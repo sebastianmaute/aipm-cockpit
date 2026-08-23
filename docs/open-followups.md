@@ -832,6 +832,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§607](#607-the-timelog-and-ecb-proxies-log-a-raw-error-object-on-upstream-failure--closed-2026-09-21) | The Timelog and ECB proxies log a raw error object on upstream failure — CLOSED 2026-09-21 | found 2026-09-21 reviewing §566 on `fix/backlog-sweep`, filed and closed on the same branch | S — one shared helper (`describeUpstreamError`) moved and reused at two more call sites | closed |
 | [§608](#608-the-diagnostics-secret-patterns-take-quadratic-time-on-a-long-run-that-fails-them--open) | The diagnostics secret patterns take quadratic time on a long run that fails them — OPEN | final-review M6 on `fix/backlog-sweep`, measured 2026-09-21 reviewing §606; GitLab #389 | M — bound backtracking or the input length before matching (see §578) | open |
 | [§609](#609-a-late-seal-can-resurrect-a-sealed-secret-the-user-just-cleared--open) | A late seal can resurrect a sealed secret the user just cleared — OPEN | final-review M7 on `fix/backlog-sweep` (Task 5 deferred minor, upgraded), read from code, pre-existing and family-wide; GitLab #390 | S — a per-secret generation guard | open |
+| [§610](#610-timelog-exposes-no-approvereject-write-so-the-review-front-end-is-read-only-until-someone-probes-for-the-undocumented-one--open) | TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — OPEN | TL1 spec (2026-08-23), a sweep of TimeLog's 63 documented services; GitLab #391 | S — a devtools probe at a workstation | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -40926,3 +40927,48 @@ same guard, so a seal already in flight at clear time is discarded instead of ra
 
 Related: §565 (final-review M7, the finding that raised this while reviewing the §565 fix; pre-existing
 across the family and not closed by that fix).
+
+## 610. TimeLog exposes no approve/reject WRITE, so the review front-end is read-only until someone probes for the undocumented one — OPEN
+
+**Status:** OPEN 2026-08-23 — an investigation, not a defect. Nothing misbehaves today. The service
+sweep below was a hand-run `curl`; the missing write is otherwise never machine-verified. First filed as 225 on a branch
+cut 2026-08-23; renumbered at the GitHub cut-over because main had since given 225 to another entry.
+
+**Work item:** #391
+
+**What was measured.** 2026-08-23, against the public REST documentation: all **63 documented
+services** were swept for a method named `approve|reject|decline|deny`. Three names match, and
+none of them is the manager action — `approvaltimesheet_getstatusbyperiodwithrejectedtimetrackingitems`
+and `timeregistration_deleteapprovedabsence` are readers, and `approvaltimesheet_resubmitrejectedtimeregistrations`
+is the EMPLOYEE resubmitting their own rejected time. Every other `approval/timesheets/*` method is
+employee-side too: submit-time-registrations, submit-dates, submit-period, and the get-status-by-*
+readers.
+
+**Why this is not simply "the feature is impossible".** TimeLog's own UI plainly rejects time —
+its read models carry `RejectedRegistrations`, `LastRejectedComment` and `RecentRejectedComment`,
+which could not exist if nothing wrote them. So an undocumented endpoint almost certainly exists,
+and this repository already depends on one undocumented endpoint for the per-project booking fetch.
+
+**★★★ But that precedent does NOT transfer, and the reason is the whole entry.** The endpoint we
+already rely on is a READ. A write here lands in a system that drives invoicing and payroll. An
+undocumented write can change shape or vanish without notice, and a wrong one is not corrected by a
+redeploy — it has already moved somebody's billable hours. Treat discovering the endpoint and
+DECIDING to call it as two separate questions.
+
+**The probe, when someone is at a workstation with a TimeLog login:** open devtools, reject one time
+registration in TimeLog's own UI, and record the request — method, path, payload shape, and whether
+it authenticates with the same API token or only with a session cookie. ★ If it is cookie-only the
+question is settled against us: the app authenticates with an API token and has no session to
+borrow.
+
+**What ships regardless.** The read side is the valuable half and carries no write risk: a manager's
+verdict and its stated reason are readable, which is exactly the corpus of human accept/reject
+decisions the AI review slice needs. Design: `docs/superpowers/specs/2026-08-23-timelog-booking-review-tl1-design.md`,
+"Cross-cutting decisions" §1.
+
+**Reproduce the sweep:**
+
+```
+# lists every documented service; none carries a manager approve/reject method
+curl -s https://api.timelog.com/rest/services | grep -oE "/rest/service/[a-z]+" | sort -u
+```
