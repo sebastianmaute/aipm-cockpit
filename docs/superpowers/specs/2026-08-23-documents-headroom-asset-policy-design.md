@@ -121,8 +121,33 @@ orchestrator and are threaded down.
 ### `document-block-editors.tsx` → ~615
 
 - **`bullets-block-editor.tsx`** ← `BulletsBlockEditor` and the `BulletsDraft`
-  type. Re-exported from `document-block-editors.tsx` so no call site moves and
-  no import in any other file changes.
+  type.
+
+★★★ **Do NOT re-export it from `document-block-editors.tsx` to spare the call
+sites — that is an import CYCLE.** The extracted file must import
+`useBlockDraft` and `BlockEditorProps` back from `document-block-editors.tsx`, so
+a re-export makes the two modules import each other. This repo already has one
+runtime import cycle it works around by hand (§92, `settings-types` ⇄ `workspace`
+⇄ `document-model`); it does not need a second one bought for an import-line
+convenience.
+
+★ **`document-table-editor.tsx` is exact precedent and the extraction should
+mirror it byte-for-byte in shape.** It is a sibling block editor already living
+in its own file: it imports `{ type BlockEditorProps, useBlockDraft } from
+"./document-block-editors"`, exports its component, and `document-editor.tsx`
+imports it directly. Dependencies run one way only.
+
+The two real consumers move their import to the new module:
+`document-editor.tsx` and `document-block-editors.test.tsx`. Verify the set at
+write time rather than trusting this line:
+
+```bash
+grep -rn "BulletsBlockEditor" src/app --include=*.ts --include=*.tsx | grep -v "^src/app/document-block-editors.tsx:"
+```
+
+★ One hit is a COMMENT, not an import — `document-table-editor.tsx` refers to
+`BulletsBlockEditor`'s header comment for the two-axis labelling rule. Read the
+hits; do not count them.
 
 ### Why `.tsx` only, and why `useBlockDraft` stays put
 
