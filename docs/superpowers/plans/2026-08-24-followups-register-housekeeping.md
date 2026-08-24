@@ -483,10 +483,33 @@ Replace the reproduced-in-full design text with a link — `docs/superpowers/` b
 0.253.0, so `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md` now resolves for
 everyone. Delete the "the design document lives in the gitignored tree" apparatus.
 
-**★★★ SALVAGE THE LIVE ITEM BEFORE REWRITING.** Buried under text a reader will now distrust
-wholesale is the one thing still open: *"ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN
-TAKEN"* — no Turso request-size figure exists anywhere in the repo, and S3c-1 shipped without it.
-Lift it to the top of the rewritten entry.
+**★★★ THE ONE ITEM THAT WAS STILL OPEN IS NOW MEASURED — RECORD THE RESULT, DO NOT SALVAGE IT AS
+OPEN.** The entry's *"ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN"* has been
+discharged: Turso request size was measured successfully **up to 30 MB** (reported by the user
+2026-08-24, out of band — see the provenance note below).
+
+★★ Write it as a LOWER BOUND, never as the limit. "Succeeded at 30 MB" establishes capacity ≥30 MB;
+it does not establish that 30 MB is the ceiling, and recording `= 30 MB` would be a claim nobody
+measured. The entry's own instruction — "do not guess it" — applies to the upper end too.
+
+★★ Record the headroom with the fact that makes it decisive: **every asset path carries exactly ONE
+image per pipeline request**, in both directions. Verify:
+```bash
+grep -n "assetDataSelect\|assetDataUpsert\|assetDataIdsSelect" src/app/document-assets-store.ts
+```
+`assetDataUpsert(row)` takes a single row, `assetDataSelect(id, projectId)` a single id, and
+`assetDataIdsSelect` returns ids only with no bytes. So the worst case is one 5 MB stored image
+≈ 6.7 MB of base64 against ≥30 MB — roughly 4.5× headroom. The per-image cap does NOT drop and
+uploads do NOT need chunking.
+
+★★★ **§95 stays true and the entry must keep saying so.** This was a MANUAL measurement against a
+real database. CI still cannot take it, so the figure has no gate behind it and will not be
+re-checked when Turso changes its limits. That is the residual — a much smaller one than the entry
+currently carries, but it is not nothing.
+
+★ PROVENANCE: record who measured it, when, and against what (plan/region), or the number becomes
+exactly the class of bare unreproducible claim this whole slice exists to remove. If the method is
+not available, say "method not recorded" explicitly rather than implying one.
 
 - [ ] **Step 2: §146 — widen the prescribed union from three members to four**
 
