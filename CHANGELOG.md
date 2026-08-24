@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.258.0] - 2026-08-24 "Mandelo"
+
+### Added
+
+- **Settings → Diagnostics now reports how many tasks have a completion date
+  and status that disagree.** The two are meant to always move together — a
+  task counts as done only when both say so — but data from an older build, a
+  hand-edited workspace file, or a third-party import can still leave them out
+  of step on a task nothing here rewrites automatically. Diagnostics now
+  counts those rows, so a split pair can be found and corrected by hand
+  instead of going unnoticed.
+
+### Fixed
+
+- **A Jira issue is no longer marked done from a task that is not done.** Two
+  separate paths compared the connected Jira issue's completion state to the
+  task's completion *date* rather than its status: resolving a sync conflict,
+  and an ordinary background sync. A task whose completion date had fallen out
+  of step with its status — for example one already reopened locally — could
+  still push the linked Jira issue to Done. Both paths now compare status
+  instead.
+- **A status change made in Jira is now offered during conflict resolution
+  instead of being silently dropped.** Conflict detection only raised a
+  conflict when the completion *date* disagreed between the two sides, so a
+  Jira change that flipped only the status — leaving the completion date as it
+  was — never surfaced a conflict at all, and the change from Jira was
+  discarded on the next sync. Either half of the pair disagreeing now queues a
+  conflict.
+- **That conflict now shows the task's status beside its completion date, on
+  each side.** The conflict previously displayed only the completion date, so
+  a status-only disagreement offered nothing to choose between. Both fields
+  now appear for the local and the remote value.
+- **A task whose local status Jira has no equivalent for no longer raises a
+  conflict on every sync.** On Hold, In Review and Cancelled have no matching
+  Jira status category, so comparing them directly against Jira's category
+  read as a permanent mismatch and queued a conflict on every sync regardless
+  of whether anything had actually changed. That comparison is now aware of
+  which statuses Jira can represent.
+- **A template applied without reloading the page now behaves like one applied
+  after a reload.** Loading a template on a fresh page run its data through
+  the same repair pass that keeps a task's status and completion date in
+  step; applying one in-session, without a reload, skipped that pass — so a
+  template carrying an already-split pair, such as a cancelled task with a
+  stray completion date, could be imported unrepaired or not depending on
+  which way it was applied.
+
+### Internal
+
+- Closed `docs/open-followups.md` §226 and §228. Narrowed §227 to a
+  low-severity, storage-only edge case: a local pick in conflict resolution
+  can still re-write an already-split pair back into storage, but can no
+  longer trigger a live Jira status change from it.
+
 ## [0.257.1] - 2026-08-24 "Shepard"
 
 ### Fixed
