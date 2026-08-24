@@ -10,9 +10,26 @@
 // and `assetRefsInDocument` below carries the relationship and the reason.
 //
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
-// load through sanitizeDocumentHtml), so a literal `data-asset-id="…"` in
-// TEXT content would already have been escaped on the way in — this module
-// does not need to guard against that itself.
+// load through sanitizeDocumentHtml).
+//
+// ★★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT, and
+// this header claimed for a while that it was — that "a literal
+// `data-asset-id=\"…\"` in TEXT content would already have been escaped on the
+// way in". MEASURED FALSE 2026-08-24, through the real two-pass load
+// composition and not by reasoning: `<p>data-asset-id="hero"</p>` comes back
+// BYTE-IDENTICAL. HTML text-node serialisation escapes `&`, `<` and `>` — it
+// never escapes `"` — so a double-quoted attribute spelled out in prose
+// survives intact, and `ASSET_ID_RE` below then counts it. A user writing
+// documentation ABOUT this app, or pasting HTML as text to discuss it, spends
+// a real slot of the 20-image per-document cap on it and sees it named in the
+// cap message. Pinned by "does NOT escape a data-asset-id a user merely TYPED
+// as prose" in this module's test file; open-followups §231.
+//
+// ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
+// property and a real one: DOMPurify re-serialises every attribute with double
+// quotes, which is the only reason the double-quote-only patterns here agree
+// with the load predicate at all. That ordering is pinned separately by "the
+// load path normalises quoting BEFORE anything counts references".
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { IMG_TAG_RE } from "./document-export-assets";
@@ -75,13 +92,36 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *
  *  ★ `undrawable` is computed over the WHOLE document, not per block, so an id
  *  that appears on a span in one block and an img in another is drawable and
- *  is correctly absent — otherwise the cap message would over-report. */
+ *  is correctly absent — otherwise the cap message would over-report.
+ *
+ *  ★★★ `drawable` IS NOT A SUBSET OF `all`, SO THESE ARE NOT THREE VIEWS OF ONE
+ *  SET. The three fields read as a partition — `all`, the drawable part of it,
+ *  and the rest — and only `undrawable ⊆ all` is guaranteed, because that one
+ *  is BUILT by filtering `all`. `all` and `drawable` are computed by two
+ *  DIFFERENT patterns over raw HTML and a pathological input puts an id in one
+ *  and not the other: `ASSET_ID_RE` is a naive scan that will match inside
+ *  another attribute's VALUE or inside text content, while `IMG_TAG_RE` is
+ *  quote-aware and steps over both. Measured 2026-08-24 —
+ *  `<img alt="data-asset-id=" data-asset-id="real">` (reachable: an asset NAME
+ *  is free text via rename, and `htmlEscape` escapes `& < > "` but NOT `=`)
+ *  yields `all` = [`" data-asset-id="`] with the real id ABSENT, and
+ *  `drawable` = [`"real"`]. The `all` UNDERCOUNT is PRE-EXISTING —
+ *  `assetIdsInDocument` has always had these semantics — and is recorded as
+ *  open-followups §231, NOT fixed here.
+ *
+ *  ★★ CONSEQUENCE FOR CALLERS: anything subtracting these sizes must subtract
+ *  `undrawable` from `all` (never `drawable` from `all`, which can go negative).
+ *  The cap message in `documents-asset-section.tsx` depends on exactly that.
+ *  Both relationships are pinned by "lets a crafted alt put an id in `drawable`
+ *  that is NOT in `all`" in this module's test file. */
 export type AssetRefs = {
-  /** Ids on ANY element — what the per-document image cap counts. */
+  /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
+   *  counts. NOT a superset of `drawable`; see the type's note below. */
   all: ReadonlySet<string>;
-  /** Ids on an `<img>` tag — what an export can actually draw. */
+  /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */
   drawable: ReadonlySet<string>;
-  /** `all` minus `drawable`: holds a cap slot, exports nothing, in no bucket. */
+  /** `all` MINUS `drawable`, hence always a subset of `all`: holds a cap slot,
+   *  exports nothing, lands in no export bucket. */
   undrawable: ReadonlySet<string>;
 };
 

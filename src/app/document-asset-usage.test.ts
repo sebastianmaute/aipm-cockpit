@@ -245,3 +245,59 @@ describe("the load path normalises quoting BEFORE anything counts references", (
     expect([...refs.drawable]).toEqual(["c"]);
   });
 });
+
+describe("what being ALREADY-SANITIZED does and does not buy this module", () => {
+  // ★★★ THE MODULE HEADER USED TO CLAIM SANITISING WAS A GUARD HERE, AND IT IS
+  // NOT. It said a literal `data-asset-id="…"` in TEXT content "would already
+  // have been escaped on the way in — this module does not need to guard
+  // against that itself". Measured false 2026-08-24 and pinned below: HTML
+  // text-node serialisation escapes `&`, `<` and `>` and NEVER `"`, so a double
+  // quote in text survives every pass untouched. These two cases exist so the
+  // replacement claim in that header cannot rot back into the old one.
+  const loadFully = (html: string): ProjectDocument =>
+    sanitizeProjectDocuments([doc(21, [{ type: "paragraph", html }])]).map(
+      sanitizeDocumentRichFields,
+    )[0];
+
+  it("does NOT escape a data-asset-id a user merely TYPED as prose", () => {
+    // A user documenting this very app, or pasting HTML to talk about it.
+    const loaded = loadFully(`<p>data-asset-id="hero"</p>`);
+    const [block] = loaded.blocks;
+
+    // ★ The positive observable: the text is still there verbatim AFTER a full
+    //   load. Without this the id-set assertions below could pass because the
+    //   block was dropped and something else supplied the ids.
+    expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="hero"`);
+
+    const refs = assetRefsInDocument(loaded);
+    // Counted against the 20-image cap, and named as an undrawable reference in
+    // the cap message — for a string that is prose, not a reference at all.
+    expect([...refs.all]).toEqual(["hero"]);
+    expect([...refs.drawable]).toEqual([]);
+    expect([...refs.undrawable]).toEqual(["hero"]);
+  });
+
+  it("lets a crafted alt put an id in `drawable` that is NOT in `all`", () => {
+    // ★★★ `drawable` IS NOT A SUBSET OF `all`, and only this case shows it.
+    // `htmlEscape` escapes `& < > "` but NOT `=`, and an asset NAME is free
+    // text (rename), so `alt` can end in `data-asset-id=`. The naive
+    // `ASSET_ID_RE` then pairs that trailing `=` with the REAL attribute's
+    // opening quote; the quote-aware `IMG_TAG_RE` steps over the alt and finds
+    // the real id. Observed `all` member here is the literal `" data-asset-id="`.
+    // The undercount is PRE-EXISTING (`assetIdsInDocument` always had these
+    // semantics) — recorded as open-followups §231, not fixed here.
+    const loaded = loadFully(`<img alt="data-asset-id=" data-asset-id="real">`);
+    const [block] = loaded.blocks;
+    expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="real"`);
+
+    const refs = assetRefsInDocument(loaded);
+    expect([...refs.drawable]).toEqual(["real"]);
+    expect(refs.all.has("real")).toBe(false);
+    expect([...refs.drawable].every((id) => refs.all.has(id))).toBe(false);
+
+    // ★★ `undrawable` IS still a subset of `all`, and that half is load-bearing:
+    // the cap message's reclaimable-room arithmetic in documents-asset-section
+    // subtracts one size from the other and would go NEGATIVE without it.
+    expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
+  });
+});
