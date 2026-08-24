@@ -249,6 +249,7 @@ const enUS = {
   diagnosticsUnitWarnOne: "warning",
   diagnosticsUnitWarnMany: "warnings",
   diagnosticsUnitInfo: "info",
+  diagnosticsSplitPairs: "Tasks with inconsistent completion data: {0}",
   diagnosticsNewestError: "newest error {0}",
   diagnosticsLevelError: "Errors",
   diagnosticsLevelWarn: "Warnings",

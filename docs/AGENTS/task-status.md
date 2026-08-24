@@ -97,14 +97,36 @@ load normalises the pair, and write that into code and commit messages.
 ★★ Do NOT close the remaining DATA gap by teaching `migrateTask` to reconcile: it runs on all six
 load paths, so that changes every backend's load behaviour.
 
+★ **The gap is at least COUNTABLE now.** `countSplitTaskPairs(tasks)` (`task-status.ts`) returns how
+many rows break the biconditional — a `Done` with no date, and equally a non-`Done` carrying one, so
+a `Cancelled` row with a stray date counts. It is DIAGNOSTIC ONLY: it repairs nothing, sits on no
+load path, and does not change what the paragraph above says about `migrateTask`. Settings →
+Diagnostics surfaces the number (`diagnostics-section.tsx`), which is what makes "how many stored
+rows are actually split" answerable on a real workspace instead of being reasoned about.
+
 ## The conflict merge is a PASS-THROUGH, not a normaliser
 
 ★★★ THE ONE THAT NEEDS THAT QUALIFIER: the CONFLICT merge is a PASS-THROUGH, not a normaliser.
 `merged` is seeded `{ ...original }` and `status` is written exactly ONCE, so the `pick === "local"` arm assigns `original.status` over itself — a no-op. An
-ALREADY-split local row therefore survives a local pick, and that same pick fires
-`transitionIssueTo(…, "done")` while the row reads "In Progress". Reproduce — READ the hits, do not
+ALREADY-split local row therefore survives a local pick. Reproduce — READ the hits, do not
 count them; the file's own comment about this rule matches:
 `grep -nE "merged: Task|merged\.status" src/app/use-jira-sync.ts`.
+
+★★ The transition this used to re-trigger is now fixed, at BOTH sites that call
+`transitionIssueTo`. A local pick on the conflict path used to fire the Jira completion
+transition off `merged.completedDate` alone, moving the Jira issue to done while the merged row
+still read "In Progress"; `handleResolveConflicts` now gates that call on
+`merged.status === "Done"`, so a split local row no longer moves the issue. The plain auto-push
+sibling — `handleJiraSync`'s `localChanged` branch, which keyed the same transition on
+`!!row.completedDate` — carried the identical defect and is fixed the same way. A reader who
+fixes only the conflict-path call site should know the auto-push one was a separate defect and is
+already closed; every `transitionIssueTo` call site in `src/app` now reads `status`, never
+the date
+(`grep -rn "transitionIssueTo(" src/app --include=*.ts --include=*.tsx | grep -v "export async function"`
+— match the CALL, not `await transitionIssueTo`: an awaited-only grep cannot see a `void`- or
+`.catch()`-chained call, and scoping it to `use-jira-sync.ts`, as an earlier revision did, cannot
+establish the "in `src/app`" half of the claim). What the pass-through still does NOT fix is the STORAGE side: an already-split row
+re-stored by a local pick stays split (open-followups §227).
 
 ## Closed vs delivered (`task-closed.ts`)
 

@@ -110,7 +110,10 @@ const RISK_SCALES = new Set([1, 2, 3, 4, 5]);
  * `{ id > 0, taskName }` shape and passes every other field through the
  * existing field sanitizers. Returns null for anything malformed.
  */
-function sanitizeSeedTask(raw: unknown): Task | null {
+/** ★ Exported for `template-apply.ts`, so the in-session APPLY path sanitises
+ *  through the SAME function as the localStorage LOAD path. Two sanitisers
+ *  would drift; one cannot (open-followups §228). */
+export function sanitizeSeedTask(raw: unknown): Task | null {
   if (!isPlainObject(raw)) return null;
   const id = fkIdOrUndefined(raw.id);
   if (id === undefined) return null;

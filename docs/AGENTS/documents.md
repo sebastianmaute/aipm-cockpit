@@ -1027,7 +1027,7 @@ pass; `undrawable` is measured over the WHOLE document, so an id on a span in on
 `<img>` in another is drawable and does not inflate the count. The cap message
 (`assetLibraryMaxPerDocumentFreeable`) reports how many MORE images could be added once those
 references are removed, rather than reporting a bare "full" — and rather than reporting
-`undrawable.size` itself, which is what it did until 0.257.2 and which could exceed the cap and
+`undrawable.size` itself, which is what it did until 0.258.1 and which could exceed the cap and
 could count references whose removal frees nothing. Both wrong directions, and the test that pins
 each, are recorded in `docs/open-followups.md` §218's closing note.
 

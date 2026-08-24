@@ -11,6 +11,8 @@ import { useColumnResize } from "./use-column-resize";
 import { ColumnResizeHandle } from "./task-manager-ui";
 import { DataTable } from "./data-table";
 import { Button } from "./button";
+import { statusLabelKey } from "./task-status-ui";
+import type { TaskStatus } from "./types";
 
 const JIRA_CONFLICTS_COL_WIDTHS = {
   field: 128,
@@ -48,6 +50,37 @@ function fmt(value: string | string[] | undefined): string {
   }
   const s = String(value);
   return s.length === 0 ? "—" : s;
+}
+
+/** One side's value for one conflict row.
+ *  ★★ The completion row is the PAIR (`status` + `completedDate`), so it
+ *  renders BOTH halves. Since §226 it can be queued when the dates are
+ *  identical and only the status moved, and a date-only rendering then shows
+ *  the user two identical values to choose between. Every other row is a
+ *  single field and renders exactly as before.
+ *  ★ `status` is still not a `ConflictFieldKey` — the user picks a SIDE for
+ *  the pair, never one half of it. This only makes visible what the pick
+ *  already does. */
+function ConflictValue({
+  lang,
+  fieldKey,
+  value,
+  status,
+}: {
+  lang: Lang;
+  fieldKey: ConflictFieldKey;
+  value: string | string[] | undefined;
+  status: TaskStatus;
+}) {
+  if (fieldKey !== "completedDate") {
+    return <span className="whitespace-pre-wrap break-words text-foreground">{fmt(value)}</span>;
+  }
+  return (
+    <span className="whitespace-pre-wrap break-words text-foreground">
+      <span className="block">{t(lang, statusLabelKey(status))}</span>
+      <span className="block text-muted-foreground">{fmt(value)}</span>
+    </span>
+  );
 }
 
 export function JiraConflictsModal({
@@ -246,9 +279,7 @@ export function JiraConflictsModal({
                               disabled={lockedRemote}
                               className="mt-0.5"
                             />
-                            <span className="whitespace-pre-wrap break-words text-foreground">
-                              {fmt(f.localValue)}
-                            </span>
+                            <ConflictValue lang={lang} fieldKey={f.key} value={f.localValue} status={c.localStatus} />
                           </label>
                         </td>
                         <td className="px-2 py-2 align-top">
@@ -262,9 +293,7 @@ export function JiraConflictsModal({
                               }
                               className="mt-0.5"
                             />
-                            <span className="whitespace-pre-wrap break-words text-foreground">
-                              {fmt(f.remoteValue)}
-                            </span>
+                            <ConflictValue lang={lang} fieldKey={f.key} value={f.remoteValue} status={c.remoteStatus} />
                           </label>
                         </td>
                       </tr>

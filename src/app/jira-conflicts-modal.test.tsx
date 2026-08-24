@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { JiraConflictsModal, type ConflictResolution } from "./jira-conflicts-modal";
 import type { ConflictItem } from "./jira-api";
+import type { TaskStatus } from "./types";
 import { t } from "./i18n";
 
 // Modal and ModalHeader are pure shells — mock them so there is no portal/DOM
@@ -53,6 +54,9 @@ const CONFLICT: ConflictItem = {
   jiraIssueType: "Story",
   remoteDone: false,
   remoteStatus: "To Do",
+  // No completion field is in conflict, so the local and remote status must
+  // agree here (coherent with the fixture carrying no `completedDate` entry).
+  localStatus: "To Do",
   fields: [
     { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
     { key: "priority", localValue: "High", remoteValue: "Low" },
@@ -126,6 +130,9 @@ describe("JiraConflictsModal", () => {
       jiraKey: "PROJ-9",
       remoteDone: true,
       remoteStatus: "Done",
+      // Local completedDate is unset (below), so a coherent local status is
+      // anything but "Done" — the invariant `status==="Done" ⟺ completedDate set`.
+      localStatus: "In Progress",
       fields: [
         { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
         { key: "completedDate", localValue: undefined, remoteValue: "2026-05-09" },
@@ -143,5 +150,52 @@ describe("JiraConflictsModal", () => {
     expect(
       screen.queryByText(t("en-US", "jiraConflictCompletionNote")),
     ).toBeNull();
+  });
+
+  it("renders both halves of the pair on the completion row", () => {
+    // After §226 the completion row can be queued when the DATES are identical
+    // and only the status moved. Rendering the date alone then shows the user
+    // "—" against "—" — two identical values and nothing to choose between.
+    const conflict = {
+      taskId: 7,
+      jiraKey: "PROJ-9",
+      remoteDone: false,
+      remoteStatus: "To Do" as TaskStatus,
+      localStatus: "In Progress" as TaskStatus,
+      fields: [
+        { key: "completedDate" as const, localValue: undefined, remoteValue: undefined },
+      ],
+    } as unknown as ConflictItem;
+
+    setup({ conflicts: [conflict] });
+
+    // Presence alone cannot tell the two sides apart -- a swap that put
+    // remoteStatus under the "local" radio and localStatus under the
+    // "remote" one would still satisfy a plain getByText pair. Anchor each
+    // label on the radio it sits inside: the "local" input is unchecked
+    // (default pick is remote), the "remote" input is checked.
+    const localLabel = screen.getByText("In Progress").closest("label");
+    const remoteLabel = screen.getByText("To Do").closest("label");
+    expect(localLabel).not.toBeNull();
+    expect(remoteLabel).not.toBeNull();
+    const localInput = localLabel!.querySelector("input[type=radio]") as HTMLInputElement;
+    const remoteInput = remoteLabel!.querySelector("input[type=radio]") as HTMLInputElement;
+    expect(localInput.checked).toBe(false);
+    expect(remoteInput.checked).toBe(true);
+  });
+
+  it("leaves a non-completion row rendering the value alone", () => {
+    // Regression fence: every other key is a single field and must be
+    // untouched — no status label may leak onto it.
+    // ★★ Assert on the FIXTURE'S OWN status label, not on some other status:
+    //   CONFLICT carries `To Do` on BOTH sides, so an assertion naming any
+    //   other label ("In Progress", as this once did) passes whether the
+    //   `fieldKey !== "completedDate"` guard exists or not — a vacuous fence.
+    //   `queryAllByText` because dropping the guard renders the label on all
+    //   four value cells, and `queryByText` THROWS on multiple matches rather
+    //   than failing the expectation.
+    setup(); // the shared CONFLICT fixture carries taskName + priority only
+    expect(screen.getByText("Local title")).toBeInTheDocument();
+    expect(screen.queryAllByText(t("en-US", "statusToDo"))).toHaveLength(0);
   });
 });

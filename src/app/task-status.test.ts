@@ -6,6 +6,7 @@ import {
   migrateTask,
   statusSortIndex,
   reconcileStatusFromDate,
+  countSplitTaskPairs,
 } from "./task-status";
 import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 
@@ -221,5 +222,58 @@ describe("reconcileStatusFromDate", () => {
       ),
       { numRuns: 300 },
     );
+  });
+});
+
+describe("countSplitTaskPairs", () => {
+  // The invariant is `status === "Done"` <=> `completedDate` set. These four
+  // rows are the complete truth table for that biconditional, and the fifth is
+  // the Cancelled case reconcileStatusFromDate handles by clearing the DATE.
+  const row = (over: Partial<Task>): Task =>
+    ({
+      id: 1,
+      taskName: "t",
+      status: "To Do",
+      createdDate: "2026-01-01",
+      lastUpdateDate: "2026-01-01",
+      ...over,
+    }) as Task;
+
+  it("counts nothing when every pair is consistent", () => {
+    const tasks = [
+      row({ id: 1, status: "Done", completedDate: "2026-01-01" }),
+      row({ id: 2, status: "In Progress", completedDate: undefined }),
+      row({ id: 3, status: "To Do", completedDate: "" }),
+    ];
+    expect(countSplitTaskPairs(tasks)).toBe(0);
+  });
+
+  it("counts a Done row with no date", () => {
+    expect(countSplitTaskPairs([row({ status: "Done", completedDate: undefined })])).toBe(1);
+    expect(countSplitTaskPairs([row({ status: "Done", completedDate: "" })])).toBe(1);
+  });
+
+  it("counts a dated row that is not Done", () => {
+    expect(countSplitTaskPairs([row({ status: "In Progress", completedDate: "2026-01-01" })])).toBe(1);
+  });
+
+  it("counts a Cancelled row carrying a stray date", () => {
+    // reconcileStatusFromDate repairs this one by CLEARING the date (status
+    // wins for Cancelled), but it is still a broken pair and must be counted.
+    expect(countSplitTaskPairs([row({ status: "Cancelled", completedDate: "2026-01-01" })])).toBe(1);
+  });
+
+  it("counts a Cancelled row with no date as consistent", () => {
+    expect(countSplitTaskPairs([row({ status: "Cancelled", completedDate: undefined })])).toBe(0);
+  });
+
+  it("sums across a mixed list and returns 0 for an empty one", () => {
+    const tasks = [
+      row({ id: 1, status: "Done", completedDate: "2026-01-01" }),
+      row({ id: 2, status: "Done", completedDate: undefined }),
+      row({ id: 3, status: "To Do", completedDate: "2026-02-02" }),
+    ];
+    expect(countSplitTaskPairs(tasks)).toBe(2);
+    expect(countSplitTaskPairs([])).toBe(0);
   });
 });
