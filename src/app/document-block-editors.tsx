@@ -29,11 +29,7 @@
 //  directly. The honest statement is the other way round: bullets is the shape
 //  WITHOUT the cycle, table is the legacy one, and a new editor should copy
 //  bullets. Do not "restore consistency" by adding a second cycle.
-//  ★★ Cite the SYMBOL, never a line distance — an earlier revision of this note
-//  said "eleven lines up" for something ~555 lines DOWN, contradicting the
-//  "bottom of this file" three lines above it. Verify from the repo root
-//  (`docs/open-followups.md` §220 carries the same two commands, and a bare
-//  filename exits 2 there):
+//  Verify from the repo root (`docs/open-followups.md` §220 carries these too):
 //    grep -rn "export . TableBlockEditor" src/app/document-block-editors.tsx
 //    grep -rn 'from "./document-table-editor"' src/app --include=*.tsx
 import { useState, useRef, useEffect } from "react";

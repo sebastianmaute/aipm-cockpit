@@ -14773,7 +14773,7 @@ this guard actually targets (an ACCIDENTAL stale or desynchronised mime over goo
 The re-upload then dies one step later:
 
 ```bash
-grep -n -B 4 -A 2 "if (duplicate && !danglingRef.current.has(duplicate.id)) return duplicate;" src/app/use-document-assets.ts
+grep -n -A 12 "const duplicate = findDuplicate" src/app/use-document-assets.ts
 grep -n -A 4 "isAllowedAssetMime(file.type)" src/app/document-asset-upload.ts
 ```
 

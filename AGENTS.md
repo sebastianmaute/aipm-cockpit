@@ -392,14 +392,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   string: an earlier revision quoted “ASCII text, with CRLF line terminators”, and for this repo's
   sources `file` actually prints `JavaScript source, Unicode text, UTF-8 text[, with CRLF line
   terminators]`, so a reader grepping for “ASCII text” sees no match and concludes nothing. Run it
-  against a known-CRLF and a known-LF file together or the check is vacuous. ★★★ AND DO NOT QUOTE A
-  NUMBER FOR A FILE HERE — a revision of this very paragraph, in the commit that removed an
-  unreproducible absolute two bullets up, immediately added two more: it named a source file as a
-  "LIVE INSTANCE" re-lined to LF and gave its count. That state is LOCAL TO ONE WORKING TREE. The blob
-  is LF and `autocrlf=true`, so any fresh clone or `git checkout` of that file restores CRLF and the
-  count reads 0 — the claim refutes itself on every other machine. ★ `git ls-files --eol <file>` is the
-  durable way to see it (`i/lf w/crlf` is the healthy state here; `i/lf w/lf` is the re-lined one), and
-  it reports the INDEX and WORKING TREE separately, which is the distinction the whole bullet turns on.
+  against a known-CRLF and a known-LF file together or the check is vacuous. ★★ `git ls-files --eol
+  <file>` is the durable check, because it reports the INDEX and the WORKING TREE separately, which is
+  the distinction this whole bullet turns on: `i/lf w/crlf` is healthy here, `i/lf w/lf` is re-lined.
+  ★ Never name a specific file as a re-lined example — that state is local to one working tree, so the
+  claim refutes itself on every other machine.
   Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch via node utf8 write, re-verify. File is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.

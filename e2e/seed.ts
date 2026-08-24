@@ -435,12 +435,16 @@ const E2E_DOCUMENT_ASSETS = [E2E_DOCUMENT_ASSET, E2E_DOCUMENT_ASSET_IMAGE_ONLY] 
  * a `DocumentAsset` row is workspace data and rides IndexedDB like any other
  * slice, but its BYTES live in `document_asset_data`, a Turso side table
  * (document-assets-schema.ts) deliberately kept out of TABLE_NAMES. There is no
- * file-mode equivalent. `loadAssetData(null, ...)` reaches
- * `runTursoPipeline(null, ...)`, which THROWS StorageNotReadyError;
- * attachAssetImages swallows that and stamps `data-asset-missing="true"`. So a
- * plain file-mode seed can only ever produce the DANGLING state — the img never
- * even gets a blob: src, and a spec built on it could not observe a CSP
- * `img-src` regression, because no image load is ever attempted.
+ * file-mode equivalent, so a plain file-mode seed can never resolve an image:
+ * the img never gets a blob: src, and a spec built on it could not observe a
+ * CSP `img-src` regression, because no image load is ever attempted.
+ * ★★ CORRECTED: this used to say `loadAssetData(null, ...)` throws
+ * StorageNotReadyError and `attachAssetImages` "stamps `data-asset-missing`", so
+ * a file-mode seed "can only ever produce the DANGLING state". Both previews now
+ * BAIL on a null Turso config before calling the loader at all — a null config
+ * means asset storage is off, not that the bytes are missing — so no marker is
+ * stamped and the image renders its alt text. The conclusion above is unchanged;
+ * only the mechanism, and the claim about which state you can observe, were.
  *
  * ★★ THE GATE IS `tursoConfig !== null`, NOT THE STORAGE BACKEND, and that is
  * what makes this possible without distorting anything. task-manager.tsx builds

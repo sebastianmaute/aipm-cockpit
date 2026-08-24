@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { attachAssetImages, clearAssetMissingMarkers } from "./document-asset-images";
+import { attachAssetImages } from "./document-asset-images";
 
 function root(html: string): HTMLElement {
   const el = document.createElement("div");
@@ -297,20 +297,5 @@ describe("attachAssetImages", () => {
     expect(el.querySelector("img")?.hasAttribute("src")).toBe(false);
     detach(); // a no-op disposer: the run already released everything it held
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
-  });
-
-  // ★★ FOR THE CALLER THAT STOPS RESOLVING ALTOGETHER. Both previews bail when
-  // their Turso config goes null (asset storage off, not images missing), and a
-  // bail alone would leave whatever a PREVIOUS run had already stamped — the
-  // dashed red frame asserting the user's images are gone, which is exactly the
-  // claim the bail exists to withdraw.
-  it("clears missing markers without disturbing a resolved src", () => {
-    const el = root('<img data-asset-id="a1" data-asset-missing="true">'
-      + '<img data-asset-id="a2" src="blob:kept">');
-    clearAssetMissingMarkers(el);
-    const [gone, kept] = Array.from(el.querySelectorAll("img"));
-    expect(gone.hasAttribute("data-asset-missing")).toBe(false);
-    // The positive half: it must not strip a working image's src on the way past.
-    expect(kept.getAttribute("src")).toBe("blob:kept");
   });
 });

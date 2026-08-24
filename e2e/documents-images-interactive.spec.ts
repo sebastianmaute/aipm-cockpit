@@ -617,15 +617,10 @@ test.describe("document images — live Turso", () => {
   // nothing: `attachAssetImages` set one or the other for every
   // `<img data-asset-id>` it processed. Re-selecting the document brings every
   // image back — for another second or two.
-  // ★★★ THAT INVARIANT NO LONGER HOLDS, so do not reuse this deduction as-is.
-  // Two later additions make `attachAssetImages` legitimately set NEITHER: a run
-  // whose `shouldApply()` reports it stale returns before the write loop, and
-  // both previews now BAIL outright when their Turso config is null (asset
-  // storage off — see `document-asset-images.ts` and `docs/open-followups.md`
-  // §227). Neither applies to THIS diagnosis — it was measured against a live
-  // Turso project with no concurrent repair — but "src absent and no marker" is
-  // now a three-way ambiguity, and the run must be ruled stale or bailed before
-  // it can be read as evidence about the loader.
+  // ★★ `attachAssetImages` can now legitimately set NEITHER — a run its
+  // `shouldApply()` reports stale returns before the write loop, and both
+  // previews bail on a null Turso config. Neither applied here (live Turso, no
+  // concurrent repair), but rule both out before reusing this deduction.
   //
   // USER IMPACT: open a document containing an image and the image appears,
   // then silently vanishes. It is the headline feature of this branch.
