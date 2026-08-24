@@ -48,7 +48,7 @@ import { EmptyState } from "./empty-state";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { htmlEscape } from "./download";
 import { isAllowedAssetMime, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
-import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
+import { assetRefsInDocument, countAssetUsage } from "./document-asset-usage";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { loadAssetData } from "./document-assets-store";
 import type { AssetByteLoader } from "./document-asset-images";
@@ -158,14 +158,14 @@ export function DocumentsAssetSection({
 
   const usage = useMemo(() => countAssetUsage(documents), [documents]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [capMessage, setCapMessage] = useState(false);
+  const [capMessage, setCapMessage] = useState<number | null>(null);
   const enabled = tursoConfig !== null && !isReadOnly;
 
   // ★★★ ONE BATCH, ONE RUNNING STATE — this is a BATCH function even for the
   // single-asset picker path, and collapsing it back to a per-asset one
   // reopens both defects below.
   //
-  // ★★★ (1) THE CAP MUST HOLD ACROSS A BATCH. `assetIdsInDocument(selected)`
+  // ★★★ (1) THE CAP MUST HOLD ACROSS A BATCH. `assetRefsInDocument(selected)`
   // is read from the RENDER closure, and `selected` cannot change inside a
   // synchronous loop — so N per-asset calls all evaluate against the SAME
   // pre-batch id set. At 19 stored images a 5-file paste had all five pass the
@@ -201,13 +201,30 @@ export function DocumentsAssetSection({
   // drop the insert on the floor. `insertAssetById` below is the id-keyed
   // wrapper the picker (which only ever names an already-rendered row) uses.
   //
-  // ★ Enforced HERE (at insert), not by truncating on load — see the module
-  // header's "never drop an over-cap image on load" rule.
+  // ★ Enforced HERE (at insert), not by truncating on load.
   const insertAssets = useCallback(
     (toInsert: readonly DocumentAsset[]) => {
-      setCapMessage(false);
+      setCapMessage(null);
       if (!selected || toInsert.length === 0) return;
-      const present = new Set(assetIdsInDocument(selected));
+      // ★ ONE scan, two consumers: `all` is what the cap counts (tag-agnostic
+      //   — a reference the sanitizer kept on a non-`img` element still spends
+      //   a slot) and `undrawable` is what the message's reclaimable-room
+      //   arithmetic subtracts. Reading them from one call is what stops the
+      //   number shown from disagreeing with the set the cap was enforced
+      //   against.
+      const refs = assetRefsInDocument(selected);
+      const present = new Set(refs.all);
+      // ★★ TRACKED ACROSS THE BATCH, for the same reason `present` and `at` are:
+      // `refs` describes the PRE-batch document and the loop below changes what
+      // it describes. An id already present as a `<span data-asset-id>` is
+      // undrawable AND exempt from the cap (it spends no new slot), so it is
+      // inserted -- as an `<img>`, which makes it drawable. Reading the frozen
+      // `refs.undrawable` afterwards counts it as still-undrawable, which under
+      // the formula below understates `drawn` and so OVERSTATES the reclaimable
+      // room by one. Contrived (it needs a batch that BOTH re-inserts such an
+      // id and skips something else, which only the dedup path can produce),
+      // but the correction is one `delete`.
+      const undrawable = new Set(refs.undrawable);
       let at = selected.blocks.length;
       let skipped = 0;
       for (const asset of toInsert) {
@@ -231,17 +248,80 @@ export function DocumentsAssetSection({
         );
         structural.insert(at, { type: "paragraph", html });
         present.add(asset.id);
+        // ★ The html above is always an `<img>`, so any reference to this id
+        //   that was drawable-by-nothing is drawable now.
+        undrawable.delete(asset.id);
         at += 1;
       }
       // ★★ ONE DECISION FOR THE WHOLE BATCH, announced after it. A per-asset
       // `setCapMessage` let a later file that inserted fine CLEAR the message a
       // skipped earlier one had just set.
-      // ★★ The existing `assetLibraryMaxPerDocument` string does not name HOW
-      // MANY files were skipped, and it is still the right one: it states the
-      // cap and, by the time it shows, the document is holding it. Saying "N
-      // skipped" would need a new i18n key, which this change deliberately
-      // does not add.
-      if (skipped > 0) setCapMessage(true);
+      // ★★ IT STILL DOES NOT NAME HOW MANY FILES WERE SKIPPED, deliberately:
+      // by the time the message shows, the document is holding the cap, and the
+      // number that helps is not "N refused" but how much room the user could
+      // actually reclaim. A `<span data-asset-id>` spends a slot, contributes to
+      // no export and lands in none of the export's `inlined`/`omitted`/`missing`
+      // buckets — so a user at the cap saw a full document with nothing on
+      // screen to account for it (open-followups §218).
+      //
+      // ★★★ REPORT RECLAIMABLE ROOM, NEVER `undrawable.size` — THAT WAS WRONG IN
+      // BOTH DIRECTIONS, and each direction is pinned by a test.
+      //   (a) IT COULD EXCEED THE CAP IT HAD JUST QUOTED. Nothing enforces the
+      //       cap on LOAD, so `refs.all` is UNBOUNDED: a document holding 21
+      //       `<span data-asset-id>` references announced "the maximum of 20
+      //       images. 21 of these slots …" — 21 of 20.
+      //   (b) IT WAS ACTIONABLE-SOUNDING AND INERT. At 20 `<img>` PLUS 3
+      //       `<span>` it said 3, but the drawable images alone already hold the
+      //       whole cap, so deleting all three spans frees NOTHING. The message
+      //       sent the user to do work with no effect.
+      // `drawn` is the references an export can actually draw, so
+      // `cap - drawn` is what removing every undrawable reference would buy.
+      // ★★ THE RANGE IS STRUCTURAL, not a coincidence of the fixtures:
+      // `undrawable` is built as `all` MINUS `drawable` and the loop only ever
+      // adds to `present` and deletes from `undrawable`, so `undrawable` stays a
+      // subset of `present` and `drawn` is never negative — which bounds
+      // `freeable` at or below the cap.
+      // ★★ `Math.max` GUARDS THE OTHER END AND IS DELIBERATELY NOT PINNED,
+      // because NO test could pin it: it only fires for a document imported
+      // over the cap in DRAWABLE images (21 `<img>`, `drawn` 21), and there the
+      // clamped 0 and the unclamped -1 render IDENTICALLY — the `capMessage > 0`
+      // branch below rejects both, so the plain wording shows either way. It is
+      // kept so the value never contradicts its own name, not because anything
+      // observes it. Do not add a test asserting the plain wording at 21 images
+      // and call it coverage for this line: it passes with the clamp deleted.
+      // ★★ THE COUNT USES THE BATCH-LOCAL `undrawable`, NOT `refs.undrawable` --
+      // see the set's declaration above: an id this batch just re-inserted as an
+      // `<img>` is drawable by the time the message renders.
+      // ★★ THE STATE CARRIES THE NUMBER, NOT A BOOLEAN, so the message cannot
+      // report a value it did not compute; a legitimate 0 keeps the plain
+      // `assetLibraryMaxPerDocument` wording, and BOTH branches are tested.
+      // ★★★ AN EARLIER WORDING HERE NAMED A MUTATION THESE TESTS DO NOT MISS.
+      // It said a test on the reclaimable-room wording alone "stays green with
+      // the condition inverted". It does not — and a comment crediting a test
+      // with catching something it never sees is the same shape as
+      // open-followups §216, where this very slice's spec AND plan both claimed
+      // the golden suite pinned bytes it does not touch. So: both mutants below
+      // were PLANTED AND RUN, 2026-08-24, then reverted, with
+      // `npx vitest run documents-asset-section.test.tsx --maxWorkers=1`
+      // (36 tests in the file):
+      //   `capMessage > 0` -> `capMessage <= 0`, a true INVERSION: 8 red, and
+      //     the two reclaimable-room WORDING tests are among them ("says how
+      //     much room …" and "never claims more … than the cap itself"). The
+      //     old claim is refuted by the very tests it named.
+      //   `capMessage > 0` -> `capMessage >= 0`, the guard weakened to
+      //     ALWAYS-TRUE: 6 red, and BOTH wording tests stay GREEN. Same
+      //     behaviour as collapsing this ternary to its Freeable arm, because
+      //     `Math.max` above keeps the value at or above zero. Every user at a
+      //     genuinely full document would then be told "… would make room for 0
+      //     more".
+      // So the always-true mutant is the one the plain branch is here for, and
+      // its detectors are the SIX cases asserting the plain wording — only
+      // three of them in the cap-message describe; the rest sit in "documents
+      // asset insertion" and "per-document cap across a batch", so this branch
+      // survives that describe block being deleted.
+      const drawn = present.size - undrawable.size;
+      const freeable = Math.max(0, ASSET_MAX_PER_DOCUMENT - drawn);
+      if (skipped > 0) setCapMessage(freeable);
     },
     [selected, structural],
   );
@@ -348,7 +428,16 @@ export function DocumentsAssetSection({
           {error ? t(lang, UPLOAD_ERROR_KEY[error]) : ""}
         </span>
         <span role="status" className="text-xs text-ui-pink">
-          {capMessage ? t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT)) : ""}
+          {capMessage === null
+            ? ""
+            : capMessage > 0
+              ? t(
+                  lang,
+                  "assetLibraryMaxPerDocumentFreeable",
+                  String(ASSET_MAX_PER_DOCUMENT),
+                  String(capMessage),
+                )
+              : t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT))}
         </span>
       </div>
       <AssetLibrary

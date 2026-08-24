@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.258.0";
-export const APP_BUILD_DATE = "2026-08-24"; // 0.258.0: Jira/task-status pair fixes (Mandelo)
+export const APP_VERSION = "0.258.1";
+export const APP_BUILD_DATE = "2026-08-24"; // 0.258.1: document image evidence (Mandelo)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.258.x line is "Mandelo" (this slice's codename — no bio recorded for it
  *  here; not asserting one now rather than guessing, per the 0.236.x note

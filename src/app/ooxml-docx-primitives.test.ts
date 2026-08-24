@@ -282,23 +282,32 @@ describe("the workspace exporter's page is untouched", () => {
 // workspace exporter, so an empty `media` array must add no `Default` entry, no
 // part and no relationship.
 //
-// ★★★ THE ONLY THING ENFORCING THAT IS THE BYTE-IDENTITY TEST BELOW, plus its
-// companion assertion that the empty package contains no `image/` at all. An
-// earlier revision of this comment said the exporter's bytes are "pinned by the
-// `export-ooxml` golden suite" and that a red `export-ooxml` here is "a BROKEN
-// CONTRACT, never a fixture to regenerate". Both halves were false, and this is
-// the file a reader opens WHEN A TEST GOES RED — so it sent them to a gate that
-// cannot see this contract and to a fixture that does not exist. There is no
-// `.docx` byte fixture anywhere in the repo (`src/app/__fixtures__/` holds only
-// golden-workspace.csv and .md), `golden-workspace.test.ts` never mentions docx,
-// and `export-ooxml.test.ts` asserts part PRESENCE and document.xml SUBSTRINGS —
-// never package bytes. Measured, not assumed: hardcoding a
-// `<Default Extension="png"/>` into the empty case reddens the two tests here
-// and leaves `export-ooxml` GREEN.
+// ★★ THE BYTE-IDENTITY TEST BELOW IS NO LONGER THE ONLY THING ENFORCING IT —
+// two earlier revisions of this comment said it was, the first of them also
+// sending a reader to the `export-ooxml` golden suite, which cannot see this
+// contract at all. `ooxml-package-manifest.test.ts` closed the gap: it digests
+// every part of the media-free package IN ZIP ORDER against
+// `docs/baselines/ooxml-parts.json`, and that one DOES fail on a change nobody
+// thought to assert. Measured while closing open-followups §216 — the mutant
+// that opened the entry (a `<Default Extension="png" ContentType="image/png"/>`
+// forced into the empty-media case) reddens it with "the CONTENT of 1 part(s)
+// changed: [Content_Types].xml", and a pure REORDER of two adjacent zip entries
+// (same part set, same digests, unchanged byte count) reddens it too, naming
+// the order. The reorder is the evidence for ordered over sorted: a sorted
+// manifest is green there by construction.
 //
-// ★ The same correction landed on `buildDocxPackage`'s own docstring in
-// `ooxml-docx-primitives.ts`; that commit touched only the `.ts`, which is how
-// this copy outlived it. `ooxml-pptx-primitives.test.ts` states it correctly.
+// ★★ THE TEST BELOW IS STILL WEAKER THAN ITS NAME — read it as what it is. It
+// compares `buildDocxPackage(body, "", "portrait")` against
+// `buildDocxPackage(body, "", "portrait", [])`, the builder against ITSELF, so
+// it proves the `media` parameter is ADDITIVE and nothing about what the
+// package contains. What caught the original mutant here was the trailing
+// `not.toContain("image/")` assertion, never the byte loop above it.
+//
+// ★ `export-ooxml.test.ts` asserts part PRESENCE and document.xml SUBSTRINGS,
+// never package bytes, and there is no `.docx` byte fixture in the repo
+// (`src/app/__fixtures__/` holds only golden-workspace.csv and .md). The
+// manifest replaced the fixture idea on purpose — diffable, and movable only
+// by `npm run ooxml:manifest`, never by a `vitest -u`.
 //
 // ★ Bytes are read back with `../test/unzip-bytes`, not this file's own
 // `readZipEntries`: that one decodes every part as UTF-8, which turns invalid

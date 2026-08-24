@@ -10,14 +10,25 @@
  * jsdom's Blob shim omits `.arrayBuffer()`, and Node's Blob cannot wrap a jsdom
  * Blob as a BlobPart (it serialises to "[object Blob]"). FileReader is the one
  * path both shims implement — same reasoning as `export-ooxml.test.ts`.
+ *
+ * ★ The `.arrayBuffer()` branch is what lets this module run under plain node
+ * (`npm run ooxml:manifest`), where there is no FileReader at all. Under
+ * jsdom the branch is skipped and FileReader still does the work.
  */
 function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
+  if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result as ArrayBuffer);
     reader.onerror = () => reject(reader.error);
     reader.readAsArrayBuffer(blob);
   });
+}
+
+/** The whole archive as bytes — for asserting on the CONTAINER, which
+ *  `unzipBytes` deliberately discards (it returns part data only). */
+export async function blobBytes(blob: Blob): Promise<Uint8Array> {
+  return new Uint8Array(await blobToArrayBuffer(blob));
 }
 
 const LOCAL_FILE_HEADER = 0x04034b50;

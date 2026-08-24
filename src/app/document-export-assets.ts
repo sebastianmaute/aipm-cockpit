@@ -14,13 +14,19 @@ import type { AssetByteLoader } from "./document-asset-images";
  * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
  * identical copies, one per renderer.
  *
- * ★★ It is NOT the only rule in the repo that extracts this attribute, and a
+ * ★★ It is NOT the only rule in the repo that READS this attribute, and a
  * reader who assumes it is will fix a bug in one place: `ASSET_ID_RE`
  * (`document-asset-usage.ts`) matches the ATTRIBUTE on any element and backs
- * the 20-image cap; `ASSET_IMG_RE` (`document-model.ts`) is case-insensitive
- * and accepts all three quoting styles because it runs before any allow-list
- * pass. Both differences are deliberate. The consequence to know: a
- * `<span data-asset-id>` counts against the cap and is invisible here.
+ * the 20-image cap; `ASSET_IMG_RE` (`document-model.ts`) EXTRACTS NOTHING —
+ * it is a `.test()`-only survival predicate deciding whether an image-only
+ * paragraph survives load, which is why it is case-insensitive and accepts all
+ * three quoting styles. (An earlier wording here called all three extractors.)
+ * The divergences are deliberate and the three are deliberately NOT merged;
+ * `assetRefsInDocument` (`document-asset-usage.ts`) carries the relationship
+ * and the reason. The consequence to know: a `<span data-asset-id>` counts
+ * against the cap and is invisible here — but no longer SILENTLY, since that
+ * helper returns it as `undrawable` and the cap message reports how much room
+ * removing every such reference would reclaim (open-followups §218).
  *
  * ★★★ QUOTE-AWARE, and it must stay that way. A plain `[^>]*` stops at the
  * first `>` even inside a quoted attribute value, and that is reachable from
@@ -46,11 +52,46 @@ export const IMG_TAG_RE =
  *  ★ Order is load-bearing twice over: it numbers the OOXML media parts
  *  deterministically and it decides which images survive the byte budget.
  *
- *  ★★ There is NO golden comparison over the OOXML packages — an earlier
- *  wording here said the determinism kept one "stable". The determinism still
- *  matters (a part path that moved between runs would be untestable at all),
- *  but nothing outside each builder's own unit test reads these bytes. See
- *  docs/open-followups.md §216. */
+ *  ★★ There is still no golden PACKAGE over these exports — an earlier wording
+ *  here said the determinism kept one "stable", which was never true. What
+ *  exists since open-followups §216 closed is an ordered part MANIFEST
+ *  (`docs/baselines/ooxml-parts.json`, gated by
+ *  `ooxml-package-manifest.test.ts`), and it covers the MEDIA-FREE packages
+ *  ONLY — so no BASELINE of any kind reaches the bytes a document WITH images
+ *  produces, which is exactly the path this function feeds.
+ *
+ *  ★★ THAT IS NARROWER THAN "NOTHING READS THOSE BYTES", which is what this
+ *  spot said and is false. FIVE test files unzip a media-BEARING package and
+ *  assert over it. Three at the RENDERER level: `doc-render-docx.test.ts`
+ *  compares the media part against the source PNG byte for byte and pins the
+ *  media path list; `doc-render-pptx.test.ts` pins `ppt/media/image1.png` +
+ *  `image2.png` and resolves the rels targets onto them;
+ *  `document-download.test.ts` asserts a media part's length on a docx the
+ *  download surface produced. Two at the BUILDER level:
+ *  `ooxml-docx-primitives.test.ts` byte-compares `word/media/image1.png` and,
+ *  in sibling tests, pins the `<Default Extension="png"
+ *  ContentType="image/png"/>` entry, the `Target="media/image1.png"`
+ *  relationship and the once-only extension declaration;
+ *  `ooxml-pptx-primitives.test.ts` byte-compares `ppt/media/image1.png` and
+ *  pins the per-slide rels target.
+ *
+ *  ★★ THE BUILDER PAIR WAS MISSING FROM THE COUNT THIS REPLACES, and HOW is
+ *  the lesson. The wording before that one excluded them by a QUALIFIER —
+ *  "nothing outside each builder's own unit test" — and the fix round that
+ *  corrected it dropped the qualifier and substituted a flat "THREE", trading
+ *  a wrong-but-qualified claim for a wrong-and-unqualified one that
+ *  under-reported existing coverage by two.
+ *
+ *  ★★ AND THE GREP IT CAME ATTACHED TO SELECTS SOMETHING ELSE. `grep -rln
+ *  unzipBytes src` returns eleven files — the helper, the helper's own test,
+ *  `zip.test.ts`, the media-FREE manifest gate and this module among them.
+ *  No one-line grep answers "unzips a package that HAS media"; the five have
+ *  to be read for, which is why they are named above.
+ *
+ *  What none of the five is, is a baseline: each names a string somebody
+ *  thought to check, so a change nobody anticipated passes all five. The
+ *  determinism still matters on its own terms: a part path that moved between
+ *  runs would be untestable at all. */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {

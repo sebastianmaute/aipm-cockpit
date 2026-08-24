@@ -13423,6 +13423,12 @@ automation here, and no `.docx`/`.pptx` byte fixture to compare a package agains
 suite proves the package is the one the builders meant to write, never that Word accepts it. The
 owed manual pass is §219.
 
+★ **Updated 2026-08-24 — §216 is now CLOSED, and this paragraph is left as written above because
+its point is unchanged.** There is still no `.docx`/`.pptx` byte FIXTURE; what exists is an ordered
+part MANIFEST over the MEDIA-FREE packages only (`docs/baselines/ooxml-parts.json`). Nothing here
+opens a produced file in Word or PowerPoint, nothing gates a media-BEARING package, and §219 is
+still owed.
+
 S3c-1 (0.254.0) shipped document images for the **live preview**, which resolves each
 `<img data-asset-id>` to a blob object URL in `document-asset-images.ts`. ★★ It did NOT finish the
 standalone path, and an earlier wording of this entry said it had ("end to end for the
@@ -14064,9 +14070,14 @@ even less than a branch's, and nobody should read it as coverage.
 --project=chromium` with no `.env.local` and no exported pair — `12 skipped`, exit 0. That is
 exactly what every CI pipeline does.
 
-## 216. There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests
+## 216. There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests — CLOSED 2026-08-24
 
-**Status:** open — a real gap, deliberately not closed in 0.256.0.
+**Status:** CLOSED 2026-08-24 by `feat/documents-image-evidence`. Closed with the MANIFEST option
+this entry's own "Not free" paragraph told whoever closed it to choose between — sorted part paths
+plus per-part digests, not a committed package blob — except ORDERED rather than sorted, for a
+reason the closing note measures. The text below is kept as written; the closing note at the end
+records what was built, the mutation evidence that it answers the complaint, and the boundary it
+does NOT reach.
 
 ★★★ **THE SPEC AND THE PLAN FOR THIS SLICE BOTH ASSERTED THAT THE GOLDEN SUITE PINS THESE
 BYTES. IT DOES NOT**, and Ground Rule 1 of that plan rested on the claim. `src/app/__fixtures__/`
@@ -14111,6 +14122,125 @@ own change" failure the file-size and doc-claims gates exist to prevent. Whoever
 choose deliberately between a committed package and a checked-in MANIFEST (sorted part paths +
 per-part digest), which is diffable and cannot be regenerated thoughtlessly.
 
+### CLOSED 2026-08-24 — what was built, and the measurement that says it answers this
+
+`src/test/ooxml-manifest.ts` reduces a package to an ORDERED `{path, sha256}[]` in ZIP order
+(`packageManifest`) and describes a mismatch part by part (`formatManifestDiff`, which names the
+offending part in every branch — list change, order change, content change).
+`src/app/ooxml-package-manifest.test.ts` compares those packages against
+`docs/baselines/ooxml-parts.json`. It rides the existing `unit-tests` job, so it gates every
+pipeline without a new CI entry.
+
+★★ **THREE SUBJECTS, NOT TWO, AND THEY ARE DEFINED ONCE.** `src/test/ooxml-manifest-subjects.ts`
+exports `MANIFEST_SUBJECTS` — docx (portrait), docx (LANDSCAPE) and pptx — and BOTH the gate and
+the regeneration script import it. The landscape docx is the shape `export-docx.ts` actually
+produces (`buildDocxPackage`'s `page` parameter DEFAULTS to landscape, and the exporter passes two
+arguments), so for a while the only manifested docx was a shape no export path emits; the subject
+now also puts that default itself under the gate. Sharing the definition matters for a second
+reason measured here: `tsconfig.json` EXCLUDES `scripts/`, so when the gate and the script spelled
+the builder calls out separately, tsc never read the script's copy at all and a one-word divergence
+there would have stayed green until the next regeneration moved the baseline to a package the gate
+does not build.
+
+★★ **A REGENERATION MOVES BOTH SIDES OF A DIGEST COMPARISON AT ONCE**, so the gate carries three
+assertions that hold still while the baseline moves, and they do not overlap:
+(1) per subject, the ORDERED list of part paths, spelled out as a literal — not a count. A count
+catches a regeneration that dropped a part and one that added a part, but NOT an add-and-drop pair,
+and when it fails it names nothing. (An earlier cut asserted `toHaveLength(5)` and
+`toHaveLength(11)`.) (2) no `media/` path in any subject's baseline, kept alongside (1) because a
+filter naming `media/` says WHY it failed and a list mismatch does not. (3) per subject, a read of
+the LIVE package asserting `[Content_Types].xml` holds no `image/` — the only one of the three that
+can see a CONTENT-only change, since the other two read the baseline and a mutant that changes what
+a part SAYS without changing which parts exist survives them both.
+Regeneration is `npm run ooxml:manifest` (`scripts/update-ooxml-manifest.ts`, run through `jiti`)
+and nothing else — there is deliberately no `vitest -u` path, because "re-baseline to admit your own
+change" is exactly the failure the "Not free" paragraph above named. `jiti` is now a declared
+`devDependencies` entry at `^2.7.0` (caret — it is not framework-coupled); it had been present only
+transitively.
+
+★★★ **THE MUTATION EVIDENCE, WHICH IS THE WHOLE POINT OF THIS CLOSURE.** The complaint above was
+that a test with "byte" in its name did not fail on the mutant, so a closure without the mutant
+answers nothing. Mutant 1 is that exact mutant — a
+`<Default Extension="png" ContentType="image/png"/>` forced into the empty-media case in
+`ooxml-docx-primitives.ts`. The new gate reddens, the first two lines of the thrown message and its
+whole diff body being:
+
+```
+Error: The media-free docx package no longer matches its baseline.
+
+the CONTENT of 1 part(s) changed:
+  [Content_Types].xml
+      baseline 7c8cf59b65397c3e1d4d38d71bcf9216e0a7b7a11a4154932e3f464f936e35ec
+      actual   d40521b697d1f0fca1f62ec8c457bdb9a8228f9db8e32aa5ab6734672fbd4e59
+```
+
+★★★ **MUTANT 2 IS THE EVIDENCE FOR ORDERED RATHER THAN SORTED — a sorted manifest is green on it by
+construction.** Swap the adjacent `word/document.xml` and `word/styles.xml` zip entries: same part
+set, same digests, unchanged byte count. The gate reddens with this `formatManifestDiff` body,
+which the thrown message wraps in the same header and trailing lines as mutant 1's:
+
+```
+the package's part ORDER changed (a sorted manifest could not see this):
+  baseline: [Content_Types].xml, _rels/.rels, word/_rels/document.xml.rels, word/document.xml, word/styles.xml
+  actual:   [Content_Types].xml, _rels/.rels, word/_rels/document.xml.rels, word/styles.xml, word/document.xml
+```
+
+Both mutants were reverted and the tree verified clean afterwards.
+
+★★ **BOTH BLOCKS ARE EXCERPTS, AND WERE MEASURED BEFORE THE LANDSCAPE SUBJECT LANDED.** Everything
+quoted is verbatim, but neither block is the whole failure: the message
+`expectMatchesBaseline` throws opens with the header line above the diff and CLOSES with three
+lines of guidance — regenerate with `npm run ooxml:manifest` if intended; otherwise you have
+changed one package shape, and any shape absent from `src/test/ooxml-manifest-subjects.ts`, "a
+media-BEARING package above all", is unguarded. Read the live text off
+`ooxml-package-manifest.test.ts` rather than off this entry. And both mutants sit in
+`buildDocxPackage` itself, which BOTH docx subjects now call, so re-running either today reddens
+the landscape subject alongside the portrait one; the quoted output is the portrait subject's.
+The `7c8cf59b…` baseline digest above is still the live one.
+
+★★★ **THE BOUNDARY, STATED HONESTLY: the gate covers the MEDIA-FREE packages ONLY.** A
+media-BEARING package emitting a duplicate `<Default Extension="png">` — the OPC violation
+`ooxml-docx-primitives.ts` warns makes a file Word refuses to open — is outside its reach, and no
+baseline can close that: a media-bearing package's part paths and part count depend on the
+document. Do not read a green manifest run as covering an image-bearing export.
+
+★★ **A SECOND BOUNDARY, ADDED AFTER THE FIRST CUT SHIPPED: a DUPLICATED part path is invisible to
+this gate by construction.** The ordered design catches four failure classes — reorder, addition,
+removal, content change — and an early comment called that "all four" as though the list were
+exhaustive. It is not. `unzipBytes` keys a `Map`, so a second archive entry at a path already seen
+OVERWRITES the first: the manifest then carries neither the extra entry nor the shadowed bytes, and
+the path list, the order and every digest come out unchanged. Nothing reddens. It is out of reach
+BY CONSTRUCTION rather than by oversight — the same `Map` is what makes the ordering property hold
+at all — and these builders emit each path once from fixed code, so it is a blind spot the gate is
+not asked to cover, not a covered case. `src/test/ooxml-manifest.ts` records it at the top.
+
+★★ **AND IT SAYS NOTHING ABOUT THE ZIP CONTAINER, deliberately.** A part manifest cannot see the
+archive's framing: part data carries no timestamp, because the DOS date is written into the local
+file header and the central directory and never into a part's DATA
+(`grep -n "writeU16(dosDate)" src/app/zip.ts` returns two lines — the first inside the local-header
+block, the second inside the central-directory loop; a part's own bytes go out through
+`writeBytes(data)`, untouched by either). That is why the manifest is stable with no
+clock injection, and also why container determinism needed a seam of its own — `buildZip` takes a
+trailing `modified` date whose default is deliberately unchanged, so real exports stay
+byte-identical, and `zip.test.ts` pins that the same injected date yields byte-identical archives,
+that different dates yield different ones, that part DATA is unaffected either way, and that the
+DEFAULT stamps TODAY. Neither gate covers the other.
+
+★★ **THAT FOURTH TEST WAS REWRITTEN WHILE CLOSING THIS ENTRY, and the old form is worth recording
+because it is this entry's own pathology.** It built once with the default and once with
+`new Date(1980, 0, 1)`, asserted the two archives differ, and called itself "still defaults to the
+wall clock". What that proves is only that the default is not exactly 1980-01-01: freeze it at
+`new Date(2020, 0, 1)` and every test in the file stays green, while `buildZip`'s own docstring
+calls a frozen default "a visible user-facing change ... deliberately NOT part of this seam". The
+test now DECODES the stamp — local-header offset 12, `((year - 1980) << 9) | (month << 5) | day`,
+inverted by hand rather than re-encoded — and requires it to equal one of two wall-clock readings
+taken either side of the build, so a run straddling midnight cannot flake and no tolerance is
+needed.
+
+★ **What is STILL not covered is §219**: no test here opens a produced file in Word, LibreOffice or
+PowerPoint, and none can. The manifest proves the package is the one the builders meant to write,
+never that a reader accepts it.
+
 ## 217. Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice
 
 **Status:** open — deliberate in 0.256.0; a size cost, never a correctness one.
@@ -14147,9 +14277,45 @@ therefore ship on unzip-and-inspect evidence alone, against a failure mode (`wp:
 collisions) whose whole point is that one reader tolerates it and another does not. The manual pass
 §219 asks for is the prerequisite, not an optional follow-up.
 
-## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver
+★★ **Updated 2026-08-24 — §216 is CLOSED and this entry's reasoning is UNCHANGED, which is the part
+to check before reading the closure as unblocking anything.** The manifest gate §216 closed with
+covers the MEDIA-FREE packages only. Every package this entry is about carries media, so no
+BASELINE reaches its bytes, and the §219 manual pass remains the prerequisite. THIS ENTRY STAYS
+OPEN.
 
-**Status:** open — both patterns are individually correct; the DIVERGENCE is the defect.
+★ **"Nothing gates its bytes" was the earlier wording here and it overstated.** FIVE test files DO
+unzip a media-bearing package and assert over it. At the RENDERER level:
+`doc-render-docx.test.ts` (the media part against the source PNG, byte for byte, plus the media
+path list), `doc-render-pptx.test.ts` (`ppt/media/image1.png` + `image2.png` and the rels targets
+that resolve onto them) and `document-download.test.ts` (a media part's length on a docx the
+download surface produced). At the BUILDER level: `ooxml-docx-primitives.test.ts` (byte-compares
+`word/media/image1.png`, and in sibling tests pins the
+`<Default Extension="png" ContentType="image/png"/>` entry, the `Target="media/image1.png"`
+relationship and the once-only extension declaration) and `ooxml-pptx-primitives.test.ts`
+(byte-compares `ppt/media/image1.png` and pins the per-slide rels target). They are hand-written
+assertions, not a baseline, and none of them can
+answer the question this entry is blocked on: whether Word, Pages and PowerPoint accept the package
+once the part and shape counters are split. That is §219, and it is still the prerequisite.
+
+★★ **CORRECTED 2026-08-24 — the paragraph above said THREE and cited `grep -rln unzipBytes src` as
+finding the population. BOTH halves were wrong.** That grep returns ELEVEN files: it also catches
+`src/test/unzip-bytes.ts`, that helper's own test, `zip.test.ts`, the media-FREE manifest gate
+(§216) and `document-export-assets.ts` itself — so it never answered the sentence it was attached
+to. And the builder pair was simply omitted. The wording THREE replaced had excluded that pair by a
+QUALIFIER ("nothing outside each builder's own unit test"); the fix round dropped the qualifier and
+substituted a flat count, trading a wrong-but-qualified claim for a wrong-and-unqualified one that
+under-reported existing coverage by two. There is no one-line grep for "unzips a package that HAS
+media" — `grep -rln 'word/media/\|ppt/media/' src --include=*.test.ts` comes closest and still
+returns seven, two of which (`doc-render-pptx-slides.test.ts`, which asserts on a `MediaPart.path`
+and never unzips, and the manifest gate, which matches on a COMMENT) are not in the population.
+★ None of this weakens the conclusion above: what is missing is still a BASELINE.
+
+## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver — CLOSED 2026-08-24
+
+**Status:** CLOSED 2026-08-24 by `feat/documents-image-evidence` — closed the way this entry asked,
+by making the divergence VISIBLE, and explicitly NOT by collapsing the patterns. The text below is
+kept as written; the closing note at the end records what shipped, corrects this entry's own count
+of the patterns, and states what a later reader must not "finish".
 
 Two patterns read asset ids out of a document and they do not agree on what an asset reference is:
 
@@ -14173,6 +14339,128 @@ pattern deliberately does not see — not to collapse them.
 ★ A `<span data-asset-id>` is not reachable through the product's own insertion path today, which
 is why this is a follow-up and not a bug: it arrives through an AI write, a hand-edited blob or an
 import. That also means no test currently seeds one.
+
+### CLOSED 2026-08-24 — made visible, deliberately NOT merged
+
+★★★ **THE PATTERNS WERE NOT MERGED, AND A LATER READER MUST NOT "FINISH THE JOB" BY COLLAPSING
+THEM.** There are THREE, not the two this entry named above, and each is right on its own terms:
+
+| pattern | where | shape | what it is for |
+|---|---|---|---|
+| `ASSET_ID_RE` | `document-asset-usage.ts` | any element, double-quote only, `/g` | tag-AGNOSTIC — deletion safety and the usage count |
+| `IMG_TAG_RE` | `document-export-assets.ts` | `<img`-anchored, `/g` | tag-ANCHORED — an export must only fetch bytes it can draw |
+| `ASSET_IMG_RE` | `document-model.ts`, module-private | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
+
+★★ **`ASSET_IMG_RE` IS NOT AN EXTRACTOR**, and both this entry and `document-export-assets.ts`'s own
+docstring implied it was by listing it beside the other two. It answers a different question at a
+different moment; folding it into either extractor would change what survives load.
+
+★★ **"THREE" COUNTS REGEXES, NOT READERS, and the table reads as exhaustive when it is not.** Two
+further places read `data-asset-id` and neither is a regex, so neither appears above. (1)
+`attachAssetImages` (`document-asset-images.ts`) uses
+`querySelectorAll("img[data-asset-id]")` over an already-rendered subtree — the live preview. That
+is a FOURTH distinct answer: `<img>`-only like `IMG_TAG_RE`, yet tag-case-insensitive and
+quoting-agnostic like `ASSET_IMG_RE`, because a CSS selector runs against parsed markup rather than
+text. (2) `sanitize-html.ts` holds it as an allow-list VALUE predicate in `ATTR_VALUES`
+(`/^[A-Za-z0-9_-]{1,64}$/`), which decides whether an id survives sanitising at all and therefore
+sits UPSTREAM of all four. Enumerate the population before "finishing the job" anywhere here:
+`grep -rln "data-asset-id" src/app --include=*.ts --include=*.tsx`.
+
+`assetRefsInDocument` (`document-asset-usage.ts`) returns `{ all, drawable, undrawable }` in ONE
+pass — the "one shared helper returning both sets" this entry asked for. ★ `undrawable` is computed
+over the WHOLE document, so an id carried on a span in one block and on an `<img>` in another counts
+as drawable and does not inflate the count.
+
+**The relationship table** — five rows. Fourteen of the fifteen cells are ASSERTED, cell for cell,
+by `document-asset-usage.test.ts`'s "the three asset-id patterns and what each deliberately does
+not see". The fifteenth — the span row's *survives load* — is INSPECTED only, and is footnoted:
+
+| reference | counted by the cap | drawable / exported | survives load |
+|---|---|---|---|
+| `<img data-asset-id="x">` (double-quoted) | yes | yes | yes |
+| `<span data-asset-id="x">text</span>` | yes | no | yes † |
+| `<img data-asset-id='x'>` (single-quoted) | no | no | **yes** |
+| `<IMG DATA-ASSET-ID="x">` (uppercase) | no | no | **yes** |
+| `<img data-asset-id="">` (empty id) | no | no | no |
+
+★★★ † **THE VISIBLE TEXT IN THAT SECOND ROW IS LOAD-BEARING, AND AN EARLIER REVISION OF THIS TABLE
+WROTE THE ROW WITHOUT IT.** It read `<span data-asset-id="x">` with *survives load* = yes. Measured
+2026-08-24 through `sanitizeProjectDocuments`, that shape does NOT survive: bare, and
+self-closing-style `<span data-asset-id="x">` too, both come back dropped. `sanitizeBlock`
+(`document-model.ts`) discards a paragraph when `htmlTextLength(html) === 0 &&
+!ASSET_IMG_RE.test(html)`, and `ASSET_IMG_RE` requires `<img` — so a span reference rides through
+load on its TEXT and on nothing else.
+
+★★ **AND THAT CELL IS NOT ASSERTED, WHICH IS WHY THE CLAIM "all measured" WAS WRONG TWICE OVER.**
+The test's span case deliberately checks `{counted, drawable}` and omits *survives load*, and it is
+right to: with visible text in the fixture the paragraph would survive for a reason that has
+nothing to do with the pattern under test, so the assertion would pass vacuously. This is therefore
+the one cell in the table whose regression no test would report — check it by hand if you touch
+`sanitizeBlock`'s paragraph arm.
+
+★★ The last row is the ANTI-VACUITY probe. Without a reference that NO pattern sees, every `yes` in
+the columns above could have been produced by a matcher that matched everything.
+
+★★★ **THE DIVERGENCE IS HARMLESS ONLY BECAUSE OF AN ORDERING, AND THAT ORDERING IS WHAT TO
+PROTECT.** Rows three and four survive load while being invisible to the cap and to every export —
+a real divergence, if stored HTML kept its original quoting. It does not: every load path runs a
+structural pass and THEN `sanitizeDocumentRichFields`, and that second pass is DOMPurify, which
+re-serialises attributes with double quotes and lower-cases tag names. So by the time anything
+counts or exports, only rows one and two are reachable. **Verified at TEN sites** — `workspace.ts`,
+`browser-backend.ts`, `csv-codecs-config.ts`, `markdown-codecs-core.ts` and `turso-schema.ts`, each
+twice (documents and `documentVersions`). `sanitizeDocumentRichFields` lives in
+`document-rich-fields.ts`.
+
+★★ **THE ORDER HOLDS AT TEN; THE EXPRESSION HOLDS AT FIVE, AND THIS PARAGRAPH USED TO QUOTE THE
+EXPRESSION.** It read "every load path runs `sanitizeProjectDocuments(raw).map(
+sanitizeDocumentRichFields)`" — that literal composition is the DOCUMENTS half only, one occurrence
+per load path, and `csv-codecs-config.ts` wraps it across two lines so a reader grepping the
+one-line form finds four rather than five. The `documentVersions` half at each of the same five
+sites composes differently: `sanitizeDocumentVersions(...)`, which routes through
+`sanitizeProjectDocuments` internally, then a per-version `sanitizeDocumentRichFields` over that
+version's blocks. Same ORDER, different spelling. Grep the order, not the string.
+
+★★★ **AND "NOW PINNED BY A TEST" OVERSTATED WHAT ONE TEST CAN PIN.** `document-asset-usage.test.ts`'s
+"the load path normalises quoting BEFORE anything counts references" now carries TWO cases, and the
+difference between them is the whole point. The FIRST composes the two passes BY HAND: it pins the
+CONSEQUENCE of that composition, never that any real load path uses it — it imports neither
+`turso-schema.ts` nor `csv-codecs-config.ts`, so reversing the order in either leaves it green. The
+SECOND drives `jsonToWorkspace` end to end, and is MUTATION-PROVED (2026-08-24): deleting
+`.map(sanitizeDocumentRichFields)` from that decoder's `documents` branch turns it red with
+`expected [] to deeply equal [ 'c' ]` while the hand-composed case above it stays green, and the
+mutant was reverted with `git diff --numstat src/app/workspace.ts` proving zero lines. So exactly
+ONE of the ten compositions is gated; the other nine are verified by inspection.
+
+★ **ONE REVERSAL EXISTS AND IS CORRECT**: `ai-document-blocks.ts` runs `sanitizeAiDocumentRichText`
+per block BEFORE the structural pass. That is an AI WRITE path, not a load path, so the order is
+inverted on purpose. Do not "align" it with the ten.
+
+★★ **The user is now told why the cap filled**, which was this entry's other half. `capMessage`
+carries a NUMBER rather than a boolean, so the message can never render a value it did not compute;
+`assetLibraryMaxPerDocumentFreeable` (EN + DE) renders when that number is above zero and the plain
+`assetLibraryMaxPerDocument` otherwise. Both branches are tested. `ASSET_MAX_PER_DOCUMENT` is 20,
+exported from `document-asset-upload.ts`.
+
+★★★ **THE NUMBER IS RECLAIMABLE ROOM, NOT A COUNT OF UNDRAWABLE REFERENCES — and until 0.258.1 it
+was the latter.** `undrawable.size` was wrong in BOTH directions, and each is now pinned by its own
+test in `documents-asset-section.test.tsx`:
+
+- **It could EXCEED the cap it had just quoted.** Nothing enforces the cap on LOAD, so `all` is
+  unbounded, and a document holding 21 `<span data-asset-id>` references announced "the maximum of 20 images. 21 of these slots are
+  held by …". Pinned by "never claims more reclaimable room than the cap itself".
+- **It was actionable-sounding and INERT.** At 20 `<img>` PLUS 3 `<span>` it said 3, while the
+  drawable images alone already hold the whole cap, so deleting all three frees nothing at all.
+  Pinned by "falls to the plain wording when removing every undrawable reference frees nothing".
+
+It now reports `max(0, cap - (all - undrawable))` — how many more images could be added once every
+undrawable reference is gone. The range is structural, not a property of the fixtures:
+`undrawable ⊆ all` because it is BUILT by filtering `all`, so the subtraction cannot go negative
+and the result cannot exceed the cap. And it reaches 0 — and so falls to the plain wording — in
+exactly the case where removing those references would free nothing.
+
+★★ Read §231 before trusting the number, because BOTH of its halves reach it: a `data-asset-id` a
+user merely TYPED into a paragraph supplies room reclaimable only by deleting that sentence, and a
+crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-reports the room.
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
@@ -15144,3 +15432,85 @@ Not reachable today — `workspace-panels.tsx` always builds the bag and its `pr
 caller that omits the bag entirely, i.e. tests. But a future caller passing `""` would query
 `project_id = ""`, match nothing, and stamp every image in a version preview as missing. Normalising
 the modal the way its siblings already do closes it.
+
+## 231. `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one
+
+**Status:** OPEN. Found by cold review of the 0.258.1 slice, 2026-08-24; both halves reproduced
+before this entry was written. **Both are PRE-EXISTING** — `assetIdsInDocument` has had these
+semantics since it was extracted, and neither is a regression of this branch. They go on the record
+now because 0.258.1 newly RENDERS the consequence: the cap message reports how much room removing
+the references nothing can draw would reclaim, so a document at the cap for either reason below now
+shows a user a number derived from them.
+
+The two extractors do not agree, and one of them is quote-blind:
+
+```bash
+grep -n "ASSET_ID_RE = " src/app/document-asset-usage.ts
+grep -n -A 2 "export const IMG_TAG_RE" src/app/document-export-assets.ts
+```
+
+`ASSET_ID_RE` is a bare `/data-asset-id="([^"]*)"/g` over `block.html`. `IMG_TAG_RE` skips quoted
+attribute values (`(?:[^>"']|"[^"]*"|'[^']*')*`) and anchors on `<img`. Running BOTH over three
+document fragments — measured, not reasoned:
+
+```
+alt-first | ASSET_ID_RE: [" data-asset-id="] | IMG_TAG_RE: ["real"]
+id-first  | ASSET_ID_RE: ["real"]            | IMG_TAG_RE: ["real"]
+text-node | ASSET_ID_RE: ["abc"]             | IMG_TAG_RE: []
+```
+
+where `alt-first` is `<img alt="data-asset-id=" data-asset-id="real">`, `id-first` is the same two
+attributes in the other order, and `text-node` is `<p>data-asset-id="abc"</p>`.
+
+★★ **HALF ONE — TYPED PROSE COUNTS AGAINST THE CAP, and this refutes a claim that has been sitting
+in `document-asset-usage.ts`'s own header.** That header said a literal `data-asset-id="…"` in TEXT
+content "would already have been escaped on the way in" by `sanitizeDocumentHtml`. It is not:
+`<p>data-asset-id="abc"</p>` round-trips that sanitizer **byte-identical**. HTML text-node
+serialization escapes `&`, `<` and `>` and never `"`, so there is nothing for it to change. A user
+who types the attribute's spelling into a paragraph spends a slot, and it lands in `undrawable`, so
+the cap message counts it as room that could be reclaimed — truthfully, since nothing can draw it,
+but the only way to reclaim that slot is to delete the sentence they wrote, and a message about
+"references no export can draw" gives them no way to guess that.
+
+★★★ **HALF TWO IS ATTRIBUTE ORDER, AND THE BRIEF THAT PROMPTED THIS ENTRY HAD THE SHAPE THE WRONG
+WAY ROUND.** The bleed is real: an asset name is free text, `htmlEscape` escapes `& < > "` and NOT
+`=`, so a name of `data-asset-id=` survives into an `alt`, the document sanitizer keeps it verbatim,
+and the regex then matches the alt's trailing `=` against the REAL attribute's opening quote. `all`
+holds the phantom of the `alt-first` row above and the real id is absent — it spends no cap slot and
+can be re-inserted, defeating dedup.
+
+★★★ **TWO THINGS KEEP THE APP OUT OF IT AND IT TAKES BOTH — an earlier wording here argued safety
+from attribute ORDER alone, which is necessary and NOT sufficient.** FIRST, the only writer in the
+app puts the id FIRST:
+
+```bash
+grep -rn 'data-asset-id="' src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+returns one construction site (`documents-asset-section.tsx`), spelling
+`<img data-asset-id="…" alt="…">` — the `id-first` row above, which extracts CLEAN. SECOND, that
+same loop gives each image its OWN block (`structural.insert(at, { type: "paragraph", html })`),
+`assetIdsInBlock` scans per block, and `document-block-editors.tsx` renders any `<img>`-bearing
+paragraph read-only (`if (paragraphHasImage(block.html))`), so nothing on this surface can append a
+second image to a paragraph that already holds one. Order alone would NOT be enough: the regex
+crosses `<img>` boundaries WITHIN a block.
+
+```bash
+node -e 'const RE=/data-asset-id="([^"]*)"/g;for(const s of ["<img data-asset-id=\"real\" alt=\"data-asset-id=\">","<img data-asset-id=\"real1\" alt=\"data-asset-id=\"><img data-asset-id=\"real2\" alt=\"x\">"])console.log(JSON.stringify([...s.matchAll(RE)].map(m=>m[1])))'
+# ["real"]
+# ["real1","><img data-asset-id="]
+```
+
+So the upload/rename/insert path cannot reach this; an imported or hand-edited workspace, an AI
+write, or any future writer that orders the attributes differently — or puts two images in one
+paragraph — can. Do not record this as "renaming an asset breaks the cap" — it was measured, and it
+does not.
+
+★ **`IMG_TAG_RE` is right on all three rows**, so `documentAssetIds` and the export buckets are
+unaffected by either half. The divergence is entirely on the cap/usage side.
+
+**Shape of the fix:** make `ASSET_ID_RE` quote-aware the way `IMG_TAG_RE` already is, or route the
+cap through a parse rather than a regex. ★★ Neither is free and §218 is the reason: the two
+extractors are deliberately NOT merged, and the cap's tag-AGNOSTIC reading is load-bearing for
+deletion safety. Widening `ASSET_ID_RE` toward `<img>`-only would silently change what the cap
+counts and what "used in N documents" means. Read §218's table before touching either.

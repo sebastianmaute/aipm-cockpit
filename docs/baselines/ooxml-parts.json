@@ -1,0 +1,99 @@
+{
+  "$comment": "Ordered part manifests for the MEDIA-FREE packages listed in src/test/ooxml-manifest-subjects.ts. Regenerate ONLY with `npm run ooxml:manifest`, and only when you intend the package to change -- see docs/open-followups.md §216.",
+  "docx": {
+    "parts": [
+      {
+        "path": "[Content_Types].xml",
+        "sha256": "7c8cf59b65397c3e1d4d38d71bcf9216e0a7b7a11a4154932e3f464f936e35ec"
+      },
+      {
+        "path": "_rels/.rels",
+        "sha256": "e9369a2425724259c87f4b280c2466ca505ff37212fdb8daeccdfd73ffb27101"
+      },
+      {
+        "path": "word/_rels/document.xml.rels",
+        "sha256": "c4424d40b3965466e429ebc82690c78d98dc094bb3163b45d731182baa3fac73"
+      },
+      {
+        "path": "word/document.xml",
+        "sha256": "6b1a60803a22b0d11687479011218f68ecaf98ff3a83d97056efb4eda1d0f533"
+      },
+      {
+        "path": "word/styles.xml",
+        "sha256": "398b1d5089f1b5573a6ea62edeff02c7caa51333934296749d781d72e6e12409"
+      }
+    ]
+  },
+  "docxLandscape": {
+    "parts": [
+      {
+        "path": "[Content_Types].xml",
+        "sha256": "7c8cf59b65397c3e1d4d38d71bcf9216e0a7b7a11a4154932e3f464f936e35ec"
+      },
+      {
+        "path": "_rels/.rels",
+        "sha256": "e9369a2425724259c87f4b280c2466ca505ff37212fdb8daeccdfd73ffb27101"
+      },
+      {
+        "path": "word/_rels/document.xml.rels",
+        "sha256": "c4424d40b3965466e429ebc82690c78d98dc094bb3163b45d731182baa3fac73"
+      },
+      {
+        "path": "word/document.xml",
+        "sha256": "b19e760243b63664113c71fe48f2f06c20afb0f0e58d19bb2641f0f5cfd0066f"
+      },
+      {
+        "path": "word/styles.xml",
+        "sha256": "398b1d5089f1b5573a6ea62edeff02c7caa51333934296749d781d72e6e12409"
+      }
+    ]
+  },
+  "pptx": {
+    "parts": [
+      {
+        "path": "[Content_Types].xml",
+        "sha256": "d857c05302827e51b23236a5f0b2f444c9a7e123e274be13b47015d786051ac7"
+      },
+      {
+        "path": "_rels/.rels",
+        "sha256": "2757af6a5a0bd4fa0897c566b6910247967f1890118c622c3748c880032a9a89"
+      },
+      {
+        "path": "ppt/presentation.xml",
+        "sha256": "a5b497763949ee2a459838596ad8ca082533c0bb0159442b3e2689c208a236fc"
+      },
+      {
+        "path": "ppt/_rels/presentation.xml.rels",
+        "sha256": "cfbb0502baca1e310a83a54279ee5bcc19b1922c7cefb42e0dc9d355c7bc9d1a"
+      },
+      {
+        "path": "ppt/slideMasters/slideMaster1.xml",
+        "sha256": "6a3aa7e9d72858387554e12e3b6d8b1561e70cd45198125d886049b3bee94f10"
+      },
+      {
+        "path": "ppt/slideMasters/_rels/slideMaster1.xml.rels",
+        "sha256": "bded52af64b3402034167c2cdf5284e02a2f94820973d2ff92a82c3d68a84291"
+      },
+      {
+        "path": "ppt/slideLayouts/slideLayout1.xml",
+        "sha256": "f6ba51c8c98bd22219f9428dcae0ef1def3b4fe47ffdef3fff5162e789bc0783"
+      },
+      {
+        "path": "ppt/slideLayouts/_rels/slideLayout1.xml.rels",
+        "sha256": "43a5b75da312b975b8dcc15940679fe9bbfbdbd95612d336d326848718b7c83c"
+      },
+      {
+        "path": "ppt/theme/theme1.xml",
+        "sha256": "7dd1b2a70808ca1e3d8258810398e29b6aa1719ca9a460a1dd251d719f48d4a2"
+      },
+      {
+        "path": "ppt/slides/slide1.xml",
+        "sha256": "7b40d58f53bff89709bbfc102a44bb139b79612f19405bf8931ef3375b1ff0a5"
+      },
+      {
+        "path": "ppt/slides/_rels/slide1.xml.rels",
+        "sha256": "b7943affba9546aafcc1d53c78e7885dbe3441691d4163671acb1c0ebc0a08cd"
+      }
+    ]
+  }
+}

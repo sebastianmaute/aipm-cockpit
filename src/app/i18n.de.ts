@@ -4078,6 +4078,8 @@ export const de: Record<TranslationKey, string> = {
   assetLibraryReadOnly: "Bilder sind hier schreibgeschützt – fügen Sie sie im Hauptfenster hinzu.",
   assetLibraryInsert: "Bild einfügen",
   assetLibraryMaxPerDocument: "Dieses Dokument enthält bereits die maximale Anzahl von {0} Bildern.",
+  assetLibraryMaxPerDocumentFreeable:
+    "Dieses Dokument enthält bereits die maximale Anzahl von {0} Bildern. Wenn Sie die Verweise entfernen, die kein Export darstellen kann, wird Platz für {1} weitere frei.",
   assetLibraryPasteDropZone: "Bild einfügen oder hierher ziehen, um es hinzuzufügen",
   assetUploadErrorFormat: "Nicht unterstütztes Bildformat. Verwenden Sie PNG, JPEG oder WebP.",
   assetUploadErrorTooLargeRaw: "Dieses Bild ist zu groß zum Hochladen.",
