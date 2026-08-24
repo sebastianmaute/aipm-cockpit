@@ -33,6 +33,13 @@ describe("mediaExtension", () => {
     // Bounded by the NEXT export rather than a brace scan — `contentTypeFor` is
     // mediaExtension's immediate neighbour, and a concrete name cannot drift the
     // way a counted brace can.
+    // ★★ THE WINDOW INCLUDES WHATEVER SITS BETWEEN THE TWO FUNCTIONS, INCLUDING
+    // `contentTypeFor`'s OWN JSDoc — so writing `case "image/gif"` inside that
+    // comment reddens this test on a docs-only edit (measured). It fails in the
+    // SAFE direction (a spurious red, never a silent green), and tightening the
+    // window to the function's closing brace would reintroduce the brace-counting
+    // this deliberately avoids. Noted so the next reader hunting a code change
+    // for a red run looks at the comment too.
     const endMarker = after.indexOf("export function contentTypeFor");
     expect(endMarker).toBeGreaterThan(-1);
     const body = after.slice(0, endMarker);

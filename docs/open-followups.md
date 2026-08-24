@@ -14195,9 +14195,24 @@ node -e "console.log(require('fs').readFileSync('src/app/document-block-editors.
 Three pure moves did it — the deleted-documents
 section and the rename modal out of `documents-panel.tsx` into `documents-deleted-section.tsx` and
 `documents-rename-modal.tsx`, and `BulletsBlockEditor` out of `document-block-editors.tsx` into
-`bullets-block-editor.tsx`. ★ Each new module is deliberately NOT re-exported from the file it left:
-a re-export would make the two modules import each other, and the point of the move is that the
-extracted surface has no reason to be reached through its former host.
+`bullets-block-editor.tsx`. ★ Each new module is NOT re-exported from the file it left, so consumers
+import it directly.
+★★★ THE REASON FIRST RECORDED HERE WAS FALSE, and it is corrected rather than deleted because it was
+also written into `document-block-editors.tsx` and into this slice's design doc. It said a re-export
+"would make the two modules import each other" — but `document-block-editors.tsx` re-exports
+`TableBlockEditor` while `document-table-editor.tsx` imports `BlockEditorProps` + `useBlockDraft`
+back from it, both as VALUE imports, so that pair is already a live runtime cycle and works. Two
+commands, and the second returns only the re-export line, i.e. nothing imports the table module
+directly:
+```bash
+grep -n 'export { TableBlockEditor }' src/app/document-block-editors.tsx
+grep -rn 'from "./document-table-editor"' src/app --include=*.ts --include=*.tsx
+```
+★★ The claim was also VACUOUS for two of the three new modules: `documents-panel.tsx` has never
+re-exported anything, so "deliberately NOT re-exported" describes a decision that could not have been
+made there. The honest statement is the reverse of the original: bullets is the shape WITHOUT a cycle,
+table is the legacy shape WITH one, and a new editor should copy bullets. Do not restore symmetry by
+adding a second cycle.
 ★★ **No baseline entry was added**, as this entry demanded. `docs/baselines/file-sizes.json` still
 names exactly the same four files, none of them a documents file — the first command below prints
 nothing, the second names them:
@@ -14228,8 +14243,12 @@ baseline entry. Both are STILL at 799, re-measured 2026-08-23 with the command a
 room for exactly ONE net added line before `file-size-ratchet` reports it as `NEW file over 800`.
 Neither is a documents file and neither was in this branch's scope. They appear in this entry as
 CONTEXT for its scheduling argument, never as its subject — so closing here retires the two-files-at-
-800 problem and leaves the two-files-at-799 fact exactly as true as it was. Anyone adding a line to
-either still hits the cap with no ratchet grace, and the near-cap sweep this entry prescribes (walk
+800 problem and leaves the two-files-at-799 fact exactly as true as it was. ★★ Adding ONE line to
+either does NOT fail the gate — `check-file-sizes.mjs` is `if (n <= LIMIT) continue` at `LIMIT = 800`,
+so 799 → 800 PASSES and it takes TWO net lines to fail. An earlier revision of this very paragraph
+said "anyone adding a line to either still hits the cap", three sentences after stating the rule
+correctly; §226's ★★★ is about exactly this misreading, so getting it wrong here was the failure mode
+that entry was opened to prevent. The near-cap sweep this entry prescribes (walk
 `src` for `.ts`/`.tsx`, take `split("\n").length`, print every file at 780—800 that
 `docs/baselines/file-sizes.json` does not name) is still the right first move.
 
@@ -14639,6 +14658,19 @@ reliable enough that a miss really is an anomaly, which is §207 / §212 / §213
 the mime ALONGSIDE the bytes so the two cannot desynchronise at all — at which point this fallback
 becomes dead code and can be deleted against evidence instead of argued about.
 
+★★★ **WHAT THE GUARD ACTUALLY BUYS, AND WHY IT IS NOT A SECURITY BOUNDARY.** §223 frames the threat as
+"an imported or hand-edited workspace carrying an `image/svg+xml` row". Read this entry together with
+that one and the guard is INERT against that actor: anyone who can write `mime: "image/svg+xml"` can
+equally omit the key, blank it, or make it a number, and all three sanitise to `""` — which the truthy
+check documented above deliberately lets through to a typeless `new Blob([bytes])`, left to content
+sniffing. Same bytes, same object URL, guard bypassed by DELETING a field rather than setting one.
+That is not an argument for tightening the check — `!== undefined` would decline working images, which
+is the defect this entry exists to prevent — it is the honest bound on what the change bought: it stops
+an ACCIDENTAL stale or desynchronised mime, never a hostile one. The reason nothing worse follows is
+the one both entries already state: the blob is only ever assigned to `<img src>`, where a sniffed
+document runs no script, and `src/proxy.ts` serves a nonce-only `script-src` with `object-src 'none'`.
+Do not cite this guard as the reason the SVG case is safe.
+
 **Verify the shape claims:**
 
 ```
@@ -14713,3 +14745,48 @@ touch either file gets a red pipeline for what looked like a small change and ha
 `filter` chain and its `EXEMPT` list), so a raw walk of `src` reports files it will never charge — a
 test file at 781 shows up in the 780—800 band and is pure noise. Apply the same filters, or check any
 hit against the gate before acting on it.
+
+## 227. A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy
+
+**Status:** OPEN. Found by cold review of the §223/§225 slice, 2026-08-24. Disclosure only — no data is
+lost and nothing renders that should not.
+
+`document-asset-images.ts` declines an asset whose stored mime is outside the upload allowlist by
+routing it down the SAME sink a missing byte row uses: it sets no `src` and stamps
+`data-asset-missing="true"`, which `globals.css` draws as a dashed red frame plus a warning glyph. So
+the reader is told "this image is missing" for a row whose bytes are present and intact.
+
+The contradiction is one pane away. Dangling detection compares metadata ids against the byte table:
+
+```bash
+grep -n -A 8 "loadAssetDataIds" src/app/use-document-assets.ts
+```
+
+A declined asset HAS a byte row, so it is never dangling — the asset library shows it healthy, with no
+`data-dangling-marker` and no §212 re-upload repair offered. And re-uploading the original file would
+be refused by `checkUploadCandidate` with reason `format` anyway. The user gets a broken image, a
+healthy-looking row, no explanation and no remedy.
+
+★★ **DECLINING IS STILL RIGHT** — rendering bytes the upload policy forbids is the thing worth
+stopping, and §225 records why the guard cannot be tightened (`!== undefined` would decline the
+empty-string mime that real rows carry, breaking working images). What is unfinished is the
+DISCLOSURE, not the decision.
+
+**Shape of the fix:** a distinct marker attribute (`data-asset-blocked`) written instead of
+`data-asset-missing` on the decline branch, styled to the same frame but routed to a "format no longer
+supported" string, and taught to the library row so it stops reporting healthy. The marker plumbing and
+the CSS hook both already exist; this is a new attribute and one i18n key, not a new mechanism.
+
+★ **Second, smaller item, same area.** `documents-history-modal.tsx` reads `assetAccess?.projectId`
+bare, while its two siblings normalise: `document-edit-mode.tsx` uses `assetsProjectId ||
+ASSET_PARTITION_FALLBACK` and `document-preview.tsx` defaults the prop to `ASSET_PARTITION_FALLBACK`.
+
+```bash
+grep -rn "ASSET_PARTITION_FALLBACK" src/app --include=*.tsx | grep -v "\.test\."
+```
+
+Not reachable today — `workspace-panels.tsx` always builds the bag and its `projectId` is already
+`|| ASSET_PARTITION_FALLBACK`, so the modal's own `assetProjectId === undefined` guard fires only for a
+caller that omits the bag entirely, i.e. tests. But a future caller passing `""` would query
+`project_id = ""`, match nothing, and stamp every image in a version preview as missing. Normalising
+the modal the way its siblings already do closes it.

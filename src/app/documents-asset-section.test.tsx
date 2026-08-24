@@ -199,10 +199,14 @@ describe("documents asset library gating", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "upload") })).not.toBeInTheDocument();
   });
 
-  it("disables the library on a file backend", () => {
-    renderSection({ tursoConfig: null });
-    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
-  });
+  // ★★ A FILE BACKEND IS THE SAME CASE AND CANNOT BE TESTED SEPARATELY HERE.
+  // A separate "disables the library on a file backend" test used to sit at
+  // this spot with a byte-identical arrange (`renderSection({ tursoConfig:
+  // null })`) and a strict SUBSET of the assertions above, so it could not
+  // fail unless its neighbour failed first. This component only ever receives
+  // an ALREADY-RESOLVED config, so at this boundary "file backend" and "turso
+  // kind, config unset" are the same input and no fixture can tell them apart
+  // — the distinction lives in the resolver, not here. Do not re-add it.
 
   // ★★ The read-only popout is NOT a storage problem, and saying it is sends
   // the reader off to check Turso settings that are already correct.

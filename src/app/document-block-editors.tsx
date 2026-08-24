@@ -19,9 +19,17 @@
 //  `useBlockDraft` back from this module: `TableBlockEditor`
 //  (`document-table-editor.tsx`, re-exported from the bottom of this file so
 //  callers see one module) and `BulletsBlockEditor`
-//  (`bullets-block-editor.tsx`, imported directly by its consumers — NOT
-//  re-exported here, since that would import the two modules into each
-//  other; see open-followups §220).
+//  (`bullets-block-editor.tsx`, imported DIRECTLY by its consumers).
+// ★★★ THE TWO DIFFER ON PURPOSE, AND THE REASON ORIGINALLY GIVEN HERE WAS
+//  FALSE. It said a bullets re-export "would import the two modules into each
+//  other" — while the table re-export eleven lines up does exactly that, and
+//  works. Verify: `grep -n 'export { TableBlockEditor }' document-block-editors.tsx`
+//  against `grep -n 'from "./document-block-editors"' document-table-editor.tsx`
+//  — both are VALUE imports, so that pair is a live runtime cycle, and nothing
+//  imports `document-table-editor` directly. The honest statement is the other
+//  way round: bullets is the shape WITHOUT the cycle, table is the legacy one,
+//  and a new editor should copy bullets. Do not "restore consistency" by adding
+//  a second cycle.
 import { useState, useRef, useEffect } from "react";
 import { RichTextEditor } from "./rich-text-editor-lazy";
 import { paragraphHasImage, blockChanged, normalizeBlockForStorage, exceedsStorageCaps } from "./document-editor-commit";

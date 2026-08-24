@@ -1253,9 +1253,13 @@ no key union, registry or allowlist, so a new channel needs no registration anyw
 ★★ **CORRECTED: this said the file "sits exactly at" 800 and that splitting them "re-breaks the
 gate". Measured, it is 799** — so a split reaches 800, which the gate PASSES (`if (n <= LIMIT)
 continue`), and it takes TWO added lines to fail. Keep them paired anyway; the margin is one line
-and the next edit to this file spends it. §220 carries the wider problem, which is that
-`documents-panel.tsx` and `document-block-editors.tsx` are both AT 800 already. Never quote a line
-count here — measure it:
+and the next edit to this file spends it. ★★ §220 used to carry the wider problem — that
+`documents-panel.tsx` and `document-block-editors.tsx` were both AT 800 — and **§220 is now CLOSED**:
+three modules were extracted and the two sit well under the cap (measure them with the command below;
+they were 733 and 657 on 2026-08-24). This sentence outlived that fix by pointing at an entry whose
+own close paragraph enumerates what it does not address and never mentions this back-reference — the
+ordinary way a cross-file pointer rots. What remains true is the `use-storage-backend.ts` margin above,
+which §226 now owns. Never quote a line count here — measure it:
 `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`.
 
 ## Test coverage — what is and is not pinned

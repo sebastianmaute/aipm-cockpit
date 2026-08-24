@@ -176,9 +176,18 @@ describe("attachAssetImages", () => {
   // for the constant could find, because it never spelled one. A stored row
   // whose mime is outside `ASSET_MIME_ALLOWED` (an `image/svg+xml` written by
   // an older build, a hand-edited JSON workspace, a desynchronised metadata
-  // table) minted a Blob carrying that type verbatim, and an SVG object URL in
-  // an `<img>` is a script-bearing document. Declined down the SAME marker
-  // path a missing byte row already uses.
+  // table) minted a Blob carrying that type verbatim. Declined down the SAME
+  // marker path a missing byte row already uses.
+  // ★★★ NOT BECAUSE THAT BLOB WOULD RUN SCRIPT — an earlier revision of this
+  // comment said "an SVG object URL in an `<img>` is a script-bearing
+  // document", which contradicts §223 and §225, both of which state that a
+  // blob assigned to `<img src>` runs no script. Those two are right and this
+  // was wrong; it mattered because this is the guard's only discriminating
+  // test, so the false reason was the first one a reader met. The real reason
+  // is consistency of policy: the upload path refuses these bytes, so the
+  // render path must not resolve a row that carries them, whatever put it
+  // there. Treat the guard as policy enforcement, NOT as a security boundary —
+  // §225 records why it cannot be one.
   it("declines an asset whose stored mime is outside the allowlist", async () => {
     const el = root('<img data-asset-id="evil">');
     const detach = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");

@@ -363,7 +363,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   tree is CRLF. A `sed -i` re-lines the working copy to LF, which then CLEANS to the very same blob,
   so the diff body shows only the lines you meant to change. Measured 2026-08-23 in a throwaway repo:
   a 10-line CRLF file, one substitution, `git diff --stat` reporting 1 insertion / 1 deletion while
-  the file went 150 bytes / 10 CRLF to 140 bytes / 0 CRLF. ★★ The SAME experiment at `autocrlf=false`
+  the file lost exactly one byte per line — 10 CRLF became 0, and the byte count fell by 10. ★ The
+  DELTA is the reproducible part; an earlier revision quoted absolute byte counts (150 → 140) that
+  depend entirely on the fixture's line contents, which the sentence never gave, so nobody could
+  reproduce them and a re-run at a different fixture size looked like a contradiction. ★★ The SAME
+  experiment at `autocrlf=false`
   reports 10 insertions / 10 deletions — that control is what pins the attribution; without it this
   is a correlation.
   ★★ **IT CANNOT REACH THE REPOSITORY, which is the half that decides how much to care.** The clean
@@ -383,8 +387,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ That line MUST carry the two-character escapes backslash-r and backslash-n. The first version
   of it shipped with REAL CR and LF bytes in the regex — the only stray CR byte in this entire file
   — and a JS regex literal cannot span a newline, so it died with an unterminated-regexp error for
-  every reader who pasted it. `file <path>` tells “ASCII text, with CRLF line terminators” from plain
-  “ASCII text” and has no escapes to corrupt.
+  every reader who pasted it. `file <path>` discriminates on a trailing “, with CRLF line
+  terminators” suffix and has no escapes to corrupt — ★★ match on THAT SUFFIX, not on a full
+  string: an earlier revision quoted “ASCII text, with CRLF line terminators”, and for this repo's
+  sources `file` actually prints `JavaScript source, Unicode text, UTF-8 text[, with CRLF line
+  terminators]`, so a reader grepping for “ASCII text” sees no match and concludes nothing. Run it
+  against a known-CRLF and a known-LF file together or the check is vacuous. ★★ A LIVE INSTANCE sits
+  in this repo right now: `src/app/icons.ts` is fully re-lined to LF in the working tree with `git
+  status` clean, which is the local-only state described above — the check ABOVE prints 176 for it,
+  and 0 for a CRLF-clean sibling such as `src/app/document-preview.tsx`.
   Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch via node utf8 write, re-verify. File is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
@@ -1317,7 +1328,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
   `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
   `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
-  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu).
+  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu) /
+  `documents-deleted-section.tsx` (the tombstone list + its implausibility guard) /
+  `documents-rename-modal.tsx` (owns `RENAME_TITLE_ID`) / `bullets-block-editor.tsx`.
+  ★★ The last three were extracted to buy ratchet headroom, and the first two are reached ONLY from
+  `documents-panel.tsx` — an extraction moves a surface out of the orchestrator without giving it a
+  second consumer, so do not read their presence here as an invitation to mount them elsewhere.
+  ★★ `bullets-block-editor.tsx` is imported DIRECTLY by its consumers and is deliberately not
+  re-exported from `document-block-editors.tsx`; its sibling `document-table-editor.tsx` IS
+  re-exported and therefore forms a live import cycle with that module. Copy the bullets shape, not
+  the table one — the file's own header carries the measurement and the reason.
   ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
   (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
   one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose
