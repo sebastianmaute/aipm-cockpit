@@ -3,8 +3,18 @@
 //
 // ★★★ ORDERED, NOT SORTED, AND THAT IS THE WHOLE DESIGN. A sorted manifest
 // cannot see a reordering of the archive's entries, and OPC readers can care
-// which part leads a package. Ordered, all four failure classes -- reorder,
+// which part leads a package. Ordered, four failure classes -- reorder,
 // addition, removal, content change -- go red, and each names a part.
+//
+// ★★ A FIFTH IS INVISIBLE, and an earlier revision of the line above said
+// "all four" as if the list were exhaustive. A DUPLICATED part path is not
+// seen at all: `unzipBytes` keys a Map, so a second entry at the same path
+// OVERWRITES the first -- the manifest then carries neither the extra entry
+// nor the shadowed bytes, and the path list, the order and every digest come
+// out unchanged. Nothing here goes red. It is out of reach by construction
+// rather than by oversight (a Map is also what makes the ordering property
+// below hold), and these builders emit each path once from fixed code, so it
+// is a blind spot this gate is not asked to cover -- not a covered case.
 //
 // ★★ It deliberately says NOTHING about the zip CONTAINER. Part data carries
 // no timestamp (the DOS date is a local-header field), which is why this is
