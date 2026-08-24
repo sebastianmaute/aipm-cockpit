@@ -17,9 +17,12 @@
 // is a blind spot this gate is not asked to cover -- not a covered case.
 //
 // ★★ It deliberately says NOTHING about the zip CONTAINER. Part data carries
-// no timestamp (the DOS date is a local-header field), which is why this is
-// stable without any clock injection; the container's determinism is pinned
-// separately by zip.test.ts. Neither covers the other.
+// no timestamp -- the DOS date is written into the local file header and again
+// into the central directory, never into a part's own bytes
+// (`grep -n "writeU16(dosDate)" src/app/zip.ts` returns exactly those two
+// lines; an earlier wording here named only the local header). That is why
+// this is stable without any clock injection; the container's determinism is
+// pinned separately by zip.test.ts. Neither covers the other.
 //
 // ★ Shared by the gate (ooxml-package-manifest.test.ts) and the regeneration
 // script (scripts/update-ooxml-manifest.ts) ON PURPOSE. A manifest the script

@@ -63,6 +63,16 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  whether an image-only paragraph SURVIVES load. It is pinned by the
  *  relationship test in this module's test file instead.
  *
+ *  ★★ "THREE" COUNTS REGEXES, NOT READERS. Two more places read the attribute
+ *  and neither is a pattern, so neither belongs in that comparison and neither
+ *  should be forgotten when changing it: `attachAssetImages`
+ *  (document-asset-images.ts) resolves it through the DOM with
+ *  `querySelectorAll("img[data-asset-id]")` on rendered markup — `<img>`-only,
+ *  but case- and quoting-agnostic, a fourth answer again — and sanitize-html.ts
+ *  holds the allow-list VALUE predicate (`ATTR_VALUES`) that decides whether an
+ *  id survives sanitising at all, upstream of every reader here. Enumerate with
+ *  `grep -rln "data-asset-id" src/app --include=*.ts --include=*.tsx`.
+ *
  *  ★ `undrawable` is computed over the WHOLE document, not per block, so an id
  *  that appears on a span in one block and an img in another is drawable and
  *  is correctly absent — otherwise the cap message would over-report. */

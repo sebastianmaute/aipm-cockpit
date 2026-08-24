@@ -57,10 +57,20 @@ export const IMG_TAG_RE =
  *  exists since open-followups §216 closed is an ordered part MANIFEST
  *  (`docs/baselines/ooxml-parts.json`, gated by
  *  `ooxml-package-manifest.test.ts`), and it covers the MEDIA-FREE packages
- *  ONLY — so nothing outside each builder's own unit test reads the bytes a
- *  document WITH images produces, which is exactly the path this function
- *  feeds. The determinism still matters on its own terms: a part path that
- *  moved between runs would be untestable at all. */
+ *  ONLY — so no BASELINE of any kind reaches the bytes a document WITH images
+ *  produces, which is exactly the path this function feeds.
+ *
+ *  ★★ THAT IS NARROWER THAN "NOTHING READS THOSE BYTES", which is what this
+ *  spot said and is false. THREE test files unzip a media-BEARING package and
+ *  assert over it — `grep -rln unzipBytes src` finds the population:
+ *  `doc-render-docx.test.ts` compares the media part against the source PNG
+ *  byte for byte and pins the media path list; `doc-render-pptx.test.ts` pins
+ *  `ppt/media/image1.png` + `image2.png` and resolves the rels targets onto
+ *  them; `document-download.test.ts` asserts a media part's length on a docx
+ *  the download surface produced. What none of them is, is a baseline: each
+ *  names a string somebody thought to check, so a change nobody anticipated
+ *  passes all three. The determinism still matters on its own terms: a part
+ *  path that moved between runs would be untestable at all. */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {
