@@ -184,6 +184,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               //   `Partial<Task> & { status: TaskStatus }`, so this is the same
               //   single `statusKey` read that produced patch.completedDate.
               remoteStatus: patch.status,
+              localStatus: row.status,
               fields: diffs,
             });
             next.push(row);

@@ -357,6 +357,12 @@ export type ConflictItem = {
    *  user cannot arbitrate it independently of the date without being able to
    *  construct the very split pair this exists to prevent. */
   remoteStatus: TaskStatus;
+  /** The LOCAL row's workflow status at queue time.
+   *  ★ Carried purely so the modal can render the completion row as the PAIR it
+   *  actually is. The merge does not read it — the local arm takes `status`
+   *  from `original`. Without it a status-only conflict renders two identical
+   *  dates and the user cannot see what they are choosing between. */
+  localStatus: TaskStatus;
   fields: ConflictField[];
 };
 
@@ -400,7 +406,25 @@ export function diffTaskAgainstIssue(
   check("priority");
   check("labels");
   check("description");
-  check("completedDate");
+  // ★★★ The completion row represents the PAIR (`status` + `completedDate`),
+  //   not the date alone: the merge writes BOTH halves from the side the user
+  //   picks, and `status` is deliberately not a ConflictFieldKey. So it must be
+  //   queued when EITHER half differs. Testing the date alone dropped a remote
+  //   status move whose date had not changed — and when no other field
+  //   differed this function returned empty, so no conflict was queued at all
+  //   and the move was discarded silently (open-followups §226).
+  // ★ `remoteFields.status === undefined` means the patch says nothing about
+  //   the remote status; treating that as a difference would queue a phantom
+  //   conflict on every sync.
+  const statusDiffers =
+    remoteFields.status !== undefined && local.status !== remoteFields.status;
+  if (fieldsDiffer(local.completedDate, remoteFields.completedDate) || statusDiffers) {
+    out.push({
+      key: "completedDate",
+      localValue: local.completedDate,
+      remoteValue: remoteFields.completedDate,
+    });
+  }
   return out;
 }
 

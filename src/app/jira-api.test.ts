@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
-import { buildJql, classifyJiraError, issueToTaskFields, JiraApiError, type JiraIssue } from "./jira-api";
+import {
+  buildJql,
+  classifyJiraError,
+  diffTaskAgainstIssue,
+  issueToTaskFields,
+  JiraApiError,
+  type JiraIssue,
+} from "./jira-api";
 import { defaultJiraConfig } from "./settings-types";
+import type { Task } from "./types";
 
 describe("classifyJiraError", () => {
   it("classifies 401/403 as auth", () => {
@@ -67,5 +75,47 @@ describe("buildJql multi-project", () => {
   });
   it("returns null when no project is set", () => {
     expect(buildJql({ ...defaultJiraConfig, projectKey: "" })).toBeNull();
+  });
+});
+
+describe("diffTaskAgainstIssue", () => {
+  it("queues the completion row when only the STATUS differs", () => {
+    // Neither side carries a date, so the date test alone finds nothing and the
+    // remote status move was dropped silently (open-followups §226).
+    const local = {
+      id: 1, taskName: "t", status: "In Progress", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "To Do", completedDate: undefined });
+    expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
+
+  it("queues the completion row when only the DATE differs", () => {
+    const local = {
+      id: 1, taskName: "t", status: "Done", completedDate: "2026-01-01",
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "Done", completedDate: "2026-02-02" });
+    expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
+
+  it("queues nothing when both halves of the pair agree", () => {
+    const local = {
+      id: 1, taskName: "t", status: "In Progress", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "In Progress", completedDate: undefined });
+    expect(diffs).toHaveLength(0);
+  });
+
+  it("does not queue a status difference when the remote patch carries no status", () => {
+    // A patch with no `status` says nothing about the remote status; treating
+    // `undefined` as a difference would queue a phantom conflict on every sync.
+    const local = {
+      id: 1, taskName: "t", status: "In Progress", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", completedDate: undefined });
+    expect(diffs).toHaveLength(0);
   });
 });

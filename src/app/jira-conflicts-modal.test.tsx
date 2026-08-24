@@ -53,6 +53,9 @@ const CONFLICT: ConflictItem = {
   jiraIssueType: "Story",
   remoteDone: false,
   remoteStatus: "To Do",
+  // No completion field is in conflict, so the local and remote status must
+  // agree here (coherent with the fixture carrying no `completedDate` entry).
+  localStatus: "To Do",
   fields: [
     { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
     { key: "priority", localValue: "High", remoteValue: "Low" },
@@ -126,6 +129,9 @@ describe("JiraConflictsModal", () => {
       jiraKey: "PROJ-9",
       remoteDone: true,
       remoteStatus: "Done",
+      // Local completedDate is unset (below), so a coherent local status is
+      // anything but "Done" — the invariant `status==="Done" ⟺ completedDate set`.
+      localStatus: "In Progress",
       fields: [
         { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
         { key: "completedDate", localValue: undefined, remoteValue: "2026-05-09" },
