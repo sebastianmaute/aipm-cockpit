@@ -11,6 +11,9 @@ export function jiraCategoryToStatus(categoryKey: string): TaskStatus {
   }
 }
 
+/** The three status categories Jira exposes. */
+export type JiraStatusCategory = "new" | "indeterminate" | "done";
+
 /** The Jira status category that can carry a given local status.
  *
  *  ★★★ The INVERSE of `jiraCategoryToStatus`, and deliberately lossy in the
@@ -25,17 +28,24 @@ export function jiraCategoryToStatus(categoryKey: string): TaskStatus {
  *  ★ `Cancelled` is `done`, not `indeterminate`: it is terminal, and Jira
  *  files cancelled / won't-do resolutions under the done category. Nothing is
  *  lost by it — a cancelled row facing a genuinely completed issue still
- *  differs on `completedDate`, which the caller tests separately. */
-export function statusToJiraCategory(s: TaskStatus): string {
-  switch (s) {
-    case "To Do":
-      return "new";
-    case "Done":
-    case "Cancelled":
-      return "done";
-    default:
-      return "indeterminate";
-  }
+ *  differs on `completedDate`, which the caller tests separately.
+ *
+ *  ★ A `Record<TaskStatus, …>` rather than a switch, matching `STATUS_LABEL_KEY`
+ *  (task-status-ui.ts): a seventh `TaskStatus` then fails to COMPILE here
+ *  instead of falling into a `default:` arm and silently becoming
+ *  `indeterminate`, which could be wrong in either direction depending on what
+ *  the new status means. */
+const STATUS_TO_JIRA_CATEGORY: Record<TaskStatus, JiraStatusCategory> = {
+  "To Do": "new",
+  "In Progress": "indeterminate",
+  "On Hold": "indeterminate",
+  "In Review": "indeterminate",
+  "Cancelled": "done",
+  "Done": "done",
+};
+
+export function statusToJiraCategory(s: TaskStatus): JiraStatusCategory {
+  return STATUS_TO_JIRA_CATEGORY[s];
 }
 
 /** A task whose status is owned by Jira (read-only locally). */
