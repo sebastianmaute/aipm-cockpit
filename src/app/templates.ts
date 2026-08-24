@@ -199,18 +199,18 @@ function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
-  // `migrateTask` derives a valid workflow status (Done-if-completedDate, else
-  // To Do) for legacy/sparse seed content; a present-and-valid status is left
-  // alone, EVEN when it contradicts `completedDate` — its only status write is
-  // guarded `if (!statusOk)`. So the pair is reconciled after it, by trusting
-  // the date: this function reads `status` (a bare cast) and `completedDate`
-  // (via sanitizeIsoDate) independently, and nothing else would reconcile them.
-  // ★ Order is immaterial, and NOT because of migrateTask's short-circuit (§182
-  //   warns about that wrong mechanism). Neither can undo the other: reconcile
-  //   rewrites only `status`; migrate writes `status` only when absent/invalid,
-  //   and then to a value reconcile agrees with (date ⇒ "Done", else
-  //   DEFAULT_TASK_STATUS, which reconcile leaves alone because it is not
-  //   "Done"). Reconcile-last is chosen for readability.
+  // `migrateTask` derives a valid workflow status for legacy/sparse seed
+  // content; a present-and-valid status is left alone, EVEN when it
+  // contradicts `completedDate` — its only status write is guarded on
+  // `!statusOk`. Nothing else reconciles the pair: this function reads
+  // `status` (a bare cast) and `completedDate` independently. So reconcile
+  // runs last — the DATE wins for every status but `Cancelled`, where the
+  // STATUS wins and the stray date is CLEARED (its docstring owns the rule).
+  // ★ Order is immaterial, and NOT because of migrateTask's short-circuit
+  //   (§182 warns about that wrong mechanism). Neither reads what the other
+  //   writes: migrate never touches `completedDate`, reconcile's only input,
+  //   and reconcile emits only VALID statuses, so migrate's `!statusOk`
+  //   backfill either still fires or is pre-empted with the same value.
   return reconcileStatusFromDate(migrateTask(task));
 }
 
