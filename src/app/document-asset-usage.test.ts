@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { assetIdsInDocument, assetRefsInDocument, countAssetUsage } from "./document-asset-usage";
 import { sanitizeProjectDocuments } from "./document-model";
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
+import { jsonToWorkspace } from "./workspace";
 import type { ProjectDocument } from "./document-model";
 
 function doc(id: number, blocks: ProjectDocument["blocks"]): ProjectDocument {
@@ -210,6 +211,37 @@ describe("the load path normalises quoting BEFORE anything counts references", (
     const loaded = structuralOnly.map(sanitizeDocumentRichFields);
     const refs = assetRefsInDocument(loaded[0]);
     expect([...refs.all]).toEqual(["c"]); // the guarantee the ordering buys
+    expect([...refs.drawable]).toEqual(["c"]);
+  });
+
+  // ★★★ THE CASE ABOVE COMPOSES THE TWO PASSES BY HAND, so what it pins is the
+  // CONSEQUENCE of that composition — never that any real load path uses it.
+  // Reverse the order inside `turso-schema.ts` or `csv-codecs-config.ts` and it
+  // stays green. This one drives ONE real load path end to end instead.
+  // `jsonToWorkspace` is the cheapest of the five to reach — a string in, a
+  // Workspace out, no backend — and its `documents` branch IS the composition
+  // under test.
+  //
+  // ★★ MUTATION-PROVED 2026-08-24, not assumed: deleting
+  // `.map(sanitizeDocumentRichFields)` from that branch in `workspace.ts`
+  // reddens THIS case (`[]` where `["c"]` was expected) while the hand-composed
+  // case above stays green — which is the whole difference between the two.
+  //
+  // ★ It pins ONE of the ten compositions. The other four documents-side load
+  // paths and all five documentVersions-side ones are still verified by
+  // inspection alone; open-followups §218 says so in the same terms.
+  it("holds through a REAL load path — jsonToWorkspace, end to end", () => {
+    const raw = JSON.stringify({
+      tasks: [],
+      raid: [],
+      documents: [doc(13, [{ type: "paragraph", html: `<img data-asset-id='c' alt='x'>` }])],
+    });
+
+    const [loaded] = jsonToWorkspace(raw).documents ?? [];
+    expect(loaded).toBeDefined();
+
+    const refs = assetRefsInDocument(loaded!);
+    expect([...refs.all]).toEqual(["c"]);
     expect([...refs.drawable]).toEqual(["c"]);
   });
 });
