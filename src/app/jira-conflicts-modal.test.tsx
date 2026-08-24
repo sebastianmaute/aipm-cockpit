@@ -52,6 +52,7 @@ const CONFLICT: ConflictItem = {
   jiraKey: "PROJ-7",
   jiraIssueType: "Story",
   remoteDone: false,
+  remoteStatus: "To Do",
   fields: [
     { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
     { key: "priority", localValue: "High", remoteValue: "Low" },
@@ -114,5 +115,33 @@ describe("JiraConflictsModal", () => {
     const resolutions = onResolve.mock.calls[0][0] as ConflictResolution[];
     expect(resolutions[0].picks.taskName).toBe("local");
     expect(resolutions[0].picks.priority).toBe("local");
+  });
+
+  it("states on the completion row that the pick also sets the status", () => {
+    // The completion pick writes `status` as well as `completedDate`, so the
+    // row has to say so. The shared CONFLICT fixture carries no completion
+    // field, hence a local one.
+    const conflict: ConflictItem = {
+      taskId: 7,
+      jiraKey: "PROJ-9",
+      remoteDone: true,
+      remoteStatus: "Done",
+      fields: [
+        { key: "taskName", localValue: "Local title", remoteValue: "Remote title" },
+        { key: "completedDate", localValue: undefined, remoteValue: "2026-05-09" },
+      ],
+    };
+    setup({ conflicts: [conflict] });
+    expect(
+      screen.getByText(t("en-US", "jiraConflictCompletionNote")),
+    ).toBeInTheDocument();
+  });
+
+  it("shows no such note when no completion field is in conflict", () => {
+    // Guards the condition: without it the note would render on every row.
+    setup(); // the shared CONFLICT fixture carries taskName + priority only
+    expect(
+      screen.queryByText(t("en-US", "jiraConflictCompletionNote")),
+    ).toBeNull();
   });
 });

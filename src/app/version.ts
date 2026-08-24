@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.256.1";
-export const APP_BUILD_DATE = "2026-08-23"; // 0.256.1: shared-primitive adoption (Khaw)
+export const APP_VERSION = "0.257.0";
+export const APP_BUILD_DATE = "2026-08-23"; // 0.257.0: status/completedDate pair invariant (Shepard)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.256.x line is "Khaw" (Cassandra Khaw, SF/horror author).
+ *  0.257.x line is "Shepard" (Lucius Shepard, SF/fantasy author).
+ *  0.256.x was "Khaw" (Cassandra Khaw, SF/horror author).
  *  0.255.x was "Bisson" (Terry Bisson, SF author).
  *  0.254.x was "Yoshinaga" (Fumi Yoshinaga, SF/fantasy manga author).
  *  0.253.x was "Schroeder" (Karl Schroeder, SF author).
@@ -54,7 +55,7 @@ export const APP_BUILD_DATE = "2026-08-23"; // 0.256.1: shared-primitive adoptio
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Khaw";
+export const APP_MILESTONE = "Shepard";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

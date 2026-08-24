@@ -17,7 +17,7 @@ before your first edit — the rest is reference, reachable from here.
 | [Commands](#commands) | every script + the CI gotcha that bites for each |
 | [Hard constraints](#hard-constraints-ci-enforced--these-gate-merges) | i18n · byte-stable serializers · palette · a11y gate · six write paths · secrets · CSP |
 | [Architecture pointers](#architecture-pointers) | orientation, module maps, extraction conventions, panel splits, toolbar order |
-| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the eleven files below, and why they are not loaded |
+| [Subsystem reference](#subsystem-reference--deeper-detail-loaded-on-demand) | the twelve files below, and why they are not loaded |
 
 **In `docs/AGENTS/`** (NOT loaded — open the one you need):
 
@@ -34,6 +34,7 @@ before your first edit — the rest is reference, reachable from here.
 | [documents](docs/AGENTS/documents.md) | version before-images · retention + tombstones · the single mutation path · `documentVersions` across the six write paths |
 | [rich-text](docs/AGENTS/rich-text.md) | note logs · the seven rich fields · DOM-free vs browser-only · sanitizers + model-write boundaries · export fidelity · the toolbar |
 | [activity-log](docs/AGENTS/activity-log.md) | meta-blob persistence · `logMode` · actors · forward-compat sanitising · the three completion-trend delta shapes |
+| [task-status](docs/AGENTS/task-status.md) | the `status` ⟺ `completedDate` pair · the five writers · load does NOT repair a split pair · `isTaskClosed` vs `isTaskDelivered` |
 
 Conventions used throughout: **★** = a non-obvious rule, **★★** = something that has already
 caused a bug, **★★★** = something that has caused the same bug more than once. Open follow-ups
@@ -44,7 +45,7 @@ live in [`docs/open-followups.md`](docs/open-followups.md), not here.
 any `docs/AGENTS/*.md` exists nowhere in `src`/`scripts`/`e2e`. That is all it does: it proves a NAME
 is real, never that a CLAIM about it is true. "`sanitizeX` guards this path" passes the gate whether
 or not that path calls it. ★★★ NARROWER STILL — **it only checks MIXED-CASE names, so every
-backticked `SCREAMING_CASE` constant in all twelve files is completely ungated.** The scan requires
+backticked `SCREAMING_CASE` constant in all thirteen files is completely ungated.** The scan requires
 both a lowercase and an upper/underscore character (`check-agents-symbols.mjs`, the "mixed case only"
 guard), so `HELP_ENTRIES`, `TABLE_NAMES`, `CONFIG_KEYS`, `A11Y_VIEWS` and every peer are skipped
 outright — a deleted one goes on being documented as current forever. Verified 2026-08-05 by probe,
@@ -79,7 +80,7 @@ disprove, in the same commit.
 | File | Owns |
 |---|---|
 | **AGENTS.md** (this file) | ALWAYS LOADED. Landmines and hard constraints that apply to any task, plus the architecture pointers and module maps. |
-| [`docs/AGENTS/`](docs/AGENTS/) (11 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
+| [`docs/AGENTS/`](docs/AGENTS/) (12 files) | NOT loaded. The per-subsystem deep reference this file used to carry inline — same conventions, same gate. Open the one you are working in. |
 | [`docs/CODEMAPS/`](docs/CODEMAPS/) (5 files) | layered overview — architecture · frontend · backend · data · dependencies. Read these FIRST for shape; AGENTS.md + `docs/AGENTS/` for detail. |
 | [`CONTRIBUTING.md`](CONTRIBUTING.md) | process + conventions: setup, scripts, testing layers, release checklist. |
 | [`docs/RUNBOOK.md`](docs/RUNBOOK.md) | operations: build, deploy, rollback, secrets, and a symptom-indexed "common issues" list. |
@@ -906,68 +907,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   pink/destructive (mirrors `change-edit-modal`) via exported `TaskDeleteButton` (`task-editor-actions.tsx`);
   `TaskFormModal` takes a `deleteAction` prop (the old `TaskEditView` `footerLeading` path is gone).
   Dark-mode hover uses `dark:hover:bg-ui-pink/5`.
-- **Task status model:** `Task.status` (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the
-  SOURCE OF TRUTH for "done", but `completedDate` is AUTO-MANAGED to keep the invariant
-  **`status==="Done" ⟺ completedDate set`** — so the ~30 existing completedDate-based derivations were
-  left untouched. Pure i18n-free engine `task-status.ts`: `applyStatusChange(task,next,today)` is the
-  writer for every LOCAL status mutation — form save, the inline dropdown, bulk edit, the Mark-done CTA,
-  the AI dispatcher and `handleCreateLinkedTask` all route through it.
-  ★★★ IT IS NOT THE SOLE WRITER OF THE PAIR, AND THIS BULLET SAID IT WAS. THREE other paths write
-  `status` and/or `completedDate` without it. TWO are deliberate: **Jira sync** — `issueToTaskFields`
-  builds the patch and `use-jira-sync` applies both fields verbatim; the Kanban bullet below carries
-  the reason (the engine would stamp `today` over Jira's resolution date), so read it there rather
-  than reasoning from here — and **template import**, where `sanitizeSeedTask` takes the two fields
-  from the raw seed INDEPENDENTLY and then calls `migrateTask`, which leaves a VALID-but-inconsistent
-  pair untouched (`docs/open-followups.md` §182 carries the mechanism, and it is NOT the short-circuit
-  below). Do NOT "complete the pattern" by routing either of those two through the engine. The THIRD
-  is not deliberate: the Jira CONFLICT merge writes `completedDate` alone
-  (`docs/open-followups.md` §183).
-  ★★ Re-derive both sets rather than trusting any list here: the engine's callers with
-  `grep -rn "applyStatusChange(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` — which
-  also returns the declaration itself and one `change-log.ts` COMMENT, so it is not a caller count — and
-  the pair-writers with a sweep admitting BOTH the property-literal and the ASSIGNMENT shape — a bare
-  `completedDate:` misses `templates.ts` and the conflict merge outright, and
-  `docs/open-followups.md` §180 carries a form that returns all four. ★ Three kinds of hit in it are not
-  writers: `i18n`/`jira-conflicts-modal` are LABEL maps, the two `*-codecs-decode` hits are load paths,
-  and every `use-task-row-handlers` hit is an undo BEFORE/AFTER capture of what the engine already
-  returned. Read the hit, don't count it.
-  ★★★ THE LOAD-PATH REPAIR IS `migrateTask`, NOT `migrateTaskStatus` (no such function exists), AND
-  IT IS WEAKER THAN THIS BULLET USED TO CLAIM. It runs on all six load paths but only backfills an
-  ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
-  task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
-  NOT repaired. The invariant is held by SOME of the WRITERS, not at load — `applyStatusChange` by construction,
-  and `issueToTaskFields` because BOTH fields derive from one `statusKey` read (`completedDate` through
-  its `isDone` boolean, `status` through `jiraCategoryToStatus`), so THAT PATCH's pair cannot drift.
-  ★★ TWO OF THE FOUR WRITERS DO NOT HOLD IT, so "held by the writers" is a claim about half of them —
-  and the ordinal this line used to carry ("the THIRD writer") named only one. `sanitizeSeedTask`
-  reads `status` and `completedDate` independently off the seed (§182), and the Jira CONFLICT merge
-  in `use-jira-sync` writes `completedDate` from the user's pick while leaving `status` at its LOCAL
-  value (§183) — the same `use-jira-sync` whose three non-conflict write sites DO hold it, so scope
-  any claim about that file to the path. Both are LIVE CODE PATHS that produce the bad pair — "an
-  imported or hand-edited blob" is not merely a hand-editing hazard. The old wording caused three
-  separate defects in one session — every reader concluded load normalises the pair and wrote that
-  into code comments and commit messages.
-  `isTaskFinished`=Done|Cancelled; Cancelled is terminal-but-NOT-completed (excluded from
-  overdue/next-actions/health-red). ★★ SINCE 0.213.0 THE CALLER MUST SAY WHICH QUESTION IT IS ASKING —
-  pure `task-closed.ts` exposes `isTaskClosed(task)` (= `isTaskFinished`, Done|Cancelled → "will this be
-  worked on again?": overdue, schedule RAG, forecast, workload, row styling, chasing, the Gantt status
-  filter, milestone at-risk) and `isTaskDelivered(task)` (= `!!completedDate` → "was it delivered?": the
-  completion-% NUMERATOR, earned value, on-time/late, and anywhere a real date is shown). Cancelled is
-  CLOSED but never DELIVERED. Reading `!!completedDate` as "closed" is the bug that made cancelled tasks
-  keep reporting as open and overdue. ★★ THE CONSUMER LIST THAT USED TO SIT HERE WAS WRONG IN BOTH
-  DIRECTIONS — it named eleven modules, omitting two real importers and including one that imports
-  NEITHER half of the split (only the module's third export, `isTaskOutOfScope`, which the list never
-  mentioned). Derive it, never quote it:
-  `grep -rn "from \"./task-closed\"" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
-  prints each importer WITH the names it takes, which is the part a bare file list cannot carry.
-  ★ Completion-% counts Done only in the NUMERATOR, but since 0.213.0
-  cancelled work is dropped from the DENOMINATOR (`dashboard.ts` `computeDashboardProgress`), so a
-  project with cancelled scope can reach 100%. Reports carry a third `cancelled` bucket — a cancelled
-  task is neither open nor completed there, and never overdue. UI labels via
-  `task-status-ui.ts` (AIPM palette tokens only). ★ The table status column key is **`taskStatus`** — the
-  pre-existing `"status"` col key is the RAG/health DOT (header "Health"/DE "Ampel"). ★ The tasks view
-  ("Open Points") IS in axe `A11Y_VIEWS`, so the inline status `<select>` needs a row-UNIQUE label
-  (`Status – <task>`).
+- **Task status model → [`docs/AGENTS/task-status.md`](docs/AGENTS/task-status.md).** `Task.status`
+  (To Do/In Progress/On Hold/In Review/Cancelled/Done) is the SOURCE OF TRUTH for "done", but
+  `completedDate` is AUTO-MANAGED to keep the invariant **`status==="Done" ⟺ completedDate set`** — so
+  the ~30 existing completedDate-based derivations were left untouched. ★★ A caller must also say WHICH
+  question it is asking: `task-closed.ts` exposes `isTaskClosed` ("will this be worked on again?" =
+  Done|Cancelled) and `isTaskDelivered` ("was it delivered?" = `!!completedDate`) — Cancelled is CLOSED
+  but never DELIVERED, and reading `!!completedDate` as "closed" is the bug that made cancelled tasks
+  keep reporting as open and overdue. ★★★ Open that file before touching any status write: pure
+  `applyStatusChange` (`task-status.ts`) is NOT the sole writer of the pair — FIVE paths write it, each
+  with a mechanism of its own, so "completing the pattern" by routing one through another is the
+  recurring defect here — and the invariant is held by those WRITERS, not at load, which leaves a
+  valid-but-inconsistent pair split on every backend.
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
   (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a
@@ -1432,7 +1383,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 ## Subsystem reference — deeper detail, loaded on demand
 
 ★★★ **Only THIS file reaches every session.** `CLAUDE.md` is `@AGENTS.md`, so
-everything above is loaded before you type anything; the eleven files below are
+everything above is loaded before you type anything; the twelve files below are
 not. That is the whole point of the split — this file had grown to 324 KB
 (~81k tokens) of which ~73% was subsystem reference that most tasks never touch.
 **Open the matching file before editing that subsystem's code.** The landmines
@@ -1454,7 +1405,7 @@ without a single red pipeline. **A bullet that grows past ~60 lines of subsystem
 in `docs/AGENTS/`, and moving it is a NET WIN even when every line of it is true** — which is
 why it regrows: nothing here is wrong, it is merely not worth every session's context.
 
-★★ `npm run docs:symbols:check` gates all twelve files, not just this one — `docs/AGENTS/`
+★★ `npm run docs:symbols:check` gates all thirteen files, not just this one — `docs/AGENTS/`
 is GLOBBED (`readdirSync`), so a new subsystem file is scanned the moment it lands. It still
 proves only that a backticked NAME is real, never that a CLAIM about it is true.
 
@@ -1471,3 +1422,4 @@ proves only that a backticked NAME is real, never that a CLAIM about it is true.
 | [rich-text.md](docs/AGENTS/rich-text.md) | ALL rich HTML — the three note-log registers (each closing the SAME defect by a DIFFERENT mechanism) · the seven rich entity fields · the DOM-free vs browser-only module split · `sanitizeRichText` / `sanitizeAiRichText` / `AI_RICH_FIELDS` write boundaries · the per-sink `isHtmlStart` rule · `RichCell` export fidelity · the `role="toolbar"` keyboard contract |
 | [activity-log.md](docs/AGENTS/activity-log.md) | `Workspace.activityLog` — meta-blob persistence · storage-only on every path · `logMode` REPLACE-by-default · entry ids and actors · forward-compat sanitising · the THREE incompatible completion-trend delta shapes |
 | [documents.md](docs/AGENTS/documents.md) | the DATA half of documents — `DocVersion` before-images · retention + tombstones + the `"restored"` marker · `applyDocMutation` (the single mutation path) · `documentVersions` across all six write paths and both load funnels |
+| [task-status.md](docs/AGENTS/task-status.md) | the task completion model — the `status` ⟺ `completedDate` invariant · the FIVE paths that write the pair and the mechanism each holds it by · why `migrateTask` does NOT repair a split pair · the `isTaskClosed` / `isTaskDelivered` split |

@@ -1485,6 +1485,7 @@ const enUS = {
   jiraConflictField: "Field",
   jiraConflictLocal: "Local (this app)",
   jiraConflictRemote: "Remote (Jira)",
+  jiraConflictCompletionNote: "The side you choose also sets the task status.",
   jiraConflictApply: "Apply choices",
   jiraConflictDefer: "Defer (resolve later)",
   jiraConflictResolved:

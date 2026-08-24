@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
+import fc from "fast-check";
 import {
   isTaskFinished,
   applyStatusChange,
   migrateTask,
   statusSortIndex,
+  reconcileStatusFromDate,
 } from "./task-status";
-import type { Task, TaskStatus } from "./types";
+import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 
 const base = (over: Partial<Task> = {}): Task =>
   ({
@@ -128,5 +130,96 @@ describe("migrateTask createdDate backfill", () => {
   it("returns the same reference when nothing needs migrating", () => {
     const input = { ...base, createdDate: "2026-01-15" };
     expect(migrateTask(input)).toBe(input);
+  });
+});
+
+describe("reconcileStatusFromDate", () => {
+  it("leaves a consistent Done row untouched", () => {
+    const t = base({ status: "Done", completedDate: "2026-03-04" });
+    expect(reconcileStatusFromDate(t)).toBe(t); // same reference — nothing changed
+  });
+
+  it("leaves a consistent open row untouched", () => {
+    const t = base({ status: "In Progress" });
+    expect(reconcileStatusFromDate(t)).toBe(t);
+  });
+
+  it("a date on a non-Done row forces Done and KEEPS the date", () => {
+    const out = reconcileStatusFromDate(base({ status: "To Do", completedDate: "2026-03-04" }));
+    expect(out.status).toBe("Done");
+    expect(out.completedDate).toBe("2026-03-04");
+  });
+
+  it("Done with no date demotes to the default status and invents nothing", () => {
+    const t = base({ status: "Done" });
+    const out = reconcileStatusFromDate(t);
+    expect(out.status).toBe("To Do");
+    expect(out.completedDate).toBe(t.completedDate); // untouched, not merely falsy
+  });
+
+  it("treats an empty-string completedDate as absent, like isTaskDelivered does", () => {
+    const out = reconcileStatusFromDate(base({ status: "Done", completedDate: "" }));
+    expect(out.status).toBe("To Do");
+  });
+
+  it("clears a stray date on a Cancelled row — the STATUS wins, not the date", () => {
+    // Cancelled is CLOSED but never DELIVERED (task-closed.ts), so promoting it
+    // to Done would silently turn an explicit human decision into delivered
+    // work. For this ONE status the date is the stray value, and it is cleared
+    // to "" — the same blank applyStatusChange writes for every non-Done status.
+    const t = base({ status: "Cancelled", completedDate: "2026-03-04" });
+    const out = reconcileStatusFromDate(t);
+    expect(out.status).toBe("Cancelled");
+    expect(out.completedDate).toBe("");
+    expect(t.completedDate).toBe("2026-03-04"); // argument not mutated
+  });
+
+  it("leaves an undated Cancelled row alone, BY REFERENCE", () => {
+    // Guards against clearing outside the date branch: a Cancelled row that is
+    // already consistent must not be churned into a fresh object.
+    const t = base({ status: "Cancelled" });
+    expect(reconcileStatusFromDate(t)).toBe(t);
+  });
+
+  it("does not mutate its argument", () => {
+    const t = base({ status: "To Do", completedDate: "2026-03-04" });
+    reconcileStatusFromDate(t);
+    expect(t.status).toBe("To Do");
+  });
+
+  it("does not mutate its argument on the demotion branch either", () => {
+    const t = base({ status: "Done" });
+    reconcileStatusFromDate(t);
+    expect(t.status).toBe("Done");
+  });
+
+  it("is idempotent", () => {
+    for (const t of [
+      base({ status: "To Do", completedDate: "2026-03-04" }),
+      base({ status: "Done" }),
+      base({ status: "Cancelled", completedDate: "2026-03-04" }),
+    ]) {
+      const once = reconcileStatusFromDate(t);
+      expect(reconcileStatusFromDate(once)).toEqual(once);
+    }
+  });
+
+  it("output always satisfies status===Done ⟺ completedDate set", () => {
+    // ★ NOT fc.date(): it can emit an Invalid Date whose .toISOString() throws —
+    //   green under vitest, red at runtime. Map an integer ms range instead.
+    const isoDay = fc
+      .integer({ min: 0, max: 4102444800000 }) // 1970-01-01 .. 2100-01-01
+      .map((ms) => new Date(ms).toISOString().slice(0, 10));
+    fc.assert(
+      fc.property(
+        fc.constantFrom(...TASK_STATUSES),
+        fc.oneof(fc.constant(undefined), fc.constant(""), isoDay),
+        (status, completedDate) => {
+          const out = reconcileStatusFromDate(base({ status, completedDate }));
+          expect(out.status === "Done").toBe(!!out.completedDate);
+        },
+      ),
+      { numRuns: 300 },
+    );
   });
 });
