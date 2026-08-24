@@ -966,6 +966,39 @@ the `aria-hidden` glyph. ★ `formatBytes` hard-coded a `.` decimal separator an
 in German; both branches route through `Intl.NumberFormat`, so the grouping separator is localised
 too. Never reach for `toFixed` there again.
 
+### The three asset-id patterns, and why they are deliberately NOT merged
+
+★★★ **THREE patterns read `data-asset-id`, they disagree, and every disagreement is intentional.
+Collapsing them is the "finish the job" mistake §218's closure exists to prevent.**
+
+| pattern | where | shape | what it is for |
+|---|---|---|---|
+| `ASSET_ID_RE` | `document-asset-usage.ts` | any element, double-quote only, `/g` | tag-AGNOSTIC — deletion safety and the usage count |
+| `IMG_TAG_RE` | `document-export-assets.ts` | `<img`-anchored, `/g` | tag-ANCHORED — an export must only fetch bytes it can draw |
+| `ASSET_IMG_RE` | `document-model.ts`, module-private | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
+
+★★ **THE THIRD IS NOT AN EXTRACTOR**, and prose in two files used to imply it was by listing it
+beside the other two. It answers a different question at a different moment; folding it into either
+extractor changes what survives load.
+
+★★★ **THE DIVERGENCE IS SAFE ONLY BECAUSE OF AN ORDERING.** A single-quoted or uppercase
+`<img data-asset-id>` survives load while being invisible to the cap and to every export — which
+would be a live defect if stored HTML kept its original quoting. It does not: every load path runs
+`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`, and that second pass is DOMPurify,
+which re-serialises attributes with double quotes and lower-cases tag names. Measured at TEN sites
+(`workspace.ts`, `browser-backend.ts`, `csv-codecs-config.ts`, `markdown-codecs-core.ts`,
+`turso-schema.ts`, each twice — documents and documentVersions) and now pinned by a test. Reorder
+that pair on any load path and rows the cap cannot see start reaching storage.
+
+★ **ONE REVERSAL IS CORRECT AND MUST STAY**: `ai-document-blocks.ts` sanitises per block BEFORE the
+structural pass, because it is an AI WRITE path, not a load path.
+
+★ `assetRefsInDocument` (`document-asset-usage.ts`) computes `{ all, drawable, undrawable }` in one
+pass; `undrawable` is measured over the WHOLE document, so an id on a span in one block and an
+`<img>` in another is drawable and does not inflate the count. The cap message names that count
+(`assetLibraryMaxPerDocumentUndrawable`) rather than reporting a bare "full". Full measurement
+table in `docs/open-followups.md` §218's closing note.
+
 ## Image bytes in every export format (S3c-2)
 
 Shipped 0.256.0 "Khaw". Design in
@@ -1052,15 +1085,47 @@ repo able to notice. Both builders therefore throw if a media part claims `rId1`
 in DOCX, the slide layout in PPTX) and both de-duplicate their `[Content_Types].xml` `Default`
 entries, since two `png` defaults is itself a rejected file.
 
-★★★ **THE TESTS THAT GUARD THAT ARE WEAKER THAN THEIR NAMES SUGGEST — SEE
-`docs/open-followups.md` §216 BEFORE TRUSTING THEM.** There is NO `.docx` or `.pptx` byte fixture
-in this repo (`src/app/__fixtures__/` holds `golden-workspace.csv` and `.md` and nothing else) and
-`export-ooxml.test.ts` asserts part presence and XML substrings, never package bytes. The DOCX
-"byte-identical" test lives in `ooxml-docx-primitives.test.ts`, NOT in `export-ooxml.test.ts`, and
-compares the 3-argument call against the 4-argument one — **the builder against itself** — so it
-proves the parameter is ADDITIVE and nothing about what the package contains; measured, a mutant
-was caught by a trailing `not.toContain("image/")` assertion beside that loop, not by the loop. The design spec and the implementation plan for this slice BOTH claimed
-the golden suite pinned these bytes, and both were corrected when it did not.
+★★★ **EACH BUILDER'S OWN "BYTE" TEST IS WEAKER THAN ITS NAME, AND THAT IS STILL TRUE — what
+changed on 2026-08-24 is that it is no longer the only thing watching.** The DOCX "byte-identical"
+test lives in `ooxml-docx-primitives.test.ts`, NOT in `export-ooxml.test.ts`, and compares the
+3-argument call against the 4-argument one — **the builder against itself** — so it proves the
+parameter is ADDITIVE and nothing about what the package contains; measured, the mutant that opened
+`docs/open-followups.md` §216 was caught by a trailing `not.toContain("image/")` assertion beside
+that loop, not by the loop, and the PPTX equivalent survived it outright. `export-ooxml.test.ts`
+asserts part presence and XML substrings, never package bytes, and there is still no `.docx` or
+`.pptx` byte fixture in this repo (`src/app/__fixtures__/` holds `golden-workspace.csv` and `.md`
+and nothing else). The design spec and the implementation plan for this slice BOTH claimed the
+golden suite pinned these bytes, and both were corrected when it did not.
+
+### The ordered part-manifest gate (§216, closed 2026-08-24)
+
+`ooxml-package-manifest.test.ts` compares the MEDIA-FREE `.docx` and `.pptx` against
+`docs/baselines/ooxml-parts.json`, using `packageManifest` / `formatManifestDiff`
+(`src/test/ooxml-manifest.ts`). It rides the existing `unit-tests` job. Read the symbols for the
+detail; what belongs here is the three properties a reader gets wrong:
+
+★★★ **ORDERED, NOT SORTED.** A sorted manifest cannot see a reordering of the archive's entries,
+and OPC readers can care which part leads a package. Measured while closing §216: a pure swap of
+two adjacent zip entries — same part set, same digests, unchanged byte count — reddens this gate
+and would be green under a sorted one. §216's closing note carries both mutants and the exact
+failure text.
+
+★★★ **MEDIA-FREE ONLY.** Nothing gates the bytes a document WITH images produces, so the duplicate
+`<Default Extension="png">` the builders warn about is outside its reach, and no baseline can close
+that — a media-bearing package's part paths and count depend on the document. A green run here says
+nothing about an image-bearing export.
+
+★★ **IT SAYS NOTHING ABOUT THE ZIP CONTAINER EITHER, and that is why `zip.test.ts` exists
+separately.** A part manifest cannot see the archive's framing: part data carries no timestamp,
+since the DOS date is a local-header field — which is also why this gate needs no clock injection.
+`buildZip` takes a trailing `modified` date for that other seam, its default deliberately
+unchanged so real exports stay byte-identical. Neither gate covers the other.
+
+★★ **REGENERATE WITH `npm run ooxml:manifest` AND NOTHING ELSE.** There is deliberately no
+`vitest -u` path — "re-baseline to admit your own change" is the failure the whole gate exists to
+prevent. Because a regeneration moves both sides of a digest comparison at once, the test also
+asserts the two claims that hold still while the baseline moves: no media part in the baseline, and
+the part counts (docx 5, pptx 11).
 
 ### DOCX: why the paragraph is SPLIT
 
@@ -1187,7 +1252,10 @@ OCCURRENCE, so one image used twice ships twice (§217 — deduplicating needs a
 because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the relationship is
 shared, and today one running index serves as both); and `ASSET_ID_RE` counts a `data-asset-id` on
 ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
-`<span data-asset-id>` consumes a slot and reaches no export bucket at all (§218).
+`<span data-asset-id>` consumes a slot and reaches no export bucket at all. ★★ That second one is
+**§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
+it is now VISIBLE (the cap message names the undrawable count) and pinned. It is described under
+"The three asset-id patterns" above, and only §217 remains open here.
 
 ★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
 does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by

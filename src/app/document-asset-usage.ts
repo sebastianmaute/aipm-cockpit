@@ -1,8 +1,13 @@
 // src/app/document-asset-usage.ts — pure helpers over a document's blocks
 // that count `<img data-asset-id="…">` references. Extracted from
 // documents-asset-section.tsx so both the "used in N documents" column and
-// the per-document 20-image cap check share ONE extraction rule rather than
-// two regexes that can drift.
+// the per-document 20-image cap check share ONE extraction rule.
+//
+// ★★ THAT IS TRUE OF THOSE TWO CONSUMERS ONLY. An earlier wording here said
+// the module existed "rather than two regexes that can drift", which reads as
+// though this file holds the repo's single rule for asset references. It does
+// not: THREE patterns read `data-asset-id`, they are deliberately NOT merged,
+// and `assetRefsInDocument` below carries the relationship and the reason.
 //
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
 // load through sanitizeDocumentHtml), so a literal `data-asset-id="…"` in

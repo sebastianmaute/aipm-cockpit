@@ -519,11 +519,20 @@ export type PptxSlide = { xml: string; media: readonly MediaPart[] };
  *  ★★★ ADDITIVE BY CONTRACT: a deck whose every slide has empty `media` must
  *  produce byte-for-byte the package this builder produced before images
  *  existed — no `Default` entry, no `ppt/media/` part, no extra relationship.
- *  The ONLY thing enforcing that is this file's own test, "leaves the
- *  media-free package byte-for-byte what it was". There is no .pptx byte
- *  fixture in this repo, and `export-ooxml.test.ts` asserts part PRESENCE and
- *  slide-XML SUBSTRINGS — never package bytes — so a reader who assumes the
- *  golden suite covers this is looking at a gate that cannot see it. */
+ *  ★★ Enforced in TWO places since open-followups §216 closed, and this
+ *  docstring used to name only the first: this file's own test, "leaves the
+ *  media-free package byte-for-byte what it was" (frozen literals, pinning
+ *  only the parts it names), and `ooxml-package-manifest.test.ts`, which
+ *  compares the whole media-free deck against the ORDERED 11-part manifest in
+ *  `docs/baselines/ooxml-parts.json` and fails on a content change, an
+ *  addition, a removal or a REORDER, naming the part in each case. Move that
+ *  baseline ONLY with `npm run ooxml:manifest` — there is deliberately no
+ *  `vitest -u` path.
+ *
+ *  ★★ Neither reaches a media-BEARING deck, and `export-ooxml.test.ts` reaches
+ *  none of it: it asserts part PRESENCE and slide-XML SUBSTRINGS, never
+ *  package bytes. There is still no .pptx byte fixture in this repo — the
+ *  manifest replaced that idea on purpose. */
 export function buildPptxPackage(slides: readonly PptxSlide[]): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the slide XML
   // already references them by the time it gets here. rId1 is the slide

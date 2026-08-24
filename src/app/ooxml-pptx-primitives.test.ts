@@ -129,11 +129,17 @@ describe("buildPptxPackage media", () => {
   });
 
   it("leaves the media-free package byte-for-byte what it was", async () => {
-    // ★★★ THE ONLY PIN ON THIS BUILDER'S MEDIA-FREE BYTES. There is no .pptx
-    // golden fixture in this repo (`src/app/__fixtures__/` holds only
-    // golden-workspace.csv and .md) and `export-ooxml.test.ts` asserts part
-    // PRESENCE and slide-XML SUBSTRINGS, never package bytes — so nothing else
-    // can see an accidental change to the deck a document with no images gets.
+    // ★★ NOT THE ONLY PIN ANY MORE, and the difference matters when this goes
+    // red. This test pins the sorted PART-KEY set, one `slide1.xml.rels` part
+    // as exact bytes, and the absence of any `ppt/media/` entry — it never
+    // reads `[Content_Types].xml`, which is how it SURVIVED the mutant that
+    // opened open-followups §216. `ooxml-package-manifest.test.ts` closed that:
+    // it digests every part of this deck IN ZIP ORDER against
+    // `docs/baselines/ooxml-parts.json`, so a content change, an addition, a
+    // removal or a REORDER all go red naming the part. `export-ooxml.test.ts`
+    // still sees none of it (part PRESENCE and slide-XML SUBSTRINGS only), and
+    // there is still no .pptx golden fixture — the manifest replaced that idea
+    // deliberately.
     //
     // ★★★ THE EXPECTATIONS ARE FROZEN LITERALS, NOT A SECOND CALL. The obvious
     // form of this test — build the same deck twice and diff the two — is

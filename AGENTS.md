@@ -1382,9 +1382,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   error); and splitting rich HTML re-enters the per-sink `isHtmlStart` landmine, because
   `CONTAINS_TAG` needs `<` plus a LETTER so a fragment carrying only a CLOSING tag is classified as
   plain text and escaped into the reader's document. ★★ **NOTHING HERE CAN OPEN A `.docx` OR A
-  `.pptx`** — verification is unzip-and-byte-compare, the manual pass is owed
-  (`docs/open-followups.md` §219), and §216 records that the `export-ooxml` golden suite does NOT
-  pin these package bytes, which both this slice's spec and its plan claimed it did.
+  `.pptx`** — verification is unzip-and-byte-compare and the manual pass is owed
+  (`docs/open-followups.md` §219). ★★ §216 is CLOSED as of 2026-08-24 and this line used to end at
+  its complaint: the `export-ooxml` golden suite still does NOT pin these package bytes (both this
+  slice's spec and its plan claimed it did), but the MEDIA-FREE `.docx` and `.pptx` are now gated
+  against an ordered part manifest in `docs/baselines/ooxml-parts.json`, moved only by
+  `npm run ooxml:manifest` and never by a `vitest -u`. ★★ Read that scope literally — a
+  media-BEARING package is outside it, and so is the zip container (`zip.test.ts` owns that
+  separately); a green manifest run says nothing about either.
 - **Activity log (`Workspace.activityLog`) → [`docs/AGENTS/activity-log.md`](docs/AGENTS/activity-log.md).**
   Per-project audit trail persisted as a **meta-blob** (one JSON row in `meta`, like `insights` and
   `documents`), NOT via `ENTITY_SPECS` — so it is correctly absent from `TABLE_NAMES` **because it has

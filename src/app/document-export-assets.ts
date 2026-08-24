@@ -14,13 +14,19 @@ import type { AssetByteLoader } from "./document-asset-images";
  * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
  * identical copies, one per renderer.
  *
- * ★★ It is NOT the only rule in the repo that extracts this attribute, and a
+ * ★★ It is NOT the only rule in the repo that READS this attribute, and a
  * reader who assumes it is will fix a bug in one place: `ASSET_ID_RE`
  * (`document-asset-usage.ts`) matches the ATTRIBUTE on any element and backs
- * the 20-image cap; `ASSET_IMG_RE` (`document-model.ts`) is case-insensitive
- * and accepts all three quoting styles because it runs before any allow-list
- * pass. Both differences are deliberate. The consequence to know: a
- * `<span data-asset-id>` counts against the cap and is invisible here.
+ * the 20-image cap; `ASSET_IMG_RE` (`document-model.ts`) EXTRACTS NOTHING —
+ * it is a `.test()`-only survival predicate deciding whether an image-only
+ * paragraph survives load, which is why it is case-insensitive and accepts all
+ * three quoting styles. (An earlier wording here called all three extractors.)
+ * The divergences are deliberate and the three are deliberately NOT merged;
+ * `assetRefsInDocument` (`document-asset-usage.ts`) carries the relationship
+ * and the reason. The consequence to know: a `<span data-asset-id>` counts
+ * against the cap and is invisible here — but no longer SILENTLY, since that
+ * helper returns it as `undrawable` and the cap message names the count
+ * (open-followups §218).
  *
  * ★★★ QUOTE-AWARE, and it must stay that way. A plain `[^>]*` stops at the
  * first `>` even inside a quoted attribute value, and that is reachable from
@@ -46,11 +52,15 @@ export const IMG_TAG_RE =
  *  ★ Order is load-bearing twice over: it numbers the OOXML media parts
  *  deterministically and it decides which images survive the byte budget.
  *
- *  ★★ There is NO golden comparison over the OOXML packages — an earlier
- *  wording here said the determinism kept one "stable". The determinism still
- *  matters (a part path that moved between runs would be untestable at all),
- *  but nothing outside each builder's own unit test reads these bytes. See
- *  docs/open-followups.md §216. */
+ *  ★★ There is still no golden PACKAGE over these exports — an earlier wording
+ *  here said the determinism kept one "stable", which was never true. What
+ *  exists since open-followups §216 closed is an ordered part MANIFEST
+ *  (`docs/baselines/ooxml-parts.json`, gated by
+ *  `ooxml-package-manifest.test.ts`), and it covers the MEDIA-FREE packages
+ *  ONLY — so nothing outside each builder's own unit test reads the bytes a
+ *  document WITH images produces, which is exactly the path this function
+ *  feeds. The determinism still matters on its own terms: a part path that
+ *  moved between runs would be untestable at all. */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {

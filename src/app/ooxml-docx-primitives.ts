@@ -526,18 +526,28 @@ export function buildDocxPackage(
    *  part and no relationship, because the workspace exporter shares this
    *  builder and calls it with two or three arguments.
    *
-   *  ★★★ AND THE ONLY THING ENFORCING THAT IS THIS FILE'S OWN TEST —
-   *  "is byte-identical to the no-argument call when media is empty", plus its
-   *  companion assertion that the empty package contains no `image/` at all.
-   *  An earlier revision of this comment said the contract was pinned by the
-   *  `export-ooxml` golden suite. It is not, and a reader who believed that
-   *  would be looking at a gate that cannot see them: there is no .docx byte
-   *  fixture anywhere in the repo (`src/app/__fixtures__/` holds only
-   *  golden-workspace.csv and .md), `golden-workspace.test.ts` never mentions
-   *  docx, and `export-ooxml.test.ts` asserts part PRESENCE and document.xml
-   *  SUBSTRINGS — never package bytes, never this part's content. Measured,
-   *  not assumed: hardcoding a `<Default Extension="png"/>` into the empty
-   *  case reddens the two tests here and leaves `export-ooxml` GREEN. */
+   *  ★★ THIS FILE'S OWN TEST IS NO LONGER THE ONLY THING ENFORCING IT, and an
+   *  earlier revision of this comment said it was.
+   *  `ooxml-package-manifest.test.ts` compares the media-free package against
+   *  an ORDERED part manifest committed at `docs/baselines/ooxml-parts.json`,
+   *  so a change to the package an image-free document gets goes red naming
+   *  the part — including a change nobody thought to assert. Regenerate that
+   *  baseline ONLY with `npm run ooxml:manifest`; there is deliberately no
+   *  `vitest -u` path. open-followups §216.
+   *
+   *  ★★ WHAT THE MANIFEST STILL DOES NOT REACH: the media-BEARING package. A
+   *  duplicate `<Default Extension="png">` emitted once media IS present — the
+   *  OPC violation the comment below warns about — is outside its scope, and
+   *  so is the zip CONTAINER (pinned separately by `zip.test.ts`; neither
+   *  covers the other).
+   *
+   *  ★ `export-ooxml.test.ts` is still NOT a gate on any of this, and a reader
+   *  who assumes it is looks at something that cannot see it: it asserts part
+   *  PRESENCE and document.xml SUBSTRINGS, never package bytes. There is no
+   *  .docx byte fixture either (`src/app/__fixtures__/` holds only
+   *  golden-workspace.csv and .md) — the manifest was chosen over a committed
+   *  package blob deliberately, being diffable and not regenerable by
+   *  accident. */
   media: readonly MediaPart[] = [],
 ): Blob {
   // ★★ Relationship ids are minted by the CALLER, because the body XML already
