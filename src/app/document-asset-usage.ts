@@ -118,7 +118,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  that is NOT in `all`" in this module's test file. */
 export type AssetRefs = {
   /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
-   *  counts. NOT a superset of `drawable`; see the type's note below. */
+   *  counts. NOT a superset of `drawable`; see the type's note. */
   all: ReadonlySet<string>;
   /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */
   drawable: ReadonlySet<string>;

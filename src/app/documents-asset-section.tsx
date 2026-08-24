@@ -201,8 +201,7 @@ export function DocumentsAssetSection({
   // drop the insert on the floor. `insertAssetById` below is the id-keyed
   // wrapper the picker (which only ever names an already-rendered row) uses.
   //
-  // ★ Enforced HERE (at insert), not by truncating on load — see the module
-  // header's "never drop an over-cap image on load" rule.
+  // ★ Enforced HERE (at insert), not by truncating on load.
   const insertAssets = useCallback(
     (toInsert: readonly DocumentAsset[]) => {
       setCapMessage(null);
@@ -268,8 +267,7 @@ export function DocumentsAssetSection({
       // ★★★ REPORT RECLAIMABLE ROOM, NEVER `undrawable.size` — THAT WAS WRONG IN
       // BOTH DIRECTIONS, and each direction is pinned by a test.
       //   (a) IT COULD EXCEED THE CAP IT HAD JUST QUOTED. Nothing enforces the
-      //       cap on LOAD (the module header's "never drop an over-cap image on
-      //       load" rule), so `refs.all` is UNBOUNDED: a document holding 21
+      //       cap on LOAD, so `refs.all` is UNBOUNDED: a document holding 21
       //       `<span data-asset-id>` references announced "the maximum of 20
       //       images. 21 of these slots …" — 21 of 20.
       //   (b) IT WAS ACTIONABLE-SOUNDING AND INERT. At 20 `<img>` PLUS 3
@@ -306,15 +304,16 @@ export function DocumentsAssetSection({
       // were PLANTED AND RUN, 2026-08-24, then reverted, with
       // `npx vitest run documents-asset-section.test.tsx --maxWorkers=1`
       // (36 tests in the file):
-      //   `> 0` -> `<= 0`, a true INVERSION: 8 red, and the two
-      //     reclaimable-room WORDING tests are among them ("says how much room
-      //     …" and "never claims more … than the cap itself"). The old claim is
-      //     refuted by the very tests it named.
-      //   `> 0` -> `>= 0`, the guard weakened to ALWAYS-TRUE: 6 red, and BOTH
-      //     wording tests stay GREEN. Same behaviour as collapsing this ternary
-      //     to its Freeable arm, because `Math.max` above keeps the value at or
-      //     above zero. Every user at a genuinely full document would then be
-      //     told "… would make room for 0 more".
+      //   `capMessage > 0` -> `capMessage <= 0`, a true INVERSION: 8 red, and
+      //     the two reclaimable-room WORDING tests are among them ("says how
+      //     much room …" and "never claims more … than the cap itself"). The
+      //     old claim is refuted by the very tests it named.
+      //   `capMessage > 0` -> `capMessage >= 0`, the guard weakened to
+      //     ALWAYS-TRUE: 6 red, and BOTH wording tests stay GREEN. Same
+      //     behaviour as collapsing this ternary to its Freeable arm, because
+      //     `Math.max` above keeps the value at or above zero. Every user at a
+      //     genuinely full document would then be told "… would make room for 0
+      //     more".
       // So the always-true mutant is the one the plain branch is here for, and
       // its detectors are the SIX cases asserting the plain wording — only
       // three of them in the cap-message describe; the rest sit in "documents

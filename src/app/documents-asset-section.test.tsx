@@ -727,7 +727,7 @@ describe("documents asset byte partition", () => {
 //
 // ★★★ THE NUMBER IS ROOM RECLAIMABLE, NOT UNDRAWABLE REFERENCES, and the two
 // diverge in both directions. Reporting `undrawable.size` was wrong twice: the
-// cap is not enforced on LOAD (never drop an over-cap image on load), so a
+// cap is not enforced on LOAD, so a
 // document holding 21 `<span data-asset-id>` references said "maximum of 20
 // images. 21 of these slots…"; and at 20 `<img>` PLUS 3 `<span>` it said "3"
 // while deleting all three spans frees NOTHING, because the drawable images
@@ -807,8 +807,7 @@ describe("documents asset cap message reports reclaimable room", () => {
   });
 
   // ★★★ THE COUNT CAN NEVER EXCEED THE CAP, and before this it could. Nothing
-  // enforces the cap on LOAD — the module's own rule is never to drop an
-  // over-cap image on load — so `refs.all` is UNBOUNDED, and a document
+  // enforces the cap on LOAD, so `refs.all` is UNBOUNDED, and a document
   // carrying 21 undrawable references announced "the maximum of 20 images. 21
   // of these slots are held by …", a number larger than the maximum it had
   // just quoted in the same sentence. Reporting reclaimable ROOM bounds it
