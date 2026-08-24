@@ -45,8 +45,12 @@ date is CLEARED instead (status wins there — Cancelled is closed, never delive
 **Undo/redo RESTORE** — `use-undo-stack.ts`'s `merge(patch)` writes a captured partial straight onto
 the live row, and holds the pair only because `TASK_UNDO_GROUPS` (`undo/field-groups.ts`) forces
 `status` and `completedDate` into ONE entry; delete that array row and the invariant breaks with
-tsc, lint and every sweep below green — only `field-groups.test.ts` pins it
-(`docs/open-followups.md` §180 is the adjacent gap).
+tsc, lint and every sweep below green — only `field-groups.test.ts` pins it. ★★ And only on the
+capture route that CONSULTS that constant: `grep -rn "TASK_UNDO_GROUPS" src/app --include=*.ts
+--include=*.tsx | grep -v "\.test\."` returns the declaration plus ONE read site
+(`use-task-submit.ts`), while the task BULK-EDIT route goes through `buildBulkFieldEdits`, which
+takes no `FieldGroup` at all — so a bulk undo can restore one half alone GIVEN an already-split
+stored row (`docs/open-followups.md` §180, which is that gap).
 
 ## Prohibitions — do not route one path through another
 
@@ -55,10 +59,11 @@ real resolution date (`AGENTS.md`'s Kanban bullet carries the same reason for th
 prohibition on `reconcileStatusFromDate` stands too, but its long-stated reason ("it would rewrite a
 reopened issue's genuine 'In Progress' into 'To Do'") is FALSE: that input falls through BOTH guards
 and is returned by reference. The true reason is that it is a strict NO-OP on every Jira patch — it
-writes `status` only for a date on a row that is neither Done nor Cancelled, `issueToTaskFields`
-always pairs a truthy `completedDate` with `status === "Done"`, and `jiraCategoryToStatus` can never
-emit `Cancelled` — so routing either arm through it buys nothing rather than protecting anything.
-The hazard that IS real runs the OTHER way: a stale LOCAL date beside a non-Done status would be
+writes `status` in only two cases — a date on a row that is neither Done nor Cancelled, and a
+`Done` with no date — while `issueToTaskFields` always pairs a truthy `completedDate` with
+`status === "Done"` and `jiraCategoryToStatus` can never emit `Cancelled` — so routing either arm
+through it buys nothing rather than protecting anything. The hazard that IS real runs the OTHER
+way: a stale LOCAL date beside a non-Done status would be
 promoted to Done — the §227 local-arm question, DEFERRED there; do not act on it without the user.
 
 ## Re-derive the two sets — never trust a list
@@ -81,9 +86,10 @@ capture; the write is in another file. `i18n`/`jira-conflicts-modal` are LABEL m
 IT IS WEAKER THAN THIS DOC USED TO CLAIM. It runs on all six load paths but only backfills an
 ABSENT/INVALID status (`completedDate` set → Done, else To Do) — `if (statusOk && createdOk) return
 task;` short-circuits FIRST, so a *valid but inconsistent* `status:"To Do"` + `completedDate` pair is
-NOT repaired. The invariant is held by the WRITERS, not at load — and only FOUR of the five hold it
-UNCONDITIONALLY; the CONFLICT merge holds it only GIVEN CONSISTENT INPUT (below). That is a claim
-about the paths in `src`, NOT about the DATA: an older build, a hand edit or a third-party template
+NOT repaired. The invariant is held by the WRITERS, not at load — and only THREE of the five hold it
+UNCONDITIONALLY: the CONFLICT merge (below) and the undo RESTORE (above) both hold it only GIVEN
+CONSISTENT INPUT. That is a claim about the paths in `src`, NOT about the DATA: an older build, a
+hand edit or a third-party template
 can still have stored a split pair, and nothing reconciles it on load. §182 (`sanitizeSeedTask`) and
 §183 record what each used to do and what a split pair costs. The old wording made readers conclude
 load normalises the pair, and write that into code and commit messages.

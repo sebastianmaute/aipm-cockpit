@@ -12125,14 +12125,13 @@ guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed
 or the reverse).
 
 **Reachability.** A lone-member difference requires the STORED row to already be inconsistent, and
-since 0.257.0 no `src` writer produces one — §182 and §183 are both CLOSED, and all four writers of
-the pair hold it. So the precondition is now a DATA gap, not a code path: a row written by an older
-build, hand-edited, imported from a third-party template, or left behind by a pre-fix conflict
-resolution. §227 is the one remaining route by which such a row is re-stored split, and it
-PROPAGATES an already-inconsistent pair through a "keep local" pick rather than creating one.
-Nothing repairs any of them on load: `migrateTask` short-circuits on
-`if (statusOk && createdOk) return task;`, so a valid-but-inconsistent pair from an import or a
-hand-edited blob survives every load path.
+since 0.257.0 no `src` writer produces one from consistent input — §182 and §183 are both CLOSED,
+and `docs/AGENTS/task-status.md` enumerates all FIVE writers of the pair. So the precondition is now
+a DATA gap, not a code path: a row written by an older build, hand-edited, imported from a
+third-party template, or left behind by a pre-fix conflict resolution. THREE routes re-store such a
+row split rather than creating one — §227 (a "keep local" pick), §226 (a status conflict whose date
+does not differ) and §228 (a template captured in-session). Nothing repairs any of them on load:
+a valid-but-inconsistent pair from an import or a hand-edited blob survives every load path.
 
 ★★ **THE GROUND FOR THAT IS NOT "`applyStatusChange` IS THE SOLE WRITER", WHICH THIS ENTRY CLAIMED
 AND IS FALSE.** The Jira path bypasses it: `issueToTaskFields` (`jira-api.ts`) sets `completedDate`
@@ -12209,32 +12208,26 @@ read it before editing one of them.
 ## 182. Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it — CLOSED 2026-08-23
 
 **Status:** CLOSED 2026-08-23 by 0.257.0 "Shepard". `sanitizeSeedTask` now ends
-`return reconcileStatusFromDate(migrateTask(task));`. The new pure engine function trusts the
-DATE: a `completedDate` present forces `Done`; `Done` with no date demotes to
-`DEFAULT_TASK_STATUS` (`"To Do"`); anything already consistent comes back BY REFERENCE. Nothing
-is invented and no date is deleted — the alternative direction would have to fabricate a delivery
-date, which then flows into the on-time/late split and earned value.
+`return reconcileStatusFromDate(migrateTask(task));`. That pure engine trusts the DATE for every
+status BUT `Cancelled`: a `completedDate` forces `Done`, a `Done` with no date demotes to
+`DEFAULT_TASK_STATUS` (`"To Do"`), anything already consistent comes back BY REFERENCE — and a
+`Cancelled` row's stray date is CLEARED instead, the STATUS winning because Cancelled is CLOSED but
+never DELIVERED (`task-closed.ts`). No date is invented; that clear is the only deletion.
 
-★★ **A `Cancelled` row carrying a `completedDate` is promoted to `Done`, and that is deliberate.**
-It is the function's least obvious semantic call — `Cancelled` is terminal, so overwriting it looks
-like data loss — and it is recorded here because it is recorded nowhere else, not in the design spec
-either. The reason is that the app ALREADY scored such a row as delivered, before this branch:
-`computeStats` (`reports-stats.ts`) tests `isTaskDelivered` FIRST and only reaches its `cancelled`
-bucket in the `else` arm, and that bucket is `isTaskOutOfScope` = `isTaskClosed && !isTaskDelivered`
-(`task-closed.ts`), which a row WITH a date fails. So a `Cancelled`-with-date row landed in
-`stats.completed` and in the on-time/late split, and never in `stats.cancelled`. Promoting `status`
-to `Done` makes the stored field agree with the score the app was already giving it; leaving it
-`Cancelled` would keep a label every completion count already contradicted — though `health.ts` does
-honour it (it tests `status === "Cancelled"` BEFORE `isTaskDelivered`), so the promotion moves that
-row's health driver from `cancelled` to `completed` and its badge from "Cancelled" to "Done".
-★ The rule is date-trusting, not
-Cancelled-specific: a `Cancelled` row with NO date is untouched, like every other non-`Done` status.
+★★ **The `Cancelled` arm is a REVERSAL made inside this release, and this entry used to argue at
+length for what it replaced.** The first cut PROMOTED such a row to `Done`; a cold review flagged it
+and the user reversed it. The one consequence worth keeping: `computeStats` (`reports-stats.ts`)
+tests `isTaskDelivered` FIRST and reaches its `cancelled` bucket only in the `else` arm, so a
+`Cancelled`-with-date row was landing in `stats.completed` and in the on-time/late split, never in
+`stats.cancelled`. Clearing the date moves it INTO `stats.cancelled` and leaves its health driver
+`cancelled` (`health.ts` tests `status === "Cancelled"` BEFORE `isTaskDelivered`), where promoting
+would have made it `completed`. That is the intended effect, not a side effect.
 
 ```bash
+# the Cancelled arm and the two guards around it
+grep -n "export function reconcileStatusFromDate" -A 14 src/app/task-status.ts
 # delivered is tested first; the cancelled bucket is the else-arm
 grep -n "const isDelivered = isTaskDelivered" -A 14 src/app/reports-stats.ts
-# and that bucket's predicate excludes anything carrying a date
-grep -n "export function isTaskOutOfScope" -A 2 src/app/task-closed.ts
 ```
 
 ★ The entry above weighs two options (trust `status`, trust `completedDate`). A THIRD was
@@ -12251,22 +12244,10 @@ delivery date with the import date.
 import still holds it; nothing reconciles on load, and deliberately so — see the ★★ against
 `migrateTask` at the end of this entry, which still stands.
 
-The invariant `status === "Done"` ⟺ `completedDate` set is held by WRITERS, not at load — and NOT by
-all of them. FOUR paths write the pair. Two hold it, by two DIFFERENT mechanisms:
-
-- `applyStatusChange` (`task-status.ts`) holds it BY CONSTRUCTION — `Done` stamps a `completedDate`,
-  every other status clears it. Every LOCAL status mutation routes through it.
-- Jira sync's PATCH-application sites (pull, create, read-only) hold it WITHOUT calling that
-  function — but its CONFLICT merge does not, so scope this to the path and not to the file (§183):
-  `issueToTaskFields` (`jira-api.ts`) derives both
-  fields from one `statusKey` read (`isDone` picks the date branch, `jiraCategoryToStatus` the
-  status), so the two cannot disagree. ★ This is why `applyStatusChange` is not "the sole writer of
-  status + completedDate" — a phrase four source comments carried until the round that filed this
-  entry. AGENTS.md now carries the scoping in one place; do not restate it at a call site.
-
-The other TWO hold it by neither, so do not read the pair above as an enumeration. One is this entry;
-the other is the Jira CONFLICT merge, filed separately as §183 because it is reachable from
-well-formed data through the conflicts modal and this one is not.
+The invariant is held by WRITERS, not at load, and `docs/AGENTS/task-status.md` OWNS the
+enumeration — FIVE paths write the pair, each by a mechanism of its own. Do not restate them here or
+at a call site; note only that `applyStatusChange` is not "the sole writer of status +
+completedDate", a phrase four source comments carried until the round that filed this entry.
 
 **Template import held it by neither mechanism** — the state this entry was filed about, kept
 because the ★★ below explains why the obvious repair was not the one missing. `sanitizeSeedTask`
@@ -12320,9 +12301,9 @@ verbatim, so it launders whatever the workspace already holds.
 returning), but WHICH field should win is a real question and this entry does not answer it: trusting
 `status` discards a real delivery date, trusting `completedDate` flips a status the template author
 wrote. ★★ Do NOT reach for `migrateTask` instead — it runs on all six load paths, so teaching it to
-reconcile a VALID-but-inconsistent pair changes every backend's load behaviour, and AGENTS.md records
-that the invariant is held by the writers and that `migrateTask` only backfills an ABSENT/INVALID
-status.
+reconcile a VALID-but-inconsistent pair changes every backend's load behaviour, and
+`docs/AGENTS/task-status.md` records that the invariant is held by the writers and that
+`migrateTask` only backfills an ABSENT/INVALID status.
 
 ---
 
@@ -14632,10 +14613,11 @@ grep -nE "merged: Task|merged\.status" src/app/use-jira-sync.ts
 grep -n "completionChanged && merged.completedDate" -A 2 src/app/use-jira-sync.ts
 ```
 
-**Consequence.** The other three writers of the pair hold the invariant whatever input they are
-handed; this one holds it only given consistent input. Take a LOCAL row that is already split —
-written by a build older than 0.257.0, hand-edited, imported from a third-party template, or left
-behind by a pre-fix resolution — say `status: "In Progress"` with a `completedDate` set. Its issue is
+**Consequence.** Three of the other four writers hold the invariant whatever input they are handed;
+this one and the undo RESTORE (§180) hold it only given consistent input. Take a LOCAL row that is
+already split — written by a build older than 0.257.0, hand-edited, imported from a third-party
+template, or left behind by a pre-fix resolution — say `status: "In Progress"` with a
+`completedDate` set. Its issue is
 not done in Jira, so `issueToTaskFields` maps `completedDate` to `undefined`; the two values differ,
 so `diffTaskAgainstIssue` queues a `completedDate` row. The user picks **local** for it. The merge
 writes the local date back and re-writes the local status over itself, and the row is stored split
@@ -14661,9 +14643,12 @@ Both arguments, so the next reader does not have to re-derive them:
   genuine "In Progress" into "To Do". That reason is FALSE — not merely inapplicable to this arm:
   such a row falls through BOTH of the function's guards and is returned by reference. The function
   is in fact a strict no-op on every Jira PATCH (`issueToTaskFields` derives both fields from one
-  `statusKey` read, and `jiraCategoryToStatus` never emits `Cancelled`), so the prohibition was
-  protecting nothing on EITHER arm. It therefore carries no weight against this change, and does not
-  reach this arm; the only argument that does is the one below.
+  `statusKey` read, and `jiraCategoryToStatus` never emits `Cancelled`), so on the REMOTE arm the
+  prohibition protects nothing. ★★ That no-op premise is a claim about PATCHES and does NOT carry to
+  the LOCAL arm, whose input is `merged`, seeded `{ ...original }` — there a stale local date beside
+  a non-Done status WOULD be promoted to `Done`, which is the change being weighed and not a reason
+  for it. So the prohibition's STATED ground fails; the only argument that reaches this arm is the
+  one below.
 - **Against.** The user picked "keep my local value". Repairing the pair on that pick silently
   rewrites a field they were not shown and did not arbitrate — `status` is deliberately not a
   `ConflictFieldKey` — which is a different promise from the one the modal makes. It also picks a

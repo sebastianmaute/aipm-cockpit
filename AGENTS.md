@@ -917,8 +917,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   keep reporting as open and overdue. ★★★ Open that file before touching any status write: pure
   `applyStatusChange` (`task-status.ts`) is NOT the sole writer of the pair — FIVE paths write it, each
   with a mechanism of its own, so "completing the pattern" by routing one through another is the
-  recurring defect here — and the invariant is held by those WRITERS, not at load:
-  `migrateTask` short-circuits on a valid-but-inconsistent pair and leaves it split.
+  recurring defect here — and the invariant is held by those WRITERS, not at load, which leaves a
+  valid-but-inconsistent pair split on every backend.
 - **Open Points + Milestones toolbars = ONE flat wrapping row** (`flex flex-wrap items-center gap-2`, no
   `<h2>` heading/count) with the search input `flex-1` so it expands and pushes trailing controls right
   (mirrors the changes-panel toolbar). ★ Tasks "Clear all" opens a
