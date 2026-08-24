@@ -48,7 +48,7 @@ import { EmptyState } from "./empty-state";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { htmlEscape } from "./download";
 import { isAllowedAssetMime, ASSET_MAX_PER_DOCUMENT } from "./document-asset-upload";
-import { assetIdsInDocument, countAssetUsage } from "./document-asset-usage";
+import { assetRefsInDocument, countAssetUsage } from "./document-asset-usage";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import { loadAssetData } from "./document-assets-store";
 import type { AssetByteLoader } from "./document-asset-images";
@@ -158,14 +158,14 @@ export function DocumentsAssetSection({
 
   const usage = useMemo(() => countAssetUsage(documents), [documents]);
   const [modalOpen, setModalOpen] = useState(false);
-  const [capMessage, setCapMessage] = useState(false);
+  const [capMessage, setCapMessage] = useState<number | null>(null);
   const enabled = tursoConfig !== null && !isReadOnly;
 
   // ★★★ ONE BATCH, ONE RUNNING STATE — this is a BATCH function even for the
   // single-asset picker path, and collapsing it back to a per-asset one
   // reopens both defects below.
   //
-  // ★★★ (1) THE CAP MUST HOLD ACROSS A BATCH. `assetIdsInDocument(selected)`
+  // ★★★ (1) THE CAP MUST HOLD ACROSS A BATCH. `assetRefsInDocument(selected)`
   // is read from the RENDER closure, and `selected` cannot change inside a
   // synchronous loop — so N per-asset calls all evaluate against the SAME
   // pre-batch id set. At 19 stored images a 5-file paste had all five pass the
@@ -205,9 +205,15 @@ export function DocumentsAssetSection({
   // header's "never drop an over-cap image on load" rule.
   const insertAssets = useCallback(
     (toInsert: readonly DocumentAsset[]) => {
-      setCapMessage(false);
+      setCapMessage(null);
       if (!selected || toInsert.length === 0) return;
-      const present = new Set(assetIdsInDocument(selected));
+      // ★ ONE scan, two consumers: `all` is what the cap counts (tag-agnostic
+      //   — a reference the sanitizer kept on a non-`img` element still spends
+      //   a slot) and `undrawable` is what the message reports. Reading them
+      //   from one call is what stops the number shown from disagreeing with
+      //   the set the cap was enforced against.
+      const refs = assetRefsInDocument(selected);
+      const present = new Set(refs.all);
       let at = selected.blocks.length;
       let skipped = 0;
       for (const asset of toInsert) {
@@ -236,12 +242,20 @@ export function DocumentsAssetSection({
       // ★★ ONE DECISION FOR THE WHOLE BATCH, announced after it. A per-asset
       // `setCapMessage` let a later file that inserted fine CLEAR the message a
       // skipped earlier one had just set.
-      // ★★ The existing `assetLibraryMaxPerDocument` string does not name HOW
-      // MANY files were skipped, and it is still the right one: it states the
-      // cap and, by the time it shows, the document is holding it. Saying "N
-      // skipped" would need a new i18n key, which this change deliberately
-      // does not add.
-      if (skipped > 0) setCapMessage(true);
+      // ★★ IT STILL DOES NOT NAME HOW MANY FILES WERE SKIPPED, deliberately:
+      // by the time the message shows, the document is holding the cap, and the
+      // number that helps is not "N refused" but how many of the slots are held
+      // by references NOTHING can draw. A `<span data-asset-id>` spends a slot,
+      // contributes to no export and lands in none of the export's
+      // `inlined`/`omitted`/`missing` buckets — so a user at the cap saw a full
+      // document with nothing on screen to account for it (open-followups §218).
+      // ★★ THE STATE CARRIES THE COUNT, NOT A BOOLEAN, so the message cannot
+      // report a number it did not compute; zero undrawable references keeps the
+      // plain `assetLibraryMaxPerDocument` wording, and BOTH branches are tested
+      // — a test on the new wording alone stays green with the condition
+      // inverted, which would tell every user at a full document that slots are
+      // held by references that do not exist.
+      if (skipped > 0) setCapMessage(refs.undrawable.size);
     },
     [selected, structural],
   );
@@ -348,7 +362,16 @@ export function DocumentsAssetSection({
           {error ? t(lang, UPLOAD_ERROR_KEY[error]) : ""}
         </span>
         <span role="status" className="text-xs text-ui-pink">
-          {capMessage ? t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT)) : ""}
+          {capMessage === null
+            ? ""
+            : capMessage > 0
+              ? t(
+                  lang,
+                  "assetLibraryMaxPerDocumentUndrawable",
+                  String(ASSET_MAX_PER_DOCUMENT),
+                  String(capMessage),
+                )
+              : t(lang, "assetLibraryMaxPerDocument", String(ASSET_MAX_PER_DOCUMENT))}
         </span>
       </div>
       <AssetLibrary

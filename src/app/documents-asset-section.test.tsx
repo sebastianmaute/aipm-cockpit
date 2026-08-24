@@ -718,3 +718,58 @@ describe("documents asset byte partition", () => {
     expect(vi.mocked(saveAssetData).mock.calls[0][1].projectId).toBe("proj-7");
   });
 });
+
+// ★★★ THE CAP MESSAGE MUST EXPLAIN A CAP THE USER CANNOT SEE. A
+// `<span data-asset-id>` holds a cap slot, contributes to no export and lands
+// in none of `inlined`/`omitted`/`missing` — so a document whose slots are
+// held by them reads as full with nothing on screen to account for it.
+// open-followups §218.
+//
+// ★★★ BOTH CASES ARE REQUIRED AND THE ALL-DRAWABLE ONE IS THE LOAD-BEARING
+// HALF. A test that only asserts the new wording passes just as well with the
+// condition INVERTED — at which point every user at a full document is told
+// slots are held by undrawable references when none are. The second case is
+// what makes the first one mean anything.
+describe("documents asset cap message names undrawable references", () => {
+  /** `count` drawable `<img>` references plus `undrawable` `<span>` ones, all
+   *  distinct, in ONE paragraph — `assetRefsInDocument` scans paragraphs only. */
+  function docHoldingMixed(count: number, undrawable: number): ProjectDocument {
+    const html = [
+      ...Array.from({ length: count }, (_, i) => `<img data-asset-id="a${i}">`),
+      ...Array.from({ length: undrawable }, (_, i) => `<span data-asset-id="s${i}">x</span>`),
+    ].join("");
+    return doc(1, [{ type: "paragraph", html }]);
+  }
+
+  it("says how many slots are held by references no export can draw", async () => {
+    const user = userEvent.setup();
+    const d = docHoldingMixed(18, 2);
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton("extra.png"));
+
+    // ★★ THE CAP ASSERTION COMES FIRST, for the reason the batch tests give:
+    //    leading with the wording would make a reverted cap fail at a TEXT
+    //    LOOKUP, which prints red while saying nothing about the cap.
+    expect(structural.insert).not.toHaveBeenCalled();
+    // ★ The COUNT is asserted, not just the phrasing — the message exists to
+    //   report a number, and a hardcoded one would satisfy a phrase match.
+    expect(
+      screen.getByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "2")),
+    ).toBeInTheDocument();
+  });
+
+  it("keeps the plain cap wording when every reference is drawable", async () => {
+    const user = userEvent.setup();
+    const d = docHoldingMixed(20, 0);
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton("extra.png"));
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(screen.getByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
+    expect(screen.queryByText(/no export can draw/i)).not.toBeInTheDocument();
+  });
+});
