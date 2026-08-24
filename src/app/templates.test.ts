@@ -42,7 +42,7 @@ describe("sanitizeTemplates", () => {
     expect(out[0].seed?.tasks?.[1].dependencies).toEqual([{ taskId: 1, type: "FS" }]);
   });
 
-  it("reconciles an inconsistent seed status/completedDate pair — the date wins", () => {
+  it("reconciles an inconsistent seed status/completedDate pair — the date wins on a non-Cancelled row", () => {
     const out = sanitizeTemplates([{
       id: "t", name: "T", features: [], fieldVisibility: {},
       seed: { tasks: [
@@ -61,6 +61,25 @@ describe("sanitizeTemplates", () => {
     expect(tasks[0].completedDate).toBe("2026-03-04"); // a real date is never deleted
     expect(tasks[1].status).toBe("To Do");
     expect(tasks[1].completedDate).toBeFalsy();        // and never invented
+  });
+
+  it("keeps a Cancelled seed row Cancelled and clears its stray completedDate", () => {
+    const out = sanitizeTemplates([{
+      id: "t", name: "T", features: [], fieldVisibility: {},
+      seed: { tasks: [
+        // Cancelled is CLOSED but never DELIVERED (task-closed.ts), so for this ONE
+        // status the STATUS wins: the stray date is dropped, not promoted to Done.
+        // ★ "Cancelled" is a real TASK_STATUSES member, so migrateTask passes it
+        //   through untouched — an INVALID status would derive "Done" from the date
+        //   and fail the first assertion, so this cannot pass for the wrong reason.
+        { id: 1, taskName: "cancelled with a stray date", assignee: "", assigneeEmail: "", dueDate: "",
+          lastUpdateDate: "", priority: "Low", blockers: "", description: "",
+          status: "Cancelled", completedDate: "2026-03-04" },
+      ] },
+    }]);
+    const tasks = out[0].seed!.tasks!;
+    expect(tasks[0].status).toBe("Cancelled");
+    expect(tasks[0].completedDate).toBeFalsy();
   });
 
   it("leaves an already-consistent seed pair alone", () => {

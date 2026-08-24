@@ -32,7 +32,7 @@ export function migrateTask(task: Task): Task {
   return out;
 }
 
-/** Force the pair `status === "Done"` ⟺ `completedDate` set by trusting the DATE.
+/** Force `status === "Done"` ⟺ `completedDate` set (DATE wins, except `Cancelled`).
  *
  *  - a `completedDate` on a `Cancelled` row ⇒ the DATE is cleared (see below)
  *  - a `completedDate` on any other non-Done row ⇒ `status` becomes "Done"
@@ -65,8 +65,7 @@ export function migrateTask(task: Task): Task {
  *
  *  ★★ Not a load-path repair either. `migrateTask` runs on all six load paths
  *  and only backfills an ABSENT/INVALID status; teaching IT to reconcile would
- *  change every backend's load behaviour and would apply this date-wins rule
- *  to Jira rows, where it is wrong. */
+ *  change every backend's load behaviour. */
 export function reconcileStatusFromDate(task: Task): Task {
   if (task.completedDate) {
     if (task.status === "Done") return task;
