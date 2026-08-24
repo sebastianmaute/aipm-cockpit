@@ -4,7 +4,7 @@
 // Atlassian on the user's behalf.
 
 import { adfToText, textToAdf } from "./adf";
-import { jiraCategoryToStatus } from "./jira-status-map";
+import { jiraCategoryToStatus, statusToJiraCategory } from "./jira-status-map";
 import { jiraProjectKeys } from "./jira-projects";
 import {
   sanitizeAssignee,
@@ -416,8 +416,17 @@ export function diffTaskAgainstIssue(
   // ★ `remoteFields.status === undefined` means the patch says nothing about
   //   the remote status; treating that as a difference would queue a phantom
   //   conflict on every sync.
+  // ★★ Compare through the CATEGORY, not the two status strings. Jira carries
+  //   three categories against our six statuses, so `On Hold`, `In Review` and
+  //   `Cancelled` compare as different forever under a literal test — a
+  //   conflict on every dual-changed sync that the user cannot resolve, since
+  //   picking remote overwrites the status they chose. Round-tripping the
+  //   local status through the lossy map compares the two at the granularity
+  //   the wire can actually express, which still catches a genuine move
+  //   (`In Progress` is `indeterminate`, `To Do` is `new`).
   const statusDiffers =
-    remoteFields.status !== undefined && local.status !== remoteFields.status;
+    remoteFields.status !== undefined &&
+    jiraCategoryToStatus(statusToJiraCategory(local.status)) !== remoteFields.status;
   if (fieldsDiffer(local.completedDate, remoteFields.completedDate) || statusDiffers) {
     out.push({
       key: "completedDate",

@@ -118,4 +118,63 @@ describe("diffTaskAgainstIssue", () => {
     const diffs = diffTaskAgainstIssue(local, { taskName: "t", completedDate: undefined });
     expect(diffs).toHaveLength(0);
   });
+
+  it("does not queue a status difference Jira cannot represent", () => {
+    // "On Hold" has no Jira category of its own — jiraCategoryToStatus can
+    // only ever produce "To Do" / "In Progress" / "Done". Comparing the two
+    // statuses literally therefore reported a difference on EVERY sync for
+    // such a row, queueing a conflict that says nothing real and that the
+    // user cannot resolve: picking remote overwrites their "On Hold".
+    const local = {
+      id: 1, taskName: "t", status: "On Hold", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "In Progress", completedDate: undefined });
+    expect(diffs).toHaveLength(0);
+  });
+
+  it("does not queue a status difference for In Review either", () => {
+    const local = {
+      id: 1, taskName: "t", status: "In Review", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "In Progress", completedDate: undefined });
+    expect(diffs).toHaveLength(0);
+  });
+
+  it("still queues a genuine category change", () => {
+    // ★ REGRESSION FENCE for §226 — this is the case the whole change exists
+    //   to catch, and it must survive the category comparison. "In Progress"
+    //   is `indeterminate`, "To Do" is `new`: different categories, real move.
+    const local = {
+      id: 1, taskName: "t", status: "In Progress", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "To Do", completedDate: undefined });
+    expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
+
+  it("queues a cancelled row against an in-flight remote", () => {
+    // Cancelled is `done`, remote "In Progress" is `indeterminate` — a real
+    // divergence, still surfaced.
+    const local = {
+      id: 1, taskName: "t", status: "Cancelled", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "In Progress", completedDate: undefined });
+    expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
+
+  it("queues a cancelled row against a done remote via the DATE half", () => {
+    // Cancelled and Done share the `done` category, so the STATUS half is
+    // silent here — but Cancelled carries no completedDate while a done issue
+    // does, so the pair still differs and the row is still queued. This is why
+    // mapping Cancelled to `done` loses nothing.
+    const local = {
+      id: 1, taskName: "t", status: "Cancelled", completedDate: undefined,
+      createdDate: "2026-01-01", lastUpdateDate: "2026-01-01",
+    } as unknown as Task;
+    const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "Done", completedDate: "2026-05-09" });
+    expect(diffs.map((d) => d.key)).toContain("completedDate");
+  });
 });
