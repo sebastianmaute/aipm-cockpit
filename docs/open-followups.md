@@ -12125,9 +12125,12 @@ guaranteed (`isTaskDelivered` is `!!completedDate`, so a task can read as closed
 or the reverse).
 
 **Reachability.** A lone-member difference requires the STORED row to already be inconsistent, and
-§183 records a code path that produces one from well-formed data — the Jira CONFLICT merge, which
-writes `completedDate` from the user's per-field pick and never `status`. Nothing repairs that on
-load: `migrateTask` short-circuits on
+since 0.257.0 no `src` writer produces one — §182 and §183 are both CLOSED, and all four writers of
+the pair hold it. So the precondition is now a DATA gap, not a code path: a row written by an older
+build, hand-edited, imported from a third-party template, or left behind by a pre-fix conflict
+resolution. §227 is the one remaining route by which such a row is re-stored split, and it
+PROPAGATES an already-inconsistent pair through a "keep local" pick rather than creating one.
+Nothing repairs any of them on load: `migrateTask` short-circuits on
 `if (statusOk && createdOk) return task;`, so a valid-but-inconsistent pair from an import or a
 hand-edited blob survives every load path.
 
@@ -12138,7 +12141,7 @@ off its own `isDone` flag and `status` off `jiraCategoryToStatus`, and `use-jira
 stamp today instead of Jira's resolution date — and AGENTS.md describes it in the Kanban and
 task-status bullets. Enumerate the writers before relying on either — and note that the OBVIOUS
 sweep cannot do it, because two of the four write the field through an ASSIGNMENT rather than a
-property literal, and one of those two is the §183 defect:
+property literal (`templates.ts` and the conflict merge in `use-jira-sync.ts`):
 
 ```bash
 # A bare `completedDate:` misses `templates.ts` outright and returns only the three patch-literal
@@ -12150,8 +12153,9 @@ grep -rnE "completedDate[[:space:]]*[:=]([^=]|$)" src/app --include=*.ts --inclu
 
 **Why it was left.** It is a pre-existing property of the new helper's contract, and the source
 already carries the gap as a comment pointing here. ★★ It was left on the ground that no sequence
-reached it from well-formed data; §183 removes that ground by supplying the inconsistent row this
-entry needs as its precondition, so re-argue the deferral rather than inheriting it. Fixing it means threading the per-entity `FieldGroup[]` through
+reached it from well-formed data. Closing §183 did not restore that ground so much as MOVE it: no
+`src` writer supplies the inconsistent row any more, but stored data still can and §227 re-stores
+one, so re-argue the deferral rather than inheriting it. Fixing it means threading the per-entity `FieldGroup[]` through
 `captureFieldRows` to every one of the converted call sites — a change to the shared capture contract,
 which is exactly the class §50 declined to make inside a fix round.
 
@@ -12264,9 +12268,12 @@ The other TWO hold it by neither, so do not read the pair above as an enumeratio
 the other is the Jira CONFLICT merge, filed separately as §183 because it is reachable from
 well-formed data through the conflicts modal and this one is not.
 
-**Template import holds it by neither mechanism.** `sanitizeSeedTask` (`templates.ts`) reads the two
-fields INDEPENDENTLY off the raw seed — `status` is a bare cast, `completedDate` a separate
-`sanitizeIsoDate` read assigned only when truthy — and then returns `migrateTask(task)`.
+**Template import held it by neither mechanism** — the state this entry was filed about, kept
+because the ★★ below explains why the obvious repair was not the one missing. `sanitizeSeedTask`
+(`templates.ts`) reads the two fields INDEPENDENTLY off the raw seed — `status` is a bare cast,
+`completedDate` a separate `sanitizeIsoDate` read assigned only when truthy — and it ended by
+returning `migrateTask(task)`, which repairs neither. That return is now wrapped in
+`reconcileStatusFromDate`, per the banner above.
 
 ```bash
 # leg 1: the two independent reads, and the normalizer call that ends the function.
@@ -14566,11 +14573,19 @@ they were shown.
 grep -n "export type ConflictFieldKey" -A 10 src/app/jira-api.ts
 # the only status write on this path, and the branch it sits in
 grep -n 'field.key === "completedDate"' -A 24 src/app/use-jira-sync.ts
+# dates are compared as strings, so two equal dates queue no completion row at all
+grep -n "function normalizeForCompare" -A 7 src/app/jira-api.ts
 ```
 
-★★ The pair stays internally CONSISTENT throughout, which is why this is NOT §183 and why none of
-§183's consequences apply — no surface disagrees with another about this row. The defect is
-staleness, not incoherence.
+★★ Given a local row whose pair is already consistent, it stays CONSISTENT throughout — which is why
+this is NOT §183 and why none of §183's consequences apply to it. The defect is staleness, not
+incoherence. ★ Not reachable from data this codebase now writes, but an ALREADY-SPLIT local row falls
+inside this gap and keeps its split: local `status: "In Progress"` with `completedDate: "2026-01-01"`
+against a remote issue that IS done with that same `resolutiondate`. `normalizeForCompare` makes the
+two dates equal, so `diffTaskAgainstIssue` queues no `completedDate` row and `merged.status` is never
+written; another field differs, so a conflict is queued anyway and the split row is re-stored with a
+fresh `lastSyncedAt`. Such a row DOES incur §183's consequences — the same data gap §227 records,
+reached by a second route.
 
 ★ It SELF-HEALS on the same terms §183 did: the merge clears `localModifiedAt` and stamps
 `lastSyncedAt`, so the next sync in which the issue changes takes the plain pull branch, which
@@ -14662,3 +14677,50 @@ which makes it much more tempting to "just fix" than the load-path repair those 
 
 ★ Not determined: how many stored rows are actually split. Nothing has counted them, and nothing can
 without reading real workspaces.
+
+## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load — open
+
+**Status:** open — found while reviewing the §182 fix, which is what makes it visible. **Severity:**
+low (the window is one session, a reload closes it, and nothing in `src` should be producing a split
+row to launder in the first place).
+
+§182 closed by teaching `sanitizeSeedTask` (`templates.ts`) to reconcile the pair. That function has
+exactly one reachable caller chain — `sanitizeSeed` ← `sanitizeTemplate` ← `sanitizeTemplates` —
+whose only non-test caller is the localStorage LOAD path in `use-settings.ts`. So the reconciler runs
+when settings are read back from disk, and at no other time.
+
+`templateFromWorkspace` puts LIVE `Task` objects into the seed by reference
+(`if (ws.tasks.length) seed.tasks = ws.tasks;`), and `applyTemplate` (`template-apply.ts`) hands
+`tpl.seed` straight to `remapSeed`/`appendSeed` — that file names no sanitiser, no `migrateTask` and
+no status engine at all. So "save this workspace as a template, then apply it in the SAME session"
+copies whatever the workspace holds, unreconciled; reload the page and the identical template applies
+through the repaired path. One template, two behaviours, separated by a refresh.
+
+```bash
+# the seed takes live Task objects by reference. ★ TWO hits — templates.ts:131 is a COMMENT quoting
+#   the same expression, the self-referential-grep trap this register records. Read them.
+grep -n "seed.tasks = ws.tasks" src/app/templates.ts
+# the reconciler's whole reachable chain, and where it starts. ★ Three of these hits are COMMENTS
+#   (change-log.ts, task-status.ts, templates.ts:326) — read the hit, do not count it.
+grep -rn "sanitizeSeedTask\|sanitizeSeed(\|sanitizeTemplates" src/app --include=*.ts --include=*.tsx \
+  | grep -v "\.test\."
+# apply reads tpl.seed straight through
+grep -n "export function applyTemplate" -A 8 src/app/template-apply.ts
+# and nothing on that path reconciles anything — no output, EXIT 1
+grep -nE "reconcileStatusFromDate|sanitizeSeed|migrateTask|applyStatusChange" src/app/template-apply.ts
+```
+
+★ The other two template ingress points are safe BY CONSTRUCTION, not by this fix, so do not read
+them as coverage: `templates-builtin.ts` contains no `completedDate` at all
+(`grep -c completedDate src/app/templates-builtin.ts` prints `0` and exits 1, as grep does on no
+match), and `ai-project-proposal.ts` writes `status: "To Do"` with no date.
+
+★★ What this actually costs is narrower than it reads. Since 0.257.0 every `src` writer produces a
+consistent pair, so a live workspace row should not BE split — the bypass can only launder an
+already-split one, which is the same DATA gap §180, §226 and §227 all end on. The loss is the
+property §182's fix was reaching for: that the reconciler stands between a template seed and the
+workspace on EVERY path, not only the one that goes through disk.
+
+★ Not determined: whether the in-session path is worth a fix on its own, or whether it should wait
+for whatever closes the data gap. Nothing has counted how many stored rows are split (§227 records
+the same limit), and an occurrence here leaves no trace once the page reloads.
