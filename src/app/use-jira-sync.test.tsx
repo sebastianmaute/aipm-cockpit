@@ -677,12 +677,14 @@ describe("useJiraSync — handleResolveConflicts", () => {
   // below are RED until the fix writes both halves from the picked side.
   //
   // transitionIssueTo derivation — the guard is
-  //   if (anyLocalPicked) { … if (completionChanged && merged.completedDate && !conflict.remoteDone) … }
+  //   if (anyLocalPicked) { … if (completionChanged && merged.status === "Done" && !conflict.remoteDone) … }
   // so it needs FOUR things at once: a local pick anywhere in the diff, the
-  // completion arm having run, a truthy merged completedDate, and a remote issue
-  // that is NOT already done. Of the four cases only (a)/pick-local satisfies
-  // all four — the two pick-remote cases never enter the push block at all, and
-  // (b)/pick-local merges an undefined local date. Exactly one, as expected.
+  // completion arm having run, a merged status of "Done", and a remote issue
+  // that is NOT already done. Of the five cases in this block only (a)/pick-local
+  // satisfies all four — the two pick-remote cases never enter the push block at
+  // all, (b)/pick-local merges a status that stays "In Progress", and the SPLIT
+  // row below (§227) merges a local pick with a completedDate but a status that
+  // stays "In Progress". Exactly one transitions, as expected.
 
   it("conflict (a): local Done, issue reopened, pick remote → status follows Jira, pair consistent", async () => {
     const localTask = makeTask({
@@ -760,7 +762,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     expect(merged.completedDate).toBe("2026-04-01");
     expect(merged.status).toBe("Done");
     // The ONLY case that satisfies the whole transition guard: a local pick, a
-    // truthy merged completedDate, and a remote issue that is not already done.
+    // merged status of "Done", and a remote issue that is not already done.
     expect(jiraApi.updateIssue).toHaveBeenCalled();
     expect(jiraApi.transitionIssueTo).toHaveBeenCalledWith(
       expect.objectContaining({ siteUrl: "https://acme.atlassian.net" }),
@@ -793,7 +795,40 @@ describe("useJiraSync — handleResolveConflicts", () => {
     expect(merged.completedDate).toBeFalsy();
     expect(merged.status).toBe("In Progress");
     expect(jiraApi.updateIssue).toHaveBeenCalled();
-    // Local pick, but the merged completedDate is undefined → guard fails.
+    // Local pick, but the merged status is "In Progress" → guard fails.
+    expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
+  });
+
+  it("does not transition the issue when the merged row is not Done, even with a date", async () => {
+    // A SPLIT local row: a completedDate beside a non-Done status. Nothing in
+    // src writes this since 0.257.0, but an older build, a hand edit or a
+    // third-party template can have stored it (open-followups §227).
+    // ★ The fixture MUST be split. With a consistent Done+date row the old and
+    //   new guards agree, and this test would pass against the unfixed code.
+    const localTask = makeTask({
+      id: 1, jiraKey: "TEST-1", status: "In Progress", completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00", localModifiedAt: "2026-05-01T00:00:00",
+    });
+    const { result } = renderSync([localTask]);
+    await setupCompletionConflict(
+      result,
+      { status: "In Progress", completedDate: undefined, done: false },
+      "2026-04-01",
+    );
+    vi.clearAllMocks();
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({});
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+      taskId: 1, jiraKey: "TEST-1", picks: picksAll({ completedDate: "local" }),
+    };
+    await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+    const merged = result.current.currentTasks[0];
+    expect(merged.status).toBe("In Progress");
+    expect(merged.completedDate).toBe("2026-04-01");
+    // The field push still happens — only the completion TRANSITION is gated.
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
     expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
   });
 });
