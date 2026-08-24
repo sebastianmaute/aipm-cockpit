@@ -391,13 +391,15 @@ export function useJiraSync(args: UseJiraSyncArgs) {
           //   than an oversight (open-followups §227).
           // ★★ NOT applyStatusChange here: it would stamp `today` over Jira's
           //   real resolution date, which is why every Jira write site bypasses
-          //   that engine. NOT reconcileStatusFromDate either: it decides status
-          //   from date PRESENCE and would rewrite a reopened issue's genuine
-          //   "In Progress" into "To Do". ★ Scope that second reason to the
-          //   REMOTE arm: a reopened issue's status comes from statusCategory,
-          //   which date-presence would trample. The LOCAL arm has no
-          //   statusCategory to respect, so this reason does not reach it and
-          //   is not what keeps it out — §227 weighs the actual argument there.
+          //   that engine. NOT reconcileStatusFromDate either — though not for
+          //   the reason once given ("would rewrite a reopened In Progress into
+          //   To Do"), which is FALSE: that input falls through both its guards.
+          //   It is a strict NO-OP on every Jira patch — it writes `status` only
+          //   for a date on a non-Done/non-Cancelled row or a dateless Done,
+          //   issueToTaskFields pairs both fields off ONE statusKey read, and
+          //   jiraCategoryToStatus never emits Cancelled. The REAL hazard runs
+          //   the other way: on the LOCAL arm a stale date beside a non-Done
+          //   status is promoted to Done by date-wins — the §227 question.
           merged.status = pick === "local" ? original.status : conflict.remoteStatus;
           completionChanged = true;
         } else if (

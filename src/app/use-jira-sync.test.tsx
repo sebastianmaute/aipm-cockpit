@@ -498,12 +498,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
     expect(result.current.jiraConflicts.length).toBeGreaterThan(0);
   }
 
-  /** The invariant under test, asserted as a property rather than spot-checked
-   *  on two fields, so a future field rename cannot quietly skip it. */
-  function expectPairConsistent(task: Task) {
-    expect(task.status === "Done").toBe(!!task.completedDate);
-  }
-
   /** A COMPLETE picks record. `ConflictResolution.picks` is a REQUIRED
    *  `Record<ConflictFieldKey, "local" | "remote">`, so every key must be
    *  present even though the merge loop only ever reads the keys that actually
@@ -574,7 +568,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
+      picks: picksAll({ taskName: "local" }),
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -595,7 +589,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "remote", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
+      picks: picksAll(),
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -618,7 +612,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "TEST-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
+      picks: picksAll({ taskName: "local" }),
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -669,7 +663,7 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const resolution: import("./jira-conflicts-modal").ConflictResolution = {
       taskId: 1,
       jiraKey: "OPS-1",
-      picks: { taskName: "local", assignee: "remote", assigneeEmail: "remote", dueDate: "remote", priority: "remote", labels: "remote", description: "remote", completedDate: "remote" },
+      picks: picksAll({ taskName: "local" }),
     };
     await act(async () => { await result.current.handleResolveConflicts([resolution]); });
 
@@ -711,7 +705,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const merged = result.current.currentTasks[0];
     expect(merged.completedDate).toBeFalsy();
     expect(merged.status).toBe("In Progress");   // NOT left at the local "Done"
-    expectPairConsistent(merged);
     // Nothing was picked local, so the push block is skipped entirely.
     expect(jiraApi.updateIssue).not.toHaveBeenCalled();
     expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
@@ -738,7 +731,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const merged = result.current.currentTasks[0];
     expect(merged.completedDate).toBe("2026-05-09"); // Jira's resolution date
     expect(merged.status).toBe("Done");              // NOT left at the local "In Progress"
-    expectPairConsistent(merged);
     expect(jiraApi.updateIssue).not.toHaveBeenCalled();
     expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
   });
@@ -767,7 +759,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const merged = result.current.currentTasks[0];
     expect(merged.completedDate).toBe("2026-04-01");
     expect(merged.status).toBe("Done");
-    expectPairConsistent(merged);
     // The ONLY case that satisfies the whole transition guard: a local pick, a
     // truthy merged completedDate, and a remote issue that is not already done.
     expect(jiraApi.updateIssue).toHaveBeenCalled();
@@ -801,7 +792,6 @@ describe("useJiraSync — handleResolveConflicts", () => {
     const merged = result.current.currentTasks[0];
     expect(merged.completedDate).toBeFalsy();
     expect(merged.status).toBe("In Progress");
-    expectPairConsistent(merged);
     expect(jiraApi.updateIssue).toHaveBeenCalled();
     // Local pick, but the merged completedDate is undefined → guard fails.
     expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
