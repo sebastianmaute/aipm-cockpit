@@ -12336,9 +12336,11 @@ status.
 ★ This holds the invariant by the SAME mechanism the pull path already uses — one `statusKey` read
 deriving both fields — rather than by a new rule. None of the three options weighed at the end of
 this entry was taken: adding `status` to `ConflictFieldKey` would let the user construct the split
-pair by hand; re-deriving status from the resolved date cannot tell a reopened issue's genuine
-"In Progress" from "To Do"; and `applyStatusChange` would stamp `today` over Jira's resolution
-date.
+pair by hand; re-deriving status from the resolved date (`reconcileStatusFromDate`) is a strict
+no-op on any `issueToTaskFields` patch — both fields come from one `statusKey` read — so it would
+have protected nothing (the "cannot tell a reopened issue's genuine 'In Progress' from 'To Do'"
+reason once given here is FALSE: that input falls through both of the function's guards); and
+`applyStatusChange` would stamp `today` over Jira's resolution date.
 
 ★★ The "Not determined" paragraph above is now partly answered. The merge's `completedDate` arm
 HAS been exercised, by four tests in `use-jira-sync.test.tsx` covering both directions at both
@@ -14654,12 +14656,14 @@ one-expression change. It was identified during the §183 review round and delib
 because it is outside the approved spec for that slice and it changes a promise made to the user.
 Both arguments, so the next reader does not have to re-derive them:
 
-- **For.** AGENTS.md forbids routing "either Jira path" through `reconcileStatusFromDate`, and the
-  stated reason is that deciding `status` from date PRESENCE would rewrite a reopened issue's genuine
-  "In Progress" into "To Do". That objection is about the REMOTE side: a reopened issue's status comes
-  from Jira's `statusCategory`, which date-presence would trample. The LOCAL side has no
-  `statusCategory` to respect — its status is whatever the workspace stored — so the objection does
-  not reach this arm, and the prohibition is over-general here.
+- **For.** AGENTS.md forbids routing "either Jira path" through `reconcileStatusFromDate`, and its
+  long-stated reason was that deciding `status` from date PRESENCE would rewrite a reopened issue's
+  genuine "In Progress" into "To Do". That reason is FALSE — not merely inapplicable to this arm:
+  such a row falls through BOTH of the function's guards and is returned by reference. The function
+  is in fact a strict no-op on every Jira PATCH (`issueToTaskFields` derives both fields from one
+  `statusKey` read, and `jiraCategoryToStatus` never emits `Cancelled`), so the prohibition was
+  protecting nothing on EITHER arm. It therefore carries no weight against this change, and does not
+  reach this arm; the only argument that does is the one below.
 - **Against.** The user picked "keep my local value". Repairing the pair on that pick silently
   rewrites a field they were not shown and did not arbitrate — `status` is deliberately not a
   `ConflictFieldKey` — which is a different promise from the one the modal makes. It also picks a
