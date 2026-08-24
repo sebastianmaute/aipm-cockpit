@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { assetIdsInDocument, assetRefsInDocument, countAssetUsage } from "./document-asset-usage";
 import { sanitizeProjectDocuments } from "./document-model";
+import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import type { ProjectDocument } from "./document-model";
 
 function doc(id: number, blocks: ProjectDocument["blocks"]): ProjectDocument {
@@ -181,5 +182,34 @@ describe("the three asset-id patterns and what each deliberately does not see", 
     const html = `<img data-asset-id="">`;
     expect({ survivesLoad: survivesLoad(html), counted: counted(html), drawable: drawable(html) })
       .toEqual({ survivesLoad: false, counted: false, drawable: false });
+  });
+});
+
+describe("the load path normalises quoting BEFORE anything counts references", () => {
+  // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_RE accepts
+  // data-asset-id='x' and a bare unquoted value; ASSET_ID_RE and IMG_TAG_RE
+  // both require a double-quoted value. That divergence is harmless ONLY
+  // because every load path runs
+  //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
+  // and the second pass is DOMPurify, which re-serialises every attribute with
+  // double quotes. Recompose those two the other way round -- or persist the
+  // output of the structural pass alone -- and a single-quoted reference
+  // survives load while being invisible to the cap AND to every export, with
+  // no error anywhere. open-followups §218.
+  //
+  // Verified 2026-08-24 at all five load paths -- workspace.ts (JSON),
+  // browser-backend.ts (IndexedDB), csv-codecs-config.ts,
+  // markdown-codecs-core.ts and turso-schema.ts -- each composed in that order,
+  // for `documents` and again for `documentVersions`.
+  it("turns a single-quoted reference into one the cap and the export both see", () => {
+    const raw = [doc(12, [{ type: "paragraph", html: `<img data-asset-id='c' alt='x'>` }])];
+
+    const structuralOnly = sanitizeProjectDocuments(raw);
+    expect(assetRefsInDocument(structuralOnly[0]).all.size).toBe(0); // the hazard
+
+    const loaded = structuralOnly.map(sanitizeDocumentRichFields);
+    const refs = assetRefsInDocument(loaded[0]);
+    expect([...refs.all]).toEqual(["c"]); // the guarantee the ordering buys
+    expect([...refs.drawable]).toEqual(["c"]);
   });
 });
