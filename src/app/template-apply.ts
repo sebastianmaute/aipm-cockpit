@@ -1,6 +1,7 @@
 import type { Workspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
-import type { TaskDependency } from "./types";
+import { sanitizeSeedTask } from "./templates";
+import type { Task, TaskDependency } from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
 
@@ -186,5 +187,27 @@ export function applyTemplate(
 ): Workspace {
   const base: Workspace = { ...ws, fieldVisibility: tpl.fieldVisibility };
   if (!opts.includeSeed || !tpl.seed) return base;
-  return appendSeed(base, remapSeed(ws, tpl.seed));
+  // ★★★ Sanitise the seed's tasks HERE, not in templateFromWorkspace.
+  //   templateFromWorkspace puts live Task objects into the seed by reference,
+  //   so a template saved and applied in one session used to bypass the
+  //   sanitiser that the localStorage load path applies — one template, two
+  //   behaviours, separated by a refresh (open-followups §228). Fixing it at
+  //   SAVE would leave templates written by older builds unrepaired; apply is
+  //   the only ingress into a workspace.
+  // ★★ This does MORE than reconcile the status/completedDate pair.
+  //   `sanitizeSeedTask` rebuilds a task from a fixed field list, so it also
+  //   drops `createdDate`, `inquiriesSent`, `jiraKey`, `jiraIssueType`,
+  //   `lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride`,
+  //   `knowledgeLinks` and `noteLog`. The load path already dropped all ten;
+  //   this makes the two agree. It also stops a per-row external link being
+  //   CLONED — two local tasks pointing at one Jira issue is not a template.
+  const seed = tpl.seed.tasks
+    ? {
+        ...tpl.seed,
+        tasks: tpl.seed.tasks
+          .map(sanitizeSeedTask)
+          .filter((x): x is Task => x !== null),
+      }
+    : tpl.seed;
+  return appendSeed(base, remapSeed(ws, seed));
 }
