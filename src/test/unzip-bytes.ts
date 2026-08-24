@@ -12,8 +12,8 @@
  * path both shims implement — same reasoning as `export-ooxml.test.ts`.
  *
  * ★ The `.arrayBuffer()` branch is what lets this module run under plain node
- * (`vite-node scripts/update-ooxml-manifest.ts`), where there is no FileReader
- * at all. Under jsdom the branch is skipped and FileReader still does the work.
+ * (`npm run ooxml:manifest`), where there is no FileReader at all. Under
+ * jsdom the branch is skipped and FileReader still does the work.
  */
 function blobToArrayBuffer(blob: Blob): Promise<ArrayBuffer> {
   if (typeof blob.arrayBuffer === "function") return blob.arrayBuffer();
