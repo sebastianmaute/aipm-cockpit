@@ -422,7 +422,7 @@ export function formatManifestDiff(
     return `the package's part LIST changed:\n${lines.join("\n")}`;
   }
 
-  if (expectedPaths.join(" ") !== actualPaths.join(" ")) {
+  if (expectedPaths.join(" ") !== actualPaths.join(" ")) {
     return [
       "the package's part ORDER changed (a sorted manifest could not see this):",
       `  baseline: ${expectedPaths.join(", ")}`,
