@@ -8,10 +8,22 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.256.2] - 2026-08-23 "Khaw"
+## [0.256.2] - 2026-08-24 "Khaw"
 
 ### Fixed
 
+- **A repaired picture no longer flips back to "unavailable" on its own.**
+  When a picture whose stored copy had failed was repaired, the document
+  sometimes went on showing it as unavailable anyway. Two attempts to load the
+  same picture could overlap, and whichever finished last won — so an older
+  attempt, still working from the broken copy, could overwrite the result of the
+  successful one. The repaired picture now stays visible.
+- **Documents no longer claim your pictures are missing when picture storage is
+  simply switched off.** Document images are only available on a connected
+  database. Without one — in file mode, or in safe mode — every picture in a
+  document was drawn with the same "unavailable" frame used for a picture that
+  really is gone, which read as data loss. Those pictures now render their
+  description text instead, in both the document view and the version history.
 - **Images now appear when you preview an earlier version of a document.**
   Opening a version from a document's history rendered its text but left every
   picture in it blank, with nothing to say why. The version-history preview drew
