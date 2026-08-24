@@ -15514,3 +15514,82 @@ cap through a parse rather than a regex. ★★ Neither is free and §218 is the
 extractors are deliberately NOT merged, and the cap's tag-AGNOSTIC reading is load-bearing for
 deletion safety. Widening `ASSET_ID_RE` toward `<img>`-only would silently change what the cap
 counts and what "used in N documents" means. Read §218's table before touching either.
+
+## 232. `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave — CLOSED 2026-08-25
+
+**Status:** CLOSED 2026-08-25 by `feat/followups-register-housekeeping`. A live data-loss defect,
+not a hazard: the app could not persist a steering committee at all, on any backend, and it deleted
+one already on disk.
+
+**The defect.** `use-storage-backend.ts` LOADS the slice into React state
+(`setSteeringCommittee(workspace.steeringCommittee)`) and never puts it back. The root cause is one
+missing identifier: the destructure from `useWorkspace()` took `setSteeringCommittee` **without the
+value**, so `steeringCommittee` was never in scope to place in any outgoing literal. All five
+literals in the file carried the same 27 keys and none of them carried this one:
+
+```bash
+grep -n "stakeholders, timelogLinks," src/app/use-storage-backend.ts   # 5 literals + the dep array, pre-fix
+```
+
+★★★ **THE OMISSION IS A DELETION, NOT A NO-OP, AND THAT IS THE WHOLE SEVERITY.** Every backend is
+delete-on-absent, so writing a workspace without the key REMOVES the stored one:
+`browser-backend.ts` calls `idbDelete(KV_STEERING_KEY)` on the `else` branch, both Turso writers
+`DELETE FROM meta` before re-inserting (`turso-schema.ts`, `turso-tenant-schema.ts`), and CSV/MD/JSON
+simply omit the section. A reader who assumes "a missing key leaves the stored value alone" will
+mis-rank this as cosmetic.
+
+★★ **TWO ROUTES, and the common one is the dependency array rather than the literals.** The save
+effect's dep array was missing `steeringCommittee` too, so a committee-only edit did not fire a save
+**at all** — that is every user on every backend, and it is Route A. Route B is the one that destroys
+data already on disk: `sample-workspace-small.json` ships a committee and `createDemoProject` writes
+it (`use-storage-file-ops.ts`), after which any later unrelated edit autosaves the 27-key literal
+over it. Fixing the literals alone would have left Route A live, which is why the dep array is
+counted as a seventh edit and not as tidy-up.
+
+★★ **INVISIBLE UNTIL RELOAD.** React state is never touched by any of this, so the committee panel
+goes on rendering the committee for the rest of the session. Nothing surfaces at write time; the
+loss appears on the next load.
+
+**Not a regression.** `git log -S"steeringCommittee" -- src/app/use-storage-backend.ts` returns a
+single commit — the one that added the load line. The write side never existed.
+
+**The fix.** Seven edits, `use-storage-backend.ts` only, no type change: destructure the value, then
+add it to `outgoing` (the dirty-check/truncation snapshot, which must agree with what is written),
+`backend.save({ … })`, the save effect's **dependency array**, both `truncationOps.guardedWrite`
+literals (pick-storage-file and storage conversion) and `currentWorkspace()`. The field is already
+optional-and-readonly on `Workspace` and the sanitizers already handle it on every load path
+(`sanitizeSteeringCommittee`, `browser-backend.ts`, `workspace.ts`), so nothing else moved.
+
+★ **ZERO net lines**, deliberately: §229 records this file at gate-799 with one line of headroom.
+Each key was inserted into the existing single-line literal it belongs to, between `stakeholders` and
+`timelogLinks` so the write order mirrors the load order. `npm run size:check` is green and the file
+still reads 799.
+
+**The pin.** `use-storage-backend.steering.test.tsx` — a new file, because
+`use-storage-backend.test.tsx` mocks `./storage` at module scope and an assertion on the arguments
+handed to a `vi.fn()` save would prove spelling, not persistence. The three tests drive a REAL
+`BrowserBackend` over `fake-indexeddb` and read back through a FRESH backend, so a value living only
+in React state cannot pass. They are not redundant — each kills a different mutant, and the token
+span of both mutants is the 19 characters `"steeringCommittee, "`:
+
+| mutant | test 1 (control) | test 2 (save path) | test 3 (dep array) |
+|---|---|---|---|
+| none (fixed) | pass | pass | pass |
+| drop the token from `backend.save({ … })` | pass | **FAIL** | **FAIL** |
+| drop the token from the dep array ALONE | pass | pass | **FAIL** |
+
+★★ **THE CONTROL IS LOAD-BEARING.** Without test 1 — `BrowserBackend` round-trips a committee handed
+to it directly — a red run below could equally mean the shape does not survive jsdom/IndexedDB at
+all, and the other two would prove nothing about the key set.
+
+★★ **TEST 3 IS THE ONLY DETECTOR THE DEP ARRAY WILL EVER HAVE.** The line carries an
+`// eslint-disable-next-line react-hooks/exhaustive-deps`, so lint is silent on a missing dep there
+by construction. Test 3 changes ONLY the committee after the initial load has settled, so with the
+dep absent the effect never re-runs and no save fires; test 2 mutates other already-listed deps in
+the same tick and therefore rides their effect run, which is exactly why it survives that mutant and
+test 3 does not. Deleting test 3 as "covered by test 2" silently un-pins Route A.
+
+★ **HARNESS TRAP, not a product behaviour:** the load path sets a one-shot save suppression
+(`suppressNextSaveRef`), so an edit made before the initial load settles is swallowed by it. Both
+hook tests wait on `workspaceLoaded` and then let the debounce window pass before mutating. A test
+written without that wait fails against the FIXED code, which reads like a live defect.
