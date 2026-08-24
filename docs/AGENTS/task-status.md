@@ -101,10 +101,22 @@ load paths, so that changes every backend's load behaviour.
 
 ★★★ THE ONE THAT NEEDS THAT QUALIFIER: the CONFLICT merge is a PASS-THROUGH, not a normaliser.
 `merged` is seeded `{ ...original }` and `status` is written exactly ONCE, so the `pick === "local"` arm assigns `original.status` over itself — a no-op. An
-ALREADY-split local row therefore survives a local pick, and that same pick fires
-`transitionIssueTo(…, "done")` while the row reads "In Progress". Reproduce — READ the hits, do not
+ALREADY-split local row therefore survives a local pick. Reproduce — READ the hits, do not
 count them; the file's own comment about this rule matches:
 `grep -nE "merged: Task|merged\.status" src/app/use-jira-sync.ts`.
+
+★★ The transition this used to re-trigger is now fixed, at BOTH sites that call
+`transitionIssueTo`. A local pick on the conflict path used to fire the Jira completion
+transition off `merged.completedDate` alone, moving the Jira issue to done while the merged row
+still read "In Progress"; `handleResolveConflicts` now gates that call on
+`merged.status === "Done"`, so a split local row no longer moves the issue. The plain auto-push
+sibling — `handleJiraSync`'s `localChanged` branch, which keyed the same transition on
+`!!row.completedDate` — carried the identical defect and is fixed the same way. A reader who
+fixes only the conflict-path call site should know the auto-push one was a separate defect and is
+already closed; there are exactly two `transitionIssueTo` call sites in `src/app`
+(`grep -n "await transitionIssueTo" src/app/use-jira-sync.ts`), and both now read `status`, never
+the date. What the pass-through still does NOT fix is the STORAGE side: an already-split row
+re-stored by a local pick stays split (open-followups §227).
 
 ## Closed vs delivered (`task-closed.ts`)
 

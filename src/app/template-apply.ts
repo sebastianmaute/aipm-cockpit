@@ -196,11 +196,14 @@ export function applyTemplate(
   //   the only ingress into a workspace.
   // ★★ This does MORE than reconcile the status/completedDate pair.
   //   `sanitizeSeedTask` rebuilds a task from a fixed field list, so it also
-  //   drops `createdDate`, `inquiriesSent`, `jiraKey`, `jiraIssueType`,
-  //   `lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride`,
-  //   `knowledgeLinks` and `noteLog`. The load path already dropped all ten;
-  //   this makes the two agree. It also stops a per-row external link being
-  //   CLONED — two local tasks pointing at one Jira issue is not a template.
+  //   drops `inquiriesSent`, `jiraKey`, `jiraIssueType`, `lastSyncedAt`,
+  //   `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks`
+  //   and `noteLog` outright. The captured `createdDate` is discarded too, but
+  //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
+  //   applied task still carries a `createdDate`, just not the one that was
+  //   captured. The load path already dropped all ten; this makes the two
+  //   agree. It also stops a per-row external link being CLONED — two local
+  //   tasks pointing at one Jira issue is not a template.
   const seed = tpl.seed.tasks
     ? {
         ...tpl.seed,
