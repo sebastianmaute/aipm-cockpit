@@ -13,7 +13,7 @@ import { ClearableSearchInput } from "./clearable-search-input";
 import { INTERACTIVE } from "./interaction-styles";
 import { useToastContext } from "./toast-context";
 
-export function DiagnosticsPanel({ lang }: { lang: Lang }) {
+export function DiagnosticsPanel({ lang, splitPairs }: { lang: Lang; splitPairs?: number }) {
   const showToast = useToastContext();
   const [events, setEvents] = useState(() => readDiagLog());
   const [levels, setLevels] = useState<Set<DiagLevel>>(() => new Set<DiagLevel>(["error", "warn", "info"]));
@@ -66,6 +66,11 @@ export function DiagnosticsPanel({ lang }: { lang: Lang }) {
       <p className="text-sm text-muted-foreground">{t(lang, "diagnosticsIntro")}</p>
       {events.length > 0 && (
         <p className="text-xs text-muted-foreground">{summaryText}</p>
+      )}
+      {splitPairs !== undefined && (
+        <p className="text-xs text-muted-foreground">
+          {t(lang, "diagnosticsSplitPairs", String(splitPairs))}
+        </p>
       )}
       <div className="flex flex-wrap gap-2">
         <button

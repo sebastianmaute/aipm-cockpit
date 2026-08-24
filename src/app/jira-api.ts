@@ -4,7 +4,7 @@
 // Atlassian on the user's behalf.
 
 import { adfToText, textToAdf } from "./adf";
-import { jiraCategoryToStatus } from "./jira-status-map";
+import { jiraCategoryToStatus, statusToJiraCategory } from "./jira-status-map";
 import { jiraProjectKeys } from "./jira-projects";
 import {
   sanitizeAssignee,
@@ -357,6 +357,12 @@ export type ConflictItem = {
    *  user cannot arbitrate it independently of the date without being able to
    *  construct the very split pair this exists to prevent. */
   remoteStatus: TaskStatus;
+  /** The LOCAL row's workflow status at queue time.
+   *  ★ Carried purely so the modal can render the completion row as the PAIR it
+   *  actually is. The merge does not read it — the local arm takes `status`
+   *  from `original`. Without it a status-only conflict renders two identical
+   *  dates and the user cannot see what they are choosing between. */
+  localStatus: TaskStatus;
   fields: ConflictField[];
 };
 
@@ -400,7 +406,40 @@ export function diffTaskAgainstIssue(
   check("priority");
   check("labels");
   check("description");
-  check("completedDate");
+  // ★★★ The completion row represents the PAIR (`status` + `completedDate`),
+  //   not the date alone: the merge writes BOTH halves from the side the user
+  //   picks, and `status` is deliberately not a ConflictFieldKey. So it must be
+  //   queued when EITHER half differs. Testing the date alone dropped a remote
+  //   status move whose date had not changed — and when no other field
+  //   differed this function returned empty, so no conflict was queued at all
+  //   and the move was discarded silently (open-followups §226).
+  // ★ `remoteFields.status === undefined` means the patch says nothing about
+  //   the remote status; treating that as a difference would queue a phantom
+  //   conflict on every sync. ★★ UNREACHABLE FROM THE SYNC HOOK, and kept
+  //   anyway: the only non-test caller is `use-jira-sync.ts`, which always
+  //   passes an `issueToTaskFields(...)` patch — typed `Partial<Task> & {
+  //   status: TaskStatus }`, so its `status` is non-optional by construction.
+  //   The guard is for the OTHER callers the exported `Partial<Task>` signature
+  //   admits, and is pinned by its own test; do not delete it as dead code
+  //   after grepping only the hook.
+  // ★★ Compare through the CATEGORY, not the two status strings. Jira carries
+  //   three categories against our six statuses, so `On Hold`, `In Review` and
+  //   `Cancelled` compare as different forever under a literal test — a
+  //   conflict on every dual-changed sync that the user cannot resolve, since
+  //   picking remote overwrites the status they chose. Round-tripping the
+  //   local status through the lossy map compares the two at the granularity
+  //   the wire can actually express, which still catches a genuine move
+  //   (`In Progress` is `indeterminate`, `To Do` is `new`).
+  const statusDiffers =
+    remoteFields.status !== undefined &&
+    jiraCategoryToStatus(statusToJiraCategory(local.status)) !== remoteFields.status;
+  if (fieldsDiffer(local.completedDate, remoteFields.completedDate) || statusDiffers) {
+    out.push({
+      key: "completedDate",
+      localValue: local.completedDate,
+      remoteValue: remoteFields.completedDate,
+    });
+  }
   return out;
 }
 

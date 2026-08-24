@@ -241,6 +241,48 @@ describe("applyTemplate", () => {
     const seededTask2 = ws2.tasks.find((t) => t.taskName === "S2")!;
     expect(seededTask2.id).toBeGreaterThan(seededTask.id); // monotonic — the deleted id is NOT reused
   });
+  it("reconciles a split task pair when applying a template in the same session", () => {
+    // templateFromWorkspace puts LIVE Task objects into the seed by reference,
+    // so a split row in the workspace reaches applyTemplate unreconciled. The
+    // localStorage load path repairs it via sanitizeSeedTask; before this fix
+    // the in-session path did not, so one template behaved two ways either
+    // side of a refresh (open-followups §228).
+    // ★ The fixture MUST be split, or both the fixed and unfixed paths agree
+    //   and this test passes against the unfixed code.
+    const split: Task = {
+      ...mkTask(1, "Legacy row"),
+      status: "In Progress",
+      completedDate: "2026-01-01",
+    };
+    const ws = applyTemplate(emptyWorkspace(), tpl({ tasks: [split] }), { includeSeed: true });
+
+    expect(ws.tasks).toHaveLength(1);
+    // reconcileStatusFromDate: the DATE wins for every status but Cancelled,
+    // so the row becomes Done rather than losing its date.
+    expect(ws.tasks[0].status).toBe("Done");
+    expect(ws.tasks[0].completedDate).toBe("2026-01-01");
+  });
+
+  it("drops per-row external links so an in-session apply matches the load path", () => {
+    // sanitizeSeedTask REBUILDS a task from a fixed field list rather than
+    // patching it, so routing apply through it drops ten Task fields that the
+    // raw in-session copy used to carry. That is the point: the localStorage
+    // load path already drops them, and this makes the two agree (§228).
+    // ★ It also removes a real hazard. jiraKey/lastSyncedAt/outlookEventId each
+    //   point at ONE external record, so copying them produced two local tasks
+    //   claiming the same Jira issue and the same Outlook event.
+    const linked: Task = {
+      ...mkTask(1, "Linked row"),
+      jiraKey: "LOP-42",
+      outlookEventId: "evt-1",
+    };
+    const ws = applyTemplate(emptyWorkspace(), tpl({ tasks: [linked] }), { includeSeed: true });
+
+    expect(ws.tasks).toHaveLength(1);
+    expect(ws.tasks[0].taskName).toBe("Linked row");
+    expect(ws.tasks[0].jiraKey).toBeUndefined();
+    expect(ws.tasks[0].outlookEventId).toBeUndefined();
+  });
 });
 
 describe("appendSeed", () => {

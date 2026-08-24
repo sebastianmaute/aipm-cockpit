@@ -14751,9 +14751,9 @@ grep -n -A 4 "export function sanitizeText" src/app/sanitize-core.ts
 grep -n -B 3 -A 6 "documentAssets" src/app/workspace.ts
 ```
 
-## 226. The conflict path ignores a remote status change when the completion date does not differ
+## 226. The conflict path ignores a remote status change when the completion date does not differ — CLOSED 2026-08-24
 
-**Status:** open — a gap the §183 fix deliberately did not close. **Severity:** low (a stale value,
+**Status:** CLOSED 2026-08-24 by `fix/jira-status-tail`. **Severity was:** low (a stale value,
 never an incoherent one).
 
 §183 made the conflict merge write `status` and `completedDate` from ONE side. It reaches
@@ -14805,11 +14805,36 @@ was not yet reserved on `origin/main` (max 224 there, measured). The gap closes 
 merges. Minting the same number twice is a failure this register has already recorded happening
 twice (§202 → §214 → §215).
 
+**CLOSED 2026-08-24.** `diffTaskAgainstIssue` (`jira-api.ts`) now queues the completion row when
+EITHER half of the pair differs, not only when the date does. ★ The old behaviour was worse than
+"ignores": when no other field differed either, the function returned an EMPTY array, and an empty
+diff queues no conflict at all — so the remote status move was not merely mis-merged, it was
+discarded outright, with nothing surfaced to the user. The new status half of the comparison goes
+through the Jira status **category** (`statusToJiraCategory`, `ConflictItem` gained
+`localStatus`), not the two status strings directly: Jira carries three categories against our six
+statuses, so comparing `On Hold`, `In Review` and `Cancelled` literally against a remote category
+would have queued an unresolvable conflict on every dual-changed sync for a row in one of those
+three states — picking "remote" would just overwrite the status the user picked with something
+Jira cannot represent either. `jira-conflicts-modal.tsx` now renders the completion row as the
+pair (status above date, each side), so a status-only conflict no longer shows the user two
+identical dates with nothing to tell them apart.
+
+★ Worth recording rather than opening a new entry: the only surface that lets a Jira-linked task
+reach one of those three category-unrepresentable statuses in the first place is the task edit
+modal. `task-form-fields.tsx`'s status `<Select>` is not gated on `editingIsJiraLinked` (unlike the
+assignee field beside it, which is), while `task-status-select.tsx` — the shared control behind
+both the table row and the Kanban card — gates on `isJiraSynced`. That asymmetry is pre-existing
+and may well be deliberate; it is also the precondition the category comparison above had to
+accommodate, since without it a synced task could never carry `On Hold`/`In Review`/`Cancelled` to
+begin with.
+
 ## 227. The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair
 
-**Status:** open — identified while reviewing the §183 fix, and deliberately NOT fixed in the same
-round. **Severity:** low-to-medium (no NEW split pair is created from consistent input; an existing
-one is propagated, and one Jira write fires against a row that does not read Done).
+**Status:** open, NARROWED 2026-08-24 — identified while reviewing the §183 fix, and deliberately
+NOT fixed in the same round. **Severity:** low (no NEW split pair is created from consistent input;
+an existing one is propagated into storage. The second-order Jira-write consequence this entry
+originally carried is now fixed at both transition sites — see below — so what remains is a
+stored-data staleness, not a live write against the wrong Jira status).
 
 §183 made `handleResolveConflicts` (`use-jira-sync.ts`) write `status` beside `completedDate`, both
 from the side the user picked. That closed the case where the two halves came from DIFFERENT sides.
@@ -14823,8 +14848,9 @@ no-op. Only the remote arm writes anything.
 # read the hits, do not count them: this file's own comment about the rule matches too (the
 # self-referential-grep trap this repo records)
 grep -nE "merged: Task|merged\.status" src/app/use-jira-sync.ts
-# the guard that also fires on the affected pick
-grep -n "completionChanged && merged.completedDate" -A 2 src/app/use-jira-sync.ts
+# the guard that used to fire on the affected pick — now gated on status, not the date (fixed
+# 2026-08-24; see the note below)
+grep -n "completionChanged && merged.status" -A 2 src/app/use-jira-sync.ts
 ```
 
 **Consequence.** Three of the other four writers hold the invariant whatever input they are handed;
@@ -14838,13 +14864,21 @@ writes the local date back and re-writes the local status over itself, and the r
 again — freshly written, AFTER 0.257.0. Picking local is the arm §183's own text calls "consistent in
 both directions", and it is, for the well-formed rows that entry was reasoning about.
 
-**Second-order effect, and it is the part that leaves the app.** That same pick satisfies every term
-of `completionChanged && merged.completedDate && !conflict.remoteDone` — the local pick sets
-`anyLocalPicked`, so the push arm runs; the branch sets `completionChanged`; the local date is
-truthy; and the issue is not done remotely. So `transitionIssueTo(creds, conflict.jiraKey, "done")`
-fires and moves the JIRA ISSUE to done, while the local row the user is looking at still reads
-"In Progress". This is not a new guard — it is the pre-existing one behaving exactly as written; what
-is new is noticing that a split local row can reach it.
+**Second-order effect — CLOSED 2026-08-24, at BOTH transition sites.** That same pick used to
+satisfy every term of `completionChanged && merged.completedDate && !conflict.remoteDone` — the
+local pick sets `anyLocalPicked`, so the push arm runs; the branch sets `completionChanged`; the
+local date is truthy; and the issue is not done remotely. So `transitionIssueTo(creds,
+conflict.jiraKey, "done")` used to fire and move the JIRA ISSUE to done, while the local row the
+user was looking at still read "In Progress". `handleResolveConflicts` (this file's conflict path)
+now gates that call on `merged.status === "Done"` instead of the date, so a stale `completedDate`
+on a split row can no longer trigger it. The plain auto-push sibling — `handleJiraSync`'s
+`localChanged` branch, which keyed the identical transition on `!!row.completedDate` — carried the
+same defect and is fixed the same way, in the same slice. There are exactly two `transitionIssueTo`
+call sites in `src/app` (`grep -n "await transitionIssueTo" src/app/use-jira-sync.ts`), and both
+now read `status`. A reader who fixed only the conflict-path call site would leave the auto-push
+one live; both are closed. What remains open below is the STORAGE question alone: a local pick
+still RE-EMITS an already-split pair into the stored task, even though neither call site can be
+tricked into acting on it any more.
 
 **Why it is left open: the fix is a design decision, not a correction.** Routing the local arm
 through `reconcileStatusFromDate` (`task-status.ts`) would repair the pair in place and is a
@@ -14878,14 +14912,30 @@ since 0.257.0 — so this is a DATA-gap consequence, the same class §182 and §
 entries with. It is filed separately because the repair site is in `src` and is one expression away,
 which makes it much more tempting to "just fix" than the load-path repair those entries rule out.
 
-★ Not determined: how many stored rows are actually split. Nothing has counted them, and nothing can
-without reading real workspaces.
+★★ This slice is exactly what changed that. `countSplitTaskPairs` (`task-status.ts`) now counts
+split rows in the live workspace, and Settings → Diagnostics reports the number via
+`DiagnosticsPanel`'s `splitPairs` prop, logging it once to the diagnostic ring
+(`"task-pair-split"`) when non-zero so it reaches an exported support bundle. The decision this
+entry is waiting on — whether to route the local arm through `reconcileStatusFromDate` — is no
+longer waiting on an unknown; it is waiting on what that counter reports out of real workspaces.
+The For/Against arguments above are still the arguments, and the prohibition on
+`reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands unchanged — only the "nothing has
+counted them" premise they were deferred against has moved.
 
-## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load — open
+## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load
 
-**Status:** open — found while reviewing the §182 fix, which is what makes it visible. **Severity:**
-low (the window is one session, a reload closes it, and nothing in `src` should be producing a split
-row to launder in the first place).
+**Status:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
+five seed slices still bypass the sanitiser on the in-session path. **Severity:** low (the window is
+one session, a reload closes it, and nothing in `src` should be producing an invalid row to launder
+in the first place).
+
+★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
+DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** EVERY number in the block
+below is as-of the original report — its command OUTPUT, its inline `templates.ts:NNN` annotations
+and its comment tallies alike. Re-run the commands; do not read the annotations as current. (The
+narrowing fix inserted lines above two of those anchors, so they had already drifted twice inside a
+single release.) What is true of today's tree is under **NARROWED 2026-08-24** at
+the end of this entry; read that first and the original as the record of what the defect was.
 
 §182 closed by teaching `sanitizeSeedTask` (`templates.ts`) to reconcile the pair. That function has
 exactly one reachable caller chain — `sanitizeSeed` ← `sanitizeTemplate` ← `sanitizeTemplates` —
@@ -14900,11 +14950,11 @@ copies whatever the workspace holds, unreconciled; reload the page and the ident
 through the repaired path. One template, two behaviours, separated by a refresh.
 
 ```bash
-# the seed takes live Task objects by reference. ★ TWO hits — templates.ts:131 is a COMMENT quoting
+# the seed takes live Task objects by reference. ★ TWO hits — one is a COMMENT quoting
 #   the same expression, the self-referential-grep trap this register records. Read them.
 grep -n "seed.tasks = ws.tasks" src/app/templates.ts
-# the reconciler's whole reachable chain, and where it starts. ★ Three of these hits are COMMENTS
-#   (change-log.ts, task-status.ts, templates.ts:326) — read the hit, do not count it.
+# the reconciler's whole reachable chain, and where it starts. ★ SOME of these hits are COMMENTS
+#   (change-log.ts, task-status.ts, templates.ts) — read the hit, do not count it.
 grep -rn "sanitizeSeedTask\|sanitizeSeed(\|sanitizeTemplates" src/app --include=*.ts --include=*.tsx \
   | grep -v "\.test\."
 # apply reads tpl.seed straight through
@@ -14927,6 +14977,48 @@ workspace on EVERY path, not only the one that goes through disk.
 ★ Not determined: whether the in-session path is worth a fix on its own, or whether it should wait
 for whatever closes the data gap. Nothing has counted how many stored rows are split (§227 records
 the same limit), and an occurrence here leaves no trace once the page reloads.
+
+**NARROWED 2026-08-24.** `applyTemplate` (`template-apply.ts`) now maps every seed **task** through
+the newly-exported `sanitizeSeedTask` before it reaches `remapSeed`/`appendSeed`, so the
+status/completedDate pair is repaired on the in-session path too — for task rows, one template, one
+behaviour, whether or not a reload happened in between.
+
+★★★ **WHAT REMAINS, AND WHY THIS IS NARROWED RATHER THAN CLOSED.** The load path's sanitiser is
+`sanitizeSeed`, and it covers SIX slices — tasks, milestones, raid, changes, stakeholders, budgets.
+`applyTemplate` sanitises `tasks` ALONE and spreads the rest of `tpl.seed` through untouched, so an
+in-session apply and a post-reload apply STILL differ for the other five. The general property §182's
+fix was reaching for — that the reconciler stands between a template seed and the workspace on EVERY
+path — is therefore still not held; only its task-shaped instance is. Do not read "the fix landed" as
+"the split is gone".
+
+```bash
+# the LOAD path: SIX sanitizeArr calls, one per slice
+grep -n "function sanitizeSeed(raw: unknown): TemplateSeed" -A 12 src/app/templates.ts
+# the IN-SESSION path: `tasks` is rebuilt, `...tpl.seed` carries the other five through as-is
+grep -n "const seed = tpl.seed.tasks" -A 8 src/app/template-apply.ts
+# and no other slice's sanitiser is named on that path at all — no output, EXIT 1
+grep -nE "sanitizeMilestone|sanitizeSeedRaidItem|sanitizeChangeItem|sanitizeStakeholder|sanitizeBudgetBucket" \
+  src/app/template-apply.ts
+```
+
+★ Whether the remaining five are worth closing on their own is still undetermined, for the reason the
+original entry gave: the seed rows come from `templateFromWorkspace`, which captures live and already
+valid rows, so the bypass can only launder something a `src` writer should not have produced.
+
+★ The fix is wider than "reconcile the pair". `sanitizeSeedTask` REBUILDS a task from a fixed field
+list, so applying a template also drops `inquiriesSent`, `jiraKey`, `jiraIssueType`,
+`lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks` and
+`noteLog` outright, and discards the captured `createdDate` (`migrateTask` backfills a replacement
+from `lastUpdateDate`, so the applied task still carries one — just not the one that was
+captured). The load path already dropped all ten; this makes the two agree. It also stops a
+per-row external link being CLONED — two local tasks pointing at one Jira issue is not a template.
+
+★ A nuance, not a defect: `template-menus.tsx`'s seed breakdown reads `tpl.seed.tasks?.length`
+directly, so for a template created in-session and not yet round-tripped through storage, its "N
+tasks" count is the PRE-sanitise number. If a row were ever dropped (`sanitizeSeedTask` returns
+`null` for a missing id or a blank name) the popover count could disagree with what actually lands.
+Near-unreachable in practice, since `templateFromWorkspace` captures live, already-valid rows.
+
 ## 229. `use-chat-dispatcher.ts` and `use-storage-backend.ts` sit at 799 with no baseline entry — TWO net lines fail the ratchet
 
 **Status:** open — a HAZARD, not a defect. Nothing is broken today, and no gate is red. Carried out

@@ -184,6 +184,7 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               //   `Partial<Task> & { status: TaskStatus }`, so this is the same
               //   single `statusKey` read that produced patch.completedDate.
               remoteStatus: patch.status,
+              localStatus: row.status,
               fields: diffs,
             });
             next.push(row);
@@ -197,7 +198,17 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               taskFieldsToJiraFields(row),
             );
             // Status transition if completion state diverges.
-            const localDone = !!row.completedDate;
+            // ★★★ `status`, NOT `completedDate`. `status` is the source of
+            //   truth for "done" (docs/AGENTS/task-status.md), and
+            //   `taskFieldsToJiraFields` pushes no status — so this transition
+            //   is the ONLY route by which local completion reaches Jira on
+            //   this path. Keying it on the date moved a real issue to Done
+            //   off a SPLIT local row whose status still read "In Progress".
+            //   The same defect on the CONFLICT path was fixed separately;
+            //   this is the plain auto-push sibling, which runs on every
+            //   ordinary sync and so fires far more often (open-followups
+            //   §227). On a consistent pair the two are equivalent.
+            const localDone = row.status === "Done";
             const remoteDone = isIssueDone(issue);
             if (localDone && !remoteDone) {
               await transitionIssueTo(creds, row.jiraKey, "done");
@@ -422,7 +433,15 @@ export function useJiraSync(args: UseJiraSyncArgs) {
             conflict.jiraKey,
             taskFieldsToJiraFields(merged),
           );
-          if (completionChanged && merged.completedDate && !conflict.remoteDone) {
+          // ★★★ Gate on `status`, NOT on `completedDate`. `status` is the
+          //   source of truth for "done" (docs/AGENTS/task-status.md), and
+          //   `taskFieldsToJiraFields` pushes no status — so this transition is
+          //   the ONLY route by which local completion reaches Jira on this
+          //   path. Keying it on the date moved a real issue to Done off a
+          //   SPLIT local row whose status still read "In Progress"
+          //   (open-followups §227). On a consistent pair the two are
+          //   equivalent, so this changes nothing for well-formed rows.
+          if (completionChanged && merged.status === "Done" && !conflict.remoteDone) {
             await transitionIssueTo(creds, conflict.jiraKey, "done");
           }
           pushed++;
