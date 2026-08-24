@@ -981,14 +981,43 @@ Collapsing them is the "finish the job" mistake §218's closure exists to preven
 beside the other two. It answers a different question at a different moment; folding it into either
 extractor changes what survives load.
 
+★★ **THREE REGEXES, NOT THREE READERS — the table above is about the PATTERNS, and a "finish the
+job" reader who takes it as the whole population will miss two.** `attachAssetImages`
+(`document-asset-images.ts`) reads the attribute through the DOM instead, with
+`querySelectorAll("img[data-asset-id]")` on an already-rendered subtree — which gives a FOURTH
+distinct answer again: `<img>`-only like `IMG_TAG_RE`, but tag-case-insensitive and
+quoting-agnostic like `ASSET_IMG_RE`, because by then it is parsed markup and not text. And
+`sanitize-html.ts` reads it as an allow-list VALUE predicate in `ATTR_VALUES`
+(`/^[A-Za-z0-9_-]{1,64}$/`), which is what decides whether an id survives sanitising at all —
+upstream of every one of the others. Enumerate the population with
+`grep -rln "data-asset-id" src/app --include=*.ts --include=*.tsx`.
+
 ★★★ **THE DIVERGENCE IS SAFE ONLY BECAUSE OF AN ORDERING.** A single-quoted or uppercase
 `<img data-asset-id>` survives load while being invisible to the cap and to every export — which
 would be a live defect if stored HTML kept its original quoting. It does not: every load path runs
-`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)`, and that second pass is DOMPurify,
-which re-serialises attributes with double quotes and lower-cases tag names. Measured at TEN sites
+a structural pass and then `sanitizeDocumentRichFields`, and that second pass is DOMPurify, which
+re-serialises attributes with double quotes and lower-cases tag names. Verified at TEN sites
 (`workspace.ts`, `browser-backend.ts`, `csv-codecs-config.ts`, `markdown-codecs-core.ts`,
-`turso-schema.ts`, each twice — documents and documentVersions) and now pinned by a test. Reorder
-that pair on any load path and rows the cap cannot see start reaching storage.
+`turso-schema.ts`, each twice — documents and `documentVersions`). Reorder that pair on any load
+path and rows the cap cannot see start reaching storage.
+
+★★ **THE ORDERING HOLDS AT TEN; THE EXPRESSION DOES NOT, AND THIS SPOT USED TO QUOTE THE
+EXPRESSION.** It said "every load path runs `sanitizeProjectDocuments(raw).map(
+sanitizeDocumentRichFields)`" — that literal composition is the DOCUMENTS half only, at five sites,
+and `csv-codecs-config.ts` wraps it across two lines so a single-line grep returns four. The
+`documentVersions` half at each of the same five sites spells it differently:
+`sanitizeDocumentVersions(...)`, which routes through `sanitizeProjectDocuments` internally, then a
+per-version `sanitizeDocumentRichFields` over that version's blocks. Same order, different
+spelling — so grep the ORDER, not the string.
+
+★★ **WHAT IS PINNED IS ONE OF THE TEN.** `document-asset-usage.test.ts`'s "the load path
+normalises quoting BEFORE anything counts references" carries two cases and they are not
+interchangeable. The first composes the two passes BY HAND, so it pins the CONSEQUENCE of that
+composition and not that any real load path uses it — it imports neither `turso-schema.ts` nor
+`csv-codecs-config.ts`, so nothing either of them does can redden it. The second drives
+`jsonToWorkspace` end to end and is mutation-proved: deleting `.map(sanitizeDocumentRichFields)`
+from that decoder's `documents` branch reddens it (`[]` where `["c"]` was expected) while the
+hand-composed case stays green. The other nine compositions are verified by inspection alone.
 
 ★ **ONE REVERSAL IS CORRECT AND MUST STAY**: `ai-document-blocks.ts` sanitises per block BEFORE the
 structural pass, because it is an AI WRITE path, not a load path.
@@ -1099,33 +1128,64 @@ golden suite pinned these bytes, and both were corrected when it did not.
 
 ### The ordered part-manifest gate (§216, closed 2026-08-24)
 
-`ooxml-package-manifest.test.ts` compares the MEDIA-FREE `.docx` and `.pptx` against
+`ooxml-package-manifest.test.ts` compares the MEDIA-FREE packages against
 `docs/baselines/ooxml-parts.json`, using `packageManifest` / `formatManifestDiff`
 (`src/test/ooxml-manifest.ts`). It rides the existing `unit-tests` job. Read the symbols for the
-detail; what belongs here is the three properties a reader gets wrong:
+detail; what belongs here is the properties a reader gets wrong:
+
+★★ **THREE SUBJECTS, DEFINED ONCE, AND ONE OF THEM IS THE SHAPE THE EXPORT PATH ACTUALLY EMITS.**
+`MANIFEST_SUBJECTS` (`src/test/ooxml-manifest-subjects.ts`) holds docx portrait, docx LANDSCAPE and
+pptx, and BOTH the gate and `scripts/update-ooxml-manifest.ts` import it. `buildDocxPackage`'s
+`page` parameter defaults to landscape and `export-docx.ts` passes two arguments, so the landscape
+subject is the docx an export produces — and passing the default rather than the literal puts that
+default under the gate too. Do NOT re-split this definition: `tsconfig.json` excludes `scripts/`,
+so a divergence in the script's own copy is unreadable to tsc and stays green until the next
+regeneration moves the baseline to a package the gate does not build.
 
 ★★★ **ORDERED, NOT SORTED.** A sorted manifest cannot see a reordering of the archive's entries,
 and OPC readers can care which part leads a package. Measured while closing §216: a pure swap of
 two adjacent zip entries — same part set, same digests, unchanged byte count — reddens this gate
-and would be green under a sorted one. §216's closing note carries both mutants and the exact
-failure text.
+and would be green under a sorted one. §216's closing note carries both mutants and their diff
+bodies (excerpts — the thrown message wraps each in a header and three trailing lines).
 
-★★★ **MEDIA-FREE ONLY.** Nothing gates the bytes a document WITH images produces, so the duplicate
-`<Default Extension="png">` the builders warn about is outside its reach, and no baseline can close
-that — a media-bearing package's part paths and count depend on the document. A green run here says
-nothing about an image-bearing export.
+★★ **AND A DUPLICATED PART PATH IS INVISIBLE, which is a FIFTH failure class beside the four the
+ordering buys.** `unzipBytes` keys a `Map`, so a second entry at a path already seen OVERWRITES the
+first — the manifest carries neither the extra entry nor the shadowed bytes, and the path list, the
+order and every digest are unchanged. Out of reach by construction (the same `Map` is what makes
+the ordering hold), not a covered case.
+
+★★★ **MEDIA-FREE ONLY.** No BASELINE reaches a media-bearing package, so the duplicate
+`<Default Extension="png">` the builders warn about is outside this gate's reach — and no baseline
+can close it either, because a media-bearing package's part paths and count depend on the document.
+A green run here says nothing about an image-bearing export.
+
+★★ **BUT "NOTHING READS THOSE BYTES" IS FALSE, and this spot used to say it.** Three test files
+unzip a media-BEARING package and assert over it (`grep -rln unzipBytes src` finds the population):
+`doc-render-docx.test.ts` compares the media part against the source PNG byte for byte and pins the
+media path list; `doc-render-pptx.test.ts` pins `ppt/media/image1.png` and `image2.png` and
+resolves the rels targets onto them; `document-download.test.ts` asserts a media part's length on a
+docx the download surface produced. What is missing is a BASELINE — every one of those assertions
+names a string somebody chose, so a change nobody anticipated passes all three.
 
 ★★ **IT SAYS NOTHING ABOUT THE ZIP CONTAINER EITHER, and that is why `zip.test.ts` exists
 separately.** A part manifest cannot see the archive's framing: part data carries no timestamp,
-since the DOS date is a local-header field — which is also why this gate needs no clock injection.
-`buildZip` takes a trailing `modified` date for that other seam, its default deliberately
-unchanged so real exports stay byte-identical. Neither gate covers the other.
+since the DOS date is written into the local file header and into the central directory and never
+into a part's own bytes (`grep -n "writeU16(dosDate)" src/app/zip.ts` returns exactly those two
+lines — earlier wordings here and in `src/test/ooxml-manifest.ts` named only the local header).
+That is also why this gate needs no clock injection. `buildZip` takes a trailing `modified` date
+for that other seam, its default deliberately unchanged so real exports stay byte-identical —
+and `zip.test.ts` DECODES that default out of the local header and requires it to be today's date,
+rather than merely showing it is not 1980. Neither gate covers the other.
 
 ★★ **REGENERATE WITH `npm run ooxml:manifest` AND NOTHING ELSE.** There is deliberately no
 `vitest -u` path — "re-baseline to admit your own change" is the failure the whole gate exists to
-prevent. Because a regeneration moves both sides of a digest comparison at once, the test also
-asserts the two claims that hold still while the baseline moves: no media part in the baseline, and
-the part counts (docx 5, pptx 11).
+prevent. Because a regeneration moves both sides of a digest comparison at once, the test carries
+three assertions that hold still while it moves: per subject the ORDERED list of part paths as a
+literal (a COUNT would miss an add-and-drop pair and name nothing when it failed — the earlier cut
+asserted `toHaveLength(5)` / `toHaveLength(11)`); no `media/` path in any baseline, kept because a
+filter naming `media/` says why it failed where a list mismatch does not; and per subject a read of
+the LIVE package asserting `[Content_Types].xml` holds no `image/`. ★ Only that third one can see a
+CONTENT-only change — the other two read the baseline, which a regeneration moved.
 
 ### DOCX: why the paragraph is SPLIT
 
