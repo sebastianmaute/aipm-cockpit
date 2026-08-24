@@ -129,7 +129,8 @@ export function DocumentPreview({
     let cancelled = false;
     let detach: (() => void) | null = null;
     const mimeFor = (id: string) => documentAssets?.find((a) => a.id === id)?.mime;
-    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor).then((d) => {
+    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor,
+      () => !cancelled).then((d) => {
       // The subtree may have been replaced (a new `html` landed) or this
       // component may have unmounted before the byte loads resolved — either
       // way, revoke rather than leave the blob URLs it minted dangling.

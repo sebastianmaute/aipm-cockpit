@@ -290,10 +290,22 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
   useEffect(() => {
     const el = bodyRef.current;
     if (!el || assetProjectId === undefined) return;
+    // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF, NOT THAT THE IMAGES ARE
+    // MISSING. `loadAssetData(null, …)` throws `StorageNotReadyError` at once,
+    // `attachAssetImages` swallows it per id, and EVERY `<img data-asset-id>`
+    // would be stamped `data-asset-missing` — the dashed red frame that tells
+    // the reader this image is gone. In file mode and in Safe Mode
+    // (`workspace-panels.tsx` nulls the config but still mounts this panel)
+    // that is a lie about the user's data, and the asset LIBRARY one pane away
+    // gets the same state right with an explicit `assetLibraryTursoOnly`
+    // reason. Bailing leaves the browser's own broken-image glyph, which is
+    // what this modal showed before §206 wired the resolver up at all.
+    if (assetTursoConfig === null) return;
     let cancelled = false;
     let detach: (() => void) | null = null;
     const mimeFor = (id: string) => assetList?.find((a) => a.id === id)?.mime;
-    attachAssetImages(el, (id) => loadAssetData(assetTursoConfig, id, assetProjectId), mimeFor)
+    attachAssetImages(el, (id) => loadAssetData(assetTursoConfig, id, assetProjectId), mimeFor,
+      () => !cancelled)
       .then((d) => {
         // The subtree may have been replaced (the disclosure closed, a new
         // version landed) or the row may have unmounted before the byte loads

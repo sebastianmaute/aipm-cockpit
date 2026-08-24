@@ -21,8 +21,14 @@ export type AssetByteLoader = (id: string) => Promise<string | null>;
  *  is the third outcome: that asset is DECLINED, not rendered untyped. */
 export type AssetMimeLookup = (id: string) => string | undefined;
 
+/** Optional: asked ONCE, after the fetches settle and BEFORE any DOM write,
+ *  whether this run is still the current one. Returning false makes the run
+ *  revoke its own URLs and touch nothing. See the ★★★ at the write loop. */
+export type AssetApplyGuard = () => boolean;
+
 export async function attachAssetImages(
   rootEl: HTMLElement, load: AssetByteLoader, mimeFor?: AssetMimeLookup,
+  shouldApply?: AssetApplyGuard,
 ): Promise<() => void> {
   const imgs = Array.from(rootEl.querySelectorAll<HTMLImageElement>("img[data-asset-id]"));
   if (!imgs.length) return () => {};
@@ -77,6 +83,25 @@ export async function attachAssetImages(
       // take down the whole preview for one missing image.
     }
   }));
+
+  // ★★★ STALENESS IS CHECKED HERE, NOT BY THE CALLER, AND THE CALLER CANNOT DO
+  // IT. Every write below is unconditional and lands AFTER an await, so two
+  // overlapping runs over the SAME subtree race and the one that settles LAST
+  // wins — regardless of which started first. That is not hypothetical: a §212
+  // repair bumps `assetRepairGeneration` while a run over the OLD, broken bytes
+  // is still in flight, and `html` has not changed, so React never replaces the
+  // innerHTML and both runs hold the very same elements. The stale run then
+  // stamps `data-asset-missing` back over the image the fresh run just
+  // repaired, and it stays visibly broken until some unrelated dep changes.
+  // A caller's own `cancelled` flag cannot prevent this — it can only skip the
+  // caller's bookkeeping after these writes have already happened.
+  // ★★ The two callers' teardown revokes only the run it belongs to, so a stale
+  // run must revoke its OWN urls here or they leak; returning a no-op disposer
+  // is then correct, since there is nothing left to release.
+  if (shouldApply && !shouldApply()) {
+    for (const url of urls.values()) URL.revokeObjectURL(url);
+    return () => {};
+  }
 
   for (const img of imgs) {
     const url = urls.get(img.getAttribute("data-asset-id") ?? "");

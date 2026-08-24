@@ -597,6 +597,29 @@ describe("DocumentsHistoryModal — asset images in a version Preview", () => {
     expect(loadAssetData).not.toHaveBeenCalled();
   });
 
+  // ★★★ A PRESENT BAG WITH A NULL CONFIG IS NOT THE SAME CASE AS AN ABSENT BAG,
+  // and it is the one the pane actually mounts in file mode and in Safe Mode:
+  // `workspace-panels.tsx` nulls the config but still builds the bag, so
+  // `assetProjectId` is defined and the absent-bag guard above does NOT fire.
+  // Left unguarded, `loadAssetData(null, …)` throws `StorageNotReadyError` at
+  // once, `attachAssetImages` swallows it per id, and EVERY image is stamped
+  // `data-asset-missing` — a dashed red frame asserting the user's images are
+  // gone when the truth is that asset storage is switched off.
+  // ★★ `loadAssetData` is MOCKED here and resolves happily, so the marker is
+  // NOT what discriminates: the mock cannot produce the real throw. The
+  // load-bearing assertion is that the loader is never REACHED. Delete the
+  // `assetTursoConfig === null` bail and that call count goes to 1.
+  it("does not reach the byte store when the bag carries no Turso config", async () => {
+    const panel = await openPreview({ assetAccess: { ...access(), tursoConfig: null } });
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    expect(loadAssetData).not.toHaveBeenCalled();
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    expect(img!.hasAttribute("src")).toBe(false);
+  });
+
   // ★★★ C10 MADE OBSERVABLE, and it is the whole reason the effect depends on
   // three hoisted locals rather than on the bag. `workspace-panels.tsx` builds
   // `assetPane={{ tursoConfig, projectId, assets, setAssets }}` as an INLINE

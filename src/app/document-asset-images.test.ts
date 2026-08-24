@@ -237,4 +237,51 @@ describe("attachAssetImages", () => {
     expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("");
     detach();
   });
+
+  // ★★★ THE STALE-RUN RACE. Two runs over the SAME subtree is not a contrived
+  // shape — it is exactly what a §212 repair produces: the repair bumps
+  // `assetRepairGeneration` while a run over the OLD, broken bytes is still in
+  // flight, `html` is unchanged so React never replaces the elements, and both
+  // runs hold the very same `<img>`. Every write in this module lands after an
+  // await, so absent the guard the run that SETTLES last wins regardless of
+  // which STARTED first. Here the stale run settles second and fails, so it
+  // would stamp `data-asset-missing` back over the image the fresh run just
+  // repaired — and it stays visibly broken until some unrelated dep changes.
+  // ★★ The caller's own `cancelled` flag cannot prevent this; it runs only
+  // after these writes have already happened. Deleting the `shouldApply` block
+  // reddens both assertions below.
+  it("lets a stale run neither re-stamp the marker nor undo a repaired src", async () => {
+    const el = root('<img data-asset-id="a1">');
+    let stale = false;
+    let releaseStale: (v: string | null) => void = () => {};
+    const staleBytes = new Promise<string | null>((r) => { releaseStale = r; });
+    const staleRun = attachAssetImages(el, () => staleBytes, undefined, () => !stale);
+
+    stale = true; // a repair lands: the in-flight run above is now the old one
+    const freshDetach = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+
+    releaseStale(null); // the stale run's old bytes finally resolve, and fail
+    (await staleRun)();
+
+    const img = el.querySelector("img");
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    freshDetach();
+  });
+
+  // ★ The other half: a stale run that SUCCEEDS has already minted URLs by the
+  // time it is told to stand down. Its own disposer is discarded (the caller
+  // keeps the fresh run's), so it must revoke them itself or they leak for the
+  // lifetime of the document.
+  it("makes a stale run revoke its own object URLs rather than leak them", async () => {
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:stale"), revokeObjectURL });
+    const el = root('<img data-asset-id="a1">');
+    const detach = await attachAssetImages(el, async () => "QUJD", undefined, () => false);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:stale");
+    expect(el.querySelector("img")?.hasAttribute("src")).toBe(false);
+    detach(); // a no-op disposer: the run already released everything it held
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
 });
