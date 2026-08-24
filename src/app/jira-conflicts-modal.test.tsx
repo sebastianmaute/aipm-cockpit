@@ -3,6 +3,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { JiraConflictsModal, type ConflictResolution } from "./jira-conflicts-modal";
 import type { ConflictItem } from "./jira-api";
+import type { TaskStatus } from "./types";
 import { t } from "./i18n";
 
 // Modal and ModalHeader are pure shells — mock them so there is no portal/DOM
@@ -149,5 +150,45 @@ describe("JiraConflictsModal", () => {
     expect(
       screen.queryByText(t("en-US", "jiraConflictCompletionNote")),
     ).toBeNull();
+  });
+
+  it("renders both halves of the pair on the completion row", () => {
+    // After §226 the completion row can be queued when the DATES are identical
+    // and only the status moved. Rendering the date alone then shows the user
+    // "—" against "—" — two identical values and nothing to choose between.
+    const conflict = {
+      taskId: 7,
+      jiraKey: "PROJ-9",
+      remoteDone: false,
+      remoteStatus: "To Do" as TaskStatus,
+      localStatus: "In Progress" as TaskStatus,
+      fields: [
+        { key: "completedDate" as const, localValue: undefined, remoteValue: undefined },
+      ],
+    } as unknown as ConflictItem;
+
+    setup({ conflicts: [conflict] });
+
+    // Presence alone cannot tell the two sides apart -- a swap that put
+    // remoteStatus under the "local" radio and localStatus under the
+    // "remote" one would still satisfy a plain getByText pair. Anchor each
+    // label on the radio it sits inside: the "local" input is unchecked
+    // (default pick is remote), the "remote" input is checked.
+    const localLabel = screen.getByText("In Progress").closest("label");
+    const remoteLabel = screen.getByText("To Do").closest("label");
+    expect(localLabel).not.toBeNull();
+    expect(remoteLabel).not.toBeNull();
+    const localInput = localLabel!.querySelector("input[type=radio]") as HTMLInputElement;
+    const remoteInput = remoteLabel!.querySelector("input[type=radio]") as HTMLInputElement;
+    expect(localInput.checked).toBe(false);
+    expect(remoteInput.checked).toBe(true);
+  });
+
+  it("leaves a non-completion row rendering the value alone", () => {
+    // Regression fence: every other key is a single field and must be
+    // untouched — no status label may leak onto it.
+    setup(); // the shared CONFLICT fixture carries taskName + priority only
+    expect(screen.getByText("Local title")).toBeInTheDocument();
+    expect(screen.queryByText("In Progress")).toBeNull();
   });
 });
