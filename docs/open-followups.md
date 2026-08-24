@@ -15401,8 +15401,7 @@ same loop gives each image its OWN block (`structural.insert(at, { type: "paragr
 `assetIdsInBlock` scans per block, and `document-block-editors.tsx` renders any `<img>`-bearing
 paragraph read-only (`if (paragraphHasImage(block.html))`), so nothing on this surface can append a
 second image to a paragraph that already holds one. Order alone would NOT be enough: the regex
-crosses `<img>` boundaries WITHIN a block, so two id-first images in one paragraph swallow the
-second real id.
+crosses `<img>` boundaries WITHIN a block.
 
 ```bash
 node -e 'const RE=/data-asset-id="([^"]*)"/g;for(const s of ["<img data-asset-id=\"real\" alt=\"data-asset-id=\">","<img data-asset-id=\"real1\" alt=\"data-asset-id=\"><img data-asset-id=\"real2\" alt=\"x\">"])console.log(JSON.stringify([...s.matchAll(RE)].map(m=>m[1])))'
