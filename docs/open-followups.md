@@ -15528,15 +15528,34 @@ value**, so `steeringCommittee` was never in scope to place in any outgoing lite
 literals in the file carried the same 27 keys and none of them carried this one:
 
 ```bash
-grep -n "stakeholders, timelogLinks," src/app/use-storage-backend.ts   # 5 literals + the dep array, pre-fix
+# The five literals plus the dep array, post-fix — 6 lines. ★ The PRE-fix
+# spelling ("stakeholders, timelogLinks,") returns nothing today; an attached
+# command has to answer the sentence it is attached to, so read the fix, or read
+# the defect out of history with `git show 24d09c31^:src/app/use-storage-backend.ts`.
+grep -c "stakeholders, steeringCommittee, timelogLinks," src/app/use-storage-backend.ts
 ```
 
 ★★★ **THE OMISSION IS A DELETION, NOT A NO-OP, AND THAT IS THE WHOLE SEVERITY.** Every backend is
 delete-on-absent, so writing a workspace without the key REMOVES the stored one:
 `browser-backend.ts` calls `idbDelete(KV_STEERING_KEY)` on the `else` branch, both Turso writers
-`DELETE FROM meta` before re-inserting (`turso-schema.ts`, `turso-tenant-schema.ts`), and CSV/MD/JSON
-simply omit the section. A reader who assumes "a missing key leaves the stored value alone" will
-mis-rank this as cosmetic.
+emit a `DELETE` over the table before re-inserting, and CSV/MD/JSON simply omit the section. A
+reader who assumes "a missing key leaves the stored value alone" will mis-rank this as cosmetic.
+★ Neither `DELETE` is greppable as prose — both are built as a template, `DELETE FROM ${name}`
+(`turso-schema.ts`) and `DELETE FROM ${name} WHERE project_id = ?` (`turso-tenant-schema.ts`).
+
+★★ **"ON THE NEXT UNRELATED AUTOSAVE" IS EXACT FOR FOUR OF THE FIVE BACKENDS AND TOO STRONG FOR THE
+FIFTH.** IndexedDB, CSV/MD/JSON and the Turso TENANT writer all destroy it unconditionally —
+`tenantWorkspaceToStatements` emits its per-table `DELETE` for every table it is not told to skip.
+Single-DB Turso is dirty-table-gated: `workspaceToStatements` emits the `DELETE` only
+`if (isDirty(name))`, and `dirtyWorkspaceTables` marks `meta` dirty for this slice only when
+`prev.steeringCommittee !== next.steeringCommittee` — pre-fix BOTH sides were `undefined`, so that
+comparison never fired. There the committee died when some OTHER meta-resident slice changed in the
+same save (`status`, `fieldVisibility`, `features`, `timelogLinks`, `knowledgeItems`, `insights`,
+`activityLog`, `documents`, `documentVersions`, `settingsOverrides` — ten of them, so not a rare
+event), **or on any save with no baseline at all**: `turso-backend.ts` passes
+`dirty = this.baseline ? dirtyWorkspaceTables(…) : undefined`, and `isDirty` returns true for
+everything when the set is `undefined`, which is a full rewrite. The defect and its rank both
+survive this qualification — it narrows the TRIGGER on one backend, not the outcome.
 
 ★★ **TWO ROUTES, and the common one is the dependency array rather than the literals.** The save
 effect's dep array was missing `steeringCommittee` too, so a committee-only edit did not fire a save
@@ -15550,8 +15569,16 @@ counted as a seventh edit and not as tidy-up.
 goes on rendering the committee for the rest of the session. Nothing surfaces at write time; the
 loss appears on the next load.
 
-**Not a regression.** `git log -S"steeringCommittee" -- src/app/use-storage-backend.ts` returns a
-single commit — the one that added the load line. The write side never existed.
+**Not a regression.** The write side never existed: before this fix, the only commit ever to touch
+the string in that file was `0c972cd4`, which added the load line. ★★ **The obvious command for
+that no longer demonstrates it, and it stopped the moment this entry was committed** — a bare
+`git log -S"steeringCommittee" -- src/app/use-storage-backend.ts` now returns TWO commits, the
+second being the fix itself. That is this repo's recurring "a fix round edits files inside the
+population it counts" pathology, so state it in a form that survives its own commit:
+
+```bash
+git log --oneline -S"steeringCommittee" 24d09c31^ -- src/app/use-storage-backend.ts   # → 1 commit
+```
 
 **The fix.** Seven edits, `use-storage-backend.ts` only, no type change: destructure the value, then
 add it to `outgoing` (the dirty-check/truncation snapshot, which must agree with what is written),
@@ -15577,6 +15604,11 @@ span of both mutants is the 19 characters `"steeringCommittee, "`:
 | none (fixed) | pass | pass | pass |
 | drop the token from `backend.save({ … })` | pass | **FAIL** | **FAIL** |
 | drop the token from the dep array ALONE | pass | pass | **FAIL** |
+
+★★ **THE MUTATION TABLE COVERS `BrowserBackend` AND NOTHING ELSE.** All three tests drive
+IndexedDB. The Turso (both layouts), CSV, Markdown and JSON halves of the fix rest entirely on the
+five shared literals being right — no test anywhere observes the committee reaching those backends
+through this hook. Do not read the table as five-backend coverage.
 
 ★★ **THE CONTROL IS LOAD-BEARING.** Without test 1 — `BrowserBackend` round-trips a committee handed
 to it directly — a red run below could equally mean the shape does not survive jsdom/IndexedDB at

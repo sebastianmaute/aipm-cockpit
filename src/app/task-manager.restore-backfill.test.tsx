@@ -18,6 +18,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 import type { ActivityEntry } from "./activity-log";
+import type { KnowledgeItem } from "./document-link";
 import type { Task } from "./types";
 import type { Workspace } from "./workspace";
 
@@ -29,6 +30,9 @@ let getPayload: (() => string) | null = null;
 // Captured from the workspace context so a test can seed the log the same way
 // `logActivity` would, without needing the real hook plumbing.
 let setActivityLogRef: ((v: readonly ActivityEntry[]) => void) | null = null;
+// Captured for the DEP-ARRAY pin below: it needs a setter for exactly ONE of
+// the six, driven on its own so no other dep of `getVersionPayload` moves.
+let setKnowledgeItemsRef: ((v: readonly KnowledgeItem[]) => void) | null = null;
 
 // Capture the callback task-manager hands the version-history hook. This is the
 // only way in — `applyRestoredWorkspace` is not exported, and mounting the real
@@ -55,6 +59,7 @@ vi.mock("./workspace-section", async (importOriginal) => {
     WorkspaceSection: () => {
       const ws = useWorkspace();
       setActivityLogRef = ws.setActivityLog;
+      setKnowledgeItemsRef = ws.setKnowledgeItems;
       return (
         <div>
           <div data-testid="ws-fks">
@@ -225,6 +230,7 @@ beforeEach(() => {
   applyRestored = null;
   getPayload = null;
   setActivityLogRef = null;
+  setKnowledgeItemsRef = null;
   window.localStorage.clear();
   window.localStorage.setItem(
     "aipm-cockpit:projects",
@@ -360,5 +366,52 @@ describe("task-manager → applyRestoredWorkspace", () => {
       () => expect(screen.getByTestId("ws-six")).toHaveTextContent(SIX_PRESENT),
       { timeout: SETTLE_MS },
     );
+  }, TEST_MS);
+
+  // ★★★ THE DEPENDENCY-ARRAY PIN, and the round-trip test above CANNOT be it.
+  // `getVersionPayload` is a `useCallback` over 24 names. The test above drives
+  // its six slices through `applyRestoredWorkspace`, which also writes tasks,
+  // raid, resources and more — all already in the dep array — so the closure is
+  // refreshed by THOSE writes and the six could be absent from the deps entirely
+  // with that test still green. Measured, not reasoned: dropping `knowledgeItems`
+  // from the dep array alone leaves every other test in this file passing.
+  //
+  // ★★ The failure it guards is real, not theoretical: with the dep absent, a
+  // capture taken right after an AI document write stores the PRE-write slice,
+  // because nothing else changed to refresh the closure. Unlike
+  // `use-storage-backend.ts`'s save-effect deps, this line carries NO
+  // `eslint-disable`, so `react-hooks/exhaustive-deps` does flag it — at
+  // severity 1, and CI runs bare `npm run lint` with no `--max-warnings`, so it
+  // ships green. This test is the only thing that fails.
+  //
+  // ★ ONE slice, deliberately. Driving all six would re-introduce the very
+  // multi-dep refresh that makes the test above blind here.
+  it("recaptures a slice mutated ON ITS OWN — the getVersionPayload dep array", async () => {
+    render(<TaskManager />);
+    await screen.findByTestId("ws-six", undefined, { timeout: MOUNT_MS });
+    await waitFor(() => expect(typeof getPayload).toBe("function"), { timeout: MOUNT_MS });
+    await waitFor(() => expect(typeof setKnowledgeItemsRef).toBe("function"), { timeout: MOUNT_MS });
+
+    // ★★ ANTI-VACUITY: the assertion below must be able to read BOTH answers off
+    // this same payload shape. Without this leg a capture that always carried the
+    // slice — or one that never did — would be indistinguishable from a pass.
+    expect(JSON.parse(getPayload!()).knowledgeItems ?? []).toHaveLength(0);
+
+    // The ONLY state write in this test. Nothing else `getVersionPayload`
+    // depends on moves, so a listed dep is the only thing that can refresh the
+    // memoized closure.
+    act(() => setKnowledgeItemsRef!([
+      { id: "k-dep", name: "K", url: "https://knowledge.test/dep", kind: "file" } as KnowledgeItem,
+    ]));
+    // Prove the write reached render scope before capturing — otherwise a red
+    // run cannot tell a stale closure from a write that never landed.
+    await waitFor(
+      () => expect(screen.getByTestId("ws-six")).toHaveTextContent("k:1"),
+      { timeout: SETTLE_MS },
+    );
+
+    const captured = JSON.parse(getPayload!()) as { knowledgeItems?: readonly KnowledgeItem[] };
+    expect(captured.knowledgeItems ?? []).toHaveLength(1);
+    expect((captured.knowledgeItems ?? [])[0]?.id).toBe("k-dep");
   }, TEST_MS);
 });
