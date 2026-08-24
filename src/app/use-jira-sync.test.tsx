@@ -381,6 +381,98 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(result.current.currentTasks[0].taskName).toBe("Local name");  // unchanged
   });
 
+  // ── Seam test: the real diffTaskAgainstIssue → the real handleResolveConflicts merge ──
+  // Every other test in this file mocks diffTaskAgainstIssue entirely (the module
+  // factory above has no importActual), so nothing else drives its REAL output into
+  // the merge — that join has only ever been traced by hand. Swap the real
+  // implementation in for this ONE test and restore it in `finally`, since this
+  // describe block's `beforeEach` only calls `vi.clearAllMocks()`, which clears
+  // calls/results but NOT a mocked implementation — leaving it in place would leak
+  // the real diff into every later test in the file.
+  it("seam: the real diff queues a status-only conflict and the merge adopts the remote status", async () => {
+    const actual = await vi.importActual<typeof import("./jira-api")>("./jira-api");
+    (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockImplementation(
+      actual.diffTaskAgainstIssue,
+    );
+    try {
+      (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+      const remoteIssue = {
+        key: "TEST-1",
+        fields: {
+          summary: "T1",
+          updated: "2026-05-10T00:00:00",  // newer than lastSyncedAt → remoteChanged
+        },
+      } as unknown as JiraIssue;
+      (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+      (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+      // Mirrors the local task (see makeTask) on every OTHER ConflictFieldKey, so
+      // the real diffTaskAgainstIssue queues completedDate ALONE. The real
+      // comparison checks all eight keys and fieldsDiffer normalises `undefined`
+      // to "" — a patch that merely omitted a field the local task sets would
+      // register that field as a spurious extra conflict row too.
+      (jiraApi.issueToTaskFields as ReturnType<typeof vi.fn>).mockReturnValue({
+        taskName: "T1",
+        assignee: "",
+        assigneeEmail: "",
+        dueDate: "2026-06-01",
+        priority: "Medium",
+        labels: undefined,
+        description: "",
+        status: "To Do",
+        completedDate: undefined,
+      });
+
+      // Status-only difference: local "In Progress" with no date, remote "To Do"
+      // with no date. The dates match, so only the Jira-category comparison
+      // queues the row. Before this branch, diffTaskAgainstIssue returned an
+      // empty array here and no conflict was queued at all — the remote move
+      // was discarded silently (open-followups §226).
+      const localTask = makeTask({
+        id: 1,
+        jiraKey: "TEST-1",
+        status: "In Progress",
+        completedDate: undefined,
+        lastSyncedAt: "2026-01-01T00:00:00",
+        localModifiedAt: "2026-05-01T00:00:00",
+      });
+
+      const { result } = renderSync([localTask]);
+      await act(async () => { await result.current.handleJiraSync(); });
+
+      // The real comparison produced exactly this row and nothing else — a
+      // future change that starts queueing spurious rows fails here.
+      expect(result.current.jiraConflicts.length).toBe(1);
+      expect(result.current.jiraConflicts[0].fields).toHaveLength(1);
+      expect(result.current.jiraConflicts[0].fields[0].key).toBe("completedDate");
+      // What the modal renders the completion row from.
+      expect(result.current.jiraConflicts[0].localStatus).toBe("In Progress");
+      expect(result.current.jiraConflicts[0].remoteStatus).toBe("To Do");
+
+      const resolution: import("./jira-conflicts-modal").ConflictResolution = {
+        taskId: 1,
+        jiraKey: "TEST-1",
+        picks: {
+          taskName: "remote",
+          assignee: "remote",
+          assigneeEmail: "remote",
+          dueDate: "remote",
+          priority: "remote",
+          labels: "remote",
+          description: "remote",
+          completedDate: "remote",
+        },
+      };
+      await act(async () => { await result.current.handleResolveConflicts([resolution]); });
+
+      // Both halves of the status/completedDate pair came from the remote side.
+      const merged = result.current.currentTasks[0];
+      expect(merged.status).toBe("To Do");
+      expect(merged.completedDate).toBeFalsy();
+    } finally {
+      (jiraApi.diffTaskAgainstIssue as ReturnType<typeof vi.fn>).mockReset();
+    }
+  });
+
   it("create path: remote issue not in local list → new local task created", async () => {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     const newRemoteIssue = {
