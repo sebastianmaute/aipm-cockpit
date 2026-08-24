@@ -14763,9 +14763,23 @@ grep -n -A 8 "loadAssetDataIds" src/app/use-document-assets.ts
 ```
 
 A declined asset HAS a byte row, so it is never dangling — the asset library shows it healthy, with no
-`data-dangling-marker` and no §212 re-upload repair offered. And re-uploading the original file would
-be refused by `checkUploadCandidate` with reason `format` anyway. The user gets a broken image, a
+`data-dangling-marker` and no §212 re-upload repair offered. The user gets a broken image, a
 healthy-looking row, no explanation and no remedy.
+
+★★ **THE BLOCKER IS THE DUPLICATE EARLY-RETURN, NOT THE FORMAT CHECK**, and an earlier revision of this
+entry said the opposite with no command attached. `checkUploadCandidate` tests `file.type` — the
+browser's mime for the file the user just re-selected — not the stored one, so for the case §225 says
+this guard actually targets (an ACCIDENTAL stale or desynchronised mime over good PNG bytes) it PASSES.
+The re-upload then dies one step later:
+
+```bash
+grep -n -B 4 -A 2 "if (duplicate && !danglingRef.current.has(duplicate.id)) return duplicate;" src/app/use-document-assets.ts
+grep -n -A 4 "isAllowedAssetMime(file.type)" src/app/document-asset-upload.ts
+```
+
+A HEALTHY duplicate (matched by content hash) returns early with no metadata write, so the stale mime
+is never corrected. Any fix here must go through that path — pointing a future fixer at
+`checkUploadCandidate` sends them to a function that is not refusing anything.
 
 ★★ **DECLINING IS STILL RIGHT** — rendering bytes the upload policy forbids is the thing worth
 stopping, and §225 records why the guard cannot be tightened (`!== undefined` would decline the
@@ -14778,8 +14792,9 @@ supported" string, and taught to the library row so it stops reporting healthy. 
 the CSS hook both already exist; this is a new attribute and one i18n key, not a new mechanism.
 
 ★ **Second, smaller item, same area.** `documents-history-modal.tsx` reads `assetAccess?.projectId`
-bare, while its two siblings normalise: `document-edit-mode.tsx` uses `assetsProjectId ||
-ASSET_PARTITION_FALLBACK` and `document-preview.tsx` defaults the prop to `ASSET_PARTITION_FALLBACK`.
+bare, and it is the ONLY asset consumer that does — all THREE siblings normalise:
+`document-edit-mode.tsx` and `documents-asset-section.tsx` both use `… || ASSET_PARTITION_FALLBACK`,
+and `document-preview.tsx` defaults the prop to it.
 
 ```bash
 grep -rn "ASSET_PARTITION_FALLBACK" src/app --include=*.tsx | grep -v "\.test\."

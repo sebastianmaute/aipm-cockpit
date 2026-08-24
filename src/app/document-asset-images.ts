@@ -26,6 +26,22 @@ export type AssetMimeLookup = (id: string) => string | undefined;
  *  revoke its own URLs and touch nothing. See the ★★★ at the write loop. */
 export type AssetApplyGuard = () => boolean;
 
+/** Clears the missing-asset marker from every `<img data-asset-id>` in a
+ *  subtree, without touching `src`.
+ *
+ *  ★★ FOR THE CALLER THAT DECIDES NOT TO RESOLVE AT ALL. A previous run may
+ *  already have stamped markers; if asset storage then goes away (a mode
+ *  switch, Safe Mode) the caller bails and those markers would otherwise stay,
+ *  showing the dashed red "this image is missing" frame for exactly the state
+ *  the bail exists to stop claiming. `src` is deliberately left alone — the
+ *  caller's own teardown revokes the URLs, and a dead `src` is the browser's
+ *  problem, not a false assertion about the user's data. */
+export function clearAssetMissingMarkers(rootEl: HTMLElement): void {
+  for (const img of rootEl.querySelectorAll<HTMLImageElement>("img[data-asset-missing]")) {
+    img.removeAttribute("data-asset-missing");
+  }
+}
+
 export async function attachAssetImages(
   rootEl: HTMLElement, load: AssetByteLoader, mimeFor?: AssetMimeLookup,
   shouldApply?: AssetApplyGuard,

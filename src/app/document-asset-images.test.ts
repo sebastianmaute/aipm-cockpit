@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { attachAssetImages } from "./document-asset-images";
+import { attachAssetImages, clearAssetMissingMarkers } from "./document-asset-images";
 
 function root(html: string): HTMLElement {
   const el = document.createElement("div");
@@ -257,9 +257,14 @@ describe("attachAssetImages", () => {
   // would stamp `data-asset-missing` back over the image the fresh run just
   // repaired — and it stays visibly broken until some unrelated dep changes.
   // ★★ The caller's own `cancelled` flag cannot prevent this; it runs only
-  // after these writes have already happened. Deleting the `shouldApply` block
-  // reddens both assertions below.
-  it("lets a stale run neither re-stamp the marker nor undo a repaired src", async () => {
+  // after these writes have already happened.
+  // ★★★ ONLY THE MARKER ASSERTION DISCRIMINATES, and an earlier revision of this
+  // comment claimed both did. The write loop sets `src` only when it HAS a url
+  // and never clears one, so under the deletion mutant the stale run takes the
+  // `else` arm and the fresh `src` survives either way — that assertion is kept
+  // as a regression anchor against a future loop that DOES overwrite, not as
+  // proof of this guard. The marker assertion is what goes red.
+  it("stops a stale run re-stamping the missing marker over a repaired image", async () => {
     const el = root('<img data-asset-id="a1">');
     let stale = false;
     let releaseStale: (v: string | null) => void = () => {};
@@ -292,5 +297,20 @@ describe("attachAssetImages", () => {
     expect(el.querySelector("img")?.hasAttribute("src")).toBe(false);
     detach(); // a no-op disposer: the run already released everything it held
     expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★ FOR THE CALLER THAT STOPS RESOLVING ALTOGETHER. Both previews bail when
+  // their Turso config goes null (asset storage off, not images missing), and a
+  // bail alone would leave whatever a PREVIOUS run had already stamped — the
+  // dashed red frame asserting the user's images are gone, which is exactly the
+  // claim the bail exists to withdraw.
+  it("clears missing markers without disturbing a resolved src", () => {
+    const el = root('<img data-asset-id="a1" data-asset-missing="true">'
+      + '<img data-asset-id="a2" src="blob:kept">');
+    clearAssetMissingMarkers(el);
+    const [gone, kept] = Array.from(el.querySelectorAll("img"));
+    expect(gone.hasAttribute("data-asset-missing")).toBe(false);
+    // The positive half: it must not strip a working image's src on the way past.
+    expect(kept.getAttribute("src")).toBe("blob:kept");
   });
 });

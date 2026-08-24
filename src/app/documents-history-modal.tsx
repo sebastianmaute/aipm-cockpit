@@ -32,7 +32,7 @@ import type { DocumentAsset } from "./document-asset";
 import type { TursoConfig } from "./turso-config";
 import { RESTORED_MARKER_OP, type DocVersion, type DocVersionOp } from "./document-versions";
 import { renderDocumentHtml } from "./doc-render-html";
-import { attachAssetImages } from "./document-asset-images";
+import { attachAssetImages, clearAssetMissingMarkers } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
 import {
   subscribeAssetRepairs, getAssetRepairGeneration, getServerAssetRepairGeneration,
@@ -298,9 +298,14 @@ function HistoryRow({ version: v, lang, onRestore, isReadOnly, ws, assetAccess }
     // (`workspace-panels.tsx` nulls the config but still mounts this panel)
     // that is a lie about the user's data, and the asset LIBRARY one pane away
     // gets the same state right with an explicit `assetLibraryTursoOnly`
-    // reason. Bailing leaves the browser's own broken-image glyph, which is
+    // reason. Bailing leaves the image with NO `src` attribute at all, which is
+    // not a failed load — the browser renders its alt text (or nothing), never
+    // the broken-image glyph an earlier revision of this note claimed. That is
     // what this modal showed before §206 wired the resolver up at all.
-    if (assetTursoConfig === null) return;
+    // ★ Clearing first: a PREVIOUS run may already have stamped markers before
+    // the config went away (a mode switch, Safe Mode), and leaving them shows
+    // the very frame this bail exists to stop claiming.
+    if (assetTursoConfig === null) { clearAssetMissingMarkers(el); return; }
     let cancelled = false;
     let detach: (() => void) | null = null;
     const mimeFor = (id: string) => assetList?.find((a) => a.id === id)?.mime;

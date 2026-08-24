@@ -37,7 +37,7 @@ import type { ProjectDocument } from "./document-model";
 import type { Workspace } from "./workspace";
 import type { TursoConfig } from "./turso-config";
 import { renderDocumentHtml } from "./doc-render-html";
-import { attachAssetImages } from "./document-asset-images";
+import { attachAssetImages, clearAssetMissingMarkers } from "./document-asset-images";
 import { loadAssetData } from "./document-assets-store";
 import { ASSET_PARTITION_FALLBACK } from "./document-assets-schema";
 import {
@@ -54,9 +54,15 @@ export interface DocumentPreviewProps {
   // Same asset-library gate `documents-panel.tsx` threads to
   // `DocumentsAssetSection` (null disables). Resolves `<img data-asset-id>`
   // references left in the rendered HTML to real bytes — see the effect
-  // below. Optional: missing here correctly means "no images resolve" (every
-  // referenced image renders its missing-asset marker), not broken, since
-  // document images are Turso-gated (S3c-1).
+  // below. Optional: missing here means "no images resolve", since document
+  // images are Turso-gated (S3c-1).
+  // ★★★ CORRECTED: this said every referenced image "renders its missing-asset
+  // marker", which WAS the behaviour and was a lie about the user's data — a
+  // null config means asset storage is OFF, not that the bytes are gone. The
+  // effect below now bails instead, so those images render their alt text and
+  // no marker is stamped. The history modal does the same; keep the two in
+  // step, and see `docs/open-followups.md` §227 for the related case where a
+  // DECLINED asset is still indistinguishable from a missing one.
   tursoConfig?: TursoConfig | null;
   projectId?: string;
 }
@@ -126,6 +132,15 @@ export function DocumentPreview({
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
+    // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF, NOT THAT THE IMAGES ARE
+    // MISSING — the same bail `documents-history-modal.tsx` carries, for the
+    // same reason, and the two must stay in step. `loadAssetData(null, …)`
+    // throws `StorageNotReadyError` at once and `attachAssetImages` swallows it
+    // per id, so without this EVERY `<img data-asset-id>` in file mode and in
+    // Safe Mode was stamped `data-asset-missing` — the dashed red frame that
+    // tells the reader their image is gone. Clearing first matters because a
+    // PREVIOUS run may already have stamped markers before the config went away.
+    if (tursoConfig === null) { clearAssetMissingMarkers(el); return; }
     let cancelled = false;
     let detach: (() => void) | null = null;
     const mimeFor = (id: string) => documentAssets?.find((a) => a.id === id)?.mime;

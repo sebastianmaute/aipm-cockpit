@@ -613,10 +613,19 @@ test.describe("document images — live Turso", () => {
   // seeded and freshly pasted alike:
   //     8,8,8,8,8, 0,0,0,0,0,0,0,0,0,0,0
   // At the zero point the `src` ATTRIBUTE IS ABSENT and `data-asset-missing` is
-  // NOT stamped either, which rules out the loader having run and found
-  // nothing: `attachAssetImages` sets one or the other for every
-  // `<img data-asset-id>` it processes. Re-selecting the document brings every
+  // NOT stamped either, which ruled out the loader having run and found
+  // nothing: `attachAssetImages` set one or the other for every
+  // `<img data-asset-id>` it processed. Re-selecting the document brings every
   // image back — for another second or two.
+  // ★★★ THAT INVARIANT NO LONGER HOLDS, so do not reuse this deduction as-is.
+  // Two later additions make `attachAssetImages` legitimately set NEITHER: a run
+  // whose `shouldApply()` reports it stale returns before the write loop, and
+  // both previews now BAIL outright when their Turso config is null (asset
+  // storage off — see `document-asset-images.ts` and `docs/open-followups.md`
+  // §227). Neither applies to THIS diagnosis — it was measured against a live
+  // Turso project with no concurrent repair — but "src absent and no marker" is
+  // now a three-way ambiguity, and the run must be ruled stale or bailed before
+  // it can be read as evidence about the loader.
   //
   // USER IMPACT: open a document containing an image and the image appears,
   // then silently vanishes. It is the headline feature of this branch.
