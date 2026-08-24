@@ -82,6 +82,30 @@ export function reconcileStatusFromDate(task: Task): Task {
   return task;
 }
 
+/** How many rows break the pair invariant `status === "Done"` ⟺ `completedDate` set.
+ *
+ *  DIAGNOSTIC ONLY — repairs nothing and is on no load path. It exists because
+ *  three open follow-ups (§226, §227, §228) all turn on how many stored rows
+ *  are actually split, and none of them could be decided without a number.
+ *
+ *  ★ Written as the negation of the invariant itself, in ONE expression, so it
+ *  cannot drift from the property it measures. That also makes it catch the
+ *  `Cancelled`-with-a-stray-date row for free: the date is truthy and the
+ *  status is not `Done`, so the biconditional fails — which is right, even
+ *  though `reconcileStatusFromDate` repairs THAT row by clearing the date
+ *  rather than by promoting the status.
+ *
+ *  ★ Emptiness is `!!completedDate`, the same test `isTaskDelivered`
+ *  (task-closed.ts) and `reconcileStatusFromDate` use. Defining "has a date" a
+ *  fourth way is how the four would drift. */
+export function countSplitTaskPairs(tasks: readonly Task[]): number {
+  let n = 0;
+  for (const task of tasks) {
+    if (!!task.completedDate !== (task.status === "Done")) n++;
+  }
+  return n;
+}
+
 /** Sort index following TASK_STATUSES order. Unknown => end. */
 export function statusSortIndex(status: string): number {
   const i = TASK_STATUSES.indexOf(status as TaskStatus);
