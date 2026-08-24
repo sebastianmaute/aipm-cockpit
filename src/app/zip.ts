@@ -123,10 +123,21 @@ class ByteWriter {
 export function buildZip(
   entries: ZipEntry[],
   mime = "application/zip",
+  /** ★★ INJECTABLE ONLY SO THE CONTAINER IS TESTABLE, and the default is
+   *  deliberately unchanged. A part manifest (docs/baselines/ooxml-parts.json)
+   *  cannot see the zip container at all, because it compares part DATA and the
+   *  DOS timestamp is a local-header field. Passing a fixed date lets one test
+   *  in zip.test.ts assert two builds are byte-identical, which is what bounds
+   *  the container's nondeterminism to this one field.
+   *
+   *  ★★ Flipping this default to a constant would make every produced archive
+   *  reproducible — and would also stop Windows Explorer showing a plausible
+   *  date, which is the reason dosDateTime exists at all. That is a visible
+   *  user-facing change and is deliberately NOT part of this seam. */
+  modified: Date = new Date(),
 ): Blob {
   const out = new ByteWriter();
-  const now = new Date();
-  const { date: dosDate, time: dosTime } = dosDateTime(now);
+  const { date: dosDate, time: dosTime } = dosDateTime(modified);
 
   // Local file headers + data. Remember each entry's offset + CRC for the
   // central directory we write at the end.
