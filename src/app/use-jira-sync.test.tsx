@@ -266,6 +266,84 @@ describe("useJiraSync — handleJiraSync", () => {
     expect(result.current.currentTasks[0].lastSyncedAt).toBeDefined();
   });
 
+  // ── Push-path transition guard (open-followups §227, sibling of the
+  //   conflict-path guard covered below in "useJiraSync — handleResolveConflicts") ──
+  it("push path: consistent Done row → transitionIssueTo called", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: {
+        summary: "Old name",
+        updated: "2025-12-01T00:00:00",  // older than lastSyncedAt
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "New name" });
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+    (jiraApi.transitionIssueTo as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    // localModifiedAt newer than lastSyncedAt → localChanged=true; remote.updated older → remoteChanged=false
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "TEST-1",
+      taskName: "New name",
+      status: "Done",
+      completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00",
+      localModifiedAt: "2026-05-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+    expect(jiraApi.transitionIssueTo).toHaveBeenCalledWith(
+      expect.objectContaining({ siteUrl: "https://acme.atlassian.net" }),
+      "TEST-1",
+      "done",
+    );
+  });
+
+  it("push path: does not transition a split row whose status is not Done", async () => {
+    (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
+    const remoteIssue = {
+      key: "TEST-1",
+      fields: {
+        summary: "Old name",
+        updated: "2025-12-01T00:00:00",  // older than lastSyncedAt
+      },
+    } as unknown as JiraIssue;
+    (jiraApi.searchAllIssues as ReturnType<typeof vi.fn>).mockResolvedValueOnce([remoteIssue]);
+    (jiraApi.isIssueDone as ReturnType<typeof vi.fn>).mockReturnValue(false);
+    (jiraApi.taskFieldsToJiraFields as ReturnType<typeof vi.fn>).mockReturnValue({ summary: "New name" });
+    (jiraApi.updateIssue as ReturnType<typeof vi.fn>).mockResolvedValueOnce(undefined);
+
+    // A SPLIT local row: a completedDate beside a non-Done status. Nothing in
+    // src writes this since 0.257.0, but an older build, a hand edit or a
+    // third-party template can have stored it (open-followups §227).
+    // ★ The fixture MUST be split — a consistent Done+date row would make the
+    //   old (`!!completedDate`) and new (`status === "Done"`) guards agree,
+    //   and this test would pass against the unfixed code, proving nothing.
+    const localTask = makeTask({
+      id: 1,
+      jiraKey: "TEST-1",
+      taskName: "New name",
+      status: "In Progress",
+      completedDate: "2026-04-01",
+      lastSyncedAt: "2026-01-01T00:00:00",
+      localModifiedAt: "2026-05-01T00:00:00",
+    });
+
+    const { result } = renderSync([localTask]);
+    await act(async () => { await result.current.handleJiraSync(); });
+
+    // Fences the test: proves the push branch actually ran, rather than
+    // passing because nothing executed.
+    expect(jiraApi.updateIssue).toHaveBeenCalled();
+    expect(jiraApi.transitionIssueTo).not.toHaveBeenCalled();
+  });
+
   it("conflict path: both local and remote changed → jiraConflicts populated, task unchanged", async () => {
     (jiraApi.buildJql as ReturnType<typeof vi.fn>).mockReturnValueOnce("project = TEST");
     const remoteIssue = {
