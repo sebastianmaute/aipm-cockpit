@@ -1,5 +1,5 @@
 {
-  "$comment": "Ordered part manifests for the MEDIA-FREE .docx and .pptx packages. Regenerate ONLY with `npm run ooxml:manifest`, and only when you intend the package to change -- see docs/open-followups.md §216.",
+  "$comment": "Ordered part manifests for the MEDIA-FREE packages listed in src/test/ooxml-manifest-subjects.ts. Regenerate ONLY with `npm run ooxml:manifest`, and only when you intend the package to change -- see docs/open-followups.md §216.",
   "docx": {
     "parts": [
       {
@@ -17,6 +17,30 @@
       {
         "path": "word/document.xml",
         "sha256": "6b1a60803a22b0d11687479011218f68ecaf98ff3a83d97056efb4eda1d0f533"
+      },
+      {
+        "path": "word/styles.xml",
+        "sha256": "398b1d5089f1b5573a6ea62edeff02c7caa51333934296749d781d72e6e12409"
+      }
+    ]
+  },
+  "docxLandscape": {
+    "parts": [
+      {
+        "path": "[Content_Types].xml",
+        "sha256": "7c8cf59b65397c3e1d4d38d71bcf9216e0a7b7a11a4154932e3f464f936e35ec"
+      },
+      {
+        "path": "_rels/.rels",
+        "sha256": "e9369a2425724259c87f4b280c2466ca505ff37212fdb8daeccdfd73ffb27101"
+      },
+      {
+        "path": "word/_rels/document.xml.rels",
+        "sha256": "c4424d40b3965466e429ebc82690c78d98dc094bb3163b45d731182baa3fac73"
+      },
+      {
+        "path": "word/document.xml",
+        "sha256": "b19e760243b63664113c71fe48f2f06c20afb0f0e58d19bb2641f0f5cfd0066f"
       },
       {
         "path": "word/styles.xml",

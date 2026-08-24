@@ -51,9 +51,10 @@ const OUT = "docs/baselines/ooxml-parts.json";
 async function main() {
   const baseline: Record<string, unknown> = {
     $comment:
-      "Ordered part manifests for the MEDIA-FREE .docx and .pptx packages. " +
-      "Regenerate ONLY with `npm run ooxml:manifest`, and only when you intend " +
-      "the package to change -- see docs/open-followups.md §216.",
+      "Ordered part manifests for the MEDIA-FREE packages listed in " +
+      "src/test/ooxml-manifest-subjects.ts. Regenerate ONLY with " +
+      "`npm run ooxml:manifest`, and only when you intend the package to " +
+      "change -- see docs/open-followups.md §216.",
   };
 
   const summary: string[] = [];

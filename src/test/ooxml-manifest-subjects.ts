@@ -23,7 +23,7 @@
 import { buildDocxPackage } from "../app/ooxml-docx-primitives";
 import { buildPptxPackage } from "../app/ooxml-pptx-primitives";
 
-export type ManifestSubjectKey = "docx" | "pptx";
+export type ManifestSubjectKey = "docx" | "docxLandscape" | "pptx";
 
 export type ManifestSubject = {
   /** Property under which this subject's part list lives in the baseline. */
@@ -38,6 +38,18 @@ export const MANIFEST_SUBJECTS: readonly ManifestSubject[] = [
     key: "docx",
     label: "docx (portrait)",
     build: () => buildDocxPackage("<w:p/>", "", "portrait"),
+  },
+  {
+    // ★★★ TWO ARGUMENTS ON PURPOSE, MIRRORING THE WORKSPACE EXPORTER.
+    // `buildDocxPackage`'s `page` parameter DEFAULTS to "landscape", and
+    // `export-docx.ts` calls it with two arguments -- so the media-free docx
+    // the export path actually produces is the landscape one, and for a while
+    // the only manifested docx was the portrait subject above. Passing the
+    // default rather than spelling `"landscape"` out also puts the default
+    // itself under the gate: flip it and this subject's parts move.
+    key: "docxLandscape",
+    label: "docx (landscape)",
+    build: () => buildDocxPackage("<w:p/>", ""),
   },
   {
     key: "pptx",
