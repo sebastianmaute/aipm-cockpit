@@ -97,6 +97,15 @@ describe("diffTaskAgainstIssue", () => {
     } as unknown as Task;
     const diffs = diffTaskAgainstIssue(local, { taskName: "t", status: "Done", completedDate: "2026-02-02" });
     expect(diffs.map((d) => d.key)).toContain("completedDate");
+    // ★★ The completion row is hand-built rather than going through `check()`,
+    //   so nothing else pins which side each value came from. A swapped pair
+    //   ships green against the key assertion alone — and it is user-visible
+    //   corruption, since the modal labels each date by side and "keep local"
+    //   would then write Jira's date into the task. Distinct dates above make
+    //   this discriminating.
+    const row = diffs.find((d) => d.key === "completedDate")!;
+    expect(row.localValue).toBe("2026-01-01");
+    expect(row.remoteValue).toBe("2026-02-02");
   });
 
   it("queues nothing when both halves of the pair agree", () => {

@@ -187,8 +187,15 @@ describe("JiraConflictsModal", () => {
   it("leaves a non-completion row rendering the value alone", () => {
     // Regression fence: every other key is a single field and must be
     // untouched — no status label may leak onto it.
+    // ★★ Assert on the FIXTURE'S OWN status label, not on some other status:
+    //   CONFLICT carries `To Do` on BOTH sides, so an assertion naming any
+    //   other label ("In Progress", as this once did) passes whether the
+    //   `fieldKey !== "completedDate"` guard exists or not — a vacuous fence.
+    //   `queryAllByText` because dropping the guard renders the label on all
+    //   four value cells, and `queryByText` THROWS on multiple matches rather
+    //   than failing the expectation.
     setup(); // the shared CONFLICT fixture carries taskName + priority only
     expect(screen.getByText("Local title")).toBeInTheDocument();
-    expect(screen.queryByText("In Progress")).toBeNull();
+    expect(screen.queryAllByText(t("en-US", "statusToDo"))).toHaveLength(0);
   });
 });
