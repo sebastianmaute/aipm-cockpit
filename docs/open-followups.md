@@ -14930,10 +14930,11 @@ one session, a reload closes it, and nothing in `src` should be producing an inv
 in the first place).
 
 ★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
-DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** Three of the four commands
-in that block now return different output, because `template-apply.ts` DOES name a sanitiser today:
-it joins the reachable-chain listing, `applyTemplate`'s body carries the new comment block, and the
-last command exits 0 rather than 1. What is true of today's tree is under **NARROWED 2026-08-24** at
+DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** EVERY number in the block
+below is as-of the original report — its command OUTPUT, its inline `templates.ts:NNN` annotations
+and its comment tallies alike. Re-run the commands; do not read the annotations as current. (The
+narrowing fix inserted lines above two of those anchors, so they had already drifted twice inside a
+single release.) What is true of today's tree is under **NARROWED 2026-08-24** at
 the end of this entry; read that first and the original as the record of what the defect was.
 
 §182 closed by teaching `sanitizeSeedTask` (`templates.ts`) to reconcile the pair. That function has
@@ -14949,11 +14950,11 @@ copies whatever the workspace holds, unreconciled; reload the page and the ident
 through the repaired path. One template, two behaviours, separated by a refresh.
 
 ```bash
-# the seed takes live Task objects by reference. ★ TWO hits — templates.ts:131 is a COMMENT quoting
+# the seed takes live Task objects by reference. ★ TWO hits — one is a COMMENT quoting
 #   the same expression, the self-referential-grep trap this register records. Read them.
 grep -n "seed.tasks = ws.tasks" src/app/templates.ts
-# the reconciler's whole reachable chain, and where it starts. ★ Three of these hits are COMMENTS
-#   (change-log.ts, task-status.ts, templates.ts:326) — read the hit, do not count it.
+# the reconciler's whole reachable chain, and where it starts. ★ SOME of these hits are COMMENTS
+#   (change-log.ts, task-status.ts, templates.ts) — read the hit, do not count it.
 grep -rn "sanitizeSeedTask\|sanitizeSeed(\|sanitizeTemplates" src/app --include=*.ts --include=*.tsx \
   | grep -v "\.test\."
 # apply reads tpl.seed straight through

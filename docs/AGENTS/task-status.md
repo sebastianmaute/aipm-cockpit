@@ -120,11 +120,12 @@ still read "In Progress"; `handleResolveConflicts` now gates that call on
 sibling — `handleJiraSync`'s `localChanged` branch, which keyed the same transition on
 `!!row.completedDate` — carried the identical defect and is fixed the same way. A reader who
 fixes only the conflict-path call site should know the auto-push one was a separate defect and is
-already closed; there are exactly two `transitionIssueTo` call sites in `src/app`
-(`grep -rn "await transitionIssueTo" src/app --include=*.ts --include=*.tsx` — scoping this to
-`use-jira-sync.ts`, as an earlier revision did, cannot establish the "in `src/app`" half of the
-claim), and both now read `status`, never
-the date. What the pass-through still does NOT fix is the STORAGE side: an already-split row
+already closed; every `transitionIssueTo` call site in `src/app` now reads `status`, never
+the date
+(`grep -rn "transitionIssueTo(" src/app --include=*.ts --include=*.tsx | grep -v "export async function"`
+— match the CALL, not `await transitionIssueTo`: an awaited-only grep cannot see a `void`- or
+`.catch()`-chained call, and scoping it to `use-jira-sync.ts`, as an earlier revision did, cannot
+establish the "in `src/app`" half of the claim). What the pass-through still does NOT fix is the STORAGE side: an already-split row
 re-stored by a local pick stays split (open-followups §227).
 
 ## Closed vs delivered (`task-closed.ts`)

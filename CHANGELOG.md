@@ -36,9 +36,9 @@ longer carries its own changelog comment.
   was — never surfaced a conflict at all, and the change from Jira was
   discarded on the next sync. Either half of the pair disagreeing now queues a
   conflict. The new comparison reads the statuses at the granularity Jira
-  itself carries, so a task parked in a status Jira has no equivalent for — On
-  Hold or In Review — is not reported as permanently disagreeing with an issue
-  that is simply in progress.
+  itself carries, so a task parked in a status Jira has no equivalent for —
+  such as On Hold or In Review — is not reported as permanently disagreeing
+  with an issue that is simply in progress.
 - **That conflict now shows the task's status beside its completion date, on
   each side.** The conflict previously displayed only the completion date, so
   a status-only disagreement offered nothing to choose between. Both fields

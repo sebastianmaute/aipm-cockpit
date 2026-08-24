@@ -120,7 +120,7 @@ describe("DiagnosticsPanel", () => {
     // The recovery mount renders the panel with no workspace behind it.
     render(<DiagnosticsPanel lang="en-US" />);
     // ★ Positive observable FIRST. On its own the absence assertion below also
-    //   passes when the panel throws or renders nothing at all — an
+    //   passes when the panel renders nothing at all — an
     //   everything-is-broken run reads as a passing fence. Anchor it on a
     //   control the panel renders unconditionally, so the absence claim is only
     //   made about a panel that actually rendered.
