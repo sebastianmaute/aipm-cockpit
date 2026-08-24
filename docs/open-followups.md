@@ -535,7 +535,7 @@ are mutually exclusive `if/else` branches in `task-manager.tsx`.
 
 ---
 
-## 9. `aria-sort` inconsistent across the four raw-`<th>` tables — open, unguarded
+## 9. `aria-sort` inconsistent across the four raw-`<th>` tables — CLOSED 2026-08-23
 
 Every sortable header that flows through the shared `SortResizeTh` got `aria-sort` in 0.202.3, with
 the `↑`/`↓` glyph made `aria-hidden` so the state is announced once, in one vocabulary. The four
@@ -565,6 +565,32 @@ from the accessible name. A fold-in must preserve that, not delete the glyph.
 ★ Known loss to re-state rather than rediscover: VoiceOver/Safari does not announce `aria-sort`, so
 each folded-in table trades "Title ↑" for "Title" on that one AT. Standard-correct, still a real
 regression there — it was accepted once already for the shared component.
+
+**Resolution 2026-08-23, recorded 2026-08-25.** All four tables adopted the shared `SortResizeTh`,
+which supplies `aria-sort` itself and keeps the `↑`/`↓` glyph `aria-hidden` — so the missing-state
+half and the double-announcement half went at once, exactly as the Rec above proposed. Four commits,
+all on `origin/main`: `180fac56` (activity), `19d5b251` (RAID), `1720be88` (stakeholders),
+`92b3309c` (changes). ★★ The fold-in was FOUR commits, not one, and this is worth recording because
+the housekeeping plan that closed this entry attributed it to `92b3309c` alone — which folded the
+CHANGES panel and nothing else. `git log -S "SortResizeTh" -- src/app/<file>.tsx` names the commit
+per file; a single-commit attribution here would have been unfalsifiable and wrong.
+
+```bash
+for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel; do
+  echo -n "$f  aria-sort="; grep -c "aria-sort" src/app/$f.tsx
+  echo -n "    SortResizeTh="; grep -c "SortResizeTh" src/app/$f.tsx
+done
+```
+
+The table above reads 7/7/5/0 for `aria-sort`; the tree reads **0/0/0/1**, and the shape of that is
+the point — the four zeros because the attribute now rides `SortResizeTh` rather than a hand-rolled
+`<th>`, and the lone 1 in `activity-log-panel.tsx` because it is a COMMENT, not markup. The ▲/▼
+glyphs that caused the double announcement are gone from all four files.
+
+★★ The KNOWN LOSS above SURVIVES the closure, and is why this is a paragraph rather than a
+strikethrough: VoiceOver/Safari does not announce `aria-sort`, so a VO user went from hearing
+"Title ↑" to "Title" on four more tables. Standard-correct, and a real regression for that one AT.
+Do not re-litigate it as a pure win.
 
 ---
 
@@ -5062,6 +5088,24 @@ Same handling as §86: `VIEW_AI_SCOPE.activity.reading` states the model cannot 
 pairing may itself be stale now that a read tool exists — not re-verified as part of this correction;
 check `VIEW_AI_SCOPE.activity.reading` and the `ASK_CLAUDE_PROMPTS` `activity` entry before relying on
 either claim.
+
+★★ **Settled 2026-08-25 — the answer is HALF, which is why it needed checking rather than assuming.**
+`VIEW_AI_SCOPE.activity` WAS updated: it carries `toolHints: ["search_history"]` and
+`readingRequiresTool: "search_history"`, and its inline comments record four successive corrections to
+the sentences around them. `ASK_CLAUDE_PROMPTS` was NOT: `activity` is still asserted
+`toBeUndefined()` in `ask-claude-prompts.test.ts`, under the title *"has no chips for the views whose
+read tools are deferred"* — and activity's read tool is no longer deferred. The absence may still be
+the right call, but the REASON recorded for it has stopped being true, which is the failure mode this
+whole entry is a monument to.
+
+```bash
+sed -n '/^  activity: {/,/^  },/p' src/app/view-ai-scope.ts | grep -n "toolHints\|readingRequiresTool"
+grep -n "ASK_CLAUDE_PROMPTS.activity" src/app/ask-claude-prompts.test.ts
+```
+
+★ That residual is split out as its OWN entry rather than re-opening this one — this entry stays
+closed-by-design, per the paragraph above. See the entry titled **"`ASK_CLAUDE_PROMPTS` has no
+`activity` chip, and the reason the test records for it is stale"**.
 
 ---
 
@@ -9585,7 +9629,7 @@ if you re-check.** Non-equivalence unchanged: `"Intro <STRONG>bold</STRONG> tail
 
 ---
 
-## 142. `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently — open
+## 142. `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently — CLOSED 2026-08-12
 
 Opened 2026-08-11 out of the a11y follow-on to §137's branch. The DEFECT is fixed (`a6e7c0c5`); the
 MECHANISM that let it happen is not, and cannot be seen by anything in the repo.
@@ -9648,6 +9692,26 @@ the one site that legitimately has nothing to say); or derive the suffix inside 
 something it already knows. ★ Recorded rather than fixed because the branch was already wide, and
 because the right answer depends on whether a third mount site is ever actually wanted — if it is
 not, the cheapest correct move is to keep it at two and say so in the type.
+
+**Resolution 2026-08-12, recorded 2026-08-25.** The FIRST of those two options was taken, in
+`c7a4ea3b` (on `origin/main`) — one day after this entry was opened, which is the whole reason it went
+on reading as open: nothing connects a fix to the entry that predicted it. `labelSuffix` is now
+REQUIRED (`string | null`, no `?`) on BOTH the row props and `NoteLogPanelProps` in
+`note-log-panel.tsx`, `null` is the explicit no-suffix sentinel that `notes-window.tsx` passes at its
+one mount, and `note-log-panel.test.tsx` carries a `@ts-expect-error` that turns an OMITTED prop into a
+compile error rather than a silent collision. All THREE files involved cite this entry BY NUMBER as the
+reason (four occurrences — `note-log-panel.tsx` carries one per props type):
+
+```bash
+grep -rn "§142" src/app
+grep -n "labelSuffix: string | null" src/app/note-log-panel.tsx
+```
+
+★ The mutation result above is KEPT deliberately: it is recorded nowhere else, and it is the argument
+for the two-panel test shape, which the type change does not retire. The typecheck stops a third
+CALLER omitting the prop; it cannot stop one passing a suffix that DUPLICATES an existing mount's.
+That residue is small enough not to warrant its own entry — recorded here so the next reader does not
+mistake "required" for "collision-proof".
 
 ---
 
@@ -13799,7 +13863,7 @@ already been stored loses its metadata and its document references dangle; recov
 On an affected DB no upload ever succeeded, so in practice the table is empty and the drop costs
 nothing — but check before assuming that.
 
-## 212. A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry
+## 212. A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry — CLOSED 2026-08-22
 
 **Status:** CLOSED — candidate (a) shipped; the recovery path the code documented three times now exists.
 
