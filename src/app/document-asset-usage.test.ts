@@ -283,7 +283,7 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     // text (rename), so `alt` can end in `data-asset-id=`. The naive
     // `ASSET_ID_RE` then pairs that trailing `=` with the REAL attribute's
     // opening quote; the quote-aware `IMG_TAG_RE` steps over the alt and finds
-    // the real id. Observed `all` member here is the literal `" data-asset-id="`.
+    // the real id.
     // The undercount is PRE-EXISTING (`assetIdsInDocument` always had these
     // semantics) — recorded as open-followups §231, not fixed here.
     const loaded = loadFully(`<img alt="data-asset-id=" data-asset-id="real">`);
@@ -293,11 +293,12 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     const refs = assetRefsInDocument(loaded);
     expect([...refs.drawable]).toEqual(["real"]);
     expect(refs.all.has("real")).toBe(false);
-    expect([...refs.drawable].every((id) => refs.all.has(id))).toBe(false);
 
-    // ★★ `undrawable` IS still a subset of `all`, and that half is load-bearing:
-    // the cap message's reclaimable-room arithmetic in documents-asset-section
-    // subtracts one size from the other and would go NEGATIVE without it.
+    // ★★ THIS ONE PINS THE CONSTRUCTOR, NOT THIS FIXTURE. `undrawable` is BUILT
+    // by filtering `all`, so it is constant-true for every input. It is kept
+    // because the cap message's reclaimable-room arithmetic in
+    // documents-asset-section subtracts one size from the other and would go
+    // NEGATIVE if a later fix rebuilt `undrawable` from a second scan.
     expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
   });
 });
