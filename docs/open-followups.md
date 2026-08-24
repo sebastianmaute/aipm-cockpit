@@ -14308,8 +14308,7 @@ under-reported existing coverage by two. There is no one-line grep for "unzips a
 media" — `grep -rln 'word/media/\|ppt/media/' src --include=*.test.ts` comes closest and still
 returns seven, two of which (`doc-render-pptx-slides.test.ts`, which asserts on a `MediaPart.path`
 and never unzips, and the manifest gate, which matches on a COMMENT) are not in the population.
-★ None of this weakens the conclusion above: what is missing is still a BASELINE, and
-`docs/baselines/` still holds only the media-free `ooxml-parts.json`.
+★ None of this weakens the conclusion above: what is missing is still a BASELINE.
 
 ## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver — CLOSED 2026-08-24
 
@@ -14446,9 +14445,8 @@ exported from `document-asset-upload.ts`.
 was the latter.** `undrawable.size` was wrong in BOTH directions, and each is now pinned by its own
 test in `documents-asset-section.test.tsx`:
 
-- **It could EXCEED the cap it had just quoted.** Nothing enforces the cap on LOAD — this file's
-  own "never drop an over-cap image on load" rule — so `all` is unbounded, and a document holding
-  21 `<span data-asset-id>` references announced "the maximum of 20 images. 21 of these slots are
+- **It could EXCEED the cap it had just quoted.** Nothing enforces the cap on LOAD, so `all` is
+  unbounded, and a document holding 21 `<span data-asset-id>` references announced "the maximum of 20 images. 21 of these slots are
   held by …". Pinned by "never claims more reclaimable room than the cap itself".
 - **It was actionable-sounding and INERT.** At 20 `<img>` PLUS 3 `<span>` it said 3, while the
   drawable images alone already hold the whole cap, so deleting all three frees nothing at all.
@@ -15386,20 +15384,36 @@ but the only way to reclaim that slot is to delete the sentence they wrote, and 
 WAY ROUND.** The bleed is real: an asset name is free text, `htmlEscape` escapes `& < > "` and NOT
 `=`, so a name of `data-asset-id=` survives into an `alt`, the document sanitizer keeps it verbatim,
 and the regex then matches the alt's trailing `=` against the REAL attribute's opening quote. `all`
-holds the phantom `" data-asset-id="`, the real id is absent — it spends no cap slot and can be
-re-inserted, defeating dedup. But that needs the crafted attribute to PRECEDE `data-asset-id`, and
-the only writer in the app puts the id FIRST:
+holds the phantom of the `alt-first` row above and the real id is absent — it spends no cap slot and
+can be re-inserted, defeating dedup.
+
+★★★ **TWO THINGS KEEP THE APP OUT OF IT AND IT TAKES BOTH — an earlier wording here argued safety
+from attribute ORDER alone, which is necessary and NOT sufficient.** FIRST, the only writer in the
+app puts the id FIRST:
 
 ```bash
-grep -rn 'data-asset-id="' src/app --include=*.tsx | grep -v "\.test\."
+grep -rn 'data-asset-id="' src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
 ```
 
 returns one construction site (`documents-asset-section.tsx`), spelling
-`<img data-asset-id="…" alt="…">`. In that order the regex consumes the real id first and the
-trailing `data-asset-id="` inside the alt finds no closing quote before `>`, so the extraction is
-CLEAN — the `id-first` row above. So the upload/rename/insert path cannot reach this; an imported
-or hand-edited workspace, an AI write, or any future writer that orders attributes differently can.
-Do not record this as "renaming an asset breaks the cap" — it was measured, and it does not.
+`<img data-asset-id="…" alt="…">` — the `id-first` row above, which extracts CLEAN. SECOND, that
+same loop gives each image its OWN block (`structural.insert(at, { type: "paragraph", html })`),
+`assetIdsInBlock` scans per block, and `document-block-editors.tsx` renders any `<img>`-bearing
+paragraph read-only (`if (paragraphHasImage(block.html))`), so nothing on this surface can append a
+second image to a paragraph that already holds one. Order alone would NOT be enough: the regex
+crosses `<img>` boundaries WITHIN a block, so two id-first images in one paragraph swallow the
+second real id.
+
+```bash
+node -e 'const RE=/data-asset-id="([^"]*)"/g;for(const s of ["<img data-asset-id=\"real\" alt=\"data-asset-id=\">","<img data-asset-id=\"real1\" alt=\"data-asset-id=\"><img data-asset-id=\"real2\" alt=\"x\">"])console.log(JSON.stringify([...s.matchAll(RE)].map(m=>m[1])))'
+# ["real"]
+# ["real1","><img data-asset-id="]
+```
+
+So the upload/rename/insert path cannot reach this; an imported or hand-edited workspace, an AI
+write, or any future writer that orders the attributes differently — or puts two images in one
+paragraph — can. Do not record this as "renaming an asset breaks the cap" — it was measured, and it
+does not.
 
 ★ **`IMG_TAG_RE` is right on all three rows**, so `documentAssetIds` and the export buckets are
 unaffected by either half. The divergence is entirely on the cap/usage side.

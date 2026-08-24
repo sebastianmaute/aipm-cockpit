@@ -1189,8 +1189,7 @@ byte-compares `word/media/image1.png` and, in sibling tests, pins the `<Default 
 ContentType="image/png"/>` entry, the `Target="media/image1.png"` relationship and the once-only
 extension declaration; `ooxml-pptx-primitives.test.ts` byte-compares `ppt/media/image1.png` and
 pins the per-slide rels target. What is missing is a BASELINE — every one of those assertions names
-a string somebody chose, so a change nobody anticipated passes all five, and `docs/baselines/`
-holds only the media-free `ooxml-parts.json`.
+a string somebody chose, so a change nobody anticipated passes all five.
 
 ★★★ **THAT COUNT SAID THREE UNTIL 2026-08-24, AND HOW IT GOT THERE IS THE LESSON.** The wording
 BEFORE it excluded the builder pair with a QUALIFIER — "nothing outside each builder's own unit
