@@ -13,12 +13,12 @@ longer carries its own changelog comment.
 ### Fixed
 
 - **The image limit now says when part of it is taken up by references nothing
-  can draw.** A document holds a fixed maximum number of images. A leftover
-  reference to an image that is no longer there still occupied one of those
-  slots while exporting nothing and appearing in none of the export buckets, so
-  the limit could be reached with visibly fewer pictures in the document and no
-  explanation for it. The message now says how many of the slots are held by
-  references no export can draw.
+  can draw.** A document holds a fixed maximum number of images. Editing can
+  leave a reference to a picture attached to text rather than to a picture
+  element. Such a reference still occupied one of the slots while exporting
+  nothing and appearing in none of the export buckets, so the limit could be
+  reached with visibly fewer pictures in the document and no explanation for
+  it. The message now says how many of the slots are held that way.
 
 ### Internal
 
