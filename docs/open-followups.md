@@ -14437,9 +14437,32 @@ per block BEFORE the structural pass. That is an AI WRITE path, not a load path,
 inverted on purpose. Do not "align" it with the ten.
 
 ★★ **The user is now told why the cap filled**, which was this entry's other half. `capMessage`
-carries the undrawable COUNT rather than a boolean; `assetLibraryMaxPerDocumentUndrawable` (EN + DE)
-renders when that count is above zero and the plain `assetLibraryMaxPerDocument` otherwise. Both
-branches are tested. `ASSET_MAX_PER_DOCUMENT` is 20, exported from `document-asset-upload.ts`.
+carries a NUMBER rather than a boolean, so the message can never render a value it did not compute;
+`assetLibraryMaxPerDocumentFreeable` (EN + DE) renders when that number is above zero and the plain
+`assetLibraryMaxPerDocument` otherwise. Both branches are tested. `ASSET_MAX_PER_DOCUMENT` is 20,
+exported from `document-asset-upload.ts`.
+
+★★★ **THE NUMBER IS RECLAIMABLE ROOM, NOT A COUNT OF UNDRAWABLE REFERENCES — and until 0.257.2 it
+was the latter.** `undrawable.size` was wrong in BOTH directions, and each is now pinned by its own
+test in `documents-asset-section.test.tsx`:
+
+- **It could EXCEED the cap it had just quoted.** Nothing enforces the cap on LOAD — this file's
+  own "never drop an over-cap image on load" rule — so `all` is unbounded, and a document holding
+  21 `<span data-asset-id>` references announced "the maximum of 20 images. 21 of these slots are
+  held by …". Pinned by "never claims more reclaimable room than the cap itself".
+- **It was actionable-sounding and INERT.** At 20 `<img>` PLUS 3 `<span>` it said 3, while the
+  drawable images alone already hold the whole cap, so deleting all three frees nothing at all.
+  Pinned by "falls to the plain wording when removing every undrawable reference frees nothing".
+
+It now reports `max(0, cap - (all - undrawable))` — how many more images could be added once every
+undrawable reference is gone. The range is structural, not a property of the fixtures:
+`undrawable ⊆ all` because it is BUILT by filtering `all`, so the subtraction cannot go negative
+and the result cannot exceed the cap. And it reaches 0 — and so falls to the plain wording — in
+exactly the case where removing those references would free nothing.
+
+★★ Read §231 before trusting the number, because BOTH of its halves reach it: a `data-asset-id` a
+user merely TYPED into a paragraph supplies room reclaimable only by deleting that sentence, and a
+crafted `alt` keeps a genuinely drawn image out of the drawn count, which over-reports the room.
 
 ## 219. The produced `.docx`, `.pptx` and PDF have never been opened by the applications that read them
 
@@ -15325,8 +15348,9 @@ the modal the way its siblings already do closes it.
 **Status:** OPEN. Found by cold review of the 0.257.2 slice, 2026-08-24; both halves reproduced
 before this entry was written. **Both are PRE-EXISTING** — `assetIdsInDocument` has had these
 semantics since it was extracted, and neither is a regression of this branch. They go on the record
-now because 0.257.2 newly RENDERS the consequence: the cap message reports references nothing can
-draw, so a document at the cap for either reason below now shows a user a number derived from them.
+now because 0.257.2 newly RENDERS the consequence: the cap message reports how much room removing
+the references nothing can draw would reclaim, so a document at the cap for either reason below now
+shows a user a number derived from them.
 
 The two extractors do not agree, and one of them is quote-blind:
 
@@ -15353,9 +15377,10 @@ in `document-asset-usage.ts`'s own header.** That header said a literal `data-as
 content "would already have been escaped on the way in" by `sanitizeDocumentHtml`. It is not:
 `<p>data-asset-id="abc"</p>` round-trips that sanitizer **byte-identical**. HTML text-node
 serialization escapes `&`, `<` and `>` and never `"`, so there is nothing for it to change. A user
-who types the attribute's spelling into a paragraph spends a slot, and `undrawable` reports it —
-truthfully, since nothing can draw it, but the user has no way to connect the message to the
-sentence they wrote.
+who types the attribute's spelling into a paragraph spends a slot, and it lands in `undrawable`, so
+the cap message counts it as room that could be reclaimed — truthfully, since nothing can draw it,
+but the only way to reclaim that slot is to delete the sentence they wrote, and a message about
+"references no export can draw" gives them no way to guess that.
 
 ★★★ **HALF TWO IS ATTRIBUTE ORDER, AND THE BRIEF THAT PROMPTED THIS ENTRY HAD THE SHAPE THE WRONG
 WAY ROUND.** The bleed is real: an asset name is free text, `htmlEscape` escapes `& < > "` and NOT

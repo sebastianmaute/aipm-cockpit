@@ -108,7 +108,7 @@ describe("assetRefsInDocument", () => {
 
   it("does not treat an id as undrawable merely because ANOTHER block draws it", () => {
     // The same id on a span AND an img: it IS drawable, so it must not appear
-    // in `undrawable` and inflate the count the cap message reports.
+    // in `undrawable` and inflate the reclaimable room the cap message reports.
     const refs = assetRefsInDocument(
       htmlDoc([`<span data-asset-id="a">x</span>`, `<img data-asset-id="a">`]),
     );
@@ -270,8 +270,8 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="hero"`);
 
     const refs = assetRefsInDocument(loaded);
-    // Counted against the 20-image cap, and named as an undrawable reference in
-    // the cap message — for a string that is prose, not a reference at all.
+    // Counted against the 20-image cap, and folded into the reclaimable room the
+    // cap message offers — for a string that is prose, not a reference at all.
     expect([...refs.all]).toEqual(["hero"]);
     expect([...refs.drawable]).toEqual([]);
     expect([...refs.undrawable]).toEqual(["hero"]);

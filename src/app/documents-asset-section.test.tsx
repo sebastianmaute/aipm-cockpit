@@ -737,11 +737,12 @@ describe("documents asset byte partition", () => {
 // below.
 //
 // ★★★ BOTH CASES ARE REQUIRED AND THE ALL-DRAWABLE ONE IS THE LOAD-BEARING
-// HALF. A test that only asserts the new wording passes just as well with the
-// condition INVERTED — at which point every user at a full document is told
-// slots are held by undrawable references when none are. The second case is
-// what makes the first one mean anything.
-describe("documents asset cap message names undrawable references", () => {
+// HALF. A test that only asserts the reclaimable-room wording stays green if
+// the `capMessage > 0` guard is DROPPED — at which point every user at a
+// genuinely full document gets a sentence about making room that ends "would
+// make room for 0 more". The second case is what makes the first one mean
+// anything.
+describe("documents asset cap message reports reclaimable room", () => {
   /** `count` drawable `<img>` references plus `undrawable` `<span>` ones, all
    *  distinct, in ONE paragraph — `assetRefsInDocument` scans paragraphs only. */
   function docHoldingMixed(count: number, undrawable: number): ProjectDocument {

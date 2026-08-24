@@ -25,8 +25,8 @@ import type { AssetByteLoader } from "./document-asset-images";
  * `assetRefsInDocument` (`document-asset-usage.ts`) carries the relationship
  * and the reason. The consequence to know: a `<span data-asset-id>` counts
  * against the cap and is invisible here — but no longer SILENTLY, since that
- * helper returns it as `undrawable` and the cap message names the count
- * (open-followups §218).
+ * helper returns it as `undrawable` and the cap message reports how much room
+ * removing every such reference would reclaim (open-followups §218).
  *
  * ★★★ QUOTE-AWARE, and it must stay that way. A plain `[^>]*` stops at the
  * first `>` even inside a quoted attribute value, and that is reachable from

@@ -1028,15 +1028,17 @@ pass; `undrawable` is measured over the WHOLE document, so an id on a span in on
 (`assetLibraryMaxPerDocumentFreeable`) reports how many MORE images could be added once those
 references are removed, rather than reporting a bare "full" — and rather than reporting
 `undrawable.size` itself, which is what it did until 0.257.2 and which could exceed the cap and
-could count references whose removal frees nothing. Full measurement table in
-`docs/open-followups.md` §218's closing note.
+could count references whose removal frees nothing. Both wrong directions, and the test that pins
+each, are recorded in `docs/open-followups.md` §218's closing note.
 
 ★★ **`undrawable` OVER-COUNTS FOR TWO REASONS `assetRefsInDocument` CANNOT SEE, both measured and
 both PRE-EXISTING — `docs/open-followups.md` §231.** `ASSET_ID_RE` is a bare attribute match, so
 `all` picks up a `data-asset-id="…"` a user simply TYPED into a paragraph (the document sanitizer
 round-trips it byte-identical — HTML text nodes escape `&`, `<` and `>`, never `"`), and in a
 document whose `<img>` carries a crafted attribute BEFORE its id it can pick up a phantom while
-missing the real id. Read §231 before treating the reported number as a count of real references.
+missing the real id. Neither is a count the message shows any more, but both still reach the ROOM
+it reports — the typed attribute as a slot only deleting a sentence can reclaim, the phantom by
+keeping a genuinely drawn image out of `drawn` and so over-reporting the room. Read §231 first.
 
 ## Image bytes in every export format (S3c-2)
 
@@ -1347,8 +1349,9 @@ shared, and today one running index serves as both); and `ASSET_ID_RE` counts a 
 ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
 `<span data-asset-id>` consumes a slot and reaches no export bucket at all. ★★ That second one is
 **§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
-it is now VISIBLE (the cap message names the undrawable count) and pinned. It is described under
-"The three asset-id patterns" above, and only §217 remains open here.
+it is now VISIBLE (the cap message reports how much room removing those references would reclaim)
+and pinned. It is described under "The three asset-id patterns" above, and only §217 remains open
+here.
 
 ★★ A third is a maintainability gap rather than a divergence: `sanitizeDocumentAsset` deliberately
 does NOT enforce `ASSET_MIME_ALLOWED` on load, so each consumer restates the allowlist check by

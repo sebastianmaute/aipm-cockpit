@@ -21,9 +21,11 @@
 // never escapes `"` — so a double-quoted attribute spelled out in prose
 // survives intact, and `ASSET_ID_RE` below then counts it. A user writing
 // documentation ABOUT this app, or pasting HTML as text to discuss it, spends
-// a real slot of the 20-image per-document cap on it and sees it named in the
-// cap message. Pinned by "does NOT escape a data-asset-id a user merely TYPED
-// as prose" in this module's test file; open-followups §231.
+// a real slot of the 20-image per-document cap on it, and the cap message then
+// offers that slot back as room "removing the references no export can draw"
+// would reclaim — which here means deleting the sentence they wrote. Pinned by
+// "does NOT escape a data-asset-id a user merely TYPED as prose" in this
+// module's test file; open-followups §231.
 //
 // ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
 // property and a real one: DOMPurify re-serialises every attribute with double
