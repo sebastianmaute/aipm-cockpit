@@ -7060,7 +7060,7 @@ width before the branch renders, so there is no group to reflow.
 
 ---
 
-## 113. The documents roadmap — block editor, entity attachment, images — S3a/S4/S3b/S3b-2/S3c-1 SHIPPED; S3c-2 (OOXML media) open
+## 113. The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record
 
 ★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
 that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
@@ -7072,9 +7072,28 @@ document; images now own **S3c-1** (shipped 0.254.0 — see `docs/AGENTS/documen
 images (S3c-1)" section for the as-built architecture) and **S3c-2** (OOXML media parts —
 still open, own follow-up entry). See also `docs/work-inventory.md` §3.
 
-★★★ **Recorded here for the reason §44 exists.** The design document lives in the gitignored tree,
-so on any other machine it does not exist. Per this file's own rule there is no link to it; the
-decisions are reproduced below in enough detail to resume without it. Designed 2026-08-08 against
+★★★ **UPDATE 2026-08-25 — S3c-2 SHIPPED, so the paragraph above is a record of what was true on
+2026-08-21 and NOT a live status.** OOXML media parts landed in **0.256.0 "Khaw"**, and §202 — the
+"own follow-up entry" that paragraph points at — is CLOSED. Every slice in the table below has now
+shipped, so this entry is kept for the decisions it records rather than as an open item.
+
+```bash
+grep -n "^## 202\." docs/open-followups.md                              # → "— CLOSED 2026-08-22"
+sed -n '/^## \[0\.256\.0\]/,/^## \[0\.255\./p' CHANGELOG.md | grep -i "images in them"
+```
+
+★ `docs/work-inventory.md` §3 is NOT corrected here and still lists S3c-2 as designed-but-unbuilt,
+in its backlog table and twice more below it (`grep -n "S3c-2" docs/work-inventory.md`). That is a
+separate document with its own sweep; do not read this entry's update as covering it.
+
+★★★ **THE DESIGN DOCUMENT IS TRACKED AND IS NOW LINKED, NOT REPRODUCED-BECAUSE-UNREACHABLE:**
+[`superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md`](superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md).
+The apparatus that stood here — "the design document lives in the gitignored tree, so on any other
+machine it does not exist; per this file's own rule there is no link to it" — was true when written
+and stopped being true in **0.253.0 "Schroeder"** (2026-08-21), when the corpus was un-ignored and
+committed. This file's own header names §113 as one of the two sharpest cases of exactly that rot;
+this is that rewrite. The decisions below are still reproduced in full, now as a convenience rather
+than as a substitute for a document nobody else could open. Designed 2026-08-08 against
 0.222.0 "Charnas" (`e2316f4f`). It supersedes the ~18-line S3/S4 outlines that shipped inside the
 S1 design document and **reorders them**.
 
@@ -7089,7 +7108,7 @@ pattern and the versioning policy on a `{kind, id}` pair instead of on images.
 | **S3b** | the editor: in-place block editing, all marks, per-type editors, block-CONTENT editing | free — same blob |
 | **S3b-2** | the structural slice S3b deferred: block add / delete / reorder — SHIPPED 0.252.0 "Brust" under the plain label "S3c"; retagged here | free — same blob |
 | **S3c-1** | images end to end, Turso-gated — SHIPPED 0.254.0 | metadata slice + one out-of-`TABLE_NAMES` side table (`document_asset_data`) |
-| **S3c-2** | OOXML media parts (`word/media/`, relationship ids, EMU sizing) for the images S3c-1 shipped — open | none (write-path shape unchanged) |
+| **S3c-2** | OOXML media parts (`word/media/`, relationship ids, EMU sizing) for the images S3c-1 shipped — SHIPPED 0.256.0 "Khaw"; §202 CLOSED | none (write-path shape unchanged) |
 
 ### The decisions that are expensive to re-derive
 
@@ -7186,11 +7205,71 @@ because a `.docx`/`.pptx` export is the only moment images are held together, as
 in-memory Blob; content-hash dedup. Metadata records `{width, height}` post-downscale because the
 OOXML writers size in EMU and cannot backfill without decoding every image.
 
-★★★ **ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN.** A 5 MB image is ~6.7 MB of
-base64 and `SqlArg.value` is string-only, so one statement carries a 6.7 MB text argument in a single
-Turso pipeline request. Turso's request-size limit is UNKNOWN — do not guess it. Measure against a
-real database before planning S3c; **§95 means CI cannot.** Under ~7 MB, the per-image cap drops or
-uploads chunk.
+★★★ **THE MEASUREMENT THIS PARAGRAPH USED TO DEMAND WAS TAKEN ON 2026-08-21, AND UNTIL 2026-08-25
+THIS ENTRY WAS THE LAST PLACE IN THE REPO STILL RECORDING IT AS UNTAKEN.** What stood here — *"ONE
+MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN … measure against a real database
+before planning S3c"* — was stale in the dangerous direction: it told a reader that planning was
+blocked on a probe which had in fact already unblocked S3c-1, shipped 0.254.0 "Yoshinaga" — three
+days before this correction, and one day after the probe. The premise it rested on is
+still exactly right (a 5 MB image is ~6.7 MiB of base64 and `SqlArg.value` is string-only, so one
+statement carries the whole thing as a text argument in a single pipeline request); only the verdict
+"UNKNOWN" changed.
+
+★ The sweep behind "the last place still recording it as untaken". ★★ It matches its own quotation
+of the sentence it retired — the self-matching-grep property this file records elsewhere — so READ
+the hits, never count them; today they are this entry twice and the plan for the housekeeping slice
+that noticed the gap:
+
+```bash
+grep -rn "HAS NOT BEEN TAKEN\|request-size limit is UNKNOWN" docs/ *.md
+```
+
+★★ **It is CITED here, never re-recorded.** Two write-ups own it and this entry owns neither:
+
+- [`superpowers/specs/2026-08-21-documents-s3c1-images-design.md`](superpowers/specs/2026-08-21-documents-s3c1-images-design.md)
+  §1, "The measurement that unblocked planning" — the probe table, size by size, with timings.
+- `docs/AGENTS/documents.md` — the subsystem-reference summary
+  (`grep -n "32 MiB" docs/AGENTS/documents.md`).
+
+Headline **as recorded there, not as measured here**: probed 2026-08-21 against a real database,
+read-only, one statement per request, binding a growing text arg to `SELECT length(?)`; **no ceiling
+was found below 32 MiB**, and what moved with size was latency. Read the individual sizes and timings
+off the table in §1 — do not quote them from this entry.
+
+★★★ **CARRY THE SCOPING ACROSS OR THE CITATION IS WORSE THAN THE GAP IT CLOSES.** Both sources are
+careful in ways this entry inherits and must not drop. It is a **MEASUREMENT, not a spec number**. It
+is bound to **one database, one region and one plan** — a different Turso plan may differ — and to
+**one statement per request**. And it does **NOT** cover a pipeline carrying several assets at once:
+that is why the store writes one asset per request rather than coalescing a multi-image upload, and
+coalescing later needs its own probe, never an extrapolation from this one. ★ The probe creates no
+table and writes no row, so it is safe to re-run whenever the answer matters again — and **§95 still
+means CI cannot run it**, so re-running it stays a deliberate manual act.
+
+**The three product decisions it drove**, recorded here because this entry is where a reader looks
+for "was this ever settled":
+
+1. **The 5 MB stored cap above stands unchanged**, at roughly 4.8× headroom under the measured point.
+   The contingency this paragraph used to carry — "the per-image cap drops or uploads chunk" — is
+   **DEAD. Do not build chunking.**
+2. **Latency, not size, is the real constraint.** An image write is a multi-second round trip a user
+   can interrupt, which is what drove the upload-progress requirement and the write order — neither
+   of which the original design could have specified.
+3. **One asset per request, never batched** — the shape the side-table decision above already
+   mandated, and independently confirmable in the code:
+
+```bash
+grep -n "assetDataSelect\|assetDataUpsert\|assetDataIdsSelect" src/app/document-assets-store.ts
+```
+
+`assetDataUpsert(row)` takes a single row, `assetDataSelect(id, projectId)` a single id, and
+`assetDataIdsSelect(projectId)` returns ids only, with no bytes.
+
+★★ **THE LESSON, and it is the one this register keeps re-learning:** the slice that discharged this
+item wrote it up in three places — its own spec, its own plan and `docs/AGENTS/documents.md` — and
+did not touch the register entry carrying the item as open. ★ `grep -rln "32 MiB" docs/` names those
+three plus two later arrivals: THIS entry, and the plan for the housekeeping slice that noticed the
+gap — so read the list, do not count it. Nothing gates any of this, in either direction. When a
+slice closes something this file is holding, edit this file in the same commit.
 
 ### Three cross-cutting decisions, to be settled in S3a
 
@@ -8856,37 +8935,93 @@ enclosing workspace decoder where the dangling pass runs.
 and a missing id renders nothing. It is recorded because a code comment stated flatly that it self-heals on
 the next load, which is false exactly where most users are.
 
-## 134. Two `captureComposite` callers flag no primary and ride the positional fallback — open, latent, measured
+## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured
 
 `compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
-composite silently nominates fragment 0. Of the SEVEN call sites, five flag one; `use-budget-buckets.ts` and
-`use-task-submit.ts` flag nothing.
+composite silently nominates fragment 0. Of the SEVEN call sites, **six** flag one; only
+`use-task-submit.ts` flags nothing.
+
+★★ **THIS ENTRY SAID "five flag one; `use-budget-buckets.ts` AND `use-task-submit.ts` flag nothing"
+until 2026-08-25, which would have sent a fixer to re-do work already done.** `use-budget-buckets.ts`
+now passes `isPrimary: true` on `budgetsPart`, with a comment above it giving this entry's own
+reasoning verbatim; `undo/use-undo-stack.ts`'s `captureFieldPart` docstring records the same change
+and dates it to the §50 fix (closed 2026-08-18). Enumerate both halves before touching anything —
+the first grep needs all three call shapes and both filters, per the ★★★ below:
+
+```bash
+grep -rn "captureComposite?\.({\|captureComposite({\|captureCompositeRef.current?.({" src/app \
+  | grep -v "\.test\." | grep -v use-undo-stack.ts        # → the 7 call sites
+grep -rn "isPrimary: true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+★ The second grep prints nine lines, not six: six are real `capturePart` flags (one in
+`use-budget-buckets.ts`, three in `use-reference-data.ts`, two in `use-resource-directory.ts`) and
+three are comments quoting the flag. Read it, do not count it.
 
 ★★★ ENUMERATE WITH ALL THREE CALL SHAPES. A grep matching only `captureComposite({` and
 `captureCompositeRef.current?.({` misses the OPTIONAL-call form `captureComposite?.({` and reports SIX. That
 error shipped in a code comment and was caught only by a cold audit; it omitted the newest caller.
 
-Neither is a live defect — no fragment in either declares `fkRemapField`, so the empty remap is never read.
-The hazard is what happens NEXT: `captureFieldPart` hardcodes `isPrimary: false`, so adding a `capturePart`
-cascade beside an existing field fragment points that cascade at stale ids with no error. `use-budget-buckets`
-is the likelier site, because its first fragment is the whole-row `tasksPart` from `use-bulk-operations` — a
-§50 candidate whose obvious fix reproduces exactly this shape. Flag the cascade `isPrimary: true` in the same
-edit.
+The remaining one is not a live defect — no fragment in `use-task-submit.ts`'s composite declares
+`fkRemapField`, so the empty remap is never read. The hazard is what happens NEXT: `captureFieldPart`
+hardcodes `isPrimary: false`, so adding a `capturePart` cascade beside an existing field fragment points
+that cascade at stale ids with no error. **Flag the cascade `isPrimary: true` in the same edit.**
 
-## 135. Two different-type links to one task can be staged but not removed individually — open, UI
+★★★ **THE PREDICTION IN THIS ENTRY CAME TRUE AND WAS HANDLED — do not re-derive it.** It used to name
+`use-budget-buckets` as "the likelier site, because its first fragment is the whole-row `tasksPart` from
+`use-bulk-operations` — a §50 candidate whose obvious fix reproduces exactly this shape". That is exactly
+what happened: the §50 fix swapped that `tasksPart` for a `captureFieldPart`, reproducing the shape beside
+the real `budgetsPart` cascade, and the cascade was flagged in the same edit. So the site this entry
+pointed at is CLOSED and only `use-task-submit.ts` is left — where the same shape already exists
+(a lone `captureFieldPart` as `parts[0]` of an unflagged composite) and is benign only because that
+composite has no cascade to remap.
 
-`DependencyLinkGroup` appends `{ taskId, type: pendingType }` on add with no check, so the same task can be
-staged twice under different types (FS and SS). Its remove handler filters on `taskId` ALONE, so removing
-either chip removes BOTH.
+## 135. A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI
 
-★★ An exact `(taskId, type)` duplicate is NOT the problem, and a working note claiming so was wrong:
-`pushUniqueDependency` (`sanitize-core.ts`) keys its `seen` set on the id and type together, so an exact
-duplicate is collapsed at save on every backend. Only the DIFFERENT-type pair survives, and it is the one the
-remove control cannot address.
+★★★ **REWRITTEN 2026-08-25 — THE ORIGINAL PREMISE WAS KILLED BY A REDESIGN THAT RECORDED THE
+OPPOSITE DECISION IN SOURCE, AND THE OLD FIX INSTRUCTION WOULD HAVE UNDONE IT.** This entry used to
+say: "`DependencyLinkGroup` appends `{ taskId, type: pendingType }` on add with no check, so the same
+task can be staged twice under different types (FS and SS). Its remove handler filters on `taskId`
+ALONE, so removing either chip removes BOTH" — and prescribed "matching the remove handler on both
+fields" as the smaller change. `dependencies-editor.tsx` now moves the other way deliberately:
 
-★ Whether a task should be allowed two relation types to the same task at all is the open design question;
-the storage layer permits it today. Matching the remove handler on both fields is the smaller change and does
-not settle that.
+- **The picker can no longer mint the pair.** `uniqueLinks` collapses `links` to one entry per
+  `taskId`; `selectedIds` derives from `uniqueLinks` and is passed to `useTaskPickerOptions`, which
+  hands it to `filterPickerOptions` as `excludeIds` — so a task that is already linked is not among
+  the options at all, in either direction.
+- **There is only ONE chip per task**, so "removing either chip removes both" no longer describes
+  anything a user can see. One chip, one ✕, task unlinked — and the collapse feeds the chip list and
+  the exclusion set from the same value, so display, exclusion and removal cannot disagree.
+
+```bash
+grep -n "uniqueLinks\|selectedIds\|onRemove=" src/app/dependencies-editor.tsx
+grep -n "excludeIds" src/app/use-task-picker-options.ts
+```
+
+**What actually remains**, and the source states it as an accepted cost rather than a defect. A
+mixed-type pair can still arrive from outside the modal — the AI `update_task` tool, a CSV/JSON
+import, or a hand-edited file — and it survives sanitization, because `pushUniqueDependency`
+(`sanitize-core.ts`) keys its `seen` set on `${tid}:${type}`. `dependencies-editor.tsx`'s own comment
+block is the record: *"A second link to the same task with a different type is simply no longer shown
+or individually removable — the only way to drop it from here is to ✕ the task entirely and re-add
+the one you want."* It calls that cost **DISPLAY-ONLY**, because `form.dependencies` /
+`form.successorLinks` still hold both entries and `sanitizeDependencies` dedupes on the PAIR, so a
+save that never touches the field round-trips both.
+
+★★ An exact `(taskId, type)` duplicate is still NOT the problem, and a working note claiming so was
+wrong: an exact duplicate is collapsed at save on every backend. Only the DIFFERENT-type pair
+survives — and it is now invisible in the editor rather than merely un-removable there.
+
+★ The open design question is unchanged and is the one worth settling: whether a task should be
+allowed two relation types to the same task at all. The storage layer permits it; the editor now
+presents a one-per-task model. ★★ Do NOT "fix" this by widening the remove handler to `(taskId,
+type)` — that reintroduces the two-chip shape the redesign deliberately removed, and
+`dependencies-editor.tsx`'s comment names the OLD editor (row keys `${dep.taskId}-${dep.type}-${i}`,
+removal by index) as the thing that was traded away, not as a regression. Settle the model first.
+
+★ Whoever next triages this file may reasonably CLOSE it as accepted-by-design, since the residual is
+recorded as an accepted cost in source. Left open here because the design question above is real and
+this rewrite is not a triage pass.
 
 ## 136. The `dependencies` branch of `sanitizeInlinePatch` has no caller — open, dead code
 
@@ -10177,15 +10312,30 @@ document, and the toolbar they were in goes arrow-dead. WCAG 2.4.3 (focus order)
 
 ★★★ **THE OBVIOUS ONE-LINE FIX IS WRONG, which is why this is an entry and not a commit.** Focusing
 the trigger from the caller's `closeHeadingMenu` looks right and is not: `PopoverPanel.onClose` takes
-NO reason and is invoked identically for Escape, for an outside click, and for a window resize
-(`popover-panel.tsx` — the dismiss hook, the outside-click listener, and the resize listener all call
-the same bare callback). Restoring focus unconditionally would therefore YANK FOCUS BACK TO THE
-TRIGGER when the user clicks somewhere else entirely — a worse bug than the one being fixed, and one
-that would land on every consumer of the primitive at once.
+NO reason and is invoked identically from FOUR places in `popover-panel.tsx` — the dismiss hook
+(`useDismissable`, which carries Escape), the outside-click `mousedown` listener (`onDown`), the
+window `resize` listener (`onResize`) and the capture-phase ancestor-`scroll` listener (`onScroll`,
+registered beside the resize one) — all calling the same bare callback. Restoring focus
+unconditionally would therefore YANK FOCUS BACK TO THE TRIGGER when the user clicks somewhere else
+entirely — a worse bug than the one being fixed, and one that would land on every consumer of the
+primitive at once.
+
+★★★ **FOUR, NOT THREE — and this entry said three until 2026-08-25, which would have stranded
+whoever implemented it.** The ancestor-scroll dismiss was missing from both the enumeration above
+and the union prescribed below, so a fixer building the three-member union reaches `onScroll` with
+nowhere to put it and has to either invent a member mid-implementation or, worse, pass one of the
+existing three and give a scroll dismiss somebody else's focus behaviour. Scroll-dismiss must NOT
+restore focus — the user did not ask to leave the popover, the layout moved out from under it.
+Enumerate before prescribing:
+
+```bash
+grep -n "onClose()\|onDismiss: onClose" src/app/popover-panel.tsx
+```
 
 ### Closing it
 
-Give `onClose` a reason (`"escape" | "outside" | "resize"`) and restore focus on `"escape"` only —
+Give `onClose` a reason (`"escape" | "outside" | "resize" | "scroll"`) and restore focus on
+`"escape"` only —
 the APG rule, and the only variant that distinguishes intent. That is a change to a SHARED primitive
 with many call sites, so it wants its own slice with a sweep of every consumer, not a rider on a
 single row's a11y work. ★ Until then, do not add a focus-restore to any individual consumer: one
@@ -12719,8 +12869,15 @@ explanation at the exact moment it becomes relevant.
 ★ The case for changing it is the stale-context one: a user who walks away and
 returns sees a refusal referring to an attempt they no longer remember. If that
 is judged to matter, clear it when the draft next goes DIRTY (the user has moved
-on) rather than on adoption — and note `document-block-editors.tsx` currently
-sits at exactly 800 of the 800-line cap, so it needs headroom first.
+on) rather than on adoption.
+
+★★ **NOT BLOCKED ON HEADROOM — the clause that said so is deleted, 2026-08-25.**
+This bullet used to end "and note `document-block-editors.tsx` currently sits at
+exactly 800 of the 800-line cap, so it needs headroom first", sourced from §189.
+The file measures **659** and has since the `BulletsBlockEditor` extraction; the
+whole change is a couple of lines inside `useBlockDraft`, which still lives
+there. §189 carries the re-reading and the commands. Whatever the reason to defer
+this is, it is not the size cap.
 
 ## 189. Adopt Prettier at `printWidth: 120` and raise the size cap to 900
 
@@ -12750,9 +12907,43 @@ the two in one sentence and made it look like one.
 
 The pressure is real, measured 2026-08-19 (reproduce with the snippet below):
 **27** files sit in the 700–800 band and six are at 795 or above, including
-`document-block-editors.tsx` at exactly **800** — zero headroom, which is why
-followup §188 records a fix it cannot make room for. Four files are over the cap
-and baselined; `i18n.ts` / `i18n.de.ts` are exempt and not counted here.
+`document-block-editors.tsx` at exactly **800** — zero headroom. Four files are
+over the cap and baselined; `i18n.ts` / `i18n.de.ts` are exempt and not counted
+here.
+
+★★ **RE-READ 2026-08-25 — APPENDED, not substituted for the line above, which
+stands as the signed observation it was.** The same snippet now gives **26** in
+the 700–800 band, **three** at 795 or above, and `document-block-editors.tsx` at
+**659**. Four files are still over the cap and baselined — the raw over-800 count
+is six and the two exempt `i18n` files are the difference. ★ Read exactly as the
+2026-08-19 line was: the band count is the only figure the snippet PRINTS, and
+the 795+ / over-800 ones come off the descending top-12 list beside it. The
+PRESSURE ARGUMENT IS UNCHANGED — 26 files one line from the ratchet is the same
+argument as 27 — but the WORKED EXAMPLE is gone, and it turned out to be
+load-bearing for three other entries.
+
+★★★ **THE CLAUSE THAT USED TO CLOSE THAT SENTENCE — "zero headroom, which is
+why followup §188 records a fix it cannot make room for" — WAS THE ROOT OF A
+FOUR-ENTRY FALSE PREMISE.** §188, §190 and §191 each deferred, wholly or in
+part, on `document-block-editors.tsx` "sitting at exactly 800 of the 800-line
+cap", every one of them treating this entry as the source. The 800 → 649 drop
+lands at `0387402b` (2026-08-23), the commit that extracted `BulletsBlockEditor`
+into its own module; the file has drifted to 659 since. Not one of the three
+entries noticed, and no gate could — a stale line count in prose is invisible to
+every one of them. The clause is deleted here and the premise deleted in all
+three. ★ **Do not cite a specific file's line count from this entry.** Cite the
+snippet, or read the file:
+
+```bash
+# today's number, under the gate's own wc -l + 1 arithmetic
+node -e "console.log(require('fs').readFileSync('src/app/document-block-editors.tsx','utf8').split('\n').length)"
+# and where it moved — the 800 -> 649 step is the BulletsBlockEditor extraction
+for c in $(git log --format=%h -8 -- src/app/document-block-editors.tsx); do
+  echo "$c $(( $(git show $c:src/app/document-block-editors.tsx | wc -l) + 1 )) $(git log -1 --format=%s $c)"
+done
+```
+
+The 2026-08-19 snippet itself, unchanged — it is what both readings above were taken with:
 
 ```bash
 node -e "
@@ -12845,9 +13036,22 @@ surface that already shows the reason visually). **Found by:** cold code review
 of the S3b fix round, 2026-08-19.
 
 `BlockRefusalNotice` (`document-block-notices.tsx`) renders
-`<p role="status" className="text-xs text-ui-pink">`, and all four call sites in
-`document-block-editors.tsx` spell it `{refusal && <BlockRefusalNotice … />}`.
-So the live region and its content enter the DOM in the SAME commit.
+`<p role="status" className="text-xs text-ui-pink">`, and every call site spells it
+`{refusal && <BlockRefusalNotice … />}`. So the live region and its content enter the DOM in the
+SAME commit.
+
+★★ **FIVE CALL SITES ACROSS THREE FILES — this entry said "all four call sites in
+`document-block-editors.tsx`" until 2026-08-25, and a fixer trusting it would have left two of them
+behind, in the two files the extraction moved them to.** Enumerate before editing:
+
+```bash
+grep -rn "<BlockRefusalNotice" src/app --include=*.tsx
+```
+
+Today that is `document-block-editors.tsx` ×3, `bullets-block-editor.tsx` ×1 and
+`document-table-editor.tsx` ×1. ★ Do not renumber this sentence when it drifts again — re-run the
+grep. This is the extraction-drift class the register keeps recording: the claim ("they all mount
+conditionally") stayed true at every site while the site list went stale underneath it.
 
 The reliable shape is the opposite one: a region already sitting in the
 accessibility tree whose TEXT then changes. Inserting the region itself is where
@@ -12883,10 +13087,14 @@ is. Do not close this item by swapping the primitive and calling it done.
 
 What actually fixes it is an always-mounted region: widen the prop to
 `BlockRefusal | null`, render the `<p>` unconditionally with empty text when
-null, and drop the `&&` at the four call sites. ★ That is line-count neutral in
-`document-block-editors.tsx`, which matters because that file sits at exactly
-800 of the 800-line cap (§189) — `{refusal && <X … />}` and `<X … />` are one
-line either way, at all four sites.
+null, and drop the `&&` at all five call sites (the grep above). ★ That is
+line-count neutral everywhere — `{refusal && <X … />}` and `<X … />` are one
+line either way, at every site. ★★ This bullet used to add "which matters
+because `document-block-editors.tsx` sits at exactly 800 of the 800-line cap
+(§189)". That premise is dead: the file measures **659** under the gate's own
+arithmetic, so nothing here is blocked on headroom and neutrality is a
+convenience rather than a constraint. Re-read it, do not trust this number:
+`node -e "console.log(require('fs').readFileSync('src/app/document-block-editors.tsx','utf8').split('\n').length)"`
 
 ### Costs and open questions, so the next person does not rediscover them
 
@@ -12916,6 +13124,24 @@ done
 So making this one explicit is a consistency argument at best, not a
 correction of a lone outlier — and if implicit-vs-explicit is judged to matter,
 it is a sweep, not a one-file fix.
+
+★★ **THAT LOOP IS VACUOUS ON ITS OWN SUBJECT, and it is the hardest kind of bad
+reproduce command to distrust: it exits 0 and prints a long, plausible list.**
+It never names `document-block-notices.tsx` — the file this whole entry is
+about — because the file's own docstring contains the string
+`aria-live="polite"` while explaining that `role="status"` implies it. The loop
+tests `grep -q 'aria-live="' "$f"`, which cannot tell a comment from markup, so
+the subject is filtered out as if it already stated its `aria-live`. Prove the
+exclusion rather than taking it on trust:
+
+```bash
+grep -c 'aria-live="' src/app/document-block-notices.tsx    # → 1, and it is in a comment
+grep -n  'aria-live="' src/app/document-block-notices.tsx   # → the docstring line, no JSX
+```
+
+★ So read the loop as "which OTHER files might be worth a sweep", never as a
+census that includes this one — and re-run it rather than trusting the "ELEVEN"
+above, which the entry already tells you to derive.
 
 ★ One more over-broad premise in the same docstring: "This element mounts AFTER
 a blur has already moved focus elsewhere" holds for the BLUR path only. On the
@@ -12978,9 +13204,24 @@ is the one that matters.
 3. Once 1 and 2 exist, revisit whether the reconcile's cap arm should still
    discard the draft or leave it for the user to shorten deliberately.
 
-★ Blocked on headroom for the parts that live in `document-block-editors.tsx`,
-which sits at exactly 800 of the 800-line cap — see §189. The table controls are
-in `document-table-editor.tsx` (225 lines) and are not blocked.
+★★★ **NOTHING IN STEPS 1–2 IS BLOCKED ON HEADROOM, and this bullet said the
+opposite until 2026-08-25.** It read: "Blocked on headroom for the parts that
+live in `document-block-editors.tsx`, which sits at exactly 800 of the 800-line
+cap — see §189. The table controls are in `document-table-editor.tsx` (225
+lines) and are not blocked." Both halves of the premise have moved:
+
+- **Step 1 does not touch `document-block-editors.tsx` at all any more.** All
+  three Add controls have been extracted out of it — "Add row" and "Add column"
+  to `document-table-editor.tsx`, and "Add item" to `bullets-block-editor.tsx`,
+  which did not exist when this entry was written.
+- **Step 2's file has 141 lines of headroom anyway.** `BlockRefusal` lives in
+  `document-block-notices.tsx` and `tryCommit` in `document-block-editors.tsx`,
+  which measures **659**, not 800 — see §189's 2026-08-25 re-reading.
+
+```bash
+grep -rn "documentsAddItem\|documentsAddRow\|documentsAddColumn" src/app --include=*.tsx | grep -v "\.test\."
+grep -rn "BlockRefusal\b" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
 
 ★★ A related gap the same review found, worth closing with 2: `exceedsStorageCaps`
 ends in `default: return false` with no exhaustiveness guard, so a SEVENTH
@@ -13529,18 +13770,53 @@ unit test (≥2 seeded rows) is not merely the best detector for this surface �
 one that will ever exist, at any gate configuration. Do not read a future green axe run, however
 the seed is widened, as covering this.
 
-## 204. Unverified whether `chat_threads` and `committee_report_versions` are cleaned on project delete
+## 204. `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete — open, confirmed
 
-**Status:** open — a question to probe, not a confirmed defect.
+**Status:** open — **CONFIRMED 2026-08-25.** This entry used to read "a question to probe, not a
+confirmed defect" and asked the reader to run the probe. The probe is run; it is a defect. Its fix
+is an explicit NON-GOAL of the slice that settled it, so the entry stays open — but nobody needs to
+re-derive the answer.
 
 S3c-1 made `hardDeleteProject` (`turso-portfolio.ts`) explicitly call
 `deleteAllAssetDataForProject` for the new `document_asset_data` side table, non-fatally (via
 `logDiag`) — leaked image bytes are recoverable, a half-deleted project is not. `chat_threads`
 (`chat-threads-schema.ts`) and `committee_report_versions` (`committee-report-versions-schema.ts`)
-are side tables of the same out-of-`TABLE_NAMES` shape, predating this slice. It was NOT verified
-during S3c-1 whether project deletion also cleans those two, or whether they leak rows for a
-deleted project today. Probe `turso-portfolio.ts`'s `hardDeleteProject` for calls parallel to
-`deleteAllAssetDataForProject` before assuming either way.
+are side tables of the same out-of-`TABLE_NAMES` shape, predating this slice. **Neither gets the
+equivalent call, and nothing else sweeps them by project.** The chain, each link greppable:
+
+1. `hardDeleteProject` issues `hardDeleteProjectStatements(id)` plus exactly one extra call —
+   `deleteAllAssetDataForProject`. There is no second one.
+2. `hardDeleteProjectStatements` (`turso-tenant-schema.ts`) loops **`TABLE_NAMES` only**, emitting
+   `DELETE FROM <t> WHERE project_id = ?` per member, then deletes the project row.
+3. `TABLE_NAMES` is `ENTITY_SPECS` tables + `plan` + `fx_rates` + `meta`. Neither of these two is an
+   `ENTITY_SPECS` row — each schema module's own header says it is kept out precisely so a workspace
+   save's per-table DELETE sweep cannot wipe it — so neither is ever reached by that loop.
+4. Every `DELETE` in the two schema modules is either a **per-id** delete or a **retention pruner**
+   scoped to one thread/meeting. No project-scoped sweep exists in either.
+
+```bash
+grep -n -A 8 "export function hardDeleteProjectStatements" src/app/turso-tenant-schema.ts
+grep -n "TABLE_NAMES: readonly" src/app/turso-schema.ts
+grep -n "chat_threads\|committee_report_versions" src/app/turso-schema.ts src/app/turso-tenant-schema.ts   # → nothing
+grep -n "DELETE" src/app/chat-threads-schema.ts src/app/committee-report-versions-schema.ts
+grep -n "deleteAllAssetDataForProject" src/app/turso-portfolio.ts
+```
+
+★★ **SCOPE IT HONESTLY — this is a RETENTION leak, not cross-project data bleed.** `hardDeleteProject`
+is the multi-tenant portfolio path, so single-DB Turso storage is not involved. Both tables key on a
+global `id TEXT PRIMARY KEY` and every read is scoped `WHERE project_id = ?`, so a later project can
+neither collide with nor read the orphaned rows. What is left behind is the deleted project's **AI
+chat history** (`history_json` / `display_json`) and its **steering-committee report HTML**, retained
+indefinitely in a database the user believes they emptied, growing without bound. Treat it as a
+privacy/retention defect first and a disk one second.
+
+**The fix should take the shape already in the file:** a `deleteAllChatThreadsForProject` /
+`deleteAllCommitteeReportVersionsForProject` pair — **neither name exists in the code today; they
+are proposed here** — beside `deleteAllAssetDataForProject`, called from
+`hardDeleteProject` in the same non-fatal `try`/`logDiag` style and for the same stated reason —
+leaked rows are recoverable, a half-deleted project is not. ★★ **Do NOT build it from this entry.**
+It was an explicit non-goal of the housekeeping slice that confirmed the leak; it wants its own
+change, with the tenant-vs-single-DB question answered deliberately rather than by analogy.
 
 ## 205. The missing-image glyph in `document-asset-images.ts` is not eye-verified
 
