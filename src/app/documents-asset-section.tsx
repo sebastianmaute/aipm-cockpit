@@ -296,10 +296,30 @@ export function DocumentsAssetSection({
       // `<img>` is drawable by the time the message renders.
       // ★★ THE STATE CARRIES THE NUMBER, NOT A BOOLEAN, so the message cannot
       // report a value it did not compute; a legitimate 0 keeps the plain
-      // `assetLibraryMaxPerDocument` wording, and BOTH branches are tested — a
-      // test on the reclaimable-room wording alone stays green with the
-      // condition inverted, which would promise every user at a genuinely full
-      // document room that removing nothing can free.
+      // `assetLibraryMaxPerDocument` wording, and BOTH branches are tested.
+      // ★★★ AN EARLIER WORDING HERE NAMED A MUTATION THESE TESTS DO NOT MISS.
+      // It said a test on the reclaimable-room wording alone "stays green with
+      // the condition inverted". It does not — and a comment crediting a test
+      // with catching something it never sees is the same shape as
+      // open-followups §216, where this very slice's spec AND plan both claimed
+      // the golden suite pinned bytes it does not touch. So: both mutants below
+      // were PLANTED AND RUN, 2026-08-24, then reverted, with
+      // `npx vitest run documents-asset-section.test.tsx --maxWorkers=1`
+      // (36 tests in the file):
+      //   `> 0` -> `<= 0`, a true INVERSION: 8 red, and the two
+      //     reclaimable-room WORDING tests are among them ("says how much room
+      //     …" and "never claims more … than the cap itself"). The old claim is
+      //     refuted by the very tests it named.
+      //   `> 0` -> `>= 0`, the guard weakened to ALWAYS-TRUE: 6 red, and BOTH
+      //     wording tests stay GREEN. Same behaviour as collapsing this ternary
+      //     to its Freeable arm, because `Math.max` above keeps the value at or
+      //     above zero. Every user at a genuinely full document would then be
+      //     told "… would make room for 0 more".
+      // So the always-true mutant is the one the plain branch is here for, and
+      // its detectors are the SIX cases asserting the plain wording — only
+      // three of them in the cap-message describe; the rest sit in "documents
+      // asset insertion" and "per-document cap across a batch", so this branch
+      // survives that describe block being deleted.
       const drawn = present.size - undrawable.size;
       const freeable = Math.max(0, ASSET_MAX_PER_DOCUMENT - drawn);
       if (skipped > 0) setCapMessage(freeable);
