@@ -97,6 +97,7 @@
     "eslint-config-next": "16.2.6",
     "fake-indexeddb": "^6.2.5",
     "fast-check": "^4.8.0",
+    "jiti": "^2.7.0",
     "jscpd": "^5.0.11",
     "jsdom": "^29.1.1",
     "msw": "^2.14.6",
