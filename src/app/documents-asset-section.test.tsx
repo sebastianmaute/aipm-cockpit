@@ -725,6 +725,17 @@ describe("documents asset byte partition", () => {
 // held by them reads as full with nothing on screen to account for it.
 // open-followups §218.
 //
+// ★★★ THE NUMBER IS ROOM RECLAIMABLE, NOT UNDRAWABLE REFERENCES, and the two
+// diverge in both directions. Reporting `undrawable.size` was wrong twice: the
+// cap is not enforced on LOAD (never drop an over-cap image on load), so a
+// document holding 21 `<span data-asset-id>` references said "maximum of 20
+// images. 21 of these slots…"; and at 20 `<img>` PLUS 3 `<span>` it said "3"
+// while deleting all three spans frees NOTHING, because the drawable images
+// alone already hold the cap. The message now reports
+// `max(0, cap - (all - undrawable))` — how many images the user could add
+// after removing every undrawable reference. Both of those inputs are pinned
+// below.
+//
 // ★★★ BOTH CASES ARE REQUIRED AND THE ALL-DRAWABLE ONE IS THE LOAD-BEARING
 // HALF. A test that only asserts the new wording passes just as well with the
 // condition INVERTED — at which point every user at a full document is told
@@ -741,9 +752,16 @@ describe("documents asset cap message names undrawable references", () => {
     return doc(1, [{ type: "paragraph", html }]);
   }
 
-  it("says how many slots are held by references no export can draw", async () => {
+  // ★★★ THE FIXTURE IS 18 + **3**, NOT 18 + 2, AND THAT ONE SPAN IS THE WHOLE
+  // DISCRIMINATION. At 18 + 2 the document sits at EXACTLY the cap, where
+  // `cap - drawn` and `undrawable.size` coincide at 2 — so the old,
+  // reference-counting formula and the new, room-reporting one produce the
+  // same string and this test could not tell them apart. The third span puts
+  // the document over the cap, where the two answers separate: 2 (room) vs 3
+  // (references).
+  it("says how much room removing the undrawable references would free", async () => {
     const user = userEvent.setup();
-    const d = docHoldingMixed(18, 2);
+    const d = docHoldingMixed(18, 3);
     const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
 
     await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
@@ -756,8 +774,60 @@ describe("documents asset cap message names undrawable references", () => {
     // ★ The COUNT is asserted, not just the phrasing — the message exists to
     //   report a number, and a hardcoded one would satisfy a phrase match.
     expect(
-      await screen.findByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "2")),
+      await screen.findByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "2")),
     ).toBeInTheDocument();
+    // ★ Names the reference COUNT explicitly as the wrong answer, so a revert
+    //   to `undrawable.size` fails on a string this test spells out rather
+    //   than only on the absence of the right one.
+    expect(
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "3")),
+    ).not.toBeInTheDocument();
+  });
+
+  // ★★★ THE ACTIONABLE-SOUNDING MESSAGE THAT DOES NOTHING. 20 drawable `<img>`
+  // references already hold the whole cap; the 3 `<span>` ones are over and
+  // above it. Deleting all three frees not one slot, so naming a number here
+  // would send the user to do work with no effect — the plain wording is the
+  // honest answer. Reverting the formula to `undrawable.size` renders "3 …
+  // would make room for 3 more" and this fails at the plain-wording lookup.
+  it("falls to the plain wording when removing every undrawable reference frees nothing", async () => {
+    const user = userEvent.setup();
+    const d = docHoldingMixed(20, 3);
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton("extra.png"));
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "3")),
+    ).not.toBeInTheDocument();
+  });
+
+  // ★★★ THE COUNT CAN NEVER EXCEED THE CAP, and before this it could. Nothing
+  // enforces the cap on LOAD — the module's own rule is never to drop an
+  // over-cap image on load — so `refs.all` is UNBOUNDED, and a document
+  // carrying 21 undrawable references announced "the maximum of 20 images. 21
+  // of these slots are held by …", a number larger than the maximum it had
+  // just quoted in the same sentence. Reporting reclaimable ROOM bounds it
+  // structurally: `undrawable ⊆ all`, so `all - undrawable` is never negative
+  // and `cap - that` is never above the cap.
+  it("never claims more reclaimable room than the cap itself", async () => {
+    const user = userEvent.setup();
+    const d = docHoldingMixed(0, 21);
+    const { structural } = renderSection({ selected: d, documents: [d] }, [fakeAsset("a20", "extra.png")]);
+
+    await user.click(await screen.findByRole("button", { name: t("en-US", "assetLibraryInsert") }));
+    await user.click(await findInsertRowButton("extra.png"));
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(
+      await screen.findByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "20")),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "21")),
+    ).not.toBeInTheDocument();
   });
 
   it("keeps the plain cap wording when every reference is drawable", async () => {
@@ -777,7 +847,7 @@ describe("documents asset cap message names undrawable references", () => {
     //    catch shipped. Built from `t` with the count this fixture actually
     //    has (zero undrawable), it tracks the string it is denying.
     expect(
-      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "0")),
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "0")),
     ).not.toBeInTheDocument();
   });
 
@@ -808,13 +878,17 @@ describe("documents asset cap message names undrawable references", () => {
     // skipped, which is the only reason a message appears at all.
     await pasteFiles([pngFile("dedups-to-s0.png", 4), pngFile("over-cap.png", 5)]);
 
-    // Zero undrawable references remain, so the PLAIN cap wording is correct.
-    // Reading the frozen `refs.undrawable.size` would report 1 here.
+    // Zero undrawable references remain, so the PLAIN cap wording is correct:
+    // 20 references all drawable leaves no room to reclaim. Skipping the
+    // `undrawable.delete` and reading the frozen set would leave one member,
+    // making `all - undrawable` 19 and announcing room for 1 more that does
+    // not exist — which is why that `delete` stays load-bearing under the
+    // reclaimable-room formula too.
     expect(
       await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20")),
     ).toBeInTheDocument();
     expect(
-      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "1")),
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentFreeable", "20", "1")),
     ).not.toBeInTheDocument();
   });
 });

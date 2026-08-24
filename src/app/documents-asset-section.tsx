@@ -209,20 +209,22 @@ export function DocumentsAssetSection({
       if (!selected || toInsert.length === 0) return;
       // ★ ONE scan, two consumers: `all` is what the cap counts (tag-agnostic
       //   — a reference the sanitizer kept on a non-`img` element still spends
-      //   a slot) and `undrawable` is what the message reports. Reading them
-      //   from one call is what stops the number shown from disagreeing with
-      //   the set the cap was enforced against.
+      //   a slot) and `undrawable` is what the message's reclaimable-room
+      //   arithmetic subtracts. Reading them from one call is what stops the
+      //   number shown from disagreeing with the set the cap was enforced
+      //   against.
       const refs = assetRefsInDocument(selected);
       const present = new Set(refs.all);
       // ★★ TRACKED ACROSS THE BATCH, for the same reason `present` and `at` are:
       // `refs` describes the PRE-batch document and the loop below changes what
       // it describes. An id already present as a `<span data-asset-id>` is
       // undrawable AND exempt from the cap (it spends no new slot), so it is
-      // inserted -- as an `<img>`, which makes it drawable. Reporting
-      // `refs.undrawable.size` afterwards counts it anyway and the message
-      // overstates by one. Contrived (it needs a batch that BOTH re-inserts
-      // such an id and skips something else, which only the dedup path can
-      // produce), but the correction is one `delete`.
+      // inserted -- as an `<img>`, which makes it drawable. Reading the frozen
+      // `refs.undrawable` afterwards counts it as still-undrawable, which under
+      // the formula below understates `drawn` and so OVERSTATES the reclaimable
+      // room by one. Contrived (it needs a batch that BOTH re-inserts such an
+      // id and skips something else, which only the dedup path can produce),
+      // but the correction is one `delete`.
       const undrawable = new Set(refs.undrawable);
       let at = selected.blocks.length;
       let skipped = 0;
@@ -257,21 +259,50 @@ export function DocumentsAssetSection({
       // skipped earlier one had just set.
       // ★★ IT STILL DOES NOT NAME HOW MANY FILES WERE SKIPPED, deliberately:
       // by the time the message shows, the document is holding the cap, and the
-      // number that helps is not "N refused" but how many of the slots are held
-      // by references NOTHING can draw. A `<span data-asset-id>` spends a slot,
-      // contributes to no export and lands in none of the export's
-      // `inlined`/`omitted`/`missing` buckets — so a user at the cap saw a full
-      // document with nothing on screen to account for it (open-followups §218).
-      // ★★ THE COUNT IS THE BATCH-LOCAL `undrawable`, NOT `refs.undrawable` --
+      // number that helps is not "N refused" but how much room the user could
+      // actually reclaim. A `<span data-asset-id>` spends a slot, contributes to
+      // no export and lands in none of the export's `inlined`/`omitted`/`missing`
+      // buckets — so a user at the cap saw a full document with nothing on
+      // screen to account for it (open-followups §218).
+      //
+      // ★★★ REPORT RECLAIMABLE ROOM, NEVER `undrawable.size` — THAT WAS WRONG IN
+      // BOTH DIRECTIONS, and each direction is pinned by a test.
+      //   (a) IT COULD EXCEED THE CAP IT HAD JUST QUOTED. Nothing enforces the
+      //       cap on LOAD (the module header's "never drop an over-cap image on
+      //       load" rule), so `refs.all` is UNBOUNDED: a document holding 21
+      //       `<span data-asset-id>` references announced "the maximum of 20
+      //       images. 21 of these slots …" — 21 of 20.
+      //   (b) IT WAS ACTIONABLE-SOUNDING AND INERT. At 20 `<img>` PLUS 3
+      //       `<span>` it said 3, but the drawable images alone already hold the
+      //       whole cap, so deleting all three spans frees NOTHING. The message
+      //       sent the user to do work with no effect.
+      // `drawn` is the references an export can actually draw, so
+      // `cap - drawn` is what removing every undrawable reference would buy.
+      // ★★ THE RANGE IS STRUCTURAL, not a coincidence of the fixtures:
+      // `undrawable` is built as `all` MINUS `drawable` and the loop only ever
+      // adds to `present` and deletes from `undrawable`, so `undrawable` stays a
+      // subset of `present` and `drawn` is never negative — which bounds
+      // `freeable` at or below the cap.
+      // ★★ `Math.max` GUARDS THE OTHER END AND IS DELIBERATELY NOT PINNED,
+      // because NO test could pin it: it only fires for a document imported
+      // over the cap in DRAWABLE images (21 `<img>`, `drawn` 21), and there the
+      // clamped 0 and the unclamped -1 render IDENTICALLY — the `capMessage > 0`
+      // branch below rejects both, so the plain wording shows either way. It is
+      // kept so the value never contradicts its own name, not because anything
+      // observes it. Do not add a test asserting the plain wording at 21 images
+      // and call it coverage for this line: it passes with the clamp deleted.
+      // ★★ THE COUNT USES THE BATCH-LOCAL `undrawable`, NOT `refs.undrawable` --
       // see the set's declaration above: an id this batch just re-inserted as an
       // `<img>` is drawable by the time the message renders.
-      // ★★ THE STATE CARRIES THE COUNT, NOT A BOOLEAN, so the message cannot
-      // report a number it did not compute; zero undrawable references keeps the
-      // plain `assetLibraryMaxPerDocument` wording, and BOTH branches are tested
-      // — a test on the new wording alone stays green with the condition
-      // inverted, which would tell every user at a full document that slots are
-      // held by references that do not exist.
-      if (skipped > 0) setCapMessage(undrawable.size);
+      // ★★ THE STATE CARRIES THE NUMBER, NOT A BOOLEAN, so the message cannot
+      // report a value it did not compute; a legitimate 0 keeps the plain
+      // `assetLibraryMaxPerDocument` wording, and BOTH branches are tested — a
+      // test on the reclaimable-room wording alone stays green with the
+      // condition inverted, which would promise every user at a genuinely full
+      // document room that removing nothing can free.
+      const drawn = present.size - undrawable.size;
+      const freeable = Math.max(0, ASSET_MAX_PER_DOCUMENT - drawn);
+      if (skipped > 0) setCapMessage(freeable);
     },
     [selected, structural],
   );
@@ -383,7 +414,7 @@ export function DocumentsAssetSection({
             : capMessage > 0
               ? t(
                   lang,
-                  "assetLibraryMaxPerDocumentUndrawable",
+                  "assetLibraryMaxPerDocumentFreeable",
                   String(ASSET_MAX_PER_DOCUMENT),
                   String(capMessage),
                 )

@@ -4140,8 +4140,8 @@ const enUS = {
   assetLibraryReadOnly: "Images are read-only here — add them in the main window.",
   assetLibraryInsert: "Insert image",
   assetLibraryMaxPerDocument: "This document already has the maximum of {0} images.",
-  assetLibraryMaxPerDocumentUndrawable:
-    "This document already has the maximum of {0} images. {1} of these slots are held by references no export can draw.",
+  assetLibraryMaxPerDocumentFreeable:
+    "This document already has the maximum of {0} images. Removing the references no export can draw would make room for {1} more.",
   assetLibraryPasteDropZone: "Paste or drop an image to add it",
   assetUploadErrorFormat: "Unsupported image format. Use PNG, JPEG or WebP.",
   assetUploadErrorTooLargeRaw: "That image is too large to upload.",
