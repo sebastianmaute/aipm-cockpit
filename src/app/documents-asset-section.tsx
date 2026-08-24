@@ -214,6 +214,16 @@ export function DocumentsAssetSection({
       //   the set the cap was enforced against.
       const refs = assetRefsInDocument(selected);
       const present = new Set(refs.all);
+      // ★★ TRACKED ACROSS THE BATCH, for the same reason `present` and `at` are:
+      // `refs` describes the PRE-batch document and the loop below changes what
+      // it describes. An id already present as a `<span data-asset-id>` is
+      // undrawable AND exempt from the cap (it spends no new slot), so it is
+      // inserted -- as an `<img>`, which makes it drawable. Reporting
+      // `refs.undrawable.size` afterwards counts it anyway and the message
+      // overstates by one. Contrived (it needs a batch that BOTH re-inserts
+      // such an id and skips something else, which only the dedup path can
+      // produce), but the correction is one `delete`.
+      const undrawable = new Set(refs.undrawable);
       let at = selected.blocks.length;
       let skipped = 0;
       for (const asset of toInsert) {
@@ -237,6 +247,9 @@ export function DocumentsAssetSection({
         );
         structural.insert(at, { type: "paragraph", html });
         present.add(asset.id);
+        // ★ The html above is always an `<img>`, so any reference to this id
+        //   that was drawable-by-nothing is drawable now.
+        undrawable.delete(asset.id);
         at += 1;
       }
       // ★★ ONE DECISION FOR THE WHOLE BATCH, announced after it. A per-asset
@@ -249,13 +262,16 @@ export function DocumentsAssetSection({
       // contributes to no export and lands in none of the export's
       // `inlined`/`omitted`/`missing` buckets — so a user at the cap saw a full
       // document with nothing on screen to account for it (open-followups §218).
+      // ★★ THE COUNT IS THE BATCH-LOCAL `undrawable`, NOT `refs.undrawable` --
+      // see the set's declaration above: an id this batch just re-inserted as an
+      // `<img>` is drawable by the time the message renders.
       // ★★ THE STATE CARRIES THE COUNT, NOT A BOOLEAN, so the message cannot
       // report a number it did not compute; zero undrawable references keeps the
       // plain `assetLibraryMaxPerDocument` wording, and BOTH branches are tested
       // — a test on the new wording alone stays green with the condition
       // inverted, which would tell every user at a full document that slots are
       // held by references that do not exist.
-      if (skipped > 0) setCapMessage(refs.undrawable.size);
+      if (skipped > 0) setCapMessage(undrawable.size);
     },
     [selected, structural],
   );

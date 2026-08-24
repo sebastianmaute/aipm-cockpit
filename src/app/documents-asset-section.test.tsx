@@ -780,4 +780,41 @@ describe("documents asset cap message names undrawable references", () => {
       screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "0")),
     ).not.toBeInTheDocument();
   });
+
+  // ★★★ THE COUNT IS RECOMPUTED ACROSS THE BATCH. `assetRefsInDocument` runs
+  // ONCE, before the insert loop, so it describes the PRE-batch document --
+  // while the message renders after it. An id held only by a `<span
+  // data-asset-id>` is undrawable AND cap-exempt (it spends no new slot), so it
+  // is inserted as an `<img>` and becomes drawable inside the very batch whose
+  // message then reports it.
+  //
+  // ★★ THE FIXTURE IS THE WHOLE TEST, and no simpler one can tell a recomputed
+  // count from the frozen one: it needs ONE batch that both re-inserts such an
+  // id and skips something else. Two picker clicks are two batches, each
+  // re-reading the document, so they cannot reach it. The only way to drive a
+  // CHOSEN id through the multi-file paste path -- upload otherwise mints one --
+  // is the dedup branch, which resolves a matching hash to the stored row.
+  it("does not count an undrawable reference the same batch just made drawable", async () => {
+    const html =
+      Array.from({ length: 19 }, (_, i) => `<img data-asset-id="a${i}">`).join("") +
+      `<span data-asset-id="s0">x</span>`;
+    const d = doc(1, [{ type: "paragraph", html }]);
+    // 20 references, one of them undrawable, so the document is AT the cap.
+    const stored = fakeAsset("s0", "span-only.png", await hashBytes(pngBytes(4)));
+    renderSection({ selected: d, documents: [d] }, [stored]);
+
+    // File 1 dedups to `s0` (same bytes) -- already present, so cap-exempt, and
+    // it lands as an `<img>`. File 2 is a new id at a full document and is
+    // skipped, which is the only reason a message appears at all.
+    await pasteFiles([pngFile("dedups-to-s0.png", 4), pngFile("over-cap.png", 5)]);
+
+    // Zero undrawable references remain, so the PLAIN cap wording is correct.
+    // Reading the frozen `refs.undrawable.size` would report 1 here.
+    expect(
+      await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20")),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "1")),
+    ).not.toBeInTheDocument();
+  });
 });
