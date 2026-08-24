@@ -8,6 +8,39 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.257.2] - 2026-08-24 "Shepard"
+
+### Fixed
+
+- **The image limit now says when part of it is taken up by references nothing
+  can draw.** A document holds a fixed maximum number of images. A leftover
+  reference to an image that is no longer there still occupied one of those
+  slots while exporting nothing and appearing in none of the export buckets, so
+  the limit could be reached with visibly fewer pictures in the document and no
+  explanation for it. The message now says how many of the slots are held by
+  references no export can draw.
+
+### Internal
+
+- The Word and PowerPoint files a document exports are now checked against a
+  committed list of the parts each package must contain, in order
+  (`docs/baselines/ooxml-parts.json`), across three subjects: the portrait
+  `.docx`, the landscape `.docx` the export path actually produces, and the
+  `.pptx`. A failure names the offending part. The check also reads the live
+  package's `[Content_Types].xml`, which is the one assertion that still
+  objects after somebody has regenerated the baseline. Regenerating is
+  `npm run ooxml:manifest` and deliberately nothing else — there is no
+  `vitest -u` path to it. Closes `docs/open-followups.md` §216.
+- The zip builder takes an optional modification date, so the archive container
+  itself is testable at all. The default is unchanged, so every archive the app
+  produces is byte-for-byte what it was.
+- The three patterns that recognise an image reference in stored text were
+  deliberately **not** merged — each is correct on its own terms. Their
+  differences, and the load-path ordering that makes the divergence safe, are
+  now pinned by tests. Closes §218.
+- `jiti` is now a declared development dependency. It was relied on only
+  transitively.
+
 ## [0.257.1] - 2026-08-24 "Shepard"
 
 ### Fixed

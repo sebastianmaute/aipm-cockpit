@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.257.1 "Shepard" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.257.2 "Shepard" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 
