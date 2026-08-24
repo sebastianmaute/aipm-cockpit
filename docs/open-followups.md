@@ -14922,11 +14922,19 @@ The For/Against arguments above are still the arguments, and the prohibition on
 `reconcileStatusFromDate` in `docs/AGENTS/task-status.md` stands unchanged — only the "nothing has
 counted them" premise they were deferred against has moved.
 
-## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load — CLOSED 2026-08-24
+## 228. A template saved from the live workspace bypasses the pair reconciler until the next page load
 
-**Status:** CLOSED 2026-08-24 by `fix/jira-status-tail`. **Severity was:** low (the window was one
-session, a reload closed it, and nothing in `src` should be producing a split row to launder in the
-first place).
+**Status:** open, NARROWED 2026-08-24 by `fix/jira-status-tail` — the TASK half is fixed; the other
+five seed slices still bypass the sanitiser on the in-session path. **Severity:** low (the window is
+one session, a reload closes it, and nothing in `src` should be producing an invalid row to launder
+in the first place).
+
+★★ **THE NEXT FOUR PARAGRAPHS AND THEIR COMMAND BLOCK ARE THE FINDING AS ORIGINALLY REPORTED, AND
+DESCRIBE THE TREE BEFORE THE NARROWING FIX — deliberately not rewritten.** Three of the four commands
+in that block now return different output, because `template-apply.ts` DOES name a sanitiser today:
+it joins the reachable-chain listing, `applyTemplate`'s body carries the new comment block, and the
+last command exits 0 rather than 1. What is true of today's tree is under **NARROWED 2026-08-24** at
+the end of this entry; read that first and the original as the record of what the defect was.
 
 §182 closed by teaching `sanitizeSeedTask` (`templates.ts`) to reconcile the pair. That function has
 exactly one reachable caller chain — `sanitizeSeed` ← `sanitizeTemplate` ← `sanitizeTemplates` —
@@ -14969,10 +14977,32 @@ workspace on EVERY path, not only the one that goes through disk.
 for whatever closes the data gap. Nothing has counted how many stored rows are split (§227 records
 the same limit), and an occurrence here leaves no trace once the page reloads.
 
-**CLOSED 2026-08-24.** `applyTemplate` (`template-apply.ts`) now maps every seed task through the
-newly-exported `sanitizeSeedTask` before it reaches `remapSeed`/`appendSeed`, so an in-session
-apply runs the same sanitiser the localStorage load path already ran — one template, one behaviour,
-whether or not a reload happened in between.
+**NARROWED 2026-08-24.** `applyTemplate` (`template-apply.ts`) now maps every seed **task** through
+the newly-exported `sanitizeSeedTask` before it reaches `remapSeed`/`appendSeed`, so the
+status/completedDate pair is repaired on the in-session path too — for task rows, one template, one
+behaviour, whether or not a reload happened in between.
+
+★★★ **WHAT REMAINS, AND WHY THIS IS NARROWED RATHER THAN CLOSED.** The load path's sanitiser is
+`sanitizeSeed`, and it covers SIX slices — tasks, milestones, raid, changes, stakeholders, budgets.
+`applyTemplate` sanitises `tasks` ALONE and spreads the rest of `tpl.seed` through untouched, so an
+in-session apply and a post-reload apply STILL differ for the other five. The general property §182's
+fix was reaching for — that the reconciler stands between a template seed and the workspace on EVERY
+path — is therefore still not held; only its task-shaped instance is. Do not read "the fix landed" as
+"the split is gone".
+
+```bash
+# the LOAD path: SIX sanitizeArr calls, one per slice
+grep -n "function sanitizeSeed(raw: unknown): TemplateSeed" -A 12 src/app/templates.ts
+# the IN-SESSION path: `tasks` is rebuilt, `...tpl.seed` carries the other five through as-is
+grep -n "const seed = tpl.seed.tasks" -A 8 src/app/template-apply.ts
+# and no other slice's sanitiser is named on that path at all — no output, EXIT 1
+grep -nE "sanitizeMilestone|sanitizeSeedRaidItem|sanitizeChangeItem|sanitizeStakeholder|sanitizeBudgetBucket" \
+  src/app/template-apply.ts
+```
+
+★ Whether the remaining five are worth closing on their own is still undetermined, for the reason the
+original entry gave: the seed rows come from `templateFromWorkspace`, which captures live and already
+valid rows, so the bypass can only launder something a `src` writer should not have produced.
 
 ★ The fix is wider than "reconcile the pair". `sanitizeSeedTask` REBUILDS a task from a fixed field
 list, so applying a template also drops `inquiriesSent`, `jiraKey`, `jiraIssueType`,

@@ -35,31 +35,34 @@ longer carries its own changelog comment.
   Jira change that flipped only the status — leaving the completion date as it
   was — never surfaced a conflict at all, and the change from Jira was
   discarded on the next sync. Either half of the pair disagreeing now queues a
-  conflict.
+  conflict. The new comparison reads the statuses at the granularity Jira
+  itself carries, so a task parked in a status Jira has no equivalent for — On
+  Hold or In Review — is not reported as permanently disagreeing with an issue
+  that is simply in progress.
 - **That conflict now shows the task's status beside its completion date, on
   each side.** The conflict previously displayed only the completion date, so
   a status-only disagreement offered nothing to choose between. Both fields
   now appear for the local and the remote value.
-- **A task whose local status Jira has no equivalent for no longer raises a
-  conflict on every sync.** On Hold, In Review and Cancelled have no matching
-  Jira status category, so comparing them directly against Jira's category
-  read as a permanent mismatch and queued a conflict on every sync regardless
-  of whether anything had actually changed. That comparison is now aware of
-  which statuses Jira can represent.
-- **A template applied without reloading the page now behaves like one applied
-  after a reload.** Loading a template on a fresh page run its data through
-  the same repair pass that keeps a task's status and completion date in
+- **Applying a template without reloading the page now repairs its task rows
+  the same way a reload does.** Loading a template on a fresh page ran its data
+  through the repair pass that keeps a task's status and completion date in
   step; applying one in-session, without a reload, skipped that pass — so a
   template carrying an already-split pair, such as a cancelled task with a
-  stray completion date, could be imported unrepaired or not depending on
-  which way it was applied.
+  stray completion date, could be imported unrepaired or not depending on which
+  way it was applied. As a consequence, applying a template in-session now also
+  discards the per-task note log and knowledge links its rows were carrying,
+  along with any link to a Jira issue or Outlook event — exactly as applying it
+  after a reload always did.
 
 ### Internal
 
-- Closed `docs/open-followups.md` §226 and §228. Narrowed §227 to a
-  low-severity, storage-only edge case: a local pick in conflict resolution
-  can still re-write an already-split pair back into storage, but can no
-  longer trigger a live Jira status change from it.
+- Closed `docs/open-followups.md` §226. Narrowed §227 to a low-severity,
+  storage-only edge case: a local pick in conflict resolution can still
+  re-write an already-split pair back into storage, but can no longer trigger a
+  live Jira status change from it. Narrowed §228 to the five seed slices the
+  in-session apply still does not sanitise — its task rows now go through the
+  same sanitiser the load path runs, but milestones, RAID items, changes,
+  stakeholders and budgets do not.
 
 ## [0.257.1] - 2026-08-24 "Shepard"
 

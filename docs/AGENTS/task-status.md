@@ -97,6 +97,13 @@ load normalises the pair, and write that into code and commit messages.
 ★★ Do NOT close the remaining DATA gap by teaching `migrateTask` to reconcile: it runs on all six
 load paths, so that changes every backend's load behaviour.
 
+★ **The gap is at least COUNTABLE now.** `countSplitTaskPairs(tasks)` (`task-status.ts`) returns how
+many rows break the biconditional — a `Done` with no date, and equally a non-`Done` carrying one, so
+a `Cancelled` row with a stray date counts. It is DIAGNOSTIC ONLY: it repairs nothing, sits on no
+load path, and does not change what the paragraph above says about `migrateTask`. Settings →
+Diagnostics surfaces the number (`diagnostics-section.tsx`), which is what makes "how many stored
+rows are actually split" answerable on a real workspace instead of being reasoned about.
+
 ## The conflict merge is a PASS-THROUGH, not a normaliser
 
 ★★★ THE ONE THAT NEEDS THAT QUALIFIER: the CONFLICT merge is a PASS-THROUGH, not a normaliser.
@@ -114,7 +121,9 @@ sibling — `handleJiraSync`'s `localChanged` branch, which keyed the same trans
 `!!row.completedDate` — carried the identical defect and is fixed the same way. A reader who
 fixes only the conflict-path call site should know the auto-push one was a separate defect and is
 already closed; there are exactly two `transitionIssueTo` call sites in `src/app`
-(`grep -n "await transitionIssueTo" src/app/use-jira-sync.ts`), and both now read `status`, never
+(`grep -rn "await transitionIssueTo" src/app --include=*.ts --include=*.tsx` — scoping this to
+`use-jira-sync.ts`, as an earlier revision did, cannot establish the "in `src/app`" half of the
+claim), and both now read `status`, never
 the date. What the pass-through still does NOT fix is the STORAGE side: an already-split row
 re-stored by a local pick stays split (open-followups §227).
 
