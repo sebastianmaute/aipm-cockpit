@@ -527,11 +527,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 6 scheme
-  COMBOS (harbor/meridian/umber/beacon, Beacon light-only) × 17 + 6 Kanban-board variants (one per combo)
+  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
+  COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan (both harbor-light only and
-  hardcoded, so neither scales with the combo count) = **110** axe scans, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **111**
+  hardcoded, so neither scales with the combo count) = **128** axe scans, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **129**
   tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and

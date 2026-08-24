@@ -104,9 +104,11 @@ off-palette colors, gradients or shadows except via `--shadow-*` / `--gradient-k
 
 ## a11y
 
-The 17 views of `A11Y_VIEWS` × 6 scheme combos, plus one Kanban scan per combo and one notes-window
-toolbar scan. The combos are harbor light+dark, meridian light+dark, umber light and beacon light —
-umber dark is deliberately unscanned, and beacon is light-only by design. ★ Read the totals off
+The 17 views of `A11Y_VIEWS` × 7 scheme combos, plus one Kanban scan per combo and one notes-window
+toolbar scan. The combos are harbor, meridian and umber in BOTH light and dark, plus beacon light —
+beacon is light-only by design, so there is no dark combo of it to add. Umber dark was missing from
+the matrix while everything around it read as covered, and is now scanned like its
+siblings. ★ Read the totals off
 `npx playwright test e2e/a11y.spec.ts --list`, never off a doc: the spec is the only place that
 recomputes them, and two successive drafts of its own comment were wrong. **Not scanned:** Projects,
 Knowledge, Resources→Calendar, Help, tour, and anything inside a closed modal. ★★ Being IN the list
