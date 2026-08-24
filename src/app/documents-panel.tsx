@@ -24,9 +24,11 @@ import { deletedDocumentVersions, type DocVersion, type DocVersionSource } from 
 import type { Workspace } from "./workspace";
 import { DocumentsAssetSection, assetPaneLoader, type DocumentAssetPaneProps } from "./documents-asset-section";
 import { DocumentsToolbar, DOC_FORMATS } from "./documents-toolbar";
+import { DocumentsDeletedSection } from "./documents-deleted-section";
 import { DocumentsList, DOCUMENTS_COL_DEFAULTS, type DocumentSortKey, type DocumentsCol } from "./documents-list";
 import { useDocumentEditMode, DocumentEditModeBody } from "./document-edit-mode";
 import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentsRenameModal } from "./documents-rename-modal";
 import { DocumentEntityFilterBanner } from "./document-entity-filter-banner";
 import { buildDocLinkCandidates, buildDocRefLookups } from "./document-link-sources";
 import { DocumentLinksSection } from "./document-links-section";
@@ -39,10 +41,6 @@ import { useConfirm } from "./confirm-dialog";
 import { useToastContext } from "./toast-context";
 import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
-import { Modal } from "./modal";
-import { ModalHeader } from "./modal-header";
-import { Button } from "./button";
-import { Input } from "./form-controls";
 
 // --- pure presentation helpers --------------------------------------------
 // i18n-free and side-effect-free. These are NAMING and ORDERING, not mutation:
@@ -182,8 +180,6 @@ export interface DocumentsPanelProps {
   // convention). OPTIONAL — absent here means "disabled", not broken.
   assetPane?: DocumentAssetPaneProps;
 }
-
-const RENAME_TITLE_ID = "documents-rename-title";
 
 export function DocumentsPanel({
   lang,
@@ -614,64 +610,13 @@ export function DocumentsPanel({
           containerRef={containerRef}
         />
         {showDeleted && (
-          <section aria-label={t(lang, "documentsShowDeleted")} className="rounded-md border border-line p-3">
-            {/* ★★★ THE IMPLAUSIBILITY GUARD. `documents` and `documentVersions`
-                are parsed with INDEPENDENT try/catch on every backend, so a
-                corrupted `documents` blob beside a valid versions blob makes
-                EVERY version read as a deleted document — the pane then shows
-                "all N of your documents are deleted", which is a load failure
-                wearing the costume of an ordinary list. Truncation artifacts
-                (a file of `MAX_DOCUMENTS + 5` documents capped to
-                `MAX_DOCUMENTS` while ALL its versions survive) produce a milder
-                version of the same thing.
-                ★★ `deleted.length > documents.length` is the test because it is
-                the shape a genuine workflow does not have: deleting more
-                documents than you currently hold is normal over a long
-                project, but not while the surviving set is SMALLER than the
-                deleted one in the same load. It is a heuristic and deliberately
-                a soft one — it CAUTIONS, it does not hide or disable anything,
-                because a user who really did delete most of their documents
-                must still be able to restore them.
-                ★ Not a row cap: capping the list without saying why is the
-                false-affordance trap this pane avoids elsewhere. */}
-            {deleted.length > documents.length && (
-              <p role="status" className="mb-2 text-sm text-ui-pink">
-                {t(lang, "documentsDeletedImplausible")}
-              </p>
-            )}
-            {deleted.length === 0 ? (
-              <p className="text-sm text-muted-foreground">{t(lang, "documentsNoVersions")}</p>
-            ) : (
-              <ul className="flex flex-col gap-2">
-                {deleted.map((v) => (
-                  <li key={v.id} className="flex items-center justify-between gap-3 text-sm">
-                    <span className="min-w-0 text-foreground">
-                      <span className="font-medium">{v.title}</span>
-                      {" · "}
-                      <span className="tabular-nums text-muted-foreground">
-                        {v.savedAt.slice(0, 16).replace("T", " ")}
-                      </span>
-                    </span>
-                    {/* ★★ ROW-UNIQUE accessible name. Title alone is not
-                        enough — nothing uniquifies titles outside this pane's
-                        own create/duplicate handlers, so two tombstones can
-                        share one; the version id is unique by construction and
-                        is language-neutral. Same reasoning as the history
-                        modal's Restore labels. */}
-                    <Button
-                      variant="secondary"
-                      size="xs"
-                      onClick={() => handleRestore(v.id)}
-                      disabled={isReadOnly}
-                      aria-label={`${t(lang, "documentsRestore")} – ${v.title} · #${v.id}`}
-                    >
-                      {t(lang, "documentsRestore")}
-                    </Button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
+          <DocumentsDeletedSection
+            lang={lang}
+            deleted={deleted}
+            documentCount={documents.length}
+            isReadOnly={isReadOnly}
+            onRestore={handleRestore}
+          />
         )}
         {/* ★★★ OUTSIDE the `showDeleted` block, and that placement is the whole
             fix on this half. It used to live INSIDE the section above, which
@@ -738,6 +683,23 @@ export function DocumentsPanel({
         // Deliberately NOT `ws.documentVersions` for the `versions` prop above
         // — see that prop's own note.
         ws={ws}
+        // ★★ §206: a version's Preview renders `<img data-asset-id>` with no
+        // `src` — the renderer references images by id — so without this a
+        // version holding an image previewed a broken-image icon. Same three
+        // read-only fields `DocumentsAssetSection` and `DocumentEditModeBody`
+        // above already get from `assetPane`, deliberately NOT the whole
+        // `DocumentAssetPaneProps`: that bag also carries `setAssets`, and this
+        // surface must not be handed a setter it merely happens not to use.
+        // ★ The literal below is a fresh object every render — `assetPane`
+        // itself already is one (workspace-panels.tsx builds it inline at the
+        // mount), so nothing is lost. The identity is handled INSIDE the modal,
+        // which hoists the three fields before its effect's dependency array
+        // reads them; see the C10 note there.
+        assetAccess={
+          assetPane
+            ? { tursoConfig: assetPane.tursoConfig, projectId: assetPane.projectId, assets: assetPane.assets }
+            : undefined
+        }
         onClose={() => setHistoryFor(null)}
         // ★★ A restore is a mutation like any other, so it goes through the
         // same single entry point — and through `handleRestore`, not a
@@ -756,43 +718,14 @@ export function DocumentsPanel({
       />
 
       {renaming && (
-        <Modal open onClose={() => setRenaming(null)} ariaLabelledby={RENAME_TITLE_ID} align="center">
-          <div
-            data-modal-panel
-            className="relative flex w-[420px] max-w-[95vw] flex-col overflow-hidden rounded-xl border border-line bg-surface"
-          >
-            <ModalHeader
-              lang={lang}
-              title={t(lang, "documentsRename")}
-              titleId={RENAME_TITLE_ID}
-              onClose={() => setRenaming(null)}
-            />
-            <div className="flex flex-col gap-4 p-6">
-              <label className="flex flex-col gap-1 text-sm text-foreground">
-                {/* A visible <label> IS the accessible name — a placeholder is
-                    not, and a placeholder-only input fails the axe gate even
-                    though it looks labeled. */}
-                {t(lang, "documentsTitleLabel")}
-                <Input
-                  autoFocus
-                  value={renaming.draft}
-                  onChange={(e) => setRenaming((prev) => (prev ? { ...prev, draft: e.target.value } : prev))}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter" && !e.nativeEvent.isComposing) commitRename();
-                  }}
-                />
-              </label>
-              <div className="flex justify-end gap-2">
-                <Button variant="secondary" size="sm" onClick={() => setRenaming(null)}>
-                  {t(lang, "cancel")}
-                </Button>
-                <Button variant="primary" size="sm" onClick={commitRename}>
-                  {t(lang, "documentsRename")}
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Modal>
+        <DocumentsRenameModal
+          lang={lang}
+          draft={renaming.draft}
+          onDraftChange={(next) =>
+            setRenaming((prev) => (prev ? { ...prev, draft: next } : prev))}
+          onCancel={() => setRenaming(null)}
+          onCommit={commitRename}
+        />
       )}
     </div>
   );

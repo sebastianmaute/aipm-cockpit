@@ -199,10 +199,14 @@ describe("documents asset library gating", () => {
     expect(screen.queryByRole("button", { name: t("en-US", "upload") })).not.toBeInTheDocument();
   });
 
-  it("disables the library on a file backend", () => {
-    renderSection({ tursoConfig: null });
-    expect(screen.getByText(t("en-US", "assetLibraryTursoOnly"))).toBeInTheDocument();
-  });
+  // ★★ A FILE BACKEND IS THE SAME CASE AND CANNOT BE TESTED SEPARATELY HERE.
+  // A separate "disables the library on a file backend" test used to sit at
+  // this spot with a byte-identical arrange (`renderSection({ tursoConfig:
+  // null })`) and a strict SUBSET of the assertions above, so it could not
+  // fail unless its neighbour failed first. This component only ever receives
+  // an ALREADY-RESOLVED config, so at this boundary "file backend" and "turso
+  // kind, config unset" are the same input and no fixture can tell them apart
+  // — the distinction lives in the resolver, not here. Do not re-add it.
 
   // ★★ The read-only popout is NOT a storage problem, and saying it is sends
   // the reader off to check Turso settings that are already correct.
@@ -400,6 +404,94 @@ describe("documents asset paste and drop insertion", () => {
     await waitFor(() => expect(screen.queryByText(t("en-US", "assetUploadErrorEmpty"))).not.toBeInTheDocument());
     // The Upload button adds to the LIBRARY. It is not an insert gesture, and
     // nothing armed earlier may make it one.
+    expect(structural.insert).not.toHaveBeenCalled();
+  });
+
+  /** A file the intake filter must reject. Deliberately NOT a malformed image:
+   *  the upload pipeline rejects a broken PNG on its own, so a bad-PNG fixture
+   *  cannot tell a working filter from a deleted one. */
+  const textFile = () => new File(["hello"], "notes.txt", { type: "text/plain" });
+
+  const statusText = () =>
+    Array.from(pasteZone().querySelectorAll('[role="status"]'))
+      .map((r) => r.textContent ?? "").join(" ");
+
+  /** Dispatches like `pasteFiles`/`dropFiles` but KEEPS the dispatch result,
+   *  which is `false` exactly when a handler called `preventDefault`. */
+  async function intake(kind: "paste" | "drop", files: readonly File[]): Promise<boolean> {
+    let notCancelled = true;
+    await act(async () => {
+      notCancelled = kind === "paste"
+        ? fireEvent.paste(pasteZone(), { clipboardData: { files, items: [], types: ["Files"] } })
+        : fireEvent.drop(pasteZone(), { dataTransfer: { files, items: [], types: ["Files"] } });
+      await Promise.resolve();
+    });
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    return notCancelled;
+  }
+
+  // ★★★ BOTH INTAKE FILTERS WERE ENTIRELY UNOBSERVED. Measured, not assumed:
+  // neutering `handlePaste`'s `.filter(...)` to `() => true` left all 29 tests
+  // in this file GREEN. `structural.insert` alone cannot see it — the upload
+  // pipeline rejects a text file too, so nothing is inserted either way. What
+  // separates a working filter from a deleted one is that a filtered file never
+  // reaches the pipeline AT ALL, so no format rejection is ever announced.
+  //
+  // ★★★ THE `preventDefault` ORDERING IS OPPOSITE IN THE TWO HANDLERS AND BOTH
+  // ARE CORRECT, so it is pinned PER HANDLER and never shared. `handlePaste`
+  // calls it AFTER the filter, so pasting ordinary TEXT falls through to the
+  // default paste handler; `handleDrop` calls it BEFORE, so the browser never
+  // navigates away to a dropped file even when nothing is accepted. Harmonising
+  // them would break one or the other, and this pair is what says so.
+  it("filters a pasted non-image out, leaving the default paste handler to run", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const notCancelled = await intake("paste", [textFile()]);
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(statusText()).not.toContain(t("en-US", "assetUploadErrorFormat"));
+    expect(notCancelled).toBe(true);
+  });
+
+  it("filters a dropped non-image out, but still cancels the drop itself", async () => {
+    const d = doc(1, []);
+    const { structural } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const notCancelled = await intake("drop", [textFile()]);
+
+    expect(structural.insert).not.toHaveBeenCalled();
+    expect(statusText()).not.toContain(t("en-US", "assetUploadErrorFormat"));
+    expect(notCancelled).toBe(false);
+  });
+
+  // ★★★ THE POSITIVE ANCHOR FOR THE TWO NEGATIVE ASSERTIONS ABOVE. Both intake
+  // tests kill their mutant partly (paste) or ENTIRELY (drop) via `statusText()`
+  // NOT containing the format error — and a negative assertion is worth only
+  // what its positive counterpart is worth. For drop it is the SOLE
+  // discriminator: `notCancelled` is false either way there, because that
+  // handler calls preventDefault BEFORE filtering. So without this test, a
+  // change that stopped the status region rendering `assetUploadErrorFormat`
+  // specifically would make the drop test vacuous with nothing going red.
+  //
+  // ★★ It has to arrive through the PICKER. Paste and drop filter the file out
+  // by mime before `checkUploadCandidate` ever sees it — which is exactly what
+  // the two tests above assert — so neither can reach the format rejection.
+  // `applyAccept: false` is required because the input carries an `accept` list
+  // and userEvent honours it by default, silently dropping the file and passing
+  // this test for the wrong reason.
+  it("announces a format rejection when a non-image arrives through the picker", async () => {
+    const user = userEvent.setup({ applyAccept: false });
+    const d = doc(1, []);
+    const { structural, container } = renderSection({ selected: d, documents: [d] });
+    await screen.findByRole("button", { name: t("en-US", "upload") });
+
+    const input = container.querySelector('input[type="file"]') as HTMLInputElement;
+    await user.upload(input, textFile());
+
+    expect(await screen.findByText(t("en-US", "assetUploadErrorFormat"))).toBeInTheDocument();
     expect(structural.insert).not.toHaveBeenCalled();
   });
 

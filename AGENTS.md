@@ -147,6 +147,11 @@ npm run test:run            # vitest (unit/integration). testTimeout/hookTimeout
                             # that never repros in isolation or in CI. Don't "fix" such a flake by
                             # editing the property logic before ruling out a load timeout (run the
                             # property thousands of times in isolation first; logic bugs repro there).
+                            # ★ `--minWorkers` DOES NOT EXIST in vitest 4.1.8 either — it exits with a CACError
+                            # before running anything, which reads like a broken suite. `--maxWorkers=N` DOES
+                            # exist and is the fix when a saturated machine kills the fork pool (measured: 8x
+                            # "Failed to start forks worker" reported as `Test Files no tests` at EXIT=1 —
+                            # ground rule 2's false-green shape, but red).
                             # ★ `--reporter=basic` DOES NOT EXIST in vitest 4.1.8 — it fails to load a
                             # reporter module and errors at startup, which reads like a broken test run.
                             # Use `--reporter=dot`.
@@ -352,6 +357,47 @@ worse than no gate — it reports success. A "green" claim is only worth what th
 
 - **i18n:** `i18n.ts` (EN) + `i18n.de.ts` (DE) key sets must be identical (tsc enforces).
   DE must use real German umlauts — `i18n-encoding` test BANS ASCII subs (fuer/druecken).
+  ★★★ **`sed -i` UNDER GIT BASH RE-LINES A WHOLE CRLF FILE TO LF, AND `core.autocrlf=true` HIDES
+  IT FROM THE DIFF.** The OPPOSITE failure from the node-anchor one below — not a silent no-op but a
+  silent whole-file rewrite. `src/**` carries no `.gitattributes` entry (`git check-attr -a
+  src/app/icons.ts` prints nothing), so `autocrlf=true` governs it alone: blobs are LF, the working
+  tree is CRLF. A `sed -i` re-lines the working copy to LF, which then CLEANS to the very same blob,
+  so the diff body shows only the lines you meant to change. Measured 2026-08-23 in a throwaway repo:
+  a 10-line CRLF file, one substitution, `git diff --stat` reporting 1 insertion / 1 deletion while
+  the file lost exactly one byte per line — 10 CRLF became 0, and the byte count fell by 10. ★ The
+  DELTA is the reproducible part; an earlier revision quoted absolute byte counts (150 → 140) that
+  depend entirely on the fixture's line contents, which the sentence never gave, so nobody could
+  reproduce them and a re-run at a different fixture size looked like a contradiction. ★★ The SAME
+  experiment at `autocrlf=false`
+  reports 10 insertions / 10 deletions — that control is what pins the attribution; without it this
+  is a correlation.
+  ★★ **IT CANNOT REACH THE REPOSITORY, which is the half that decides how much to care.** The clean
+  filter normalises either way, so the re-lined file commits to the byte-identical blob a
+  CRLF-preserving edit would have produced (measured with `git hash-object --path`). The damage is
+  LOCAL: it survives commits with `git status` reporting clean, and is undone the next time git
+  checks the file out. A hygiene trap, NOT a way to ship a defect — an earlier revision here implied
+  otherwise.
+  ★★ **And git DOES warn**, once per file, on `git diff` and `git add` (never on `git status`, in
+  either form) — so “invisible” was wrong too. The warning goes to STDERR, so it vanishes the moment
+  the command is piped or redirected: the same trap as the exit-code-through-a-pipe rule above.
+  ★ Check a file by hand — 0 means CRLF-clean. Run it against a known-LF file too, or you cannot
+  tell a working check from a vacuous one:
+  ```bash
+  node -e "const s=require('fs').readFileSync(process.argv[1],'utf8');console.log((s.match(/(?<!\r)\n/g)||[]).length)" <file>
+  ```
+  ★★ That line MUST carry the two-character escapes backslash-r and backslash-n. The first version
+  of it shipped with REAL CR and LF bytes in the regex — the only stray CR byte in this entire file
+  — and a JS regex literal cannot span a newline, so it died with an unterminated-regexp error for
+  every reader who pasted it. `file <path>` discriminates on a trailing “, with CRLF line
+  terminators” suffix and has no escapes to corrupt — ★★ match on THAT SUFFIX, not on a full
+  string: an earlier revision quoted “ASCII text, with CRLF line terminators”, and for this repo's
+  sources `file` actually prints `JavaScript source, Unicode text, UTF-8 text[, with CRLF line
+  terminators]`, so a reader grepping for “ASCII text” sees no match and concludes nothing. Run it
+  against a known-CRLF and a known-LF file together or the check is vacuous. ★★ `git ls-files --eol
+  <file>` is the durable check, because it reports the INDEX and the WORKING TREE separately, which is
+  the distinction this whole bullet turns on: `i/lf w/crlf` is healthy here, `i/lf w/lf` is re-lined.
+  ★ Never name a specific file as a re-lined example — that state is local to one working tree, so the
+  claim refutes itself on every other machine.
   Edit tool corrupts umlauts AND curls double-quotes in `i18n.de.ts` (bites umlaut-free
   strings too); patch via node utf8 write, re-verify. File is CRLF — a node
   replace whose anchor uses `\n` silently no-ops; match `\r\n`.
@@ -1234,7 +1280,16 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   Surfaces are `documents-panel.tsx` (orchestrator) over `documents-list.tsx` / `document-preview.tsx` /
   `documents-toolbar.tsx` / `document-edit-mode.tsx` (the edit toggle + narrow-pane wiring) /
   `document-editor.tsx` (the hand block editor) / `document-block-editors.tsx` (the per-kind editors) /
-  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu).
+  `document-block-gutter.tsx` (each row's kind chip, reorder grip and actions menu) /
+  `documents-deleted-section.tsx` (the tombstone list + its implausibility guard) /
+  `documents-rename-modal.tsx` (owns `RENAME_TITLE_ID`) / `bullets-block-editor.tsx`.
+  ★★ The last three were extracted to buy ratchet headroom, and the first two are reached ONLY from
+  `documents-panel.tsx` — an extraction moves a surface out of the orchestrator without giving it a
+  second consumer, so do not read their presence here as an invitation to mount them elsewhere.
+  ★★ `bullets-block-editor.tsx` is imported DIRECTLY by its consumers and is deliberately not
+  re-exported from `document-block-editors.tsx`; its sibling `document-table-editor.tsx` IS
+  re-exported and therefore forms a live import cycle with that module. Copy the bullets shape, not
+  the table one — the file's own header carries the measurement and the reason.
   ★★★ **Blocks are hand-editable too, not just AI-authored** (S3b). An "Edit blocks" toggle
   (`useDocumentEditMode` in `document-edit-mode.tsx`) swaps the read-only preview for `document-editor.tsx`,
   one row per block. Each row's draft lives in `useBlockDraft` (`document-block-editors.tsx`), whose

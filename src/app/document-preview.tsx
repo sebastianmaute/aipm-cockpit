@@ -54,9 +54,8 @@ export interface DocumentPreviewProps {
   // Same asset-library gate `documents-panel.tsx` threads to
   // `DocumentsAssetSection` (null disables). Resolves `<img data-asset-id>`
   // references left in the rendered HTML to real bytes — see the effect
-  // below. Optional: missing here correctly means "no images resolve" (every
-  // referenced image renders its missing-asset marker), not broken, since
-  // document images are Turso-gated (S3c-1).
+  // below. Optional: missing here means "no images resolve", since document
+  // images are Turso-gated (S3c-1).
   tursoConfig?: TursoConfig | null;
   projectId?: string;
 }
@@ -126,10 +125,21 @@ export function DocumentPreview({
   useEffect(() => {
     const el = bodyRef.current;
     if (!el) return;
+    // ★★★ A NULL CONFIG MEANS ASSET STORAGE IS OFF, NOT THAT THE IMAGES ARE
+    // MISSING — the same bail `documents-history-modal.tsx` carries, for the
+    // same reason, and the two must stay in step. `loadAssetData(null, …)`
+    // throws `StorageNotReadyError` at once and `attachAssetImages` swallows it
+    // per id, so without this EVERY `<img data-asset-id>` in file mode and in
+    // Safe Mode was stamped `data-asset-missing` — the dashed red frame that
+    // tells the reader their image is gone. Bailing leaves each image with no
+    // `src` at all, which is not a failed load — the browser renders its alt
+    // text, which the insert path populates from the asset name.
+    if (tursoConfig === null) return;
     let cancelled = false;
     let detach: (() => void) | null = null;
     const mimeFor = (id: string) => documentAssets?.find((a) => a.id === id)?.mime;
-    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor).then((d) => {
+    attachAssetImages(el, (id) => loadAssetData(tursoConfig, id, projectId), mimeFor,
+      () => !cancelled).then((d) => {
       // The subtree may have been replaced (a new `html` landed) or this
       // component may have unmounted before the byte loads resolved — either
       // way, revoke rather than leave the blob URLs it minted dangling.

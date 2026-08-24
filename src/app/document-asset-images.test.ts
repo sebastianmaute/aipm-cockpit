@@ -171,4 +171,131 @@ describe("attachAssetImages", () => {
     expect(blob.type).toBe("");
     detach();
   });
+
+  // ★★★ THE EIGHTH CONSUMER OF THE ASSET-MIME ALLOWLIST — the one no search
+  // for the constant could find, because it never spelled one. A stored row
+  // whose mime is outside `ASSET_MIME_ALLOWED` (an `image/svg+xml` written by
+  // an older build, a hand-edited JSON workspace, a desynchronised metadata
+  // table) minted a Blob carrying that type verbatim. Declined down the SAME
+  // marker path a missing byte row already uses.
+  // ★★★ NOT BECAUSE THAT BLOB WOULD RUN SCRIPT — an earlier revision of this
+  // comment said "an SVG object URL in an `<img>` is a script-bearing
+  // document", which contradicts §223 and §225, both of which state that a
+  // blob assigned to `<img src>` runs no script. Those two are right and this
+  // was wrong; it mattered because this is the guard's only discriminating
+  // test, so the false reason was the first one a reader met. The real reason
+  // is consistency of policy: the upload path refuses these bytes, so the
+  // render path must not resolve a row that carries them, whatever put it
+  // there. Treat the guard as policy enforcement, NOT as a security boundary —
+  // §225 records why it cannot be one.
+  it("declines an asset whose stored mime is outside the allowlist", async () => {
+    const el = root('<img data-asset-id="evil">');
+    const detach = await attachAssetImages(el, async () => "QUJD", () => "image/svg+xml");
+    const img = el.querySelector("img");
+    expect(img?.hasAttribute("src")).toBe(false);
+    expect(img?.getAttribute("data-asset-missing")).toBe("true");
+    expect(URL.createObjectURL).not.toHaveBeenCalled();
+    detach();
+  });
+
+  // ★★★ THE GUARD IS TRUTHY, NOT `!== undefined`, AND THIS TEST IS THE ONLY
+  // THING THAT SAYS SO. `sanitizeDocumentAsset` requires an `id` and nothing
+  // else; its mime is `sanitizeText(o.mime, ASSET_MIME_MAX)`, which returns
+  // "" for anything non-string. So a row with a missing, blank or non-string
+  // mime survives sanitising as `mime === ""` on EVERY load path, and has
+  // always rendered — the Blob simply carries no type and the browser sniffs.
+  // `isAllowedAssetMime("")` is false, so the plausible `mime !== undefined`
+  // spelling would DECLINE it and stamp the repair marker on a working image.
+  it("still renders an asset whose stored mime is the empty string", async () => {
+    const el = root('<img data-asset-id="blankmime">');
+    const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
+    const detach = await attachAssetImages(el, async () => "QUJD", () => "");
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("");
+    detach();
+  });
+
+  // ★★ A LOOKUP THAT MISSES IS NOT THE SAME CASE AS NO LOOKUP AT ALL, which is
+  // why this is not a duplicate of "mints a typeless Blob when no mime lookup
+  // is supplied" above. `documentAssets` is an OPTIONAL slice left `undefined`
+  // when empty, metadata rows are dropped INDIVIDUALLY on load while the byte
+  // rows are untouched, and metadata and bytes live in different tables with
+  // different lifecycles (§207 records them desynchronising in production) —
+  // four mechanisms that hand a live `mimeFor` an id it knows nothing about.
+  // ★★ WHAT THIS DOES AND DOES NOT BUY, because the distinction was overstated
+  // once already. A MISS and an absent lookup converge on the identical value
+  // (`mime === undefined`) one line above the guard, so NO one-token mutation of
+  // the guard separates them: the `!== undefined` mutant leaves both green and
+  // the drop-the-truthiness mutant reddens both. What this test genuinely covers
+  // is the OPTIONAL CALL itself — mutate `mimeFor?.(id)` to `mimeFor!(id)` and
+  // this stays green while the no-lookup test throws. It is kept because the
+  // miss is a distinct DOMAIN case with four real mechanisms behind it (an
+  // optional slice set to undefined when empty; rows dropped individually on
+  // load while bytes survive; metadata and bytes in different tables with
+  // different lifecycles, per §207; and the `<img>` reference living in a third
+  // slice) — not because it discriminates a distinct branch here.
+  it("falls through to a typeless Blob when the mime lookup misses", async () => {
+    const el = root('<img data-asset-id="orphan">');
+    const createObjectURL = URL.createObjectURL as unknown as ReturnType<typeof vi.fn>;
+    const detach = await attachAssetImages(el, async () => "QUJD", () => undefined);
+    const img = el.querySelector("img");
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect((createObjectURL.mock.calls[0][0] as Blob).type).toBe("");
+    detach();
+  });
+
+  // ★★★ THE STALE-RUN RACE. Two runs over the SAME subtree is not a contrived
+  // shape — it is exactly what a §212 repair produces: the repair bumps
+  // `assetRepairGeneration` while a run over the OLD, broken bytes is still in
+  // flight, `html` is unchanged so React never replaces the elements, and both
+  // runs hold the very same `<img>`. Every write in this module lands after an
+  // await, so absent the guard the run that SETTLES last wins regardless of
+  // which STARTED first. Here the stale run settles second and fails, so it
+  // would stamp `data-asset-missing` back over the image the fresh run just
+  // repaired — and it stays visibly broken until some unrelated dep changes.
+  // ★★ The caller's own `cancelled` flag cannot prevent this; it runs only
+  // after these writes have already happened.
+  // ★★★ ONLY THE MARKER ASSERTION DISCRIMINATES, and an earlier revision of this
+  // comment claimed both did. The write loop sets `src` only when it HAS a url
+  // and never clears one, so under the deletion mutant the stale run takes the
+  // `else` arm and the fresh `src` survives either way — that assertion is kept
+  // as a regression anchor against a future loop that DOES overwrite, not as
+  // proof of this guard. The marker assertion is what goes red.
+  it("stops a stale run re-stamping the missing marker over a repaired image", async () => {
+    const el = root('<img data-asset-id="a1">');
+    let stale = false;
+    let releaseStale: (v: string | null) => void = () => {};
+    const staleBytes = new Promise<string | null>((r) => { releaseStale = r; });
+    const staleRun = attachAssetImages(el, () => staleBytes, undefined, () => !stale);
+
+    stale = true; // a repair lands: the in-flight run above is now the old one
+    const freshDetach = await attachAssetImages(el, async () => "QUJD");
+    expect(el.querySelector("img")?.getAttribute("src")).toMatch(/^blob:/);
+
+    releaseStale(null); // the stale run's old bytes finally resolve, and fail
+    (await staleRun)();
+
+    const img = el.querySelector("img");
+    expect(img?.hasAttribute("data-asset-missing")).toBe(false);
+    expect(img?.getAttribute("src")).toMatch(/^blob:/);
+    freshDetach();
+  });
+
+  // ★ The other half: a stale run that SUCCEEDS has already minted URLs by the
+  // time it is told to stand down. Its own disposer is discarded (the caller
+  // keeps the fresh run's), so it must revoke them itself or they leak for the
+  // lifetime of the document.
+  it("makes a stale run revoke its own object URLs rather than leak them", async () => {
+    const revokeObjectURL = vi.fn();
+    vi.stubGlobal("URL", { ...URL, createObjectURL: vi.fn(() => "blob:stale"), revokeObjectURL });
+    const el = root('<img data-asset-id="a1">');
+    const detach = await attachAssetImages(el, async () => "QUJD", undefined, () => false);
+    expect(revokeObjectURL).toHaveBeenCalledWith("blob:stale");
+    expect(el.querySelector("img")?.hasAttribute("src")).toBe(false);
+    detach(); // a no-op disposer: the run already released everything it held
+    expect(revokeObjectURL).toHaveBeenCalledTimes(1);
+  });
 });

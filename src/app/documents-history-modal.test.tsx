@@ -1,10 +1,21 @@
-import { describe, it, expect, vi } from "vitest";
-import { render, screen, within } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { act, render, screen, waitFor, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
-import { DocumentsHistoryModal } from "./documents-history-modal";
+import { DocumentsHistoryModal, type HistoryAssetAccess } from "./documents-history-modal";
 import type { DocVersion, DocVersionOp } from "./document-versions";
 import type { DocBlock, ProjectDocument } from "./document-model";
+import type { DocumentAsset } from "./document-asset";
 import { emptyWorkspace, type Workspace } from "./workspace";
+
+// ★ The byte store is the ONE thing this component reaches outside itself. The
+// renderer is deliberately NOT mocked anywhere in this file (every other case
+// asserts real rendered markup), so the image fixture below goes through the
+// real `sanitizeDocumentHtml` too — which is what proves `data-asset-id`
+// actually survives to the DOM the effect queries.
+vi.mock("./document-assets-store", () => ({
+  loadAssetData: vi.fn(), saveAssetData: vi.fn(), deleteAssetData: vi.fn(), loadAssetDataIds: vi.fn(),
+}));
+import { loadAssetData } from "./document-assets-store";
 
 const PARAGRAPH: DocBlock = { type: "paragraph", html: "<p>Hello preview</p>" };
 const HEADING: DocBlock = { type: "heading", level: 2, text: "Section A" };
@@ -351,6 +362,72 @@ describe("DocumentsHistoryModal", () => {
     expect(panel?.innerHTML ?? "").not.toContain("alert(1)");
   });
 
+  // ★★★ IDENTITY, NOT MARKUP. A rebuilt subtree is BYTE-IDENTICAL, so an
+  // `innerHTML` / `toHaveTextContent` assertion PASSES under the defect and
+  // only the NODE can tell you React re-assigned `innerHTML`. That is exactly
+  // how the same defect hid in `document-preview.tsx`, which carries the
+  // measured account: React 19 diffs host props by `Object.is` and treats
+  // `dangerouslySetInnerHTML` like any other prop, so an inline
+  // `{{ __html: html }}` literal is a NEW object every render and this whole
+  // panel is torn down and rebuilt on EVERY re-render, byte-identical `html`
+  // or not.
+  //
+  // ★ `isReadOnly` is the unrelated prop: it reaches `HistoryRow` but is NOT in
+  // the `html` memo's dep array (`[previewOpen, v, ws, lang]`) — it only
+  // disables Restore. The disabled assertion below is the positive control that
+  // the re-render actually reached this row, so a passing identity check cannot
+  // be a render that never happened.
+  it("does not rebuild the preview subtree on an unrelated re-render", async () => {
+    const user = userEvent.setup();
+    const onClose = vi.fn();
+    const onRestore = vi.fn();
+    // ★ One array, reused across both renders, so `v` keeps its identity — the
+    // memo dep this test is NOT probing.
+    const versions: readonly DocVersion[] = [
+      { ...VERSIONS[0], id: 32, blocks: [HEADING, PARAGRAPH] },
+    ];
+    const { rerender } = render(
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={versions}
+        onClose={onClose}
+        onRestore={onRestore}
+        lang="en-US"
+      />,
+    );
+
+    // The disclosure must be OPEN or there is no subtree to preserve at all.
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    const panel = document.getElementById("documents-history-preview-32");
+    const beforeFirst = panel?.firstChild ?? null;
+    const beforeHeading = panel?.querySelector("h2") ?? null;
+    expect(beforeFirst).not.toBeNull();
+    expect(beforeHeading?.textContent).toBe("Section A");
+
+    rerender(
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={versions}
+        onClose={onClose}
+        onRestore={onRestore}
+        lang="en-US"
+        isReadOnly
+      />,
+    );
+
+    expect(screen.getByRole("button", { name: /Restore/ })).toBeDisabled();
+    // ★★ NOT a discriminating assertion, and it is here only to document that.
+    // An `innerHTML` re-assignment replaces the div's CHILDREN; React never
+    // recreates the host element, so this line passes under the defect and under
+    // the fix alike. The two assertions below are the ones that pin it — do not
+    // read this one as the test's teeth.
+    expect(document.getElementById("documents-history-preview-32")).toBe(panel);
+    expect(panel?.firstChild).toBe(beforeFirst);
+    expect(panel?.querySelector("h2")).toBe(beforeHeading);
+  });
+
   it("labels an assistant-written version differently from a user-written one", () => {
     renderModal();
     const rows = within(screen.getByRole("list")).getAllByRole("listitem");
@@ -438,5 +515,162 @@ describe("DocumentsHistoryModal — a version's dataSection in the Preview", () 
     // Not a bare heading over an empty table either — the section is absent
     // whole, which is what makes the failure invisible in the running app.
     expect(panel.querySelector("h2")).toBeNull();
+  });
+});
+
+// ★★★ open-followups §206: this modal renders a version's blocks through
+// `renderDocumentHtml` — the SAME renderer `document-preview.tsx` uses — but was
+// never wired to `attachAssetImages`. The renderer emits `<img data-asset-id>`
+// with NO `src` by design (an image is referenced by id; see sanitize-html.ts),
+// so a version containing an image previewed that block as a broken-image icon
+// and nothing said why.
+//
+// ★★ THE FIX LANDS IN `HistoryRow`, not in the modal, because that is where the
+// render happens — one expanded preview per row, each with its own subtree.
+describe("DocumentsHistoryModal — asset images in a version Preview", () => {
+  const TURSO = { httpUrl: "https://db.turso.io", authToken: "t" } as never;
+
+  const ASSETS: readonly DocumentAsset[] = [{
+    id: "a1", name: "chart.png", mime: "image/png", size: 3,
+    hash: "0".repeat(64), createdAt: "2026-08-01T00:00:00.000Z",
+  }];
+
+  /** ★ An image IS a paragraph whose whole html is the `<img>` tag
+   *  (`document-model.ts` states that contract) — there is no `image` block
+   *  type to reach for. `a1` is inside `data-asset-id`'s own charset/length
+   *  guard, so it survives the real sanitizer. */
+  const IMAGE: DocBlock = { type: "paragraph", html: '<p><img data-asset-id="a1" alt="chart"></p>' };
+
+  /** HEADING is the POSITIVE OBSERVABLE every case below needs: without it,
+   *  "the image did not resolve" is indistinguishable from "the Preview never
+   *  opened", which is the state a broken disclosure would also produce. */
+  const version: DocVersion = { ...VERSIONS[0], id: 50, blocks: [HEADING, IMAGE] };
+
+  /** A FRESH bag object each call, deliberately — see the C10 case below. */
+  const access = (): HistoryAssetAccess => ({ tursoConfig: TURSO, projectId: "p1", assets: ASSETS });
+
+  beforeEach(() => {
+    vi.stubGlobal("URL", {
+      ...URL, createObjectURL: vi.fn(() => "blob:version-image"), revokeObjectURL: vi.fn(),
+    });
+    vi.mocked(loadAssetData).mockReset().mockResolvedValue("QUJD");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  async function openPreview(over: Partial<Parameters<typeof DocumentsHistoryModal>[0]> = {}) {
+    const user = userEvent.setup();
+    renderModal({ versions: [version], ...over });
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    const panel = document.getElementById("documents-history-preview-50");
+    expect(panel).not.toBeNull();
+    return panel as HTMLElement;
+  }
+
+  it("resolves a version's image to blob bytes when the asset bag is supplied", async () => {
+    const panel = await openPreview({ assetAccess: access() });
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    await waitFor(() => expect(img!.getAttribute("src")).toBe("blob:version-image"));
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    // The bag's OWN three fields reached the loader — a `src` alone would also
+    // appear if the effect fetched against some other project's partition.
+    expect(loadAssetData).toHaveBeenCalledWith(TURSO, "a1", "p1");
+  });
+
+  it("still renders the version's blocks when no asset bag is supplied", async () => {
+    // ★★ An ABSENT bag must degrade to the pre-§206 behaviour — blocks render,
+    // images do not resolve — never to broken markup or a marker the user has
+    // no repair path for. Documents images are Turso-gated, so this is the
+    // shape every file-mode reader sees.
+    const panel = await openPreview();
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    expect(img!.hasAttribute("src")).toBe(false);
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    expect(loadAssetData).not.toHaveBeenCalled();
+  });
+
+  // ★★★ A PRESENT BAG WITH A NULL CONFIG IS NOT THE SAME CASE AS AN ABSENT BAG,
+  // and it is the one the pane actually mounts in file mode and in Safe Mode:
+  // `workspace-panels.tsx` nulls the config but still builds the bag, so
+  // `assetProjectId` is defined and the absent-bag guard above does NOT fire.
+  // Left unguarded, `loadAssetData(null, …)` throws `StorageNotReadyError` at
+  // once, `attachAssetImages` swallows it per id, and EVERY image is stamped
+  // `data-asset-missing` — a dashed red frame asserting the user's images are
+  // gone when the truth is that asset storage is switched off.
+  // ★★ `loadAssetData` is MOCKED here and resolves happily, so the marker is
+  // NOT what discriminates: the mock cannot produce the real throw. The
+  // load-bearing assertion is that the loader is never REACHED. Delete the
+  // `assetTursoConfig === null` bail and that call count goes to 1.
+  it("does not reach the byte store when the bag carries no Turso config", async () => {
+    const panel = await openPreview({ assetAccess: { ...access(), tursoConfig: null } });
+    expect(panel.textContent).toContain("Section A");
+
+    const img = panel.querySelector("img[data-asset-id='a1']");
+    expect(img).not.toBeNull();
+    expect(loadAssetData).not.toHaveBeenCalled();
+    expect(img!.hasAttribute("data-asset-missing")).toBe(false);
+    expect(img!.hasAttribute("src")).toBe(false);
+  });
+
+  // ★★★ C10 MADE OBSERVABLE, and it is the whole reason the effect depends on
+  // three hoisted locals rather than on the bag. `workspace-panels.tsx` builds
+  // `assetPane={{ tursoConfig, projectId, assets, setAssets }}` as an INLINE
+  // literal at the `DocumentsPanelLazy` mount, so the bag reaching this
+  // component has a NEW identity on every render of the Documents tabpanel
+  // while its three members stay reference-stable. Depending on the bag would
+  // therefore re-run the effect — an UNCACHED Turso round trip — on every
+  // unrelated re-render: the same `Object.is` identity failure `previewHtml`
+  // exists to fix, one level up, introduced while fixing something else.
+  //
+  // Mutation surface: put the bag itself in the dependency array and this
+  // reports 2.
+  it("does not re-fetch the bytes when the caller hands it a fresh bag object", async () => {
+    const user = userEvent.setup();
+    const tree = (bag: HistoryAssetAccess) => (
+      <DocumentsHistoryModal
+        open
+        doc={doc}
+        versions={[version]}
+        onClose={vi.fn()}
+        onRestore={vi.fn()}
+        lang="en-US"
+        assetAccess={bag}
+      />
+    );
+    const { rerender } = render(tree(access()));
+    await user.click(screen.getByRole("button", { name: /Preview/ }));
+    await waitFor(() => expect(loadAssetData).toHaveBeenCalledTimes(1));
+    // ★★★ CAPTURED BEFORE THE RE-RENDER SO THIS TEST ALSO COMPOSES THE MEMO
+    // WITH THE EFFECT — the one thing neither half pins on its own. The memo's
+    // own test proves the subtree survives an unrelated re-render, and the count
+    // below proves the bag's identity does not re-trigger the load; NEITHER
+    // notices if a resolved image is left blank. Reverting the `previewHtml`
+    // memo rebuilds this subtree, the effect does not re-run to repair it (its
+    // deps are unchanged), and the picture is gone for good — with the call
+    // count still reading 1. That is the shipped `document-preview.tsx`
+    // showstopper reproduced here, and only an assertion on the NODE and its
+    // `src` can see it.
+    const img = screen.getByAltText("chart");
+    await waitFor(() => expect(img.getAttribute("src")).toMatch(/^blob:/));
+
+    rerender(tree(access()));
+    // ★ A REAL FLUSH, not a bare `waitFor` on the count: the load fires from
+    // inside `attachAssetImages`'s `Promise.all`, so it lands a microtask after
+    // the effect. `waitFor(…toHaveBeenCalledTimes(1))` would pass on its first
+    // synchronous poll under the defect too, and assert nothing.
+    await act(async () => { await new Promise((r) => setTimeout(r, 0)); });
+    expect(loadAssetData).toHaveBeenCalledTimes(1);
+    // Same NODE, still carrying its resolved `src`. Identity first: a rebuilt
+    // subtree is byte-identical, so only the node says it was replaced.
+    expect(screen.getByAltText("chart")).toBe(img);
+    expect(img.getAttribute("src")).toMatch(/^blob:/);
   });
 });

@@ -8,6 +8,43 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.257.1] - 2026-08-24 "Shepard"
+
+### Fixed
+
+- **A repaired picture no longer flips back to "unavailable" on its own.**
+  When a picture whose stored copy had failed was repaired, the document
+  sometimes went on showing it as unavailable anyway. Two attempts to load the
+  same picture could overlap, and whichever finished last won — so an older
+  attempt, still working from the broken copy, could overwrite the result of the
+  successful one. The repaired picture now stays visible.
+- **Documents no longer claim your pictures are missing when picture storage is
+  simply switched off.** Document images are only available on a connected
+  database. Without one — in file mode, or in safe mode — every picture in a
+  document was drawn with the same "unavailable" frame used for a picture that
+  really is gone, which read as data loss. Those pictures now render their
+  description text instead, in both the document view and the version history.
+- **Images now appear when you preview an earlier version of a document.**
+  Opening a version from a document's history rendered its text but left every
+  picture in it blank, with nothing to say why. The version-history preview drew
+  each block without ever resolving the images it referenced. A version's
+  pictures now appear there exactly as they do in the document itself.
+- **An image stored in a format the app does not accept is no longer drawn.**
+  Uploads have always been limited to PNG, JPEG and WebP, but a document
+  carrying an image recorded as something else — from an older build, a
+  hand-edited workspace file, or stored data that had drifted from its record —
+  was handed to the browser as it stood. Such an image now shows the same
+  "unavailable" frame a deleted one does. An image with no recorded format at
+  all is unaffected and still appears.
+- A document preview no longer rebuilds itself from scratch every time something
+  unrelated changes in the view around it. That rebuild is what had stopped the
+  images fix above from holding.
+
+### Internal
+
+- Two oversized source files were split into smaller ones, and seven
+  hand-written copies of the image-format rule became a single shared one. No
+  behaviour changed. No file-size or coverage baseline moved in this release.
 ## [0.257.0] - 2026-08-23 "Shepard"
 
 ### Fixed

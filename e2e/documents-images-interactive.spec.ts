@@ -613,10 +613,14 @@ test.describe("document images — live Turso", () => {
   // seeded and freshly pasted alike:
   //     8,8,8,8,8, 0,0,0,0,0,0,0,0,0,0,0
   // At the zero point the `src` ATTRIBUTE IS ABSENT and `data-asset-missing` is
-  // NOT stamped either, which rules out the loader having run and found
-  // nothing: `attachAssetImages` sets one or the other for every
-  // `<img data-asset-id>` it processes. Re-selecting the document brings every
+  // NOT stamped either, which ruled out the loader having run and found
+  // nothing: `attachAssetImages` set one or the other for every
+  // `<img data-asset-id>` it processed. Re-selecting the document brings every
   // image back — for another second or two.
+  // ★★ `attachAssetImages` can now legitimately set NEITHER — a run its
+  // `shouldApply()` reports stale returns before the write loop, and both
+  // previews bail on a null Turso config. Neither applied here (live Turso, no
+  // concurrent repair), but rule both out before reusing this deduction.
   //
   // USER IMPACT: open a document containing an image and the image appears,
   // then silently vanishes. It is the headline feature of this branch.

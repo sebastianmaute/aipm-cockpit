@@ -204,4 +204,25 @@ describe("DocumentPreview + useDocumentAssets — a repair reaches a placed imag
     expect(document.querySelector("img[data-asset-id='a1']")).toBe(img);
     expect(img.getAttribute("src")).toBe("blob:repaired");
   });
+
+  // ★★★ FILE MODE AND SAFE MODE ARE NOT THE MISSING CASE. `tursoConfig` null
+  // means asset storage is OFF; `loadAssetData(null, …)` throws
+  // `StorageNotReadyError` at once and `attachAssetImages` swallows it per id,
+  // so every image here used to be stamped `data-asset-missing` — the dashed
+  // red frame telling the reader their picture is gone. The history modal
+  // carries the identical bail; these two must not drift.
+  // ★★ `loadAssetData` is MOCKED and resolves happily, so the marker is NOT
+  // what discriminates here — the mock cannot produce the real throw. The
+  // load-bearing assertion is that the loader is never REACHED.
+  it("does not reach the byte store when asset storage is off", async () => {
+    vi.mocked(loadAssetData).mockResolvedValue("QUJD");
+    const d: ProjectDocument = { id: 1, title: "Steering update", blocks: [], createdAt: NOW, updatedAt: NOW };
+    render(<DocumentPreview lang="en-US" doc={d} ws={emptyWorkspace()} tursoConfig={null} projectId="p1" />);
+
+    const img = document.querySelector("img[data-asset-id='a1']")!;
+    await waitFor(() => expect(img).toBeTruthy());
+    expect(loadAssetData).not.toHaveBeenCalled();
+    expect(img.hasAttribute("data-asset-missing")).toBe(false);
+    expect(img.hasAttribute("src")).toBe(false);
+  });
 });

@@ -5,11 +5,11 @@ import userEvent from "@testing-library/user-event";
 import {
   ParagraphBlockEditor,
   HeadingBlockEditor,
-  BulletsBlockEditor,
   TableBlockEditor,
   DataSectionBlockEditor,
   PageBreakBlockEditor,
 } from "./document-block-editors";
+import { BulletsBlockEditor } from "./bullets-block-editor";
 import { DocumentEditor } from "./document-editor";
 import { replaceBlockOp } from "./document-editor-commit";
 import { applyDocMutation, type DocOp, type DocState } from "./document-mutations";

@@ -12,6 +12,44 @@ import {
 import { ASSET_MIME_ALLOWED } from "./document-asset-upload";
 
 describe("mediaExtension", () => {
+  it("accepts EXACTLY the allowlist, and nothing beyond it", () => {
+    // ★★★ THE LOOP BELOW PINS ONE DIRECTION ONLY — allowlist ⊆ switch domain.
+    // The other direction was unpinned, and it is the one that matters: adding
+    // `case "image/gif"` to mediaExtension leaves EVERY other test in this file
+    // green. At that point the only thing stopping a GIF reaching an OOXML
+    // package is the allowlist guard in docxEmbedFor/pptxEmbedFor — and NO
+    // fixture can observe that guard, because mediaExtension re-decides the same
+    // question on the very next line, making its deletion an EQUIVALENT mutant
+    // (measured while converting the casts for open-followups §223).
+    //
+    // ★★ So the divergence is pinned HERE, at its source, once — rather than
+    // relying on two unobservable guards at two call sites. A source scan is the
+    // only way to read the switch's domain: the function takes a string, so
+    // nothing can enumerate what it accepts by calling it.
+    const src = readFileSync("src/app/ooxml-media.ts", "utf8");
+    const start = src.indexOf("export function mediaExtension");
+    expect(start).toBeGreaterThan(-1);
+    const after = src.slice(start + 1);
+    // Bounded by the NEXT export rather than a brace scan — `contentTypeFor` is
+    // mediaExtension's immediate neighbour, and a concrete name cannot drift the
+    // way a counted brace can.
+    // ★★ THE WINDOW INCLUDES WHATEVER SITS BETWEEN THE TWO FUNCTIONS, INCLUDING
+    // `contentTypeFor`'s OWN JSDoc — so writing `case "image/gif"` inside that
+    // comment reddens this test on a docs-only edit (measured). It fails in the
+    // SAFE direction (a spurious red, never a silent green), and tightening the
+    // window to the function's closing brace would reintroduce the brace-counting
+    // this deliberately avoids. Noted so the next reader hunting a code change
+    // for a red run looks at the comment too.
+    const endMarker = after.indexOf("export function contentTypeFor");
+    expect(endMarker).toBeGreaterThan(-1);
+    const body = after.slice(0, endMarker);
+    const cases = [...body.matchAll(/case\s+"([^"]+)"/g)].map((m) => m[1]);
+    // Guard against a vacuous scan: a regex that matched nothing would make the
+    // set comparison below trivially true against an empty allowlist.
+    expect(cases.length).toBeGreaterThan(0);
+    expect(new Set(cases)).toEqual(new Set(ASSET_MIME_ALLOWED));
+  });
+
   it("maps every allowed mime and rejects everything else", () => {
     expect(mediaExtension("image/png")).toBe("png");
     expect(mediaExtension("image/jpeg")).toBe("jpeg");
