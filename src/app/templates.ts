@@ -207,10 +207,10 @@ function sanitizeSeedTask(raw: unknown): Task | null {
   // runs last — the DATE wins for every status but `Cancelled`, where the
   // STATUS wins and the stray date is CLEARED (its docstring owns the rule).
   // ★ Order is immaterial, and NOT because of migrateTask's short-circuit
-  //   (§182 warns about that wrong mechanism). Neither reads what the other
-  //   writes: migrate never touches `completedDate`, reconcile's only input,
-  //   and reconcile emits only VALID statuses, so migrate's `!statusOk`
-  //   backfill either still fires or is pre-empted with the same value.
+  //   (§182 warns about that wrong mechanism). Reconcile clears the date ONLY
+  //   for `Cancelled` — a VALID status — so migrate's `!statusOk` backfill can
+  //   never see a date reconcile removed; and on an invalid status the two
+  //   agree: with a date both derive "Done", without one reconcile abstains.
   return reconcileStatusFromDate(migrateTask(task));
 }
 
