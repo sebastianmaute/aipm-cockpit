@@ -13770,7 +13770,7 @@ unit test (≥2 seeded rows) is not merely the best detector for this surface �
 one that will ever exist, at any gate configuration. Do not read a future green axe run, however
 the seed is widened, as covering this.
 
-## 204. `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete — open, confirmed
+## 204. `chat_threads` and `committee_report_versions` rows OUTLIVE a project hard-delete
 
 **Status:** open — **CONFIRMED 2026-08-25.** This entry used to read "a question to probe, not a
 confirmed defect" and asked the reader to run the probe. The probe is run; it is a defect. Its fix
