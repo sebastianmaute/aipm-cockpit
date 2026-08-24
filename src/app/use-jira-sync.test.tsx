@@ -843,8 +843,10 @@ describe("useJiraSync — handleResolveConflicts", () => {
   // ── The completedDate arm of the merge loop (open-followups §183) ──────────
   // `status` is not a ConflictFieldKey, so the loop can never write it: picking
   // a side for the completion DATE leaves the LOCAL status in place, splitting
-  // the `status === "Done" ⟺ completedDate set` pair. The two remote-pick tests
-  // below are RED until the fix writes both halves from the picked side.
+  // the `status === "Done" ⟺ completedDate set` pair. The merge was taught to
+  // write `merged.status` beside the date in 0.257.0; the two remote-pick tests
+  // below pin that both halves come from the side the user picked, and go RED
+  // if the status write is removed again.
   //
   // transitionIssueTo derivation — the guard is
   //   if (anyLocalPicked) { … if (completionChanged && merged.status === "Done" && !conflict.remoteDone) … }

@@ -415,7 +415,13 @@ export function diffTaskAgainstIssue(
   //   and the move was discarded silently (open-followups §226).
   // ★ `remoteFields.status === undefined` means the patch says nothing about
   //   the remote status; treating that as a difference would queue a phantom
-  //   conflict on every sync.
+  //   conflict on every sync. ★★ UNREACHABLE FROM THE SYNC HOOK, and kept
+  //   anyway: the only non-test caller is `use-jira-sync.ts`, which always
+  //   passes an `issueToTaskFields(...)` patch — typed `Partial<Task> & {
+  //   status: TaskStatus }`, so its `status` is non-optional by construction.
+  //   The guard is for the OTHER callers the exported `Partial<Task>` signature
+  //   admits, and is pinned by its own test; do not delete it as dead code
+  //   after grepping only the hook.
   // ★★ Compare through the CATEGORY, not the two status strings. Jira carries
   //   three categories against our six statuses, so `On Hold`, `In Review` and
   //   `Cancelled` compare as different forever under a literal test — a
