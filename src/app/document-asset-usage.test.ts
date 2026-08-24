@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { assetIdsInDocument, assetRefsInDocument, countAssetUsage } from "./document-asset-usage";
+import { sanitizeProjectDocuments } from "./document-model";
 import type { ProjectDocument } from "./document-model";
 
 function doc(id: number, blocks: ProjectDocument["blocks"]): ProjectDocument {
@@ -120,5 +121,65 @@ describe("assetRefsInDocument", () => {
   it("keeps assetIdsInDocument returning exactly the `all` set", () => {
     const d = htmlDoc([`<img data-asset-id="a">`, `<span data-asset-id="b">x</span>`]);
     expect([...assetIdsInDocument(d)].sort()).toEqual([...assetRefsInDocument(d).all].sort());
+  });
+});
+
+describe("the three asset-id patterns and what each deliberately does not see", () => {
+  // ★★★ These three patterns are all correct and all different. This test is
+  // the only place that states the differences together; without it, each is
+  // documented only in its own file's docstring and a reader fixing one has no
+  // way to see the other two. open-followups §218.
+  //
+  //   ASSET_ID_RE   (document-asset-usage.ts)   attribute on ANY element, double-quote only
+  //   IMG_TAG_RE    (document-export-assets.ts) <img> tag, quote-aware, double-quote value
+  //   ASSET_IMG_RE  (document-model.ts)         <img>, case-INSENSITIVE, ALL quoting styles
+  //
+  // ASSET_IMG_RE is not exported and yields no ids, so it is probed through
+  // sanitizeProjectDocuments: a paragraph with no visible text survives load
+  // only when that pattern matches.
+  const oneParagraph = (html: string): ProjectDocument =>
+    doc(11, [{ type: "paragraph", html }]);
+  const survivesLoad = (html: string): boolean => {
+    const [loaded] = sanitizeProjectDocuments([oneParagraph(html)]);
+    return (loaded?.blocks ?? []).some((b) => b.type === "paragraph");
+  };
+  const counted = (html: string): boolean =>
+    assetRefsInDocument(oneParagraph(html)).all.size > 0;
+  const drawable = (html: string): boolean =>
+    assetRefsInDocument(oneParagraph(html)).drawable.size > 0;
+
+  it("a double-quoted <img> is seen by all three", () => {
+    const html = `<img data-asset-id="a">`;
+    expect({ survivesLoad: survivesLoad(html), counted: counted(html), drawable: drawable(html) })
+      .toEqual({ survivesLoad: true, counted: true, drawable: true });
+  });
+
+  it("a <span> is counted but never drawable", () => {
+    const html = `<span data-asset-id="b">x</span>`;
+    expect({ counted: counted(html), drawable: drawable(html) })
+      .toEqual({ counted: true, drawable: false });
+  });
+
+  it("a SINGLE-quoted <img> survives load but is invisible to the other two", () => {
+    // ★★ This is the divergence that matters, and it is harmless ONLY because
+    // of an ordering: DOMPurify normalises quoting before the counting and
+    // export patterns ever run. The next describe block pins that ordering.
+    const html = `<img data-asset-id='c'>`;
+    expect({ survivesLoad: survivesLoad(html), counted: counted(html), drawable: drawable(html) })
+      .toEqual({ survivesLoad: true, counted: false, drawable: false });
+  });
+
+  it("an UPPERCASE <IMG> survives load but is invisible to the other two", () => {
+    const html = `<IMG DATA-ASSET-ID="d">`;
+    expect({ survivesLoad: survivesLoad(html), counted: counted(html), drawable: drawable(html) })
+      .toEqual({ survivesLoad: true, counted: false, drawable: false });
+  });
+
+  it("an EMPTY id is seen by none of them — including the load predicate", () => {
+    // ★ The survivesLoad row here is what proves the other three rows are not
+    // vacuous: the helper CAN return false, so a `true` above is a measurement.
+    const html = `<img data-asset-id="">`;
+    expect({ survivesLoad: survivesLoad(html), counted: counted(html), drawable: drawable(html) })
+      .toEqual({ survivesLoad: false, counted: false, drawable: false });
   });
 });
