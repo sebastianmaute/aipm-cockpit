@@ -27,10 +27,17 @@ describe("DiagnosticsSection", () => {
       { id: 1, taskName: "a", status: "Done", completedDate: "2026-01-01", createdDate: "2026-01-01", lastUpdateDate: "2026-01-01" },
       { id: 2, taskName: "b", status: "In Progress", completedDate: "2026-01-01", createdDate: "2026-01-01", lastUpdateDate: "2026-01-01" },
     ];
+    // ★ try/finally, not a trailing mockRestore: there is no global
+    //   `restoreMocks`, so a failing expectation would leave the spy live and
+    //   the NEXT test would inherit it — one red reported as two. The
+    //   `--sequence.shuffle` gate makes which test inherits it vary by seed.
     const spy = vi.spyOn(diagnostics, "logDiag");
-    render(<DiagnosticsSection lang="en-US" />);
-    expect(spy).toHaveBeenCalledWith("warn", "task-pair-split", { count: 1 });
-    spy.mockRestore();
+    try {
+      render(<DiagnosticsSection lang="en-US" />);
+      expect(spy).toHaveBeenCalledWith("warn", "task-pair-split", { count: 1 });
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("logs nothing when the workspace has no split pairs", () => {
@@ -45,9 +52,12 @@ describe("DiagnosticsSection", () => {
       { id: 2, taskName: "b", status: "In Progress", completedDate: undefined, createdDate: "2026-01-01", lastUpdateDate: "2026-01-01" },
     ];
     const spy = vi.spyOn(diagnostics, "logDiag");
-    render(<DiagnosticsSection lang="en-US" />);
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
+    try {
+      render(<DiagnosticsSection lang="en-US" />);
+      expect(spy).not.toHaveBeenCalled();
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("still renders the row for a clean workspace", () => {
