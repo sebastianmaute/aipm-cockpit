@@ -483,33 +483,43 @@ Replace the reproduced-in-full design text with a link — `docs/superpowers/` b
 0.253.0, so `docs/superpowers/specs/2026-08-08-documents-roadmap-s3-s4-design.md` now resolves for
 everyone. Delete the "the design document lives in the gitignored tree" apparatus.
 
-**★★★ THE ONE ITEM THAT WAS STILL OPEN IS NOW MEASURED — RECORD THE RESULT, DO NOT SALVAGE IT AS
-OPEN.** The entry's *"ONE MEASUREMENT CAN INVALIDATE THAT CAP AND IT HAS NOT BEEN TAKEN"* has been
-discharged: Turso request size was measured successfully **up to 30 MB** (reported by the user
-2026-08-24, out of band — see the provenance note below).
+**★★★ THE "STILL OPEN" ITEM WAS DISCHARGED THREE DAYS AFTER IT WAS WRITTEN, AND §113 IS THE ONLY
+DOCUMENT IN THE REPO THAT DOES NOT KNOW.** The entry's *"ONE MEASUREMENT CAN INVALIDATE THAT CAP AND
+IT HAS NOT BEEN TAKEN"* is false and stale in the dangerous direction: it tells a reader that
+planning is blocked on a measurement that had already unblocked the slice which shipped.
 
-★★ Write it as a LOWER BOUND, never as the limit. "Succeeded at 30 MB" establishes capacity ≥30 MB;
-it does not establish that 30 MB is the ceiling, and recording `= 30 MB` would be a claim nobody
-measured. The entry's own instruction — "do not guess it" — applies to the upper end too.
+★★ DO NOT re-record the measurement here, and do NOT record it from this conversation. It is already
+written up properly — CITE it:
+- `docs/superpowers/specs/2026-08-21-documents-s3c1-images-design.md` §1, "The measurement that
+  unblocked planning" — carries the full probe table.
+- `docs/AGENTS/documents.md` (search `32 MiB`) — the subsystem-reference summary.
 
-★★ Record the headroom with the fact that makes it decisive: **every asset path carries exactly ONE
-image per pipeline request**, in both directions. Verify:
-```bash
-grep -n "assetDataSelect\|assetDataUpsert\|assetDataIdsSelect" src/app/document-assets-store.ts
-```
-`assetDataUpsert(row)` takes a single row, `assetDataSelect(id, projectId)` a single id, and
-`assetDataIdsSelect` returns ids only with no bytes. So the worst case is one 5 MB stored image
-≈ 6.7 MB of base64 against ≥30 MB — roughly 4.5× headroom. The per-image cap does NOT drop and
-uploads do NOT need chunking.
+What those record: probed **2026-08-21** against a real database (aws-eu-west-1), read-only, one
+statement per request, binding a growing text arg to `SELECT length(?)`. 6.7 MiB OK at ~1.8 s;
+**32 MiB OK at ~6.6 s; no ceiling found below 32 MiB.**
 
-★★★ **§95 stays true and the entry must keep saying so.** This was a MANUAL measurement against a
-real database. CI still cannot take it, so the figure has no gate behind it and will not be
-re-checked when Turso changes its limits. That is the residual — a much smaller one than the entry
-currently carries, but it is not nothing.
+★★ The three product decisions it drove, all of which §113's rewrite must state because §113 is
+where a reader looks for "was this ever settled":
+1. **The 5 MB cap stands unchanged**, ~4.8× headroom. The contingency in the roadmap — "the
+   per-image cap drops or uploads chunk" — is DEAD. Do not build chunking.
+2. **Latency, not size, is the real constraint.** A multi-second round trip the user can interrupt,
+   which drove the progress requirement and the write order.
+3. **One asset per request, never batched.** Independently confirmed:
+   ```bash
+   grep -n "assetDataSelect\|assetDataUpsert\|assetDataIdsSelect" src/app/document-assets-store.ts
+   ```
+   `assetDataUpsert(row)` takes a single row, `assetDataSelect(id, projectId)` a single id, and
+   `assetDataIdsSelect` returns ids only with no bytes.
 
-★ PROVENANCE: record who measured it, when, and against what (plan/region), or the number becomes
-exactly the class of bare unreproducible claim this whole slice exists to remove. If the method is
-not available, say "method not recorded" explicitly rather than implying one.
+★★★ **Carry the scoping across or the citation is worse than the gap.** `docs/AGENTS/documents.md`
+is careful in two ways §113 must not drop: it is **a MEASUREMENT, not a spec number**, scoped to one
+database, region and plan; and it does **NOT** cover batching several assets into one pipeline —
+coalescing a multi-image upload later needs its own probe, never an extrapolation from this one.
+★ The probe creates no table and writes no row, so it is safe to re-run whenever the answer matters.
+
+★★ THE LESSON, which belongs in the rewritten entry: the register was not updated when the slice
+that discharged its item shipped. Three other documents were. That is the same lag this whole audit
+measured, caught in the act on the single highest-stakes claim in the entry.
 
 - [ ] **Step 2: §146 — widen the prescribed union from three members to four**
 
@@ -1094,6 +1104,31 @@ EOF
 `src/app/task-manager.popout-guard.test.tsx`
 
 ★★★ A behaviour change falsifies prose in files nobody assigned. Four known targets:
+
+- [ ] **Step 0: Fix the tech-debt register's two drifted rows (option A, decided 2026-08-24)**
+
+**Files:** `docs/tech-debt-register.md`
+
+★★ Keep the two registers SEPARATE — the tech-debt register carries an owner (`tech-lead`) and a due
+date (`2026-10-03`) that `open-followups.md` has no mechanism for, so merging would move items from a
+document with accountability into one without. Fix the drift instead.
+
+Both TD-5 and TD-7 quote the ratchet BASELINE as if it were the current measurement, and both are now
+wrong in the same direction. Measure with the gate's own metric (`wc -l` + 1):
+```bash
+for f in task-manager tasks-section; do node -e "console.log('$f', require('fs').readFileSync('src/app/$f.tsx','utf8').split('
+').length)"; done
+cat docs/baselines/file-sizes.json
+```
+- TD-5 says `task-manager.tsx` **3020, zero headroom** — measured **3014**, so 6 lines of headroom.
+- TD-7 says `tasks-section.tsx` **1081, at its baseline** — measured **1050**, so 31 lines.
+
+★★★ TD-7's own note reads *"Recorded at 830 and now 1081 — it grew 251 lines while this row went on
+quoting the figure it was frozen at."* It is committing that exact failure again. Say so in the row,
+and state the rule that prevents the third recurrence: **quote the MEASUREMENT and the baseline
+separately, never the baseline alone.**
+
+★ TD-6 (1.20%, headroom 0.55) and TD-1 (`next` pinned 16.2.11) both re-verified CURRENT — leave them.
 
 - [ ] **Step 1: S3c-2 is not unbuilt**
 
