@@ -71,11 +71,17 @@ describe("the media-free OOXML packages match their committed manifests", () => 
   // holds `media/`, the counts hold -- while the digests moved on both sides
   // together. Reading the live [Content_Types].xml is what stays red.
   //
-  // ★★ pptx is the case that needed it, and the reason is written down in
-  // `ooxml-pptx-primitives.test.ts`: that builder's byte test never reads
-  // [Content_Types].xml, which is how the §216 mutant survived it. The docx
-  // primitives' tests carry a `not.toContain("image/")` of their own; pptx had
-  // no equivalent anywhere.
+  // ★★ IT IS NOT REDUNDANT WITH THE PRIMITIVES' OWN TESTS, AND THE REASON IS
+  // SCOPE, NOT ABSENCE. The brief that prompted this said pptx had no
+  // `not.toContain("image/")` anywhere and docx did; both files have one on a
+  // media-free package (`ooxml-docx-primitives.test.ts` and
+  // `ooxml-pptx-primitives.test.ts`, verified by grep before this comment was
+  // written). What §216 actually records about pptx is narrower and still
+  // true, and that file's own comment says it: its BYTE-identity test never
+  // reads [Content_Types].xml, which is how the mutant survived THAT test.
+  // Neither file, though, can see a REGENERATION -- so without a live read
+  // here, this gate had no assertion of its own that a regeneration could not
+  // silence.
   for (const subject of MANIFEST_SUBJECTS) {
     it(`${subject.label}: the LIVE package declares no image content type`, async () => {
       const parts = await unzipBytes(subject.build());
