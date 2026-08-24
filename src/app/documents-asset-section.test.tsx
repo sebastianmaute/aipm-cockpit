@@ -756,7 +756,7 @@ describe("documents asset cap message names undrawable references", () => {
     // ★ The COUNT is asserted, not just the phrasing — the message exists to
     //   report a number, and a hardcoded one would satisfy a phrase match.
     expect(
-      screen.getByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "2")),
+      await screen.findByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "2")),
     ).toBeInTheDocument();
   });
 
@@ -769,7 +769,15 @@ describe("documents asset cap message names undrawable references", () => {
     await user.click(await findInsertRowButton("extra.png"));
 
     expect(structural.insert).not.toHaveBeenCalled();
-    expect(screen.getByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
-    expect(screen.queryByText(/no export can draw/i)).not.toBeInTheDocument();
+    expect(await screen.findByText(t("en-US", "assetLibraryMaxPerDocument", "20"))).toBeInTheDocument();
+    // ★★ THE NEGATIVE ASSERTION NAMES THE REAL STRING, not a phrase lifted out
+    //    of it. `/no export can draw/i` matches nothing the moment the EN copy
+    //    is reworded, so a rewording would turn the load-bearing half of this
+    //    pair vacuously green while the inverted-condition bug it exists to
+    //    catch shipped. Built from `t` with the count this fixture actually
+    //    has (zero undrawable), it tracks the string it is denying.
+    expect(
+      screen.queryByText(t("en-US", "assetLibraryMaxPerDocumentUndrawable", "20", "0")),
+    ).not.toBeInTheDocument();
   });
 });
