@@ -12,16 +12,19 @@
 // This gate fails on ANY change to a media-free package, including the ones
 // nobody thought to assert.
 //
-// ★★ The two builder calls below MUST stay byte-for-byte the argument forms
-// scripts/update-ooxml-manifest.ts uses. A gate that builds a different
-// package from the one the baseline was generated against is a gate that
-// fails for a reason nobody can act on.
+// ★★ THE SUBJECTS ARE SHARED, NOT DUPLICATED. This file and
+// scripts/update-ooxml-manifest.ts both import `MANIFEST_SUBJECTS` from
+// src/test/ooxml-manifest-subjects.ts, so the gate cannot build a different
+// package from the one the baseline was generated against. An earlier cut
+// spelled the builder calls out in both places and asked a comment to hold
+// them in step; tsconfig.json excludes `scripts/`, so tsc never read the
+// script's copy and a one-word divergence there stayed green until the next
+// regeneration.
 
 import { describe, expect, it } from "vitest";
 import baseline from "../../docs/baselines/ooxml-parts.json";
-import { buildDocxPackage } from "./ooxml-docx-primitives";
-import { buildPptxPackage } from "./ooxml-pptx-primitives";
 import { formatManifestDiff, packageManifest, type PartDigest } from "../test/ooxml-manifest";
+import { MANIFEST_SUBJECTS } from "../test/ooxml-manifest-subjects";
 
 const REGEN = "npm run ooxml:manifest";
 
@@ -39,21 +42,11 @@ async function expectMatchesBaseline(pkg: Blob, expected: readonly PartDigest[],
 }
 
 describe("the media-free OOXML packages match their committed manifests", () => {
-  it("docx", async () => {
-    await expectMatchesBaseline(
-      buildDocxPackage("<w:p/>", "", "portrait"),
-      baseline.docx.parts,
-      "docx",
-    );
-  });
-
-  it("pptx", async () => {
-    await expectMatchesBaseline(
-      buildPptxPackage([{ xml: "<p:sld/>", media: [] }]),
-      baseline.pptx.parts,
-      "pptx",
-    );
-  });
+  for (const subject of MANIFEST_SUBJECTS) {
+    it(subject.label, async () => {
+      await expectMatchesBaseline(subject.build(), baseline[subject.key].parts, subject.label);
+    });
+  }
 
   // ★★★ THE TWO ASSERTIONS BELOW GUARD THE BASELINE, NOT THE PACKAGE, AND
   // THAT IS WHY THEY ARE NOT REDUNDANT WITH THE DIGEST COMPARISON ABOVE.

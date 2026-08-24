@@ -9,49 +9,62 @@
 // anyone with a red pipeline. Regenerating must stay a decision somebody makes
 // and a reviewer sees in the diff.
 //
-// ★ The subjects are the MEDIA-FREE packages, because that is the contract
-// §216 found unpinned: both builders promise an empty `media` argument adds no
-// Default entry, no part and no relationship. The two calls below are
-// deliberately the SAME argument forms the primitives' own byte-identity tests
-// use, so the baseline and those tests cannot drift onto different packages.
+// ★★ THE SUBJECTS LIVE IN src/test/ooxml-manifest-subjects.ts AND ARE SHARED
+// WITH THE GATE (src/app/ooxml-package-manifest.test.ts). They are the
+// MEDIA-FREE packages, because that is the contract §216 found unpinned: both
+// builders promise an empty `media` argument adds no Default entry, no part
+// and no relationship. An earlier cut spelled the builder calls out here AND
+// in the gate, held in step by a comment in each file -- and tsconfig.json
+// excludes `scripts/`, so tsc never read this copy: a one-word divergence
+// here stayed green until somebody regenerated, at which point the baseline
+// moved to a package the gate does not build. Do not re-inline them.
 //
 // ★ OUT is resolved against the process CWD, which `npm run` pins to the
 // package root. Run it through the npm script, not by hand from a subdirectory.
 //
 // ★★ THE RUNNER IS `jiti`, NOT `vite-node`, AND THAT IS NOT A PREFERENCE.
-// `vite-node` is not installed here -- it is absent from node_modules and
-// undeclared in package.json, so the form AGENTS.md documents for
-// scripts/generate-sample-workspace.ts (`npx vite-node ...`) would reach for
-// the network on every run. `jiti` is present and executes this file's
-// extensionless TS imports directly under plain node (verified: docx 5 parts,
-// pptx 11 parts). ★ It is a TRANSITIVE dependency though -- pulled in by
-// eslint, vite AND @tailwindcss/node, so it is well anchored, but nothing in
-// this repo DECLARES it. If a dependency bump ever removes it this script
-// breaks, and because regenerating is rare by design nobody will notice for a
-// long time. Declaring it (or vite-node) in devDependencies would close that.
+// `vite-node` is genuinely absent from this repo -- not in node_modules, and
+// named in neither package.json nor package-lock.json -- so the form AGENTS.md
+// documents for scripts/generate-sample-workspace.ts (`npx vite-node ...`)
+// would reach for the network on every run. `jiti` is present and executes
+// this file's extensionless TS imports directly under plain node.
+//
+// ★ It is DECLARED, as of commit 59f7fdb6 on this branch, and an earlier
+// revision of this paragraph said the opposite. It had been transitive-only --
+// pulled in by eslint, vite and @tailwindcss/node -- so a dependency bump
+// could have dropped it while nothing in the repo asked for it, and because
+// regenerating is rare by design the breakage would not have surfaced for a
+// long time. It carries a CARET, not an exact pin: CONTRIBUTING.md's
+// "Dependencies" section reserves exact pins for the four framework-coupled
+// packages and gives everything else a caret, and jiti is not one of them.
+// Check both halves with:
+//   sed -n '/"devDependencies"/,/^  }/p' package.json | grep jiti   # ^2.7.0
+//   grep -c vite-node package.json package-lock.json               # 0 and 0
+// (the second exits 1 because it matches nothing -- that IS the result)
 
 import { writeFileSync } from "node:fs";
-import { buildDocxPackage } from "../src/app/ooxml-docx-primitives";
-import { buildPptxPackage } from "../src/app/ooxml-pptx-primitives";
 import { packageManifest } from "../src/test/ooxml-manifest";
+import { MANIFEST_SUBJECTS } from "../src/test/ooxml-manifest-subjects";
 
 const OUT = "docs/baselines/ooxml-parts.json";
 
 async function main() {
-  const docx = await packageManifest(buildDocxPackage("<w:p/>", "", "portrait"));
-  const pptx = await packageManifest(buildPptxPackage([{ xml: "<p:sld/>", media: [] }]));
-
-  const baseline = {
+  const baseline: Record<string, unknown> = {
     $comment:
       "Ordered part manifests for the MEDIA-FREE .docx and .pptx packages. " +
       "Regenerate ONLY with `npm run ooxml:manifest`, and only when you intend " +
       "the package to change -- see docs/open-followups.md §216.",
-    docx: { parts: docx },
-    pptx: { parts: pptx },
   };
 
+  const summary: string[] = [];
+  for (const subject of MANIFEST_SUBJECTS) {
+    const parts = await packageManifest(subject.build());
+    baseline[subject.key] = { parts };
+    summary.push(`${subject.label} ${parts.length} parts`);
+  }
+
   writeFileSync(OUT, `${JSON.stringify(baseline, null, 2)}\n`, "utf8");
-  console.log(`wrote ${OUT}: docx ${docx.length} parts, pptx ${pptx.length} parts`);
+  console.log(`wrote ${OUT}: ${summary.join(", ")}`);
 }
 
 main().catch((err) => {
