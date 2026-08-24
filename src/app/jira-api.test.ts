@@ -33,6 +33,18 @@ describe("issueToTaskFields status mapping", () => {
     expect(issueToTaskFields(mk(""), "2026-06-19").status).toBe("To Do");
     expect(issueToTaskFields({ key: "LOP-2", fields: { summary: "x" } } as unknown as JiraIssue, "2026-06-19").status).toBe("To Do");
   });
+
+  // The conflict merge's remote arm (use-jira-sync.ts, the completedDate arm)
+  // rests on this coupling: issueToTaskFields reads statusKey ONCE, so a patch
+  // can never pair a Done status with no date, or a date with a non-Done
+  // status. That was asserted nowhere until this test. The `key` is folded into
+  // the compared object so a failure names the category that broke it.
+  it("pairs a Done status with a completedDate for every status-category key", () => {
+    for (const key of ["new", "indeterminate", "done", "wat", ""]) {
+      const p = issueToTaskFields(mk(key), "2026-06-19");
+      expect({ key, done: p.status === "Done" }).toEqual({ key, done: !!p.completedDate });
+    }
+  });
 });
 
 describe("buildJql multi-project", () => {

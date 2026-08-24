@@ -116,8 +116,9 @@ carries the detail and the node replacement.
 ### One census corrected
 
 The closing section says `docs:symbols:check` "reported 9 doc(s)" and "reports 10 since main's
-`docs/AGENTS/documents.md` merged". It reports **12** today (`AGENTS.md` plus eleven files in
-`docs/AGENTS/`), which is the point that sentence was making: the figure is a census of a glob and
+`docs/AGENTS/documents.md` merged". It reported **12** when this was written and **13** on
+2026-08-24 (`AGENTS.md` plus the files in `docs/AGENTS/`), which is the point that sentence was
+making: the figure is a census of a glob and
 moves whenever anyone adds a subsystem doc. Read it off the gate's own summary line, and note the
 substance is unchanged — **this file is still not in that glob**, so a green run says nothing
 about any name in it.

@@ -180,6 +180,10 @@ export function useJiraSync(args: UseJiraSyncArgs) {
               jiraKey: issue.key,
               jiraIssueType: row.jiraIssueType ?? patch.jiraIssueType,
               remoteDone: isIssueDone(issue),
+              // ★ Non-optional by construction: issueToTaskFields returns
+              //   `Partial<Task> & { status: TaskStatus }`, so this is the same
+              //   single `statusKey` read that produced patch.completedDate.
+              remoteStatus: patch.status,
               fields: diffs,
             });
             next.push(row);
@@ -367,6 +371,36 @@ export function useJiraSync(args: UseJiraSyncArgs) {
         } else if (field.key === "completedDate") {
           merged.completedDate =
             typeof value === "string" && value ? value : undefined;
+          // ★★★ Write BOTH halves of the coupled pair from the side the user
+          //   picked. `status` is deliberately not a ConflictFieldKey: offering
+          //   it as its own row would let the user pick local for one half and
+          //   remote for the other, i.e. construct the split pair by hand.
+          //   Taking both from one side inherits the guarantee the pull path
+          //   already has — issueToTaskFields derives completedDate and status
+          //   from ONE statusKey read, so remoteStatus and the remote date
+          //   cannot disagree.
+          // ★★ The LOCAL arm is a PASS-THROUGH, not a normaliser, and it does
+          //   NOT inherit that guarantee: `merged` is already `{ ...original }`,
+          //   so `merged.status = original.status` writes what is already there
+          //   — a no-op. This branch therefore re-emits whatever the local row
+          //   HOLDS. Rows the local writers produced are consistent
+          //   (applyStatusChange by construction, template import since it
+          //   started reconciling), but a row that was ALREADY split — an older
+          //   build, a hand-edited blob, a pre-fix resolution — survives a local
+          //   pick unchanged. Repairing it here is a deliberate deferral rather
+          //   than an oversight (open-followups §227).
+          // ★★ NOT applyStatusChange here: it would stamp `today` over Jira's
+          //   real resolution date, which is why every Jira write site bypasses
+          //   that engine. NOT reconcileStatusFromDate either — though not for
+          //   the reason once given ("would rewrite a reopened In Progress into
+          //   To Do"), which is FALSE: that input falls through both its guards.
+          //   It is a strict NO-OP on every Jira patch — it writes `status` only
+          //   for a date on a non-Done/non-Cancelled row or a dateless Done,
+          //   issueToTaskFields pairs both fields off ONE statusKey read, and
+          //   jiraCategoryToStatus never emits Cancelled. The REAL hazard runs
+          //   the other way: on the LOCAL arm a stale date beside a non-Done
+          //   status is promoted to Done by date-wins — the §227 question.
+          merged.status = pick === "local" ? original.status : conflict.remoteStatus;
           completionChanged = true;
         } else if (
           field.key === "taskName" ||

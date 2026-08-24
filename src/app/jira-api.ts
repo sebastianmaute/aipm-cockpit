@@ -351,6 +351,12 @@ export type ConflictItem = {
   jiraIssueType?: string;
   /** Whether the remote issue is currently Done (statusCategory.key === "done"). */
   remoteDone: boolean;
+  /** The remote issue's mapped workflow status.
+   *  ★★ Carried so the conflict merge can write `status` and `completedDate`
+   *  from the SAME side. `status` is deliberately NOT a `ConflictFieldKey` — a
+   *  user cannot arbitrate it independently of the date without being able to
+   *  construct the very split pair this exists to prevent. */
+  remoteStatus: TaskStatus;
   fields: ConflictField[];
 };
 

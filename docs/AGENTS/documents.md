@@ -1259,7 +1259,7 @@ three modules were extracted and the two sit well under the cap (measure them wi
 they were 733 and 657 on 2026-08-24). This sentence outlived that fix by pointing at an entry whose
 own close paragraph enumerates what it does not address and never mentions this back-reference — the
 ordinary way a cross-file pointer rots. What remains true is the `use-storage-backend.ts` margin above,
-which §226 now owns. Never quote a line count here — measure it:
+which §229 now owns. Never quote a line count here — measure it:
 `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`.
 
 ## Test coverage — what is and is not pinned

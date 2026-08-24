@@ -1465,6 +1465,7 @@ export const de: Record<TranslationKey, string> = {
   jiraConflictField: "Feld",
   jiraConflictLocal: "Lokal (diese App)",
   jiraConflictRemote: "Remote (Jira)",
+  jiraConflictCompletionNote: "Die gewählte Seite legt auch den Status der Aufgabe fest.",
   jiraConflictApply: "Auswahl übernehmen",
   jiraConflictDefer: "Verschieben (später lösen)",
   jiraConflictResolved:
