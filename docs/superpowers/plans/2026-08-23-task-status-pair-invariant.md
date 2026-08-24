@@ -1,5 +1,11 @@
 # `status` / `completedDate` Pair Invariant Implementation Plan
 
+> ★★ **ONE DECISION IN THIS PLAN WAS SUPERSEDED DURING IMPLEMENTATION; it is deliberately NOT
+> rewritten.** The test titles and snippets below quoting "the date wins" record what was
+> PLANNED: `reconcileStatusFromDate` now CLEARS a `Cancelled` row's stray `completedDate` and
+> keeps the status, the date still winning for every other status. Authoritative:
+> `docs/open-followups.md` §182 · `docs/AGENTS/task-status.md`.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make all four code paths that write `Task.status` and `Task.completedDate` hold the invariant `status === "Done"` ⟺ `completedDate` set, closing `docs/open-followups.md` §182 and §183.

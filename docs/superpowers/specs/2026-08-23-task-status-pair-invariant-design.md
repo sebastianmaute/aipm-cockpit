@@ -1,5 +1,11 @@
 # The `status` / `completedDate` pair invariant — design
 
+> ★★ **ONE DECISION BELOW WAS SUPERSEDED DURING IMPLEMENTATION; the body is deliberately NOT
+> rewritten.** "Nothing is invented and no date is deleted" no longer holds — the date still wins
+> for every other status, but a `Cancelled` row's stray `completedDate` is now CLEARED and the
+> status kept (closed is never delivered). Authoritative: `docs/open-followups.md` §182 (the
+> reversal and its consequence) · `docs/AGENTS/task-status.md` (the engine contract).
+
 **Date:** 2026-08-23
 **Closes:** `docs/open-followups.md` §182, §183
 **Opens:** §226
