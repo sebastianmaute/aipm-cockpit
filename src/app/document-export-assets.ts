@@ -61,16 +61,37 @@ export const IMG_TAG_RE =
  *  produces, which is exactly the path this function feeds.
  *
  *  ★★ THAT IS NARROWER THAN "NOTHING READS THOSE BYTES", which is what this
- *  spot said and is false. THREE test files unzip a media-BEARING package and
- *  assert over it — `grep -rln unzipBytes src` finds the population:
- *  `doc-render-docx.test.ts` compares the media part against the source PNG
- *  byte for byte and pins the media path list; `doc-render-pptx.test.ts` pins
- *  `ppt/media/image1.png` + `image2.png` and resolves the rels targets onto
- *  them; `document-download.test.ts` asserts a media part's length on a docx
- *  the download surface produced. What none of them is, is a baseline: each
- *  names a string somebody thought to check, so a change nobody anticipated
- *  passes all three. The determinism still matters on its own terms: a part
- *  path that moved between runs would be untestable at all. */
+ *  spot said and is false. FIVE test files unzip a media-BEARING package and
+ *  assert over it. Three at the RENDERER level: `doc-render-docx.test.ts`
+ *  compares the media part against the source PNG byte for byte and pins the
+ *  media path list; `doc-render-pptx.test.ts` pins `ppt/media/image1.png` +
+ *  `image2.png` and resolves the rels targets onto them;
+ *  `document-download.test.ts` asserts a media part's length on a docx the
+ *  download surface produced. Two at the BUILDER level:
+ *  `ooxml-docx-primitives.test.ts` byte-compares `word/media/image1.png` and,
+ *  in sibling tests, pins the `<Default Extension="png"
+ *  ContentType="image/png"/>` entry, the `Target="media/image1.png"`
+ *  relationship and the once-only extension declaration;
+ *  `ooxml-pptx-primitives.test.ts` byte-compares `ppt/media/image1.png` and
+ *  pins the per-slide rels target.
+ *
+ *  ★★ THE BUILDER PAIR WAS MISSING FROM THE COUNT THIS REPLACES, and HOW is
+ *  the lesson. The wording before that one excluded them by a QUALIFIER —
+ *  "nothing outside each builder's own unit test" — and the fix round that
+ *  corrected it dropped the qualifier and substituted a flat "THREE", trading
+ *  a wrong-but-qualified claim for a wrong-and-unqualified one that
+ *  under-reported existing coverage by two.
+ *
+ *  ★★ AND THE GREP IT CAME ATTACHED TO SELECTS SOMETHING ELSE. `grep -rln
+ *  unzipBytes src` returns eleven files — the helper, the helper's own test,
+ *  `zip.test.ts`, the media-FREE manifest gate and this module among them.
+ *  No one-line grep answers "unzips a package that HAS media"; the five have
+ *  to be read for, which is why they are named above.
+ *
+ *  What none of the five is, is a baseline: each names a string somebody
+ *  thought to check, so a change nobody anticipated passes all five. The
+ *  determinism still matters on its own terms: a part path that moved between
+ *  runs would be untestable at all. */
 export function documentAssetIds(doc: ProjectDocument): string[] {
   const ids: string[] = [];
   for (const block of doc.blocks) {

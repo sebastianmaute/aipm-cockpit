@@ -1024,9 +1024,19 @@ structural pass, because it is an AI WRITE path, not a load path.
 
 ★ `assetRefsInDocument` (`document-asset-usage.ts`) computes `{ all, drawable, undrawable }` in one
 pass; `undrawable` is measured over the WHOLE document, so an id on a span in one block and an
-`<img>` in another is drawable and does not inflate the count. The cap message names that count
-(`assetLibraryMaxPerDocumentUndrawable`) rather than reporting a bare "full". Full measurement
-table in `docs/open-followups.md` §218's closing note.
+`<img>` in another is drawable and does not inflate the count. The cap message
+(`assetLibraryMaxPerDocumentFreeable`) reports how many MORE images could be added once those
+references are removed, rather than reporting a bare "full" — and rather than reporting
+`undrawable.size` itself, which is what it did until 0.257.2 and which could exceed the cap and
+could count references whose removal frees nothing. Full measurement table in
+`docs/open-followups.md` §218's closing note.
+
+★★ **`undrawable` OVER-COUNTS FOR TWO REASONS `assetRefsInDocument` CANNOT SEE, both measured and
+both PRE-EXISTING — `docs/open-followups.md` §231.** `ASSET_ID_RE` is a bare attribute match, so
+`all` picks up a `data-asset-id="…"` a user simply TYPED into a paragraph (the document sanitizer
+round-trips it byte-identical — HTML text nodes escape `&`, `<` and `>`, never `"`), and in a
+document whose `<img>` carries a crafted attribute BEFORE its id it can pick up a phantom while
+missing the real id. Read §231 before treating the reported number as a count of real references.
 
 ## Image bytes in every export format (S3c-2)
 
@@ -1133,12 +1143,20 @@ golden suite pinned these bytes, and both were corrected when it did not.
 (`src/test/ooxml-manifest.ts`). It rides the existing `unit-tests` job. Read the symbols for the
 detail; what belongs here is the properties a reader gets wrong:
 
-★★ **THREE SUBJECTS, DEFINED ONCE, AND ONE OF THEM IS THE SHAPE THE EXPORT PATH ACTUALLY EMITS.**
+★★ **THREE SUBJECTS, DEFINED ONCE, AND ONE OF THEM IS THE SHAPE THE WORKSPACE EXPORTER EMITS.**
 `MANIFEST_SUBJECTS` (`src/test/ooxml-manifest-subjects.ts`) holds docx portrait, docx LANDSCAPE and
 pptx, and BOTH the gate and `scripts/update-ooxml-manifest.ts` import it. `buildDocxPackage`'s
 `page` parameter defaults to landscape and `export-docx.ts` passes two arguments, so the landscape
-subject is the docx an export produces — and passing the default rather than the literal puts that
-default under the gate too. Do NOT re-split this definition: `tsconfig.json` excludes `scripts/`,
+subject is the docx the WORKSPACE exporter produces — and passing the default rather than the
+literal puts that default under the gate too. ★★★ **IT IS NOT THE SHAPE THIS FILE'S OWN SUBJECT
+EXPORTS, and "the docx an export produces" — what this said until 2026-08-24 — reads as though it
+were, in a documents file above all.** There are TWO docx-producing paths and they disagree on
+exactly this parameter: `export-docx.ts` (the WORKSPACE exporter) calls
+`buildDocxPackage(body, DOC_STYLES)` and takes the landscape default, while `doc-render-docx.ts`
+(the DOCUMENT export path, the one this whole section is about) calls
+`buildDocxPackage(body, DOC_STYLES, PAGE, parts)` with `const PAGE: DocxPageLayout = "portrait"`.
+The subject's own comment gets this right ("MIRRORING THE WORKSPACE EXPORTER"); the prose had
+dropped the qualifier. Do NOT re-split this definition: `tsconfig.json` excludes `scripts/`,
 so a divergence in the script's own copy is unreadable to tsc and stays green until the next
 regeneration moves the baseline to a package the gate does not build.
 
@@ -1159,13 +1177,28 @@ the ordering hold), not a covered case.
 can close it either, because a media-bearing package's part paths and count depend on the document.
 A green run here says nothing about an image-bearing export.
 
-★★ **BUT "NOTHING READS THOSE BYTES" IS FALSE, and this spot used to say it.** Three test files
-unzip a media-BEARING package and assert over it (`grep -rln unzipBytes src` finds the population):
+★★ **BUT "NOTHING READS THOSE BYTES" IS FALSE, and this spot used to say it.** FIVE test files
+unzip a media-BEARING package and assert over it. Three at the RENDERER level:
 `doc-render-docx.test.ts` compares the media part against the source PNG byte for byte and pins the
 media path list; `doc-render-pptx.test.ts` pins `ppt/media/image1.png` and `image2.png` and
 resolves the rels targets onto them; `document-download.test.ts` asserts a media part's length on a
-docx the download surface produced. What is missing is a BASELINE — every one of those assertions
-names a string somebody chose, so a change nobody anticipated passes all three.
+docx the download surface produced. Two at the BUILDER level: `ooxml-docx-primitives.test.ts`
+byte-compares `word/media/image1.png` and, in sibling tests, pins the `<Default Extension="png"
+ContentType="image/png"/>` entry, the `Target="media/image1.png"` relationship and the once-only
+extension declaration; `ooxml-pptx-primitives.test.ts` byte-compares `ppt/media/image1.png` and
+pins the per-slide rels target. What is missing is a BASELINE — every one of those assertions names
+a string somebody chose, so a change nobody anticipated passes all five, and `docs/baselines/`
+holds only the media-free `ooxml-parts.json`.
+
+★★★ **THAT COUNT SAID THREE UNTIL 2026-08-24, AND HOW IT GOT THERE IS THE LESSON.** The wording
+BEFORE it excluded the builder pair with a QUALIFIER — "nothing outside each builder's own unit
+test" — and the fix round that corrected that dropped the qualifier and substituted a flat count,
+trading a wrong-but-qualified claim for a wrong-and-unqualified one that under-reported existing
+coverage by two. ★★ The grep it came attached to, `grep -rln unzipBytes src`, returns ELEVEN files
+and so cannot answer the sentence it sat in: it also catches `src/test/unzip-bytes.ts`, that
+helper's own test, `zip.test.ts`, this media-FREE gate and `document-export-assets.ts` itself. No
+one-line grep selects "unzips a package that HAS media" — the five have to be read for, which is
+why they are named above.
 
 ★★ **IT SAYS NOTHING ABOUT THE ZIP CONTAINER EITHER, and that is why `zip.test.ts` exists
 separately.** A part manifest cannot see the archive's framing: part data carries no timestamp,

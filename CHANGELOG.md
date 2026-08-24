@@ -12,29 +12,36 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **The image limit now says when part of it is taken up by references nothing
-  can draw.** A document holds a fixed maximum number of images. Editing can
-  leave a reference to a picture attached to text rather than to a picture
-  element. Such a reference still occupied one of the slots while exporting
-  nothing and appearing in none of the export buckets, so the limit could be
-  reached with visibly fewer pictures in the document and no explanation for
-  it. The message now says how many of the slots are held that way.
+- **The image limit now says how much room removing the references nothing can
+  draw would give you back.** A document holds a fixed maximum number of
+  images. Editing can leave a reference to a picture attached to text rather
+  than to a picture element. Such a reference still occupied one of the slots
+  while exporting nothing and appearing in none of the export buckets, so the
+  limit could be reached with visibly fewer pictures in the document and no
+  explanation for it. The message now names the limit and says how many more
+  images could be added once those references are gone — the number that
+  answers "what do I do about it", rather than a count of the references
+  themselves, which could exceed the limit and could include references whose
+  removal frees nothing.
 
 ### Internal
 
 - The Word and PowerPoint files a document exports are now checked against a
   committed list of the parts each package must contain, in order
-  (`docs/baselines/ooxml-parts.json`), across three subjects: the portrait
-  `.docx`, the landscape `.docx` the export path actually produces, and the
-  `.pptx`. A failure names the offending part. The check also reads the live
-  package's `[Content_Types].xml`, which is the one assertion that still
-  objects after somebody has regenerated the baseline. Regenerating is
+  (`docs/baselines/ooxml-parts.json`), across three subjects: the `.docx` in
+  both page orientations the builder emits — portrait, which the document
+  export path asks for, and landscape, which the workspace exporter takes by
+  default — and the `.pptx`. A failure names the offending part.
+  Three of the check's assertions hold still while the baseline moves — the
+  spelled-out part lists, the no-media-part filter, and a read of the live
+  package's `[Content_Types].xml`, which is the only one of the three that can
+  see a regeneration that changed a part's CONTENT alone. Regenerating is
   `npm run ooxml:manifest` and deliberately nothing else — there is no
   `vitest -u` path to it. Closes `docs/open-followups.md` §216.
 - The zip builder takes an optional modification date, so the archive container
   itself is testable at all. The default is unchanged, so every archive the app
   produces is byte-for-byte what it was.
-- The three patterns that recognise an image reference in stored text were
+- The three regexes that recognise an image reference in stored text were
   deliberately **not** merged — each is correct on its own terms. Their
   differences, and the load-path ordering that makes the divergence safe, are
   now pinned by tests. Closes §218.

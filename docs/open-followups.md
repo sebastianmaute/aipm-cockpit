@@ -14283,14 +14283,33 @@ covers the MEDIA-FREE packages only. Every package this entry is about carries m
 BASELINE reaches its bytes, and the §219 manual pass remains the prerequisite. THIS ENTRY STAYS
 OPEN.
 
-★ **"Nothing gates its bytes" was the earlier wording here and it overstated.** `grep -rln
-unzipBytes src` finds three test files that DO unzip a media-bearing package and assert over it —
+★ **"Nothing gates its bytes" was the earlier wording here and it overstated.** FIVE test files DO
+unzip a media-bearing package and assert over it. At the RENDERER level:
 `doc-render-docx.test.ts` (the media part against the source PNG, byte for byte, plus the media
 path list), `doc-render-pptx.test.ts` (`ppt/media/image1.png` + `image2.png` and the rels targets
 that resolve onto them) and `document-download.test.ts` (a media part's length on a docx the
-download surface produced). They are hand-written assertions, not a baseline, and none of them can
+download surface produced). At the BUILDER level: `ooxml-docx-primitives.test.ts` (byte-compares
+`word/media/image1.png`, and in sibling tests pins the
+`<Default Extension="png" ContentType="image/png"/>` entry, the `Target="media/image1.png"`
+relationship and the once-only extension declaration) and `ooxml-pptx-primitives.test.ts`
+(byte-compares `ppt/media/image1.png` and pins the per-slide rels target). They are hand-written
+assertions, not a baseline, and none of them can
 answer the question this entry is blocked on: whether Word, Pages and PowerPoint accept the package
 once the part and shape counters are split. That is §219, and it is still the prerequisite.
+
+★★ **CORRECTED 2026-08-24 — the paragraph above said THREE and cited `grep -rln unzipBytes src` as
+finding the population. BOTH halves were wrong.** That grep returns ELEVEN files: it also catches
+`src/test/unzip-bytes.ts`, that helper's own test, `zip.test.ts`, the media-FREE manifest gate
+(§216) and `document-export-assets.ts` itself — so it never answered the sentence it was attached
+to. And the builder pair was simply omitted. The wording THREE replaced had excluded that pair by a
+QUALIFIER ("nothing outside each builder's own unit test"); the fix round dropped the qualifier and
+substituted a flat count, trading a wrong-but-qualified claim for a wrong-and-unqualified one that
+under-reported existing coverage by two. There is no one-line grep for "unzips a package that HAS
+media" — `grep -rln 'word/media/\|ppt/media/' src --include=*.test.ts` comes closest and still
+returns seven, two of which (`doc-render-pptx-slides.test.ts`, which asserts on a `MediaPart.path`
+and never unzips, and the manifest gate, which matches on a COMMENT) are not in the population.
+★ None of this weakens the conclusion above: what is missing is still a BASELINE, and
+`docs/baselines/` still holds only the media-free `ooxml-parts.json`.
 
 ## 218. `<span data-asset-id>` counts against `ASSET_MAX_PER_DOCUMENT` but is invisible to the export resolver — CLOSED 2026-08-24
 
@@ -15300,3 +15319,68 @@ Not reachable today — `workspace-panels.tsx` always builds the bag and its `pr
 caller that omits the bag entirely, i.e. tests. But a future caller passing `""` would query
 `project_id = ""`, match nothing, and stamp every image in a version preview as missing. Normalising
 the modal the way its siblings already do closes it.
+
+## 231. `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one
+
+**Status:** OPEN. Found by cold review of the 0.257.2 slice, 2026-08-24; both halves reproduced
+before this entry was written. **Both are PRE-EXISTING** — `assetIdsInDocument` has had these
+semantics since it was extracted, and neither is a regression of this branch. They go on the record
+now because 0.257.2 newly RENDERS the consequence: the cap message reports references nothing can
+draw, so a document at the cap for either reason below now shows a user a number derived from them.
+
+The two extractors do not agree, and one of them is quote-blind:
+
+```bash
+grep -n "ASSET_ID_RE = " src/app/document-asset-usage.ts
+grep -n -A 2 "export const IMG_TAG_RE" src/app/document-export-assets.ts
+```
+
+`ASSET_ID_RE` is a bare `/data-asset-id="([^"]*)"/g` over `block.html`. `IMG_TAG_RE` skips quoted
+attribute values (`(?:[^>"']|"[^"]*"|'[^']*')*`) and anchors on `<img`. Running BOTH over three
+document fragments — measured, not reasoned:
+
+```
+alt-first | ASSET_ID_RE: [" data-asset-id="] | IMG_TAG_RE: ["real"]
+id-first  | ASSET_ID_RE: ["real"]            | IMG_TAG_RE: ["real"]
+text-node | ASSET_ID_RE: ["abc"]             | IMG_TAG_RE: []
+```
+
+where `alt-first` is `<img alt="data-asset-id=" data-asset-id="real">`, `id-first` is the same two
+attributes in the other order, and `text-node` is `<p>data-asset-id="abc"</p>`.
+
+★★ **HALF ONE — TYPED PROSE COUNTS AGAINST THE CAP, and this refutes a claim that has been sitting
+in `document-asset-usage.ts`'s own header.** That header said a literal `data-asset-id="…"` in TEXT
+content "would already have been escaped on the way in" by `sanitizeDocumentHtml`. It is not:
+`<p>data-asset-id="abc"</p>` round-trips that sanitizer **byte-identical**. HTML text-node
+serialization escapes `&`, `<` and `>` and never `"`, so there is nothing for it to change. A user
+who types the attribute's spelling into a paragraph spends a slot, and `undrawable` reports it —
+truthfully, since nothing can draw it, but the user has no way to connect the message to the
+sentence they wrote.
+
+★★★ **HALF TWO IS ATTRIBUTE ORDER, AND THE BRIEF THAT PROMPTED THIS ENTRY HAD THE SHAPE THE WRONG
+WAY ROUND.** The bleed is real: an asset name is free text, `htmlEscape` escapes `& < > "` and NOT
+`=`, so a name of `data-asset-id=` survives into an `alt`, the document sanitizer keeps it verbatim,
+and the regex then matches the alt's trailing `=` against the REAL attribute's opening quote. `all`
+holds the phantom `" data-asset-id="`, the real id is absent — it spends no cap slot and can be
+re-inserted, defeating dedup. But that needs the crafted attribute to PRECEDE `data-asset-id`, and
+the only writer in the app puts the id FIRST:
+
+```bash
+grep -rn 'data-asset-id="' src/app --include=*.tsx | grep -v "\.test\."
+```
+
+returns one construction site (`documents-asset-section.tsx`), spelling
+`<img data-asset-id="…" alt="…">`. In that order the regex consumes the real id first and the
+trailing `data-asset-id="` inside the alt finds no closing quote before `>`, so the extraction is
+CLEAN — the `id-first` row above. So the upload/rename/insert path cannot reach this; an imported
+or hand-edited workspace, an AI write, or any future writer that orders attributes differently can.
+Do not record this as "renaming an asset breaks the cap" — it was measured, and it does not.
+
+★ **`IMG_TAG_RE` is right on all three rows**, so `documentAssetIds` and the export buckets are
+unaffected by either half. The divergence is entirely on the cap/usage side.
+
+**Shape of the fix:** make `ASSET_ID_RE` quote-aware the way `IMG_TAG_RE` already is, or route the
+cap through a parse rather than a regex. ★★ Neither is free and §218 is the reason: the two
+extractors are deliberately NOT merged, and the cap's tag-AGNOSTIC reading is load-bearing for
+deletion safety. Widening `ASSET_ID_RE` toward `<img>`-only would silently change what the cap
+counts and what "used in N documents" means. Read §218's table before touching either.
