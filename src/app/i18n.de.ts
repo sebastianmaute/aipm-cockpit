@@ -252,6 +252,7 @@ export const de: Record<TranslationKey, string> = {
   diagnosticsUnitWarnOne: "Warnung",
   diagnosticsUnitWarnMany: "Warnungen",
   diagnosticsUnitInfo: "Infos",
+  diagnosticsSplitPairs: "Aufgaben mit inkonsistenten Abschlussdaten: {0}",
   diagnosticsNewestError: "neuester Fehler {0}",
   diagnosticsLevelError: "Fehler",
   diagnosticsLevelWarn: "Warnungen",

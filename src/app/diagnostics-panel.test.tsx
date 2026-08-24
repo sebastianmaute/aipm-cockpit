@@ -103,4 +103,22 @@ describe("DiagnosticsPanel", () => {
     );
     expect(field.value).toBe("");
   });
+
+  it("shows the split-pair count when one is supplied", () => {
+    render(<DiagnosticsPanel lang="en-US" splitPairs={3} />);
+    expect(screen.getByText(/inconsistent completion data: 3/i)).toBeInTheDocument();
+  });
+
+  it("shows a zero count as a positive signal", () => {
+    // 0 is meaningful in a SUPPORT panel: it distinguishes "measured, clean"
+    // from "not measured", which is what the recovery mount below looks like.
+    render(<DiagnosticsPanel lang="en-US" splitPairs={0} />);
+    expect(screen.getByText(/inconsistent completion data: 0/i)).toBeInTheDocument();
+  });
+
+  it("omits the row entirely when no count is supplied", () => {
+    // The recovery mount renders the panel with no workspace behind it.
+    render(<DiagnosticsPanel lang="en-US" />);
+    expect(screen.queryByText(/inconsistent completion data/i)).not.toBeInTheDocument();
+  });
 });
