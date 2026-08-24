@@ -34,24 +34,34 @@ export function migrateTask(task: Task): Task {
 
 /** Force the pair `status === "Done"` ⟺ `completedDate` set by trusting the DATE.
  *
- *  - a `completedDate` present  ⇒ `status` becomes "Done"
+ *  - a `completedDate` on a `Cancelled` row ⇒ the DATE is cleared (see below)
+ *  - a `completedDate` on any other non-Done row ⇒ `status` becomes "Done"
  *  - `status === "Done"` with no date ⇒ `status` becomes DEFAULT_TASK_STATUS
  *  - anything else is returned BY REFERENCE, unchanged
  *
- *  Invents no date and deletes none. Emptiness is `!!completedDate`, the same
- *  test `isTaskDelivered` (task-closed.ts) uses — defining "has a date" twice
- *  is how the two would drift.
+ *  Invents no date, and deletes one in exactly ONE case: the `Cancelled` row
+ *  above, where the STATUS wins because Cancelled is CLOSED but never DELIVERED
+ *  (task-closed.ts). Emptiness is `!!completedDate`, the same test
+ *  `isTaskDelivered` (task-closed.ts) uses — defining "has a date" twice is how
+ *  the two would drift.
  *
- *  ★★★ FOR SEED / IMPORT DATA ONLY. Today that is `sanitizeSeedTask`
- *  (templates.ts), whose two reads of the pair are independent. Do NOT call it
- *  on either Jira path: Jira's status comes from `statusCategory`, not from
- *  date presence, so this would rewrite a reopened issue's genuine
- *  "In Progress" into "To Do" purely because it carries no resolution date.
- *  Those paths derive both fields from one `statusKey` read and need nothing
- *  from here (AGENTS.md, task status model).
- *  ★ That reason is about the REMOTE side, which has a `statusCategory`. The
- *  conflict merge's LOCAL arm does not; it is a separate question, weighed and
- *  DEFERRED in open-followups §227 — do not act on it without the user.
+ *  Does NOT validate `status`: an absent/invalid one is returned BY REFERENCE,
+ *  so compose it with `migrateTask` (either order), as `sanitizeSeedTask`
+ *  (templates.ts) does.
+ *
+ *  ★★★ FOR SEED / IMPORT DATA ONLY, and the reason is NOT the one an earlier
+ *  revision gave. This is a strict NO-OP on every Jira patch, so routing either
+ *  Jira path through it would buy nothing rather than protect anything: it
+ *  writes `status` in only two cases (a date on a row that is neither Done nor
+ *  Cancelled, and `Done` with no date), and `issueToTaskFields` derives BOTH
+ *  fields from ONE `statusKey` read, so a Jira patch always pairs a truthy
+ *  `completedDate` with `status === "Done"` and neither case can arise. The
+ *  old reason — that it "would rewrite a reopened issue's genuine 'In Progress'
+ *  into 'To Do'" — is FALSE: that input falls through both guards. The hazard
+ *  that IS real runs the OTHER way: where a stale local date survives beside a
+ *  non-Done status, date-wins promotes the row to Done. That is the
+ *  open-followups §227 local-arm question, and it is why the prohibition still
+ *  stands.
  *
  *  ★★ Not a load-path repair either. `migrateTask` runs on all six load paths
  *  and only backfills an ABSENT/INVALID status; teaching IT to reconcile would
@@ -59,7 +69,13 @@ export function migrateTask(task: Task): Task {
  *  to Jira rows, where it is wrong. */
 export function reconcileStatusFromDate(task: Task): Task {
   if (task.completedDate) {
-    return task.status === "Done" ? task : { ...task, status: "Done" };
+    if (task.status === "Done") return task;
+    // Cancelled is CLOSED but never DELIVERED (task-closed.ts). Promoting it to
+    // Done would turn an explicit human decision into delivered work, so for
+    // this ONE status the STATUS wins and the stray date is cleared instead —
+    // matching applyStatusChange, which writes "" for every non-Done status.
+    if (task.status === "Cancelled") return { ...task, completedDate: "" };
+    return { ...task, status: "Done" };
   }
   if (task.status === "Done") {
     return { ...task, status: DEFAULT_TASK_STATUS };

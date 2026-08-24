@@ -162,13 +162,23 @@ describe("reconcileStatusFromDate", () => {
     expect(out.status).toBe("To Do");
   });
 
-  it("promotes a dated Cancelled row to Done — the date wins, and a real date is never deleted", () => {
-    // Cancelled is terminal-but-NOT-delivered (task-closed.ts), so a Cancelled row
-    // carrying a completedDate violates the pair invariant and must be repaired.
-    // Date-wins is the approved rule: promote, never blank the date.
-    const out = reconcileStatusFromDate(base({ status: "Cancelled", completedDate: "2026-03-04" }));
-    expect(out.status).toBe("Done");
-    expect(out.completedDate).toBe("2026-03-04");
+  it("clears a stray date on a Cancelled row — the STATUS wins, not the date", () => {
+    // Cancelled is CLOSED but never DELIVERED (task-closed.ts), so promoting it
+    // to Done would silently turn an explicit human decision into delivered
+    // work. For this ONE status the date is the stray value, and it is cleared
+    // to "" — the same blank applyStatusChange writes for every non-Done status.
+    const t = base({ status: "Cancelled", completedDate: "2026-03-04" });
+    const out = reconcileStatusFromDate(t);
+    expect(out.status).toBe("Cancelled");
+    expect(out.completedDate).toBe("");
+    expect(t.completedDate).toBe("2026-03-04"); // argument not mutated
+  });
+
+  it("leaves an undated Cancelled row alone, BY REFERENCE", () => {
+    // Guards against clearing outside the date branch: a Cancelled row that is
+    // already consistent must not be churned into a fresh object.
+    const t = base({ status: "Cancelled" });
+    expect(reconcileStatusFromDate(t)).toBe(t);
   });
 
   it("does not mutate its argument", () => {
