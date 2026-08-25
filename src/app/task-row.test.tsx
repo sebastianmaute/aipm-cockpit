@@ -880,6 +880,21 @@ describe("TaskActions Send inquiry", () => {
       </table>,
     );
 
+  // ★★★ RECORDED, NOT FIXED — a genuine, pre-existing WCAG 2.4.6 collision,
+  // and a bigger one than this single control: `TaskActionsImpl` derives
+  // EVERY accessible name in this row (Send inquiry, the ⋮ "More actions"
+  // menu, and — in `TaskRow` itself — the field-edit buttons, inline AI edit,
+  // task-name button, assignee and priority controls, task-row.tsx:281-702)
+  // from `task.taskName` alone, with no per-render disambiguation. Two same-
+  // named tasks in the same table collide on ALL of them at once — confirmed
+  // for Send inquiry + More actions (both x2) by seeding a twin here. Fixing
+  // it means threading a row-token map from wherever the task list is mapped
+  // (tasks-panel.tsx) down through `RowContextProvider`/`TaskRow`'s props —
+  // real restructuring of the table's data flow, not a local qualifier swap,
+  // and the single largest surface found in this bucket (raid-panel-rows.tsx
+  // and task-kanban-card.tsx each had 2-3 colliding controls; this file has
+  // 10+ call sites on the same pattern). Kept as the ORIGINAL single-row
+  // test; seeding a twin here would only pin the bug in place.
   test("renders a row-unique Send inquiry button for an open task", () => {
     const ctx = makeContext();
     const task = makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" });

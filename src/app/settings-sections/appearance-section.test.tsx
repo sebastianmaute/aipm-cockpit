@@ -6,6 +6,7 @@ import { STYLE_STORAGE_KEY } from "../style-ci";
 import { defaultSettings, type Settings } from "../settings-types";
 import { addScheme, loadSchemes, setActive } from "../color-schemes";
 import { t } from "../i18n";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 function renderSection(
   overrides: Partial<Settings> = {},
@@ -166,8 +167,17 @@ describe("AppearanceSection scheme control", () => {
   });
 
   it("offers a start-window logo row with a row-unique remove label", () => {
+    // Seed a SECOND branding image alongside startLogo (logo) so both Remove
+    // buttons render together — a fixture carrying only one of the three image
+    // rows can never exercise the "row-unique" claim below, since a single
+    // Remove button cannot collide with itself.
     renderSection(
-      { branding: { startLogo: "data:image/png;base64,QUJD" } },
+      {
+        branding: {
+          logo: "data:image/png;base64,QUJD",
+          startLogo: "data:image/png;base64,QUJD",
+        },
+      },
       "custom", // fresh → Harbor (built-in) active, so the global branding block shows
     );
     expect(
@@ -180,6 +190,12 @@ describe("AppearanceSection scheme control", () => {
         name: `${t("en-US", "remove")} – ${t("en-US", "brandingStartLogo")}`,
       }),
     ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", {
+        name: `${t("en-US", "remove")} – ${t("en-US", "brandingLogo")}`,
+      }),
+    ).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("keeps the start-logo row reachable under a USER scheme, where the other four hide", () => {

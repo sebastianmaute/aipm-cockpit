@@ -799,10 +799,18 @@ describe("RaidPanel — inline Ask-Claude edit (SP2)", () => {
 
   it("renders a row-unique ✨ button when onAiEdit + aiEditEnabled(true) are given", () => {
     const onAiEdit = vi.fn();
-    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" })];
+    const item = makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" });
+    const twin = makeRaidItem({ id: 2, title: "Vendor risk", severity: "High" });
+    const raid = [item, twin];
     renderPanel(makeProps({ raid, onAiEdit, aiEditEnabled: () => true }));
-    fireEvent.click(screen.getByRole("button", { name: aiLabel }));
+    // Two items share "Vendor risk" — the accessible name is disambiguated
+    // with an occurrence token ("(1)"/"(2)"), so match by prefix rather than
+    // the bare `aiLabel` (which only holds for a single, uncontested item).
+    const buttons = screen.getAllByRole("button", { name: new RegExp(`^${aiLabel} \\(\\d\\)$`) });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]);
     expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("hides the ✨ button when aiEditEnabled returns false", () => {
@@ -905,11 +913,18 @@ describe("RaidPanel send-inquiry (owner)", () => {
   it("renders a row-unique Send inquiry button for an active item and calls onSendInquiry with that item", () => {
     const onSendInquiry = vi.fn();
     const item = makeRaidItem({ id: 7, title: "Capacity risk", severity: "High", owner: "Alice Owner", ownerEmail: "alice@test.com" });
-    renderPanel(makeProps({ raid: [item], onSendInquiry }));
-    const btn = screen.getByRole("button", { name: `${t("en-US", "sendInquiry")} – Capacity risk` });
-    fireEvent.click(btn);
+    const twin = makeRaidItem({ id: 8, title: "Capacity risk", severity: "High", owner: "Bob Owner", ownerEmail: "bob@test.com" });
+    renderPanel(makeProps({ raid: [item, twin], onSendInquiry }));
+    // Two items share "Capacity risk" — the accessible name is disambiguated
+    // with an occurrence token ("(1)"/"(2)").
+    const btns = screen.getAllByRole("button", {
+      name: new RegExp(`^${t("en-US", "sendInquiry")} – Capacity risk \\(\\d\\)$`),
+    });
+    expect(btns).toHaveLength(2);
+    fireEvent.click(btns[0]);
     expect(onSendInquiry).toHaveBeenCalledTimes(1);
     expect(onSendInquiry).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("hides the Send inquiry button for a closed (review-inactive) item", () => {

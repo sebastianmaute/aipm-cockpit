@@ -20,7 +20,7 @@ import { ColumnResizeHandle } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
-import { rowLabel } from "./row-tokens";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { PanelSort } from "./panel-views";
@@ -169,7 +169,16 @@ export function RaidTable({
             </td>
           </tr>
         )}
-        {visible.map((item) => {
+        {(() => {
+          // Ask-Claude / Send-inquiry / Notes-log all key their accessible name
+          // on item.title ALONE — two items sharing a title collided (WCAG
+          // 2.4.6), since none of the three component contracts is actually
+          // enforced by its own props. One token map, built once over the
+          // rendered rows, disambiguates all three the same way the trailing
+          // Add button already does.
+          const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
+          return visible.map((item) => {
+          const rowTitleToken = titleTokens.get(item.id)!;
           const rag = severityRag(item.severity);
           const terminal = isTerminalStatus(item.status, item.category);
           return (
@@ -217,7 +226,7 @@ export function RaidTable({
                 <span className="inline-flex items-center gap-1">
                   <span>{item.title}</span>
                   {onAiEdit && aiEditEnabled?.(item) && (
-                    <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
+                    <InlineAiEditButton lang={lang} label={rowTitleToken} onClick={() => onAiEdit(item)} />
                   )}
                   <DocumentBadge
                     lang={lang}
@@ -256,7 +265,7 @@ export function RaidTable({
                         e.stopPropagation();
                         onSendInquiry(item);
                       }}
-                      aria-label={`${t(lang, "sendInquiry")} – ${item.title}`}
+                      aria-label={rowLabel(t(lang, "sendInquiry"), rowTitleToken)}
                       className="text-xs"
                     >
                       {t(lang, "sendInquiry")}
@@ -343,7 +352,7 @@ export function RaidTable({
               <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                 <NotesBadgeButton
                   count={item.noteLog?.length ?? 0}
-                  entityName={item.title}
+                  entityName={rowTitleToken}
                   lang={lang}
                   onClick={() => onOpenNotes(item.id)}
                 />
@@ -351,7 +360,8 @@ export function RaidTable({
               )}
             </tr>
           );
-        })}
+          });
+        })()}
         <tr>
           <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length}>
             <button
