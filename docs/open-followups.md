@@ -3,21 +3,30 @@
 _Opened 2026-07-27, at the close of 0.203.0 "Czerneda". Self-contained: it absorbed the R5 calendar
 follow-ups, the 49-finding audit campaign's remainder, and the 2026-06 refactor review._
 
-Cross-release. Everything here is **open** — found and deliberately deferred, each entry carrying
-enough detail to resume without re-deriving the finding. Closed items move to "Decided" or
-"Provenance" below, not to a separate document.
+Cross-release. Entries are found and deliberately deferred, each carrying enough detail to resume
+without re-deriving the finding. ★★ They are NOT all open, and this paragraph claimed they were: an
+entry that closes STAYS WHERE IT IS, marked closed in place, so the register doubles as the record of
+what closed and why. "Decided" holds proposals rejected outright and "Provenance" records where the
+items came from and which numbers were retired — neither is where a closed entry goes. Nothing moves
+to a separate document.
 
 ★ **This file has no dependencies outside the repo — all three of its source documents are gone.**
-`docs/refactor-review-2026-06-19.md` was git-tracked and is recoverable with
-`git show HEAD:docs/refactor-review-2026-06-19.md`. `superpowers/r5-calendar-followups.md` and
+`docs/refactor-review-2026-06-19.md` was git-tracked and is recoverable — but NOT from `HEAD`,
+which has not carried it since it was deleted, so the recipe that stood here exits 128. Ask for the
+commit BEFORE the deletion:
+`git show "$(git rev-list -1 HEAD -- docs/refactor-review-2026-06-19.md)^:docs/refactor-review-2026-06-19.md"`.
+`superpowers/r5-calendar-followups.md` and
 `superpowers/audit-campaign-remaining.md` were gitignored, so they were never in the repo and are
 recoverable only from the local archive described below. Everything worth keeping from all three is
 reproduced here — nothing in this file requires reading them, and each fact was re-verified against
 0.203.0 on the way in rather than copied forward.
 
 ★★★ **`docs/superpowers/` IS TRACKED AS OF 2026-08-21 (0.253.0), AND MANY ENTRIES BELOW STILL SAY
-OTHERWISE.** The ignore rule was dropped and the whole corpus committed — 218 specs and 238 plans,
-298 of them recovered from zip archives that were their only copy. The rule that stood here said
+OTHERWISE.** The ignore rule was dropped and the whole corpus committed, 298 of the files recovered
+from zip archives that were their only copy. ★ No corpus census is quoted here any more: the two
+figures that stood in this sentence (218 specs, 238 plans) were both low within days, and every slice
+adds one of each. Derive today's with
+`ls docs/superpowers/specs | wc -l; ls docs/superpowers/plans | wc -l`. The rule that stood here said
 never to link into that tree, because such a link was "dead for everyone but the machine that wrote
 it". Links into it now resolve for everyone, so that prohibition is retired.
 ★★ **The two documents named above are NOT among the recovered set.** `r5-calendar-followups.md` and
@@ -28,15 +37,23 @@ date describe the tree as gitignored, local-only, or invisible to anyone else's 
 words are now false wherever they appear. §44 and §113 are the sharpest cases: each exists BECAUSE
 the design it points at was unreadable outside one machine, and that premise has changed — neither
 entry has been rewritten. Read "gitignored" anywhere below as a claim about the past, and verify it
-before relying on it. Reproduce today's remaining count with:
+before relying on it. Find today's surface with:
 
 ```bash
-grep -cniE "superpowers.{0,80}(gitignor|local-only|one machine|not in the repo)" docs/open-followups.md
+grep -niE "gitignor|local-only|only on this machine|not in the repo|one machine" docs/open-followups.md
 ```
 
-★ That grep matches THIS note too, because the note quotes the words it hunts — the same
-self-matching property recorded elsewhere in this file. `docs/work-inventory.md` records what the
-recovery found and what remains designed-but-unbuilt.
+★★★ **READ the hits; do NOT bulk-edit them, and do NOT trust the narrower grep this note used to
+carry.** That one required `superpowers` within 80 characters of the word, so it missed §44 and
+§113 outright — the two entries this very note calls the sharpest cases — because both say
+"gitignored" with no `superpowers` anywhere near. ★★ Widened, it also matches claims that are still
+TRUE and must survive a sweep: the two lost source documents above, and the archive zip below, whose
+path really is ignored (`git check-ignore -v <path>` exits 0 on it). ★ And it matches THIS note,
+because the note quotes the words it hunts — the same self-matching property recorded elsewhere in
+this file. ★★ No count is quoted, before or after: every hit is a judgement call, and the narrow form
+was matching the header line that quoted its own result, so replacing that line moved the number it
+reported. `docs/work-inventory.md` records what the recovery found and what remains
+designed-but-unbuilt.
 
 **Deliberately NOT absorbed:** [`tech-debt-register.md`](tech-debt-register.md) is a different
 artifact class — owner-assigned, quarterly-reviewed, next sweep **2026-10-03**. Copying TD-1/2/3/5/6/7
@@ -44,8 +61,9 @@ here would create two masters and guarantee drift. It is linked, not merged; §2
 where they touch.
 
 **Doc cleanup 2026-07-27 — what was deleted, and where its content went.** Four superseded documents
-were removed after their live content was extracted here. All four were git-tracked, so
-`git show HEAD:<path>` restores any of them:
+were removed after their live content was extracted here. All four were git-tracked, so any of them
+can be restored — again from the commit before the deletion, NOT from `HEAD`, which stopped carrying
+them at that commit: `git show "$(git rev-list -1 HEAD -- <path>)^:<path>"`:
 
 | deleted | why | content now lives |
 |---|---|---|
@@ -54,12 +72,25 @@ were removed after their live content was extracted here. All four were git-trac
 | `docs/baselines/deadcode-2026-07.md` | every AMBIGUOUS hit resolved false-positive in Phase 2 Task 4; the one real deletion is made | nothing outstanding |
 | `docs/baselines/knip-raw.txt` | raw tool output backing the above | nothing outstanding |
 
-`docs/baselines/` keeps **`file-sizes.json`** and **`jscpd-2026-07.json`**. ★ Only the FIRST is a
-live gate input (`scripts/check-file-sizes.mjs:6` reads it by name). The jscpd file is a retained
-July-2026 report, kept for comparison and read by NOTHING — `npm run dup:check` passes only
-`--threshold` and there is no `.jscpd.json`. Keep both files; do not claim the duplication gate
-consults one. Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced
-from nowhere (35 kept — 3 linked from AGENTS.md, 30 from the memory files, 2 git-tracked). All 331
+`docs/baselines/` kept both of the baselines that survived, and has gained several since. ★★ No
+census of that directory is kept here: the list that stood in this spot named TWO files and called
+only the first a live gate input, and it was wrong in both halves. Derive the directory and each
+file's readers instead —
+
+```bash
+ls docs/baselines/
+grep -rn "docs/baselines/" scripts src .gitlab-ci.yml package.json
+```
+
+— and treat any file that no script or test names as NOT a gate input. Two are not:
+`jscpd-2026-07.json` is a retained July-2026 report, kept for comparison and read by NOTHING
+(`npm run dup:check` passes only `--threshold` and there is no `.jscpd.json`), and
+`followup-claims.json` is a reporting SNAPSHOT that this register's own
+`scripts/check-followup-claims.mjs` writes rather than reads — its own `note` field says so. Keep
+every file; do not claim the duplication gate consults one.
+
+Also removed: **296 orphaned per-slice `plans/` + `specs/` docs** referenced from nowhere
+(35 kept — 3 linked from AGENTS.md, 30 from the memory files, 2 git-tracked). All 331
 are archived byte-identical in `docs/superpowers/_archive-slice-docs-2026-07-27.zip`. ★ That archive
 lives under a **gitignored** path, so it exists only on this machine — it is not in the repo and not
 in anyone else's checkout.
@@ -67,11 +98,16 @@ in anyone else's checkout.
 **Swept clean 2026-07-27 — nothing open in these, don't re-read them looking:** the 18-requirement
 multi-surface roadmap (R1–R5 all shipped, there is no R6; its only unshipped line is §4.3b
 `optimize_wbs` = item 3 below — its spec is `docs/superpowers/specs/2026-07-24-multi-surface-feature-roadmap-design.md`,
-gitignored and local-only) · `docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` ·
+which the 0.253.0 corpus commit made tracked, so that link resolves for everyone) ·
+`docs/RUNBOOK.md` · `docs/DESIGN-TOKENS.md` · `docs/architecture/*.md` ·
 `docs/security/threat-model.md` (every residual carries an acceptance, no live action).
 
-★ `docs/CODEMAPS/*` are **stale, not obsolete** — generated 2026-06-10/11/26, roughly 50 releases
-behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
+★★ `docs/CODEMAPS/*` carry their OWN provenance — each file's first line is a
+`<!-- Generated: … | App <version> … -->` header. Read that, never this paragraph: the dates it used
+to assert ("generated 2026-06-10/11/26, roughly 50 releases behind") were overtaken by a regeneration
+and a later count re-verification, and it went on telling readers the files were ~50 releases stale
+after they had stopped being so. `head -1 docs/CODEMAPS/*.md` prints the real provenance; regenerate
+with `/ecc:update-codemaps` when it trails `APP_VERSION` in `src/app/version.ts`.
 
 | # | Item | Origin | Size | State |
 |---|---|---|---|---|
@@ -222,8 +258,20 @@ re-run the command in this paragraph and rewrite every number it prints.** Nothi
 
 ★ **The numbers are stable identifiers and closed ones are never reused** — hence the gaps at 17–20,
 23 and 25–27, all closed by 0.210.0 "Larbalestier" (see Provenance). They are cited from outside this
-file: `rich-text-plain.ts:96` points at §24, AGENTS.md at §22 and §28, and `docs/CODEMAPS/*` at §4,
-§7 B4, §8–§10 and §13. Renumbering silently redirects every one of those.
+file, in source comments and across the doc set, and renumbering silently redirects every one of
+them. ★★ The enumeration that stood here had rotted: it credited AGENTS.md with §22 and §28, and
+AGENTS.md cites NEITHER today — the 2026-08-04 doc split carried those mentions into
+`docs/AGENTS/` and `docs/CODEMAPS/`, the same split-rot this file records elsewhere. Its
+`§8–§10` range was over-broad too — nothing cites §9. Derive the live citing set rather than
+trusting a list:
+
+```bash
+grep -rn "§[0-9]" --include="*.ts" --include="*.tsx" --include="*.md" \
+  --exclude-dir=node_modules --exclude-dir=superpowers --exclude=open-followups.md src docs AGENTS.md
+```
+
+★ Read the hits: `§` is also how a source comment cites an RFC, so not every match is a reference
+to this register.
 
 ★ `48-was` was a duplicate left behind when §48 closed; it was folded into §48 on 2026-08-05 and the label is retired. `48` keeps its meaning.
 
