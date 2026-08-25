@@ -46,6 +46,13 @@ import { IMG_TAG_RE } from "./document-export-assets";
  *   ending in `data-asset-id=` produced a phantom id and hid the real one, and
  *   a text node spelling the attribute spent a cap slot (open-followups §231).
  *
+ *  ★★ THE ALTERNATION IS BYTE-IDENTICAL TO `IMG_TAG_RE`'S; THE QUANTIFIER IS
+ *   NOT, and the difference is load-bearing. This one is LAZY (`*?`) and
+ *   `IMG_TAG_RE`'s is GREEDY (`*`), so given a DUPLICATED `data-asset-id` the
+ *   two patterns stop on different occurrences — the measured divergence
+ *   recorded on `AssetRefs` below. Do not "align" one to the other without
+ *   reading that note: greedy here would change which id the cap counts.
+ *
  *  ★ Double-quote-only and case-sensitive on the ATTRIBUTE name, both
  *   deliberate: DOMPurify re-serialises every attribute double-quoted on load,
  *   so by the time this runs there is nothing else to match. Tag-name case is
@@ -118,24 +125,32 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  ★★★ `drawable` IS NOT A SUBSET OF `all`, SO THESE ARE NOT THREE VIEWS OF ONE
  *  SET. The three fields read as a partition — `all`, the drawable part of it,
  *  and the rest — and only `undrawable ⊆ all` is guaranteed, because that one
- *  is BUILT by filtering `all`. `all` and `drawable` are computed by two
- *  DIFFERENT patterns over raw HTML: both step over quoted attribute VALUES
- *  now, but they live in separate files, differ in what they anchor on, and
- *  nothing in the code makes them agree.
- *  Measured 2026-08-25: no known input violates it any more —
- *  `<img alt="data-asset-id=" data-asset-id="real">` used to yield
- *  `all` = [`" data-asset-id="`] with the real id ABSENT, and now yields
- *  `["real"]` in both (open-followups §231, closed). The guarantee is still
- *  NOT structural: `all` and `drawable` are computed by two DIFFERENT patterns
- *  over raw HTML, so treat a subset relationship as a measured fact that a
- *  future pattern change can break, never as an invariant.
+ *  is BUILT by filtering `all`. `all` and `drawable` come from two DIFFERENT
+ *  patterns in two different files, and nothing in the code makes them agree.
+ *
+ *  Measured 2026-08-25, against the regex literals read out of both source
+ *  files. The crafted-`alt` violation is GONE:
+ *  `<img alt="data-asset-id=" data-asset-id="real">` used to yield `all` =
+ *  [`" data-asset-id="`] with the real id ABSENT, and now yields `["real"]` in
+ *  both (open-followups §231, closed). A DIFFERENT violation survives, and it
+ *  is why the headline above still stands: on a DUPLICATED attribute,
+ *  `<img data-asset-id="a" data-asset-id="b">` yields `all` = ["a"] and
+ *  `drawable` = ["b"], because `ASSET_ID_RE` is LAZY and stops at the FIRST
+ *  occurrence while `IMG_TAG_RE` is GREEDY and backtracks to the LAST. A full
+ *  load collapses that duplicate to `data-asset-id="a"` and the two sets then
+ *  agree, so it is reachable ONLY by scanning UN-loaded HTML — which the tests
+ *  in this module's test file do. Treat the subset relationship as a measured
+ *  fact about one input, never as an invariant.
  *
  *  ★★ CONSEQUENCE FOR CALLERS: anything subtracting these sizes must subtract
  *  `undrawable` from `all` (never `drawable` from `all`, which can go negative).
  *  The cap message in `documents-asset-section.tsx` depends on exactly that.
- *  Both relationships are pinned in this module's test file, by "no longer lets
- *  a crafted alt hide the real id from `all`" and "keeps `undrawable` a subset
- *  of `all` by construction". */
+ *  `undrawable ⊆ all` is pinned by "keeps `undrawable` a subset of `all` by
+ *  construction" in this module's test file.
+ *
+ *  ★ The duplicate-attribute divergence above is pinned by NOTHING. It was
+ *  measured by hand and no test holds it, so a later pattern change can widen
+ *  it silently — add a case before relying on either pattern's occurrence. */
 export type AssetRefs = {
   /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
    *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */
