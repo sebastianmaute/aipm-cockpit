@@ -173,8 +173,12 @@ while the script flagged six: the PROPERTY survived and the COUNT did not, which
 written out and the number is not. Read it off the script — `npm run followups:check`. ★★ The script DOES carry
 absence vocabulary — `followup-claims-lib.mjs` builds `REGISTER_ABSENCE_PATTERNS` from the same
 `ABSENCE_MARKERS` the symbols gate uses — so "it has no such notion" would be the wrong lesson. The
-patterns are phrase-shaped and simply did not match these three wordings. Read the entry before
-treating a flag as work; a miss here is a pattern gap, not a rotted claim.
+patterns are phrase-shaped and simply did not match these wordings. ★★★ That said "these THREE
+wordings" until 2026-08-25 — eleven lines under a sentence corrected in the SAME edit from three to
+six, so the stale noun sat inside its own correction and read as freshly verified. When a count
+changes, re-read the WHOLE paragraph for every clause that agreed with the old value; the number and
+the noun rot independently. Read the entry before treating a flag as work; a miss here is a pattern
+gap, not a rotted claim.
 
 ★ It reports false positives on entries that quote filenames as prose rather than citing them —
 two such fragments were the actual cause of two of the flags corrected below, not the resolver gap

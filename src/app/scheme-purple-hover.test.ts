@@ -61,15 +61,20 @@ function assertPurpleHoverAa(label: string, raw: SchemeColorMap, isDark: boolean
   // ★★ `--surface-muted` — the SAME reference `deriveAaVariants` uses, not the
   // plain `--surface` the RAID modal happens to sit on. Two reasons:
   // (1) a guard composited over a LIGHTER backdrop than the code targets is
-  //     looser than the code, so reverting the derivation would slip through in
-  //     some built-in combos, while over the card it catches every one.
-  //     ★★ No fraction or ratio list is quoted here any more. This read "4 of
-  //     the 6 ... it catches all six (six ratios)", and the roster is
-  //     BUILTIN_SCHEMES: four schemes, three of them dark-capable, so SEVEN
-  //     combos — the fraction and the list both predated beacon. The loop
-  //     below emits one `it` per combo and each names its own measured ratio
-  //     in its assertion message, so run the file rather than reading a
-  //     number here.
+  //     looser than the code, so reverting the derivation would slip through
+  //     in built-in combos this guard exists to catch.
+  //     ★★ NO fraction, ratio list, or "catches every one" is claimed here.
+  //     This read "4 of the 6 ... it catches all six (six ratios)": the roster
+  //     is BUILTIN_SCHEMES — four schemes, three of them dark-capable, so SEVEN
+  //     combos — and both the fraction and the six ratios predated beacon,
+  //     whose combo was in neither. The counterfactual has NOT been re-measured
+  //     at seven, so no universal is asserted in its place either.
+  //     ★★ And do NOT say "run the file for the numbers" — an intermediate
+  //     correction did, and it is inoperative: the ratio below is interpolated
+  //     into the expect FAILURE message, so a GREEN run prints none of them.
+  //     Measured 2026-08-25 — --reporter=verbose lists seven it names ("Harbor
+  //     light", "Harbor dark", ...) and not one N.NN:1. Reason (2) below is the
+  //     durable one and needs no measurement at all.
   // (2) it is the harder of the two backdrops, so clearing AA here guarantees
   //     it on `--surface` as well — the module's existing rule for every other
   //     AA variant, and what makes the token safe if one of these chips is ever

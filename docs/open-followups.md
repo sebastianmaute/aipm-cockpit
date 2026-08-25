@@ -17056,21 +17056,39 @@ on restore (see below). Removing them restored the pre-branch behaviour without 
 Making them genuinely restorable needs `kind: "list"`, and that is a real design task, not a
 one-line spec change.
 
-★★ **The id plumbing is the design question, and it is NOT uniform across the five.**
-`VersionChange.recordId` is `number | null` and `changeKey(collection, recordId)` interpolates it,
-while `diffList` matches records by a numeric `id`. So:
+★★ **The id plumbing is the design question, and it is NOT uniform across the five — the split is
+1 STRING / 4 NUMBERS.** `VersionChange.recordId` is `number | null` and
+`changeKey(collection, recordId)` interpolates it, while `diffList` matches records by a numeric
+`id`. ★★★ **A COMMAND PER SLICE, NOT PER CONCLUSION** — that is the whole lesson of this paragraph,
+and the reason is below. Run all five:
 
 ```bash
-grep -n "readonly id" src/app/insights/insight.ts        # Insight.id — a NUMBER
-grep -n "export type KnowledgeItem" -B 12 src/app/document-link.ts | grep -n "id:"   # KnowledgeLink.id — a STRING
+sed -n '/^export type KnowledgeLink = {/,/^};/p'  src/app/document-link.ts     | grep -n "id:"
+sed -n '/^export interface Insight {/,/^}/p'       src/app/insights/insight.ts | grep -n "id:"
+sed -n '/^export interface CalendarEvent {/,/^}/p' src/app/calendar-event.ts   | grep -n "id:"
+sed -n '/^export type ProjectDocument = {/,/^};/p' src/app/document-model.ts   | grep -n "id:"
+sed -n '/^export type DocVersion = {/,/^};/p'      src/app/document-versions.ts | grep -in "id:"
 ```
 
-`Insight` ids are numbers and `CalendarEvent` ids are numbers, so those two could take a
-`kind: "list"` row as-is. `KnowledgeItem`, `ProjectDocument` and `DocVersion` carry STRING ids, so
-they need `recordId` widened to `number | string | null` (and `diffList`'s `byId` map with it), or a
-separate keying scheme. ★ An earlier framing of this entry said flatly that "their ids are strings";
-that is true of three of the five and false of the other two, and the split is exactly what decides
-how much work this is.
+★ The last one is `grep -in`, case-INSENSITIVELY, on purpose: `documentId:` carries a capital
+`I`, so a case-sensitive `"id:"` silently omits it and the command stops covering half its own
+claim. Caught by running it.
+
+Only `KnowledgeItem` (via `KnowledgeLink.id`) is a STRING. `Insight`, `CalendarEvent`,
+`ProjectDocument` and `DocVersion` are all `number` — and `DocVersion.documentId` is a number too.
+So FOUR of the five could take a `kind: "list"` row as-is, and only `KnowledgeItem` forces
+`recordId` to widen to `number | string | null` (and `diffList`'s `byId` map with it) or a separate
+keying scheme.
+
+★★★ **THIS IS THE THIRD GENERATION OF ONE FALSE CLAIM, AND THE CORRECTION IS WHERE IT LIVED
+LONGEST.** The original framing said flatly "their ids are strings". The ★ that corrected it said
+"true of three of the five and false of the other two" — which is ALSO wrong, in the same direction,
+and it overstated the remaining work by two whole slices while reading as a verified fix. The
+diagnostic is exact and worth more than the fact: the corrected paragraph attached verification
+commands to the two claims it got RIGHT (`Insight`, `KnowledgeLink`) and NONE to the two it got
+wrong (`ProjectDocument`, `DocVersion`). A command attached to a conclusion proves only the part
+you already checked; the unchecked half rides along inside the same sentence and inherits its
+credibility. Attach one per SLICE — which is why there are five commands above and not two.
 
 ★ **Restoring a DOCUMENT is not obviously a list revert anyway.** `documents` and `documentVersions`
 already have their own version model (`applyDocMutation`, before-images, tombstones — see

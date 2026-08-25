@@ -2,6 +2,11 @@ import { describe, it, expect } from "vitest";
 import { applyRestore, changeKey, type RestoreSelection } from "./version-restore";
 import { diffWorkspaces } from "./version-diff";
 import { workspaceToJson, type Workspace } from "./workspace";
+import type { KnowledgeItem } from "./document-link";
+import type { Insight, InsightSeverity } from "./insights/insight";
+import type { ProjectDocument } from "./document-model";
+import type { DocVersion } from "./document-versions";
+import type { CalendarEvent } from "./calendar-event";
 
 function ws(over: Partial<Workspace>): Workspace {
   return { tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
@@ -68,13 +73,32 @@ describe("applyRestore", () => {
 // the type system pairs the two, so the mismatch is invisible until a restore
 // runs. These pin the RESULT SHAPE, which is the only place it shows.
 describe("applyRestore over array-typed slices", () => {
-  const kItem = (id: string, name: string) =>
-    ({ id, name, url: `https://example.com/${id}`, kind: "file" }) as never;
-  const insight = (id: number, severity: string) =>
+  // ★★★ EVERY FIXTURE IS ANNOTATED WITH ITS REAL TYPE, AND NOT ONE USES
+  //   `as never`. The first cut of this file used `as never` on all five and
+  //   thereby encoded FIVE wrong facts that tsc could not see: string ids for
+  //   `ProjectDocument`/`DocVersion` (both are `number`), `capturedAt` for
+  //   `savedAt`, a missing `title`/`source`/`op`, a `date` field `CalendarEvent`
+  //   does not have, and an `InsightType`/`InsightStatus` pair ("overdueTask" /
+  //   "open") that are not members of either union. Nothing failed, because
+  //   neither slice is in `COLLECTION_SPECS` and only `Array.isArray` and
+  //   `.length` are ever read — which is exactly the danger: `docs/open-followups.md`
+  //   §241 proposes giving these slices `kind: "list"` rows, and on that day
+  //   `diffList` would key on ids the app can never mint, against a fixture no
+  //   code path can produce. A test that passes against an impossible shape makes
+  //   a follow-up look already-covered. Keep the annotations; never re-add a cast.
+  const kItem = (id: string, name: string): KnowledgeItem =>
+    ({ id, name, url: `https://example.com/${id}`, kind: "file" });
+  const insight = (id: number, severity: InsightSeverity): Insight =>
     ({
-      id, key: `k${id}`, type: "overdueTask", severity, data: {}, status: "open",
+      id, key: `k${id}`, type: "overdueTrend", severity, data: {}, status: "active",
       firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-02", occurrences: 1,
-    }) as never;
+    });
+  const doc = (id: number, title: string): ProjectDocument =>
+    ({ id, title, blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-02" });
+  const docVersion = (id: number, title: string): DocVersion =>
+    ({ id, documentId: 1, title, blocks: [], savedAt: "2026-01-01", source: "user", op: "update" });
+  const calEvent = (id: number, title: string): CalendarEvent =>
+    ({ id, title, startDate: "2026-01-01", startTime: "09:00", durationMinutes: 60 });
   // The plain per-row "Restore" button in `history-panel` builds exactly this:
   // every change, no user input. So this is the real path, not a contrived pick.
   const selectAll = (changes: ReturnType<typeof diffWorkspaces>): RestoreSelection =>
@@ -116,12 +140,12 @@ describe("applyRestore over array-typed slices", () => {
   // other five are arrays and are carried through from the LIVE workspace.
   it("reverts settingsOverrides but carries the five array slices from live state", () => {
     const version = ws({
-      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } } as never,
+      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
       knowledgeItems: [kItem("a", "Old")],
       insights: [insight(1, "low")],
     });
     const now = ws({
-      settingsOverrides: { timezone: { timezone: "UTC" } } as never,
+      settingsOverrides: { timezone: { timezone: "UTC" } },
       knowledgeItems: [kItem("a", "New")],
       insights: [insight(1, "high")],
     });
@@ -142,10 +166,10 @@ describe("applyRestore over array-typed slices", () => {
     const now = ws({
       knowledgeItems: [kItem("a", "Live")],
       insights: [insight(1, "high")],
-      documents: [{ id: "d", title: "Live", blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-02" }] as never,
-      documentVersions: [{ id: "v", documentId: "d", capturedAt: "2026-01-01", blocks: [] }] as never,
-      calendarEvents: [{ id: 1, title: "Live", date: "2026-01-01" }] as never,
-      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } } as never,
+      documents: [doc(1, "Live")],
+      documentVersions: [docVersion(1, "Live")],
+      calendarEvents: [calEvent(1, "Live")],
+      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
     });
     const changes = diffWorkspaces(version, now);
     const out = applyRestore(now, version, changes, selectAll(changes));
@@ -164,13 +188,13 @@ describe("applyRestore over array-typed slices", () => {
   });
 
   it("turns no array-typed slice of the workspace into an object", () => {
-    const arrays = (n: string) => ({
+    const arrays = (n: string): Partial<Workspace> => ({
       knowledgeItems: [kItem("a", n)],
       insights: [insight(1, n === "Old" ? "low" : "high")],
-      documents: [{ id: `d-${n}`, title: n, blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-02" }],
-      documentVersions: [{ id: `v-${n}`, documentId: "d", capturedAt: "2026-01-01", blocks: [] }],
-      calendarEvents: [{ id: 1, title: n, date: "2026-01-01" }],
-    }) as unknown as Partial<Workspace>;
+      documents: [doc(1, n)],
+      documentVersions: [docVersion(1, n)],
+      calendarEvents: [calEvent(1, n)],
+    });
     const version = ws(arrays("Old"));
     const now = ws(arrays("New"));
     const changes = diffWorkspaces(version, now);

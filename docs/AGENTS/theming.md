@@ -153,12 +153,20 @@
   opens) — `scheme-purple-hover.test.ts` is the only coverage, and it checks the built-ins AND the shipped
   the `globals.css :root` Harbor-light fallback. ★★ The GUARD must composite over the same `--surface-muted` the DERIVATION
   does: composited over the lighter `--surface` it is looser than the code it guards, and a revert
-  slips through in several of the built-in combos. ★★★ **NO FRACTION IS QUOTED HERE, and the deleted
-  one is why:** this said "4 of the 6" while the axe-matrix paragraph earlier in this same file —
-  rewritten by the same 2026-08-25 sweep — says SEVEN combos over FOUR schemes. One file, two
-  rosters, 114 lines apart. The roster is `BUILTIN_SCHEMES` (four schemes, three of them
-  dark-capable); `scheme-purple-hover.test.ts` emits one `it` per combo and each names its own
-  measured ratio in its assertion message, so run the file rather than reading a number here. ★★ SIDE EFFECT, accepted deliberately: because the
+  slips through in built-in combos this guard exists to catch. ★★★ **NO FRACTION AND NO "catches
+  every one" IS CLAIMED HERE, and the deleted text is why:** this said "4 of the 6" while the
+  axe-matrix paragraph earlier in this same file — rewritten by the same 2026-08-25 sweep — says
+  SEVEN combos over FOUR schemes. One file, two rosters, 114 lines apart. The roster is
+  `BUILTIN_SCHEMES`: four schemes, three of them dark-capable. Both the fraction and the six ratios
+  beside it predated beacon, whose combo was in neither, and the counterfactual has NOT been
+  re-measured at seven — so no universal is asserted in its place either.
+  ★★ **Do NOT tell a reader to "run the file for the numbers" — an intermediate correction here did,
+  and it is inoperative.** The ratio is interpolated into the `expect` FAILURE message, so a GREEN
+  run prints none: measured 2026-08-25, `npx vitest run src/app/scheme-purple-hover.test.ts
+  --reporter=verbose` lists seven `it` names ("Harbor light", "Harbor dark", …) and not one
+  `N.NN:1`. The durable argument needs no measurement at all: the card is the HARDER backdrop, so
+  clearing AA against it guarantees AA on `--surface` — which is reason (2) in the test's own
+  comment, and the reason the guard is written that way. ★★ SIDE EFFECT, accepted deliberately: because the
   reference is the harder surface, this also LIGHTENED the value DERIVED FOR the three built-in DARK
   maps (harbor `#a990ff`→`#c7a9ff`, meridian `#ad83ff`→`#cc9bff`, umber `#b786db`→`#d79eff` — the token is
   not IN those maps, which hold exactly the 21 editable tokens; it is computed from them) — visible
