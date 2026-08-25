@@ -32,9 +32,10 @@
 // ★★ never a local regex pair, which cannot tell a regex literal from a comment
 // delimiter and silently blanks real code in a module made of regex literals.
 //
-// ★★★ THE TWO /g PATTERNS SHARE `lastIndex`, AND BOTH ARE MODULE SINGLETONS.
-// `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE` may be used ONLY with `String.replace`
-// (which resets it) or `String.matchAll` (which clones it). A `.test()` or a
+// ★★★ EACH /g PATTERN CARRIES ITS OWN `lastIndex` ACROSS CALLERS, AND BOTH ARE
+// MODULE SINGLETONS. `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE` may be used
+// ONLY with `String.replace` (which resets it) or `String.matchAll` (which
+// clones it). A `.test()` or a
 // bare `.exec()` in a loop would carry position between unrelated callers — a
 // bug that only shows up once two of them run in one tick, i.e. in production
 // and never in a focused test. `ASSET_IMG_TEST_RE` is deliberately NOT /g, for
@@ -62,10 +63,10 @@
  *   Without them the class can eat a quote, which makes it ambiguous against
  *   branches 2 and 3 of the alternation — the pattern's only backtracking
  *   ambiguity. Without the two characters a crafted run of quotes makes this
- *   superlinear in the input; with them it stays linear. The two patterns
- *   agree on every input without a quote in the tag name, which is every input
- *   the loader can produce. Not
- *   reachable through the loader (DOMPurify serialises from the DOM, so a tag
+ *   superlinear in the input; with them it stays linear. The two SPELLINGS of
+ *   THIS pattern agree on every input without a quote in the tag name, which is
+ *   every input the loader can produce. Not reachable through the loader
+ *   (DOMPurify serialises from the DOM, so a tag
  *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
  *   comment rather than a check and the tests here scan raw HTML. */
 export const ANY_TAG_ASSET_ID_RE =
@@ -142,6 +143,23 @@ export const IMG_TAG_ASSET_ID_RE =
  *   (`document-model.ts`), this pattern's only caller, deliberately keeps out.
  *
  *  ★ NOT `/g` — a global regex carries `lastIndex` across `.test` calls and
- *   would drop every other image-only paragraph in a document. */
+ *   would drop every other image-only paragraph in a document.
+ *
+ *  ★★ ITS `[^>]*` IS THE UNGUARDED SPELLING THE OTHER TWO REJECT, so this
+ *   predicate returns FALSE for `<img alt="a>b" data-asset-id="real">` — a
+ *   shape the product's own rename control can produce, since the serialiser
+ *   does not re-escape `>` inside an attribute. It is harmless TODAY and only
+ *   by cancellation: `sanitizeBlock`'s drop is
+ *   `htmlTextLength(html) === 0 && !ASSET_IMG_TEST_RE.test(html)`, and
+ *   `htmlPlainProjection`'s own `TAG = /<\/?[a-zA-Z][^>]*>/g` truncates at the
+ *   SAME `>`, leaving `b" data-asset-id="real">` as visible text. So the first
+ *   term is false, the `&&` short-circuits, and the false predicate is never
+ *   reached. Measured through the real `sanitizeProjectDocuments`: the block is
+ *   KEPT, projection length 24.
+ *   ★★★ THE TWO FLAWS CANCEL, so do NOT make one quote-aware without the
+ *   other — a projection that correctly saw no visible text here would reach a
+ *   predicate that says no image, and the block would be DROPPED on load. That
+ *   conditional is reasoning, not a measurement; the cancellation above is the
+ *   measured part. Pinned by the `alt="a>b"` row of the divergence table. */
 export const ASSET_IMG_TEST_RE =
   /<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;

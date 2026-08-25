@@ -91,10 +91,10 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  SET. The three fields read as a partition — `all`, the drawable part of it,
  *  and the rest — and only `undrawable ⊆ all` is guaranteed, because that one
  *  is BUILT by filtering `all`. `all` and `drawable` come from two DIFFERENT
- *  patterns in two different files, and nothing in the code makes them agree.
+ *  patterns, and nothing in the code makes them agree.
  *
- *  Measured 2026-08-25, against the regex literals read out of both source
- *  files. The crafted-`alt` violation is GONE:
+ *  Measured 2026-08-25, against the regex literals read out of the pattern
+ *  module. The crafted-`alt` violation is GONE:
  *  `<img alt="data-asset-id=" data-asset-id="real">` used to yield `all` =
  *  [`" data-asset-id="`] with the real id ABSENT, and now yields `["real"]` in
  *  both (open-followups §231, closed). A DIFFERENT violation survives, and it

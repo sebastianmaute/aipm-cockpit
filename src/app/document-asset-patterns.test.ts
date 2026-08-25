@@ -42,6 +42,13 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // Empty value: both extractors CAPTURE it (their callers filter empties), and
   // the load predicate rejects it — an empty id renders nothing anywhere.
   ['<img data-asset-id="">', [""], [""], false],
+  // A `>` INSIDE an attribute value — reachable from the product's own rename
+  // control, since the serialiser does not re-escape it there. The two
+  // quote-aware extractors step over it; the load predicate's unguarded
+  // `[^>]*` stops at that `>` and reports NO image. Harmless only because
+  // htmlPlainProjection truncates at the same `>`, so the drop condition's
+  // first term is false and short-circuits — see ASSET_IMG_TEST_RE's note.
+  ['<img alt="a>b" data-asset-id="real">', ["real"], ["real"], false],
 ];
 
 /** Every statement that names another module: static and type-only imports,
