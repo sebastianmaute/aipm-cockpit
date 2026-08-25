@@ -46,10 +46,21 @@
  *  ★★★ TAG-AGNOSTIC ON PURPOSE, AND THAT IS THE HALF NOT TO "SIMPLIFY".
  *   A reference the sanitizer preserved on a non-`img` element still matters
  *   for deletion safety and the "used in N documents" count, so a
- *   `<span data-asset-id>` MUST keep counting (open-followups §218). Anchoring
+ *   `<p data-asset-id>` MUST keep counting (open-followups §218). Anchoring
  *   this on `<img` would silently change what the cap counts and what that
- *   column means — "a <span> is counted but never drawable" goes red if you
- *   do. Tag-name CASE is not a discriminator either: `<IMG …>` counts here.
+ *   column means. Tag-name CASE is not a discriminator either: `<IMG …>`
+ *   counts here.
+ *   ★★ NAME A CARRIER THE LOADER CAN ACTUALLY PRODUCE. This said `<span>`, as
+ *   §218 and its table still do, and a `<span>` is the one non-`img` carrier
+ *   that CANNOT reach the cap: `span` and `div` are absent from
+ *   `DOCUMENT_ALLOWED_TAGS`, so the sanitizer unwraps the element at
+ *   KEEP_CONTENT and the attribute leaves with it. `p`, `strong`, `li` and `a`
+ *   all keep it through a real load (measured, open-followups §249). A reader
+ *   who checked the documented example would conclude this branch is dead code
+ *   and "simplify" exactly the half this note is defending.
+ *   ★ The `<span …>` row in the divergence table is still correct and stays:
+ *   that test scans UN-loaded html, where a span is a fine stand-in for "any
+ *   non-img tag". It pins the PATTERN, not the loader.
  *
  *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_ASSET_ID_RE` uses: a preceding
  *   `alt="…"` is consumed whole as one alternative, so its contents cannot
@@ -94,11 +105,12 @@ export const ANY_TAG_ASSET_ID_RE =
  * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
  * identical copies, one per renderer.
  *
- * ★★ The consequence to know: a `<span data-asset-id>` counts against the cap
- * and is invisible here — but no longer SILENTLY, since `assetRefsInDocument`
+ * ★★ The consequence to know: a `<p data-asset-id>` counts against the cap and
+ * is invisible here — but no longer SILENTLY, since `assetRefsInDocument`
  * (`document-asset-usage.ts`) returns it as `undrawable` and the cap message
  * reports how much room removing every such reference would reclaim
- * (open-followups §218).
+ * (open-followups §218). ★ Carrier deliberately not `<span>`: that is the one
+ * non-`img` tag the loader unwraps, so it cannot demonstrate this (§249).
  *
  * ★★★ QUOTE-AWARE, and it must stay that way. A plain `[^>]*` stops at the
  * first `>` even inside a quoted attribute value, and that is reachable from

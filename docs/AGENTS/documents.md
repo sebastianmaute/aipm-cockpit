@@ -1067,7 +1067,7 @@ THIRD shape changed with them and is pinned rather than left latent: malformed `
 `docs/superpowers/specs/2026-08-25-asset-id-extraction-design.md`, reproducible with
 `node docs/superpowers/specs/_probes/asset-id-extraction.mjs`.
 ★★ **What still counts, correctly, is a `data-asset-id` on a REAL non-`img` start tag** — that is the
-§218 design, not a defect. See `docs/open-followups.md` §245 for a measured open question about which
+§218 design, not a defect. See `docs/open-followups.md` §249 for a measured open question about which
 carrier tags can actually reach the loader.
 
 ## Image bytes in every export format (S3c-2)

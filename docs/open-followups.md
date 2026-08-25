@@ -439,8 +439,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | open |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
-| [§245](#245-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
-| [§246](#246-sanitizeblocks-image-only-paragraph-guard-is-safe-only-because-two-patterns-in-two-files-carry-the-same-truncation-bug-and-they-cancel) | `sanitizeBlock`'s image-only-paragraph guard is safe only because two patterns in two files carry the SAME truncation bug, and they cancel | pre-existing, found 2026-08-25 | S | open |
+| [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | partly done 0.259.2 |
+| [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently DELETED real image blocks on load when an earlier attribute value contained `>` then `<` — live data loss, pre-existing | pre-existing, found 2026-08-25 | M | CLOSED 0.259.2 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17381,7 +17381,7 @@ with every property added; enumerate before assuming a fix here is the end of it
 grep -rln "toBeGreaterThan\|toBeGreaterThanOrEqual" src/app/*.property.test.ts
 ```
 
-## 245. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html
+## 249. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html
 
 **Status:** OPEN — an **open question against §218**, not a defect. Nothing is broken today and the
 decision §218 records is still the right one. What is in doubt is the EXAMPLE that decision is
@@ -17468,74 +17468,85 @@ as inspected-never-asserted, so no test reports it.
    asserts the `<p>` case either, so the design's live half is ungated while its dead half is
    documented.
 
-★ Deliberately NOT done here: no §218 wording was changed beyond a pointer to this entry, and no
-`src/` docstring was touched. Both are decisions to take with the measurement in hand, not
-side effects of recording it.
+★★ PARTIALLY DONE IN 0.259.2, and the clause that used to sit here was FALSE when written. It
+read: "no §218 wording was changed beyond a pointer to this entry, and no `src/` docstring was
+touched." The same branch had just authored TWO new unconditional `<span data-asset-id>` claims in
+`document-asset-patterns.ts` — a file that did not exist at `dc1bb4e9` and is now the canonical home
+for all three patterns, and which this entry's own remediation list did not mention. Both are
+corrected: they name `<p>` and say why `<span>` cannot serve as the example. Step 1 is therefore
+done for `document-asset-patterns.ts`; §218, `docs/AGENTS/documents.md` and
+`document-asset-usage.ts` are still open, and steps 2 and 3 are untouched.
+★ The lesson is the branch's own house rule turned on itself: a correction is a NEW claim. "We did
+not touch X" is a claim about the tree at the END of the round, and it was written from memory of
+the round's intent rather than checked against the diff.
 
 ★★ Do not fold this into §231. That entry is about a pattern that matched things it should not;
 this is about a pattern correctly matching something the loader never delivers in the shape everyone
 writes down.
 
-## 246. `sanitizeBlock`'s image-only-paragraph guard is safe only because two patterns in two files carry the SAME truncation bug, and they cancel
+## 250. `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<`
 
-**Status:** OPEN — a latent CROSS-FILE coupling, not a defect. Nothing is broken today. What is
-recorded here is that the thing keeping it unbroken is an accident of two independent patterns
-sharing a flaw, and that fixing either one ALONE is expected to cause silent data loss on load.
+**Status:** CLOSED 2026-08-25 (0.259.2) — a **live data-loss defect**, pre-existing, found by cold
+review of the branch that opened this entry. ★★★ This entry was FIRST WRITTEN AS THE OPPOSITE: it
+claimed a *latent* cross-file coupling, "nothing is broken today", safe by cancellation. That was
+wrong, and the way it was wrong is the reusable lesson — see the last section.
 
-**The two patterns.**
+**The defect.** `sanitizeBlock` drops a paragraph when
+`htmlTextLength(html) === 0 && !ASSET_IMG_TEST_RE.test(html)`. Both halves read `[^>]*`, so both
+truncated at a `>` sitting inside an earlier attribute VALUE. That is reachable: the insert path
+escapes `>` to `&gt;`, but the HTML serialiser does not re-escape it in an attribute, so a DOM round
+trip hands back `alt="chart>v2.png"` verbatim.
 
-| | |
-|---|---|
-| `TAG` (`rich-text-plain.ts`) | `/<\/?[a-zA-Z][^>]*>/g` — strips tags for the visible-text projection |
-| `ASSET_IMG_TEST_RE` (`document-asset-patterns.ts`) | `/<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i` — the load survival predicate |
-
-Both carry an unguarded `[^>]*`, which stops at the first `>` **even inside a quoted attribute
-value**. That is the exact construct `IMG_TAG_ASSET_ID_RE`'s docstring warns about, and it is
-reachable from the product's own rename control: the insert path escapes `>` to `&gt;`, but the HTML
-serialiser does not re-escape it in an attribute, so a DOM round trip hands back
-`alt="chart>v2.png"` verbatim.
-
-**What was measured.** 2026-08-25, through the real `sanitizeProjectDocuments`, not reasoned from
-the literals:
+**What was measured.** 2026-08-25, through the real `sanitizeProjectDocuments`, blocks kept out of 1:
 
 ```
-input: <img alt="a>b" data-asset-id="real">
-  ANY_TAG_ASSET_ID_RE  -> ["real"]
-  IMG_TAG_ASSET_ID_RE  -> ["real"]
-  ASSET_IMG_TEST_RE    -> false        <- says there is no image
-  htmlPlainProjection  -> 'b" data-asset-id="real">'   (length 24, NON-empty)
-  drop condition       -> false        <- htmlTextLength(html) === 0 && !predicate
-  block               -> KEPT
+<img alt="a>b"   data-asset-id="real">   projection 24  ->  1   kept
+<img alt="><c d" data-asset-id="real">   projection  0  ->  0   DELETED
+<img alt="><p x" data-asset-id="real">   projection  0  ->  0   DELETED
+<img alt="></b"  data-asset-id="real">   projection  0  ->  0   DELETED
+<img data-asset-id="real" alt="><c d">   projection  0  ->  1   kept
+<img data-asset-id="real">               projection  0  ->  1   kept (control)
 ```
 
-Control, same shape with no `>` in the attribute: projection `""` (length 0), predicate **true**,
-block also kept. ★★ The two inputs are kept for DIFFERENT reasons, and that is the whole entry: on
-the crafted one the guard's first term is false and the `&&` short-circuits before the false
-predicate is ever evaluated.
+A genuine `<img>` carrying a genuine `data-asset-id` was deleted, silently, on all six write paths,
+with nothing in the truncation diag.
 
-**Why no test can catch this.** Both paths end in "block kept", so any test asserting the block
-survives passes whether or not the coupling is intact. `document-asset-patterns.test.ts` carries the
-`alt="a>b"` row, which pins the three patterns' DISAGREEMENT — including
-`ASSET_IMG_TEST_RE` returning false — but not the load outcome that depends on it. Nothing in
-either file's suite, and no gate, observes the relationship.
+**Why it survived.** ★★ ATTRIBUTE ORDER IS THE WHOLE DISCRIMINATOR. `[^>]*` reaches the id fine when
+the id comes FIRST, and the app's own insert path
+(`documents-asset-section.tsx`) writes it first. The callers that do NOT control order are the AI
+document tool (the model chooses order; DOMPurify preserves it) and workspace import, whose funnels
+are `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — so the guard sees raw,
+un-DOMPurified html with arbitrary order.
 
-**What breaks if someone fixes one side.** ★★ REASONING, NOT MEASURED, and it must not become
-"measured" through restatement: a quote-aware projection would correctly report no visible text for
-that input, the predicate would still say no image, and the block would be DROPPED on load — on all
-six write paths, since every load routes through `sanitizeBlock`. That is the same silent
-image-only-paragraph loss `ASSET_IMG_TEST_RE` was added to fix. Making the PREDICATE quote-aware
-alone is the harmless direction, but nothing says so at either site.
+**The fix.** `ASSET_IMG_TEST_RE` is now quote-aware. ★★★ THE TWO DIRECTIONS ARE NOT SYMMETRIC, and
+the original entry's central instruction ("do NOT fix one side alone") had them backwards.
+Quote-awareness in the PREDICATE only ever makes it return `true` more often, so it can only KEEP
+more blocks — it cannot introduce a drop. The dangerous direction is the other one: making
+`htmlPlainProjection`'s `TAG` quote-aware alone would zero the projection for `alt="a>b"` while the
+predicate still said "no image". `rich-text-plain.ts` now carries that warning at the regex itself.
 
-★ Making `TAG` quote-aware is a plausible, well-intentioned change — it reads as straightforward
-hardening of a tag matcher, and `rich-text-plain.ts` mentions neither assets nor `sanitizeBlock`
-anywhere else (`grep -in "asset\|sanitizeBlock\|predicate" src/app/rich-text-plain.ts` returned
-nothing before this entry). Both declarations now carry a pointer to the other; those two comments
-are the only thing standing between a reasonable edit and silent data loss.
+★ One verdict deliberately flips the other way: `<img alt="data-asset-id=x">` was KEPT (the
+truncating class matched a decoy inside the quoted alt and reported an image that does not exist)
+and is now dropped, like every other non-asset image already was.
 
-**What it would take to settle it.** Either fix BOTH patterns in one commit and pin the load outcome
-with a test that asserts the block survives *for the right reason* (assert the projection is empty
-AND the predicate is true, not merely that the block is present), or leave both alone. Do not fix
-one.
+**Pinned by.** `document-model.test.ts` — "keeps an image-only paragraph when an earlier attribute
+value contains > and <" (both tag-like-tail shapes AND the id-first control, so a fix handling only
+one goes red) and "still drops a paragraph whose only image reference is a decoy in an attribute
+value". Reverting the predicate to its old `[^>]*` spelling kills **5** tests across two files.
+★★ The original entry asserted "**why no test can catch this**: both paths end in block kept". That
+was true only of the shape it examined. An end-to-end test over the RIGHT shapes catches it easily —
+and the belief that no test could was itself part of why none was written.
+
+**The lesson, which outlives the defect.** ★★★ The entry generalised from ONE measured input. Every
+number in its original text was correct; `alt="a>b"` really is kept, really does project to 24
+characters, really does short-circuit. The error was concluding that the cancellation was a
+PROPERTY of the two patterns rather than a coincidence of that one string. One extra character in
+the fixture — a `<` after the `>` — refutes the whole entry. ★★ It also carried a correctly-labelled
+"REASONING, NOT MEASURED" clause warning that the label must not become "measured" through
+restatement. The label was applied to the right sentence and the sentence was still wrong, because
+the *premise* it reasoned from was the over-generalised one. **A hedge on the conclusion does not
+protect a false premise.** When an entry rests on a single fixture, the follow-up is not a better
+hedge — it is a second fixture chosen to break the first.
 
 ---
 
