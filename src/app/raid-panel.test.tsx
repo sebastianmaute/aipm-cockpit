@@ -16,6 +16,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useResourcePlanner } from "./use-resource-planner";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { ActivityKind } from "./activity-log";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 vi.mock("./use-settings", () => ({
   useSettings: () => ({
@@ -242,10 +243,17 @@ describe("RaidPanel tooltips", () => {
 });
 
 describe("RaidPanel inline add row", () => {
-  it("inline add row is present when RAID list is empty", () => {
+  // ★ With an EMPTY register the table (and therefore the trailing add ROW) is
+  // not rendered at all — PanelTableScaffold swaps in the dashed empty-state
+  // box. So the "empty" cases below exercise the EMPTY-STATE add, whose name is
+  // qualified by the filtered category for the same WCAG 2.4.6 reason as the
+  // trailing row's: the toolbar Add renders the bare string as its visible text
+  // and is always mounted.
+  it("an add affordance is present when the RAID list is empty", () => {
     renderPanel(makeProps());
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
-    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}` }),
+    ).toBeInTheDocument();
   });
 
   it("inline add row is present when RAID list is non-empty", () => {
@@ -257,14 +265,21 @@ describe("RaidPanel inline add row", () => {
       stakeholderIds: [],
     };
     renderPanel(makeProps({ raid: [item] }));
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
-    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+    // ★ The inline row's accessible name is now qualified by the category it
+    // will create the item in (WCAG 2.4.6 fix — it used to collide with the
+    // toolbar Add button, which always creates a Risk, whenever the table has
+    // rows; the category filter here is "All" so the row falls back to "R").
+    const inline = screen.getByRole("button", {
+      name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}`,
+    });
+    expect(inline).toBeInTheDocument();
   });
 
-  it("clicking inline add row when category filter is 'All' opens modal with category R", () => {
+  it("clicking the empty-state add when category filter is 'All' opens modal with category R", () => {
     renderPanel(makeProps());
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
-    fireEvent.click(addBtns[addBtns.length - 1]);
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}` }),
+    );
     // The Category radiogroup is inside the modal. We scope with `within` to
     // avoid the label-wrapping name-computation quirk in JSDOM: the first radio
     // button's accessible name is prefixed with the wrapping <label> text, so
@@ -279,12 +294,17 @@ describe("RaidPanel inline add row", () => {
     expect(checkedRadio).toHaveTextContent(t("en-US", "raidCategoryR"));
   });
 
-  it("clicking inline add row when category filter is 'A' opens modal with category A", () => {
+  it("clicking the empty-state add when category filter is 'A' opens modal with category A", () => {
     renderPanel(makeProps());
     const categorySelect = screen.getByDisplayValue(t("en-US", "raidCategoryAll"));
     fireEvent.change(categorySelect, { target: { value: "A" } });
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
-    fireEvent.click(addBtns[addBtns.length - 1]);
+    // ★ Targeting the button BY ITS QUALIFIED NAME is what keeps this test
+    // honest: the toolbar Add is also mounted and always creates a Risk, so a
+    // positional `getAllByRole(...).at(-1)` would silently start asserting the
+    // wrong control the moment the two names converge again.
+    fireEvent.click(
+      screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryA")}` }),
+    );
     const categoryGroup = screen.getByRole("radiogroup", {
       name: t("en-US", "raidCategory"),
     });
@@ -460,12 +480,13 @@ describe("RAID column visibility", () => {
     const raid = [makeRaidItem({ id: 1, title: "Vendor risk" })];
     const { container } = renderPanel(makeProps({ raid }));
     const headerCount = container.querySelectorAll("thead th").length; // select + visible data cols
-    // RAID renders several "Add item" buttons (toolbar + the in-table add row);
-    // pick the one that lives inside a <td> (the inline add row).
+    // The inline add row's name is qualified by the category it creates
+    // (WCAG 2.4.6 — see the disambiguating comment in raid-panel-rows.tsx),
+    // so it is now findable by name alone. No category filter is set, so it
+    // falls back to "R".
     const addTd = screen
-      .getAllByRole("button", { name: t("en-US", "raidAddItem") })
-      .map((b) => b.closest("td"))
-      .find((td) => td !== null);
+      .getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}` })
+      .closest("td");
     expect(addTd).toBeTruthy();
     expect(addTd!.colSpan).toBe(headerCount);
   });
@@ -791,10 +812,18 @@ describe("RaidPanel — inline Ask-Claude edit (SP2)", () => {
 
   it("renders a row-unique ✨ button when onAiEdit + aiEditEnabled(true) are given", () => {
     const onAiEdit = vi.fn();
-    const raid = [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" })];
+    const item = makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" });
+    const twin = makeRaidItem({ id: 2, title: "Vendor risk", severity: "High" });
+    const raid = [item, twin];
     renderPanel(makeProps({ raid, onAiEdit, aiEditEnabled: () => true }));
-    fireEvent.click(screen.getByRole("button", { name: aiLabel }));
+    // Two items share "Vendor risk" — the accessible name is disambiguated
+    // with an occurrence token ("(1)"/"(2)"), so match by prefix rather than
+    // the bare `aiLabel` (which only holds for a single, uncontested item).
+    const buttons = screen.getAllByRole("button", { name: new RegExp(`^${aiLabel} \\(\\d\\)$`) });
+    expect(buttons).toHaveLength(2);
+    fireEvent.click(buttons[0]);
     expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("hides the ✨ button when aiEditEnabled returns false", () => {
@@ -897,11 +926,18 @@ describe("RaidPanel send-inquiry (owner)", () => {
   it("renders a row-unique Send inquiry button for an active item and calls onSendInquiry with that item", () => {
     const onSendInquiry = vi.fn();
     const item = makeRaidItem({ id: 7, title: "Capacity risk", severity: "High", owner: "Alice Owner", ownerEmail: "alice@test.com" });
-    renderPanel(makeProps({ raid: [item], onSendInquiry }));
-    const btn = screen.getByRole("button", { name: `${t("en-US", "sendInquiry")} – Capacity risk` });
-    fireEvent.click(btn);
+    const twin = makeRaidItem({ id: 8, title: "Capacity risk", severity: "High", owner: "Bob Owner", ownerEmail: "bob@test.com" });
+    renderPanel(makeProps({ raid: [item, twin], onSendInquiry }));
+    // Two items share "Capacity risk" — the accessible name is disambiguated
+    // with an occurrence token ("(1)"/"(2)").
+    const btns = screen.getAllByRole("button", {
+      name: new RegExp(`^${t("en-US", "sendInquiry")} – Capacity risk \\(\\d\\)$`),
+    });
+    expect(btns).toHaveLength(2);
+    fireEvent.click(btns[0]);
     expect(onSendInquiry).toHaveBeenCalledTimes(1);
     expect(onSendInquiry).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("hides the Send inquiry button for a closed (review-inactive) item", () => {
@@ -1067,6 +1103,10 @@ describe("RaidPanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha",
       "Referenced by 1 document(s) – Beta",
     ]);
+    // ★ NO `requireCollisionSeed`: Alpha/Beta/Gamma are DISTINCT titles, so no
+    // two rows share a display name. This is a distinct-name regression pin over
+    // the whole panel, not a shared-name collision test.
+    expectRowUniqueNames({ minControls: 21 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {
@@ -1075,5 +1115,84 @@ describe("RaidPanel linked-documents badge", () => {
     fireEvent.click(screen.getByRole("button", { name: "Referenced by 2 document(s) – Alpha" }));
     expect(screen.getByTestId("active-tab").textContent).toBe("documents");
     expect(screen.getByTestId("pending-doc-filter").textContent).toBe("raid:1");
+  });
+});
+
+// --- row-unique accessible names -------------------------------------------
+
+describe("RaidPanel row-unique accessible names (WCAG 2.4.6)", () => {
+  // ★★★ NO GATE CAN SEE THIS CLASS. axe-core 4.12.1 carries no rule that flags
+  // two controls sharing an accessible name under any tag `e2e/a11y.spec.ts`
+  // requests, at any seed size — so each test below is the ONLY detector its
+  // control will ever have. Every fixture therefore SEEDS the collision: a
+  // distinct-name fixture passes against the defective code and reads as
+  // coverage, which is worse than no test at all.
+
+  /** Two rows sharing a title — the shape every control here has to survive. */
+  function twins(): RaidItem[] {
+    return [
+      makeRaidItem({ id: 1, title: "Vendor risk", severity: "High" }),
+      makeRaidItem({ id: 2, title: "Vendor risk", severity: "Low" }),
+    ];
+  }
+
+  it("gives two same-titled rows distinct select checkboxes", () => {
+    renderPanel(makeProps({ raid: twins() }));
+    // ★ The class detector runs FIRST, so a mutation proof shows THE HELPER
+    // going red rather than only the shape assertion that follows it.
+    // ★★ `roles` MUST be widened here. `Checkbox` renders an
+    // <input type="checkbox"> → role `checkbox`, so the helper's default
+    // ["button"] never sees these controls and the assertion would be vacuous.
+    expectRowUniqueNames({ minControls: 3, roles: ["button", "checkbox"], requireCollisionSeed: true });
+    expect(screen.getAllByRole("checkbox").map((c) => c.getAttribute("aria-label"))).toEqual([
+      t("en-US", "selectAllVisibleRows"),
+      t("en-US", "selectItem", "Vendor risk (1)"),
+      t("en-US", "selectItem", "Vendor risk (2)"),
+    ]);
+  });
+
+  it("gives two same-titled rows distinct linked-document badges", () => {
+    // Both rows carry the SAME count (1), so the count cannot disambiguate them
+    // — only the row qualifier can.
+    const documentsByEntity = indexDocumentsByEntity([
+      {
+        id: 10,
+        title: "Doc 10",
+        blocks: [],
+        createdAt: "2026-05-01T00:00:00.000Z",
+        updatedAt: "2026-05-01T00:00:00.000Z",
+        linkedEntities: [{ kind: "raid", id: 1 }, { kind: "raid", id: 2 }],
+      },
+    ]);
+    renderPanel(makeProps({ raid: twins(), documentsByEntity }));
+    // ★ Detector first — see the checkbox test above for why.
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+    expect(
+      screen.getAllByRole("button", { name: /^Referenced by/ }).map((b) => b.getAttribute("aria-label")),
+    ).toEqual([
+      `${t("en-US", "documentsLinkedBadge", 1)} – Vendor risk (1)`,
+      `${t("en-US", "documentsLinkedBadge", 1)} – Vendor risk (2)`,
+    ]);
+  });
+
+  it("distinguishes the toolbar Add from the empty-state Add on an empty register", () => {
+    renderPanel(makeProps({ raid: [] }));
+    fireEvent.change(screen.getByDisplayValue(t("en-US", "raidCategoryAll")), { target: { value: "A" } });
+    // Both are mounted at once: PanelTableScaffold renders the toolbar
+    // unconditionally and swaps in the empty-state box whenever count === 0.
+    // They are NOT interchangeable — the toolbar Add calls `openNew()` (always
+    // a Risk) while this one calls `openNew(effectiveCategory)`, which is an
+    // Assumption here — so 2.4.6's same-purpose allowance does not apply.
+    // ★ NO `requireCollisionSeed`: these two are disambiguated by the CATEGORY,
+    // not by `buildRowTokens`' "(N)" suffix, so the helper's stripped-pair check
+    // would correctly refuse to certify this fixture. The empty register IS the
+    // seed — reverting the empty-state `ariaLabel` turns this line red with
+    // `"+ Add RAID item" x2`, which is why it runs before the two lookups below
+    // (an ambiguous `getByRole` would otherwise mask which defect fired).
+    expectRowUniqueNames({ minControls: 2 });
+    expect(screen.getByRole("button", { name: t("en-US", "raidAddItem") })).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryA")}` }),
+    ).toBeInTheDocument();
   });
 });

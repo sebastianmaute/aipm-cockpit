@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { CalendarSeriesList } from "./calendar-series-list";
 import type { CalendarEvent } from "./calendar-event";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const today = "2026-08-01";
 
@@ -80,6 +81,7 @@ describe("CalendarSeriesList", () => {
     expect(new Set(names).size).toBe(2);
     expect(names[0]).toContain("Standup");
     expect(names[1]).toContain("Retro");
+    expectRowUniqueNames({ minControls: 4 });
   });
 
   it("renders no edit affordance when onEdit is omitted (read-only mirror)", () => {

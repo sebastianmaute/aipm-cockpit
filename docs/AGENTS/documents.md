@@ -902,14 +902,14 @@ and the over-generalisation was wrong in BOTH directions.** It rejects exactly T
 purpose: an EMPTY value (`data-asset-id=""`, and the single-quoted form — the allow-list strips the
 attribute and every renderer resolves nothing, so keeping the block would reintroduce the invisible
 blank paragraph above), and a hyphen-prefixed lookalike (`foo-data-asset-id="s"`, excluded since
-0.259.2 by anchoring the attribute on the lookbehind `(?<![-\w])` rather than `\b`).
+0.260.1 by anchoring the attribute on the lookbehind `(?<![-\w])` rather than `\b`).
 ★★ It rejects a THIRD spelling that is NOT on purpose and is a known accepted loss:
 `<img alt=a<b data-asset-id="real">`, where an unquoted value contains a bare `<`. No pattern here
 may scan past `<` — a branch that does is quadratic on hostile input — so the paragraph is dropped
 despite carrying a real attribute. `docs/open-followups.md` §250 carries the trade and the two
 wrong fixes that preceded it; do not re-widen this without reading it.
 ★ The predicate is a UNION of two regexes, not one.
-And until 0.259.2 it wrongly REJECTED a spelling it should always have admitted —
+And until 0.260.1 it wrongly REJECTED a spelling it should always have admitted —
 `<img alt="a>b" data-asset-id="real">` — because the walk ahead of the attribute was a bare `[^>]*`
 that stopped at the `>` inside `alt`. That last one is
 `docs/open-followups.md` §250, CLOSED 2026-08-25 — and the drop it caused needed BOTH halves of
@@ -1012,7 +1012,7 @@ too. Never reach for `toFixed` there again.
 ★★★ **THREE patterns read `data-asset-id`, they disagree, and every disagreement is intentional.
 Collapsing them is the "finish the job" mistake §218's closure exists to prevent.**
 
-★★ All three live in **`document-asset-patterns.ts`** since 0.259.2 (§209, CLOSED 2026-08-25) — one
+★★ All three live in **`document-asset-patterns.ts`** since 0.260.1 (§209, CLOSED 2026-08-25) — one
 module that imports nothing and is DOM-free, both enforced by parser-backed source scans in its own
 test. They were three files apart before; being adjacent is what makes the divergences below
 readable as choices rather than drift.

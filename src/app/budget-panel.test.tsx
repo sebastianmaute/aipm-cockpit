@@ -940,6 +940,46 @@ describe("BudgetPanel — per-person booking rows", () => {
     expect(screen.getAllByRole("button", { name: /Show people/ })[0]).toHaveAttribute("aria-expanded", "true");
   });
 
+  // ★★★ THE REAL DEFECT: two role lines in DIFFERENT buckets whose roleLabel()
+  // text (discipline + grade) resolves to the SAME string. roleLabel() carries
+  // no bucket or role identity, so the trigger names collided before the fix —
+  // the test above cannot see this because its two role lines resolve to
+  // DIFFERENT labels ("Design Senior" vs "Build Senior") by construction.
+  test("role lines with the SAME discipline+grade text get row-unique names across buckets", () => {
+    const collisionRoles: Role[] = [
+      { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+      { id: 4, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    ];
+    const collisionBuckets: BudgetBucket[] = [
+      {
+        id: 1, name: "Alpha", type: "tm", currency: "EUR",
+        startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+        allocations: [{ roleId: 3, resourceIds: [], budgetHours: { "2026-01": 100 }, actualHours: { "2026-01": 80 } }],
+      },
+      {
+        id: 2, name: "Beta", type: "tm", currency: "EUR",
+        startDate: "2026-01-01", endDate: "2026-01-31", status: "open",
+        allocations: [{ roleId: 4, resourceIds: [], budgetHours: { "2026-01": 50 }, actualHours: { "2026-01": 10 } }],
+      },
+    ];
+    render(<BudgetPanel {...props} buckets={collisionBuckets} roles={collisionRoles}
+      disciplines={peopleDisciplines.slice(0, 1)} grades={peopleGrades} />);
+    const triggers = screen.getAllByRole("button", { name: /Show people/ });
+    expect(triggers).toHaveLength(2);
+    // Both VISIBLE labels stay identical — that is what makes this the real
+    // collision (and why the fix must not spill the token into visible text).
+    expect(triggers[0]).toHaveTextContent("Design Senior");
+    expect(triggers[1]).toHaveTextContent("Design Senior");
+    // ★ `expectRowUniqueNames`'s DEFAULT (document-wide) scope is not usable
+    // here: two buckets also surface PRE-EXISTING, out-of-scope collisions on
+    // "Edit bucket"/"Close bucket"/"Remove bucket" and the CCI tooltip hints,
+    // none of which is bucket-qualified — a real WCAG 2.4.6 gap, but not the
+    // one this task fixes. Scoped to just the disclosure triggers instead,
+    // mirroring the Set-based check the sibling test above already uses.
+    const names = triggers.map((b) => b.getAttribute("aria-label"));
+    expect(new Set(names).size).toBe(2);
+  });
+
   test("the collapsed people body stays in the DOM so aria-controls resolves", () => {
     const { container } = renderPeople();
     const trigger = screen.getAllByRole("button", { name: /Show people/ })[0];

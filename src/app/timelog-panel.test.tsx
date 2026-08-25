@@ -12,6 +12,7 @@ import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, BudgetBucket } from "./types";
 import type { TimelogLinks } from "./timelog-types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // ---------------------------------------------------------------------------
 // Mocks
@@ -964,6 +965,11 @@ describe("TimelogPanel", () => {
       // Project id 99 → display id "99" (name === String(id) fallback)
       const expectedLabel = `${t("en-US", "timelogMatchProjects")} – 99`;
       expect(screen.getByRole("combobox", { name: expectedLabel })).toBeInTheDocument();
+      // Two matching rows render together here (id 99 from INITIAL_LINKS, id 9
+      // from sync.projectRefs) — the only place in this describe block where
+      // both selects are on screen at once, so it is the only place that can
+      // prove their names don't collide.
+      expectRowUniqueNames({ minControls: 4, roles: ["combobox"] });
     });
 
     it("renders a row for a freshly fetched (never-linked) project", () => {

@@ -6,6 +6,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "Sam", assigneeEmail: "", dueDate: "2026-06-01",
@@ -19,7 +20,21 @@ const resourceFix = (over: Partial<Resource> = {}): Resource =>
   ({ id: 3, firstName: "Cy", lastName: "Meyer", email: "", ...over }) as Resource;
 
 describe("TaskKanbanCard", () => {
-  it("shows title, assignee, and a row-unique status select", () => {
+  // ★★★ RECORDED, NOT FIXED — a genuine, pre-existing WCAG 2.4.6 collision that
+  // touches a SHARED primitive and is not fixable locally. Two cards for the
+  // SAME task name render two comboboxes both named "Status – Alpha":
+  // `TaskStatusSelect` (task-status-select.tsx) derives its aria-label from
+  // `task.taskName` alone, with no per-render disambiguation, and it is a
+  // per-item component with no visibility into sibling rows — it cannot build
+  // a token map itself. The identical defect exists in the TABLE row
+  // (task-row.tsx uses the same `TaskStatusSelect`), so fixing it means
+  // threading a row-token prop through TaskStatusSelect AND both of its
+  // callers (task-kanban-card.tsx/board/swimlanes AND task-row.tsx) — real
+  // restructuring, not a local qualifier swap. Joins budget-panel /
+  // roles-editor / reports as the fourth surface recorded this way (see
+  // batch 4/6 commits on this branch). Kept as the ORIGINAL single-card smoke
+  // test — seeding a twin here would only pin the bug in place.
+  it("shows title, assignee, and a status select carrying an accessible name", () => {
     render(
       <TaskKanbanCard
         lang="en-US"
@@ -74,7 +89,15 @@ describe("TaskKanbanCard", () => {
     expect(onJumpToRaid).toHaveBeenCalledWith(1);
   });
 
-  it("the person select assigns without a drag, and is row-unique", async () => {
+  // ★★★ RECORDED, NOT FIXED — same class of collision as the status select
+  // above. Two cards with the SAME taskName render two "Assign – Alpha"
+  // comboboxes (the inline `<Select aria-label={t(lang,"assignPersonLabel",
+  // task.taskName)}>` in task-kanban-card.tsx, keyed on task.taskName alone).
+  // TaskKanbanCard is a per-item component with no visibility into sibling
+  // cards, so it cannot disambiguate itself — fixing needs a token threaded
+  // down from the board/swimlanes caller. Kept as the ORIGINAL single-card
+  // test; seeding a twin here would only pin the bug in place.
+  it("the person select assigns without a drag", async () => {
     const onAssign = vi.fn();
     render(
       <TaskKanbanCard
@@ -186,6 +209,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(screen.queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+    expectRowUniqueNames({ minControls: 5 });
   });
 
   it("clicking a badge opens the Documents pane for THAT task", () => {

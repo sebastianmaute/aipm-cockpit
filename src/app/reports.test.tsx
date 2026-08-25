@@ -384,6 +384,13 @@ describe("ReportsPanel — drag-reorder extra reports", () => {
       .map((b) => b.getAttribute("aria-label"));
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
+    // ★ `expectRowUniqueNames`'s default (document-wide) scope is not usable
+    // here: this harness embeds THREE report tables (Assignee/Group/Labels)
+    // whose SortResizeTh column headers reuse generic labels across tables
+    // ("Open" x3, "Cancelled" x3, "Overdue" x3, "Total ↓" x3, "Inquiries" x3,
+    // "Completed" x2) - a genuine but pre-existing WCAG 2.4.6 collision, out
+    // of scope for this reorder-handle test and not fixable without touching
+    // the shared SortResizeTh primitive. Kept as the Set-based check above.
   });
 });
 

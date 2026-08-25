@@ -101,26 +101,40 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // per-row controls. It stays true whether or not §126 is ever fixed.
   await expect(page.getByRole("button", { name: /^Dismiss – / })).toHaveCount(4);
 
-  // ★★★ CHARACTERIZATION OF A KNOWN-OPEN DEFECT — docs/open-followups.md §126.
-  // READ THIS BEFORE "FIXING" A RED RUN ON THE NEXT LINE. It pins the BUG, not the
-  // wanted behaviour: both `milestoneSlip` rows render a button whose accessible
-  // name is exactly "Dismiss – Milestone at risk", because insightTitle() is
-  // derived from `type` alone. Two controls, same name, different targets — a
-  // WCAG 2.4.6 failure, now REACHABLE at scan time instead of theoretical.
-  // ★★★ WHOEVER CLOSES §126 MUST FLIP THIS ASSERTION, and a red line here after
-  // that fix is the fix WORKING. The flip: once the per-row name is qualified
-  // (e.g. "Dismiss – Milestone at risk – Design Sign-off"), change the expected
-  // count below from 2 to 0 and add positive assertions for the two now-distinct
-  // names. Do NOT relax it to a range and do NOT delete it.
-  // ★★ Keep it either way, because it is the ONLY detector in the repo: axe-core
-  // 4.12.1 has no rule for two BUTTONS sharing an accessible name, and the one
-  // adjacent rule (`identical-links-same-purpose`) is links-only and `wcag2aaa`,
-  // a tag e2e/a11y.spec.ts does not request. A green Insights axe run is not
-  // evidence the names are unique — this line is.
-  const DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT = 2; // §126 fix ⇒ 0
+  // ★★★ PINS THE FIX FOR docs/open-followups.md §126 (now CLOSED). It used to
+  // pin the BUG — both `milestoneSlip` rows rendered a button whose accessible
+  // name was exactly "Dismiss – Milestone at risk", because insightTitle() is
+  // derived from `type` alone, a WCAG 2.4.6 failure. `buildRowTokens`
+  // (src/app/row-tokens.ts) now disambiguates: a name unique in the rendered
+  // list stays bare, but rows sharing a name get a 1-based OCCURRENCE INDEX
+  // over just the colliding group, with ALL of them numbered including the
+  // first — so the two milestoneSlip rows render "Dismiss – Milestone at risk
+  // (1)" and "Dismiss – Milestone at risk (2)" (EN DASH U+2013), never the
+  // bare form. The count-0 assertion below proves the collision is gone; the
+  // two count-1 assertions after it prove the disambiguated pair survives.
+  // ★★★ IF THIS EVER GOES RED, DO NOT LOOSEN OR DELETE IT — it is the ONLY
+  // detector in the repo for this class: of axe-core 4.12.1's rules, not one
+  // carrying a tag e2e/a11y.spec.ts requests flags two BUTTONS sharing an
+  // accessible name. ★ TWO rules are adjacent and NEITHER is requested:
+  // `identical-links-same-purpose` (links ONLY, tagged `wcag2aaa`) and
+  // `table-duplicate-name` (a <caption> repeating the summary attribute —
+  // `best-practice`). An earlier revision here
+  // called the first "the one adjacent rule", which the command below refutes
+  // — READ ITS OUTPUT, not the sentence above it. Reproduce:
+  //   node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'
+  // ★ That listing also returns `duplicate-id-aria` and `frame-title-unique`,
+  // which DO carry requested tags — but they are about DOM ids and iframe
+  // titles, never two CONTROLS sharing a name, so the conclusion is unchanged.
+  // A green Insights axe run is not evidence the names are unique — this is.
   await expect(
     page.getByRole("button", { name: "Dismiss – Milestone at risk", exact: true }),
-  ).toHaveCount(DUPLICATE_DISMISS_NAME_IS_A_KNOWN_DEFECT);
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Dismiss – Milestone at risk (1)", exact: true }),
+  ).toHaveCount(1);
+  await expect(
+    page.getByRole("button", { name: "Dismiss – Milestone at risk (2)", exact: true }),
+  ).toHaveCount(1);
 
   await expect(page.getByText("No insights yet")).toHaveCount(0);
 });

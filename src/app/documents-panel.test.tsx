@@ -23,6 +23,7 @@ import type { DocumentAssetPaneProps } from "./documents-asset-section";
 import type { TursoConfig } from "./turso-config";
 import { __resetMintStateForTests, mintId } from "./id-mint-session";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 /** The heading editor's accessible names, 0-based block index in, en-dash
  *  qualified name out. Spelled once so a convention change is one edit. */
@@ -484,6 +485,14 @@ describe("DocumentsPanel", () => {
       expect(screen.getByRole("button", { name: `${verb} – Beta` })).toBeInTheDocument();
     }
     expectNoDuplicateButtonNames();
+    expectRowUniqueNames({ minControls: 8 });
+  });
+
+  it("keeps every per-row control distinct when two documents share a title", () => {
+    // ★★ TWO documents, SAME title. A one-row fixture, or two rows with distinct
+    // titles, passes against the unfixed code - which is how this shipped.
+    renderLive([doc(1, "Q3 report"), doc(2, "Q3 report")]);
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   // ★★★ THE CASE THE FIXTURE ABOVE STRUCTURALLY CANNOT REACH. Seeding
@@ -1016,13 +1025,22 @@ describe("DocumentsPanel — deleted documents", () => {
   it("gives every Restore button a row-unique accessible name", async () => {
     const user = userEvent.setup();
     renderLive([doc(1, "Same title"), doc(2, "Same title")]);
-    for (const id of [1, 2]) {
-      fireEvent.click(screen.getAllByRole("button", { name: "Delete – Same title" })[0]);
-      fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
-      await waitFor(() =>
-        expect(screen.queryAllByRole("button", { name: "Delete – Same title" })).toHaveLength(2 - id),
-      );
-    }
+    // ★ §111 disambiguates the row Delete controls too now, so the two seeded
+    // rows are "Delete – Same title (1)"/"(2)", not a colliding pair — deleting
+    // the first leaves a lone survivor whose token reverts to the bare title
+    // (nothing left to collide with). These two explicit deletions still
+    // exercise the same two-deletes-in-a-row path the Restore assertion below
+    // depends on.
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Same title (1)" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Delete – Same title (1)" })).toBeNull(),
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Same title" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
+    await waitFor(() =>
+      expect(screen.queryByRole("button", { name: "Delete – Same title" })).toBeNull(),
+    );
 
     await user.click(screen.getByRole("button", { name: /Deleted documents/ }));
     const buttons = screen.getAllByRole("button", { name: /^Restore –/ });
@@ -1034,6 +1052,11 @@ describe("DocumentsPanel — deleted documents", () => {
     // Both rows share a TITLE, so only the id can separate them — a
     // title-only label would collide here and pass the Set check nowhere else.
     expect(names.every((n) => /#\d+$/.test(n ?? ""))).toBe(true);
+    // ★ NO `requireCollisionSeed` here even though two docs DO share a title:
+    // the deleted list disambiguates with ` · #id` (`documents-deleted-section.tsx`),
+    // not with buildRowTokens' `(N)` occurrence suffix, so the guard's strip-and-pair
+    // test cannot see the seed. The `/#\d+$/` assertion above is what covers it.
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("restores the document and drops it from the deleted list", async () => {

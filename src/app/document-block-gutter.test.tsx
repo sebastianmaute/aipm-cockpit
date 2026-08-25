@@ -3,6 +3,7 @@ import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { DocumentBlockGutter, BlockKindMenu } from "./document-block-gutter";
 import type { DocBlock } from "./document-model";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const P: DocBlock = { type: "paragraph", html: "<p>Real content</p>" };
 const BREAK: DocBlock = { type: "pageBreak" };
@@ -46,6 +47,7 @@ describe("DocumentBlockGutter", () => {
     expect(screen.getByRole("button", { name: "Reorder – Block 2" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Block actions – Block 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Block actions – Block 2" })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 4 });
   });
 
   it("renders the block's kind chip", () => {

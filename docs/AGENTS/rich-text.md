@@ -227,7 +227,9 @@ register's fix to another is how two of them broke. Read the note that names you
   decision).
   ★★ NO GATE CAN SEE THE COLLISION THIS FIXES, at any seed size — the a11y hard-constraint bullet above
   carries the measurement (axe 4.12.1: 105 rules, 69 under the four tags `e2e/a11y.spec.ts` requests,
-  not one flagging two controls that share an accessible name; the only adjacent rule,
+  not one flagging two CONTROLS that share an accessible name — ★★ two requested-tag rules ARE
+  adjacent, `duplicate-id-aria` and `frame-title-unique`, but they examine ids and iframes rather
+  than controls, so "no adjacent rule is requested" is false; the nearest by WORDING,
   `identical-links-same-purpose`, is links-only and `wcag2aaa`, which the spec never asks for). The
   MULTI-editor unit test is the only possible detector OF THE COLLISION — two controls sharing a name
   is not a property one editor has, so no single-editor fixture can express it at any assertion count.

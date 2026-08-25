@@ -19,7 +19,7 @@ import { RagDot } from "./rag-dot";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { insightTitle, insightDetail } from "./insights/insight-text";
+import { insightTitle, insightDetail, insightRowTitles } from "./insights/insight-text";
 import { InsightOutcomeBadge } from "./insights/insight-outcome-badge";
 import { InsightDigestCard } from "./insights/insight-digest-card";
 import { computeInsightDigest } from "./insights/digest";
@@ -117,6 +117,14 @@ export function InsightsPanel({
       );
   }, [insights, statusFilter, typeFilter, showHistory]);
 
+  // ★★ Row-unique names (WCAG 2.4.6) — `insightTitle` is type-driven and
+  // nothing else, so two insights of one type (the ORDINARY case: detect.ts
+  // mints one milestoneSlip per overdue milestone) render byte-identical
+  // control names without this. Derived from `rows` — the filtered/sorted
+  // array actually mapped below — not from `insights`, so the occurrence
+  // index follows what is on screen.
+  const rowTitles = useMemo(() => insightRowTitles(rows, lang), [rows, lang]);
+
   const digest = useMemo(() => computeInsightDigest(insights, today), [insights, today]);
 
   const canWrite = !isPopout && !!actions;
@@ -192,7 +200,11 @@ export function InsightsPanel({
         ) : (
           <ul className="flex flex-col gap-2 p-1">
             {rows.map((insight) => {
+              // ★ Split on purpose: `title` is the VISIBLE headline text; a
+              // colliding row must NOT show a disambiguating "(2)" on screen —
+              // only `nameToken` (the row-unique form) feeds accessible names.
               const title = insightTitle(insight, lang);
+              const nameToken = rowTitles.get(insight.id) ?? title;
               const detail = insightDetail(insight, lang);
               const showAck = insight.status === "active";
               const showAct = insight.status === "active" || insight.status === "acknowledged";
@@ -229,7 +241,7 @@ export function InsightsPanel({
                         <Button
                           variant="secondary"
                           size="xs"
-                          aria-label={`${t(lang, "insightOpen")} – ${title}`}
+                          aria-label={`${t(lang, "insightOpen")} – ${nameToken}`}
                           onClick={() => onOpen(insight.entityRef!)}
                         >
                           {t(lang, "insightOpen")}
@@ -241,7 +253,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                              aria-label={`${t(lang, "insightAcknowledge")} – ${nameToken}`}
                               title={t(lang, "insightAcknowledgeHint")}
                               onClick={() => actions!.onAcknowledge(insight.id)}
                             >
@@ -252,7 +264,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightAct")} – ${title}`}
+                              aria-label={`${t(lang, "insightAct")} – ${nameToken}`}
                               title={t(lang, "insightActHint")}
                               onClick={() => actions!.onAct(insight.id)}
                             >
@@ -263,7 +275,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightDismiss")} – ${title}`}
+                              aria-label={`${t(lang, "insightDismiss")} – ${nameToken}`}
                               onClick={() => actions!.onDismiss(insight.id)}
                             >
                               {t(lang, "insightDismiss")}
@@ -271,7 +283,7 @@ export function InsightsPanel({
                           ) : null}
                           <InsightRecommendationControls
                             insight={insight}
-                            title={title}
+                            title={nameToken}
                             lang={lang}
                             actions={actions!}
                             generatingId={generatingId}

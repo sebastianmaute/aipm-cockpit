@@ -20,6 +20,7 @@ import { ColumnResizeHandle } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { PanelSort } from "./panel-views";
@@ -109,6 +110,15 @@ export function RaidTable({
     toggleSort,
     startResize,
   );
+  // Row-select / Ask-Claude / linked-documents / Send-inquiry / Notes-log all
+  // key their accessible name on item.title ALONE — two items sharing a title
+  // collided (WCAG 2.4.6), since none of the component contracts is actually
+  // enforced by its own props. One token map, built once per render,
+  // disambiguates all five the same way the trailing Add button already does.
+  // ★ The select checkbox is role=checkbox, not role=button, so a detector
+  // left at the default `roles: ["button"]` is BLIND to it — its test must
+  // pass `roles: ["button", "checkbox"]`.
+  const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
   return (
     <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>
@@ -169,6 +179,7 @@ export function RaidTable({
           </tr>
         )}
         {visible.map((item) => {
+          const rowTitleToken = titleTokens.get(item.id) ?? item.title;
           const rag = severityRag(item.severity);
           const terminal = isTerminalStatus(item.status, item.category);
           return (
@@ -189,7 +200,7 @@ export function RaidTable({
             >
               <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
-                  aria-label={t(lang, "selectItem", item.title)}
+                  aria-label={t(lang, "selectItem", rowTitleToken)}
                   checked={sel.isSelected(item.id)}
                   onChange={() => sel.toggle(item.id)}
                   className="cursor-pointer"
@@ -216,12 +227,12 @@ export function RaidTable({
                 <span className="inline-flex items-center gap-1">
                   <span>{item.title}</span>
                   {onAiEdit && aiEditEnabled?.(item) && (
-                    <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
+                    <InlineAiEditButton lang={lang} label={rowTitleToken} onClick={() => onAiEdit(item)} />
                   )}
                   <DocumentBadge
                     lang={lang}
                     count={documentsByEntity?.get(refKey("raid", item.id))?.length ?? 0}
-                    entityTitle={item.title}
+                    entityTitle={rowTitleToken}
                     onOpen={() => onOpenDocuments("raid", item.id)}
                   />
                 </span>
@@ -255,7 +266,7 @@ export function RaidTable({
                         e.stopPropagation();
                         onSendInquiry(item);
                       }}
-                      aria-label={`${t(lang, "sendInquiry")} – ${item.title}`}
+                      aria-label={rowLabel(t(lang, "sendInquiry"), rowTitleToken)}
                       className="text-xs"
                     >
                       {t(lang, "sendInquiry")}
@@ -342,7 +353,7 @@ export function RaidTable({
               <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                 <NotesBadgeButton
                   count={item.noteLog?.length ?? 0}
-                  entityName={item.title}
+                  entityName={rowTitleToken}
                   lang={lang}
                   onClick={() => onOpenNotes(item.id)}
                 />
@@ -356,7 +367,16 @@ export function RaidTable({
             <button
               type="button"
               onClick={() => openNew(effectiveCategory)}
-              aria-label={t(lang, "raidAddItem")}
+              // ★ WCAG 2.4.6: the toolbar's own Add button renders this SAME
+              // i18n string as its text content, so a bare aria-label here
+              // collided with it whenever the table has rows to trail below
+              // (the toolbar Add is always mounted). The two are not
+              // interchangeable either — the toolbar Add always creates a
+              // Risk (`openNew()`'s default), while this row creates an item
+              // in whatever category is currently filtered
+              // (`openNew(effectiveCategory)`) — so the names must differ,
+              // and the category is what actually differs between them.
+              aria-label={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
               className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue ${INTERACTIVE}`}
             >
               <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />

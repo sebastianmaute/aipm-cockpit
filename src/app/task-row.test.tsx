@@ -11,6 +11,7 @@ import {
 import { type ChangeItem, type RaidItem, type Resource, type Task } from "./types";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -879,6 +880,22 @@ describe("TaskActions Send inquiry", () => {
       </table>,
     );
 
+  // ★★★ RECORDED, NOT FIXED — a genuine, pre-existing WCAG 2.4.6 collision,
+  // and a bigger one than this single control: `TaskActionsImpl` derives
+  // EVERY accessible name in this row (Send inquiry, the ⋮ "More actions"
+  // menu, and — in `TaskRow` itself — the field-edit buttons, inline AI edit,
+  // task-name button, assignee and priority controls, task-row.tsx:281-702)
+  // from `task.taskName` alone, with no per-render disambiguation. Two same-
+  // named tasks in the same table collide on ALL of them at once — confirmed
+  // for Send inquiry + More actions (both x2) by seeding a twin here. Fixing
+  // it means threading a row-token map from wherever the task list is mapped
+  // (tasks-section.tsx, which maps the list into `<TaskRow>`; there is no
+  // tasks-panel.tsx) down through `RowContextProvider`/`TaskRow`'s props —
+  // real restructuring of the table's data flow, not a local qualifier swap,
+  // and the single largest surface found in this bucket (raid-panel-rows.tsx
+  // and task-kanban-card.tsx each had 2-3 colliding controls; this file has
+  // 10+ call sites on the same pattern). Kept as the ORIGINAL single-row
+  // test; seeding a twin here would only pin the bug in place.
   test("renders a row-unique Send inquiry button for an open task", () => {
     const ctx = makeContext();
     const task = makeTask({ id: 7, taskName: "Draft SOW", status: "To Do" });
@@ -1358,7 +1375,7 @@ describe("TaskRow linked-documents badge", () => {
   }
 
   test("badges only the referenced rows, with the real count and a row-unique name", () => {
-    const { getAllByRole, queryByRole } = renderRows();
+    const { getAllByRole, queryByRole, container } = renderRows();
     const badges = getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Referenced by 2 document(s) – Alpha",
@@ -1366,6 +1383,7 @@ describe("TaskRow linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+    expectRowUniqueNames({ minControls: 29, scope: container });
   });
 
   test("clicking a badge opens the Documents pane for THAT task", () => {

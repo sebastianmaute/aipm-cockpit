@@ -305,7 +305,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
-| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--open-a11y) | Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
+| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
 | [§113](#113-the-documents-roadmap--block-editor-entity-attachment-images-ooxml-media--all-six-slices-shipped-kept-as-the-decision-record) | The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open |
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
@@ -320,7 +320,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§123](#123-the-budget-people-row-disclosure-clips-its-own-label-mid-glyph-with-no-ellipsis--closed-2026-08-08) | The budget people-row disclosure clips its own label mid-glyph, with no ellipsis | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§124](#124-a-popover-opened-by-a-click-that-also-scrolls-its-ancestor-never-mounts--open-ui) | A popover opened by a click that also scrolls its ancestor never mounts — open, UI | found in the slice-3 eye-verify | UNKNOWN | open |
 | [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--open-billed) | Two more controls start a billed Anthropic call with no way to stop it — open, billed | found in the slice-3 review prose check | S each | open |
-| [§126](#126-two-same-type-insight-rows-produce-identically-named-per-row-controls-and-no-gate-can-see-it--open-a11y) | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — open, a11y | found in the slice-3 review, exposed by the new e2e seed | S | open |
+| [§126](#126-two-same-type-insight-rows-produce-identically-named-per-row-controls-and-no-gate-can-see-it--closed-2026-08-25) | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | **CLOSED** 2026-08-25 |
 | [§127](#127-two-of-the-six-ai-trigger-hooks-never-abort-on-unmount--closed-2026-08-08) | Two of the six AI trigger hooks never abort on unmount | split out of §121 on 2026-08-08 | S each | **CLOSED** 2026-08-08 |
 | [§128](#128-use-timelog-syncts-clears-busy-from-a-superseded-run--open-ui) | `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI | split out of §127 on 2026-08-09 | S | open |
 | [§129](#129-six-of-the-eight-richtexteditor-call-sites-import-it-statically-so-tiptap-ssrs-and-ships-in-the-initial-bundle--closed-2026-08-19) | Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle | — | — | **CLOSED** 2026-08-19 |
@@ -437,11 +437,16 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
-| [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | open |
+| [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
-| [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | partly done 0.259.2 |
-| [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently DELETED real image blocks on load when an earlier attribute value contained `>` then `<` — live data loss, pre-existing | pre-existing, found 2026-08-25 | M | CLOSED 0.259.2 |
+| [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
+| [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | open |
+| [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | open |
+| [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | open |
+| [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
+| [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
+| [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -7335,7 +7340,22 @@ thirteen-file list.
 
 ---
 
-## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — open, a11y
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
+
+★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
+addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
+weaker` sub-section — whose own stated position is that the part worth fixing is the RATIONALE — was
+never touched, and both the false rationale and the code citing it as precedent are LIVE. Reproduce
+(READ-ONLY):
+
+```bash
+grep -n 'nameQualifier' src/app/chat-tool-block.tsx          # the `#${docId}` qualifier, still built
+grep -n 'collides on real data' src/app/documents-history-modal.tsx   # the comment citing it as precedent
+```
+
+★ Those two commands prove the two SITES still exist. They do NOT prove the rationale is still
+false — that argument is in the sub-section, and it is an argument about `create_document` followed
+by `update_document` on one document, which no grep can decide.
 
 ★ **Filed as §107** — see the renumbering note at the head of §109.
 
@@ -7376,7 +7396,17 @@ the version id cannot") and `chat-tool-block.tsx` both qualify by id. The Histor
 `documents-list.tsx` is itself NEW on main — the hole was left open in the one surface that was
 extended rather than written fresh.
 
-### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims
+**CLOSED 2026-08-25 — THIS PART ONLY (`documents-list.tsx`).** Fixed on the
+row-unique-accessible-names slice. All six per-row controls (selection, Download, History, Rename,
+Duplicate, Delete) now name themselves from a shared disambiguating token (`buildRowTokens`/`rowLabel`,
+`src/app/row-tokens.ts`) instead of the raw `doc.title`, so a duplicate title no longer produces a
+duplicate accessible name — the two bypass paths named above (`commitRename`, the AI `createDocument`
+path) still don't enforce uniqueness on the STORED title, but the rendered controls disambiguate
+regardless. The comment claiming the title was "row-unique by construction" was deleted; §111's own
+position was that the false comment was the defect, not merely the naming. Reproduce:
+`grep -n "rowLabel\|buildRowTokens" src/app/documents-list.tsx`.
+
+### Same family, weaker: the `#docId` qualifier does not disambiguate what it claims — STILL OPEN
 
 `chat-tool-block.tsx` qualifies its card controls with ` – #${docId}` and the comment gives two
 reasons: two cards can carry the same title "either because the same document was touched twice in
@@ -7389,6 +7419,23 @@ write-then-revise pattern and puts two cards in the transcript.
 duplicate names sit on functionally identical controls — a far weaker 2.4.6 problem than the list
 above. **The part worth fixing is the RATIONALE**, which is recorded as proof that collision is
 impossible, is not, and has already been cited by `documents-history-modal.tsx` as precedent.
+
+★★★ **STILL OPEN as of 2026-08-25, and it was open THROUGH the slice that closed the part above.**
+The row-unique-accessible-names slice adopted `buildRowTokens`/`rowLabel` on the surfaces it scoped and
+did not touch `chat-tool-block.tsx` at all — the `#${docId}` qualifier and its two-reason comment are
+exactly as described above. Reproduce: `grep -n 'nameQualifier' src/app/chat-tool-block.tsx` (READ-ONLY
+— it prints the `#${docId}` qualifier and the two `aria-label`s built from it). ★ That proves the SITE
+survives, not that the rationale is still wrong: the argument is about `create_document` followed by
+`update_document` on ONE document, which no grep can decide — read the sub-section, not the output.
+
+★★ **The closure paragraph for the `documents-list.tsx` half used to sit HERE, BELOW this sub-section**,
+so one `**CLOSED**` read as the verdict on both defects and a reader scanning to the end of §111 saw
+"done". It now sits above the `###`. **Never move a closure marker past a sub-section it does not
+address** — placement is the only thing separating "this part is closed" from "this section is
+closed", and no gate can see the difference.
+
+★ Low is not closed. The cost here is a false invariant propagating BY CITATION — the same failure
+mode as the "row-unique by construction" comment deleted one half-section up, one hop further along.
 
 ---
 
@@ -8639,7 +8686,7 @@ control to hang a Stop on), and `chat-panel.tsx`, `step0-import-panel.tsx` and `
 own controllers with their own bespoke cancel UI. The sweep that produced this list is in §121; re-run
 it rather than trusting this bullet.
 
-## 126. Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — open, a11y
+## 126. Two same-type Insight rows produce identically-named per-row controls, and no gate can see it — CLOSED 2026-08-25
 
 Found 2026-08-08 while correcting the e2e seed's stated rationale (§99). CAUSED by a deliberate seed
 change in the same commit: the seed now renders the collision instead of hiding it.
@@ -8657,9 +8704,10 @@ detection run. The seed previously carried three insights of three DIFFERENT typ
 shape had never rendered anywhere a test could see it.
 
 ★★★ **NO GATE CATCHES THIS.** axe-core 4.12.1 has no rule for two BUTTONS sharing an accessible name;
-the nearest, `identical-links-same-purpose`, is links-only and `wcag2aaa`, a tag `e2e/a11y.spec.ts`
-does not request. jsdom-side unit tests do not render two same-type rows. The only detector in the
-repo is the count assertion added to `e2e/seed-content.spec.ts` on 2026-08-08. Reproduce the axe half:
+the two nearest — `identical-links-same-purpose` (links only, `wcag2aaa`) and `table-duplicate-name`
+(a `<caption>` repeating the `summary` attribute, `best-practice`) — carry no tag
+`e2e/a11y.spec.ts` requests, and neither compares two CONTROLS' names. ★ An earlier revision named
+only the first; the command below prints both. Reproduce the axe half:
 
 ```bash
 node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
@@ -8673,22 +8721,23 @@ exactly the types that can repeat (`milestoneSlip`, `raidAging`); the portfolio-
 (`stalledWork`, `overdueTrend`, `budgetVariance`) carry none, and detection emits at most one of each,
 so they cannot collide.
 
-★★★ **THE FIX MUST ALSO FLIP THE DETECTOR, AND THE DETECTOR WILL GO RED FIRST.**
-`e2e/seed-content.spec.ts` asserts `toHaveCount(2)` on the accessible name
-`"Dismiss – Milestone at risk"`. That assertion CHARACTERIZES this defect — it pins the bug, not the
-wanted behaviour — so a correct fix turns it red, and the red run is the fix working. It is labelled
-in the spec (a named constant plus a comment pointing back at this §), but a reader who meets the
-failure before the comment will be tempted to "repair" the spec by loosening the count, which would
-silently restore the blind spot. The flip is mechanical: expected count `2` → `0`, plus positive
-assertions for the two now-distinct qualified names. Do NOT delete the assertion and do NOT relax it
-to a range — it is the only detector in the repo, so a loosened form is equivalent to no detector.
-
-★ Same defect class as §111 (document row controls named by a non-unique title). Fixing them together
-would be reasonable; neither is in a slice yet.
+★ Same defect class as §111 (document row controls named by a non-unique title).
 
 ★ NOT fixed here on purpose: this was found by a prose/seed fact-check with no source-file lane, and
 `insights-panel.tsx` belongs to the insights subsystem. Filing beats a drive-by edit to another
 slice's freshly-shipped surface.
+
+**CLOSED 2026-08-25**, on **TWO** surfaces — this entry named only `insights-panel.tsx`, and the
+row-unique-accessible-names slice's own triage found `dashboard-sections/insights-card.tsx` builds
+its per-row control names from `insightTitle` the same way and was equally affected; it is fixed in
+the same commit. `insight-digest-card.tsx` already disambiguated (the precedent noted above) and was
+left unchanged. Both surfaces now derive a `rowTitles`/token map keyed by insight id
+(`insightRowTitles` for the card, `buildRowTokens` for the panel) over the same filtered/sorted array
+that is actually rendered, so the occurrence index matches what's on screen; the VISIBLE title text
+stays bare, only the accessible name carries the disambiguating suffix. The
+`e2e/seed-content.spec.ts` characterization assertion was flipped: the
+`toHaveCount(2)` pinning the bug is now `toHaveCount(0)`, plus two `toHaveCount(1)` assertions for
+the disambiguated pair (`"Dismiss – Milestone at risk (1)"` / `"(2)"`, en dash).
 
 ## 127. Two of the six AI trigger hooks never abort on unmount — CLOSED 2026-08-08
 
@@ -14623,7 +14672,7 @@ whole file), and the lazy/greedy divergence, the one this entry and `docs/AGENTS
 tell you not to "fix", had no row at all; it was pinned one file over, at the CALLER level, in
 `document-asset-usage.test.ts`. So the closure argument located the gating in the wrong file while
 the most-warned-about property was ungated where it was documented.
-★★ Closed properly in 0.259.2 rather than by softening the sentence: the table now carries rows for
+★★ Closed properly in 0.260.1 rather than by softening the sentence: the table now carries rows for
 the duplicate-attribute (lazy vs greedy) case, the tag-name class, the hyphen-prefixed decoy and
 both quote-awareness verdicts. Re-run the three mutants before trusting this paragraph — tag-name
 class to `[^s/>]*`, separator `[s/]` to ``, and the predicate back to `[^>]*` — which kill 1,
@@ -15450,7 +15499,7 @@ by making the divergence VISIBLE, and explicitly NOT by collapsing the patterns.
 kept as written; the closing note at the end records what shipped, corrects this entry's own count
 of the patterns, and states what a later reader must not "finish".
 
-★★ **THE THREE PATTERN NAMES BELOW ARE HISTORICAL — all three were renamed and moved in 0.259.2**
+★★ **THE THREE PATTERN NAMES BELOW ARE HISTORICAL — all three were renamed and moved in 0.260.1**
 (§209): `ASSET_ID_RE` → `ANY_TAG_ASSET_ID_RE`, `IMG_TAG_RE` → `IMG_TAG_ASSET_ID_RE`,
 `ASSET_IMG_RE` → `ASSET_IMG_TEST_RE`, all now in `document-asset-patterns.ts`. Grepping the old
 names returns nothing, which reads as "this entry describes code that no longer exists" — it does
@@ -17271,11 +17320,11 @@ Turso-gated, so it needs a live database — which is also why no gate will ever
 
 ---
 
-## 243. History rows give every version the same two accessible names, and nothing in the gate suite can see it
+## 243. History rows give every version the same two accessible names, and nothing in the gate suite can see it — CLOSED 2026-08-25
 
-**Status:** open. Found 2026-08-25 while mapping the History surface for a live version-restore
-verification. PRE-EXISTING and out of scope for the branch that found it — the 0.259.0 diff over
-`history-panel.tsx` is empty.
+**Status:** CLOSED 2026-08-25, on the row-unique-accessible-names slice. Found 2026-08-25 while
+mapping the History surface for a live version-restore verification. PRE-EXISTING and out of scope
+for the branch that found it — the 0.259.0 diff over `history-panel.tsx` was empty at the time.
 
 `history-panel.tsx` renders one `<li>` per version from `versions.map`, carrying four controls. Two
 qualify their accessible name with the version, two do not:
@@ -17315,14 +17364,38 @@ one-version fixture cannot render the collision and passes against the unfixed c
 ```bash
 awk '/versions\.map/,/<\/ul>/' src/app/history-panel.tsx \
   | grep -nE 'aria-label|t\(lang, "history(CompareVsNow|RestoreState|Delete|CompareSelect)"'
-grep -c '"history"' e2e/a11y.spec.ts   # 0 — not scanned
+grep -n 'A11Y_VIEWS = \[' e2e/a11y.spec.ts | grep -c History   # 0 — absent from the scanned list
+grep -n 'TURSO_ONLY_VIEWS: readonly' src/app/nav-config.ts      # "history" is in it — Turso-gated
 node -e "const a=require('axe-core');const t=['wcag2a','wcag2aa','wcag21a','wcag21aa'];for(const r of a.getRules(t).filter(r=>/identical|duplicate|unique/i.test(r.ruleId)))console.log(r.ruleId,'|',r.description)"
 ```
 
-★ That last command prints TWO rules and NEITHER is relevant — `duplicate-id-aria` is about `id`
-attributes and `frame-title-unique` about iframes. The only rule in the library that is even adjacent
-is `identical-links-same-purpose`: links only, and tagged `wcag2aaa`, which the gate never requests.
-Read the descriptions, never the count — a bare tally here reads as coverage.
+★★★ **THE SECOND COMMAND USED TO BE `grep -c '"history"' e2e/a11y.spec.ts`, AND IT WAS VACUOUS —
+it returns 0 whether History is scanned or not.** `A11Y_VIEWS` holds the views' DISPLAY LABELS, not
+their `AppView` ids, so a scanned History would appear there as `"History"` and the lowercase id
+could never match in either world. The CONCLUSION it was attached to is true, and that is exactly why
+it survived: a command whose output agrees with the sentence above it is the one nobody re-runs. The
+replacement greps the LABEL on the `A11Y_VIEWS` line itself — so a same-word match elsewhere in the
+file cannot fake a hit — and pairs it with the gating list, which is the REASON History is absent
+rather than an oversight.
+
+★ The `node` command prints TWO rules and NEITHER is relevant — `duplicate-id-aria` is about `id`
+attributes and `frame-title-unique` about iframes. Under NO tag does axe compare two CONTROLS'
+accessible names. The two rules in the library that are even adjacent are
+`identical-links-same-purpose` (links only, `wcag2aaa`) and `table-duplicate-name` (a `<caption>`
+repeating the `summary` attribute, `best-practice`); the gate requests neither tag, and
+neither rule looks at controls. ★★ An earlier revision here called the first "the only rule in the
+library that is even adjacent" — drop the `getRules(t)` tag filter from the command above and it
+prints both. Read the descriptions, never the count — a bare tally here reads as coverage.
+
+**CLOSED 2026-08-25.** The "Compared with current" and "Restore this state" row buttons had NO
+`aria-label` at all and were named by their visible text, so they collided from N=2 regardless of any
+label choice; the compare-header's own restore button set the bare `historyRestoreState` string,
+making the second collision set N+1. All four row controls (compare checkbox, "Compared with
+current", "Restore this state", delete) now derive their accessible name from the shared
+`buildRowTokens`/`rowLabel` token, in render order over the same `versions` array the `<li>`s map
+from. ★ The compare-header restore button was **deliberately left bare** — naming it after the
+compared version would reproduce exactly that row's own accessible name whenever that row's token is
+bare, and both render on screen at once; the code carries a comment recording why.
 
 ---
 
@@ -17413,6 +17486,278 @@ with every property added; enumerate before assuming a fix here is the end of it
 grep -rln "toBeGreaterThan\|toBeGreaterThanOrEqual" src/app/*.property.test.ts
 ```
 
+## 245. The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface
+
+Filed 2026-08-25, at the close of the row-unique-accessible-names slice. Not a defect — a scope
+record for the sweep's own boundary, so the gap is documented rather than quietly dropped.
+
+The slice's population came from grepping test **names** for phrases like "row-unique" / "different
+accessible name" / "unique". ★★ NO POPULATION SIZE IS QUOTED HERE ANY MORE: this entry said "29-file"
+with nothing attached, and the branch's own test-file diff returns 30 —
+
+```bash
+git diff --name-only dc1bb4e9..4dbef10c -- src e2e | grep -cE '\.test\.(tsx|ts)$'   # 30
+```
+
+— which is a DIFFERENT question anyway (files the branch touched, not files the name grep selected),
+so it neither confirms nor refutes the 29. The original figure is unreproducible: the grep that
+produced it was never written down. That is the whole defect this entry exists to describe, committed
+inside the entry describing it. **A bare integer with no command is not a measurement.**
+
+The name-grep bound is **provably incomplete**: at least three tests assert exactly this property
+under other nouns and were missed by it —
+
+- `task-row.test.tsx`'s `"two open rows get DIFFERENT Send inquiry accessible names"` (its own
+  comment says a one-row fixture "cannot express a name collision… this is the only possible
+  detector").
+- `budget-panel.test.tsx`'s `"gives every bucket reorder handle a bucket-unique accessible name (WCAG
+  2.4.6)"`.
+- `task-kanban-card.test.tsx`'s `"badges only the referenced cards, with the real count and a
+  card-unique name"`.
+
+A broader content grep (matching phrases like "accessible name" / "unique … name" rather than test
+titles alone) returns meaningfully more files than the name grep selected — the exact count moves
+with the corpus and the pattern chosen, so treat this as evidence of undercounting, not a fixed
+number:
+
+```bash
+grep -rl "accessible name" src/app --include=*.test.tsx --include=*.test.ts | wc -l
+grep -rlE "unique.{0,20}(name|label)" src/app --include=*.test.tsx --include=*.test.ts | wc -l
+```
+
+★★★ **Enumerating on the PROPERTY instead — a `.map` rendering a control — was measured separately
+and is a programme, not a branch.** `docs/superpowers/specs/2026-08-25-row-unique-accessible-names-design.md`
+records the counts:
+
+| | |
+|---|---|
+| candidate components (a `.map` rendering a control) | 127 |
+| unique un-interpolated `aria-label` sites inside those maps | 103 |
+| control tags inside a map with **no** `aria-label` — named by text | ~254 |
+
+★★ **It cannot be classified mechanically, in either direction.** The scan flags
+`t(lang, "someKey", row.value)` (interpolation through a positional argument, not `${…}`) and
+`qualify(t(lang, …))` wrappers. ★★★ **THE FIRST OF THOSE WAS RECORDED AS A FALSE POSITIVE AND IS NOT
+ONE — see §248**, which is the more expensive half of this entry: positional interpolation makes a
+name row-VARYING, and row-varying is not row-UNIQUE. Dismissing it took a whole live class out of
+both the fix set and this deferral record at once. Worse still, the **text-named class is invisible to
+label-based scanning
+entirely — and that is the class §243's two defective controls belonged to**: neither "Compared with
+current" nor "Restore this state" carried an `aria-label`; both were named by their visible text. A
+scanner built to find missing/colliding `aria-label`s would have missed the exact shape that
+motivated this slice.
+
+**Decision recorded in the plan:** ship the measured, finite work (the helper, the defective surfaces
+this slice found, §246/§247's probes) and defer the widened sweep to its own programme. ★★ This
+sentence said "the four defective surfaces", and four is not a number anything reproduces: the
+REGISTERED sections are §111 · §126 · §243 (three, and §126 alone covers two surfaces), while further
+surfaces — RAID and budget among them — were fixed with no § at all. Enumerate the adopters instead of
+counting them:
+`grep -rl "buildRowTokens\|rowLabel" src/app --include=*.tsx --include=*.ts | grep -v '\.test\.'`
+(the list includes `row-tokens.ts` itself, which is the definition rather than a surface).
+Once `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`) exist and are adopted on a surface, a new
+one is mechanical to convert — the gap is in FINDING candidates, not fixing them.
+
+---
+
+## 246. Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app
+
+Filed 2026-08-25, at the close of the row-unique-accessible-names slice, by probing each primitive
+with a colliding fixture. Deliberately NOT fixed here — neither collision is fixable per call site;
+both want a disambiguating input at the primitive or a qualifier threaded by the embedder, which is
+a design decision for whoever owns that surface, not a drive-by.
+
+**`InfoTooltip`** (`info-tooltip.tsx`) renders a focusable `<span role="button" aria-label={label ??
+text}>`, so its triggers ARE named controls under 2.4.6, not decoration. Duplicates confirmed on two
+independent surfaces:
+
+- **`budget-panel.tsx`** — with a SINGLE bucket: the four CCI hint tooltips render ×2 each (the local
+  `Cci` helper is called once in the project-total block and once per bucket); `"Actual booked hours
+  for this period."` renders ×7 and `"Budgeted hours for this period."` ×6, because the `InfoTooltip`
+  inside `HoursTd` (`budget-panel-totals.tsx`) renders once per period per role row with no period or
+  role qualifier. With TWO buckets: 13 collision groups total, adding `budgetPercentCompleteHint` ×2,
+  `budgetPlanHoursHint` ×2, `budgetWinLossHint` ×2, and the plain-text (no `aria-label`) "Edit
+  bucket"/"Close bucket"/"Remove bucket" buttons ×2 each.
+- **`roles-editor.tsx`** — three `InfoTooltip` triggers in the rate-card table header (Internal /d,
+  External /d, Basis columns) all carry `rolesRateBasisHint`.
+  ★ Record this one as an **open question**, not a settled defect: if one generic hint genuinely
+  applies to all three columns, they are same-purpose controls and 2.4.6 permits the shared name; if
+  each column deserves its own explanation, the shared hint is a content gap and the duplicate name is
+  the symptom. Decide before "fixing".
+
+**`SortResizeTh`** (`report-table.tsx`) — `reports.tsx`'s harness embeds three report tables
+(Assignee via `AssigneeTable`, Group and Labels both via `GroupOrLabelTable`) whose column headers
+reuse generic labels across tables: `"Open"` ×3, `"Cancelled"` ×3, `"Overdue"` ×3, `"Total ↓"` ×3,
+`"Inquiries"` ×3, `"Completed"` ×2.
+★ **NOT same-purpose** — "Open" in the Assignee table sorts a different table from "Open" in the
+Group table — so this is a genuine failure, unlike the roles-editor case above. AGENTS.md already
+notes every sortable header in the app flows through `SortResizeTh`, so ANY view embedding two tables
+of the same shape collides on every shared column label.
+
+**Measured population:** `InfoTooltip` alone has **139** call sites across **34** non-test files:
+
+```bash
+grep -rn "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\." | wc -l   # 139
+grep -rln "<InfoTooltip" src/app --include=*.tsx | grep -v "\.test\." | wc -l  # 34
+```
+
+Where a test already scoped itself around this rather than asserting document-wide uniqueness, it is
+recorded in-code, not just here: `reports.test.tsx` and `roles-editor.test.tsx` carry comments saying
+why, and `budget-panel.test.tsx` uses a Set-based check for the same reason.
+
+---
+
+## 247. Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings
+
+Filed 2026-08-25, at the close of the row-unique-accessible-names slice, by seeding a colliding twin
+task row rather than by inspection.
+
+- `TaskStatusSelect` (`task-status-select.tsx`) derives its `aria-label` from `task.taskName` ALONE →
+  `"Status – Alpha"` ×2 for two same-named tasks. Used by BOTH `task-kanban-card.tsx` and
+  `task-row.tsx`'s table view, so this is the whole Tasks surface, not a Kanban-only quirk.
+- The person `<Select>` inline in `task-kanban-card.tsx` (`assignPersonLabel`, positional-interpolated
+  with `task.taskName`) → `"Assign – Alpha"` ×2.
+- `TaskActionsImpl` in `task-row.tsx` → `"Send inquiry – Draft SOW"` ×2 (the `sendInquiry` button) AND
+  `"More actions – Draft SOW"` ×2 (the `actionMoreActions` overflow trigger). `task-row.tsx` has 10+
+  call sites keying accessible names on raw `task.taskName`.
+
+★★ **The structural reason, and it is the general rule for this class:** these are PER-ITEM
+components with NO SIBLING VISIBILITY. A component handed one task cannot know another rendered task
+shares its name, so it cannot disambiguate itself at any cost — there is no fix inside the component.
+The fix must thread a token map DOWN from the row-LIST callers through child props, the same shape
+`buildRowTokens` already gives `history-panel.tsx` and `documents-list.tsx`. There are THREE such
+callers and they split TWO/ONE by which per-item component they render:
+
+- `task-kanban-board.tsx` and `task-kanban-swimlanes.tsx` render `<TaskKanbanCard>` (the Kanban
+  surface, which is where the person `<Select>` lives).
+- `tasks-section.tsx` renders `<TaskRow>` (the table surface, which is where `TaskActionsImpl` lives).
+
+All three render `TaskStatusSelect` transitively, which is why that one control spans both surfaces.
+
+★★★ **`tasks-panel.tsx` DOES NOT EXIST AND NEVER HAS** — this entry named it as the table-side caller.
+It is not a stale name left by a rename either; nothing by that name was ever added on any branch. A
+plausible-but-invented path is worse than a stale one, because a reader who greps for it finds nothing
+and concludes the register is describing code that was deleted. Reproduce:
+
+```bash
+git ls-files | grep -i tasks-panel                                  # no output
+git log --oneline --all --diff-filter=A -- '*tasks-panel*' | wc -l  # 0 — never added, on any branch
+grep -rln "<TaskKanbanCard" src/app --include=*.tsx | grep -v '\.test\.'
+```
+
+★★ **That third command returns THREE files and only TWO of them render the card** — `tasks-section.tsx`
+matches on a `<TaskKanbanCard>` inside a COMMENT. Confirm with `grep -n "TaskKanbanCard"
+src/app/tasks-section.tsx`, which shows the single hit is prose. This entry's original "both of which
+render `TaskKanbanCard`" was right about the count and wrong about which files; do not "correct" it to
+three.
+
+★ **Contrast what WAS fixable in this slice:** `raid-panel-rows.tsx`'s Ask-Claude / Send-inquiry /
+Notes-log trio also keyed on `item.title` alone and was fixed in place, because the rendered array was
+already in scope at that call site — one token map fixed all three. Same defect, different
+reachability: RAID's list and its per-row buttons live in one component; Tasks' list and its per-row
+buttons do not.
+
+★ Same purpose per control, but the ROWS are not interchangeable, so this IS a real 2.4.6 defect, not
+the permitted same-purpose shared name (contrast the roles-editor open question in §246).
+
+---
+
+## 248. A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE
+
+Filed 2026-08-25, after the row-unique-accessible-names slice closed, by re-reading the slice's own
+scan-triage decision rather than its code. **The reasoning error is the durable part of this entry;
+the list below is only what it let through.**
+
+★★★ **The error.** The slice's spec classified `t(lang, "selectItem", item.title)` as a **scan false
+positive** — the reasoning being that the name interpolates a per-row value through a positional
+argument rather than a `${…}` template, so a label-based scanner flags it but a human can see it is
+"already qualified". It is not qualified. `selectItem` is `"Select {0}"` (`src/app/i18n.ts`), so the
+control renders **"Select Alpha"**, and two rows both titled "Alpha" render two controls with
+byte-identical accessible names — precisely the WCAG 2.4.6 shape the slice existed to remove.
+
+★★★ **Row-VARYING is not row-UNIQUE, and conflating them is the general lesson.** Interpolating a row
+field proves the name DIFFERS when the field differs; it proves nothing when the field REPEATS, and a
+repeating field is the entire premise of this defect class — §111 (duplicate document titles), §126
+(two `milestoneSlip` insights), §247 (two tasks named "Alpha") are all the same shape. Uniqueness is a
+property of the RENDERED LIST, so it can only be established by whoever can see the list; a per-row
+interpolation is a local fact and cannot decide it. That is why `buildRowTokens`/`rowLabel`
+(`src/app/row-tokens.ts`) takes the whole array.
+
+★★ **The cost was not the misclassification but WHERE it landed.** A defect judged out of scope goes
+into the deferral record; a defect judged NOT A DEFECT goes nowhere. This one was dismissed at triage,
+so it appears in neither the fix set nor §245's list of what was knowingly deferred — the two places a
+later reader would look. ★ §245 has been corrected to point here.
+
+**Still open — the five `selectItem` row checkboxes.** Reproduce:
+
+```bash
+grep -rn '"selectItem"' src/app --include=*.tsx | grep -v test
+grep -n 'selectItem:' src/app/i18n.ts    # selectItem: "Select {0}"
+```
+
+`change-panel.tsx` (`item.title`) · `milestones-panel.tsx` (`m.name`) · `resource-directory.tsx`
+(`resourceDisplayName(r)`) · `stakeholders-panel.tsx` (`item.name`) · `timelog-people-table.tsx`
+(`displayId`). ★★ Read the grep, not this list, for status — and read the ARGUMENT, not the call
+form. `raid-panel-rows.tsx` was on this list when the entry was filed and was converted later in the
+same branch (`71656bf2`); it still calls `t(lang, "selectItem", …)` and always will, but now passes
+`rowTitleToken` (from `buildRowTokens`) rather than the raw `item.title`. A raw field is what
+is open; the positional call form is not the discriminator. ★ `timelog-people-table.tsx` interpolates a `displayId` rather than a
+free-text name, which MAY be genuinely unique per row; that one is an open question to decide against
+its data, not an automatic fix (same treatment as §246's roles-editor case).
+
+**Also unrecorded anywhere, found by an independent sweep of per-row controls:**
+
+- `knowledge-links-field.tsx` — an `<a aria-label={t(lang, "documentsOpen")}>` rendered inside a
+  `.map`, so N links yield N controls named "Open in new tab". ★★★ **The file's own comment a few
+  lines below it reasons about exactly this failure for the SIBLING Remove button** ("N links
+  otherwise yield N identical 'Remove link' buttons (WCAG 2.4.6)") and qualifies that one while
+  leaving the anchor bare — the analysis was done, on the same rows, and simply not applied to the
+  control above it. Reproduce: `grep -n 'documentsOpen\|Row-QUALIFIED' src/app/knowledge-links-field.tsx`.
+  ★★ It is ALSO a WCAG 2.5.3 defect and the two fixes differ: the visible link text is `{link.name}`
+  while the accessible name is "Open in new tab", which does not CONTAIN it. Appending the row token
+  to the visible text is not enough — 2.5.3 wants the visible label inside the accessible name.
+- `learning-insights.tsx` — a per-row `<select aria-label={t(lang, "learningColOverride")}>`
+  (= "Override"), one per learning row, all identical (`grep -n 'learningColOverride'
+  src/app/learning-insights.tsx` — the header cell and the per-row control share the key).
+  ★★★ Per AGENTS.md's own measurement, a
+  `<select>` maps to role `combobox`, which does not support name-from-content, so
+  `label-content-name-mismatch` cannot match it under ANY axe configuration — for this control a unit
+  test is not merely the best detector, it is the only one that can exist.
+- `settings-sections/templates-section.tsx` — a per-row rename `<Input aria-label={t(lang,
+  "templatesRename")}>` (= "Template name"), one per template. Reproduce: `grep -n 'templatesRename'
+  src/app/settings-sections/templates-section.tsx`.
+- `add-first-item-button.tsx` on the RAID empty state — an **OPEN QUESTION**, not an asserted defect,
+  and PRE-EXISTING (not introduced by the row-unique-names slice). The primitive renders BOTH `{text}`
+  and `{addLabel}` as two spans inside ONE `<button>` whose accessible name is the `ariaLabel` prop.
+  `raid-panel.tsx` passes `text: t(lang, "raidEmpty")` — a full descriptive sentence — and
+  `addLabel: \`${t(lang, "raidAddItem")}…\``, while `ariaLabel` is the category-qualified add label
+  (the 2.4.6 fix documented at that call site). axe's implementation of WCAG 2.5.3
+  (`label-content-name-mismatch`) computes visible text over the WHOLE node, so the description
+  sentence is part of the visible label and containment fails. ★★ The SC's own scope is arguable —
+  "label" may reasonably mean the CTA line rather than the whole button's text content, and on that
+  reading the control conforms — so this is a question to decide, not a fix to apply. ★ Deciding it
+  one way binds every other `AddFirstItemButton` caller that passes `text`, which is why it is
+  recorded here rather than treated as a RAID-local tweak.
+- `budget-panel.tsx`'s bucket `DragHandle` — the qualifier is real but NOTHING PINS IT, and its own
+  comment claimed otherwise ("pinned by a unit test") until 2026-08-25. Reproduce: `grep -rln
+  "budgetReorderHandle" src e2e` returns only that file and the two i18n dicts — no test references
+  the handle by string or by key, and the nearest budget uniqueness test scopes to the "Show people"
+  disclosure triggers instead. So a revert to the bare label ships green through every gate. ★★ This
+  is the class the whole slice is about, one level up: not a missing qualifier but a **false claim of
+  coverage**, which reads as protection and is worse than an acknowledged gap. ★ It shares the
+  free-text residual already documented on `ManualPercentCell` in the same file — `br.name` is
+  bucket-QUALIFIED, never bucket-UNIQUE, so two identically-named buckets collide byte-for-byte
+  again; closing that needs `buildRowTokens`, and a test would pin only the ordinary case.
+
+★ None of the first three is in `A11Y_VIEWS`' scanned surface in a way that would matter anyway — the
+measurement in AGENTS.md's a11y bullet is that axe flags duplicate accessible names in NO view, at
+NO seed size, under the tags the gate requests. Unit tests with a ≥2-row fixture, via
+`expectRowUniqueNames` (`src/test/row-unique-names.ts`), are the only detector for the duplicate-name
+items above. (The 2.5.3 question in the last bullet is a different SC with a different detector story
+— AGENTS.md's a11y bullet records that `label-content-name-mismatch` is `experimental`, so the gate
+never runs it in any view either.)
+
+---
 ## 249. §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html
 
 **Status:** OPEN — an **open question against §218**, not a defect. Nothing is broken today and the
@@ -17500,7 +17845,7 @@ as inspected-never-asserted, so no test reports it.
    asserts the `<p>` case either, so the design's live half is ungated while its dead half is
    documented.
 
-★★ PARTIALLY DONE IN 0.259.2, and the clause that used to sit here was FALSE when written. It
+★★ PARTIALLY DONE IN 0.260.1, and the clause that used to sit here was FALSE when written. It
 read: "no §218 wording was changed beyond a pointer to this entry, and no `src/` docstring was
 touched." The same branch had just authored TWO new unconditional `<span data-asset-id>` claims in
 `document-asset-patterns.ts` — a file that did not exist at `dc1bb4e9` and is now the canonical home
@@ -17518,7 +17863,7 @@ writes down.
 
 ## 250. `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<`
 
-**Status:** CLOSED 2026-08-25 (0.259.2) — a **live data-loss defect**, pre-existing, found by cold
+**Status:** CLOSED 2026-08-25 (0.260.1) — a **live data-loss defect**, pre-existing, found by cold
 review of the branch that opened this entry. ★★★ This entry was FIRST WRITTEN AS THE OPPOSITE: it
 claimed a *latent* cross-file coupling, "nothing is broken today", safe by cancellation. That was
 wrong, and the way it was wrong is the reusable lesson — see the last section.

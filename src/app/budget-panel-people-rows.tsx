@@ -1,11 +1,16 @@
 "use client";
+import { useMemo } from "react";
 import { DOT_COL_PX, HOURS_LINE_REM, TOTAL_COL_PX, displayHours } from "./budget-panel-totals";
 import { buildBucketPeopleRows, type PersonRow } from "./budget-bucket-people";
 import { absencesForResource, periodCapacityHours, type Period } from "./resource-capacity";
 import { ToggleButton } from "./toggle-button";
+import { rowLabel, buildRowTokens } from "./row-tokens";
+import { roleLabel } from "./resource-foundation";
+import { type SortDir } from "./report-table";
+import type { BucketReport } from "./budget-report";
 import { t, type Lang } from "./i18n";
 import type { BucketPeriodCell } from "./timelog-actuals";
-import type { Absence, BucketAllocation, Resource } from "./types";
+import type { Absence, BucketAllocation, BudgetBucket, Discipline, Grade, Resource, Role } from "./types";
 
 const DASH = "—";
 
@@ -83,14 +88,30 @@ export function peopleBodyId(bucketId: number, roleId: number): string {
  *  cannot drift apart, and so the a11y rules below are stated once:
  *  ★ The accessible name is ROW-UNIQUE. N identical "Show people" names is a
  *    WCAG 2.4.6 failure, and the axe gate PASSES it whenever the seeded data
- *    renders a single row — the gate cannot protect this.
+ *    renders a single row — the gate cannot protect this. `roleLabel()` alone
+ *    (discipline + grade text) carries no bucket or role identity, so two role
+ *    lines sharing a discipline+grade combo — across buckets, or within one —
+ *    render identical names; `useDetailedRoleRows` (below) builds a
+ *    `buildRowTokens` map over every rendered role line, and `budget-panel.tsx`
+ *    passes the resolved `token` here. The unit coverage is
+ *    `budget-panel-people-rows.test.tsx`'s "disambiguates … while the label
+ *    stays identical" (pins the mechanism) and `budget-panel.test.tsx`'s
+ *    "role lines with the SAME discipline+grade text get row-unique names
+ *    across buckets" (pins the real caller).
  *  ★ The label names what the pressed state ENABLES and never flips to the
  *    opposite action (WCAG 4.1.2) — `ToggleButton`'s structural contract. */
 export function PeopleDisclosureLabel({
-  lang, label, bucketId, roleId, open, onToggle,
+  lang, label, token = label, bucketId, roleId, open, onToggle,
 }: {
   lang: Lang;
+  /** Visible text — byte-identical regardless of any collision. */
   label: string;
+  /** Row-unique disambiguator used ONLY in the accessible name, never in
+   *  visible text. Defaults to `label` (bare, no suffix) when this role line
+   *  is the only one with that text; a caller passes the `buildRowTokens`
+   *  result — which differs from `label` only when ANOTHER rendered role line
+   *  shares the same discipline+grade text — when one collides. */
+  token?: string;
   bucketId: number;
   roleId: number;
   open: boolean;
@@ -102,7 +123,7 @@ export function PeopleDisclosureLabel({
       pressed={open}
       onToggle={onToggle}
       ariaControls={peopleBodyId(bucketId, roleId)}
-      ariaLabel={`${t(lang, "budgetShowPeople")} – ${label}`}
+      ariaLabel={rowLabel(t(lang, "budgetShowPeople"), token)}
       // ★★ THE ELLIPSIS HAS TO LAND ON A TEXT NODE (open-followups §123). The
       //   `<td>` around this is `truncate` and clamped to the LIVE role-column
       //   width, but `text-overflow` does not apply to an atomic inline — and
@@ -139,6 +160,82 @@ export function PeopleDisclosureLabel({
       {label}
     </ToggleButton>
   );
+}
+
+/** Filters + sorts a bucket's allocations by a caller-supplied display name.
+ *  Shared by both allocation shapes — `BucketAllocation` (the detailed role
+ *  rows `useDetailedRoleRows` below builds) and `BucketDisciplineAllocation`
+ *  (the blended rows `budget-panel.tsx` builds directly) — so there is
+ *  exactly one filter/sort implementation for both role tables. */
+export function filterSortAllocations<T>(
+  allocs: readonly T[],
+  nameOf: (a: T) => string,
+  filter: string,
+  dir: SortDir,
+): T[] {
+  const q = filter.trim().toLowerCase();
+  let rows = q ? allocs.filter((a) => nameOf(a).toLowerCase().includes(q)) : allocs.slice();
+  if (dir !== "off") {
+    rows = rows.slice().sort((a, b) => {
+      const c = nameOf(a).localeCompare(nameOf(b));
+      return dir === "desc" ? -c : c;
+    });
+  }
+  return rows;
+}
+
+/** Detailed (per-role) rows for every rendered, non-blended bucket, plus the
+ *  WCAG 2.4.6 disambiguation tokens for their people-disclosure triggers (see
+ *  `PeopleDisclosureLabel` above) — computed together so `budget-panel.tsx`'s
+ *  render loop and the token map share ONE `filterSortAllocations` pass per
+ *  bucket instead of each calling it separately.
+ *
+ *  ★★ `roleLabel()` is discipline+grade TEXT only and carries no bucket or
+ *  role identity, so two role lines sharing that text collide — ACROSS
+ *  buckets, and within one. The token map spans every rendered non-blended
+ *  role line and is keyed by the SAME `${bucket.id}:${roleId}` pair the
+ *  caller's open-state map already uses, so the occurrence index follows the
+ *  table the user actually navigates. */
+export function useDetailedRoleRows(
+  visibleBuckets: readonly BucketReport[],
+  bucketById: ReadonlyMap<number, BudgetBucket>,
+  roles: readonly Role[],
+  disciplines: readonly Discipline[],
+  grades: readonly Grade[],
+  roleFilter: string,
+  roleSort: SortDir,
+): { rowsByBucket: Map<number, BucketAllocation[]>; roleTokens: Map<string, string> } {
+  const rowsByBucket = useMemo(() => {
+    const out = new Map<number, BucketAllocation[]>();
+    for (const br of visibleBuckets) {
+      const bucket = bucketById.get(br.bucketId)!;
+      if (bucket.planningMode === "blended") continue;
+      out.set(
+        br.bucketId,
+        filterSortAllocations(
+          bucket.allocations,
+          (a) => roleLabel(roles.find((r) => r.id === a.roleId), disciplines, grades) || `#${a.roleId}`,
+          roleFilter, roleSort,
+        ),
+      );
+    }
+    return out;
+  }, [visibleBuckets, bucketById, roles, disciplines, grades, roleFilter, roleSort]);
+
+  const roleTokens = useMemo(() => {
+    const rows: { id: string; name: string }[] = [];
+    for (const [bucketId, allocations] of rowsByBucket) {
+      for (const a of allocations) {
+        rows.push({
+          id: `${bucketId}:${a.roleId}`,
+          name: roleLabel(roles.find((r) => r.id === a.roleId), disciplines, grades) || `#${a.roleId}`,
+        });
+      }
+    }
+    return buildRowTokens(rows);
+  }, [rowsByBucket, roles, disciplines, grades]);
+
+  return { rowsByBucket, roleTokens };
 }
 
 /** Planned capacity per resource per period — the `plannedByResourcePeriod`

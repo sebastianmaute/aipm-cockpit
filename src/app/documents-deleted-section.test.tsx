@@ -17,6 +17,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { DocumentsDeletedSection } from "./documents-deleted-section";
 import type { DocVersion } from "./document-versions";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function version(over: Partial<DocVersion> = {}): DocVersion {
   return {
@@ -54,6 +55,7 @@ describe("DocumentsDeletedSection", () => {
     // differing. Assert the fixture actually produced two rows before comparing.
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(names.length);
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("cautions when more documents are deleted than survive, and never hides a row", () => {
