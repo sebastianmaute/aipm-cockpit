@@ -1027,8 +1027,9 @@ describe("DocumentsPanel — deleted documents", () => {
     // ★ §111 disambiguates the row Delete controls too now, so the two seeded
     // rows are "Delete – Same title (1)"/"(2)", not a colliding pair — deleting
     // the first leaves a lone survivor whose token reverts to the bare title
-    // (nothing left to collide with). This loop still exercises the same
-    // two-deletes-in-a-row path the Restore assertion below depends on.
+    // (nothing left to collide with). These two explicit deletions still
+    // exercise the same two-deletes-in-a-row path the Restore assertion below
+    // depends on.
     fireEvent.click(screen.getByRole("button", { name: "Delete – Same title (1)" }));
     fireEvent.click(await screen.findByRole("button", { name: "Delete" }));
     await waitFor(() =>
