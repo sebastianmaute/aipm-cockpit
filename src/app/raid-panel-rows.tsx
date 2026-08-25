@@ -110,11 +110,14 @@ export function RaidTable({
     toggleSort,
     startResize,
   );
-  // Ask-Claude / Send-inquiry / Notes-log all key their accessible name on
-  // item.title ALONE — two items sharing a title collided (WCAG 2.4.6), since
-  // none of the three component contracts is actually enforced by its own
-  // props. One token map, built once per render, disambiguates all three the
-  // same way the trailing Add button already does.
+  // Row-select / Ask-Claude / linked-documents / Send-inquiry / Notes-log all
+  // key their accessible name on item.title ALONE — two items sharing a title
+  // collided (WCAG 2.4.6), since none of the component contracts is actually
+  // enforced by its own props. One token map, built once per render,
+  // disambiguates all five the same way the trailing Add button already does.
+  // ★ The select checkbox is role=checkbox, not role=button, so a detector
+  // left at the default `roles: ["button"]` is BLIND to it — its test must
+  // pass `roles: ["button", "checkbox"]`.
   const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
   return (
     <DataTable className="min-w-full text-left text-sm" head={<>
@@ -197,7 +200,7 @@ export function RaidTable({
             >
               <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                 <Checkbox
-                  aria-label={t(lang, "selectItem", item.title)}
+                  aria-label={t(lang, "selectItem", rowTitleToken)}
                   checked={sel.isSelected(item.id)}
                   onChange={() => sel.toggle(item.id)}
                   className="cursor-pointer"
@@ -229,7 +232,7 @@ export function RaidTable({
                   <DocumentBadge
                     lang={lang}
                     count={documentsByEntity?.get(refKey("raid", item.id))?.length ?? 0}
-                    entityTitle={item.title}
+                    entityTitle={rowTitleToken}
                     onOpen={() => onOpenDocuments("raid", item.id)}
                   />
                 </span>
