@@ -1,5 +1,12 @@
 # Asset-id extraction Implementation Plan
 
+★★★ **SUPERSEDED IN PART — THE §209 CLOSURE BELOW IS NOT WHAT SHIPPED.** This plan says the
+`document-export-assets.ts` re-export "stays" and that the renderers reaching the pattern through
+it is what "REMAINS open". It does not: the re-export was DELETED, every consumer imports from
+`document-asset-patterns.ts` directly, and §209 is CLOSED rather than narrowed. `IMG_TAG_RE` was
+also renamed to `IMG_TAG_ASSET_ID_RE`, so every mention of the old name here is a historical one.
+The register is correct; this file is a dated record and is deliberately NOT rewritten to match.
+
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
 **Goal:** Make the 20-image per-document cap count only real asset references — not prose a user typed, and not a phantom id bled out of a neighbouring `alt` — then collect the three spellings of that attribute pattern into one module.
