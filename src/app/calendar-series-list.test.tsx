@@ -81,7 +81,7 @@ describe("CalendarSeriesList", () => {
     expect(new Set(names).size).toBe(2);
     expect(names[0]).toContain("Standup");
     expect(names[1]).toContain("Retro");
-    expectRowUniqueNames({ minRows: 4 });
+    expectRowUniqueNames({ minControls: 4 });
   });
 
   it("renders no edit affordance when onEdit is omitted (read-only mirror)", () => {

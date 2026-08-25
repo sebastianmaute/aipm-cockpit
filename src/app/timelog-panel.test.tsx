@@ -969,7 +969,7 @@ describe("TimelogPanel", () => {
       // from sync.projectRefs) — the only place in this describe block where
       // both selects are on screen at once, so it is the only place that can
       // prove their names don't collide.
-      expectRowUniqueNames({ minRows: 4, roles: ["combobox"] });
+      expectRowUniqueNames({ minControls: 4, roles: ["combobox"] });
     });
 
     it("renders a row for a freshly fetched (never-linked) project", () => {

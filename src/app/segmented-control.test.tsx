@@ -72,7 +72,7 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Row 1 — High" })).toBeInTheDocument();
     // The plain visible label is no longer the accessible name.
     expect(screen.queryByRole("radio", { name: "High" })).toBeNull();
-    expectRowUniqueNames({ minRows: 3, roles: ["radio"] });
+    expectRowUniqueNames({ minControls: 3, roles: ["radio"] });
   });
 
   test("without optionAriaLabel a radio's accessible name stays the visible label", () => {

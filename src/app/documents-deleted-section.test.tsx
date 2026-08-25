@@ -55,7 +55,7 @@ describe("DocumentsDeletedSection", () => {
     // differing. Assert the fixture actually produced two rows before comparing.
     expect(names).toHaveLength(2);
     expect(new Set(names).size).toBe(names.length);
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("cautions when more documents are deleted than survive, and never hides a row", () => {

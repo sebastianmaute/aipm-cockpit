@@ -1382,7 +1382,7 @@ describe("TaskRow linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
-    expectRowUniqueNames({ minRows: 29, scope: container });
+    expectRowUniqueNames({ minControls: 29, scope: container });
   });
 
   test("clicking a badge opens the Documents pane for THAT task", () => {

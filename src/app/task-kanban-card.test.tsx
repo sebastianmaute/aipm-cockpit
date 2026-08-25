@@ -209,7 +209,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(screen.queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
-    expectRowUniqueNames({ minRows: 5 });
+    expectRowUniqueNames({ minControls: 5 });
   });
 
   it("clicking a badge opens the Documents pane for THAT task", () => {

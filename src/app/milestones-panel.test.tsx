@@ -543,7 +543,7 @@ describe("achieved toggle", () => {
     expect(golive).toHaveAttribute("aria-pressed", "true");
     // ★ The old markup was a checkbox; assert that role is gone so a revert fails.
     expect(screen.queryByRole("checkbox", { name: /achieved/i })).toBeNull();
-    expectRowUniqueNames({ minRows: 13 });
+    expectRowUniqueNames({ minControls: 13 });
   });
 
   // ★ Asserts the RENDERED state flips, not that a setter was called.
@@ -637,7 +637,7 @@ describe("MilestonesPanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha gate",
       "Referenced by 1 document(s) – Beta gate",
     ]);
-    expectRowUniqueNames({ minRows: 17 });
+    expectRowUniqueNames({ minControls: 17 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {

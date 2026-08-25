@@ -85,7 +85,7 @@ describe("TimezoneSettingsSection", () => {
       name: `${t("en-US", "tzRemoveLabel")} – America/New_York`,
     });
     expect(removeBtn).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 3 });
+    expectRowUniqueNames({ minControls: 3 });
     fireEvent.click(removeBtn);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ additionalTimezones: ["Asia/Tokyo"] }),

@@ -1304,7 +1304,7 @@ it("gives each occurrence a row-unique accessible name", () => {
   );
   const names = screen.getAllByRole("button", { name: /Standup/ }).map((b) => b.getAttribute("aria-label"));
   expect(new Set(names).size).toBe(names.length);
-  expectRowUniqueNames({ minRows: 5 });
+  expectRowUniqueNames({ minControls: 5 });
 });
 
 it("stacks overlapping same-day meetings into separate lanes", () => {

@@ -119,7 +119,7 @@ describe("InsightsPanel", () => {
         }}
       />,
     );
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("hides lifecycle write controls in popouts (read-only)", () => {

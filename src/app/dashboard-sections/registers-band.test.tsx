@@ -47,7 +47,7 @@ describe("RaidRegisterCard", () => {
     );
     expect(screen.getByRole("button", { name: /first assumption/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /first issue/ })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("returns null when showRaid is false", () => {

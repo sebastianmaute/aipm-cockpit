@@ -485,14 +485,14 @@ describe("DocumentsPanel", () => {
       expect(screen.getByRole("button", { name: `${verb} – Beta` })).toBeInTheDocument();
     }
     expectNoDuplicateButtonNames();
-    expectRowUniqueNames({ minRows: 8 });
+    expectRowUniqueNames({ minControls: 8 });
   });
 
   it("keeps every per-row control distinct when two documents share a title", () => {
     // ★★ TWO documents, SAME title. A one-row fixture, or two rows with distinct
     // titles, passes against the unfixed code - which is how this shipped.
     renderLive([doc(1, "Q3 report"), doc(2, "Q3 report")]);
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   // ★★★ THE CASE THE FIXTURE ABOVE STRUCTURALLY CANNOT REACH. Seeding
@@ -1052,7 +1052,11 @@ describe("DocumentsPanel — deleted documents", () => {
     // Both rows share a TITLE, so only the id can separate them — a
     // title-only label would collide here and pass the Set check nowhere else.
     expect(names.every((n) => /#\d+$/.test(n ?? ""))).toBe(true);
-    expectRowUniqueNames({ minRows: 2 });
+    // ★ NO `requireCollisionSeed` here even though two docs DO share a title:
+    // the deleted list disambiguates with ` · #id` (`documents-deleted-section.tsx`),
+    // not with buildRowTokens' `(N)` occurrence suffix, so the guard's strip-and-pair
+    // test cannot see the seed. The `/#d+$/` assertion above is what covers it.
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("restores the document and drops it from the deleted list", async () => {

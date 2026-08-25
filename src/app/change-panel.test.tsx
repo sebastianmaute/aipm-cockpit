@@ -225,7 +225,7 @@ describe("ChangePanel — inline status select", () => {
     const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect((getByRole("combobox", { name: rowLabel("Alpha scope") }) as HTMLSelectElement).value).toBe("Proposed");
     expect((getByRole("combobox", { name: rowLabel("Beta cost") }) as HTMLSelectElement).value).toBe("Approved");
-    expectRowUniqueNames({ minRows: 5, roles: ["combobox"] });
+    expectRowUniqueNames({ minControls: 5, roles: ["combobox"] });
   });
 
   it("reports the picked status to onStatusChange with the row id", () => {
@@ -296,7 +296,7 @@ describe("ChangePanel — note-log badge", () => {
     expect(other.textContent).toContain("1");
     fireEvent.click(other);
     expect(onOpenNotes).toHaveBeenCalledWith(2);
-    expectRowUniqueNames({ minRows: 17 });
+    expectRowUniqueNames({ minControls: 17 });
   });
 
   it("renders a zero badge for a change with no log", () => {
@@ -447,7 +447,7 @@ describe("ChangePanel — inline Ask-Claude (SP2)", () => {
     expect(btn).toBeTruthy();
     fireEvent.click(btn);
     expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1, title: "Alpha scope" }));
-    expectRowUniqueNames({ minRows: 19 });
+    expectRowUniqueNames({ minControls: 19 });
   });
 
   it("does NOT render the button when aiEditEnabled returns false", () => {
@@ -861,7 +861,7 @@ describe("ChangePanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha scope",
       "Referenced by 1 document(s) – Beta cost",
     ]);
-    expectRowUniqueNames({ minRows: 20 });
+    expectRowUniqueNames({ minControls: 20 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {

@@ -257,7 +257,7 @@ describe("RolesEditor rate-card table", () => {
     // Two rows → two distinct "Hours" radios, each qualified by its row context.
     expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 4, roles: ["radio"] });
+    expectRowUniqueNames({ minControls: 4, roles: ["radio"] });
   });
 
   it("gives each row's delete button a row-unique accessible name (WCAG 2.4.6)", () => {
@@ -272,7 +272,7 @@ describe("RolesEditor rate-card table", () => {
     // a genuine pre-existing WCAG 2.4.6 collision, but not this row's and not
     // fixable without touching the shared InfoTooltip/SortResizeTh primitives.
     const tbody = screen.getByRole("table").querySelector("tbody")!;
-    expectRowUniqueNames({ minRows: 4, scope: tbody });
+    expectRowUniqueNames({ minControls: 4, scope: tbody });
   });
 
   // Class A tooltip batch: the row delete is icon-only, so its row-qualified
@@ -364,7 +364,7 @@ describe("RolesEditor rate-card table", () => {
     // for why the whole document isn't used here (a pre-existing header
     // InfoTooltip collision, out of scope for this row-level assertion).
     const tbody = screen.getByRole("table").querySelector("tbody")!;
-    expectRowUniqueNames({ minRows: 4, scope: tbody });
+    expectRowUniqueNames({ minControls: 4, scope: tbody });
   });
 
   it("does not reorder on a drop while a column sort is active", () => {

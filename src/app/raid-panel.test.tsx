@@ -810,7 +810,7 @@ describe("RaidPanel — inline Ask-Claude edit (SP2)", () => {
     expect(buttons).toHaveLength(2);
     fireEvent.click(buttons[0]);
     expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1 }));
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("hides the ✨ button when aiEditEnabled returns false", () => {
@@ -924,7 +924,7 @@ describe("RaidPanel send-inquiry (owner)", () => {
     fireEvent.click(btns[0]);
     expect(onSendInquiry).toHaveBeenCalledTimes(1);
     expect(onSendInquiry).toHaveBeenCalledWith(expect.objectContaining({ id: 7 }));
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   it("hides the Send inquiry button for a closed (review-inactive) item", () => {
@@ -1090,7 +1090,10 @@ describe("RaidPanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha",
       "Referenced by 1 document(s) – Beta",
     ]);
-    expectRowUniqueNames({ minRows: 21 });
+    // ★ NO `requireCollisionSeed`: Alpha/Beta/Gamma are DISTINCT titles, so no
+    // two rows share a display name. This is a distinct-name regression pin over
+    // the whole panel, not a shared-name collision test.
+    expectRowUniqueNames({ minControls: 21 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {

@@ -195,7 +195,7 @@ describe("AppearanceSection scheme control", () => {
         name: `${t("en-US", "remove")} – ${t("en-US", "brandingLogo")}`,
       }),
     ).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("keeps the start-logo row reachable under a USER scheme, where the other four hide", () => {

@@ -306,7 +306,7 @@ describe("PeopleDisclosureLabel", () => {
     // Visible text stays byte-identical across both rows.
     expect(triggers[0]).toHaveTextContent(LONG_ROLE);
     expect(triggers[1]).toHaveTextContent(LONG_ROLE);
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 });
 

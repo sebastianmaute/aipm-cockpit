@@ -47,7 +47,7 @@ describe("DocumentBlockGutter", () => {
     expect(screen.getByRole("button", { name: "Reorder – Block 2" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Block actions – Block 1" })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Block actions – Block 2" })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 4 });
+    expectRowUniqueNames({ minControls: 4 });
   });
 
   it("renders the block's kind chip", () => {

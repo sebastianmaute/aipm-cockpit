@@ -40,7 +40,7 @@ describe("EntityLinkPicker", () => {
     // mean something in the inert branch (see the dedicated test below).
     expect(names).toContain("Unlink Risk#3 Vendor delay");
     expect(names).toContain("Unlink Issue#7 Budget freeze");
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2 });
   });
 
   it("keeps the remove name terse when the chip body already names the entity", () => {

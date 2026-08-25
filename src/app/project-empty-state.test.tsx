@@ -232,7 +232,7 @@ describe("ProjectEmptyState", () => {
     const restoreOrion = screen.getByRole("button", { name: /restore – orion/i });
     expect(restoreOrion).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /restore – pegasus/i })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 10 });
+    expectRowUniqueNames({ minControls: 10 });
     fireEvent.click(restoreOrion);
     expect(onRestore).toHaveBeenCalledTimes(1);
     expect(onRestore).toHaveBeenCalledWith("p1");

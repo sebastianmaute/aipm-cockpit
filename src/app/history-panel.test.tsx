@@ -223,7 +223,7 @@ it("gives the compare-vs-now and restore-state row controls distinct accessible 
     { id: "v2", projectId: "p1", capturedAt: "2026-06-11T09:00:00.000Z", trigger: "manual", label: "Checkpoint", summary: null },
   ];
   renderPanel(<HistoryPanel lang="en-US" versions={versions} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} onDelete={vi.fn().mockResolvedValue(true)} />);
-  expectRowUniqueNames({ minRows: 2 });
+  expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
 });
 
 // ── T8: compare-header restore controls (Select all / Deselect all / state) ──

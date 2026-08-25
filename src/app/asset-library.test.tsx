@@ -63,7 +63,7 @@ describe("AssetLibrary", () => {
       expect(names.some((n) => n?.endsWith("image.png (1)"))).toBe(true);
       expect(names.some((n) => n?.endsWith("image.png (2)"))).toBe(true);
     }
-    expectRowUniqueNames({ minRows: 6 });
+    expectRowUniqueNames({ minControls: 6, requireCollisionSeed: true });
   });
 
   // ★★★ THE OTHER HALF OF THE SAME GUARD, and it is the half that rots. The

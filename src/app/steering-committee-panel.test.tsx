@@ -149,7 +149,7 @@ describe("SteeringCommitteePanel", () => {
     );
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Kickoff` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Review` })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 9 });
+    expectRowUniqueNames({ minControls: 9 });
   });
 
   it("shows a due info reminder", () => {

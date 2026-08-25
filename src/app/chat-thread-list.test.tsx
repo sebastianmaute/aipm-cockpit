@@ -52,7 +52,7 @@ describe("ChatThreadList", () => {
     expect(screen.getByRole("button", { name: 'Open "Untitled chat"' })).toBeInTheDocument();
     // The blank-name fallback also shows in the visible row text.
     expect(screen.getByText("Untitled chat")).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 7 });
+    expectRowUniqueNames({ minControls: 7 });
   });
 
   it("renders the thread rows inside a role=list container (Tailwind Preflight strips native list semantics)", () => {
@@ -308,6 +308,6 @@ describe("ChatThreadList", () => {
     expect(screen.getByRole("button", { name: 'Rename "Untitled chat"' })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: 'Delete "Q1 budget"' })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: 'Delete "Untitled chat"' })).toBeInTheDocument();
-    expectRowUniqueNames({ minRows: 7 });
+    expectRowUniqueNames({ minControls: 7 });
   });
 });

@@ -110,7 +110,7 @@ describe("InsightsCard", () => {
         }}
       />,
     );
-    expectRowUniqueNames({ minRows: 2 });
+    expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
   });
 
   // ★ "Acknowledge" and "Act" are both one-word verbs for effects the word does
