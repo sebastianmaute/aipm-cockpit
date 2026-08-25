@@ -485,6 +485,7 @@ describe("DocumentsPanel", () => {
       expect(screen.getByRole("button", { name: `${verb} – Beta` })).toBeInTheDocument();
     }
     expectNoDuplicateButtonNames();
+    expectRowUniqueNames({ minRows: 8 });
   });
 
   it("keeps every per-row control distinct when two documents share a title", () => {
@@ -1051,6 +1052,7 @@ describe("DocumentsPanel — deleted documents", () => {
     // Both rows share a TITLE, so only the id can separate them — a
     // title-only label would collide here and pass the Set check nowhere else.
     expect(names.every((n) => /#\d+$/.test(n ?? ""))).toBe(true);
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("restores the document and drops it from the deleted list", async () => {

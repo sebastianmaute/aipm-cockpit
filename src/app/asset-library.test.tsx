@@ -4,6 +4,7 @@ import userEvent from "@testing-library/user-event";
 import { AssetLibrary } from "./asset-library";
 import { ConfirmProvider } from "./confirm-dialog";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // ★★★ BOTH ROWS DELIBERATELY SHARE A NAME, AND THE SUITE IS WORTHLESS
 //     OTHERWISE. This fixture used to be `chart.png` / `logo.png`, which made
@@ -62,6 +63,7 @@ describe("AssetLibrary", () => {
       expect(names.some((n) => n?.endsWith("image.png (1)"))).toBe(true);
       expect(names.some((n) => n?.endsWith("image.png (2)"))).toBe(true);
     }
+    expectRowUniqueNames({ minRows: 6 });
   });
 
   // ★★★ THE OTHER HALF OF THE SAME GUARD, and it is the half that rots. The
