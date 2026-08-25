@@ -443,6 +443,25 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §126) — it asserts the
   collision is still there and is meant to go red when §126 is fixed. Both call themselves "the only
   detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §126.)
+  ★★ ASSERT THIS WITH THE SHARED `src/test/row-unique-names.ts`, never a
+  hand-rolled enumeration. `expectRowUniqueNames({minRows, scope, roles})`
+  THROWS when the scope renders fewer than `minRows` controls, so the vacuous
+  one-row fixture — which passes against defective code and is how this class
+  shipped on four surfaces — is unreachable rather than something a reviewer has
+  to remember. Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
+  a name unique in the list is used BARE, colliding rows get a 1-based occurrence
+  index, and ALL colliding rows are numbered including the first. NOT the id
+  (uuids read as character-salad aloud); NOT a whole-list ordinal (shifts under
+  sorting).
+  ★ Two things this cost us that the rule above does not say. First, WCAG 2.4.6 permits two controls
+  with the SAME purpose to carry the same name — the detector flags any repeat regardless, so a red
+  is a question ("do these two rows actually differ?"), not an automatic fix. RAID's toolbar Add and
+  its trailing row Add collided; the fix was justified only because `openNew()` (always a Risk) and
+  `openNew(effectiveCategory)` (the filtered category) genuinely differ, so the name now carries the
+  category — scope the assertion with a comment instead when they don't. Second, a per-item component
+  cannot disambiguate itself — it has no sibling visibility, so the token map must be built by whoever
+  renders the LIST and threaded down as a prop. That is why `raid-panel-rows` was fixable in place and
+  `TaskStatusSelect`/`TaskActionsImpl` were not.
   ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
   above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
   `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
