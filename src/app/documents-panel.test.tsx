@@ -1055,7 +1055,7 @@ describe("DocumentsPanel — deleted documents", () => {
     // ★ NO `requireCollisionSeed` here even though two docs DO share a title:
     // the deleted list disambiguates with ` · #id` (`documents-deleted-section.tsx`),
     // not with buildRowTokens' `(N)` occurrence suffix, so the guard's strip-and-pair
-    // test cannot see the seed. The `/#d+$/` assertion above is what covers it.
+    // test cannot see the seed. The `/#\d+$/` assertion above is what covers it.
     expectRowUniqueNames({ minControls: 2 });
   });
 

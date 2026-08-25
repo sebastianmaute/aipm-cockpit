@@ -528,8 +528,7 @@ function RaidPanelBody({
         // in whatever category is filtered (`openNew(effectiveCategory)`) — a
         // real difference whenever the filter is A/I/D, so 2.4.6's same-purpose
         // allowance does NOT apply and the category is what must distinguish
-        // them. ★ Containment (2.5.3) holds: the label still STARTS with the
-        // visible "+ Add RAID item".
+        // them.
         ariaLabel: rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang)),
       }}
       trailing={

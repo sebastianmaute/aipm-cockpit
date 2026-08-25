@@ -18,8 +18,7 @@
 // fixture to ONE document still PASSED, and reducing it to ZERO
 // (`renderLive([])`) still PASSED — one documents row renders six buttons and
 // the panel toolbar renders five. The old name promised a property it never
-// had, and that false promise is why most call sites were written with a floor
-// far below what their fixture renders.
+// had.
 //
 // ★★ SO, PRECISELY:
 //   `minControls` guarantees the scope is NON-EMPTY — that it rendered at
@@ -27,12 +26,12 @@
 //     panel that silently rendered nothing cannot read as a pass. That is ALL
 //     it guarantees. It is NOT a row count, and it does NOT guarantee the
 //     fixture can express a collision.
-//   `requireCollisionSeed` is what guarantees the latter. It THROWS unless two
-//     rendered names, with `buildRowTokens`' occurrence suffix stripped, are
-//     identical — i.e. unless the fixture really did seed two rows sharing a
-//     display name. Only then can the assertion below fail against defective
-//     code, because only then does the correct code have anything to
-//     disambiguate.
+//   `requireCollisionSeed` THROWS unless two rendered names are identical once
+//     the occurrence suffix is stripped and whitespace collapsed. LIMITATION:
+//     that is not the same as "the fixture seeded a shared display name" — two
+//     rows genuinely titled "Q3 report (1)" and "Q3 report (2)" strip to the
+//     same string, and the DOM does not carry what would tell the two cases
+//     apart.
 //
 // ★★ `requireCollisionSeed` is OPT-IN, and that is deliberate rather than
 // laziness. Most adopting tests are regression pins over DISTINCT-name
@@ -52,9 +51,9 @@ import { controlNames } from "./toolbar-order";
  * (`${row.name} (${occurrence})`) and the escalation branch
  * (`${row.name} (${bump})`) emit exactly this shape.
  *
- * ★ Anchored at `$` on purpose. A surface that disambiguates some OTHER way —
- * `documents-deleted-section.tsx` appends ` · #${id}` — does not produce a
- * stripped pair, so `requireCollisionSeed` correctly refuses to certify it.
+ * ★ A surface that disambiguates some OTHER way — `documents-deleted-section.tsx`
+ * appends ` · #${id}` — does not produce a stripped pair, so
+ * `requireCollisionSeed` refuses to certify it.
  */
 const OCCURRENCE_SUFFIX = / \(\d+\)$/;
 
@@ -72,9 +71,9 @@ export interface RowUniqueOptions {
   /** Roles to check. Defaults to buttons. */
   readonly roles?: readonly string[];
   /**
-   * Require the fixture to have seeded two rows sharing a display name, and
-   * THROW when it has not. Turn this on wherever the test claims to cover a
-   * collision — without it the assertion cannot fail against defective code.
+   * THROW unless two rendered names are identical once the occurrence suffix
+   * is stripped and whitespace collapsed. Turn this on wherever the test
+   * claims to cover a collision.
    */
   readonly requireCollisionSeed?: boolean;
 }
@@ -99,8 +98,8 @@ export function expectRowUniqueNames(opts: RowUniqueOptions): void {
     // compares that way, so a fixture seeding "Risk  A" against "Risk A" IS
     // collision-bearing and the tokeniser correctly qualifies both. Comparing the
     // stripped names RAW here would make this guard THROW at that fixture — the
-    // guard rejecting the very case it exists to certify. Latent, not live: nothing
-    // seeds a whitespace-run collision today, which is why only a read caught it.
+    // guard rejecting the very case it exists to certify. Found by reading, not by
+    // a failing run.
     const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, "").replace(/\s+/g, " "));
     const strippedCounts = new Map<string, number>();
     for (const n of stripped) strippedCounts.set(n, (strippedCounts.get(n) ?? 0) + 1);

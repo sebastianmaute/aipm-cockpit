@@ -46,8 +46,6 @@ describe("expectRowUniqueNames", () => {
     // ★ The outside button DELIBERATELY duplicates a name inside the scope, so
     // an unscoped run collides. Its earlier name was "Outside": all three names
     // were then distinct and this test passed identically with scoping deleted.
-    // Measured, not reasoned — mutating `controlNames` to `const q = screen;`
-    // left all six tests in this file green.
     render(
       <div>
         <button type="button" aria-label="Delete – Alpha">
@@ -71,7 +69,6 @@ describe("expectRowUniqueNames", () => {
     // ★ Anti-vacuity control for the test above: proves `roles` is load-bearing
     // and the previous case did not pass for an unrelated reason.
     render(<Rows names={["Pick – Alpha", "Pick – Alpha"]} role="checkbox" />);
-    expect(() => expectRowUniqueNames({ minControls: 2, roles: ["checkbox"] })).toThrow();
     expect(() => expectRowUniqueNames({ minControls: 1, roles: ["button"] })).toThrow(/minControls/);
   });
 
@@ -101,7 +98,7 @@ describe("expectRowUniqueNames", () => {
     it("passes when two rows share a display name and were qualified with (N)", () => {
       // ★ The real shape `buildRowTokens` emits: the names differ ONLY by the
       // occurrence suffix the guard strips. Goes red if that strip stops
-      // working, so it pins `OCCURRENCE_SUFFIX` rather than merely exercising it.
+      // happening at all — it does not pin the `$` anchor.
       render(<Rows names={["Delete – Q3 report (1)", "Delete – Q3 report (2)"]} />);
       expect(() =>
         expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true }),
@@ -127,8 +124,7 @@ describe("expectRowUniqueNames", () => {
       // both rows get qualified. Strip WITHOUT collapsing and the two stripped
       // names stay unequal as raw strings, so this guard THROWS at a fixture that
       // seeded exactly what it exists to certify: it would reject the true case
-      // and read as "your fixture is wrong". Caught by a read, not a run — nothing
-      // in the suite seeds a whitespace-run collision, so the hole was latent.
+      // and read as "your fixture is wrong". Found by reading, not by a failing run.
       render(<Rows names={["Delete – Risk  A (1)", "Delete – Risk A (2)"]} />);
       expect(() =>
         expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true }),

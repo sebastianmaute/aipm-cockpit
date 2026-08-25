@@ -226,9 +226,6 @@ it("gives the compare-vs-now and restore-state row controls distinct accessible 
   // ★★ `checkbox` is load-bearing, not padding. The per-row compare tick is a
   // `Checkbox` → `<input type="checkbox">`, so the DEFAULT `roles: ["button"]`
   // never sees it and the fix to its aria-label shipped with zero coverage.
-  // ★★ `checkbox` is load-bearing, not padding. The per-row compare tick is a
-  // `Checkbox` → `<input type="checkbox">`, so the DEFAULT `roles: ["button"]`
-  // never sees it and the fix to its aria-label shipped with zero coverage.
   // Mutation-proved: restoring the pre-fix space-joined label makes this RED
   // ("Select to compare Checkpoint" x2) while the button-only form stays GREEN.
   expectRowUniqueNames({ minControls: 2, roles: ["button", "checkbox"], requireCollisionSeed: true });

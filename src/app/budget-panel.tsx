@@ -494,14 +494,13 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="flex items-center gap-2">
                   <DragHandle
                     {...bucketOrder.handleProps(br.bucketId)}
-                    // ★★ Bucket-UNIQUE name (WCAG 2.4.6). Every handle carried
+                    // ★★ Bucket-QUALIFIED name (WCAG 2.4.6). Every handle carried
                     // the identical "Reorder bucket — …", so a screen-reader
                     // user listing the buttons heard the same label N times
                     // with nothing to say which bucket each moved. Budget IS an
-                    // axe-scanned view and axe cannot see this at ANY seed size
-                    // — no rule under the four tags the gate requests flags
-                    // duplicate accessible names — so the qualifier is written
-                    // at the source and pinned by a unit test.
+                    // axe-scanned view and axe cannot see this at ANY seed size,
+                    // so the qualifier is written at the source and pinned by a
+                    // unit test.
                     ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own

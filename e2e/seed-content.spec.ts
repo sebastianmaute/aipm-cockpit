@@ -118,7 +118,7 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // accessible name. ★ TWO rules are adjacent and NEITHER is requested:
   // `identical-links-same-purpose` (links ONLY, tagged `wcag2aaa`) and
   // `table-duplicate-name` (a <caption> repeating the summary attribute —
-  // `best-practice` plus an axe-internal RGAA tag). An earlier revision here
+  // `best-practice`). An earlier revision here
   // called the first "the one adjacent rule", which the command below refutes
   // — READ ITS OUTPUT, not the sentence above it. Reproduce:
   //   node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'

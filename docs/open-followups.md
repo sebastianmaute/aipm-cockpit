@@ -305,7 +305,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
 | [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
-| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--closed-2026-08-25) | Document row controls are named by a title that is NOT unique, and the comment says it is | found 2026-08-08 by a merge review, in main's document-authoring code | M | **CLOSED** 2026-08-25 |
+| [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
 | [§113](#113-the-documents-roadmap--block-editor-entity-attachment-images-ooxml-media--all-six-slices-shipped-kept-as-the-decision-record) | The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record | designed 2026-08-08 against 0.222.0 "Charnas" | XL — four releases | open |
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
@@ -7335,7 +7335,7 @@ thirteen-file list.
 
 ---
 
-## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half CLOSED 2026-08-25, the `#docId` sub-section below STILL OPEN
+## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
 
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
@@ -8700,10 +8700,9 @@ shape had never rendered anywhere a test could see it.
 
 ★★★ **NO GATE CATCHES THIS.** axe-core 4.12.1 has no rule for two BUTTONS sharing an accessible name;
 the two nearest — `identical-links-same-purpose` (links only, `wcag2aaa`) and `table-duplicate-name`
-(a `<caption>` repeating the `summary` attribute, `best-practice` plus an axe-internal RGAA tag) — carry no tag
+(a `<caption>` repeating the `summary` attribute, `best-practice`) — carry no tag
 `e2e/a11y.spec.ts` requests, and neither compares two CONTROLS' names. ★ An earlier revision named
-only the first; the command below prints both. jsdom-side unit tests do not render two same-type rows. The only detector in the
-repo is the count assertion added to `e2e/seed-content.spec.ts` on 2026-08-08. Reproduce the axe half:
+only the first; the command below prints both. Reproduce the axe half:
 
 ```bash
 node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" | "+r.tags.join(",")).join("\n"))'
@@ -8717,18 +8716,7 @@ exactly the types that can repeat (`milestoneSlip`, `raidAging`); the portfolio-
 (`stalledWork`, `overdueTrend`, `budgetVariance`) carry none, and detection emits at most one of each,
 so they cannot collide.
 
-★★★ **THE FIX MUST ALSO FLIP THE DETECTOR, AND THE DETECTOR WILL GO RED FIRST.**
-`e2e/seed-content.spec.ts` asserts `toHaveCount(2)` on the accessible name
-`"Dismiss – Milestone at risk"`. That assertion CHARACTERIZES this defect — it pins the bug, not the
-wanted behaviour — so a correct fix turns it red, and the red run is the fix working. It is labelled
-in the spec (a named constant plus a comment pointing back at this §), but a reader who meets the
-failure before the comment will be tempted to "repair" the spec by loosening the count, which would
-silently restore the blind spot. The flip is mechanical: expected count `2` → `0`, plus positive
-assertions for the two now-distinct qualified names. Do NOT delete the assertion and do NOT relax it
-to a range — it is the only detector in the repo, so a loosened form is equivalent to no detector.
-
-★ Same defect class as §111 (document row controls named by a non-unique title). Fixing them together
-would be reasonable; neither is in a slice yet.
+★ Same defect class as §111 (document row controls named by a non-unique title).
 
 ★ NOT fixed here on purpose: this was found by a prose/seed fact-check with no source-file lane, and
 `insights-panel.tsx` belongs to the insights subsystem. Filing beats a drive-by edit to another
@@ -8742,7 +8730,7 @@ left unchanged. Both surfaces now derive a `rowTitles`/token map keyed by insigh
 (`insightRowTitles` for the card, `buildRowTokens` for the panel) over the same filtered/sorted array
 that is actually rendered, so the occurrence index matches what's on screen; the VISIBLE title text
 stays bare, only the accessible name carries the disambiguating suffix. The
-`e2e/seed-content.spec.ts` characterization assertion was flipped as prescribed above: the
+`e2e/seed-content.spec.ts` characterization assertion was flipped: the
 `toHaveCount(2)` pinning the bug is now `toHaveCount(0)`, plus two `toHaveCount(1)` assertions for
 the disambiguated pair (`"Dismiss – Milestone at risk (1)"` / `"(2)"`, en dash).
 
@@ -17258,7 +17246,7 @@ rather than an oversight.
 attributes and `frame-title-unique` about iframes. Under NO tag does axe compare two CONTROLS'
 accessible names. The two rules in the library that are even adjacent are
 `identical-links-same-purpose` (links only, `wcag2aaa`) and `table-duplicate-name` (a `<caption>`
-repeating the `summary` attribute, `best-practice` plus an axe-internal RGAA tag); the gate requests neither tag, and
+repeating the `summary` attribute, `best-practice`); the gate requests neither tag, and
 neither rule looks at controls. ★★ An earlier revision here called the first "the only rule in the
 library that is even adjacent" — drop the `getRules(t)` tag filter from the command above and it
 prints both. Read the descriptions, never the count — a bare tally here reads as coverage.
@@ -17566,19 +17554,20 @@ into the deferral record; a defect judged NOT A DEFECT goes nowhere. This one wa
 so it appears in neither the fix set nor §245's list of what was knowingly deferred — the two places a
 later reader would look. ★ §245 has been corrected to point here.
 
-**Still open — the six `selectItem` row checkboxes.** Reproduce:
+**Still open — the five `selectItem` row checkboxes.** Reproduce:
 
 ```bash
 grep -rn '"selectItem"' src/app --include=*.tsx | grep -v test
 grep -n 'selectItem:' src/app/i18n.ts    # selectItem: "Select {0}"
 ```
 
-`change-panel.tsx` (`item.title`) · `milestones-panel.tsx` (`m.name`) · `raid-panel-rows.tsx`
-(`item.title`) · `resource-directory.tsx` (`resourceDisplayName(r)`) · `stakeholders-panel.tsx`
-(`item.name`) · `timelog-people-table.tsx` (`displayId`). ★★ Read the grep, not this list, for status:
-`raid-panel-rows.tsx` is being converted to `rowLabel` as part of this slice, so it may already have
-left the `t(lang, "selectItem", …)` form by the time you run it — a row still printing the bare
-positional form is still open. ★ `timelog-people-table.tsx` interpolates a `displayId` rather than a
+`change-panel.tsx` (`item.title`) · `milestones-panel.tsx` (`m.name`) · `resource-directory.tsx`
+(`resourceDisplayName(r)`) · `stakeholders-panel.tsx` (`item.name`) · `timelog-people-table.tsx`
+(`displayId`). ★★ Read the grep, not this list, for status — and read the ARGUMENT, not the call
+form. `raid-panel-rows.tsx` was on this list when the entry was filed and was converted three commits
+later (`71656bf2`); it still calls `t(lang, "selectItem", …)` and always will, but now passes
+`rowTitleToken` (from `buildRowTokens`) rather than the raw `item.title`. A raw field is what
+is open; the positional call form is not the discriminator. ★ `timelog-people-table.tsx` interpolates a `displayId` rather than a
 free-text name, which MAY be genuinely unique per row; that one is an open question to decide against
 its data, not an automatic fix (same treatment as §246's roles-editor case).
 
@@ -17603,11 +17592,26 @@ its data, not an automatic fix (same treatment as §246's roles-editor case).
 - `settings-sections/templates-section.tsx` — a per-row rename `<Input aria-label={t(lang,
   "templatesRename")}>` (= "Template name"), one per template. Reproduce: `grep -n 'templatesRename'
   src/app/settings-sections/templates-section.tsx`.
+- `add-first-item-button.tsx` on the RAID empty state — an **OPEN QUESTION**, not an asserted defect,
+  and PRE-EXISTING (not introduced by the row-unique-names slice). The primitive renders BOTH `{text}`
+  and `{addLabel}` as two spans inside ONE `<button>` whose accessible name is the `ariaLabel` prop.
+  `raid-panel.tsx` passes `text: t(lang, "raidEmpty")` — a full descriptive sentence — and
+  `addLabel: \`${t(lang, "raidAddItem")}…\``, while `ariaLabel` is the category-qualified add label
+  (the 2.4.6 fix documented at that call site). axe's implementation of WCAG 2.5.3
+  (`label-content-name-mismatch`) computes visible text over the WHOLE node, so the description
+  sentence is part of the visible label and containment fails. ★★ The SC's own scope is arguable —
+  "label" may reasonably mean the CTA line rather than the whole button's text content, and on that
+  reading the control conforms — so this is a question to decide, not a fix to apply. ★ Deciding it
+  one way binds every other `AddFirstItemButton` caller that passes `text`, which is why it is
+  recorded here rather than treated as a RAID-local tweak.
 
-★ None of the three is in `A11Y_VIEWS`' scanned surface in a way that would matter anyway — the
+★ None of the first three is in `A11Y_VIEWS`' scanned surface in a way that would matter anyway — the
 measurement in AGENTS.md's a11y bullet is that axe flags duplicate accessible names in NO view, at
 NO seed size, under the tags the gate requests. Unit tests with a ≥2-row fixture, via
-`expectRowUniqueNames` (`src/test/row-unique-names.ts`), are the only detector for every item above.
+`expectRowUniqueNames` (`src/test/row-unique-names.ts`), are the only detector for the duplicate-name
+items above. (The 2.5.3 question in the last bullet is a different SC with a different detector story
+— AGENTS.md's a11y bullet records that `label-content-name-mismatch` is `experimental`, so the gate
+never runs it in any view either.)
 
 ---
 

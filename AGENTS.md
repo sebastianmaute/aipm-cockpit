@@ -427,22 +427,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   In LIST of rows, per-row controls need row-UNIQUE accessible name (e.g.
   `aria-label={`${t(lang,"edit")} – ${row.name}`}`) — N identical "Edit"/"Enabled" labels is
   WCAG 2.4.6 fail. ★★★ **THE AXE GATE CANNOT CATCH THIS AT ALL — not "only when one row is seeded".**
-  An earlier revision here said the gate "can PASS it when the live app seeds only ONE row (collision
-  never renders at scan time)", which reads as though seeding N rows would make the gate see it. It
-  would not. Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
+  Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
   rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
   wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★★ THAT SENTENCE IS
   THE CLAIM — "two CONTROLS" is load-bearing, and every weaker paraphrase of it here has been false.
   The command below returns TEN rules, and TWO of the ten DO carry a requested tag:
   `duplicate-id-aria` and `frame-title-unique` (both `wcag2a`, and the latter is literally two
-  iframes sharing an accessible name). So "no requested rule is even adjacent" is FALSE — an earlier
-  revision said exactly that, and the revision correcting it introduced the error while fixing a
-  different one. What keeps the conclusion true is that neither of those two examines two CONTROLS'
-  names. The two nearest by WORDING are not requested at all: `identical-links-same-purpose` ("links
+  iframes sharing an accessible name). What keeps the conclusion true is that neither of those two
+  examines two CONTROLS' names. The two nearest by WORDING are not requested at all: `identical-links-same-purpose` ("links
   with the same accessible name serve a similar purpose" — links ONLY, `wcag2aaa`) and
-  `table-duplicate-name` (a `<caption>` repeating the `summary` attribute — `best-practice` plus an
-  axe-internal RGAA tag), which is even less adjacent than its id suggests. READ THE OUTPUT, do not
-  read any sentence above it — three successive revisions of this passage were wrong. Reproduce:
+  `table-duplicate-name` (a `<caption>` repeating the `summary` attribute — `best-practice`), which
+  is even less adjacent than its id suggests. READ THE OUTPUT, do not read any sentence above it.
+  Reproduce:
   `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
   So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
   the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY
@@ -473,23 +469,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `documents-panel.test.tsx`’s “keeps every per-row control distinct when two documents
   share a title” (floor 2) still PASSED with its fixture cut to ONE document, and still
   PASSED cut to ZERO — one row renders six buttons and the panel toolbar five.
-  `requireCollisionSeed: true` is the guard that closes it: it THROWS unless two rendered
-  names are identical once `buildRowTokens`’ ` (N)` occurrence suffix is stripped — i.e.
-  unless the fixture really seeded two rows sharing a display name, which is the shape
-  this class shipped on every surface the row-unique-accessible-names slice went on to
-  fix. Turn it ON for any test claiming to cover a collision; leave it OFF for a
+  `requireCollisionSeed: true` is the guard that closes it — its exact predicate and its
+  limitation live in the docstring in `src/test/row-unique-names.ts`, never in a
+  paraphrase. Turn it ON for any test claiming to cover a collision; leave it OFF for a
   distinct-name regression pin, a legitimate but different assertion. ★ It cannot certify
   a surface disambiguating some OTHER way — `documents-deleted-section.tsx` appends
-  ` · #id` — so those stay opted out, with the reason written at the call site. ★★ NO
+  ` · #id` — so those stay opted out. ★★ NO
   SURFACE COUNT IS QUOTED HERE, and restoring one is a regression: this line
   said "four surfaces", which counts neither the registered sections (§111 ·
   §126 · §243 — and §126 alone covers TWO surfaces) nor the files that needed
   naming. Further surfaces were fixed with no § at all, among them the RAID
-  case this very bullet uses as its worked example two paragraphs down.
-  Enumerate today's
-  adopters instead (the list includes `row-tokens.ts` itself, which is the
-  definition, not a surface):
-  `grep -rl "buildRowTokens\|rowLabel" src/app --include=*.tsx --include=*.ts | grep -v '\.test\.'` Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
+  case this very bullet uses as its worked example.
+  Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
   a name unique in the list is used BARE, colliding rows get a 1-based occurrence
   index, and ALL colliding rows are numbered including the first. NOT the id
   (uuids read as character-salad aloud); NOT a whole-list ordinal (shifts under
