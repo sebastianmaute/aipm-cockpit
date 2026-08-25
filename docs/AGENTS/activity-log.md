@@ -71,8 +71,18 @@ it has no table of its own, NOT because it sits outside the workspace.
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
   end anchor there runs 626 lines and reports 39. And that first command's start pattern needs the
-  `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 573 lines
-  and reports 32.
+  `const … = ` prefix: bare, it spans 573 printed lines and reports 32.
+  ★★★ **THE NUMBERS ARE RIGHT AND THE MECHANISM WAS WRONG, and the correct one is two lines below.**
+  This said a bare match "starts at an earlier mention". It does not: the FIRST occurrence of
+  `applyWorkspace` in that file IS the declaration, so anchored and bare open at the very same line.
+  573 is not an offset — it is the TOTAL printed span, because `sed` RE-TRIGGERS the range at every
+  LATER mention (the comments, the call site, the two return-object keys), each opening a fresh
+  range that runs to the next `^  };$`. That is exactly the re-trigger the paragraph below already
+  describes correctly, which is what makes this the file contradicting itself rather than merely
+  being stale. The anchored form spans 64 lines. Reproduce both spans:
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | wc -l` against
+  `sed -n '/applyWorkspace/,/^  };$/p' src/app/use-storage-backend.ts | wc -l`, and
+  `grep -n applyWorkspace src/app/use-storage-backend.ts | head -1` for the start line.
   ★★★ **THE SELF-MATCH CAME BACK, AND THIS PARAGRAPH HAD DECLARED IT RETIRED.** It read: the code
   comment that used to quote this command "is gone, the file now holds one occurrence, and anchored
   and unanchored both return 28". By 2026-08-25 a comment in `use-storage-backend.ts` was spelling
@@ -92,6 +102,15 @@ it has no table of its own, NOT because it sits outside the workspace.
   §240). Derive it rather than reading the number here — the payload's field list and its dep array
   are the same 24 names twice over:
   `sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/task-manager.tsx`.
+  ★★★ **"BOTH SIDES ARE 24" IS ABOUT THE CAPTURE AND THE FAN-OUT — NOT ABOUT WHAT A RESTORE
+  REWRITES, and reading it the second way is a data-loss bug.** `applyRestore` starts from the LIVE
+  workspace and rewrites only keys present in `COLLECTION_SPECS` (`version-diff.ts`). Five of the six
+  are ARRAYS and are deliberately absent from that registry, so a restore CARRIES THEM THROUGH from
+  live state rather than rolling them back — and `diffWorkspaces` cannot see them at all, so a
+  session that edits only those five captures no version. Two of them were briefly IN the registry
+  as `kind: "singleton"`, which spread the array into an object and made every backend drop the
+  slice on the next save; that is fixed and the reason is in the registry's own comment. Tracked as
+  `docs/open-followups.md` §241 and §242.
   The round-trip is pinned by `task-manager.restore-backfill.test.tsx` ("round-trips all six optional
   slices through getVersionPayload"), whose SIBLING test is the reason a pin was needed at all: it
   feeds the restore a workspace that already carries the slice, so it would pass with the capture

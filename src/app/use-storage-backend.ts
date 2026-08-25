@@ -280,7 +280,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     ★ That "29" is the likeliest claim here to rot — it has already read 25, then
   //     28. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
   //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspace`,
-  //     spelled short HERE so it cannot match itself; bare it opens 573 lines early → 32.
+  //     spelled short HERE so it cannot match itself. Bare, sed RE-TRIGGERS at every later mention (573 printed lines, 32) — it does NOT start earlier.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();

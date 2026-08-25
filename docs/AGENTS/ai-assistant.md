@@ -448,11 +448,15 @@
   is a single slot keyed by project id: `publishChatThreads` from the chat panel's publish effect,
   `readChatThreads` from the dispatcher bindings, a miss answered with a doubly-frozen `EMPTY`. Threading a
   ref down instead would cost lines on `task-manager.tsx`, `workspace-section.tsx` and `chat-panel.tsx`, and
-  **all three sit at EXACTLY their `docs/baselines/file-sizes.json` row**, where the ratchet's failure mode
-  is `grew from baselined` — i.e. zero headroom, not a little. Do not trust these numbers; re-derive both
-  sides with
+  **all three sit AT OR ONE LINE UNDER their `docs/baselines/file-sizes.json` row**, where the ratchet's
+  failure mode is `grew from baselined` — i.e. no usable headroom. ★★ This said "all three sit at
+  EXACTLY their row"; it was already false at the 0.259.0 branch point and `task-manager.tsx` moved
+  again during it, so the sentence rots on any commit touching any of the three. Do not trust these
+  numbers; re-derive both sides with
   `node -e "const b=require('./docs/baselines/file-sizes.json');for (const f of ['src/app/task-manager.tsx','src/app/workspace-section.tsx','src/app/chat-panel.tsx','src/app/use-chat-dispatcher.ts']) console.log(f, require('fs').readFileSync(f,'utf8').split('\n').length, b[f])"`
-  → measured 2026-08-18: **3020/3020 · 1000/1000 · 996/996**, and `use-chat-dispatcher.ts` at **799** with
+  → the command prints `<file> <lines> <baseline>`; read today's off it rather than from here. When
+  last run, `workspace-section.tsx` and `chat-panel.tsx` were exactly at their rows and
+  `task-manager.tsx` one line under, and `use-chat-dispatcher.ts` was at **799** with
   NO baseline row, so the bare 800 cap applies and it has ONE line of headroom. That last number is why the
   bindings and the pointer sentence live OUTSIDE that file — but it is not why they exist.
   ★★★ **`use-chat-search-bindings.ts` EXISTS FOR LIVENESS, NOT LINES.** `useChatDispatcher` builds its

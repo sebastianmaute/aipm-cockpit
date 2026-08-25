@@ -162,9 +162,15 @@ measured 2026-08-21 at `73461ca4`. On 2026-08-25 the same command reported CLEAN
 SYMBOL_MISSING 5 and PATH_MISSING 1, and the register held 232 entries. Run
 `npm run followups:check` and read its own summary line; take the entry/open/closed split from the
 register's header commands.
-★★ **A flag is a QUESTION, not a defect, and every one of the three that appeared since is a
-DELIBERATE absence the entry itself spells out** — §7 says "still no `src/app/form-field.tsx`", §204
-says "neither name exists in the code today", §58 names a browser API. ★★ The script DOES carry
+★★ **A flag is a QUESTION, not a defect, and every one of the SIX flagged entries is a DELIBERATE
+absence the entry itself spells out.** Name them rather than counting them — §7 says "still no
+`src/app/form-field.tsx`"; §204 says "neither name exists in the code today"; §58 names a browser
+API (`MutationObserver`); §213's `wroteBytesRef` comes from its own **Candidate fix** block and is
+explicitly not built; §214 names `noUnusedLocals` and `noUnusedParameters` precisely because
+`tsconfig.json` sets NEITHER, which is that entry's whole point; §215's `resource_group` is a
+GitLab CI keyword in a proposed remedy. ★★ An earlier revision here said "every one of the three"
+while the script flagged six: the PROPERTY survived and the COUNT did not, which is why the list is
+written out and the number is not. Read it off the script — `npm run followups:check`. ★★ The script DOES carry
 absence vocabulary — `followup-claims-lib.mjs` builds `REGISTER_ABSENCE_PATTERNS` from the same
 `ABSENCE_MARKERS` the symbols gate uses — so "it has no such notion" would be the wrong lesson. The
 patterns are phrase-shaped and simply did not match these three wordings. Read the entry before
@@ -251,11 +257,14 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
    ★★ **No tally is quoted here any more, deliberately.** This line froze one ("CLEAN 125 … both
    **zero**") and every subsequent edit to `docs/open-followups.md` moved it: on 2026-08-25 the same
    command reported CLEAN 151, SYMBOL_MISSING 5, PATH_MISSING 1. Run `npm run followups:check` and
-   read its own summary line. ★★ And read the flags as questions, not defects — all three that
-   appeared since are DELIBERATE absences the entries themselves spell out (§7 says "still no
-   `src/app/form-field.tsx`", §204 says "neither name exists in the code today", §58 names a browser
-   API) — the script has no absence-marker vocabulary and exits 0 regardless. Nothing here is a
-   pickable slice any more.
+   read its own summary line. ★★ And read the flags as questions, not defects — the SIX flagged
+   entries are all DELIBERATE absences the entries themselves spell out; the script names them
+   (§7, §58, §204, §213, §214, §215) and the paragraph above carries the reading of each. ★★ It
+   exits 0 regardless, which is why it is a report and not a gate — that is the half of this
+   sentence that was true. It DOES carry absence vocabulary (`REGISTER_ABSENCE_PATTERNS` in
+   `scripts/followup-claims-lib.mjs`); the patterns are phrase-shaped and simply did not match these
+   wordings, so "it has no such notion" would be the wrong lesson. Nothing here is a pickable slice
+   any more.
 5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
 6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.255.0 "Bisson". No longer a pickable
    slice, and no longer a decision to make.
