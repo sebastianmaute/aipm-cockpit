@@ -57,12 +57,56 @@ describe("buildRowTokens", () => {
   it("returns an empty map for an empty list", () => {
     expect(buildRowTokens([]).size).toBe(0);
   });
+
+  it("collides two names that differ only by an internal whitespace RUN", () => {
+    // ★★ Accessible-name computation collapses internal whitespace runs, so
+    // "Risk  A" and "Risk A" are ONE name to a screen reader. Keying collisions
+    // on the raw string leaves BOTH bare — a 2.4.6 failure invisible on screen,
+    // because the two rows differ by a space nobody can see.
+    const tokens = buildRowTokens([
+      { id: 1, name: "Risk  A" },
+      { id: 2, name: "Risk A" },
+    ]);
+    // ★ The emitted token keeps the row's OWN spelling — only the COMPARISON is
+    // collapsed. Asserting the raw name back is what stops a "fix" that
+    // normalises the token itself and silently rewrites what the user typed.
+    expect(tokens.get(1)).toBe("Risk  A (1)");
+    expect(tokens.get(2)).toBe("Risk A (2)");
+  });
+
+  it("escalates when a generated token collides with a name only AFTER collapsing", () => {
+    // ★ Row 3 is literally named "Alpha  (1)" (two spaces). Its bare token
+    // collapses to the very token generated for row 1, so the escalation loop
+    // must compare collapsed forms — comparing raw strings steps straight over it.
+    const tokens = buildRowTokens([
+      { id: 1, name: "Alpha" },
+      { id: 2, name: "Alpha" },
+      { id: 3, name: "Alpha  (1)" },
+    ]);
+    const heard = [tokens.get(1)!, tokens.get(2)!, tokens.get(3)!].map((n) => n.replace(/\s+/g, " "));
+    expect(new Set(heard).size).toBe(3);
+  });
 });
 
 describe("rowLabel", () => {
-  it("keeps the verb at the FRONT so the name CONTAINS the visible text", () => {
-    // WCAG 2.5.3 is containment, case-insensitive, NOT prefix — but front
-    // position is the documented best practice and what every caller assumes.
+  it("puts the verb FIRST — the repo's one format, and the documented best practice", () => {
+    // ★ NOT a conformance requirement: WCAG 2.5.3 is CONTAINMENT, so
+    // "Alpha (2) – Delete" would conform equally well. Front position is a NOTE
+    // in Understanding SC 2.5.3. This pins the FORMAT every surface shares,
+    // nothing more — the containment property is the test below.
     expect(rowLabel("Delete", "Alpha (2)")).toBe("Delete – Alpha (2)");
+  });
+
+  it("returns a name CONTAINING the verb, which is what WCAG 2.5.3 asks for", () => {
+    // ★★ The containment property itself, at the only layer a pure function can
+    // reach. axe compares case-insensitively after stripping punctuation, so
+    // plain containment is sufficient here.
+    // ★ SCOPE, stated because the docstring used to overclaim it: this renders
+    // no control and reads no visible text, so it does NOT prove that any call
+    // site's VISIBLE label equals `verb`. That is per-call-site and is pinned
+    // nowhere in this file.
+    for (const verb of ["Delete", "Restore this state", "Compared with current"]) {
+      expect(rowLabel(verb, "Risk  A (1)").toLowerCase()).toContain(verb.toLowerCase());
+    }
   });
 });

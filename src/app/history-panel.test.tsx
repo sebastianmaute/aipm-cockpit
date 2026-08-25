@@ -223,7 +223,15 @@ it("gives the compare-vs-now and restore-state row controls distinct accessible 
     { id: "v2", projectId: "p1", capturedAt: "2026-06-11T09:00:00.000Z", trigger: "manual", label: "Checkpoint", summary: null },
   ];
   renderPanel(<HistoryPanel lang="en-US" versions={versions} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} onDelete={vi.fn().mockResolvedValue(true)} />);
-  expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true });
+  // ★★ `checkbox` is load-bearing, not padding. The per-row compare tick is a
+  // `Checkbox` → `<input type="checkbox">`, so the DEFAULT `roles: ["button"]`
+  // never sees it and the fix to its aria-label shipped with zero coverage.
+  // ★★ `checkbox` is load-bearing, not padding. The per-row compare tick is a
+  // `Checkbox` → `<input type="checkbox">`, so the DEFAULT `roles: ["button"]`
+  // never sees it and the fix to its aria-label shipped with zero coverage.
+  // Mutation-proved: restoring the pre-fix space-joined label makes this RED
+  // ("Select to compare Checkpoint" x2) while the button-only form stays GREEN.
+  expectRowUniqueNames({ minControls: 2, roles: ["button", "checkbox"], requireCollisionSeed: true });
 });
 
 // ── T8: compare-header restore controls (Select all / Deselect all / state) ──

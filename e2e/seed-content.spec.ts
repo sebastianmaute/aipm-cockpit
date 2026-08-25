@@ -113,11 +113,19 @@ test("seeded insights reach the app, not just IndexedDB", async ({ page }) => {
   // bare form. The count-0 assertion below proves the collision is gone; the
   // two count-1 assertions after it prove the disambiguated pair survives.
   // ★★★ IF THIS EVER GOES RED, DO NOT LOOSEN OR DELETE IT — it is the ONLY
-  // detector in the repo for this class: axe-core 4.12.1 has no rule that
-  // flags two BUTTONS sharing an accessible name, and the one adjacent rule
-  // (`identical-links-same-purpose`) is links-only and `wcag2aaa`, a tag
-  // e2e/a11y.spec.ts does not request. A green Insights axe run is not
-  // evidence the names are unique — this assertion is.
+  // detector in the repo for this class: of axe-core 4.12.1's rules, not one
+  // carrying a tag e2e/a11y.spec.ts requests flags two BUTTONS sharing an
+  // accessible name. ★ TWO rules are adjacent and NEITHER is requested:
+  // `identical-links-same-purpose` (links ONLY, tagged `wcag2aaa`) and
+  // `table-duplicate-name` (a <caption> repeating the summary attribute —
+  // `best-practice` plus an axe-internal RGAA tag). An earlier revision here
+  // called the first "the one adjacent rule", which the command below refutes
+  // — READ ITS OUTPUT, not the sentence above it. Reproduce:
+  //   node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'
+  // ★ That listing also returns `duplicate-id-aria` and `frame-title-unique`,
+  // which DO carry requested tags — but they are about DOM ids and iframe
+  // titles, never two CONTROLS sharing a name, so the conclusion is unchanged.
+  // A green Insights axe run is not evidence the names are unique — this is.
   await expect(
     page.getByRole("button", { name: "Dismiss – Milestone at risk", exact: true }),
   ).toHaveCount(0);

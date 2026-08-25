@@ -4,7 +4,7 @@
 // Compare modes: per-row "compare with current", or tick two versions and
 // "compare selected" (the two are ordered oldest→newest before diffing).
 
-import { useMemo, useRef, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
@@ -63,7 +63,14 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // Scrolls the compare output into view once a diff resolves (T7).
   const compareRef = useRef<HTMLDivElement>(null);
 
-  const labelOf = (v: ProjectVersionMeta) => v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang);
+  // ★ `useCallback` so the memo below is a real cache. Declared inline, this
+  // was a NEW function identity every render, so `rowTokens` rebuilt its whole
+  // map on every keystroke of the checkpoint-name input (which re-renders this
+  // panel through `draftLabel`) — a useMemo that never memoized anything.
+  const labelOf = useCallback(
+    (v: ProjectVersionMeta) => v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang),
+    [displayTz, lang],
+  );
 
   // Row-unique accessible-name tokens (§243) — derived from the SAME list the
   // rows below are mapped from, in render order, so the occurrence index

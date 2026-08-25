@@ -889,7 +889,9 @@ describe("TaskActions Send inquiry", () => {
   // named tasks in the same table collide on ALL of them at once — confirmed
   // for Send inquiry + More actions (both x2) by seeding a twin here. Fixing
   // it means threading a row-token map from wherever the task list is mapped
-  // (tasks-panel.tsx) down through `RowContextProvider`/`TaskRow`'s props —
+  // (tasks-section.tsx, which maps the list into `<TaskRow>`; there has never
+  // been a tasks-panel.tsx on any branch — `git ls-files | grep -i tasks-panel`
+  // is empty) down through `RowContextProvider`/`TaskRow`'s props —
   // real restructuring of the table's data flow, not a local qualifier swap,
   // and the single largest surface found in this bucket (raid-panel-rows.tsx
   // and task-kanban-card.tsx each had 2-3 colliding controls; this file has

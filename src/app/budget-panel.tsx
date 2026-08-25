@@ -86,9 +86,19 @@ function ManualPercentCell({
       {t(lang, "budgetPercentComplete")}
       <InfoTooltip text={t(lang, "budgetPercentCompleteHint")} />
       <input
-        // Bucket-qualified: N identical "Manual % complete" labels is a WCAG
-        // 2.4.6 failure that the axe gate cannot see (it reports MISSING
-        // accessible names, never duplicate ones).
+        // ★★ Bucket-QUALIFIED, which is NOT bucket-UNIQUE — an earlier revision
+        // of this comment read as if the qualifier closed 2.4.6, and it does
+        // not. N identical "Manual % complete" labels is a WCAG 2.4.6 failure
+        // the axe gate cannot see (of axe-core 4.12.1's rules, not one carrying
+        // a tag e2e/a11y.spec.ts requests flags two controls sharing a name),
+        // and appending the bucket name fixes only the ordinary case. The
+        // RESIDUAL case is live: `budget-bucket-modal.tsx` edits the name as
+        // free text with no uniqueness constraint (only `BUDGET_NAME_MAX`), so
+        // two buckets can carry one name and these inputs then collide
+        // byte-for-byte again. Closing it needs a `buildRowTokens`
+        // (`row-tokens.ts`) map built where the buckets are MAPPED and threaded
+        // down as a prop — a per-item component has no sibling visibility — so
+        // it is a deferred follow-up, deliberately not attempted here.
         aria-label={`${t(lang, "budgetPercentComplete")} – ${bucket.name}`}
         type="number"
         min={0}
