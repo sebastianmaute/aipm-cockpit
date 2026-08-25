@@ -6,6 +6,7 @@ import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "Sam", assigneeEmail: "", dueDate: "2026-06-01",
@@ -186,6 +187,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(screen.queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+    expectRowUniqueNames({ minRows: 5 });
   });
 
   it("clicking a badge opens the Documents pane for THAT task", () => {

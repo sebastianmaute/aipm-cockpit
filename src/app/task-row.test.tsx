@@ -11,6 +11,7 @@ import {
 import { type ChangeItem, type RaidItem, type Resource, type Task } from "./types";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -1358,7 +1359,7 @@ describe("TaskRow linked-documents badge", () => {
   }
 
   test("badges only the referenced rows, with the real count and a row-unique name", () => {
-    const { getAllByRole, queryByRole } = renderRows();
+    const { getAllByRole, queryByRole, container } = renderRows();
     const badges = getAllByRole("button", { name: /^Referenced by/ });
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
       "Referenced by 2 document(s) – Alpha",
@@ -1366,6 +1367,7 @@ describe("TaskRow linked-documents badge", () => {
     ]);
     // Gamma links no document → no badge at all (not a badge reading 0).
     expect(queryByRole("button", { name: /Referenced by .* – Gamma/ })).toBeNull();
+    expectRowUniqueNames({ minRows: 29, scope: container });
   });
 
   test("clicking a badge opens the Documents pane for THAT task", () => {
