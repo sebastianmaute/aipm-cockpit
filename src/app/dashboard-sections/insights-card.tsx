@@ -89,7 +89,11 @@ export function InsightsCard({
   return (
     <ul className={`flex flex-col ${dc.kpiGap}`}>
       {active.map((insight) => {
-        const title = rowTitles.get(insight.id) ?? insightTitle(insight, lang);
+        // ★ Split on purpose: `title` is the VISIBLE headline text; a
+        // colliding row must NOT show a disambiguating "(2)" on screen —
+        // only `nameToken` (the row-unique form) feeds accessible names.
+        const title = insightTitle(insight, lang);
+        const nameToken = rowTitles.get(insight.id) ?? title;
         const detail = insightDetail(insight, lang);
         return (
           <li
@@ -110,7 +114,7 @@ export function InsightsCard({
                   <Button
                     variant="secondary"
                     size="xs"
-                    aria-label={`${t(lang, "insightOpen")} – ${title}`}
+                    aria-label={`${t(lang, "insightOpen")} – ${nameToken}`}
                     onClick={() => onOpen(insight.entityRef!)}
                   >
                     {t(lang, "insightOpen")}
@@ -122,7 +126,7 @@ export function InsightsCard({
                       <Button
                         variant="secondary"
                         size="xs"
-                        aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                        aria-label={`${t(lang, "insightAcknowledge")} – ${nameToken}`}
                         title={t(lang, "insightAcknowledgeHint")}
                         onClick={() => actions.onAcknowledge(insight.id)}
                       >
@@ -132,7 +136,7 @@ export function InsightsCard({
                     <Button
                       variant="secondary"
                       size="xs"
-                      aria-label={`${t(lang, "insightAct")} – ${title}`}
+                      aria-label={`${t(lang, "insightAct")} – ${nameToken}`}
                       title={t(lang, "insightActHint")}
                       onClick={() => actions.onAct(insight.id)}
                     >
@@ -141,14 +145,14 @@ export function InsightsCard({
                     <Button
                       variant="secondary"
                       size="xs"
-                      aria-label={`${t(lang, "insightDismiss")} – ${title}`}
+                      aria-label={`${t(lang, "insightDismiss")} – ${nameToken}`}
                       onClick={() => actions.onDismiss(insight.id)}
                     >
                       {t(lang, "insightDismiss")}
                     </Button>
                     <InsightRecommendationControls
                       insight={insight}
-                      title={title}
+                      title={nameToken}
                       lang={lang}
                       actions={actions}
                       generatingId={generatingId}

@@ -200,7 +200,11 @@ export function InsightsPanel({
         ) : (
           <ul className="flex flex-col gap-2 p-1">
             {rows.map((insight) => {
-              const title = rowTitles.get(insight.id) ?? insightTitle(insight, lang);
+              // ★ Split on purpose: `title` is the VISIBLE headline text; a
+              // colliding row must NOT show a disambiguating "(2)" on screen —
+              // only `nameToken` (the row-unique form) feeds accessible names.
+              const title = insightTitle(insight, lang);
+              const nameToken = rowTitles.get(insight.id) ?? title;
               const detail = insightDetail(insight, lang);
               const showAck = insight.status === "active";
               const showAct = insight.status === "active" || insight.status === "acknowledged";
@@ -237,7 +241,7 @@ export function InsightsPanel({
                         <Button
                           variant="secondary"
                           size="xs"
-                          aria-label={`${t(lang, "insightOpen")} – ${title}`}
+                          aria-label={`${t(lang, "insightOpen")} – ${nameToken}`}
                           onClick={() => onOpen(insight.entityRef!)}
                         >
                           {t(lang, "insightOpen")}
@@ -249,7 +253,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightAcknowledge")} – ${title}`}
+                              aria-label={`${t(lang, "insightAcknowledge")} – ${nameToken}`}
                               title={t(lang, "insightAcknowledgeHint")}
                               onClick={() => actions!.onAcknowledge(insight.id)}
                             >
@@ -260,7 +264,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightAct")} – ${title}`}
+                              aria-label={`${t(lang, "insightAct")} – ${nameToken}`}
                               title={t(lang, "insightActHint")}
                               onClick={() => actions!.onAct(insight.id)}
                             >
@@ -271,7 +275,7 @@ export function InsightsPanel({
                             <Button
                               variant="secondary"
                               size="xs"
-                              aria-label={`${t(lang, "insightDismiss")} – ${title}`}
+                              aria-label={`${t(lang, "insightDismiss")} – ${nameToken}`}
                               onClick={() => actions!.onDismiss(insight.id)}
                             >
                               {t(lang, "insightDismiss")}
@@ -279,7 +283,7 @@ export function InsightsPanel({
                           ) : null}
                           <InsightRecommendationControls
                             insight={insight}
-                            title={title}
+                            title={nameToken}
                             lang={lang}
                             actions={actions!}
                             generatingId={generatingId}
