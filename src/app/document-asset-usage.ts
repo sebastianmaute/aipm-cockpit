@@ -12,20 +12,15 @@
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
 // load through sanitizeDocumentHtml).
 //
-// ★★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT, and
-// this header claimed for a while that it was — that "a literal
-// `data-asset-id=\"…\"` in TEXT content would already have been escaped on the
-// way in". MEASURED FALSE 2026-08-24, through the real two-pass load
-// composition and not by reasoning: `<p>data-asset-id="hero"</p>` comes back
-// BYTE-IDENTICAL. HTML text-node serialisation escapes `&`, `<` and `>` — it
-// never escapes `"` — so a double-quoted attribute spelled out in prose
-// survives intact, and `ASSET_ID_RE` below then counts it. A user writing
-// documentation ABOUT this app, or pasting HTML as text to discuss it, spends
-// a real slot of the 20-image per-document cap on it, and the cap message then
-// offers that slot back as room "removing the references no export can draw"
-// would reclaim — which here means deleting the sentence they wrote. Pinned by
-// "does NOT escape a data-asset-id a user merely TYPED as prose" in this
-// module's test file; open-followups §231.
+// ★★ SANITISING IS STILL NOT A GUARD AGAINST A `data-asset-id` IN TEXT
+// CONTENT — that has been measured and it has not changed: `<p>data-asset-id=
+// "hero"</p>` comes back BYTE-IDENTICAL from a full load, because HTML
+// text-node serialisation escapes `&`, `<` and `>` and never `"`. What changed
+// (open-followups §231, closed) is that this module no longer NEEDS it to be a
+// guard: `ASSET_ID_RE` requires a start tag, so prose cannot reach it. Do not
+// restore a claim that the sanitizer protects this — it does not, and the next
+// pattern change would inherit a false premise. Pinned by "does NOT escape a
+// data-asset-id a user merely TYPED as prose, and no longer counts it".
 //
 // ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
 // property and a real one: DOMPurify re-serialises every attribute with double
@@ -36,7 +31,31 @@
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { IMG_TAG_RE } from "./document-export-assets";
 
-const ASSET_ID_RE = /data-asset-id="([^"]*)"/g;
+/** The attribute inside ANY start tag, stepping over quoted attribute values.
+ *
+ *  ★★★ TAG-AGNOSTIC ON PURPOSE, AND THAT IS THE HALF NOT TO "SIMPLIFY".
+ *   A reference the sanitizer preserved on a non-`img` element still matters
+ *   for deletion safety and the "used in N documents" count, so a
+ *   `<span data-asset-id>` MUST keep counting (open-followups §218). Anchoring
+ *   this on `<img` would silently change what the cap counts and what that
+ *   column means. `document-asset-usage.test.ts` fails if you do.
+ *
+ *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_RE` uses: a preceding
+ *   `alt="…"` is consumed whole as one alternative, so its contents cannot
+ *   supply an opening quote for this attribute. Before that, a crafted alt
+ *   ending in `data-asset-id=` produced a phantom id and hid the real one, and
+ *   a text node spelling the attribute spent a cap slot (open-followups §231).
+ *
+ *  ★ Double-quote-only and case-sensitive on the ATTRIBUTE name, both
+ *   deliberate: DOMPurify re-serialises every attribute double-quoted on load,
+ *   so by the time this runs there is nothing else to match. Tag-name case is
+ *   NOT the discriminator — `<IMG data-asset-id="x">` counts here.
+ *
+ *  ★ Empty ids are admitted by the pattern and rejected by the caller's
+ *   `.filter`, which is how this and `ASSET_IMG_RE` (document-model.ts) agree
+ *   on emptiness through two different mechanisms in two files. */
+const ASSET_ID_RE =
+  /<[a-zA-Z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*?\bdata-asset-id="([^"]*)"/g;
 
 function assetIdsInBlock(block: DocBlock): string[] {
   if (block.type !== "paragraph") return [];
@@ -100,25 +119,26 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  SET. The three fields read as a partition — `all`, the drawable part of it,
  *  and the rest — and only `undrawable ⊆ all` is guaranteed, because that one
  *  is BUILT by filtering `all`. `all` and `drawable` are computed by two
- *  DIFFERENT patterns over raw HTML and a pathological input puts an id in one
- *  and not the other: `ASSET_ID_RE` is a naive scan that will match inside
- *  another attribute's VALUE or inside text content, while `IMG_TAG_RE` is
- *  quote-aware and steps over both. Measured 2026-08-24 —
- *  `<img alt="data-asset-id=" data-asset-id="real">` (reachable: an asset NAME
- *  is free text via rename, and `htmlEscape` escapes `& < > "` but NOT `=`)
- *  yields `all` = [`" data-asset-id="`] with the real id ABSENT, and
- *  `drawable` = [`"real"`]. The `all` UNDERCOUNT is PRE-EXISTING —
- *  `assetIdsInDocument` has always had these semantics — and is recorded as
- *  open-followups §231, NOT fixed here.
+ *  DIFFERENT patterns over raw HTML: both step over quoted attribute VALUES
+ *  now, but they live in separate files, differ in what they anchor on, and
+ *  nothing in the code makes them agree.
+ *  Measured 2026-08-25: no known input violates it any more —
+ *  `<img alt="data-asset-id=" data-asset-id="real">` used to yield
+ *  `all` = [`" data-asset-id="`] with the real id ABSENT, and now yields
+ *  `["real"]` in both (open-followups §231, closed). The guarantee is still
+ *  NOT structural: `all` and `drawable` are computed by two DIFFERENT patterns
+ *  over raw HTML, so treat a subset relationship as a measured fact that a
+ *  future pattern change can break, never as an invariant.
  *
  *  ★★ CONSEQUENCE FOR CALLERS: anything subtracting these sizes must subtract
  *  `undrawable` from `all` (never `drawable` from `all`, which can go negative).
  *  The cap message in `documents-asset-section.tsx` depends on exactly that.
- *  Both relationships are pinned by "lets a crafted alt put an id in `drawable`
- *  that is NOT in `all`" in this module's test file. */
+ *  Both relationships are pinned in this module's test file, by "no longer lets
+ *  a crafted alt hide the real id from `all`" and "keeps `undrawable` a subset
+ *  of `all` by construction". */
 export type AssetRefs = {
   /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
-   *  counts. NOT a superset of `drawable`; see the type's note. */
+   *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */
   all: ReadonlySet<string>;
   /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */
   drawable: ReadonlySet<string>;

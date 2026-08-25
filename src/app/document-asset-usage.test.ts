@@ -252,53 +252,85 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
   // have been escaped on the way in — this module does not need to guard
   // against that itself". Measured false 2026-08-24 and pinned below: HTML
   // text-node serialisation escapes `&`, `<` and `>` and NEVER `"`, so a double
-  // quote in text survives every pass untouched. These two cases exist so the
-  // replacement claim in that header cannot rot back into the old one.
+  // quote in text survives every pass untouched — that half is unchanged by
+  // §231, which removed this module's DEPENDENCE on it rather than the fact.
+  // The cases below exist so the header's claim cannot rot back into the old
+  // one, in either direction.
   const loadFully = (html: string): ProjectDocument =>
     sanitizeProjectDocuments([doc(21, [{ type: "paragraph", html }])]).map(
       sanitizeDocumentRichFields,
     )[0];
 
-  it("does NOT escape a data-asset-id a user merely TYPED as prose", () => {
+  it("does NOT escape a data-asset-id a user merely TYPED as prose, and no longer counts it", () => {
     // A user documenting this very app, or pasting HTML to talk about it.
     const loaded = loadFully(`<p>data-asset-id="hero"</p>`);
     const [block] = loaded.blocks;
 
-    // ★ The positive observable: the text is still there verbatim AFTER a full
-    //   load. Without this the id-set assertions below could pass because the
-    //   block was dropped and something else supplied the ids.
+    // ★ The positive observable, and it is the half that did NOT change: HTML
+    //   text-node serialisation escapes `&`, `<` and `>` and NEVER `"`, so the
+    //   string survives a full load verbatim. Without this assertion the empty
+    //   id sets below could pass because the block had been dropped.
     expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="hero"`);
 
+    // ★★ What CHANGED (open-followups §231): the scanner now requires a start
+    //    tag, so prose spends no slot of the 20-image cap and contributes
+    //    nothing to the reclaimable-room figure the cap message renders.
     const refs = assetRefsInDocument(loaded);
-    // Counted against the 20-image cap, and folded into the reclaimable room the
-    // cap message offers — for a string that is prose, not a reference at all.
-    expect([...refs.all]).toEqual(["hero"]);
+    expect([...refs.all]).toEqual([]);
     expect([...refs.drawable]).toEqual([]);
-    expect([...refs.undrawable]).toEqual(["hero"]);
+    expect([...refs.undrawable]).toEqual([]);
   });
 
-  it("lets a crafted alt put an id in `drawable` that is NOT in `all`", () => {
-    // ★★★ `drawable` IS NOT A SUBSET OF `all`, and only this case shows it.
-    // `htmlEscape` escapes `& < > "` but NOT `=`, and an asset NAME is free
-    // text (rename), so `alt` can end in `data-asset-id=`. The naive
-    // `ASSET_ID_RE` then pairs that trailing `=` with the REAL attribute's
-    // opening quote; the quote-aware `IMG_TAG_RE` steps over the alt and finds
-    // the real id.
-    // The undercount is PRE-EXISTING (`assetIdsInDocument` always had these
-    // semantics) — recorded as open-followups §231, not fixed here.
+  it("no longer lets a crafted alt hide the real id from `all`", () => {
+    // ★★ `htmlEscape` escapes `& < > "` but NOT `=`, and an asset NAME is free
+    //    text (rename), so `alt` can end in `data-asset-id=`. The OLD scanner
+    //    paired that trailing `=` with the REAL attribute's opening quote and
+    //    produced a phantom id while the real one went missing — an id that
+    //    spends no cap slot and can be re-inserted, defeating dedup.
+    //    open-followups §231, half two.
     const loaded = loadFully(`<img alt="data-asset-id=" data-asset-id="real">`);
     const [block] = loaded.blocks;
     expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="real"`);
 
     const refs = assetRefsInDocument(loaded);
+    expect([...refs.all]).toEqual(["real"]);
     expect([...refs.drawable]).toEqual(["real"]);
-    expect(refs.all.has("real")).toBe(false);
+    expect([...refs.undrawable]).toEqual([]);
+  });
 
-    // ★★ THIS ONE PINS THE CONSTRUCTOR, NOT THIS FIXTURE. `undrawable` is BUILT
-    // by filtering `all`, so it is constant-true for every input. It is kept
-    // because the cap message's reclaimable-room arithmetic in
+  it("keeps `undrawable` a subset of `all` by construction", () => {
+    // ★★ THIS PINS THE CONSTRUCTOR, NOT A FIXTURE. `undrawable` is BUILT by
+    // filtering `all`, so this is constant-true for every input — and it is
+    // kept deliberately: the cap message's reclaimable-room arithmetic in
     // documents-asset-section subtracts one size from the other and would go
     // NEGATIVE if a later fix rebuilt `undrawable` from a second scan.
+    const loaded = loadFully(`<span data-asset-id="s">x</span><img data-asset-id="i">`);
+    const refs = assetRefsInDocument(loaded);
     expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
+  });
+
+  it("finds BOTH ids when one paragraph holds two images and the first has a crafted alt", () => {
+    // ★★★ ORDER ALONE WAS NEVER THE PROTECTION. The old scanner crossed `<img>`
+    //     boundaries WITHIN a block: it paired the first tag's alt with the
+    //     SECOND tag's markup and yielded `["r1", "><img data-asset-id="]`, so
+    //     the second real image was invisible to the cap entirely.
+    const loaded = loadFully(
+      `<img data-asset-id="r1" alt="data-asset-id="><img data-asset-id="r2" alt="x">`,
+    );
+    const refs = assetRefsInDocument(loaded);
+    expect([...refs.all].sort()).toEqual(["r1", "r2"]);
+    expect([...refs.drawable].sort()).toEqual(["r1", "r2"]);
+  });
+
+  it("does not count the attribute spelled without a space after the tag name", () => {
+    // ★ The THIRD behaviour change, beyond §231's two halves, pinned so it is
+    //   not latent: `<imgdata-asset-id="x">` is malformed HTML (the tag name
+    //   swallows the attribute) and used to count. It cannot survive the load
+    //   path either, so this asserts the SCANNER directly rather than through
+    //   loadFully — which is the only way to observe it.
+    const raw: ProjectDocument = doc(99, [
+      { type: "paragraph", html: `<imgdata-asset-id="x">` },
+    ]);
+    expect([...assetRefsInDocument(raw).all]).toEqual([]);
   });
 });
