@@ -431,12 +431,18 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   never renders at scan time)", which reads as though seeding N rows would make the gate see it. It
   would not. Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
   rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
-  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★ TWO rules are even
-  adjacent and NEITHER is requested: `identical-links-same-purpose` ("links with the same accessible
-  name serve a similar purpose" — links ONLY, tagged `wcag2aaa`) and `table-duplicate-name` (a
-  `<caption>` repeating the `summary` attribute — tagged `best-practice` plus an axe-internal RGAA tag). An earlier revision
-  here called the first "the only rule in the whole library that is even adjacent", which the very
-  command below refutes — READ ITS OUTPUT, do not read the sentence above it. Reproduce:
+  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★★ THAT SENTENCE IS
+  THE CLAIM — "two CONTROLS" is load-bearing, and every weaker paraphrase of it here has been false.
+  The command below returns TEN rules, and TWO of the ten DO carry a requested tag:
+  `duplicate-id-aria` and `frame-title-unique` (both `wcag2a`, and the latter is literally two
+  iframes sharing an accessible name). So "no requested rule is even adjacent" is FALSE — an earlier
+  revision said exactly that, and the revision correcting it introduced the error while fixing a
+  different one. What keeps the conclusion true is that neither of those two examines two CONTROLS'
+  names. The two nearest by WORDING are not requested at all: `identical-links-same-purpose` ("links
+  with the same accessible name serve a similar purpose" — links ONLY, `wcag2aaa`) and
+  `table-duplicate-name` (a `<caption>` repeating the `summary` attribute — `best-practice` plus an
+  axe-internal RGAA tag), which is even less adjacent than its id suggests. READ THE OUTPUT, do not
+  read any sentence above it — three successive revisions of this passage were wrong. Reproduce:
   `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
   So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
   the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY

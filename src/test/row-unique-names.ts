@@ -94,7 +94,14 @@ export function expectRowUniqueNames(opts: RowUniqueOptions): void {
   }
 
   if (requireCollisionSeed) {
-    const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, ""));
+    // ★★ COLLAPSE BEFORE COMPARING, exactly as `buildRowTokens` does. It keys its
+    // collision counts on a whitespace-collapsed name because an accessible name
+    // compares that way, so a fixture seeding "Risk  A" against "Risk A" IS
+    // collision-bearing and the tokeniser correctly qualifies both. Comparing the
+    // stripped names RAW here would make this guard THROW at that fixture — the
+    // guard rejecting the very case it exists to certify. Latent, not live: nothing
+    // seeds a whitespace-run collision today, which is why only a read caught it.
+    const stripped = names.map((n) => n.replace(OCCURRENCE_SUFFIX, "").replace(/\s+/g, " "));
     const strippedCounts = new Map<string, number>();
     for (const n of stripped) strippedCounts.set(n, (strippedCounts.get(n) ?? 0) + 1);
     if (![...strippedCounts.values()].some((c) => c > 1)) {

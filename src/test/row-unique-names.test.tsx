@@ -120,6 +120,21 @@ describe("expectRowUniqueNames", () => {
       );
     });
 
+    it("certifies a fixture whose rows collide only after whitespace collapses", () => {
+      // ★★★ THE GUARD MUST COLLAPSE, BECAUSE `buildRowTokens` DOES. That function
+      // keys its collision counts on a whitespace-collapsed name — an accessible
+      // name compares that way — so "Risk  A" against "Risk A" IS a collision and
+      // both rows get qualified. Strip WITHOUT collapsing and the two stripped
+      // names stay unequal as raw strings, so this guard THROWS at a fixture that
+      // seeded exactly what it exists to certify: it would reject the true case
+      // and read as "your fixture is wrong". Caught by a read, not a run — nothing
+      // in the suite seeds a whitespace-run collision, so the hole was latent.
+      render(<Rows names={["Delete – Risk  A (1)", "Delete – Risk A (2)"]} />);
+      expect(() =>
+        expectRowUniqueNames({ minControls: 2, requireCollisionSeed: true }),
+      ).not.toThrow();
+    });
+
     it("still reports a real collision when the seed guard is on", () => {
       // ★ Anti-vacuity: the guard must not short-circuit the assertion it protects.
       render(<Rows names={["Delete – Alpha", "Delete – Alpha"]} />);

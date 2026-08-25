@@ -596,9 +596,12 @@ describe("ActivityLogPanel", () => {
   // HAS, so no single-control fixture can express it — this test must render
   // BOTH filters. And no gate can express it either: of axe-core 4.12.1's 105
   // rules, the 69 carrying one of the four tags `e2e/a11y.spec.ts` requests
-  // include NONE that flags a duplicate accessible name (the only adjacent
-  // rule, `identical-links-same-purpose`, is links-only and tagged `wcag2aaa`,
-  // which the spec never asks for). Activity IS in `A11Y_VIEWS`, so a fully
+  // include NONE that flags two CONTROLS sharing an accessible name. ★★ Two
+  // requested-tag rules ARE adjacent — `duplicate-id-aria` and
+  // `frame-title-unique` — but they examine ids and iframes, not controls, so
+  // "no adjacent rule is requested" would be false; the nearest by WORDING,
+  // `identical-links-same-purpose`, is links-only and tagged `wcag2aaa`,
+  // which the spec never asks for. Activity IS in `A11Y_VIEWS`, so a fully
   // green axe run said nothing while the group filter's own radiogroup was
   // named "All" — a group named after one of its options — sitting beside an
   // actor group whose first radio was also "All" (WCAG 2.4.6).
