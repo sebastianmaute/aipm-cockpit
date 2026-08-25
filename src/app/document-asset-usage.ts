@@ -148,9 +148,11 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  `undrawable ⊆ all` is pinned by "keeps `undrawable` a subset of `all` by
  *  construction" in this module's test file.
  *
- *  ★ The duplicate-attribute divergence above is pinned by NOTHING. It was
- *  measured by hand and no test holds it, so a later pattern change can widen
- *  it silently — add a case before relying on either pattern's occurrence. */
+ *  ★ The duplicate-attribute divergence above is pinned by "characterizes the
+ *  duplicate-attribute divergence — `all` takes the FIRST, `drawable` the
+ *  LAST" in the same file. That test is a CHARACTERIZATION, not a desired
+ *  property: if a change makes the two patterns agree it SHOULD go red, and
+ *  the answer is to delete it and this note, never to re-fit its expectations. */
 export type AssetRefs = {
   /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
    *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */

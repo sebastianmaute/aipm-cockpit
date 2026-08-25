@@ -333,4 +333,35 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     ]);
     expect([...assetRefsInDocument(raw).all]).toEqual([]);
   });
+
+  it("characterizes the duplicate-attribute divergence — `all` takes the FIRST, `drawable` the LAST", () => {
+    // ★★★ THIS IS A CHARACTERIZATION OF A KNOWN DIVERGENCE, NOT A DESIRED
+    //     PROPERTY. It records what the two patterns currently do so that a
+    //     change to either cannot widen the gap silently.
+    //
+    // ★★ THE CAUSE IS THE QUANTIFIER, and it is the only difference between
+    //    them: `ASSET_ID_RE` is LAZY (`*?`) so it stops at the FIRST
+    //    occurrence, while `IMG_TAG_RE` is GREEDY (`*`) and backtracks to the
+    //    LAST. Their alternations are byte-identical. So a DUPLICATED
+    //    attribute puts a different id in each set, and `drawable` is then not
+    //    a subset of `all` — asserted below, because that is the whole point.
+    //
+    // ★★ SCANNED UN-LOADED ON PURPOSE. A full load collapses the duplicate to
+    //    `data-asset-id="a"` (measured through the real two-pass composition),
+    //    after which both sets agree and this test would assert NOTHING.
+    //    Routing it through `loadFully` makes it vacuous, not stricter.
+    //
+    // ★ open-followups §231 closed the crafted-`alt` half of the non-subset
+    //   problem. THIS is the half that stayed open. If a future change makes
+    //   the two patterns agree, this test SHOULD go red — DELETE it, and the
+    //   `AssetRefs` note that cites it, rather than adjusting the expectations
+    //   to match whatever the new output happens to be.
+    const raw: ProjectDocument = doc(98, [
+      { type: "paragraph", html: `<img data-asset-id="a" data-asset-id="b">` },
+    ]);
+    const refs = assetRefsInDocument(raw);
+    expect([...refs.all]).toEqual(["a"]);
+    expect([...refs.drawable]).toEqual(["b"]);
+    expect([...refs.drawable].every((id) => refs.all.has(id))).toBe(false);
+  });
 });
