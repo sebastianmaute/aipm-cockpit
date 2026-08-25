@@ -117,6 +117,16 @@ export function AssetLibrary({
     return out;
   }, [assets, sort]);
 
+  // ★★★ ROW-UNIQUE accessible names (WCAG 2.4.6) — see row-tokens.ts for the
+  // disambiguation algorithm's own rationale. The asset NAME alone is NOT
+  // unique here and cannot be made so: upload takes `file.name` verbatim and
+  // Chrome names EVERY pasted clipboard image `image.png`; `findDuplicate` is
+  // hash-only, so two DIFFERENT images sharing a filename both get rows; and
+  // rename accepts a string already in use. Two rows reading "Delete –
+  // image.png" is a WCAG 2.4.6 failure that axe cannot detect in any view at
+  // any seed size (measured — see AGENTS.md), so `asset-library.test.tsx` is
+  // the only detector that will ever exist for this surface.
+  //
   // Derived from `sorted`, not `assets` — the occurrence index has to follow
   // the order the user is actually navigating.
   const rowTokens = useMemo(() => buildRowTokens(sorted), [sorted]);
