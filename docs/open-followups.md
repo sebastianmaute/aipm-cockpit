@@ -15552,7 +15552,7 @@ load* = yes is false about the very thing the row is about.** Measured 2026-08-2
 sanitiser unwraps the element and the attribute leaves with it. Do NOT
 read that as the tag-agnostic guard being pointless: `data-asset-id` DOES survive load on
 allow-listed non-`img` carriers (`<p>`, `<strong>`, `<li>`, `<a>` each keep it), so the guard
-protects a reachable case — just never the `<span>` this entry names throughout. **§245** carries
+protects a reachable case — just never the `<span>` this entry names throughout. **§249** carries
 the probe, the mechanism and what it would take to settle it.
 
 ★★ **AND THAT CELL IS NOT ASSERTED, WHICH IS WHY THE CLAIM "all measured" WAS WRONG TWICE OVER.**
@@ -17550,21 +17550,67 @@ document tool (the model chooses order; DOMPurify preserves it) and workspace im
 are `sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — so the guard sees raw,
 un-DOMPurified html with arbitrary order.
 
-**The fix.** `ASSET_IMG_TEST_RE` is now quote-aware. ★★★ THE TWO DIRECTIONS ARE NOT SYMMETRIC, and
-the original entry's central instruction ("do NOT fix one side alone") had them backwards.
-Quote-awareness in the PREDICATE only ever makes it return `true` more often, so it can only KEEP
-more blocks — it cannot introduce a drop. The dangerous direction is the other one: making
-`htmlPlainProjection`'s `TAG` quote-aware alone would zero the projection for `alt="a>b"` while the
-predicate still said "no image". `rich-text-plain.ts` now carries that warning at the regex itself.
+**The fix, and the fix that had to be fixed.** ★★★ **THE FIRST FIX FOR THIS ENTRY REPRODUCED THIS
+DEFECT, WORSE, AND SHIPPED BEHIND A FULLY GREEN GATE SUITE.** It is recorded here in full because
+the failure is more instructive than the original bug.
 
-★ One verdict deliberately flips the other way: `<img alt="data-asset-id=x">` was KEPT (the
-truncating class matched a decoy inside the quoted alt and reported an image that does not exist)
-and is now dropped, like every other non-asset image already was.
+That fix made `ASSET_IMG_TEST_RE` quote-aware and, in the same commit, narrowed its attribute anchor
+from `\b` to `[\s/]` and excluded `<` from branch 1. It was justified by this sentence, written into
+the entry, the docstring and the spec banner at once:
+
+> Quote-awareness in the PREDICATE only ever makes it return `true` more often, so it can only KEEP
+> more blocks — it cannot introduce a drop.
+
+**False.** Quote-awareness is not monotone in either direction, and the three narrowings together
+deleted four more classes of real block than the defect this entry opened with. Confirmed against a
+real HTML parser — every one carries a genuine `data-asset-id`, because the tokenizer RECOVERS from
+the malformation (`missing-whitespace-between-attributes` reconsumes in before-attribute-name state):
+
+```
+                                       pre-fix  first-fix   cause
+<img alt="x"data-asset-id="real">       kept     DELETED    [\s/] anchor
+<img alt='x'data-asset-id="real">       kept     DELETED    [\s/] anchor
+<img alt=it's data-asset-id="real">     kept     DELETED    quote-awareness
+<img alt=a<b  data-asset-id="real">     kept     DELETED    `<`-exclusion
+```
+
+The first two also zeroed `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE`, so the 20-image cap
+undercounted, the duplicate check went blind (§231's symptom, reopened) and the export could not
+draw the image.
+
+**What is shipped now.** The anchor in all three patterns is `(?<![-\w])`, which rejects the
+`foo-data-asset-id` decoy without caring whether a separator exists. `ASSET_IMG_TEST_RE` is a
+**union**: branch 1 is the pre-fix `[^>]*` (recovers a missing separator, an unpaired quote, a stray
+`<`), branch 2 is quote-aware (recovers `alt="a>b"`, which truncates branch 1). Each is individually
+linear and they are tried in order, so the cost is their sum. **Every single-regex candidate
+measured lost at least one real block**; the union was the only spelling with no data-losing verdict
+across the probed shapes.
+
+★★★ **THE REUSABLE PART IS THE SINK'S ASYMMETRY, not anything about quoting.** This predicate is one
+term of a DELETE condition. A false `true` keeps a block that has no asset — it renders as a
+source-less image, which is what the stored html says anyway. A false `false` destroys user data.
+The two errors are not comparable, so **every narrowing of this predicate is a candidate data-loss
+bug and needs a reachability argument; a widening needs none.** The first fix narrowed three ways in
+one commit and argued reachability for none of them.
+
+★ One verdict deliberately goes the false-`true` way: `<img alt="data-asset-id=x">` (a decoy inside
+a quoted value, no real asset) is KEPT, via union branch 1. Both extractors correctly return
+nothing for it, so it costs no cap slot and no export fetch. ★★ The first fix made this one FALSE
+and pinned it with a test asserting the block is dropped — the narrowing looked like a clean
+improvement in isolation, and that test is now inverted. Read it as the worked example of the
+paragraph above: it was the *same* narrowing that cost the four blocks.
 
 **Pinned by.** `document-model.test.ts` — "keeps an image-only paragraph when an earlier attribute
 value contains > and <" (both tag-like-tail shapes AND the id-first control, so a fix handling only
-one goes red) and "still drops a paragraph whose only image reference is a decoy in an attribute
-value". Reverting the predicate to its old `[^>]*` spelling kills **5** tests across two files.
+one goes red), "keeps the four malformed-but-real image paragraphs a narrowed predicate deleted"
+(one block per shape, so restoring any ONE of the three narrowings goes red on its own), and "keeps
+a paragraph whose only image reference is a decoy in an attribute value" (which carries a plain
+image alongside as the control, so it cannot pass by nothing ever being dropped). The divergence
+table in `document-asset-patterns.test.ts` carries the same four shapes at pattern level with what
+each extractor sees.
+★★ Restoring the FIRST FIX's predicate — the shipped-and-wrong `[\s/]` quote-aware spelling — kills
+**7** tests across those two files. That mutant is the one worth re-running, because it is the one
+that was green.
 ★★ The original entry asserted "**why no test can catch this**: both paths end in block kept". That
 was true only of the shape it examined. An end-to-end test over the RIGHT shapes catches it easily —
 and the belief that no test could was itself part of why none was written.
@@ -17579,6 +17625,20 @@ restatement. The label was applied to the right sentence and the sentence was st
 the *premise* it reasoned from was the over-generalised one. **A hedge on the conclusion does not
 protect a false premise.** When an entry rests on a single fixture, the follow-up is not a better
 hedge — it is a second fixture chosen to break the first.
+
+★★★ **AND THE FIX FOR THIS ENTRY COMMITTED THE IDENTICAL ERROR, ONE ROUND LATER, IN THIS FILE.**
+The "cannot introduce a drop" sentence above was reasoned from ONE example (`alt="data-asset-id=x"`,
+the harmless decoy) and stated as a universal — the exact move this section had just finished
+condemning, by an author who had just written the condemnation. Worse, the sentence was
+*self-refuting in place*: the very next bullet named a verdict flipping the other way, and it was
+still read, restated in three files, and shipped. ★★ Two independent signals were available and
+neither was used — a counterexample sitting one line below the claim, and the word "cannot" in a
+sentence about a regex nobody had run over malformed input. ★ §251, written in the same round two
+entries down, then generalised from a single fixture a third time. **The pathology is not a lack of
+care; all three passes were careful. It is that "I measured it" attaches to the observation and
+silently transfers to the generalisation drawn from it.** Nothing here catches that except a second
+fixture chosen adversarially, and the cost of finding all three was one substitution in each
+fixture string.
 
 ## 251. `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path
 
@@ -17598,8 +17658,34 @@ many tag openers, no `>` anywhere:
 ```
 
 ~4x the time per 2x the input. Each `<a` start scans to end of input looking for a `>` that is not
-there. ★ `BLOCK_TAG`, three lines above it, is NOT affected (0.57 ms at 128 KB): its alternation
-ends in `\b`, so a non-matching tag name fails immediately instead of scanning the tail.
+there.
+
+★★★ **`BLOCK_TAG` IS AFFECTED TOO, AND THIS ENTRY SAID IT WAS NOT.** The original wording — "★
+`BLOCK_TAG`, three lines above it, is NOT affected (0.57 ms at 128 KB): its alternation ends in
+`\b`, so a non-matching tag name fails immediately" — has a correct mechanism and a false
+conclusion. `\b` rejects a name that does not match; it does nothing for one that does, and the
+fixture chosen was `"<a".repeat(k)`, where `a` is not in the alternation. Feed it a name that IS:
+
+```
+"<a".repeat, 128 000 B      0.23 ms      <- what the old note measured
+"<p".repeat,   8 000 B      9.26 ms
+"<p".repeat,  32 000 B    153.99 ms
+"<p".repeat, 128 000 B  2 496.91 ms      <- 16x per 4x input: quadratic
+```
+
+`<p` is the most likely opener in this corpus. So the quadratic is in BOTH regexes in
+`htmlPlainProjection`, not one, and this entry under-reported its own reach by a factor of the
+whole file.
+
+★★★ This is §250's lesson recurring inside the entry that records it, two entries later and in the
+same round: *an entry generalised from ONE measured input.* The fixture said "not affected" and the
+claim said "cannot be affected". When an entry rests on a single fixture the follow-up is not a
+better hedge — it is a second fixture chosen to break the first. ★ It also cost nothing to find:
+one substitution in the string being repeated.
+
+★ "Three lines above it" was wrong as well — the two declarations are ~35 lines apart at this
+commit, and `AGENTS.md` bans quoting line distances precisely because they rot. Cite the symbol:
+`grep -n "BLOCK_TAG = \|const TAG = " src/app/rich-text-plain.ts`.
 
 **Reach.** `htmlPlainProjection` backs `htmlTextLength`, which runs on the FIRST term of
 `sanitizeBlock`'s drop condition — on every paragraph, on every load path — and inside the entity
@@ -17610,12 +17696,32 @@ sanitizers for the seven rich fields. So this is not documents-only. No size cap
 cannot emit — it serialises from a DOM. It arrives only through raw stored html: a hand-edited
 blob, a workspace import, or an AI write reaching a sanitizer that has not run yet.
 
-**What it would take to settle it.** ★★★ NOT by excluding `<` from `[^>]*`, which is the obvious
-one-character fix and is WRONG here: it changes what counts as a tag for the projection, and the
-projection's `[^>]*` truncation is load-bearing in the other direction (§250 — a quote-aware or
-otherwise narrowed `TAG` zeroes the projection for `alt="a>b"` and moves a block's survival onto
-the predicate alone). Any change wants `document-model.test.ts`'s load-path tests run against it,
-not just `rich-text-plain.test.ts`.
+**What it would take to settle it.** ★★★ THE ORIGINAL ANSWER HERE WAS "NOT by excluding `<` from
+`[^>]*` … WRONG here", justified by "§250 — a quote-aware **or otherwise narrowed** `TAG` zeroes
+the projection for `alt="a>b"`". **That justification is false, measured:**
+
+```
+<img alt="a>b" data-asset-id="real">    TAG -> 24 chars   [^<>] -> 24 chars   IDENTICAL
+<img alt="><c d" data-asset-id="real">  TAG ->  0 chars   [^<>] ->  0 chars   IDENTICAL
+```
+
+There is no `<` before that `>`, so excluding `<` cannot reach either shape. The consequence named
+belongs to QUOTE-AWARENESS alone; grafting it onto the `<`-exclusion made two unrelated narrowings
+look interchangeable. ★★ That is the same conflation §250 itself was created by — treating "narrow
+the tag matcher" as one decision when it is three independent ones with three different blast
+radii.
+
+★ The honest statement of the trade-off. `[^<>]*` does change exactly one shape,
+`<img alt="a<b" …>`, and it moves the projection **up** (0 → 11 chars): the block survives rather
+than being dropped, which is the safe direction for §250's guard. The cost is elsewhere — those 11
+characters are raw markup surfacing as "visible text", so the projection reports tag soup as prose
+for that input. Whether that matters depends on the caller (`htmlTextLength` only compares against
+zero and would be fine; a plain-text EXPORT would not be). ★ It also fixes the quadratic outright,
+in both regexes: 128 KB of `"<p"` goes 2 873 ms → 0.51 ms.
+
+So the `<`-exclusion is currently the cheapest option that works, not the one to steer away from —
+but it needs the caller-by-caller pass above before anyone takes it, and
+`document-model.test.ts`'s load-path tests run against it, not just `rich-text-plain.test.ts`.
 ★ The cheap, semantics-free option is a length guard at the CALLER — measure `capHtmlText(html, …)`
 rather than `html` — which bounds the cost without touching the regex. That is also the fix §250's
 predicate did not need once it stopped scanning quadratically.

@@ -898,13 +898,23 @@ single and unquoted), whitespace around the `=`, a `/` where a space would norma
 attribute, and any EARLIER attribute whose quoted value contains a `>` or a `<`, which it steps
 over rather than truncating at.
 ★★★ **It does NOT "admit every legal attribute spelling" — which is what this line used to claim,
-and the over-generalisation was wrong in BOTH directions.** It rejects two spellings on purpose: an
-EMPTY value (`data-asset-id=""`, and the single-quoted form — the allow-list strips the attribute
-and every renderer resolves nothing, so keeping the block would reintroduce the invisible blank
-paragraph above), and a hyphen-prefixed lookalike (`foo-data-asset-id="s"`, excluded since 0.259.2
-by anchoring the attribute on `[\s/]` rather than `\b`). And until 0.259.2 it wrongly REJECTED a
-spelling it should always have admitted — `<img alt="a>b" data-asset-id="real">` — because the walk
-ahead of the attribute was a bare `[^>]*` that stopped at the `>` inside `alt`. That last one is
+and the over-generalisation was wrong in BOTH directions.** It rejects exactly TWO spellings on
+purpose: an EMPTY value (`data-asset-id=""`, and the single-quoted form — the allow-list strips the
+attribute and every renderer resolves nothing, so keeping the block would reintroduce the invisible
+blank paragraph above), and a hyphen-prefixed lookalike (`foo-data-asset-id="s"`, excluded since
+0.259.2 by anchoring the attribute on the lookbehind `(?<![-\w])` rather than `\b`).
+★★★ **A first cut of that anchor was `[\s/]`, and it rejected FOUR MORE — all of them real.** An
+HTML parser recovers from a missing separator, an unpaired quote and a stray `<` in an unquoted
+value, so `<img alt="x"data-asset-id="real">` and three siblings carry genuine attributes; `[\s/]`
+saw no separator and every one of those paragraphs was deleted on load. The enumeration in the
+paragraph above is therefore the WHOLE point of it — a correction that replaces an
+over-generalisation with a list is only worth anything if the list is complete, and this one was
+short by four for one release. `docs/open-followups.md` §250 carries the shapes and the parser
+confirmation.
+★ It is also a UNION of two regexes, not one: the quote-aware form alone loses two of those four.
+And until 0.259.2 it wrongly REJECTED a spelling it should always have admitted —
+`<img alt="a>b" data-asset-id="real">` — because the walk ahead of the attribute was a bare `[^>]*`
+that stopped at the `>` inside `alt`. That last one is
 `docs/open-followups.md` §250, CLOSED 2026-08-25 — and the drop it caused needed BOTH halves of
 `sanitizeBlock`'s condition to fail at once, which is why it only bit some of these shapes.
 `htmlPlainProjection`'s own `TAG` (`rich-text-plain.ts`) stops at that same `>`; for

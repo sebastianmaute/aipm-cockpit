@@ -33,20 +33,28 @@ longer carries its own changelog comment.
   over quoted attribute values, and only accepts the attribute where a real one can begin.
   Closes `docs/open-followups.md` §231.
 - **Malformed and hostile document HTML no longer takes minutes to load.** All three patterns
-  could be driven into extreme backtracking by crafted input: 4 KB of one shape took twelve
-  seconds, and a large block of another took roughly forty seconds of unresponsive interface —
+  could be driven into extreme backtracking by crafted input — a few kilobytes of one shape
+  costing seconds, and a large block of another tens of seconds of unresponsive interface —
   and since the offending block is itself stored, that cost was paid again on every later
   load. Reaching this required hand-written or imported HTML rather than anything the editor
   produces. The same inputs now complete in under a millisecond.
+- **Images written without a space before the reference are no longer dropped on load.**
+  `<img alt="x"data-asset-id="…">` and three similar malformations carry a real image — a
+  browser reads the attribute normally — but a first version of the fix above required a
+  space or slash in front of it and deleted those paragraphs silently, on every load path.
+  The check now accepts the attribute wherever a browser would, while still rejecting a
+  name that merely ends in it.
 
 ### Changed
 
 - A tag with no space after its name — `<imgdata-asset-id="x">` — is no longer counted
   against the image cap. It was counted before. It is not a tag any browser or editor
   produces, and it cannot carry a real image.
-- An image whose only reference is a fragment inside its own alternative text is no longer
-  kept as an image-only paragraph on load. It holds no real image, and paragraphs holding a
-  plain non-asset image were already dropped.
+- An image whose only reference is a fragment inside its own alternative text is still kept
+  as an image-only paragraph on load, and now deliberately so. Narrowing the check to drop it
+  also dropped four kinds of paragraph holding real images, so the check errs towards keeping:
+  the cost of a false keep is one image with no source, and the cost of a false drop is losing
+  the user's content. It counts against nothing and is never fetched for an export.
 - The three patterns that read `data-asset-id` now live in one module, with their deliberate
   differences asserted directly against one another by a test. They were three files apart
   before, with nothing keeping them in step. Closes `docs/open-followups.md` §209.

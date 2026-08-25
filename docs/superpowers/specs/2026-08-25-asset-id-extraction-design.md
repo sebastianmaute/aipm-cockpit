@@ -15,7 +15,9 @@ account.
   Implementation added `"'` to the tag-name class; 0.259.2 then narrowed that class to
   `[a-zA-Z0-9-]*`, excluded `<` from the first alternation branch (both to stop the engine
   rescanning across a tag boundary on adversarial input — the timings are in the module's own
-  docstring) and anchored the attribute on `[\s/]` instead of `\b`. The last of those changes
+  docstring) and anchored the attribute on the lookbehind `(?<![-\w])` instead of `\b`. ★★ That
+  anchor was briefly `[\s/]` within the same release, which rejected real attributes written with
+  no separator and deleted their paragraphs on load — §250 records it. The last of those changes
   BEHAVIOUR, so this is not a cosmetic drift: the literal below
   yields `["s"]` for `<p foo-data-asset-id="s" data-asset-id="real">` where the live pattern yields
   `["real"]` — a hyphen-prefixed decoy that beat the real attribute, because the quantifier is lazy.
@@ -27,11 +29,16 @@ account.
 - **The survival predicate changed after this spec was written, and this file could not know it.**
   "Quoting and case stay as they are" under "Constraints that shaped the design" was scoped to
   `ASSET_ID_RE` and still holds for its successor. But `ASSET_IMG_RE` — named `ASSET_IMG_TEST_RE`
-  in the "Module shape" table below — was itself made QUOTE-AWARE in 0.259.2, closing a live
+  in the "Module shape" table below — was itself changed in 0.259.2, closing a live
   data-loss defect a cold review of this branch found: the old `[^>]*` walk truncated at a `>`
   inside an earlier attribute value, and where that `>` was followed by tag-like text a genuine
   `<img data-asset-id>` paragraph was silently DELETED on load. That is
-  `docs/open-followups.md` §250, CLOSED 2026-08-25. `IMG_TAG_RE` was also renamed
+  `docs/open-followups.md` §250, CLOSED 2026-08-25. ★★★ It is now a UNION of the old `[^>]*` form
+  and a quote-aware one, NOT the quote-aware regex alone. The first fix made it quote-aware alone,
+  on the reasoning — written into three files at once — that quote-awareness "can only KEEP more
+  blocks, it cannot introduce a drop". That is false in both directions, and combined with the
+  `[\s/]` anchor above it deleted four further classes of real image paragraph. Anyone reading this
+  page for the design rationale should read §250 for what the rationale got wrong. `IMG_TAG_RE` was also renamed
   `IMG_TAG_ASSET_ID_RE`, so every mention of the old name here is a historical one.
 
 **Date:** 2026-08-25
