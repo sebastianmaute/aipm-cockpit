@@ -102,8 +102,12 @@ export const ANY_TAG_ASSET_ID_RE =
   /<[a-zA-Z][a-zA-Z0-9-]*(?:[^<>"']|"[^"]*"|'[^']*')*?[\s/]data-asset-id="([^"]*)"/g;
 
 /**
- * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
- * identical copies, one per renderer.
+ * The one regex an EXPORT uses for `<img data-asset-id>`.
+ *
+ * ★ Two different "three"s meet here and they are unrelated. This pattern
+ * folded three IDENTICAL copies, one per renderer, in `e7b327a0` — long before
+ * this module existed. The module header's "three different files" is the
+ * separate, later fold of the three DIVERGENT spellings (§209).
  *
  * ★★ The consequence to know: a `<p data-asset-id>` counts against the cap and
  * is invisible here — but no longer SILENTLY, since `assetRefsInDocument`

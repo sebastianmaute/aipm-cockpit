@@ -14614,6 +14614,23 @@ sentence possible).
 shared corpus, instead of probing the third one through `sanitizeBlock`. A change to one that
 silently pulls it toward another goes red.
 
+★★★ **THAT CLAIM WAS TOO BROAD WHEN FIRST WRITTEN, and two cold reviewers found the same hole
+independently by mutation.** The corpus gated the two divergences it happened to contain and NOT
+the two properties the branch had just added: widening the tag-name class back to a negated one —
+which deletes the fix for the superlinear backtracking — left all nine rows green (43/43 for the
+whole file), and the lazy/greedy divergence, the one this entry and `docs/AGENTS/documents.md` both
+tell you not to "fix", had no row at all; it was pinned one file over, at the CALLER level, in
+`document-asset-usage.test.ts`. So the closure argument located the gating in the wrong file while
+the most-warned-about property was ungated where it was documented.
+★★ Closed properly in 0.259.2 rather than by softening the sentence: the table now carries rows for
+the duplicate-attribute (lazy vs greedy) case, the tag-name class, the hyphen-prefixed decoy and
+both quote-awareness verdicts. Re-run the three mutants before trusting this paragraph — tag-name
+class to `[^s/>]*`, separator `[s/]` to ``, and the predicate back to `[^>]*` — which kill 1,
+1 and 5 tests respectively.
+★ The general lesson, since this is the second time on one branch: **a corpus test gates exactly the
+rows it holds.** "Asserts the divergences directly" reads as a structural guarantee and is really a
+claim about fixture coverage, which nothing re-checks when a property is added later.
+
 ★★ The module **imports nothing and is DOM-free** — the two properties the "clean shape" paragraph
 below turns on, since importing nothing is what dissolves the `document-model.ts` ⟷
 `document-asset-usage.ts` inversion this entry describes. Both are enforced by parser-backed source
@@ -14666,8 +14683,12 @@ both wrapped). ★★ **How it discriminates, and where it stops:** it keeps onl
 SCREAMING_CASE const, so the ~60 other `data-asset-id` hits — module headers, test-shape comments,
 the allow-list, the HTML the renderers emit — are dropped without having to be read. The cost is a
 `-B1` window: a declaration whose regex starts TWO lines below its name, or one bound to a
-camelCase name, is invisible to it. A bare `grep -rn "data-asset-id" src/app` returns ~62 lines and
+camelCase name, is invisible to it. A bare `grep -rn "data-asset-id" src/app` returns some hundreds of lines that
 must be READ rather than counted; a grep cannot tell a comment from a regex.
+★★ NO FIGURE IS QUOTED HERE ANY MORE, on purpose. This said "~62" and was measured at 292 by a
+reviewer, then at a different number an hour later — because the fix round that was CORRECTING the
+number was itself adding `data-asset-id` fixtures to the test file the number counts. An aggregate
+restales inside its own correction. Run the command.
 
 ★★ **They are NOT copies of one regex — they are one pattern family in three spellings**, and
 that is the more useful framing, because it rules out the mechanical fix. `IMG_TAG_RE` (now shared
@@ -15427,6 +15448,16 @@ and never unzips, and the manifest gate, which matches on a COMMENT) are not in 
 by making the divergence VISIBLE, and explicitly NOT by collapsing the patterns. The text below is
 kept as written; the closing note at the end records what shipped, corrects this entry's own count
 of the patterns, and states what a later reader must not "finish".
+
+★★ **THE THREE PATTERN NAMES BELOW ARE HISTORICAL — all three were renamed and moved in 0.259.2**
+(§209): `ASSET_ID_RE` → `ANY_TAG_ASSET_ID_RE`, `IMG_TAG_RE` → `IMG_TAG_ASSET_ID_RE`,
+`ASSET_IMG_RE` → `ASSET_IMG_TEST_RE`, all now in `document-asset-patterns.ts`. Grepping the old
+names returns nothing, which reads as "this entry describes code that no longer exists" — it does
+not; only the names moved. ★ Two things below ARE known-wrong rather than merely renamed: this
+entry illustrates the divergence with a `<span>`, the one non-`img` carrier a load cannot produce,
+and its table's `<span …>text</span>` row reads *survives load* = **yes** for a REFERENCE that does
+not. Both are tracked in §249, deliberately not patched here — rewriting a closed record to match
+today's tree destroys the only thing it is good for.
 
 Two patterns read asset ids out of a document and they do not agree on what an asset reference is:
 
