@@ -61,10 +61,10 @@
  *  ★★ `[^\s/>"']*` IS THE TAG NAME, AND THE `"'` IN IT IS NOT DECORATION.
  *   Without them the class can eat a quote, which makes it ambiguous against
  *   branches 2 and 3 of the alternation — the pattern's only backtracking
- *   ambiguity. Measured on `('<a' + '"'.repeat(64)).repeat(m)`: 375 ms at
- *   4 KB and ~7.5x per doubling, against 0.27 ms with the two characters
- *   present. The two patterns agree on every input without a quote in the tag
- *   name, which is every input the loader can produce. Not
+ *   ambiguity. Without the two characters a crafted run of quotes makes this
+ *   superlinear in the input; with them it stays linear. The two patterns
+ *   agree on every input without a quote in the tag name, which is every input
+ *   the loader can produce. Not
  *   reachable through the loader (DOMPurify serialises from the DOM, so a tag
  *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
  *   comment rather than a check and the tests here scan raw HTML. */

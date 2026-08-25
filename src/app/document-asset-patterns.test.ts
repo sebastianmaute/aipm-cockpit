@@ -48,11 +48,10 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
  *  `export … from` in all its spellings, `import(…)`, `require(…)` and
  *  `import x = require(…)`.
  *
- *  ★★★ THE PARSER, NOT A REGEX, AND THAT IS NOT FASTIDIOUSNESS. Measured over
- *   fourteen spellings: a regex covering `import` plus a re-export alternation
- *   still missed `export * as N from` and `export type {…} from`, and no regex
- *   can tell a module specifier from the same text inside a string literal.
- *   The parser answered all fourteen correctly, that last one included. */
+ *  ★★★ THE PARSER, NOT A REGEX. The easy shapes to miss are `export * as N
+ *   from` and `export type {…} from`; the easy one to over-match is a module
+ *   specifier sitting inside a STRING, which is not an edge. Every one of the
+ *   three is pinned by the test below. */
 function moduleEdges(src: string, fileName: string): string[] {
   const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
   const found: string[] = [];
