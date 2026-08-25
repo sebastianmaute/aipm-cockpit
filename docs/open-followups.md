@@ -437,6 +437,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
+| [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17134,6 +17135,60 @@ nothing else, edit it, and watch for `version.skipEmptyTransientCapture` in the 
 Turso-gated, so it needs a live database — which is also why no gate will ever see it (§215).
 
 ---
+
+## 243. History rows give every version the same two accessible names, and nothing in the gate suite can see it
+
+**Status:** open. Found 2026-08-25 while mapping the History surface for a live version-restore
+verification. PRE-EXISTING and out of scope for the branch that found it — the 0.259.0 diff over
+`history-panel.tsx` is empty.
+
+`history-panel.tsx` renders one `<li>` per version from `versions.map`, carrying four controls. Two
+qualify their accessible name with the version, two do not:
+
+| control | accessible name | row-unique? |
+|---|---|---|
+| compare checkbox | `historyCompareSelect` + the version label | yes |
+| "Compared with current" | `historyCompareVsNow`, from text content | **no** |
+| "Restore this state" | `historyRestoreState`, from text content | **no** |
+| delete | `historyDelete` + the version label | yes |
+
+So a project with N versions renders N controls named "Compared with current" and N named "Restore
+this state" — a WCAG 2.4.6 failure of exactly the shape AGENTS.md's a11y constraint describes for
+per-row controls. The compare header's own restore button makes the second set N+1: it is the one
+place that sets an `aria-label`, and it sets it to the bare `historyRestoreState`, colliding with
+every row.
+
+★★ **The asymmetry inside one `<li>` is the evidence this is an oversight rather than a decision.**
+The checkbox and the delete button both interpolate the version, and `labelOf` already exists for it.
+Two controls between them were simply missed.
+
+★★★ **TWO INDEPENDENT REASONS NO GATE WILL EVER REPORT THIS, and each alone is sufficient.** First,
+History is Turso-gated, so it is not in `A11Y_VIEWS` and is never scanned. Second — and this is the
+one that matters, because it does not go away if the view is ever added — axe has NO rule that flags
+two controls sharing an accessible name, at any seed size, under the four tags the gate requests. A
+unit test rendering two or more rows is therefore the only detector that can exist, in either layer.
+
+**Fix:** qualify both names the way the siblings already are — append `labelOf(v)` after an en dash,
+matching `historyDelete` — and give the compare-header button a name that distinguishes it from the
+rows. ★ Appending keeps the visible text a leading substring of the accessible name, which is what
+WCAG 2.5.3 needs; do not replace the visible text with a different phrase. ★ Pin it in
+`history-panel.test.tsx`, which already exists, with a fixture of at least TWO versions — a
+one-version fixture cannot render the collision and passes against the unfixed code.
+
+**Reproduce** — the naming asymmetry, then each of the two reasons it is invisible:
+
+```bash
+awk '/versions\.map/,/<\/ul>/' src/app/history-panel.tsx \
+  | grep -nE 'aria-label|t\(lang, "history(CompareVsNow|RestoreState|Delete|CompareSelect)"'
+grep -c '"history"' e2e/a11y.spec.ts   # 0 — not scanned
+node -e "const a=require('axe-core');const t=['wcag2a','wcag2aa','wcag21a','wcag21aa'];for(const r of a.getRules(t).filter(r=>/identical|duplicate|unique/i.test(r.ruleId)))console.log(r.ruleId,'|',r.description)"
+```
+
+★ That last command prints TWO rules and NEITHER is relevant — `duplicate-id-aria` is about `id`
+attributes and `frame-title-unique` about iframes. The only rule in the library that is even adjacent
+is `identical-links-same-purpose`: links only, and tagged `wcag2aaa`, which the gate never requests.
+Read the descriptions, never the count — a bare tally here reads as coverage.
+
 
 ## Decided — do not re-litigate
 
