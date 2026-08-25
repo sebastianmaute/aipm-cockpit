@@ -8,6 +8,26 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.259.2] - 2026-08-25 "Tsutsui"
+
+### Fixed
+
+- **The per-document image cap now counts only real images.** A document may hold up to
+  twenty images, and three shapes were miscounted. A paragraph that merely *contained* the
+  text `data-asset-id="…"` — typed, pasted or imported — spent one of the twenty slots; since
+  0.258.1 the cap message then offered that slot back as reclaimable room, which would have
+  meant deleting the sentence. An image whose alternative text ended in `data-asset-id=` hid
+  the real reference from the count, so it spent no slot and could be added a second time
+  past the duplicate check. A malformed tag with no space after its name stopped counting
+  altogether. The pattern now requires a real start tag and steps over quoted attribute
+  values, which also removes a case where crafted input made it superlinearly slow.
+
+### Changed
+
+- The three patterns that read `data-asset-id` now live in one module, with their deliberate
+  differences asserted directly against one another by a test. They were three files apart
+  before, with nothing keeping them in step.
+
 ## [0.259.1] - 2026-08-25 "Tsutsui"
 
 ### Documentation

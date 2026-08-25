@@ -978,7 +978,7 @@ too. Never reach for `toFixed` there again.
 ★★★ **THREE patterns read `data-asset-id`, they disagree, and every disagreement is intentional.
 Collapsing them is the "finish the job" mistake §218's closure exists to prevent.**
 
-★★ All three live in **`document-asset-patterns.ts`** since 0.259.x (§209, CLOSED 2026-08-25) — one
+★★ All three live in **`document-asset-patterns.ts`** since 0.259.2 (§209, CLOSED 2026-08-25) — one
 module that imports nothing and is DOM-free, both enforced by parser-backed source scans in its own
 test. They were three files apart before; being adjacent is what makes the divergences below
 readable as choices rather than drift.
