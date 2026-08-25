@@ -441,6 +441,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | partly done 0.259.2 |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently DELETED real image blocks on load when an earlier attribute value contained `>` then `<` — live data loss, pre-existing | pre-existing, found 2026-08-25 | M | CLOSED 0.259.2 |
+| [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17578,6 +17579,50 @@ restatement. The label was applied to the right sentence and the sentence was st
 the *premise* it reasoned from was the over-generalised one. **A hedge on the conclusion does not
 protect a false premise.** When an entry rests on a single fixture, the follow-up is not a better
 hedge — it is a second fixture chosen to break the first.
+
+## 251. `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path
+
+**Status:** OPEN — pre-existing, found 2026-08-25 by cold review of `fix/asset-id-extraction`.
+Deliberately NOT fixed there: `TAG` is the regex §250's fix now depends on, and
+`rich-text-plain.ts` carries a warning against changing it in passing. Recording it so the next
+person to open that file has the measurement instead of rediscovering it.
+
+**What was measured.** `TAG = /<\/?[a-zA-Z][^>]*>/g` (`rich-text-plain.ts`), on `"<a".repeat(k)` —
+many tag openers, no `>` anywhere:
+
+```
+  2 000 B     1.43 ms
+  8 000 B    20.61 ms
+ 32 000 B   319.78 ms
+128 000 B  3 968.00 ms
+```
+
+~4x the time per 2x the input. Each `<a` start scans to end of input looking for a `>` that is not
+there. ★ `BLOCK_TAG`, three lines above it, is NOT affected (0.57 ms at 128 KB): its alternation
+ends in `\b`, so a non-matching tag name fails immediately instead of scanning the tail.
+
+**Reach.** `htmlPlainProjection` backs `htmlTextLength`, which runs on the FIRST term of
+`sanitizeBlock`'s drop condition — on every paragraph, on every load path — and inside the entity
+sanitizers for the seven rich fields. So this is not documents-only. No size cap applies before it:
+`capHtmlText` is applied to the RETURN value.
+
+**Why it is not a live denial of service.** The shape needs many `<` with no `>`, which DOMPurify
+cannot emit — it serialises from a DOM. It arrives only through raw stored html: a hand-edited
+blob, a workspace import, or an AI write reaching a sanitizer that has not run yet.
+
+**What it would take to settle it.** ★★★ NOT by excluding `<` from `[^>]*`, which is the obvious
+one-character fix and is WRONG here: it changes what counts as a tag for the projection, and the
+projection's `[^>]*` truncation is load-bearing in the other direction (§250 — a quote-aware or
+otherwise narrowed `TAG` zeroes the projection for `alt="a>b"` and moves a block's survival onto
+the predicate alone). Any change wants `document-model.test.ts`'s load-path tests run against it,
+not just `rich-text-plain.test.ts`.
+★ The cheap, semantics-free option is a length guard at the CALLER — measure `capHtmlText(html, …)`
+rather than `html` — which bounds the cost without touching the regex. That is also the fix §250's
+predicate did not need once it stopped scanning quadratically.
+
+★★ Do not fold this into §250. That entry is a CLOSED correctness defect about a guard deleting
+data; this is an open performance property of a different regex in a different file, which merely
+shares an input class with it.
 
 ---
 

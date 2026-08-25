@@ -71,6 +71,13 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  the failure is silent, on all six write paths, with nothing in the
  *  truncation diag. Any change here wants the load-path tests in
  *  `document-model.test.ts` run against it, not just this file's own.
+ *  ★★ IT IS ALSO QUADRATIC on input with many `<` and no `>` — each opener
+ *  scans to end of input for a `>` that is not there (128 KB of `"<a"` costs
+ *  ~4 s; `BLOCK_TAG` three lines up is unaffected because its alternation ends
+ *  in `\b` and fails fast). Measured, open-followups §251, which also says why
+ *  the obvious one-character fix — excluding `<` from `[^>]*` — is the wrong
+ *  one: it narrows what counts as a tag, which is the change described above.
+ *
  *  ★ History: both patterns once carried this same truncation and the safety
  *  was argued as a CANCELLATION between them. That argument was wrong — it held
  *  only for the one shape it was measured on, and real blocks were being
