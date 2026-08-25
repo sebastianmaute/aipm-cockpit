@@ -284,9 +284,10 @@ function TaskManagerInner() {
     setSteeringCommittee,
     timelogLinks,
     setTimelogLinks,
+    knowledgeItems,
     setKnowledgeItems,
     insights,
-    documents, setInsights, setDocuments, setDocumentVersions,
+    documents, documentVersions, setInsights, setDocuments, setDocumentVersions,
     settingsOverrides,
     setSettingsOverrides,
     setCalendarEvents,
@@ -1028,25 +1029,29 @@ function TaskManagerInner() {
     [actionSnooze, recordLearning],
   );
 
-  // Lazily serialize the CURRENT workspace for a version-history capture. Same
-  // field set the export handler and save effect use. Placed after the
-  // stakeholders hook so all referenced values are in scope.
+  // Lazily serialize the CURRENT workspace for a version-history capture. The field
+  // set mirrors `applyRestoredWorkspace` below — capture and restore must agree or a
+  // restore blanks what the capture never carried. NOT the save/export set in
+  // `use-storage-backend.ts` (which also carries fieldVisibility, features,
+  // documentAssets, activityLog). Placed after the stakeholders hook for scope.
   const getVersionPayload = useCallback(
     () => workspaceToJson({
       tasks, raid, absences, shifts, resources, roles, disciplines, grades,
       plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
       steeringCommittee, timelogLinks,
+      knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents,
     }),
     [tasks, raid, absences, shifts, resources, roles, disciplines, grades,
      plan, budgets, fxRates, status, project, milestones, changes, stakeholders,
-     steeringCommittee, timelogLinks],
+     steeringCommittee, timelogLinks,
+     knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents],
   );
 
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
   // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
-  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why
-  // that matters — and why it does NOT generalise to the other six slices here — see AGENTS.md.
+  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
+  // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);

@@ -859,11 +859,16 @@ browser before relying on it (§205). ★ `DocumentsHistoryModal`'s version-prev
 wired to the same asset-resolution — a version containing an image block renders without its
 picture there today (§206).
 
-★★★ **DOCX and PPTX emit a VISIBLE TRANSLATED PLACEHOLDER naming the asset — never a silent drop —
-and this is the finished behaviour of S3c-1, not a stub awaiting S3c-2.** Real OOXML media parts
-(`word/media/`, relationship ids, `<w:drawing>`/`<a:blip r:embed>`, EMU sizing from the stored
-`width`/`height`) are deferred to **S3c-2** (§202) — the largest unbuilt piece in the documents
-roadmap, with no existing scaffolding for binary media parts in either renderer.
+★★★ **SUPERSEDED BY S3c-2 (0.256.0 "Khaw") — DO NOT READ THE PARAGRAPH THIS REPLACES AS CURRENT.**
+It said DOCX and PPTX emit a visible translated placeholder naming the asset, that this was S3c-1's
+finished behaviour, and that real OOXML media parts (`word/media/`, relationship ids,
+`<w:drawing>`/`<a:blip r:embed>`, EMU sizing from the stored `width`/`height`) were "the largest
+unbuilt piece in the documents roadmap, with no existing scaffolding … in either renderer". All of
+that shipped: `ooxml-media.ts` is the shared unit leaf and both package builders take media. ★★ The
+placeholder did NOT go away, it NARROWED — it is now what the `omitted` and `missing` buckets emit,
+and those two are not interchangeable. §202 is CLOSED. Read "Image bytes in every export format
+(S3c-2)" below for the as-built contract; nothing about placeholders should be reasoned about from
+here.
 
 ★★★ **Insertion does NOT go through the live rich-text editor, and this is load-bearing, not an
 oversight.** `@tiptap/extension-image` is NOT installed, and this is deliberate — do NOT add it as

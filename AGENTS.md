@@ -527,11 +527,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `<span>` label is NOT an `aria-label`/`<label>`) as axe-critical.
   `A11Y_VIEWS` list (`e2e/a11y.spec.ts`) is **17** named views — Dashboard · Open Points · Gantt ·
   Resources · Budget · RAID · Settings · Stakeholders · Changes · Milestones · Reports · Activity ·
-  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 6 scheme
-  COMBOS (harbor/meridian/umber/beacon, Beacon light-only) × 17 + 6 Kanban-board variants (one per combo)
+  Time bookings · AI Assistant · Next actions · Insights · Documents — so a passing run reports 7 scheme
+  COMBOS (harbor/meridian/umber L+D, Beacon light-only) × 17 + 7 Kanban-board variants (one per combo)
   + 1 notes-window rich-text-toolbar scan + 1 Documents block-editor scan (both harbor-light only and
-  hardcoded, so neither scales with the combo count) = **110** axe scans, plus ONE non-scan guard test
-  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **111**
+  hardcoded, so neither scales with the combo count) = **128** axe scans, plus ONE non-scan guard test
+  (asserts the served app's `data-app-version` matches this checkout, open-followups §58) — **129**
   tests total in the spec file. ★ Don't derive these numbers, MEASURE them, in the same
   commit that changes the list: `npx playwright test e2e/a11y.spec.ts --list` prints the total (no
   browsers needed, and it also proves `e2e/seed.ts`'s module-level sample read still resolves), and
@@ -1185,8 +1185,11 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   list) and NO handle renders. Never pass a no-op instead: that draws a grip which looks draggable and does
   nothing, the exact false affordance this component exists to avoid.
   ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
-  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at the other 76
-  invocations `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
+  (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
+  invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
+  see the ★★★ two paragraphs up; derive both with
+  `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
+  and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
   passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
   becomes the RENDERED one. That coupling is deliberate — anything pinned to the RIGHT is placed by
   arithmetic over this column's DECLARED width, so a wider render puts the neighbour on top of this
@@ -1214,10 +1217,19 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `report-table.test.tsx` + `calendar-series-list.test.tsx` read textContent, so they are unaffected) but out
   of the accessible NAME, since aria-sort already says it. axe has NO rule for a missing aria-sort, so the
   gate is silent on regressions here — the unit tests are the only coverage.
-  ★ The raw-`<th>` tables are NOT in step and knowing which way matters: `change-panel.tsx` +
-  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` set aria-sort AND keep a ▲/▼ inside the button's
-  name (the double announcement this removed from the shared component), and `activity-log-panel.tsx`
-  has the glyph with NO aria-sort at all. Folding them in is a follow-up, not a claim about today.
+  ★★ **ALL FOUR ARE NOW IN STEP — corrected 2026-08-25, and the sentence this replaces was the
+  falsifiable half.** It read: the raw-`<th>` tables "are NOT in step", `change-panel.tsx` +
+  `raid-panel-rows.tsx` + `stakeholders-panel.tsx` "set aria-sort AND keep a ▲/▼ inside the button's
+  name", `activity-log-panel.tsx` "has the glyph with NO aria-sort at all", and folding them in was
+  "a follow-up, not a claim about today". Every one of those four tables has since adopted
+  `SortResizeTh`, so each sortable header takes its `aria-sort` and its `aria-hidden` glyph from the
+  one component and the double announcement is gone from all of them. Measure, do not trust this
+  sentence: `for f in change-panel raid-panel-rows stakeholders-panel activity-log-panel; do echo "$f $(grep -c SortResizeTh src/app/$f.tsx) $(grep -c aria-sort src/app/$f.tsx)"; done`
+  → adoptions 8 / 8 / 6 / 6 (each includes the import line) against aria-sort 0 / 0 / 0 / **1**.
+  ★★★ THAT LONE 1 IS A COMMENT, NOT MARKUP — `activity-log-panel.tsx` explains there why a fourth
+  hand-rolled sort button was never written — so the obvious grep tally counts PROSE as code and
+  would report the file as still hand-rolling its own. The raw `<th>` left in the other three are
+  the NON-sortable text-only cells the rule above already permits, not sort headers.
   ★ `SortHeaderButton` is used ONLY by `SortResizeTh`, so hiding the glyph cannot strand a raw `<th>`
   that lacks aria-sort.
   ★★ KNOWN LOSS: VoiceOver/Safari does not announce `aria-sort`, so a VO user goes from hearing

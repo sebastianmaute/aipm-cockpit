@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.258.1 "Mandelo" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.259.0 "Tsutsui" | Files scanned: 1808 (src/**/*.{ts,tsx}, incl. 906 tests) | Token estimate: ~950 -->
 
 # Architecture
 
@@ -70,8 +70,9 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 `install → quality → build → e2e`. Quality is blocking: lint (bare `eslint` — there is NO `--max-warnings` flag, so warnings do not
 fail it; only errors do), `tsc --noEmit`,
 Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
-E2E includes an axe pass over the 17 `A11Y_VIEWS` × 6 scheme combos plus a Kanban scan per combo and one
-notes-window toolbar scan, and the print spec. ★ MEASURE the scan count, do not derive it — the spec
+E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
+notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
+was missing from this sentence. ★ MEASURE the scan count, do not derive it — the spec
 carries its own arithmetic and a draft of it has been wrong twice: `npx playwright test
 e2e/a11y.spec.ts --list` (no browsers needed). ★ Visual-regression
 is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the

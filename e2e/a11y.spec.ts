@@ -28,29 +28,33 @@ const HASH_VIEW: Partial<Record<(typeof A11Y_VIEWS)[number], string>> = {
 
 // AIPM and Dashboard no longer exist in the app in any form — a theme is a file
 // the user loads. The matrix runs on the four BUILT-IN schemes. Harbor/
-// Meridian/Umber are dark-capable (Umber runs light-only here to hold the
-// combo count down); Beacon is LIGHT-ONLY by design (the app's default) and
-// has no dark combo to add — there is nothing to scan.
-// ★ 6 combos × 17 views = 102, + the Kanban-board scan below (ONE PER COMBO,
+// Meridian/Umber are dark-capable and ALL THREE run light AND dark. Umber-dark
+// was MISSING from this matrix while `UMBER_DARK` was already imported above,
+// already wired into SCHEME_SEED below, and BUILTIN_SCHEMES already marked
+// umber `supportsDark: true` — so umber-dark was scanned in no view, ever,
+// while everything around it read as covered. Beacon is LIGHT-ONLY by design
+// (the app's default) and has no dark combo to add — there is nothing to scan.
+// ★ 7 combos × 17 views = 119, + the Kanban-board scan below (ONE PER COMBO,
 // its own `for (const combo of COMBOS)` loop — it scales with the combo count,
-// it is NOT a fixed 5) = 108, + 1 notes-window toolbar scan + 1 Documents
+// it is NOT a fixed 5) = 126, + 1 notes-window toolbar scan + 1 Documents
 // block-editor scan (both harbor-light only, hardcoded — neither scales with
-// the combo count) = 110 scans, plus the one non-scan guard below = 111 tests.
+// the combo count) = 128 scans, plus the one non-scan guard below = 129 tests.
 // MEASURE it in the same commit that changes A11Y_VIEWS or adds a scan rather
 // than deriving it — this comment said 85 for as long as the list said 16
 // views, and a beacon-added-combo draft of this very comment still said "108
 // scans / 109 tests" by carrying forward the pre-beacon "5 Kanban variants"
-// instead of re-measuring. The 110/111 below were likewise MEASURED, not
-// derived, in the commit that added the block-editor scan. Reproduce (no
+// instead of re-measuring. The 128/129 above were likewise MEASURED, not
+// derived, in the commit that added the umber-dark combo. Reproduce (no
 // browsers needed):
-//   npx playwright test e2e/a11y.spec.ts --list   # 111 total
-//   …then `grep -c "a11y:"` over that output       # 110 scans
+//   npx playwright test e2e/a11y.spec.ts --list   # 129 total
+//   …then `grep -c "a11y:"` over that output       # 128 scans
 const COMBOS = [
   { scheme: "harbor",   dark: false },
   { scheme: "harbor",   dark: true  },
   { scheme: "meridian", dark: false },
   { scheme: "meridian", dark: true  },
   { scheme: "umber",    dark: false },
+  { scheme: "umber",    dark: true  },
   { scheme: "beacon",   dark: false },
 ] as const;
 

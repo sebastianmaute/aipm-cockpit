@@ -74,17 +74,26 @@ git log origin/main --merges --pretty=%s | grep -oE "Merge branch '[^']+'" | sor
 
 ## 3. Designed but NOT built — the real backlog
 
-Four items have approved designs and no implementation. These are the roadmap.
+Three items have approved designs and no implementation. These are the roadmap.
 
 ★ A fifth row sat here until 2026-08-22 — the app-wide icon migration, which was the opposite shape
 (a decision with no design yet). It has since been specced, built and shipped in 0.255.0 "Bisson",
 so it is no longer backlog; `docs/tech-debt-register.md` TD-8 carries it under Resolved.
 
+★★★ **A SIXTH ROW — S3c-2, OOXML media parts for document images — WAS STILL HERE ON 2026-08-25, AND
+IT HAD SHIPPED TWO DAYS AFTER THIS FILE WAS COMPILED.** Its evidence cell read "no OOXML media-part
+code exists anywhere in the renderers", which is exactly the kind of claim that stops being true
+without anything editing the sentence. 0.256.0 "Khaw" (2026-08-23) shipped it:
+`grep -rln "EMU_PER_TWIP" src/app` returns `doc-render-docx.ts`, `ooxml-media.test.ts` and
+`ooxml-media.ts`; `ls src/app/ooxml-media.ts` resolves. The as-built architecture is in
+`docs/AGENTS/documents.md`'s "Image bytes in every export format (S3c-2)" section. What it opened instead is a **manual verification debt** — nothing in this
+repo can open a `.docx` or a `.pptx`, so the eye-verify is owed (`docs/open-followups.md` §219),
+which is a different item from an unbuilt slice and does not belong in this table.
+
 | Item | Design lives in | Evidence it is unbuilt |
 |---|---|---|
 | **S6 — Outlook push for calendar events** (incl. invitations + confirm) | UX-batch roadmap plus its own spec/plan pair | no `CHANGELOG.md` match for calendar-event push |
 | **S7 — Outlook pull + exception reconciliation** | same roadmap | same |
-| **S3c-2 — OOXML media parts for document images** | documents roadmap; `docs/open-followups.md` §202 | DOCX/PPTX still disclose a visible placeholder naming the asset instead of embedding it; no OOXML media-part code exists anywhere in the renderers |
 | **`optimize_wbs`** | multi-surface roadmap, Release 4 | `docs/open-followups.md` section 3, "never built — owed from R4"; the name appears in no source file |
 
 ★★★ **THE "S3c" LABEL AMBIGUITY IS DISCHARGED — corrected 2026-08-21.** The documents roadmap
@@ -93,10 +102,10 @@ delete, reorder) under that same plain label — a scope collision that would ha
 design by accident. That slice is now retagged **S3b-2** in the design document and in
 `docs/open-followups.md` §113. Images shipped as **S3c-1** in 0.254.0 "Yoshinaga" (metadata slice on all six
 write paths + `document_asset_data`, a `TABLE_NAMES`-excluded side table for the bytes) — see
-`docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section for the as-built architecture. Only
-**S3c-2** (OOXML media parts, the table row above) remains open.
+`docs/AGENTS/documents.md`'s "Asset images (S3c-1)" section for the as-built architecture. **S3c-2**
+(OOXML media parts) then shipped in 0.256.0 "Khaw", so the whole S3c question is now closed as built.
 
-★ The rest of the documents roadmap is now fully shipped: S3a, S4, S3b, S3b-2 and S3c-1. Its own
+★ The documents roadmap is now fully shipped: S3a, S4, S3b, S3b-2, S3c-1 and S3c-2. Its own
 spec header used to read "design approved, unimplemented" for the whole file, unchanged since
 2026-08-08 — that has been corrected in place.
 
@@ -106,8 +115,9 @@ spec header used to read "design approved, unimplemented" for the whole file, un
   so. A, E and B are marked "TBD" in the roadmap but **have shipped** (Manual % complete; project
   config in Settings → General plus the theme gallery; the dated note log and rich descriptions).
   Only **S6 and S7** remain. The roadmap's own status column is therefore wrong for three rows.
-- **Documents roadmap (S3a, S4, S3b, S3b-2, S3c-1, S3c-2).** See above — only S3c-2 (OOXML media
-  parts) is open.
+- **Documents roadmap (S3a, S4, S3b, S3b-2, S3c-1, S3c-2).** See above — **every slice has shipped**,
+  S3c-2 last, in 0.256.0. Nothing on this roadmap is open; the only residue is the owed manual
+  `.docx`/`.pptx` eye-verify (`docs/open-followups.md` §219).
 - **Multi-surface roadmap, Releases 1–5.** R4 left `optimize_wbs` unbuilt; R5 is where S6 and S7 are
   owed from.
 
@@ -131,19 +141,44 @@ anything else moved. ★★ Do not re-derive that split with a heading regex and
 the hand count by twelve. That gap is not drift — it is the two incompatible status conventions
 below, and it is the measurement this file's own warning predicts.
 
-★★ Status is recorded two incompatible ways: older entries put it in the heading (a struck-through
-title means closed), newer ones use a bolded Status line. Only 17 entries have the latter. Any
-script that reads one form silently mis-classifies the other.
+★★★ **THIS NO LONGER DESCRIBES THE REGISTER — corrected 2026-08-25.** It read: "Status is recorded
+two incompatible ways: older entries put it in the heading (a struck-through title means closed),
+newer ones use a bolded Status line. Only 17 entries have the latter. Any script that reads one form
+silently mis-classifies the other." `docs/open-followups.md` now states ONE convention in its own
+header — closure lives in the `##` HEADING as the literal marker `— CLOSED`, a `**Status:**` body
+line may repeat it but is never the only marker, and a PARTIALLY closed entry stays open and says
+`FIXED` (never `CLOSED`). It also carries a generated index table with a status column per entry.
+★★ So the count is a command now, and this file quotes none of it: read the register's own header,
+which prints three independent spellings that agree by construction. Struck-through titles survive on
+older entries and are cosmetic; they no longer carry the status.
 
 ★★★ **A self-declared "open" is an upper bound, not a fact.** An entry can describe behaviour fixed
 two releases ago. `npm run followups:check` classifies entries by whether the symbols and paths they
-cite still exist — re-run 2026-08-21 at `73461ca4`: **CLEAN 125**, NO_MACHINE_CLAIM 1,
-SYMBOL_THIRD_PARTY 2, PATH_THIRD_PARTY 1, SYMBOL_SELF_EXCLUDED 1 — **130 open entries and
-SYMBOL_MISSING/PATH_MISSING both zero** (13 and 3 at this slice's branch point). It **exits 0
-regardless**, runs in no CI job, and its own output says it rules claims out but never in. Each of
-the four survivors is deliberately non-actionable (upstream/third-party symbol or path, a
-self-excluded-by-design symbol, one claim with nothing machine-checkable) — none is a *probe this
-first* candidate the way SYMBOL_MISSING/PATH_MISSING used to be.
+cite still exist. It **exits 0 regardless**, runs in no CI job, and its own output says it rules
+claims out but never in.
+★★ **No tally is quoted here, deliberately — this paragraph froze one and it was wrong four days
+later.** It said "**CLEAN 125** … **130 open entries** and SYMBOL_MISSING/PATH_MISSING both zero",
+measured 2026-08-21 at `73461ca4`. On 2026-08-25 the same command reported CLEAN 151,
+SYMBOL_MISSING 5 and PATH_MISSING 1, and the register held 232 entries. Run
+`npm run followups:check` and read its own summary line; take the entry/open/closed split from the
+register's header commands.
+★★ **A flag is a QUESTION, not a defect, and every one of the SIX flagged entries is a DELIBERATE
+absence the entry itself spells out.** Name them rather than counting them — §7 says "still no
+`src/app/form-field.tsx`"; §204 says "neither name exists in the code today"; §58 names a browser
+API (`MutationObserver`); §213's `wroteBytesRef` comes from its own **Candidate fix** block and is
+explicitly not built; §214 names `noUnusedLocals` and `noUnusedParameters` precisely because
+`tsconfig.json` sets NEITHER, which is that entry's whole point; §215's `resource_group` is a
+GitLab CI keyword in a proposed remedy. ★★ An earlier revision here said "every one of the three"
+while the script flagged six: the PROPERTY survived and the COUNT did not, which is why the list is
+written out and the number is not. Read it off the script — `npm run followups:check`. ★★ The script DOES carry
+absence vocabulary — `followup-claims-lib.mjs` builds `REGISTER_ABSENCE_PATTERNS` from the same
+`ABSENCE_MARKERS` the symbols gate uses — so "it has no such notion" would be the wrong lesson. The
+patterns are phrase-shaped and simply did not match these wordings. ★★★ That said "these THREE
+wordings" until 2026-08-25 — in the same paragraph as a sentence corrected in the SAME edit from three to
+six, so the stale noun sat inside its own correction and read as freshly verified. When a count
+changes, re-read the WHOLE paragraph for every clause that agreed with the old value; the number and
+the noun rot independently. Read the entry before treating a flag as work; a miss here is a pattern
+gap, not a rotted claim.
 
 ★ It reports false positives on entries that quote filenames as prose rather than citing them —
 two such fragments were the actual cause of two of the flags corrected below, not the resolver gap
@@ -218,15 +253,22 @@ prose registers, never in code comments — so a marker sweep finds nothing and 
 ## 7. Suggested sequence
 
 1. **S6 then S7** — design is already done and verified, and they are the last two UX-batch slices.
-2. **S3c-2 — OOXML media parts** — the S3c label question is settled (2026-08-21, see section 3);
-   images (S3c-1) shipped and only the OOXML embedding half remains, with a design already sketched
-   in the documents roadmap's S3c-1 section under "OOXML media machinery".
+2. **S3c-2 — OOXML media parts** — **done**, shipped 0.256.0 "Khaw" (2026-08-23). Not a pickable
+   slice. What it left behind is the manual `.docx`/`.pptx` open-in-Word eye-verify nothing in this
+   repo can perform (`docs/open-followups.md` §219) — a verification owed, not a slice to plan.
 3. **`optimize_wbs`** — carries an open design question, so it needs a decision before a plan.
-4. **Follow-up triage** — done in this slice. `npm run followups:check` now reads **CLEAN 125**,
-   NO_MACHINE_CLAIM 1, SYMBOL_THIRD_PARTY 2, PATH_THIRD_PARTY 1, SYMBOL_SELF_EXCLUDED 1 —
-   SYMBOL_MISSING and PATH_MISSING both **zero**, down from 13 and 3 at this slice's branch point.
-   The four survivors are deliberately non-actionable; see section 4 for what caused the flags and
-   where each was fixed. Nothing here is a pickable slice any more.
+4. **Follow-up triage** — done in that slice. It drove SYMBOL_MISSING 13 → 0 and PATH_MISSING 3 → 0.
+   ★★ **No tally is quoted here any more, deliberately.** This line froze one ("CLEAN 125 … both
+   **zero**") and every subsequent edit to `docs/open-followups.md` moved it: on 2026-08-25 the same
+   command reported CLEAN 151, SYMBOL_MISSING 5, PATH_MISSING 1. Run `npm run followups:check` and
+   read its own summary line. ★★ And read the flags as questions, not defects — the SIX flagged
+   entries are all DELIBERATE absences the entries themselves spell out; the script names them
+   (§7, §58, §204, §213, §214, §215) and the paragraph above carries the reading of each. ★★ It
+   exits 0 regardless, which is why it is a report and not a gate — that is the half of this
+   sentence that was true. It DOES carry absence vocabulary (`REGISTER_ABSENCE_PATTERNS` in
+   `scripts/followup-claims-lib.mjs`); the patterns are phrase-shaped and simply did not match these
+   wordings, so "it has no such notion" would be the wrong lesson. Nothing here is a pickable slice
+   any more.
 5. **`@types/node`** — done, `^24` (`a698eac2` / `da9695d0`); no longer a pickable slice.
 6. **Icon migration (TD-8 / §145)** — **done**, shipped 0.255.0 "Bisson". No longer a pickable
    slice, and no longer a decision to make.
