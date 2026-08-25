@@ -309,15 +309,28 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //
     // ★★ TWO, the fixture. `undrawable` is BUILT by filtering `all`, so
     //    wherever `drawable ⊆ all` these expectations hold however the
-    //    constructor is broken — a span+img pair alone is NOT enough, and it
-    //    is BOTH assertions that go slack, not merely a subset check
-    //    (measured: with the duplicate dropped, the second-scan mutant
-    //    survives them both). The duplicate attribute is what makes `drawable`
-    //    hold an id `all` does not — `all` = ["s","a"], `drawable` = ["b"], the
-    //    divergence the test below pins. Rebuilding `undrawable` from a second
-    //    scan rather than by filtering — the regression this guards, which
-    //    would drive the cap message's reclaimable-room arithmetic in
-    //    documents-asset-section NEGATIVE — then pulls "b" in and this reddens.
+    //    constructor is broken. The duplicate attribute is what makes
+    //    `drawable` hold an id `all` does not — `all` = ["s","a"] against
+    //    `drawable` = ["b"], the divergence the test below pins.
+    //
+    // ★★★ NAME THE MUTANT OR THE CLAIM CANNOT BE CHECKED. "Rebuilding
+    //     `undrawable` from a second scan" has several readings and they do
+    //     NOT behave alike, so this lists which ones this test answers for:
+    //       · symmetric difference (`all\drawable` ∪ `drawable\all`) — the
+    //         shape that drives the reclaimable-room arithmetic in
+    //         documents-asset-section NEGATIVE. KILLED here; SURVIVES if the
+    //         duplicate attribute is dropped. It is the reason for the fixture.
+    //       · direction swap (`drawable\all`) — KILLED, with or without it.
+    //       · whole-document re-scan, then subtract — EQUIVALENT BY
+    //         CONSTRUCTION, not merely unkilled: it re-runs the same two
+    //         scanners over the same blocks, so its output cannot differ for
+    //         any input. Ran it: 29/29 green. Nothing to catch.
+    //       · PER-BLOCK re-scan — a genuine regression this test does NOT
+    //         catch, and deliberately: an id spanned in one block and drawn in
+    //         another is only visible across blocks. Ran it: it reddens "does
+    //         not treat an id as undrawable merely because ANOTHER block draws
+    //         it" and nothing else, which is the test that owns that shape. Do
+    //         not widen this fixture to chase it.
     const raw: ProjectDocument = doc(97, [
       {
         type: "paragraph",
@@ -325,6 +338,12 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
       },
     ]);
     const refs = assetRefsInDocument(raw);
+    // ★★ ALL THREE SETS, and `all` is not decoration: a mutant narrowing `all`
+    //    while building `undrawable` from its own scan yields all=[],
+    //    drawable=["b"], undrawable=["s","a"] — the other two assertions PASS.
+    //    The `AssetRefs` note tells callers the subset relationship follows
+    //    from this test, and it only follows if `all` is pinned too.
+    expect([...refs.all]).toEqual(["s", "a"]);
     expect([...refs.undrawable]).toEqual(["s", "a"]);
     expect([...refs.drawable]).toEqual(["b"]);
   });

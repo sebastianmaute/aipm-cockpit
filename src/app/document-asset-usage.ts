@@ -33,7 +33,7 @@ import { IMG_TAG_RE } from "./document-export-assets";
  *   for deletion safety and the "used in N documents" count, so a
  *   `<span data-asset-id>` MUST keep counting (open-followups §218). Anchoring
  *   this on `<img` would silently change what the cap counts and what that
- *   column means — "a `<span>` is counted but never drawable" goes red if you
+ *   column means — "a <span> is counted but never drawable" goes red if you
  *   do. Tag-name CASE is not a discriminator either: `<IMG …>` counts here.
  *
  *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_RE` uses: a preceding
@@ -48,7 +48,8 @@ import { IMG_TAG_RE } from "./document-export-assets";
  *   branches 2 and 3 of the alternation — the pattern's only backtracking
  *   ambiguity. Measured on `('<a' + '"'.repeat(64)).repeat(m)`: 375 ms at
  *   4 KB and ~7.5x per doubling, against 0.27 ms with the two characters
- *   present; output is identical on all 14 shapes the probes cover. Not
+ *   present. The two patterns agree on every input without a quote in the tag
+ *   name, which is every input the loader can produce. Not
  *   reachable through the loader (DOMPurify serialises from the DOM, so a tag
  *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
  *   comment rather than a check and the tests here scan raw HTML. */
@@ -138,8 +139,12 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  The cap message in `documents-asset-section.tsx` depends on exactly that.
  *  `undrawable ⊆ all` is pinned by "computes `undrawable` as `all` minus
  *  `drawable`, even when `drawable` holds an id `all` does not" in this
- *  module's test file — which pins the stronger EXACT-SET property, so the
- *  subset relationship follows rather than being asserted separately.
+ *  module's test file. That test asserts all THREE sets exactly — `all`,
+ *  `undrawable` and `drawable` — so the subset relationship follows from the
+ *  three equalities rather than being asserted separately. Pinning only two of
+ *  them does NOT suffice, and it shipped that way briefly: a mutant narrowing
+ *  `all` while rebuilding `undrawable` from its own scan passes an
+ *  `undrawable`+`drawable` pair while the subset relationship is false.
  *
  *  ★ The duplicate-attribute divergence above is pinned by "characterizes the
  *  duplicate-attribute divergence — `all` takes the FIRST, `drawable` the
