@@ -5357,8 +5357,9 @@ grep -n "ASK_CLAUDE_PROMPTS.activity" src/app/ask-claude-prompts.test.ts
 ```
 
 ★ That residual is split out as its OWN entry rather than re-opening this one — this entry stays
-closed-by-design, per the paragraph above. See the entry titled **"`ASK_CLAUDE_PROMPTS` has no
-`activity` chip, and the reason the test records for it is stale"**.
+closed-by-design, per the paragraph above. See **§233**, titled **"`ASK_CLAUDE_PROMPTS` has no
+`activity` chip, and the reason the test records for it is stale"** — the number was minted after
+this paragraph was written, so the TITLE is the durable half of that pointer.
 
 ---
 
@@ -9906,7 +9907,7 @@ rounding.
 
 | | 2026-08-10 | 2026-08-25 | note |
 |---|---|---|---|
-| numbered entries | 129 | **224** | `grep -cE '^## [0-9]+\. ' docs/open-followups.md`. ★ This counts NUMBERED entries only; `grep -c "^## "` returns **227**, the extra three being the file's un-numbered closing sections ("Decided", "Provenance", "Standing notes"). Say which you mean. |
+| numbered entries | 129 | **232** | `grep -cE '^## [0-9]+\. ' docs/open-followups.md`. ★ This counts NUMBERED entries only; `grep -c "^## "` returns **235**, the extra three being the file's un-numbered closing sections ("Decided", "Provenance", "Standing notes"). Say which you mean. ★★ **Both figures were re-read on the SAME DAY they were first written here** — the reading was 224/227 earlier on 2026-08-25, and the commit that opened §233–§240 moved it within hours. A count of a register is falsified by the next commit to that register, this session's included; re-run the two commands rather than citing this cell. |
 | open split | 92 | not re-derived | needs `npm run followups:check`; deliberately left blank rather than guessed |
 | `§` citations to triage | 277 `src` (98 files) · 49 `scripts` · 7 `e2e` = 333 | **669 `src` (214 files) · 63 `scripts` · 38 `e2e` = 770** | `grep -rno "§[0-9]" src scripts e2e \| wc -l` — **2.3×**, and `e2e` alone is 5.4× |
 | marker hits, always-loaded doc | 25 `AGENTS.md`, 9 subsystem | **0 `AGENTS.md`, 7 across twelve subsystem files** | same grep; the always-loaded file is now clean, which removes one of P4's four parts |
@@ -16724,3 +16725,316 @@ test 3 does not. Deleting test 3 as "covered by test 2" silently un-pins Route A
 (`suppressNextSaveRef`), so an edit made before the initial load settles is swallowed by it. Both
 hook tests wait on `workspaceLoaded` and then let the debounce window pass before mutating. A test
 written without that wait fails against the FIXED code, which reads like a live defect.
+
+---
+
+## 233. `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale
+
+**Status:** open — a stale RATIONALE, not stale behaviour. Split out of §87 rather than re-opening
+it, per that entry's own closing paragraph. **Severity:** low; nothing renders wrong.
+
+`ask-claude-prompts.test.ts` asserts two absences under one title:
+
+```bash
+grep -n -B 3 "ASK_CLAUDE_PROMPTS.activity" src/app/ask-claude-prompts.test.ts
+```
+
+The title is *"has no chips for the views whose read tools are deferred"*. It is still exactly right
+about `timelog` — §86 records that nothing exposes timelog entries to the model at all. It has
+stopped being right about `activity`: `search_history` shipped, and `VIEW_AI_SCOPE.activity` was
+updated to say so while the chip assertion beside it was not.
+
+```bash
+sed -n '/^  activity: {/,/^  },/p' src/app/view-ai-scope.ts | grep -c "readingRequiresTool"   # 1
+```
+
+★★ **THE ABSENCE MAY STILL BE THE RIGHT CALL — which is why this is an entry and not a fix.** The
+sibling test *"every chipped view has tool hints or a digest behind it"* is the invariant that
+actually guards against a dead chip, and an `activity` chip would satisfy it today. Whether the
+Activity view WANTS one is a product question nobody has asked. What is wrong is only that the
+recorded reason is false, so the next reader infers a capability gap that already closed — the exact
+failure §87 is a monument to.
+
+★ **The cheap half is free either way:** split the assertion, leaving `timelog` under the
+deferred-tool title and giving `activity` its own with a title stating the real reason (a product
+choice, not a missing tool). That costs nothing and cannot be wrong whichever way the product
+question lands.
+
+---
+
+## 234. Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped
+
+**Status:** open — a KNOWN gap, written down in `CONTRIBUTING.md` and nowhere else. Recorded here
+because the register carries e2e gaps (§99, §171, §215), so a reader who checks it concludes the
+coverage picture is mapped.
+
+`CONTRIBUTING.md`'s manual-QA section ends with the only record there is:
+
+```bash
+grep -n -B 1 "Jira sync, storage backend switching, voice commands, OOXML export" CONTRIBUTING.md
+```
+
+Reproduce the absence with a positive control beside it, so a silent zero cannot be mistaken for a
+working sweep:
+
+```bash
+grep -rlniE "jira|dictation|voice|docx|pptx" e2e/                    # no output — none of the four is driven
+grep -rlniE "jira|dictation|voice|docx|pptx|documentAssets" e2e/     # three files — the sweep itself works
+```
+
+★★ **"STORAGE BACKEND SWITCHING" IS THE ONE THAT LOOKS COVERED AND IS NOT.** `e2e/` does reach Turso
+— the two `documents-images*` specs run against a real database — but through
+`NEXT_PUBLIC_TURSO_DATABASE_URL`, which `getTursoConfig` reads in PREFERENCE to settings. Nothing
+drives the Settings control that moves a live workspace from one backend to another, which is the
+flow that moves DATA.
+
+★ Severity is not uniform across the four and should not be ranked as one item. OOXML export has
+heavy unit coverage of the builders plus an ordered part manifest (§216); Jira sync and the backend
+switch have neither an e2e nor any browser-level test of the round trip.
+
+---
+
+## 235. The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record
+
+**Status:** open — a real gap in the audit trail. **Severity:** medium. Nothing is lost from the task
+itself; what is missing is the record that the change happened, and §163 reconstructs completion
+trends from exactly that record.
+
+`use-task-row-handlers.ts` owns the table row's status `<select>` (`onStatusChange`) and the Kanban
+swimlane drop (`onSwimlaneDrop`). Both write through `applyStatusChange`; neither logs:
+
+```bash
+grep -n "logActivityRef.current(" src/app/use-task-row-handlers.ts   # one call, and it is task.deleted
+```
+
+The two paths that DO log, for contrast:
+
+```bash
+grep -c 'logActivity("task.updated"' src/app/use-task-submit.ts                 # 3 — the form save
+grep -n 'logActivityAs?.("ai", "task.updated"' src/app/use-chat-dispatcher.ts   # 2 — the AI write tools
+```
+
+★★ **`captureFieldEdit` IS NOT THE LOG, and the two are easy to confuse because the undo entry it
+mints carries `kind: "task.updated"`.** That string is the UNDO stack's own label, not an
+`ActivityKind` write. `use-undo-stack.ts` calls `logActivity` with `"undo"` and `"redo"` only —
+
+```bash
+grep -n 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts
+```
+
+— so the paradox is that pressing Undo on an inline status change writes an activity entry while the
+change itself wrote none.
+
+★★ **NOTHING ANYWHERE WRITES `task.completed`, which makes a naive fix worse than none.** The kind is
+declared in `activity-log.ts` and counted by `completion-trend.ts`, but no producer emits it:
+
+```bash
+grep -rn '"task\.completed"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+# → four lines in TWO files: activity-log.ts (the union member and its i18n label
+#   `activityTaskCompleted`) and completion-trend.ts (COUNT_KINDS and the dDone tally).
+#   Both are declaration and consumption. No producer.
+```
+
+So adding `logActivityRef.current("task.completed", …)` to `onStatusChange` would make the inline
+path the ONLY producer of that kind, and the trend would then count inline completions and no others
+— a worse distortion than the silence. Decide what the trend should consume BEFORE adding a line
+here. (Reasoned from the grep above, not measured against the rendered trend.)
+
+---
+
+## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them
+
+**Status:** open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
+
+`src/app/version.ts` is the source of truth. The version is restated in `package.json`, twice in
+`package-lock.json` (the root `version` and the `packages[""]` one), in the README shields badge, and
+in the `<!-- Generated: … -->` header of every file under `docs/CODEMAPS/`; the badge and those
+headers also restate the CODENAME. Nothing compares any of them:
+
+```bash
+grep -rn "APP_VERSION" scripts/ .gitlab-ci.yml   # no output — no gate reads it
+```
+
+★★ It has drifted before and by a lot: AGENTS.md records `package.json` stuck six releases behind and
+`package-lock.json` eleven, while `version.ts` and `CHANGELOG.md` were correct. That is the shape to
+expect — the satellites lag silently and nothing goes red.
+
+★ **The one existing check is not this check.** `e2e/a11y.spec.ts` asserts the served app's
+`data-app-version` matches the checkout's `APP_VERSION` (§58). That compares `version.ts` to itself
+through a server and cannot see a single one of the restatements.
+
+Re-derive today's state — it prints every reading, so a green verdict is falsifiable rather than
+asserted:
+
+```bash
+node -e '
+const fs = require("fs"), rd = (p) => fs.readFileSync(p, "utf8");
+const v = /APP_VERSION = "([^"]+)"/.exec(rd("src/app/version.ts"))[1];
+const lock = JSON.parse(rd("package-lock.json"));
+const maps = fs.readdirSync("docs/CODEMAPS").filter((f) => f.endsWith(".md"))
+  .map((f) => /App ([0-9.]+) "([^"]+)"/.exec(rd("docs/CODEMAPS/" + f).split("\n")[0]));
+const badge = /badge\/version-v([0-9.]+)_%22([^%]+)%22/.exec(rd("README.md"));
+const seen = [JSON.parse(rd("package.json")).version, lock.version, lock.packages[""].version,
+  badge[1], ...maps.map((m) => m[1])];
+console.log("version.ts", v, "| satellites", seen.join(" "),
+  "| codenames", [...new Set([badge[2], ...maps.map((m) => m[2])])].join(","));
+console.log(seen.every((s) => s === v) ? "IN SYNC" : "DRIFTED");
+'
+```
+
+★ It throws rather than lying if a shape it depends on moves (the badge markup, a codemap header) —
+that is deliberate. A probe that silently reports IN SYNC because its regex stopped matching is the
+failure mode this register keeps recording.
+
+---
+
+## 237. Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project
+
+**Status:** open — both look DELIBERATE, neither is recorded. Joins the §86/§87/§89 family.
+**Severity:** low. The model is not wrong, it is blind; for the second gap it is told so.
+
+**RACI.** `Stakeholder.raci` is a required field on the entity, and neither summary the chat read
+tools return carries it:
+
+```bash
+grep -n "raci" src/app/chat-tools.ts src/app/chat-tool-summaries.ts   # no output
+grep -n "raci" src/app/types.ts                                       # the control: the field exists
+```
+
+★★ **ONE PATH CAN READ IT, so "the AI cannot see RACI" flatly is wrong.** The purpose-built
+`propose_raci` call reads existing assignments before suggesting:
+
+```bash
+grep -n "raci" src/app/raci-suggest/raci-suggest.ts
+```
+
+The gap is therefore specific: general chat cannot answer "who is Accountable for milestone X" while
+a dedicated tool in the same app reads that very data. `createStakeholder` also hardcodes `raci: {}`,
+so the model cannot write one either.
+
+**Cross-project.** `get_dashboard_snapshot` is active-project-only and there is no cross-project
+tool. Unlike the RACI gap, this one is DISCLOSED to the model rather than merely absent:
+
+```bash
+grep -n "active project only" src/app/view-ai-scope.ts
+```
+
+★ That disclosure is the mitigation and it is a good one. Recorded because "there is a scope note
+about it" and "a portfolio question can be answered" get conflated, and only the first is true.
+
+---
+
+## 238. `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate
+
+**Status:** open — a HAZARD. Both are in sync with the master today (all three last moved in one
+commit), and nothing would say so if they were not.
+
+★★ **THE REGENERATION TRIGGER IS WIDER THAN "THE MASTER CHANGED", and that is the part that gets
+missed.** `scripts/generate-sample-workspace.ts` does not copy the master — it decodes it with the
+real `jsonToWorkspace` and re-encodes with `workspaceToJson`:
+
+```bash
+grep -n "jsonToWorkspace(readFileSync\|workspaceToJson(scaled)" scripts/generate-sample-workspace.ts
+```
+
+So the derived pair bakes in whatever the sanitizers and the JSON encoder did AT GENERATION TIME. A
+sanitizer change, a newly defaulted field, or any encoder change makes them stale with the master
+untouched — and `-small` is unaffected, because every consumer of it decodes live.
+
+Nothing reads them, which is why staleness would be invisible:
+
+```bash
+grep -rn "sample-workspace-big\|sample-workspace-huge" src scripts e2e | grep -v "^scripts/generate-sample-workspace.ts:"   # no output
+grep -rln "sample-workspace-small" src scripts e2e                                                                         # the control: the master has consumers
+```
+
+★ They are hand-loaded for scale testing, and `scale-workspace.ts` carries comments citing byte
+measurements taken against them — so a stale pair silently invalidates those comments too.
+
+★ **Not the same duty as regenerating the goldens.** `golden-workspace.test.ts` byte-pins CSV and
+Markdown derived from `-small` and goes red on a format change; that is precisely the gate this pair
+does not have. §200 names the four-step ordering; this entry is about the TRIGGER, which that entry
+does not state.
+
+---
+
+## 239. An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely
+
+**Status:** open — an ACCEPTED escape hatch whose cost is written down only in a source comment.
+**Severity:** low, and self-inflicted: it takes a hand-authored scheme file.
+
+`deriveAaVariants` nudges `--ui-green-strong`, `--ui-pink-strong`, `--ui-purple-strong` and the three
+`--rag-*-text` tokens to a 4.5:1 ratio. `resolveSchemeColors` then spreads the scheme's OWN colours
+last, so a pinned value wins:
+
+```bash
+grep -n -A 3 "export function resolveSchemeColors" src/app/scheme-tokens.ts
+```
+
+All seven of those tokens pass the scheme validator, because `DERIVED_TOKENS` is folded into
+`VALID_TOKENS` and `cleanColors` keeps anything in that set which parses as a hex:
+
+```bash
+grep -n -A 8 "^const DERIVED_TOKENS" src/app/color-schemes.ts
+grep -n "export function importScheme" src/app/color-schemes.ts   # the user-facing entry point, arbitrary JSON
+```
+
+★★ **THE EDITOR IS NOT THE HOLE, and checking the editor is how a reader concludes wrongly that the
+derivation is unconditional.** `color-scheme-editor.tsx` renders `CORE_TOKENS` and `ADVANCED_TOKENS`
+only, and neither list contains a `-strong` or a `-text` token — so no amount of clicking reaches
+this. Import is the only route, which is also why the risk is low.
+
+★ **The trade-off is deliberate and the reason is sound:** the pins exist so an imported portable
+theme keeps its exact look, and the comment beside `DERIVED_TOKENS` says exactly that. This entry
+does not argue for removing them — it records that the escape hatch exists, since the cost lives in
+one source comment and nowhere a reader of this register would look.
+
+★ **No gate can ever see it** — a user-imported scheme exists only in that user's browser, while the
+axe matrix and the palette sweep run against the built-in schemes in CI. Any fix has to be a runtime
+one: re-derive on load, or warn at import. (Reasoned from where the artifacts live, not measured.)
+
+---
+
+## 240. The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them — CLOSED 2026-08-25
+
+**Status:** CLOSED 2026-08-25 by `feat/followups-register-housekeeping` (`db217e08`). A live
+data-loss defect on the Turso-gated version-history restore path, not a hazard.
+
+**The defect.** `getVersionPayload` (`task-manager.tsx`) serialises what a version snapshot captures;
+`applyRestoredWorkspace` fans a restored one back out into every setter. The two lists were never
+derived from each other and had drifted by six:
+
+```bash
+for r in db217e08^ db217e08; do printf "%s payload slices: " "$r"; git show "$r:src/app/task-manager.tsx" | sed -n '/() => workspaceToJson({/,/}),/p' | tr ',' '\n' | grep -cE "^\s*[a-z]"; done
+printf "restore setters: "; git show db217e08:src/app/task-manager.tsx | sed -n '/const applyRestoredWorkspace/,/seedMintFromWorkspace/p' | grep -oE "\bset[A-Z][A-Za-z]+\(" | sort -u | wc -l
+```
+
+→ `18`, `24`, `24`.
+
+The six were `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
+`calendarEvents`. Each is set UNCONDITIONALLY from a payload that never carried it, so a restore
+replaced them with `[]` or `undefined` in React state — and the save effect then wrote that back out.
+Two of them were not even destructured from `useWorkspace()` in that file, so no in-file read could
+have shown the omission.
+
+★★ `activityLog` is the seventh slice the restore does not set, and that is CORRECT rather than the
+same bug: the log is storage-only on every path, and no `setActivityLog` is destructured in
+`task-manager.tsx`. Adding it to the payload while "completing the pattern" would be the defect, not
+the fix.
+
+★★★ **THE SIBLING TEST WAS GREEN THE WHOLE TIME, AND WHY IS THE REUSABLE PART.** A `documentVersions`
+test already exercised `applyRestoredWorkspace` — by handing it a workspace that ALREADY carried the
+slice. That pins the FAN-OUT, which was never broken, and says nothing about the CAPTURE. The pin
+added here (`task-manager.restore-backfill.test.tsx`) captures through `getVersionPayload` and parses
+the JSON back, which is the shape a real version capture takes; it read all six slices empty against
+the unfixed code. **A test that supplies the data it is checking for cannot detect a producer that
+never emitted it.**
+
+★★ **THAT PIN NEEDS `raid: []` IN ITS FIXTURE OR IT IS VACUOUS-BUT-RED.** `jsonToWorkspace` bails to
+an empty workspace unless BOTH `tasks` and `raid` parse as arrays, so a fixture missing it reads
+all-six-empty — indistinguishable from the defect, i.e. red for the wrong reason, which would have
+"confirmed" the hypothesis with fabricated evidence. An anti-vacuity control asserts the six survive
+a `workspaceToJson` → `jsonToWorkspace` round trip before the test says anything about the payload.
+
+★ The dependency array was the same width and moved with the literal, so a slice-only edit now
+re-captures. That half carries its own discriminating test, added separately in this branch.
