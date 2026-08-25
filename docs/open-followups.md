@@ -1139,6 +1139,10 @@ counting the tags where the old one says `false` and the new one says `true`:
 `git show 33ab5ec3:src/app/sanitize-html.ts | grep TEMPLATE_ALLOWED_TAGS`, and confirm the sink
 argument actually moved with `grep -n 'TEXTAREA_MAX, "' src/app/sanitize-records.ts` (six sites, all
 `"rich"` now, all `"template"` at `33ab5ec3`).
+★★★ **THAT LAST COMMAND IS DEAD AS OF 2026-08-25 AND EXITS 1** — the literal `"rich"` argument was
+replaced by the `RICH_SINK` constant, so it matches nothing while the sentence around it reads as
+confirmed. Working replacement, and the re-derived sink census, in the 2026-08-25 appendix at the
+foot of this entry. The 2026-08-11 measurement itself is untouched and still stands.
 
 Measured under bare node, no DOM:
 `sanitizeRaidItem({id:1,title:"t",description:'<blockquote>x</blockquote><img src=x onerror=alert(1)>'})`
@@ -1200,6 +1204,46 @@ widening the catch: the catch is what keeps a malformed cell from failing a whol
 separating "malformed JSON" from "no DOM" needs a real capability check, which is the same
 post-decode-hook work this entry already owns. What the measurement buys is the WARNING: the first
 bare-node script that imports a codec loses note logs silently, and nothing will say so.
+
+
+### 2026-08-25 — two commands in the 2026-08-11 section stopped answering it
+
+Neither measurement above changed; two of the commands under them did.
+
+**1. The sink-argument confirm.** `grep -n 'TEXTAREA_MAX, "' src/app/sanitize-records.ts` exits 1
+today: the sink is now passed as the `RICH_SINK` constant, not a string literal. Replacement, with
+its output:
+
+```bash
+grep -c 'TEXTAREA_MAX, RICH_SINK' src/app/sanitize-records.ts   # 6 — the same six sites
+```
+
+★ The count is the load-bearing half: six is what makes it "all six moved" rather than "some did".
+`RICH_SINK` is declared in `html-start.ts` and imported here, so the constant's VALUE is one hop
+away — `grep -n 'RICH_SINK =' src/app/html-start.ts` shows it is still `"rich"`. A command asserting
+only the constant NAME would pass even if that value were re-pointed.
+
+**2. The raw-HTML sink census is stale by two, and both new sinks SANITIZE.** The 2026-08-11 text
+says the grep returns eight lines, six real sinks, five carrying workspace HTML. Re-run 2026-08-25:
+
+```bash
+grep -rn "dangerouslySetInnerHTML" src/app --include=*.tsx | grep -v "\.test\."
+```
+
+→ **17 lines**, of which **8** are real JSX props and 9 are PROSE (comments naming the API, several
+of them to say the file does not use it — a grep cannot tell a comment from a prop, so READ the
+hits, never count them). The two sinks added since are `document-block-notices.tsx` and
+`document-editor.tsx`, both routing through `sanitizeDocumentHtml`. So the workspace-HTML sink set
+is now **seven** — `rich-text-view.tsx`, `comm-send-preview-modal.tsx`, `meeting-report-panel.tsx`
+(all three `sanitizeRichHtml`), `document-preview.tsx`, `documents-history-modal.tsx`,
+`document-block-notices.tsx`, `document-editor.tsx` (all four through the document renderer or
+`sanitizeDocumentHtml`) — plus `layout.tsx`'s build-time theme script, which is not workspace data.
+
+★★ **The 2026-08-11 warning was "adding a SIXTH workspace sink that does not sanitize converts this
+row into a live vulnerability." Two were added and BOTH sanitize, so the row is unchanged** — but
+re-read that sentence as a rule about the NEXT one, not as a count. This entry is security-adjacent:
+a reader auditing "five workspace sinks" was auditing a stale set, and this appendix exists so the
+next one is not.
 
 ---
 
@@ -5416,22 +5460,55 @@ from the box width and an average glyph width, which is still an estimate but a 
 
 ---
 
-## 95. No test exercises a real Turso database on ANY path — open
+## 95. No test in CI exercises a real Turso database — open, NARROWED 2026-08-25
 
 Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
 class and of the Turso layer generally, and `documents` merely inherits it.
 
 There is no `@libsql/client` dependency at all — the app reaches Turso over the HTTP pipeline API
-(`turso-pipeline.ts`), and tests mock `fetch`. So no test in the repo opens a database, real or
-in-memory:
+(`turso-pipeline.ts`), and the unit tests mock `fetch`.
+
+### 2026-08-25 — this entry's own fix option (b) SHIPPED, and its reproduce command now returns the opposite
+
+The entry used to read *"no test in the repo opens a database, real or in-memory"*, over this pair:
 
 ```bash
-grep -rn ":memory:" src/app/*.test.ts        # no hits
+grep -rn ":memory:" src/app/*.test.ts        # claimed at the time: no hits
 grep -n "libsql" package.json                # no hits — HTTP pipeline, not a driver
 ```
 
-`turso-schema.documents.test.ts` (16 tests — `grep -cE "^\s*it\(" src/app/turso-schema.documents.test.ts`;
-★ the naive `grep -c "it("` answers 17 because it also matches `.split(`) is a good test of the layer it covers, and it is explicit
+Re-run 2026-08-25: the second still exits 1, and the first returns **three** hits, all in
+`turso-schema.execute.test.ts` — which runs the REAL statement builders against `node:sqlite` for
+both backends, generalised over `ENTITY_SPECS`. That is fix option (b) below, shipped. So the "is
+this valid SQL" class this entry was written about is now covered, and the sentence the command sat
+under is false. ★★ It exited 0 and printed a plausible nothing while being wrong, which is why it
+survived: an absence grep looks identical whether the absence is real or the grep has gone stale.
+Re-derive rather than trusting this paragraph — the second line is the positive control, and without
+it a two-command absence proof is indistinguishable from two broken patterns:
+
+```bash
+grep -rn ":memory:" src/app/*.test.ts; echo "EXIT=$?"      # 3 hits, all turso-schema.execute.test.ts, EXIT=0
+grep -n "libsql" package.json; echo "EXIT=$?"              # no hits, EXIT=1
+```
+
+**What is left is narrower than the old heading, in two parts.**
+
+1. **CI never reaches a real Turso ENDPOINT.** `node:sqlite` is a different engine reached a
+   different way, so it says nothing about libSQL's `/v2/pipeline` batch semantics, auth, TLS or
+   wire limits. The one spec that does drive a live database,
+   `e2e/documents-images-interactive.spec.ts`, skips without operator-supplied credentials, so CI is
+   green on it and silent — that half is **§215**, which owns it in full. ★ Note this refutes the
+   old heading outright: a test exercising a real Turso database DOES exist; it just never runs
+   unattended.
+2. **The meta-blob JSON round-trip still meets no engine.** `turso-schema.execute.test.ts` populates
+   every `ENTITY_SPECS` entity and proves `plan` and `meta` ride the same transaction, but its
+   `meta` assertion is on `schema_version` — the `documents` / `insights` / `activityLog` blobs are
+   not in that fixture, so their encode and decode are still string-matched only.
+
+`turso-schema.documents.test.ts` (derive its case count with
+`grep -cE "^\s*it\(" src/app/turso-schema.documents.test.ts`; ★ the naive `grep -c "it("`
+answers exactly ONE more, because it also matches `.split(`. This entry used to quote a fixed
+**16**, which had drifted to 36 by 2026-08-25 — derive it, never read it) is a good test of the layer it covers, and it is explicit
 about what it does: its `resultsFromStatements` helper REBUILDS the SELECT results by parsing the
 INSERT statements the save just emitted. That proves the encode and decode halves agree with each
 other. It cannot prove either agrees with SQLite — malformed SQL, a column-type surprise, a quoting
@@ -5440,10 +5517,12 @@ bug, or a driver/endpoint quirk all pass.
 The same is true of the other meta-blob fields (`insights`, `knowledgeItems`) and of the entity tables.
 
 **Fix options:** (a) accept it and say so in the test files, which is nearly the status quo;
-(b) one integration test against a real SQLite file through the same statement builders, catching the
-"is this valid SQL" class without needing a network; (c) a recorded-fixture test replaying a real
-pipeline response captured once by hand. (b) is the cheapest real improvement, and it would cover
-every entity at once rather than per-field.
+(b) ~~one integration test against a real SQLite file through the same statement builders, catching
+the "is this valid SQL" class without needing a network~~ — **DONE**, as
+`turso-schema.execute.test.ts` against `node:sqlite`, generalised over `ENTITY_SPECS` exactly as
+this line predicted ("it would cover every entity at once rather than per-field"); (c) a
+recorded-fixture test replaying a real pipeline response captured once by hand — still the only
+route to residue 1 above, and §215 costs it out.
 
 ★ Do not size this as a documents task. The work is the harness; once it exists, adding a field to it
 is minutes.
@@ -5602,8 +5681,9 @@ neither should be quoted as a general rule.
 pre-existing boundary that the documents feature makes newly consequential, and it is recorded
 separately because the reason it now matters did not exist before this slice.
 
-`nonEmptyCollectionCount` and `workspaceRecordCount` (both in `workspace.ts`) each enumerate the same
-THIRTEEN entity collections. `documents` is in neither — and neither are `knowledgeItems`, `insights`,
+`nonEmptyCollectionCount` and `workspaceRecordCount` (both defined in `workspace-metrics.ts`;
+`workspace.ts` only RE-EXPORTS them) each enumerate the same THIRTEEN entity collections.
+`documents` is in neither — and neither are `knowledgeItems`, `insights`,
 `timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
 sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
 will go looking for a bug that is not there.
@@ -5611,15 +5691,33 @@ will go looking for a bug that is not there.
 ### Measured, with a positive control
 
 ```bash
-sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.documents"       # 0
-sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace.ts | grep -c "ws\.tasks"           # 1
-sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.documents"       # 0
-sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace.ts | grep -c "ws\.calendarEvents"  # 1
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace-metrics.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace-metrics.ts | grep -c "ws\.tasks"           # 1
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace-metrics.ts | grep -c "ws\.documents"       # 0
+sed -n '/export function workspaceRecordCount/,/^}/p'    src/app/workspace-metrics.ts | grep -c "ws\.calendarEvents"  # 1
 ```
 
-Run 2026-08-06; the `ws.tasks` / `ws.calendarEvents` lines are the control, so a zero from a broken
-pattern cannot masquerade as a finding. `knowledgeItems` and `insights` also return 0 from the first
-command, which is how the scoping above was established rather than assumed.
+First run 2026-08-06, repointed and re-run 2026-08-25 with the outputs shown. The `ws.tasks` /
+`ws.calendarEvents` lines are the control, so a zero from a broken pattern cannot masquerade as a
+finding. `knowledgeItems` and `insights` also return 0 from the first command, which is how the
+scoping above was established rather than assumed.
+
+### ★★★ 2026-08-25 — the positive controls FAILED SILENTLY, on the entry that exists to demand them
+
+The four commands above named `src/app/workspace.ts` until today. Both counters were extracted to
+`workspace-metrics.ts`; `workspace.ts` keeps a one-line `export { … } from "./workspace-metrics"`,
+so the file still MENTIONS both names and the `sed` range address simply never opens. All four
+commands therefore printed **0** — including the two controls — and every one exited 0.
+
+That is exactly the failure the sentence beneath them promised to prevent: *"a zero from a broken
+pattern cannot masquerade as a finding."* It could, it did, and the control's own zero was the
+tell nobody read. ★★ A control only works if someone COMPARES it — an unread control is
+indistinguishable from no control, and this one sat unread through every quotation of this entry.
+★ The generalisable defect is the `sed` range address: it fails OPEN, printing nothing rather than
+erroring, so a moved symbol degrades the command to a guaranteed 0 with no diagnostic. Prefer an
+anchored `grep -n -A` over a `sed` range when the anchor may move, or assert the range is non-empty
+first (`sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace-metrics.ts | wc -l`
+→ 17, not 0).
 
 ### What it defeats, by name
 
@@ -6546,13 +6644,31 @@ assumed.** The review recorded the deep-link as "unreachable for want of rows". 
 mechanism:
 
 ```bash
-grep -rn "activityViewOf|dashboard-activity-nav" src/ e2e/
-#  -> src/app/dashboard-activity-nav.ts        (the definition)
-#  -> src/app/dashboard-activity-nav.test.ts   (its unit test)
-#  and nothing else
+grep -rnE "activityViewOf|dashboard-activity-nav" src/ e2e/
 ```
 
-So `activityViewOf` has never been called from production code, for ANY activity kind — not just
+★★★ **THAT COMMAND HAD NO `-E` UNTIL 2026-08-25, so for as long as this entry has existed it was a
+LITERAL search for the string `activityViewOf|dashboard-activity-nav`** — it matched nothing and
+exited 1, while a hand-written two-item result listing ("the definition", "its unit test", "and
+nothing else") sat as comment lines underneath it as if the command had produced them. The listing's
+CONCLUSION was right; the command could not have reached it. `-E` added above, and the hand-written
+listing replaced by what the command actually returns.
+
+With `-E` it returns the definition, its unit test, and **two more files the old listing said did
+not exist** — both PROSE: a comment in `use-chat-dispatcher.test.tsx` and a docstring in
+`use-document-tools.ts` that names the mapping to explain why the emitter writes the row. Neither is
+a call. Ask the narrower question directly:
+
+```bash
+grep -rnE "activityViewOf\(" src/ e2e/ | grep -v "\.test\." | grep -vE ":[0-9]+: *\*"
+```
+
+→ ONE line, the `export function` declaration itself. ★★ The trailing `grep -v` drops
+block-comment CONTINUATION lines (those beginning ` * `) and that is ALL it discriminates — it would
+not drop a `//` comment or a JSDoc opener, so if this ever returns more than the declaration, READ
+the hits before concluding a caller exists.
+
+So `activityViewOf` has no production CALLER, for ANY activity kind — not just
 this one. Rows now exist and carry `(id, title)` args; nothing routes a click on one anywhere.
 
 ★ The only consumer of `ActivityEntry.args` anywhere is `activity-log-panel.tsx`, which renders
@@ -12049,8 +12165,11 @@ recorded because nothing anywhere else says it.
 
 Found by a cold review of the fix round on 2026-08-18 (`feat/ai-recall-b2c`), not by any gate.
 
-`useChatThreads`' load effect has a `catch` branch that adopts a project switch which landed while
-the fetch was in flight. It sets the load-failure flag, but deliberately KEEPS the rows it already
+`useChatThreads`' load effect has a `catch` branch for a MID-FLIGHT THREAD ADOPTION — the active
+thread changed between issuing the fetch and its rejection (`ensureThreadForSend` minting one for a
+send that started first, a "New chat", a thread click). ★ It is triggered by the THREAD ref moving,
+not by a project switch; the project id only scopes what it keeps. It sets the load-failure flag,
+but deliberately KEEPS the rows it already
 had (filtering `prev` down to the adopted `projectId`) and sets `loadedProjectId`, so
 `threadsMatchProject` is true. The registry publish therefore emits a POPULATED `threads` array
 alongside `available: false`.
@@ -12063,19 +12182,43 @@ written to remove, INVERTED and surviving it.
 `coverage: "unavailable"`. Reproduce the blindness, which is the load-bearing half:
 
 ```bash
-grep -n available src/app/use-chat-search-bindings.ts   # exit 1 — never reads it
-sed -n '/const adopt/,/^      }/p' src/app/use-chat-threads.ts
+grep -n available src/app/use-chat-search-bindings.ts; echo "EXIT=$?"   # no hits, EXIT=1
+grep -c threads   src/app/use-chat-search-bindings.ts                   # 3 — the positive control
+grep -nE "threadIdRef\.current !== startedOn" -A 20 src/app/use-chat-threads.ts \
+  | grep -vE "^[0-9]+[-:] *(//|\*)" | grep -E "startedOn|setThreads|setLoadedProjectId|^--"
 ```
 
-★ REACHABILITY IS NARROW AND THE PRODUCTION IMPACT IS **UNVERIFIED**: it needs a project switch
-landing mid-flight AND at least two same-project rows in `prev`, since `summarizeChatThreads`
+★★★ **THE SECOND COMMAND USED TO BE `sed -n '/const adopt/,/^      }/p' src/app/use-chat-threads.ts`
+AND ITS ANCHOR NEVER EXISTED.** There is no `const adopt` in that file at any indentation, and never
+was — the branch is real but is an inline `if` inside the load effect's `.catch`, not a named
+binding. A `sed` range whose opening address never matches prints NOTHING and exits **0**, so the
+command read as "the branch is small" rather than "the anchor is wrong". Replaced above with an
+anchored grep on the branch's actual condition.
+
+The replacement returns TWO match groups: the SUCCESS branch's merge first, then the `catch`'s —
+`setThreads((prev) => prev.filter((th) => th.projectId === projectId))` followed by
+`setLoadedProjectId(projectId)`, both reached after `setLoadFailed(true)`. **That pair inside the
+second group is the subject of this entry.** ★★ Read the group boundaries, not the line order: the
+second group's trailing `setThreads([])` / `setLoadedProjectId(projectId)` are the branch's ELSE —
+the ordinary load failure, reached only past the `return` — and mistaking them for part of the
+adoption branch would make the contradiction look already-fixed. The first group is the
+success-path merge and is not this entry at all. ★★ The `grep -vE` drops
+comment lines only where a `//` or a block-comment ` * ` opens the line — that is the whole of its
+discrimination, and this branch is heavily commented, so read the groups rather than counting
+lines. ★ The first command is an ABSENCE claim, which is why the `grep -c threads` control sits
+beside it: without a control, a renamed file or a typo'd pattern is indistinguishable from the
+absence being proved.
+
+★ REACHABILITY IS NARROW AND THE PRODUCTION IMPACT IS **UNVERIFIED**: it needs a thread adoption
+landing mid-flight, the fetch then REJECTING, and at least two same-project rows surviving the
+filter on `prev` — since `summarizeChatThreads`
 excludes the active thread and a one-row pointer renders nothing. The code path is verified by
 READING, not by reproducing it — do not record it as observed.
 
 ★★ TWO REPAIRS, and the obvious one is wrong. Clearing `threads` in that branch would make the
 pair consistent by DISCARDING rows the user can still read in the sidebar, which is a worse outcome
 than an inconsistent hint. The honest fixes are either (a) leave the load-failure flag unset on the
-adoption branch — nothing stopped us looking, we merely looked at a different project — or
+adoption branch — a rejected fetch says nothing about the rows this client already holds — or
 (b) gate the ambient pointer on `available` so both surfaces speak with one voice. (b) also closes
 §174.
 
@@ -13949,27 +14092,54 @@ markup — which is a change to `capHtmlText` and therefore to every rich-text s
 (`ASSET_IMG_RE`, §209) landed in `document-model.ts`, while `capHtmlText` is in `rich-text-plain.ts`
 and `plainToHtml` in `sanitize-html.ts` — so this cannot be closed where that one was.
 
-## 209. One `data-asset-id` pattern, five hand-maintained spellings
+## 209. One `data-asset-id` pattern, THREE hand-maintained spellings (was five)
 
 **Status:** open — a drift risk, not a defect. Nothing here is broken; nothing keeps the shared
-part of the five in step either.
+part of the survivors in step either.
 
-Reproduce the set:
+★★★ **STALE BY TWO SINCE THIS ENTRY WAS WRITTEN, AND ITS REPRODUCE COMMAND RETURNED ONE LINE.**
+`e7b327a0` ("refactor(export): one img-tag regex, not three copies") consolidated the three
+byte-identical `IMG_TAG_RE` copies into a single exported declaration in
+`document-export-assets.ts`, AFTER this entry landed. So the family is **three** spellings today,
+not five: the shared `IMG_TAG_RE`, `ASSET_ID_RE` (`document-asset-usage.ts`) and `ASSET_IMG_RE`
+(`document-model.ts`). The old command was
 
 ```bash
 grep -rn 'data-asset-id="' src/app --include=*.ts --include=*.tsx | grep -v "\.test\." | grep "RE = "
 ```
 
-★★ **They are NOT five copies of one regex — they are one pattern family in five spellings**, and
-that is the more useful framing, because it rules out the mechanical fix. Three (`IMG_TAG_RE` in
-`doc-render-html.ts`, `doc-render-docx.ts` and `doc-render-pptx.ts`) are byte-identical, global, and
-capture the id. `ASSET_ID_RE` (`document-asset-usage.ts`) is attribute-only with NO `<img>` anchor —
-so it matches strings the other four do not, deliberately: its module header records that it runs on
+and it EXITS 0 while returning exactly ONE line — `ASSET_ID_RE` — because the other two,
+`IMG_TAG_RE` and `ASSET_IMG_RE`, wrap their pattern onto the line AFTER `RE =`, so no single line
+of theirs carries both the name and the attribute. A one-line answer under a heading saying "five"
+reads as a truncated listing rather than a broken command, which is why it survived.
+
+Reproduce the set. This one is NOT file-scoped, so a FOURTH spelling added anywhere under
+`src/app` would appear:
+
+```bash
+grep -rnE -B1 "data-asset-id" src/app --include=*.ts --include=*.tsx \
+  | grep -v "\.test\." | grep -E "const [A-Z_]+ =$|const [A-Z_]+ = /"
+```
+
+→ exactly three lines, one per spelling: `ASSET_ID_RE` (`document-asset-usage.ts`, whole regex on
+one line), `IMG_TAG_RE` (`document-export-assets.ts`) and `ASSET_IMG_RE` (`document-model.ts`,
+both wrapped). ★★ **How it discriminates, and where it stops:** it keeps only lines that DECLARE a
+SCREAMING_CASE const, so the ~60 other `data-asset-id` hits — module headers, test-shape comments,
+the allow-list, the HTML the renderers emit — are dropped without having to be read. The cost is a
+`-B1` window: a declaration whose regex starts TWO lines below its name, or one bound to a
+camelCase name, is invisible to it. A bare `grep -rn "data-asset-id" src/app` returns ~62 lines and
+must be READ rather than counted; a grep cannot tell a comment from a regex.
+
+★★ **They are NOT copies of one regex — they are one pattern family in three spellings**, and
+that is the more useful framing, because it rules out the mechanical fix. `IMG_TAG_RE` (now shared
+by `doc-render-html.ts`, `doc-render-docx.ts`, `doc-render-pptx.ts` and `document-asset-usage.ts`)
+is global and captures the id. `ASSET_ID_RE` (`document-asset-usage.ts`) is attribute-only with NO `<img>` anchor —
+so it matches strings the other two do not, deliberately: its module header records that it runs on
 already-sanitized stored html, where a literal `data-asset-id="…"` in TEXT would already have been
 escaped. `ASSET_IMG_RE` (`document-model.ts`, added by the S3c-1 fix round) is case-INSENSITIVE,
 non-global, requires a NON-empty id and captures nothing.
 ★★ **`ASSET_IMG_RE` diverged FURTHER in `e5597c78` and the gap is now wider than the rest of this
-entry implies.** The other four read a double-quoted value only; this one was widened to an
+entry implies.** The other two read a double-quoted value only; this one was widened to an
 alternation over `\s*=\s*` covering double-quoted, single-quoted and unquoted values, because it
 alone runs BEFORE any allow-list pass and so must survive hand-edited and imported html. Read the
 current spelling rather than any restatement:
@@ -13978,12 +14148,16 @@ current spelling rather than any restatement:
 is narrowed by a `.filter((id) => id.length > 0)` at its only call site, so it and `ASSET_IMG_RE`
 still agree on emptiness — every branch of that alternation requires at least one character —
 through two different mechanisms, in two different files. A shared
-module has to keep the variation as parameters rather than flatten it. ★★ Only `ASSET_IMG_RE`
-carries a per-divergence justification at its own declaration; the other four are explained by their
-surrounding module comments or not at all, so do not expect the code to tell you which differences
+module has to keep the variation as parameters rather than flatten it. ★★ TWO of the three now
+carry a per-divergence justification at their own declaration: `ASSET_IMG_RE` (case-insensitivity
+and the quoting alternation) and `IMG_TAG_RE`, whose docstring gained two ★★★ notes when it was
+consolidated — quote-awareness, with a measured attribute-order failure in BOTH directions, and the
+`/g` `lastIndex` sharing hazard. Only `ASSET_ID_RE` is left explained by its surrounding module
+comment alone, so for that one in particular do not expect the code to tell you which differences
 are load-bearing.
 
-★★ **They could not be shared as things stand**, which is why the fix round left all five.
+★★ **They could not be shared as things stand**, which is why the S3c-1 fix round left them all
+in place and why `e7b327a0` could only fold the three byte-identical ones.
 `document-asset-usage.ts`'s `assetIdsInBlock` is the natural home and is NOT exported; and
 `document-asset-usage.ts` already depends on `document-model.ts` (an `import type` of `DocBlock` /
 `ProjectDocument` today), so consolidating there would point a core model module at one of its own
@@ -13993,7 +14167,20 @@ import (a type-only import is erased, so today's direction is safe by accident, 
 The clean shape is a small pure module both sides import — id extraction and the "does this block
 carry an asset image" predicate, with the global/case/emptiness differences as options — depended on
 by `document-model.ts`, `document-asset-usage.ts` and the three renderers, and depending on none of
-them. Five hand-maintained spellings of one attribute contract is exactly the drift this register
+them.
+
+★★ **THE REMAINING ASK IS NARROWER THAN THE ORIGINAL AND IS NOW `ASSET_ID_RE` ⟷ `ASSET_IMG_RE`
+ONLY.** `e7b327a0` already took the easy half — the three byte-identical copies — and it took it by
+EXPORTING one of them from `document-export-assets.ts`, not by building the pure module described
+above. What is left is the pair whose differences are real (anchored vs attribute-only, global vs
+not, case-sensitivity, and `ASSET_IMG_RE`'s quoting alternation), so folding them needs the options
+argument, not a copy-paste. ★★★ **`ASSET_ID_RE` is also §231's subject** — that entry records the
+attribute-only match counting text content against the 20-image cap, and in one shape reading a
+phantom id. Read §231 BEFORE unifying anything here: a fold that gives `ASSET_ID_RE` the `<img>`
+anchor would change §231's behaviour as a side effect, and doing that silently inside a
+deduplication commit is worse than either change made deliberately.
+
+Three hand-maintained spellings of one attribute contract is still the drift this register
 records elsewhere; nothing gates them agreeing.
 
 ## 210. Standalone HTML and PDF export carry an image with no source, and no placeholder either — CLOSED 2026-08-22
@@ -14315,10 +14502,30 @@ node -e "const r=require('/tmp/lint.json');console.log(r.length,'files',
 ```
 
 → **1800 files linted, 0 warnings, 0 errors.** So no cleanup pass is needed in front of it.
-★★ **But budget for the doc ripple, which is most of the work.** Roughly six sentences across
-`AGENTS.md`, `CONTRIBUTING.md`, `docs/CODEMAPS/architecture.md` and this file assert the gate is
-ABSENT, and every one goes false the moment it is added — enumerate with
-`grep -rn -- "--max-warnings" AGENTS.md CONTRIBUTING.md docs/`. This entry closes with them.
+★★ **But budget for the doc ripple, which is most of the work.** A handful of sentences across
+`AGENTS.md`, `CONTRIBUTING.md` and `docs/CODEMAPS/architecture.md` assert the gate is ABSENT, and
+every one goes false the moment it is added. This entry closes with them.
+★★★ **THE ENUMERATE COMMAND THAT USED TO SIT HERE WAS WRONG BY TWO ORDERS OF MAGNITUDE.** It was
+`grep -rn -- "--max-warnings" AGENTS.md CONTRIBUTING.md docs/`, attached to the words "roughly six".
+Measured 2026-08-25 it returned **499 lines**, because `docs/` now sweeps the tracked
+`docs/superpowers/` specs and plans — a tree full of pasted command transcripts, none of which is a
+sentence about this repo's gate. Scope it, and ask the question the sentence actually asks:
+
+```bash
+grep -rn -- "--max-warnings" AGENTS.md CONTRIBUTING.md docs/CODEMAPS/architecture.md
+```
+
+→ **7 lines**, of which exactly **4** ASSERT the gate is absent and would go false: `AGENTS.md`
+twice (the "there is NO `--max-warnings` gate" line and the "STRICTER than CI" line),
+`CONTRIBUTING.md` once, `docs/CODEMAPS/architecture.md` once. The other 3 merely USE the flag in an
+example command and survive. So "roughly six" was close by luck, not by measurement.
+
+★★★ **NO WIDER TOTAL IS QUOTED HERE, DELIBERATELY, AND RESTORING ONE IS A REGRESSION.** Adding
+`docs/open-followups.md` to that command makes it SELF-MATCHING — most of the hits are this very
+entry, plus §45 and §53, quoting the flag — so the number moves every time anyone edits this
+paragraph. It did: a first cut of this correction quoted the scoped figure, and re-running the same
+command after saving the paragraph that quoted it returned two more. The 7 above excludes this file
+and is the only stable one.
 ★★★ **PUT THE FLAG IN `package.json`'s `lint` SCRIPT, NOT IN THE `lint:` JOB.** Adding it to the CI
 job only re-creates the exact divergence that caused this whole confusion: `npm run lint` passing
 locally while CI enforces something stricter. One script line keeps local and CI identical.
@@ -14329,7 +14536,12 @@ single rule in `eslint.config.mjs` (`"@typescript-eslint/no-unused-vars": "error
 ★ `eslint.config.mjs` is protected by a hook, so an agent cannot edit it — that route needs a human.
 
 ★★★ **IT CONFLICTS WITH §53 (ESLint 10, blocked upstream) AND WITH §45's eslint-10 bullet — read both
-first.** ★ An earlier draft of this paragraph cited "§7 B4", which is a different item entirely; the
+first.** ★★ §45's heading reads `~~brace-expansion advisory~~ — CLOSED in 0.211.1`, so a reader
+following this pointer hits a strikethrough and stops. **Do not stop:** the eslint-10 material is
+genuinely inside that closed entry, several paragraphs down, and the bullet meant here is the one
+opening "★★ eslint 10 is a major landing." Find it with
+`sed -n '/^## 45[.]/,/^## 46[.]/p' docs/open-followups.md | grep -n "eslint 10 is a major landing"`.
+★ An earlier draft of this paragraph cited "§7 B4", which is a different item entirely; the
 number was carried over from an unrelated line in this file rather than looked up. Their blast radius
 depends on this gate being OFF: with no `--max-warnings`, a major eslint landing
 can only fail the build by adding or changing a rule at severity **2**, and a new warning ships
