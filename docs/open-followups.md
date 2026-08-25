@@ -446,7 +446,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
-| [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | — | — | open |
+| [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
+| [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18094,6 +18095,46 @@ it needs raw stored html with an unquoted attribute value; DOMPurify quotes valu
 **Pinned by.** `document-asset-patterns.differential.test.ts` — "counts a phantom id after an
 unquoted value followed by `/`", with a quoted control beside it so the assertion is about `/`
 AFTER AN UNQUOTED VALUE rather than about `/`. A fix must delete that test deliberately.
+
+## 253. `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id`
+
+**Status:** OPEN — pre-existing, found 2026-08-25 by a cold review of the differential suite, not by
+any gate. Bounded in production by a cap; deliberately not fixed. See below.
+
+**The shape.** `IMG_TAG_ASSET_ID_RE` must find a closing `>` AFTER the attribute
+(`(?:[^<>"']|"[^"]*"|'[^']*')*>`). Give it an `<img` that never closes and carries N real
+`data-asset-id="…"`, and the greedy prefix backtracks through every occurrence, re-scanning the
+tail for a `>` that is not there.
+
+```
+"<img " + 'data-asset-id="x" '.repeat(n)      matchAll, shipped pattern
+   32 KB   112 ms        128 KB  1548 ms
+   64 KB   388 ms        256 KB  8029 ms      exponent ~2.1
+```
+
+Closing the tag is **1.0 ms at 256 KB**, so the trigger is specifically the missing `>`.
+`ANY_TAG_ASSET_ID_RE` (lazy, no trailing requirement) and `ASSET_IMG_TEST_RE` are ~0.1 ms
+throughout — this is one pattern, not the family.
+
+**Blast radius, and why it is not a ReDoS.** Every consumer reads `block.html`, and both write paths
+truncate that to `MAX_HTML_TEXT_CHARS` — measured end to end, `sanitizeProjectDocuments` and
+`normalizeBlockForStorage` each store 20 010 chars of a 262 157-char payload. ★★ The cap applies by
+HTML LENGTH, which is what saves this case: the payload projects to ZERO visible text, so a
+visible-text cap would have passed it through untouched. At 20 010 chars the cost is ~38 ms, so a
+crafted document at `MAX_BLOCKS_PER_DOC` (500) costs ~19 s of export — bad, bounded, and it needs
+raw stored html that DOMPurify would have closed.
+
+**Why it is not fixed.** Bounding the trailing run (a `[^<]`-style limit, or dropping the `>`
+requirement) narrows a pattern whose two consumers are the export renderers and the 20-image cap.
+Narrowing one of these three patterns is what produced a silent data-loss defect and then a ReDoS,
+one per attempt, earlier on this same branch (§250). The measured exposure does not justify
+re-entering that class late in a branch.
+
+**Pinned by.** `document-asset-patterns.differential.test.ts` — the `"<img with N data-asset-id,
+unterminated"` complexity family, sized at `MAX_HTML_TEXT_CHARS` rather than the suite's `BYTES`,
+so it asserts the reachable cost and goes red if the cap is raised or the pattern degrades further.
+★ It runs with a ~50x margin against `CEILING_MS`; that is deliberate, not slack — see the family's
+own comment.
 
 ## Decided — do not re-litigate
 

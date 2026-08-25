@@ -270,6 +270,16 @@ export const IMG_TAG_ASSET_ID_RE =
  *   cross the `<`. It needs an unquoted attribute value containing `<` in raw
  *   stored html — DOMPurify quotes and escapes it — which is why the freeze was
  *   judged the worse of the two. Do not "restore" it by widening branch 1 back.
+ *   ★★ THAT IS THE BEFORE CASE ONLY, and reading it as "a bare `<` costs the
+ *   block" is wrong in a way that hides a live divergence. Put the same value
+ *   AFTER the target attribute — `<img data-asset-id="real" alt=a<b>` — and
+ *   this predicate says KEEP and `ANY_TAG_ASSET_ID_RE` charges the id against
+ *   the 20-image cap, while `IMG_TAG_ASSET_ID_RE` still returns NOTHING,
+ *   because the closing `>` is unreachable without crossing the `<`. So the
+ *   loader keeps a paragraph every renderer draws nothing for. Which side of
+ *   the attribute the `<` falls on decides WHICH consumer loses, and neither
+ *   direction is fixable without scanning past `<`. Both rows are in the shape
+ *   table.
  *   ★ ONE shape is deliberately kept that a narrower pattern would drop:
  *   `<img alt="data-asset-id=x">` (a decoy inside a quoted value, no real
  *   asset) stays TRUE via branch 1 — the false-TRUE direction, where the block

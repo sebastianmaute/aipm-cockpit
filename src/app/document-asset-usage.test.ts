@@ -380,12 +380,19 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //   path either, so this asserts the SCANNER directly rather than through
     //   loadFully — which is the only way to observe it.
     //
-    // ★★ THE DISCRIMINATOR IS THE `\b`, NOT THE TAG NAME. The tag-name class
-    //    happily eats `mgdata-asset-id=`; what rejects this is the word
-    //    boundary before `data-asset-id`, with a word character on each side.
-    //    Measured: remove the `\b` and leave the anchor intact, and this
-    //    matches again. So this test guards the `\b`, and a reader "tidying"
-    //    the anchor will not learn that from the assertion alone.
+    // ★★ THE DISCRIMINATOR IS THE `(?<![-\w])` LOOKBEHIND, NOT THE TAG NAME.
+    //    The tag-name class happily eats `mgdata-asset-id=`; what rejects this
+    //    is the word character immediately before `data-asset-id`. So this test
+    //    guards the lookbehind, and a reader "tidying" the anchor will not
+    //    learn that from the assertion alone.
+    // ★★★ AND IT IS THE ONLY TEST IN THE REPO THAT GUARDS THE `\w` HALF OF IT.
+    //    The `-` half is pinned by `foo-data-asset-id` rows in BOTH pattern
+    //    test files; this string is the sole cover for the other half —
+    //    narrowing the lookbehind to `(?<!-)` is green everywhere else and
+    //    makes `<img xdata-asset-id="a">` report a phantom `"a"` (the §231
+    //    overcount class). A cold review scanning only the two pattern files
+    //    concluded the `\w` half was untested anywhere; it is tested HERE, and
+    //    nowhere else. Do not delete this without replacing the coverage.
     const raw: ProjectDocument = doc(99, [
       { type: "paragraph", html: `<imgdata-asset-id="x">` },
     ]);

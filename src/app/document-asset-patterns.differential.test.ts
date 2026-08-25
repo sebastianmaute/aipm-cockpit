@@ -30,6 +30,10 @@
 
 import { describe, it, expect } from "vitest";
 import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./document-asset-patterns";
+// ★ The complexity family below is sized at the REAL storage cap rather than at
+// a round number, so it reads the constant instead of restating it — a literal
+// here would silently stop tracking the cap the moment it moved.
+import { MAX_HTML_TEXT_CHARS } from "./document-model";
 
 const REAL = "realid";
 
@@ -76,6 +80,19 @@ interface Case {
    *   verdicts as expected-failures would have turned this suite into an
    *   assertion that the predicate MUST lose them. */
   readonly bareLtInValue: boolean;
+
+  /** True when this row omits the separator before the target attribute — the
+   *  `missing-whitespace-between-attributes` recovery that cost four blocks.
+   *
+   *  ★★★ SET AT GENERATION, NEVER RE-DERIVED FROM THE HTML, and the floor below
+   *   used to do the latter. A substring test for `"data-asset-id` also matches
+   *   the DECOY row (`alt="data-asset-id=decoy"`), which carries no missing
+   *   separator at all — so half the rows the floor counted were the wrong
+   *   class. Measured: with the old filter, deleting `""` from `SEPARATORS`
+   *   still reported 240 > 20 and stayed green while the corpus lost the very
+   *   shape this file exists for. An anti-vacuity floor that can be satisfied
+   *   by rows unrelated to its own class is not a floor. */
+  readonly missingSeparator: boolean;
 }
 
 /** Preceding-attribute spellings, each with whether its VALUE carries a bare `<`.
@@ -145,7 +162,12 @@ function buildCorpus(): Case[] {
               // REAL and the case tests nothing about the patterns.
               if (value === REAL && closer === "/>") continue;
               const html = `<img ${preceding}${sep}${name}${eq}${value}${closer}`;
-              out.push({ html, parserId: parserSeesAssetId(html), bareLtInValue });
+              out.push({
+                html,
+                parserId: parserSeesAssetId(html),
+                bareLtInValue,
+                missingSeparator: sep === "",
+              });
             }
           }
         }
@@ -167,7 +189,7 @@ describe("document-asset-patterns — differential against a real HTML parser", 
     // suite is about.
     const withId = CORPUS.filter((c) => c.parserId !== null);
     const missingSeparator = CORPUS.filter(
-      (c) => /"data-asset-id|'data-asset-id/i.test(c.html) && c.parserId !== null,
+      (c) => c.missingSeparator && c.parserId !== null,
     );
     const bareLt = CORPUS.filter((c) => c.bareLtInValue && c.parserId !== null);
 
@@ -265,20 +287,65 @@ describe("document-asset-patterns — differential against a real HTML parser", 
 
 /** Inputs whose whole purpose is to make a backtracking matcher explore.
  *
- *  ★★★ THE FIRST ENTRY IS THE ONE THAT MATTERS AND IT IS NOT OBVIOUS. A
- *   predicate is only ever reached when `htmlTextLength(html) === 0`, so an
- *   adversarial string that PROJECTS to visible text never gets there — the
- *   `&&` short-circuits. `"<img ".repeat(n) + ">"` projects to ZERO, because
- *   `TAG` (`rich-text-plain.ts`) consumes the whole thing as a single match.
- *   That is what makes the quadratic reachable rather than theoretical, and a
- *   timing suite built only from `"<img".repeat(n)` would have said the shipped
- *   regression was fine. */
-const ADVERSARIAL: ReadonlyArray<readonly [string, (bytes: number) => string]> = [
+ *  ★★★ THE FIRST ENTRY IS THE ONE THAT REACHES THE PREDICATE, AND IT IS NOT
+ *   OBVIOUS. The predicate is only ever reached when `htmlTextLength(html) ===
+ *   0`, so an adversarial string that PROJECTS to visible text never gets there
+ *   — the `&&` short-circuits. `"<img ".repeat(n) + ">"` projects to ZERO,
+ *   because `TAG` (`rich-text-plain.ts`) consumes the whole thing as a single
+ *   match. That is what makes the quadratic reachable rather than theoretical,
+ *   and a timing suite built only from `"<img".repeat(n)` would have said the
+ *   shipped regression was fine. ("one huge tag" projects to zero as well, so
+ *   the entries reachable THROUGH the short-circuit are the first and the
+ *   last-but-one, not the first alone.)
+ *  ★★★ READ THAT AS "WHICH FAMILY REACHES THE PREDICATE", NOT "WHICH FAMILY
+ *   MATTERS" — the difference decides whether the other three look prunable,
+ *   and they are not. Only `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE` run
+ *   OUTSIDE that gate, on every export, with no projection test in front of
+ *   them; the bare `"<img".repeat(n)` and `"<a".repeat(n)` families are the
+ *   only two that catch widening the tag-name class to `[^\s/>"']*` — the
+ *   module docstring's own "first attempt", which is correctness-green in both
+ *   test files and measured ~5.9 s at 64 KB here. Pruning to "the one that
+ *   matters" would delete the only detector for the mutant the docs name by
+ *   hand. */
+const ADVERSARIAL: ReadonlyArray<
+  readonly [string, (bytes: number) => string, number?]
+> = [
   ["<img SP repeated, closed", (n) => "<img ".repeat(Math.round(n / 5)) + ">"],
   ["<img repeated", (n) => "<img".repeat(Math.round(n / 4))],
   ["<img alt= repeated", (n) => "<img alt=".repeat(Math.round(n / 9))],
   ["<a repeated", (n) => "<a".repeat(Math.round(n / 2))],
   ["one huge tag", (n) => `<img alt="${"a".repeat(n)}" x=1>`],
+  // ★★★ THE ONLY FAMILY THAT CARRIES THE ATTRIBUTE, AND THE ONLY ONE SIZED TO
+  //  A CAP RATHER THAN TO `BYTES`. Every family above stresses the ANCHOR, so
+  //  all three patterns bail at or near it and `IMG_TAG_ASSET_ID_RE`'s
+  //  distinctive trailing `(?:…)*>` — which must find a closing `>` AFTER the
+  //  attribute — is never exercised. It is quadratic there: an UNTERMINATED
+  //  `<img` carrying N real `data-asset-id="…"` makes the greedy prefix
+  //  backtrack through every occurrence, re-scanning the tail for a `>` that
+  //  never comes. Measured on the shipped pattern, `matchAll`: 112 ms at 32 KB,
+  //  388 at 64, 1548 at 128, 8029 at 256 — exponent ~2.1. Closing the tag is
+  //  1.0 ms at 256 KB, so the trigger is specifically the missing `>`;
+  //  `ANY_TAG_ASSET_ID_RE` (lazy, no trailing requirement) and the predicate
+  //  are ~0.1 ms throughout.
+  //  ★★★ IT IS SIZED AT `MAX_HTML_TEXT_CHARS`, NOT `BYTES`, BECAUSE THAT IS
+  //   THE WHOLE PRODUCTION EXPOSURE — and running it at 256 KB would assert a
+  //   size no stored block can reach, i.e. fail the branch over a shape the app
+  //   cannot hold. `capHtmlText` truncates every paragraph to that cap on BOTH
+  //   write paths, and it does so by HTML length rather than by visible text,
+  //   which is what saves this case: the payload projects to zero visible text,
+  //   so a visible-text cap would not have touched it. Measured end to end —
+  //   `sanitizeProjectDocuments` and `normalizeBlockForStorage` both store
+  //   20 010 chars of a 262 157-char payload. At that size the quadratic is
+  //   ~38 ms, so this row runs with a ~50x margin and goes red if the cap is
+  //   raised or the pattern degrades further. The unbounded property itself is
+  //   recorded in `docs/open-followups.md` §253 — deliberately NOT fixed here,
+  //   because bounding the trailing run is the same narrowing class that
+  //   produced §250's two regressions.
+  [
+    "<img with N data-asset-id, unterminated",
+    (n) => "<img " + 'data-asset-id="x" '.repeat(Math.round(n / 19)),
+    MAX_HTML_TEXT_CHARS,
+  ],
 ];
 
 describe("document-asset-patterns — complexity", () => {
@@ -303,9 +370,9 @@ describe("document-asset-patterns — complexity", () => {
   // that matters.
   const BYTES = 256 * 1024;
 
-  for (const [label, make] of ADVERSARIAL) {
+  for (const [label, make, bytes] of ADVERSARIAL) {
     it(`stays bounded on ${label}`, () => {
-      const input = make(BYTES);
+      const input = make(bytes ?? BYTES);
       const started = performance.now();
       ASSET_IMG_TEST_RE.test(input);
       ANY_TAG_ASSET_ID_RE.lastIndex = 0;

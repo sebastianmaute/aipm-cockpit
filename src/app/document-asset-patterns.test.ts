@@ -127,6 +127,18 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // dropped; the freeze was judged worse. Reaching it needs raw stored html —
   // DOMPurify quotes the value. See ASSET_IMG_TEST_RE's docstring.
   ['<img alt=a<b data-asset-id="real">', ["real"], [], false],
+  // ★★★ THE MIRROR OF THE ROW ABOVE, AND IT DIVERGES THE OTHER WAY. With the
+  // bare `<` AFTER the target attribute the predicate says KEEP and the cap
+  // COUNTS the id, but the export still cannot draw it: `IMG_TAG_ASSET_ID_RE`
+  // needs a closing `>` reachable without crossing a `<`, and there is none.
+  // So the loader keeps a paragraph, `assetRefsInDocument().all` charges it
+  // against the 20-image cap, and every renderer emits nothing for it.
+  // ★★ Only the BEFORE case was documented, in this table and in the module —
+  // which read as though a bare `<` always cost the block. It does not; which
+  // side of the attribute it falls on decides which consumer loses. Neither
+  // direction is fixable without scanning past `<`, so this is a
+  // characterization, not a defect to close.
+  ['<img data-asset-id="real" alt=a<b>', ["real"], [], true],
 ];
 
 /** Every statement that names another module: static and type-only imports,
