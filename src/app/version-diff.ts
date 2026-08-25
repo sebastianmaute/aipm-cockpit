@@ -41,8 +41,21 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "fxRates", label: "FX rates", kind: "singleton" },
   { key: "steeringCommittee", label: "Steering committee", kind: "singleton" },
   { key: "timelogLinks", label: "TimeLog links", kind: "singleton" },
-  { key: "knowledgeItems", label: "Knowledge items", kind: "singleton" },
-  { key: "insights", label: "Insights", kind: "singleton" },
+  // ★★★ `knowledgeItems` and `insights` are DELIBERATELY ABSENT, and adding
+  //   them back is a data-loss bug, not a feature. Both are ARRAYS on
+  //   `Workspace`; a "singleton" spec routes the key through
+  //   `version-restore.ts`'s `mergeFields`, whose `{ ...target }` turns the
+  //   array into an object with numeric keys. `workspaceToJson` then gates the
+  //   slice on `.length` — `undefined` on an object — so the key is omitted and
+  //   all six write paths drop the slice on the next save. They sat here
+  //   harmlessly only while `getVersionPayload` emitted neither one; the moment
+  //   it emitted all 24 slices, `history-panel`'s plain Restore button (which
+  //   auto-selects EVERY change) could reach them. Absent from this list they
+  //   are carried through a restore from the LIVE workspace, exactly like
+  //   `documents` / `documentVersions` / `calendarEvents` already are — the
+  //   capture still records all 24 slices. Making them genuinely restorable
+  //   needs a `kind: "list"` model and is tracked in `docs/open-followups.md`.
+  //   Pinned by `version-restore.test.ts`'s array-typed-slice tests.
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 
