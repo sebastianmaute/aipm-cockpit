@@ -132,7 +132,7 @@ describe("the three asset-id patterns and what each deliberately does not see", 
   // other DIRECTLY, as a table. open-followups §218/§209.
   //
   //   ANY_TAG_ASSET_ID_RE  attribute on ANY element, double-quote only
-  //   IMG_TAG_ASSET_ID_RE           <img> tag, quote-aware, double-quote value
+  //   IMG_TAG_ASSET_ID_RE  <img> tag, quote-aware, double-quote value
   //   ASSET_IMG_TEST_RE    <img>, case-INSENSITIVE, ALL quoting styles
   //
   // ★ This describe stays, and is NOT a duplicate of that table. It pins two
