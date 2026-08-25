@@ -1,5 +1,39 @@
 # Asset-id extraction: one pattern family, and a cap that counts only references
 
+★★★ **SUPERSEDED IN PART — THE HEADER LINE BELOW AND THE "## The pattern" SECTION ARE BOTH OUT OF
+DATE.** Three things in this file no longer describe the tree. It is a dated record and is
+deliberately NOT rewritten to match; the register and `docs/AGENTS/documents.md` are the current
+account.
+
+- **"Narrows: §209" is wrong — §209 is CLOSED 2026-08-25**, not narrowed. The remaining ask this
+  file expected to leave open was the `document-export-assets.ts` re-export the three renderers
+  reached the pattern through; that re-export was DELETED instead, and every consumer now imports
+  `document-asset-patterns.ts` directly. Reproduce with `grep -n "^## 209\." docs/open-followups.md`
+  and `grep -rln "document-asset-patterns" src/app`. **"Closes: §231 (both halves)" is still
+  correct**, and so is "Does not touch: §218".
+- **"## The pattern" publishes a literal that is now TWO revisions behind `ANY_TAG_ASSET_ID_RE`.**
+  Implementation added `"'` to the tag-name class; 0.259.2 then narrowed that class to
+  `[a-zA-Z0-9-]*`, excluded `<` from the first alternation branch (both to stop the engine
+  rescanning across a tag boundary on adversarial input — the timings are in the module's own
+  docstring) and anchored the attribute on `[\s/]` instead of `\b`. The last of those changes
+  BEHAVIOUR, so this is not a cosmetic drift: the literal below
+  yields `["s"]` for `<p foo-data-asset-id="s" data-asset-id="real">` where the live pattern yields
+  `["real"]` — a hyphen-prefixed decoy that beat the real attribute, because the quantifier is lazy.
+  Read today's off the source, never off this page:
+  `grep -n -A 1 "const ANY_TAG_ASSET_ID_RE" src/app/document-asset-patterns.ts`. ★★ The same
+  staleness reaches `_probes/asset-id-extraction.mjs`, which carries its own COPY of the pattern
+  (its header says so): it still reproduces the "Measured behaviour" table row for row, and diverges
+  from the live pattern off that table, on exactly the shape above. The probe is left as it is.
+- **The survival predicate changed after this spec was written, and this file could not know it.**
+  "Quoting and case stay as they are" under "Constraints that shaped the design" was scoped to
+  `ASSET_ID_RE` and still holds for its successor. But `ASSET_IMG_RE` — named `ASSET_IMG_TEST_RE`
+  in the "Module shape" table below — was itself made QUOTE-AWARE in 0.259.2, closing a live
+  data-loss defect a cold review of this branch found: the old `[^>]*` walk truncated at a `>`
+  inside an earlier attribute value, and where that `>` was followed by tag-like text a genuine
+  `<img data-asset-id>` paragraph was silently DELETED on load. That is
+  `docs/open-followups.md` §250, CLOSED 2026-08-25. `IMG_TAG_RE` was also renamed
+  `IMG_TAG_ASSET_ID_RE`, so every mention of the old name here is a historical one.
+
 **Date:** 2026-08-25
 **Closes:** open-followups §231 (both halves). **Narrows:** §209 (three hand-maintained spellings → one module).
 **Does not touch:** §218 (the divergence itself is deliberate and stays).

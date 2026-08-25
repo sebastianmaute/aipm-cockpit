@@ -7,6 +7,16 @@
 // column is reproducible from src — re-derive it with
 // `grep -n "ANY_TAG_ASSET_ID_RE = " src/app/document-asset-patterns.ts`.
 //
+// ★★ AS OF 0.259.2 THE `NEW` COPY BELOW IS TWO REVISIONS BEHIND src AND NO
+// LONGER AGREES WITH IT. It still emits the spec's table row for row, which is
+// what this probe is for, and it diverges OFF that table: on
+// `<p foo-data-asset-id="s" data-asset-id="real">` this copy yields ["s"] and
+// the live pattern yields ["real"] — a hyphen-prefixed decoy that beat the real
+// attribute, closed by anchoring on `[\s/]` rather than `\b`. The live pattern
+// is also linear where this copy is ~cubic on crafted input. Left as written:
+// this reproduces a DATED measurement, and editing it to match today's tree
+// would destroy the only thing it is good for.
+//
 // Run: node docs/superpowers/specs/_probes/asset-id-extraction.mjs
 
 /** Today's cap/usage scanner (document-asset-usage.ts). */

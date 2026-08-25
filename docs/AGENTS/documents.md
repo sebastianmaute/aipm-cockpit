@@ -892,9 +892,33 @@ write-side change could reach. ★★ The predicate is scoped to a NON-EMPTY `da
 grants `img` only `alt` and `data-asset-id` and deliberately NO `src`, and the resolver plus all
 three renderers key off a non-empty `data-asset-id` — so keeping one would reintroduce exactly the
 accumulating invisible blank paragraph the empty-drop exists to prevent. ★★ It is case-INSENSITIVE
-and admits every legal attribute spelling — unlike the renderers' regexes, which are
-double-quoted-only because they only ever see DOMPurify-lowercased, normalised html. **They are no
-longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
+and — unlike the renderers' regexes, which are double-quoted-only because they only ever see
+DOMPurify-lowercased, normalised html — it admits all three HTML5 value quoting styles (double,
+single and unquoted), whitespace around the `=`, a `/` where a space would normally separate the
+attribute, and any EARLIER attribute whose quoted value contains a `>` or a `<`, which it steps
+over rather than truncating at.
+★★★ **It does NOT "admit every legal attribute spelling" — which is what this line used to claim,
+and the over-generalisation was wrong in BOTH directions.** It rejects two spellings on purpose: an
+EMPTY value (`data-asset-id=""`, and the single-quoted form — the allow-list strips the attribute
+and every renderer resolves nothing, so keeping the block would reintroduce the invisible blank
+paragraph above), and a hyphen-prefixed lookalike (`foo-data-asset-id="s"`, excluded since 0.259.2
+by anchoring the attribute on `[\s/]` rather than `\b`). And until 0.259.2 it wrongly REJECTED a
+spelling it should always have admitted — `<img alt="a>b" data-asset-id="real">` — because the walk
+ahead of the attribute was a bare `[^>]*` that stopped at the `>` inside `alt`. That last one is
+`docs/open-followups.md` §250, CLOSED 2026-08-25 — and the drop it caused needed BOTH halves of
+`sanitizeBlock`'s condition to fail at once, which is why it only bit some of these shapes.
+`htmlPlainProjection`'s own `TAG` (`rich-text-plain.ts`) stops at that same `>`; for
+`alt="a>b"` the residue is ordinary text and the projection stays non-zero, so the block survived
+DESPITE the false predicate. Put a `<` plus a letter after the `>` — `alt="><c d"` — and `TAG`
+eats the residue as a second tag, the projection reaches zero too, and a genuine
+`<img data-asset-id>` paragraph was DELETED on load with nothing in the truncation diag. ★★ That
+asymmetry is why the shape survived for so long: attribute ORDER is the whole discriminator, and the
+app's own insert path writes `data-asset-id` first — only the AI document tool and workspace import
+do not control it. ★ Every verdict above is a `.test()` or a `.replace()` run against the two live
+declarations, not a reading of them —
+`grep -n -A 1 "const ASSET_IMG_TEST_RE" src/app/document-asset-patterns.ts` and
+`grep -n "^const TAG = " src/app/rich-text-plain.ts`.
+**They are no longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
 them, widening only this one to match its own threat model (it runs BEFORE any allow-list pass on
 the load path, so it must survive hand-edited and imported html). §209 tracked the spellings of this
 attribute contract and is **CLOSED 2026-08-25**: all three now live in `document-asset-patterns.ts`,
@@ -915,10 +939,13 @@ and more thoroughly, by `document-model.test.ts` (image-only paragraph on the lo
 `normalizeBlockForStorage` commit path, twice in one document to catch a `/g` `lastIndex` carry, and
 across every attribute spelling the widened pattern admits). ★★ **Do not quote a number for that
 last set** — an earlier draft of this sentence said "all three quoting styles" and was already
-stale: `e5597c78` widened `ASSET_IMG_TEST_RE` to a five-way alternation over `\s*=\s*`, so double-,
-single- and UNQUOTED values, upper-cased tags and spaces around the `=` are each a separate branch,
-and the test lists them one fixture per line precisely so a mutant keeping the wrong subset cannot
-stay green. Read today's off the declaration:
+stale: `e5597c78` widened this predicate — then `ASSET_IMG_RE`, module-private in
+`document-model.ts` — to a THREE-branch value alternation (double-quoted, single-quoted, unquoted)
+over `\s*=\s*`, with `/i` admitting an upper-cased tag AND attribute name on top of that. ★★ Only
+the quoting styles are alternation BRANCHES; the case-insensitivity and the whitespace around the
+`=` are separate axes, and calling all of them branches is how an earlier draft here came to quote a
+five the literal never had. The test lists each axis one fixture per line precisely so a mutant
+keeping the wrong subset cannot stay green. Read today's off the declaration:
 `grep -n -A 1 "const ASSET_IMG_TEST_RE" src/app/document-asset-patterns.ts`. Do not read either layer as making
 the other redundant. ★ The two assets are seeded at DIFFERENT dimensions on purpose — each
 `<img>` is asserted against its own stored size, so a resolver pointing both at the same bytes
@@ -987,7 +1014,7 @@ readable as choices rather than drift.
 |---|---|---|---|
 | `ANY_TAG_ASSET_ID_RE` | any START tag | quote-aware, double-quoted value, `/g`, LAZY | tag-AGNOSTIC — deletion safety and the usage count |
 | `IMG_TAG_ASSET_ID_RE` | `<img …>` | quote-aware, double-quoted value, `/g`, GREEDY | tag-ANCHORED — an export must only fetch bytes it can draw |
-| `ASSET_IMG_TEST_RE` | `<img` | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
+| `ASSET_IMG_TEST_RE` | `<img` | case-INSENSITIVE, all quoting styles, NON-EMPTY value only, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
 
 ★★ **THE THIRD IS NOT AN EXTRACTOR**, and prose in two files used to imply it was by listing it
 beside the other two. It answers a different question at a different moment; folding it into either
@@ -1064,8 +1091,15 @@ up a phantom while missing the real one. `ANY_TAG_ASSET_ID_RE` now requires a ST
 over quoted attribute values, so neither shape reaches the cap or the room the message reports. ★ A
 THIRD shape changed with them and is pinned rather than left latent: malformed `<imgdata-asset-id="x">`
 (no space after the tag name) used to count and no longer does. The measured before/after table is in
-`docs/superpowers/specs/2026-08-25-asset-id-extraction-design.md`, reproducible with
-`node docs/superpowers/specs/_probes/asset-id-extraction.mjs`.
+`docs/superpowers/specs/2026-08-25-asset-id-extraction-design.md`, whose probe
+(`node docs/superpowers/specs/_probes/asset-id-extraction.mjs`) still emits it. ★★ **Read both as a
+DATED record, not as today's behaviour: the probe holds a COPY of the pattern rather than importing
+it — its own header says so — and that copy is now two revisions behind `ANY_TAG_ASSET_ID_RE`.** It
+happens to agree with the live pattern on every row of that table, and disagrees off it: on
+`<p foo-data-asset-id="s" data-asset-id="real">` the probe's copy yields `["s"]` and the live
+pattern `["real"]` — the decoy-attribute shape the `[\s/]` anchor closed. Re-derive the live half
+from source (`grep -n -A 1 "const ANY_TAG_ASSET_ID_RE" src/app/document-asset-patterns.ts`), never
+from the probe.
 ★★ **What still counts, correctly, is a `data-asset-id` on a REAL non-`img` start tag** — that is the
 §218 design, not a defect. See `docs/open-followups.md` §249 for a measured open question about which
 carrier tags can actually reach the loader.
@@ -1376,7 +1410,11 @@ OCCURRENCE, so one image used twice ships twice (§217 — deduplicating needs a
 because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the relationship is
 shared, and today one running index serves as both); and `ANY_TAG_ASSET_ID_RE` counts a `data-asset-id`
 on ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_ASSET_ID_RE` requires an `<img`, so a
-`<span data-asset-id>` consumes a slot and reaches no export bucket at all. ★★ That second one is
+`<p data-asset-id>` consumes a slot and reaches no export bucket at all. ★ Carrier deliberately NOT
+`<span>`, which §218 and its own table still use: `span` is absent from `DOCUMENT_ALLOWED_TAGS`, so
+the sanitizer unwraps the element at KEEP_CONTENT and `data-asset-id` leaves with it — `p`,
+`strong`, `li` and `a` all keep the attribute through a real load (measured,
+`docs/open-followups.md` §249). ★★ That second one is
 **§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
 it is now VISIBLE (the cap message reports how much room removing those references would reclaim)
 and pinned. It is described under "The three asset-id patterns" above, and only §217 remains open
