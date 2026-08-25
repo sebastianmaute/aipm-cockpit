@@ -29,10 +29,14 @@
 // ★★ IT ALSO GUARDS A SECOND, UNRELATED REGRESSION. The seed carries the image
 // in BOTH shapes — a captioned figure and the image-ONLY paragraph the product
 // actually inserts — and the image-only block only survives a load because of
-// `d183be6d` (ASSET_IMG_RE in document-model.ts's sanitizeBlock). Before that
-// fix, every user-inserted image was silently deleted on the next load, on all
-// six write paths. Revert it and this spec's second image simply is not in the
-// DOM, so the suite reports it. See the seeded blocks' comments in seed.ts.
+// `d183be6d`, which added the survival predicate `sanitizeBlock` tests. Before
+// that fix, every user-inserted image was silently deleted on the next load, on
+// all six write paths. Revert it and this spec's second image simply is not in
+// the DOM, so the suite reports it. See the seeded blocks' comments in seed.ts.
+// ★ At `d183be6d` that predicate was `ASSET_IMG_RE`, module-private in
+// `document-model.ts` — the spelling this comment used to carry, which greps to
+// nothing today. It is now `ASSET_IMG_TEST_RE`, exported from
+// `document-asset-patterns.ts`; `sanitizeBlock` still calls it.
 
 import {
   test, expect, gotoApp, openView, installAssetByteStore,
@@ -49,9 +53,14 @@ const DOC_TITLE = "Kickoff pack";
  *  The CAPTIONED figure is valid whatever the block-drop rules do, so it is the
  *  stable carrier of the CSP/render assertion. The IMAGE-ONLY one is what
  *  documents-asset-section.tsx actually inserts and only survives a load
- *  because of `d183be6d` (ASSET_IMG_RE in sanitizeBlock) — revert that and this
- *  block is deleted before the page renders, so the locator finds nothing and
- *  the suite goes RED rather than losing user images silently again.
+ *  because of `d183be6d` — revert that and this block is deleted before the
+ *  page renders, so the locator finds nothing and the suite goes RED rather
+ *  than losing user images silently again. ★ To mutate it WITHOUT reverting the
+ *  commit, break the predicate that guard calls: `ASSET_IMG_TEST_RE` in
+ *  `document-asset-patterns.ts`, read by `sanitizeBlock` in `document-model.ts`.
+ *  It was named `ASSET_IMG_RE` and lived in `document-model.ts` at `d183be6d`,
+ *  which is the spelling this comment used to name and which now greps to
+ *  nothing.
  *  ★ Their dimensions differ (8x8 vs 4x4) on purpose: asserting each against
  *  its OWN size means a resolver that pointed both `<img>` elements at the same
  *  bytes could not pass. */

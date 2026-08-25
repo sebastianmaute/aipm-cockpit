@@ -880,8 +880,8 @@ why `document-block-editors.tsx` already renders an image-bearing paragraph READ
 paragraph block directly through `structural.insert`, in `documents-asset-section.tsx` — it never
 touches a live `RichTextEditor` instance at all.
 
-★★★ **THE LOADER USED TO EAT EVERY IMAGE-ONLY PARAGRAPH, AND `ASSET_IMG_RE` (`document-model.ts`)
-IS WHAT STOPS IT.** An inserted image IS a paragraph whose entire html is the `<img>` tag —
+★★★ **THE LOADER USED TO EAT EVERY IMAGE-ONLY PARAGRAPH, AND `ASSET_IMG_TEST_RE`
+(`document-asset-patterns.ts`) IS WHAT STOPS IT.** An inserted image IS a paragraph whose entire html is the `<img>` tag —
 `sanitizeBlock` dropped a paragraph at `htmlTextLength(html) === 0`, and `htmlTextLength` strips
 every tag and does not project `alt`, so such a block measured zero and was discarded on ALL SIX
 load paths at once. It rendered in the authoring session (in memory) and was simply gone after the
@@ -896,8 +896,10 @@ and admits every legal attribute spelling — unlike the renderers' regexes, whi
 double-quoted-only because they only ever see DOMPurify-lowercased, normalised html. **They are no
 longer "the same shape", and this line used to say they were:** `e5597c78` deliberately diverged
 them, widening only this one to match its own threat model (it runs BEFORE any allow-list pass on
-the load path, so it must survive hand-edited and imported html). §209 tracks the five spellings of
-this attribute contract and why they cannot simply be unified. ★ It is deliberately NOT `/g` — a
+the load path, so it must survive hand-edited and imported html). §209 tracked the spellings of this
+attribute contract and is **CLOSED 2026-08-25**: all three now live in `document-asset-patterns.ts`,
+a module that imports nothing, so they are read side by side rather than three files apart — which
+is why they can be kept divergent on purpose without drifting by accident. ★ It is deliberately NOT `/g` — a
 global regex carries `lastIndex` across `.test` calls and would drop every OTHER image-only
 paragraph in a document.
 ★★ Consequence for any e2e or fixture work: BEFORE this fix a seeded image-only paragraph did not
@@ -906,18 +908,18 @@ shapes — a captioned figure AND an image-only paragraph — and **they are not
 not "simplify" the seed down to one.** The captioned figure is valid whatever the block-drop rules
 do, which makes it the stable carrier of the CSP/render assertion above. The image-only paragraph
 is the shape `documents-asset-section.tsx` actually inserts, and it is what carries this guard's
-only END-TO-END coverage: proved by mutation, reverting `ASSET_IMG_RE` deletes that block at load,
+only END-TO-END coverage: proved by mutation, reverting `ASSET_IMG_TEST_RE` deletes that block at load,
 so `e2e/documents-images.spec.ts` finds no `<img>` for it and goes red rather than losing user
 images silently again. ★★ That is an e2e-LAYER claim only — the guard itself is pinned directly,
 and more thoroughly, by `document-model.test.ts` (image-only paragraph on the load path, on the
 `normalizeBlockForStorage` commit path, twice in one document to catch a `/g` `lastIndex` carry, and
 across every attribute spelling the widened pattern admits). ★★ **Do not quote a number for that
 last set** — an earlier draft of this sentence said "all three quoting styles" and was already
-stale: `e5597c78` widened `ASSET_IMG_RE` to a five-way alternation over `\s*=\s*`, so double-,
+stale: `e5597c78` widened `ASSET_IMG_TEST_RE` to a five-way alternation over `\s*=\s*`, so double-,
 single- and UNQUOTED values, upper-cased tags and spaces around the `=` are each a separate branch,
 and the test lists them one fixture per line precisely so a mutant keeping the wrong subset cannot
 stay green. Read today's off the declaration:
-`grep -n -A 1 "const ASSET_IMG_RE" src/app/document-model.ts`. Do not read either layer as making
+`grep -n -A 1 "const ASSET_IMG_TEST_RE" src/app/document-asset-patterns.ts`. Do not read either layer as making
 the other redundant. ★ The two assets are seeded at DIFFERENT dimensions on purpose — each
 `<img>` is asserted against its own stored size, so a resolver pointing both at the same bytes
 cannot pass.
@@ -976,22 +978,38 @@ too. Never reach for `toFixed` there again.
 ★★★ **THREE patterns read `data-asset-id`, they disagree, and every disagreement is intentional.
 Collapsing them is the "finish the job" mistake §218's closure exists to prevent.**
 
-| pattern | where | shape | what it is for |
+★★ All three live in **`document-asset-patterns.ts`** since 0.259.x (§209, CLOSED 2026-08-25) — one
+module that imports nothing and is DOM-free, both enforced by parser-backed source scans in its own
+test. They were three files apart before; being adjacent is what makes the divergences below
+readable as choices rather than drift.
+
+| pattern | anchor | shape | what it is for |
 |---|---|---|---|
-| `ASSET_ID_RE` | `document-asset-usage.ts` | any element, double-quote only, `/g` | tag-AGNOSTIC — deletion safety and the usage count |
-| `IMG_TAG_RE` | `document-export-assets.ts` | `<img`-anchored, `/g` | tag-ANCHORED — an export must only fetch bytes it can draw |
-| `ASSET_IMG_RE` | `document-model.ts`, module-private | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
+| `ANY_TAG_ASSET_ID_RE` | any START tag | quote-aware, double-quoted value, `/g`, LAZY | tag-AGNOSTIC — deletion safety and the usage count |
+| `IMG_TAG_ASSET_ID_RE` | `<img …>` | quote-aware, double-quoted value, `/g`, GREEDY | tag-ANCHORED — an export must only fetch bytes it can draw |
+| `ASSET_IMG_TEST_RE` | `<img` | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
 
 ★★ **THE THIRD IS NOT AN EXTRACTOR**, and prose in two files used to imply it was by listing it
 beside the other two. It answers a different question at a different moment; folding it into either
-extractor changes what survives load.
+extractor changes what survives load. ★ It is now EXPORTED (it was module-private in
+`document-model.ts`) so its divergences can be asserted directly rather than probed through
+`sanitizeBlock`; `document-asset-patterns.test.ts` is where that happens.
+
+★★★ **THE FIRST TWO DIVERGE ON QUANTIFIER, NOT ONLY ON ANCHOR, AND IT IS CHARACTERIZED RATHER THAN
+FIXED.** `ANY_TAG_ASSET_ID_RE` is LAZY and takes the FIRST `data-asset-id` in a tag;
+`IMG_TAG_ASSET_ID_RE` is GREEDY and backtracks to the LAST. So
+`<img data-asset-id="a" data-asset-id="b">` yields `all = ["a"]` and `drawable = ["b"]` — **`drawable`
+is not a subset of `all`**, which the cap message's arithmetic otherwise leans on. It is reachable
+only by scanning UN-loaded html: a full load collapses the duplicate attribute. There is a test
+pinning it; do not "fix" it by making the first greedy, which would not make the two agree anyway
+(the anchors still differ, which is the §218 design).
 
 ★★ **THREE REGEXES, NOT THREE READERS — the table above is about the PATTERNS, and a "finish the
 job" reader who takes it as the whole population will miss two.** `attachAssetImages`
 (`document-asset-images.ts`) reads the attribute through the DOM instead, with
 `querySelectorAll("img[data-asset-id]")` on an already-rendered subtree — which gives a FOURTH
-distinct answer again: `<img>`-only like `IMG_TAG_RE`, but tag-case-insensitive and
-quoting-agnostic like `ASSET_IMG_RE`, because by then it is parsed markup and not text. And
+distinct answer again: `<img>`-only like `IMG_TAG_ASSET_ID_RE`, but tag-case-insensitive and
+quoting-agnostic like `ASSET_IMG_TEST_RE`, because by then it is parsed markup and not text. And
 `sanitize-html.ts` reads it as an allow-list VALUE predicate in `ATTR_VALUES`
 (`/^[A-Za-z0-9_-]{1,64}$/`), which is what decides whether an id survives sanitising at all —
 upstream of every one of the others. Enumerate the population with
@@ -1036,14 +1054,21 @@ references are removed, rather than reporting a bare "full" — and rather than 
 could count references whose removal frees nothing. Both wrong directions, and the test that pins
 each, are recorded in `docs/open-followups.md` §218's closing note.
 
-★★ **`undrawable` OVER-COUNTS FOR TWO REASONS `assetRefsInDocument` CANNOT SEE, both measured and
-both PRE-EXISTING — `docs/open-followups.md` §231.** `ASSET_ID_RE` is a bare attribute match, so
-`all` picks up a `data-asset-id="…"` a user simply TYPED into a paragraph (the document sanitizer
-round-trips it byte-identical — HTML text nodes escape `&`, `<` and `>`, never `"`), and in a
-document whose `<img>` carries a crafted attribute BEFORE its id it can pick up a phantom while
-missing the real id. Neither is a count the message shows any more, but both still reach the ROOM
-it reports — the typed attribute as a slot only deleting a sentence can reclaim, the phantom by
-keeping a genuinely drawn image out of `drawn` and so over-reporting the room. Read §231 first.
+★★ **`undrawable` USED TO OVER-COUNT FOR TWO REASONS `assetRefsInDocument` COULD NOT SEE. Both are
+FIXED — `docs/open-followups.md` §231, CLOSED 2026-08-25 — and this paragraph stated them as current
+until then.** The pattern behind `all` was a bare `/data-asset-id="([^"]*)"/g` with no tag anchor and
+no quote awareness, so (a) it picked up a `data-asset-id="…"` a user simply TYPED into a paragraph
+(the document sanitizer round-trips that byte-identical — HTML text nodes escape `&`, `<` and `>`,
+never `"`), and (b) in a document whose `<img>` carried a crafted attribute BEFORE its id it picked
+up a phantom while missing the real one. `ANY_TAG_ASSET_ID_RE` now requires a START tag and steps
+over quoted attribute values, so neither shape reaches the cap or the room the message reports. ★ A
+THIRD shape changed with them and is pinned rather than left latent: malformed `<imgdata-asset-id="x">`
+(no space after the tag name) used to count and no longer does. The measured before/after table is in
+`docs/superpowers/specs/2026-08-25-asset-id-extraction-design.md`, reproducible with
+`node docs/superpowers/specs/_probes/asset-id-extraction.mjs`.
+★★ **What still counts, correctly, is a `data-asset-id` on a REAL non-`img` start tag** — that is the
+§218 design, not a defect. See `docs/open-followups.md` §245 for a measured open question about which
+carrier tags can actually reach the loader.
 
 ## Image bytes in every export format (S3c-2)
 
@@ -1349,8 +1374,8 @@ pass is enumerated in `docs/open-followups.md` §219, and no green run substitut
 ★★ Two further known divergences are recorded rather than fixed: media parts are minted per
 OCCURRENCE, so one image used twice ships twice (§217 — deduplicating needs a SECOND counter,
 because a picture's `wp:docPr` / `p:cNvPr` id must stay unique even where the relationship is
-shared, and today one running index serves as both); and `ASSET_ID_RE` counts a `data-asset-id` on
-ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_RE` requires an `<img`, so a
+shared, and today one running index serves as both); and `ANY_TAG_ASSET_ID_RE` counts a `data-asset-id`
+on ANY element toward `ASSET_MAX_PER_DOCUMENT` while `IMG_TAG_ASSET_ID_RE` requires an `<img`, so a
 `<span data-asset-id>` consumes a slot and reaches no export bucket at all. ★★ That second one is
 **§218, CLOSED 2026-08-24** — the divergence is unchanged and deliberately so; what shipped is that
 it is now VISIBLE (the cap message reports how much room removing those references would reclaim)

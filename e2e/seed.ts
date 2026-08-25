@@ -55,7 +55,10 @@ const SEED_WORKSPACE: Record<string, unknown> = {
         // paths. Seeded image-only, this block would have silently not existed by
         // the time the page rendered and documents-images.spec.ts would have gone
         // vacuously green against a document containing no image.
-        // FIXED by ASSET_IMG_RE in sanitizeBlock, so an image-only paragraph now
+        // FIXED by the survival predicate `sanitizeBlock` now tests —
+        // `ASSET_IMG_TEST_RE` (`document-asset-patterns.ts`), named `ASSET_IMG_RE`
+        // and module-private in `document-model.ts` when this comment was written
+        // — so an image-only paragraph now
         // survives. The caption stays because a captioned figure is the realistic
         // shape and costs the spec nothing. Re-measure before trusting either way —
         // BOTH blocks should appear in the output; if the FIRST one vanishes, the
@@ -75,7 +78,9 @@ const SEED_WORKSPACE: Record<string, unknown> = {
         // builds `<img data-asset-id=… alt=…>` and nothing else, so this block —
         // not the captioned one above — is the faithful reproduction of a real
         // user-inserted image. It is only seedable at all because `d183be6d`
-        // added ASSET_IMG_RE; before that it was deleted on every load.
+        // added the survival predicate (`ASSET_IMG_RE` then, `ASSET_IMG_TEST_RE`
+        // in `document-asset-patterns.ts` now); before that it was deleted on
+        // every load.
         // ★★ That makes it a live REGRESSION DETECTOR for the load-side guard:
         // revert d183be6d and this block stops existing, so
         // documents-images.spec.ts never finds its second image and goes RED —
