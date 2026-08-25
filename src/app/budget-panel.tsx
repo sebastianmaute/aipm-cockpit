@@ -10,7 +10,10 @@ import { describeClamp } from "./sanitize-report";
 import { generatePeriods, type Period } from "./resource-capacity";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
-import { BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod } from "./budget-panel-people-rows";
+import {
+  BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod,
+  filterSortAllocations, useDetailedRoleRows,
+} from "./budget-panel-people-rows";
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
@@ -53,23 +56,6 @@ type BudgetCol = keyof typeof BUDGET_COL_WIDTHS;
 
 function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): number {
   return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
-}
-
-function filterSortAllocations<T>(
-  allocs: readonly T[],
-  nameOf: (a: T) => string,
-  filter: string,
-  dir: SortDir,
-): T[] {
-  const q = filter.trim().toLowerCase();
-  let rows = q ? allocs.filter((a) => nameOf(a).toLowerCase().includes(q)) : allocs.slice();
-  if (dir !== "off") {
-    rows = rows.slice().sort((a, b) => {
-      const c = nameOf(a).localeCompare(nameOf(b));
-      return dir === "desc" ? -c : c;
-    });
-  }
-  return rows;
 }
 
 /** The bucket's Manual % complete, editable without opening the bucket modal.
@@ -278,6 +264,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
     ? report.buckets.filter((b) => b.name.toLowerCase().includes(bucketQuery))
     : report.buckets;
 
+  // Hoisted for exhaustive-deps inside the hook (no `obj.member` in a dep array).
+  const disciplines = props.disciplines;
+  const grades = props.grades;
+
+  // Detailed (per-role) rows for every rendered, non-blended bucket, plus the
+  // WCAG 2.4.6 disambiguation tokens for their people-disclosure triggers —
+  // see budget-panel-people-rows.tsx's useDetailedRoleRows docstring.
+  const { rowsByBucket: detailedRowsByBucket, roleTokens } = useDetailedRoleRows(
+    visibleBuckets, bucketById, roles, disciplines, grades, roleFilter, roleSort,
+  );
+
   const stamp = () => new Date().toISOString();
 
   const addBucket = () => {
@@ -462,11 +459,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
-          const detailedRows = filterSortAllocations(
-            bucket.allocations,
-            (a) => roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`,
-            roleFilter, roleSort,
-          );
+          const detailedRows = detailedRowsByBucket.get(br.bucketId) ?? [];
           const blendedRows = filterSortAllocations(
             bucket.disciplineAllocations ?? [],
             (a) => props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,
@@ -639,6 +632,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       const label = roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`;
                       const openKey = `${bucket.id}:${a.roleId}`;
                       const open = openPeople.has(openKey);
+                      const roleToken = roleTokens.get(openKey) ?? label;
                       return (
                       <Fragment key={a.roleId}>
                       <tbody>
@@ -646,7 +640,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         <BucketRowLeadCells
                           label={
                             <PeopleDisclosureLabel
-                              lang={lang} label={label} bucketId={bucket.id} roleId={a.roleId}
+                              lang={lang} label={label} token={roleToken} bucketId={bucket.id} roleId={a.roleId}
                               open={open} onToggle={() => togglePeople(openKey)}
                             />
                           }

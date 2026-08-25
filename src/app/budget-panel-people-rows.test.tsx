@@ -6,6 +6,7 @@ import {
 import { DOT_COL_PX, HOURS_LINE_REM, HOURS_LINE_UNITS, HoursTd, TOTAL_COL_PX, TotalsTd } from "./budget-panel-totals";
 import type { PersonRow } from "./budget-bucket-people";
 import type { Resource } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const PERIODS = [{ key: "2026-01", start: "2026-01-01", end: "2026-01-31" }];
 const ROLE_WIDTH = 180;
@@ -271,6 +272,41 @@ describe("PeopleDisclosureLabel", () => {
     expect(btn).toHaveAttribute("title", "Booked / planned hours");
     // The non-colour pressed marker the disclosure variant supplies.
     expect(btn.querySelector("[data-pressed-marker]")).not.toBeNull();
+  });
+
+  // ★★ Two DIFFERENT role lines whose discipline+grade text is identical - the
+  // collision roleLabel() cannot express. A one-row fixture cannot see this.
+  // `label` (the VISIBLE text) is deliberately IDENTICAL on both rows; only
+  // `token` (the accessible-name disambiguator) differs — mirroring what
+  // `budget-panel.tsx`'s `buildRowTokens` map resolves for two colliding role
+  // lines. This pins that the component CAN disambiguate given distinct
+  // tokens; it does NOT prove the real caller supplies them — that is
+  // `budget-panel.test.tsx`'s job.
+  it("disambiguates the accessible name via token while the label stays identical", () => {
+    render(
+      <table>
+        <tbody>
+          <tr><td>
+            <PeopleDisclosureLabel
+              lang="en-US" label={LONG_ROLE} token={`${LONG_ROLE} (1)`}
+              bucketId={1} roleId={10} open={false} onToggle={() => {}}
+            />
+          </td></tr>
+          <tr><td>
+            <PeopleDisclosureLabel
+              lang="en-US" label={LONG_ROLE} token={`${LONG_ROLE} (2)`}
+              bucketId={2} roleId={10} open={false} onToggle={() => {}}
+            />
+          </td></tr>
+        </tbody>
+      </table>,
+    );
+    const triggers = screen.getAllByRole("button");
+    expect(triggers).toHaveLength(2);
+    // Visible text stays byte-identical across both rows.
+    expect(triggers[0]).toHaveTextContent(LONG_ROLE);
+    expect(triggers[1]).toHaveTextContent(LONG_ROLE);
+    expectRowUniqueNames({ minRows: 2 });
   });
 });
 
