@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { EntityLinkPicker, type LinkPickerEntry } from "./entity-link-picker";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const entry = (id: number, code: string, label: string): LinkPickerEntry => ({ id, code, label });
 
@@ -39,6 +40,7 @@ describe("EntityLinkPicker", () => {
     // mean something in the inert branch (see the dedicated test below).
     expect(names).toContain("Unlink Risk#3 Vendor delay");
     expect(names).toContain("Unlink Issue#7 Budget freeze");
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("keeps the remove name terse when the chip body already names the entity", () => {

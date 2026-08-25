@@ -10,6 +10,7 @@ import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, act } from "@testing-library/react";
 import { ChatThreadList } from "./chat-thread-list";
 import type { ChatThread } from "./chat-threads";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const threadA: ChatThread = {
   id: "a",
@@ -51,6 +52,7 @@ describe("ChatThreadList", () => {
     expect(screen.getByRole("button", { name: 'Open "Untitled chat"' })).toBeInTheDocument();
     // The blank-name fallback also shows in the visible row text.
     expect(screen.getByText("Untitled chat")).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 7 });
   });
 
   it("renders the thread rows inside a role=list container (Tailwind Preflight strips native list semantics)", () => {
@@ -306,5 +308,6 @@ describe("ChatThreadList", () => {
     expect(screen.getByRole("button", { name: 'Rename "Untitled chat"' })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: 'Delete "Q1 budget"' })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: 'Delete "Untitled chat"' })).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 7 });
   });
 });
