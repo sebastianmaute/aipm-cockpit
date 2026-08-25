@@ -357,7 +357,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
 | [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | open |
 | [§162](#162-the-historysearch-kill-switch-is-advertisement-scoped-not-enforced-at-the-executor--closed-2026-08-17-enforcement-added) | The `historySearch` kill switch is advertisement-scoped, not enforced at the executor | — | — | **CLOSED** 2026-08-17 (enforcement added) |
-| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete--closed-2026-08-17-both-actors-the-ddone-half-stays-open) | Completion-trend reconstruction under-counts the historical denominator after a mass delete | — | — | **CLOSED** 2026-08-17 (both actors); the `dDone` half stays OPEN |
+| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete--fixed-2026-08-17-both-actors-the-ddone-half-stays-open) | Completion-trend reconstruction under-counts the historical denominator after a mass delete — FIXED 2026-08-17 (both actors); the `dDone` half stays OPEN | — | — | open |
 | [§164](#164-renderactivityentry-lacks-the-args-element-guard-the-activity-panel-has-and-it-runs-inside-the-ai-tool-loop--closed-2026-08-17) | `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop | — | — | **CLOSED** 2026-08-17 |
 | [§165](#165-sanitizeaiconfig-drops-actionsuggestions-so-switching-the-action-centers-ai-off-reverts-to-on-on-the-next-reload--closed-2026-08-17) | `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload | — | — | **CLOSED** 2026-08-17 |
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
@@ -6934,6 +6934,11 @@ would collide with §106.
 unskipped since `3de672bb`, alongside a losslessness property and a no-line-ends-mid-quote
 property.
 
+★ **Exactly one `describe.skip` survives in that file and it is NOT this property** — it is §106's
+unrelated Markdown fixed-point one. Said explicitly because a reader who greps the file for a skip
+finds one and can reasonably read this entry as regressed. Re-checked 2026-08-25 with
+`grep -n "describe.skip" src/app/codec-roundtrip.property.test.ts` — one hit, the Markdown one.
+
 ---
 
 ## 106. The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive
@@ -7101,6 +7106,26 @@ path will not keep.
 ★ Recorded as a follow-up under **§137**, NOT as its own number — same function, same seven fields,
 same two load boundaries that entry already dissects, and the same single closure slice. Adding a
 §138 would have restated a measurement §137 already prints.
+
+★★★ **SUPERSEDED 2026-08-11 — the qualification above is a 2026-08-10 record and the MECHANISM it
+describes is gone.** `sanitizeRichFields` no longer calls `sanitizeNoteHtml(descriptionHtml(value,
+"note"))`: `b7c80529` ("retire sanitizeNoteHtml and sanitizeTemplateHtml", the §137 closure) merged
+the `note` and `template` sinks into the single `rich` sink and DELETED the narrow sanitizer — the
+line reads `sanitizeRichHtml(descriptionHtml(value, RICH_SINK))` today, and a value leading with
+`<h1>` is no longer classified as plain text. ★ The measurement above is left standing rather than
+rewritten: it is what the load path did on 2026-08-10, which is the only thing a dated record is good
+for. What changed is the VERDICT — this entry's user-visible payoff IS delivered, for values written
+from 2026-08-11 onward. ★ `sanitizeNoteHtml` was RETIRED by that commit and every surviving
+mention is either a comment explaining the retirement or a test PINNING the absence
+(`sanitize-html.test.ts` asserts the export is gone; `rich-text-editor.test.tsx` scans the source for
+the name) — so it cannot come back unnoticed. Do not reintroduce it.
+
+★★ **Values already stored escaped are NOT repaired, and that residue is §141** — the one thing the
+merge did not do. Do not read "payoff delivered" as "the stored corpus is clean".
+
+★★★ This supersession lived ONLY in the index table's row for this entry until 2026-08-25, when the
+table was regenerated from the headings and the per-row prose was dropped. A correction parked in an
+index and never folded into the entry is a correction with a half-life — the entry is what gets read.
 
 ---
 
@@ -8294,6 +8319,13 @@ not, and closed it.
 ★★ Past tense throughout, on purpose. This entry spent one commit reading as though the fix were
 still owed, because the closure was written at the top and the prescription left at the bottom. When
 you close an entry, read it to the END — see the same failure recorded in §127's STATUS block.
+
+★ **The adjacent defect is §128 and it is NOT covered by this closure or §127's.**
+`use-timelog-sync.ts` clears `busy` from a superseded run — the last of the three `finally` blocks
+whose `setBusy(false)` sits outside its guard. It is this entry's mirror image, not its shape: an
+unmount LEAK here, a disarmed FLAG there, and not an AI path at all, so neither sweep surfaces it.
+Pointed at from here because it was first written as a bullet inside CLOSED §127, where it had no
+heading of its own and stopped being read.
 
 ## 122. The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity
 
@@ -11896,7 +11928,7 @@ controls what we offer, not what we can do"), say so at the setting and at the `
 closes as by-design. If it is meant to be enforcement, it is a gap. Today the code says nothing
 either way, which is the actual defect.
 
-## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete — CLOSED 2026-08-17 (both actors); the `dDone` half stays OPEN
+## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete — FIXED 2026-08-17 (both actors); the `dDone` half stays OPEN
 
 ★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
 `BULK_TOTAL_KINDS` corrected the denominator for `bulk.delete`, but that kind had exactly ONE writer —
