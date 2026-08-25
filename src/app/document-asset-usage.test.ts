@@ -127,18 +127,25 @@ describe("assetRefsInDocument", () => {
 });
 
 describe("the three asset-id patterns and what each deliberately does not see", () => {
-  // ★★★ These three patterns are all correct and all different. This test is
-  // the only place that states the differences together; without it, each is
-  // documented only in its own file's docstring and a reader fixing one has no
-  // way to see the other two. open-followups §218.
+  // ★★★ These three patterns are all correct and all different. All three now
+  // live in document-asset-patterns.ts and its test asserts them against each
+  // other DIRECTLY, as a table. open-followups §218/§209.
   //
-  //   ASSET_ID_RE   (document-asset-usage.ts)   attribute on ANY element, double-quote only
-  //   IMG_TAG_RE    (document-export-assets.ts) <img> tag, quote-aware, double-quote value
-  //   ASSET_IMG_RE  (document-model.ts)         <img>, case-INSENSITIVE, ALL quoting styles
+  //   ANY_TAG_ASSET_ID_RE  attribute on ANY element, double-quote only
+  //   IMG_TAG_ASSET_ID_RE  <img> tag, quote-aware, double-quote value
+  //   ASSET_IMG_TEST_RE    <img>, case-INSENSITIVE, ALL quoting styles
   //
-  // ASSET_IMG_RE is not exported and yields no ids, so it is probed through
-  // sanitizeProjectDocuments: a paragraph with no visible text survives load
-  // only when that pattern matches.
+  // ★ This describe stays, and is NOT a duplicate of that table. It pins two
+  // things the pattern-level table cannot reach, and BOTH are consequences
+  // rather than pattern behaviour:
+  //   - `survivesLoad` runs the third pattern through sanitizeProjectDocuments,
+  //     so it pins what a LOAD does, not what the regex matches;
+  //   - `counted`/`drawable` run through `assetRefsInDocument`, NOT the raw
+  //     regexes, so they pin the CALLER's `.filter((id) => id.length > 0)`.
+  // ★★ That second one is why `<img data-asset-id="">` asserts `counted: false`
+  // here while the new table asserts the same input CAPTURES `[""]`. Both are
+  // right and neither implies the other — delete this block and the empty-id
+  // filter has no cover anywhere.
   const oneParagraph = (html: string): ProjectDocument =>
     doc(11, [{ type: "paragraph", html }]);
   const survivesLoad = (html: string): boolean => {
@@ -187,8 +194,8 @@ describe("the three asset-id patterns and what each deliberately does not see", 
 });
 
 describe("the load path normalises quoting BEFORE anything counts references", () => {
-  // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_RE accepts
-  // data-asset-id='x' and a bare unquoted value; ASSET_ID_RE and IMG_TAG_RE
+  // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_TEST_RE accepts
+  // data-asset-id='x' and a bare unquoted value; ANY_TAG_ASSET_ID_RE and IMG_TAG_ASSET_ID_RE
   // both require a double-quoted value. That divergence is harmless ONLY
   // because every load path runs
   //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
@@ -252,53 +259,183 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
   // have been escaped on the way in — this module does not need to guard
   // against that itself". Measured false 2026-08-24 and pinned below: HTML
   // text-node serialisation escapes `&`, `<` and `>` and NEVER `"`, so a double
-  // quote in text survives every pass untouched. These two cases exist so the
-  // replacement claim in that header cannot rot back into the old one.
+  // quote in text survives every pass untouched — that half is unchanged by
+  // §231, which removed this module's DEPENDENCE on it rather than the fact.
+  // The cases below exist so the header's claim cannot rot back into the old
+  // one, in either direction.
   const loadFully = (html: string): ProjectDocument =>
     sanitizeProjectDocuments([doc(21, [{ type: "paragraph", html }])]).map(
       sanitizeDocumentRichFields,
     )[0];
 
-  it("does NOT escape a data-asset-id a user merely TYPED as prose", () => {
+  it("does NOT escape a data-asset-id a user merely TYPED as prose, and no longer counts it", () => {
     // A user documenting this very app, or pasting HTML to talk about it.
     const loaded = loadFully(`<p>data-asset-id="hero"</p>`);
     const [block] = loaded.blocks;
 
-    // ★ The positive observable: the text is still there verbatim AFTER a full
-    //   load. Without this the id-set assertions below could pass because the
-    //   block was dropped and something else supplied the ids.
+    // ★ The positive observable, and it is the half that did NOT change: HTML
+    //   text-node serialisation escapes `&`, `<` and `>` and NEVER `"`, so the
+    //   string survives a full load verbatim. Without this assertion the empty
+    //   id sets below could pass because the block had been dropped.
     expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="hero"`);
 
+    // ★★ What CHANGED (open-followups §231): the scanner now requires a start
+    //    tag, so prose spends no slot of the 20-image cap and contributes
+    //    nothing to the reclaimable-room figure the cap message renders.
     const refs = assetRefsInDocument(loaded);
-    // Counted against the 20-image cap, and folded into the reclaimable room the
-    // cap message offers — for a string that is prose, not a reference at all.
-    expect([...refs.all]).toEqual(["hero"]);
+    expect([...refs.all]).toEqual([]);
     expect([...refs.drawable]).toEqual([]);
-    expect([...refs.undrawable]).toEqual(["hero"]);
+    expect([...refs.undrawable]).toEqual([]);
   });
 
-  it("lets a crafted alt put an id in `drawable` that is NOT in `all`", () => {
-    // ★★★ `drawable` IS NOT A SUBSET OF `all`, and only this case shows it.
-    // `htmlEscape` escapes `& < > "` but NOT `=`, and an asset NAME is free
-    // text (rename), so `alt` can end in `data-asset-id=`. The naive
-    // `ASSET_ID_RE` then pairs that trailing `=` with the REAL attribute's
-    // opening quote; the quote-aware `IMG_TAG_RE` steps over the alt and finds
-    // the real id.
-    // The undercount is PRE-EXISTING (`assetIdsInDocument` always had these
-    // semantics) — recorded as open-followups §231, not fixed here.
+  it("no longer lets a crafted alt hide the real id from `all`", () => {
+    // ★★ `htmlEscape` escapes `& < > "` but NOT `=`, and an asset NAME is free
+    //    text (rename), so `alt` can end in `data-asset-id=`. The OLD scanner
+    //    paired that trailing `=` with the REAL attribute's opening quote and
+    //    produced a phantom id while the real one went missing — an id that
+    //    spends no cap slot and can be re-inserted, defeating dedup.
+    //    open-followups §231, half two.
     const loaded = loadFully(`<img alt="data-asset-id=" data-asset-id="real">`);
     const [block] = loaded.blocks;
     expect(block.type === "paragraph" && block.html).toContain(`data-asset-id="real"`);
 
     const refs = assetRefsInDocument(loaded);
+    expect([...refs.all]).toEqual(["real"]);
     expect([...refs.drawable]).toEqual(["real"]);
-    expect(refs.all.has("real")).toBe(false);
+    expect([...refs.undrawable]).toEqual([]);
+  });
 
-    // ★★ THIS ONE PINS THE CONSTRUCTOR, NOT THIS FIXTURE. `undrawable` is BUILT
-    // by filtering `all`, so it is constant-true for every input. It is kept
-    // because the cap message's reclaimable-room arithmetic in
-    // documents-asset-section subtracts one size from the other and would go
-    // NEGATIVE if a later fix rebuilt `undrawable` from a second scan.
-    expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
+  it("computes `undrawable` as `all` minus `drawable`, even when `drawable` holds an id `all` does not", () => {
+    // ★★★ BOTH HALVES OF THE FIXTURE ARE LOAD-BEARING. This test asserted
+    //     nothing for two INDEPENDENT reasons; restoring either makes it
+    //     vacuous again while it goes on passing.
+    //
+    // ★★ ONE, the load path. Through `loadFully` the `<span>` is unwrapped and
+    //    its attribute goes with it (measured: the stored html is
+    //    `x<img data-asset-id="i">`), leaving `undrawable` EMPTY.
+    //
+    // ★★ TWO, the fixture. `undrawable` is BUILT by filtering `all`, so
+    //    wherever `drawable ⊆ all` these expectations hold however the
+    //    constructor is broken. The duplicate attribute is what makes
+    //    `drawable` hold an id `all` does not — `all` = ["s","a"] against
+    //    `drawable` = ["b"], the divergence the test below pins.
+    //
+    // ★★★ NAME THE MUTANT OR THE CLAIM CANNOT BE CHECKED. "Rebuilding
+    //     `undrawable` from a second scan" has several readings and they do
+    //     NOT behave alike, so this lists which ones this test answers for:
+    //       · symmetric difference (`all\drawable` ∪ `drawable\all`) — the
+    //         shape that drives the reclaimable-room arithmetic in
+    //         documents-asset-section NEGATIVE. KILLED here; SURVIVES if the
+    //         duplicate attribute is dropped. It is the reason for the fixture.
+    //       · direction swap (`drawable\all`) — KILLED, with or without it.
+    //       · whole-document re-scan, then subtract — EQUIVALENT BY
+    //         CONSTRUCTION, not merely unkilled: it re-runs the same two
+    //         scanners over the same blocks, so its output cannot differ for
+    //         any input. Ran it: 29/29 green. Nothing to catch.
+    //       · PER-BLOCK re-scan — a genuine regression this test does NOT
+    //         catch, and deliberately: an id spanned in one block and drawn in
+    //         another is only visible across blocks. Ran it: it reddens "does
+    //         not treat an id as undrawable merely because ANOTHER block draws
+    //         it" and nothing else, which is the test that owns that shape. Do
+    //         not widen this fixture to chase it.
+    const raw: ProjectDocument = doc(97, [
+      {
+        type: "paragraph",
+        html: `<span data-asset-id="s">x</span><img data-asset-id="a" data-asset-id="b">`,
+      },
+    ]);
+    const refs = assetRefsInDocument(raw);
+    // ★★ ALL THREE SETS, and `all` is not decoration: a mutant narrowing `all`
+    //    while building `undrawable` from its own scan yields all=[],
+    //    drawable=["b"], undrawable=["s","a"] — the other two assertions PASS.
+    //    The `AssetRefs` note tells callers the subset relationship follows
+    //    from this test, and it only follows if `all` is pinned too.
+    expect([...refs.all]).toEqual(["s", "a"]);
+    expect([...refs.undrawable]).toEqual(["s", "a"]);
+    expect([...refs.drawable]).toEqual(["b"]);
+  });
+
+  it("finds BOTH ids when one paragraph holds two images and the first has a crafted alt", () => {
+    // ★★★ ORDER ALONE WAS NEVER THE PROTECTION. The old scanner crossed `<img>`
+    //     boundaries WITHIN a block: it paired the first tag's alt with the
+    //     SECOND tag's markup and yielded `["r1", "><img data-asset-id="]`, so
+    //     the second real image was invisible to the cap entirely.
+    //
+    // ★ WHY `loadFully` HERE while its neighbours scan raw: measured, the
+    //   loaded html is byte-identical to the input, so the load changes no
+    //   observable — what it buys is proof the fixture is REACHABLE post-load,
+    //   which the two raw-scanning tests below cannot claim of theirs.
+    const loaded = loadFully(
+      `<img data-asset-id="r1" alt="data-asset-id="><img data-asset-id="r2" alt="x">`,
+    );
+    const refs = assetRefsInDocument(loaded);
+    expect([...refs.all].sort()).toEqual(["r1", "r2"]);
+    expect([...refs.drawable].sort()).toEqual(["r1", "r2"]);
+  });
+
+  it("does not count the attribute spelled without a space after the tag name", () => {
+    // ★ The THIRD behaviour change, beyond §231's two halves, pinned so it is
+    //   not latent: `<imgdata-asset-id="x">` is malformed HTML (the tag name
+    //   swallows the attribute) and used to count. It cannot survive the load
+    //   path either, so this asserts the SCANNER directly rather than through
+    //   loadFully — which is the only way to observe it.
+    //
+    // ★★ THE DISCRIMINATOR IS THE `(?<![-\w])` LOOKBEHIND, NOT THE TAG NAME.
+    //    The tag-name class happily eats `mgdata-asset-id=`; what rejects this
+    //    is the word character immediately before `data-asset-id`. So this test
+    //    guards the lookbehind, and a reader "tidying" the anchor will not
+    //    learn that from the assertion alone.
+    // ★★ IT GUARDS THE `\w` HALF OF THAT LOOKBEHIND, which for one commit was
+    //    the ONLY thing in the repo that did. The `-` half is pinned by
+    //    `foo-data-asset-id` rows in BOTH pattern test files; narrowing the
+    //    lookbehind to `(?<!-)` was green in both of them and made
+    //    `<img xdata-asset-id="a">` report a phantom `"a"` (the §231 overcount
+    //    class). `document-asset-patterns.differential.test.ts` now carries
+    //    that string as a `NEGATIVE` row, so the mutant dies there too and this
+    //    test is no longer alone.
+    // ★★★ THAT SENTENCE IS THE POINT, NOT THE COVERAGE FACT. "Only test in the
+    //    repo" was written here and falsified by the VERY NEXT COMMIT on this
+    //    branch, which added the corpus row — the count was true when written,
+    //    for about an hour. A cold review had just reported the `\w` half as
+    //    untested anywhere, having scanned only the two pattern files; the
+    //    correction to that error introduced its own. Prefer "guards X" over
+    //    "is the only thing that guards X": the first stays true when someone
+    //    adds cover, the second silently does not, and nothing gates either.
+    const raw: ProjectDocument = doc(99, [
+      { type: "paragraph", html: `<imgdata-asset-id="x">` },
+    ]);
+    expect([...assetRefsInDocument(raw).all]).toEqual([]);
+  });
+
+  it("characterizes the duplicate-attribute divergence — `all` takes the FIRST, `drawable` the LAST", () => {
+    // ★★★ A CHARACTERIZATION OF A KNOWN DIVERGENCE, NOT A DESIRED PROPERTY.
+    //     It records what the two patterns currently do so a change to either
+    //     cannot widen the gap silently. §231 closed the crafted-`alt` half of
+    //     the non-subset problem; THIS is the half that stayed open. If a
+    //     change makes the two agree this SHOULD go red — delete it and the
+    //     `AssetRefs` note citing it, never re-fit the expectations.
+    //
+    // ★★ THE CAUSE IS THE QUANTIFIER. Their ALTERNATIONS are byte-identical;
+    //    the QUANTIFIER is not — `ANY_TAG_ASSET_ID_RE` is LAZY (`*?`) so it stops at
+    //    the FIRST occurrence, `IMG_TAG_ASSET_ID_RE` is GREEDY (`*`) and backtracks to
+    //    the LAST. It is NOT the only difference between them, though, and
+    //    believing so leads to the inference `TAG-AGNOSTIC ON PURPOSE` exists
+    //    to prevent: they also differ in the tag anchor (`<[a-zA-Z][^\s/>"']*`
+    //    here vs `<img\b` there — the §218 design), and `IMG_TAG_ASSET_ID_RE` carries a
+    //    trailing alternation plus `>` with no counterpart. Measured: making
+    //    this one greedy does NOT turn it into `IMG_TAG_ASSET_ID_RE` — a `<span>` still
+    //    counts here and is still invisible there.
+    //
+    // ★★ SCANNED UN-LOADED ON PURPOSE. A full load collapses the duplicate to
+    //    `data-asset-id="a"` (measured through the real two-pass composition),
+    //    after which both sets agree and this would assert NOTHING. Routing it
+    //    through `loadFully` makes it vacuous, not stricter.
+    const raw: ProjectDocument = doc(98, [
+      { type: "paragraph", html: `<img data-asset-id="a" data-asset-id="b">` },
+    ]);
+    const refs = assetRefsInDocument(raw);
+    expect([...refs.all]).toEqual(["a"]);
+    expect([...refs.drawable]).toEqual(["b"]);
+    expect([...refs.drawable].every((id) => refs.all.has(id))).toBe(false);
   });
 });

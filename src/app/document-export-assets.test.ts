@@ -1,7 +1,8 @@
 import { describe, it, expect, vi } from "vitest";
 import {
-  documentAssetIds, loadExportAssets, EXPORT_INLINE_BUDGET_BYTES, IMG_TAG_RE,
+  documentAssetIds, loadExportAssets, EXPORT_INLINE_BUDGET_BYTES,
 } from "./document-export-assets";
+import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import type { ProjectDocument } from "./document-model";
 
 const doc = (html: string[]): ProjectDocument => ({
@@ -43,7 +44,7 @@ describe("documentAssetIds", () => {
 
   it("does not leave fragments behind when substituting such a tag", () => {
     const html = `<p><img data-asset-id="7" alt="chart>v2.png"></p>`;
-    expect(html.replace(IMG_TAG_RE, "[PH]")).toBe(`<p>[PH]</p>`);
+    expect(html.replace(IMG_TAG_ASSET_ID_RE, "[PH]")).toBe(`<p>[PH]</p>`);
   });
 });
 

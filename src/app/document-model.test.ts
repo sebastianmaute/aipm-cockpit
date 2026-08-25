@@ -155,6 +155,125 @@ describe("sanitizeProjectDocuments", () => {
     ]);
   });
 
+  it("keeps an image-only paragraph when an earlier attribute value contains > and <", () => {
+    // ★★★ REGRESSION, and it was LIVE data loss: a genuine <img> carrying a
+    // genuine data-asset-id was deleted on load whenever an attribute BEFORE it
+    // held a `>` followed by tag-like text. Both halves of the drop condition
+    // read `[^>]*` and both truncated at that `>` — `htmlPlainProjection` ate
+    // the remainder as if it were a tag (projection 0) and ASSET_IMG_TEST_RE
+    // never reached the attribute (no image). Both false, block gone, on all
+    // six write paths, with nothing in the truncation diag.
+    //
+    // ★★★ ATTRIBUTE ORDER IS THE WHOLE DISCRIMINATOR, so a fixture that puts
+    // data-asset-id FIRST passes against the unfixed code. That is exactly why
+    // this shipped: the app's own insert path writes the id first, and the two
+    // callers that do NOT control order are the AI document tool and workspace
+    // import. Each alt below must therefore keep the poison BEFORE the id.
+    //
+    // ★★ Not catchable in document-asset-patterns.test.ts. That file asserts
+    // one pattern at a time, and each was individually "correct" — the loss
+    // only appears when the two are composed by the real guard. A `>` alone is
+    // NOT enough either (`alt="a>b"` leaves visible text, so the && short-
+    // circuits and the block survives): the tail after the `>` has to look like
+    // a tag. Both shapes are listed so a fix that only handles one goes red.
+    const survivesOnFirstTerm = '<p><img alt="a>b" data-asset-id="a1B_2-x"></p>';
+    const tagLikeTail = '<p><img alt="><c d" data-asset-id="a1B_2-x"></p>';
+    const closingTail = '<p><img alt="></b" data-asset-id="a1B_2-x"></p>';
+    const idFirst = '<p><img data-asset-id="a1B_2-x" alt="><c d"></p>';
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: survivesOnFirstTerm },
+          { type: "paragraph", html: tagLikeTail },
+          { type: "paragraph", html: closingTail },
+          { type: "paragraph", html: idFirst },
+        ],
+      }),
+    ]);
+    // Shapes, not a count — a count passes against a mutant keeping the wrong
+    // subset, and "the wrong subset" is precisely what the bug produced.
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: survivesOnFirstTerm },
+      { type: "paragraph", html: tagLikeTail },
+      { type: "paragraph", html: closingTail },
+      { type: "paragraph", html: idFirst },
+    ]);
+  });
+
+  it("keeps a paragraph whose only image reference is a decoy in an attribute value", () => {
+    // ★★★ THIS TEST ASSERTED THE OPPOSITE ONE ROUND AGO, and the flip is the
+    // whole lesson of open-followups §250. It was written to pin a narrowing as
+    // a deliberate improvement: a quote-aware predicate answers `false` here,
+    // the decoy `data-asset-id=` inside the alt no longer counts, and the block
+    // joins the non-asset images this loader already drops. That reasoning was
+    // sound in isolation and wrong about the sink. The predicate is one term of
+    // a DELETE condition, so every narrowing is a candidate data-loss bug, and
+    // the same narrowing destroyed four paragraphs carrying REAL attributes
+    // (pinned in document-asset-patterns.test.ts and by the sibling test
+    // above). The union keeps this block instead — a source-less image, exactly
+    // what the stored html describes.
+    // ★ The plain image alongside is the CONTROL: it shows the loader really
+    // does drop an image-only paragraph with no asset reference, so this
+    // assertion cannot pass merely because nothing is ever dropped.
+    const decoyInAlt = '<p><img alt="data-asset-id=x"></p>';
+    const plainImage = '<p><img src="https://example.test/a.png"></p>';
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: decoyInAlt },
+          { type: "paragraph", html: plainImage },
+          { type: "paragraph", html: "<p>Kept</p>" },
+        ],
+      }),
+    ]);
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: decoyInAlt },
+      { type: "paragraph", html: "<p>Kept</p>" },
+    ]);
+  });
+
+  it("keeps the malformed-but-real image paragraphs a narrowed predicate deleted", () => {
+    // ★★★ THE §250 REGRESSION, END TO END. Each html below carries a REAL
+    // `data-asset-id` — an HTML parser recovers from the malformation and
+    // yields the attribute — and each projects to zero visible text, so the
+    // predicate is the ONLY thing standing between it and deletion. The fix
+    // round that closed §250 narrowed that predicate three ways at once and
+    // silently deleted all of these on every load path.
+    // ★ Listed one per BLOCK rather than folded into one fixture: a single
+    // string would go green again the moment any one of the narrowings came
+    // back, since the others would still be covered.
+    const shapes = [
+      '<p><img alt="x"data-asset-id="real"></p>', // missing separator, dq
+      "<p><img alt='x'data-asset-id=\"real\"></p>", // missing separator, sq
+      "<p><img alt=it's data-asset-id=\"real\"></p>", // unpaired quote
+    ];
+    const out = sanitizeProjectDocuments([
+      doc({ blocks: shapes.map((html) => ({ type: "paragraph" as const, html })) }),
+    ]);
+    expect(out[0].blocks).toEqual(shapes.map((html) => ({ type: "paragraph", html })));
+  });
+
+  it("drops an image paragraph whose attribute value contains a bare `<`", () => {
+    // ★★★ A KNOWN, ACCEPTED LOSS — asserted so it cannot be reintroduced by
+    // accident in either direction. `<img alt=a<b data-asset-id="real">` is a
+    // real attribute to a parser, but recovering it requires a predicate branch
+    // that scans past `<`, and such a branch is quadratic on input that reaches
+    // this guard unbounded: `"<img ".repeat(n) + ">"` projects to zero, so the
+    // `&&` does not short-circuit and the predicate runs on the whole string.
+    // That spelling shipped once and measured SLOWER than the one it replaced.
+    // ★ If a future change makes this block survive, check what it did to the
+    // adversarial timing before calling it a fix.
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: '<p><img alt=a<b data-asset-id="real"></p>' },
+          { type: "paragraph", html: "<p>Kept</p>" },
+        ],
+      }),
+    ]);
+    expect(out[0].blocks).toEqual([{ type: "paragraph", html: "<p>Kept</p>" }]);
+  });
+
   it("keeps an image-only paragraph whatever quoting style the attribute uses", () => {
     // ★★★ REGRESSION: the exemption's own docstring justified its `/i` flag on
     // "a hand-edited or imported `<IMG DATA-ASSET-ID>`" — but the pattern read

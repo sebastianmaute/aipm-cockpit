@@ -29,6 +29,7 @@
 import { EXPORT_SECTION_KEYS, type ExportSectionKey } from "./settings-types";
 import { capHtmlText, htmlTextLength } from "./rich-text-plain";
 import { sanitizeDocEntityRefs, type DocEntityRef } from "./document-ref";
+import { ASSET_IMG_TEST_RE } from "./document-asset-patterns";
 
 /** Bounds on what a hostile or corrupt import can force. */
 // ★★ Raised 200 -> 1000 in the §103 fix. ONE constant serves TWO doors: the
@@ -185,66 +186,6 @@ export function exceedsStorageCaps(block: DocBlock): boolean {
   }
 }
 
-/** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
- *  a paragraph meaningful while projecting to no visible text.
- *
- *  ★★★ WITHOUT THIS THE LOADER ATE EVERY IMAGE-ONLY PARAGRAPH. An inserted
- *   image is a paragraph whose whole html is the `<img>` tag; `htmlTextLength`
- *   strips tags and does not project `alt`, so it measured 0 and the block was
- *   dropped — on all six write paths at once, since every load routes through
- *   here. It rendered in the authoring session (in memory) and was gone after
- *   reload, with no error and nothing in the truncation diag. Fixed on the LOAD
- *   side deliberately: that also repairs documents already stored broken, which
- *   no write-side change could.
- *
- *  ★★ SCOPED TO `data-asset-id`, NOT TO `<img>` AT LARGE, and the reason is
- *   that a bare `<img>` here can never become anything: the document allow-list
- *   gives `img` only `alt` and `data-asset-id` and deliberately NO `src`
- *   (sanitize-html.ts records why), and `document-asset-images.ts` plus all
- *   three renderers key off a non-empty `data-asset-id`. So an `<img>` without
- *   one is invisible on every surface — keeping it would reintroduce exactly
- *   the accumulating blank paragraph the empty-drop exists to prevent, in a
- *   form the user cannot see well enough to delete. Empty value likewise: the
- *   allow-list strips the attribute and the renderers resolve nothing.
- *
- *  ★ DELIBERATELY LOOSER THAN THE ALLOW-LIST'S OWN `data-asset-id` PREDICATE
- *   (`/^[A-Za-z0-9_-]{1,64}$/`, sanitize-html.ts), which is not reused because
- *   this module is DOM-free and must not depend on the sanitizer. The two
- *   disagree only for a hand-crafted value the allow-list would strip anyway,
- *   and this side errs toward KEEPING — the failure it guards against is
- *   silent data loss, so a stray blank paragraph is the cheap direction.
- *
- *  ★★ Case-INSENSITIVE, unlike `IMG_TAG_RE` (`document-export-assets.ts`),
- *   which its four consumers share — the three renderers plus
- *   `documentAssetIds` — and which only ever sees html already lower-cased by
- *   DOMPurify. This one runs BEFORE any allow-list pass on the load path
- *   (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — see
- *   document-rich-fields.ts), so a hand-edited or imported `<IMG DATA-ASSET-ID>`
- *   reaches it verbatim and must not be dropped before it can be normalised.
- *
- *  ★★★ ALL THREE HTML QUOTING STYLES, FOR THE SAME REASON THE `/i` EXISTS —
- *   and for a while only the double-quoted one was covered, which made the
- *   flag's own justification wider than the pattern under it. Whatever writes
- *   `<IMG DATA-ASSET-ID>` in caps is hand-written or foreign HTML, and that is
- *   precisely the input class that spells attributes `id='x'` or bare `id=x`;
- *   both are valid HTML5 and both measure zero visible text, so under the old
- *   pattern the block was DELETED on load with no error. Erring toward keeping
- *   costs at worst one stray blank paragraph the user can see and delete;
- *   erring toward dropping is silent data loss, so the pattern is widened to
- *   the docstring rather than the docstring narrowed to the pattern.
- *   ★★ The unquoted branch excludes `"` and `'` (not merely whitespace and
- *   `>`), so `data-asset-id=""` and `data-asset-id=''` still fail every branch
- *   and are still dropped — an empty value renders nothing on every surface,
- *   which is the case the block below deliberately keeps out.
- *   ★ Still DOM-free: string/regex only. This module must not reach for
- *   DOMPurify or the allow-list's own predicate (a comment-stripped source
- *   scan in document-model.test.ts enforces that).
- *
- *  ★ NOT `/g` — a global regex carries `lastIndex` across `.test` calls and
- *   would drop every other image-only paragraph in a document. */
-const ASSET_IMG_RE =
-  /<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
-
 function sanitizeBlock(raw: unknown): DocBlock | null {
   if (!raw || typeof raw !== "object") return null;
   const b = raw as Record<string, unknown>;
@@ -267,7 +208,7 @@ function sanitizeBlock(raw: unknown): DocBlock | null {
       // pair (a lone surrogate becomes U+FFFD on CSV/MD but survives on
       // JSON/IDB: a backend-dependent corruption). clipText still has that bug.
       const html = typeof b.html === "string" ? b.html : "";
-      if (htmlTextLength(html) === 0 && !ASSET_IMG_RE.test(html)) return null;
+      if (htmlTextLength(html) === 0 && !ASSET_IMG_TEST_RE.test(html)) return null;
       return { type: "paragraph", html: capHtmlText(html, MAX_HTML_TEXT_CHARS) };
     }
 

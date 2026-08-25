@@ -85,11 +85,8 @@ import { htmlEscape } from "./download";
 // forbids it; the plan's `from "./doc-render-html"` is wrong for the same
 // reason (and that module never exported it — it kept a private copy).
 import { resolveDataSection } from "./doc-data-section";
-import {
-  IMG_TAG_RE,
-  NO_EXPORT_ASSETS,
-  type ExportAssets,
-} from "./document-export-assets";
+import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
+import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import type { DocumentAsset } from "./document-asset";
 import { safeBase64ToBytes } from "./document-asset-upload";
 import type { ExportCell } from "./export-sections";
@@ -207,7 +204,7 @@ function tableLines(
 function withImagePlaceholders(
   html: string, byId: ReadonlyMap<string, DocumentAsset>, lang: Lang,
 ): string {
-  return html.replace(IMG_TAG_RE, (_tag, id: string) =>
+  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) =>
     htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
 }
 
@@ -270,7 +267,7 @@ function paragraphLines(html: string, ctx: RenderCtx): SlideLine[] {
   let cut = 0;
   // ★ `matchAll` CLONES the shared `lastIndex` of the /g regex; a bare
   //   `.exec()` loop here would carry position between unrelated callers.
-  for (const match of html.matchAll(IMG_TAG_RE)) {
+  for (const match of html.matchAll(IMG_TAG_ASSET_ID_RE)) {
     const id = match[1];
     const b64 = ctx.assets.inlined[id];
     const embed = b64 ? pptxEmbedFor(ctx.byId.get(id)) : null;

@@ -579,7 +579,7 @@ export function classify(entry, env) {
       // swept-self or gate-self file, which is the whole point. ★ No count is
       // quoted: one was, and it was wrong for `collectIdentifiers` on the day it
       // was written. Read today's with
-      // `grep -rl "collectIdentifiers" src scripts e2e | wc -l`.
+      // `grep -rl "\bcollectIdentifiers\b" src scripts e2e | wc -l`.
       // ★★ Reported, never dropped. "I was not allowed to look" is a different
       // statement from "it is gone", and collapsing them into CLEAN is exactly
       // the circularity the exclusion exists to prevent.

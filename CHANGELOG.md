@@ -8,6 +8,56 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.260.1] - 2026-08-25 "Cho"
+
+### Fixed
+
+- **Images no longer disappear from a document when it is reloaded.** A paragraph holding a
+  real image was deleted on load, silently and on every storage backend, whenever an earlier
+  attribute on the tag contained a `>` followed by more tag-like text — for example an image
+  whose caption text was `>` then a word. The check that decides whether an image-only
+  paragraph is worth keeping stopped reading at that first `>` and concluded there was no
+  image. Whether it happened depended on the order the attributes were written in, which is
+  why it never showed up when inserting an image through the app itself; documents written by
+  the AI assistant, or brought in through workspace import, chose their own order. Closes
+  `docs/open-followups.md` §250.
+- **The per-document image cap now counts only real images.** A document may hold up to
+  twenty images, and three shapes were counted wrongly. A paragraph that merely *contained*
+  the text `data-asset-id="…"` — typed, pasted or imported — spent one of the twenty slots;
+  since 0.258.1 the cap message then offered that slot back as reclaimable room, which would
+  have meant deleting the sentence. An image whose alternative text ended in
+  `data-asset-id=` was counted under that fragment instead of its real reference, so the
+  duplicate check no longer recognised the image and it could be added a second time. An
+  attribute whose name merely ended in `data-asset-id` — `foo-data-asset-id` — was counted in
+  place of the real one on the same tag. The pattern now requires a real start tag, steps
+  over quoted attribute values, and only accepts the attribute where a real one can begin.
+  Closes `docs/open-followups.md` §231.
+- **Malformed and hostile document HTML no longer takes minutes to load.** All three patterns
+  could be driven into extreme backtracking by crafted input — a few kilobytes of one shape
+  costing seconds, and a large block of another tens of seconds of unresponsive interface —
+  and since the offending block is itself stored, that cost was paid again on every later
+  load. Reaching this required hand-written or imported HTML rather than anything the editor
+  produces. The same inputs now complete in under a millisecond.
+- **Images written without a space before the reference are no longer dropped on load.**
+  `<img alt="x"data-asset-id="…">` and three similar malformations carry a real image — a
+  browser reads the attribute normally — but a first version of the fix above required a
+  space or slash in front of it and deleted those paragraphs silently, on every load path.
+  The check now accepts the attribute wherever a browser would, while still rejecting a
+  name that merely ends in it.
+
+### Changed
+
+- A tag with no space after its name — `<imgdata-asset-id="x">` — is no longer counted
+  against the image cap. It was counted before. It is not a tag any browser or editor
+  produces, and it cannot carry a real image.
+- An image whose only reference is a fragment inside its own alternative text is still kept
+  as an image-only paragraph on load, and now deliberately so. Narrowing the check to drop it
+  also dropped four kinds of paragraph holding real images, so the check errs towards keeping:
+  the cost of a false keep is one image with no source, and the cost of a false drop is losing
+  the user's content. It counts against nothing and is never fetched for an export.
+- The three patterns that read `data-asset-id` now live in one module, with their deliberate
+  differences asserted directly against one another by a test. They were three files apart
+  before, with nothing keeping them in step. Closes `docs/open-followups.md` §209.
 ## [0.260.0] - 2026-08-25 "Cho"
 
 ### Row-unique accessible names (WCAG 2.4.6)

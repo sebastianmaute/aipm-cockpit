@@ -54,7 +54,44 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  opener when a letter (or `/`) follows it. A bare `<[^>]*>` ate everything
  *  from a literal "<" to the next ">" — "cost < 5k and rising" became "cost" —
  *  and a value left visually empty that way is DROPPED by the `if (description)`
- *  gates in the entity sanitizers. */
+ *  gates in the entity sanitizers.
+ *
+ *  ★★★ MAKING THIS `[^>]*` QUOTE-AWARE WOULD DELETE IMAGE BLOCKS ON LOAD, and
+ *  nothing here would tell you so. `sanitizeBlock` (`document-model.ts`) keeps
+ *  an image-only paragraph via `htmlTextLength(html) === 0 &&
+ *  !ASSET_IMG_TEST_RE.test(html)`. For `<img alt="a>b" data-asset-id="real">`
+ *  THIS projection truncates at the `>` inside the attribute and reports 24
+ *  visible characters, so the first term is false and the block is kept. A
+ *  quote-aware matcher here would correctly report 0 — and the block's survival
+ *  would then rest entirely on the predicate, on every load path at once.
+ *  ★★ That predicate handles the shape as of 0.259.2 — it is a UNION of the old
+ *  `[^>]*` form and a quote-aware one — so this is a warning rather than a live
+ *  coupling: today the guard would still keep the block through its second
+ *  term. ★ It is a union rather than the quote-aware regex alone because
+ *  quote-awareness ALONE loses four other real shapes; §250 carries them. Do not read that as licence to change this in passing — it
+ *  makes a matcher that currently cannot drop a block into one that can, and
+ *  the failure is silent, on all six write paths, with nothing in the
+ *  truncation diag. Any change here wants the load-path tests in
+ *  `document-model.test.ts` run against it, not just this file's own.
+ *  ★★ IT IS ALSO QUADRATIC on input with many `<` and no `>` — each opener
+ *  scans to end of input for a `>` that is not there (seconds at 128 KB).
+ *  ★★★ SO IS `BLOCK_TAG` ABOVE, and this note said it was not. `\b` only saves
+ *  it from a tag name that does NOT match its alternation, which is why a
+ *  `"<a"` fixture reported it clean; `"<p"` — the likeliest opener in this
+ *  corpus — is quadratic on BOTH. Measured, open-followups §251. Do not repair
+ *  one of these regexes and leave the other.
+ *  ★★ §251 also RETRACTS its own advice against the obvious one-character fix
+ *  (excluding `<` from `[^>]*`): the reason given was that it zeroes the
+ *  projection for `alt="a>b"`, and that is measurably false — `[^<>]*` leaves
+ *  that shape byte-identical. It is now the cheapest known option, with a real
+ *  but different trade-off recorded there. Read the entry, not this summary,
+ *  before changing either regex.
+ *
+ *  ★ History: both patterns once carried this same truncation and the safety
+ *  was argued as a CANCELLATION between them. That argument was wrong — it held
+ *  only for the one shape it was measured on, and real blocks were being
+ *  deleted for shapes where the tail after the `>` was itself tag-like. See
+ *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
 const TAG = /<\/?[a-zA-Z][^>]*>/g;
 /** A non-breaking space in every spelling the editor or a paste can produce. */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;

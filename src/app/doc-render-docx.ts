@@ -35,11 +35,8 @@ import {
 } from "./ooxml-docx-primitives";
 import { bulletMarker } from "./rich-text-runs";
 import { resolveDataSection } from "./doc-data-section";
-import {
-  IMG_TAG_RE,
-  NO_EXPORT_ASSETS,
-  type ExportAssets,
-} from "./document-export-assets";
+import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
+import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import {
   EMU_PER_INCH,
   emuFromTwips,
@@ -128,7 +125,7 @@ function para(text: string, style?: string): string {
 function withImagePlaceholders(
   html: string, byId: ReadonlyMap<string, DocumentAsset>, lang: Lang,
 ): string {
-  return html.replace(IMG_TAG_RE, (_tag, id: string) =>
+  return html.replace(IMG_TAG_ASSET_ID_RE, (_tag, id: string) =>
     htmlEscape(t(lang, "assetExportPlaceholder", byId.get(id)?.name ?? id)));
 }
 
@@ -326,7 +323,7 @@ function paragraphBlock(
   };
 
   let last = 0;
-  for (const match of html.matchAll(IMG_TAG_RE)) {
+  for (const match of html.matchAll(IMG_TAG_ASSET_ID_RE)) {
     const drawing = drawingFor(match[1]);
     // Not embeddable: leave the tag in the segment so the placeholder pass
     // substitutes it exactly as it did before this slice.

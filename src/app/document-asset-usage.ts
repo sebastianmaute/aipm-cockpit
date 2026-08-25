@@ -7,25 +7,16 @@
 // the module existed "rather than two regexes that can drift", which reads as
 // though this file holds the repo's single rule for asset references. It does
 // not: THREE patterns read `data-asset-id`, they are deliberately NOT merged,
-// and `assetRefsInDocument` below carries the relationship and the reason.
+// they live together in `document-asset-patterns.ts`, and `assetRefsInDocument`
+// below carries what the first two mean for a caller.
 //
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
 // load through sanitizeDocumentHtml).
 //
-// ★★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT, and
-// this header claimed for a while that it was — that "a literal
-// `data-asset-id=\"…\"` in TEXT content would already have been escaped on the
-// way in". MEASURED FALSE 2026-08-24, through the real two-pass load
-// composition and not by reasoning: `<p>data-asset-id="hero"</p>` comes back
-// BYTE-IDENTICAL. HTML text-node serialisation escapes `&`, `<` and `>` — it
-// never escapes `"` — so a double-quoted attribute spelled out in prose
-// survives intact, and `ASSET_ID_RE` below then counts it. A user writing
-// documentation ABOUT this app, or pasting HTML as text to discuss it, spends
-// a real slot of the 20-image per-document cap on it, and the cap message then
-// offers that slot back as room "removing the references no export can draw"
-// would reclaim — which here means deleting the sentence they wrote. Pinned by
-// "does NOT escape a data-asset-id a user merely TYPED as prose" in this
-// module's test file; open-followups §231.
+// ★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT —
+// prose survives a load verbatim. `ANY_TAG_ASSET_ID_RE` no longer NEEDS it to be
+// one (§231, closed): it requires a start tag. Pinned by "does NOT escape a
+// data-asset-id a user merely TYPED as prose, and no longer counts it".
 //
 // ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
 // property and a real one: DOMPurify re-serialises every attribute with double
@@ -34,13 +25,11 @@
 // load path normalises quoting BEFORE anything counts references".
 
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { IMG_TAG_RE } from "./document-export-assets";
-
-const ASSET_ID_RE = /data-asset-id="([^"]*)"/g;
+import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 
 function assetIdsInBlock(block: DocBlock): string[] {
   if (block.type !== "paragraph") return [];
-  return Array.from(block.html.matchAll(ASSET_ID_RE), (m) => m[1]).filter((id) => id.length > 0);
+  return Array.from(block.html.matchAll(ANY_TAG_ASSET_ID_RE), (m) => m[1]).filter((id) => id.length > 0);
 }
 
 /** Distinct asset ids referenced anywhere in this ONE document's blocks.
@@ -69,18 +58,20 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *
  *  ★★★ THE DIVERGENCE IS THE POINT, AND MERGING THE PATTERNS WOULD DESTROY IT.
  *  Two scanners disagree about what an asset reference IS, and each is right
- *  on its own terms: `ASSET_ID_RE` above is tag-AGNOSTIC because a reference
+ *  on its own terms: `ANY_TAG_ASSET_ID_RE` (document-asset-patterns.ts) is
+ *  tag-AGNOSTIC because a reference
  *  the sanitizer preserved on a non-`img` element still matters for deletion
- *  safety and the usage count, while `IMG_TAG_RE` (document-export-assets.ts)
+ *  safety and the usage count, while `IMG_TAG_ASSET_ID_RE` (same module)
  *  is tag-ANCHORED because an export must only fetch bytes for something it
  *  can actually draw. What was missing was anywhere that said so — a
  *  `<span data-asset-id>` consumed a cap slot, contributed to no export, and
  *  appeared in none of `inlined`/`omitted`/`missing`. open-followups §218.
  *
- *  ★★ A THIRD pattern exists and deliberately is NOT here: `ASSET_IMG_RE`
- *  (document-model.ts) yields no ids at all — it is `.test()`-only, deciding
- *  whether an image-only paragraph SURVIVES load. It is pinned by the
- *  relationship test in this module's test file instead.
+ *  ★★ A THIRD pattern sits beside those two and deliberately does NOT feed this
+ *  type: `ASSET_IMG_TEST_RE` yields no ids at all — it is `.test()`-only,
+ *  deciding whether an image-only paragraph SURVIVES load. All three are
+ *  asserted against each other in document-asset-patterns.test.ts; the
+ *  relationship test in this module's test file pins it here too.
  *
  *  ★★ "THREE" COUNTS REGEXES, NOT READERS. Two more places read the attribute
  *  and neither is a pattern, so neither belongs in that comparison and neither
@@ -99,28 +90,45 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  ★★★ `drawable` IS NOT A SUBSET OF `all`, SO THESE ARE NOT THREE VIEWS OF ONE
  *  SET. The three fields read as a partition — `all`, the drawable part of it,
  *  and the rest — and only `undrawable ⊆ all` is guaranteed, because that one
- *  is BUILT by filtering `all`. `all` and `drawable` are computed by two
- *  DIFFERENT patterns over raw HTML and a pathological input puts an id in one
- *  and not the other: `ASSET_ID_RE` is a naive scan that will match inside
- *  another attribute's VALUE or inside text content, while `IMG_TAG_RE` is
- *  quote-aware and steps over both. Measured 2026-08-24 —
- *  `<img alt="data-asset-id=" data-asset-id="real">` (reachable: an asset NAME
- *  is free text via rename, and `htmlEscape` escapes `& < > "` but NOT `=`)
- *  yields `all` = [`" data-asset-id="`] with the real id ABSENT, and
- *  `drawable` = [`"real"`]. The `all` UNDERCOUNT is PRE-EXISTING —
- *  `assetIdsInDocument` has always had these semantics — and is recorded as
- *  open-followups §231, NOT fixed here.
+ *  is BUILT by filtering `all`. `all` and `drawable` come from two DIFFERENT
+ *  patterns, and nothing in the code makes them agree.
+ *
+ *  Measured 2026-08-25, against the regex literals read out of the pattern
+ *  module. The crafted-`alt` violation is GONE:
+ *  `<img alt="data-asset-id=" data-asset-id="real">` used to yield `all` =
+ *  [`" data-asset-id="`] with the real id ABSENT, and now yields `["real"]` in
+ *  both (open-followups §231, closed). A DIFFERENT violation survives, and it
+ *  is why the headline above still stands: on a DUPLICATED attribute,
+ *  `<img data-asset-id="a" data-asset-id="b">` yields `all` = ["a"] and
+ *  `drawable` = ["b"], because `ANY_TAG_ASSET_ID_RE` is LAZY and stops at the FIRST
+ *  occurrence while `IMG_TAG_ASSET_ID_RE` is GREEDY and backtracks to the LAST. A full
+ *  load collapses that duplicate to `data-asset-id="a"` and the two sets then
+ *  agree, so it is reachable ONLY by scanning UN-loaded HTML — which the tests
+ *  in this module's test file do. Treat the subset relationship as a measured
+ *  fact about one input, never as an invariant.
  *
  *  ★★ CONSEQUENCE FOR CALLERS: anything subtracting these sizes must subtract
  *  `undrawable` from `all` (never `drawable` from `all`, which can go negative).
  *  The cap message in `documents-asset-section.tsx` depends on exactly that.
- *  Both relationships are pinned by "lets a crafted alt put an id in `drawable`
- *  that is NOT in `all`" in this module's test file. */
+ *  `undrawable ⊆ all` is pinned by "computes `undrawable` as `all` minus
+ *  `drawable`, even when `drawable` holds an id `all` does not" in this
+ *  module's test file. That test asserts all THREE sets exactly — `all`,
+ *  `undrawable` and `drawable` — so the subset relationship follows from the
+ *  three equalities rather than being asserted separately. Pinning only two of
+ *  them does NOT suffice, and it shipped that way briefly: a mutant narrowing
+ *  `all` while rebuilding `undrawable` from its own scan passes an
+ *  `undrawable`+`drawable` pair while the subset relationship is false.
+ *
+ *  ★ The duplicate-attribute divergence above is pinned by "characterizes the
+ *  duplicate-attribute divergence — `all` takes the FIRST, `drawable` the
+ *  LAST" in the same file. That test is a CHARACTERIZATION, not a desired
+ *  property: if a change makes the two patterns agree it SHOULD go red, and
+ *  the answer is to delete it and this note, never to re-fit its expectations. */
 export type AssetRefs = {
-  /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
-   *  counts. NOT a superset of `drawable`; see the type's note. */
+  /** Ids `ANY_TAG_ASSET_ID_RE` finds on ANY element — what the per-document cap
+   *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */
   all: ReadonlySet<string>;
-  /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */
+  /** Ids `IMG_TAG_ASSET_ID_RE` finds on an `<img>` tag — what an export can draw. */
   drawable: ReadonlySet<string>;
   /** `all` MINUS `drawable`, hence always a subset of `all`: holds a cap slot,
    *  exports nothing, lands in no export bucket. */
@@ -133,7 +141,7 @@ export function assetRefsInDocument(doc: ProjectDocument): AssetRefs {
   for (const block of doc.blocks) {
     if (block.type !== "paragraph") continue;
     for (const id of assetIdsInBlock(block)) all.add(id);
-    for (const match of block.html.matchAll(IMG_TAG_RE)) {
+    for (const match of block.html.matchAll(IMG_TAG_ASSET_ID_RE)) {
       if (match[1]) drawable.add(match[1]);
     }
   }
