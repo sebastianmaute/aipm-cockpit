@@ -14676,7 +14676,7 @@ the most-warned-about property was ungated where it was documented.
 ★★ Closed properly in 0.260.1 rather than by softening the sentence: the table now carries rows for
 the duplicate-attribute (lazy vs greedy) case, the tag-name class, the hyphen-prefixed decoy and
 both quote-awareness verdicts. Re-run the three mutants before trusting this paragraph — tag-name
-class to `[^s/>]*`, separator `[s/]` to ``, and the predicate back to `[^>]*` — which kill 1,
+class to `[^\s/>"']*`, separator `[\s/]` to `\b`, and the predicate back to `[^>]*` — which kill 1,
 1 and 5 tests respectively.
 ★ The general lesson, since this is the second time on one branch: **a corpus test gates exactly the
 rows it holds.** "Asserts the divergences directly" reads as a structural guarantee and is really a
@@ -18113,6 +18113,25 @@ tail for a `>` that is not there.
 ```
 
 Closing the tag is **1.0 ms at 256 KB**, so the trigger is specifically the missing `>`.
+
+★★ **READ THE EXPONENT, NOT THE CELLS.** Three independent measurements of the 256 KB point — a
+cold reviewer's, a mutation run inside vitest, and a standalone probe — gave 7364, 7686 and 8029 ms:
+a ~9% spread, on a machine also running other work. The SHAPE reproduces, the cells do not, and this
+branch already has a record (§250) of a timing table that could not be reproduced by anyone who came
+back to it. Unlike that one, the literal here is IN THE TREE, so re-measure rather than trust:
+
+```bash
+# Sizes the suite's own family up to 256 KB and runs it; the assertion prints the
+# measured ms against CEILING_MS, so the failure names the number. Revert after.
+sed -i 's/^    MAX_HTML_TEXT_CHARS,$/    256 * 1024,/'   src/app/document-asset-patterns.differential.test.ts
+npx vitest run --maxWorkers=1 -t unterminated   src/app/document-asset-patterns.differential.test.ts
+git diff --stat src/app/document-asset-patterns.differential.test.ts   # then revert
+```
+★★ That `sed -i` RE-LINES the file to LF — every `src/**` file here is CRLF — so revert by
+re-running it inverted, never by leaving it: see this file's CRLF landmine. The point of driving it
+through the suite rather than a standalone `node -e` is that the pattern is TypeScript and the
+obvious one-liner needs the literal pasted by hand; a first cut of this box did exactly that and the
+shell silently ate the `\b` out of `<img\b`, leaving a command that measures a different regex.
 `ANY_TAG_ASSET_ID_RE` (lazy, no trailing requirement) and `ASSET_IMG_TEST_RE` are ~0.1 ms
 throughout — this is one pattern, not the family.
 

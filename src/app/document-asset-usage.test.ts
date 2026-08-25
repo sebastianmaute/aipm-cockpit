@@ -385,14 +385,22 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //    is the word character immediately before `data-asset-id`. So this test
     //    guards the lookbehind, and a reader "tidying" the anchor will not
     //    learn that from the assertion alone.
-    // ★★★ AND IT IS THE ONLY TEST IN THE REPO THAT GUARDS THE `\w` HALF OF IT.
-    //    The `-` half is pinned by `foo-data-asset-id` rows in BOTH pattern
-    //    test files; this string is the sole cover for the other half —
-    //    narrowing the lookbehind to `(?<!-)` is green everywhere else and
-    //    makes `<img xdata-asset-id="a">` report a phantom `"a"` (the §231
-    //    overcount class). A cold review scanning only the two pattern files
-    //    concluded the `\w` half was untested anywhere; it is tested HERE, and
-    //    nowhere else. Do not delete this without replacing the coverage.
+    // ★★ IT GUARDS THE `\w` HALF OF THAT LOOKBEHIND, which for one commit was
+    //    the ONLY thing in the repo that did. The `-` half is pinned by
+    //    `foo-data-asset-id` rows in BOTH pattern test files; narrowing the
+    //    lookbehind to `(?<!-)` was green in both of them and made
+    //    `<img xdata-asset-id="a">` report a phantom `"a"` (the §231 overcount
+    //    class). `document-asset-patterns.differential.test.ts` now carries
+    //    that string as a `NEGATIVE` row, so the mutant dies there too and this
+    //    test is no longer alone.
+    // ★★★ THAT SENTENCE IS THE POINT, NOT THE COVERAGE FACT. "Only test in the
+    //    repo" was written here and falsified by the VERY NEXT COMMIT on this
+    //    branch, which added the corpus row — the count was true when written,
+    //    for about an hour. A cold review had just reported the `\w` half as
+    //    untested anywhere, having scanned only the two pattern files; the
+    //    correction to that error introduced its own. Prefer "guards X" over
+    //    "is the only thing that guards X": the first stays true when someone
+    //    adds cover, the second silently does not, and nothing gates either.
     const raw: ProjectDocument = doc(99, [
       { type: "paragraph", html: `<imgdata-asset-id="x">` },
     ]);
