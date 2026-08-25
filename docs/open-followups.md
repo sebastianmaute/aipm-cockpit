@@ -440,6 +440,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | open |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
 | [§245](#245-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
+| [§246](#246-sanitizeblocks-image-only-paragraph-guard-is-safe-only-because-two-patterns-in-two-files-carry-the-same-truncation-bug-and-they-cancel) | `sanitizeBlock`'s image-only-paragraph guard is safe only because two patterns in two files carry the SAME truncation bug, and they cancel | pre-existing, found 2026-08-25 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17474,6 +17475,67 @@ side effects of recording it.
 ★★ Do not fold this into §231. That entry is about a pattern that matched things it should not;
 this is about a pattern correctly matching something the loader never delivers in the shape everyone
 writes down.
+
+## 246. `sanitizeBlock`'s image-only-paragraph guard is safe only because two patterns in two files carry the SAME truncation bug, and they cancel
+
+**Status:** OPEN — a latent CROSS-FILE coupling, not a defect. Nothing is broken today. What is
+recorded here is that the thing keeping it unbroken is an accident of two independent patterns
+sharing a flaw, and that fixing either one ALONE is expected to cause silent data loss on load.
+
+**The two patterns.**
+
+| | |
+|---|---|
+| `TAG` (`rich-text-plain.ts`) | `/<\/?[a-zA-Z][^>]*>/g` — strips tags for the visible-text projection |
+| `ASSET_IMG_TEST_RE` (`document-asset-patterns.ts`) | `/<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i` — the load survival predicate |
+
+Both carry an unguarded `[^>]*`, which stops at the first `>` **even inside a quoted attribute
+value**. That is the exact construct `IMG_TAG_ASSET_ID_RE`'s docstring warns about, and it is
+reachable from the product's own rename control: the insert path escapes `>` to `&gt;`, but the HTML
+serialiser does not re-escape it in an attribute, so a DOM round trip hands back
+`alt="chart>v2.png"` verbatim.
+
+**What was measured.** 2026-08-25, through the real `sanitizeProjectDocuments`, not reasoned from
+the literals:
+
+```
+input: <img alt="a>b" data-asset-id="real">
+  ANY_TAG_ASSET_ID_RE  -> ["real"]
+  IMG_TAG_ASSET_ID_RE  -> ["real"]
+  ASSET_IMG_TEST_RE    -> false        <- says there is no image
+  htmlPlainProjection  -> 'b" data-asset-id="real">'   (length 24, NON-empty)
+  drop condition       -> false        <- htmlTextLength(html) === 0 && !predicate
+  block               -> KEPT
+```
+
+Control, same shape with no `>` in the attribute: projection `""` (length 0), predicate **true**,
+block also kept. ★★ The two inputs are kept for DIFFERENT reasons, and that is the whole entry: on
+the crafted one the guard's first term is false and the `&&` short-circuits before the false
+predicate is ever evaluated.
+
+**Why no test can catch this.** Both paths end in "block kept", so any test asserting the block
+survives passes whether or not the coupling is intact. `document-asset-patterns.test.ts` carries the
+`alt="a>b"` row, which pins the three patterns' DISAGREEMENT — including
+`ASSET_IMG_TEST_RE` returning false — but not the load outcome that depends on it. Nothing in
+either file's suite, and no gate, observes the relationship.
+
+**What breaks if someone fixes one side.** ★★ REASONING, NOT MEASURED, and it must not become
+"measured" through restatement: a quote-aware projection would correctly report no visible text for
+that input, the predicate would still say no image, and the block would be DROPPED on load — on all
+six write paths, since every load routes through `sanitizeBlock`. That is the same silent
+image-only-paragraph loss `ASSET_IMG_TEST_RE` was added to fix. Making the PREDICATE quote-aware
+alone is the harmless direction, but nothing says so at either site.
+
+★ Making `TAG` quote-aware is a plausible, well-intentioned change — it reads as straightforward
+hardening of a tag matcher, and `rich-text-plain.ts` mentions neither assets nor `sanitizeBlock`
+anywhere else (`grep -in "asset\|sanitizeBlock\|predicate" src/app/rich-text-plain.ts` returned
+nothing before this entry). Both declarations now carry a pointer to the other; those two comments
+are the only thing standing between a reasonable edit and silent data loss.
+
+**What it would take to settle it.** Either fix BOTH patterns in one commit and pin the load outcome
+with a test that asserts the block survives *for the right reason* (assert the projection is empty
+AND the predicate is true, not merely that the block is present), or leave both alone. Do not fix
+one.
 
 ---
 
