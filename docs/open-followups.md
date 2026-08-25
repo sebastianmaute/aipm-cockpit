@@ -435,6 +435,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
+| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
+| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -2145,7 +2147,9 @@ anyone looking again. Re-verify a bucket before relying on it to skip work.
 scheme) · 11 base `text-ui-light-grey` in the sidebar (root is `bg-ui-dark-blue`, mode-invariant) ·
 `text-ui-white` (8, all on navy) · `hover:text-ui-green` (**19 of 20** — `<th>` sort buttons routed through
 `DataTable`, which applies `TABLE_HEAD_CLASS` to its `<thead>` by construction, so they sit on
-`--table-head-bg`: **4.93–7.48** across all six combos; AGENTS.md's "green is sub-AA on a header"
+`--table-head-bg`: **4.93–7.48**, measured across the built-in combos BEFORE beacon joined the
+roster, so beacon-light is not in that range (the roster is four schemes, three of them dark-capable
+— derive the combo count from `BUILTIN_SCHEMES` rather than from here); AGENTS.md's "green is sub-AA on a header"
 warning refers to the RETIRED Mockup light header, not these. ★★ **The 20th is NOT cleared** — see
 below) · `hover:text-ui-pink` (10, 4.63–6.78 both modes) ·
 `text-ui-blue` (8 — these ARE the companions) · `-strong` variants (AA by construction:
@@ -3710,8 +3714,12 @@ grep -c use-resource-planner docs/baselines/file-sizes.json
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
 are reachable only from `use-resource-planner.test.tsx`. Nothing
 in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller. Re-derive the
-whole claim in one command — the only non-test hits are the two `useCallback` definitions and the two
-return-object keys, both in `use-reference-data.ts`:
+whole claim in one command — every non-test hit is in `use-reference-data.ts`: the two `useCallback`
+definitions, the two return-object keys, and two COMMENTS naming them. ★★ Read the hits, do not
+count them — an earlier revision here promised only the four code hits, so a reader who counted
+found more than the sentence allowed for and had no way to tell a stale claim from a miscount. One
+of the two comments describes the very deadness this grep hunts, the same self-matching property
+this file records elsewhere:
 
 ```bash
 grep -n "handleAssignResourceRole\|handleClearResourceRole" src/app/*.ts src/app/*.tsx
@@ -3726,8 +3734,10 @@ twice rotted, inside an entry whose own ★★ below explains why they had to be
 now symbols. ★★ The claim ITSELF survived both rots untouched, which is the calibration: a rotted
 line number here was a symptom of an unrelated refactor, never evidence the finding had changed —
 but it is only knowable by re-checking the claim, which is why the rule is to re-verify rather than
-renumber. ★ `docs:claims:check` was GREEN across all three states: `:1012` is a real line of a
-1419-line file, so nothing static could ever have flagged it.
+renumber. ★ `docs:claims:check` was GREEN across all three states: `:1012` is a real line of
+`use-resource-planner.test.tsx`, which is far longer than that, so nothing static could ever have
+flagged it. Read the length off the gate's own metric rather than from here —
+`node -e "console.log(require('fs').readFileSync('src/app/use-resource-planner.test.tsx','utf8').split('\n').length)"`.
 
 ★ **Pre-existing, not introduced by §2's split** — both handlers were equally dead at `0d770283`,
 where `use-resource-planner.ts` still declared and re-exported them directly. Recover it with
@@ -3735,10 +3745,16 @@ where `use-resource-planner.ts` still declared and re-exported them directly. Re
 required carrying them across verbatim, so the split re-exported two dead handlers through a
 three-level spread rather than creating the problem.
 
-★★ Those four line numbers were ACCURATE — and still had to go. They described the file at that
-commit (1042 citable lines), not at HEAD (553), so `docs:claims:check` read them as four past-EOF violations
-and could not have known better: it only ever sees the checkout. A cite pinned to a named revision
-is a real category, and the durable form is the SHA plus a symbol, never the SHA plus a number.
+★★ Those four line numbers were ACCURATE — and still had to go, but NOT because a gate flagged
+them. ★★★ **THIS PARAGRAPH SAID `docs:claims:check` "read them as four past-EOF violations", AND
+IT NEVER DID** — the ★ nine lines above, added in the same audit, already says the opposite and is
+the correct half. All four cites were comfortably inside `use-resource-planner.test.tsx`, so
+nothing was ever out of range. The "553" beside it was the STALE size of a DIFFERENT file
+(`use-resource-planner.ts`, which §61 nine lines earlier had already corrected to 609) — two
+adjacent paragraphs disagreeing about whether a gate fired is worse than either alone. What is
+true and durable: they described the file at a past COMMIT, not at HEAD, and no gate can know the
+difference because it only ever sees the checkout. A cite pinned to a named revision is a real
+category, and the durable form is the SHA plus a SYMBOL, never the SHA plus a number.
 
 ★★ **The role-assignment path that IS live is `handleAssignRoleById`**, which the directory picker
 uses and which never mints a role. `handleAssignResourceRole` is the older discipline×grade variant
@@ -9800,13 +9816,20 @@ and the doc-claims ratchet cannot see the ones in `scripts/`.** Twelve such cite
 ★★ **DISCHARGED 2026-08-25 — the owed `src/` sweep is a NO-OP and P3/P4 are not blocked on it.** Not
 one `docs/open-followups.md:LINE` citation exists anywhere in `src`, `scripts` or `e2e`. **The
 positive control is the point of the second line** — an absence grep that returns nothing looks
-identical whether the absence is real or the pattern has gone stale, and this file is cited 246 times
-in `src`, just never with a line number:
+identical whether the absence is real or the pattern has gone stale, and this file IS cited in
+`src`, just never with a line number — the second command's NON-ZERO output is what makes the
+first command's silence mean something:
 
 ```bash
 grep -rn "open-followups\.md:[0-9]" src scripts e2e; echo "EXIT=$?"   # no output, EXIT=1
-grep -rn "open-followups" src | wc -l                                  # 246 — the control
+grep -rn "open-followups" src | wc -l                                  # non-zero — the control
 ```
+
+★★ **NO TOTAL IS QUOTED, and the deleted one is the argument.** This sentence said "246 times",
+which was true at NEITHER end of the branch that wrote it — 245 at base, 247 at the commit that
+recorded it, 248 once the `version-diff.ts` fix added one more mention. A control whose job is to
+prove a pattern still matches cannot be a frozen number: every `src` commit that names this file
+moves it, INCLUDING the commit that corrects the figure. Run the command; read non-zero.
 
 ★ The HAZARD the bullet describes is unchanged: a future insertion could reintroduce the shape, and
 nothing gates it. Re-run the pair rather than trusting this paragraph.
@@ -16913,8 +16936,10 @@ last, so a pinned value wins:
 grep -n -A 3 "export function resolveSchemeColors" src/app/scheme-tokens.ts
 ```
 
-All seven of those tokens pass the scheme validator, because `DERIVED_TOKENS` is folded into
-`VALID_TOKENS` and `cleanColors` keeps anything in that set which parses as a hex:
+`DERIVED_TOKENS` holds a SEVENTH, `--muted-foreground`, which is not nudged at all — it is
+COPIED from `--foreground`, so it is derived without being an AA derivation. All seven pass the
+scheme validator, because `DERIVED_TOKENS` is folded into `VALID_TOKENS` and `cleanColors` keeps
+anything in that set which parses as a hex:
 
 ```bash
 grep -n -A 8 "^const DERIVED_TOKENS" src/app/color-schemes.ts
@@ -16959,10 +16984,25 @@ replaced them with `[]` or `undefined` in React state — and the save effect th
 Two of them were not even destructured from `useWorkspace()` in that file, so no in-file read could
 have shown the omission.
 
-★★ `activityLog` is the seventh slice the restore does not set, and that is CORRECT rather than the
-same bug: the log is storage-only on every path, and no `setActivityLog` is destructured in
-`task-manager.tsx`. Adding it to the payload while "completing the pattern" would be the defect, not
-the fix.
+★★★ **FOUR SLICES THE RESTORE DOES NOT SET, AND THE PROTECTION SPLITS 2/2.** This paragraph said
+"`activityLog` is the seventh slice the restore does not set" — an ordinal with no valid antecedent,
+since the six named just above are ones the restore DOES set, as the sentence before it says. Take
+the list from the source instead: `getVersionPayload`'s own comment in `task-manager.tsx` names all
+four, and it is correct — `fieldVisibility`, `features`, `documentAssets` and `activityLog` are in
+the save/export set in `use-storage-backend.ts` and not in the restore fan-out.
+
+Not setting them is CORRECT, not the same bug: unset is not blanked, and for `activityLog` there is
+a second reason — the log is storage-only on every path. But only TWO of the four are protected
+STRUCTURALLY. `setActivityLog` and `setDocumentAssets` have ZERO bindings in `task-manager.tsx`, so
+the blanking line cannot be written without first bringing a setter into scope. `setFieldVisibility`
+and `setFeatures` ARE destructured there and used elsewhere in the file, so nothing stops a future
+"complete the pattern" edit from adding them to the fan-out — which is where the next instance of
+this defect can appear. Re-derive the split rather than trusting this paragraph:
+
+```bash
+grep -n "setFieldVisibility\|setFeatures\|setDocumentAssets\|setActivityLog" src/app/task-manager.tsx
+sed -n '/Lazily serialize the CURRENT workspace/,/const getVersionPayload/p' src/app/task-manager.tsx
+```
 
 ★★★ **THE SIBLING TEST WAS GREEN THE WHOLE TIME, AND WHY IS THE REUSABLE PART.** A `documentVersions`
 test already exercised `applyRestoredWorkspace` — by handing it a workspace that ALREADY carried the
@@ -16980,6 +17020,100 @@ a `workspaceToJson` → `jsonToWorkspace` round trip before the test says anythi
 
 ★ The dependency array was the same width and moved with the literal, so a slice-only edit now
 re-captures. That half carries its own discriminating test, added separately in this branch.
+
+---
+
+## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all
+
+**Status:** open. Found 2026-08-25 while fixing the array-as-object corruption below; the corruption
+is fixed, this is the gap the fix deliberately left.
+
+`COLLECTION_SPECS` (`version-diff.ts`) is the registry BOTH `diffWorkspaces` and `applyRestore`
+walk. Of the six slices `getVersionPayload` now captures, only `settingsOverrides` is in it. The
+other five — `knowledgeItems`, `insights`, `documents`, `documentVersions`, `calendarEvents` —
+are arrays and are absent, which has three consequences:
+
+```bash
+grep -n "key: \"" src/app/version-diff.ts   # the registry; none of the five appear
+```
+
+1. **They cannot be restored.** `applyRestore` starts from `now` (the LIVE workspace) and rewrites
+   only keys present in the registry, so all five are carried through untouched. Rolling a project
+   back does not roll these back. Pinned as today's behaviour by `version-restore.test.ts`
+   ("reverts settingsOverrides but carries the five array slices from live state").
+2. **The compare view never lists a change in them.** `loadDiff` returns `diffWorkspaces` output,
+   so a session of document editing shows an empty comparison.
+3. **★★★ The capture is SKIPPED ENTIRELY for a session that only touches them.** `writeVersion`
+   (`use-version-history.ts`) gates an auto-capture on `diffWorkspaces(prev, payload).length === 0`
+   — a meaningful-change check meant to suppress timestamp-only autosaves. Five slices invisible to
+   the diff means a whole session of document, knowledge, insight or calendar editing produces NO
+   version. This is the sharpest half: (1) and (2) are missing features, (3) is silent data the user
+   believes is being versioned.
+
+★★ **Why the smallest fix did not do this.** Two of the five were in the registry as
+`kind: "singleton"` — a declared kind that disagreed with the real type, which corrupted the slice
+on restore (see below). Removing them restored the pre-branch behaviour without inventing a model.
+Making them genuinely restorable needs `kind: "list"`, and that is a real design task, not a
+one-line spec change.
+
+★★ **The id plumbing is the design question, and it is NOT uniform across the five.**
+`VersionChange.recordId` is `number | null` and `changeKey(collection, recordId)` interpolates it,
+while `diffList` matches records by a numeric `id`. So:
+
+```bash
+grep -n "readonly id" src/app/insights/insight.ts        # Insight.id — a NUMBER
+grep -n "export type KnowledgeItem" -B 12 src/app/document-link.ts | grep -n "id:"   # KnowledgeLink.id — a STRING
+```
+
+`Insight` ids are numbers and `CalendarEvent` ids are numbers, so those two could take a
+`kind: "list"` row as-is. `KnowledgeItem`, `ProjectDocument` and `DocVersion` carry STRING ids, so
+they need `recordId` widened to `number | string | null` (and `diffList`'s `byId` map with it), or a
+separate keying scheme. ★ An earlier framing of this entry said flatly that "their ids are strings";
+that is true of three of the five and false of the other two, and the split is exactly what decides
+how much work this is.
+
+★ **Restoring a DOCUMENT is not obviously a list revert anyway.** `documents` and `documentVersions`
+already have their own version model (`applyDocMutation`, before-images, tombstones — see
+[`docs/AGENTS/documents.md`](AGENTS/documents.md)), so wiring them into the workspace-level restore
+would give one document two independent histories. Decide that before adding a row for either.
+
+---
+
+## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped
+
+**Status:** open. Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is
+why it is a separate number — closing §241 would not touch this.
+
+`writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:
+
+```bash
+grep -n -A 12 "export function isEmptyWorkspacePayload" src/app/use-version-history.ts
+```
+
+Its `lists` array is `tasks`, `raid`, `milestones`, `stakeholders`, `resources`, `changes`,
+`budgets`, `absences`, `shifts`. A payload where every one of those is empty is treated as a
+transient (a project switch mid-flight) and the capture is dropped with a
+`version.skipEmptyTransientCapture` diagnostic. `knowledgeItems`, `insights`, `documents`,
+`documentVersions` and `calendarEvents` are counted by NEITHER guard, so a project holding only
+documents — or only knowledge items — is indistinguishable from a project that is genuinely empty,
+and NO version is ever written for it.
+
+★★ **The guard's own comment says to keep the list in sync when a new CONTENT collection is added**,
+and five have been added since without it. That comment is the evidence this is an oversight rather
+than a decision.
+
+★★ **Do NOT just append the five.** The guard is deliberately a SEPARATE definition from
+`isWorkspaceEmpty` — it ignores reference data (roles/disciplines/grades) because a project switch
+briefly seeds defaults, and counting those would defeat the guard. The question for each of the five
+is whether a project-switch transient can carry it non-empty while the nine are empty; if it can,
+adding it re-opens the hole this guard exists to close. `activityLog` is the known case where the
+answer is NO — `isWorkspaceEmpty` excludes it deliberately, and
+[`docs/AGENTS/activity-log.md`](AGENTS/activity-log.md) records why counting it would turn a
+data-loss guard into a data-loss vector. Answer it per slice, do not bulk-add.
+
+★ Reproduce the skip from the diagnostic rather than by reading: seed a project with a document and
+nothing else, edit it, and watch for `version.skipEmptyTransientCapture` in the diagnostics ring.
+Turso-gated, so it needs a live database — which is also why no gate will ever see it (§215).
 
 ---
 

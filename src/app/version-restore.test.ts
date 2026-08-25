@@ -133,6 +133,36 @@ describe("applyRestore over array-typed slices", () => {
     expect((out.insights as unknown as readonly { severity: string }[])[0].severity).toBe("high");
   });
 
+  // A capture taken before `getVersionPayload` emitted all 24 slices carries
+  // NONE of the six. This pins what restoring one does today, which is what the
+  // 0.259.0 changelog entry claims — five carried through from live state, and
+  // `settingsOverrides` genuinely reverted to the (absent) recorded value.
+  it("carries five slices through a short pre-0.259.0 capture and reverts the sixth", () => {
+    const version = ws({});
+    const now = ws({
+      knowledgeItems: [kItem("a", "Live")],
+      insights: [insight(1, "high")],
+      documents: [{ id: "d", title: "Live", blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-02" }] as never,
+      documentVersions: [{ id: "v", documentId: "d", capturedAt: "2026-01-01", blocks: [] }] as never,
+      calendarEvents: [{ id: 1, title: "Live", date: "2026-01-01" }] as never,
+      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } } as never,
+    });
+    const changes = diffWorkspaces(version, now);
+    const out = applyRestore(now, version, changes, selectAll(changes));
+    expect({
+      knowledgeItems: out.knowledgeItems?.length,
+      insights: out.insights?.length,
+      documents: out.documents?.length,
+      documentVersions: out.documentVersions?.length,
+      calendarEvents: out.calendarEvents?.length,
+    }).toEqual({ knowledgeItems: 1, insights: 1, documents: 1, documentVersions: 1, calendarEvents: 1 });
+    // The one genuine object singleton of the six IS compared and reverted, so a
+    // rollback to a capture that predates an override drops it. The compare view
+    // lists it as a "Project overrides" change first.
+    expect(changes.map((c) => c.collection)).toEqual(["settingsOverrides"]);
+    expect(out.settingsOverrides).toEqual({});
+  });
+
   it("turns no array-typed slice of the workspace into an object", () => {
     const arrays = (n: string) => ({
       knowledgeItems: [kItem("a", n)],

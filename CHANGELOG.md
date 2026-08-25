@@ -18,11 +18,15 @@ longer carries its own changelog comment.
   the capture only ever recorded eighteen of them — so knowledge items,
   insights, documents, document version history, per-project settings
   overrides and calendar meetings were written back as empty and the live
-  project lost all six. Captures are now complete. A capture taken BEFORE this
-  release is still short, because the missing six were never in it; restoring
-  one of those still clears them. Captures taken from this release onward
-  carry all twenty-four and restore all twenty-four. Closes
-  `docs/open-followups.md` §240.
+  project lost all six. Captures are now complete, and a restore no longer
+  empties any of the six. Five of them — everything except the per-project
+  settings overrides — are now kept exactly as they stand in the open project
+  when you restore, rather than being rolled back with everything else;
+  rolling those back too is separate work (`docs/open-followups.md` §241).
+  That also makes a capture taken BEFORE this release safe to restore: it
+  never carried the six, but restoring one leaves five of them untouched and
+  rolls back only the per-project settings overrides, which the comparison
+  lists as a change before you confirm. Closes `docs/open-followups.md` §240.
 
 - **The steering committee is now saved with the project, and unrelated edits
   no longer erase one.** The committee was read back whenever a project was
@@ -57,9 +61,13 @@ longer carries its own changelog comment.
   opens with a generated index table carrying the recipe that rebuilds it, and
   the three non-numbered sections moved to the end so the numbered register
   reads as one run. Eight entries were opened for work that was recorded
-  everywhere except there (§233–§240), two of which are the fixes above. A
-  matching sweep corrected the prose those fixes falsified in thirteen other
-  documents.
+  everywhere except there (§233–§240), one of which is a fix above. The
+  steering-committee fix is the opposite case and closed §232: a defect
+  recorded nowhere at all, found by this audit rather than collected by it —
+  the only prose on the subject described the committee persisting cleanly. A
+  matching sweep corrected the prose those fixes falsified in the other
+  documents that described the old behaviour and in several source comments;
+  `git show --stat 11d2f1ae` is the list.
 
 ## [0.258.1] - 2026-08-24 "Mandelo"
 
