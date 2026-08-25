@@ -135,10 +135,17 @@ describe("the three asset-id patterns and what each deliberately does not see", 
   //   IMG_TAG_RE           <img> tag, quote-aware, double-quote value
   //   ASSET_IMG_TEST_RE    <img>, case-INSENSITIVE, ALL quoting styles
   //
-  // ★ This describe stays, and is NOT a duplicate of that table: it probes the
-  // third pattern through sanitizeProjectDocuments — a paragraph with no visible
-  // text survives load only when that pattern matches — so it pins the load-path
-  // CONSEQUENCE the pattern-level table cannot reach.
+  // ★ This describe stays, and is NOT a duplicate of that table. It pins two
+  // things the pattern-level table cannot reach, and BOTH are consequences
+  // rather than pattern behaviour:
+  //   - `survivesLoad` runs the third pattern through sanitizeProjectDocuments,
+  //     so it pins what a LOAD does, not what the regex matches;
+  //   - `counted`/`drawable` run through `assetRefsInDocument`, NOT the raw
+  //     regexes, so they pin the CALLER's `.filter((id) => id.length > 0)`.
+  // ★★ That second one is why `<img data-asset-id="">` asserts `counted: false`
+  // here while the new table asserts the same input CAPTURES `[""]`. Both are
+  // right and neither implies the other — delete this block and the empty-id
+  // filter has no cover anywhere.
   const oneParagraph = (html: string): ProjectDocument =>
     doc(11, [{ type: "paragraph", html }]);
   const survivesLoad = (html: string): boolean => {

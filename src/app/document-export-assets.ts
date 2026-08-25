@@ -13,8 +13,10 @@ import { IMG_TAG_RE } from "./document-asset-patterns";
 
 // ★ Re-exported, not declared here: the declaration and its full docstring live
 //   in document-asset-patterns.ts beside the two patterns it must be read
-//   against (open-followups §209). Kept exported from this module because the
-//   three renderers and this file's own `documentAssetIds` import it from here.
+//   against (open-followups §209). Kept exported because the three renderers
+//   import IMG_TAG_RE from THIS module. ★★ NOT for this file's own
+//   `documentAssetIds`, which uses the plain import above — a re-export creates
+//   no local binding, which is why both statements name the same module.
 export { IMG_TAG_RE } from "./document-asset-patterns";
 
 /** Every asset id the document references, in document order, deduplicated.
