@@ -264,7 +264,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // ★★★ Every setter here is guarded by `mountedRef` — three guards covering
   //     four setters. These are the last §72 setters in this hook that can
   //     escape as an UNHANDLED REJECTION rather than a merely discarded update;
-  //     `applyWorkspace`'s 28 setters and `onOpenStorageFile`'s raw ones are
+  //     `applyWorkspace`'s 29 setters and `onOpenStorageFile`'s raw ones are
   //     still unguarded, deliberately, because every one of them sits inside a
   //     `try` whose `catch` calls only guarded emitters. Three of the eight
   //     call sites await this function outside any `try`: the load effect's
@@ -277,10 +277,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   //     this is the hook's OWN state, so there is no superseded-run result a
   //     caller still needs. `logDiag` stays OUTSIDE the guard so a teardown-time
   //     status failure is still recorded.
-  //     ★ That "28" is the likeliest claim here to rot (it read 25 until a review
-  //     measured it) — re-derive it with the sed commands in AGENTS.md's activity-log
-  //     bullet. Anchor the START on `const applyWorkspace = `: a bare `applyWorkspace`
-  //     match opens 572 lines early and reports 31, silently, with no error.
+  //     ★ That "29" is the likeliest claim here to rot — it has already read 25, then
+  //     28. Re-derive with the sed commands in `docs/AGENTS/activity-log.md`, NOT in
+  //     AGENTS.md. Anchor the START on a LINE-INITIAL two-space `const applyWorkspace`,
+  //     spelled short HERE so it cannot match itself; bare it opens 573 lines early → 32.
   const refreshBackendStatus = async () => {
     try {
       const ready = await backend.isReady();

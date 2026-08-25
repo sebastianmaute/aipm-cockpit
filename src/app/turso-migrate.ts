@@ -9,8 +9,17 @@
 // rejects with "table X has no column named …", failing every save.
 //
 // This module reads each table's actual columns via PRAGMA table_info and emits
-// `ALTER TABLE … ADD COLUMN … TEXT` for any spec column the DB is missing. All
-// entity columns are TEXT except `id`, which comes in TWO kinds (turso-schema's
+// TWO kinds of ALTER, in this order: `ALTER TABLE … RENAME COLUMN … TO …` for a
+// legacy column whose replacement the table expects (`columnRenameAlters` —
+// applied FIRST, so the data moves in place instead of being stranded beside a
+// fresh empty column), then `ALTER TABLE … ADD COLUMN … TEXT` for any spec
+// column still missing (`missingColumnAlters`). ★★ Describing only the ADD half
+// is an under-statement this header carried for a long time, and it is not
+// harmless: it reads as licence to drop a rename and let the add pass "handle"
+// it, which silently loses the old column's data. `buildColumnEnsureAlters`
+// composes both.
+//
+// All entity columns are TEXT except `id`, which comes in TWO kinds (turso-schema's
 // EntitySpec.idKind): `id INTEGER PRIMARY KEY` for the entities that mint a
 // number, and `id TEXT PRIMARY KEY` for those that mint a string
 // (`document_assets`, a crypto.randomUUID()). In the tenant schema both drop

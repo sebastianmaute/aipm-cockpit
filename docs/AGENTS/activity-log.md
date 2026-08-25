@@ -45,41 +45,62 @@ it has no table of its own, NOT because it sits outside the workspace.
   ★★ **`applyRestoredWorkspace` (`task-manager.tsx`, the SECOND load funnel) deliberately does NOT set
   `activityLog`.** `getVersionPayload` builds its snapshot from an explicit field list carrying no
   `activityLog`, so fanning it out would blank the audit trail on every version restore.
-  ★★ It is ONE OF THREE slices on which the two funnels disagree, NOT the only one — `features` and
-  `fieldVisibility` are also absent from the restore fan-out. An earlier revision said "the one slice",
-  which sends a reader who diffs the funnels either to distrust the doc or to "complete the pattern" on
-  the other two. Re-derive rather than trust this line: extract the setter names from `applyWorkspace`
-  and from `applyRestoredWorkspace` and `comm` them. ★★ That diff returns FOUR names, not three — the
-  fourth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it), not a
-  workspace slice, and the comment above `applyRestoredWorkspace` already says the restore funnel
-  deliberately omits it. Three SLICES, four NAMES; a reader who stops at the count will think this line
-  is wrong. ★ A range that stops at `setCalendarEvents` hides it and returns three — `setLoadedBackend`
-  is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close brace.
+  ★★ It is ONE OF FOUR slices on which the two funnels disagree, NOT the only one — `features`,
+  `fieldVisibility` and `documentAssets` are also absent from the restore fan-out. An earlier revision
+  said "the one slice" and its successor said THREE; either sends a reader who diffs the funnels off to
+  distrust the doc or to "complete the pattern" on the rest. ★★★ **THAT SENTENCE HAS NOW BEEN
+  OVERTAKEN TWICE BY SLICES THAT NEVER OPENED THIS FILE** — `documentAssets` joined `applyWorkspace`
+  with S3c-1 and nothing here moved. Do not repair it by writing FOUR and walking away; re-derive,
+  which is why the commands sit below rather than the count. ★★ That diff returns FIVE names, not
+  four — the fifth is `setLoadedBackend`, which is the load GATE (`workspaceLoaded` derives from it),
+  not a workspace slice, and the comment above `applyRestoredWorkspace` already says the restore
+  funnel deliberately omits it. Four SLICES, five NAMES; a reader who stops at the count will think
+  this line is wrong. ★ A range that stops at `setCalendarEvents` hides `setLoadedBackend` and returns
+  four — it is deliberately the LAST call in `applyWorkspace`, so end the range at the function's close
+  brace. ★ It does NOT hide `setDocumentAssets`, which shares `setCalendarEvents`' source line.
   ★★★ RUN THESE RATHER THAN PARAPHRASE THEM. The paragraph above described this diff in prose
   ("extract the setter names … and `comm` them") while the code comment that carried the real command
   lost it to a size-ratchet condense — and prose describing a command is not a command. It cannot go
-  back there: `use-storage-backend.ts` stands at 798 of the 800-line cap (`size:check` counts `wc -l`
-  plus one), and this file is outside that gate's `src` walk, so the command lives here.
-  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **28**
+  back there: `use-storage-backend.ts` stands at **799** of the 800-line cap (`size:check` counts
+  `wc -l` plus one) — ONE line of headroom, not the two this used to imply — and this file is outside
+  that gate's `src` walk, so the command lives here.
+  `sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **29**
   `sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u | wc -l` → **24**
   `comm -23 <(sed -n '/^  const applyWorkspace = /,/^  };$/p' src/app/use-storage-backend.ts | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u) <(sed -n '/^  const applyRestoredWorkspace = /,/^  \}, \[/p' src/app/task-manager.tsx | grep -oE 'set[A-Za-z0-9_]+\(' | sort -u)`
-  → `setActivityLog(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
+  → `setActivityLog(` `setDocumentAssets(` `setFeatures(` `setFieldVisibility(` `setLoadedBackend(`
   ★★ THE TWO RANGES TAKE DIFFERENT ANCHORS AND BOTH WRONG FORMS INFLATE SILENTLY rather than error.
   `applyRestoredWorkspace` is a `useCallback`, so it closes on `}, [` — reusing the first command's
-  `^  };$` end anchor there runs 616 lines and reports 38. And the first command's start pattern needs
-  the `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 572 lines
-  and reports 31. ★ Its `^  ` anchor is DORMANT today and still worth keeping: the code comment that
-  used to quote this command sat inside the very file it greps, so its own copy of the start pattern
-  opened a second range (unanchored: 32 setters over 90 lines at `4cd14c14^`). That copy is gone, the
-  file now holds one occurrence, and anchored and unanchored both return 28 — so the hazard is quoting
-  a command in the file it scans, not the anchor by itself.
-  ★★ AND "deliberately omitted ⇒ preserved" is true of `activityLog` ALONE — do not read it as a
-  property of restore. `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out
-  24, so `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
-  `calendarEvents` are each SET from a payload that never carried them — i.e. blanked on every version
-  restore, by exactly the mechanism omitting `activityLog` avoids. PRE-EXISTING, not introduced by the
-  activity-log slice and deliberately not fixed by it; recorded here only so the omission above stops
-  reading as a guarantee about everything else the funnel touches.
+  end anchor there runs 626 lines and reports 39. And that first command's start pattern needs the
+  `const … = ` prefix: a bare `applyWorkspace` match starts at an earlier mention, spans 573 lines
+  and reports 32.
+  ★★★ **THE SELF-MATCH CAME BACK, AND THIS PARAGRAPH HAD DECLARED IT RETIRED.** It read: the code
+  comment that used to quote this command "is gone, the file now holds one occurrence, and anchored
+  and unanchored both return 28". By 2026-08-25 a comment in `use-storage-backend.ts` was spelling
+  the START PATTERN in full again, so `sed` opened a SECOND range there: measured, the unanchored
+  form returned **31** against the anchored form's **29**, and only the leading two-space anchor
+  saved the anchored one, because the quoted copy is indented as a comment body. That comment now
+  spells the pattern short on purpose and both forms return **29** — but the RECURRENCE is the point,
+  not the repair. ★★ The durable rule, which survived all three revisions of this line: a command
+  quoted inside the file it scans WILL eventually match itself, and it fails by returning a plausible
+  LARGER number rather than by erroring. Never write "dormant" about it — write the anchor and keep it.
+  ★★★ **THE SIX-SLICE BLANKING THIS PARAGRAPH RECORDED IS FIXED — corrected 2026-08-25.** It read:
+  `getVersionPayload` captures 18 slices while `applyRestoredWorkspace` fans out 24, so
+  `knowledgeItems`, `insights`, `documents`, `documentVersions`, `settingsOverrides` and
+  `calendarEvents` "are each SET from a payload that never carried them — i.e. blanked on every
+  version restore", filed as pre-existing and deliberately not fixed. Those six were added to the
+  capture, so **both sides are 24 and they now agree slice for slice** (`docs/open-followups.md`
+  §240). Derive it rather than reading the number here — the payload's field list and its dep array
+  are the same 24 names twice over:
+  `sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/task-manager.tsx`.
+  The round-trip is pinned by `task-manager.restore-backfill.test.tsx` ("round-trips all six optional
+  slices through getVersionPayload"), whose SIBLING test is the reason a pin was needed at all: it
+  feeds the restore a workspace that already carries the slice, so it would pass with the capture
+  still dropping it.
+  ★★ "Deliberately omitted ⇒ preserved" is STILL true of `activityLog` alone as a statement about
+  INTENT, and that is the half worth keeping: it is omitted from BOTH sides on purpose, with the
+  reason written down. `features`, `fieldVisibility` and `documentAssets` are absent from the restore
+  fan-out and are equally preserved — but by nothing that says so, which is the same silence that let
+  the six above stay blanked for as long as they did. Read neither as a guarantee.
   ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
   `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
   scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which

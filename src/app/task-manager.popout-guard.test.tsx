@@ -13,20 +13,28 @@
 // `read-only-guard.test.ts` proves the guard WORKS; nothing proved which
 // handlers are WIRED through it, which is where the defect lived.
 //
-// ★★★ SEVERITY — AND THIS PARAGRAPH HAS NOW BEEN WRONG IN BOTH DIRECTIONS, SO
-// READ THE QUALIFIERS. v1 said the popout "committed a real workspace write":
-// false — `use-storage-backend.ts` returns early from the save effect when
-// `isPopout`, and `canSend = !args.isPopout` disables every outbound
-// `useBroadcastSync`. v2 then over-corrected to "never storage … all discarded
-// on close": also false — BroadcastChannel is NOT the only way out. The
-// activity log is per-device `localStorage` and `use-activity-log` writes it
-// with no `isPopout` check, so a popout Ctrl+Z (the hotkey is unconditional,
-// see below) calls `logActivity("undo")` and PERSISTS a line that outlives the
-// window, and can clobber entries the main window added since the popout
-// mounted. Accurate statement: no workspace BACKEND write escapes a popout; the
-// activity log does. ★★ v1's error came from a stale comment in
-// `use-storage-backend.ts`, v2's from trusting the corrected version of that
-// same comment too broadly. Scope a claim to the store it is true of.
+// ★★★ SEVERITY — THIS PARAGRAPH HAS NOW BEEN WRONG THREE TIMES RUNNING, SO
+// READ THE QUALIFIERS AND RE-DERIVE BEFORE QUOTING IT. v1 said the popout
+// "committed a real workspace write": false — `use-storage-backend.ts` returns
+// early from the save effect when `isPopout`, and `canSend = !args.isPopout`
+// disables every outbound `useBroadcastSync`. v2 over-corrected to "never
+// storage … all discarded on close". v3 corrected THAT by naming the activity
+// log: per-device `localStorage`, written by `use-activity-log` with no
+// `isPopout` check, so a popout Ctrl+Z persisted a line outliving the window.
+// ★★★ v3 IS FALSE TOO, AND WAS ALREADY FALSE WHEN IT WAS WRITTEN.
+// `c2e7958b` (2026-08-15) made the log WORKSPACE state and deleted both
+// effects plus the `clearActivityLog` wipe; `use-activity-log.ts`'s own header
+// says so and forbids reintroducing a local mirror. Persistence is the save
+// effect in `use-storage-backend.ts`, which returns early on `isPopout` and
+// names §91 at that very line as the writer that used to escape it. Accurate
+// statement TODAY: no PERSISTED write escapes a popout — the storage save and
+// BroadcastChannel are both `isPopout`-gated, and the one non-workspace store
+// that was not is gone; what the unguarded paths below still buy is
+// popout-LOCAL state. open-followups.md §91 carries the same correction and
+// the severity drop that follows from it. ★★ Every revision made the SAME mistake, not three
+// different ones: it inherited the previous one's store instead of re-deriving
+// it. Scope a claim to the store it is true of, and check that store still
+// exists.
 //
 // ★★ The observable is the UNDERLYING `commitBuckets`, not the workspace state:
 // buckets reach the panel through `useWorkspace()` rather than a captured prop,

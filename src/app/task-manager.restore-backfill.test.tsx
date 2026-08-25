@@ -190,8 +190,9 @@ const restored = (): Workspace => ({
   }],
 } as unknown as Workspace);
 
-// The six slices `applyRestoredWorkspace` restores but `getVersionPayload` does
-// not capture. ★★ Every literal here is shaped to survive its own sanitizer on
+// The six slices `applyRestoredWorkspace` restored while `getVersionPayload`
+// did NOT capture them — past tense on purpose: this branch closed that gap, and
+// this fixture is what keeps it closed. ★★ Every literal here is shaped to survive its own sanitizer on
 // the way back through `jsonToWorkspace` — a fixture the sanitizer drops would
 // read as `k:0,…` exactly like the defect does, making the round-trip pin
 // unfalsifiable. The test asserts that survival explicitly before it asserts
@@ -321,7 +322,8 @@ describe("task-manager → applyRestoredWorkspace", () => {
 
   it("round-trips all six optional slices through getVersionPayload, not just applyWorkspace", async () => {
     // ★★★ The sibling documentVersions test above feeds applyRestored a workspace
-    // that ALREADY carries the slice, so it passes while getVersionPayload drops it.
+    // that ALREADY carries the slice, so it would pass even if getVersionPayload
+    // dropped it — which is the shape the defect took before this branch.
     // This one captures the payload the app would actually store, parses it back,
     // and only then restores — the shape a real version capture takes.
     render(<TaskManager />);

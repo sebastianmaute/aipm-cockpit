@@ -39,9 +39,15 @@
   `shadow-[var(--…)]` className form is stripped first) — reference the token obliquely in comments.
   `bg`/`border`/`divide-ui-light-grey` + `text-ui-dark-grey` are BANNED chrome greys (`text-ui-light-grey`
   is fine) — use `bg-ui-medium-grey` for a neutral dot/fill. The axe gate (`e2e/a11y.spec.ts`) scans
-  FIVE combos over the THREE built-in schemes: harbor-light, harbor-dark, meridian-light, meridian-dark,
-  umber-light (5 × A11Y_VIEWS) — ★ umber-DARK is deliberately omitted to hold the count at five, so scheme
-  DATA is 5-of-6 covered, not fully. Seeding
+  **SEVEN** combos over the **FOUR** built-in schemes — harbor, meridian and umber each light AND dark,
+  plus beacon, which is light-only by design and has no dark variant to add. ★★★ **THIS LINE SAID FIVE
+  COMBOS OVER THREE SCHEMES AND CALLED UMBER-DARK "deliberately omitted to hold the count at five"
+  (2026-08-25 correction).** Two things were wrong at once and the second is the dangerous one: beacon
+  had joined the roster, and umber-dark was never a deliberate omission — `UMBER_DARK` was imported,
+  seeded and marked `supportsDark`, and the combo was simply absent from the matrix, so the doc's
+  "deliberate" reading is what kept anyone from noticing. Scheme DATA is now fully covered. ★ Do not
+  quote the scan TOTAL here — `e2e/a11y.spec.ts`'s own header owns it and carries the measure command.
+  Seeding
   `aipm-cockpit-style`/`aipm-cockpit-theme` via `addInitScript` — ★ Phase 2: it must ALSO seed `aipm-cockpit:color-schemes` `activeId`
   to the scheme under test, else `syncScheme` overwrites the boot paint on mount (scheme landmine 4). Appearance
   Style switch disables the theme control while Mockup (a light-only scheme) is active.
@@ -111,10 +117,11 @@
   structure UNCHANGED). Portable format widened: `exportScheme`/`cleanScheme` carry `structural`
   (via `cleanStructural` + `STRUCTURAL_TOKENS`, `isSafeRawCssValue`-gated) + the 7 pinned derived tokens;
   `updateScheme` accepts a `structural` patch. Scheme editor base/reset = `HARBOR_LIGHT`; its old
-  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs its 6-combo
-  matrix on the FOUR BUILT-INS — harbor light+dark, meridian light+dark, umber light, beacon light —
-  resolving each map node-side at seed time. ★ Umber-DARK is deliberately unscanned to hold the count down;
-  Beacon has no dark variant to scan. — The Phase-2 text below still describes
+  "New from AIPM/Mockup" buttons → one "New from current theme". ★★ e2e axe `a11y.spec.ts` runs a
+  **7-combo** matrix on the FOUR BUILT-INS — harbor light+dark, meridian light+dark, umber light+dark,
+  beacon light — resolving each map node-side at seed time. ★★ This said SIX and called umber-dark
+  "deliberately unscanned to hold the count down"; it was never deliberate, and it is scanned now.
+  ★ Beacon genuinely has no dark variant, which is the only real omission. — The Phase-2 text below still describes
   the MECHANISM (data-style/scheme apply/structural), just not the built-in ROSTER.
   • **Scheme-driven color schemes (Phase 2 — AIPM + Mockup ARE built-in schemes):** the AIPM/mockup/custom
   `data-style` AXIS COLLAPSED — `data-style` is now the CONSTANT `"custom"` (`use-style` always writes it;

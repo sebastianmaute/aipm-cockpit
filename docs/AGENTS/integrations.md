@@ -23,6 +23,18 @@ Committee` (fenced JSON) + Turso `meta` row `steering_committee` (REUSES the `me
 `TABLE_NAMES` entry) + JSON + IDB KV slot. Storage-ONLY (gated `config===undefined`, like
 fieldVisibility/features — EXCLUDED from user exports); committee-less ws stays BYTE-STABLE. ★ Adding a FIELD
 to the nested object costs ZERO extra write paths (rides the blob) — only extend `sanitizeSteeringCommittee`.
+★★★ **EVERY WORD ABOVE WAS TRUE OF THE WRITE PATHS AND THE FEATURE STILL DID NOT PERSIST — read this
+before trusting any "persists as X" sentence in these docs.** Until 2026-08-25 (`docs/open-followups.md`
+§232) `use-storage-backend.ts` LOADED `steeringCommittee` into state and put it back in NOTHING: the
+value was absent from all five outgoing workspace literals and from the save effect's dependency
+array, so the six write paths this paragraph enumerates were each perfectly capable of carrying a
+committee and were never handed one. A committee survived only until the next unrelated autosave, on
+every backend. ★★ The lesson is the shape of the claim, not the bug: "slice S has six write paths" and
+"slice S persists" are DIFFERENT statements, and the codec-level one is the easy one to verify and the
+useless one to rely on. The end-to-end check is whether the SAVE assembles the value — for this slice,
+`grep -c "stakeholders, steeringCommittee, timelogLinks," src/app/use-storage-backend.ts` → **6**,
+being the five outgoing literals PLUS the save effect's dependency array, which is the half that
+decides whether a committee-only edit fires a save at all.
 ★★ Adding to the `ActionSource` / `AppView` unions surfaced exhaustive `Record<>` maps tsc forced
 extending (`action-source-label`, `nav-icons` ICON_PATHS, `nav-config` LABEL_KEYS/`navLabelKey`; the former
 `action-source-icon` map was REMOVED in the next-actions redesign) — "Map-based, no break" was WRONG; grep the union members.

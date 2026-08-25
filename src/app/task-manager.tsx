@@ -1050,8 +1050,8 @@ function TaskManagerInner() {
   // Fan a restored workspace into every setter — the SECOND load funnel, so it
   // repeats applyWorkspace's task-FK backfill (but NOT `workspaceLoaded`: see it).
   // ★★ `activityLog` is DELIBERATELY MISSING, and missing STRUCTURALLY: no `setActivityLog` binding exists
-  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why
-  // that matters — and why it does NOT generalise to the other six slices here — see AGENTS.md.
+  // in this file, so the blanking line cannot be written without first bringing a setter into scope. Why —
+  // and what still differs between the two funnels — is in `docs/AGENTS/activity-log.md`, not AGENTS.md.
   const applyRestoredWorkspace = useCallback((w: Workspace) => {
     setTasks(backfillTaskResourceFks(w.resources ?? [], w.tasks ?? [])); setRaid(w.raid ?? []); setAbsences(w.absences ?? []); setShifts(w.shifts ?? []);
     setResources(w.resources ?? []); setRoles(w.roles ?? []); setDisciplines(w.disciplines ?? []); setGrades(w.grades ?? []);

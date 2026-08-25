@@ -1176,9 +1176,12 @@ log**. Not verified:
   window does not, so the two should not collide — but ★ the axe gate reports *missing* accessible
   names, never *duplicated* ones (same blind spot as §15), so nothing automated covers this.
 - **The `max-h-72` scroll boundary** on the inline log with a genuinely long note log.
-- **The disclosure summary's contrast** across the six scheme combos. The axe matrix scans five of
-  the six built-in combinations, so a scheme it does not scan can carry a contrast failure with the
-  gate green — exactly how 0.208.0 shipped one.
+- **The disclosure summary's contrast** across the built-in scheme combos. ★★ This read "the six
+  scheme combos … the axe matrix scans five of the six", which was wrong in both halves by
+  2026-08-25: there are **seven** combos (beacon joined the roster) and the matrix now scans **all
+  seven** — umber-dark, the one it silently skipped, was added on this branch. The item stays open
+  because a green axe run still says nothing about contrast on a surface axe has no rule for; the
+  reason is no longer "a scheme it does not scan". 0.208.0 shipped a failure through the older gap.
 
 ---
 
@@ -9334,10 +9337,17 @@ the definition in `sanitize-core.ts`.
 That comment still exists and is still excluded — by the command's OWN filter.** The comment quotes
 this very grep, so its text contains the literal `\.test\.`, which `grep -v ".test."` matches (the
 dots are any-char) and drops. Chasing the wrong number found the wrong REASON: the fourth line was
-never going to appear under this command, and the source comment in `use-task-submit.ts` states the
-same 4 with the same self-defeating explanation, so a reader who trusts either one and gets 3 will
-suspect a real deletion. **The load-bearing claim — exactly TWO production call sites — is unchanged
-and was re-verified 2026-08-25.** ★ The control that proves the pattern is not simply stale: drop the
+never going to appear under **this** command.
+★★★ **THE FOLLOW-ON CLAIM ABOUT THE SOURCE COMMENT WAS FALSE AND IS CORRECTED HERE (2026-08-25).**
+This paragraph went on to say the comment in `use-task-submit.ts` "states the same 4 with the same
+self-defeating explanation, so a reader who trusts either one and gets 3 will suspect a real
+deletion". It does not. That comment quotes an ESCAPED filter — `grep -v "\.test\."`, where `\.` is a
+LITERAL dot — and its own text carries a backslash between `test` and the closing dot, so the
+pattern does not match the comment and the command really does return **4**, the comment included.
+Two filters one character apart both return a right answer, to two different questions. Run the
+command printed beside the number you are checking, and never assume a source comment spells a
+command the way this register's copy of it does. **The load-bearing claim — exactly TWO production
+call sites — is unchanged and was re-verified 2026-08-25.** ★ The control that proves the pattern is not simply stale: drop the
 `grep -v` and the same grep returns **6** — the 3 above, the `use-task-submit.ts` comment it was
 filtering out, and 2 test call sites. That is the wider set, not the answer. JSON maps tasks through
 `migrateTask` + `sanitizeNoteFields`, neither of which touches `dependencies`; IndexedDB — the DEFAULT
@@ -13286,6 +13296,11 @@ AGENTS.md's arithmetic was re-measured in the SAME commit, per this entry's own 
 instruction. **AGENTS.md's a11y bullet owns that count — read it there, not here.** What the two
 runs reported at closure, as a record of the measurement rather than a second live claim: 110
 `a11y:` scans plus the one non-scan version guard, 111 tests.
+★★ **THAT PAIR IS A DATED RECORD AND IS NO LONGER WHAT THE COMMANDS BELOW PRINT** — the umber-dark
+combo was added on 2026-08-25 (the matrix had silently omitted it) and the run is now 128 scans /
+129 tests. The 110/111 is left as written because it records what was measured at closure; do not
+"fix" it to today's figure, and do not read the block below as a live expectation. `e2e/a11y.spec.ts`
+owns the current arithmetic in its own header, beside the command that measures it.
 
 ```bash
 npx playwright test e2e/a11y.spec.ts --list   # Total: 111 tests in 1 file
