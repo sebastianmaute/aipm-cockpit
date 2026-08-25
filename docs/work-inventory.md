@@ -174,7 +174,7 @@ written out and the number is not. Read it off the script — `npm run followups
 absence vocabulary — `followup-claims-lib.mjs` builds `REGISTER_ABSENCE_PATTERNS` from the same
 `ABSENCE_MARKERS` the symbols gate uses — so "it has no such notion" would be the wrong lesson. The
 patterns are phrase-shaped and simply did not match these wordings. ★★★ That said "these THREE
-wordings" until 2026-08-25 — eleven lines under a sentence corrected in the SAME edit from three to
+wordings" until 2026-08-25 — in the same paragraph as a sentence corrected in the SAME edit from three to
 six, so the stale noun sat inside its own correction and read as freshly verified. When a count
 changes, re-read the WHOLE paragraph for every clause that agreed with the old value; the number and
 the noun rot independently. Read the entry before treating a flag as work; a miss here is a pattern

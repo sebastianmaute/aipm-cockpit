@@ -73,8 +73,7 @@ describe("applyRestore", () => {
 // the type system pairs the two, so the mismatch is invisible until a restore
 // runs. These pin the RESULT SHAPE, which is the only place it shows.
 describe("applyRestore over array-typed slices", () => {
-  // ★★★ EVERY FIXTURE IS ANNOTATED WITH ITS REAL TYPE, AND NOT ONE USES
-  //   `as never`. The first cut of this file used `as never` on all five and
+  // ★★★ The first cut of this file used `as never` on all five fixtures and
   //   thereby encoded FIVE wrong facts that tsc could not see: string ids for
   //   `ProjectDocument`/`DocVersion` (both are `number`), `capturedAt` for
   //   `savedAt`, a missing `title`/`source`/`op`, a `date` field `CalendarEvent`

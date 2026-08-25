@@ -72,11 +72,7 @@ fail it; only errors do), `tsc --noEmit`,
 Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
 notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
-was missing from this sentence; enumerate the four with
-`grep -nE 'test((`|")a11y:' e2e/a11y.spec.ts`. ★★ NOT a bare `grep -n "a11y:"` — that returns
-FIVE, because line 50 of the spec is a COMMENT quoting the grep, the self-matching trap this repo
-records elsewhere. Anchoring on `test(` alone returns five too, catching the non-scan version guard;
-the `a11y:` title prefix is what separates the scans from it. ★ MEASURE the scan count, do not derive it — the spec
+was missing from this sentence. ★ MEASURE the scan count, do not derive it — the spec
 carries its own arithmetic and a draft of it has been wrong twice: `npx playwright test
 e2e/a11y.spec.ts --list` (no browsers needed). ★ Visual-regression
 is **not** in the CI run — `playwright.config.ts` puts it in a separate `visual` project that the
