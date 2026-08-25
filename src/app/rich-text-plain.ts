@@ -54,7 +54,22 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  opener when a letter (or `/`) follows it. A bare `<[^>]*>` ate everything
  *  from a literal "<" to the next ">" — "cost < 5k and rising" became "cost" —
  *  and a value left visually empty that way is DROPPED by the `if (description)`
- *  gates in the entity sanitizers. */
+ *  gates in the entity sanitizers.
+ *
+ *  ★★★ ITS `[^>]*` TRUNCATION IS LOAD-BEARING FOR A GUARD IN ANOTHER FILE, and
+ *  nothing here would tell you so. `sanitizeBlock` (`document-model.ts`) keeps an
+ *  image-only paragraph via `htmlTextLength(html) === 0 &&
+ *  !ASSET_IMG_TEST_RE.test(html)`, and `ASSET_IMG_TEST_RE`
+ *  (`document-asset-patterns.ts`) carries the SAME unguarded `[^>]*`. Measured
+ *  2026-08-25 on `<img alt="a>b" data-asset-id="real">`: both truncate at that
+ *  `>`, so THIS projection is non-empty, the `&&` short-circuits, and the false
+ *  predicate is never reached — the block is kept. The safety is that
+ *  CANCELLATION, not a property of either pattern.
+ *  ★★ REASONING, NOT MEASURED: making one of the two quote-aware alone should
+ *  then drop the block on load. Making this matcher quote-aware reads as
+ *  straightforward hardening, which is exactly why it is flagged here. Change
+ *  them together or not at all; the full argument is on `ASSET_IMG_TEST_RE`,
+ *  and the trap is open-followups §246. */
 const TAG = /<\/?[a-zA-Z][^>]*>/g;
 /** A non-breaking space in every spelling the editor or a paste can produce. */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
