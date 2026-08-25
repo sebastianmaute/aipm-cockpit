@@ -25,7 +25,7 @@
 // load path normalises quoting BEFORE anything counts references".
 
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { ANY_TAG_ASSET_ID_RE, IMG_TAG_RE } from "./document-asset-patterns";
+import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 
 function assetIdsInBlock(block: DocBlock): string[] {
   if (block.type !== "paragraph") return [];
@@ -61,7 +61,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  on its own terms: `ANY_TAG_ASSET_ID_RE` (document-asset-patterns.ts) is
  *  tag-AGNOSTIC because a reference
  *  the sanitizer preserved on a non-`img` element still matters for deletion
- *  safety and the usage count, while `IMG_TAG_RE` (same module)
+ *  safety and the usage count, while `IMG_TAG_ASSET_ID_RE` (same module)
  *  is tag-ANCHORED because an export must only fetch bytes for something it
  *  can actually draw. What was missing was anywhere that said so — a
  *  `<span data-asset-id>` consumed a cap slot, contributed to no export, and
@@ -101,7 +101,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  is why the headline above still stands: on a DUPLICATED attribute,
  *  `<img data-asset-id="a" data-asset-id="b">` yields `all` = ["a"] and
  *  `drawable` = ["b"], because `ANY_TAG_ASSET_ID_RE` is LAZY and stops at the FIRST
- *  occurrence while `IMG_TAG_RE` is GREEDY and backtracks to the LAST. A full
+ *  occurrence while `IMG_TAG_ASSET_ID_RE` is GREEDY and backtracks to the LAST. A full
  *  load collapses that duplicate to `data-asset-id="a"` and the two sets then
  *  agree, so it is reachable ONLY by scanning UN-loaded HTML — which the tests
  *  in this module's test file do. Treat the subset relationship as a measured
@@ -128,7 +128,7 @@ export type AssetRefs = {
   /** Ids `ANY_TAG_ASSET_ID_RE` finds on ANY element — what the per-document cap
    *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */
   all: ReadonlySet<string>;
-  /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */
+  /** Ids `IMG_TAG_ASSET_ID_RE` finds on an `<img>` tag — what an export can draw. */
   drawable: ReadonlySet<string>;
   /** `all` MINUS `drawable`, hence always a subset of `all`: holds a cap slot,
    *  exports nothing, lands in no export bucket. */
@@ -141,7 +141,7 @@ export function assetRefsInDocument(doc: ProjectDocument): AssetRefs {
   for (const block of doc.blocks) {
     if (block.type !== "paragraph") continue;
     for (const id of assetIdsInBlock(block)) all.add(id);
-    for (const match of block.html.matchAll(IMG_TAG_RE)) {
+    for (const match of block.html.matchAll(IMG_TAG_ASSET_ID_RE)) {
       if (match[1]) drawable.add(match[1]);
     }
   }

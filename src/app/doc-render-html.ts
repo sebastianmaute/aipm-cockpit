@@ -56,7 +56,8 @@
 
 import type { DocBlock, ProjectDocument } from "./document-model";
 import { resolveDataSection } from "./doc-data-section";
-import { IMG_TAG_RE, NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
+import { NO_EXPORT_ASSETS, type ExportAssets } from "./document-export-assets";
+import { IMG_TAG_ASSET_ID_RE } from "./document-asset-patterns";
 import { sanitizeDocumentHtml } from "./sanitize-html";
 import { descriptionHtml } from "./rich-text-plain";
 import { RENDER_SINK } from "./html-start";
@@ -293,7 +294,7 @@ function inlineDocumentImages(
   nameById: ReadonlyMap<string, string>,
   lang: Lang,
 ): string {
-  return html.replace(IMG_TAG_RE, (tag, id: string) => {
+  return html.replace(IMG_TAG_ASSET_ID_RE, (tag, id: string) => {
     if (assets.omitted.has(id)) {
       return htmlEscape(t(lang, "assetExportPlaceholder", nameById.get(id) ?? id));
     }

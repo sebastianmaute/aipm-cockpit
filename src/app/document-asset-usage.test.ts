@@ -132,7 +132,7 @@ describe("the three asset-id patterns and what each deliberately does not see", 
   // other DIRECTLY, as a table. open-followups §218/§209.
   //
   //   ANY_TAG_ASSET_ID_RE  attribute on ANY element, double-quote only
-  //   IMG_TAG_RE           <img> tag, quote-aware, double-quote value
+  //   IMG_TAG_ASSET_ID_RE           <img> tag, quote-aware, double-quote value
   //   ASSET_IMG_TEST_RE    <img>, case-INSENSITIVE, ALL quoting styles
   //
   // ★ This describe stays, and is NOT a duplicate of that table. It pins two
@@ -195,7 +195,7 @@ describe("the three asset-id patterns and what each deliberately does not see", 
 
 describe("the load path normalises quoting BEFORE anything counts references", () => {
   // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_TEST_RE accepts
-  // data-asset-id='x' and a bare unquoted value; ANY_TAG_ASSET_ID_RE and IMG_TAG_RE
+  // data-asset-id='x' and a bare unquoted value; ANY_TAG_ASSET_ID_RE and IMG_TAG_ASSET_ID_RE
   // both require a double-quoted value. That divergence is harmless ONLY
   // because every load path runs
   //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
@@ -402,13 +402,13 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //
     // ★★ THE CAUSE IS THE QUANTIFIER. Their ALTERNATIONS are byte-identical;
     //    the QUANTIFIER is not — `ANY_TAG_ASSET_ID_RE` is LAZY (`*?`) so it stops at
-    //    the FIRST occurrence, `IMG_TAG_RE` is GREEDY (`*`) and backtracks to
+    //    the FIRST occurrence, `IMG_TAG_ASSET_ID_RE` is GREEDY (`*`) and backtracks to
     //    the LAST. It is NOT the only difference between them, though, and
     //    believing so leads to the inference `TAG-AGNOSTIC ON PURPOSE` exists
     //    to prevent: they also differ in the tag anchor (`<[a-zA-Z][^\s/>"']*`
-    //    here vs `<img\b` there — the §218 design), and `IMG_TAG_RE` carries a
+    //    here vs `<img\b` there — the §218 design), and `IMG_TAG_ASSET_ID_RE` carries a
     //    trailing alternation plus `>` with no counterpart. Measured: making
-    //    this one greedy does NOT turn it into `IMG_TAG_RE` — a `<span>` still
+    //    this one greedy does NOT turn it into `IMG_TAG_ASSET_ID_RE` — a `<span>` still
     //    counts here and is still invisible there.
     //
     // ★★ SCANNED UN-LOADED ON PURPOSE. A full load collapses the duplicate to

@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { stripComments } from "../test/strip-comments";
 import * as PATTERNS from "./document-asset-patterns";
-import { ANY_TAG_ASSET_ID_RE, IMG_TAG_RE, ASSET_IMG_TEST_RE } from "./document-asset-patterns";
+import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./document-asset-patterns";
 
 const ids = (re: RegExp, html: string): string[] => Array.from(html.matchAll(re), (m) => m[1]);
 
@@ -37,7 +37,7 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // All-caps ATTRIBUTE name: only the case-INSENSITIVE load predicate sees it.
   ['<IMG DATA-ASSET-ID="d">', [], [], true],
   // Caps TAG name with a lower-case attribute: the cap counter is tag-agnostic
-  // so it counts; IMG_TAG_RE anchors on a literal lower-case `<img`.
+  // so it counts; IMG_TAG_ASSET_ID_RE anchors on a literal lower-case `<img`.
   ['<IMG data-asset-id="up">', ["up"], [], true],
   // Empty value: both extractors CAPTURE it (their callers filter empties), and
   // the load predicate rejects it — an empty id renders nothing anywhere.
@@ -79,7 +79,7 @@ describe("document-asset-patterns", () => {
     for (const [html, anyTagIds, imgIds, survivesLoad] of TABLE) {
       it("agrees with the measured answers for " + JSON.stringify(html), () => {
         expect(ids(ANY_TAG_ASSET_ID_RE, html)).toEqual(anyTagIds);
-        expect(ids(IMG_TAG_RE, html)).toEqual(imgIds);
+        expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual(imgIds);
         expect(ASSET_IMG_TEST_RE.test(html)).toBe(survivesLoad);
       });
     }

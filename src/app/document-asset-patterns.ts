@@ -8,8 +8,8 @@
 //   ANY_TAG_ASSET_ID_RE  the attribute inside ANY start tag, double-quoted,
 //                        tag-case-agnostic, /g, captures the id.
 //                        Answers: what spends a slot of the 20-image cap?
-//   IMG_TAG_RE           anchored on `<img …>`, double-quoted, /g,
-//                        captures the id.
+//   IMG_TAG_ASSET_ID_RE  the same attribute but only inside an `<img …>`
+//                        tag, double-quoted, /g, captures the id.
 //                        Answers: what can an export actually draw?
 //   ASSET_IMG_TEST_RE    anchored on `<img`, all three quoting styles,
 //                        case-INSENSITIVE, NOT /g, captures nothing.
@@ -33,7 +33,7 @@
 // delimiter and silently blanks real code in a module made of regex literals.
 //
 // ★★★ THE TWO /g PATTERNS SHARE `lastIndex`, AND BOTH ARE MODULE SINGLETONS.
-// `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_RE` may be used ONLY with `String.replace`
+// `ANY_TAG_ASSET_ID_RE` and `IMG_TAG_ASSET_ID_RE` may be used ONLY with `String.replace`
 // (which resets it) or `String.matchAll` (which clones it). A `.test()` or a
 // bare `.exec()` in a loop would carry position between unrelated callers — a
 // bug that only shows up once two of them run in one tick, i.e. in production
@@ -50,12 +50,12 @@
  *   column means — "a <span> is counted but never drawable" goes red if you
  *   do. Tag-name CASE is not a discriminator either: `<IMG …>` counts here.
  *
- *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_RE` uses: a preceding
+ *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_ASSET_ID_RE` uses: a preceding
  *   `alt="…"` is consumed whole as one alternative, so its contents cannot
  *   supply an opening quote for this attribute. Before that, a crafted alt
  *   ending in `data-asset-id=` produced a phantom id and hid the real one, and
  *   a text node spelling the attribute spent a cap slot (open-followups §231).
- *   The QUANTIFIER is lazy where `IMG_TAG_RE`'s is greedy — see `AssetRefs`
+ *   The QUANTIFIER is lazy where `IMG_TAG_ASSET_ID_RE`'s is greedy — see `AssetRefs`
  *   (`document-asset-usage.ts`).
  *
  *  ★★ `[^\s/>"']*` IS THE TAG NAME, AND THE `"'` IN IT IS NOT DECORATION.
@@ -91,7 +91,7 @@ export const ANY_TAG_ASSET_ID_RE =
  * load and the image disappears without a word. The three alternation branches
  * start on disjoint character classes, so there is no backtracking risk.
  */
-export const IMG_TAG_RE =
+export const IMG_TAG_ASSET_ID_RE =
   /<img\b(?:[^>"']|"[^"]*"|'[^']*')*\bdata-asset-id="([^"]*)"(?:[^>"']|"[^"]*"|'[^']*')*>/g;
 
 /** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
@@ -123,7 +123,7 @@ export const IMG_TAG_RE =
  *   and this side errs toward KEEPING — the failure it guards against is
  *   silent data loss, so a stray blank paragraph is the cheap direction.
  *
- *  ★★ Case-INSENSITIVE, unlike `IMG_TAG_RE` (above), which only ever sees html
+ *  ★★ Case-INSENSITIVE, unlike `IMG_TAG_ASSET_ID_RE` (above), which only ever sees html
  *   already lower-cased by DOMPurify. This one runs BEFORE any allow-list pass
  *   (`sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)` — see
  *   document-rich-fields.ts), so a hand-edited or imported `<IMG DATA-ASSET-ID>`
