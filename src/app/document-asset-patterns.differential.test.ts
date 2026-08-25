@@ -142,6 +142,48 @@ const EQUALS = ["=", " =", " = "] as const;
 const VALUES = [`"${REAL}"`, `'${REAL}'`, REAL] as const;
 const CLOSERS = [">", " >", "/>"] as const;
 
+/** Rows a parser reads NO asset reference from at all.
+ *
+ *  ★★★ WITHOUT THESE THE OVERCOUNT INVARIANT IS ONE-SIDED, and that is not a
+ *   theoretical gap — every generated row above carries a real id, so
+ *   `parserId` was `"realid"` on all of them and "never invents an id" could
+ *   only ever catch *returned the WRONG string*. The failure it is named for —
+ *   returning an id where there is none — had no row that could produce it.
+ *   §231, the defect that invariant exists for, is exactly that shape.
+ *
+ *  ★★ They are NOT generated, because the axes cannot make one: a negative row
+ *   is defined by the target attribute being absent or misspelled, and every
+ *   axis above exists to spell it correctly. Each is a distinct way to be
+ *   almost-but-not-an-asset-reference.
+ *
+ *  ★★★ `<img alt=x/data-asset-id="realid">` IS DELIBERATELY NOT HERE. It also
+ *   parses to null, but all three patterns DO report an id for it — the known,
+ *   accepted §252 divergence — so adding it would turn the overcount invariant
+ *   red over a defect that is already pinned, with its own control, by the
+ *   dedicated test below. A negative row belongs here only when the patterns
+ *   agree with the parser about it. */
+const NEGATIVE: readonly string[] = [
+  // A decoy inside a QUOTED value. ★ The predicate answers TRUE here and that
+  // is deliberate (branch 1, the documented false-TRUE: the block survives as a
+  // source-less image rather than vanishing) — which is why nothing below
+  // asserts the predicate on negative rows. Both EXTRACTORS return nothing, so
+  // it costs no cap slot and no export, and that is what is pinned.
+  '<img alt="data-asset-id=decoy">',
+  // The `-` half of the `(?<![-\w])` lookbehind.
+  '<img foo-data-asset-id="decoy">',
+  // The `\w` half. ★ Its only other cover in the repo is one row in
+  // `document-asset-usage.test.ts`; narrowing the lookbehind to `(?<!-)` was
+  // green in both pattern files before this row existed.
+  '<img xdata-asset-id="a">',
+  // The attribute name extended on the RIGHT — guarded by the `=` requirement
+  // rather than by a lookahead, so it is worth a row of its own.
+  '<img data-asset-idx="a">',
+  // An ordinary image, and no image at all: the two shapes a phantom would most
+  // plausibly appear on if an anchor were dropped.
+  '<img alt="x">',
+  "<p>plain</p>",
+];
+
 function buildCorpus(): Case[] {
   const out: Case[] = [];
   for (const [preceding, bareLtInValue] of PRECEDING) {
@@ -174,6 +216,14 @@ function buildCorpus(): Case[] {
       }
     }
   }
+  for (const html of NEGATIVE) {
+    out.push({
+      html,
+      parserId: parserSeesAssetId(html),
+      bareLtInValue: false,
+      missingSeparator: false,
+    });
+  }
   return out;
 }
 
@@ -200,6 +250,16 @@ describe("document-asset-patterns — differential against a real HTML parser", 
     // And the documented loss must be genuinely present, or the "exactly the
     // bare-`<` cases diverge" assertion below is vacuous in its other half.
     expect(bareLt.length).toBeGreaterThan(5);
+
+    // ★★★ EVERY `NEGATIVE` ROW MUST STILL PARSE TO NULL, asserted as an exact
+    // count rather than a floor. A row that stops being negative — because the
+    // string was edited, or because a spelling turns out to be a real attribute
+    // after all — would go on sitting in the corpus while silently ceasing to
+    // exercise the overcount invariant's live half. That is the same
+    // fails-open shape as the separator floor this file already got wrong once:
+    // still counted, no longer counting the right thing.
+    const negatives = CORPUS.filter((c) => c.parserId === null);
+    expect(negatives.length).toBe(NEGATIVE.length);
   });
 
   it("never reports 'no image' for a tag a parser reads a real id from", () => {
@@ -232,6 +292,11 @@ describe("document-asset-patterns — differential against a real HTML parser", 
     // are allowed to return NOTHING (they are double-quote-only by design and
     // that undercount is documented in the divergence table); neither may
     // return something that is not there.
+    // ★★★ THIS IS TWO-SIDED ONLY BECAUSE OF THE `NEGATIVE` ROWS. Over the
+    // generated corpus alone every `parserId` is `"realid"`, so the comparison
+    // below could catch a WRONG string but never a string where there should be
+    // none — which is §231's actual shape, and the reason this invariant was
+    // written. The negative rows are the half that makes the name true.
     const phantoms: string[] = [];
     for (const { html, parserId } of CORPUS) {
       for (const [label, re] of [
