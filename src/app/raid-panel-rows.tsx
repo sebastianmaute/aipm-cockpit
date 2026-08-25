@@ -110,6 +110,12 @@ export function RaidTable({
     toggleSort,
     startResize,
   );
+  // Ask-Claude / Send-inquiry / Notes-log all key their accessible name on
+  // item.title ALONE — two items sharing a title collided (WCAG 2.4.6), since
+  // none of the three component contracts is actually enforced by its own
+  // props. One token map, built once per render, disambiguates all three the
+  // same way the trailing Add button already does.
+  const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
   return (
     <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>
@@ -169,16 +175,8 @@ export function RaidTable({
             </td>
           </tr>
         )}
-        {(() => {
-          // Ask-Claude / Send-inquiry / Notes-log all key their accessible name
-          // on item.title ALONE — two items sharing a title collided (WCAG
-          // 2.4.6), since none of the three component contracts is actually
-          // enforced by its own props. One token map, built once over the
-          // rendered rows, disambiguates all three the same way the trailing
-          // Add button already does.
-          const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
-          return visible.map((item) => {
-          const rowTitleToken = titleTokens.get(item.id)!;
+        {visible.map((item) => {
+          const rowTitleToken = titleTokens.get(item.id) ?? item.title;
           const rag = severityRag(item.severity);
           const terminal = isTerminalStatus(item.status, item.category);
           return (
@@ -360,8 +358,7 @@ export function RaidTable({
               )}
             </tr>
           );
-          });
-        })()}
+        })}
         <tr>
           <td colSpan={1 + RAID_CONFIG_COLS.filter((c) => !hiddenSet.has(c.key)).length}>
             <button
