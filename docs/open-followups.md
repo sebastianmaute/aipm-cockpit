@@ -106,7 +106,7 @@ behind. Regenerate with `/ecc:update-codemaps`; do not read them as current.
 | 37 | `RaidItem.title`/`owner` have NO storage-side cap on any save or load path | pre-existing, found 0.210.0 | M | open — read-time normalisation care needed |
 | 38 | `ALLOWED_URI_REGEXP` strips `target`/`rel` from every stored link — all links open same-tab | pre-existing, found 0.210.0 | S–M | open — not a vulnerability; moves goldens |
 | 39 | Timelog partial-failure toast has failed CI eight times; a bigger timeout did not fix it | first seen 0.205.0 | M | open — mechanism CANDIDATE (a click swallowed by the button's `disabled` state): precondition proved locally, **causation unreproduced**; fix landed in both affected tests |
-| 40 | `text-ui-dark-blue` with no mode-appropriate companion — **40 sites** | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
+| 40 | `text-ui-dark-blue` with no mode-appropriate companion | pre-existing, counted 0.211.0 | M–L | open — needs its own slice |
 | 41 | Eye verification owed on 0.211.0, on surfaces no gate reaches | 0.211.0 (Samatar) | S | open — a11y/visual |
 | 42 | `CalendarSyncControls` push/pull buttons carry unqualified names | pre-existing, found 0.211.0 | S | open — WCAG 2.4.6 |
 | 43 | Two "Suggest RACI" reporting gaps | 0.211.0 (Samatar) | S | open — both incomplete rather than wrong |
@@ -245,7 +245,7 @@ object literal). The
 `absenceCalendar:` bag is rebuilt each render, so its four function members are unstable
 too. Call site: `workspace-section.tsx`, the `<ResourcesPanel …>` call.
 
-**★ NEW — `ResourceCalendar` (`resource-calendar.tsx:697`) is ALSO `memo()`'d and also never bails.**
+**★ NEW — `ResourceCalendar` (`resource-calendar.tsx`, `export const ResourceCalendar = memo(ResourceCalendarInner)`) is ALSO `memo()`'d and also never bails.**
 The original write-up does not mention it. It guards the heaviest subtree in the view — the calendar
 grid, the meetings band, lane packing — and takes only 17 props:
 
@@ -254,12 +254,15 @@ grid, the meetings band, lane packing — and takes only 17 props:
 | `lang` · `includeExternals` · `rows` (a `useMemo`) · `absences` · `today` · `holidaySet` · `resources` · `startDate` · `endDate` · `calendarEvents` | `onAddAbsence` · `onEditAbsence` · `onMoveAbsence` · `onEditResource` · `onAddResource` · `onEditEvent` (all `guardEdit`-wrapped) · `onMoveOccurrence` |
 
 `onMoveOccurrence` is `buildMoveOccurrenceHandler(calendarEvents, onSaveCalendarEvent)` called
-during render (`resources-panel.tsx:662-666`) — a fresh function every time, independent of
-`guardEdit`.
+during render — a fresh function every time, independent of `guardEdit`. ★ Cited by symbol, not by
+line: it read `resources-panel.tsx:662-666` when written and the call now sits ~57 lines lower, with
+the claim unchanged at the new site. Re-derive with
+`grep -n "buildMoveOccurrenceHandler" src/app/resources-panel.tsx` — the second hit is the render-time
+call, inside the `onMoveOccurrence` ternary on `<ResourceCalendar>`.
 
 **★ Correction to the R5 write-up.** It says `guardEdit` is "one unstable family of several" and
 names `setResources` / `onReassignTask` / `logActivity` / `holidaySet` as independently suspect.
-`holidaySet` is a `useState` value and is stable (`use-holiday-set.ts:12,26`); `onCaptureUndo` is
+`holidaySet` is a `useState` value and is stable (`use-holiday-set.ts` — `grep -n "useState" src/app/use-holiday-set.ts`); `onCaptureUndo` is
 `undoApi.capture`. For `ResourceCalendar` specifically the unstable set is exactly TWO root causes
 (`guardEdit`, `buildMoveOccurrenceHandler`), not an open-ended family. The "several families" claim
 holds for the 47-prop outer panel, not for the inner one.
@@ -757,7 +760,9 @@ parameters does not change either property; do not add a guard while in there.
 ## 13. Security audit is scope-stale — open
 
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
-0.203.0. The audit's *conclusions* still hold for what it looked at — 0 CRITICAL, 0 HIGH, every
+**0.258.1** (re-read 2026-08-25 — `grep -n APP_VERSION src/app/version.ts`; this line said 0.203.0
+until then, so the un-audited delta is ~55 releases wider than it reads). The audit's *conclusions*
+still hold for what it looked at — 0 CRITICAL, 0 HIGH, every
 proxy and secrets check PASS — but it has never looked at anything shipped since, and several of
 those are exactly the surface classes it was written to cover.
 
@@ -1719,7 +1724,7 @@ frequency data lived only in a code comment and a memory file.
 
 ---
 
-## 40. `text-ui-dark-blue` without a mode-appropriate companion — **40 sites**, open, needs its own slice
+## 40. `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
@@ -1730,6 +1735,11 @@ found 26 in this token class plus 13 more in the widened class — and a later a
 the sweep had missed, giving 40.** The entry is corrected rather
 than deleted because the wrong number is the more instructive artifact: it came from fixing what
 review happened to surface, then documenting that as the scope.
+★★★ **AND THE HEADING CARRIED THAT 40 UNTIL 2026-08-25, BY WHICH TIME SECTION B ALONE WAS 27.** The
+total is CUT from the heading rather than re-derived, because it is the sum of four sections whose
+membership is a per-element judgement rather than a grep: only B is mechanically countable, and only
+B has been re-measured. **A, C and D below are AS-SWEPT figures from 2026-08-05 and were NOT
+re-checked on 2026-08-25** — do not read any section heading here as a present-tense census.
 
 ### A. Base text, no companion — 7
 
@@ -1757,7 +1767,7 @@ than a declared exclusion. **Any future sweep must enumerate the variant forms i
 companion is `dark:text-ui-dark-blue` — it re-asserts the same broken colour. Verified: that string
 occurs exactly **once** in the repo. A companion must be checked for its VALUE, not its presence.
 
-### B. `hover:text-ui-dark-blue` with no `dark:hover:text-*` — 18
+### B. `hover:text-ui-dark-blue` with no `dark:hover:text-*` — **27 on 2026-08-25; this section names 16 files / 18 sites**
 
 ★★★ **A `dark:text-*` companion does NOT survive `hover:`, and this is the part that looks fixed and
 is not.** `globals.css:3` defines `@custom-variant dark (&:where(.dark, .dark *))`, and `:where()`
@@ -1771,20 +1781,46 @@ therefore order-immune. The FIX is not: `dark:hover:text-*` compiles to
 That order is stable in Tailwind today, but it means the remedy — unlike the bug — would be sensitive
 to any change in variant emission order.
 
-`combo-input:117` · `gantt-chrome:262` · `gantt-rows:160` · `inline-ai-edit-button:30` ·
-`insights/insight-digest-card:86` · `jira-settings:207` · `labels-input:162` · `raci-panel:228,238` ·
-`raid-edit-modal:355` · `raid-panel-rows:373` · `resource-directory:425` · `task-kanban-card:133` ·
-`task-manager-ui:34` · `task-row:391` · `tasks-section:1031` · `workspace-section-chrome:177,178`
+★★★ **THIS SECTION UNDERCOUNTS BY NINE FILES, AND THAT IS THE THIRD RECURRENCE OF THE FAILURE THIS
+ENTRY'S OWN ★★★ AT THE TOP RECORDS.** "Listed three sites and implied that was the remainder" was the
+first; the arbitrary-variant miss was the second; this is the third, and the `group-hover:`/`active:`
+note below is a fourth in a different variant class. **The pattern is the finding** — every revision
+of this entry has enumerated what a sweep happened to surface and then let the enumeration read as a
+census. Measured 2026-08-25: **27** plain-`hover:` sites, and **zero** carry a `dark:hover:`
+companion anywhere in the repo. The sixteen files named below are all real; NINE more are named
+nowhere — `add-first-item-button` · `budget-panel` · `document-block-gutter` · `export-menu` ·
+`help-menu` · `modal-header` (×2 sites) · `template-menus` · `undo/undo-control` · `version-menu`.
+★ Line numbers are DROPPED from the list rather than re-derived: they were re-derived once already on
+2026-08-05 (nine were stale even then) and had rotted again by 2026-08-25. Read today's off the
+commands — the first is the population, the second proves the companion is absent, and the zero it
+returns only means something because the first returns 27:
 
-★ **`inline-ai-edit-button:30`, `task-kanban-card:133` and `task-row:391` each carry a base
+```bash
+grep -rnoE "(^|[^-:a-z])hover:text-ui-dark-blue" src --include="*.tsx" --include="*.ts" | grep -v "\.test\." | wc -l   # 27
+grep -rn "dark:hover:text-ui-dark-blue" src --include="*.tsx" --include="*.ts" | wc -l                                # 0
+```
+
+★★ The `(^|[^-:a-z])` prefix is load-bearing: a bare `grep -c hover:text-ui-dark-blue` returns **28**,
+because it also matches the `group-hover:` occurrence in `gantt-chart.tsx` that the variant-gap note
+below already counts separately. The naive number therefore double-books one site AND loses the
+classification that makes the site actionable.
+
+The sixteen named files (as swept 2026-08-05, line numbers dropped):
+`combo-input` · `gantt-chrome` · `gantt-rows` · `inline-ai-edit-button` ·
+`insights/insight-digest-card` · `jira-settings` · `labels-input` · `raci-panel` ·
+`raid-edit-modal` · `raid-panel-rows` · `resource-directory` · `task-kanban-card` ·
+`task-manager-ui` · `task-row` · `tasks-section` · `workspace-section-chrome` (×2 sites)
+★ `raci-panel` was listed as TWO sites (`:228,238`); it carries **one** on 2026-08-25.
+
+★ **`inline-ai-edit-button`, `task-kanban-card` and `task-row` each carry a base
 `dark:text-ui-light-grey` on the same element** — they read as handled and are not.
-★ `task-manager-ui:33/34` and `workspace-section-chrome:177/178` are the two-arm ternary shape: in the
+★ `task-manager-ui` and `workspace-section-chrome` are the two-arm ternary shape: in the
 first, the active arm is companioned and the inactive arm is not; in the second, both arms are broken.
 
 ★★ **A THIRD UNNAMED VARIANT GAP, found 2026-08-05 — the sweep never handled `group-hover:`,
 `active:` or `focus:` either, and two more uncompanioned sites fall in it.** They are additional to
-the 40 enumerated above, which all re-verified as real and correctly grouped (A 7 · B 18 · C 2 ·
-D 13). `gantt-chart.tsx:296` carries `group-hover:text-ui-dark-blue` on `bg-surface` — the trailing
+the 40 enumerated above, which all re-verified as real and correctly grouped **on 2026-08-05**
+(A 7 · B 18 · C 2 · D 13) — B has since been re-measured at 27; A, C and D have not been re-measured. `gantt-chart.tsx:296` carries `group-hover:text-ui-dark-blue` on `bg-surface` — the trailing
 "add task" affordance, in no group at all. `gantt-chrome.tsx:262` is already counted in B for its
 `hover:` arm, but the SAME element also carries `active:text-ui-dark-blue`, equally uncompanioned.
 ★ `focus:text-ui-dark-blue` also occurs once and was CHECKED and is clean: `modern-shell.tsx:139`
@@ -1827,7 +1863,7 @@ fails identically to the other twelve; listing it only as a companion note made 
 not a new technique to introduce but a convention applied inconsistently, which is what makes a
 mechanical sweep safe and a piecemeal fix wasteful.
 ★★ **No gate can catch ANY of it, and that is structural, not an oversight.** axe scans the RESTING
-state only, so all 18 hover sites are uncatchable by construction; there is no hover pass in
+state only, so every hover site — 18 as swept, 27 on 2026-08-25 — is uncatchable by construction; there is no hover pass in
 `e2e/a11y.spec.ts`. **At least five** of the seven base sites self-hide behind a feature flag
 (`jira.enabled`, `isAiEnabled`) or live in an unscanned view or a closed modal — the two whose
 reachability was never established are `chat-prompt-chips.tsx:37` (see below) and
@@ -2061,6 +2097,21 @@ spare was taken by an unrelated release while S6 sat idle. Bodard is still free 
 `CHANGELOG.md` as of 2026-07-31). ★ A codename reserved in a gitignored plan is not reserved in any
 sense the next release can see; re-check immediately before use, which is exactly what that plan's
 own final task says to do.
+
+★★★ **RE-CHECKED 2026-08-25: BOTH RESERVED NAMES ARE SPENT, AND S6 NEEDS A NEW ONE.** The 2026-07-31
+reading above stands as written — it is simply no longer today's answer, and is left intact rather
+than rewritten. `0.246.0` (2026-08-18) shipped as **"Bodard"**, the PRIMARY, seven releases after that
+paragraph was written, and nothing consulted it. Left uncorrected, this entry hands the next reader a
+name that fails at release time, when the bump is already half-written. Reproduce:
+
+```bash
+grep -n "Bodard\|Samatar" CHANGELOG.md   # 0.246.0 "Bodard"; 0.211.0 / .1 / .2 "Samatar"
+```
+
+★★ The hazard the paragraph above predicted has now fired on **two of two** names, which retires the
+framing that holding a spare protects anything. The failure was never "the spare was unlucky": a
+reservation no release process can see is not a reservation. S6 picks its name **at release time**,
+running that grep first, and treats every name written in the spec as already taken.
 
 **S7 — occurrence-level PULL + exception reconciliation.** Neither spec nor plan; the only entirely
 un-designed slice. Two constraints survive from the archived R5 design and should not be re-derived:
@@ -2593,12 +2644,16 @@ MOUNT and wrote the whole MERGED map. So a v1 blob is not a record of the user's
 full defaults snapshot taken the first time that table was ever displayed for a quarter second.
 Found by a reviewer of the 0.212.0 batch, not by the implementation.
 
-Consequences, for the 37 tables that are NOT Open Points (37 `useColumnResize` INVOCATIONS across
-17 files — count call sites, not files: `raid-report-panel` holds 7 and `resources-report` 5, so a
-file count understates the blast radius by half; re-verified 2026-08-05):
+Consequences, for every table that is NOT Open Points — count CALL SITES, not files: `raid-report-panel`
+holds 7 and `resources-report` and `change-report-panel` 5 each, so a file count understates the blast
+radius by roughly half. **Do not quote a number from this paragraph; the command below is the claim.**
+It read 37 invocations / 17 files when re-verified 2026-08-05 and **38 / 18** on 2026-08-25 — it moves
+whenever any panel gains a resizable table, which is often:
 
 ```bash
-grep -rPn "(?<!typeof )\buseColumnResize\s*[<(]" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(import|//|\*)" | grep -v "export function" | wc -l   # 38, minus use-column-manager.ts (Open Points) = 37
+# total invocations, then the same minus use-column-manager.ts (which IS Open Points)
+grep -rPn "(?<!typeof )\buseColumnResize\s*[<(]" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(import|//|\*)" | grep -v "export function" | wc -l                                # 39 on 2026-08-25
+grep -rPn "(?<!typeof )\buseColumnResize\s*[<(]" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\." | grep -vP ":\s*(import|//|\*)" | grep -v "export function" | grep -v use-column-manager | wc -l   # 38 = the affected tables
 ```
 
 ★ The `typeof` exclusion is REQUIRED: `ReturnType<typeof useColumnResize<X>>` type aliases match a
@@ -3130,9 +3185,24 @@ surface does no visual work anywhere in the app, and the fix belongs in the dark
 ON state is visible at a glance" — is measurably false in the dark schemes. Pre-existing text; this
 is the release that made it disprovable.
 
-★ Why no gate caught it: `e2e/a11y.spec.ts` runs axe over 5 of the 6 built-in scheme combos, but
-axe's contrast rules evaluate TEXT, not a component's state border, and umber-dark is the omitted
-combo. Scheme DATA remains 5-of-6 covered — this is that hole producing a real defect.
+★ Why no gate caught it: axe's contrast rules evaluate TEXT, not a component's state border. That
+half is structural and still holds — **the defect below is open regardless of how many combos are
+scanned.**
+
+★★★ **THE COMBO HALF OF THAT SENTENCE WAS WRONG TWICE OVER, AND IS NOW MOOT.** It read "5 of the 6
+built-in scheme combos … umber-dark is the omitted combo". There are **7** possible combos, not 6 —
+four built-in schemes, of which Beacon is light-only (4 × 2 − 1 = 7) — and **6** of those 7 were
+scanned, not 5. So the coverage was 6/7 and the arithmetic said 5/6. As of `21bfcef1`
+(*fix(a11y): scan umber-dark — the combo the matrix silently omitted*) it is **7 of 7**: umber-dark,
+the combo whose 1.03:1 is the worst measurement in the table above, is now scanned. Reproduce:
+
+```bash
+grep -c "{ scheme:" e2e/a11y.spec.ts   # 7
+```
+
+★★ **Adding the combo did NOT close this entry**, and reading the fix as a closure is the trap here:
+axe has no rule that evaluates a component's state border at any combo count, so scanning umber-dark
+buys a green run over the very defect this entry records. The gate was never going to catch it.
 
 ---
 
@@ -3286,13 +3356,22 @@ line.** A sub-limit baseline entry is behaviourally identical to no entry at all
 dropping it is a no-op and there is no trap here. The reasoning in commit `d7c423bd` is unaffected —
 it argues about the harm of the old 1043 value, which was real.
 
-★★ **There IS a residual, and it is social rather than behavioural** (found in review, 2026-08-03,
-after the correction above): the committed baseline no longer matches what `--update` generates. The
-flag emits only the five files over 800 (`chat-panel` 977 · `task-manager` 2966 · `task-row` 817 ·
-`tasks-section` 1043 · `workspace-section` 963); the committed file carries those five **plus** the
-`use-resource-planner.ts: 554` line. So the next person to regenerate gets a one-line DELETION diff
-that reads as a regression and is not one. Either accept the line will be dropped whenever anyone
-regenerates, or drop it now — behaviourally the two are the same file.
+★★ ~~**There IS a residual, and it is social rather than behavioural**~~ **— DISCHARGED, verified
+2026-08-25.** As found in review 2026-08-03: the committed baseline then carried a
+`use-resource-planner.ts: 554` line that `--update` would not regenerate, so the next regeneration
+would produce a one-line DELETION diff reading as a regression. That line is **gone**, and with it
+the entry's only actionable residual. Nothing here needs doing:
+
+```bash
+grep -c use-resource-planner docs/baselines/file-sizes.json   # 0 — exits 1, which is the answer
+cat docs/baselines/file-sizes.json                            # four entries, all > 800
+```
+
+★ The 2026-08-03 figures are left above as the dated reading they are; they do not describe today's
+baseline either — it holds **four** files (`chat-panel` 996 · `task-manager` 3020 ·
+`tasks-section` 1081 · `workspace-section` 1000), `task-row.tsx` having fallen back under the limit.
+The entry's REMAINING content — that a file brought back under 800 cannot be held there — is
+unaffected and stays open.
 
 ★ Also note the counting difference, since it will bite anyone hand-editing the baseline: the script
 counts `content.split("\n").length`, which is **one more** than `wc -l` for a file ending in a
@@ -3316,7 +3395,8 @@ they share a cause and would be fixed in one pass.
 
 **(a) A warning names the wrong hook.** `plainSeed`'s dev warning still reads
 `"[useResourcePlanner] non-plain seed dropped (event forwarded as seed?)"` and is now emitted from
-`use-resource-directory.ts:68`. Preserving the string verbatim was **required** by the move-only rule,
+`use-resource-directory.ts` (`grep -n "non-plain seed dropped" src/app/use-resource-directory.ts`).
+Preserving the string verbatim was **required** by the move-only rule,
 so this is a consequence of that discipline, not a defect of the commit that carries it. Fix it in any
 commit that is allowed to change behaviour-adjacent strings.
 
@@ -3332,10 +3412,14 @@ ref-per-arg boilerplate (`const xRef = useRef(args.x)` plus its sync effect) ove
 of `{lang, logActivity, showToast, capture, captureComposite, captureFieldEdit}`. Each pair is ~2
 lines, well under jscpd's 50-token floor, so the **blocking** duplication gate is silent — but the
 moment a third extraction needs the same subset in the same order it becomes a 150+ token contiguous
-match. Current numbers (measured 2026-08-03, threshold **1.75%**): tsx **1.71%** · typescript
-**1.36%** · total **1.53%**. tsx has roughly **0.04pp** of headroom — that near-breach is pre-existing
-and in a different bucket (these two files are `.ts`), but it means the total has no slack to absorb a
-new `.ts` clone either.
+match. Numbers as measured 2026-08-03, threshold **1.75%**: tsx **1.71%** · typescript **1.36%** ·
+total **1.53%**, with tsx roughly **0.04pp** from the threshold.
+★★★ **THAT READING WAS OF THE WRONG CELL AND THE ALARM IT RAISES IS FALSE — see §116, which
+established it.** The gate compares ONE number: the TOTAL duplicated-**LINE** percentage across all
+formats. The per-format TOKEN figures quoted above (tsx 1.71%) are the decoy §116 is about, so "tsx
+has 0.04pp of headroom" describes a cell nothing reads. On 2026-08-08 the gating cell was **1.19%**
+against 1.75 — 0.56pp of headroom, not 0.04. The seam this bullet records is still real; the urgency
+attached to it was not. Re-derive before acting: `npm run dup:check` (read §116 for which cell).
 
 ★ **CORRECTION to how this was first written up:** it was described as *three* sibling hooks, adding
 `use-calendar-events.ts`. That file contains **no `useRef` at all** — it takes its four optional
@@ -3349,23 +3433,51 @@ is forbidden to make. The rationale is already in `use-reference-data.ts`'s head
 has to preserve that property.
 
 **(d) If a further extraction is ever wanted**, the **RAID cluster** is the cleanest next cut: ~130
-lines, `use-resource-planner.ts:133-265` — `handleSaveRaidItem`, `handleDeleteRaidItem`,
+contiguous lines of `use-resource-planner.ts` — `handleSaveRaidItem`, `handleDeleteRaidItem`,
 `handleSendRaidInquiry`, `captureRaidBulkUndo` — self-contained, and conceptually not "resource
-planning" at all. (`handleCreateMitigationTaskFromRaid` at `:407` is RAID-adjacent but reaches into
-tasks, so it is a judgement call rather than an obvious inclusion.) Absence and shift CRUD genuinely
-belong in the planner and should stay. ★★ **There is no ratchet pressure — the file is 553 against a
-554 baseline and a 800 limit. Do not do this speculatively**; it is recorded so the next person under
-real pressure does not have to re-derive it.
+planning" at all. (`handleCreateMitigationTaskFromRaid` is RAID-adjacent but reaches into
+tasks, so it is a judgement call rather than an obvious inclusion.) ★ The four names ARE the cite;
+the line span this bullet used to give (`:133-265`, `:407`) is dropped, since the file has grown
+since and the names locate the block exactly:
+`grep -n "handleSaveRaidItem\|handleCreateMitigationTaskFromRaid" src/app/use-resource-planner.ts`. Absence and shift CRUD genuinely
+belong in the planner and should stay. ★★ **There is no ratchet pressure. Do not do this
+speculatively**; it is recorded so the next person under real pressure does not have to re-derive it.
+★ **Both numbers this bullet used to quote were stale by 2026-08-25 and are cut rather than
+re-quoted.** It read "553 against a 554 baseline and a 800 limit": the file is **609** by the gate's
+own arithmetic today, and there is **no baseline entry for it at all** — §60 records that the 554
+line was dropped, and a sub-limit entry was behaviourally inert anyway. 800 remains the only line
+that matters, and 609 is comfortably under it, so the conclusion is unchanged. Re-read both with:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/use-resource-planner.ts','utf8').split('\n').length)"
+grep -c use-resource-planner docs/baselines/file-sizes.json
+```
 
 ---
 
 ## 62. Two reference-data handlers have no production consumer — open, pre-existing
 
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
-are reachable only from `use-resource-planner.test.tsx` (`:1012`, `:1023`, `:1085`, `:1096`). ★ Those
-two cites read `:127` and `:140` until 2026-08-05 and were six lines stale — both handlers moved in
-the §61 split; the sentence names both symbols, which is the durable cite. Nothing
-in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller.
+are reachable only from `use-resource-planner.test.tsx`. Nothing
+in `task-manager.tsx` destructures them; `git grep` across `src/` finds no other caller. Re-derive the
+whole claim in one command — the only non-test hits are the two `useCallback` definitions and the two
+return-object keys, both in `use-reference-data.ts`:
+
+```bash
+grep -n "handleAssignResourceRole\|handleClearResourceRole" src/app/*.ts src/app/*.tsx
+```
+
+★★★ **THE LINE NUMBERS ARE GONE FOR THE THIRD TIME AND ARE NOT COMING BACK.** This sentence carried
+`:127` and `:140` into `use-resource-planner.ts` until 2026-08-05, when the §61 split moved both
+handlers and left them six lines stale. They were re-derived as four cites into
+`use-resource-planner.test.tsx` — `:1012`, `:1023`, `:1085`, `:1096` — and by 2026-08-25 all four
+were stale again, by 23 lines (the real sites are 1035 / 1046 / 1108 / 1119). **Twice re-derived,
+twice rotted, inside an entry whose own ★★ below explains why they had to become symbols.** They are
+now symbols. ★★ The claim ITSELF survived both rots untouched, which is the calibration: a rotted
+line number here was a symptom of an unrelated refactor, never evidence the finding had changed —
+but it is only knowable by re-checking the claim, which is why the rule is to re-verify rather than
+renumber. ★ `docs:claims:check` was GREEN across all three states: `:1012` is a real line of a
+1419-line file, so nothing static could ever have flagged it.
 
 ★ **Pre-existing, not introduced by §2's split** — both handlers were equally dead at `0d770283`,
 where `use-resource-planner.ts` still declared and re-exported them directly. Recover it with
@@ -5561,9 +5673,22 @@ problem for free. Prefer that trick wherever a marker can carry no prose.
 
 ## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
 
-**Half of this is already fixed — do not re-open the fixed half.** `doc-render-pptx.ts` now derives
-`BODY_LINES_PER_SLIDE` from the body box and font size (`:247`) and chunks each slide's lines through
-`paginateLines`, so overflow went from UNBOUNDED to BOUNDED.
+**Half of this is already fixed — do not re-open the fixed half.** `BODY_LINES_PER_SLIDE` is derived
+from the body box and font size, and each slide's lines are chunked through `paginateLines`, so
+overflow went from UNBOUNDED to BOUNDED.
+
+★★★ **EVERY CITE IN THIS ENTRY POINTED AT `doc-render-pptx.ts` AND THE MECHANISM IS IN TWO OTHER
+FILES — post-extraction drift, corrected 2026-08-25 and re-cited by SYMBOL.** `doc-render-pptx.ts`
+now only *re-exports* and *calls*; the constant, `paginateLines` and the honest-limit reasoning this
+entry is about all live in **`doc-render-pptx-slides.ts`**, and the `bodyPr` element is emitted from a
+THIRD file, **`ooxml-pptx-primitives.ts`**. A reader sent to `doc-render-pptx.ts` for the `wrap` 
+attribute finds nothing and concludes the entry is stale. The old `:247` is dropped rather than
+renumbered — it named the wrong file, so no number could have been right:
+
+```bash
+grep -rn "BODY_LINES_PER_SLIDE\|paginateLines" src/app --include="*.ts" | grep -v "\.test\."
+grep -rn 'bodyPr wrap="square"' src/app --include="*.ts"   # ooxml-pptx-primitives.ts, one hit
+```
 
 What remains: the budget counts lines in the array, not lines as RENDERED. `bodyPr` emits
 `wrap="square"` with no `normAutofit`/`spAutoFit`, so PowerPoint's no-autofit default lets text run
@@ -7169,9 +7294,19 @@ Everything below is what remains open after it:
   its tooltip, establish the modern shell's own route to Settings — the answer may be that the
   tooltip is not the finding here. (An earlier revision of this bullet called it "the top-bar cog",
   which is exactly the assumption the measurement disproved.)
-- ★ **Five of the Gantt View menu's eight `ToggleButton`s carry no hint** while three do
-  (`ganttCriticalPathHint` · `ganttBaselineHint` · `ganttMilestonesInlineHint`). The split is by
-  author, not by importance. Cheapest coherence win in the set.
+- ~~★ **Five of the Gantt View menu's eight `ToggleButton`s carry no hint** while three do
+  (`ganttCriticalPathHint` · `ganttBaselineHint` · `ganttMilestonesInlineHint`).~~ **DONE — verified
+  2026-08-25.** All eight now carry a `title`, so the split-by-author is closed and this was indeed
+  the cheapest win in the set. The two commands must AGREE; either alone proves nothing, because a
+  count of titles cannot tell you how many toggles there are:
+
+  ```bash
+  grep -c "<ToggleButton" src/app/gantt-view-menu.tsx                                 # 8
+  grep -A8 "<ToggleButton" src/app/gantt-view-menu.tsx | grep -c "title={t(lang,"      # 8
+  ```
+
+  ★ `-A8`, not `-A6`: one toggle carries a three-line name/state-coherence comment between its tag
+  and its `title`, so `-A6` returns **7** and reads as one uncovered control that is in fact covered.
 - ★★ **One name defect: `workspace-section-chrome.tsx:165`.** A collapse/expand chevron with
   `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and **no `aria-label`**. Its
   accessible name therefore comes only from `title`, the accname algorithm's last resort. **axe
@@ -7199,6 +7334,24 @@ hand-rolled buttons hid inside a shared component. By contrast `knowledge-panel.
 **is** already inventoried — `handrolled-ui-inventory.md:396` lists it in the Part 2 `replace` row —
 it is merely absent from Task 12's narrower thirteen-file list. Check the wider table before calling
 anything missing.
+
+★★★ **RE-MEASURED 2026-08-21 IN THE INVENTORY ITSELF — READ THAT TABLE, NOT THE FIGURES ABOVE, AND
+BEWARE THAT "17" NOW NAMES SOMETHING ELSE.** Everything above `9927d045` is left standing as the
+dated, SHA-pinned record it is. `docs/tooltip-inventory.md` re-ran its own parser on 2026-08-21 and
+published a second column: **621 / 178 titled / 100 icon-only / 70 titled / 30 untitled**. The
+untitled surface is **30**, not 17, and it decomposes as **17 comment prose · 2 primitive internals ·
+11 real controls to classify**.
+
+★★★ **So the number `17` appears in BOTH readings and means two different things**, which is the worst
+shape a stale count can take: above it is the whole untitled surface at `9927d045`, and in the
+2026-08-21 table it is the COMMENT-PROSE bucket — a `<button` written inside a docstring, not a
+control at all. A reader who checks "is 17 still right?" against today's inventory finds a 17 and
+stops. **The open surface is 11.** ★ It fell 23 → 11 because 21 of the original 23 were fixed while 9
+new sites were reported (8 real rows plus the known `documents-history-modal.tsx` scan phantom, which
+the inventory's ★★★ predicted would recur and which did). The two survivors of the original 23 are
+exactly the two this entry already holds open by name: **B1** and the **blocked-on-i18n** row.
+★ The **15 hardcoded-English accessible names** bullet above is unaffected and still open — the
+inventory's own "Still open, unchanged" section says so in as many words.
 
 ★ Nothing here is gated either. axe has no rule for a missing `title`, and the one name defect above
 is a control axe passes. The counts are reproducible with the script embedded in the inventory; the
@@ -7823,6 +7976,21 @@ finds repetitive. 0.56pp of total-LINE headroom is more room than 0.05pp of tsx 
 but a large repetitive slice can still spend it — and the gate counts `.tsx` lines into the same
 total, so tsx growth moves the gating number directly. Decide during S3b planning — refactor the top
 clones, or raise the threshold with a recorded justification — not against a red pipeline.
+
+★★★ **THAT TRIGGER EXPIRED AND THE ENTRY DID NOT NOTICE — re-hung 2026-08-25.** "Decide during S3b
+planning" was written when S3b was the next slice. S3b shipped, and so did S3c-1, S3c-2 and several
+unrelated releases on top of it, so the decision was never taken and the entry has been sitting on a
+trigger that can no longer fire. **A deferral hung on a named upcoming slice silently becomes a
+deferral hung on nothing the moment that slice ships** — hang it on a condition instead, which is what
+this replacement does.
+
+**New trigger, condition-based:** decide when the gating cell first crosses **1.50%** (0.25pp of
+warning before the 1.75 threshold), or when any single slice is expected to add more than ~200 lines
+of near-duplicate `.tsx`. Until one of those holds, the correct action is "nothing" and this entry
+is a reference, not a task. ★ The measurement above is dated **2026-08-08** and is NOT re-run here —
+read the live figure off `npm run dup:check`, and read the table above for which of its six printed
+cells the gate actually compares. ★★ AGENTS.md's `dup:check` line carries the same 2026-08-08
+reading; if it and this entry ever disagree, neither is a measurement — re-run the gate.
 
 ---
 
@@ -8691,10 +8859,14 @@ sweeps in §121 or §127 to surface it. Reproduce the census with:
 grep -rn "=== controller" src/app --include="*.ts" --include="*.tsx" | grep -v "\.test\."
 ```
 
-Measured 2026-08-09: three non-test SITES (`use-abortable-ai.ts`, `use-action-analysis.ts`,
-`use-timelog-sync.ts`), of which this is the only one whose `setBusy` sits outside. ★ The grep also
-returns three COMMENT lines in `use-action-analysis.ts` that document this very outlier — count
-sites, not lines.
+Measured 2026-08-09 and re-run 2026-08-25: **three** non-test SITES (`use-abortable-ai.ts`,
+`use-action-analysis.ts`, `use-timelog-sync.ts`), of which this is still the only one whose
+`setBusy` sits outside the guard — verified by reading the `finally` block, not just the census.
+★ The grep also returns COMMENT lines in `use-action-analysis.ts` that document this very outlier, so
+count SITES, not lines: the raw line count is **6**, of which 2 are those comments. (This bullet said
+"three COMMENT lines" and there are two — the count moved with an unrelated edit to that comment
+block; the instruction it supports is unaffected, which is exactly why the instruction, not the
+number, is the durable part.)
 
 ★ Fix is to move `setBusy(false)` inside the existing `if`. Cheap, but it needs a test that
 supersedes a run and asserts the flag survives — the same shape that proved the other two, and
@@ -9236,8 +9408,18 @@ longer exists.
 
 ★★ It self-heals ONLY on CSV and Markdown loads. `dropDanglingDependencies` has exactly two production call
 sites, in `csv-codecs-decode` and `markdown-codecs-decode`. Reproduce with
-`grep -rn "dropDanglingDependencies(" src/app | grep -v ".test."` — 4 lines: those two, the definition in
-`sanitize-core.ts`, and the comment in `use-task-submit.ts` that names the symbol. JSON maps tasks through
+`grep -rn "dropDanglingDependencies(" src/app | grep -v ".test."` — **3** lines: those two calls plus
+the definition in `sanitize-core.ts`.
+★★ **This said 4 and named the fourth as "the comment in `use-task-submit.ts` that names the symbol".
+That comment still exists and is still excluded — by the command's OWN filter.** The comment quotes
+this very grep, so its text contains the literal `\.test\.`, which `grep -v ".test."` matches (the
+dots are any-char) and drops. Chasing the wrong number found the wrong REASON: the fourth line was
+never going to appear under this command, and the source comment in `use-task-submit.ts` states the
+same 4 with the same self-defeating explanation, so a reader who trusts either one and gets 3 will
+suspect a real deletion. **The load-bearing claim — exactly TWO production call sites — is unchanged
+and was re-verified 2026-08-25.** ★ The control that proves the pattern is not simply stale: drop the
+`grep -v` and the same grep returns **6** — the 3 above, the `use-task-submit.ts` comment it was
+filtering out, and 2 test call sites. That is the wider set, not the answer. JSON maps tasks through
 `migrateTask` + `sanitizeNoteFields`, neither of which touches `dependencies`; IndexedDB — the DEFAULT
 backend, since `defaultStorageConfig` is `{ kind: "browser" }` — and both Turso backends have no dangling
 pass at all. Turso shares the CSV ROW builder (`buildTaskFromObj` via `turso-schema`) but never enters the
@@ -9631,7 +9813,10 @@ without them, and the P2–P4 scope stays open.
 
 ★★★ **THE ORIGINATING PREMISE WAS FALSE AND MEASURING IT FIRST IS WHAT SAVED THE SLICE.** The request
 was "extract the open TODOs out of the app files into one place". This repo has **zero**
-`TODO`/`FIXME`/`HACK` markers. Open work was already centralised — here. What the code holds is not
+`TODO`/`FIXME`/`HACK` markers. ★★ Re-run 2026-08-25 and it now prints **one** hit, which is NOT a
+marker: `scripts/agents-symbols-lib.mjs` discusses the word `TODO` as an example of a name its
+mixed-case rule rejects. Open the hit before reading the count as a refutation —
+`grep -rnE "\b(TODO|FIXME|HACK)\b" src scripts e2e`. Open work was already centralised — here. What the code holds is not
 to-dos but CITATIONS: at the time, 289 `§NN` references across `src`/`scripts`/`e2e`, of which
 **197 pointed at CLOSED entries**. Those are provenance — the recorded reason a guard, a test or an
 odd-looking branch exists. A sweep that deleted them would have removed the justification for
@@ -9682,7 +9867,19 @@ about.
 ★★ **Inserting entries here breaks every `docs/open-followups.md:LINE` citation below the insertion,
 and the doc-claims ratchet cannot see the ones in `scripts/`.** Twelve such cites were found in
 `scripts/` during P0 and converted to `§N, verbatim`; `src/` was never swept for the same shape.
-Do that sweep BEFORE P3/P4 insert anything, not after.
+★★ **DISCHARGED 2026-08-25 — the owed `src/` sweep is a NO-OP and P3/P4 are not blocked on it.** Not
+one `docs/open-followups.md:LINE` citation exists anywhere in `src`, `scripts` or `e2e`. **The
+positive control is the point of the second line** — an absence grep that returns nothing looks
+identical whether the absence is real or the pattern has gone stale, and this file is cited 246 times
+in `src`, just never with a line number:
+
+```bash
+grep -rn "open-followups\.md:[0-9]" src scripts e2e; echo "EXIT=$?"   # no output, EXIT=1
+grep -rn "open-followups" src | wc -l                                  # 246 — the control
+```
+
+★ The HAZARD the bullet describes is unchanged: a future insertion could reintroduce the shape, and
+nothing gates it. Re-run the pair rather than trusting this paragraph.
 
 ★★ **Scope a `§`-renumber BY FILE, never by number.** Recorded independently on an earlier branch and
 it applies with full force to a phase whose whole job is renumbering.
@@ -9697,8 +9894,29 @@ Numbers in a register rot; these are dated and each is falsifiable. Do not trust
 | lines inside open entries | 4721 (median 34, p90 107, max 422; 10 over 100) | the sweep's own snapshot |
 | verdict spread | `CLEAN` 80 · `SYMBOL_MISSING` 8 · `NO_MACHINE_CLAIM` 1 · `PATH_MISSING` 1 · `PATH_THIRD_PARTY` 1 · `CITE_THIRD_PARTY` 1 | `npm run followups:check` |
 | `§` citations to triage | 277 in `src` (98 files) · 49 in `scripts` · 7 in `e2e` | `grep -rno "§[0-9]" src scripts e2e \| wc -l` |
-| open-state prose in the always-loaded doc | 25 marker hits in `AGENTS.md`, 9 across the nine subsystem files | `grep -c -iE "STILL OPEN\|left open\|not fixed\|unverified" AGENTS.md docs/AGENTS/*.md` |
+| open-state prose in the always-loaded doc | 25 marker hits in `AGENTS.md`, 9 across the subsystem files (there were nine of them then; there are **twelve** now) | `grep -c -iE "STILL OPEN\|left open\|not fixed\|unverified" AGENTS.md docs/AGENTS/*.md` |
 | fold-in candidate | `tech-debt-register.md`, 49 lines | `wc -l docs/tech-debt-register.md` |
+
+### Re-measured 2026-08-25 — appended, not substituted
+
+The 2026-08-10 table above is a signed reading and stays as written. This is the same six commands
+run fifteen days later, and the reason it is worth having is the **direction**: P4's largest input
+has more than doubled, so any sizing carried forward from that table is wrong by a factor, not by a
+rounding.
+
+| | 2026-08-10 | 2026-08-25 | note |
+|---|---|---|---|
+| numbered entries | 129 | **224** | `grep -cE '^## [0-9]+\. ' docs/open-followups.md`. ★ This counts NUMBERED entries only; `grep -c "^## "` returns **227**, the extra three being the file's un-numbered closing sections ("Decided", "Provenance", "Standing notes"). Say which you mean. |
+| open split | 92 | not re-derived | needs `npm run followups:check`; deliberately left blank rather than guessed |
+| `§` citations to triage | 277 `src` (98 files) · 49 `scripts` · 7 `e2e` = 333 | **669 `src` (214 files) · 63 `scripts` · 38 `e2e` = 770** | `grep -rno "§[0-9]" src scripts e2e \| wc -l` — **2.3×**, and `e2e` alone is 5.4× |
+| marker hits, always-loaded doc | 25 `AGENTS.md`, 9 subsystem | **0 `AGENTS.md`, 7 across twelve subsystem files** | same grep; the always-loaded file is now clean, which removes one of P4's four parts |
+| fold-in candidate | 49 lines | **67 lines** | `wc -l docs/tech-debt-register.md` |
+
+★★ **P4's "strip open-item comments from source while KEEPING the provenance citations" is the part
+that more than doubled**, and it was already called the unbounded one. 770 citations across 214 `src`
+files is a different slice from 333 across 98, and the separator is still a criterion rather than a
+regex, so the cost scales with the count directly. ★ Re-derive before scoping; every number in both
+tables moves with any commit.
 
 ★ The `SYMBOL_MISSING` eight were hand-checked at the time: all genuinely absent, zero false
 positives. That is a statement about those eight names, not a licence to trust the classifier.
@@ -9754,6 +9972,38 @@ bolted on later against a
 model that was never shaped for it, and the two doors then disagree about validation, about caps and
 about what a stale reference means. Rather than ship both surfaces thinly, S4 shipped ONE surface
 completely and wrote the model so the second is additive.
+
+★★★ **A FIELD GROUP LABELLED "Documents" ALREADY RENDERS IN FOUR ENTITY EDITORS AND IS NOT THIS
+DOOR.** `DocumentLinksGroup` (exported from `knowledge-links-field-gated.tsx`) is mounted by
+`change-edit-modal.tsx`, `milestone-edit-modal.tsx`, `raid-edit-modal.tsx` and
+`stakeholder-edit-modal.tsx`, and it sets both its `FieldGroup` `name` and its visible caption to
+`t(lang, "documents")` — so four entity editors already show a section headed **Documents**. It wraps
+`KnowledgeLinksFieldGated` and binds `draft.knowledgeLinks`: it is the KNOWLEDGE-link field, and it
+has nothing to do with `ProjectDocument.linkedEntities`. **Anyone grepping for "document links in an
+entity editor" finds it, reads the label, and concludes this door is already built.** Whoever builds
+the real one must then put a SECOND section also called "Documents" into the same modal — decide the
+naming BEFORE writing the field, not after. Reproduce:
+
+```bash
+# where it mounts (4 editors) + where it is defined
+grep -rn "DocumentLinksGroup" src --include="*.tsx" | grep -v "\.test\."
+# the LABEL: two t(lang, "documents") lines, the FieldGroup name and its caption
+grep -n 't(lang, "documents")' src/app/knowledge-links-field-gated.tsx
+# the BINDING, which lives at the call sites, not in the component
+grep -rn -A2 "<DocumentLinksGroup" src --include="*.tsx" | grep knowledgeLinks
+```
+
+★★ **Three further details, each of which makes the confusion worse rather than better.** (1) The
+four editors carrying the group are change · milestone · RAID · **stakeholder** — a DIFFERENT four
+from the task/RAID/change/milestone set this entry's opening paragraph names, so neither list is a
+subset of the other; the TASK editor mounts `KnowledgeLinksFieldGated` directly, without the group.
+(2) Only `milestone-edit-modal.tsx` gates the group on `isVisible("documentLinks")`; the other three
+render it unconditionally, so "it is behind a visibility key" is true of one editor in four.
+(3) The visibility key is *named* `documentLinks` (`modal-fields.ts`) but its `labelKey` resolves to
+**"Knowledge links"** (`i18n.ts`) — the legacy pre-rename name, per `document-link.ts`. So the field
+is called Documents in the modal, Knowledge links in the settings row that hides it, and
+`knowledgeLinks` in the model. Nothing here is broken; all three are traps for a reader trying to
+establish whether the entity-side door exists.
 
 ★ **The model is already shaped for it.** `document-ref.ts` is a LEAF module — it imports nothing
 from the app, specifically so the four entity editors can import `DocEntityRef`/`refKey` without
@@ -11139,17 +11389,26 @@ never reach a slide**, including the single most-used one:
 | RAID `description` | 3 (of 23) | yes |
 | RAID `mitigation` | 11 | **no** |
 | Milestone `description` | 3 (of 9) | yes |
-| Change `description` | 2 (of 20) | yes |
+| Change `description` | 2 (of 21) | yes |
 | Change `impactDescription` | 6 | yes |
 | Change `resolutionNotes` | 13 | **no** |
 
-Re-derive rather than trust the table — the indices move whenever a `*_CSV_COLUMNS` list gains an
+Re-derive rather than trust the table — the indices move whenever one of the column lists gains an
 entry, and this table is exactly the kind of enumeration §143's own file list shows rotting:
 
 ```bash
 grep -n 'slice(2, 8)' src/app/export-pptx.ts
 grep -n '_RICH_COLUMNS' src/app/export-sections.ts
+grep -n "^export const .*CSV_COLUMNS" src/app/csv-codecs-core.ts
 ```
+
+★★ **The four lists are `CSV_COLUMNS` (Task), `RAID_CSV_COLUMNS`, `MILESTONES_CSV_COLUMNS` and
+`CHANGES_CSV_COLUMNS` — and this paragraph said `*_CSV_COLUMNS`, a glob that MISSES the Task list
+entirely** because it alone carries no prefix. `Task.description` is the single most-used rich field
+and the headline of the table above, so the one list a reader most needs is the one the recipe would
+not have found. ★ Every index in the table re-verified EXACTLY on 2026-08-25; only the Change list's
+TOTAL had drifted (20 → 21), i.e. the count was wrong while every claim it supported was right — the
+usual direction, and the reason a wrong number is a prompt to re-check rather than to renumber.
 
 ### Scope, if this is picked up
 
@@ -14078,12 +14337,21 @@ generalisation from a NUL to any control byte was never re-checked. Measured on 
 of re-asserted: `jira-api.ts` contains exactly **one** control byte, U+0001, and **no NUL**:
 
 ```bash
-node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
+node -e "const fs=require('fs'),p=require('path');(function w(d){for(const e of fs.readdirSync(d,{withFileTypes:true})){if(['node_modules','.git','.next','.worktrees','.claude','.demo-tmp'].includes(e.name))continue;const f=p.join(d,e.name);if(e.isDirectory())w(f);else if(/[.](ts|tsx|md)$/.test(e.name)){const b=fs.readFileSync(f);for(let i=0;i<b.length;i++){const c=b[i];if(c<9||(c>13&&c<32)||c===127){console.log(f,i,c);break;}}}}})('.')"
 grep -n "normalizeForCompare" src/app/jira-api.ts
 ```
 
-The first command reports the single control byte at offset 10813, value 1 (U+0001). The second grep
-prints both `normalizeForCompare` lines normally — no "Binary file" message. Both tools' binary
+The first command reports a **single** control byte in `src/app/jira-api.ts`, value 1 (U+0001), and
+nothing else anywhere in the tree. The second grep prints both `normalizeForCompare` lines normally —
+no "Binary file" message.
+★★ **The byte OFFSET is deliberately not quoted.** This paragraph carried "offset 10813" and it had
+moved to 11622 by 2026-08-25 — any edit above the line shifts it, and the offset was never the claim.
+Read it off the command's own output.
+★★★ **AND THE COMMAND ITSELF HAD STOPPED ANSWERING THE SENTENCE — fixed 2026-08-25.** Its skip list
+was `node_modules`/`.git`/`.next`, which does not cover git WORKTREES, so on any checkout with one it
+reported **four** hits — three of them the same `jira-api.ts` inside `.claude/worktrees/` and
+`.worktrees/` — and the word "single" above read as flatly false. The skip list below adds
+`.worktrees`, `.claude` and `.demo-tmp`; re-verified to return exactly one line. Both tools' binary
 detection is NUL-triggered specifically, not triggered by an arbitrary control byte, so U+0001 does
 not put this file in the class the §67 NUL did — the sweep this entry warned about is not, in fact,
 blind here.
@@ -14215,8 +14483,26 @@ change, with the tenant-vs-single-DB question answered deliberately rather than 
 
 **Status:** open — jsdom cannot exercise the mechanism; no manual check recorded yet.
 
-A dangling image reference (asset deleted, byte row missing) renders via a CSS trick:
-`img[data-asset-missing]::before { content: "⚠" }`. Pseudo-element content on a replaced element
+A dangling image reference (asset deleted, byte row missing) renders via a CSS trick. **The
+declaration is in `globals.css`, not in `document-asset-images.ts` as this entry's heading implies —
+that module only sets and clears the `data-asset-missing` attribute.** And it is not the plain glyph
+this entry used to quote as `content: "⚠"`:
+
+```bash
+grep -n -A2 'data-asset-missing\]::before' src/app/globals.css   # content: "\26A0\FE0E ";
+```
+
+★★★ **`\FE0E` IS VARIATION SELECTOR-15, AND IT IS THE WHOLE POINT OF THE OWED EYE-VERIFY.** U+FE0E
+requests TEXT presentation for the preceding U+26A0, i.e. a monochrome glyph rather than the colour
+emoji most platforms default to for a bare ⚠. Quoting the declaration as `"⚠"` erases the one
+character the check is about, and would let a reviewer confirm "the glyph paints" while never asking
+the question that matters. **Judge THREE things in the browser, not one:** that anything paints at
+all, that it paints as monochrome text rather than an emoji, and that the trailing space in the
+declaration separates it from adjacent content. ★ There is also a `\FE0E`-blind failure mode: a font
+with no text-presentation form for U+26A0 falls back to the emoji anyway, so "it looks like an emoji"
+is a platform finding, not a CSS bug — record the platform.
+
+Pseudo-element content on a replaced element
 with no `src` is documented to render consistently across major browsers only in that exact
 no-`src` shape, and jsdom has no rendering engine to test it at all. What IS pinned by tests is the
 `data-asset-missing` attribute being set and the border/background styling classes being applied —
