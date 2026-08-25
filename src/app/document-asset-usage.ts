@@ -7,14 +7,15 @@
 // the module existed "rather than two regexes that can drift", which reads as
 // though this file holds the repo's single rule for asset references. It does
 // not: THREE patterns read `data-asset-id`, they are deliberately NOT merged,
-// and `assetRefsInDocument` below carries the relationship and the reason.
+// they live together in `document-asset-patterns.ts`, and `assetRefsInDocument`
+// below carries what the first two mean for a caller.
 //
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
 // load through sanitizeDocumentHtml).
 //
 // ★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT —
-// prose survives a load verbatim. `ASSET_ID_RE` no longer NEEDS it to be one
-// (§231, closed): it requires a start tag. Pinned by "does NOT escape a
+// prose survives a load verbatim. `ANY_TAG_ASSET_ID_RE` no longer NEEDS it to be
+// one (§231, closed): it requires a start tag. Pinned by "does NOT escape a
 // data-asset-id a user merely TYPED as prose, and no longer counts it".
 //
 // ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
@@ -24,41 +25,11 @@
 // load path normalises quoting BEFORE anything counts references".
 
 import type { DocBlock, ProjectDocument } from "./document-model";
-import { IMG_TAG_RE } from "./document-export-assets";
-
-/** The attribute inside ANY start tag, stepping over quoted attribute values.
- *
- *  ★★★ TAG-AGNOSTIC ON PURPOSE, AND THAT IS THE HALF NOT TO "SIMPLIFY".
- *   A reference the sanitizer preserved on a non-`img` element still matters
- *   for deletion safety and the "used in N documents" count, so a
- *   `<span data-asset-id>` MUST keep counting (open-followups §218). Anchoring
- *   this on `<img` would silently change what the cap counts and what that
- *   column means — "a <span> is counted but never drawable" goes red if you
- *   do. Tag-name CASE is not a discriminator either: `<IMG …>` counts here.
- *
- *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_RE` uses: a preceding
- *   `alt="…"` is consumed whole as one alternative, so its contents cannot
- *   supply an opening quote for this attribute. Before that, a crafted alt
- *   ending in `data-asset-id=` produced a phantom id and hid the real one, and
- *   a text node spelling the attribute spent a cap slot (open-followups §231).
- *   The QUANTIFIER is lazy where `IMG_TAG_RE`'s is greedy — see `AssetRefs`.
- *
- *  ★★ `[^\s/>"']*` IS THE TAG NAME, AND THE `"'` IN IT IS NOT DECORATION.
- *   Without them the class can eat a quote, which makes it ambiguous against
- *   branches 2 and 3 of the alternation — the pattern's only backtracking
- *   ambiguity. Measured on `('<a' + '"'.repeat(64)).repeat(m)`: 375 ms at
- *   4 KB and ~7.5x per doubling, against 0.27 ms with the two characters
- *   present. The two patterns agree on every input without a quote in the tag
- *   name, which is every input the loader can produce. Not
- *   reachable through the loader (DOMPurify serialises from the DOM, so a tag
- *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
- *   comment rather than a check and the tests here scan raw HTML. */
-const ASSET_ID_RE =
-  /<[a-zA-Z][^\s/>"']*(?:[^>"']|"[^"]*"|'[^']*')*?\bdata-asset-id="([^"]*)"/g;
+import { ANY_TAG_ASSET_ID_RE, IMG_TAG_RE } from "./document-asset-patterns";
 
 function assetIdsInBlock(block: DocBlock): string[] {
   if (block.type !== "paragraph") return [];
-  return Array.from(block.html.matchAll(ASSET_ID_RE), (m) => m[1]).filter((id) => id.length > 0);
+  return Array.from(block.html.matchAll(ANY_TAG_ASSET_ID_RE), (m) => m[1]).filter((id) => id.length > 0);
 }
 
 /** Distinct asset ids referenced anywhere in this ONE document's blocks.
@@ -87,18 +58,20 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *
  *  ★★★ THE DIVERGENCE IS THE POINT, AND MERGING THE PATTERNS WOULD DESTROY IT.
  *  Two scanners disagree about what an asset reference IS, and each is right
- *  on its own terms: `ASSET_ID_RE` above is tag-AGNOSTIC because a reference
+ *  on its own terms: `ANY_TAG_ASSET_ID_RE` (document-asset-patterns.ts) is
+ *  tag-AGNOSTIC because a reference
  *  the sanitizer preserved on a non-`img` element still matters for deletion
- *  safety and the usage count, while `IMG_TAG_RE` (document-export-assets.ts)
+ *  safety and the usage count, while `IMG_TAG_RE` (same module)
  *  is tag-ANCHORED because an export must only fetch bytes for something it
  *  can actually draw. What was missing was anywhere that said so — a
  *  `<span data-asset-id>` consumed a cap slot, contributed to no export, and
  *  appeared in none of `inlined`/`omitted`/`missing`. open-followups §218.
  *
- *  ★★ A THIRD pattern exists and deliberately is NOT here: `ASSET_IMG_RE`
- *  (document-model.ts) yields no ids at all — it is `.test()`-only, deciding
- *  whether an image-only paragraph SURVIVES load. It is pinned by the
- *  relationship test in this module's test file instead.
+ *  ★★ A THIRD pattern sits beside those two and deliberately does NOT feed this
+ *  type: `ASSET_IMG_TEST_RE` yields no ids at all — it is `.test()`-only,
+ *  deciding whether an image-only paragraph SURVIVES load. All three are
+ *  asserted against each other in document-asset-patterns.test.ts; the
+ *  relationship test in this module's test file pins it here too.
  *
  *  ★★ "THREE" COUNTS REGEXES, NOT READERS. Two more places read the attribute
  *  and neither is a pattern, so neither belongs in that comparison and neither
@@ -127,7 +100,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  both (open-followups §231, closed). A DIFFERENT violation survives, and it
  *  is why the headline above still stands: on a DUPLICATED attribute,
  *  `<img data-asset-id="a" data-asset-id="b">` yields `all` = ["a"] and
- *  `drawable` = ["b"], because `ASSET_ID_RE` is LAZY and stops at the FIRST
+ *  `drawable` = ["b"], because `ANY_TAG_ASSET_ID_RE` is LAZY and stops at the FIRST
  *  occurrence while `IMG_TAG_RE` is GREEDY and backtracks to the LAST. A full
  *  load collapses that duplicate to `data-asset-id="a"` and the two sets then
  *  agree, so it is reachable ONLY by scanning UN-loaded HTML — which the tests
@@ -152,7 +125,7 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  property: if a change makes the two patterns agree it SHOULD go red, and
  *  the answer is to delete it and this note, never to re-fit its expectations. */
 export type AssetRefs = {
-  /** Ids `ASSET_ID_RE` finds on ANY element — what the per-document image cap
+  /** Ids `ANY_TAG_ASSET_ID_RE` finds on ANY element — what the per-document cap
    *  counts. Not GUARANTEED a superset of `drawable`; see the type's note. */
   all: ReadonlySet<string>;
   /** Ids `IMG_TAG_RE` finds on an `<img>` tag — what an export can draw. */

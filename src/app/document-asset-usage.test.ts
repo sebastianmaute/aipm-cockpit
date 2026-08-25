@@ -127,18 +127,18 @@ describe("assetRefsInDocument", () => {
 });
 
 describe("the three asset-id patterns and what each deliberately does not see", () => {
-  // ★★★ These three patterns are all correct and all different. This test is
-  // the only place that states the differences together; without it, each is
-  // documented only in its own file's docstring and a reader fixing one has no
-  // way to see the other two. open-followups §218.
+  // ★★★ These three patterns are all correct and all different. All three now
+  // live in document-asset-patterns.ts and its test asserts them against each
+  // other DIRECTLY, as a table. open-followups §218/§209.
   //
-  //   ASSET_ID_RE   (document-asset-usage.ts)   attribute on ANY element, double-quote only
-  //   IMG_TAG_RE    (document-export-assets.ts) <img> tag, quote-aware, double-quote value
-  //   ASSET_IMG_RE  (document-model.ts)         <img>, case-INSENSITIVE, ALL quoting styles
+  //   ANY_TAG_ASSET_ID_RE  attribute on ANY element, double-quote only
+  //   IMG_TAG_RE           <img> tag, quote-aware, double-quote value
+  //   ASSET_IMG_TEST_RE    <img>, case-INSENSITIVE, ALL quoting styles
   //
-  // ASSET_IMG_RE is not exported and yields no ids, so it is probed through
-  // sanitizeProjectDocuments: a paragraph with no visible text survives load
-  // only when that pattern matches.
+  // ★ This describe stays, and is NOT a duplicate of that table: it probes the
+  // third pattern through sanitizeProjectDocuments — a paragraph with no visible
+  // text survives load only when that pattern matches — so it pins the load-path
+  // CONSEQUENCE the pattern-level table cannot reach.
   const oneParagraph = (html: string): ProjectDocument =>
     doc(11, [{ type: "paragraph", html }]);
   const survivesLoad = (html: string): boolean => {
@@ -187,8 +187,8 @@ describe("the three asset-id patterns and what each deliberately does not see", 
 });
 
 describe("the load path normalises quoting BEFORE anything counts references", () => {
-  // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_RE accepts
-  // data-asset-id='x' and a bare unquoted value; ASSET_ID_RE and IMG_TAG_RE
+  // ★★★ THIS PINS A CAUSE, NOT A CONSEQUENCE. ASSET_IMG_TEST_RE accepts
+  // data-asset-id='x' and a bare unquoted value; ANY_TAG_ASSET_ID_RE and IMG_TAG_RE
   // both require a double-quoted value. That divergence is harmless ONLY
   // because every load path runs
   //   sanitizeProjectDocuments(raw).map(sanitizeDocumentRichFields)
@@ -394,7 +394,7 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //     `AssetRefs` note citing it, never re-fit the expectations.
     //
     // ★★ THE CAUSE IS THE QUANTIFIER. Their ALTERNATIONS are byte-identical;
-    //    the QUANTIFIER is not — `ASSET_ID_RE` is LAZY (`*?`) so it stops at
+    //    the QUANTIFIER is not — `ANY_TAG_ASSET_ID_RE` is LAZY (`*?`) so it stops at
     //    the FIRST occurrence, `IMG_TAG_RE` is GREEDY (`*`) and backtracks to
     //    the LAST. It is NOT the only difference between them, though, and
     //    believing so leads to the inference `TAG-AGNOSTIC ON PURPOSE` exists

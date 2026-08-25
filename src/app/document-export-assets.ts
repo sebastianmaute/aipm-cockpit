@@ -9,43 +9,13 @@
 
 import type { ProjectDocument } from "./document-model";
 import type { AssetByteLoader } from "./document-asset-images";
+import { IMG_TAG_RE } from "./document-asset-patterns";
 
-/**
- * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
- * identical copies, one per renderer.
- *
- * ★★ It is NOT the only rule in the repo that READS this attribute, and a
- * reader who assumes it is will fix a bug in one place: `ASSET_ID_RE`
- * (`document-asset-usage.ts`) matches the ATTRIBUTE on any element and backs
- * the 20-image cap; `ASSET_IMG_RE` (`document-model.ts`) EXTRACTS NOTHING —
- * it is a `.test()`-only survival predicate deciding whether an image-only
- * paragraph survives load, which is why it is case-insensitive and accepts all
- * three quoting styles. (An earlier wording here called all three extractors.)
- * The divergences are deliberate and the three are deliberately NOT merged;
- * `assetRefsInDocument` (`document-asset-usage.ts`) carries the relationship
- * and the reason. The consequence to know: a `<span data-asset-id>` counts
- * against the cap and is invisible here — but no longer SILENTLY, since that
- * helper returns it as `undrawable` and the cap message reports how much room
- * removing every such reference would reclaim (open-followups §218).
- *
- * ★★★ QUOTE-AWARE, and it must stay that way. A plain `[^>]*` stops at the
- * first `>` even inside a quoted attribute value, and that is reachable from
- * the product's own rename control: the insert path escapes `>` to `&gt;`, but
- * the HTML serialiser does not re-escape it in an attribute, so a DOM round
- * trip hands back `alt="chart>v2.png"` verbatim. Measured: with `alt` AFTER
- * data-asset-id the match truncates and `v2.png">` survives as visible text in
- * every export; with `alt` BEFORE it the tag is missed entirely, so no bytes
- * load and the image disappears without a word. The three alternation branches
- * start on disjoint character classes, so there is no backtracking risk.
- *
- * ★★★ It carries /g, so `lastIndex` is shared state. Use it ONLY with
- * `String.replace` (which resets it) or `String.matchAll` (which clones it).
- * A `.test()` or bare `.exec()` in a loop would carry position between
- * unrelated callers — a bug that only shows up once two of them run in one
- * tick, i.e. in production and never in a focused test.
- */
-export const IMG_TAG_RE =
-  /<img\b(?:[^>"']|"[^"]*"|'[^']*')*\bdata-asset-id="([^"]*)"(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+// ★ Re-exported, not declared here: the declaration and its full docstring live
+//   in document-asset-patterns.ts beside the two patterns it must be read
+//   against (open-followups §209). Kept exported from this module because the
+//   three renderers and this file's own `documentAssetIds` import it from here.
+export { IMG_TAG_RE } from "./document-asset-patterns";
 
 /** Every asset id the document references, in document order, deduplicated.
  *
