@@ -16,6 +16,7 @@ import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { useResourcePlanner } from "./use-resource-planner";
 import { useUndoStack } from "./undo/use-undo-stack";
 import type { ActivityKind } from "./activity-log";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 vi.mock("./use-settings", () => ({
   useSettings: () => ({
@@ -257,8 +258,14 @@ describe("RaidPanel inline add row", () => {
       stakeholderIds: [],
     };
     renderPanel(makeProps({ raid: [item] }));
-    const addBtns = screen.getAllByRole("button", { name: t("en-US", "raidAddItem") });
-    expect(addBtns.length).toBeGreaterThanOrEqual(1);
+    // ★ The inline row's accessible name is now qualified by the category it
+    // will create the item in (WCAG 2.4.6 fix — it used to collide with the
+    // toolbar Add button, which always creates a Risk, whenever the table has
+    // rows; the category filter here is "All" so the row falls back to "R").
+    const inline = screen.getByRole("button", {
+      name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}`,
+    });
+    expect(inline).toBeInTheDocument();
   });
 
   it("clicking inline add row when category filter is 'All' opens modal with category R", () => {
@@ -460,12 +467,13 @@ describe("RAID column visibility", () => {
     const raid = [makeRaidItem({ id: 1, title: "Vendor risk" })];
     const { container } = renderPanel(makeProps({ raid }));
     const headerCount = container.querySelectorAll("thead th").length; // select + visible data cols
-    // RAID renders several "Add item" buttons (toolbar + the in-table add row);
-    // pick the one that lives inside a <td> (the inline add row).
+    // The inline add row's name is qualified by the category it creates
+    // (WCAG 2.4.6 — see the disambiguating comment in raid-panel-rows.tsx),
+    // so it is now findable by name alone. No category filter is set, so it
+    // falls back to "R".
     const addTd = screen
-      .getAllByRole("button", { name: t("en-US", "raidAddItem") })
-      .map((b) => b.closest("td"))
-      .find((td) => td !== null);
+      .getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryR")}` })
+      .closest("td");
     expect(addTd).toBeTruthy();
     expect(addTd!.colSpan).toBe(headerCount);
   });
@@ -1067,6 +1075,7 @@ describe("RaidPanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha",
       "Referenced by 1 document(s) – Beta",
     ]);
+    expectRowUniqueNames({ minRows: 21 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {

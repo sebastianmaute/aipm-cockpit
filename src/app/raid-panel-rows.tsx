@@ -20,6 +20,7 @@ import { ColumnResizeHandle } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
+import { rowLabel } from "./row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { PanelSort } from "./panel-views";
@@ -356,7 +357,16 @@ export function RaidTable({
             <button
               type="button"
               onClick={() => openNew(effectiveCategory)}
-              aria-label={t(lang, "raidAddItem")}
+              // ★ WCAG 2.4.6: the toolbar's own Add button renders this SAME
+              // i18n string as its text content, so a bare aria-label here
+              // collided with it whenever the table has rows to trail below
+              // (the toolbar Add is always mounted). The two are not
+              // interchangeable either — the toolbar Add always creates a
+              // Risk (`openNew()`'s default), while this row creates an item
+              // in whatever category is currently filtered
+              // (`openNew(effectiveCategory)`) — so the names must differ,
+              // and the category is what actually differs between them.
+              aria-label={rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang))}
               className={`group flex w-full cursor-pointer items-center gap-2 border-b border-dashed border-line px-3 py-1.5 text-sm text-muted-foreground hover:bg-ui-dark-blue/5 hover:text-ui-dark-blue ${INTERACTIVE}`}
             >
               <PlusIcon aria-hidden="true" className="h-3.5 w-3.5 opacity-50 group-hover:opacity-100" />

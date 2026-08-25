@@ -13,6 +13,7 @@ import type { ProjectDocument } from "./document-model";
 import { applyTier } from "./field-visibility";
 import { t } from "./i18n";
 import type { ChangeItem, ChangeStatus, NoteLogEntry } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 function ci(over: Partial<ChangeItem>): ChangeItem {
   return { id: 1, title: "t", description: "", type: "Scope", status: "Proposed", raisedDate: "2026-06-01", linkedTaskIds: [], linkedRaidIds: [], stakeholderIds: [], ...over };
@@ -224,6 +225,7 @@ describe("ChangePanel — inline status select", () => {
     const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
     expect((getByRole("combobox", { name: rowLabel("Alpha scope") }) as HTMLSelectElement).value).toBe("Proposed");
     expect((getByRole("combobox", { name: rowLabel("Beta cost") }) as HTMLSelectElement).value).toBe("Approved");
+    expectRowUniqueNames({ minRows: 5, roles: ["combobox"] });
   });
 
   it("reports the picked status to onStatusChange with the row id", () => {
@@ -294,6 +296,7 @@ describe("ChangePanel — note-log badge", () => {
     expect(other.textContent).toContain("1");
     fireEvent.click(other);
     expect(onOpenNotes).toHaveBeenCalledWith(2);
+    expectRowUniqueNames({ minRows: 17 });
   });
 
   it("renders a zero badge for a change with no log", () => {
@@ -444,6 +447,7 @@ describe("ChangePanel — inline Ask-Claude (SP2)", () => {
     expect(btn).toBeTruthy();
     fireEvent.click(btn);
     expect(onAiEdit).toHaveBeenCalledWith(expect.objectContaining({ id: 1, title: "Alpha scope" }));
+    expectRowUniqueNames({ minRows: 19 });
   });
 
   it("does NOT render the button when aiEditEnabled returns false", () => {
@@ -857,6 +861,7 @@ describe("ChangePanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha scope",
       "Referenced by 1 document(s) – Beta cost",
     ]);
+    expectRowUniqueNames({ minRows: 20 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {
