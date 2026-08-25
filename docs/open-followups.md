@@ -15461,7 +15461,7 @@ THEM.** There are THREE, not the two this entry named above, and each is right o
 | `IMG_TAG_RE` | `document-export-assets.ts` | `<img`-anchored, `/g` | tag-ANCHORED — an export must only fetch bytes it can draw |
 | `ASSET_IMG_RE` | `document-model.ts`, module-private | case-INSENSITIVE, all quoting styles, NOT `/g` | **yields no ids at all** — a `.test()`-only SURVIVAL PREDICATE deciding whether an image-only paragraph survives load |
 
-★★★ **EVERY NAME AND LOCATION IN THAT TABLE IS HISTORICAL — grepping any of them returns nothing.**
+★★★ **EVERY NAME AND LOCATION IN THAT TABLE IS HISTORICAL.**
 Renamed and moved into one module on 2026-08-25 (§209): `ASSET_ID_RE` → `ANY_TAG_ASSET_ID_RE`,
 `IMG_TAG_RE` → `IMG_TAG_ASSET_ID_RE`, `ASSET_IMG_RE` → `ASSET_IMG_TEST_RE` (no longer
 module-private), all three in `document-asset-patterns.ts`. The *shape* column is still right for
@@ -15515,7 +15515,8 @@ load on its TEXT and on nothing else.
 ★★★ **AND EVEN WITH TEXT, ONLY THE PARAGRAPH SURVIVES — NOT THE REFERENCE. That row's *survives
 load* = yes is false about the very thing the row is about.** Measured 2026-08-25:
 `<span data-asset-id="s">x</span>` loads back as `"x"`, attribute gone — `span` is not in
-`RICH_ALLOWED_TAGS`, so the sanitiser unwraps the element and the attribute leaves with it. Do NOT
+`DOCUMENT_ALLOWED_TAGS` (the list this path runs, `[...RICH_ALLOWED_TAGS, "img"]`), so the
+sanitiser unwraps the element and the attribute leaves with it. Do NOT
 read that as the tag-agnostic guard being pointless: `data-asset-id` DOES survive load on
 allow-listed non-`img` carriers (`<p>`, `<strong>`, `<li>`, `<a>` each keep it), so the guard
 protects a reachable case — just never the `<span>` this entry names throughout. **§245** carries
@@ -17400,9 +17401,9 @@ returned `[]` for every input, including that one, because `sanitizeDocument` re
 re-run this, check the control discriminates before reading the others.
 
 ★★★ **THE MECHANISM IS THE TAG, NOT THE ATTRIBUTE, AND THAT IS WHAT KEEPS §218's DECISION RIGHT.**
-`span` (and `div`) are absent from `RICH_ALLOWED_TAGS`, which runs at KEEP_CONTENT — the element is
-unwrapped, its words kept, and `data-asset-id` leaves with the element. It is NOT that the attribute
-is stripped from non-`img` carriers. Measured the same day, same composition:
+`span` (and `div`) are absent from the allow-list this path runs, which runs at KEEP_CONTENT — the
+element is unwrapped, its words kept, and `data-asset-id` leaves with the element. It is NOT that
+the attribute is stripped from non-`img` carriers. Measured the same day, same composition:
 
 ```
 <p data-asset-id="p">y</p>            -> <p data-asset-id="p">y</p>            KEEPS ATTR
@@ -17415,7 +17416,25 @@ is stripped from non-`img` carriers. Measured the same day, same composition:
 So a non-`img` reference **can** reach the loader and survive it, on any allow-listed carrier, and
 the cap counts it. §218's tag-AGNOSTIC reading is defending a producible case. `sanitize-html.ts`
 already knows this from the other side: its "cannot WIDEN the boundary" test uses `data-asset-id` on
-a `<p>` precisely because the carrier tag has to be one the rich list admits.
+a `<p>` precisely because the carrier tag has to be one the allow-list admits.
+
+★★★ **NAME THE RIGHT CONSTANT — `DOCUMENT_ALLOWED_TAGS`, NOT `RICH_ALLOWED_TAGS`, and the
+difference is exactly what makes the `<img>` control above coherent.** The chain is
+`sanitizeDocumentRichFields` → `sanitizeDocumentHtml` → `ALLOWED_TAGS: DOCUMENT_ALLOWED_TAGS`, and
+`DOCUMENT_ALLOWED_TAGS = [...RICH_ALLOWED_TAGS, "img"]` — so **`img` is absent from
+`RICH_ALLOWED_TAGS`**. A first revision of this entry named the rich list, which would have meant
+the `<img>` row could not survive the load this entry describes: the constant contradicted the
+evidence three lines above it. Nothing in the conclusion moves — `span`/`div` are absent from BOTH
+lists and `p`/`strong`/`li`/`a` are in both — but a reader checking the mechanism against the named
+constant could not have reconciled it, and `docs/AGENTS/documents.md` already spells the
+distinction out.
+
+★★★ **AND IT SURVIVED A REVIEW THAT WAS LOOKING STRAIGHT AT IT.** The membership check run to
+confirm the mechanism printed `img allow-listed? false` and was reported as CONFIRMING it — the one
+line in the output that refuted the constant being named. Same failure mode as the vacuous first
+probe above, one level up: a measurement that agrees with the conclusion you already hold is the one
+you stop reading. Both halves of this entry were nearly wrong for that reason, in two different
+sessions, and neither gate could see either.
 
 **Why nothing is broken.** Three reasons, and each is worth checking before anyone "fixes" this:
 1. `document-asset-usage.ts`'s docstring is phrased CONDITIONALLY — "a reference the sanitizer
