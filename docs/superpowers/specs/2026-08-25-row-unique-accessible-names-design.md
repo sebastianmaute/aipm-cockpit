@@ -7,7 +7,7 @@
 ## Goal
 
 Give every per-row control an accessible name that cannot collide with another
-row's, on the three surfaces where it does collide today; and add the only kind
+row's, on the four surfaces where it does collide today; and add the only kind
 of detector that can catch a regression, since no gate in this repo can.
 
 ## The defect class
@@ -20,6 +20,7 @@ name derives from something that is not unique to the row.
 | §111 | `documents-list.tsx` | 6 | two documents share a title |
 | §126 | `insights-panel.tsx` (+ `insight-recommendation-controls.tsx`) | 7 | two insights share a `type` |
 | §243 | `history-panel.tsx` | 2 per row, plus the compare header — N+1 | always, from N=2 |
+| §126 (2nd surface) | `dashboard-sections/insights-card.tsx` | 3 | two insights share a `type` — found by the triage, named in no register entry |
 
 This is WCAG 2.4.6. A speech-input user saying "click Delete Q3 report" gets no
 resolution; a screen-reader user navigating by name cannot tell two rows apart.
@@ -54,7 +55,48 @@ exist, in either layer.
 Each was a fork with a real alternative. The alternative and the reason for
 rejecting it are recorded so a later reader does not re-litigate from scratch.
 
-### D1 — Naming rule: always qualify
+### D0 — SUPERSEDES D1 AND D2: adopt `asset-library`'s disambiguator
+
+★★★ **D1 and D2 below are RETAINED FOR THE RECORD AND ARE NOT THE RULE.** They
+were decided without knowing that `asset-library.tsx` already contains a
+fully-worked, documented, tested solution to this exact problem — one whose own
+rationale explicitly rejects **both** options D1 and D2 chose between. Its
+`buildRowTokens` maps each row id to the display TOKEN used in every one of that
+row's labels:
+
+- a name unique in the rendered list is used **bare**;
+- rows actually sharing a name get a **1-based occurrence index**, ranging only
+  over the rows sharing that name;
+- **all** colliding rows are numbered, the first included — a bare `image.png`
+  would otherwise leave a user unable to tell "the only one" from "the first of
+  several";
+- an **escalation loop** handles a user literally naming a row `image.png (1)`,
+  where the generated token for a genuine pair would collide with that bare one.
+
+Its comment rejects the id: uuids read "36 characters of character-salad aloud
+on every control — trading a 2.4.6 failure for a usability regression hitting
+exactly the users 2.4.6 protects". And it rejects a whole-list positional
+ordinal, "which shifts under sorting". It also settles a question this spec
+never asked: cross-MOUNT uniqueness is not required, because the insert modal
+sets `aria-modal`, hiding the background copy from AT.
+
+★★ **D2 was provably wrong for History specifically.** `ProjectVersionMeta.id`
+is a `string`, and version ids are uuids — so "meaningful value plus id" is
+exactly the regression that comment describes.
+
+★ **Why the error happened, recorded so it is not repeated:** the search was for
+naming PRECEDENTS, and two were found (`documents-history-modal`,
+`insight-digest-card`). It was never a search for a disambiguation ALGORITHM,
+and there was one.
+
+**Consequence for the work:** `buildRowTokens` is file-local and not exported.
+The slice **moves** it to a shared module — `asset-library.tsx` then imports it,
+since leaving a second copy would be a source-level clone — and adopts it on the
+four defective surfaces. The residual cost is accepted knowingly: a control's
+accessible name DOES change when a second same-named row appears. That is the
+price of never announcing a uuid.
+
+### D1 — SUPERSEDED by D0. Naming rule: always qualify
 
 Every per-row control appends a qualifier. **Rejected:** qualify only on
 collision, the pattern in `insights/insight-digest-card.tsx`, which computes the
@@ -71,7 +113,7 @@ the label shape changes."* Half of it does not apply — always-qualify never
 merely repeats visible text, it appends a distinguishing value. The drift half
 does apply, and D3 neutralises it.
 
-### D2 — Qualifier: meaningful value plus id
+### D2 — SUPERSEDED by D0. Qualifier: meaningful value plus id
 
 `Restore this state – 14 Mar 2026 (#7)`, not `– 14 Mar 2026` and not `– 7`.
 
@@ -91,7 +133,7 @@ protect.
 ★ `ProjectDocument.id` is a **number**, not a UUID, so an id qualifier is
 announceable here. Verify before assuming the same of another entity.
 
-### D3 — The qualifier is composed, never copied
+### D3 — The qualifier is composed, never copied (STILL HOLDS under D0)
 
 The qualified name must be built from the same expression the visible text
 renders from. This is what makes D1 safe against the drift objection in D2's
