@@ -10,6 +10,48 @@ what closed and why. "Decided" holds proposals rejected outright and "Provenance
 items came from and which numbers were retired — neither is where a closed entry goes. Nothing moves
 to a separate document.
 
+★★★ **ONE STATUS CONVENTION — closure lives in the HEADING, so "how many are open?" is a command
+rather than a re-read.** A closed entry's `##` line carries, after an em-dash, the literal marker
+**`— CLOSED`**; a date, a release or a branch may follow it. A `**Status:**` line in the body may
+repeat that as detail, but it is NEVER the only marker — a status that lives only in a body line is
+invisible to every count, and a register that cannot be counted is re-read instead.
+
+★★★ **A PARTIALLY closed entry is OPEN and must NOT carry `— CLOSED`.** Say what landed in other
+words — `HALF FIXED`, `PARTLY FIXED`, `(b) and (d) FIXED …; (a) and (c) still open` — and keep the
+open half in the heading. The word CLOSED is reserved for whole-entry closure; writing it on an entry
+with work left is the ONE mistake that breaks every count below: every entry the command underneath
+this paragraph lists used to say `HALF CLOSED` or `PARTLY CLOSED`, and every count in circulation
+therefore reported it as done. List today's partials — headings that report a fix without claiming
+closure — and read the LIST, never a number:
+
+```bash
+grep -E "^## [0-9]+." docs/open-followups.md | grep -vE "— CLOSED" | grep -E "FIXED|CLOSED"
+```
+
+★★ **A disclosed RESIDUAL inside a closed entry does NOT reopen it.** Closure is about the entry's
+HEADLINE claim, and many closed entries carry a `**Residual (still open):**` block naming what was
+deliberately left behind — that is the house style, not a contradiction. A residual big enough to
+need tracking gets its own number; it never un-closes its parent. Same for a sub-item `###` heading
+marked CLOSED inside a partially-closed entry: only `##` lines are counted.
+
+★ **DERIVE the count, never quote it.** These agree BY CONSTRUCTION while the rule above holds, and
+they are three independent spellings of it — a divergence is the alarm, so find the outlier rather
+than picking a number:
+
+```bash
+grep -cE "^## [0-9]+." docs/open-followups.md                        # numbered entries
+grep -E  "^## [0-9]+." docs/open-followups.md | grep -c  "— CLOSED"  # closed
+grep -E  "^## [0-9]+." docs/open-followups.md | grep -cv "— CLOSED"  # OPEN — the answer
+npm run followups:check                                                # prints its own "N open entries"
+```
+
+★★ The fourth is genuinely independent: `isClosed` in `scripts/followup-claims-lib.mjs` tests the
+heading for the bare word CLOSED or a `~~` strike, NOT for the `— CLOSED` marker. It agreed with the
+third only once the partials above stopped saying CLOSED, and it will disagree again the moment one
+of them does. That is the point of keeping both — a second, differently-spelled witness.
+★ Not counted at all: the three non-numbered sections at EOF, and the numbers with no heading, which
+the Provenance closed-table records as retired.
+
 ★ **This file has no dependencies outside the repo — all three of its source documents are gone.**
 `docs/refactor-review-2026-06-19.md` was git-tracked and is recoverable — but NOT from `HEAD`,
 which has not carried it since it was deleted, so the recipe that stood here exits 128. Ask for the
@@ -160,7 +202,7 @@ with `/ecc:update-codemaps` when it trails `APP_VERSION` in `src/app/version.ts`
 | 55 | Twelve hand-rolled `aria-pressed` toggles show their on-state by colour alone | 0.212.0 (Nayler) | M | open — a11y (1.4.1), unguarded; ★ 2 of the 12 are NOT colour-only; was 14 (tier selector → `SegmentedControl`), then 13 (editor toolbar → `ToggleButton`, 2026-08-11) |
 | 56 | `ToggleButton`'s pressed state is near-invisible in all three DARK schemes | 0.212.0 (Nayler) | S–M | open — **WCAG 1.4.11**, 1.03–1.22:1; fix belongs in the scheme maps |
 | 57 | Four toolbar Outlook enable-toggles carry an untested `auto` guard | 0.212.0 (Nayler) | S | open — the storage-layer mask IS pinned; these four are not |
-| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half CLOSED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
+| 58 | The axe gate can pass against a STALE dev server | 0.212.0 (Nayler) | S | **gate half FIXED post-0.212.0** — version stamp + guard test; the sibling-worktree half is OPEN, three candidates sketched and unverified |
 | 59 | Eye verification owed on 0.212.0 — and on the two releases before it | 0.212.0 (Nayler) | S | open — ★ the finding is the PATTERN, three releases running |
 | 60 | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | open — no fix proposed; ★ §2's re-record buys nothing but dropping the stale 1043 |
 | 61 | Three residuals from the `use-resource-planner` split | post-0.212.0 | S | open — cosmetic + a stale comment + a dup seam jscpd cannot yet see |
@@ -180,7 +222,7 @@ with `/ecc:update-codemaps` when it trails `APP_VERSION` in `src/app/version.ts`
 | 75 | ~~Two test files contain ORDER-DEPENDENT tests (intra-file, NOT cross-file leakage)~~ | pre-existing, found post-0.214.0 | S–M | **CLOSED** — both leaks fixed, plus the pinned-seed blocking gate `unit-tests-shuffled` and a weekly random-seed sweep |
 | 76 | ~~Two hooks have a CLEANUP-ONLY `mountedRef` — dev-only total suppression after StrictMode's remount~~ | pre-existing, found post-0.214.0 | S | **CLOSED** post-!346 — `use-scheduled-jobs.ts` + `use-operating-guides.ts` now re-set on mount; both pinned |
 | 77 | ~~The snapshot capture gate is a one-way latch, so a mid-session storage switch can still capture the wrong project~~ | found post-0.214.0 | M | **CLOSED** post-0.226.0 — identity (`loadedBackend === backend`) derived in RENDER, not a latch; ★★ needs the re-stamp in the suppress branch or it strands closed at all seven arm sites |
-| 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | **HALF CLOSED** post-0.226.0 — the ALL-null empty-project case gates the CAPTURE, not `isFirstEver` (★★ gating the flag would NOT have worked — `pickBaseline` falls back to the earliest row); ★★★ the partial-KPI half is OPEN — a project with one task and no budget still baselines a row with no SPI/CPI |
+| 78 | A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE | pre-existing, found post-0.214.0 | S | **HALF FIXED** post-0.226.0 — the ALL-null empty-project case gates the CAPTURE, not `isFirstEver` (★★ gating the flag would NOT have worked — `pickBaseline` falls back to the earliest row); ★★★ the partial-KPI half is OPEN — a project with one task and no budget still baselines a row with no SPI/CPI |
 | 79 | The lane engine resolves a person by name but ignores `assigneeEmail`; the backfill prefers email | found post-0.214.0 | S | open — narrow: only a task created in-session with an email and no usable name; self-heals at next load |
 | 80 | ~~Both hide-external toggles trust whatever `readDeviceJson` returns~~ | pre-existing, found post-0.214.0 | XS | **CLOSED** — `=== true` at both sites; both pinned |
 | 81 | ~~The swimlane no-op drop guard no longer holds for a name-resolved task~~ | 0.214.0 (Lostetter) | S | **CLOSED** — guard asks `laneKeyOf`, and `source` carries caller INTENT |
@@ -201,7 +243,7 @@ with `/ecc:update-codemaps` when it trails `APP_VERSION` in `src/app/version.ts`
 | 96 | The document preview/print path loads the whole `export-sections` registry even for a document with no `dataSection` block | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open — measured 60 runtime modules, 59 of them from that one import; priority UNKNOWN, no bundle measurement taken |
 | 97 | The DOM constraint **INVERTED** for the document load paths — they now REQUIRE a DOM, and failure is silent | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open — TRAP, safe today. Contradicts the widely-repeated "you cannot call DOMPurify here" lore (§36(a)). ★ The catastrophic half is **FIXED**: the JSON path used to lose the ENTIRE workspace (measured tasks: 0) and is now contained to documents-only like the other three. The DOM dependency itself is unchanged, which is why this stays open |
 | 98 | `documents` is in NEITHER save-time data-loss counter, so a documents-only wipe trips no guard | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open — MISSING NET, **no known live path**, and NOT a regression the documents slice introduced. `knowledgeItems`, `insights`, `timelogLinks` and `settingsOverrides` share the gap — **state that scoping whenever this row is quoted**, or a reader goes hunting for a documents bug that is not there. Widening `nonEmptyCollectionCount` / `workspaceRecordCount` shifts the L3 and Layer-B thresholds for EVERY existing project, so it needs its own slice, its own tests, and a deliberate decision on whether the other four join |
-| 99 | The e2e seed writes only four of BrowserBackend's ten optional kv slices, so any view backed by one of the other six is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open, PARTLY CLOSED 2026-08-08 — `insights` and `timelogLinks` were seeded on 2026-08-08, so **Insights is no longer in this position**; six remain (`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`). `documents` was the same defect and seeding it immediately exposed a real serious violation, so seeding the rest may legitimately turn scans RED for the first time. ★ Re-measure rather than quoting: `grep -c "^const KV_" src/app/browser-backend.ts` (→ 10) against `e2e/seed.ts`'s `KV` map (→ 4) |
+| 99 | The e2e seed writes only four of BrowserBackend's ten optional kv slices, so any view backed by one of the other six is axe-scanned against its EMPTY STATE | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open, PARTLY FIXED 2026-08-08 — `insights` and `timelogLinks` were seeded on 2026-08-08, so **Insights is no longer in this position**; six remain (`fieldVisibility`, `features`, `steeringCommittee`, `knowledgeItems`, `settingsOverrides`, `calendarEvents`). `documents` was the same defect and seeding it immediately exposed a real serious violation, so seeding the rest may legitimately turn scans RED for the first time. ★ Re-measure rather than quoting: `grep -c "^const KV_" src/app/browser-backend.ts` (→ 10) against `e2e/seed.ts`'s `KV` map (→ 4) |
 | 100 | Tab ejects focus from a portaled popover opened inside a modal, leaving it open and its contents keyboard-unreachable | field controls → modal header, unreleased | M | open — WCAG 2.1.1, **measured in Chromium** from both a radio and a checkbox. PRE-EXISTING and architectural (`Modal`'s trap guards on `container.contains`, false for every element in a portal); the move only made it prominent. Invisible to jsdom (the control's tests never mount inside `Modal`) and to axe |
 | 101 | `SegmentedControl`'s selected segment is distinguished by fill alone in the three DARK schemes | field controls → modal header, unreleased | S | open — computed track-vs-active lightness 2.38 / 2.43 / 2.25:1 dark vs 10.42 / 8.73 / 10.54:1 light, against this repo's own ≥3:1 bar; `--shadow-control` is `none` with no per-scheme override, so there is no fallback cue. Screen readers unaffected (`aria-checked` carries it). Pre-existing, shared by 31 invocations |
 | 103 | ~~Opening an over-`MAX_DOCUMENTS` file silently and PERMANENTLY destroys the excess documents on the next save~~ | **shipped in 0.219.0 "Elgin"** (`90199c26`), found in S2 | M | **CLOSED** — cap raised 200 → 1000 (ONE constant, both doors), the truncation is COUNTED as an upper bound, every backend publishes `lastLoadTruncation` under a registry-test guard, one consumer at the generic load effect, and automatic saves PAUSE until the user accepts. ★ The persistent banner's "Save anyway" is load-bearing, not polish: the user cannot delete their way under the cap, so a sticky guard without an escape would be a permanent save lockout |
@@ -3269,7 +3311,7 @@ a single click on an imported settings blob.
 
 ---
 
-## 58. The axe gate can pass against a STALE dev server — gate half CLOSED post-0.212.0, sibling-worktree half OPEN
+## 58. The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN
 
 **Cited from:** `layout.tsx`, `e2e/a11y.spec.ts` — this entry cannot be deleted.
 
@@ -3608,7 +3650,7 @@ currently over the limit.
 
 ---
 
-## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF CLOSED post-0.216.0
+## 64. Other surfaces still read "0% complete" for an all-cancelled project — HALF FIXED post-0.216.0
 
 ★ **HALF CLOSED post-0.216.0.** Every surface that reads the figure DIRECTLY is done; both PERSISTED
 figures are deliberately untouched.
@@ -3765,7 +3807,7 @@ this warning exists to record — and reported the entry's correct cite as a def
 
 ---
 
-## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF CLOSED post-0.216.0
+## 65. A `Done` task with no `completedDate` shows the cross while its tooltip says "completed" — HALF FIXED post-0.216.0
 
 ★ **HALF CLOSED post-0.216.0.** `computeTaskHealth`'s finished-task driver is now three-way —
 `cancelled` (by status) / `completed` (by `isTaskDelivered`) / `closed` (neither) — so this pair
@@ -4421,6 +4463,11 @@ pruned.
 
 **Cited from:** `timelog-guards.ts`, `timelog-panel.tsx` — this entry cannot be deleted.
 
+★★ **AS ORIGINALLY REPORTED — the next three paragraphs are the pre-fix finding, in its own present
+tense.** What actually shipped is below, under "FIXED — went structural instead of the cheap lift";
+the cheap lift the ★ describes was considered and REJECTED. A reader who stops before that point
+takes a closed defect for a live one.
+
 `handleRefreshBookings` and `handleFetchBookings` (`timelog-panel.tsx`) each open with an early return,
 and neither includes `isMisconfigured` — while the corresponding buttons in `timelog-panel-toolbar.tsx`
 both do:
@@ -4936,7 +4983,7 @@ reachable on inspection.
 
 ---
 
-## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF CLOSED post-0.226.0, partial-KPI half OPEN
+## 78. A brand-new Turso project auto-captures an empty snapshot, and that row becomes the BASELINE — HALF FIXED post-0.226.0, partial-KPI half OPEN
 
 `use-storage-turso-ops.ts` `createTursoProject` calls `applyWorkspace(ws)` with a fresh empty
 workspace and `setTursoProjectId(id)` in the same batch. `workspaceReady` (§77) is legitimately
@@ -6056,7 +6103,7 @@ about than either end state.
 
 ---
 
-## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY CLOSED 2026-08-08
+## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
 list and a kv-key map. Anything named in neither is dropped without a word. `BrowserBackend`
@@ -7678,7 +7725,7 @@ reading; if it and this entry ever disagree, neither is a measurement — re-run
 
 ---
 
-## 117. Three S3c image prerequisites, all inert today — (b) CLOSED 2026-08-13 by §140, (a) and (c) still open
+## 117. Three S3c image prerequisites, all inert today — (b) FIXED 2026-08-13 by §140, (a) and (c) still open
 
 ★ ONE entry rather than three because all three share a trigger: they become live the
 moment S3c wires the asset store, and whoever implements it needs the whole checklist.
@@ -9736,6 +9783,14 @@ designed slice and its own review rather than a toolbar button.
 
 ### The design inputs — measured, so the slice does not re-derive them
 
+★★★ **THIS SECTION IS THE PRE-FIX RECORD AND IS WRITTEN IN THE PRESENT TENSE OF 2026-08-11, THE DAY
+IT WAS MEASURED — read every claim in it as an INPUT to the slice, not as today's state.** Its
+status claims about other entries were true when written and were then closed BY THIS SLICE: the
+sentence below reading "that is §115, still open" is the sharpest case, and §115's own heading now
+reads CLOSED 2026-08-13 by §140. It is left standing rather than renumbered for the reason this
+register applies to every dated observation — rewriting a signed measurement to match today's tree
+destroys the only thing it is good for. The decisions actually taken are in the CLOSED section below.
+
 ★★★ **`style`, `class`, `title` and `id` are members of DOMPurify's `DEFAULT_URI_SAFE_ATTRIBUTES`
 and therefore BYPASS the `ALLOWED_URI_REGEXP` value test entirely.** `target`, `rel` and `lang` are
 not, which is why those three never survive (§38). Measured 2026-08-11 on dompurify 3.4.13 WITH
@@ -9841,7 +9896,7 @@ flat exports. DOCX and PPTX are the STATED gap — see §141(b), extended below,
 
 ---
 
-## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) CLOSED 2026-08-16; (a) and (c) still open
+## 141. Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16; (a) and (c) still open
 
 Opened 2026-08-11 out of §137's closure, which was scoped stop-the-bleed: it fixed what happens to
 values written from now on and repaired nothing already stored.
