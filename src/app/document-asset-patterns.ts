@@ -59,18 +59,36 @@
  *   The QUANTIFIER is lazy where `IMG_TAG_ASSET_ID_RE`'s is greedy — see `AssetRefs`
  *   (`document-asset-usage.ts`).
  *
- *  ★★ `[^\s/>"']*` IS THE TAG NAME, AND THE `"'` IN IT IS NOT DECORATION.
- *   Without them the class can eat a quote, which makes it ambiguous against
- *   branches 2 and 3 of the alternation — the pattern's only backtracking
- *   ambiguity. Without the two characters a crafted run of quotes makes this
- *   superlinear in the input; with them it stays linear. The two SPELLINGS of
- *   THIS pattern agree on every input without a quote in the tag name, which is
- *   every input the loader can produce. Not reachable through the loader
- *   (DOMPurify serialises from the DOM, so a tag
- *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
- *   comment rather than a check and the tests here scan raw HTML. */
+ *  ★★★ `[a-zA-Z0-9-]*` IS THE TAG NAME, AND IT MUST STAY DISJOINT FROM BRANCH 1
+ *   OF THE ALTERNATION. An earlier spelling used a NEGATED class here
+ *   (`[^\s/>"']*`), which overlaps branch 1 (`[^<>"']`) on every ordinary
+ *   character — so the split point between the two was ambiguous over any run
+ *   of tag-name characters and the engine explored it exhaustively. That is
+ *   ~cubic, and adding `"'` to the negated class (the first attempt at this)
+ *   did NOT fix it: it removed the ambiguity against branches 2 and 3 only,
+ *   which is a constant factor. Measured on `"<a".repeat(k)`, negated-class
+ *   spelling vs this one:
+ *     2 000 B  1 071 ms  ->  0.02 ms
+ *     4 000 B 12 126 ms  ->  0.03 ms
+ *   128 000 B  (did not finish)  ->  0.60 ms
+ *   Reproduce by pasting both literals into a script and timing
+ *   `[...s.matchAll(re)]`; there is no repo fixture this large on purpose.
+ *   ★★ "Linear" here is a MEASURED SHAPE, not a proof — it is linear on this
+ *   family and on realistic document html (230 KB of prose + images, 0.74 ms,
+ *   2 000/2 000 matches identical to the old spelling). Do not widen the claim.
+ *
+ *  ★★ `[\s/]` BEFORE THE ATTRIBUTE, NOT `\b`. `\b` matches between `-` and `d`,
+ *   so `foo-data-asset-id="s"` satisfied it and — because the quantifier is
+ *   LAZY — won over the real attribute later in the same tag: the id that
+ *   actually counts went missing from the result while a bogus one took its
+ *   place. Same shape as §231, reached by a different vector. `[\s/]` admits
+ *   the separators a tag can really use (space, newline, tab, and the `/` an
+ *   HTML parser tolerates before an attribute) and nothing else. Not reachable
+ *   through the loader today (DOMPurify's `ALLOWED_ATTR` drops the decoy), but
+ *   "ALREADY-SANITIZED" is a comment rather than a check and the tests here
+ *   scan raw HTML. */
 export const ANY_TAG_ASSET_ID_RE =
-  /<[a-zA-Z][^\s/>"']*(?:[^>"']|"[^"]*"|'[^']*')*?\bdata-asset-id="([^"]*)"/g;
+  /<[a-zA-Z][a-zA-Z0-9-]*(?:[^<>"']|"[^"]*"|'[^']*')*?[\s/]data-asset-id="([^"]*)"/g;
 
 /**
  * The one regex an EXPORT uses for `<img data-asset-id>`. It replaced three
@@ -89,11 +107,24 @@ export const ANY_TAG_ASSET_ID_RE =
  * trip hands back `alt="chart>v2.png"` verbatim. Measured: with `alt` AFTER
  * data-asset-id the match truncates and `v2.png">` survives as visible text in
  * every export; with `alt` BEFORE it the tag is missed entirely, so no bytes
- * load and the image disappears without a word. The three alternation branches
- * start on disjoint character classes, so there is no backtracking risk.
+ * load and the image disappears without a word.
+ *
+ * ★★★ BRANCH 1 EXCLUDES `<`, AND THAT IS WHAT KEEPS IT LINEAR. This docstring
+ * used to claim "the three alternation branches start on disjoint character
+ * classes, so there is no backtracking risk", which was false: the branches are
+ * disjoint from each other, but branch 1 admitted `<`, so a run of unterminated
+ * tags let each `<img` start rescan the whole tail. Measured quadratic on
+ * `"<img".repeat(k) + ">"` before excluding it (exponent ~1.9); 256 KB of that
+ * shape now costs 0.61 ms. Disjointness between the branches was never the
+ * property that mattered — not crossing a tag boundary is.
+ *
+ * ★ The quantifier stays GREEDY where `ANY_TAG_ASSET_ID_RE`'s is lazy. That is
+ * the documented divergence (this one reports the LAST `data-asset-id` on a
+ * tag, that one the FIRST); `document-asset-patterns.test.ts` pins it. Do not
+ * "harmonise" the two while fixing character classes.
  */
 export const IMG_TAG_ASSET_ID_RE =
-  /<img\b(?:[^>"']|"[^"]*"|'[^']*')*\bdata-asset-id="([^"]*)"(?:[^>"']|"[^"]*"|'[^']*')*>/g;
+  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*[\s/]data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
 
 /** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
  *  a paragraph meaningful while projecting to no visible text.
@@ -145,21 +176,47 @@ export const IMG_TAG_ASSET_ID_RE =
  *  ★ NOT `/g` — a global regex carries `lastIndex` across `.test` calls and
  *   would drop every other image-only paragraph in a document.
  *
- *  ★★ ITS `[^>]*` IS THE UNGUARDED SPELLING THE OTHER TWO REJECT, so this
- *   predicate returns FALSE for `<img alt="a>b" data-asset-id="real">` — a
- *   shape the product's own rename control can produce, since the serialiser
- *   does not re-escape `>` inside an attribute. It is harmless TODAY and only
- *   by cancellation: `sanitizeBlock`'s drop is
- *   `htmlTextLength(html) === 0 && !ASSET_IMG_TEST_RE.test(html)`, and
- *   `htmlPlainProjection`'s own `TAG = /<\/?[a-zA-Z][^>]*>/g` truncates at the
- *   SAME `>`, leaving `b" data-asset-id="real">` as visible text. So the first
- *   term is false, the `&&` short-circuits, and the false predicate is never
- *   reached. Measured through the real `sanitizeProjectDocuments`: the block is
- *   KEPT, projection length 24.
- *   ★★★ THE TWO FLAWS CANCEL, so do NOT make one quote-aware without the
- *   other — a projection that correctly saw no visible text here would reach a
- *   predicate that says no image, and the block would be DROPPED on load. That
- *   conditional is reasoning, not a measurement; the cancellation above is the
- *   measured part. Pinned by the `alt="a>b"` row of the divergence table. */
+ *  ★★★ THIS PREDICATE WAS SILENTLY DELETING REAL IMAGE BLOCKS ON LOAD, and the
+ *   comment that used to sit here said the opposite. It read: the unguarded
+ *   `[^>]*` is "harmless TODAY and only by cancellation", because
+ *   `sanitizeBlock`'s drop is `htmlTextLength(html) === 0 &&
+ *   !ASSET_IMG_TEST_RE.test(html)` and `htmlPlainProjection`'s own
+ *   `TAG = /<\/?[a-zA-Z][^>]*>/g` truncates at the SAME `>`, so the first term
+ *   stays non-zero and the `&&` short-circuits before the false predicate is
+ *   reached. That is true for `<img alt="a>b" …>` — the one shape it was
+ *   measured on — and false in general. Put a `<` after the `>` and the
+ *   REMAINDER is itself eaten by `TAG`, the projection goes to zero, BOTH terms
+ *   are false, and a genuine `<img>` carrying a genuine `data-asset-id` is
+ *   dropped. Measured through the real `sanitizeProjectDocuments`, blocks kept
+ *   out of 1:
+ *     <img alt="a>b"    data-asset-id="real">  projection 24  -> 1  (kept)
+ *     <img alt="><c d"  data-asset-id="real">  projection  0  -> 0  (DELETED)
+ *     <img alt="></b"   data-asset-id="real">  projection  0  -> 0  (DELETED)
+ *     <img data-asset-id="real" alt="><c d">   projection  0  -> 1  (kept)
+ *   Attribute ORDER is the whole discriminator, and the app's own insert path
+ *   writes `data-asset-id` first — which is why this survived: the two paths
+ *   that do NOT control order are the AI document tool and workspace import.
+ *
+ *  ★★ FIXED BY MAKING THIS ONE QUOTE-AWARE, which is the SAFE direction of a
+ *   choice the old comment got backwards. It warned "do NOT make one
+ *   quote-aware without the other" as if the two were symmetric. They are not.
+ *   Quote-awareness here only ever makes the predicate return TRUE more often,
+ *   so it can only KEEP more blocks — it cannot introduce a drop. The dangerous
+ *   direction is the other one: making `TAG` quote-aware alone would zero the
+ *   projection for `alt="a>b"` while this predicate still said "no image", and
+ *   THAT drops blocks. `rich-text-plain.ts` carries a signpost saying so.
+ *   ★ One shape deliberately changes verdict the other way:
+ *   `<img alt="data-asset-id=x">` was TRUE (the truncating `[^>]*` matched a
+ *   decoy inside the quoted alt) and is now FALSE. It carries no real asset
+ *   reference, so it is now treated like every other non-asset image — which
+ *   the loader already dropped. Pinned in both directions by the tests.
+ *
+ *  ★ `[\s/]` and the `<`-free branch 1 are here for the same reasons as the
+ *   other two patterns above: attribute-separator anchoring, and not rescanning
+ *   across a tag boundary. The old spelling was quadratic — `"<img".repeat(k)`
+ *   ran on RAW, uncapped, pre-sanitizer html on every load path (the cap is
+ *   applied to the RETURN value, not the input), 512 KB costing 39 s of frozen
+ *   main thread and persisting to IndexedDB so it repeated on every boot. Same
+ *   input now costs 0.54 ms. */
 export const ASSET_IMG_TEST_RE =
-  /<img\b[^>]*\bdata-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
+  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?[\s/]data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;

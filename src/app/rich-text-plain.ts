@@ -56,20 +56,26 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  and a value left visually empty that way is DROPPED by the `if (description)`
  *  gates in the entity sanitizers.
  *
- *  ★★★ ITS `[^>]*` TRUNCATION IS LOAD-BEARING FOR A GUARD IN ANOTHER FILE, and
- *  nothing here would tell you so. `sanitizeBlock` (`document-model.ts`) keeps an
- *  image-only paragraph via `htmlTextLength(html) === 0 &&
- *  !ASSET_IMG_TEST_RE.test(html)`, and `ASSET_IMG_TEST_RE`
- *  (`document-asset-patterns.ts`) carries the SAME unguarded `[^>]*`. Measured
- *  2026-08-25 on `<img alt="a>b" data-asset-id="real">`: both truncate at that
- *  `>`, so THIS projection is non-empty, the `&&` short-circuits, and the false
- *  predicate is never reached — the block is kept. The safety is that
- *  CANCELLATION, not a property of either pattern.
- *  ★★ REASONING, NOT MEASURED: making one of the two quote-aware alone should
- *  then drop the block on load. Making this matcher quote-aware reads as
- *  straightforward hardening, which is exactly why it is flagged here. Change
- *  them together or not at all; the full argument is on `ASSET_IMG_TEST_RE`,
- *  and the trap is open-followups §246. */
+ *  ★★★ MAKING THIS `[^>]*` QUOTE-AWARE WOULD DELETE IMAGE BLOCKS ON LOAD, and
+ *  nothing here would tell you so. `sanitizeBlock` (`document-model.ts`) keeps
+ *  an image-only paragraph via `htmlTextLength(html) === 0 &&
+ *  !ASSET_IMG_TEST_RE.test(html)`. For `<img alt="a>b" data-asset-id="real">`
+ *  THIS projection truncates at the `>` inside the attribute and reports 24
+ *  visible characters, so the first term is false and the block is kept. A
+ *  quote-aware matcher here would correctly report 0 — and the block's survival
+ *  would then rest entirely on the predicate, on every load path at once.
+ *  ★★ That predicate IS quote-aware as of 0.259.2, so this is a warning rather
+ *  than a live coupling: today the guard would still keep the block through its
+ *  second term. Do not read that as licence to change this in passing — it
+ *  makes a matcher that currently cannot drop a block into one that can, and
+ *  the failure is silent, on all six write paths, with nothing in the
+ *  truncation diag. Any change here wants the load-path tests in
+ *  `document-model.test.ts` run against it, not just this file's own.
+ *  ★ History: both patterns once carried this same truncation and the safety
+ *  was argued as a CANCELLATION between them. That argument was wrong — it held
+ *  only for the one shape it was measured on, and real blocks were being
+ *  deleted for shapes where the tail after the `>` was itself tag-like. See
+ *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
 const TAG = /<\/?[a-zA-Z][^>]*>/g;
 /** A non-breaking space in every spelling the editor or a paste can produce. */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;

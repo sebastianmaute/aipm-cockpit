@@ -19,7 +19,18 @@ import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./d
 
 const ids = (re: RegExp, html: string): string[] => Array.from(html.matchAll(re), (m) => m[1]);
 
-/** [input, what the cap counts, what an export can draw, does the block survive load] */
+/** [input, what the cap counts, what an export can draw, does the LOAD PREDICATE see an image]
+ *
+ *  ★★ The fourth column is `ASSET_IMG_TEST_RE.test(html)` and NOTHING MORE. It
+ *   is ONE of the two terms of `sanitizeBlock`'s drop condition, so a `false`
+ *   here does NOT mean the block is dropped — `htmlTextLength(html) === 0` has
+ *   to hold as well. This column used to be called "does the block survive
+ *   load", which read as an end-to-end claim it never made, and that wording
+ *   helped hide a real block-deletion bug: the row below with a `>` inside an
+ *   attribute asserted `false` and was described as harmless, while for
+ *   neighbouring shapes the same `false` was deleting user content. Whole-guard
+ *   behaviour is pinned in `document-model.test.ts`, against the real
+ *   `sanitizeProjectDocuments`. */
 const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // The ordinary case — all three agree.
   ['<img data-asset-id="a">', ["a"], ["a"], true],
@@ -43,12 +54,43 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // the load predicate rejects it — an empty id renders nothing anywhere.
   ['<img data-asset-id="">', [""], [""], false],
   // A `>` INSIDE an attribute value — reachable from the product's own rename
-  // control, since the serialiser does not re-escape it there. The two
-  // quote-aware extractors step over it; the load predicate's unguarded
-  // `[^>]*` stops at that `>` and reports NO image. Harmless only because
-  // htmlPlainProjection truncates at the same `>`, so the drop condition's
-  // first term is false and short-circuits — see ASSET_IMG_TEST_RE's note.
-  ['<img alt="a>b" data-asset-id="real">', ["real"], ["real"], false],
+  // control, since the serialiser does not re-escape it there. All three step
+  // over it. The predicate used to answer `false` here (an unguarded `[^>]*`
+  // stopped at that `>`), which deleted real image blocks on load for the
+  // sibling shape below; it is quote-aware as of 0.259.2.
+  ['<img alt="a>b" data-asset-id="real">', ["real"], ["real"], true],
+  // ★★★ THE SHAPE THAT WAS BEING DELETED. Same defect as the row above, but the
+  // text after the `>` is itself tag-like, so htmlPlainProjection ate the
+  // remainder too and BOTH terms of the drop condition went false. A genuine
+  // <img> with a genuine id vanished on load. See the end-to-end test in
+  // document-model.test.ts — this row alone would not have caught it.
+  ['<img alt="><c d" data-asset-id="real">', ["real"], ["real"], true],
+  // ★★★ THE LAZY/GREEDY DIVERGENCE, and the reason `drawable ⊄ all`. The cap
+  // counter is LAZY and reports the FIRST id on a tag; the export extractor is
+  // GREEDY and backtracks to the LAST. Not reachable through a full load (the
+  // parser collapses a duplicated attribute), so this pins raw-html behaviour.
+  // ★★ It lives HERE because this is the only file that reads the two patterns
+  // against each other. It was previously pinned only in
+  // document-asset-usage.test.ts, at the CALLER level, while both this file's
+  // header and open-followups §209 claimed the table gated it.
+  ['<img data-asset-id="a" data-asset-id="b">', ["a"], ["b"], true],
+  // ★★★ THE TAG-NAME CLASS. `<a"b` is not a tag name, so nothing may match.
+  // This row is why the class is a POSITIVE `[a-zA-Z0-9-]*` rather than a
+  // negated one: widen it to `[^\s/>]*` and the name eats `a"b`, the attribute
+  // is reached, and every assertion below turns non-empty. That mutant used to
+  // survive the whole suite — the ReDoS guard it deletes had no test at all.
+  ['<a"b data-asset-id="q">', [], [], false],
+  // ★★ HYPHEN-PREFIXED DECOY. `\b` matches between `-` and `d`, so a `\b`
+  // spelling accepted `foo-data-asset-id` — and because the cap counter is
+  // LAZY, the decoy WON over the real attribute later in the same tag: the id
+  // that actually counts went missing and a bogus one took its place. The
+  // separator class `[\s/]` is what rejects it.
+  ['<img foo-data-asset-id="s" data-asset-id="real">', ["real"], ["real"], true],
+  // ★ A decoy in the ALT with no real reference anywhere. The predicate used to
+  // answer `true` (its truncating `[^>]*` matched the decoy INSIDE the quoted
+  // value); it now correctly answers `false`, so the block is treated like any
+  // other non-asset image — which the loader already dropped.
+  ['<img alt="data-asset-id=x">', [], [], false],
 ];
 
 /** Every statement that names another module: static and type-only imports,
@@ -73,6 +115,54 @@ function moduleEdges(src: string, fileName: string): string[] {
         (ts.isIdentifier(node.expression) && node.expression.text === "require"))
     ) {
       found.push(node.getText(sf));
+    }
+    node.forEachChild(visit);
+  };
+  visit(sf);
+  return found;
+}
+
+/** Browser-only globals and types. A DOM-free module may not name any of them.
+ *
+ *  ★ `globalThis` is deliberately ABSENT: it is legal in node and naming it is
+ *   not itself a DOM touch — `globalThis.document` is caught by `document`. */
+const DOM_NAMES = new Set([
+  "document",
+  "window",
+  "navigator",
+  "location",
+  "DOMPurify",
+  "DOMParser",
+  "XMLSerializer",
+  "HTMLElement",
+  "Element",
+  "Node",
+  "localStorage",
+  "sessionStorage",
+  "indexedDB",
+  "getComputedStyle",
+]);
+
+/** Every identifier in `src` naming a browser global — including one used as a
+ *  property (`globalThis.document`), an element-access string
+ *  (`document["createElement"]`) or an alias source (`const d = document`).
+ *
+ *  ★★ IDENTIFIERS AND STRING LITERALS IN ELEMENT ACCESS ONLY. A DOM name inside
+ *   an ordinary string is NOT a reference — a comment or a message may say
+ *   "document" — so ordinary string literals are skipped and the two control
+ *   cases in the test below pin that. */
+function domReferences(src: string, fileName: string): string[] {
+  const sf = ts.createSourceFile(fileName, src, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS);
+  const found: string[] = [];
+  const visit = (node: ts.Node): void => {
+    if (ts.isIdentifier(node) && DOM_NAMES.has(node.text)) {
+      found.push(node.text);
+    } else if (
+      ts.isElementAccessExpression(node) &&
+      ts.isStringLiteral(node.argumentExpression) &&
+      DOM_NAMES.has(node.argumentExpression.text)
+    ) {
+      found.push(node.argumentExpression.text);
     }
     node.forEachChild(visit);
   };
@@ -142,7 +232,44 @@ describe("document-asset-patterns", () => {
       // Guard: document-model.ts — DOM-free by contract, and the validator every
       // load path routes through — depends on this module, so a DOM reference
       // here breaks bare-node use (the sample generator).
-      expect(codeOnly).not.toMatch(/DOMPurify|dompurify|\bwindow\b|\bdocument\b\s*\./);
+      //
+      // ★★★ IDENTIFIERS FROM THE PARSER, NOT A REGEX. This was
+      // `/DOMPurify|dompurify|\bwindow\b|\bdocument\b\s*\./`, which fired only
+      // on a literal `document.`, a bare `window`, and DOMPurify by name. A
+      // cold review measured what it MISSED: `new DOMParser()`, `XMLSerializer`,
+      // `navigator.*`, `location.*`, `HTMLElement`, `document?.createElement`,
+      // `globalThis.document`, `document["createElement"]`, and any aliasing
+      // (`const d = document; d.createElement(…)`). A `DOMParser` reference —
+      // precisely what breaks the bare-node generator this guard exists to
+      // protect — shipped green. Its sibling `moduleEdges` guard was already
+      // parser-backed; the two read as peers and were not.
+      expect(domReferences(src, PATH)).toEqual([]);
+    });
+
+    it("detects every shape of DOM reference", () => {
+      // ★ Non-vacuity for the scan above, per SHAPE. Without this the guard
+      // could be silently narrowed back to a regex and still report green — the
+      // exact failure it was just widened to fix. The last two are the control:
+      // a DOM name inside a STRING or as an unrelated local is not a reference,
+      // and a scan flagging them would go red on innocent code.
+      for (const shape of [
+        "const d = document;",
+        "document.createElement('p');",
+        "document?.createElement('p');",
+        'document["createElement"]("p");',
+        "globalThis.document.title;",
+        "new DOMParser().parseFromString(s, 'text/html');",
+        "new XMLSerializer().serializeToString(n);",
+        "navigator.clipboard.readText();",
+        "location.href;",
+        "const e: HTMLElement = x;",
+        "window.setTimeout(f, 0);",
+        "DOMPurify.sanitize(s);",
+      ]) {
+        expect(domReferences(shape, "probe.ts")).not.toEqual([]);
+      }
+      expect(domReferences('const s = "document.createElement";', "probe.ts")).toEqual([]);
+      expect(domReferences("const documentTitle = 1;", "probe.ts")).toEqual([]);
     });
 
     it("names no other module at all", () => {
