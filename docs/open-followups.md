@@ -438,6 +438,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | open |
+| [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17189,6 +17190,96 @@ attributes and `frame-title-unique` about iframes. The only rule in the library 
 is `identical-links-same-purpose`: links only, and tagged `wcag2aaa`, which the gate never requests.
 Read the descriptions, never the count — a bare tally here reads as coverage.
 
+---
+
+## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red
+
+**Status:** open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
+The class is already recorded — §22's test-validity note states it and names the cure — but no entry
+files an instance, so each recurrence is re-diagnosed from scratch. This one cost a release cycle.
+
+`src/app/entity-id-mint.property.test.ts` failed on a BLOCKING gate with:
+
+```
+FAIL src/app/entity-id-mint.property.test.ts > mintId is called exactly once on a contended create and never otherwise
+AssertionError: expected 0 to be greater than 0
+  ❯ expect(uncontended).toBeGreaterThan(0)
+```
+
+`unit-tests` — the same tests, the same code, the same pipeline — passed. Nothing on the branch had
+touched the test or `entity-id-mint.ts`, which imports nothing at all, so no branch change can reach
+it. A single job retry went green and the release merged unchanged.
+
+★★★ **THE ROOT CAUSE IS THAT FAST-CHECK IS UNSEEDED, AND IT IS WHY A GREEN LOCAL RUN PROVES
+NOTHING.** `--sequence.seed` fixes vitest's file and test ORDER; it does not reach fast-check's
+generator. So `npm run test:shuffle` at the pinned seed and CI's `unit-tests-shuffled` at the same
+pinned seed are not running the same property inputs, and a local green at seed 1 is evidence
+neither for nor against the branch. That single fact explains the whole symptom — local green, CI
+red, trees differing only by a docs commit. It also means any branch can draw it, `main` included.
+
+★★ **A `> 0` FLOOR IS NOT A SAFE FLOOR.** That file's floors were already weakened once — 5 / 2 / 5
+down to `> 0` — after an earlier analysis measured the old values flaking ~2.6% per run. `> 0` is
+the weakest assertion that still says anything, and it flaked anyway. The file's own comment
+predicted it: *"A floor high enough to be meaningful would have to be CONSTRUCTED … Until it is,
+`> 0` is the honest assertion."* Weakening is not a fix; it only moves the tail.
+
+**Measured** — 20,000 trials of the real 50-run property against the real `resolveEntitySave`, with
+the arbitraries copied verbatim:
+
+| counter | P(zero) over 50 runs | mean |
+|---|---|---|
+| `uncontended` | **0.035%** (7 / 20,000) | 7.06 |
+| `contended` | 0.000% (0 / 20,000) | — |
+| `updates` | 0.000% (0 / 20,000) | — |
+
+So ~**1 in 2,857 per suite run**. The suite runs in TWO blocking jobs per pipeline (`unit-tests` and
+`unit-tests-shuffled`), plus the weekly random-seed job, putting it near **1 in 1,400 pipelines**.
+Rare enough that whoever draws it will assume it is their branch.
+
+**Fix — construct the branch coverage, do not tune the number.** The cure is the one §22 already
+applied to `sanitize-core`'s `midPairCutArb`: make the interesting case hold *by construction* so
+the floor is a fact about the generator rather than a bet on it. Here that means an arbitrary that
+guarantees a free id together with `isNew ∈ {true, undefined}` on a known fraction of draws, after
+which a real floor can be stated with a real probability.
+★★ **Do NOT raise `numRuns` at the same floor** — that makes the guard weaker, not the run safer
+(more samples against an unchanged absolute threshold). And do NOT `.skip` it: an
+intermittently-red property suite gets skipped by whoever draws the unlucky seed, which costs the
+guard entirely — the file's comment says exactly this.
+★ Seeding fast-check in the file is the cheap alternative, but it buys determinism by making the
+property see one input set forever, which is most of why the property exists.
+
+**Reproduce.** The absence grep is fail-open on its own, so run the positive control WITH it — the
+first command proves the mechanism works and shows what actually is seeded:
+
+```bash
+grep -rn "sequence.seed" package.json .gitlab-ci.yml   # vitest ORDER seed: 4 hits
+grep -rn "configureGlobal" src scripts vitest.setup.ts vitest.config.ts | wc -l   # fast-check seed: 0
+grep -n -B 14 "expect(uncontended).toBeGreaterThan(0)" src/app/entity-id-mint.property.test.ts
+```
+
+★ To re-measure: copy the file's arbitraries verbatim, wrap the 50-run `fc.assert` in an outer loop
+of ~20,000 and count how often each counter lands on zero. ★★ Replace the `vi.fn()` minter with a
+plain closure first — the counters derive from `result.create` and `wasTaken`, never from the mock,
+and 20,000 × 50 accumulated mock call records terminate the vitest worker with
+`ERR_WORKER_OUT_OF_MEMORY`, which reads like a broken harness.
+
+★ **Operationally, until this is fixed:** a red property suite is a retry, not a bisect. Confirm the
+generator is unseeded with the commands above, retry the job once, and only investigate if it
+repeats. Never push a fix onto a branch whose pipeline is mid-run — a new commit abandons it and
+restarts every gate.
+
+★★ **Scope is wider than one file and is NOT audited here.** Two files are now known to carry
+probabilistic floors — this one and `codec-roundtrip.property.test.ts` (§22's note) — out of the
+`*.property.test.ts` suites. Nothing has swept the rest, and no floor in any of them is claimed safe
+by this entry. ★ Measured 2026-08-25: **19 of 31** `*.property.test.ts` files carry a numeric
+floor, so the two known instances are a tenth of the exposure. Do not trust that pair — it moves
+with every property added; enumerate before assuming a fix here is the end of it:
+
+```bash
+grep -rln "toBeGreaterThan\|toBeGreaterThanOrEqual" src/app/*.property.test.ts
+```
+
+---
 
 ## Decided — do not re-litigate
 
