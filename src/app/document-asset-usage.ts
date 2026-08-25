@@ -12,14 +12,9 @@
 // Pure and i18n-free. Operates on ALREADY-SANITIZED stored HTML (documents
 // load through sanitizeDocumentHtml).
 //
-// ★★ SANITISING IS STILL NOT A GUARD AGAINST A `data-asset-id` IN TEXT
-// CONTENT — that has been measured and it has not changed: `<p>data-asset-id=
-// "hero"</p>` comes back BYTE-IDENTICAL from a full load, because HTML
-// text-node serialisation escapes `&`, `<` and `>` and never `"`. What changed
-// (open-followups §231, closed) is that this module no longer NEEDS it to be a
-// guard: `ASSET_ID_RE` requires a start tag, so prose cannot reach it. Do not
-// restore a claim that the sanitizer protects this — it does not, and the next
-// pattern change would inherit a false premise. Pinned by "does NOT escape a
+// ★★ SANITISING IS NOT A GUARD AGAINST A `data-asset-id` IN TEXT CONTENT —
+// prose survives a load verbatim. `ASSET_ID_RE` no longer NEEDS it to be one
+// (§231, closed): it requires a start tag. Pinned by "does NOT escape a
 // data-asset-id a user merely TYPED as prose, and no longer counts it".
 //
 // ★★ What sanitising DOES buy is quoting NORMALISATION, which is a different
@@ -38,31 +33,27 @@ import { IMG_TAG_RE } from "./document-export-assets";
  *   for deletion safety and the "used in N documents" count, so a
  *   `<span data-asset-id>` MUST keep counting (open-followups §218). Anchoring
  *   this on `<img` would silently change what the cap counts and what that
- *   column means. `document-asset-usage.test.ts` fails if you do.
+ *   column means — "a `<span>` is counted but never drawable" goes red if you
+ *   do. Tag-name CASE is not a discriminator either: `<IMG …>` counts here.
  *
  *  ★★ QUOTE-AWARE, sharing the alternation `IMG_TAG_RE` uses: a preceding
  *   `alt="…"` is consumed whole as one alternative, so its contents cannot
  *   supply an opening quote for this attribute. Before that, a crafted alt
  *   ending in `data-asset-id=` produced a phantom id and hid the real one, and
  *   a text node spelling the attribute spent a cap slot (open-followups §231).
+ *   The QUANTIFIER is lazy where `IMG_TAG_RE`'s is greedy — see `AssetRefs`.
  *
- *  ★★ THE ALTERNATION IS BYTE-IDENTICAL TO `IMG_TAG_RE`'S; THE QUANTIFIER IS
- *   NOT, and the difference is load-bearing. This one is LAZY (`*?`) and
- *   `IMG_TAG_RE`'s is GREEDY (`*`), so given a DUPLICATED `data-asset-id` the
- *   two patterns stop on different occurrences — the measured divergence
- *   recorded on `AssetRefs` below. Do not "align" one to the other without
- *   reading that note: greedy here would change which id the cap counts.
- *
- *  ★ Double-quote-only and case-sensitive on the ATTRIBUTE name, both
- *   deliberate: DOMPurify re-serialises every attribute double-quoted on load,
- *   so by the time this runs there is nothing else to match. Tag-name case is
- *   NOT the discriminator — `<IMG data-asset-id="x">` counts here.
- *
- *  ★ Empty ids are admitted by the pattern and rejected by the caller's
- *   `.filter`, which is how this and `ASSET_IMG_RE` (document-model.ts) agree
- *   on emptiness through two different mechanisms in two files. */
+ *  ★★ `[^\s/>"']*` IS THE TAG NAME, AND THE `"'` IN IT IS NOT DECORATION.
+ *   Without them the class can eat a quote, which makes it ambiguous against
+ *   branches 2 and 3 of the alternation — the pattern's only backtracking
+ *   ambiguity. Measured on `('<a' + '"'.repeat(64)).repeat(m)`: 375 ms at
+ *   4 KB and ~7.5x per doubling, against 0.27 ms with the two characters
+ *   present; output is identical on all 14 shapes the probes cover. Not
+ *   reachable through the loader (DOMPurify serialises from the DOM, so a tag
+ *   name is always followed by a space or `>`), but "ALREADY-SANITIZED" is a
+ *   comment rather than a check and the tests here scan raw HTML. */
 const ASSET_ID_RE =
-  /<[a-zA-Z][^\s/>]*(?:[^>"']|"[^"]*"|'[^']*')*?\bdata-asset-id="([^"]*)"/g;
+  /<[a-zA-Z][^\s/>"']*(?:[^>"']|"[^"]*"|'[^']*')*?\bdata-asset-id="([^"]*)"/g;
 
 function assetIdsInBlock(block: DocBlock): string[] {
   if (block.type !== "paragraph") return [];
@@ -145,8 +136,10 @@ export function countAssetUsage(documents: readonly ProjectDocument[]): Record<s
  *  ★★ CONSEQUENCE FOR CALLERS: anything subtracting these sizes must subtract
  *  `undrawable` from `all` (never `drawable` from `all`, which can go negative).
  *  The cap message in `documents-asset-section.tsx` depends on exactly that.
- *  `undrawable ⊆ all` is pinned by "keeps `undrawable` a subset of `all` by
- *  construction" in this module's test file.
+ *  `undrawable ⊆ all` is pinned by "computes `undrawable` as `all` minus
+ *  `drawable`, even when `drawable` holds an id `all` does not" in this
+ *  module's test file — which pins the stronger EXACT-SET property, so the
+ *  subset relationship follows rather than being asserted separately.
  *
  *  ★ The duplicate-attribute divergence above is pinned by "characterizes the
  *  duplicate-attribute divergence — `all` takes the FIRST, `drawable` the

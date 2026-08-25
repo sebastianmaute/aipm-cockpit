@@ -298,28 +298,26 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     expect([...refs.undrawable]).toEqual([]);
   });
 
-  it("keeps `undrawable` a subset of `all` by construction", () => {
-    // ★★★ SCANNED UN-LOADED, AND BOTH HALVES OF THE FIXTURE ARE LOAD-BEARING.
-    //     This test spent time asserting nothing, twice over, and the two
-    //     causes are independent — restoring either one makes it vacuous again
-    //     while it goes on passing.
+  it("computes `undrawable` as `all` minus `drawable`, even when `drawable` holds an id `all` does not", () => {
+    // ★★★ BOTH HALVES OF THE FIXTURE ARE LOAD-BEARING. This test asserted
+    //     nothing for two INDEPENDENT reasons; restoring either makes it
+    //     vacuous again while it goes on passing.
     //
-    // ★★ CAUSE ONE, the load path. Through `loadFully` the `<span>` is
-    //    unwrapped and its attribute goes with it (measured: the stored html
-    //    is `x<img data-asset-id="i">`), leaving `undrawable` EMPTY — so the
-    //    `.every` below quantified over an empty set and could not fail.
+    // ★★ ONE, the load path. Through `loadFully` the `<span>` is unwrapped and
+    //    its attribute goes with it (measured: the stored html is
+    //    `x<img data-asset-id="i">`), leaving `undrawable` EMPTY.
     //
-    // ★★ CAUSE TWO, the fixture. `undrawable` is BUILT by filtering `all`, so
-    //    on any input where `drawable ⊆ all` this assertion is constant-true
-    //    no matter how the constructor is broken — a span+img pair alone is
-    //    NOT enough. It has force only when `drawable` holds an id `all` does
-    //    not, which is what the DUPLICATE attribute produces (the divergence
-    //    test below pins why): here `all` = ["s","a"] but `drawable` = ["b"].
-    //    Rebuilding `undrawable` from a second scan instead of by filtering —
-    //    the regression this guards, which would make the cap message's
-    //    reclaimable-room arithmetic in documents-asset-section go NEGATIVE —
-    //    then pulls "b" in and this goes red. Mutation-proved in that shape;
-    //    drop the duplicate attribute and the mutant survives.
+    // ★★ TWO, the fixture. `undrawable` is BUILT by filtering `all`, so
+    //    wherever `drawable ⊆ all` these expectations hold however the
+    //    constructor is broken — a span+img pair alone is NOT enough, and it
+    //    is BOTH assertions that go slack, not merely a subset check
+    //    (measured: with the duplicate dropped, the second-scan mutant
+    //    survives them both). The duplicate attribute is what makes `drawable`
+    //    hold an id `all` does not — `all` = ["s","a"], `drawable` = ["b"], the
+    //    divergence the test below pins. Rebuilding `undrawable` from a second
+    //    scan rather than by filtering — the regression this guards, which
+    //    would drive the cap message's reclaimable-room arithmetic in
+    //    documents-asset-section NEGATIVE — then pulls "b" in and this reddens.
     const raw: ProjectDocument = doc(97, [
       {
         type: "paragraph",
@@ -327,11 +325,8 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
       },
     ]);
     const refs = assetRefsInDocument(raw);
-    // The positive observable: proves the fixture REACHED the assertion with
-    // something to quantify over. Without it, cause one could return unseen.
     expect([...refs.undrawable]).toEqual(["s", "a"]);
     expect([...refs.drawable]).toEqual(["b"]);
-    expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
   });
 
   it("finds BOTH ids when one paragraph holds two images and the first has a crafted alt", () => {
@@ -339,6 +334,11 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //     boundaries WITHIN a block: it paired the first tag's alt with the
     //     SECOND tag's markup and yielded `["r1", "><img data-asset-id="]`, so
     //     the second real image was invisible to the cap entirely.
+    //
+    // ★ WHY `loadFully` HERE while its neighbours scan raw: measured, the
+    //   loaded html is byte-identical to the input, so the load changes no
+    //   observable — what it buys is proof the fixture is REACHABLE post-load,
+    //   which the two raw-scanning tests below cannot claim of theirs.
     const loaded = loadFully(
       `<img data-asset-id="r1" alt="data-asset-id="><img data-asset-id="r2" alt="x">`,
     );
@@ -353,6 +353,13 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //   swallows the attribute) and used to count. It cannot survive the load
     //   path either, so this asserts the SCANNER directly rather than through
     //   loadFully — which is the only way to observe it.
+    //
+    // ★★ THE DISCRIMINATOR IS THE `\b`, NOT THE TAG NAME. The tag-name class
+    //    happily eats `mgdata-asset-id=`; what rejects this is the word
+    //    boundary before `data-asset-id`, with a word character on each side.
+    //    Measured: remove the `\b` and leave the anchor intact, and this
+    //    matches again. So this test guards the `\b`, and a reader "tidying"
+    //    the anchor will not learn that from the assertion alone.
     const raw: ProjectDocument = doc(99, [
       { type: "paragraph", html: `<imgdata-asset-id="x">` },
     ]);
@@ -360,36 +367,28 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
   });
 
   it("characterizes the duplicate-attribute divergence — `all` takes the FIRST, `drawable` the LAST", () => {
-    // ★★★ THIS IS A CHARACTERIZATION OF A KNOWN DIVERGENCE, NOT A DESIRED
-    //     PROPERTY. It records what the two patterns currently do so that a
-    //     change to either cannot widen the gap silently.
+    // ★★★ A CHARACTERIZATION OF A KNOWN DIVERGENCE, NOT A DESIRED PROPERTY.
+    //     It records what the two patterns currently do so a change to either
+    //     cannot widen the gap silently. §231 closed the crafted-`alt` half of
+    //     the non-subset problem; THIS is the half that stayed open. If a
+    //     change makes the two agree this SHOULD go red — delete it and the
+    //     `AssetRefs` note citing it, never re-fit the expectations.
     //
     // ★★ THE CAUSE IS THE QUANTIFIER. Their ALTERNATIONS are byte-identical;
     //    the QUANTIFIER is not — `ASSET_ID_RE` is LAZY (`*?`) so it stops at
-    //    the FIRST occurrence, while `IMG_TAG_RE` is GREEDY (`*`) and
-    //    backtracks to the LAST. That is what puts a different id in each set,
-    //    so `drawable` is not a subset of `all` — asserted below, because that
-    //    is the whole point.
-    //
-    // ★★ IT IS NOT THE ONLY DIFFERENCE BETWEEN THE TWO PATTERNS, and believing
-    //    it is leads straight to the inference the `TAG-AGNOSTIC ON PURPOSE`
-    //    note exists to prevent. They also differ in the tag anchor
-    //    (`<[a-zA-Z][^\s/>]*` here vs `<img\b` there — that IS the §218
-    //    design), and `IMG_TAG_RE` carries a trailing alternation plus `>`
-    //    with no counterpart here. Measured: making this one greedy does NOT
-    //    turn it into `IMG_TAG_RE` — a `<span>` reference still counts here
-    //    and is still invisible there.
+    //    the FIRST occurrence, `IMG_TAG_RE` is GREEDY (`*`) and backtracks to
+    //    the LAST. It is NOT the only difference between them, though, and
+    //    believing so leads to the inference `TAG-AGNOSTIC ON PURPOSE` exists
+    //    to prevent: they also differ in the tag anchor (`<[a-zA-Z][^\s/>"']*`
+    //    here vs `<img\b` there — the §218 design), and `IMG_TAG_RE` carries a
+    //    trailing alternation plus `>` with no counterpart. Measured: making
+    //    this one greedy does NOT turn it into `IMG_TAG_RE` — a `<span>` still
+    //    counts here and is still invisible there.
     //
     // ★★ SCANNED UN-LOADED ON PURPOSE. A full load collapses the duplicate to
     //    `data-asset-id="a"` (measured through the real two-pass composition),
-    //    after which both sets agree and this test would assert NOTHING.
-    //    Routing it through `loadFully` makes it vacuous, not stricter.
-    //
-    // ★ open-followups §231 closed the crafted-`alt` half of the non-subset
-    //   problem. THIS is the half that stayed open. If a future change makes
-    //   the two patterns agree, this test SHOULD go red — DELETE it, and the
-    //   `AssetRefs` note that cites it, rather than adjusting the expectations
-    //   to match whatever the new output happens to be.
+    //    after which both sets agree and this would assert NOTHING. Routing it
+    //    through `loadFully` makes it vacuous, not stricter.
     const raw: ProjectDocument = doc(98, [
       { type: "paragraph", html: `<img data-asset-id="a" data-asset-id="b">` },
     ]);
