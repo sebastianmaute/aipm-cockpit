@@ -8,6 +8,23 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.259.1] - 2026-08-25 "Tsutsui"
+
+### Documentation
+
+- Recorded the property suites’ anti-vacuity floors as follow-up 244, after one of them
+  took the 0.259.0 release pipeline red. `entity-id-mint.property.test.ts` failed a blocking
+  gate on `expected 0 to be greater than 0` while the unshuffled job passed on the same code,
+  and no branch change could reach the module. The cause is that fast-check is unseeded, so
+  `--sequence.seed` fixes vitest’s test order but not the generator — a green local
+  `test:shuffle` at the pinned seed is evidence neither for nor against a branch. Measured at
+  20,000 trials, the floor fails about once in 2,857 suite runs, and 19 of 31 property files
+  carry a numeric floor that nothing has swept.
+- Restored a horizontal rule before the register’s “Decided” section that the
+  follow-up 243 entry had swallowed.
+
+No product code changed in this release.
+
 ## [0.259.0] - 2026-08-25 "Tsutsui"
 
 ### Fixed

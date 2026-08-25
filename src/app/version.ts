@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.259.0";
-export const APP_BUILD_DATE = "2026-08-25"; // 0.259.0: follow-ups register housekeeping (Tsutsui)
+export const APP_VERSION = "0.259.1";
+export const APP_BUILD_DATE = "2026-08-25"; // 0.259.1: property-floor flake recorded (Tsutsui)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.259.x line is "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).
  *  0.258.x was "Mandelo" (that slice's codename — no bio recorded for it
