@@ -1027,10 +1027,10 @@ Batches are file-disjoint, so each can be verified and committed on its own:
 
 ★ `segmented-control` is in B5 deliberately. An earlier draft of the spec called it a LEAVE case; it is not — it renders three radios whose names interpolate the option value, so it needs `roles: ["radio"]`.
 
-After each batch:
+After each batch (substitute that batch row s files):
 
 ```bash
-npx vitest run <the five paths> --reporter=dot --maxWorkers=1 > /tmp/rowunique-t8.log 2>&1; echo "EXIT=$?"
+npx vitest run <every path in the batch> --reporter=dot --maxWorkers=1 > /tmp/rowunique-t8.log 2>&1; echo "EXIT=$?"
 grep -E "Test Files|Tests |minRows|WCAG" /tmp/rowunique-t8.log
 npx tsc --noEmit; echo "TSC_EXIT=$?"
 ```
@@ -1040,7 +1040,7 @@ Any `WCAG 2.4.6` failure is a real defect: fix the source by deriving `buildRowT
 - [ ] **Step 4: Commit per batch**
 
 ```bash
-git add <the five paths>
+git add <every path in the batch>
 git commit -m "test(a11y): assert row-unique names via the shared detector (batch N)
 
 Adds distinctness alongside each block's existing name enumeration. The
