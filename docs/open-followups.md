@@ -6008,62 +6008,6 @@ about than either end state.
 
 ---
 
-## Decided — do not re-litigate
-
-**Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
-Decided 2026-07-27: **not fixing.** ★ The module's own doc comment already states this scope
-accurately (commit `992827f9`), so nobody should mistake it for solved and it needs no further
-documenting. The `preferredLane` map is rebuilt per call, so it prevents a
-series FRAGMENTING within one window but not MOVING between windows. Three things carried the
-decision: the cure's failure mode is worse than the disease (a preference carried across windows
-pins a series to a lane wrong for a later window, and a ref that never evicts goes stale after any
-edit); the keyboard consequence is handled elsewhere (0.202.3's focus-restore effect in
-`resource-calendar-band.tsx` re-focuses a surviving chip when the focused one unmounts, which is
-what a lane change does to it), leaving only a visual row-jump; and being mechanically easy is not
-the same as being right.
-
-If it ever becomes a real complaint, the answer is an **order-stable packer** — pack by `eventId`
-rather than first-come, so the same series set always yields the same lanes with no cross-render
-memory. It re-baselines all 6 existing lane tests. It is NOT the `useRef` carry-over.
-
-**Rejected by the 2026-06 review (Tier C), still rejected:** `CSV_COLUMNS` meta-programming in the
-codecs (directly threatens the byte-stable golden serializers); `array.includes` → `Set.has` in
-`sanitize.ts` (unmeasured micro-perf); `use-jira-sync` ref-sync effect consolidation (the "7×
-re-renders" premise was false — effects do not trigger re-renders).
-
-**Verified FALSE POSITIVES from that same review — reject these on sight if a tool re-raises them.**
-Preserved here because the source doc is deleted and each one is a claim an automated reviewer will
-plausibly make again:
-
-- *"`task-manager.tsx` has CRITICAL `set-state-in-effect`, fails lint."* False. Those are
-  **conditional** `setActiveTab` navigation effects, guarded by an `if`, committed and CI-green. The
-  `react-hooks/set-state-in-effect` ban targets *unconditional* derived-state mirroring.
-- *"`jira-settings.tsx` set-state-in-render is an anti-pattern; convert to `useEffect`."* False **and
-  actively harmful** — that IS the render-time reconcile pattern AGENTS.md mandates, and converting
-  it to an effect is the BANNED shape, so the "fix" would fail CI.
-- *"`jira-api.ts` `return data as T` is unvalidated, CRITICAL."* Over-rated. `data` is typed
-  `unknown`, the error path throws `JiraApiError`, and callers guard. A real MEDIUM type note at
-  most — and the zod fix is a new dependency, so it must be asked for (it is item §7 B4 above).
-- *"Pure modules import React/i18n"* (`action-ai.ts`, `ai-project-proposal.ts`,
-  `chat-attachments.ts`) — verifiably clean; non-findings.
-
-★★★ THE FRAME THAT PRODUCED ALL FOUR IS FALSE, AND IT TOLD READERS TO DISMISS TRUE FINDINGS.
-It read: the app is CI-green under `lint --max-warnings=0`, **therefore no committed code can hold a
-fatal lint violation** — any finding claiming one is a false positive by construction. There is no
-`--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
-and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
-a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
-many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
-them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
-correct and this line must not be read as contradicting it. List them rather than trusting any count
-here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config
-src/app/icons.ts`. The four dispositions above were checked individually and stand on their own
-evidence; it is the shortcut that is retired.
-
-**Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
-
----
-
 ## 99. The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY CLOSED 2026-08-08
 
 `e2e/seed.ts` writes the sample workspace into IndexedDB from TWO HARDCODED lists: an entity-store
@@ -6383,315 +6327,6 @@ hand-rolled control that a primitive would have done better. Re-measure before q
 above.
 
 ---
-
-## Provenance — where these items came from, and what already closed
-
-Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
-it is, and because several entries are **negative results** — work already done that returned nothing,
-which is exactly the kind of thing that gets re-run.
-
-### post-0.226.0 — the snapshot baseline-poisoning slice (§77 closed · §78 half)
-
-Triage slice 1 of the harm-ranked pass over this register. No version bump — no user-visible surface
-changed, only what the Trends auto-capture is willing to write.
-
-| was | what closed it |
-|---|---|
-| §78 empty project auto-captures, and that row is the BASELINE | pure `hasCapturableContent` in `snapshot.ts`; the auto-capture effect declines. Gates the CAPTURE, not `isFirstEver` — `pickBaseline`'s earliest-row fallback defeats gating the flag. ★ Only the ALL-null case closed; §78's partial-KPI case is still open, see its body |
-| §77 the capture gate is a one-way latch | `loadedBackend === backend` derived in RENDER, plus a re-stamp in the load effect's suppress branch |
-
-★★ **An entry's suggested fix is a hypothesis from the day it was written, not a finding** — this
-file has no gate over it. §77 prescribed ref+state; deriving in render is strictly stronger and
-simpler, and was forced anyway by fatal `react-hooks/set-state-in-effect`.
-★★★ **But CHECK what an entry actually said before crediting it with an error.** A draft of this
-block led with "both entries' own prescriptions were wrong". §78's did not: it read *"gate
-`isFirstEver` (or the auto-capture itself) on the workspace having content"* — the parenthesis is
-exactly what shipped. Only the IN-CODE comment derived from it named just the wrong half. **That
-sentence was a new falsehood written inside a correction of an old one**, in the block whose own
-lesson is that corrections are where falsehoods breed. A cold fact-check caught it; nothing else
-would have.
-
-★★★ **§77's own objection (a) came true against the fix that was supposed to avoid it.** The plain
-identity change strands the gate closed on the `suppressNextLoadRef` path — exactly the failure the
-entry named as disqualifying — because `applyWorkspace` is a plain render-scope function and stamps
-the PREVIOUS backend. It was caught by re-reading the entry's warning against the new code, *after*
-the change had been reported green. **A green suite is not a disproof of a documented hazard** when no
-test drives the hazardous path — and none did, which is why test 2 in §77 exists. When an entry names
-a failure mode as disqualifying, re-run that argument against whatever you replace it with.
-
-★★ The measured arm-site count is **seven**, not the six the plan assumed — `onRequestStorageSwitch`
-arms the ref without calling `applyWorkspace` at all. Reproduce with the grep in §77's body. The extra
-site strengthened the fix: it forced the invariant to be stated as "render scope holds the workspace
-that BELONGS to this backend" rather than the narrower "was loaded from it".
-
-★★ **TWO cold passes were needed, and they found disjoint things.** One over the CODE found no
-correctness defect but several inaccurate comments — including a ★★ rationale that was exactly
-backwards (it claimed a shared mock would make a test pass either way; it makes it FAIL either way)
-and a `file:line` citation **broken by the very hunk that wrote it**. Cite the SYMBOL. A second pass
-over the PROSE ALONE, run because this slice had just rewritten a lot of it, then found three false
-claims the code reviewer had read straight past — including the one retracted above. **Reviewing code
-and fact-checking prose are different jobs; a reviewer doing the first will not do the second.**
-
-★ In both passes, roughly one finding in six was itself wrong on analysis (the code reviewer read the
-empty-load guard's shut gate as a regression; a shut gate is correct there). That is the expected
-yield from a cold read — take the findings, re-derive each one, and say which you rejected.
-
-### post-0.216.0 — the cancelled-work leftovers (§66 · §67 closed · §64 · §65 half)
-
-Branch `fix/cancelled-work-leftovers`; no version bump decided at time of writing. Slice 2 of the
-harm-ranked triage of this register, taken because 0.213.0 fixed the Reports and Dashboard headline
-surfaces and then stopped at the branch boundary.
-
-| was | what closed it |
-|---|---|
-| §65 (half) tooltip says "completed" under a ✕ | a THREE-way health driver — `cancelled` / `completed` / `closed` — plus the `healthDriverClosed` key. Its SECOND symptom — the UI calling such a row "cancelled" — is open, and this slice added two more strings that do |
-| §66 R/A/G counts a cancelled task Green | out-of-scope work leaves the tally into `GroupHealth.outOfScope`, surfaced on the tile and the reports cards |
-| §67 committed NUL byte | the source escape `\u0000`, plus `no-nul-bytes.test.ts` as a ratchet |
-| §64 (half) presentation + model feeds | portfolio table + `avgCompletionPercent` + steering draft + AI snapshot; the two PERSISTED figures stay open by decision |
-
-★ One shared predicate underpins all of it: `isTaskOutOfScope` (`task-closed.ts`), which `scopeCounts`
-and `computeGroupHealth` now both call. Those two render side by side in ONE dashboard card, and a
-second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
-comment records having already caused once.
-
-★ **TWO of the four entries carried a faulty prescription.** §67 weighed `|` and a space, noted both
-were merely UNLIKELY to collide rather than unable to, and accepted that instead of looking for the
-option with no drawback. §65 wrote "**Fixing the drivers fixes both**" — and it does not: the second
-symptom is gated on `hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a
-health driver, so no driver change could reach it. (§65's OTHER prescription, "not `status` alone",
-was right but UNDERSPECIFIED — it does not say the split is three-way.) §66 was sound. §64's
-DIAGNOSIS was incomplete — its surface list missed `aggregatePortfolio`.
-
-★★★ **THAT NUMBER HAS NOW BEEN WRONG IN BOTH DIRECTIONS, BY THE SAME MECHANISM.** Draft 1 said
-"all three". Draft 2 — a correction — said "TWO of the four" and listed three items under it. Draft 3
-— a correction of the correction — said "ONE", and got there by stopping at the §65 clause it had
-already argued about ("not `status` alone") without reading the entry's OTHER prescriptive clause
-four lines below it. Over-count and under-count are the same failure: **deciding the shape of the
-answer first, then reading only far enough to confirm it.** Draft 3 also asserted §65 was "recorded
-as sound in its entry" while §65's own text said "UNDERSPECIFIED" — flattening a concession the same
-author had written.
-
-Each wrong draft is worth keeping, because the two DIRECTIONS of error had different causes.
-Over-counting came from misquoting; under-counting came from stopping early.
-
-- **§65, over-counted** — draft 1 paraphrased "consult `completedDate`, **not `status` alone**" as
-  "INSTEAD OF `status`" and refuted the paraphrase. The clause means consult BOTH, which is what
-  shipped. But draft 3 then over-corrected to "sound": the entry's OTHER prescriptive clause,
-  "Fixing the drivers fixes both", IS wrong. Both drafts read one clause and stopped.
-- **§66, over-counted** — draft 1 attributed an `overallComputed` clause to the entry. The entry
-  never mentions it: `git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**.
-  That one was a clean over-count; §66 really was sound.
-
-Same error, same document, same commit — and the commit that fixed §65's misquote published the rule
-("quote the entry inline before criticising it") while leaving §66's standing, because it searched
-for the §65 WORDING instead of the SHAPE. **Slice 1 (§77/§78) made this identical mistake a week
-earlier.** Four drafts, three of them wrong, every one written while criticising someone else's text.
-
-★★ The durable lessons, in order of how much they cost here: **(1)** a pattern you are pleased to
-have found is the one to re-check — a category claim ("all three", "every X") invites pressing
-non-instances into it, and then over-correcting invites pressing real instances OUT; **(2)** when you
-retract one instance of an error, grep for its SHAPE, not its words; **(3)** quote inline, because
-every claim in this block that survived scrutiny is one where the quote is present; **(4)** read the
-WHOLE entry before judging its prescription — §65 has two prescriptive clauses four lines apart and
-three drafts in a row read only one of them.
-
-★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
-than numbered, because it is the same defect on the same value, one call frame up.
-### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
-
-Branch `chore/machine-unblocking-slice-1`; no version bump (nothing user-facing shipped).
-
-| was | what closed it |
-|---|---|
-| §2 planner over the ratchet | two verbatim extractions — `use-reference-data.ts` (308) + `use-resource-directory.ts` (344); planner 1043 → 553, baseline re-recorded 554 |
-| §58 axe gate can scan a stale server | `data-app-version` on the server-rendered `<html>` + a guard test in `e2e/a11y.spec.ts`; **half** — the sibling-worktree case is untouched |
-| §51 fragile `/dup/i` matcher | `findByRole(/merge selected/i)`; the flake **mechanism is still unestablished** and the entry stays open |
-
-★★ **Every quantified claim in the entries this slice touched had to be re-measured, and two were
-wrong.** §2 recorded 1037/1038 when the real state was 1043/1043 — zero slack, not one line — because
-0.212.0 had grown and re-baselined the file without revisiting the entry. §2 also named the wrong
-extraction precedent (`use-storage-file-ops.ts`, which is for `task-manager.tsx` orchestration) when
-the applicable one was `use-calendar-events.ts`, extracted from the same file for the same reason.
-Neither error was visible from the entry itself; both surfaced only on measuring. **This is the
-mechanism this whole file warns about** — the prose has no gate, and a number written eight releases
-ago is a historical record, not a fact.
-
-★ Opened by the slice: **§59** (eye verification owed, third release running), **§60** (the ratchet
-ignores sub-limit files, so §2's new baseline entry is inert), **§61** (three residuals from the
-split), **§62** (two handlers with no production consumer, pre-existing).
-
-★★ **And the review of the slice found four more falsehoods in prose the slice itself had just
-written**, two of them inside corrections of earlier falsehoods: `use-reference-data.ts`'s header
-asserted "14 of the 15 reach only RolesPanel" while correcting a different wrong claim (the true
-split is 12 / 1 / 2 dead); §2's bullet said "reach only `RolesPanel`", contradicting the very header
-comment it defers to; and §60's index row plus §2's cross-reference both still pointed at the
-`--update` trap that §60's own body had retracted **in the same commit**. Correcting a claim is when
-you are most likely to write a new one — re-measure the replacement, and grep every pointer to a
-paragraph you just rewrote.
-
-### 0.211.1 — the small-correctness batch (§11 · §14 · §15 · §29)
-
-| was | what closed it |
-|---|---|
-| §11 abort check misreports a cancel | pure `abort-error.ts` `isAbortError` (reads `.name`, never `instanceof`), applied at all four sites; the two that also read `signal.aborted` keep that short-circuit |
-| §14 two per-device keys | actuals cache re-keyed to the canonical id, **no fallback** — a pre-existing cache is orphaned and refetched once |
-| §15 two file-picker shapes | `FilePickerButton`; theme-gallery, color-scheme-editor **and** branding-image-input migrated |
-| §29 dead `form.noteLog` | field removed from `emptyForm`, so the derived `TaskFormDraft` dropped it and `tsc` found every stale literal |
-
-★★★ **THE BATCH'S OWN LESSON: three of the four entries were WRONG about their own fix, and only
-review caught it.** §11 recommended leaving two sites alone (defensible, overridden — see there) —
-and, it later turned out, was wrong about the defect *existing at all* (see §11's own correction).
-§14 specified a read-both migration that shipped and had to be **reverted**, then a migrate-once
-variant that was specified and rejected before it was built. §15 scoped itself to two call sites when
-there were three, and looking at the third and the excluded fourth produced §46 and §47. An entry in
-this register records what was known when it was written, and that is not the same as what is true when
-you come to act on it — **re-derive the fix, do not just execute the entry.**
-
-★★ **Vacuity kept being the real risk, not correctness.** Most tasks ended with a deliberate mutation
-to prove the tests discriminate, and that step earned its keep repeatedly: 6 of 7 new store tests
-passed *before* the fix (extra arguments are runtime no-ops in JS, so a two-arg call against a one-arg
-function ignores the second silently); a control test asserting a genuine error still errored passed
-both before and after; and the §14 panel wiring turned out to be pinned by **nothing** until a test was
-added for it specifically. A green suite said almost nothing on its own.
-
-★★★ **AND THE MUTATION STEP WAS ITSELF SKIPPED ONCE — this paragraph originally claimed "every task",
-which review disproved.** `file-picker-button.test.tsx`'s "fires again when the same file is picked
-twice" shipped VACUOUS: it minted a **fresh `File` per upload**, and user-event skips the change event
-only on OBJECT IDENTITY (`upload.js`, `files.every((f, i) => f === input.files.item(i))`), so the event
-fired regardless and deleting `e.target.value = ""` left it green. The one property of the new
-primitive with no other coverage had a test named for it that could not fail. Fixed by hoisting a
-single `File` instance and re-mutating: reset removed ⇒ that test alone fails; `aria-hidden` removed ⇒
-the new AT test alone fails. ★ **Both reviewers found this independently**, one primed and one cold —
-the strongest possible signal, and worth more than either verdict alone.
-
-★ Not fixed, recorded instead: the `-strong`-token and `dup:check` observations stand, and the three
-hand-written correct abort reads (`chat-panel`, `use-alloc-plan`, `use-raci-suggest`) were left alone.
-
-★★ **Review round 2 (post-release, pre-merge) also corrected the DOCS in three places** — each a claim
-contradicted by the code it described, in the batch's own final docs commit: AGENTS.md said the
-note-count was "a literal `0`" when the code shows none; it called `FilePickerButton` the "ONLY
-sanctioned way to open a file dialog", which reads as flagging `step0-import-panel.tsx`'s perfectly
-correct VISIBLE input; and the note-log guarantee was written as if app-wide when RAID still has the
-whole defect (§48). The register is not exempt from the rule it exists to enforce.
-
-### 49-finding audit campaign (2026-07-06 → 07-10) — **37/49 merged**
-
-Batches A (data-integrity/error-transparency, MR !212) · B (render-perf, !213) · D
-(small-correctness, !214) · C (a11y/interaction incl. the branded `ConfirmDialog`, !215) · E (search
-+ cross-view focus + activity diff, !216) · design sub-batch (calendar roving grid + collapsed-rail
-flyout + mobile drawer, !217) · #24 workload-actionable (!219) · #23 Gantt milestone ghost bars
-(0.171.0 "Gibson", !233) · #7 weekly status digest (0.172.0 "Corey", !234) · #11 undo (0.173.0
-"Jordan" + 0.174.0 "Egan"). Batch F is complete. What survived is items §4, §5 and §6 above.
-
-★ **Systemic entity id-mint race — fixed 0.170.2 "Doctorow" (!232); the landmine is now recorded in
-AGENTS.md** (Phase-3 extraction conventions, "Per-entity CRUD hooks"), added 2026-07-27 because it
-had survived only in this campaign doc and the memory files. Entity "Add" modals precompute an id at
-modal-OPEN; save handlers decided create-vs-update by id-EXISTENCE, so a concurrent writer taking
-that id between open and save made the save follow the replace path and **silently clobber the
-concurrent row**. Fix: pure `entity-id-mint.ts` `resolveEntitySave` decides by the modal's **intent**
-and re-mints when the open-time id was taken.
-
-★ Re-verified against 0.203.0 while promoting it, and the campaign doc's coverage claim was already
-out of date: `resolveEntitySave` now has **five** call sites — calendar events joined in R5 — and the
-"only Resources was safe" line needs two corrections. Resources is not an exception to the pattern; it
-hand-rolls the same semantics inline plus an extra concurrent-delete guard the helper's callers lack.
-And **tasks were never exposed at all**, deciding on `editingId !== null` rather than id-existence.
-
-### 0.210.0 "Larbalestier" — nine of the twelve rich-text items closed
-
-Slice B (0.209.0) opened §16–§28. This release closed eight of them outright and narrowed a ninth.
-Recorded here rather than deleted, because two of the nine did not end where they started.
-
-| was | what actually closed it |
-|---|---|
-| §17 exports run on one line | `separateBlockBoundaries(html, sep)` and `htmlPlainProjection(html, {preserveBreaks})` took opt-in break modes, default byte-identical; `descriptionTextWithBreaks` composes them; the renderers map the newline (`<br>` in HTML/PDF, `<w:br/>` in DOCX, one `<a:p>` per line in PPTX, XLSX already preserved it and is now pinned) |
-| §18 tasks export raw HTML | `TASK_RICH_COLUMNS` — `Task.description` exports as projected text |
-| §19 descriptor names `notes` | renamed to `description`; `chat-tools` keeps `notes` as a deliberate **write alias**, because a stored insight recommendation replays its `proposedCalls` verbatim |
-| §20 `applied[f]` untestable | `FieldDiff.raw` exposes the verbatim applied value |
-| §23 five consumers fuse boundaries | all five moved to `descriptionText` |
-| §25 guard doesn't follow imports | pins import **specifiers** (any quote style, static or dynamic) and sweeps the reverse direction, with a scanned-file count so it cannot pass vacuously |
-| §26 Enter-submit counts an unapplied truncation | the plain-text caps now apply on the saved object |
-| §27 three doc claims | 1–2 corrected in comments; 3 fixed — `CharCounter` is fed the upgraded value `capRich` measures |
-| §24 numeric entities | **narrowed, not closed** — see §24 above; the named tail is still open |
-
-★★ **§17 needed a third change the plan did not call for.** `htmlToText`'s default `\s+` collapse
-destroyed the very newline the caller had just inserted, so it took `{preserveBreaks}` too. A
-break-preserving projection composed in front of a whitespace-collapsing one is a no-op — worth
-knowing before designing the equivalent for any other pipeline.
-
-★★★ **§20 was not the tidy seam it was filed as — making the invariant observable proved it FALSE.**
-The entry said the raw-vs-projected distinction "is correct today and is load-bearing", unobservable
-but sound. It was not sound: `use-inline-entity-edit.ts` applied `diff.after`, the **projected preview
-text**, so every inline "Ask Claude" edit of a rich field wrote flattened plain text over the user's
-markup — all seven `RICH_FIELDS`, live since the feature shipped. Fixed in the same release
-(`a502c081`, `diff.raw ?? diff.after`; the `?? after` arm is load-bearing for sanitizer-induced enum
-resets, which carry no `raw`). ★ This was a live data-loss bug **found by the fix that made it
-visible**, not a known issue anyone had deferred — the register had it filed as a testability chore.
-The general lesson is the one to keep: an invariant defended only by a code comment is a claim, and
-the cheapest way to find out is to expose it.
-
-★ §19's rename forced `RICH_FIELDS` to move in lockstep — its keys are entity-qualified
-`task.<field>`, read off the descriptor's spelling, so renaming one without the other drops the task
-out of the set and silently stops projecting the preview. `plan.test.ts:228` pins that coupling.
-
-★ The old §27 carried a fourth, unrelated observation about `form.noteLog`. It was **not** a doc
-claim and was not fixed — it is now **§29**, so closing §27 did not quietly retire it.
-
-### R5 calendar overhaul (0.202.0 "Beukes") and its three follow-up batches
-
-- **0.202.1** — calendar-event activity log + undo, the de-recurring hint, empty-`localModifiedAt` in
-  `sanitizeAbsence`/`sanitizeShift`, `gantt-engine`'s duplicate `addDays`.
-- **0.202.2** — band chips folded into a roving group, series-list sorting, `RaidCausedByField` and
-  `TaskLinkPicker` unified behind `EntityLinkPicker`.
-- **0.202.3** — the a11y batch: `SortResizeTh` emits `aria-sort` with the glyph `aria-hidden`;
-  `EntityLinkPicker` became a real combobox; the inert chip's remove button names the entity; band
-  chips took a keyboard reschedule; focus returns to a surviving chip on unmount; colliding chip names
-  get a discriminator; `--ui-purple-strong` is derived against the composited purple tint instead of
-  `--surface-muted` (guarded by `scheme-purple-hover.test.ts` across the built-ins **and** the shipped
-  `public/themes/*.json`).
-
-★★ **Negative result — do not re-run this sweep.** After the `--ui-purple-strong` fix, a repo-wide
-scan for lines carrying both a `-strong`/`-text` token **and** a `hover:bg-*` tint returned **16
-sites**. Fifteen are the `ui-pink-strong` family and **every one clears AA in all six built-in
-combos**, worst case 4.71:1. The RAID chip was the only real failure. It was a point fix plus a guard,
-not a systemic problem.
-
-★ Also already-resolved when that batch started: the `package.json` / `version.ts` drift — both
-already read `0.202.2`.
-
----
-
-## Standing notes for whoever picks these up
-
-★ **Not one of the a11y items here is covered by the axe gate — for two different reasons.**
-*Never scanned:* Resources defaults to the directory sub-tab so Calendar is never reached (§1, §10);
-the Kanban board is not scanned (§5, the gate sees the table view); the link picker only lives inside
-edit modals the gate sees closed; the tour is not in `A11Y_VIEWS` (§8). *Scanned but invisible to
-axe:* there is no rule for `aria-modal` without a focus trap (§8) and none for a missing or duplicated
-`aria-sort` (§9), so RAID and Activity pass at 85/85 with the defect present. The vitest suites are
-the only automated coverage for any of it.
-
-★ **One stale AGENTS.md claim was found during this sweep and CORRECTED in place (2026-07-27), not
-carried here.** Its `CalendarEvent` section said the empty-string `localModifiedAt` bug was "still
-live in `sanitizeAbsence` and `sanitizeShift` … deliberately left alone in this release". It was
-not — 0.202.1 fixed both (`sanitize-entities.ts:100` and `:185` read
-`sanitizeText(raw.localModifiedAt, 1024) || undefined`) and the sentence outlived the fix. The bullet
-now states the general rule instead, and adds the distinction that bit nobody yet: the
-`sanitizeResource` / `sanitizeRole` / `sanitizeNamedRef` / budget-bucket arms use
-`if (typeof x === "string" && x)`, which is truthiness-guarded and already correct — so a reader
-sweeping for the pattern does not "fix" four call sites that were never broken.
-
-★ Worth knowing for the next sweep: that claim survived because a landmine bullet's *tail* is where
-resolution status lives, and nothing re-reads tails. When closing a follow-up, grep AGENTS.md for the
-symbol you fixed — not just the register.
-
-★ **Release procedure** (learned during the audit campaign, still binding): NEVER
-`glab mr merge --auto-merge` — it checks the BRANCH-head pipeline, not the
-`refs/merge-requests/<iid>/head` pipeline, and merges INSTANTLY pre-green (bit twice). Push → create
-MR → poll the MR-ref pipeline to `status:success` yourself → plain
-`glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
-green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
-`npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
 
 ## 103. An over-cap load silently and permanently destroyed the excess documents — CLOSED
 
@@ -17038,3 +16673,370 @@ a `workspaceToJson` → `jsonToWorkspace` round trip before the test says anythi
 
 ★ The dependency array was the same width and moved with the literal, so a slice-only edit now
 re-captures. That half carries its own discriminating test, added separately in this branch.
+
+---
+
+## Decided — do not re-litigate
+
+**Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
+Decided 2026-07-27: **not fixing.** ★ The module's own doc comment already states this scope
+accurately (commit `992827f9`), so nobody should mistake it for solved and it needs no further
+documenting. The `preferredLane` map is rebuilt per call, so it prevents a
+series FRAGMENTING within one window but not MOVING between windows. Three things carried the
+decision: the cure's failure mode is worse than the disease (a preference carried across windows
+pins a series to a lane wrong for a later window, and a ref that never evicts goes stale after any
+edit); the keyboard consequence is handled elsewhere (0.202.3's focus-restore effect in
+`resource-calendar-band.tsx` re-focuses a surviving chip when the focused one unmounts, which is
+what a lane change does to it), leaving only a visual row-jump; and being mechanically easy is not
+the same as being right.
+
+If it ever becomes a real complaint, the answer is an **order-stable packer** — pack by `eventId`
+rather than first-come, so the same series set always yields the same lanes with no cross-render
+memory. It re-baselines all 6 existing lane tests. It is NOT the `useRef` carry-over.
+
+**Rejected by the 2026-06 review (Tier C), still rejected:** `CSV_COLUMNS` meta-programming in the
+codecs (directly threatens the byte-stable golden serializers); `array.includes` → `Set.has` in
+`sanitize.ts` (unmeasured micro-perf); `use-jira-sync` ref-sync effect consolidation (the "7×
+re-renders" premise was false — effects do not trigger re-renders).
+
+**Verified FALSE POSITIVES from that same review — reject these on sight if a tool re-raises them.**
+Preserved here because the source doc is deleted and each one is a claim an automated reviewer will
+plausibly make again:
+
+- *"`task-manager.tsx` has CRITICAL `set-state-in-effect`, fails lint."* False. Those are
+  **conditional** `setActiveTab` navigation effects, guarded by an `if`, committed and CI-green. The
+  `react-hooks/set-state-in-effect` ban targets *unconditional* derived-state mirroring.
+- *"`jira-settings.tsx` set-state-in-render is an anti-pattern; convert to `useEffect`."* False **and
+  actively harmful** — that IS the render-time reconcile pattern AGENTS.md mandates, and converting
+  it to an effect is the BANNED shape, so the "fix" would fail CI.
+- *"`jira-api.ts` `return data as T` is unvalidated, CRITICAL."* Over-rated. `data` is typed
+  `unknown`, the error path throws `JiraApiError`, and callers guard. A real MEDIUM type note at
+  most — and the zod fix is a new dependency, so it must be asked for (it is item §7 B4 above).
+- *"Pure modules import React/i18n"* (`action-ai.ts`, `ai-project-proposal.ts`,
+  `chat-attachments.ts`) — verifiably clean; non-findings.
+
+★★★ THE FRAME THAT PRODUCED ALL FOUR IS FALSE, AND IT TOLD READERS TO DISMISS TRUE FINDINGS.
+It read: the app is CI-green under `lint --max-warnings=0`, **therefore no committed code can hold a
+fatal lint violation** — any finding claiming one is a false positive by construction. There is no
+`--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
+and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
+a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
+many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
+them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
+correct and this line must not be read as contradicting it. List them rather than trusting any count
+here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config
+src/app/icons.ts`. The four dispositions above were checked individually and stand on their own
+evidence; it is the shortcut that is retired.
+
+**Dropped:** audit **#38** browser-Back — stale, popstate already handled (`561615ce`).
+
+---
+
+## Provenance — where these items came from, and what already closed
+
+Absorbed from three now-unreachable documents. Kept because it explains why an item is worded the way
+it is, and because several entries are **negative results** — work already done that returned nothing,
+which is exactly the kind of thing that gets re-run.
+
+### post-0.226.0 — the snapshot baseline-poisoning slice (§77 closed · §78 half)
+
+Triage slice 1 of the harm-ranked pass over this register. No version bump — no user-visible surface
+changed, only what the Trends auto-capture is willing to write.
+
+| was | what closed it |
+|---|---|
+| §78 empty project auto-captures, and that row is the BASELINE | pure `hasCapturableContent` in `snapshot.ts`; the auto-capture effect declines. Gates the CAPTURE, not `isFirstEver` — `pickBaseline`'s earliest-row fallback defeats gating the flag. ★ Only the ALL-null case closed; §78's partial-KPI case is still open, see its body |
+| §77 the capture gate is a one-way latch | `loadedBackend === backend` derived in RENDER, plus a re-stamp in the load effect's suppress branch |
+
+★★ **An entry's suggested fix is a hypothesis from the day it was written, not a finding** — this
+file has no gate over it. §77 prescribed ref+state; deriving in render is strictly stronger and
+simpler, and was forced anyway by fatal `react-hooks/set-state-in-effect`.
+★★★ **But CHECK what an entry actually said before crediting it with an error.** A draft of this
+block led with "both entries' own prescriptions were wrong". §78's did not: it read *"gate
+`isFirstEver` (or the auto-capture itself) on the workspace having content"* — the parenthesis is
+exactly what shipped. Only the IN-CODE comment derived from it named just the wrong half. **That
+sentence was a new falsehood written inside a correction of an old one**, in the block whose own
+lesson is that corrections are where falsehoods breed. A cold fact-check caught it; nothing else
+would have.
+
+★★★ **§77's own objection (a) came true against the fix that was supposed to avoid it.** The plain
+identity change strands the gate closed on the `suppressNextLoadRef` path — exactly the failure the
+entry named as disqualifying — because `applyWorkspace` is a plain render-scope function and stamps
+the PREVIOUS backend. It was caught by re-reading the entry's warning against the new code, *after*
+the change had been reported green. **A green suite is not a disproof of a documented hazard** when no
+test drives the hazardous path — and none did, which is why test 2 in §77 exists. When an entry names
+a failure mode as disqualifying, re-run that argument against whatever you replace it with.
+
+★★ The measured arm-site count is **seven**, not the six the plan assumed — `onRequestStorageSwitch`
+arms the ref without calling `applyWorkspace` at all. Reproduce with the grep in §77's body. The extra
+site strengthened the fix: it forced the invariant to be stated as "render scope holds the workspace
+that BELONGS to this backend" rather than the narrower "was loaded from it".
+
+★★ **TWO cold passes were needed, and they found disjoint things.** One over the CODE found no
+correctness defect but several inaccurate comments — including a ★★ rationale that was exactly
+backwards (it claimed a shared mock would make a test pass either way; it makes it FAIL either way)
+and a `file:line` citation **broken by the very hunk that wrote it**. Cite the SYMBOL. A second pass
+over the PROSE ALONE, run because this slice had just rewritten a lot of it, then found three false
+claims the code reviewer had read straight past — including the one retracted above. **Reviewing code
+and fact-checking prose are different jobs; a reviewer doing the first will not do the second.**
+
+★ In both passes, roughly one finding in six was itself wrong on analysis (the code reviewer read the
+empty-load guard's shut gate as a regression; a shut gate is correct there). That is the expected
+yield from a cold read — take the findings, re-derive each one, and say which you rejected.
+
+### post-0.216.0 — the cancelled-work leftovers (§66 · §67 closed · §64 · §65 half)
+
+Branch `fix/cancelled-work-leftovers`; no version bump decided at time of writing. Slice 2 of the
+harm-ranked triage of this register, taken because 0.213.0 fixed the Reports and Dashboard headline
+surfaces and then stopped at the branch boundary.
+
+| was | what closed it |
+|---|---|
+| §65 (half) tooltip says "completed" under a ✕ | a THREE-way health driver — `cancelled` / `completed` / `closed` — plus the `healthDriverClosed` key. Its SECOND symptom — the UI calling such a row "cancelled" — is open, and this slice added two more strings that do |
+| §66 R/A/G counts a cancelled task Green | out-of-scope work leaves the tally into `GroupHealth.outOfScope`, surfaced on the tile and the reports cards |
+| §67 committed NUL byte | the source escape `\u0000`, plus `no-nul-bytes.test.ts` as a ratchet |
+| §64 (half) presentation + model feeds | portfolio table + `avgCompletionPercent` + steering draft + AI snapshot; the two PERSISTED figures stay open by decision |
+
+★ One shared predicate underpins all of it: `isTaskOutOfScope` (`task-closed.ts`), which `scopeCounts`
+and `computeGroupHealth` now both call. Those two render side by side in ONE dashboard card, and a
+second copy of `isTaskClosed(t) && !isTaskDelivered(t)` is the drift `hasNoActiveScope`'s own doc
+comment records having already caused once.
+
+★ **TWO of the four entries carried a faulty prescription.** §67 weighed `|` and a space, noted both
+were merely UNLIKELY to collide rather than unable to, and accepted that instead of looking for the
+option with no drawback. §65 wrote "**Fixing the drivers fixes both**" — and it does not: the second
+symptom is gated on `hasNoActiveScope` → `scopeCounts` → `isTaskOutOfScope`, which never consults a
+health driver, so no driver change could reach it. (§65's OTHER prescription, "not `status` alone",
+was right but UNDERSPECIFIED — it does not say the split is three-way.) §66 was sound. §64's
+DIAGNOSIS was incomplete — its surface list missed `aggregatePortfolio`.
+
+★★★ **THAT NUMBER HAS NOW BEEN WRONG IN BOTH DIRECTIONS, BY THE SAME MECHANISM.** Draft 1 said
+"all three". Draft 2 — a correction — said "TWO of the four" and listed three items under it. Draft 3
+— a correction of the correction — said "ONE", and got there by stopping at the §65 clause it had
+already argued about ("not `status` alone") without reading the entry's OTHER prescriptive clause
+four lines below it. Over-count and under-count are the same failure: **deciding the shape of the
+answer first, then reading only far enough to confirm it.** Draft 3 also asserted §65 was "recorded
+as sound in its entry" while §65's own text said "UNDERSPECIFIED" — flattening a concession the same
+author had written.
+
+Each wrong draft is worth keeping, because the two DIRECTIONS of error had different causes.
+Over-counting came from misquoting; under-counting came from stopping early.
+
+- **§65, over-counted** — draft 1 paraphrased "consult `completedDate`, **not `status` alone**" as
+  "INSTEAD OF `status`" and refuted the paraphrase. The clause means consult BOTH, which is what
+  shipped. But draft 3 then over-corrected to "sound": the entry's OTHER prescriptive clause,
+  "Fixing the drivers fixes both", IS wrong. Both drafts read one clause and stopped.
+- **§66, over-counted** — draft 1 attributed an `overallComputed` clause to the entry. The entry
+  never mentions it: `git show f9e17f9e:docs/open-followups.md | grep -c overallComputed` → **0**.
+  That one was a clean over-count; §66 really was sound.
+
+Same error, same document, same commit — and the commit that fixed §65's misquote published the rule
+("quote the entry inline before criticising it") while leaving §66's standing, because it searched
+for the §65 WORDING instead of the SHAPE. **Slice 1 (§77/§78) made this identical mistake a week
+earlier.** Four drafts, three of them wrong, every one written while criticising someone else's text.
+
+★★ The durable lessons, in order of how much they cost here: **(1)** a pattern you are pleased to
+have found is the one to re-check — a category claim ("all three", "every X") invites pressing
+non-instances into it, and then over-correcting invites pressing real instances OUT; **(2)** when you
+retract one instance of an error, grep for its SHAPE, not its words; **(3)** quote inline, because
+every claim in this block that survived scrutiny is one where the quote is present; **(4)** read the
+WHOLE entry before judging its prescription — §65 has two prescriptive clauses four lines apart and
+three drafts in a row read only one of them.
+
+★ Opened by nothing. The one new surface found (`avgCompletionPercent`) was folded into §64 rather
+than numbered, because it is the same defect on the same value, one call frame up.
+### post-0.212.0 — the machine-unblocking slice (§2 closed · §58 half · §51 hardened)
+
+Branch `chore/machine-unblocking-slice-1`; no version bump (nothing user-facing shipped).
+
+| was | what closed it |
+|---|---|
+| §2 planner over the ratchet | two verbatim extractions — `use-reference-data.ts` (308) + `use-resource-directory.ts` (344); planner 1043 → 553, baseline re-recorded 554 |
+| §58 axe gate can scan a stale server | `data-app-version` on the server-rendered `<html>` + a guard test in `e2e/a11y.spec.ts`; **half** — the sibling-worktree case is untouched |
+| §51 fragile `/dup/i` matcher | `findByRole(/merge selected/i)`; the flake **mechanism is still unestablished** and the entry stays open |
+
+★★ **Every quantified claim in the entries this slice touched had to be re-measured, and two were
+wrong.** §2 recorded 1037/1038 when the real state was 1043/1043 — zero slack, not one line — because
+0.212.0 had grown and re-baselined the file without revisiting the entry. §2 also named the wrong
+extraction precedent (`use-storage-file-ops.ts`, which is for `task-manager.tsx` orchestration) when
+the applicable one was `use-calendar-events.ts`, extracted from the same file for the same reason.
+Neither error was visible from the entry itself; both surfaced only on measuring. **This is the
+mechanism this whole file warns about** — the prose has no gate, and a number written eight releases
+ago is a historical record, not a fact.
+
+★ Opened by the slice: **§59** (eye verification owed, third release running), **§60** (the ratchet
+ignores sub-limit files, so §2's new baseline entry is inert), **§61** (three residuals from the
+split), **§62** (two handlers with no production consumer, pre-existing).
+
+★★ **And the review of the slice found four more falsehoods in prose the slice itself had just
+written**, two of them inside corrections of earlier falsehoods: `use-reference-data.ts`'s header
+asserted "14 of the 15 reach only RolesPanel" while correcting a different wrong claim (the true
+split is 12 / 1 / 2 dead); §2's bullet said "reach only `RolesPanel`", contradicting the very header
+comment it defers to; and §60's index row plus §2's cross-reference both still pointed at the
+`--update` trap that §60's own body had retracted **in the same commit**. Correcting a claim is when
+you are most likely to write a new one — re-measure the replacement, and grep every pointer to a
+paragraph you just rewrote.
+
+### 0.211.1 — the small-correctness batch (§11 · §14 · §15 · §29)
+
+| was | what closed it |
+|---|---|
+| §11 abort check misreports a cancel | pure `abort-error.ts` `isAbortError` (reads `.name`, never `instanceof`), applied at all four sites; the two that also read `signal.aborted` keep that short-circuit |
+| §14 two per-device keys | actuals cache re-keyed to the canonical id, **no fallback** — a pre-existing cache is orphaned and refetched once |
+| §15 two file-picker shapes | `FilePickerButton`; theme-gallery, color-scheme-editor **and** branding-image-input migrated |
+| §29 dead `form.noteLog` | field removed from `emptyForm`, so the derived `TaskFormDraft` dropped it and `tsc` found every stale literal |
+
+★★★ **THE BATCH'S OWN LESSON: three of the four entries were WRONG about their own fix, and only
+review caught it.** §11 recommended leaving two sites alone (defensible, overridden — see there) —
+and, it later turned out, was wrong about the defect *existing at all* (see §11's own correction).
+§14 specified a read-both migration that shipped and had to be **reverted**, then a migrate-once
+variant that was specified and rejected before it was built. §15 scoped itself to two call sites when
+there were three, and looking at the third and the excluded fourth produced §46 and §47. An entry in
+this register records what was known when it was written, and that is not the same as what is true when
+you come to act on it — **re-derive the fix, do not just execute the entry.**
+
+★★ **Vacuity kept being the real risk, not correctness.** Most tasks ended with a deliberate mutation
+to prove the tests discriminate, and that step earned its keep repeatedly: 6 of 7 new store tests
+passed *before* the fix (extra arguments are runtime no-ops in JS, so a two-arg call against a one-arg
+function ignores the second silently); a control test asserting a genuine error still errored passed
+both before and after; and the §14 panel wiring turned out to be pinned by **nothing** until a test was
+added for it specifically. A green suite said almost nothing on its own.
+
+★★★ **AND THE MUTATION STEP WAS ITSELF SKIPPED ONCE — this paragraph originally claimed "every task",
+which review disproved.** `file-picker-button.test.tsx`'s "fires again when the same file is picked
+twice" shipped VACUOUS: it minted a **fresh `File` per upload**, and user-event skips the change event
+only on OBJECT IDENTITY (`upload.js`, `files.every((f, i) => f === input.files.item(i))`), so the event
+fired regardless and deleting `e.target.value = ""` left it green. The one property of the new
+primitive with no other coverage had a test named for it that could not fail. Fixed by hoisting a
+single `File` instance and re-mutating: reset removed ⇒ that test alone fails; `aria-hidden` removed ⇒
+the new AT test alone fails. ★ **Both reviewers found this independently**, one primed and one cold —
+the strongest possible signal, and worth more than either verdict alone.
+
+★ Not fixed, recorded instead: the `-strong`-token and `dup:check` observations stand, and the three
+hand-written correct abort reads (`chat-panel`, `use-alloc-plan`, `use-raci-suggest`) were left alone.
+
+★★ **Review round 2 (post-release, pre-merge) also corrected the DOCS in three places** — each a claim
+contradicted by the code it described, in the batch's own final docs commit: AGENTS.md said the
+note-count was "a literal `0`" when the code shows none; it called `FilePickerButton` the "ONLY
+sanctioned way to open a file dialog", which reads as flagging `step0-import-panel.tsx`'s perfectly
+correct VISIBLE input; and the note-log guarantee was written as if app-wide when RAID still has the
+whole defect (§48). The register is not exempt from the rule it exists to enforce.
+
+### 49-finding audit campaign (2026-07-06 → 07-10) — **37/49 merged**
+
+Batches A (data-integrity/error-transparency, MR !212) · B (render-perf, !213) · D
+(small-correctness, !214) · C (a11y/interaction incl. the branded `ConfirmDialog`, !215) · E (search
++ cross-view focus + activity diff, !216) · design sub-batch (calendar roving grid + collapsed-rail
+flyout + mobile drawer, !217) · #24 workload-actionable (!219) · #23 Gantt milestone ghost bars
+(0.171.0 "Gibson", !233) · #7 weekly status digest (0.172.0 "Corey", !234) · #11 undo (0.173.0
+"Jordan" + 0.174.0 "Egan"). Batch F is complete. What survived is items §4, §5 and §6 above.
+
+★ **Systemic entity id-mint race — fixed 0.170.2 "Doctorow" (!232); the landmine is now recorded in
+AGENTS.md** (Phase-3 extraction conventions, "Per-entity CRUD hooks"), added 2026-07-27 because it
+had survived only in this campaign doc and the memory files. Entity "Add" modals precompute an id at
+modal-OPEN; save handlers decided create-vs-update by id-EXISTENCE, so a concurrent writer taking
+that id between open and save made the save follow the replace path and **silently clobber the
+concurrent row**. Fix: pure `entity-id-mint.ts` `resolveEntitySave` decides by the modal's **intent**
+and re-mints when the open-time id was taken.
+
+★ Re-verified against 0.203.0 while promoting it, and the campaign doc's coverage claim was already
+out of date: `resolveEntitySave` now has **five** call sites — calendar events joined in R5 — and the
+"only Resources was safe" line needs two corrections. Resources is not an exception to the pattern; it
+hand-rolls the same semantics inline plus an extra concurrent-delete guard the helper's callers lack.
+And **tasks were never exposed at all**, deciding on `editingId !== null` rather than id-existence.
+
+### 0.210.0 "Larbalestier" — nine of the twelve rich-text items closed
+
+Slice B (0.209.0) opened §16–§28. This release closed eight of them outright and narrowed a ninth.
+Recorded here rather than deleted, because two of the nine did not end where they started.
+
+| was | what actually closed it |
+|---|---|
+| §17 exports run on one line | `separateBlockBoundaries(html, sep)` and `htmlPlainProjection(html, {preserveBreaks})` took opt-in break modes, default byte-identical; `descriptionTextWithBreaks` composes them; the renderers map the newline (`<br>` in HTML/PDF, `<w:br/>` in DOCX, one `<a:p>` per line in PPTX, XLSX already preserved it and is now pinned) |
+| §18 tasks export raw HTML | `TASK_RICH_COLUMNS` — `Task.description` exports as projected text |
+| §19 descriptor names `notes` | renamed to `description`; `chat-tools` keeps `notes` as a deliberate **write alias**, because a stored insight recommendation replays its `proposedCalls` verbatim |
+| §20 `applied[f]` untestable | `FieldDiff.raw` exposes the verbatim applied value |
+| §23 five consumers fuse boundaries | all five moved to `descriptionText` |
+| §25 guard doesn't follow imports | pins import **specifiers** (any quote style, static or dynamic) and sweeps the reverse direction, with a scanned-file count so it cannot pass vacuously |
+| §26 Enter-submit counts an unapplied truncation | the plain-text caps now apply on the saved object |
+| §27 three doc claims | 1–2 corrected in comments; 3 fixed — `CharCounter` is fed the upgraded value `capRich` measures |
+| §24 numeric entities | **narrowed, not closed** — see §24 above; the named tail is still open |
+
+★★ **§17 needed a third change the plan did not call for.** `htmlToText`'s default `\s+` collapse
+destroyed the very newline the caller had just inserted, so it took `{preserveBreaks}` too. A
+break-preserving projection composed in front of a whitespace-collapsing one is a no-op — worth
+knowing before designing the equivalent for any other pipeline.
+
+★★★ **§20 was not the tidy seam it was filed as — making the invariant observable proved it FALSE.**
+The entry said the raw-vs-projected distinction "is correct today and is load-bearing", unobservable
+but sound. It was not sound: `use-inline-entity-edit.ts` applied `diff.after`, the **projected preview
+text**, so every inline "Ask Claude" edit of a rich field wrote flattened plain text over the user's
+markup — all seven `RICH_FIELDS`, live since the feature shipped. Fixed in the same release
+(`a502c081`, `diff.raw ?? diff.after`; the `?? after` arm is load-bearing for sanitizer-induced enum
+resets, which carry no `raw`). ★ This was a live data-loss bug **found by the fix that made it
+visible**, not a known issue anyone had deferred — the register had it filed as a testability chore.
+The general lesson is the one to keep: an invariant defended only by a code comment is a claim, and
+the cheapest way to find out is to expose it.
+
+★ §19's rename forced `RICH_FIELDS` to move in lockstep — its keys are entity-qualified
+`task.<field>`, read off the descriptor's spelling, so renaming one without the other drops the task
+out of the set and silently stops projecting the preview. `plan.test.ts:228` pins that coupling.
+
+★ The old §27 carried a fourth, unrelated observation about `form.noteLog`. It was **not** a doc
+claim and was not fixed — it is now **§29**, so closing §27 did not quietly retire it.
+
+### R5 calendar overhaul (0.202.0 "Beukes") and its three follow-up batches
+
+- **0.202.1** — calendar-event activity log + undo, the de-recurring hint, empty-`localModifiedAt` in
+  `sanitizeAbsence`/`sanitizeShift`, `gantt-engine`'s duplicate `addDays`.
+- **0.202.2** — band chips folded into a roving group, series-list sorting, `RaidCausedByField` and
+  `TaskLinkPicker` unified behind `EntityLinkPicker`.
+- **0.202.3** — the a11y batch: `SortResizeTh` emits `aria-sort` with the glyph `aria-hidden`;
+  `EntityLinkPicker` became a real combobox; the inert chip's remove button names the entity; band
+  chips took a keyboard reschedule; focus returns to a surviving chip on unmount; colliding chip names
+  get a discriminator; `--ui-purple-strong` is derived against the composited purple tint instead of
+  `--surface-muted` (guarded by `scheme-purple-hover.test.ts` across the built-ins **and** the shipped
+  `public/themes/*.json`).
+
+★★ **Negative result — do not re-run this sweep.** After the `--ui-purple-strong` fix, a repo-wide
+scan for lines carrying both a `-strong`/`-text` token **and** a `hover:bg-*` tint returned **16
+sites**. Fifteen are the `ui-pink-strong` family and **every one clears AA in all six built-in
+combos**, worst case 4.71:1. The RAID chip was the only real failure. It was a point fix plus a guard,
+not a systemic problem.
+
+★ Also already-resolved when that batch started: the `package.json` / `version.ts` drift — both
+already read `0.202.2`.
+
+---
+
+## Standing notes for whoever picks these up
+
+★ **Not one of the a11y items here is covered by the axe gate — for two different reasons.**
+*Never scanned:* Resources defaults to the directory sub-tab so Calendar is never reached (§1, §10);
+the Kanban board is not scanned (§5, the gate sees the table view); the link picker only lives inside
+edit modals the gate sees closed; the tour is not in `A11Y_VIEWS` (§8). *Scanned but invisible to
+axe:* there is no rule for `aria-modal` without a focus trap (§8) and none for a missing or duplicated
+`aria-sort` (§9), so RAID and Activity pass at 85/85 with the defect present. The vitest suites are
+the only automated coverage for any of it.
+
+★ **One stale AGENTS.md claim was found during this sweep and CORRECTED in place (2026-07-27), not
+carried here.** Its `CalendarEvent` section said the empty-string `localModifiedAt` bug was "still
+live in `sanitizeAbsence` and `sanitizeShift` … deliberately left alone in this release". It was
+not — 0.202.1 fixed both (`sanitize-entities.ts:100` and `:185` read
+`sanitizeText(raw.localModifiedAt, 1024) || undefined`) and the sentence outlived the fix. The bullet
+now states the general rule instead, and adds the distinction that bit nobody yet: the
+`sanitizeResource` / `sanitizeRole` / `sanitizeNamedRef` / budget-bucket arms use
+`if (typeof x === "string" && x)`, which is truthiness-guarded and already correct — so a reader
+sweeping for the pattern does not "fix" four call sites that were never broken.
+
+★ Worth knowing for the next sweep: that claim survived because a landmine bullet's *tail* is where
+resolution status lives, and nothing re-reads tails. When closing a follow-up, grep AGENTS.md for the
+symbol you fixed — not just the register.
+
+★ **Release procedure** (learned during the audit campaign, still binding): NEVER
+`glab mr merge --auto-merge` — it checks the BRANCH-head pipeline, not the
+`refs/merge-requests/<iid>/head` pipeline, and merges INSTANTLY pre-green (bit twice). Push → create
+MR → poll the MR-ref pipeline to `status:success` yourself → plain
+`glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
+green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
+`npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
