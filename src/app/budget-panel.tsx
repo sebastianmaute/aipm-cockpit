@@ -10,7 +10,10 @@ import { describeClamp } from "./sanitize-report";
 import { generatePeriods, type Period } from "./resource-capacity";
 import { useListReorderDnd } from "./use-list-reorder-dnd";
 import { DragHandle } from "./drag-handle";
-import { BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod } from "./budget-panel-people-rows";
+import {
+  BucketRolePeople, PeopleDisclosureLabel, buildPlannedByResourcePeriod,
+  filterSortAllocations, useDetailedRoleRows,
+} from "./budget-panel-people-rows";
 import type { ActualsByBucket } from "./timelog-actuals";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { roleLabel } from "./resource-foundation";
@@ -55,23 +58,6 @@ function sumPeriods(hours: Record<string, number>, periods: { key: string }[]): 
   return periods.reduce((s, p) => s + (hours[p.key] ?? 0), 0);
 }
 
-function filterSortAllocations<T>(
-  allocs: readonly T[],
-  nameOf: (a: T) => string,
-  filter: string,
-  dir: SortDir,
-): T[] {
-  const q = filter.trim().toLowerCase();
-  let rows = q ? allocs.filter((a) => nameOf(a).toLowerCase().includes(q)) : allocs.slice();
-  if (dir !== "off") {
-    rows = rows.slice().sort((a, b) => {
-      const c = nameOf(a).localeCompare(nameOf(b));
-      return dir === "desc" ? -c : c;
-    });
-  }
-  return rows;
-}
-
 /** The bucket's Manual % complete, editable without opening the bucket modal.
  *  The placeholder shows the task-derived percentage so the override
  *  relationship is visible in place. */
@@ -100,9 +86,19 @@ function ManualPercentCell({
       {t(lang, "budgetPercentComplete")}
       <InfoTooltip text={t(lang, "budgetPercentCompleteHint")} />
       <input
-        // Bucket-qualified: N identical "Manual % complete" labels is a WCAG
-        // 2.4.6 failure that the axe gate cannot see (it reports MISSING
-        // accessible names, never duplicate ones).
+        // ★★ Bucket-QUALIFIED, which is NOT bucket-UNIQUE — an earlier revision
+        // of this comment read as if the qualifier closed 2.4.6, and it does
+        // not. N identical "Manual % complete" labels is a WCAG 2.4.6 failure
+        // the axe gate cannot see (of axe-core 4.12.1's rules, not one carrying
+        // a tag e2e/a11y.spec.ts requests flags two controls sharing a name),
+        // and appending the bucket name fixes only the ordinary case. The
+        // RESIDUAL case is live: `budget-bucket-modal.tsx` edits the name as
+        // free text with no uniqueness constraint (only `BUDGET_NAME_MAX`), so
+        // two buckets can carry one name and these inputs then collide
+        // byte-for-byte again. Closing it needs a `buildRowTokens`
+        // (`row-tokens.ts`) map built where the buckets are MAPPED and threaded
+        // down as a prop — a per-item component has no sibling visibility — so
+        // it is a deferred follow-up, deliberately not attempted here.
         aria-label={`${t(lang, "budgetPercentComplete")} – ${bucket.name}`}
         type="number"
         min={0}
@@ -277,6 +273,17 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const visibleBuckets = bucketQuery
     ? report.buckets.filter((b) => b.name.toLowerCase().includes(bucketQuery))
     : report.buckets;
+
+  // Hoisted for exhaustive-deps inside the hook (no `obj.member` in a dep array).
+  const disciplines = props.disciplines;
+  const grades = props.grades;
+
+  // Detailed (per-role) rows for every rendered, non-blended bucket, plus the
+  // WCAG 2.4.6 disambiguation tokens for their people-disclosure triggers —
+  // see budget-panel-people-rows.tsx's useDetailedRoleRows docstring.
+  const { rowsByBucket: detailedRowsByBucket, roleTokens } = useDetailedRoleRows(
+    visibleBuckets, bucketById, roles, disciplines, grades, roleFilter, roleSort,
+  );
 
   const stamp = () => new Date().toISOString();
 
@@ -462,11 +469,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
           const inCur = (eur: number) => formatCurrency(eurToCurrency(eur, bucket, fxRates), bucket.currency, locale);
           // CCI amounts are EUR from the engine — convert to the bucket currency for display.
           const cci = (v: CciValue): CciValue => ({ amount: eurToCurrency(v.amount, bucket, fxRates), percent: v.percent });
-          const detailedRows = filterSortAllocations(
-            bucket.allocations,
-            (a) => roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`,
-            roleFilter, roleSort,
-          );
+          const detailedRows = detailedRowsByBucket.get(br.bucketId) ?? [];
           const blendedRows = filterSortAllocations(
             bucket.disciplineAllocations ?? [],
             (a) => props.disciplines.find((d) => d.id === a.disciplineId)?.name || `#${a.disciplineId}`,
@@ -491,14 +494,15 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="flex items-center gap-2">
                   <DragHandle
                     {...bucketOrder.handleProps(br.bucketId)}
-                    // ★★ Bucket-UNIQUE name (WCAG 2.4.6). Every handle carried
+                    // ★★ Bucket-QUALIFIED name (WCAG 2.4.6). Every handle carried
                     // the identical "Reorder bucket — …", so a screen-reader
                     // user listing the buttons heard the same label N times
                     // with nothing to say which bucket each moved. Budget IS an
-                    // axe-scanned view and axe cannot see this at ANY seed size
-                    // — no rule under the four tags the gate requests flags
-                    // duplicate accessible names — so the qualifier is written
-                    // at the source and pinned by a unit test.
+                    // axe-scanned view and axe cannot see this at ANY seed size,
+                    // so the qualifier is written at the source. ★★ NOTHING PINS
+                    // IT — `grep -rln "budgetReorderHandle" src e2e` returns only
+                    // this file and the two i18n dicts, so a revert to the bare
+                    // label ships green. See open-followups §248.
                     ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own
@@ -639,6 +643,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                       const label = roleLabel(roles.find((r) => r.id === a.roleId), props.disciplines, props.grades) || `#${a.roleId}`;
                       const openKey = `${bucket.id}:${a.roleId}`;
                       const open = openPeople.has(openKey);
+                      const roleToken = roleTokens.get(openKey) ?? label;
                       return (
                       <Fragment key={a.roleId}>
                       <tbody>
@@ -646,7 +651,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                         <BucketRowLeadCells
                           label={
                             <PeopleDisclosureLabel
-                              lang={lang} label={label} bucketId={bucket.id} roleId={a.roleId}
+                              lang={lang} label={label} token={roleToken} bucketId={bucket.id} roleId={a.roleId}
                               open={open} onToggle={() => togglePeople(openKey)}
                             />
                           }

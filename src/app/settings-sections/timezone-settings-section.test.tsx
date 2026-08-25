@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from "vitest";
 import { TimezoneSettingsSection } from "./timezone-settings-section";
 import { defaultSettings } from "../settings-types";
 import { t } from "../i18n";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 function setup(overrides = {}) {
   const onChange = vi.fn();
@@ -84,6 +85,7 @@ describe("TimezoneSettingsSection", () => {
       name: `${t("en-US", "tzRemoveLabel")} – America/New_York`,
     });
     expect(removeBtn).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 3 });
     fireEvent.click(removeBtn);
     expect(onChange).toHaveBeenCalledWith(
       expect.objectContaining({ additionalTimezones: ["Asia/Tokyo"] }),

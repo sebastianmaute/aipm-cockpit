@@ -31,6 +31,7 @@ import { Input } from "./form-controls";
 import { FilePickerButton } from "./file-picker-button";
 import { type SortDir, SortResizeTh, useSortHeaderProps, compareStrOrNum, nextSortDir } from "./report-table";
 import { useConfirm } from "./confirm-dialog";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 export interface AssetLibraryProps {
   lang: Lang;
@@ -65,72 +66,6 @@ function formatBytes(bytes: number, lang: Lang): string {
     maximumFractionDigits: 1,
   }).format(bytes / 1024);
   return `${kb} KB`;
-}
-
-/** ★★★ ROW-UNIQUE accessible names (WCAG 2.4.6). The asset NAME alone is NOT
- *  unique and cannot be made so: upload takes `file.name` verbatim and Chrome
- *  names EVERY pasted clipboard image `image.png`; `findDuplicate` is
- *  hash-only, so two DIFFERENT images sharing a filename both get rows; and
- *  rename accepts a string already in use. Two rows reading "Delete –
- *  image.png" is a WCAG 2.4.6 failure that **axe cannot detect in any view at
- *  any seed size** (measured — see AGENTS.md), so `asset-library.test.tsx` is
- *  the only detector that will ever exist.
- *
- *  This returns id → the display TOKEN used in every one of that row's
- *  labels: a name unique in the rendered list is used BARE, and only rows
- *  actually sharing a name get a 1-based occurrence index.
- *
- *  ★★ THE DISAMBIGUATOR IS DELIBERATELY NOT THE ID. Ids are `crypto.randomUUID()`,
- *  so "Delete – image.png (3f2a…-…)" reads 36 characters of character-salad
- *  aloud on every control — trading a 2.4.6 failure for a usability regression
- *  hitting exactly the users 2.4.6 protects. It is also NOT a whole-list
- *  positional ordinal, which shifts under sorting. An occurrence index ranges
- *  only over the rows sharing one name and tells the user there are several
- *  and which one they are on. ★ Cross-MOUNT uniqueness is not required: the
- *  insert modal sets `aria-modal`, which hides the background copy from AT, and
- *  2.4.6 is about distinguishability within one context.
- *
- *  ★ ALL colliding rows are numbered, including the first — hearing a bare
- *  "image.png" would otherwise leave a user unable to tell "the only one" from
- *  "the first of several".
- *
- *  ★★ THE ESCALATION LOOP IS LOAD-BEARING, not defensive padding. Rename
- *  accepts ANY string, so a user can name a row literally "image.png (1)"; with
- *  two other rows called "image.png" the GENERATED token for the pair's first
- *  row would then collide with that row's BARE one — a disambiguator that
- *  re-creates the exact defect it exists to close. Bumping until the token set
- *  is free makes uniqueness hold BY CONSTRUCTION rather than by assumption. */
-function buildRowTokens(rows: readonly DocumentAsset[]): Map<string, string> {
-  const counts = new Map<string, number>();
-  for (const row of rows) counts.set(row.name, (counts.get(row.name) ?? 0) + 1);
-
-  const seen = new Map<string, number>();
-  const used = new Set<string>();
-  const tokens = new Map<string, string>();
-  for (const row of rows) {
-    let token = row.name;
-    if ((counts.get(row.name) ?? 0) > 1) {
-      const occurrence = (seen.get(row.name) ?? 0) + 1;
-      seen.set(row.name, occurrence);
-      token = `${row.name} (${occurrence})`;
-    }
-    if (used.has(token)) {
-      let bump = 2;
-      while (used.has(`${row.name} (${bump})`)) bump += 1;
-      token = `${row.name} (${bump})`;
-    }
-    used.add(token);
-    tokens.set(row.id, token);
-  }
-  return tokens;
-}
-
-/** ★ `verb` stays at the FRONT so the accessible name still CONTAINS each
- *  control's visible text (WCAG 2.5.3 — containment, case-insensitive, NOT
- *  prefix). axe's `label-content-name-mismatch` is `experimental` and excluded
- *  by the gate's default tagExclude, so that is unit-tested too. */
-function rowLabel(verb: string, token: string): string {
-  return `${verb} – ${token}`;
 }
 
 export function AssetLibrary({
@@ -182,6 +117,16 @@ export function AssetLibrary({
     return out;
   }, [assets, sort]);
 
+  // ★★★ ROW-UNIQUE accessible names (WCAG 2.4.6) — see row-tokens.ts for the
+  // disambiguation algorithm's own rationale. The asset NAME alone is NOT
+  // unique here and cannot be made so: upload takes `file.name` verbatim and
+  // Chrome names EVERY pasted clipboard image `image.png`; `findDuplicate` is
+  // hash-only, so two DIFFERENT images sharing a filename both get rows; and
+  // rename accepts a string already in use. Two rows reading "Delete –
+  // image.png" is a WCAG 2.4.6 failure that axe cannot detect in any view at
+  // any seed size (measured — see AGENTS.md), so `asset-library.test.tsx` is
+  // the only detector that will ever exist for this surface.
+  //
   // Derived from `sorted`, not `assets` — the occurrence index has to follow
   // the order the user is actually navigating.
   const rowTokens = useMemo(() => buildRowTokens(sorted), [sorted]);

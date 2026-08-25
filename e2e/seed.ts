@@ -161,9 +161,14 @@ const SEED_WORKSPACE: Record<string, unknown> = {
   // `detect.ts:53` mints one `milestoneSlip:<id>` per overdue milestone.
   // ★★★ THIS DOES NOT MAKE THE AXE GATE ABLE TO SEE IT, and an earlier revision
   // of this comment claimed it did. axe-core 4.12.1 has NO rule that flags two
-  // BUTTONS sharing an accessible name; the only near-miss,
-  // `identical-links-same-purpose`, is links-only and tagged `wcag2aaa`, which
-  // e2e/a11y.spec.ts does not request (`wcag2a wcag2aa wcag21a wcag21aa`).
+  // BUTTONS sharing an accessible name. ★★ "BUTTONS" is the load-bearing word,
+  // not "the only near-miss" — the reproduce command below returns TEN rules and
+  // TWO of them DO carry a requested tag (`duplicate-id-aria`, and
+  // `frame-title-unique`, which is literally two iframes sharing an accessible
+  // name). Neither examines two CONTROLS, which is what keeps this true. The
+  // nearest by WORDING is `identical-links-same-purpose`, links-only and tagged
+  // `wcag2aaa`, which e2e/a11y.spec.ts does not request (`wcag2a wcag2aa wcag21a
+  // wcag21aa`). Read the output, not this sentence.
   // Reproduce: node -e 'const a=require("axe-core"); console.log(a.getRules()
   //   .filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" "+r.tags))'
   // What the same-type pair buys is that the collision RENDERS at scan time and

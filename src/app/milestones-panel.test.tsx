@@ -12,6 +12,7 @@ import { MilestonesPanel } from "./milestones-panel";
 import { useUndoStack } from "./undo/use-undo-stack";
 import { t } from "./i18n";
 import type { Milestone } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Milestone ids are minted from session-scoped state; reset it before each test
 // so the id-mint-race draft ("nextId([1]) = 2") stays deterministic.
@@ -542,6 +543,7 @@ describe("achieved toggle", () => {
     expect(golive).toHaveAttribute("aria-pressed", "true");
     // ★ The old markup was a checkbox; assert that role is gone so a revert fails.
     expect(screen.queryByRole("checkbox", { name: /achieved/i })).toBeNull();
+    expectRowUniqueNames({ minControls: 13 });
   });
 
   // ★ Asserts the RENDERED state flips, not that a setter was called.
@@ -635,6 +637,7 @@ describe("MilestonesPanel linked-documents badge", () => {
       "Referenced by 2 document(s) – Alpha gate",
       "Referenced by 1 document(s) – Beta gate",
     ]);
+    expectRowUniqueNames({ minControls: 17 });
   });
 
   it("clicking the badge switches the app to the Documents view", () => {

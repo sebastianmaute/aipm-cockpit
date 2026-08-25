@@ -3,6 +3,7 @@
 // pure engine), so it may import `t`/`Lang` — the persisted Insight itself stays
 // language-neutral (no prose is ever stored, per insight.ts).
 import { type Lang, t, type TranslationKey } from "../i18n";
+import { buildRowTokens } from "../row-tokens";
 import type { Insight, InsightType } from "./insight";
 
 const TITLE_KEY: Record<InsightType, TranslationKey> = {
@@ -26,6 +27,21 @@ function num(data: Insight["data"], key: string): number {
 /** Short headline for an insight (type-driven, i18n). */
 export function insightTitle(insight: Insight, lang: Lang): string {
   return t(lang, TITLE_KEY[insight.type]);
+}
+
+/**
+ * Row-unique headline for one insight within a RENDERED LIST.
+ *
+ * ★★ `insightTitle` is type-driven and nothing else, so two insights of one
+ * type produce byte-identical control names - WCAG 2.4.6. Both list surfaces
+ * (insights-panel, dashboard InsightsCard) must build names from THIS, never
+ * from `insightTitle` directly.
+ *
+ * ★ Takes the whole rendered list because the disambiguator is an occurrence
+ * index over the colliding rows, not a property of one insight.
+ */
+export function insightRowTitles(insights: readonly Insight[], lang: Lang): Map<number, string> {
+  return buildRowTokens(insights.map((i) => ({ id: i.id, name: insightTitle(i, lang) })));
 }
 
 /** One-line detail, filling the type's positional template from `data`. */

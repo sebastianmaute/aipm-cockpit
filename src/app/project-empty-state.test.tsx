@@ -7,6 +7,7 @@ import { type Contact } from "./contacts";
 import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings, defaultIntegrations, defaultTursoIntegrations } from "./settings-types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // TursoProjectPicker fetches the project list on mount — stub it so the
 // picker-opening test doesn't trigger a real network call / unresolved
@@ -231,6 +232,7 @@ describe("ProjectEmptyState", () => {
     const restoreOrion = screen.getByRole("button", { name: /restore – orion/i });
     expect(restoreOrion).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /restore – pegasus/i })).toBeInTheDocument();
+    expectRowUniqueNames({ minControls: 10 });
     fireEvent.click(restoreOrion);
     expect(onRestore).toHaveBeenCalledTimes(1);
     expect(onRestore).toHaveBeenCalledWith("p1");

@@ -82,6 +82,11 @@ describe("TaskKanbanSwimlanes", () => {
     expect(screen.getByTestId("swimlane-card-2")).toHaveAttribute("draggable", "false");
   });
 
+  // NOT converted on purpose: both assertions below are `.not.toBeInTheDocument()`
+  // — this block renders ZERO remove-lane controls, so it is a visibility-gating
+  // test, not a distinctness one. `expectRowUniqueNames` needs ≥1 rendered
+  // control to say anything at all; forcing it here would either throw (no
+  // controls to check) or check nothing. Skip on future sweeps of this bucket.
   it("shows a row-unique remove-lane control only for an empty linked lane", () => {
     const onRemoveLane = vi.fn();
     render(

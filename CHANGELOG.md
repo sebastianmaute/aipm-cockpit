@@ -8,6 +8,54 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.260.0] - 2026-08-25 "Cho"
+
+### Row-unique accessible names (WCAG 2.4.6)
+
+A per-row control whose accessible name came from a value that is not unique to
+its row produced N identically-named controls — a screen-reader user listing the
+buttons heard the same label repeatedly with nothing to say which row each acted
+on. No gate can catch this: axe-core 4.12.1 has no rule that flags two *controls*
+sharing an accessible name under any tag the a11y gate requests, in any view, at
+any seed size. A unit test is the only detector that can exist for it.
+
+- **`row-tokens.ts`** is the new naming convention. `buildRowTokens` uses a row's
+  display name bare when it is unique in the list and appends a 1-based `(N)` to
+  every colliding row including the first; `rowLabel` composes the action verb
+  with that token. Collisions are keyed on a whitespace-collapsed name, because
+  that is how an accessible name compares — the emitted token keeps the row's own
+  spelling. A per-item component cannot disambiguate itself, so the map is built
+  by whoever renders the list and threaded down.
+- **Eight surfaces adopted it**: documents list, insights panel, the dashboard
+  insights card, history, RAID rows and toolbar, asset library, budget bucket and
+  people rows. RAID's trailing Add button is now category-qualified, which is
+  justified because the toolbar Add always creates a Risk while that one creates
+  an item in the filtered category — a real difference, so 2.4.6's same-purpose
+  allowance does not apply.
+- **`expectRowUniqueNames`** (`src/test/row-unique-names.ts`) is the shared
+  assertion, with `requireCollisionSeed` to prove a fixture can express a
+  collision at all. Its predecessor's floor promised to make a one-row fixture
+  unreachable and never did — it counted controls over a scope defaulting to the
+  whole document, which a panel toolbar alone satisfies.
+
+### Fixed
+
+- Selecting a RAID row, its notes badge and its per-row controls now carry
+  row-unique names instead of repeating the item title.
+- History comparison checkboxes are row-unique and covered; the default role set
+  is buttons only, so they had shipped with none.
+- The budget bucket reorder handle's qualifier is documented as unpinned rather
+  than claiming a unit test that does not exist.
+
+### Documentation
+
+- Corrected claims this slice falsified, and a review of that correction round
+  removed 22 more: an overclaimed test guarantee restated in two files, a
+  quotation attributed to a revision that never contained it, an enumeration
+  command wrong in both directions, four copies of a false axe tag
+  characterisation, and a register entry whose heading, table status, table
+  anchor and closure witness had drifted apart.
+
 ## [0.259.1] - 2026-08-25 "Tsutsui"
 
 ### Documentation

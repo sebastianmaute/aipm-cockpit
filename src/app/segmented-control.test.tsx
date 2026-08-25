@@ -2,6 +2,7 @@ import { describe, test, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { SegmentedControl } from "./segmented-control";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const PRIORITIES = [
   { value: "Low", label: "Low" },
@@ -71,6 +72,7 @@ describe("SegmentedControl", () => {
     expect(screen.getByRole("radio", { name: "Row 1 — High" })).toBeInTheDocument();
     // The plain visible label is no longer the accessible name.
     expect(screen.queryByRole("radio", { name: "High" })).toBeNull();
+    expectRowUniqueNames({ minControls: 3, roles: ["radio"] });
   });
 
   test("without optionAriaLabel a radio's accessible name stays the visible label", () => {

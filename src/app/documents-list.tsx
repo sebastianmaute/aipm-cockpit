@@ -5,7 +5,7 @@
 // PURE presentational (the gantt split): rows arrive already sorted, and every
 // handler is a prop. It owns no state, reads no context.
 
-import type { Ref } from "react";
+import { useMemo, type Ref } from "react";
 import { type Lang, t } from "./i18n";
 import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
@@ -14,6 +14,7 @@ import { Button } from "./button";
 import { type SortDir, SortResizeTh, useSortHeaderProps } from "./report-table";
 import { INTERACTIVE } from "./interaction-styles";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 /** Only these three carry an order a user could act on. The actions column
  *  holds controls — sorting it would be an affordance promising nothing. */
@@ -86,6 +87,13 @@ export function DocumentsList({
   containerRef,
 }: DocumentsListProps) {
   const th = useSortHeaderProps(sortKey, sortDir, onSort, onResize);
+  // ★ Derived from `documents` — already sorted/filtered as the orchestrator
+  // hands it down, i.e. the order actually rendered — so the occurrence index
+  // follows what is on screen.
+  const rowTokens = useMemo(
+    () => buildRowTokens(documents.map((d) => ({ id: d.id, name: d.title }))),
+    [documents],
+  );
 
   if (documents.length === 0) {
     return <EmptyState title={t(lang, "documentsNoneYet")} />;
@@ -132,7 +140,9 @@ export function DocumentsList({
           </tr>
         }
       >
-        {documents.map((doc) => (
+        {documents.map((doc) => {
+          const token = rowTokens.get(doc.id) ?? doc.title;
+          return (
           // ★ Same composition as change/milestones/raid/stakeholders rows:
           // the flash outline is ADDITIVE, so a deep-linked row keeps its
           // selected tint underneath rather than swapping one cue for another.
@@ -144,15 +154,16 @@ export function DocumentsList({
               .join(" ")}
           >
             <td className="px-3 py-2 font-medium text-foreground">
-              {/* Selection rides a real button so it is keyboard-operable; the
-                  document's own title is the accessible name, which is
-                  row-unique by construction. `aria-current` marks the selected
-                  one — this is "the current item in a set", not a toggle, so it
-                  is not aria-pressed. */}
+              {/* Selection rides a real button so it is keyboard-operable. The
+                  name is the DISAMBIGUATED token, not the raw title - titles are
+                  NOT unique (uniqueDocumentTitle is bypassed by commitRename and
+                  the AI createDocument path). `aria-current` marks the current
+                  item in a set, not a toggle, so it is not aria-pressed. */}
               <button
                 type="button"
                 onClick={() => onSelect(doc.id)}
                 aria-current={doc.id === selectedId ? "true" : undefined}
+                aria-label={token}
                 className={`text-left underline-offset-2 hover:underline ${INTERACTIVE}`}
               >
                 {doc.title}
@@ -176,7 +187,7 @@ export function DocumentsList({
                   variant="secondary"
                   size="xs"
                   onClick={() => onDownload(doc)}
-                  aria-label={`${t(lang, "documentsDownload")} – ${doc.title}`}
+                  aria-label={rowLabel(t(lang, "documentsDownload"), token)}
                 >
                   {t(lang, "documentsDownload")}
                 </Button>
@@ -184,7 +195,7 @@ export function DocumentsList({
                   variant="secondary"
                   size="xs"
                   onClick={() => onOpenHistory(doc)}
-                  aria-label={`${t(lang, "documentsHistory")} – ${doc.title}`}
+                  aria-label={rowLabel(t(lang, "documentsHistory"), token)}
                 >
                   {t(lang, "documentsHistory")}
                 </Button>
@@ -193,7 +204,7 @@ export function DocumentsList({
                   size="xs"
                   onClick={() => onRename(doc)}
                   disabled={isReadOnly}
-                  aria-label={`${t(lang, "documentsRename")} – ${doc.title}`}
+                  aria-label={rowLabel(t(lang, "documentsRename"), token)}
                 >
                   {t(lang, "documentsRename")}
                 </Button>
@@ -202,7 +213,7 @@ export function DocumentsList({
                   size="xs"
                   onClick={() => onDuplicate(doc)}
                   disabled={isReadOnly}
-                  aria-label={`${t(lang, "documentsDuplicate")} – ${doc.title}`}
+                  aria-label={rowLabel(t(lang, "documentsDuplicate"), token)}
                 >
                   {t(lang, "documentsDuplicate")}
                 </Button>
@@ -211,14 +222,15 @@ export function DocumentsList({
                   size="xs"
                   onClick={() => onDelete(doc)}
                   disabled={isReadOnly}
-                  aria-label={`${t(lang, "documentsDelete")} – ${doc.title}`}
+                  aria-label={rowLabel(t(lang, "documentsDelete"), token)}
                 >
                   {t(lang, "documentsDelete")}
                 </Button>
               </div>
             </td>
           </tr>
-        ))}
+          );
+        })}
       </DataTable>
     </div>
   );

@@ -17,7 +17,8 @@ import { useWorkspaceTab } from "./workspace-tab-context";
 import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { descriptionText } from "./rich-text-projection";
 import { type Lang, t } from "./i18n";
-import { severityLabel } from "./raid-labels";
+import { categoryLabel, severityLabel } from "./raid-labels";
+import { rowLabel } from "./row-tokens";
 import {
   buildRaidCausesIndex,
   compareRaid,
@@ -518,7 +519,17 @@ function RaidPanelBody({
         text: t(lang, "raidEmpty"),
         addLabel: `${t(lang, "raidAddItem")}…`,
         onAdd: () => openNew(effectiveCategory),
-        ariaLabel: t(lang, "raidAddItem"),
+        // ★ WCAG 2.4.6: the toolbar's Add renders this SAME i18n string as its
+        // visible text and the toolbar is mounted unconditionally, so on an
+        // EMPTY register (the only state that renders this box) both were named
+        // "+ Add RAID item". Same collision, same justification and same fix as
+        // the trailing add-row in raid-panel-rows.tsx: the toolbar Add always
+        // creates a Risk (`openNew()`'s default) while this one creates an item
+        // in whatever category is filtered (`openNew(effectiveCategory)`) — a
+        // real difference whenever the filter is A/I/D, so 2.4.6's same-purpose
+        // allowance does NOT apply and the category is what must distinguish
+        // them.
+        ariaLabel: rowLabel(t(lang, "raidAddItem"), categoryLabel(effectiveCategory, lang)),
       }}
       trailing={
         draft && (
