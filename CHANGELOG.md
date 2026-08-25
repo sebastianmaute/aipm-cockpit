@@ -8,6 +8,59 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.259.0] - 2026-08-25 "Tsutsui"
+
+### Fixed
+
+- **Restoring an earlier version of a project no longer empties six parts of
+  it.** On the database backend a project can be rolled back to a captured
+  earlier version. Restoring wrote back twenty-four parts of the project, but
+  the capture only ever recorded eighteen of them — so knowledge items,
+  insights, documents, document version history, per-project settings
+  overrides and calendar meetings were written back as empty and the live
+  project lost all six. Captures are now complete. A capture taken BEFORE this
+  release is still short, because the missing six were never in it; restoring
+  one of those still clears them. Captures taken from this release onward
+  carry all twenty-four and restore all twenty-four. Closes
+  `docs/open-followups.md` §240.
+
+- **The steering committee is now saved with the project, and unrelated edits
+  no longer erase one.** The committee was read back whenever a project was
+  opened, but it was in none of the copies of the project handed to the
+  storage backend and in none of the values whose change starts a save. So
+  editing the committee on its own saved nothing at all, and because every
+  backend replaces what it stores rather than merging into it, the next save
+  of any kind — an autosave triggered by any other edit — deleted a committee
+  that had arrived with the project file. This affects every backend and has
+  never worked; it is not a regression from an earlier release. Closes
+  `docs/open-followups.md` §232.
+
+### Internal
+
+- **The accessibility gate now scans the Umber dark scheme.** Umber was
+  already built, already selectable and already declared dark-capable, and the
+  gate already imported its dark palette — but the dark row was missing from
+  the scan matrix, so not one view had ever been checked in it while every
+  neighbouring scheme read as covered. The matrix now runs all seven
+  scheme/mode combinations, taking the gate from 110 scans to 128 (129 tests,
+  including its one non-scan version guard). All eighteen new scans pass. The
+  counts were measured in the commit that added the row, not derived:
+  `npx playwright test e2e/a11y.spec.ts --list`.
+
+- **The follow-ups register was audited end to end and corrected.** Every
+  entry was re-read against the tree: dead entries closed, reproduce commands
+  that had stopped answering their own question repaired, mechanism
+  descriptions overtaken by refactors rewritten, and rotted line-number
+  citations converted to symbol names. A heading's status now means one thing
+  — CLOSED in a heading closes the whole entry, and a partial fix says so in
+  the body — so the open count is derivable rather than asserted. The file
+  opens with a generated index table carrying the recipe that rebuilds it, and
+  the three non-numbered sections moved to the end so the numbered register
+  reads as one run. Eight entries were opened for work that was recorded
+  everywhere except there (§233–§240), two of which are the fixes above. A
+  matching sweep corrected the prose those fixes falsified in thirteen other
+  documents.
+
 ## [0.258.1] - 2026-08-24 "Mandelo"
 
 ### Fixed

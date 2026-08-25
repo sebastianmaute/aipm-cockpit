@@ -1007,10 +1007,10 @@ parameters does not change either property; do not add a guard while in there.
 ## 13. Security audit is scope-stale — open
 
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
-**0.258.1** (re-read 2026-08-25 — `grep -n APP_VERSION src/app/version.ts`; this line said 0.203.0
-until then, so the un-audited delta is ~55 releases wider than it reads). The audit's *conclusions*
-still hold for what it looked at — 0 CRITICAL, 0 HIGH, every
-proxy and secrets check PASS — but it has never looked at anything shipped since, and several of
+**0.259.0** (re-read 2026-08-25 at that release — `grep -n APP_VERSION src/app/version.ts`; this
+line said 0.203.0 until that day, so the un-audited delta was ~55 releases wider than it read).
+The audit's *conclusions* still hold for what it looked at — 0 CRITICAL, 0 HIGH, every proxy and
+secrets check PASS — but it has never looked at anything shipped since, and several of
 those are exactly the surface classes it was written to cover.
 
 **★ The gap that matters: `/api/stt` was never audited and is the app's weakest proxy by design.**

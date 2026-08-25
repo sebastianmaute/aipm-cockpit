@@ -2,10 +2,11 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.258.1";
-export const APP_BUILD_DATE = "2026-08-24"; // 0.258.1: document image evidence (Mandelo)
+export const APP_VERSION = "0.259.0";
+export const APP_BUILD_DATE = "2026-08-25"; // 0.259.0: follow-ups register housekeeping (Tsutsui)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.258.x line is "Mandelo" (this slice's codename — no bio recorded for it
+ *  0.259.x line is "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).
+ *  0.258.x was "Mandelo" (that slice's codename — no bio recorded for it
  *  here; not asserting one now rather than guessing, per the 0.236.x note
  *  below).
  *  0.257.x was "Shepard" (Lucius Shepard, SF/fantasy author).
@@ -58,7 +59,7 @@ export const APP_BUILD_DATE = "2026-08-24"; // 0.258.1: document image evidence 
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Mandelo";
+export const APP_MILESTONE = "Tsutsui";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";
