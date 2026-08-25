@@ -80,20 +80,11 @@
  *   which is a constant factor. On `"<a".repeat(k)` the negated-class spelling
  *   grows superlinearly into whole SECONDS by ~128 KB while this one stays
  *   sub-millisecond across the same range.
- *   ★★★ NO FIGURES ARE QUOTED HERE, DELIBERATELY, AND RESTORING A TABLE IS A
- *   REGRESSION. This spot carried one (`2 000 B 1 071 ms` / `4 000 B 12 126 ms`
- *   / `128 000 B (did not finish)`) and it did not survive contact with a
- *   re-measurement: a later run of the same family read 3 ms and 12 ms at those
- *   two sizes and 17 s — not "did not finish" — at 128 KB, i.e. the first two
- *   figures were out by ~1000x (a us/ms unit slip) and the third asserted a
- *   non-termination that does not happen. A THIRD run, by a reviewer
- *   reconstructing the old literal independently, reported the curve
- *   SATURATING flat at ~3.3 s instead of growing. Three measurements, three
- *   shapes, because "the negated-class spelling" is not in the repo any more
- *   and every reader reconstructs it slightly differently. The DIRECTION
- *   (seconds -> sub-millisecond) is what reproduces and is the only thing this
- *   note claims. Reproduce by pasting both literals into a script and timing
- *   `[...s.matchAll(re)]`; there is no repo fixture this large on purpose.
+ *   ★★ NO FIGURES ARE QUOTED, DELIBERATELY: three independent re-measurements
+ *   of the removed literal disagreed with each other and with the table that
+ *   used to sit here. Only the direction reproduces. Reproduce by pasting both
+ *   literals into a script and timing `[...s.matchAll(re)]`; there is no repo
+ *   fixture this large on purpose.
  *   ★★ "Linear" here is a MEASURED SHAPE, not a proof — it is linear on this
  *   family and on realistic document html (230 KB of prose + images, 0.74 ms,
  *   2 000/2 000 matches identical to the old spelling). Do not widen the claim.
@@ -255,35 +246,35 @@ export const IMG_TAG_ASSET_ID_RE =
  *     <img alt='x'data-asset-id="real">     missing separator, single-quoted
  *     <img alt=it's data-asset-id="real">   unpaired quote in unquoted value
  *     <img alt=a<b  data-asset-id="real">   `<` in an unquoted value
- *   ★★ THE LESSON IS THE SINK'S ASYMMETRY, not any property of quoting. This
- *   predicate guards a DELETION: a false TRUE keeps a block that has no asset
- *   (harmless — the loader renders an image with no source), a false FALSE
- *   destroys user data. So the only safe move is to widen, and a narrowing of
- *   ANY kind needs the reachability argument this one never got.
- *   ★★ Hence the union: branch 1 is the pre-fix `[^>]*` (handles a missing
- *   separator, an unpaired quote, a stray `<`), branch 2 is quote-aware
- *   (handles `alt="a>b"`, which truncates branch 1). Each branch is
- *   individually linear and they are tried in order, so the cost is their sum,
- *   not a product — there is no shared ambiguity between them to backtrack
- *   over. Neither branch alone is correct; every single-regex candidate
- *   measured lost at least one real block.
+ *   Branch 1 recovers the first three; branch 2 is quote-aware and recovers
+ *   `alt="a>b"`, which truncates branch 1.
+ *
+ *  ★★★ NEITHER BRANCH MAY SCAN PAST A `<`, AND THE FIX FOR THE ABOVE BROKE
+ *   THAT. Its branch 1 was the pre-fix `[^>]*`, which walks across tag
+ *   boundaries, so every `<img` in the input restarts a scan over the whole
+ *   tail: quadratic, and MEASURED WORSE THAN THE SPELLING IT REPLACED. It is
+ *   reachable — `sanitizeBlock` only evaluates this predicate when the
+ *   projection is zero, and `"<img ".repeat(n) + ">"` projects to zero because
+ *   `TAG` eats it as one match. This runs on RAW, uncapped, pre-sanitizer html
+ *   on every load path (the cap applies to the RETURN value, not the input),
+ *   and the offending block is itself stored, so the cost repeats on every
+ *   boot. `[^<>]*` bounds each scan to one tag and restores linearity.
+ *   ★★ So the constraint is two-sided and both sides have now been violated
+ *   once: this predicate must not NARROW (it guards a deletion — see the shapes
+ *   above) and must not scan across `<` (it runs unbounded on hostile input).
+ *   A change satisfying only one of those has been shipped twice on this
+ *   branch. Measure any replacement against BOTH the shape table in
+ *   `document-asset-patterns.test.ts` and `"<img ".repeat(n) + ">"`.
+ *   ★ THE PRICE, and it is a real one: `<img alt=a<b data-asset-id="real">`
+ *   carries a genuine attribute and is now dropped, because no branch may
+ *   cross the `<`. It needs an unquoted attribute value containing `<` in raw
+ *   stored html — DOMPurify quotes and escapes it — which is why the freeze was
+ *   judged the worse of the two. Do not "restore" it by widening branch 1 back.
  *   ★ ONE shape is deliberately kept that a narrower pattern would drop:
  *   `<img alt="data-asset-id=x">` (a decoy inside a quoted value, no real
- *   asset) stays TRUE via branch 1. That is the false-TRUE direction — the
- *   block survives as a source-less image instead of vanishing — and it is
- *   pinned as such by the tests. `IMG_TAG_ASSET_ID_RE` and
- *   `ANY_TAG_ASSET_ID_RE` correctly return NOTHING for it, so it costs no cap
- *   slot and no export.
- *   ★ The dangerous direction remains the other one: making `TAG`
- *   (`rich-text-plain.ts`) quote-aware or otherwise narrower would zero the
- *   projection for `alt="a>b"`, and a signpost there says so.
- *
- *  ★ The old spelling was quadratic — `"<img".repeat(k)` ran on RAW, uncapped,
- *   pre-sanitizer html on every load path (the cap is applied to the RETURN
- *   value, not the input), 512 KB costing tens of seconds of frozen main
- *   thread and persisting to IndexedDB so it repeated on every boot. Both
- *   branches of the union are linear on that family; measure with
- *   `"<img".repeat(k)` and `"<a".repeat(k)` rather than trusting a figure
- *   here. */
+ *   asset) stays TRUE via branch 1 — the false-TRUE direction, where the block
+ *   survives as a source-less image instead of vanishing.
+ *   `IMG_TAG_ASSET_ID_RE` and `ANY_TAG_ASSET_ID_RE` correctly return NOTHING
+ *   for it, so it costs no cap slot and no export. */
 export const ASSET_IMG_TEST_RE =
-  /<img\b[^>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)|<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
+  /<img\b[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)|<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;

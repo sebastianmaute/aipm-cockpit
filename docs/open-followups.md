@@ -17580,18 +17580,29 @@ draw the image.
 
 **What is shipped now.** The anchor in all three patterns is `(?<![-\w])`, which rejects the
 `foo-data-asset-id` decoy without caring whether a separator exists. `ASSET_IMG_TEST_RE` is a
-**union**: branch 1 is the pre-fix `[^>]*` (recovers a missing separator, an unpaired quote, a stray
-`<`), branch 2 is quote-aware (recovers `alt="a>b"`, which truncates branch 1). Each is individually
-linear and they are tried in order, so the cost is their sum. **Every single-regex candidate
-measured lost at least one real block**; the union was the only spelling with no data-losing verdict
-across the probed shapes.
+**union**: branch 1 is `[^<>]*`, branch 2 is quote-aware (recovering `alt="a>b"`, which truncates
+branch 1).
 
-★★★ **THE REUSABLE PART IS THE SINK'S ASYMMETRY, not anything about quoting.** This predicate is one
-term of a DELETE condition. A false `true` keeps a block that has no asset — it renders as a
-source-less image, which is what the stored html says anyway. A false `false` destroys user data.
-The two errors are not comparable, so **every narrowing of this predicate is a candidate data-loss
-bug and needs a reachability argument; a widening needs none.** The first fix narrowed three ways in
-one commit and argued reachability for none of them.
+★★★ **THE SECOND FIX WAS ALSO WRONG, IN THE OPPOSITE DIRECTION, AND A THIRD REVIEW ROUND CAUGHT
+IT.** It spelled branch 1 as the pre-fix `[^>]*`, which walks across tag boundaries — so every
+`<img` in the input restarts a scan over the whole tail. That is quadratic, it was **measured slower
+than the spelling it replaced**, and it is reachable: this predicate is only evaluated when the
+projection is zero, and `"<img ".repeat(n) + ">"` projects to zero because `TAG` eats it as one
+match. It runs on raw, uncapped, pre-sanitizer html on every load path, and the offending block is
+itself stored, so the cost repeats on every boot. `[^<>]*` bounds each scan to one tag.
+
+★★★ **SO THE CONSTRAINT IS TWO-SIDED, AND EACH SIDE HAS NOW BEEN VIOLATED ONCE.** The predicate must
+not narrow — it is one term of a DELETE condition, where a false `true` keeps a source-less image
+and a false `false` destroys user content — and it must not scan across `<`, because it runs
+unbounded on hostile input. Fix one and you can break the other; both fixes here did. Measure any
+replacement against BOTH the shape table in `document-asset-patterns.test.ts` and
+`"<img ".repeat(n) + ">"`.
+
+★★ **THE PRICE.** `<img alt=a<b data-asset-id="real">` carries a genuine attribute and is now
+DROPPED — recovering it needs a branch that crosses `<`, which is the quadratic. It needs an
+unquoted attribute value containing `<` in raw stored html, which DOMPurify does not emit. The
+freeze was judged the worse of the two; the loss is asserted by a test so it cannot be reintroduced
+silently in either direction.
 
 ★ One verdict deliberately goes the false-`true` way: `<img alt="data-asset-id=x">` (a decoy inside
 a quoted value, no real asset) is KEPT, via union branch 1. Both extractors correctly return
@@ -17626,19 +17637,13 @@ the *premise* it reasoned from was the over-generalised one. **A hedge on the co
 protect a false premise.** When an entry rests on a single fixture, the follow-up is not a better
 hedge — it is a second fixture chosen to break the first.
 
-★★★ **AND THE FIX FOR THIS ENTRY COMMITTED THE IDENTICAL ERROR, ONE ROUND LATER, IN THIS FILE.**
-The "cannot introduce a drop" sentence above was reasoned from ONE example (`alt="data-asset-id=x"`,
-the harmless decoy) and stated as a universal — the exact move this section had just finished
-condemning, by an author who had just written the condemnation. Worse, the sentence was
-*self-refuting in place*: the very next bullet named a verdict flipping the other way, and it was
-still read, restated in three files, and shipped. ★★ Two independent signals were available and
-neither was used — a counterexample sitting one line below the claim, and the word "cannot" in a
-sentence about a regex nobody had run over malformed input. ★ §251, written in the same round two
-entries down, then generalised from a single fixture a third time. **The pathology is not a lack of
-care; all three passes were careful. It is that "I measured it" attaches to the observation and
-silently transfers to the generalisation drawn from it.** Nothing here catches that except a second
-fixture chosen adversarially, and the cost of finding all three was one substitution in each
-fixture string.
+★★★ **THE SAME ERROR WAS THEN MADE TWICE MORE WHILE FIXING IT.** The "cannot introduce a drop"
+premise was generalised from one harmless example and shipped into three files, while a
+counterexample sat one line below it. The second fix asserted linearity from one family and shipped
+a slower pattern than the one it replaced. §251, written in the same round, generalised "not
+affected" from a fixture whose tag name its own alternation rejects. **All three passes were
+careful; what transfers silently is not the measurement but the generalisation drawn from it.**
+Each was found by one substitution in a fixture string.
 
 ## 251. `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path
 
@@ -17660,32 +17665,16 @@ many tag openers, no `>` anywhere:
 ~4x the time per 2x the input. Each `<a` start scans to end of input looking for a `>` that is not
 there.
 
-★★★ **`BLOCK_TAG` IS AFFECTED TOO, AND THIS ENTRY SAID IT WAS NOT.** The original wording — "★
-`BLOCK_TAG`, three lines above it, is NOT affected (0.57 ms at 128 KB): its alternation ends in
-`\b`, so a non-matching tag name fails immediately" — has a correct mechanism and a false
-conclusion. `\b` rejects a name that does not match; it does nothing for one that does, and the
-fixture chosen was `"<a".repeat(k)`, where `a` is not in the alternation. Feed it a name that IS:
+★★★ **`BLOCK_TAG` IS AFFECTED TOO, AND THIS ENTRY SAID IT WAS NOT.** The original wording claimed
+`BLOCK_TAG` is "NOT affected … its alternation ends in `\b`, so a non-matching tag name fails
+immediately" — a correct mechanism and a false conclusion. `\b` rejects a name that does not match
+and does nothing for one that does; the fixture chosen was `"<a".repeat(k)`, and `a` is not in the
+alternation. Substitute `"<p"` — the likeliest opener in this corpus — and it is quadratic, the same
+shape as `TAG`. So the quadratic is in BOTH regexes in `htmlPlainProjection`, not one.
 
-```
-"<a".repeat, 128 000 B      0.23 ms      <- what the old note measured
-"<p".repeat,   8 000 B      9.26 ms
-"<p".repeat,  32 000 B    153.99 ms
-"<p".repeat, 128 000 B  2 496.91 ms      <- 16x per 4x input: quadratic
-```
-
-`<p` is the most likely opener in this corpus. So the quadratic is in BOTH regexes in
-`htmlPlainProjection`, not one, and this entry under-reported its own reach by a factor of the
-whole file.
-
-★★★ This is §250's lesson recurring inside the entry that records it, two entries later and in the
-same round: *an entry generalised from ONE measured input.* The fixture said "not affected" and the
-claim said "cannot be affected". When an entry rests on a single fixture the follow-up is not a
-better hedge — it is a second fixture chosen to break the first. ★ It also cost nothing to find:
-one substitution in the string being repeated.
-
-★ "Three lines above it" was wrong as well — the two declarations are ~35 lines apart at this
-commit, and `AGENTS.md` bans quoting line distances precisely because they rot. Cite the symbol:
-`grep -n "BLOCK_TAG = \|const TAG = " src/app/rich-text-plain.ts`.
+★ Reproduce rather than trusting a figure: time `[...s.matchAll(re)]` for both regexes over
+`"<a".repeat(k)` and `"<p".repeat(k)`. Successive re-measurements of these two disagreed by 2-3x
+while the shape reproduced every time.
 
 **Reach.** `htmlPlainProjection` backs `htmlTextLength`, which runs on the FIRST term of
 `sanitizeBlock`'s drop condition — on every paragraph, on every load path — and inside the entity
@@ -17717,7 +17706,8 @@ than being dropped, which is the safe direction for §250's guard. The cost is e
 characters are raw markup surfacing as "visible text", so the projection reports tag soup as prose
 for that input. Whether that matters depends on the caller (`htmlTextLength` only compares against
 zero and would be fine; a plain-text EXPORT would not be). ★ It also fixes the quadratic outright,
-in both regexes: 128 KB of `"<p"` goes 2 873 ms → 0.51 ms.
+in both regexes — bounding each scan to one tag is exactly what `ASSET_IMG_TEST_RE` had to do for
+the same reason (§250).
 
 So the `<`-exclusion is currently the cheapest option that works, not the one to steer away from —
 but it needs the caller-by-caller pass above before anyone takes it, and

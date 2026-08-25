@@ -115,13 +115,18 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // An UNPAIRED quote inside an unquoted attribute value. Quote-awareness alone
   // flips this one — branch 3 of the alternation waits for a closing `'` that
   // never comes — which is why "quote-awareness can only keep more blocks" was
-  // false. The extractors ARE quote-aware and still miss it; only the predicate
-  // recovers, via union branch 1, and only the predicate has to.
+  // false. Union branch 1 recovers it for the predicate.
   ["<img alt=it's data-asset-id=\"real\">", [], [], true],
-  // A `<` inside an unquoted attribute value. The `<`-exclusion in branch 1 of
-  // the extractors' alternation is what stops a rescan across a tag boundary,
-  // so they keep it; the cap counter is tag-agnostic and still finds the id.
-  ['<img alt=a<b data-asset-id="real">', ["real"], [], true],
+  // ★★★ THE ONE REAL ATTRIBUTE NOTHING HERE RECOVERS, AND IT IS A DELIBERATE
+  // TRADE. A `<` inside an unquoted attribute value is a genuine attribute to a
+  // parser, but no pattern in this module may scan past a `<`: doing so lets
+  // every `<img` in the input restart a scan over the whole tail, which is
+  // quadratic on hostile input that reaches the predicate unbounded and
+  // uncapped on every load. A union branch spelled `[^>]*` DID recover this
+  // shape and was measured slower than the pattern it replaced. The block is
+  // dropped; the freeze was judged worse. Reaching it needs raw stored html —
+  // DOMPurify quotes the value. See ASSET_IMG_TEST_RE's docstring.
+  ['<img alt=a<b data-asset-id="real">', ["real"], [], false],
 ];
 
 /** Every statement that names another module: static and type-only imports,

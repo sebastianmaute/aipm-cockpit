@@ -903,15 +903,12 @@ purpose: an EMPTY value (`data-asset-id=""`, and the single-quoted form — the 
 attribute and every renderer resolves nothing, so keeping the block would reintroduce the invisible
 blank paragraph above), and a hyphen-prefixed lookalike (`foo-data-asset-id="s"`, excluded since
 0.259.2 by anchoring the attribute on the lookbehind `(?<![-\w])` rather than `\b`).
-★★★ **A first cut of that anchor was `[\s/]`, and it rejected FOUR MORE — all of them real.** An
-HTML parser recovers from a missing separator, an unpaired quote and a stray `<` in an unquoted
-value, so `<img alt="x"data-asset-id="real">` and three siblings carry genuine attributes; `[\s/]`
-saw no separator and every one of those paragraphs was deleted on load. The enumeration in the
-paragraph above is therefore the WHOLE point of it — a correction that replaces an
-over-generalisation with a list is only worth anything if the list is complete, and this one was
-short by four for one release. `docs/open-followups.md` §250 carries the shapes and the parser
-confirmation.
-★ It is also a UNION of two regexes, not one: the quote-aware form alone loses two of those four.
+★★ It rejects a THIRD spelling that is NOT on purpose and is a known accepted loss:
+`<img alt=a<b data-asset-id="real">`, where an unquoted value contains a bare `<`. No pattern here
+may scan past `<` — a branch that does is quadratic on hostile input — so the paragraph is dropped
+despite carrying a real attribute. `docs/open-followups.md` §250 carries the trade and the two
+wrong fixes that preceded it; do not re-widen this without reading it.
+★ The predicate is a UNION of two regexes, not one.
 And until 0.259.2 it wrongly REJECTED a spelling it should always have admitted —
 `<img alt="a>b" data-asset-id="real">` — because the walk ahead of the attribute was a bare `[^>]*`
 that stopped at the `>` inside `alt`. That last one is

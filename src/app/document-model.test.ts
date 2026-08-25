@@ -232,26 +232,46 @@ describe("sanitizeProjectDocuments", () => {
     ]);
   });
 
-  it("keeps the four malformed-but-real image paragraphs a narrowed predicate deleted", () => {
+  it("keeps the malformed-but-real image paragraphs a narrowed predicate deleted", () => {
     // ★★★ THE §250 REGRESSION, END TO END. Each html below carries a REAL
     // `data-asset-id` — an HTML parser recovers from the malformation and
     // yields the attribute — and each projects to zero visible text, so the
     // predicate is the ONLY thing standing between it and deletion. The fix
     // round that closed §250 narrowed that predicate three ways at once and
-    // silently deleted all four on every load path.
+    // silently deleted all of these on every load path.
     // ★ Listed one per BLOCK rather than folded into one fixture: a single
-    // string would go green again the moment any one of the three narrowings
-    // came back, since the others would still be covered.
+    // string would go green again the moment any one of the narrowings came
+    // back, since the others would still be covered.
     const shapes = [
       '<p><img alt="x"data-asset-id="real"></p>', // missing separator, dq
       "<p><img alt='x'data-asset-id=\"real\"></p>", // missing separator, sq
       "<p><img alt=it's data-asset-id=\"real\"></p>", // unpaired quote
-      '<p><img alt=a<b data-asset-id="real"></p>', // `<` in unquoted value
     ];
     const out = sanitizeProjectDocuments([
       doc({ blocks: shapes.map((html) => ({ type: "paragraph" as const, html })) }),
     ]);
     expect(out[0].blocks).toEqual(shapes.map((html) => ({ type: "paragraph", html })));
+  });
+
+  it("drops an image paragraph whose attribute value contains a bare `<`", () => {
+    // ★★★ A KNOWN, ACCEPTED LOSS — asserted so it cannot be reintroduced by
+    // accident in either direction. `<img alt=a<b data-asset-id="real">` is a
+    // real attribute to a parser, but recovering it requires a predicate branch
+    // that scans past `<`, and such a branch is quadratic on input that reaches
+    // this guard unbounded: `"<img ".repeat(n) + ">"` projects to zero, so the
+    // `&&` does not short-circuit and the predicate runs on the whole string.
+    // That spelling shipped once and measured SLOWER than the one it replaced.
+    // ★ If a future change makes this block survive, check what it did to the
+    // adversarial timing before calling it a fix.
+    const out = sanitizeProjectDocuments([
+      doc({
+        blocks: [
+          { type: "paragraph", html: '<p><img alt=a<b data-asset-id="real"></p>' },
+          { type: "paragraph", html: "<p>Kept</p>" },
+        ],
+      }),
+    ]);
+    expect(out[0].blocks).toEqual([{ type: "paragraph", html: "<p>Kept</p>" }]);
   });
 
   it("keeps an image-only paragraph whatever quoting style the attribute uses", () => {
