@@ -17,7 +17,14 @@ export function buttonNames(scope?: HTMLElement): string[] {
 }
 
 /**
- * Accessible names of every rendered control of the given roles, in DOM order.
+ * Accessible names of every rendered control of the given roles.
+ *
+ * ★ Order is DOM order WITHIN each role, but the roles themselves are GROUPED
+ * in the order `roles` was given — all of `roles[0]`'s matches, then all of
+ * `roles[1]`'s, and so on (`roles.flatMap(...)`). For a single role that IS
+ * document order (`buttonNames` relies on exactly this). For two or more
+ * roles it is NOT true document order: a caller needing that must not rely on
+ * this function for a multi-role query.
  *
  * ★ `aria-label || textContent`, not a real accessible-name computation. That
  * is the convention every caller in this repo already relies on, and it avoids
