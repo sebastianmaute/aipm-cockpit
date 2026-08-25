@@ -5,6 +5,7 @@ import { InsightsPanel } from "./insights-panel";
 import { insightTitle } from "./insights/insight-text";
 import { t } from "./i18n";
 import { expectSecondaryButton } from "../test/button-variant";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Insight, InsightStatus } from "./insights/insight";
 
 const TODAY = "2026-06-10";
@@ -98,6 +99,27 @@ describe("InsightsPanel", () => {
     expect(onAcknowledge).toHaveBeenCalledWith(7);
     expect(onAct).toHaveBeenCalledWith(7);
     expect(onDismiss).toHaveBeenCalledWith(7);
+  });
+
+  it("gives two insights of the SAME type distinct row-unique names", () => {
+    // ★★ detect.ts mints one milestoneSlip per overdue milestone, so two rows of
+    // one type is the ORDINARY case, not a contrived one. The panel's existing
+    // FIXTURE is distinct-titled by construction and cannot express the collision.
+    render(
+      <InsightsPanel
+        insights={[
+          makeInsight({ id: 7, type: "milestoneSlip" }),
+          makeInsight({ id: 8, type: "milestoneSlip" }),
+        ]}
+        lang="en-US" today={TODAY}
+        onOpen={vi.fn()}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("hides lifecycle write controls in popouts (read-only)", () => {

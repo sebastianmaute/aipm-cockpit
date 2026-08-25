@@ -3,7 +3,7 @@
 import { type Lang, t, type TranslationKey } from "../i18n";
 import { RagDot } from "../rag-dot";
 import { Button } from "../button";
-import { insightTitle, insightDetail } from "../insights/insight-text";
+import { insightTitle, insightDetail, insightRowTitles } from "../insights/insight-text";
 import {
   INSIGHT_SEVERITY_RANK,
   type Insight,
@@ -81,10 +81,15 @@ export function InsightsCard({
 
   if (active.length === 0) return null;
 
+  // ★★ Row-unique names (WCAG 2.4.6) — mirrors insights-panel.tsx. Derived
+  // from `active`, the filtered/sorted/capped array actually mapped below,
+  // not from `insights`, so the occurrence index follows what is on screen.
+  const rowTitles = insightRowTitles(active, lang);
+
   return (
     <ul className={`flex flex-col ${dc.kpiGap}`}>
       {active.map((insight) => {
-        const title = insightTitle(insight, lang);
+        const title = rowTitles.get(insight.id) ?? insightTitle(insight, lang);
         const detail = insightDetail(insight, lang);
         return (
           <li

@@ -6,6 +6,7 @@ import { densityClasses } from "../dashboard-density";
 import { loadI18n, t } from "../i18n";
 import { insightTitle } from "../insights/insight-text";
 import { expectSecondaryButton } from "../../test/button-variant";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 import type { Insight, InsightStatus } from "../insights/insight";
 
 const dc = densityClasses("comfortable");
@@ -93,6 +94,23 @@ describe("InsightsCard", () => {
     expect(onAcknowledge).toHaveBeenCalledWith(7);
     expect(onAct).toHaveBeenCalledWith(7);
     expect(onDismiss).toHaveBeenCalledWith(7);
+  });
+
+  it("gives two insights of the SAME type distinct row-unique names", () => {
+    const insight = makeInsight({ id: 7 });
+    render(
+      <InsightsCard
+        insights={[insight, { ...insight, id: insight.id + 1 }]}
+        lang="en-US"
+        dc={dc}
+        onOpen={vi.fn()}
+        actions={{
+          onAcknowledge: vi.fn(), onAct: vi.fn(), onDismiss: vi.fn(),
+          onGenerateRecommendation: vi.fn(), onApplyRecommendation: vi.fn(), onRejectRecommendation: vi.fn(),
+        }}
+      />,
+    );
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   // ★ "Acknowledge" and "Act" are both one-word verbs for effects the word does

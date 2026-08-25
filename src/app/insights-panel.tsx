@@ -19,7 +19,7 @@ import { RagDot } from "./rag-dot";
 import { PrintButton, ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
 import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
-import { insightTitle, insightDetail } from "./insights/insight-text";
+import { insightTitle, insightDetail, insightRowTitles } from "./insights/insight-text";
 import { InsightOutcomeBadge } from "./insights/insight-outcome-badge";
 import { InsightDigestCard } from "./insights/insight-digest-card";
 import { computeInsightDigest } from "./insights/digest";
@@ -117,6 +117,14 @@ export function InsightsPanel({
       );
   }, [insights, statusFilter, typeFilter, showHistory]);
 
+  // ★★ Row-unique names (WCAG 2.4.6) — `insightTitle` is type-driven and
+  // nothing else, so two insights of one type (the ORDINARY case: detect.ts
+  // mints one milestoneSlip per overdue milestone) render byte-identical
+  // control names without this. Derived from `rows` — the filtered/sorted
+  // array actually mapped below — not from `insights`, so the occurrence
+  // index follows what is on screen.
+  const rowTitles = useMemo(() => insightRowTitles(rows, lang), [rows, lang]);
+
   const digest = useMemo(() => computeInsightDigest(insights, today), [insights, today]);
 
   const canWrite = !isPopout && !!actions;
@@ -192,7 +200,7 @@ export function InsightsPanel({
         ) : (
           <ul className="flex flex-col gap-2 p-1">
             {rows.map((insight) => {
-              const title = insightTitle(insight, lang);
+              const title = rowTitles.get(insight.id) ?? insightTitle(insight, lang);
               const detail = insightDetail(insight, lang);
               const showAck = insight.status === "active";
               const showAct = insight.status === "active" || insight.status === "acknowledged";
