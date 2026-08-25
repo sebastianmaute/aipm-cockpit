@@ -20,7 +20,7 @@ longer carries its own changelog comment.
   the real reference from the count, so it spent no slot and could be added a second time
   past the duplicate check. A malformed tag with no space after its name stopped counting
   altogether. The pattern now requires a real start tag and steps over quoted attribute
-  values, which also removes a case where crafted input made it superlinearly slow.
+  values.
 
 ### Changed
 
