@@ -5,6 +5,7 @@ import { RolesEditor } from "./roles-editor";
 import { t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
 import type { Discipline, Grade, Role } from "./types";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const noop = () => {};
 const disciplines: Discipline[] = [{ id: 1, name: "Engineering" }];
@@ -256,6 +257,7 @@ describe("RolesEditor rate-card table", () => {
     // Two rows → two distinct "Hours" radios, each qualified by its row context.
     expect(screen.getByRole("radio", { name: "Engineering / Senior — Hours" })).toBeInTheDocument();
     expect(screen.getByRole("radio", { name: "Design / Junior — Hours" })).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 4, roles: ["radio"] });
   });
 
   it("gives each row's delete button a row-unique accessible name (WCAG 2.4.6)", () => {
@@ -264,6 +266,13 @@ describe("RolesEditor rate-card table", () => {
     // by its discipline / grade row context.
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Engineering / Senior` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Design / Junior` })).toBeInTheDocument();
+    // Scoped to the rate-card table's BODY, not the whole document: the header
+    // row carries three InfoTooltip hints that share one string
+    // (rolesRateBasisHint, on the two day-rate columns and the Basis column) —
+    // a genuine pre-existing WCAG 2.4.6 collision, but not this row's and not
+    // fixable without touching the shared InfoTooltip/SortResizeTh primitives.
+    const tbody = screen.getByRole("table").querySelector("tbody")!;
+    expectRowUniqueNames({ minRows: 4, scope: tbody });
   });
 
   // Class A tooltip batch: the row delete is icon-only, so its row-qualified
@@ -351,6 +360,11 @@ describe("RolesEditor rate-card table", () => {
       .map((el) => el.getAttribute("aria-label"));
     expect(names.length).toBeGreaterThan(1);
     expect(new Set(names).size).toBe(names.length);
+    // Scoped to the rate-card table's BODY — see the delete-button test above
+    // for why the whole document isn't used here (a pre-existing header
+    // InfoTooltip collision, out of scope for this row-level assertion).
+    const tbody = screen.getByRole("table").querySelector("tbody")!;
+    expectRowUniqueNames({ minRows: 4, scope: tbody });
   });
 
   it("does not reorder on a drop while a column sort is active", () => {

@@ -5,6 +5,7 @@ import { isoWeekParts } from "./resource-capacity";
 import { t } from "./i18n";
 import type { Resource } from "./types";
 import type { CalendarEvent } from "./calendar-event";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const Sample: Resource = { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} };
 
@@ -1303,6 +1304,7 @@ it("gives each occurrence a row-unique accessible name", () => {
   );
   const names = screen.getAllByRole("button", { name: /Standup/ }).map((b) => b.getAttribute("aria-label"));
   expect(new Set(names).size).toBe(names.length);
+  expectRowUniqueNames({ minRows: 5 });
 });
 
 it("stacks overlapping same-day meetings into separate lanes", () => {
