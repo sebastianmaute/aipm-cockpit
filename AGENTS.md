@@ -431,24 +431,59 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   never renders at scan time)", which reads as though seeding N rows would make the gate see it. It
   would not. Measured 2026-08-08 against the installed axe-core 4.12.1, not reasoned: of its 105
   rules, **69** carry one of the four tags `e2e/a11y.spec.ts` requests (`wcag2a wcag2aa wcag21a
-  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. The only rule in the
-  whole library that is even adjacent is `identical-links-same-purpose` — links ONLY, and tagged
-  `wcag2aaa`, which the spec never asks for. Reproduce:
+  wcag21aa`), and NOT ONE of them flags two controls sharing an accessible name. ★ TWO rules are even
+  adjacent and NEITHER is requested: `identical-links-same-purpose` ("links with the same accessible
+  name serve a similar purpose" — links ONLY, tagged `wcag2aaa`) and `table-duplicate-name` (a
+  `<caption>` repeating the `summary` attribute — tagged `best-practice` plus an axe-internal RGAA tag). An earlier revision
+  here called the first "the only rule in the whole library that is even adjacent", which the very
+  command below refutes — READ ITS OUTPUT, do not read the sentence above it. Reproduce:
   `node -e 'const a=require("axe-core");console.log(a.getRules().filter(r=>/identical|duplicate|unique/i.test(r.ruleId)).map(r=>r.ruleId+" ["+r.tags.join(",")+"]").join("\n"))'`
   So a green axe run is silent on duplicate names in EVERY view, at EVERY seed size, forever. Qualify
   the label at write time and pin it with a UNIT test rendering ≥2 rows — a test you write is the ONLY
   thing that can catch this, in either layer. ★ Two different tests are meant here and they are not
   interchangeable: a UNIT test rendering two same-type rows is the PREVENTION you write alongside a new
-  per-row control, and it is what this bullet asks for. The one e2e count in `e2e/seed-content.spec.ts`
-  is a CHARACTERIZATION of a defect already shipped (`docs/open-followups.md` §126) — it asserts the
-  collision is still there and is meant to go red when §126 is fixed. Both call themselves "the only
-  detector" in their own scope; neither is a gate. (Worked example + the seeded reproduction: §126.)
+  per-row control, and it is what this bullet asks for. The e2e assertions in `e2e/seed-content.spec.ts`
+  are the other, and they are no longer a CHARACTERIZATION: they used to pin the DEFECT
+  (`toHaveCount(2)` on the bare colliding name, red-on-fix by design) and were FLIPPED when
+  `docs/open-followups.md` §126 was fixed, so they now pin the FIXED shape — `toHaveCount(0)` on the
+  bare `"Dismiss – Milestone at risk"` plus `toHaveCount(1)` on each of `"… (1)"` / `"… (2)"` (EN DASH
+  U+2013). ★★ Read that as a NARROWER guarantee, not a stronger one: those three are pinned to the
+  exact disambiguation FORMAT, so changing the suffix turns them red without anything colliding — go
+  to the spec's own comment before touching the numbers. ★ Reproduce with
+  `grep -n "toHaveCount" e2e/seed-content.spec.ts`, and do not conflate the trio with the
+  `toHaveCount(4)` a few lines above it in the SAME test: that one counts every `Dismiss – ` button and
+  asserts the SEED reached the app, which is a different claim and was true either way. Both call
+  themselves "the only detector" in their own scope; neither is a gate. (Worked example, and the seed
+  that renders the collision at all: §126 — CLOSED 2026-08-25, so read it as the record of what was
+  fixed, not as a live defect.)
   ★★ ASSERT THIS WITH THE SHARED `src/test/row-unique-names.ts`, never a
-  hand-rolled enumeration. `expectRowUniqueNames({minRows, scope, roles})`
-  THROWS when the scope renders fewer than `minRows` controls, so the vacuous
-  one-row fixture — which passes against defective code and is how this class
-  shipped on four surfaces — is unreachable rather than something a reviewer has
-  to remember. Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
+  hand-rolled enumeration — but read which of its two guards buys what, because the
+  first shipped promising the second’s job. `minControls` THROWS when the scope
+  renders fewer controls than that, which proves only that the scope is NON-EMPTY:
+  it counts CONTROLS of the requested `roles`, NOT rows, over the WHOLE DOCUMENT
+  unless `scope` is passed — so a panel’s toolbar alone satisfies any plausible floor.
+  ★★★ IT DOES NOT MAKE THE VACUOUS ONE-ROW FIXTURE UNREACHABLE, and this bullet
+  claimed for a release that it did. Measured by mutation, not reasoned:
+  `documents-panel.test.tsx`’s “keeps every per-row control distinct when two documents
+  share a title” (floor 2) still PASSED with its fixture cut to ONE document, and still
+  PASSED cut to ZERO — one row renders six buttons and the panel toolbar five.
+  `requireCollisionSeed: true` is the guard that closes it: it THROWS unless two rendered
+  names are identical once `buildRowTokens`’ ` (N)` occurrence suffix is stripped — i.e.
+  unless the fixture really seeded two rows sharing a display name, which is the shape
+  this class shipped on every surface the row-unique-accessible-names slice went on to
+  fix. Turn it ON for any test claiming to cover a collision; leave it OFF for a
+  distinct-name regression pin, a legitimate but different assertion. ★ It cannot certify
+  a surface disambiguating some OTHER way — `documents-deleted-section.tsx` appends
+  ` · #id` — so those stay opted out, with the reason written at the call site. ★★ NO
+  SURFACE COUNT IS QUOTED HERE, and restoring one is a regression: this line
+  said "four surfaces", which counts neither the registered sections (§111 ·
+  §126 · §243 — and §126 alone covers TWO surfaces) nor the files that needed
+  naming. Further surfaces were fixed with no § at all, among them the RAID
+  case this very bullet uses as its worked example two paragraphs down.
+  Enumerate today's
+  adopters instead (the list includes `row-tokens.ts` itself, which is the
+  definition, not a surface):
+  `grep -rl "buildRowTokens\|rowLabel" src/app --include=*.tsx --include=*.ts | grep -v '\.test\.'` Name the row with `buildRowTokens`/`rowLabel` (`src/app/row-tokens.ts`):
   a name unique in the list is used BARE, colliding rows get a 1-based occurrence
   index, and ALL colliding rows are numbered including the first. NOT the id
   (uuids read as character-salad aloud); NOT a whole-list ordinal (shifts under
