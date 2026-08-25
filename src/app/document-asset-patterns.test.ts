@@ -84,13 +84,44 @@ const TABLE: ReadonlyArray<readonly [string, string[], string[], boolean]> = [
   // spelling accepted `foo-data-asset-id` — and because the cap counter is
   // LAZY, the decoy WON over the real attribute later in the same tag: the id
   // that actually counts went missing and a bogus one took its place. The
-  // separator class `[\s/]` is what rejects it.
+  // lookbehind `(?<![-\w])` is what rejects it.
   ['<img foo-data-asset-id="s" data-asset-id="real">', ["real"], ["real"], true],
-  // ★ A decoy in the ALT with no real reference anywhere. The predicate used to
-  // answer `true` (its truncating `[^>]*` matched the decoy INSIDE the quoted
-  // value); it now correctly answers `false`, so the block is treated like any
-  // other non-asset image — which the loader already dropped.
-  ['<img alt="data-asset-id=x">', [], [], false],
+  // ★★ A decoy in the ALT with no real reference anywhere, and the ONE row
+  // where the predicate is deliberately WIDER than the two extractors. Branch 1
+  // of the union is the un-quote-aware `[^>]*`, which matches the decoy inside
+  // the quoted value, so the predicate answers `true` and an otherwise-empty
+  // paragraph is KEPT — as a source-less image, which is what the html already
+  // said. That is the false-TRUE direction, and it is the safe one: this
+  // predicate guards a DELETION, so over-keeping costs a stray empty image and
+  // under-keeping destroys user content. A single quote-aware regex answers
+  // `false` here, and the same narrowing cost four real blocks (below).
+  // Both extractors correctly report nothing, so it spends no cap slot and no
+  // export fetch.
+  ['<img alt="data-asset-id=x">', [], [], true],
+  // ★★★ THE FOUR SHAPES A NARROWED PREDICATE DELETED ON LOAD. Each carries a
+  // REAL `data-asset-id` — confirmed by running it through an actual HTML
+  // parser, not by reading the spec — because the tokenizer RECOVERS from the
+  // malformation and reconsumes in before-attribute-name state. The pre-fix
+  // predicate kept all four; a `[\s/]`-anchored, quote-aware, `<`-excluding one
+  // dropped all four, silently, on every load. See open-followups §250.
+  //
+  // Missing separator after a double-quoted value: `missing-whitespace-between-
+  // attributes`. Both extractors recover it too, via the same lookbehind —
+  // under `[\s/]` they returned NOTHING, so the cap undercounted and the export
+  // could not draw the image either.
+  ['<img alt="x"data-asset-id="real">', ["real"], ["real"], true],
+  // The same, after a single-quoted value.
+  ["<img alt='x'data-asset-id=\"real\">", ["real"], ["real"], true],
+  // An UNPAIRED quote inside an unquoted attribute value. Quote-awareness alone
+  // flips this one — branch 3 of the alternation waits for a closing `'` that
+  // never comes — which is why "quote-awareness can only keep more blocks" was
+  // false. The extractors ARE quote-aware and still miss it; only the predicate
+  // recovers, via union branch 1, and only the predicate has to.
+  ["<img alt=it's data-asset-id=\"real\">", [], [], true],
+  // A `<` inside an unquoted attribute value. The `<`-exclusion in branch 1 of
+  // the extractors' alternation is what stops a rescan across a tag boundary,
+  // so they keep it; the cap counter is tag-agnostic and still finds the id.
+  ['<img alt=a<b data-asset-id="real">', ["real"], [], true],
 ];
 
 /** Every statement that names another module: static and type-only imports,

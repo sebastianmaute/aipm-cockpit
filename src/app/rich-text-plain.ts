@@ -64,19 +64,28 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  visible characters, so the first term is false and the block is kept. A
  *  quote-aware matcher here would correctly report 0 — and the block's survival
  *  would then rest entirely on the predicate, on every load path at once.
- *  ★★ That predicate IS quote-aware as of 0.259.2, so this is a warning rather
- *  than a live coupling: today the guard would still keep the block through its
- *  second term. Do not read that as licence to change this in passing — it
+ *  ★★ That predicate handles the shape as of 0.259.2 — it is a UNION of the old
+ *  `[^>]*` form and a quote-aware one — so this is a warning rather than a live
+ *  coupling: today the guard would still keep the block through its second
+ *  term. ★ It is a union rather than the quote-aware regex alone because
+ *  quote-awareness ALONE loses four other real shapes; §250 carries them. Do not read that as licence to change this in passing — it
  *  makes a matcher that currently cannot drop a block into one that can, and
  *  the failure is silent, on all six write paths, with nothing in the
  *  truncation diag. Any change here wants the load-path tests in
  *  `document-model.test.ts` run against it, not just this file's own.
  *  ★★ IT IS ALSO QUADRATIC on input with many `<` and no `>` — each opener
- *  scans to end of input for a `>` that is not there (128 KB of `"<a"` costs
- *  ~4 s; `BLOCK_TAG` three lines up is unaffected because its alternation ends
- *  in `\b` and fails fast). Measured, open-followups §251, which also says why
- *  the obvious one-character fix — excluding `<` from `[^>]*` — is the wrong
- *  one: it narrows what counts as a tag, which is the change described above.
+ *  scans to end of input for a `>` that is not there (seconds at 128 KB).
+ *  ★★★ SO IS `BLOCK_TAG` ABOVE, and this note said it was not. `\b` only saves
+ *  it from a tag name that does NOT match its alternation, which is why a
+ *  `"<a"` fixture reported it clean; `"<p"` — the likeliest opener in this
+ *  corpus — is quadratic on BOTH. Measured, open-followups §251. Do not repair
+ *  one of these regexes and leave the other.
+ *  ★★ §251 also RETRACTS its own advice against the obvious one-character fix
+ *  (excluding `<` from `[^>]*`): the reason given was that it zeroes the
+ *  projection for `alt="a>b"`, and that is measurably false — `[^<>]*` leaves
+ *  that shape byte-identical. It is now the cheapest known option, with a real
+ *  but different trade-off recorded there. Read the entry, not this summary,
+ *  before changing either regex.
  *
  *  ★ History: both patterns once carried this same truncation and the safety
  *  was argued as a CANCELLATION between them. That argument was wrong — it held

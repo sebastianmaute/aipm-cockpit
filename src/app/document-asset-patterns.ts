@@ -77,29 +77,55 @@
  *   of tag-name characters and the engine explored it exhaustively. That is
  *   ~cubic, and adding `"'` to the negated class (the first attempt at this)
  *   did NOT fix it: it removed the ambiguity against branches 2 and 3 only,
- *   which is a constant factor. Measured on `"<a".repeat(k)`, negated-class
- *   spelling vs this one:
- *     2 000 B  1 071 ms  ->  0.02 ms
- *     4 000 B 12 126 ms  ->  0.03 ms
- *   128 000 B  (did not finish)  ->  0.60 ms
- *   Reproduce by pasting both literals into a script and timing
+ *   which is a constant factor. On `"<a".repeat(k)` the negated-class spelling
+ *   grows superlinearly into whole SECONDS by ~128 KB while this one stays
+ *   sub-millisecond across the same range.
+ *   ★★★ NO FIGURES ARE QUOTED HERE, DELIBERATELY, AND RESTORING A TABLE IS A
+ *   REGRESSION. This spot carried one (`2 000 B 1 071 ms` / `4 000 B 12 126 ms`
+ *   / `128 000 B (did not finish)`) and it did not survive contact with a
+ *   re-measurement: a later run of the same family read 3 ms and 12 ms at those
+ *   two sizes and 17 s — not "did not finish" — at 128 KB, i.e. the first two
+ *   figures were out by ~1000x (a us/ms unit slip) and the third asserted a
+ *   non-termination that does not happen. A THIRD run, by a reviewer
+ *   reconstructing the old literal independently, reported the curve
+ *   SATURATING flat at ~3.3 s instead of growing. Three measurements, three
+ *   shapes, because "the negated-class spelling" is not in the repo any more
+ *   and every reader reconstructs it slightly differently. The DIRECTION
+ *   (seconds -> sub-millisecond) is what reproduces and is the only thing this
+ *   note claims. Reproduce by pasting both literals into a script and timing
  *   `[...s.matchAll(re)]`; there is no repo fixture this large on purpose.
  *   ★★ "Linear" here is a MEASURED SHAPE, not a proof — it is linear on this
  *   family and on realistic document html (230 KB of prose + images, 0.74 ms,
  *   2 000/2 000 matches identical to the old spelling). Do not widen the claim.
  *
- *  ★★ `[\s/]` BEFORE THE ATTRIBUTE, NOT `\b`. `\b` matches between `-` and `d`,
- *   so `foo-data-asset-id="s"` satisfied it and — because the quantifier is
- *   LAZY — won over the real attribute later in the same tag: the id that
- *   actually counts went missing from the result while a bogus one took its
- *   place. Same shape as §231, reached by a different vector. `[\s/]` admits
- *   the separators a tag can really use (space, newline, tab, and the `/` an
- *   HTML parser tolerates before an attribute) and nothing else. Not reachable
- *   through the loader today (DOMPurify's `ALLOWED_ATTR` drops the decoy), but
+ *  ★★★ `(?<![-\w])` BEFORE THE ATTRIBUTE, NOT `\b` AND NOT `[\s/]`. Both
+ *   rejected spellings are recorded here because each was wrong in the
+ *   OPPOSITE direction and the second was shipped.
+ *   `\b` is too WIDE: it matches between `-` and `d`, so `foo-data-asset-id="s"`
+ *   satisfied it and — because the quantifier is LAZY — won over the real
+ *   attribute later in the same tag: the id that actually counts went missing
+ *   while a bogus one took its place. Same shape as §231, different vector.
+ *   `[\s/]` is too NARROW, and this is the expensive one. It admits only the
+ *   separators a WELL-FORMED tag uses, but an HTML parser also recovers from a
+ *   MISSING one: on `<img alt="x"data-asset-id="real">` the tokenizer closes
+ *   the quoted value, hits a character that is not whitespace, `/` or `>`,
+ *   raises `missing-whitespace-between-attributes` and RECONSUMES it in
+ *   before-attribute-name state — so the second attribute is real, and a
+ *   parser confirms it. `[\s/]` sees no separator, matches nothing, and every
+ *   consumer of this pattern goes blind at once: the cap undercounts, the
+ *   duplicate check misses, the export cannot draw the image, and — via
+ *   `ASSET_IMG_TEST_RE` below, which shared the anchor — the whole paragraph
+ *   was SILENTLY DELETED on load. That is §250's own defect, reintroduced by
+ *   its own fix; §250 records the round.
+ *   ★★ The lookbehind is what both spellings were reaching for: it rejects a
+ *   `-` or word character immediately before the attribute name (killing the
+ *   `foo-` decoy and a bare `xdata-asset-id`) while caring nothing about what
+ *   the separator IS, or whether one exists at all. Not reachable through the
+ *   loader today (DOMPurify's `ALLOWED_ATTR` drops the decoy), but
  *   "ALREADY-SANITIZED" is a comment rather than a check and the tests here
  *   scan raw HTML. */
 export const ANY_TAG_ASSET_ID_RE =
-  /<[a-zA-Z][a-zA-Z0-9-]*(?:[^<>"']|"[^"]*"|'[^']*')*?[\s/]data-asset-id="([^"]*)"/g;
+  /<[a-zA-Z][a-zA-Z0-9-]*(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id="([^"]*)"/g;
 
 /**
  * The one regex an EXPORT uses for `<img data-asset-id>`.
@@ -140,7 +166,7 @@ export const ANY_TAG_ASSET_ID_RE =
  * "harmonise" the two while fixing character classes.
  */
 export const IMG_TAG_ASSET_ID_RE =
-  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*[\s/]data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
+  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
 
 /** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
  *  a paragraph meaningful while projecting to no visible text.
@@ -213,26 +239,51 @@ export const IMG_TAG_ASSET_ID_RE =
  *   writes `data-asset-id` first — which is why this survived: the two paths
  *   that do NOT control order are the AI document tool and workspace import.
  *
- *  ★★ FIXED BY MAKING THIS ONE QUOTE-AWARE, which is the SAFE direction of a
- *   choice the old comment got backwards. It warned "do NOT make one
- *   quote-aware without the other" as if the two were symmetric. They are not.
- *   Quote-awareness here only ever makes the predicate return TRUE more often,
- *   so it can only KEEP more blocks — it cannot introduce a drop. The dangerous
- *   direction is the other one: making `TAG` quote-aware alone would zero the
- *   projection for `alt="a>b"` while this predicate still said "no image", and
- *   THAT drops blocks. `rich-text-plain.ts` carries a signpost saying so.
- *   ★ One shape deliberately changes verdict the other way:
- *   `<img alt="data-asset-id=x">` was TRUE (the truncating `[^>]*` matched a
- *   decoy inside the quoted alt) and is now FALSE. It carries no real asset
- *   reference, so it is now treated like every other non-asset image — which
- *   the loader already dropped. Pinned in both directions by the tests.
+ *  ★★★ FIXED BY A UNION, AND THE FIRST ATTEMPT AT THIS FIX MADE THE DEFECT
+ *   WORSE. That attempt made the predicate quote-aware ALONE, on the reasoning
+ *   — written here as fact — that "quote-awareness only ever makes the
+ *   predicate return TRUE more often, so it can only KEEP more blocks; it
+ *   cannot introduce a drop." That is FALSE, and it was contradicted by the
+ *   very next line of the comment that asserted it, which named a shape whose
+ *   verdict flipped the other way. Quote-awareness is not monotone in EITHER
+ *   direction: it also flips `<img alt=it's data-asset-id="real">` from TRUE to
+ *   FALSE, and unlike the decoy that one carries a REAL attribute. Narrowing
+ *   the anchor to `[\s/]` at the same time cost three more. Net effect of the
+ *   "safe" fix, all four confirmed against a real parser and all four DELETED
+ *   on load where the pre-fix predicate kept them:
+ *     <img alt="x"data-asset-id="real">     missing separator, double-quoted
+ *     <img alt='x'data-asset-id="real">     missing separator, single-quoted
+ *     <img alt=it's data-asset-id="real">   unpaired quote in unquoted value
+ *     <img alt=a<b  data-asset-id="real">   `<` in an unquoted value
+ *   ★★ THE LESSON IS THE SINK'S ASYMMETRY, not any property of quoting. This
+ *   predicate guards a DELETION: a false TRUE keeps a block that has no asset
+ *   (harmless — the loader renders an image with no source), a false FALSE
+ *   destroys user data. So the only safe move is to widen, and a narrowing of
+ *   ANY kind needs the reachability argument this one never got.
+ *   ★★ Hence the union: branch 1 is the pre-fix `[^>]*` (handles a missing
+ *   separator, an unpaired quote, a stray `<`), branch 2 is quote-aware
+ *   (handles `alt="a>b"`, which truncates branch 1). Each branch is
+ *   individually linear and they are tried in order, so the cost is their sum,
+ *   not a product — there is no shared ambiguity between them to backtrack
+ *   over. Neither branch alone is correct; every single-regex candidate
+ *   measured lost at least one real block.
+ *   ★ ONE shape is deliberately kept that a narrower pattern would drop:
+ *   `<img alt="data-asset-id=x">` (a decoy inside a quoted value, no real
+ *   asset) stays TRUE via branch 1. That is the false-TRUE direction — the
+ *   block survives as a source-less image instead of vanishing — and it is
+ *   pinned as such by the tests. `IMG_TAG_ASSET_ID_RE` and
+ *   `ANY_TAG_ASSET_ID_RE` correctly return NOTHING for it, so it costs no cap
+ *   slot and no export.
+ *   ★ The dangerous direction remains the other one: making `TAG`
+ *   (`rich-text-plain.ts`) quote-aware or otherwise narrower would zero the
+ *   projection for `alt="a>b"`, and a signpost there says so.
  *
- *  ★ `[\s/]` and the `<`-free branch 1 are here for the same reasons as the
- *   other two patterns above: attribute-separator anchoring, and not rescanning
- *   across a tag boundary. The old spelling was quadratic — `"<img".repeat(k)`
- *   ran on RAW, uncapped, pre-sanitizer html on every load path (the cap is
- *   applied to the RETURN value, not the input), 512 KB costing 39 s of frozen
- *   main thread and persisting to IndexedDB so it repeated on every boot. Same
- *   input now costs 0.54 ms. */
+ *  ★ The old spelling was quadratic — `"<img".repeat(k)` ran on RAW, uncapped,
+ *   pre-sanitizer html on every load path (the cap is applied to the RETURN
+ *   value, not the input), 512 KB costing tens of seconds of frozen main
+ *   thread and persisting to IndexedDB so it repeated on every boot. Both
+ *   branches of the union are linear on that family; measure with
+ *   `"<img".repeat(k)` and `"<a".repeat(k)` rather than trusting a figure
+ *   here. */
 export const ASSET_IMG_TEST_RE =
-  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?[\s/]data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
+  /<img\b[^>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)|<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
