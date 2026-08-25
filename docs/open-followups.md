@@ -17722,6 +17722,34 @@ shares an input class with it.
 
 ---
 
+## 252. All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally
+
+**Status:** OPEN — pre-existing, found 2026-08-25 by the differential suite added in the same
+commit, not by review. Small, and deliberately not fixed; see below.
+
+**The divergence.** `/` ends an attribute value only when that value was QUOTED. After an UNQUOTED
+value it is an ordinary value character. All three patterns accept it as a separator either way, so:
+
+```
+<img alt=x/data-asset-id="realid">
+  parser:     one attribute, alt = 'x/data-asset-id="realid"'.  NO asset reference.
+  patterns:   ANY_TAG ["realid"] · IMG_TAG ["realid"] · predicate true
+```
+
+**Effect.** A phantom id spends a slot of the 20-image cap and can satisfy the duplicate check,
+which is §231's class one shape narrower. It cannot delete anything — the predicate erring `true`
+keeps blocks.
+
+**Why it is not fixed.** Distinguishing the two `/` cases requires the pattern to know whether the
+value it just walked past was quoted. That is the same class of narrowing that produced a
+silent data-loss defect and then a ReDoS on this branch, one per attempt (§250). The current
+behaviour is also strictly better than what preceded it, which had no tag anchor at all. Reaching
+it needs raw stored html with an unquoted attribute value; DOMPurify quotes values.
+
+**Pinned by.** `document-asset-patterns.differential.test.ts` — "counts a phantom id after an
+unquoted value followed by `/`", with a quoted control beside it so the assertion is about `/`
+AFTER AN UNQUOTED VALUE rather than about `/`. A fix must delete that test deliberately.
+
 ## Decided — do not re-litigate
 
 **Band lanes reshuffle across window changes** (R5 §1, `occurrence-lanes.ts` `preferredLane`).
