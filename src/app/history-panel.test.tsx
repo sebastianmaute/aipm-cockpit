@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HistoryPanel } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { ProjectVersionMeta } from "./version-history";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Delete is confirm-gated; auto-accept the branded dialog so the flow proceeds.
 vi.mock("./confirm-dialog", () => ({
@@ -122,7 +123,7 @@ it("restores a whole version state from its row (diffs vs now, marks all)", asyn
   ]);
   const restore = vi.fn().mockResolvedValue(undefined);
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
-  fireEvent.click(screen.getByRole("button", { name: "Restore this state" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore this state – Baseline" }));
   await Promise.resolve();
   await Promise.resolve();
   expect(loadDiff).toHaveBeenCalledWith("v1", "now");
@@ -211,6 +212,20 @@ it("scrolls the compare output into view after a compare resolves", async () => 
   scrollSpy.mockRestore();
 });
 
+// ── §243: row-unique accessible names ─────────────────────────────────────
+
+it("gives the compare-vs-now and restore-state row controls distinct accessible names (§243)", () => {
+  // ★★ TWO versions. This surface collides from N=2 unconditionally - the
+  // "Compared with current" and "Restore this state" buttons are named by their
+  // TEXT, with nothing row-specific in them at all.
+  const versions: ProjectVersionMeta[] = [
+    { id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Checkpoint", summary: null },
+    { id: "v2", projectId: "p1", capturedAt: "2026-06-11T09:00:00.000Z", trigger: "manual", label: "Checkpoint", summary: null },
+  ];
+  renderPanel(<HistoryPanel lang="en-US" versions={versions} busy={false} onCaptureNow={vi.fn()} loadDiff={vi.fn().mockResolvedValue([])} restore={vi.fn().mockResolvedValue(undefined)} onDelete={vi.fn().mockResolvedValue(true)} />);
+  expectRowUniqueNames({ minRows: 2 });
+});
+
 // ── T8: compare-header restore controls (Select all / Deselect all / state) ──
 
 it("select-all ticks every record and enables restore-selected; deselect-all clears it", async () => {
@@ -251,9 +266,12 @@ it("restore-this-state (compare header) restores the whole snapshot with an all-
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
   fireEvent.click(screen.getByText(/Compared with current/i));
   await screen.findByText("T1");
-  // Two "Restore this state" buttons exist while comparing: the version row's and
-  // the compare header's. The header one renders last in document order.
-  const stateButtons = screen.getAllByRole("button", { name: "Restore this state" });
-  fireEvent.click(stateButtons[stateButtons.length - 1]);
+  // Two "Restore this state" buttons render while comparing: the version row's
+  // (now token-disambiguated to "Restore this state – Baseline", §243) and the
+  // compare header's (bare — a vs-now compare never sets compareLabels, so its
+  // fallback branch is the one that fires). The bare name is therefore unique
+  // here and resolves to the header button alone.
+  const stateButton = screen.getByRole("button", { name: "Restore this state" });
+  fireEvent.click(stateButton);
   expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all", "raid:5": "all" }, "Baseline");
 });

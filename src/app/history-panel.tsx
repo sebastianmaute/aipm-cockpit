@@ -4,7 +4,7 @@
 // Compare modes: per-row "compare with current", or tick two versions and
 // "compare selected" (the two are ordered oldest→newest before diffing).
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import { useDisplayTimezone } from "./display-timezone-context";
@@ -24,6 +24,7 @@ import { VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { INTERACTIVE } from "./interaction-styles";
 import { Button } from "./button";
 import { Checkbox, Input } from "./form-controls";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 interface HistoryPanelProps {
   lang: Lang;
@@ -63,6 +64,14 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const compareRef = useRef<HTMLDivElement>(null);
 
   const labelOf = (v: ProjectVersionMeta) => v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang);
+
+  // Row-unique accessible-name tokens (§243) — derived from the SAME list the
+  // rows below are mapped from, in render order, so the occurrence index
+  // matches what a screen-reader user actually encounters.
+  const rowTokens = useMemo(
+    () => buildRowTokens(versions.map((v) => ({ id: v.id, name: labelOf(v) }))),
+    [versions, labelOf],
+  );
 
   const toggleRecord = (key: string) =>
     setSelection((s) => { const n = { ...s }; if (n[key] !== undefined) delete n[key]; else n[key] = "all"; return n; });
@@ -262,13 +271,15 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
         <EmptyState compact title={t(lang, "historyEmpty")} />
       ) : (
         <ul className="flex flex-col gap-1">
-          {versions.map((v) => (
+          {versions.map((v) => {
+            const token = rowTokens.get(v.id) ?? labelOf(v);
+            return (
             <li key={v.id} className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-2 text-sm">
               <span className="flex items-center gap-2">
                 <Checkbox
                   checked={selected.includes(v.id)}
                   onChange={() => toggleSelect(v.id)}
-                  aria-label={`${t(lang, "historyCompareSelect")} ${v.label ?? formatDisplayTimestamp(v.capturedAt, displayTz, lang)}`}
+                  aria-label={rowLabel(t(lang, "historyCompareSelect"), token)}
                 />
                 <Badge size="md" className={v.trigger === "manual" ? "bg-ui-green/15 text-ui-dark-blue dark:text-ui-light-grey" : "bg-surface-muted text-muted-foreground"}>
                   {v.trigger === "manual" ? `★ ${t(lang, "historyManual")}` : t(lang, "historyAuto")}
@@ -286,6 +297,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   disabled={comparing}
                   title={t(lang, "historyCompareVsNowHint")}
+                  aria-label={rowLabel(t(lang, "historyCompareVsNow"), token)}
                   className="text-xs"
                 >
                   {t(lang, "historyCompareVsNow")}
@@ -296,6 +308,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   onClick={() => { void restoreWholeVersion(v); }}
                   disabled={busy || comparing}
                   title={t(lang, "historyRestoreStateHint")}
+                  aria-label={rowLabel(t(lang, "historyRestoreState"), token)}
                 >
                   {t(lang, "historyRestoreState")}
                 </Button>
@@ -306,7 +319,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     onClick={() => { void deleteVersionRow(v); }}
                     disabled={busy || comparing}
                     title={t(lang, "historyDelete")}
-                    aria-label={`${t(lang, "historyDelete")} – ${labelOf(v)}`}
+                    aria-label={rowLabel(t(lang, "historyDelete"), token)}
                   >
                     {t(lang, "historyDelete")}
                   </Button>
@@ -314,7 +327,8 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 <span className="text-xs text-muted-foreground">{formatDisplayTimestamp(v.capturedAt, displayTz, lang)}</span>
               </span>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
 
@@ -355,7 +369,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     variant="secondary"
                     size="sm"
                     onClick={restoreCompareState}
-                    aria-label={t(lang, "historyRestoreState")}
+                    aria-label={
+                      compareLabels
+                        ? rowLabel(t(lang, "historyRestoreState"), `${compareLabels.left} → ${compareLabels.right}`)
+                        : t(lang, "historyRestoreState")
+                    }
                     title={t(lang, "historyRestoreStateHint")}
                   >
                     {t(lang, "historyRestoreState")}
