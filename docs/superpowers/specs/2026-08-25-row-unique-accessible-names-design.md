@@ -111,24 +111,39 @@ text. Appending satisfies both anyway.
 
 ## The detector
 
-`src/test/row-unique-names.ts`, one export:
+★★★ **PRIOR ART EXISTS — promote it, do not invent it.** An earlier revision of
+this section specified a new naming mechanism built on testing-library's
+function `name` matcher. That was unnecessary and unproven (its probe never ran
+— see "What was measured"). The repo already has both halves:
+
+- `buttonNames()` is **already exported from `src/test/toolbar-order.ts`**. It
+  returns the accessible name of every rendered button in DOM order via
+  `aria-label || textContent`. ★ The `||` is load-bearing and documented at the
+  source: `aria-label=""` returns `""`, not null, so `??` would let an empty
+  name shadow the `textContent` fallback.
+- `expectNoDuplicateButtonNames()` is defined locally in
+  `documents-panel.test.tsx` and used six times in that one file. It is the
+  assertion this slice generalises: `expect(new Set(names).size).toBe(names.length)`.
+
+The deliverable is therefore to **relocate and generalise proven, in-use code**:
 
 ```ts
-expectRowUniqueNames(scope: HTMLElement, opts: { minRows: number; roles?: string[] }): void
+expectRowUniqueNames(opts: { minRows: number; scope?: HTMLElement; roles?: string[] }): void
 ```
 
-**It does not compute accessible names.** It collects controls within `scope`,
-takes each one's name candidate, and asks testing-library
-`getAllByRole(role, { name, exact: true })`, failing when any name answers for
-more than one control. Its definition of "a name" is therefore byte-identical to
-the one every `getByRole` in the repo already uses.
+★ `buttonNames()` reads `screen` document-wide and buttons only. Generalising it
+to an optional `scope` and to roles beyond `button` (the radios in
+`segmented-control`, the selects in `task-kanban-card`) is the actual work, and
+it must not change `buttonNames()`' existing behaviour for its current callers.
 
-★★ This avoids a real hazard. `dom-accessibility-api` is installed **twice** —
-0.6.3 under `@testing-library/jest-dom`, 0.5.16 under `@testing-library/dom` —
-and is not declared in `package.json`. A bare import resolves to whichever
-hoists, and testing-library's own `{name}` queries use 0.5.16, so a helper
-importing the other copy could disagree with every existing test about what a
-name is. Reproduce: `npm ls dom-accessibility-api`.
+★★ The naming convention stays `aria-label || textContent` rather than a real
+accessible-name computation. That is a deliberate approximation, already trusted
+repo-wide, and it sidesteps a real hazard: `dom-accessibility-api` is installed
+**twice** — 0.6.3 under `@testing-library/jest-dom`, 0.5.16 under
+`@testing-library/dom` — and is not declared in `package.json`. A bare import
+resolves to whichever hoists, and testing-library's own `{name}` queries use
+0.5.16, so a helper importing the other copy could disagree with every existing
+test about what a name is. Reproduce: `npm ls dom-accessibility-api`.
 
 Two properties a hand-rolled check does not have:
 
@@ -149,7 +164,7 @@ assertion that never fires is precisely the failure mode it exists to prevent.
 
 | entry | edit |
 |---|---|
-| §126 | All seven controls derive from a single `title` computed once in `insights-panel.tsx` (the four in-panel labels, plus `nameQualifier` and the Apply/Reject pair in `insight-recommendation-controls.tsx`). Qualifying that one value fixes all seven. Reuses the existing `insightDigestRowRef` frame. |
+| §126 | All seven controls derive from a single `title` computed once in `insights-panel.tsx` (the four in-panel labels, plus `nameQualifier` and the Apply/Reject pair in `insight-recommendation-controls.tsx`). Qualifying that one value fixes all seven. Reuses the existing `insightDigestRowRef` frame. **★★★ AND A FOURTH SURFACE §126 NEVER MENTIONS** — `insightTitle` is `t(lang, TITLE_KEY[insight.type])`, type-driven and nothing else, and THREE call sites build control names from it: `insights-panel.tsx` (§126's known one), `insight-digest-card.tsx` (which already disambiguates on collision), and **`dashboard-sections/insights-card.tsx`, which does not**. Fixing only the panel leaves the dashboard defective. Found by the triage, not by §126. Reproduce: `grep -rn "insightTitle(" src/app --include=*.tsx --include=*.ts \| grep -v "\.test\." \| grep -v "insight-text.ts"` |
 | §111 | Five `aria-label`s in `documents-list.tsx` swap `doc.title` for the qualified form; the selection button — whose accessible name *is* the title text — gains one. **Delete the comment asserting the title is "row-unique by construction".** §111's position is that the comment is the defect: a false invariant in a comment outlives the code, because the next reader stops checking. |
 | §243 | The two unqualified row controls gain a qualifier. The compare-header restore button, the one place that sets an `aria-label`, currently sets it to the bare `historyRestoreState` and so collides with every row; it needs a name distinguishing it *from* the rows. Plus the `labelOf` collapse from D3. |
 
@@ -175,29 +190,68 @@ grep -rlE '^\s*(it|test)\(.*row-unique' src/app --include=*.test.tsx | wc -l
 grep -rl "row-unique\|rowUnique" src/app --include=*.test.tsx | wc -l
 ```
 
-A triage pass sorts the 29 into three buckets. **Its output is the rest of the
-task list** — the conversions are not enumerated in advance, because nobody
-knows the bucket sizes until the pass runs.
+**The triage has been run.** 41 blocks across the 29 files:
 
-- **Convert.** Fixture already renders two or more sibling rows. Swap the
-  enumeration for `expectRowUniqueNames`. May go red; the red is a finding.
-- **Extend, then convert.** A row surface whose fixture renders one row. Needs a
-  second row before the helper will run at all. **Reds concentrate here**, for a
-  structural reason: a fixture that has never rendered two rows has never been
-  checked.
-- **Leave.** Not row-distinctness tests. `segmented-control`
-  ("optionAriaLabel overrides each radio's accessible name"),
-  `task-status-select`, `notes-badge-button` assert that a *primitive forwards a
-  qualifier its caller supplies*. There is no sibling set to compare, so
-  converting them is a category error. The sweep is not "touch all 29".
+| bucket | blocks | meaning |
+|---|---|---|
+| **Convert** | 30 | fixture already renders 2+ sibling rows — swap the enumeration for the helper |
+| **Extend, then convert** | 9 | a row surface whose fixture renders one row; needs a second row before the helper will run at all |
+| **Leave** | 2 | `task-status-select`, `notes-badge-button` — primitive tests asserting a component forwards a qualifier its caller supplies. No sibling set, so converting is a category error |
 
-Every red is fixed before merge, using D1–D4.
+**Two reds, both in the Extend bucket** — exactly where the structural argument
+predicted, because a fixture that has never rendered two rows has never been
+checked:
 
-★ **Escalation condition, agreed in advance.** The red count is unknown, and the
-second bucket makes a large number likelier than a small one. Reds will land in
-subsystems this branch otherwise has no business in. If the triage returns a
-count that makes this a materially different-sized project than was approved,
-stop and bring the list and the count back before fixing anything.
+- `budget-panel-people-rows` — the disclosure name is
+  `budgetShowPeople – roleLabel(discipline+grade)`, carrying no bucket or role
+  id, so two buckets sharing a discipline+grade combo collide. The source file's
+  own docstring already says "the axe gate cannot protect this".
+- `dashboard-sections/insights-card` — the fourth §126 surface above.
+
+★★★ **CORRECTION — `segmented-control` is NOT a Leave case**, and an earlier
+revision of this spec named it as the exemplar. It renders three radios whose
+names interpolate the option value (`optionAriaLabel={(v) => …${v}}`), so it is
+a Convert. Leave is two blocks, not three.
+
+★★ **One block sits outside the model.** `task-kanban-swimlanes.test.tsx`'s
+row-unique block renders **zero** controls of the kind in question — both its
+assertions are `.not.toBeInTheDocument()`. It is a visibility-gating test, not a
+distinctness one, and may not convert at all.
+
+### Why the sweep is bounded here, and what is deferred
+
+The 29-file population came from grepping test NAMES, and that is **provably
+incomplete**: tests asserting this exact property exist under other nouns —
+`task-row.test.tsx`'s "two open rows get DIFFERENT Send inquiry accessible
+names" (whose own comment says "one row cannot express a name collision… this is
+the only possible detector"), `budget-panel.test.tsx`'s "bucket-unique", and
+`task-kanban-card.test.tsx`'s "card-unique".
+
+Enumerating on the PROPERTY instead was measured and is a programme, not a
+branch:
+
+| | |
+|---|---|
+| candidate components (a `.map` rendering a control) | 127 |
+| unique un-interpolated `aria-label` sites inside those maps | 103 |
+| control tags inside a map with **no `aria-label`** — named by text | ~254 |
+
+★★★ **And it cannot be classified mechanically, in either direction.** The scan
+false-positives on `t(lang, "selectItem", item.title)` (interpolation through a
+positional argument, not `${…}`) and on `qualify(t(lang, …))` wrappers. Worse,
+the **text-named class is invisible to label-based scanning entirely — and that
+is the class §243's two defective controls belong to.** Neither "Compared with
+current" nor "Restore this state" carries an `aria-label`; both are named by
+their text. So the scan misses the exact shape that motivated the slice.
+
+**Decision: this branch ships the measured, finite work** — the helper, all four
+defective surfaces, the two reds, the 41 blocks, the docs and the register
+closures. The widened sweep becomes its own programme, and the measurement above
+plus the three off-name tests are recorded as a new register entry so the gap is
+documented rather than quietly dropped. Once the helper exists and is adopted,
+widening is mechanical for whoever picks up a surface.
+
+Every red found inside that bounded scope is fixed before merge, using D1–D4.
 
 ## Gates
 
@@ -208,8 +262,12 @@ stop and bring the list and the count back before fixing anything.
   the only local reproduction of `unit-tests-shuffled`, and the only thing that
   catches intra-file order dependence.
 - **`npm run e2e`** — `seed-content.spec.ts` goes red first, by design.
-- **`npm run size:check`** — three panels grow. It counts `wc -l` **+ 1**;
-  budgeting from `wc -l` overstates headroom by exactly one line.
+- **`npm run size:check`** — **a non-issue here, measured.** The four touched
+  components are 226 / 294 / 403 / 110 gate-lines against an 800 limit and none
+  carries a baseline entry. ★ Recorded because an earlier revision of this spec
+  listed it as a risk. It still counts `wc -l` **+ 1**, so budget from the gate's
+  own arithmetic if a later change approaches the limit:
+  `node -e "console.log(require('fs').readFileSync('<file>','utf8').split('\n').length)"`
 - **coverage** — unaffected. `src/test/**` is already in `coverage.exclude`.
 - **`npm run docs:claims:check`** — register edits must cite symbols, never
   `path:LINE`.
@@ -246,6 +304,22 @@ a minor bump, not refactor-only: `version.ts` plus the five ungated locations
 (`package.json`, `package-lock.json` — two occurrences, README shields badge,
 the five `docs/CODEMAPS/*.md` headers) and a `CHANGELOG.md` entry.
 
+## What was measured, and what was not
+
+Everything in this spec that carries a number was run. Two things were **not**,
+and neither may be cited as established:
+
+- **The testing-library function `name` matcher.** An earlier revision specified
+  the helper around it. Its probe died on `Failed to start forks worker` after
+  60s under machine contention from three concurrent agents — which is
+  contention, not a result, so the idea is neither confirmed nor refuted. It is
+  moot regardless: the helper now reuses `buttonNames()`.
+- **Whether any qualified name is pleasant to hear.** See below.
+
+★ The one gate claim carried over from the register entries rather than re-run
+here is §126's e2e count assertion; its line and wording were read, its
+behaviour under the fix was not, because that requires the fix.
+
 ## What this does not prove
 
 The detector proves **distinctness, not usability**. jsdom has no speech and no
@@ -265,5 +339,9 @@ specifically, since it is Turso-gated and no e2e seed reaches it.
   it. Under D1 the accessible names are distinct regardless, so closing that
   bypass is not needed for a11y. It is a separate defect about human-facing
   duplicate titles and stays filed.
-- **The 7 prose-only mentions** and the "Leave" bucket. Neither is a
+- **The 7 prose-only mentions** and the 2-block "Leave" bucket. Neither is a
   row-distinctness assertion.
+- **The property-based sweep** — 127 candidate components, 103 un-interpolated
+  label sites, ~254 text-named control sites. Deferred to its own programme and
+  recorded as a register entry, with the three off-name tests named, because it
+  cannot be classified mechanically and cannot be reviewed as one diff.
