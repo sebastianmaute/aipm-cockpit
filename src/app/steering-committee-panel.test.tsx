@@ -4,6 +4,7 @@ import { SteeringCommitteePanel } from "./steering-committee-panel";
 import { loadI18n, t } from "./i18n";
 import type { Resource, SteeringCommittee } from "./types";
 import type { MeetingReportBag } from "./use-meeting-report-actions";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const reportBag: MeetingReportBag = {
   m365Configured: false,
@@ -148,6 +149,7 @@ describe("SteeringCommitteePanel", () => {
     );
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Kickoff` })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: `${t("en-US", "delete")} – Review` })).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 9 });
   });
 
   it("shows a due info reminder", () => {

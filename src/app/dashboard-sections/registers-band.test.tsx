@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { render, screen } from "@testing-library/react";
 import { RaidRegisterCard, UpcomingCard } from "./registers-band";
 import type { RaidItem, Task } from "../types";
+import { expectRowUniqueNames } from "../../test/row-unique-names";
 
 const baseRaid = {
   id: 1,
@@ -46,6 +47,7 @@ describe("RaidRegisterCard", () => {
     );
     expect(screen.getByRole("button", { name: /first assumption/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /first issue/ })).toBeInTheDocument();
+    expectRowUniqueNames({ minRows: 2 });
   });
 
   it("returns null when showRaid is false", () => {
