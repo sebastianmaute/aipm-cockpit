@@ -8,16 +8,32 @@
 // ★ Reads DOM order, which matches VISUAL order only while the toolbar adds no
 //   `order-*` utility. jsdom has no layout engine, so that assumption cannot be
 //   asserted here — a mutation adding `order-first` would slip past.
-import { screen } from "@testing-library/react";
+import { screen, within } from "@testing-library/react";
 import { t, type Lang, type TranslationKey } from "../app/i18n";
 
 /** Accessible names of every rendered button, in DOM order. */
-export function buttonNames(): string[] {
-  // `||`, not `??`: aria-label="" returns "" (not null), which would otherwise
-  // shadow the textContent fallback and contribute an empty name.
-  return screen
-    .getAllByRole("button")
-    .map((b) => b.getAttribute("aria-label") || b.textContent || "");
+export function buttonNames(scope?: HTMLElement): string[] {
+  return controlNames(["button"], scope);
+}
+
+/**
+ * Accessible names of every rendered control of the given roles, in DOM order.
+ *
+ * ★ `aria-label || textContent`, not a real accessible-name computation. That
+ * is the convention every caller in this repo already relies on, and it avoids
+ * a live hazard: `dom-accessibility-api` is installed TWICE (0.6.3 under
+ * jest-dom, 0.5.16 under @testing-library/dom) and is undeclared in
+ * package.json, so a bare import could disagree with testing-library's own
+ * `{name}` queries. Reproduce: `npm ls dom-accessibility-api`.
+ *
+ * ★ `||`, not `??`: aria-label="" returns "" (not null), which would otherwise
+ * shadow the textContent fallback and contribute an empty name.
+ */
+export function controlNames(roles: readonly string[], scope?: HTMLElement): string[] {
+  const q = scope ? within(scope) : screen;
+  return roles
+    .flatMap((role) => q.queryAllByRole(role))
+    .map((el) => el.getAttribute("aria-label") || el.textContent || "");
 }
 
 /**
