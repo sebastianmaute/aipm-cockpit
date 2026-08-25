@@ -365,15 +365,17 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   >
                     {t(lang, "historyRestoreSelected")}
                   </Button>
+                  {/* Bare on purpose (§243): this block only renders for a vs-now
+                      compare, where compareFrom is set and compareLabels is always
+                      null, so it stays row-unique against the token-suffixed row
+                      buttons. Naming compareFrom.label here would re-create the
+                      collision it fixes — that's the same string this button's own
+                      row would already carry whenever that row's token is bare. */}
                   <Button
                     variant="secondary"
                     size="sm"
                     onClick={restoreCompareState}
-                    aria-label={
-                      compareLabels
-                        ? rowLabel(t(lang, "historyRestoreState"), `${compareLabels.left} → ${compareLabels.right}`)
-                        : t(lang, "historyRestoreState")
-                    }
+                    aria-label={t(lang, "historyRestoreState")}
                     title={t(lang, "historyRestoreStateHint")}
                   >
                     {t(lang, "historyRestoreState")}
