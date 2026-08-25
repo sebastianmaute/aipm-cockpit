@@ -299,13 +299,38 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
   });
 
   it("keeps `undrawable` a subset of `all` by construction", () => {
-    // ★★ THIS PINS THE CONSTRUCTOR, NOT A FIXTURE. `undrawable` is BUILT by
-    // filtering `all`, so this is constant-true for every input — and it is
-    // kept deliberately: the cap message's reclaimable-room arithmetic in
-    // documents-asset-section subtracts one size from the other and would go
-    // NEGATIVE if a later fix rebuilt `undrawable` from a second scan.
-    const loaded = loadFully(`<span data-asset-id="s">x</span><img data-asset-id="i">`);
-    const refs = assetRefsInDocument(loaded);
+    // ★★★ SCANNED UN-LOADED, AND BOTH HALVES OF THE FIXTURE ARE LOAD-BEARING.
+    //     This test spent time asserting nothing, twice over, and the two
+    //     causes are independent — restoring either one makes it vacuous again
+    //     while it goes on passing.
+    //
+    // ★★ CAUSE ONE, the load path. Through `loadFully` the `<span>` is
+    //    unwrapped and its attribute goes with it (measured: the stored html
+    //    is `x<img data-asset-id="i">`), leaving `undrawable` EMPTY — so the
+    //    `.every` below quantified over an empty set and could not fail.
+    //
+    // ★★ CAUSE TWO, the fixture. `undrawable` is BUILT by filtering `all`, so
+    //    on any input where `drawable ⊆ all` this assertion is constant-true
+    //    no matter how the constructor is broken — a span+img pair alone is
+    //    NOT enough. It has force only when `drawable` holds an id `all` does
+    //    not, which is what the DUPLICATE attribute produces (the divergence
+    //    test below pins why): here `all` = ["s","a"] but `drawable` = ["b"].
+    //    Rebuilding `undrawable` from a second scan instead of by filtering —
+    //    the regression this guards, which would make the cap message's
+    //    reclaimable-room arithmetic in documents-asset-section go NEGATIVE —
+    //    then pulls "b" in and this goes red. Mutation-proved in that shape;
+    //    drop the duplicate attribute and the mutant survives.
+    const raw: ProjectDocument = doc(97, [
+      {
+        type: "paragraph",
+        html: `<span data-asset-id="s">x</span><img data-asset-id="a" data-asset-id="b">`,
+      },
+    ]);
+    const refs = assetRefsInDocument(raw);
+    // The positive observable: proves the fixture REACHED the assertion with
+    // something to quantify over. Without it, cause one could return unseen.
+    expect([...refs.undrawable]).toEqual(["s", "a"]);
+    expect([...refs.drawable]).toEqual(["b"]);
     expect([...refs.undrawable].every((id) => refs.all.has(id))).toBe(true);
   });
 
@@ -339,12 +364,21 @@ describe("what being ALREADY-SANITIZED does and does not buy this module", () =>
     //     PROPERTY. It records what the two patterns currently do so that a
     //     change to either cannot widen the gap silently.
     //
-    // ★★ THE CAUSE IS THE QUANTIFIER, and it is the only difference between
-    //    them: `ASSET_ID_RE` is LAZY (`*?`) so it stops at the FIRST
-    //    occurrence, while `IMG_TAG_RE` is GREEDY (`*`) and backtracks to the
-    //    LAST. Their alternations are byte-identical. So a DUPLICATED
-    //    attribute puts a different id in each set, and `drawable` is then not
-    //    a subset of `all` — asserted below, because that is the whole point.
+    // ★★ THE CAUSE IS THE QUANTIFIER. Their ALTERNATIONS are byte-identical;
+    //    the QUANTIFIER is not — `ASSET_ID_RE` is LAZY (`*?`) so it stops at
+    //    the FIRST occurrence, while `IMG_TAG_RE` is GREEDY (`*`) and
+    //    backtracks to the LAST. That is what puts a different id in each set,
+    //    so `drawable` is not a subset of `all` — asserted below, because that
+    //    is the whole point.
+    //
+    // ★★ IT IS NOT THE ONLY DIFFERENCE BETWEEN THE TWO PATTERNS, and believing
+    //    it is leads straight to the inference the `TAG-AGNOSTIC ON PURPOSE`
+    //    note exists to prevent. They also differ in the tag anchor
+    //    (`<[a-zA-Z][^\s/>]*` here vs `<img\b` there — that IS the §218
+    //    design), and `IMG_TAG_RE` carries a trailing alternation plus `>`
+    //    with no counterpart here. Measured: making this one greedy does NOT
+    //    turn it into `IMG_TAG_RE` — a `<span>` reference still counts here
+    //    and is still invisible there.
     //
     // ★★ SCANNED UN-LOADED ON PURPOSE. A full load collapses the duplicate to
     //    `data-asset-id="a"` (measured through the real two-pass composition),
