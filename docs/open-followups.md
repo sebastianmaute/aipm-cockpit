@@ -17564,8 +17564,8 @@ grep -n 'selectItem:' src/app/i18n.ts    # selectItem: "Select {0}"
 `change-panel.tsx` (`item.title`) · `milestones-panel.tsx` (`m.name`) · `resource-directory.tsx`
 (`resourceDisplayName(r)`) · `stakeholders-panel.tsx` (`item.name`) · `timelog-people-table.tsx`
 (`displayId`). ★★ Read the grep, not this list, for status — and read the ARGUMENT, not the call
-form. `raid-panel-rows.tsx` was on this list when the entry was filed and was converted three commits
-later (`71656bf2`); it still calls `t(lang, "selectItem", …)` and always will, but now passes
+form. `raid-panel-rows.tsx` was on this list when the entry was filed and was converted later in the
+same branch (`71656bf2`); it still calls `t(lang, "selectItem", …)` and always will, but now passes
 `rowTitleToken` (from `buildRowTokens`) rather than the raw `item.title`. A raw field is what
 is open; the positional call form is not the discriminator. ★ `timelog-people-table.tsx` interpolates a `displayId` rather than a
 free-text name, which MAY be genuinely unique per row; that one is an open question to decide against
@@ -17604,6 +17604,16 @@ its data, not an automatic fix (same treatment as §246's roles-editor case).
   reading the control conforms — so this is a question to decide, not a fix to apply. ★ Deciding it
   one way binds every other `AddFirstItemButton` caller that passes `text`, which is why it is
   recorded here rather than treated as a RAID-local tweak.
+- `budget-panel.tsx`'s bucket `DragHandle` — the qualifier is real but NOTHING PINS IT, and its own
+  comment claimed otherwise ("pinned by a unit test") until 2026-08-25. Reproduce: `grep -rln
+  "budgetReorderHandle" src e2e` returns only that file and the two i18n dicts — no test references
+  the handle by string or by key, and the nearest budget uniqueness test scopes to the "Show people"
+  disclosure triggers instead. So a revert to the bare label ships green through every gate. ★★ This
+  is the class the whole slice is about, one level up: not a missing qualifier but a **false claim of
+  coverage**, which reads as protection and is worse than an acknowledged gap. ★ It shares the
+  free-text residual already documented on `ManualPercentCell` in the same file — `br.name` is
+  bucket-QUALIFIED, never bucket-UNIQUE, so two identically-named buckets collide byte-for-byte
+  again; closing that needs `buildRowTokens`, and a test would pin only the ordinary case.
 
 ★ None of the first three is in `A11Y_VIEWS`' scanned surface in a way that would matter anyway — the
 measurement in AGENTS.md's a11y bullet is that axe flags duplicate accessible names in NO view, at

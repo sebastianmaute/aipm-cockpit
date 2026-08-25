@@ -499,8 +499,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     // user listing the buttons heard the same label N times
                     // with nothing to say which bucket each moved. Budget IS an
                     // axe-scanned view and axe cannot see this at ANY seed size,
-                    // so the qualifier is written at the source and pinned by a
-                    // unit test.
+                    // so the qualifier is written at the source. ★★ NOTHING PINS
+                    // IT — `grep -rln "budgetReorderHandle" src e2e` returns only
+                    // this file and the two i18n dicts, so a revert to the bare
+                    // label ships green. See open-followups §248.
                     ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own

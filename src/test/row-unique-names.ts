@@ -30,8 +30,7 @@
 //     the occurrence suffix is stripped and whitespace collapsed. LIMITATION:
 //     that is not the same as "the fixture seeded a shared display name" — two
 //     rows genuinely titled "Q3 report (1)" and "Q3 report (2)" strip to the
-//     same string, and the DOM does not carry what would tell the two cases
-//     apart.
+//     same string, and a single row plus any other control can satisfy it too.
 //
 // ★★ `requireCollisionSeed` is OPT-IN, and that is deliberate rather than
 // laziness. Most adopting tests are regression pins over DISTINCT-name
