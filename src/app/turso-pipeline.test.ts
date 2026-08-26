@@ -140,10 +140,11 @@ describe("runTursoPipeline timeout", () => {
     await expect(p).rejects.toMatchObject({ hint: "storage-unreachable" });
   });
 
-  // The timer now spans the body read, so it is disarmed on FOUR different exit
-  // paths and a leak on any one of them would abort an unrelated later request.
-  // The rollback path is the interesting one: it posts a SECOND pipeline, so it
-  // arms a second timer.
+  // ★ ONE `finally` in `postPipeline` disarms the timer on every exit from it,
+  // so these are four CALL SCENARIOS, not four disarm mechanisms — the risk they
+  // cover is a future refactor moving the clear out of that `finally`, after
+  // which a leak would abort an unrelated later request. The rollback scenario
+  // is the interesting one: it posts a SECOND pipeline, arming a second timer.
   it.each([
     ["ok", () => new Response(JSON.stringify({ results: [{ type: "ok" }] }), { status: 200 })],
     ["non-ok", () => new Response("nope", { status: 500 })],
