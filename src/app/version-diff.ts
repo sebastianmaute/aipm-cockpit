@@ -6,6 +6,7 @@
 
 import type { Workspace } from "./workspace";
 import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
+import { resourceDisplayName, roleLabel } from "./resource-foundation";
 
 export type ChangeType = "added" | "removed" | "modified";
 
@@ -44,25 +45,58 @@ export function isRestorableChange(c: Pick<VersionChange, "restorable">): boolea
   return c.restorable !== false;
 }
 
-/** Omitted = restorable. `false` = diff-visible but `applyRestore` SKIPS it,
- *  because the slice owns its own history elsewhere and must keep a single
- *  writer. The diff row is still required: the diff is what arms a capture,
- *  so without one a session editing only this slice produces NO version. */
-interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; restorable?: false; }
+// ★ `diffList` holds records as `Record<string, unknown>`. These narrow a field
+// to the primitive a label helper expects WITHOUT a cast — a cast here would
+// re-admit exactly the class this repair exists to close: a spec naming a field
+// the record does not carry, invisible to tsc.
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+const num = (v: unknown): number => (typeof v === "number" ? v : -1);
+
+/** Compose a record's label when a single field cannot express it. Receives the
+ *  workspace the record came from — the OLDER one for a removed record, the
+ *  NEWER one otherwise — because a role names itself through `disciplines` and
+ *  `grades`, which is a cross-slice lookup a bare `nameField` cannot do. */
+type RecordNameOf = (rec: Record<string, unknown>, ws: Workspace) => string;
+
+/** ★★★ `nameField` IS A BARE STRING WHILE `key` IS `keyof Workspace`, so tsc
+ *  cannot pair the two and a row naming a field its records do not carry is
+ *  invisible. Five of them shipped that way — `tasks`/`title`,
+ *  `resources`/`name`, `roles`/`name`, `absences`/`reason`, `shifts`/`label` —
+ *  and `recordLabel`'s `#${id}` fallback is the ONLY symptom. Pinned by
+ *  version-diff.test.ts's "never falls back to #id for a fully-populated
+ *  record"; add a row here and seed it in `arraysFixture` or that guard is
+ *  silent about it.
+ *  Omitted `restorable` = restorable. `false` = diff-visible but `applyRestore`
+ *  SKIPS it, because the slice owns its own history elsewhere and must keep a
+ *  single writer. The diff row is still required: the diff is what arms a
+ *  capture, so without one a session editing only this slice produces NO
+ *  version. */
+interface CollectionSpec {
+  key: keyof Workspace; label: string; kind: "list" | "singleton";
+  nameField?: string; nameOf?: RecordNameOf; restorable?: false;
+}
 
 export const COLLECTION_SPECS: CollectionSpec[] = [
-  { key: "tasks", label: "Tasks", kind: "list", nameField: "title" },
+  { key: "tasks", label: "Tasks", kind: "list", nameField: "taskName" },
   { key: "raid", label: "RAID", kind: "list", nameField: "title" },
   { key: "changes", label: "Changes", kind: "list", nameField: "title" },
   { key: "milestones", label: "Milestones", kind: "list", nameField: "name" },
   { key: "stakeholders", label: "Stakeholders", kind: "list", nameField: "name" },
-  { key: "resources", label: "Resources", kind: "list", nameField: "name" },
-  { key: "roles", label: "Roles", kind: "list", nameField: "name" },
+  { key: "resources", label: "Resources", kind: "list",
+    nameOf: (r) => resourceDisplayName({ firstName: str(r.firstName), lastName: str(r.lastName) }) },
+  // ★ `num`'s `-1` is deliberate: no minted id is negative, so an unresolvable
+  // discipline or grade misses the lookup and `roleLabel` returns "n/a n/a",
+  // which `recordLabel` then treats as a real name. That is honest — the record
+  // genuinely has no resolvable role — and matches what the Resources report
+  // shows for the same case.
+  { key: "roles", label: "Roles", kind: "list",
+    nameOf: (r, ws) => roleLabel({ disciplineId: num(r.disciplineId), gradeId: num(r.gradeId) },
+                                 ws.disciplines, ws.grades) },
   { key: "disciplines", label: "Disciplines", kind: "list", nameField: "name" },
   { key: "grades", label: "Grades", kind: "list", nameField: "name" },
   { key: "budgets", label: "Budget buckets", kind: "list", nameField: "name" },
-  { key: "absences", label: "Absences", kind: "list", nameField: "reason" },
-  { key: "shifts", label: "Shifts", kind: "list", nameField: "label" },
+  { key: "absences", label: "Absences", kind: "list", nameField: "note" },
+  { key: "shifts", label: "Shifts", kind: "list", nameField: "note" },
   { key: "plan", label: "Resource plan", kind: "singleton" },
   { key: "status", label: "Project status", kind: "singleton" },
   { key: "project", label: "Project info", kind: "singleton" },
@@ -133,11 +167,24 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   }
   return out;
 }
-function recordLabel(rec: Record<string, unknown> | undefined, id: RecordId, nameField?: string): string {
-  const name = nameField ? rec?.[nameField] : undefined;
+/** ★★ `nameOf` takes precedence over `nameField` but FALLS THROUGH to it on a
+ *  blank result — that fall-through is what keeps a resource with neither a
+ *  first nor a last name labelled `#id` rather than an empty string. */
+function recordLabel(
+  rec: Record<string, unknown> | undefined,
+  id: RecordId,
+  spec: CollectionSpec,
+  ws: Workspace,
+): string {
+  const composed = rec && spec.nameOf ? spec.nameOf(rec, ws) : undefined;
+  if (typeof composed === "string" && composed.trim()) return composed;
+  const name = spec.nameField ? rec?.[spec.nameField] : undefined;
   return typeof name === "string" && name.trim() ? name : `#${id}`;
 }
-function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): VersionChange[] {
+function diffList(
+  spec: CollectionSpec, older: unknown[], newer: unknown[],
+  olderWs: Workspace, newerWs: Workspace,
+): VersionChange[] {
   const byId = (arr: unknown[]) => new Map<RecordId, Record<string, unknown>>(
     arr.map((r) => [(r as { id: RecordId }).id, r as Record<string, unknown>]),
   );
@@ -146,7 +193,7 @@ function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): Ver
   const out: VersionChange[] = [];
   const base = (id: RecordId, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
     collection: spec.key, collectionLabel: spec.label, kind: "list",
-    recordId: id, recordLabel: recordLabel(rec, id, spec.nameField), type, fields,
+    recordId: id, recordLabel: recordLabel(rec, id, spec, type === "removed" ? olderWs : newerWs), type, fields,
     ...(spec.restorable === false ? { restorable: false as const } : {}),
   });
   for (const [id, rec] of b) {
@@ -197,7 +244,7 @@ export function diffWorkspaces(
   const blind = !opts?.olderSpeaksForEmptySlices;
   for (const spec of COLLECTION_SPECS) {
     if (blind && PRE_FORMAT_2_BLIND_SLICES.has(spec.key) && older[spec.key] === undefined) continue;
-    if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[]));
+    if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[], older, newer));
     else out.push(...diffSingleton(spec, older[spec.key], newer[spec.key]));
   }
   return out;

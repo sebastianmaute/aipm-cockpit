@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { COLLECTION_SPECS, diffWorkspaces, summarizeDiff } from "./version-diff";
-import { ws } from "../test/workspace-records";
+import { ws, arraysFixture, taskRec, resourceRec, roleRec, disciplineRec, gradeRec,
+  absenceRec, shiftRec } from "../test/workspace-records";
+import type { Workspace } from "./workspace";
 
 const task = (id: number, over: Record<string, unknown> = {}) => ({ id, title: `T${id}`, ...over } as never);
 
@@ -148,4 +150,69 @@ describe("summarizeDiff", () => {
     expect(summarizeDiff(c)).toMatch(/RAID \(1\)/);
   });
   it("returns empty string for no changes", () => { expect(summarizeDiff([])).toBe(""); });
+});
+
+describe("record labels", () => {
+  // ★★★ FIVE OF THE SIXTEEN nameFields NAMED A FIELD NO RECORD CARRIES, and
+  // `recordLabel` falls back to `#id`, so every task, resource, role, absence
+  // and shift change in the version diff was labelled by id. tsc could not see
+  // it: `key` is `keyof Workspace` but `nameField` is a bare string. Measured
+  // against sample-workspace-small.json — 0/14 tasks carried `title`, 0/5
+  // resources and 0/6 roles carried `name`, 0/5 absences carried `reason`,
+  // 0/4 shifts carried `label`.
+  const labelFor = (older: Partial<Workspace>, newer: Partial<Workspace>, collection: string) =>
+    diffWorkspaces(ws(older), ws(newer)).find((c) => c.collection === collection)?.recordLabel;
+
+  it("labels a task by taskName", () => {
+    expect(labelFor(
+      { tasks: [taskRec(1, "Old")] },
+      { tasks: [taskRec(1, "New")] },
+      "tasks",
+    )).toBe("Task New");
+  });
+
+  it("labels a resource by its composed display name", () => {
+    expect(labelFor(
+      { resources: [resourceRec(1, "Old")] },
+      { resources: [resourceRec(1, "New")] },
+      "resources",
+    )).toBe("ResNew Example");
+  });
+
+  it("labels a role from the workspace's disciplines and grades", () => {
+    const base = { disciplines: [disciplineRec(1, "Dev")], grades: [gradeRec(1, "Senior")] };
+    expect(labelFor(
+      { ...base, roles: [roleRec(1, "Old")] },
+      { ...base, roles: [roleRec(1, "New")] },
+      "roles",
+    )).toBe("Discipline Dev Grade Senior");
+  });
+
+  it("labels absences and shifts by their note", () => {
+    expect(labelFor({ absences: [absenceRec(1, "Old")] }, { absences: [absenceRec(1, "New")] }, "absences"))
+      .toBe("Absence New");
+    expect(labelFor({ shifts: [shiftRec(1, "Old")] }, { shifts: [shiftRec(1, "New")] }, "shifts"))
+      .toBe("Shift New");
+  });
+
+  // ★★ A REMOVED record is gone from the NEWER workspace, so its label must be
+  // resolved against the OLDER one. Renaming the discipline between the two
+  // sides is what separates the branches: read the newer side and this returns
+  // the new name for a record that no longer exists there.
+  it("labels a removed role from the older workspace", () => {
+    const older = { disciplines: [disciplineRec(1, "Dev")], grades: [gradeRec(1, "Senior")], roles: [roleRec(1, "Old")] };
+    const newer = { disciplines: [disciplineRec(1, "Renamed")], grades: [gradeRec(1, "Senior")], roles: [] };
+    const change = diffWorkspaces(ws(older), ws(newer)).find((c) => c.collection === "roles" && c.type === "removed");
+    expect(change?.recordLabel).toBe("Discipline Dev Grade Senior");
+  });
+
+  // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do
+  // not carry lands here — the fallback to `#id` is the only symptom, and
+  // nothing else in the suite reads it.
+  it("never falls back to #id for a fully-populated record", () => {
+    const named = new Set(COLLECTION_SPECS.filter((s) => s.nameField || s.nameOf).map((s) => s.key));
+    const changes = diffWorkspaces(ws(arraysFixture("Old")), ws(arraysFixture("New")));
+    const byId = changes.filter((c) => named.has(c.collection as keyof Workspace) && c.recordLabel === `#${c.recordId}`);
+    expect(byId.map((c) => c.collection)).toEqual([]);
+  });
 });
