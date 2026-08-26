@@ -449,10 +449,10 @@ Jira sync, storage backend switching, voice commands, OOXML export.
 - ESLint via `eslint-config-next` (typescript + core-web-vitals presets).
   Run `npm run lint` before opening a PR. ★ CI DOES enforce it — the `lint` job
   carries no `allow_failure`, so it blocks. (This line previously said CI did not;
-  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ But `npm run lint` is bare
-  `eslint` with no `--max-warnings`, so it exits 0 on warnings and only ERRORS
-  fail the job — check a stricter posture locally with
-  `npx eslint --max-warnings=0 src/app`.
+  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ And `npm run lint` is
+  `eslint --max-warnings=0`, so a WARNING fails the job exactly as an error
+  does — all 25 severity-1 rules included, among them
+  `react-hooks/exhaustive-deps` and six `jsx-a11y` rules.
 - Prefer immutable updates (`...spread`) over mutation.
 - Functions should stay short — `task-manager.tsx` is already too long; do
   not add to it without a reason. Prefer splitting new logic into a helper

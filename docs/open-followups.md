@@ -15102,11 +15102,20 @@ set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
 independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
 whichever order the harness happens to produce, which is the shape that let this go unnoticed.
 
-## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI
+## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI — CLOSED 2026-08-26
 
 **Status:** open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
 untouched, deliberately, because turning it on affects every future MR and was out of scope for an
 icon migration.
+
+★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `package.json`'s `lint` script is now
+`eslint --max-warnings=0`, the wide route this entry recommends. The four doc sentences that
+asserted the gate was absent were rewritten in the same commit; the three that merely USE the flag
+in an example command were left alone. The narrow route (promoting the single rule in
+`eslint.config.mjs`) was NOT taken and remains unavailable to an agent — that file is hook-protected.
+★★ The gate was proved live by mutation, and the FIRST proof command was vacuous: `npx eslint
+src/app/icons.ts` exits 0 on a genuinely unused import, because it invokes eslint directly and never
+sees a flag that lives in the npm script. Only `npm run lint -- <path>` tests what CI runs.
 
 CI's `lint:` job runs `npm run lint`, that script is bare `eslint`, and no `--max-warnings` flag
 exists anywhere in the repo's config. `@typescript-eslint/no-unused-vars` resolves to severity **1**

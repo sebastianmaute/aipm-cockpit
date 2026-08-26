@@ -98,13 +98,13 @@ npm run dev                 # next dev (public next, pinned EXACTLY at 16.2.11 �
                             # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
                             # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint — ★★★ there is NO `--max-warnings` gate: CI's `lint:` job runs bare
-                            # `npm run lint`, `@typescript-eslint/no-unused-vars` is severity 1, and
-                            # `noUnusedLocals` does not exist in tsconfig.json — so an unused import/var
-                            # SHIPS GREEN. Keep them out by hand; `_`-prefixed params are NOT exempt
-                            # (no argsIgnorePattern), so re-check after every extract. Verify severity:
+npm run lint                # eslint --max-warnings=0 — ★★★ EVERY warning is now FATAL, and that is 25
+                            # rules, not one: `@typescript-eslint/no-unused-vars` is still severity 1 and
+                            # `noUnusedLocals` still does not exist in tsconfig.json, but the flag makes
+                            # both moot. `_`-prefixed params are NOT exempt (no argsIgnorePattern), so an
+                            # unused param from an extract now FAILS rather than warning. Verify severity:
                             #   npx eslint --print-config src/app/icons.ts   (read .rules)
-                            # react-hooks/exhaustive-deps (severity 1, so NOT fatal) rejects an `obj.member` dep (e.g.
+                            # react-hooks/exhaustive-deps (severity 1 — FATAL since --max-warnings=0) rejects an `obj.member` dep (e.g.
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
                             # in a component RENDER body too (not just useMemo) — capture via a lazy
@@ -112,8 +112,8 @@ npm run lint                # eslint — ★★★ there is NO `--max-warnings` 
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npx eslint --max-warnings=0 src/app` is STRICTER than CI, not a
-                            # reproduction of it.
+                            # ★ `npx eslint --max-warnings=0 src/app` now matches CI's STRICTNESS but not
+                            # its SCOPE — CI lints the whole repo, this lints one directory.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is

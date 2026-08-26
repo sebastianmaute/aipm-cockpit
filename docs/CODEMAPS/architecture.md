@@ -67,8 +67,8 @@ strip), **popout** (read-only mirror, no header). A new top-bar control must be 
 
 ## CI gates (GitLab,  (GitLab))
 
-`install → quality → build → e2e`. Quality is blocking: lint (bare `eslint` — there is NO `--max-warnings` flag, so warnings do not
-fail it; only errors do), `tsc --noEmit`,
+`install → quality → build → e2e`. Quality is blocking: lint (`eslint --max-warnings=0` — a warning fails
+the job exactly as an error does), `tsc --noEmit`,
 Semgrep SAST, dependency audit, file-size ratchet, jscpd duplication gate, vitest coverage floors.
 E2E includes an axe pass over the 17 `A11Y_VIEWS` × 7 scheme combos plus a Kanban scan per combo, one
 notes-window toolbar scan and one Documents block-editor scan, and the print spec. ★ That last kind
