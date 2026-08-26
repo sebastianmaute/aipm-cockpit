@@ -41,6 +41,15 @@ describe("diffWorkspaces", () => {
     const c = diffWorkspaces(ws({ milestones: undefined }), ws({ milestones: [{ id: 5, name: "M" } as never] }));
     expect(c[0]).toMatchObject({ collection: "milestones", recordId: 5, type: "added" });
   });
+  it("diffs a string-id collection without coercing the id", () => {
+    const item = (id: string, name: string) => ({ id, name } as never);
+    const c = diffWorkspaces(
+      ws({ knowledgeItems: [item("drive!a1", "Old")] }),
+      ws({ knowledgeItems: [item("drive!a1", "New")] }),
+    );
+    expect(c).toHaveLength(1);
+    expect(c[0].recordId).toBe("drive!a1");
+  });
 });
 
 describe("summarizeDiff", () => {

@@ -8,13 +8,18 @@ import type { Workspace } from "./workspace";
 
 export type ChangeType = "added" | "removed" | "modified";
 
+/** A list record's id. Almost every slice mints numbers; `knowledgeItems` ids are
+ *  strings (a Graph driveItem id, or a generated one for manual entries), so the
+ *  diff must carry both without coercing either. Never do arithmetic on this. */
+export type RecordId = number | string;
+
 export interface FieldChange { field: string; label: string; before: unknown; after: unknown; }
 
 export interface VersionChange {
   collection: string;
   collectionLabel: string;
   kind: "list" | "singleton";
-  recordId: number | null;
+  recordId: RecordId | null;
   recordLabel: string;
   type: ChangeType;
   fields: FieldChange[];
@@ -76,16 +81,18 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   }
   return out;
 }
-function recordLabel(rec: Record<string, unknown> | undefined, id: number, nameField?: string): string {
+function recordLabel(rec: Record<string, unknown> | undefined, id: RecordId, nameField?: string): string {
   const name = nameField ? rec?.[nameField] : undefined;
   return typeof name === "string" && name.trim() ? name : `#${id}`;
 }
 function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): VersionChange[] {
-  const byId = (arr: unknown[]) => new Map(arr.map((r) => [(r as { id: number }).id, r as Record<string, unknown>]));
+  const byId = (arr: unknown[]) => new Map<RecordId, Record<string, unknown>>(
+    arr.map((r) => [(r as { id: RecordId }).id, r as Record<string, unknown>]),
+  );
   const a = byId(older ?? []);
   const b = byId(newer ?? []);
   const out: VersionChange[] = [];
-  const base = (id: number, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
+  const base = (id: RecordId, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
     collection: spec.key, collectionLabel: spec.label, kind: "list",
     recordId: id, recordLabel: recordLabel(rec, id, spec.nameField), type, fields,
   });
