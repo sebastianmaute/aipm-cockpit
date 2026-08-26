@@ -13,7 +13,7 @@
 // not need a test" is the plausible-sounding conclusion that hides the real
 // cause. The convention the rest of `scripts/` already follows says the same
 // thing structurally — every `*-lib.mjs` is shebang-free and only a file with a
-// real CLI entry point (`check-version-sync.mjs`) carries one. This file
+// real CLI entry point carries one. This file
 // exports functions and has no `main`, so it is a lib. Verify with:
 //   for f in scripts/*.mjs; do head -c2 "$f" | grep -q '#!' && echo "$f"; done
 //
