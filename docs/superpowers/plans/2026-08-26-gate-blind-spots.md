@@ -1475,6 +1475,16 @@ callback" from "counts runs", so re-running it does not reproduce this filter.
 **The real surface is 35 anti-vacuity floors across 7 files**, and they are not all defective.
 ```
 
+★★★ **DO NOT PASTE THAT BLOCK AS WRITTEN — IT CONTAINS `path:LINE` CITATIONS AND
+`docs:claims:check` IS A RATCHET THAT BLOCKS NEW ONES.** Measured during execution: pasting it took
+the gate to `EXIT=1` with `NEW line citation to gantt-engine.property.test.ts (1×)`. The citations
+inside the block above survive only because they sit in a fenced code block, which the gate ignores
+by design; the moment the text lands unfenced in `docs/open-followups.md` it is a live claim.
+Rewrite every `file.ts:NNN` as a SYMBOL before pasting — "compares the imported constants
+`LEFT_GUTTER_PX` and `GANTT_NAME_COL_MIN`" rather than a line number. Drop the bare line numbers
+beside `assertBlockInvariants` / `cellFor` too: those helpers are already named, so the numbers add
+nothing and rot on the next insertion.
+
 Follow it with the per-file classification table you built in Step 3, in this shape:
 
 ```
