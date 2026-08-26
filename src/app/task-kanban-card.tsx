@@ -20,6 +20,7 @@ import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
 import { Select } from "./form-controls";
+import { rowLabel } from "./row-tokens";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
@@ -98,6 +99,14 @@ export function TaskKanbanCard({
         <button
           type="button"
           onClick={() => onEdit(task)}
+          // ★★★ Without this the accessible name is the CONTENT — two cards
+          // named "Alpha" render two identically-named buttons, on the most
+          // prominent control on the card. Mirrors task-row.tsx's name button.
+          // 2.5.3 holds by CONTAINMENT: visible "Alpha" sits inside the token
+          // "Alpha (1)". Set unconditionally — with no collision the token IS
+          // the bare name, so this restates the content rather than changing
+          // behaviour.
+          aria-label={rowToken}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
           className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface ${INTERACTIVE}`}
         >
@@ -116,7 +125,7 @@ export function TaskKanbanCard({
         <DocumentBadge
           lang={lang}
           count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
-          entityTitle={task.taskName}
+          entityTitle={rowToken}
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
@@ -148,7 +157,7 @@ export function TaskKanbanCard({
           <button
             type="button"
             onClick={() => onAiEdit?.(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            aria-label={rowLabel(t(lang, "inlineAiEdit"), rowToken)}
             title={t(lang, "inlineAiEdit")}
             className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
@@ -161,7 +170,7 @@ export function TaskKanbanCard({
         <Select
           size="xs"
           value={task.resourceId ?? ""}
-          aria-label={t(lang, "assignPersonLabel", task.taskName)}
+          aria-label={t(lang, "assignPersonLabel", rowToken)}
           onChange={(e) => onAssign(task.id, e.target.value ? Number(e.target.value) : null)}
         >
           <option value="">{t(lang, "swimlaneUnassigned")}</option>

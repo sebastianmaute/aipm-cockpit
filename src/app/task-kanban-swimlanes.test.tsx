@@ -2,6 +2,8 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import type { Resource, Task } from "./types";
+import { buildRowTokens } from "./row-tokens";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -134,6 +136,43 @@ describe("TaskKanbanSwimlanes", () => {
     const removeBtn = screen.getByRole("button", { name: "Remove lane – Anna Jordan" });
     fireEvent.click(removeBtn);
     expect(onRemoveLane).toHaveBeenCalledWith(1);
+  });
+
+  // The per-column badge/card tests (task-kanban-card.test.tsx) cannot reach
+  // this case: a per-COLUMN fixture puts both twins in the SAME lane, so their
+  // cards never sit side by side with a peer sharing their exact name outside
+  // that lane. Seeding the twins in DIFFERENT lanes (distinct resourceId, both
+  // present in resourcesById so `laneResourceIdOf` resolves each to its own
+  // `res:<id>` lane rather than falling through to a shared Unassigned one)
+  // is the shape only the swimlane surface can exercise.
+  it("keeps names unique when same-named tasks sit in DIFFERENT lanes", () => {
+    const twinResources = new Map<number, Resource>([
+      [10, { id: 10, firstName: "Ivy", lastName: "Nkemelu", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+      [20, { id: 20, firstName: "Omar", lastName: "Reyes", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+    ]);
+    const twins = [
+      taskFix({ id: 1, taskName: "Alpha", resourceId: 10, status: "To Do" }),
+      taskFix({ id: 2, taskName: "Alpha", resourceId: 20, status: "To Do" }),
+    ];
+    const { container } = render(
+      <TaskKanbanSwimlanes
+        lang="en-US"
+        tasks={twins}
+        resourcesById={twinResources}
+        extraLaneIds={[]}
+        tokens={buildRowTokens(twins.map((task) => ({ id: task.id, name: task.taskName })))}
+        onSwimlaneDrop={vi.fn()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onRemoveLane={vi.fn()}
+      />,
+    );
+    expectRowUniqueNames({
+      minControls: 4,
+      scope: container,
+      roles: ["button", "combobox"],
+      requireCollisionSeed: true,
+    });
   });
 
   it("does not throw calling useTaskRowContext-free (renders outside RowContextProvider)", () => {
