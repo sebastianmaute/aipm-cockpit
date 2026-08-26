@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
 import { useVersionHistory, isEmptyWorkspacePayload } from "./use-version-history";
+import { changeKey } from "./version-restore";
 
 vi.mock("./version-store", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
@@ -266,7 +267,13 @@ describe("useVersionHistory", () => {
     const logActivity = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace, logActivity })));
     let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    // ★★ Build the key through `changeKey`, never a literal. It is
+    // `JSON.stringify([collection, recordId])`, not a `${collection}:${id}`
+    // join — a literal in the dead join format makes `applyRestore` miss the
+    // change and `continue`, so the restore is a SILENT NO-OP that still
+    // returns true and still logs `history.restore`. That is the exact failure
+    // this test exists to catch, so the key must not be hand-spelled.
+    await act(async () => { ok = await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
     expect(ok).toBe(true); // success is reported so the UI can clear its compare state
     expect(applyWorkspace).toHaveBeenCalledTimes(1);
     const applied = applyWorkspace.mock.calls[0][0];
@@ -282,7 +289,7 @@ describe("useVersionHistory", () => {
     const onError = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ onError, applyWorkspace })));
     let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    await act(async () => { ok = await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
     expect(ok).toBe(false); // failure is reported so the UI keeps its compare state
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
@@ -316,7 +323,7 @@ describe("useVersionHistory", () => {
     const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
     const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
     const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace: vi.fn(), logActivity: vi.fn() })));
-    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "Baseline"); });
+    await act(async () => { await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "Baseline"); });
     expect(append).toHaveBeenCalledTimes(1);
     const captured = JSON.parse(append.mock.calls[0][1].payload);
     expect(captured.tasks[0].title).toBe("Old"); // the RESTORED state was captured

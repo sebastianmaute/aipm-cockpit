@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HistoryPanel } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import type { ProjectVersionMeta } from "./version-history";
+import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
 // Delete is confirm-gated; auto-accept the branded dialog so the flow proceeds.
@@ -127,7 +128,13 @@ it("restores a whole version state from its row (diffs vs now, marks all)", asyn
   await Promise.resolve();
   await Promise.resolve();
   expect(loadDiff).toHaveBeenCalledWith("v1", "now");
-  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all", "raid:5": "all" }, "Baseline");
+  // ★★ Assert against a COMPUTED key, never a literal. `changeKey` is
+  // `JSON.stringify([collection, recordId])` — NOT a `${collection}:${id}`
+  // join (a join is ambiguous for string ids, and each collision is a silent
+  // wrong-record restore). A literal in the dead join format would make this
+  // panel assertion pass only by accident, and would make `applyRestore` miss
+  // the change downstream. Every selection key in this file is built the same way.
+  expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all", [changeKey("raid", 5)]: "all" }, "Baseline");
 });
 
 it("restores a single record from a vs-now comparison via its row button", async () => {
@@ -141,7 +148,7 @@ it("restores a single record from a vs-now comparison via its row button", async
   fireEvent.click(screen.getByText(/Compared with current/i));
   await screen.findByText("T1");
   fireEvent.click(screen.getByRole("button", { name: "Restore this" }));
-  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, "Baseline");
+  expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, "Baseline");
 });
 
 it("restores a single record from a two-version side-by-side compare (to the older version)", async () => {
@@ -158,7 +165,7 @@ it("restores a single record from a two-version side-by-side compare (to the old
   await screen.findByText("T1");
   // Per-row restore reverts that record to the OLDER pick (v1).
   fireEvent.click(screen.getByRole("button", { name: "Restore this" }));
-  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, expect.any(String));
+  expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, expect.any(String));
 });
 
 it("restores ticked changes from a vs-now comparison", async () => {
@@ -173,7 +180,7 @@ it("restores ticked changes from a vs-now comparison", async () => {
   const box = await screen.findByLabelText("T1");
   fireEvent.click(box);
   fireEvent.click(screen.getByRole("button", { name: "Restore selected" }));
-  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all" }, "Baseline");
+  expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, "Baseline");
 });
 
 // ── T7: identical-vs-broken feedback + scroll to the compare output ──────────
@@ -278,5 +285,5 @@ it("restore-this-state (compare header) restores the whole snapshot with an all-
   // here and resolves to the header button alone.
   const stateButton = screen.getByRole("button", { name: "Restore this state" });
   fireEvent.click(stateButton);
-  expect(restore).toHaveBeenCalledWith("v1", { "tasks:1": "all", "raid:5": "all" }, "Baseline");
+  expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all", [changeKey("raid", 5)]: "all" }, "Baseline");
 });
