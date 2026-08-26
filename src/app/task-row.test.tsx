@@ -1431,7 +1431,7 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // constant `rowToken` here would make the collision test below pass for the
   // wrong reason (it could never see a name shared by two controls) — see
   // `src/app/row-tokens.ts` and `src/test/row-unique-names.ts`.
-  function renderRows(context: RowContextValue, tasks: Task[]) {
+  function renderCollisionRows(context: RowContextValue, tasks: Task[]) {
     const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
     return render(
       rowWrapper({
@@ -1452,7 +1452,7 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   }
 
   test("keeps every control distinct when two tasks share a name", () => {
-    const { container } = renderRows(makeContext(), [
+    const { container } = renderCollisionRows(makeContext(), [
       makeTask({ id: 1, taskName: "Alpha" }),
       makeTask({ id: 2, taskName: "Alpha" }),
     ]);
@@ -1466,7 +1466,7 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
 
   test("leaves the VISIBLE task name unqualified", () => {
     // The token is an ACCESSIBLE-name device. A user reads what they typed.
-    const { getAllByText } = renderRows(makeContext(), [
+    const { getAllByText } = renderCollisionRows(makeContext(), [
       makeTask({ id: 1, taskName: "Alpha" }),
       makeTask({ id: 2, taskName: "Alpha" }),
     ]);
