@@ -185,15 +185,8 @@ const HAZARD_CHUNKS = Object.fromEntries(
  *  a bound must be taken there. One class (p = 1/12) gives P(< 8) = 4.0e-1,
  *  two classes give 3.8e-3: a 106x advantage, still decisive, and the ONLY
  *  form of this comparison that holds over the whole support.
- *  ★★★ THREE EARLIER REVISIONS OF THIS LINE EACH QUOTED AN OBSERVED N AS IF IT
- *  WERE A BOUND, AND THE THIRD WAS WRITTEN WHILE CORRECTING THE FIRST TWO.
- *  2.7e-3 and 2.2e-8 were `Binom(211, 1/12)` and `Binom(190, 1/6)` — interior
- *  points nobody justified. Replacing them with 9.5e-2 and 2.5e-5 was the SAME
- *  ERROR one level down: those are N = 140, the smallest N one 5,000-sample run
- *  happened to see, and a second run of the same generator saw 325 rather than
- *  340 at the top. A sample minimum is not a support minimum, which is the very
- *  thing the ★★ note on `expectHazards` exists to say. Take N from the
- *  arbitraries, never from a run. Recompute:
+ *  ★★ Take N from the arbitraries, never from a run — `docs/open-followups.md`
+ *  §244 carries what it cost to learn that here. Recompute:
  *    node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(100,1/12,8),b(100,1/6,8))"
  */
 const HAZARD_PAIRS = HAZARD_CLASSES.flatMap((a, i) =>
@@ -237,9 +230,16 @@ const hazardLoadedString = fc.oneof(...HAZARD_PAIRS.map(([a, b]) => hazardLoaded
  *  `fc.string` ratio this alphabet always had is preserved exactly: (3 + 5) : 2.
  *
  *  ★ Do NOT raise the loaded weight to "make the floors safer". Over the WHOLE
- *  support — N ≥ 100 by construction, p ≥ 1/6 by construction — this already
+ *  support — N ≥ 100 by construction, p ≥ 1/6 at THIS alphabet — this already
  *  bounds P(< 8) at 3.8e-3 per evaluation, and the only thing more weight buys
- *  is less breadth. ★★ That bound is deliberately LOOSE and must not be read as
+ *  is less breadth. ★★ "By construction" covers p HERE and not at the other
+ *  site: `mdSafeString` wraps this alphabet in a REJECTING `.filter()` (no
+ *  `<br`, no edge whitespace), and a loaded value always splices chunks where
+ *  `fc.string` may draw none — so rejection correlates with the loaded branch
+ *  and the conditional weight is not 5/10. The measured per-value rate there
+ *  (0.24–0.33, see `expectHazards`) clears 1/6 with room, so the bound holds
+ *  at that site too — by MEASUREMENT, not by construction. Do not restate it
+ *  as constructed at both. ★★ That bound is deliberately LOOSE and must not be read as
  *  a flake rate: N = 100 requires all twenty runs to draw exactly one task, and
  *  the measured per-value rate is 0.24–0.33 at both sites rather than the 1/6
  *  the bound assumes. It is the number that holds without measuring anything,
@@ -396,9 +396,7 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * 20-run sample generates. ★★★ N IS BOUNDED BY THE ARBITRARIES, NOT BY A RUN:
  * `tasksArb` is minLength 1 / maxLength 4, `tallyHazards` walks 5 fields per
  * task, numRuns is 20 at both sites, so N ∈ [100, 400] — a HARD support.
- * Observed 140..340 in one 5,000-sample run and 140..325 in another; quoting
- * either as "the range" is the sample-minimum mistake this very paragraph
- * warns about, and it was made here twice. **Take the worst case at N = 100:
+ * **Take the worst case at N = 100:
  * P(< 8) ≤ 3.8e-3 per evaluation, which needs no measurement and holds
  * always.** That bound is loose on purpose — N = 100 needs all twenty runs to
  * draw one task — but a loose bound that is TRUE outranks a tight one that is
@@ -418,10 +416,7 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * interior point. ★★ It survived in two other comments in THIS file and in the
  * register long after this paragraph declared it gone, which is the failure
  * mode to watch: deleting a number in the place that discusses it, while the
- * places that USE it go unswept. The endpoints bracket it awkwardly —
- * Binom(233, 1/6) gives P(< 8) = 3.6e-11 while Binom(140, 1/6) gives 2.5e-5 —
- * so the mixture is dominated by how rare the low-N tail is, and nobody has
- * measured that. Recompute any of them with the one-liner on `HAZARD_PAIRS`.
+ * places that USE it go unswept.
  * ★ Note a zero is not a bound either: rule-of-three puts 0/40,000 at 7.5e-5,
  * which alone would not clear the defect this replaced. The case for the fix is
  * the CONSTRUCTION (p = 1/6 guaranteed, against a hazard density that was
