@@ -21,9 +21,10 @@ longer carries its own changelog comment.
   version history alike. The 15-second budget now covers the whole exchange, so a stalled
   reply fails cleanly and can be retried. A malformed but successful reply now also produces
   the same readable message as every other bad response instead of an internal error.
-  ★ One trade worth knowing: because the budget now covers the full download, a save carrying
-  a very large document image over a slow connection can time out where it previously
-  succeeded eventually. A bounded, retryable failure was judged better than an unbounded hang.
+  ★ One trade worth knowing: because the budget now covers the full download, *loading* a very
+  large document image back over a slow connection can time out where it previously succeeded
+  eventually. Sending data was always inside the old budget, so it is reads that changed and
+  not saves. A bounded, retryable failure was judged better than an unbounded hang.
 
 - **Version comparisons name records instead of showing an id.** Every task, resource, role,
   absence and shift in a comparison was labelled with a bare `#id` — the comparison knew which
@@ -36,8 +37,9 @@ longer carries its own changelog comment.
 - **A record that cannot be restored can no longer be restored by accident.** Restoring a
   single record went straight to the restore without checking whether that record was one the
   restore is designed to skip — a gap held closed only by the buttons the screen happened to
-  draw. The check now lives in one place that every part of the screen shares, replacing four
-  separate copies of the same rule.
+  draw. The check now lives in one place that every part of the screen shares, replacing the
+  three copies of the same rule that were already there plus a fourth this release had itself
+  just added.
 
 ### Internal
 

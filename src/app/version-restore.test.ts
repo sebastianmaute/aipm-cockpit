@@ -263,7 +263,21 @@ describe("applyRestore over array-typed slices", () => {
   // to close, one level up. This pins the fixture to the registry so a new
   // `kind: "list"` spec fails HERE, naming itself, on the day it lands.
   it("seeds every kind:'list' slice the registry declares", () => {
-    const seeded = new Set(Object.keys(arraysFixture("Old")));
+    const older = arraysFixture("Old") as Record<string, unknown>;
+    const newer = arraysFixture("New") as Record<string, unknown>;
+    // ★★★ PRESENCE IS NOT COVERAGE. `Object.keys` alone counts `foo: []` and a
+    // record identical on both sides as seeded — and both produce NO diff change,
+    // so `applyRestore` never walks the slice and the two guards this fixture
+    // feeds go blind for it while this test stays green. That is ONE lazy seed
+    // re-opening §255 and §261 together, not the two mistakes §261 used to claim.
+    // ★ The two casts are for KEY ITERATION over a `Partial<Workspace>` only.
+    // They assert nothing about any record's shape, so they are not the kind of
+    // cast this file bans — that rule is about record BUILDERS encoding a wrong
+    // domain fact past tsc, which is the defect §261 exists for.
+    const seeded = new Set(Object.keys(older).filter((k) => {
+      const v = older[k];
+      return Array.isArray(v) && v.length > 0 && JSON.stringify(v) !== JSON.stringify(newer[k]);
+    }));
     const missing = COLLECTION_SPECS
       .filter((s) => s.kind === "list")
       .map((s) => s.key)

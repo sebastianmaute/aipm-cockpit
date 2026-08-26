@@ -18991,19 +18991,27 @@ from a raw `SyntaxError` escaping `res.json()` into the same
 Mutation-proved: moving `clearTimeout` back above the body read fails the new test **and only
 that test** (1 failed / 18 passed).
 
-★★ **ONE CONSEQUENCE, AND IT IS A REAL BEHAVIOUR CHANGE.** The 15 s bound now covers header
-arrival **plus the full body transfer**, where the body read was previously unbounded. The
-largest single payload through this path is one document asset at `ASSET_STORED_MAX_BYTES`
-(`5 * 1024 * 1024`, pinned by `document-asset-upload.test.ts`), which is ~6.67 MiB once
-base64-encoded — so a save on a link slower than roughly **3.7 Mbit/s** can now FAIL where it
-previously succeeded eventually. ★ That figure is a **computed estimate, not a measurement**:
-`ceil(5242880/3)*4 = 6990508` bytes × 8 ÷ 15 s ≈ 3.73 Mbit/s. It ignores request
-overhead, the rest of the batch riding the same pipeline, and any server-side latency before the
-first body byte — all of which make the real threshold worse, not better. The trade is
-deliberate — a bounded, retryable timeout beats an unbounded hang, and the unbounded case had no
-escape but reloading — but it is a behaviour change and this is where it belongs. If large-asset
-saves start timing out on slow links, the answer is a payload-aware timeout, NOT a return to an
-unbounded read.
+★★ **ONE CONSEQUENCE, AND IT IS A REAL BEHAVIOUR CHANGE — ON READS, NOT ON SAVES.** The 15 s
+bound now covers header arrival **plus the full RESPONSE-body transfer**, where the body read was
+previously unbounded. ★★★ The REQUEST body was always inside the window, in the old code as much
+as the new: `fetch` does not settle until the response HEADERS arrive, which for a POST is after
+the request body has been transmitted, and the timer was armed before `fetch` either way. So an
+upload never gained a bound here and cannot be what regresses. What regresses is the READ side.
+The largest single RESPONSE through this path is one document asset at `ASSET_STORED_MAX_BYTES`
+(`5 * 1024 * 1024`, pinned by `document-asset-upload.test.ts`) read back by `loadAssetData`,
+which inherits the default 15 s — `ceil(5242880/3)*4 = 6990508` base64 bytes ≈ 6.67 MiB, so a
+READ on a link slower than roughly **3.7 Mbit/s** can now FAIL where it previously succeeded
+eventually. ★★ `TursoBackend`'s `load()` (both the single-DB and the tenant path) passes the
+SHORTER `LOAD_TIMEOUT_MS` (10 s), a stricter bound this entry did not mention when it was filed —
+the same payload needs about **5.6 Mbit/s** to clear that one. ★ Both figures are **computed
+estimates, not measurements**: 6990508 × 8 ÷ 15 s ≈ 3.73 Mbit/s, ÷ 10 s ≈ 5.59 Mbit/s. They
+ignore request overhead, the rest of the batch riding the same pipeline, and any server-side
+latency before the first body byte — all of which make the real threshold worse, not better. The
+trade is deliberate — a bounded, retryable timeout beats an unbounded hang, and the unbounded
+case had no escape but reloading — but it is a behaviour change and this is where it belongs. If
+large-asset READS start timing out on slow links, the answer is a payload-aware timeout, NOT a
+return to an unbounded read. ★ Instrument the RESPONSE side when chasing that symptom: an earlier
+revision of this paragraph said SAVES, which points a reader at the wrong end of the connection.
 
 ★ The guard-deadlock shape the filed text describes is still worth knowing and is NOT re-opened
 here: `runExclusiveRestore`'s `finally` releases on resolve, reject and synchronous throw, but not
@@ -19096,11 +19104,26 @@ the RECORD before treating it as a question about the spec.
 **Why the class is still open.** `version-diff.test.ts`'s "never falls back to #id for a
 fully-populated record" is the ONLY detector, and it can only see slices `arraysFixture`
 (`src/test/workspace-records.ts`) populates — the same fixture-is-the-coverage shape §255 records
-one level down. That leg is now enforced structurally: `version-restore.test.ts`'s "seeds every
-kind:'list' slice the registry declares" fails BY NAME when a new list spec lands unseeded. So the
-residual hole needs the SAME mistake made TWICE — a wrong field name in the spec **and** the same
-wrong field name in the fixture record — which is a much narrower target than the one this slice
-walked into, but it is not closed.
+one level down. That leg is enforced structurally: `version-restore.test.ts`'s "seeds every
+kind:'list' slice the registry declares" fails BY NAME when a new list spec lands unseeded.
+
+★★★ **AND THAT TEST NOW ENFORCES COVERAGE RATHER THAN PRESENCE. An earlier revision of this
+entry said the residual hole needed the SAME mistake made TWICE; for the cheaper failure that was
+false, and one mistake was enough.** The test counted keys with `Object.keys`, which cannot tell a
+real seed from `foo: []` or from a record identical on both sides. Both of those produce NO diff
+change, so `applyRestore` never walks the slice and BOTH guards this fixture feeds go blind for
+it — the array-as-object guard §255 records, and the `#id` detector this entry is about — while
+the by-name test stays green. A contributor who hit the by-name failure and silenced it with an
+empty or a non-differing entry therefore re-opened §255 and §261 together with a single lazy
+seed. A slice now counts as seeded only when its Old-side value is a NON-EMPTY array whose JSON
+DIFFERS from its New-side value. Mutation-proved both ways: cutting `tasks` to `[]`, and setting
+its New-side value identical to its Old-side one, each turn the test RED naming `tasks` — one
+failure, eighteen passes, in both runs.
+
+**What remains open is the narrower target the sentence above described:** a wrong field name in
+the spec matched by the same wrong field name in the fixture record. No test can see that one —
+the fixture is the oracle, so a fixture that agrees with the spec's mistake makes the mistake
+invisible. Only the generic-key option below closes it.
 
 **Option considered and NOT taken:** make `CollectionSpec` generic in its key so `nameField` is
 `keyof Workspace[K][number]`, which would make the whole class a compile error. It is awkward for a
@@ -19109,6 +19132,36 @@ union of sixteen generic instantiations rather than one interface), and it would
 `version-diff.test.ts`'s registry push/pop test, which appends a synthetic spec to the live array
 and pops it. Worth doing if a sixth instance ever appears; not worth a type refactor of the
 registry on the strength of five already-fixed ones.
+
+★★ **`documentVersions` STILL LABELS EVERY ROW `#id`, AND NOTHING IN THE REPO SAYS WHY.** Its
+`COLLECTION_SPECS` row carries neither `nameField` nor `nameOf` — `{ key: "documentVersions",
+label: "Document versions", kind: "list", restorable: false }` — while the `DocVersion` type
+carries a `title: string` that would serve. The comment block above that row explains
+`restorable: false` at length (`applyDocMutation` owns document history) and says nothing at all
+about naming, and its `documents` neighbour is `restorable: false` **with** `nameField: "title"`,
+so "non-restorable rows do not need names" is not the repo's rule either. Verified by reading the
+spec row and the type, not inferred: the omission is simply **unaddressed**, not a recorded
+decision. ★★★ It is also excluded from the only detector BY CONSTRUCTION and will stay excluded
+however long it sits here: `version-diff.test.ts`'s "never falls back to #id for a
+fully-populated record" filters `COLLECTION_SPECS` to `s.nameField || s.nameOf` before it looks
+at anything, so a spec with neither can never appear in its result. Adding a `nameField` here is
+the whole fix and it would enrol itself in the detector at the same time.
+
+★★ **THE VISIBLE ROW LABEL LOST THE DISAMBIGUATOR THE ACCESSIBLE NAME KEPT.**
+`version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the
+occurrence-numbered token from `buildRowTokens` reaches only the `aria-label` (via `rowLabel`, at
+every per-row control in both layouts). Before this slice the five repaired slices —
+`tasks`/`resources`/`roles`/`absences`/`shifts` — were unique BY CONSTRUCTION, because `#id` is
+unique; naming them by a real field made them collidable, so two tasks sharing a `taskName` now
+render two visually identical rows. A screen-reader user hears "(1)" and "(2)"; a sighted user
+gets nothing to tell the rows apart. The component behaviour is pre-existing — this slice
+enlarged the collidable population rather than introducing the gap. ★★★ **The obvious precedent
+does NOT cover the visible half, and reading it as if it did would ship the wrong fix.**
+`documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**; its
+VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it
+is precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
+visible-label question here has no precedent in the repo — a fix has to choose one (an `#id`
+suffix, the occurrence token, or a per-row secondary field) rather than copy one.
 
 ## 262. `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI
 
