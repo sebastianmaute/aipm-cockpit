@@ -29,6 +29,21 @@ export interface VersionChange {
   restorable?: false;
 }
 
+/** THE one reading of a CHANGE's `restorable` flag. ★★ The rule had four
+ *  independent copies — `selectableSelection` and `recordSelection` in
+ *  `history-panel.tsx`, and `revertible` twice in `version-diff-view.tsx`, once
+ *  per layout — while `recordSelection`'s own docstring claimed the paths
+ *  "enforce ONE rule from ONE place". They agreed, but nothing made them: a
+ *  layout forgetting one of its two gates is named in `docs/open-followups.md`
+ *  §256 as a way to re-open the defect this closes.
+ *  ★ `applyRestore` deliberately does NOT use this — it gates on the SPEC
+ *  (`spec.restorable === false`), not the change, and the two readings are
+ *  different facts that must not be collapsed. `diffSingleton`'s comment carries
+ *  why. */
+export function isRestorableChange(c: Pick<VersionChange, "restorable">): boolean {
+  return c.restorable !== false;
+}
+
 /** Omitted = restorable. `false` = diff-visible but `applyRestore` SKIPS it,
  *  because the slice owns its own history elsewhere and must keep a single
  *  writer. The diff row is still required: the diff is what arms a capture,

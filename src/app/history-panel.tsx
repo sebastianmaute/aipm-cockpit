@@ -12,6 +12,7 @@ import { TextButton } from "./text-button";
 import { formatDisplayTimestamp } from "./tz-display";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
+import { isRestorableChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { useToastContext } from "./toast-context";
@@ -33,7 +34,7 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 export function selectableSelection(changes: readonly VersionChange[]): RestoreSelection {
   const sel: RestoreSelection = {};
   for (const c of changes) {
-    if (c.restorable === false) continue;
+    if (!isRestorableChange(c)) continue;
     sel[changeKey(c.collection, c.recordId)] = "all";
   }
   return sel;
@@ -42,7 +43,9 @@ export function selectableSelection(changes: readonly VersionChange[]): RestoreS
 /** The single-record counterpart of `selectableSelection`: the selection for ONE
  *  change key, or `null` when that key must not be restored.
  *  ★★ The handler and the two select-all paths must enforce ONE rule from ONE
- *  place. `version-diff-view.tsx` renders no restore control on a non-restorable
+ *  place — `isRestorableChange`, which every one of them now calls rather than
+ *  re-spelling `restorable !== false`.
+ *  `version-diff-view.tsx` renders no restore control on a non-restorable
  *  row, so today nothing can hand this a refused key — but that invariant lives
  *  in the RENDER path alone, and a third caller, a keyboard shortcut or a layout
  *  that forgets one of its two `revertible` gates re-opens it. The symptom would
@@ -50,7 +53,7 @@ export function selectableSelection(changes: readonly VersionChange[]): RestoreS
  *  and reverts nothing (`docs/open-followups.md` §256). */
 export function recordSelection(key: string, changes: readonly VersionChange[]): RestoreSelection | null {
   const change = changes.find((c) => changeKey(c.collection, c.recordId) === key);
-  if (!change || change.restorable === false) return null;
+  if (!change || !isRestorableChange(change)) return null;
   return { [key]: "all" };
 }
 
