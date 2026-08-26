@@ -1,8 +1,9 @@
 # Row-unique accessible names, round 2 — the Tasks surface and the stragglers
 
 _Opened 2026-08-26 against 0.261.0 "Leckie" (main `5a864d3e`). Closes `docs/open-followups.md`
-**§247** and **§248**. Target release **0.262.0 "Swainston"** (spare codename: Marske — both
-verified absent from `CHANGELOG.md`)._
+**§247** and **§248**, and translates the hardcoded English accessible names that grounding turned up
+(§5). Opens one new entry for what that sweep deliberately excludes. Target release
+**0.262.0 "Swainston"** (spare codename: Marske — both verified absent from `CHANGELOG.md`)._
 
 Round 1 was the row-unique-accessible-names slice (`2026-08-25-row-unique-accessible-names-design.md`,
 shipped 0.259.0). It closed what it could reach and filed §245–§248 for what it could not. This slice
@@ -99,10 +100,34 @@ passing it to `TaskActionsImpl` costs more than 7 lines. The file must shrink be
 `RowContextValue`, `RowContext`, `RowContextProvider`, `useTaskRowContext`, the separate
 `RowLookupContext`, and `useTaskLookup` — roughly 98 lines. `task-row.tsx` lands ≈ 701.
 
-★ **No import cycle.** `task-row.tsx` imports the hooks FROM the new module; so does `tasks-section.tsx`
-(which today imports `RowContextProvider` and `RowContextValue` from `./task-row`). Nothing imports
-back. Re-exporting the moved names from `task-row.tsx` for compatibility is **deliberately NOT done** —
-that is the shape that produced the live `document-table-editor` cycle; update the importers instead.
+★★★ **`task-row.tsx` MUST RE-EXPORT the moved names, and an earlier revision of this spec said the
+opposite.** It read: "Re-exporting the moved names from `task-row.tsx` for compatibility is
+deliberately NOT done — that is the shape that produced the live `document-table-editor` cycle;
+update the importers instead." That was reasoned from a general rule and is wrong here, for a reason
+only measurement finds:
+
+```bash
+sed -n '18,31p' src/app/tasks-section.test.tsx
+```
+
+`tasks-section.test.tsx` carries `vi.mock("./task-row", () => ({ RowContextProvider, TaskRow }))` — a
+**full factory mock with no `importOriginal`** — to capture the provider's `value` prop so tests can
+drive `onInlinePatch` directly. Point `tasks-section.tsx` at a new module path and that mock stops
+intercepting the provider, the real one renders, `capturedRowContext.current` stays null, and those
+tests fail. The "update the importers instead" instruction would have produced exactly that.
+
+**So:** `task-row.tsx` ends with
+
+```ts
+export { RowContextProvider, useTaskRowContext, useTaskLookup, type RowContextValue } from "./task-row-context";
+```
+
+and `tasks-section.tsx`'s import line is **unchanged**. One line spent; the move stays pure.
+
+★ **No cycle results.** The `document-table-editor` cycle exists because the re-exported module
+imports BACK from its re-exporter. `task-row-context.tsx` imports only `react`, `./i18n`,
+`./settings-types` and `./types` — none of which reach `task-row.tsx`. The rule worth carrying is "a
+re-export is a cycle only when the target imports back", not "never re-export".
 
 ★ `task-row-context.tsx` is a `.tsx` file, so it is outside the coverage gate — the extraction cannot
 move a coverage floor.
@@ -139,7 +164,7 @@ to span lanes and columns, not sit inside one of them.
 | Component | Change |
 |---|---|
 | `TaskRow` (`task-row.tsx`) | `rowToken: string` on `TaskRowProps`; threaded to `TaskActionsImpl` (whose props become `{ task, isPushing, rowToken }`) |
-| `TaskKanbanBoard` / `TaskKanbanSwimlanes` | `tokens: ReadonlyMap<number, string>` prop; pass `rowToken` per card |
+| `TaskKanban` / `TaskKanbanSwimlanes` | `tokens: ReadonlyMap<number, string>` prop; pass `rowToken` per card. ★ The board component is exported as **`TaskKanban`**, not `TaskKanbanBoard` — the FILE is `task-kanban-board.tsx`. An earlier revision of this table used the file name as the symbol; verify with `grep -n "^export function" src/app/task-kanban-board.tsx` |
 | `TaskKanbanCard` | `rowToken: string` prop. ★ Its own header comment already says "PROPS, never context: the board renders cards OUTSIDE RowContextProvider" — this follows that rule rather than fighting it |
 | `TaskStatusSelect` | `rowToken: string`, **required**. Label becomes `rowLabel(t(lang, "colTaskStatus"), rowToken)` |
 
@@ -285,11 +310,31 @@ reasoning rather than re-deriving it. It binds every caller that passes `text`.
 
 ## 5. i18n
 
-**Zero new keys.** `rowLabel` composes an existing verb with the token; the qualifier for
-`learning-insights` reuses `learningColOverride` plus the already-translated `sourceLabel(lang, kind)`.
+★★★ **SUPERSEDED 2026-08-26, and the original text is kept because it explains what the change
+COSTS.** This section read: "**Zero new keys.** `rowLabel` composes an existing verb with the token
+… That is a deliberate design constraint, not a coincidence: it keeps `i18n.de.ts` out of the branch
+entirely, and with it the CRLF + umlaut-corruption hazard that file carries."
 
-★ That is a deliberate design constraint, not a coincidence: it keeps `i18n.de.ts` out of the branch
-entirely, and with it the CRLF + umlaut-corruption hazard that file carries.
+The 2.4.6 work still needs no keys — that half stands. What changed is scope: grounding §4 turned up
+`resource-directory.tsx`'s role select carrying `` aria-label={`Role for ${resourceDisplayName(resource)}`} ``
+— row-keyed **and hardcoded English**, on the exact line the token fix touches. Leaving the
+untranslated half is the "the analysis was done, on the same rows, and simply not applied" pattern
+§248 exists to record, so the slice now also **translates the hardcoded accessible names**, swept
+repo-wide.
+
+**The sweep is ENUMERATED, not open-ended** — 10 sites, **7 new keys**. The list, the four exclusion
+classes and their reasons live in the plan's Task 15; reproduce it with the two greps there before
+starting, and if they return more than the listed set, stop and report rather than widening.
+
+★★ **The cost is real and is exactly what the superseded text named.** `i18n.de.ts` is back in the
+branch, and three of the seven German strings carry umlauts ("Rolle für", "Auslastung für",
+"Abwesenheits-Überschreibung"). It is CRLF (`i/lf w/crlf`), the Edit tool corrupts umlauts and curls
+double quotes there, and the `i18n-encoding` test BANS both `\u00XX` escapes and ASCII substitutions
+like `fuer`. Every edit goes through an anchored node utf8 write matching `\r\n` — the procedure is
+the plan's Task 16, and its Step 3 verifies the umlauts survived AND that the file was not re-lined.
+
+★ `tsc` enforces EN/DE key-set parity, so a key added to one dictionary and not the other fails the
+typecheck rather than shipping.
 
 ---
 
@@ -404,3 +449,5 @@ bullet is about.
 | A test passes for a second, independent reason after a narrowing | Round 1's own lesson: after narrowing any guard, re-mutate the part you KEPT |
 | Two same-named tasks in one lane vs across lanes behave differently | The swimlanes test seeds the pair in DIFFERENT lanes on purpose |
 | The token changes a VISIBLE label by accident | Only accessible-name positions take the token; the name cell's text and `title` are asserted unchanged |
+| The i18n sweep grows without bound | Its set is ENUMERATED in the plan's Task 15 with four stated exclusion classes; the two reproduce greps run first, and more hits than the listed set stops the task rather than widening it |
+| A German umlaut is corrupted writing `i18n.de.ts` | Anchored node utf8 write matching `\r\n`, never the Edit tool; Task 16 Step 3 asserts the three umlaut strings round-trip AND that `git ls-files --eol` still reports `w/crlf` |
