@@ -17431,7 +17431,7 @@ bare, and both render on screen at once; the code carries a comment recording wh
 
 ---
 
-## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red
+## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red — CLOSED 2026-08-26
 
 **Status:** open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
 The class is already recorded — §22's test-validity note states it and names the cure — but no entry
@@ -17517,6 +17517,93 @@ with every property added; enumerate before assuming a fix here is the end of it
 ```bash
 grep -rln "toBeGreaterThan\|toBeGreaterThanOrEqual" src/app/*.property.test.ts
 ```
+
+---
+
+★★★ **AUDITED AND CLOSED 2026-08-26 on `chore/gate-blind-spots`. THE "19 of 31" ABOVE COUNTS THE
+WRONG THING, AND EVERY PARAGRAPH ABOVE THIS LINE IS KEPT AS WRITTEN** — deleting a superseded figure
+makes the correction unverifiable. That figure is a `grep` for `toBeGreaterThan`, which sweeps in
+every PER-RUN INVARIANT asserted INSIDE an `fc.property` callback. `expect(r.total)
+.toBeGreaterThanOrEqual(0)` is the property being tested, not a guard against a generator that never
+produced an interesting case. **A reader sizing the work from it over-scopes by more than half.**
+
+Classifying by whether the assertion sits inside the callback gives **43 outside and 24 inside**, and
+**eight of the 43 are still not floors**: four in `document-model.property.test.ts` sit inside
+`assertBlockInvariants` and `assertDocInvariants`, two in `export-sections.rich.property.test.ts`
+inside `cellFor`, one is that file's `RICH_TARGETS` length check, and one in
+`gantt-engine.property.test.ts` compares the imported constants `LEFT_GUTTER_PX` and
+`GANTT_NAME_COL_MIN`.
+★★ The eight were caught by READING, not by the scan — the scan cannot tell "outside the callback"
+from "counts runs", so re-running it does not reproduce this filter. ★ The `RICH_TARGETS` one needs
+precise wording: it IS an anti-vacuity assertion and its own comment says so, but it is **not a run
+counter** — it is structural and seed-independent, so it carries no flake risk. Calling it "not an
+anti-vacuity assertion" would contradict the file.
+
+**The real surface is 35 anti-vacuity floors across 7 files, and they were never all defective.**
+
+| file | floors | construction-backed before | probabilistic | thin (fixed here) |
+|---|---|---|---|---|
+| `codec-roundtrip.property.test.ts` | 12 | 0 | 12 | **6** |
+| `entity-id-mint.property.test.ts` | 8 | 0 | 8 | **3** |
+| `rich-text-plain.property.test.ts` | 5 | 1 | 4 | 0 |
+| `document-model.property.test.ts` | 3 | 0 | 3 | 0 |
+| `export-sections.rich.property.test.ts` | 3 | 0 | 3 | 0 |
+| `sanitize-core.property.test.ts` | 3 | 3 | 0 | 0 |
+| `document-mutations.property.test.ts` | 1 | 1 | 0 | 0 |
+| **total** | **35** | **5** | **30** | **9** |
+
+**Nine floors were thin and all nine are now constructed.** The other 21 probabilistic floors carry
+per-run failure rates between 4e-7 and 1e-19 — four of them backed by exact-binomial figures already
+written into their files — and were deliberately left alone. Fixing them would be churn.
+
+**`entity-id-mint.property.test.ts`** — `taggedCase` draws the branch first (p = 1/3 each), and
+`existenceCase` draws taken-vs-free at 11:9, chosen because `taken + free === 50` and the floors are
+asymmetric (`taken > 10`, `free > 5`), so an even split would have *degraded* `taken`.
+
+| floor | before (pooled 40,000 trials) | after |
+|---|---|---|
+| `uncontended > 0` | 0.058% | 0 in 20,000; constructed `(2/3)^50` = 1.6e-9 |
+| `free > 5` (two tests) | 0.028% each | 0 in 20,000; exact binomial 9.3e-8 |
+| `taken > 10` (two tests) | 0 in 40,000 | 0 in 20,000; exact binomial 4.3e-7 |
+
+**`codec-roundtrip.property.test.ts`** — `hazardLoadedString` splices two hazard chunks of a
+uniformly-drawn distinct class pair into each loaded value, giving p = 1/3 per class. Class pools are
+DERIVED from the same predicate record the tally counts with, applied to the CR-stripped chunk — the
+step that makes one pool serve both alphabets. Worst evaluation went from **7.5e-5** to a constructed
+bound of **2.2e-8**; the smallest of the twelve minima moved from **6 to 23**.
+
+★★★ **THE FILE'S OWN JUSTIFICATION WAS FALSE, AND THAT IS THE LESSON HERE.** It read: "the lowest
+single value across every class and both alphabets was 16 (astral) … The floor sits at half that
+worst case, so a normal seed cannot flake." Over 80,000 pooled samples the true minimum was **6**, and
+four of the twelve evaluations were failing at between 1.3e-5 and 7.5e-5. **16 was the minimum of ten
+tallies, generalised into a property of the generator.** A margin stated against an observed minimum
+is not a probability, and this is what that mistake looks like when it is wrong.
+
+★★ **MEASURE BOTH CALL SITES.** `expectHazards` runs at two sites over two alphabets, so six source
+lines are **twelve evaluations per suite run**. `mdSafeString` adds a CR-stripping map and a rejecting
+filter, halving the newline-bearing chunk pool and dropping that counter's mean from 38.8 to 25.1.
+**Three of the four failing evaluations were Markdown-only** — measuring the CSV alphabet alone would
+have shown a worst case of 1.3e-5 and justified doing nothing.
+
+★★ **AN ESTIMATE READ OFF AN ARBITRARY IS NOT A MEASUREMENT, AND ONE WAS WRONG IN THE UNSAFE
+DIRECTION.** The audit estimated `free > 5` at 1e-3…1e-2 and judged it "plausibly an order of
+magnitude worse" than `uncontended`, which would have made it the file's worst floor. Measurement put
+it at 2.8e-4, **2.5× better**. It could not be settled by reading because it turns on `P(empty)` for
+`fc.uniqueArray({minLength: 0, maxLength: 8})`, a fast-check size-bias question rather than a property
+of the file — and the audit flagged itself UNSURE on exactly that. **Never scope a fix from an
+estimated probability.**
+
+★★ WHAT THIS DOES NOT COVER. The audit classified assertions OUTSIDE an `fc.property` callback in
+`src/app/*.property.test.ts`. It says nothing about floors in `e2e/`, counters asserted by a helper
+the scan cannot see through, or **a NEW property landing with a probabilistic floor — nothing gates
+that**, and the classification above is stale the moment one does. The 21 left alone were judged from
+measured or exact-binomial rates, not proved safe for all time.
+
+★ Re-run the candidate scan with the command in `docs/superpowers/plans/2026-08-26-gate-blind-spots.md`
+(Task 9, Step 1); the eight non-floors must still be filtered by reading, so it over-reports by design.
+The measurement harness is `scripts/measure-property-floor.mjs`, whose header records three ways to
+misread it — a `>=` floor needs `floor - 1`, rare-event runs must be pooled before quoting, and a
+zero is not a bound.
 
 ## 245. The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface
 
