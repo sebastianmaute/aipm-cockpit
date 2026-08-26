@@ -118,7 +118,22 @@ npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next 
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
                             # ALREADY an exact match) passes build + tests but FAILS tsc (CI). Run
-                            # `npx tsc --noEmit` after editing ANY test. fast-check gotchas that pass
+                            # `npx tsc --noEmit` after editing ANY test.
+                            # ★★ THAT RULE IS TESTING-LIBRARY ONLY (`*.test.tsx`), AND PLAYWRIGHT IS
+                            # THE EXACT OPPOSITE — reading it as universal cost three debug cycles on
+                            # 2026-08-26. RTL's string `name` is a whole-string match and has no
+                            # `exact` option; Playwright's `getByRole` takes one and it DEFAULTS TO
+                            # FALSE, so a bare `name` is a case-INSENSITIVE SUBSTRING. Verify, don't
+                            # trust this line: `grep -n "exact?: boolean" -B 8
+                            # node_modules/playwright-core/types/types.d.ts` prints "Whether to find
+                            # an exact match: case-sensitive and whole-string. Default to false."
+                            # ★★ In `e2e/` that bites TWO ways and the second is silent. LOUD: a bare
+                            # title matches every per-row control named `"<verb> – <title>"` (six
+                            # elements in `documents-list.tsx`) → a strict-mode violation that names
+                            # itself. SILENT: a bare `"Rename"` on a modal's commit button ALSO
+                            # matches the row trigger behind the open modal, so the click lands on
+                            # whichever the engine resolves first. Pass `exact: true` in e2e specs.
+                            # fast-check gotchas that pass
                             # vitest but FAIL tsc/the test: `fc.date()` can emit an Invalid Date →
                             # `.toISOString()` throws — pass `{noInvalidDate:true}` or map an integer
                             # ms range to `new Date(ms)`; the regex `/s` (dotAll) flag fails tsc
