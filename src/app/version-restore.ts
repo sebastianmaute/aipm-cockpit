@@ -5,19 +5,28 @@
 // changes reverted toward the version. Immutable; never mutates inputs.
 
 import type { Workspace } from "./workspace";
-import { COLLECTION_SPECS, type VersionChange } from "./version-diff";
+import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
 
 /** Selection keyed by changeKey(collection, recordId); value is "all" (whole
  *  record / all changed fields) or an explicit list of field names. */
 export type RestoreSelection = Record<string, "all" | string[]>;
 
-export function changeKey(collection: string, recordId: number | null): string {
-  return `${collection}:${recordId ?? "_"}`;
+/** ★★ NOT a `${collection}:${id}` join, and the reason is a data defect rather
+ *  than tidiness. `knowledgeItems` ids are STRINGS, so a raw join is ambiguous
+ *  two ways: an id containing the separator makes `x` + `a:b` collide with
+ *  `x:a` + `b`, and an id of literally "_" collides with the `null` singleton
+ *  sentinel. Either one silently reverts the WRONG record — the selection finds
+ *  its change by this key. JSON encoding is unambiguous for both and stays
+ *  readable in a devtools inspection.
+ *  ★ Keys are built and looked up within ONE session (`RestoreSelection` is
+ *  never persisted), so changing this format needs no compatibility shim. */
+export function changeKey(collection: string, recordId: RecordId | null): string {
+  return JSON.stringify([collection, recordId ?? null]);
 }
 
 type Rec = Record<string, unknown>;
-const byId = (arr: unknown[]): Map<number, Rec> =>
-  new Map((arr ?? []).map((r) => [(r as { id: number }).id, { ...(r as Rec) }]));
+const byId = (arr: unknown[]): Map<RecordId, Rec> =>
+  new Map((arr ?? []).map((r) => [(r as { id: RecordId }).id, { ...(r as Rec) }]));
 
 function mergeFields(target: Rec, source: Rec, fields: string[] | "all", allChanged: string[]): Rec {
   const picks = fields === "all" ? allChanged : fields;
@@ -47,7 +56,7 @@ export function applyRestore(
       for (const [selKey, sel] of Object.entries(selection)) {
         const change = changeByKey.get(selKey);
         if (!change || change.collection !== key) continue;
-        const id = change.recordId as number;
+        const id = change.recordId as RecordId;
         if (change.type === "removed") {
           cur.set(id, ver.get(id)!);
           touched = true;

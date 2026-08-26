@@ -203,3 +203,24 @@ describe("applyRestore over array-typed slices", () => {
     expect(broken).toEqual([]);
   });
 });
+
+describe("changeKey", () => {
+  // Both cases below are silent WRONG-RECORD restores, not crashes: the key is
+  // how a selection finds its change, so two records sharing a key means the
+  // user reverts one and the other one moves.
+  it("keeps two records distinct when a string id contains the separator", () => {
+    // `${collection}:${id}` cannot tell these apart: "a:b" in collection "x"
+    // and "b" in collection "x:a" both render "x:a:b".
+    expect(changeKey("x", "a:b")).not.toBe(changeKey("x:a", "b"));
+  });
+  it("keeps a string id of \"_\" distinct from the singleton sentinel", () => {
+    // `recordId ?? "_"` renders null as "_", so a record literally named "_"
+    // collides with its own collection's singleton row.
+    expect(changeKey("x", "_")).not.toBe(changeKey("x", null));
+  });
+  it("still round-trips a plain numeric id and a null", () => {
+    expect(changeKey("tasks", 1)).toBe(changeKey("tasks", 1));
+    expect(changeKey("tasks", 1)).not.toBe(changeKey("tasks", 2));
+    expect(changeKey("project", null)).toBe(changeKey("project", null));
+  });
+});
