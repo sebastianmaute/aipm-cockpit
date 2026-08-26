@@ -9,6 +9,7 @@ import {
   type SortDir,
 } from "./report-table";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { buildRowTokens } from "./row-tokens";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
@@ -208,6 +209,17 @@ function MilestonesPanelBody({
   }, [milestones]);
 
   const visibleIds = useMemo(() => sorted.map((m) => m.id), [sorted]);
+
+  // Row-unique accessible names (WCAG 2.4.6) for the checkbox / name button /
+  // Ask-Claude / document badge / Achieved toggle — all five key on a
+  // milestone's name, so two milestones sharing a name would otherwise render
+  // identically-named controls. Built over `sorted` (filtered + sorted), the
+  // SAME array actually rendered below, because an occurrence index only means
+  // anything against what is on screen.
+  const rowTokens = useMemo(
+    () => buildRowTokens(sorted.map((ms) => ({ id: ms.id, name: ms.name }))),
+    [sorted],
+  );
 
   // Bulk-editable fields. Milestones have no status/owner; the two date fields
   // mirror the edit modal (target date + sign-off / achieved date).
@@ -499,6 +511,7 @@ function MilestonesPanelBody({
         >
             {sorted.map((m) => {
               const s = milestoneStatus(m, tasksById, today, holidaySet);
+              const token = rowTokens.get(m.id) ?? m.name;
               return (
                 <tr
                   key={m.id}
@@ -507,7 +520,7 @@ function MilestonesPanelBody({
                 >
                   <td className="px-3 py-1" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      aria-label={t(lang, "selectItem", m.name)}
+                      aria-label={t(lang, "selectItem", token)}
                       checked={sel.isSelected(m.id)}
                       onChange={() => sel.toggle(m.id)}
                       className="cursor-pointer"
@@ -518,6 +531,14 @@ function MilestonesPanelBody({
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
+                          // ★ Without this the accessible name is the CONTENT —
+                          // two milestones named "Go live" render two
+                          // identically-named buttons on the row's most
+                          // prominent control. Visible text stays `m.name`;
+                          // 2.5.3 holds by containment (the token starts with
+                          // it), and with no collision the token IS the bare
+                          // name, so this restates the content when unique.
+                          aria-label={token}
                           title={m.name}
                           className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green ${INTERACTIVE}`}
                           onClick={() => {
@@ -528,12 +549,12 @@ function MilestonesPanelBody({
                           {m.name}
                         </button>
                         {onAiEdit && aiEditEnabled?.(m) && (
-                          <InlineAiEditButton lang={lang} label={m.name} onClick={() => onAiEdit(m)} />
+                          <InlineAiEditButton lang={lang} label={token} onClick={() => onAiEdit(m)} />
                         )}
                         <DocumentBadge
                           lang={lang}
                           count={documentsByEntity?.get(refKey("milestone", m.id))?.length ?? 0}
-                          entityTitle={m.name}
+                          entityTitle={token}
                           onOpen={() => requestDocumentsForEntity("milestone", m.id)}
                         />
                       </div>
@@ -555,7 +576,7 @@ function MilestonesPanelBody({
                         lang={lang}
                         pressed={!!m.achievedDate}
                         onToggle={() => toggleAchieved(m)}
-                        ariaLabel={`${t(lang, "milestoneAchieved")} – ${m.name}`}
+                        ariaLabel={`${t(lang, "milestoneAchieved")} – ${token}`}
                       >
                         {t(lang, "milestoneAchieved")}
                       </ToggleButton>

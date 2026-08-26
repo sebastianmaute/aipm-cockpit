@@ -571,6 +571,27 @@ describe("achieved toggle", () => {
   });
 });
 
+// --- row-unique names (WCAG 2.4.6, §247/§248) ------------------------------
+
+describe("row-unique names", () => {
+  // Two rows sharing a name — the checkbox / name button / Ask-Claude button /
+  // Achieved toggle all key on m.name, so without a per-row token every one of
+  // them would render twice with the identical accessible name.
+  it("keeps every per-row control distinct when two rows share a name", () => {
+    renderMilestones({
+      milestones: [
+        { id: 1, name: "Go live", date: "2026-06-10", linkedTaskIds: [] },
+        { id: 2, name: "Go live", date: "2026-06-20", linkedTaskIds: [] },
+      ],
+    });
+    expectRowUniqueNames({
+      minControls: 16,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+});
+
 // --- linked-documents badge ------------------------------------------------
 
 describe("MilestonesPanel linked-documents badge", () => {
