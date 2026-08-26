@@ -1,6 +1,6 @@
-import { it, expect, vi } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
-import { HistoryPanel, selectableSelection } from "./history-panel";
+import { HistoryPanel, selectableSelection, recordSelection } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { ToastProvider } from "./toast-context";
 import { t } from "./i18n";
@@ -491,4 +491,28 @@ it("disables all three compare controls while a restore is running", async () =>
 
   await act(async () => { release([]); });
   [...toolbar, perRow].forEach((b) => expect(b).not.toBeDisabled());
+});
+
+// ── §256: recordSelection — the single-record counterpart of selectableSelection ──
+
+describe("recordSelection", () => {
+  const change = (collection: string, recordId: number, restorable?: false): VersionChange => ({
+    collection, collectionLabel: collection, kind: "list", recordId,
+    recordLabel: `#${recordId}`, type: "modified", fields: [],
+    ...(restorable === false ? { restorable: false as const } : {}),
+  });
+
+  it("selects a restorable record by its key", () => {
+    const changes = [change("tasks", 1)];
+    expect(recordSelection(changeKey("tasks", 1), changes)).toEqual({ [changeKey("tasks", 1)]: "all" });
+  });
+
+  it("refuses a change marked restorable: false", () => {
+    const changes = [change("documents", 7, false)];
+    expect(recordSelection(changeKey("documents", 7), changes)).toBeNull();
+  });
+
+  it("refuses a key that names no change in the diff", () => {
+    expect(recordSelection(changeKey("tasks", 99), [change("tasks", 1)])).toBeNull();
+  });
 });

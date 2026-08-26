@@ -39,6 +39,21 @@ export function selectableSelection(changes: readonly VersionChange[]): RestoreS
   return sel;
 }
 
+/** The single-record counterpart of `selectableSelection`: the selection for ONE
+ *  change key, or `null` when that key must not be restored.
+ *  ★★ The handler and the two select-all paths must enforce ONE rule from ONE
+ *  place. `version-diff-view.tsx` renders no restore control on a non-restorable
+ *  row, so today nothing can hand this a refused key — but that invariant lives
+ *  in the RENDER path alone, and a third caller, a keyboard shortcut or a layout
+ *  that forgets one of its two `revertible` gates re-opens it. The symptom would
+ *  be the one this whole slice exists to remove: a control that reports success
+ *  and reverts nothing (`docs/open-followups.md` §256). */
+export function recordSelection(key: string, changes: readonly VersionChange[]): RestoreSelection | null {
+  const change = changes.find((c) => changeKey(c.collection, c.recordId) === key);
+  if (!change || change.restorable === false) return null;
+  return { [key]: "all" };
+}
+
 interface HistoryPanelProps {
   lang: Lang;
   versions: ProjectVersionMeta[];
@@ -241,7 +256,12 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreRecord = (key: string) => {
     const rf = restoreFrom;
     if (!rf) return;
-    void runExclusiveRestore(() => restore(rf.id, { [key]: "all" }, rf.label)).then((ok) => {
+    // Refuse a key `applyRestore` would skip, rather than reporting success over
+    // a row nothing reverted. Unreachable through the rendered UI today — see
+    // `recordSelection`.
+    const sel = recordSelection(key, diff ?? []);
+    if (!sel) return;
+    void runExclusiveRestore(() => restore(rf.id, sel, rf.label)).then((ok) => {
       // Only clear the compare/selection context on a real success — a failed
       // restore (surfaced via onError) leaves it intact so the user can retry.
       if (!ok) return;
