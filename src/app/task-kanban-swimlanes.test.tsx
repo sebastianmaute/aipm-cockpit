@@ -4,6 +4,7 @@ import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import type { Resource, Task } from "./types";
 import { buildRowTokens } from "./row-tokens";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { indexDocumentsByEntity } from "./document-ref";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -154,6 +155,19 @@ describe("TaskKanbanSwimlanes", () => {
       taskFix({ id: 1, taskName: "Alpha", resourceId: 10, status: "To Do" }),
       taskFix({ id: 2, taskName: "Alpha", resourceId: 20, status: "To Do" }),
     ];
+    // One linked document per task, so DocumentBadge (count > 0) renders on
+    // BOTH twins, plus onAiEdit/aiEditEnabled and assignableResources/onAssign
+    // — mirroring task-kanban-card.test.tsx's own collision fixture — so this
+    // test proves the SWIMLANE component's pass-through of those props, not
+    // just the card's own logic (already proven there). Without them only 2
+    // of the card's 4 converted sites ever render here.
+    const documentsByEntity = indexDocumentsByEntity([
+      { id: 40, title: "Doc 40", blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: [{ kind: "task", id: 1 }] },
+      { id: 41, title: "Doc 41", blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: [{ kind: "task", id: 2 }] },
+    ]);
+    const assignableResources: Resource[] = [
+      { id: 30, firstName: "Cara", lastName: "Diallo", roleId: null, utilizationMode: "percent", utilization: {} } as Resource,
+    ];
     const { container } = render(
       <TaskKanbanSwimlanes
         lang="en-US"
@@ -165,10 +179,16 @@ describe("TaskKanbanSwimlanes", () => {
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
         onRemoveLane={vi.fn()}
+        documentsByEntity={documentsByEntity}
+        onOpenDocuments={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => true}
+        assignableResources={assignableResources}
+        onAssign={vi.fn()}
       />,
     );
     expectRowUniqueNames({
-      minControls: 4,
+      minControls: 10,
       scope: container,
       roles: ["button", "combobox"],
       requireCollisionSeed: true,
