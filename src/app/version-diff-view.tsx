@@ -69,6 +69,24 @@ export function VersionDiffView({
   const keyOf = (c: VersionChange) => changeKey(c.collection, c.recordId);
   const toggle = (k: string) => setOpen((s) => { const n = new Set(s); if (n.has(k)) n.delete(k); else n.add(k); return n; });
 
+  // ★★ Row-unique accessible names. `recordLabel` uses the record's nameField,
+  // and two documents titled "Q3 report" (or two tasks named "Alpha") are
+  // ordinary — so the bare label names two checkboxes identically, a WCAG 2.4.6
+  // fail no gate in this repo can see. A per-item component cannot fix this:
+  // only the list owner can see the siblings, which is why the map is built
+  // HERE and threaded down.
+  // ★★★ BUILT ONCE OVER **ALL** `changes`, NEVER PER GROUP. It used to be built
+  // inside each group map, over that group's items alone — and `buildRowTokens`
+  // emits the BARE name when a name occurs once in the rows it was handed. So a
+  // task named "Go-live" and a milestone named "Go-live" each got the bare token
+  // in their own group and rendered two identically-named checkboxes and two
+  // identically-named restore buttons, in ONE document, with every group on
+  // screen at once. Cross-collection name overlap ("Go-live", "UAT sign-off") is
+  // ordinary, and every collision test seeded a single collection, so nothing
+  // caught it. The keys are `keyOf(c)` = `changeKey(collection, recordId)`,
+  // already globally unique, so one map serves every group.
+  const tokens = buildRowTokens(changes.map((c) => ({ id: keyOf(c), name: c.recordLabel })));
+
   if (layout === "sideBySide") {
     // For a two-version compare: earlier state on the left, later on the right.
     // `before` is the earlier (from) version, `after` the later (to) version.
@@ -80,9 +98,7 @@ export function VersionDiffView({
             <span className="truncate">{rightLabel}</span>
           </div>
         )}
-        {[...groups.entries()].map(([label, items]) => {
-          const tokens = buildRowTokens(items.map((c) => ({ id: keyOf(c), name: c.recordLabel })));
-          return (
+        {[...groups.entries()].map(([label, items]) => (
           <div key={label}>
             <h3 className="mb-1 text-sm font-semibold text-foreground">{label}</h3>
             <ul className="flex flex-col gap-2">
@@ -132,23 +148,14 @@ export function VersionDiffView({
               })}
             </ul>
           </div>
-          );
-        })}
+        ))}
       </div>
     );
   }
 
   return (
     <div className="flex flex-col gap-3">
-      {[...groups.entries()].map(([label, items]) => {
-        // ★★ Row-unique accessible names. `recordLabel` uses the record's
-        // nameField, and two documents titled "Q3 report" (or two tasks named
-        // "Alpha") are ordinary — so the bare label names two checkboxes
-        // identically, a WCAG 2.4.6 fail no gate in this repo can see. A
-        // per-item component cannot fix this: only the list owner can see the
-        // siblings, which is why the map is built HERE and threaded down.
-        const tokens = buildRowTokens(items.map((c) => ({ id: keyOf(c), name: c.recordLabel })));
-        return (
+      {[...groups.entries()].map(([label, items]) => (
         <div key={label}>
           <h3 className="mb-1 text-sm font-semibold text-foreground">{label}</h3>
           <ul className="flex flex-col gap-1">
@@ -219,7 +226,13 @@ export function VersionDiffView({
                               size="sm"
                               checked={selection[k] === "all" || (Array.isArray(selection[k]) && (selection[k] as string[]).includes(f.field))}
                               onChange={() => onToggleField?.(k, f.field)}
-                              aria-label={f.label}
+                              // ★★ QUALIFIED BY THE ROW, not the bare field
+                              // label. Several records can be expanded at once,
+                              // so two rows both showing a changed "Title"
+                              // rendered two checkboxes named "Title" — the same
+                              // WCAG 2.4.6 fail as the record controls, one
+                              // level down (register §257).
+                              aria-label={rowLabel(f.label, tokens.get(k) ?? c.recordLabel)}
                               className="mr-1"
                             />
                           )}
@@ -236,8 +249,7 @@ export function VersionDiffView({
             })}
           </ul>
         </div>
-        );
-      })}
+      ))}
     </div>
   );
 }

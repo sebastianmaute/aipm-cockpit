@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { diffWorkspaces, summarizeDiff } from "./version-diff";
+import { COLLECTION_SPECS, diffWorkspaces, summarizeDiff } from "./version-diff";
 import type { Workspace } from "./workspace";
 
 function ws(over: Partial<Workspace>): Workspace {
@@ -62,6 +62,42 @@ describe("diffWorkspaces", () => {
       ["calendarEvents", "New"],
       ["insights", "milestoneSlip"],
     ]);
+  });
+});
+
+// ★★ TWO READINGS OF ONE FACT. `applyRestore` gates on the SPEC's `restorable`;
+// `VersionDiffView` and `selectableSelection` gate on the CHANGE's. They agree
+// only while every producer copies the flag — `diffList` always did, and
+// `diffSingleton` did NOT. A singleton declaring it would then have been skipped
+// by the restore while the UI offered a checkbox and a "Restore this" button for
+// it: the silent no-op the flag exists to remove.
+describe("restorable propagation", () => {
+  // ★★ NO SINGLETON DECLARES THE FLAG TODAY, so this is unreachable through the
+  // real registry and there is nothing honest to assert against it — which is
+  // exactly why the omission shipped unseen. The spec is appended to the live
+  // registry and removed in `finally`: vitest runs a file's tests serially, so
+  // nothing else can observe it, and the `finally` holds even if an assertion
+  // throws. Do NOT convert this to a stub of `diffSingleton` — a stub would
+  // stop tracking the registry the day a real singleton takes the flag.
+  it("carries restorable: false from a singleton spec onto its change", () => {
+    COLLECTION_SPECS.push({
+      key: "status", label: "Synthetic non-restorable singleton",
+      kind: "singleton", restorable: false,
+    });
+    try {
+      const c = diffWorkspaces(
+        ws({ status: { note: "Old" } as never }),
+        ws({ status: { note: "New" } as never }),
+      );
+      const synthetic = c.find((x) => x.collectionLabel === "Synthetic non-restorable singleton");
+      expect(synthetic?.restorable).toBe(false);
+      // ...and the flag is COPIED, not stamped on every singleton: the real
+      // `status` spec declares nothing, so its change must omit it. Without
+      // this, `restorable: false as const` unconditional passes above.
+      expect(c.find((x) => x.collectionLabel === "Project status")?.restorable).toBeUndefined();
+    } finally {
+      COLLECTION_SPECS.pop();
+    }
   });
 });
 

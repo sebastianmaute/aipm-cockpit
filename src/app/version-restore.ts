@@ -66,6 +66,21 @@ export function applyRestore(
     if (spec.restorable === false) continue;
     const key = spec.key as string;
     if (spec.kind === "list") {
+      // ★★★ AN ABSENT KEY IS NOT AN EMPTY SLICE, and treating it as one DELETES
+      // user data. `workspaceToJson` omits an additive slice's key when the
+      // array is empty, and a capture taken before `getVersionPayload` grew to
+      // emit these slices (db217e08, 2026-08-25) could not carry them at all —
+      // so `undefined` means "this capture cannot speak about this slice". Read
+      // as empty, every live record diffs as "added" and the branch below runs
+      // `cur.delete(id)` on all of them. Manual checkpoints are never pruned
+      // (`version-schema.ts` prunes `trigger = 'auto'` only), so a pre-0.259.0
+      // checkpoint stays restorable — and destructive — indefinitely.
+      // ★★ KNOWN IMPRECISION, deliberate: an empty slice and an absent one are
+      // indistinguishable here, so restoring to a capture where the user
+      // genuinely had zero records will NOT re-empty the current ones. That is
+      // the safe direction; separating the two needs a capture-format marker on
+      // the payload, which nothing writes today.
+      if ((version as unknown as Record<string, unknown>)[key] === undefined) continue;
       const cur = byId(current[spec.key] as unknown[]);
       const ver = byId(version[spec.key] as unknown[]);
       let touched = false;

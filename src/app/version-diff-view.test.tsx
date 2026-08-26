@@ -108,6 +108,68 @@ describe("VersionDiffView", () => {
     expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
   });
 
+  // ★★★ CROSS-COLLECTION, which is the case every other collision test here
+  // misses. Each of these names is UNIQUE inside its own group, so a token map
+  // built per group emits both BARE — and both groups render at once, so the
+  // document carries two checkboxes and two restore buttons named identically.
+  // Rebuild the map per group and this goes red with
+  // `"Select – Go-live" x2, "Restore this – Go-live" x2`.
+  it("distinguishes two records that share a name across DIFFERENT collections", () => {
+    const cross: VersionChange[] = [
+      { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1,
+        recordLabel: "Go-live", type: "modified",
+        fields: [{ field: "title", label: "Title", before: "a", after: "b" }] },
+      { collection: "milestones", collectionLabel: "Milestones", kind: "list", recordId: 1,
+        recordLabel: "Go-live", type: "modified",
+        fields: [{ field: "name", label: "Name", before: "a", after: "b" }] },
+    ];
+    render(<VersionDiffView lang="en-US" changes={cross} selectable selection={{}}
+      onToggleRecord={() => {}} onRestoreRecord={() => {}} />);
+    expectRowUniqueNames({
+      roles: ["checkbox", "button"], minControls: 4, requireCollisionSeed: true,
+    });
+  });
+
+  it("distinguishes two records sharing a name across collections in the side-by-side layout", () => {
+    const cross: VersionChange[] = [
+      { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1,
+        recordLabel: "Go-live", type: "modified",
+        fields: [{ field: "title", label: "Title", before: "a", after: "b" }] },
+      { collection: "milestones", collectionLabel: "Milestones", kind: "list", recordId: 1,
+        recordLabel: "Go-live", type: "modified",
+        fields: [{ field: "name", label: "Name", before: "a", after: "b" }] },
+    ];
+    render(<VersionDiffView lang="en-US" changes={cross} layout="sideBySide"
+      onRestoreRecord={() => {}} />);
+    // This branch has its OWN group map, so it needed the same hoist — the
+    // record name is a plain span here, making the restore buttons the only
+    // controls and the whole-document scope exact.
+    expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
+  });
+
+  // ★★ The per-FIELD checkboxes, one level down (register §257). Several records
+  // can be expanded at the same time, and a field label ("Title") is shared by
+  // construction across records — so naming the checkbox `f.label` alone put two
+  // controls called "Title" in one document. Revert the field naming to the bare
+  // `f.label` and this goes red with `"Title" x2`.
+  it("distinguishes the per-field checkboxes of two simultaneously expanded records", () => {
+    const row = (id: number, name: string): VersionChange => ({
+      collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: id,
+      recordLabel: name, type: "modified",
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+    });
+    render(<VersionDiffView lang="en-US" changes={[row(1, "Alpha"), row(2, "Beta")]}
+      selectable selection={{}} onToggleRecord={() => {}} onToggleField={() => {}} />);
+    fireEvent.click(screen.getByText("Alpha"));
+    fireEvent.click(screen.getByText("Beta"));
+    // Both really expanded: 2 record checkboxes + 2 field checkboxes.
+    expect(screen.getAllByRole("checkbox")).toHaveLength(4);
+    expectRowUniqueNames({ roles: ["checkbox"], minControls: 4 });
+    // ...and named from their OWN row, not merely made unique some other way.
+    expect(screen.getByRole("checkbox", { name: /Title.*Alpha/ })).toBeInTheDocument();
+    expect(screen.getByRole("checkbox", { name: /Title.*Beta/ })).toBeInTheDocument();
+  });
+
   it("renders a non-restorable side-by-side row without a restore button", () => {
     const changes: VersionChange[] = [{
       collection: "documents", collectionLabel: "Documents", kind: "list",

@@ -65,14 +65,26 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   //   Pinned by `version-restore.test.ts`'s "turns no array-typed slice of the
   //   workspace into an object", whose diagnostic NAMES the offending slice.
   //   ★★ THAT TEST IS NOT GENERIC OVER THIS REGISTRY — measured by mutation,
-  //   not reasoned. It can only see a slice its own `arrays()` fixture
-  //   POPULATES *and* CHANGES between the two workspaces: `applyRestore`'s
-  //   singleton branch bails on a slice with no diff change, so an empty-in-
-  //   both slice is never corrupted and there is nothing to detect. Flipping
-  //   `milestones` (registered, empty in both fixtures) to `"singleton"` left
-  //   the test GREEN; the identical edit to `calendarEvents` (populated, and
-  //   differing) turned it RED, naming the slice. ADD A NEW ARRAY ROW TO THAT
-  //   FIXTURE or it ships uncovered.
+  //   not reasoned. THREE conditions must ALL hold before it can see a slice,
+  //   and an earlier revision of this comment listed only the first two:
+  //     1. its own `arrays()` fixture POPULATES the slice, *and*
+  //     2. the slice CHANGES between the two workspaces — `applyRestore`'s
+  //        singleton branch bails on a slice with no diff change, so an
+  //        empty-in-both slice is never corrupted and there is nothing to
+  //        detect. Flipping `milestones` (registered, empty in both fixtures)
+  //        to `"singleton"` left the test GREEN; the identical edit to
+  //        `calendarEvents` (populated, and differing) turned it RED, naming
+  //        the slice. *and*
+  //     3. the slice is RESTORABLE. `applyRestore` hits
+  //        `if (spec.restorable === false) continue;` BEFORE the kind branch,
+  //        so a `restorable: false` row can never reach `mergeFields` at all.
+  //        Measured: flipping `documents` — populated AND differing, so 1 and 2
+  //        both hold — to `"singleton"` left the test GREEN.
+  //   SO: adding an array row to that fixture buys coverage only for a
+  //   RESTORABLE row. For a `restorable: false` one it buys NOTHING, and there
+  //   is nothing to buy — the kind is unreachable for it. Declare the kind
+  //   correctly anyway: the flag is not a type, and dropping it later would
+  //   arm the bug with no test in sight.
   { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
   { key: "insights", label: "Insights", kind: "list", nameField: "key" },
   { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
@@ -131,7 +143,20 @@ function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): Ver
 function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): VersionChange[] {
   const fields = fieldChanges((older ?? {}) as Record<string, unknown>, (newer ?? {}) as Record<string, unknown>);
   if (!fields.length) return [];
-  return [{ collection: spec.key, collectionLabel: spec.label, kind: "singleton", recordId: null, recordLabel: spec.label, type: "modified", fields }];
+  // ★★ THE SAME CLAUSE `diffList`'s `base()` carries, and it must stay in step.
+  // `applyRestore` gates on the SPEC (`spec.restorable === false`), while
+  // `VersionDiffView` and `selectableSelection` gate on the CHANGE
+  // (`c.restorable === false`) — two readings of one fact. Drop it here and a
+  // `{ kind: "singleton", restorable: false }` spec would be SKIPPED by the
+  // restore while the UI rendered it a checkbox and a "Restore this" button and
+  // the selection carried its key: exactly the silent no-op the flag exists to
+  // remove. Unreachable today (no singleton declares it), which is why it went
+  // missing unnoticed — pinned by version-diff.test.ts's synthetic spec.
+  return [{
+    collection: spec.key, collectionLabel: spec.label, kind: "singleton",
+    recordId: null, recordLabel: spec.label, type: "modified", fields,
+    ...(spec.restorable === false ? { restorable: false as const } : {}),
+  }];
 }
 
 export function diffWorkspaces(older: Workspace, newer: Workspace): VersionChange[] {

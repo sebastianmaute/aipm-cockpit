@@ -153,11 +153,16 @@ describe("applyRestore over array-typed slices", () => {
     expect((out.insights as unknown as readonly { severity: string }[])[0].severity).toBe("low");
   });
 
-  // A capture taken before `getVersionPayload` emitted all 24 slices carries
-  // NONE of the six, so every live record reads as "added" against it.
-  // Restoring it therefore REMOVES the three restorable arrays and leaves the
-  // two document slices alone.
-  it("removes the restorable arrays on a restore to a short pre-0.259.0 capture", () => {
+  // ★★★ THE DATA-LOSS PIN. A capture taken before `getVersionPayload` emitted
+  // all 24 slices carries NONE of the six keys, so read as empty every live
+  // record diffs as "added" and the restore DELETES the lot. `applyRestore`'s
+  // list branch skips a slice whose key is absent from the capture, so every
+  // slice must survive. This test asserted the DELETION until 0.260.x — it
+  // pinned the bug as correct behaviour; against that code it fails with
+  // "knowledgeItems: 0" / "insights: 0" / "calendarEvents: 0" where 1 is
+  // expected. Manual checkpoints are never pruned, so such a capture stays
+  // restorable — and, unguarded, destructive — indefinitely.
+  it("carries every slice through a restore to a short pre-0.259.0 capture, rather than deleting it", () => {
     const version = ws({});
     const now = ws({
       knowledgeItems: [kItem("a", "Live")],
@@ -176,16 +181,40 @@ describe("applyRestore over array-typed slices", () => {
       documents: out.documents?.length,
       documentVersions: out.documentVersions?.length,
     }).toEqual({
-      knowledgeItems: 0, insights: 0, calendarEvents: 0,
+      knowledgeItems: 1, insights: 1, calendarEvents: 1,
       documents: 1, documentVersions: 1,
     });
+    // ★ The singleton branch is UNAFFECTED by that guard and deliberately so:
+    // `settingsOverrides` is an object, has no per-record identity, and a
+    // capture that genuinely held no overrides must be able to revert to none.
     expect(out.settingsOverrides).toEqual({});
+  });
+
+  // ★★ THE GUARD MUST NOT BE OVER-BROAD. Skipping on an ABSENT key must not
+  // become "skip whenever the capture disagrees" — a capture that DOES carry
+  // the key still reverts fully: the record it lacks is removed, the record it
+  // holds and live does not is re-added. Without this, widening the guard to
+  // e.g. `!version[spec.key]?.length` would silently disable restore for every
+  // additive slice and nothing would notice.
+  it("still reverts an additive slice when the capture DOES carry its key", () => {
+    const version = ws({ knowledgeItems: [kItem("a", "Kept"), kItem("b", "OnlyInVersion")] });
+    const now = ws({ knowledgeItems: [kItem("a", "Kept"), kItem("c", "AddedSince")] });
+    const changes = diffWorkspaces(version, now);
+    const out = applyRestore(now, version, changes, selectAll(changes));
+    expect((out.knowledgeItems as readonly { id: string }[]).map((k) => k.id).sort())
+      .toEqual(["a", "b"]);
   });
 
   // BUG-CLASS guard — not about these two names. Any `COLLECTION_SPECS` entry
   // whose declared `kind` disagrees with the slice's real type lands here, and
   // the failure diagnostic NAMES the slice.
   it("turns no array-typed slice of the workspace into an object", () => {
+    // ★★ FIVE SLICES, THREE COVERED. `documents` and `documentVersions` carry
+    // `restorable: false`, and `applyRestore` hits that guard BEFORE the kind
+    // branch — so neither can ever reach `mergeFields` and neither can be
+    // corrupted here whatever `kind` its spec declares. Measured: flipping
+    // `documents` to `"singleton"` leaves this test GREEN. Do not read the
+    // fixture's five entries as five covered slices.
     const arrays = (n: string): Partial<Workspace> => ({
       knowledgeItems: [kItem("a", n)],
       insights: [insight(1, n === "Old" ? "low" : "high")],
@@ -235,10 +264,15 @@ describe("changeKey", () => {
     expect(changeKey("tasks", 1)).toBe(changeKey("tasks", 1));
     expect(changeKey("tasks", 1)).not.toBe(changeKey("tasks", 2));
     expect(changeKey("project", null)).toBe(changeKey("project", null));
-    // ★★ These two kill a `String(recordId ?? null)` mutant, which passes every
-    // assertion above while restoring the very collision class this function
-    // exists to remove: it collapses 1 with "1", and an id spelled "null" with
-    // the singleton sentinel — the `"_"` bug, relocated.
+    // ★★ THE FIRST of these two kills a `String(recordId ?? null)` mutant,
+    // which passes every assertion above while restoring the very collision
+    // class this function exists to remove: it collapses 1 with "1". An earlier
+    // revision of this comment credited BOTH lines with that kill, which is not
+    // how a failing assertion behaves — the first one THROWS and aborts the
+    // `it`, so under that mutant the second never executes.
+    // ★ The second is NOT redundant: it kills a DIFFERENT mutant, a
+    // `recordId ?? "null"` sentinel, which collapses an id spelled "null" with
+    // the singleton one — the `"_"` bug, relocated. Keep both.
     expect(changeKey("tasks", 1)).not.toBe(changeKey("tasks", "1"));
     expect(changeKey("x", "null")).not.toBe(changeKey("x", null));
   });
