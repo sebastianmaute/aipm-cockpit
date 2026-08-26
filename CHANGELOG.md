@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.262.0] - 2026-08-27 "Clement"
+
+### Fixed
+
+- **A stalled database reply no longer hangs the app forever.** Every request to a Turso
+  project already gave up after 15 seconds if the server never answered — but the clock was
+  stopped the moment the server sent its *headers*, before the answer itself had been read. A
+  server that replied and then stalled mid-answer left the app waiting with nothing to cancel
+  it: no error, no timeout, no way out but reloading the page. That affected every Turso
+  operation — loading and saving a project, snapshots, chat threads, document images and
+  version history alike. The 15-second budget now covers the whole exchange, so a stalled
+  reply fails cleanly and can be retried. A malformed but successful reply now also produces
+  the same readable message as every other bad response instead of an internal error.
+  ★ One trade worth knowing: because the budget now covers the full download, a save carrying
+  a very large document image over a slow connection can time out where it previously
+  succeeded eventually. A bounded, retryable failure was judged better than an unbounded hang.
+
+- **Version comparisons name records instead of showing an id.** Every task, resource, role,
+  absence and shift in a comparison was labelled with a bare `#id` — the comparison knew which
+  record had changed but was looking up the wrong field for its name. Tasks, absences and
+  shifts now show their own titles and notes; resources show a full name, and roles show their
+  discipline and grade together. Measured against the bundled sample project, all 14 tasks, 4
+  of 5 absences, all 4 shifts, all 5 resources and all 6 roles now name themselves. (The one
+  remaining `#id` is an absence with no note recorded — there is genuinely no name to show.)
+
+- **A record that cannot be restored can no longer be restored by accident.** Restoring a
+  single record went straight to the restore without checking whether that record was one the
+  restore is designed to skip — a gap held closed only by the buttons the screen happened to
+  draw. The check now lives in one place that every part of the screen shares, replacing four
+  separate copies of the same rule.
+
+### Internal
+
+- The safety net that stops a version restore from corrupting a list now covers every list in
+  a project rather than five of them, and a new test fails by name the day a list is added
+  without being covered.
+- The decision to keep document image bytes out of version history is now written down, with
+  its reasons and its one user-visible consequence, instead of being an unexplained absence.
+
 ## [0.261.0] - 2026-08-26 "Leckie"
 
 ### Fixed
