@@ -919,10 +919,22 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       />,
       { wrapper: Providers },
     );
+    // Scoped to <tbody>, not the whole container: the toolbar's "Type"/"Status"
+    // filter <select>s literally share their accessible NAME with the
+    // sortable-header BUTTONS of the same columns (both read the same
+    // "changeFieldType"/"changeFieldStatus" translation) — a real but
+    // cross-ROLE, pre-existing naming overlap that has nothing to do with the
+    // per-row title collision this test seeds, and scanning the whole
+    // container would fail on it unrelatedly.
+    const tbody = container.querySelector("tbody") as HTMLElement;
+    expect(tbody).toBeTruthy();
     expectRowUniqueNames({
-      minControls: 2,
-      scope: container,
-      roles: ["button", "checkbox"],
+      // 2 seeded rows x 5 per-row controls each (checkbox, status select,
+      // AI-edit button, document badge, notes badge) — counted from THIS
+      // fixture.
+      minControls: 10,
+      scope: tbody,
+      roles: ["button", "checkbox", "combobox"],
       requireCollisionSeed: true,
     });
   });

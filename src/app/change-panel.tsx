@@ -622,7 +622,7 @@ function ChangePanelBody({
                       picking a status would ALSO open the modal. */}
                   {!hiddenSet.has("status") && (
                   <td className="px-3 py-2 text-foreground" onClick={(e) => e.stopPropagation()}>
-                    <ChangeStatusSelect lang={lang} item={item} onStatusChange={onStatusChange} />
+                    <ChangeStatusSelect lang={lang} item={item} rowToken={token} onStatusChange={onStatusChange} />
                   </td>
                   )}
                   {!hiddenSet.has("requestedBy") && (

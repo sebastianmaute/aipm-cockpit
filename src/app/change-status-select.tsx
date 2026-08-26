@@ -7,6 +7,7 @@
 import { type Lang, type TranslationKey, t } from "./i18n";
 import { CHANGE_STATUSES, type ChangeItem, type ChangeStatus } from "./types";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { rowLabel } from "./row-tokens";
 
 /** Status → i18n key. MOVED here verbatim from change-panel.tsx so the row
  *  select, the filter dropdown and any future consumer share one mapping. */
@@ -26,13 +27,18 @@ export function changeStatusLabel(s: ChangeStatus, lang: Lang): string {
 interface ChangeStatusSelectProps {
   lang: Lang;
   item: Pick<ChangeItem, "id" | "title" | "status">;
+  /** ★★ REQUIRED, deliberately. An optional prop defaulting to `item.title`
+   *  inside this component would compile at a caller that forgot it and ship
+   *  the collision silently; required means tsc enumerates the misses. The
+   *  fallback lives at the LIST owner, where the map lookup happens. */
+  rowToken: string;
   onStatusChange: (id: number, next: ChangeStatus) => void;
 }
 
-export function ChangeStatusSelect({ lang, item, onStatusChange }: ChangeStatusSelectProps) {
+export function ChangeStatusSelect({ lang, item, rowToken, onStatusChange }: ChangeStatusSelectProps) {
   return (
     <select
-      aria-label={`${t(lang, "changeFieldStatus")} – ${item.title}`}
+      aria-label={rowLabel(t(lang, "changeFieldStatus"), rowToken)}
       value={item.status}
       onChange={(e) => onStatusChange(item.id, e.target.value as ChangeStatus)}
       className={`rounded border border-line px-1.5 py-0.5 text-xs font-medium hover:border-ui-dark-blue ${FOCUS_RING} ${TRANSITION}`}

@@ -9,7 +9,7 @@ const item = (id: number, title: string) =>
 describe("ChangeStatusSelect", () => {
   it("calls onStatusChange with the row id and the picked status", () => {
     const onStatusChange = vi.fn();
-    render(<ChangeStatusSelect lang="en-US" item={item(7, "Scope cut")} onStatusChange={onStatusChange} />);
+    render(<ChangeStatusSelect lang="en-US" item={item(7, "Scope cut")} rowToken="Scope cut" onStatusChange={onStatusChange} />);
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "Approved" } });
     expect(onStatusChange).toHaveBeenCalledWith(7, "Approved");
   });
@@ -20,8 +20,8 @@ describe("ChangeStatusSelect", () => {
   it("gives two rows DIFFERENT accessible names", () => {
     render(
       <>
-        <ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} onStatusChange={() => {}} />
-        <ChangeStatusSelect lang="en-US" item={item(2, "Budget uplift")} onStatusChange={() => {}} />
+        <ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} rowToken="Scope cut" onStatusChange={() => {}} />
+        <ChangeStatusSelect lang="en-US" item={item(2, "Budget uplift")} rowToken="Budget uplift" onStatusChange={() => {}} />
       </>,
     );
     expect(screen.getByRole("combobox", { name: `${t("en-US", "changeFieldStatus")} – Scope cut` })).toBeTruthy();
@@ -29,7 +29,7 @@ describe("ChangeStatusSelect", () => {
   });
 
   it("renders every status as an option", () => {
-    render(<ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} onStatusChange={() => {}} />);
+    render(<ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} rowToken="Scope cut" onStatusChange={() => {}} />);
     expect(screen.getAllByRole("option")).toHaveLength(6);
   });
 });
