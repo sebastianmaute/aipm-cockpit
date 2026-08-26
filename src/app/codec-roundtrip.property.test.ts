@@ -115,15 +115,116 @@ const HOSTILE_CHUNKS = [
   "\u{1F1E9}\u{1F1EA}",
 ];
 
+const chunkArb = fc.constantFrom(...HOSTILE_CHUNKS);
+
 const hostileString = fc
-  .array(fc.constantFrom(...HOSTILE_CHUNKS), { maxLength: 6 })
+  .array(chunkArb, { maxLength: 6 })
   .map((parts) => parts.join(""));
 
+// --- the six hazard classes: what the floors count, and what the alphabet
+// --- guarantees. Both come from ONE predicate record, defined here rather than
+// --- beside the counters below because the alphabet is derived from it.
+
+/** The classes this file's anti-vacuity floors count. */
+type Hazards = {
+  comma: number;
+  quote: number;
+  newline: number;
+  pipe: number;
+  backslash: number;
+  astral: number;
+};
+
+/** The predicate behind each class, in ONE place: `tallyHazards` counts with it
+ *  and `HAZARD_CHUNKS` is DERIVED from it, so a class can never be counted by
+ *  one rule and constructed by another. */
+const HAZARD_TESTS: { readonly [K in keyof Hazards]: (s: string) => boolean } = {
+  comma: (s) => s.includes(","),
+  quote: (s) => s.includes('"'),
+  newline: (s) => s.includes("\n") || s.includes("\r"),
+  pipe: (s) => s.includes("|"),
+  backslash: (s) => s.includes("\\"),
+  // Iterating with for..of yields whole code points, so a value above 0xFFFF is
+  // an astral character — i.e. a real UTF-16 surrogate PAIR, which is what a
+  // naive index-based splitter would cut in half.
+  astral: (s) => [...s].some((ch) => (ch.codePointAt(0) ?? 0) > 0xffff),
+};
+
+const HAZARD_CLASSES = Object.keys(HAZARD_TESTS) as (keyof Hazards)[];
+
+/** The chunks carrying a class, DERIVED from the alphabet rather than listed, so
+ *  deleting (say) every pipe-bearing chunk empties a pool and THROWS at import
+ *  instead of silently zeroing a counter.
+ *
+ *  ★★ The predicate is applied to the chunk WITH ITS CRs STRIPPED — precisely
+ *  what `mdSafeString` does to a value — so one pool serves BOTH call sites.
+ *  Without that step class `newline` would admit the bare "\r" chunk, which the
+ *  Markdown alphabet removes: the guarantee would hold for CSV and evaporate for
+ *  Markdown, which is the site that needs it more (see the floor measurement). */
+function chunksCarrying(cls: keyof Hazards): readonly string[] {
+  const pool = HOSTILE_CHUNKS.filter((c) => HAZARD_TESTS[cls](c.replace(/\r/g, "")));
+  if (pool.length === 0) {
+    throw new Error(
+      `HOSTILE_CHUNKS no longer carries a '${cls}' chunk surviving mdSafeString's CR strip`,
+    );
+  }
+  return pool;
+}
+
+const HAZARD_CHUNKS = Object.fromEntries(
+  HAZARD_CLASSES.map((cls) => [cls, chunksCarrying(cls)]),
+) as Record<keyof Hazards, readonly string[]>;
+
+/** Every unordered pair of DISTINCT classes — 15 of them. Drawn uniformly, each
+ *  class sits in exactly five, so a hazard-loaded value carries a given class
+ *  with p = 1/3 exactly. Two classes rather than one is what buys the tail: at
+ *  one the construction's own bound is 2.7e-3, at two it is 2.2e-8. */
+const HAZARD_PAIRS = HAZARD_CLASSES.flatMap((a, i) =>
+  HAZARD_CLASSES.slice(i + 1).map((b) => [a, b] as const),
+);
+
+const insertChunk = (parts: readonly string[], chunk: string, at: number): string[] => {
+  const i = at % (parts.length + 1);
+  return [...parts.slice(0, i), chunk, ...parts.slice(i)];
+};
+
+/** A value CONSTRUCTED to carry two named hazard classes, at positions drawn
+ *  like any other chunk. Four filler chunks plus the two hazard chunks is SIX —
+ *  the same cap `hostileString` uses, deliberately, so every value this can
+ *  produce was already in `hostileString`'s support. */
+function hazardLoaded(a: keyof Hazards, b: keyof Hazards): fc.Arbitrary<string> {
+  return fc
+    .tuple(
+      fc.array(chunkArb, { maxLength: 4 }),
+      fc.constantFrom(...HAZARD_CHUNKS[a]),
+      fc.constantFrom(...HAZARD_CHUNKS[b]),
+      fc.nat(),
+      fc.nat(),
+    )
+    .map(([parts, first, second, at1, at2]) =>
+      insertChunk(insertChunk(parts, first, at1), second, at2).join(""),
+    );
+}
+
+const hazardLoadedString = fc.oneof(...HAZARD_PAIRS.map(([a, b]) => hazardLoaded(a, b)));
+
 /** A `fc.string()` alongside the curated chunks so the property is not limited
- *  to characters someone already thought of. */
+ *  to characters someone already thought of, plus the hazard-loaded branch that
+ *  turns the floors below from a bet into a fact.
+ *
+ *  ★★ THE HAZARD-LOADED BRANCH NARROWS NOTHING. Its values are joins of at most
+ *  six `HOSTILE_CHUNKS` — exactly `hostileString`'s support — so the SET of
+ *  reachable strings is unchanged and only the distribution moves. Hazard-FREE
+ *  values (the empty string, bare whitespace, a lone markdown leader) stay
+ *  reachable through the other two branches, and the 4:1 hostile-derived to
+ *  `fc.string` ratio this alphabet always had is preserved exactly: (3 + 5) : 2.
+ *
+ *  ★ Do NOT raise the loaded weight to "make the floors safer". The floors are
+ *  already at 2.2e-8 and the only thing more weight buys is less breadth. */
 const anyString = fc.oneof(
-  { weight: 4, arbitrary: hostileString },
-  { weight: 1, arbitrary: fc.string({ maxLength: 12 }) },
+  { weight: 3, arbitrary: hostileString },
+  { weight: 2, arbitrary: fc.string({ maxLength: 12 }) },
+  { weight: 5, arbitrary: hazardLoadedString },
 );
 
 // --- the workspace arbitrary ----------------------------------------------
@@ -201,18 +302,11 @@ function varied(t: Task) {
  * suite instead of quietly turning it green.
  *
  * Counted per FIELD VALUE, not per case: ~10-20 values per case at numRuns 20,
- * which is what makes the floors stable at all. The floor is set from measured
- * rates, not guessed — see the comment on HAZARD_FLOOR.
+ * which is what makes the floors stable at all. The `Hazards` type and the
+ * predicates that decide each class live UP in the alphabet section, because
+ * `HAZARD_CHUNKS` — the pool the hazard-loaded branch draws from — is derived
+ * from those same predicates. See the comment on HAZARD_FLOOR for the numbers.
  */
-type Hazards = {
-  comma: number;
-  quote: number;
-  newline: number;
-  pipe: number;
-  backslash: number;
-  astral: number;
-};
-
 const newHazards = (): Hazards => ({
   comma: 0,
   quote: 0,
@@ -231,25 +325,51 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
       t.blockers,
       t.description,
     ]) {
-      if (s.includes(",")) h.comma++;
-      if (s.includes('"')) h.quote++;
-      if (s.includes("\n") || s.includes("\r")) h.newline++;
-      if (s.includes("|")) h.pipe++;
-      if (s.includes("\\")) h.backslash++;
-      // Iterating with for..of yields whole code points, so a value above
-      // 0xFFFF is an astral character — i.e. a real UTF-16 surrogate PAIR,
-      // which is what a naive index-based splitter would cut in half.
-      if ([...s].some((ch) => (ch.codePointAt(0) ?? 0) > 0xffff)) h.astral++;
+      // The SAME predicates the hazard pools are derived from, so a class the
+      // alphabet guarantees and a class this counts cannot mean different
+      // things. Kept CONDITIONAL rather than asserted: if `anyString` ever
+      // regresses, the counter drops and the floor below still catches it.
+      for (const cls of HAZARD_CLASSES) if (HAZARD_TESTS[cls](s)) h[cls]++;
     }
   }
 }
 
-/** MEASURED over 5 runs at numRuns 20 (the committed setting), 10 tallies in
- *  all: the lowest single value across every class and both alphabets was 16
- *  (astral), typical values 20-55. The floor sits at half that worst case, so a
- *  normal seed cannot flake, while a generator that stopped emitting a hazard
- *  class — the failure this exists to catch — lands at or near 0 and fails
- *  hard. Re-measure if HOSTILE_CHUNKS or either alphabet changes. */
+/**
+ * What the floor proves: the generated workspaces really did carry each codec
+ * hazard, so `decode(encode(ws)) === ws` above was not asserted over inert text.
+ *
+ * ★★★ IT IS NOW A FACT ABOUT THE ARBITRARY, NOT A BET ON THE SEED — and the
+ * value 8 has not moved, only the odds behind it. fast-check is UNSEEDED, so
+ * every counter is a random variable and CI tosses these SIX floors at TWO call
+ * sites (`anyString` and `mdSafeString`), on TWO blocking jobs, every pipeline.
+ *
+ * BEFORE (`anyString` = 4:1 hostile:`fc.string`, no loaded branch), measured at
+ * numRuns 20 over 80,000 POOLED samples per site — two independent runs of
+ * 40,000, pooled because a single run of a rare event does not reproduce: FOUR
+ * of the twelve evaluations went below 8. Markdown `newline` 6/80,000 = 7.5e-5,
+ * Markdown `astral` 5/80,000 = 6.3e-5, Markdown `comma` 3/80,000 = 3.8e-5, CSV
+ * `astral` 1/80,000 = 1.3e-5; smallest observed count 6, i.e. the floor was
+ * ALREADY failing, not merely close. That is what "half an observed minimum"
+ * bought, and it was the weakest calibration of the 35 floors in this repo's
+ * property suites. Note the two runs disagreed on which counters fired at all
+ * (Markdown `comma` was 3 then 0) — ordinary noise on a rare event, and the
+ * reason no single-run figure is quoted here.
+ *
+ * AFTER: `hazardLoadedString` gives every drawn value probability 1/3 of
+ * carrying a named class (a uniform pair out of 15) at weight 5 of 10, so the
+ * CONSTRUCTED contribution alone is Binom(N, 0.162) over the N ≈ 233 field
+ * values a 20-run sample generates — P(< 8) = 2.2e-8, computed exactly over the
+ * measured distribution of N (140..340) and IGNORING the alphabet's own hazard
+ * density, which is why the real counts land near 3x that construction's mean.
+ * Re-measured end-to-end at 40,000 samples per site: 0 at or below 8 anywhere,
+ * and the smallest of the twelve observed minima rose from 6 to 23.
+ *
+ * ★★★ DO NOT TIGHTEN THIS AND DO NOT RAISE numRuns. A larger sample against an
+ * unchanged absolute floor is a WEAKER guard, not a safer run; a higher floor
+ * re-opens the tail the construction just closed. If `HOSTILE_CHUNKS` or either
+ * alphabet changes, re-measure with `scripts/measure-property-floor.mjs` —
+ * quote a probability, never a sample minimum.
+ */
 const HAZARD_FLOOR = 8;
 
 function expectHazards(h: Hazards): void {
@@ -365,7 +485,11 @@ describe("CSV workspace codec — task round-trip", () => {
  *  away every value built from the "\r\n" chunk, which dropped the newline
  *  hazard count to a third of the CSV alphabet's (measured 7/11/21 vs 34-42)
  *  and made the newline floor below flake. Stripping keeps "\r\n" as a real
- *  "\n", so this alphabet exercises interior newlines at full density. */
+ *  "\n", so this alphabet exercises interior newlines at full density.
+ *  ★★ That strip is LOAD-BEARING IN A SECOND PLACE now: `chunksCarrying` applies
+ *  it before deciding which class a chunk belongs to, so the `newline` pool the
+ *  hazard-loaded branch draws from holds only chunks that survive HERE — one
+ *  pool serving both call sites. Change the strip and re-measure both. */
 const mdSafeString = anyString
   .map((s) => s.replace(/\r/g, ""))
   .filter(
