@@ -8,8 +8,27 @@ import { LOAD_TIMEOUT_MS } from "./turso-pipeline";
 
 const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
 
+/** ★★★ BOTH `json` AND `text` ARE REQUIRED, and the cast is why nothing says so.
+ *  A real `Response` carries both; this object literal is asserted `as unknown as
+ *  Response`, so tsc cannot tell us a member is missing. `runTursoPipeline` reads
+ *  the body as TEXT inside its armed timeout window (`postPipeline` returns
+ *  `{status, ok, text}`, never a `Response`) — so a `json`-only double makes
+ *  `res.text` undefined, the TypeError is swallowed by `runTursoPipeline`'s own
+ *  catch, and EVERY pipeline-reaching test in this file fails as
+ *  `storage-unreachable` rather than as a missing mock member.
+ *  ★ Modelling both is deliberate: this helper's job is to stand in for a real
+ *  response, NOT to pin which accessor the transport happens to call, so it stays
+ *  green if that choice ever changes. What pins the choice is
+ *  `turso-pipeline.test.ts`'s stalled-body test.
+ *  ★ `snapshot-store.test.ts` sidesteps all of this by constructing a REAL
+ *  `Response`, which is the better pattern where the body is a plain string. */
 function jsonRes(body: unknown, status = 200): Response {
-  return { ok: status >= 200 && status < 300, status, json: async () => body } as unknown as Response;
+  return {
+    ok: status >= 200 && status < 300,
+    status,
+    json: async () => body,
+    text: async () => JSON.stringify(body),
+  } as unknown as Response;
 }
 
 /** A PRAGMA table_info result reporting exactly `columns` (cid,name,type,...). */
