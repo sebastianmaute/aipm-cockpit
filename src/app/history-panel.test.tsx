@@ -461,3 +461,34 @@ it("collapses expanded rows when a second compare replaces the first", async () 
   // this becomes `not.toBeVisible()`.
   expect(screen.queryByText(/Title:/)).toBeNull();
 });
+
+// ★★ THE THREE COMPARE GATES, which shipped with no coverage: a mutant deleting
+// `|| restoring` from any of them survived the suite. Compare reads the LIVE
+// workspace through getPayload(), so a compare started mid-restore diffs against
+// a workspace being rewritten underneath it.
+it("disables all three compare controls while a restore is running", async () => {
+  const versions = [
+    { id: "v2", projectId: "p1", capturedAt: "2026-06-11T12:00:00.000Z", trigger: "manual", label: "Later", summary: null },
+    { id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null },
+  ];
+  let release!: (v: VersionChange[]) => void;
+  // The FIRST call is restoreWholeVersion's own loadDiff, which we hold open.
+  const loadDiff = vi.fn(() => new Promise<VersionChange[]>((res) => { release = res; }));
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff as never} restore={vi.fn().mockResolvedValue(true)} />);
+
+  // Tick both versions so the two toolbar buttons are otherwise enabled — the
+  // gate we are testing must be the `restoring` one, not `selected.length !== 2`.
+  screen.getAllByRole("checkbox").forEach((c) => fireEvent.click(c));
+  const toolbar = [
+    screen.getByRole("button", { name: t("en-US", "historyCompareSelected") }),
+    screen.getByRole("button", { name: t("en-US", "historyCompareSideBySide") }),
+  ];
+  const perRow = screen.getByRole("button", { name: "Compared with current – Baseline" });
+  [...toolbar, perRow].forEach((b) => expect(b).not.toBeDisabled());
+
+  fireEvent.click(screen.getByRole("button", { name: "Restore this state – Baseline" }));
+  [...toolbar, perRow].forEach((b) => expect(b).toBeDisabled());
+
+  await act(async () => { release([]); });
+  [...toolbar, perRow].forEach((b) => expect(b).not.toBeDisabled());
+});

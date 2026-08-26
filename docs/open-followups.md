@@ -18604,7 +18604,8 @@ promise that never settles, and nothing on the version-history request path carr
 `AbortSignal` or a timeout. So a stalled Turso fetch leaves `restoreInFlight.current === true`
 and `restoring === true` for the life of the mounted panel: all four restore entry points refuse,
 every per-record "Restore this" button in the open diff is disabled through `restoreBusy`, and
-both compare controls are disabled too — with no message, and no escape but navigating away and
+all THREE compare controls go with them — the two toolbar Compare-selected buttons and the per-row
+"Compared with current" on every version row. No message, and no escape but navigating away and
 back.
 
 ★★ **It is a NEW failure mode, and saying otherwise would be too kind to the old code.** Before

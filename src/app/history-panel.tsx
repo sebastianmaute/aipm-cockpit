@@ -370,11 +370,15 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                 <TextButton
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
                   // ★★ `restoring` too, and it is not symmetry for its own
-                  // sake: every successful restore clears the compare view
-                  // (`setDiff(null)` + the two source resets), so a compare
-                  // started while a restore is in flight is silently thrown
-                  // away the moment that restore lands. Pre-existing, and
-                  // fixable in one condition only now that the flag exists.
+                  // sake: `runDiff` reads the LIVE workspace through
+                  // `getPayload()`, so a compare started mid-restore diffs
+                  // against a workspace being rewritten underneath it.
+                  // ★ An earlier revision gave a WEAKER reason — "every
+                  // successful restore clears the compare view" — which is
+                  // false for `restoreWholeVersion`, the one path reachable
+                  // from this very row: it ends at `await restore(...)` and
+                  // touches no compare state at all. Three of the four paths
+                  // reset; the stale-workspace reason above covers all four.
                   disabled={comparing || restoring}
                   title={t(lang, "historyCompareVsNowHint")}
                   aria-label={rowLabel(t(lang, "historyCompareVsNow"), token)}

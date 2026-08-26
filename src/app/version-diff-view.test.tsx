@@ -324,11 +324,47 @@ describe("VersionDiffView disclosure semantics", () => {
   // ★★ A row with no field changes renders NO panel, so both attributes must be
   // absent. `aria-controls` would dangle; `aria-expanded="false"` would promise
   // a disclosure that the click handler (gated on `expandable`) never opens.
+  // ★★★ THIS TEST PINS THE `aria-expanded` HALF ONLY, and the reason is worth
+  // reading before trusting it. `aria-controls` is `expandable && open.has(k)`,
+  // and a never-clicked row cannot be in `open` — so its assertion below passes
+  // for a SECOND, independent reason and survives deleting the `expandable`
+  // conjunct. It genuinely pinned that conjunct while the attribute was
+  // `expandable ? … : undefined`; narrowing the attribute silently converted a
+  // real assertion into a coincidental one. The next test supplies the input
+  // that tells the two apart.
   it("puts neither attribute on a row that has no fields to disclose", () => {
     render(<VersionDiffView lang="en-US" changes={[empty]} />);
     const btn = screen.getByRole("button", { name: /Vendor delay/ });
     expect(btn).not.toHaveAttribute("aria-expanded");
     expect(btn).not.toHaveAttribute("aria-controls");
+  });
+
+  // ★★★ THE INPUT THE SUITE DID NOT HAVE. A surviving mutant is a QUESTION —
+  // "equivalent mutant" and "missing test" look identical from the harness —
+  // and here the answer is "missing test": dropping `expandable &&` from
+  // `aria-controls` left the whole suite green, yet the conjunct is load-bearing
+  // for a real input. `open` can hold a key whose row is no longer expandable
+  // only if `changes` changes WITHOUT a remount. `HistoryPanel` makes that
+  // impossible via `key={compareNonce}` — but this component is EXPORTED and
+  // takes `changes` as a plain prop, so any other consumer re-rendering under a
+  // stable key can reach it. The row then keeps `aria-controls` naming a panel
+  // that the (still correct) `expandable && open.has(k)` render refuses to
+  // produce: the dangling IDREF this whole design exists to prevent
+  // (axe `aria-valid-attr-value`, wcag2a).
+  it("drops aria-controls when an OPEN row loses its fields without a remount", () => {
+    const withFields: VersionChange = { ...expandable, recordId: 7 };
+    const { rerender } = render(<VersionDiffView lang="en-US" changes={[withFields]} />);
+    const btn = screen.getByRole("button", { name: /Design sign-off/ });
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("aria-controls");
+
+    // Same recordId, so the same `changeKey` — the row stays in `open`.
+    rerender(<VersionDiffView lang="en-US" changes={[{ ...withFields, fields: [] }]} />);
+    expect(screen.getByRole("button", { name: /Design sign-off/ }))
+      .not.toHaveAttribute("aria-controls");
+    // ...and the panel really is gone, so a lingering attribute would dangle
+    // rather than merely be redundant.
+    expect(screen.queryByText(/Title:/)).toBeNull();
   });
 
   // ★★ The hint is the answer to "why is there no restore button on this row?",

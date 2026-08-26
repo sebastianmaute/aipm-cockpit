@@ -240,10 +240,10 @@ export function VersionDiffView({
                       // ★★ THE FIRST CUT CLOSED THAT THE EXPENSIVE WAY, by
                       // always mounting the panel and toggling `hidden` — the
                       // pattern the next-actions reasons list uses. It is the
-                      // wrong trade HERE, and the difference is the list length:
-                      // that list is capped at `MAX_VISIBLE_PER_TIER`, while a
-                      // version diff is uncapped and is the largest list in the
-                      // app. A vs-now compare against a week-old capture can
+                      // wrong trade HERE, and the difference is what each
+                      // hidden element COSTS: there, a bounded handful of short
+                      // reason strings per row; here, a whole record's field
+                      // list. A vs-now compare against a week-old capture can
                       // carry hundreds of modified records, and mounting every
                       // collapsed panel materialises each one's field rows plus,
                       // in `selectable` mode, a `Checkbox` per field — thousands
