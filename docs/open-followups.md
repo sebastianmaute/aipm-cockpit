@@ -435,8 +435,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
-| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--restore-half-fixed-2026-08-26-the-documents-pair-deliberately-not-restorable) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26; all five registered, the documents pair deliberately NOT restorable | — | — | open |
-| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--three-of-the-five-fixed-2026-08-26-insights-and-documentversions-deliberately-still-uncounted) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26; `insights` and `documentVersions` deliberately still uncounted | — | — | open |
+| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--restore-half-fixed-2026-08-26-the-documents-pair-deliberately-not-restorable) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable | — | — | open |
+| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--three-of-the-five-fixed-2026-08-26-insights-and-documentversions-deliberately-still-uncounted) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -448,11 +448,12 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
 | [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | open |
-| [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely) | `documentAssets` is absent from the version capture set entirely — not captured, not diffed, not restorable, and nothing records the decision | found 2026-08-26 | M | open |
-| [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices) | The array-as-object guard test is not generic over the registry — its fixture seeds 5 of 17 list slices, so a `kind` mismatch on any of the other 12 ships green | found 2026-08-26 | S | open |
-| [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler (defence-in-depth, not live) | found 2026-08-26 | S | open |
-| [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff) | Field checkboxes collide across two simultaneously-expanded records in the version diff (WCAG 2.4.6); no gate in the repo can see it | pre-existing, found 2026-08-26 | S | open |
-| [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would render a control that silently no-ops | found 2026-08-26 | S | open |
+| [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | open |
+| [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | open |
+| [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler | found 2026-08-26 | S | open |
+| [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff) | Field checkboxes collide across two simultaneously-expanded records in the version diff | pre-existing, found 2026-08-26 | S | open |
+| [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | open |
+| [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18435,6 +18436,92 @@ emits for a `restorable: false` spec carries the flag, which covers both branche
 **Why not fixed here.** Not reachable from any registry row that exists, and the branch's own
 non-restorable rows are both lists — so a fix here would ship with a test that can only exercise it
 through a synthetic spec, which is worth doing but is a separate, self-contained change.
+
+## 259. An absent slice key and a genuinely empty one are indistinguishable on restore
+
+**Status:** open. Filed 2026-08-26. This is the deliberate residue of the same-day `715c2325` fix,
+not an oversight left behind by it — the fix's own commit message names the imprecision, and this
+entry exists so it is tracked rather than only remembered.
+
+`715c2325` stopped `applyRestore` (`src/app/version-restore.ts`) from treating an ABSENT list-slice
+key in a version payload as an EMPTY one — a distinction it could not make cost `knowledgeItems`,
+`insights` and `calendarEvents` on every restore, since every live record diffed as `"added"` and the
+added branch deleted it. The guard is one line: skip the slice entirely when the captured payload
+carries no key for it —
+
+```
+if ((version as unknown as Record<string, unknown>)[key] === undefined) continue;
+```
+
+That is correct for the case the fix targeted (a capture taken before `getVersionPayload` learned to
+emit these slices at all — commit `db217e08`, 2026-08-25). It is NOT correct in general, because
+`workspaceToJson` (`src/app/workspace.ts`) omits an additive slice's key from its own output whenever
+the live array is empty, not only when the concept did not exist yet:
+
+```bash
+grep -n -A3 "Additive: only present when insights exist" src/app/workspace.ts
+```
+```
+453:      // Additive: only present when insights exist, so legacy files stay free
+454:      // of an `insights` key. JSON is the complete round-trip, so this is
+455:      // fine.
+456:      ...(ws.insights && ws.insights.length ? { insights: ws.insights } : {}),
+```
+
+`knowledgeItems` and `calendarEvents` carry the identical `arr && arr.length ? {key: arr} : {}`
+shape a few lines apart in the same function. Reproducing that exact ternary against an empty and a
+populated array shows the omission directly, independent of anything version-specific:
+
+```bash
+node -e '
+const emptyWs = { knowledgeItems: [] };
+const populatedWs = { knowledgeItems: [{ id: "k1" }] };
+const project = (ws) => ({
+  ...(ws.knowledgeItems && ws.knowledgeItems.length
+    ? { knowledgeItems: ws.knowledgeItems }
+    : {}),
+});
+console.log("empty slice -> has key:", "knowledgeItems" in project(emptyWs), JSON.stringify(project(emptyWs)));
+console.log("populated slice -> has key:", "knowledgeItems" in project(populatedWs), JSON.stringify(project(populatedWs)));
+'
+```
+```
+empty slice -> has key: false {}
+populated slice -> has key: true {"knowledgeItems":[{"id":"k1"}]}
+```
+
+So an absent key in a real capture has always meant one of TWO things, and nothing in the payload
+says which:
+
+1. the capture predates the payload carrying that slice at all (the `db217e08` case `715c2325`
+   fixed), or
+2. the capture is current and current-format, and the user genuinely had zero records in that slice
+   at capture time.
+
+`applyRestore`'s new guard treats both the same way — skip the slice, leave the live records alone.
+That is the safe direction (the alternative, reverted, was silent deletion of live data), but it is
+not the precise one: **restoring to a capture of a workspace that legitimately had zero knowledge
+items (or insights, or calendar events) will silently fail to clear any added since** — the user
+asked to go back to a state with none, and the restore leaves whatever exists live untouched, with
+no error and no indication that this slice was skipped.
+
+★ **Correcting the commit message and the re-pointed test name, both of which say "pre-0.259.0":**
+that phrasing describes only meaning (1) above, and understates the guard's actual reach. Meaning (2)
+is not a legacy condition — it is live on any capture taken TODAY, on the current version-history
+code, whenever the project's `knowledgeItems`/`insights`/`calendarEvents` happened to be empty at
+capture time. Nothing about the fix, or about `getVersionPayload` going forward, closes that gap; it
+only stopped the ONE case (an absent-because-nonexistent key) from being actively destructive.
+
+**Proposed fix:** a capture-format marker — stamp the payload (or the version row) with which slices
+that capture's format was capable of carrying, so `applyRestore` can distinguish "this capture cannot
+speak about the slice" (skip) from "this capture says the slice was empty" (apply the empty state,
+i.e. clear it). Nothing writes such a marker today; `getVersionPayload` and the version row shape
+would both need a decision about where it lives and how older captures without it default.
+
+**Why not fixed here.** Out of scope for `715c2325`, which was a data-loss fix round under time
+pressure — the safe-direction guard was the right thing to ship immediately. A capture-format marker
+changes what is written into every future version payload and how every existing captured row is
+read back, which deserves its own design decision rather than riding along inside a bug fix.
 
 ## Decided — do not re-litigate
 
