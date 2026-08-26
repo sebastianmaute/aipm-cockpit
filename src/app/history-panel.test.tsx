@@ -147,7 +147,11 @@ it("restores a single record from a vs-now comparison via its row button", async
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
   fireEvent.click(screen.getByText(/Compared with current/i));
   await screen.findByText("T1");
-  fireEvent.click(screen.getByRole("button", { name: "Restore this" }));
+  // ★ The per-row verbs are token-qualified for WCAG 2.4.6 (two records can share
+  // a display name), so the accessible name is "<verb> – <row token>" while the
+  // VISIBLE text stays the bare verb. Matching the bare name here would pass only
+  // while the row-unique naming is broken.
+  fireEvent.click(screen.getByRole("button", { name: "Restore this – T1" }));
   expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, "Baseline");
 });
 
@@ -164,7 +168,7 @@ it("restores a single record from a two-version side-by-side compare (to the old
   fireEvent.click(screen.getByRole("button", { name: "Compare side by side" }));
   await screen.findByText("T1");
   // Per-row restore reverts that record to the OLDER pick (v1).
-  fireEvent.click(screen.getByRole("button", { name: "Restore this" }));
+  fireEvent.click(screen.getByRole("button", { name: "Restore this – T1" }));
   expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, expect.any(String));
 });
 
@@ -177,7 +181,7 @@ it("restores ticked changes from a vs-now comparison", async () => {
   const restore = vi.fn().mockResolvedValue(undefined);
   renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
   fireEvent.click(screen.getByText(/Compared with current/i));
-  const box = await screen.findByLabelText("T1");
+  const box = await screen.findByLabelText("Select – T1");
   fireEvent.click(box);
   fireEvent.click(screen.getByRole("button", { name: "Restore selected" }));
   expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all" }, "Baseline");
@@ -256,13 +260,13 @@ it("select-all ticks every record and enables restore-selected; deselect-all cle
   expect(restoreSelected).toBeDisabled();
   // Select all → every record checkbox ticked + restore-selected enabled.
   fireEvent.click(screen.getByRole("button", { name: "Select all" }));
-  expect((screen.getByLabelText("T1") as HTMLInputElement).checked).toBe(true);
-  expect((screen.getByLabelText("R5") as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByLabelText("Select – T1") as HTMLInputElement).checked).toBe(true);
+  expect((screen.getByLabelText("Select – R5") as HTMLInputElement).checked).toBe(true);
   expect(restoreSelected).toBeEnabled();
   // Deselect all → cleared + restore-selected disabled again.
   fireEvent.click(screen.getByRole("button", { name: "Deselect all" }));
-  expect((screen.getByLabelText("T1") as HTMLInputElement).checked).toBe(false);
-  expect((screen.getByLabelText("R5") as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByLabelText("Select – T1") as HTMLInputElement).checked).toBe(false);
+  expect((screen.getByLabelText("Select – R5") as HTMLInputElement).checked).toBe(false);
   expect(restoreSelected).toBeDisabled();
 });
 
