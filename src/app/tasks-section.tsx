@@ -1013,6 +1013,11 @@ export function TasksSection({
                 <TaskRow
                   key={task.id}
                   task={task}
+                  // `tableTokens` is built above from `visibleRows` (the very
+                  // array this `.map` iterates), so `task.id` is always a key —
+                  // the fallback cannot fire today. Kept anyway: the two are
+                  // independently typed props/locals, so nothing structurally
+                  // binds a future edit to keep them in sync.
                   rowToken={tableTokens.get(task.id) ?? task.taskName}
                   isSelected={selectedIds.has(task.id)}
                   isEditing={editingId === task.id}

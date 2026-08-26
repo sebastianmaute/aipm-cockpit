@@ -139,6 +139,12 @@ export function TaskKanban({
                     today={today}
                     holidaySet={holidaySet}
                     resourcesById={resourcesById}
+                    // `cols` is `groupByStatus(tasks)` — a partition of the
+                    // `tasks` prop, and the caller builds `tokens` from that
+                    // same array, so `task.id` is always a key here; the
+                    // fallback cannot fire today. Kept anyway: `tasks` and
+                    // `tokens` are independently typed props, so nothing
+                    // structurally binds a future caller to keep them in sync.
                     rowToken={tokens.get(task.id) ?? task.taskName}
                     raidRefs={raidByTask?.get(task.id)}
                     changeRefs={changeByTask?.get(task.id)}
