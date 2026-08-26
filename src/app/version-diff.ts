@@ -23,9 +23,16 @@ export interface VersionChange {
   recordLabel: string;
   type: ChangeType;
   fields: FieldChange[];
+  /** Mirrors the spec's flag so a renderer can tell an informational row from a
+   *  revertible one without importing the registry. */
+  restorable?: false;
 }
 
-interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; }
+/** Omitted = restorable. `false` = diff-visible but `applyRestore` SKIPS it,
+ *  because the slice owns its own history elsewhere and must keep a single
+ *  writer. The diff row is still required: the diff is what arms a capture,
+ *  so without one a session editing only this slice produces NO version. */
+interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; restorable?: false; }
 
 export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "tasks", label: "Tasks", kind: "list", nameField: "title" },
@@ -95,6 +102,7 @@ function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): Ver
   const base = (id: RecordId, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
     collection: spec.key, collectionLabel: spec.label, kind: "list",
     recordId: id, recordLabel: recordLabel(rec, id, spec.nameField), type, fields,
+    ...(spec.restorable === false ? { restorable: false as const } : {}),
   });
   for (const [id, rec] of b) {
     if (!a.has(id)) out.push(base(id, rec, "added", fieldChanges({}, rec)));

@@ -202,6 +202,20 @@ describe("applyRestore over array-typed slices", () => {
     const broken = Object.keys(before).filter((k) => Array.isArray(before[k]) && !Array.isArray(out[k]));
     expect(broken).toEqual([]);
   });
+
+  it("skips a collection marked restorable: false, carrying it from live state", () => {
+    // Proven against the REGISTRY, not a stub: `documents` carries
+    // `restorable: false` because applyDocMutation owns document history.
+    const version = ws({ documents: [doc(1, "Old")] });
+    const now = ws({ documents: [doc(1, "New")] });
+    const changes = diffWorkspaces(version, now);
+    // It IS in the diff — that is what arms a capture for a documents-only session.
+    expect(changes.map((c) => c.collection)).toContain("documents");
+    expect(changes.find((c) => c.collection === "documents")?.restorable).toBe(false);
+    // ...and selecting it anyway is a no-op, not a partial write.
+    const out = applyRestore(now, version, changes, selectAll(changes));
+    expect((out.documents as readonly { title: string }[])[0].title).toBe("New");
+  });
 });
 
 describe("changeKey", () => {

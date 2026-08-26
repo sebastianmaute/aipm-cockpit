@@ -48,6 +48,10 @@ export function applyRestore(
   const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) };
 
   for (const spec of COLLECTION_SPECS) {
+    // ★★ Diff-visible but NOT restorable. The slice is carried through from
+    // `current` untouched — exactly what an absent registry row used to do —
+    // because it owns its own history and a second writer would fight it.
+    if (spec.restorable === false) continue;
     const key = spec.key as string;
     if (spec.kind === "list") {
       const cur = byId(current[spec.key] as unknown[]);
