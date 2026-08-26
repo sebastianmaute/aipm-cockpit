@@ -48,6 +48,8 @@ You are working in a project-management web app. This slice touches **no product
 
 9. **Do not use `sed -i`** on any file under `src/`, `package.json` or `package-lock.json` — under Git Bash it re-lines the whole file to LF.
 
+9b. **After ANY write into a CRLF file, check `git ls-files --eol <file>` BEFORE relying on a `\r\n` anchor to undo it.** Measured during Task 2's execution: `src/app/icons.ts` came out of the mutant-injection step re-lined to LF, so the revert anchor ending in `\r\n` matched **0 times** and the first revert attempt did nothing. `git diff --stat` showed one insertion and hid the re-lining completely, because `core.autocrlf`'s clean filter normalises both forms to the same blob. ★★ **The CAUSE was never established, so do not repeat any guess about it.** The Edit tool was the immediate suspect and was then measured innocent: a controlled probe — CRLF fixture in, Edit tool inserting a new first line — came out `bareLF: 0, CRLF: 4`, preserving CRLF and giving the inserted line `\r\n`. Writing "the Edit tool re-lines CRLF files" into this plan would have planted a false landmine of exactly the kind this register keeps recording. What is established is the OBSERVATION and the DETECTOR; treat an unexplained `w/lf` as a fact to repair, not as evidence about which tool did it.
+
 10. **Escape bytes corrupt through tool boundaries.** Writing prose containing a backslash-b through a heredoc can deliver a literal U+0008, which renders as nothing and is invisible to review. After writing any file containing regex escapes, scan it:
 
 ```bash
@@ -198,11 +200,24 @@ import { useState } from "react";
 Then run:
 
 ```bash
-npx eslint src/app/icons.ts > /tmp/lint-mutant.log 2>&1; echo "EXIT=$?"
+npm run lint -- src/app/icons.ts > /tmp/lint-mutant.log 2>&1; echo "EXIT=$?"
 grep -c "no-unused-vars" /tmp/lint-mutant.log
 ```
 
 Expected: `EXIT=1` and a count of at least 1. **If `EXIT=0`, the flag is not wired — stop and diagnose.**
+
+★★★ **THE PROOF MUST GO THROUGH `npm run lint`, AND THE FIRST VERSION OF THIS STEP DID NOT.** It
+said `npx eslint src/app/icons.ts`, which invokes eslint directly and therefore never sees a flag
+that lives only in the npm script — so it exits **0** on a genuinely mutated file. Measured
+2026-08-26 during execution: on the mutated `icons.ts`, `npx eslint src/app/icons.ts` gave `EXIT=0`
+while `npm run lint -- src/app/icons.ts` gave `EXIT=1` with one `no-unused-vars`. A mutation proof
+that cannot fail is worse than none — it reports the gate as unwired when it is wired, and would
+report it as wired if the step were ever reused with the expectation inverted. `npx eslint
+--max-warnings=0 src/app/icons.ts` also goes red, but it proves only that eslint's own flag works,
+**not** that `package.json` carries it; only the `npm run lint` form tests what CI runs.
+
+★ Steps 3 and 6 use bare `npx eslint src` and that is fine — they expect zero warnings, which passes
+with or without the flag, so nothing there turns on the distinction.
 
 - [ ] **Step 5: Revert the mutant and prove the tree is clean**
 
