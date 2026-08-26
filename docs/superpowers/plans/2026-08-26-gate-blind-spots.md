@@ -1541,6 +1541,36 @@ it would make the correction unverifiable."
 
 This is the floor that took the 0.259.0 pipeline red. Fix it first, in full, as the pattern the remaining fixes follow.
 
+★★★ **SCOPE WIDENED 2026-08-26 BY MEASUREMENT — THIS FILE HAS THREE THIN FLOORS, NOT ONE.** The
+audit measured every floor in `entity-id-mint.property.test.ts` over 20,000 trials at the file's real
+generators and `numRuns`:
+
+| floor | line | mean | min | P(at or below floor) |
+|---|---|---|---|---|
+| `uncontended > 0` | 205 | 7.05 | 0 | **7.5e-4** |
+| `free > 5` | 130 | 15.70 | 3 | **3.0e-4** |
+| `free > 5` | 158 | 15.70 | 3 | **3.0e-4** (same generator, second test) |
+| `taken > 10` | 129, 157 | 34.30 | 19 | 0 / 20000 |
+| `contended > 20` | 93 | 39.36 | 26 | 0 / 20000 |
+| `contended > 0` | 204 | 13.14 | 3 | 0 / 20000 |
+| `updates > 0` | 206 | 29.81 | 16 | 0 / 20000 |
+
+So Task 10 fixes **three** floors — 205, 130 and 158 — with the same branch-tag construction. The two
+`free > 5` floors sit in `anyCase` tests (`caseArb(0)`), fire once each per suite run, and bring the
+file's aggregate to roughly **1.35e-3 per suite run** across two blocking jobs per pipeline.
+
+★★ **AN ESTIMATE READ OFF THE ARBITRARY WAS WRONG BY AN ORDER OF MAGNITUDE, IN THE UNSAFE
+DIRECTION — WHICH IS WHY STEP 1 MEASURES RATHER THAN REASONS.** The audit estimated `free > 5` at
+1e-3…1e-2 and concluded it was "plausibly an order of magnitude *worse*" than `uncontended`, which
+would have made it, not the three-branch test, the file's worst floor and the natural worked example.
+Measurement puts it at 3.0e-4 — **2.5× better** than `uncontended`, not worse. The estimate could not
+be settled by reading because it turns on `P(empty)` for `fc.uniqueArray({minLength: 0, maxLength: 8})`,
+a fast-check size-bias question rather than a property of this file, and the audit flagged itself
+UNSURE on exactly that. It was right to. **Never scope a fix from an estimated probability.**
+
+★ The measured `uncontended` figure is also about 2× the 3.9e-4 the file's own comment derives from
+p ≈ 0.145. Use the measured 7.5e-4 in the new comment, not the analytic one.
+
 **Why it flakes.** The three-branch test counts `contended`, `uncontended` and `updates` over 50 runs. `uncontended` requires a *free* `itemId` **and** `isNew` in `{true, undefined}`. The generator is collision-biased 3:1 toward taken ids, so p ≈ 0.145, mean ≈ 7.06, and `P(uncontended === 0)` measured at 0.035% — about 1 in 2,857 per suite run, across two blocking jobs per pipeline.
 
 **The fix.** Draw the branch first, then construct a case that satisfies it. Each branch then has p = 1/3 by construction, and `P(count === 0)` over 50 runs is `(2/3)^50 = 1.6e-9` — five orders of magnitude better, and a fact about the arbitrary rather than a bet.
