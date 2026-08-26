@@ -1,8 +1,10 @@
 import { it, expect, vi } from "vitest";
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
-import { HistoryPanel } from "./history-panel";
+import { HistoryPanel, selectableSelection } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
+import { ToastProvider } from "./toast-context";
 import type { ProjectVersionMeta } from "./version-history";
+import type { VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 
@@ -290,4 +292,65 @@ it("restore-this-state (compare header) restores the whole snapshot with an all-
   const stateButton = screen.getByRole("button", { name: "Restore this state" });
   fireEvent.click(stateButton);
   expect(restore).toHaveBeenCalledWith("v1", { [changeKey("tasks", 1)]: "all", [changeKey("raid", 5)]: "all" }, "Baseline");
+});
+
+// ── T11: non-restorable changes stay out of every select-all path ────────────
+
+it("omits non-restorable changes from a select-all selection", () => {
+  const changes: VersionChange[] = [
+    { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1,
+      recordLabel: "T1", type: "modified", fields: [] },
+    { collection: "documents", collectionLabel: "Documents", kind: "list", recordId: 1,
+      recordLabel: "Doc", type: "modified", fields: [], restorable: false },
+  ];
+  // A selection carrying a key applyRestore skips is a promise the restore
+  // cannot keep: it reports success having reverted nothing for that row.
+  expect(Object.keys(selectableSelection(changes))).toEqual([changeKey("tasks", 1)]);
+});
+
+it("refuses a whole-version restore whose diff is entirely non-restorable", async () => {
+  // ★★ The exact project this slice was written for: a documents-only session.
+  // `changes` is NON-EMPTY (the diff is what ARMS a capture) while the selection
+  // is EMPTY, so a guard testing `changes.length` passes it straight through to
+  // `restore`, which reverts nothing and reports success. Mutation-proved: revert
+  // the guard to `changes.length === 0` and this goes RED — the waitFor times out
+  // on a toast that never fires, before the `restore` assertion is even reached.
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "documents", collectionLabel: "Documents", kind: "list", recordId: "d1",
+      recordLabel: "Doc", type: "modified", fields: [], restorable: false },
+  ]);
+  const restore = vi.fn().mockResolvedValue(undefined);
+  const showToast = vi.fn();
+  render(
+    <DisplayTimezoneProvider effectiveTz="Asia/Kolkata">
+      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
+        <HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />
+      </ToastProvider>
+    </DisplayTimezoneProvider>,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Restore this state – Baseline" }));
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.any(String)));
+  expect(restore).not.toHaveBeenCalled();
+});
+
+it("offers no compare-header restore controls when every change is non-restorable", async () => {
+  // ★★ The THIRD path of the same over-promise, one level up from the guard: the
+  // header's "Restore this state" calls `restore` DIRECTLY with buildAllSelection(),
+  // which is now empty here — so the control has to go, not merely no-op. Its
+  // gate was `diff.length > 0`, and a documents-only diff is non-empty.
+  // Mutation-proved: restore that gate and the first assertion goes RED.
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const loadDiff = vi.fn().mockResolvedValue([
+    { collection: "documents", collectionLabel: "Documents", kind: "list", recordId: "d1",
+      recordLabel: "Doc", type: "modified", fields: [], restorable: false },
+  ]);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(undefined)} />);
+  fireEvent.click(screen.getByText(/Compared with current/i));
+  // The diff itself still RENDERS — it is what arms a capture, and Task 10 shows
+  // the row with a "managed per document" hint instead of a checkbox.
+  await screen.findByText("Doc");
+  expect(screen.queryByRole("button", { name: "Restore this state" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Select all" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "Restore selected" })).toBeNull();
 });

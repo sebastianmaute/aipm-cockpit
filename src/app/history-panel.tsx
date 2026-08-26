@@ -26,6 +26,19 @@ import { Button } from "./button";
 import { Checkbox, Input } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 
+/** Build an "everything" selection from a diff, EXCLUDING changes the restore
+ *  will skip. ★★ Keeping a non-restorable key in the selection makes the restore
+ *  claim it reverted a row it silently ignored — the two select-all paths and
+ *  the diff view's checkboxes must agree on this or the UI over-promises. */
+export function selectableSelection(changes: readonly VersionChange[]): RestoreSelection {
+  const sel: RestoreSelection = {};
+  for (const c of changes) {
+    if (c.restorable === false) continue;
+    sel[changeKey(c.collection, c.recordId)] = "all";
+  }
+  return sel;
+}
+
 interface HistoryPanelProps {
   lang: Lang;
   versions: ProjectVersionMeta[];
@@ -144,15 +157,17 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // selective-restore machinery (no separate full-restore path needed).
   const restoreWholeVersion = async (v: ProjectVersionMeta) => {
     const changes = await loadDiff(v.id, "now");
-    if (changes.length === 0) {
-      // Empty diff = this version is EMPTY or identical to the current state.
-      // Previously a SILENT no-op ("nothing happened") — now tell the user so a
-      // dead/empty snapshot isn't a mystery.
+    const sel = selectableSelection(changes);
+    // ★★ Test the SELECTION, not `changes`. This subsumes the empty-diff case
+    // (a version that is EMPTY or identical to the current state — previously a
+    // SILENT no-op, so a dead snapshot isn't a mystery) AND the newer one it
+    // would miss: a documents-only session has a non-empty diff (which is what
+    // arms a capture) and an EMPTY selection, because document history is
+    // managed per document. Restoring that reverts nothing and reports success.
+    if (Object.keys(sel).length === 0) {
       showToast("info", t(lang, "historyRestoreNothing"));
       return;
     }
-    const sel: RestoreSelection = {};
-    for (const c of changes) sel[changeKey(c.collection, c.recordId)] = "all";
     await restore(v.id, sel, labelOf(v));
   };
 
@@ -188,11 +203,12 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
 
   // T8 — compare-header restore controls (vs-now compare only; the checkboxes
   // that these act on live in that mode).
-  const buildAllSelection = (): RestoreSelection => {
-    const sel: RestoreSelection = {};
-    for (const c of diff ?? []) sel[changeKey(c.collection, c.recordId)] = "all";
-    return sel;
-  };
+  const buildAllSelection = (): RestoreSelection => selectableSelection(diff ?? []);
+  // ★★ Gate the header's restore controls on the SELECTABLE changes, not on
+  // `diff.length`. A documents-only diff is non-empty yet yields an EMPTY
+  // selection, so "Restore this state" here would revert nothing and report
+  // success — the same over-promise `selectableSelection` exists to remove.
+  const selectableCount = Object.keys(buildAllSelection()).length;
   const selectAllRecords = () => setSelection(buildAllSelection());
   const deselectAllRecords = () => setSelection({});
   // "Restore this state" from the compare header: revert the whole compared
@@ -344,9 +360,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
             <span className="flex items-center gap-2">
-              {/* Restore controls (vs-now compare with a non-empty diff only — they
-                  act on the ticked records; an identical snapshot has none). */}
-              {compareFrom !== null && diff.length > 0 && (
+              {/* Restore controls (vs-now compare with at least one RESTORABLE
+                  change only — they act on the ticked records; an identical
+                  snapshot has none, and neither does a diff whose every row is
+                  managed per document). */}
+              {compareFrom !== null && selectableCount > 0 && (
                 <>
                   <Button
                     variant="secondary"
