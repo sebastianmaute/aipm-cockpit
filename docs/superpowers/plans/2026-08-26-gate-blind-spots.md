@@ -48,7 +48,22 @@ You are working in a project-management web app. This slice touches **no product
 
 9. **Do not use `sed -i`** on any file under `src/`, `package.json` or `package-lock.json` — under Git Bash it re-lines the whole file to LF.
 
-9b. **After ANY write into a CRLF file, check `git ls-files --eol <file>` BEFORE relying on a `\r\n` anchor to undo it.** Measured during Task 2's execution: `src/app/icons.ts` came out of the mutant-injection step re-lined to LF, so the revert anchor ending in `\r\n` matched **0 times** and the first revert attempt did nothing. `git diff --stat` showed one insertion and hid the re-lining completely, because `core.autocrlf`'s clean filter normalises both forms to the same blob. ★★ **The CAUSE was never established, so do not repeat any guess about it.** The Edit tool was the immediate suspect and was then measured innocent: a controlled probe — CRLF fixture in, Edit tool inserting a new first line — came out `bareLF: 0, CRLF: 4`, preserving CRLF and giving the inserted line `\r\n`. Writing "the Edit tool re-lines CRLF files" into this plan would have planted a false landmine of exactly the kind this register keeps recording. What is established is the OBSERVATION and the DETECTOR; treat an unexplained `w/lf` as a fact to repair, not as evidence about which tool did it.
+9b. ★★★ **THE `Write` TOOL RE-LINES A CRLF FILE TO LF. THE `Edit` TOOL DOES NOT.** Measured 2026-08-26 by two controlled probes against the same CRLF fixture, not reasoned:
+
+| tool | fixture in | file out |
+|---|---|---|
+| `Edit` (insert a new first line) | 3 CRLF, 0 bare LF | **4 CRLF, 0 bare LF** — preserved, inserted line got `\r\n` |
+| `Write` (overwrite whole file) | 2 CRLF, 0 bare LF | **0 CRLF, 3 bare LF** — whole file re-lined |
+
+   So: **use `Edit` on any existing CRLF file. Reserve `Write` for genuinely new files, and re-line them afterwards if their siblings are CRLF.** Under `core.autocrlf=true` everything outside `*.md` is `i/lf w/crlf` — that includes `src/**`, `scripts/**`, `package.json` and `package-lock.json` (`git check-attr -a` prints nothing for them, so autocrlf alone governs).
+
+   **It is invisible to `git diff`.** The clean filter normalises both forms to the same blob, so a re-lined file shows no diff, commits to the byte-identical blob, and `git status` can report it clean. The damage is LOCAL, not to the repository — but it breaks the next `\r\n`-anchored edit, which is how it surfaces.
+
+   Two instances hit this slice. `src/app/icons.ts` came out of Task 2's mutant-injection step at LF, so the revert anchor ending in `\r\n` matched **0 times** and the first revert did nothing. Task 4's two new `scripts/*.mjs` landed `w/lf` while **every** existing script in that directory is `w/crlf`. Both were repaired content-preserving (`s.replace(/(?<!\r)\n/g, "\r\n")`) and verified by `git hash-object` matching the HEAD blob exactly.
+
+   ★★ **Detect it, do not assume it.** `git ls-files --eol <file>` reports index and working tree separately, which is the distinction this turns on: `i/lf w/crlf` is healthy for these paths, `i/lf w/lf` means it was re-lined. Run it after ANY write into such a file and BEFORE relying on a `\r\n` anchor.
+
+   ★ An earlier revision of this rule said the cause was unestablished and named `Edit` as the acquitted suspect. `Edit` is still acquitted; the culprit was found by noticing that Task 4's new files carried the same signature, and probing the other tool.
 
 10. **Escape bytes corrupt through tool boundaries.** Writing prose containing a backslash-b through a heredoc can deliver a literal U+0008, which renders as nothing and is invisible to review. After writing any file containing regex escapes, scan it:
 
