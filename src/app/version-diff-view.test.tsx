@@ -79,6 +79,61 @@ describe("VersionDiffView", () => {
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
+  // ★★★ THE SHAPE THAT WAS UNWRITEABLE UNTIL 0.260.x, and the reason it matters
+  // most: a NON-restorable row renders no checkbox and no restore button, so the
+  // disclosure button is the row's ONLY control — the sole thing carrying a
+  // row-unique name. While that button built its name token-FIRST, the trailing
+  // ` (N)` this helper strips (`OCCURRENCE_SUFFIX`) sat mid-string, so
+  // `requireCollisionSeed: true` threw "the fixture seeded no two rows sharing a
+  // display name" against a fixture that seeds precisely that. The collision is
+  // real in production data: two documents may share a title.
+  it("gives two same-named NON-restorable records distinct disclosure-button names", () => {
+    const changes: VersionChange[] = [1, 2].map((id) => ({
+      collection: "documents", collectionLabel: "Documents", kind: "list" as const,
+      recordId: id, recordLabel: "Q3 report", type: "modified" as const,
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+      restorable: false as const,
+    }));
+    render(<VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+      onToggleRecord={() => {}} onRestoreRecord={() => {}} />);
+    // The disclosure button really is the only control on these rows.
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+    expect(screen.queryAllByRole("button")).toHaveLength(2);
+    expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
+  });
+
+  // ★★★ `aria-hidden="true"` ON THE TYPE BADGE IS LOAD-BEARING FOR WCAG 2.5.3,
+  // and nothing pinned it — the code comment beside it reads as protection and
+  // stops the audit, which is exactly the false-coverage shape. Deleting the
+  // attribute leaves every accessible name untouched (the aria-label wins), so
+  // every other test in this file stays GREEN while a colliding row breaks 2.5.3:
+  // the visible label becomes "Q3 report Modified" while the name is
+  // "Modified – Q3 report (1)", and the visible text is then no longer contained
+  // in the name. Assert the PROPERTY (containment over visible text, with
+  // aria-hidden subtrees removed as axe does), not the attribute — an attribute
+  // check passes for a name shape that violates the criterion anyway.
+  it("keeps each row's visible label contained in its accessible name (WCAG 2.5.3)", () => {
+    const changes: VersionChange[] = [1, 2].map((id) => ({
+      collection: "documents", collectionLabel: "Documents", kind: "list" as const,
+      recordId: id, recordLabel: "Q3 report", type: "modified" as const,
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+      restorable: false as const,
+    }));
+    render(<VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+      onToggleRecord={() => {}} />);
+    const buttons = screen.getAllByRole("button");
+    expect(buttons).toHaveLength(2);
+    for (const btn of buttons) {
+      const clone = btn.cloneNode(true) as HTMLElement;
+      for (const hidden of clone.querySelectorAll('[aria-hidden="true"]')) hidden.remove();
+      const visible = (clone.textContent ?? "").trim();
+      const name = btn.getAttribute("aria-label") ?? "";
+      expect(visible).not.toBe(""); // a vacuous pass if the row rendered no text
+      // 2.5.3 is containment, case-INSENSITIVE and position-independent.
+      expect(name.toLowerCase()).toContain(visible.toLowerCase());
+    }
+  });
+
   it("gives two same-named records distinct checkbox names", () => {
     const row = (id: number): VersionChange => ({
       collection: "documents", collectionLabel: "Documents", kind: "list",

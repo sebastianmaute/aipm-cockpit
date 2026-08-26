@@ -189,12 +189,28 @@ export function VersionDiffView({
                       // name instead, which is what keeps WCAG 2.5.3 satisfied:
                       // axe's label-content-name-mismatch reads VISIBLE text only
                       // (it skips aria-hidden content), so the visible label
-                      // reduces to the bare record label, and the name starts
-                      // with the token — which is that label, plus an occurrence
+                      // reduces to the bare record label, and the name CONTAINS
+                      // the token — which is that label, plus an occurrence
                       // index only when it collides. Containment therefore holds
                       // for a colliding row AND a non-colliding one. AT still
-                      // hears the type; nothing is lost.
-                      aria-label={`${tokens.get(k) ?? c.recordLabel} ${t(lang, TYPE_KEY[c.type])}`}
+                      // hears the type; nothing is lost. (2.5.3 is containment,
+                      // case-insensitive and position-INdependent, so putting the
+                      // type first costs nothing here.)
+                      // ★★★ IT MUST GO THROUGH `rowLabel`, PUTTING THE TOKEN LAST,
+                      // and this line built the name by hand the other way round
+                      // until 0.260.x. `src/test/row-unique-names.ts` strips a
+                      // trailing ` (N)` (`OCCURRENCE_SUFFIX`) before checking for
+                      // a collision seed, and its docstring names the invariant it
+                      // leans on: "`rowLabel` puts the token last, so it is at the
+                      // end of the accessible name too". With the token FIRST the
+                      // index landed mid-string and never stripped, so
+                      // `requireCollisionSeed: true` THREW "the fixture seeded no
+                      // two rows sharing a display name" against a fixture that
+                      // seeded exactly that — which made the one shape that most
+                      // needs the assertion, two NON-restorable rows sharing a
+                      // title (this button is then the row's ONLY control),
+                      // impossible to write. Do not hand-roll this name again.
+                      aria-label={rowLabel(t(lang, TYPE_KEY[c.type]), tokens.get(k) ?? c.recordLabel)}
                       className="flex w-full items-center justify-between text-left"
                     >
                       <span className="text-foreground">{c.recordLabel}</span>
