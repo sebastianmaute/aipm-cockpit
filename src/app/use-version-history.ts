@@ -45,9 +45,19 @@ export interface UseVersionHistoryResult {
 // and briefly seeds default reference data before the new project hydrates, so
 // those defaults must not mask an otherwise-empty transient. A parse failure is
 // treated as NON-empty (don't skip on uncertainty). Pure.
-// ★ Deliberately a SEPARATE 9-content-list definition — NOT `isWorkspaceEmpty`
-// (which counts roles/disciplines/grades and would be defeated by the seeded
-// reference-data). Keep this list in sync when a new CONTENT collection is added.
+// ★ Deliberately a SEPARATE definition — NOT `isWorkspaceEmpty` (which counts
+// roles/disciplines/grades and would be defeated by the seeded reference-data).
+// ★★ THE RULE FOR ADDING TO THIS LIST: count USER-AUTHORED content, never a
+// DERIVED slice. A slice qualifies only if a project-switch transient cannot
+// carry it non-empty while the others are empty. Two of the six captured slices
+// fail that test and are excluded on purpose:
+//   - `insights` is written by a DEBOUNCED detect→reconcile effect
+//     (`task-manager.tsx`); a timer armed by the OLD project's inputs can fire
+//     after the reset, so counting it would let a stale write mask a transient.
+//   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
+//     sets both from one loader result), so it adds nothing a `documents` count
+//     does not, and inherits the same objection.
+// Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md.
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
@@ -56,6 +66,7 @@ export function isEmptyWorkspacePayload(json: string): boolean {
     const lists = [
       "tasks", "raid", "milestones", "stakeholders", "resources",
       "changes", "budgets", "absences", "shifts",
+      "knowledgeItems", "documents", "calendarEvents",
     ];
     return lists.every((k) => !Array.isArray(w[k]) || (w[k] as unknown[]).length === 0);
   } catch {

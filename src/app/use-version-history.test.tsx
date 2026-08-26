@@ -132,6 +132,22 @@ describe("useVersionHistory", () => {
     expect(isEmptyWorkspacePayload(JSON.stringify({ tasks: [{ id: 1, taskName: "A" }] }))).toBe(false);
     expect(isEmptyWorkspacePayload("{not json")).toBe(false);
   });
+  it("isEmptyWorkspacePayload: false for a project holding only user-authored content", () => {
+    // Each of these is a real project shape that captured NO version before:
+    // the guard counted nine legacy lists and none of these three.
+    expect(isEmptyWorkspacePayload(JSON.stringify({ documents: [{ id: 1, title: "Doc" }] }))).toBe(false);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ knowledgeItems: [{ id: "a", name: "K" }] }))).toBe(false);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ calendarEvents: [{ id: 1, title: "E" }] }))).toBe(false);
+  });
+  it("isEmptyWorkspacePayload: true for DERIVED slices alone", () => {
+    // ★★ Deliberate, not an oversight. `insights` is written by a DEBOUNCED
+    // detect effect whose timer can fire AFTER a project switch has reset the
+    // content arrays, and `documentVersions` is derived from `documents`.
+    // Counting either would let a stale write mark an empty transient
+    // non-empty — re-opening the hole this guard exists to close.
+    expect(isEmptyWorkspacePayload(JSON.stringify({ insights: [{ id: 1, key: "x" }] }))).toBe(true);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ documentVersions: [{ id: 1, documentId: 1 }] }))).toBe(true);
+  });
 
   it("remove deletes a snapshot and refreshes the list", async () => {
     const del = vi.spyOn(store, "deleteVersion").mockResolvedValue();
