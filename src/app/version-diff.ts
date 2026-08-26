@@ -71,6 +71,15 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
   { key: "insights", label: "Insights", kind: "list", nameField: "key" },
   { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
+  // ★★ DIFF-VISIBLE, NOT RESTORABLE — see the `restorable` docstring on
+  // CollectionSpec. `applyDocMutation` owns document history (before-images,
+  // tombstones, retention: docs/AGENTS/documents.md); a workspace-level restore
+  // would bypass it, minting no before-image while rewriting documentVersions
+  // underneath, so one document would have two histories and two writers. The
+  // row still has to exist: without it a documents-only session produces an
+  // empty diff and `writeVersion` captures NOTHING.
+  { key: "documents", label: "Documents", kind: "list", nameField: "title", restorable: false },
+  { key: "documentVersions", label: "Document versions", kind: "list", restorable: false },
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 
