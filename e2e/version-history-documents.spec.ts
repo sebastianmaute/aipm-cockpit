@@ -15,6 +15,17 @@
 // ★★ AND NEITHER OF THEM IS "THE HISTORY PANEL MOUNTED" — that check is VACUOUS
 // here, for reasons measured below under "what liveness had to become".
 //
+// ★★★ THE ABSENCE ASSERTION CARRIES A NEGATIVE CONTROL, and without it the
+// absence proves much less than it reads as. Asserting that
+// `version.skipEmptyTransientCapture` did NOT fire is only evidence if the same
+// run has shown that code CAN fire — otherwise "the guard behaved" and "the
+// guard is unreachable, or the ring is unreadable, or the code was renamed" all
+// look identical. So the test ends by DELETING the only document (leaving
+// `documents: []` with `documentVersions` non-empty, which
+// `isEmptyWorkspacePayload` deliberately does not count) and asserting the code
+// then DOES appear. `storage.loaded` proves the ring is live; this proves this
+// particular code is observable.
+//
 // ★★★ CREDENTIALS ARE NEVER PRINTED. No value from `.env.local` may be echoed,
 // logged, put in an assertion message or embedded in a failure diff — every
 // check here is on a BOOLEAN or on observable app behaviour.
@@ -22,6 +33,14 @@
 // ★ CI is permanently silent on this file (open-followups §215: no live Turso
 // database in CI). It exists so the claim can be RE-MEASURED by whoever has a
 // database, not looked at once.
+//
+// ★★ MUTATION-PROVED, 2026-08-26, against a live database — the only evidence
+// that a green run here means anything. Deleting `"documents"` from
+// `isEmptyWorkspacePayload`'s list (use-version-history.ts), i.e. restoring the
+// pre-slice nine, turns this test RED at `pollForCapturedVersion` with its own
+// §242 message; restoring the word turns it green again. Re-do that before
+// trusting a green run after any refactor of the capture path — a live-database
+// test that has quietly stopped exercising the product still passes.
 //
 // Run against a fresh server on an isolated port, never the reused one:
 //   PORT=3100 npm run dev
@@ -79,8 +98,9 @@ import { readFileSync, existsSync } from "node:fs";
 // so the capture would happen with the fix reverted. (2) The default
 // `storageConfig` is the browser backend, so the app's FIRST load can read that
 // seed before the settings write below flips it to Turso — and the next autosave
-// would push the whole sample workspace into the target database. `gotoApp` /
-// `openView` / `expect` are plain functions and are safe to borrow.
+// would push the whole sample workspace into the target database. `FROZEN_NOW`
+// and `openView` are a constant and a plain function, so they are safe to
+// borrow; `gotoApp` deliberately is NOT (see `waitForShell`).
 import { test, expect } from "@playwright/test";
 import type { Page } from "@playwright/test";
 import { FROZEN_NOW, openView } from "./seed";
@@ -173,7 +193,16 @@ const rowsOf = (r: PipelineResult | undefined): { value: string }[][] =>
 const DOC_TITLE = "S242 documents-only capture probe";
 const RENAMED_TITLE = "S242 documents-only capture probe (edited)";
 
-const DOC_ID = "e2e-vh-doc-1";
+/** ★★★ A NUMBER, AND `ProjectDocument.id` BEING ONE IS NOT OBVIOUS FROM THE
+ *  NEIGHBOURHOOD — `DocumentAsset.id` next door is a `crypto.randomUUID()`
+ *  string, which is exactly why `turso-schema.ts` had to grow `idKind: "text"`.
+ *  `sanitizeDocument` (document-model.ts) opens with
+ *  `const id = Math.floor(Number(d.id)); if (!Number.isFinite(id) || id <= 0)
+ *  return null;`, so a string id makes the whole document vanish at load with
+ *  no error anywhere — measured: the app came up live on Turso with the project
+ *  loaded and the pane reading "No documents yet." Deliberately high so it
+ *  cannot collide with a hand-created document in the same partition. */
+const DOC_ID = 90242;
 
 /** One document, one paragraph, and NOTHING else in the project — the shape the
  *  pre-fix `isEmptyWorkspacePayload` classified as an empty transient. Shape per
@@ -224,19 +253,44 @@ async function cleanPartition(): Promise<void> {
   await pipeline(partitionCleanupStatements());
 }
 
+/** The `projects` columns a row must carry to survive decoding, and NOT ONE
+ *  MORE. ★★★ "A partial row is fine because `rowsToProjectList` is LENIENT" is
+ *  FALSE and cost a run: `buildProjectFromObjLenient`'s `lenientRequiredArrays`
+ *  relaxes the ARRAY fields only. `sanitizeProjectMeta` still returns null
+ *  unless name · code · projectManager · customer · products · profitCenter are
+ *  non-empty, `naceSection` is in `NACE_SECTION_SET`, `deployment` is in
+ *  `DEPLOYMENT_SET`, and `startDate` parses as ISO. A row missing any of them
+ *  decodes to null, `tursoProjects` comes back EMPTY, and task-manager renders
+ *  the "No projects yet" dialog INSTEAD of the app — no `<main>`, no shell, and
+ *  a failure that points at the wait rather than at the row. Measured: a
+ *  four-column row did exactly that.
+ *  ★ Still a deliberate subset of `PROJECT_CSV_COLUMNS` — restating that whole
+ *  list here would rot the moment a column is added, and the optional ones are
+ *  genuinely optional. */
+const PROJECT_ROW: Record<string, string> = {
+  name: "S242 probe",
+  code: "S242",
+  projectManager: "E2E Runner",
+  customer: "E2E Customer",
+  products: "E2E Product",
+  profitCenter: "E2E",
+  naceSection: "J",          // NACE_SECTIONS: "Information and communication"
+  deployment: "Cloud",       // Deployment = "Cloud" | "On-premise" | "Hybrid"
+  startDate: "2026-06-01",
+};
+
 /** Writes the project row + the documents meta blob under E2E_PROJECT_ID.
- *  ★★ Only the four `projects` columns this test needs are named.
- *  `rowsToProjectList` decodes with `buildProjectFromObjLenient`, so a partial
- *  row is fine, and naming a subset means this file never has to restate
- *  `PROJECT_CSV_COLUMNS` — a list that would rot the moment a column is added.
- *  ★★★ It also means this file issues no DDL: both tables must already exist,
- *  which they do because the app's own tenant load created them (see the header).
- *  A "no such table" here is therefore a REAL failure and is asserted on. */
+ *  ★★★ This file issues no DDL: both tables must already exist, which they do
+ *  because the app's own tenant load created them (see the header). A "no such
+ *  table" here is therefore a REAL failure and is asserted on. */
 async function seedDocumentsOnlyProject(): Promise<void> {
+  const cols = ["id", "archived", ...Object.keys(PROJECT_ROW)];
   const results = await pipeline([
     {
-      sql: 'INSERT OR REPLACE INTO projects (id, "archived", "name", "code") VALUES (?, ?, ?, ?)',
-      args: [txt(E2E_PROJECT_ID), txt("0"), txt("S242 probe"), txt("S242")],
+      sql:
+        `INSERT OR REPLACE INTO projects (${cols.map((c) => `"${c}"`).join(", ")}) ` +
+        `VALUES (${cols.map(() => "?").join(", ")})`,
+      args: [txt(E2E_PROJECT_ID), txt("0"), ...Object.values(PROJECT_ROW).map(txt)],
     },
     {
       sql: "INSERT INTO meta (key, value, project_id) VALUES (?, ?, ?)",
@@ -368,7 +422,17 @@ async function waitForShell(page: Page): Promise<void> {
  */
 async function expectLiveDocumentFromTurso(page: Page): Promise<void> {
   await expect(
-    page.getByRole("button", { name: DOC_TITLE }),
+    // ★★★ `exact: true` IS LOAD-BEARING ON EVERY LOCATOR IN THIS FILE, and the
+    // opposite is written down elsewhere in this repo. Playwright's `name`
+    // option is a case-insensitive SUBSTRING match by default — it is `exact`
+    // that makes it a full-string one. Measured, not read: without it this line
+    // resolved to SIX elements, because `documents-list.tsx` names every per-row
+    // control `"<verb> – <title>"` and each one CONTAINS the title. The failure
+    // is a strict-mode violation, so it is loud here; on the "Rename"/"Delete"
+    // commit buttons below the same mistake is SILENT and much worse — a bare
+    // `"Rename"` also matches the row's `"Rename – …"` trigger sitting behind
+    // the open modal, so the click lands on whichever Playwright picks.
+    page.getByRole("button", { name: DOC_TITLE, exact: true }),
     "the seeded document never rendered, so the workspace did not load from the live database. " +
       "Almost certainly the dev server predates .env.local and playwright reused it " +
       "(reuseExistingServer) — Next reads env at server start. Restart on an isolated port and " +
@@ -404,7 +468,7 @@ const VERSION_IDLE_MS = 180_000;
 const SAVE_DEBOUNCE_MS = 500;
 
 /** ★★★ THE CLOCK IS FAKE AND THAT IS WHY THIS TEST IS FAST RATHER THAN FOUR
- *  MINUTES LONG. `gotoApp` calls `page.clock.install`, so in-page `setTimeout`
+ *  MINUTES LONG. The test calls `page.clock.install`, so in-page `setTimeout`
  *  does not advance in real time at all — the 3-minute idle capture would NEVER
  *  fire on its own, and a test that merely waited would report "no version was
  *  captured" against perfectly working code.
@@ -467,12 +531,61 @@ async function pollForCapturedVersion(page: Page): Promise<void> {
  *  each per-row control `rowLabel(verb, token)` = "<verb> – <title>" with an EN
  *  DASH (U+2013), and with one document the token is the bare title. */
 async function renameDocument(page: Page, from: string, to: string): Promise<void> {
-  await page.getByRole("button", { name: `Rename – ${from}` }).click();
+  await page.getByRole("button", { name: `Rename – ${from}`, exact: true }).click();
   // The visible <label> IS the accessible name (documents-rename-modal.tsx).
-  await page.getByLabel("Title").fill(to);
-  // ★ A string `name` is a full-string match, so this hits the modal's commit
-  // button and NOT the row's "Rename – …" trigger behind it.
-  await page.getByRole("button", { name: "Rename" }).click();
+  await page.getByLabel("Title", { exact: true }).fill(to);
+  // ★★ `exact: true` is what keeps this off the row's "Rename – …" trigger —
+  // see the measurement on `expectLiveDocumentFromTurso`.
+  await page.getByRole("button", { name: "Rename", exact: true }).click();
+}
+
+/** Delete the only document through the real confirm dialog
+ *  (`documents-panel.tsx` `handleDelete` → `useConfirm`, never `window.confirm`).
+ *  ★★ Both buttons are named from `documentsDelete`, so `exact: true` is the
+ *  only thing separating the dialog's bare "Delete" from the row's
+ *  "Delete – <title>" trigger — see the measurement on
+ *  `expectLiveDocumentFromTurso`. */
+async function deleteDocument(page: Page, title: string): Promise<void> {
+  await page.getByRole("button", { name: `Delete – ${title}`, exact: true }).click();
+  await page.getByRole("button", { name: "Delete", exact: true }).click();
+}
+
+/** The documents blob is ABSENT or empty for this partition — the state the
+ *  negative control needs. `tenantWorkspaceToStatements` only writes the `meta`
+ *  row `if (ws.documents && ws.documents.length)`, so a delete leaves no row at
+ *  all rather than a row holding `[]`; both count. */
+async function storedDocumentCount(): Promise<number> {
+  const results = await pipeline([
+    {
+      sql: "SELECT value FROM meta WHERE key = ? AND project_id = ?",
+      args: [txt("documents"), txt(E2E_PROJECT_ID)],
+    },
+  ]);
+  const raw = rowsOf(results[0])[0]?.[0]?.value;
+  if (!raw) return 0;
+  try {
+    const docs = JSON.parse(raw) as unknown[];
+    return Array.isArray(docs) ? docs.length : 0;
+  } catch {
+    return 0;
+  }
+}
+
+/** Advance past the debounce until the delete has landed in the database. */
+async function pollForEmptyDocuments(page: Page): Promise<void> {
+  await expect
+    .poll(
+      async () => {
+        await page.clock.runFor(SAVE_DEBOUNCE_MS * 4);
+        return storedDocumentCount();
+      },
+      {
+        message: "the delete never reached the database, so the negative control never got its " +
+          "documents-empty payload",
+        timeout: 60_000,
+      },
+    )
+    .toBe(0);
 }
 
 // ── The pre-fix predicate, restated ─────────────────────────────────────────
@@ -607,5 +720,39 @@ test.describe("version history — a documents-only project, live Turso", () => 
       codes,
       "the capture path logged version.skipEmptyTransientCapture, which is §242's exact signature",
     ).not.toContain("version.skipEmptyTransientCapture");
+
+    // ── ★★★ THE NEGATIVE CONTROL, and it is what makes the absence assertion
+    // above worth anything. `storage.loaded` proves the RING is live; it does
+    // not prove that THIS code is observable in THIS run, and an absence check
+    // against a code nothing has ever shown could pass for a dozen reasons that
+    // have nothing to do with §242.
+    //
+    // Deleting the only document leaves `documents: []` while `documentVersions`
+    // stays non-empty — the delete's before-image is the only surviving copy of
+    // the document, which is what makes Restore possible. `isEmptyWorkspacePayload`
+    // deliberately does NOT count `documentVersions` (it is derived from
+    // `documents`, so it inherits the project-switch-transient objection), so the
+    // next payload is genuinely empty by that predicate and the auto capture is
+    // skipped WITH the diagnostic. That is the pre-fix behaviour, reproduced on
+    // purpose against post-fix code — the guard is still there, it is simply
+    // right this time.
+    await deleteDocument(page, RENAMED_TITLE);
+    await pollForEmptyDocuments(page);
+
+    await expect
+      .poll(
+        async () => {
+          await page.clock.runFor(VERSION_IDLE_MS + 30_000);
+          return diagCodes(page);
+        },
+        {
+          message:
+            "the negative control never fired: a payload with documents:[] did not log " +
+            "version.skipEmptyTransientCapture, so nothing in this run demonstrates that code is " +
+            "observable at all — which means the absence assertion above proved less than it looks.",
+          timeout: 60_000,
+        },
+      )
+      .toContain("version.skipEmptyTransientCapture");
   });
 });
