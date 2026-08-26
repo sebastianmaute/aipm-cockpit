@@ -23,6 +23,20 @@ in this module or downstream of it. Do not add any; a "revert" is a write of a s
 snapshot, nothing more. This is the entire safety net behind direct AI document writes,
 because chat tool writes take no undo capture.
 
+★★★ **THIS MODEL IS THE ONLY HISTORY A DOCUMENT HAS, and as of 2026-08-26 the WORKSPACE-level
+version history states that explicitly rather than by omission.** `documents` and
+`documentVersions` are registered in `COLLECTION_SPECS` (`version-diff.ts`) as `kind: "list"` rows
+carrying `restorable: false` — so a workspace version DIFF lists changes in them (which is what arms
+an auto-capture for a documents-only session), while `applyRestore` SKIPS them
+(`if (spec.restorable === false) continue;`) and carries both slices through from live state. The
+decision behind the flag is this one: wiring them into the workspace restore would give a single
+document two independent histories, and nothing answers which wins when they disagree.
+★★ Read the consequence rather than the flag: **rolling the workspace back to an older version does
+NOT roll a document back.** Use this module's own restore path for that. `docs/open-followups.md`
+§241 records the decision and what revisiting it would require. ★ `documentAssets` is a third case
+and NOT the same one — it is absent from the version payload entirely, so image bytes are neither
+captured nor restorable at any layer (§254).
+
 `DocVersionSource` is `"ai" | "user"`. `DocVersionOp` is
 `"update" | "rename" | "delete" | "duplicate" | "restored"`.
 

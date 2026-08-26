@@ -8,6 +8,48 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.261.0] - 2026-08-26 "Leckie"
+
+### Fixed
+
+- **Version history can now restore the things it was already showing you.** Five kinds of
+  content — knowledge items, insights, calendar events, and the two document lists — appeared
+  in a comparison but could never be reverted, and a working session that changed only those
+  saved no version at all. Capture, comparison and restore now agree on the same list.
+- **A restore no longer wipes a project's own settings.** Reverting to a snapshot taken before
+  25 August blanked that project's timezone, notification and next-actions overrides, and the
+  loss was permanent — the blanked settings were simply left out of the next save, so there
+  was nothing to recover. Snapshots now record which format they were written in, so an
+  omitted section is correctly read as "this snapshot cannot speak for that" rather than as
+  "that section was empty".
+- **A restore that could not change anything no longer reports success.** Comparing against a
+  snapshot whose every difference is managed elsewhere — document history is kept per document
+  — offered a restore that silently did nothing and then said it had worked. Those rows now
+  explain themselves instead of offering a control that cannot act.
+- **Double-clicking "Restore this state" runs one restore, not two.** The second click used to
+  land while the first was still loading, producing two snapshots and two log entries for one
+  action.
+- **A second comparison no longer opens rows the first one had expanded.** Rows are identified
+  the same way in every comparison, so expansion carried over to whichever record happened to
+  share an identifier.
+
+### Accessibility
+
+- Expandable rows in a comparison now announce whether they are open, and name the panel they
+  control while it is showing.
+- Every control in a comparison carries a name unique to its row, so two records that share a
+  title — two documents both called "Q3 report" — are no longer announced identically. The same
+  applies to the individual field checkboxes inside an expanded row.
+- Rows whose history is managed per document now say so as a description on their control,
+  rather than only in text beside it.
+- Restore and comparison controls are visibly disabled while a restore is running, instead of
+  staying live and ignoring the click.
+
+### Notes
+
+- German wording for the managed-history message corrected: it said "document versions" where
+  the English says "document history".
+
 ## [0.260.1] - 2026-08-25 "Cho"
 
 ### Fixed

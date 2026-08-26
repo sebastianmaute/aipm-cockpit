@@ -104,22 +104,55 @@ it has no table of its own, NOT because it sits outside the workspace.
   `sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/task-manager.tsx`.
   ★★★ **"BOTH SIDES ARE 24" IS ABOUT THE CAPTURE AND THE FAN-OUT — NOT ABOUT WHAT A RESTORE
   REWRITES, and reading it the second way is a data-loss bug.** `applyRestore` starts from the LIVE
-  workspace and rewrites only keys present in `COLLECTION_SPECS` (`version-diff.ts`). Five of the six
-  are ARRAYS and are deliberately absent from that registry, so a restore CARRIES THEM THROUGH from
-  live state rather than rolling them back — and `diffWorkspaces` cannot see them at all, so a
-  session that edits only those five captures no version. Two of them were briefly IN the registry
-  as `kind: "singleton"`, which spread the array into an object and made every backend drop the
-  slice on the next save; that is fixed and the reason is in the registry's own comment. Tracked as
-  `docs/open-followups.md` §241 and §242.
+  workspace and rewrites only keys present in `COLLECTION_SPECS` (`version-diff.ts`), so the two
+  sets are related but not equal. ★★★ **THIS PARAGRAPH SAID THE FIVE ARRAYS WERE DELIBERATELY ABSENT
+  FROM THAT REGISTRY AND INVISIBLE TO `diffWorkspaces` — corrected 2026-08-26, when they were
+  registered.** All five (`knowledgeItems`, `insights`, `documents`, `documentVersions`,
+  `calendarEvents`) are `kind: "list"` rows now, so the diff sees every one of them and a session
+  editing only those slices DOES capture a version. Three are restorable; `documents` and
+  `documentVersions` carry `restorable: false` — diff-visible, but `applyRestore` skips them
+  (`if (spec.restorable === false) continue;`) because `applyDocMutation` owns document history and
+  wiring them in would give one document two independent histories. Derive it rather than reading it
+  here — the two non-restorable rows say so in the row:
+  `grep -E 'key: "(knowledgeItems|insights|calendarEvents|documents|documentVersions)"' src/app/version-diff.ts`
+  ★ Two of them were briefly in the registry as `kind: "singleton"`, which spread the array into an
+  object and made every backend drop the slice on the next save; that was fixed well before the
+  registration above, and the reason is in the registry's own comment. Tracked as
+  `docs/open-followups.md` §241 and §242 — BOTH still open, each on a deliberate remainder rather
+  than on the behaviour this paragraph used to describe.
   The round-trip is pinned by `task-manager.restore-backfill.test.tsx` ("round-trips all six optional
   slices through getVersionPayload"), whose SIBLING test is the reason a pin was needed at all: it
   feeds the restore a workspace that already carries the slice, so it would pass with the capture
   still dropping it.
+  ★★★ **AN ABSENT SLICE KEY IS NOT AN EMPTY ONE, AND THE PAYLOAD NOW SAYS WHICH.** `workspaceToJson`
+  omits an additive slice's key whenever the live array is empty, and `getVersionPayload` could not
+  emit these six AT ALL before `db217e08` (2026-08-25) — so `{"tasks":[…]}` is byte-identical whether
+  the user genuinely had zero knowledge items or the format simply could not carry them. Read as
+  "empty", every live record diffs as `"added"` and the restore DELETES the lot; read as "cannot
+  speak", nothing is deleted but a restore can never again REMOVE a record added since the capture,
+  for any of the six, permanently. Both readings are wrong and no care inside the diff can separate
+  them, because the information was not in the payload. `version-capture-format.ts` puts it there:
+  `stampCaptureFormat` marks every capture at `capturePayload` — the single point `writeVersion` and
+  `restore` both funnel through — and `diffWorkspaces`/`applyRestore` each take a
+  `…SpeaksForEmptySlices` flag that DEFAULTS TO FALSE, the safe reading.
+  ★★ `PRE_FORMAT_2_BLIND_SLICES` is scoped to exactly `db217e08`'s six and BOTH ends are load-bearing:
+  wider (adding `project`/`steeringCommittee`/`timelogLinks`, additive and omitted-when-unset too but
+  emitted all along) silently turns every revert-to-unset into a no-op; narrower — dropping the
+  SINGLETON `settingsOverrides` because its five siblings are arrays — lets a restore blank a
+  project's timezone and notification overrides permanently. Both mistakes were made and caught on
+  2026-08-26; see `docs/open-followups.md` §259.
+  ★★ The suppression lives in `diffWorkspaces`, not only in `applyRestore`, and that is the half
+  that is easy to skip: a restore that SKIPS a slice is invisible to the surface — the row still
+  renders a checkbox and a "Restore this" button, the empty-selection toast does not fire, and
+  `restore()` returns `true` and logs "Restored N change(s)" for a restore that changed nothing.
+  A row the restore will refuse to act on must never be offered.
   ★★ "Deliberately omitted ⇒ preserved" is STILL true of `activityLog` alone as a statement about
   INTENT, and that is the half worth keeping: it is omitted from BOTH sides on purpose, with the
   reason written down. `features`, `fieldVisibility` and `documentAssets` are absent from the restore
   fan-out and are equally preserved — but by nothing that says so, which is the same silence that let
-  the six above stay blanked for as long as they did. Read neither as a guarantee.
+  the six above stay blanked for as long as they did. Read neither as a guarantee. ★ `documentAssets`
+  now has a number for exactly that silence — `docs/open-followups.md` §254, which records that the
+  absence is plausibly deliberate and that nothing in the code says so.
   ★★ **Entry ids are `"<deviceId>-<sessionNonce>-<counter>"`.** The middle segment is load-bearing:
   `getDeviceId` persists its value in `localStorage` (`DEVICE_ID_KEY`) while the counter is module
   scope, so `"<deviceId>-<counter>"` re-mints the same id on every reload and `mergeActivityLogs` (which

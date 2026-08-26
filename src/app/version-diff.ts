@@ -5,8 +5,14 @@
 // powers the read-only compare view and (Slice 3) selective restore.
 
 import type { Workspace } from "./workspace";
+import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
 
 export type ChangeType = "added" | "removed" | "modified";
+
+/** A list record's id. Almost every slice mints numbers; `knowledgeItems` ids are
+ *  strings (a Graph driveItem id, or a generated one for manual entries), so the
+ *  diff must carry both without coercing either. Never do arithmetic on this. */
+export type RecordId = number | string;
 
 export interface FieldChange { field: string; label: string; before: unknown; after: unknown; }
 
@@ -14,13 +20,20 @@ export interface VersionChange {
   collection: string;
   collectionLabel: string;
   kind: "list" | "singleton";
-  recordId: number | null;
+  recordId: RecordId | null;
   recordLabel: string;
   type: ChangeType;
   fields: FieldChange[];
+  /** Mirrors the spec's flag so a renderer can tell an informational row from a
+   *  revertible one without importing the registry. */
+  restorable?: false;
 }
 
-interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; }
+/** Omitted = restorable. `false` = diff-visible but `applyRestore` SKIPS it,
+ *  because the slice owns its own history elsewhere and must keep a single
+ *  writer. The diff row is still required: the diff is what arms a capture,
+ *  so without one a session editing only this slice produces NO version. */
+interface CollectionSpec { key: keyof Workspace; label: string; kind: "list" | "singleton"; nameField?: string; restorable?: false; }
 
 export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "tasks", label: "Tasks", kind: "list", nameField: "title" },
@@ -41,21 +54,50 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "fxRates", label: "FX rates", kind: "singleton" },
   { key: "steeringCommittee", label: "Steering committee", kind: "singleton" },
   { key: "timelogLinks", label: "TimeLog links", kind: "singleton" },
-  // ★★★ `knowledgeItems` and `insights` are DELIBERATELY ABSENT, and adding
-  //   them back is a data-loss bug, not a feature. Both are ARRAYS on
-  //   `Workspace`; a "singleton" spec routes the key through
-  //   `version-restore.ts`'s `mergeFields`, whose `{ ...target }` turns the
-  //   array into an object with numeric keys. `workspaceToJson` then gates the
-  //   slice on `.length` — `undefined` on an object — so the key is omitted and
-  //   all six write paths drop the slice on the next save. They sat here
-  //   harmlessly only while `getVersionPayload` emitted neither one; the moment
-  //   it emitted all 24 slices, `history-panel`'s plain Restore button (which
-  //   auto-selects EVERY change) could reach them. Absent from this list they
-  //   are carried through a restore from the LIVE workspace, exactly like
-  //   `documents` / `documentVersions` / `calendarEvents` already are — the
-  //   capture still records all 24 slices. Making them genuinely restorable
-  //   needs a `kind: "list"` model and is tracked in `docs/open-followups.md`.
-  //   Pinned by `version-restore.test.ts`'s array-typed-slice tests.
+  // ★★★ AN ARRAY SLICE TAKES `kind: "list"`. NEVER `"singleton"` — that is a
+  //   silent data-loss bug, not a style choice. A singleton spec routes the key
+  //   through `version-restore.ts`'s `mergeFields`, whose `{ ...target }` turns
+  //   the array into an OBJECT with numeric keys. `workspaceToJson` then gates
+  //   the slice on `.length` — `undefined` on an object — so the key is omitted
+  //   and all six write paths drop the slice on the next save, permanently.
+  //   It shipped exactly once, when `getVersionPayload` grew to emit all 24
+  //   slices and `history-panel`'s Restore button (which auto-selects EVERY
+  //   change) could finally reach two mis-declared rows.
+  //   Pinned by `version-restore.test.ts`'s "turns no array-typed slice of the
+  //   workspace into an object", whose diagnostic NAMES the offending slice.
+  //   ★★ THAT TEST IS NOT GENERIC OVER THIS REGISTRY — measured by mutation,
+  //   not reasoned. THREE conditions must ALL hold before it can see a slice,
+  //   and an earlier revision of this comment listed only the first two:
+  //     1. its own `arrays()` fixture POPULATES the slice, *and*
+  //     2. the slice CHANGES between the two workspaces — `applyRestore`'s
+  //        singleton branch bails on a slice with no diff change, so an
+  //        empty-in-both slice is never corrupted and there is nothing to
+  //        detect. Flipping `milestones` (registered, empty in both fixtures)
+  //        to `"singleton"` left the test GREEN; the identical edit to
+  //        `calendarEvents` (populated, and differing) turned it RED, naming
+  //        the slice. *and*
+  //     3. the slice is RESTORABLE. `applyRestore` hits
+  //        `if (spec.restorable === false) continue;` BEFORE the kind branch,
+  //        so a `restorable: false` row can never reach `mergeFields` at all.
+  //        Measured: flipping `documents` — populated AND differing, so 1 and 2
+  //        both hold — to `"singleton"` left the test GREEN.
+  //   SO: adding an array row to that fixture buys coverage only for a
+  //   RESTORABLE row. For a `restorable: false` one it buys NOTHING, and there
+  //   is nothing to buy — the kind is unreachable for it. Declare the kind
+  //   correctly anyway: the flag is not a type, and dropping it later would
+  //   arm the bug with no test in sight.
+  { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
+  { key: "insights", label: "Insights", kind: "list", nameField: "key" },
+  { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
+  // ★★ DIFF-VISIBLE, NOT RESTORABLE — see the `restorable` docstring on
+  // CollectionSpec. `applyDocMutation` owns document history (before-images,
+  // tombstones, retention: docs/AGENTS/documents.md); a workspace-level restore
+  // would bypass it, minting no before-image while rewriting documentVersions
+  // underneath, so one document would have two histories and two writers. The
+  // row still has to exist: without it a documents-only session produces an
+  // empty diff and `writeVersion` captures NOTHING.
+  { key: "documents", label: "Documents", kind: "list", nameField: "title", restorable: false },
+  { key: "documentVersions", label: "Document versions", kind: "list", restorable: false },
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 
@@ -76,18 +118,21 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   }
   return out;
 }
-function recordLabel(rec: Record<string, unknown> | undefined, id: number, nameField?: string): string {
+function recordLabel(rec: Record<string, unknown> | undefined, id: RecordId, nameField?: string): string {
   const name = nameField ? rec?.[nameField] : undefined;
   return typeof name === "string" && name.trim() ? name : `#${id}`;
 }
 function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): VersionChange[] {
-  const byId = (arr: unknown[]) => new Map(arr.map((r) => [(r as { id: number }).id, r as Record<string, unknown>]));
+  const byId = (arr: unknown[]) => new Map<RecordId, Record<string, unknown>>(
+    arr.map((r) => [(r as { id: RecordId }).id, r as Record<string, unknown>]),
+  );
   const a = byId(older ?? []);
   const b = byId(newer ?? []);
   const out: VersionChange[] = [];
-  const base = (id: number, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
+  const base = (id: RecordId, rec: Record<string, unknown> | undefined, type: ChangeType, fields: FieldChange[]): VersionChange => ({
     collection: spec.key, collectionLabel: spec.label, kind: "list",
     recordId: id, recordLabel: recordLabel(rec, id, spec.nameField), type, fields,
+    ...(spec.restorable === false ? { restorable: false as const } : {}),
   });
   for (const [id, rec] of b) {
     if (!a.has(id)) out.push(base(id, rec, "added", fieldChanges({}, rec)));
@@ -99,12 +144,44 @@ function diffList(spec: CollectionSpec, older: unknown[], newer: unknown[]): Ver
 function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): VersionChange[] {
   const fields = fieldChanges((older ?? {}) as Record<string, unknown>, (newer ?? {}) as Record<string, unknown>);
   if (!fields.length) return [];
-  return [{ collection: spec.key, collectionLabel: spec.label, kind: "singleton", recordId: null, recordLabel: spec.label, type: "modified", fields }];
+  // ★★ THE SAME CLAUSE `diffList`'s `base()` carries, and it must stay in step.
+  // `applyRestore` gates on the SPEC (`spec.restorable === false`), while
+  // `VersionDiffView` and `selectableSelection` gate on the CHANGE
+  // (`c.restorable === false`) — two readings of one fact. Drop it here and a
+  // `{ kind: "singleton", restorable: false }` spec would be SKIPPED by the
+  // restore while the UI rendered it a checkbox and a "Restore this" button and
+  // the selection carried its key: exactly the silent no-op the flag exists to
+  // remove. Unreachable today (no singleton declares it), which is why it went
+  // missing unnoticed — pinned by version-diff.test.ts's synthetic spec.
+  return [{
+    collection: spec.key, collectionLabel: spec.label, kind: "singleton",
+    recordId: null, recordLabel: spec.label, type: "modified", fields,
+    ...(spec.restorable === false ? { restorable: false as const } : {}),
+  }];
 }
 
-export function diffWorkspaces(older: Workspace, newer: Workspace): VersionChange[] {
+/** ★★★ `olderSpeaksForEmptySlices` — pass `speaksForEmptySlices(readCaptureFormat(payload))`
+ *  for the OLDER side whenever it came from a stored capture. It defaults to
+ *  FALSE, which is the safe reading and the correct one for every caller that
+ *  cannot know (a synthetic workspace in a test, a caller yet to be threaded).
+ *  ★★ WHY THE SUPPRESSION LIVES HERE AND NOT ONLY IN `applyRestore`: a row the
+ *  restore will refuse to act on must never be OFFERED. `applyRestore` skipping
+ *  a slice is invisible to the UI — the row still renders a checkbox and a
+ *  "Restore this" button, `selectableSelection` includes it, the empty-selection
+ *  toast does not fire, and `restore()` returns `true` and logs
+ *  "Restored N change(s)" for a restore that changed nothing. Emitting no row is
+ *  the only version of this that cannot lie: a capture that cannot speak about a
+ *  slice has no opinion to show. The guard in `applyRestore` then becomes
+ *  defence in depth rather than the whole mechanism. */
+export function diffWorkspaces(
+  older: Workspace,
+  newer: Workspace,
+  opts?: { olderSpeaksForEmptySlices?: boolean },
+): VersionChange[] {
   const out: VersionChange[] = [];
+  const blind = !opts?.olderSpeaksForEmptySlices;
   for (const spec of COLLECTION_SPECS) {
+    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(spec.key) && older[spec.key] === undefined) continue;
     if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[]));
     else out.push(...diffSingleton(spec, older[spec.key], newer[spec.key]));
   }

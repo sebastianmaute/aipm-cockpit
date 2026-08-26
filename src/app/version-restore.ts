@@ -5,19 +5,34 @@
 // changes reverted toward the version. Immutable; never mutates inputs.
 
 import type { Workspace } from "./workspace";
-import { COLLECTION_SPECS, type VersionChange } from "./version-diff";
+import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
+import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
 
 /** Selection keyed by changeKey(collection, recordId); value is "all" (whole
  *  record / all changed fields) or an explicit list of field names. */
 export type RestoreSelection = Record<string, "all" | string[]>;
 
-export function changeKey(collection: string, recordId: number | null): string {
-  return `${collection}:${recordId ?? "_"}`;
+/** ★★ NOT a `${collection}:${id}` join, and the reason is a data defect rather
+ *  than tidiness. `knowledgeItems` ids are STRINGS, so a raw join is ambiguous
+ *  two ways: an id containing the separator makes `x` + `a:b` collide with
+ *  `x:a` + `b`, and an id of literally "_" collides with the `null` singleton
+ *  sentinel. Either one silently reverts the WRONG record — the selection finds
+ *  its change by this key. JSON encoding is unambiguous for both and stays
+ *  readable in a devtools inspection.
+ *  ★ Keys are built and looked up within ONE session (`RestoreSelection` is
+ *  never persisted), so changing this format needs no compatibility shim.
+ *  ★ The guarantee is over strings and FINITE POSITIVE numbers. `NaN` and
+ *  ±Infinity stringify to `null` and would collide with the singleton
+ *  sentinel — unreachable because every slice's sanitizer rejects a
+ *  non-finite or non-positive id before a diff can see it, but do not widen
+ *  `RecordId` past those two shapes without revisiting this. */
+export function changeKey(collection: string, recordId: RecordId | null): string {
+  return JSON.stringify([collection, recordId ?? null]);
 }
 
 type Rec = Record<string, unknown>;
-const byId = (arr: unknown[]): Map<number, Rec> =>
-  new Map((arr ?? []).map((r) => [(r as { id: number }).id, { ...(r as Rec) }]));
+const byId = (arr: unknown[]): Map<RecordId, Rec> =>
+  new Map((arr ?? []).map((r) => [(r as { id: RecordId }).id, { ...(r as Rec) }]));
 
 function mergeFields(target: Rec, source: Rec, fields: string[] | "all", allChanged: string[]): Rec {
   const picks = fields === "all" ? allChanged : fields;
@@ -29,17 +44,58 @@ function mergeFields(target: Rec, source: Rec, fields: string[] | "all", allChan
   return next;
 }
 
+/** ★ `versionSpeaksForEmptySlices` mirrors `diffWorkspaces`' option and must be
+ *  given the SAME value: pass `speaksForEmptySlices(readCaptureFormat(payload))`
+ *  for the stored capture. Defaults to FALSE — the safe reading. */
 export function applyRestore(
   current: Workspace,
   version: Workspace,
   changes: VersionChange[],
   selection: RestoreSelection,
+  opts?: { versionSpeaksForEmptySlices?: boolean },
 ): Workspace {
   const changeByKey = new Map(changes.map((c) => [changeKey(c.collection, c.recordId), c]));
   const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) };
+  const blind = !opts?.versionSpeaksForEmptySlices;
 
   for (const spec of COLLECTION_SPECS) {
+    // ★★ Diff-visible but NOT restorable. The slice is carried through from
+    // `current` untouched — exactly what an absent registry row used to do —
+    // because it owns its own history and a second writer would fight it.
+    // ★★ Measured by mutation, not reasoned: delete this line and a restore to
+    // a capture predating the slice DELETES the documents (1 → 0 on both
+    // slices) rather than merely failing to revert them, because every live
+    // record reads as "added" against a capture that has no such key. This is
+    // a DATA-LOSS guard, not only a single-writer one. Pinned by BOTH
+    // "skips a collection marked restorable: false" and "removes the
+    // restorable arrays on a restore to a short pre-0.259.0 capture".
+    if (spec.restorable === false) continue;
     const key = spec.key as string;
+    // ★★★ AN ABSENT KEY IS NOT AN EMPTY SLICE — for these six, and ONLY while
+    // the capture predates the marker. `workspaceToJson` omits an additive
+    // slice's key when it is empty, and `getVersionPayload` could not emit these
+    // six at all before db217e08 (2026-08-25), so on an unstamped capture
+    // `undefined` means "this capture cannot speak about this slice". Read as
+    // empty, every live record diffs as "added" and the list branch below runs
+    // `cur.delete(id)` on all of them, while the singleton branch's
+    // `mergeFields(current, {}, "all", …)` takes its `else delete next[f]` arm
+    // and returns `{}`. Manual checkpoints are never pruned
+    // (`version-schema.ts` prunes `trigger = 'auto'` only), so such a capture
+    // stays restorable — and, unguarded, destructive — indefinitely.
+    // ★★★ SCOPED THREE WAYS, each load-bearing, each a defect if widened or
+    // narrowed. To the SIX slices, so `project`/`steeringCommittee`/
+    // `timelogLinks` keep reverting to unset. Across BOTH kinds, so the
+    // singleton `settingsOverrides` is covered — guarding only the five arrays
+    // blanked a project's timezone and notification overrides. And only when
+    // `blind`, so a STAMPED capture reverts normally and a restore can once
+    // again remove records added since it: reading a stamped empty slice as
+    // "cannot speak" is safe but makes restore permanently useless for new
+    // content, which is the whole reason the marker exists.
+    // ★★ Defence in depth, not the mechanism — `diffWorkspaces` given the same
+    // flag emits no row for these at all, so nothing reaches a selection. Keep
+    // both: a caller that threads one and forgets the other must fail SAFE.
+    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(key)
+      && (version as unknown as Record<string, unknown>)[key] === undefined) continue;
     if (spec.kind === "list") {
       const cur = byId(current[spec.key] as unknown[]);
       const ver = byId(version[spec.key] as unknown[]);
@@ -47,7 +103,7 @@ export function applyRestore(
       for (const [selKey, sel] of Object.entries(selection)) {
         const change = changeByKey.get(selKey);
         if (!change || change.collection !== key) continue;
-        const id = change.recordId as number;
+        const id = change.recordId as RecordId;
         if (change.type === "removed") {
           cur.set(id, ver.get(id)!);
           touched = true;

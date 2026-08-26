@@ -15,6 +15,7 @@ import type { RestoreSelection } from "./version-restore";
 import type { TursoConfig } from "./turso-config";
 import { logDiag } from "./diagnostics";
 import type { ProjectVersion, ProjectVersionMeta } from "./version-history";
+import { readCaptureFormat, speaksForEmptySlices, stampCaptureFormat } from "./version-capture-format";
 
 export interface UseVersionHistoryArgs {
   config: TursoConfig | null;
@@ -45,9 +46,19 @@ export interface UseVersionHistoryResult {
 // and briefly seeds default reference data before the new project hydrates, so
 // those defaults must not mask an otherwise-empty transient. A parse failure is
 // treated as NON-empty (don't skip on uncertainty). Pure.
-// ★ Deliberately a SEPARATE 9-content-list definition — NOT `isWorkspaceEmpty`
-// (which counts roles/disciplines/grades and would be defeated by the seeded
-// reference-data). Keep this list in sync when a new CONTENT collection is added.
+// ★ Deliberately a SEPARATE definition — NOT `isWorkspaceEmpty` (which counts
+// roles/disciplines/grades and would be defeated by the seeded reference-data).
+// ★★ THE RULE FOR ADDING TO THIS LIST: count USER-AUTHORED content, never a
+// DERIVED slice. A slice qualifies only if a project-switch transient cannot
+// carry it non-empty while the others are empty. Two of the six captured slices
+// fail that test and are excluded on purpose:
+//   - `insights` is written by a DEBOUNCED detect→reconcile effect
+//     (`task-manager.tsx`); a timer armed by the OLD project's inputs can fire
+//     after the reset, so counting it would let a stale write mask a transient.
+//   - `documentVersions` is derived from `documents` (`workspace-context.tsx`
+//     sets both from one loader result), so it adds nothing a `documents` count
+//     does not, and inherits the same objection.
+// Same reasoning already excludes `activityLog` — see docs/AGENTS/activity-log.md.
 export function isEmptyWorkspacePayload(json: string): boolean {
   try {
     // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
@@ -56,6 +67,7 @@ export function isEmptyWorkspacePayload(json: string): boolean {
     const lists = [
       "tasks", "raid", "milestones", "stakeholders", "resources",
       "changes", "budgets", "absences", "shifts",
+      "knowledgeItems", "documents", "calendarEvents",
     ];
     return lists.every((k) => !Array.isArray(w[k]) || (w[k] as unknown[]).length === 0);
   } catch {
@@ -110,12 +122,21 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
 
   // Append-from-explicit-payload core (shared by writeVersion and restore).
   const capturePayload = useCallback(
-    async (payload: string, trigger: "auto" | "manual", label: string | null) => {
+    async (rawPayload: string, trigger: "auto" | "manual", label: string | null) => {
       if (!active) return;
+      // ★★ STAMPED HERE, at the single point every capture funnels through —
+      // writeVersion and restore both land here, so neither can forget. The
+      // marker is what lets a later restore tell an EMPTY slice from one this
+      // payload format could not carry; see version-capture-format.ts.
+      const payload = stampCaptureFormat(rawPayload);
       let summary: string | null = null;
       const prev = lastPayload.current;
       if (prev && prev !== payload) {
-        try { summary = summarizeDiff(diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload))) || null; }
+        // ★ The OLDER side governs: an unstamped `prev` cannot speak for the
+        // six, so a summary built against it must not read every live record
+        // as "added" and announce "Knowledge (5)" on a capture that added none.
+        const speaks = speaksForEmptySlices(readCaptureFormat(prev));
+        try { summary = summarizeDiff(diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks })) || null; }
         catch { summary = null; } // never let a summary failure block capture
       }
       const capturedAt = new Date().toISOString();
@@ -172,7 +193,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // version. (Manual checkpoints always capture.)
         if (prev) {
           try {
-            if (diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload)).length === 0) return;
+            // ★ Same rule as the summary above: judged against what `prev` can
+            // actually speak about, or an unstamped `prev` makes every live
+            // record of the six read as "added" and arms a capture on no change.
+            const speaks = speaksForEmptySlices(readCaptureFormat(prev));
+            if (diffWorkspaces(jsonToWorkspace(prev), jsonToWorkspace(payload), { olderSpeaksForEmptySlices: speaks }).length === 0) return;
           } catch {
             // If the diff itself fails, fall through and capture rather than
             // silently dropping a potentially-real change.
@@ -210,10 +235,16 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         onError?.(new Error("version payload could not be loaded"));
         return false;
       }
-      const version = jsonToWorkspace(verStr);
+      // ★★ STRICT, matching loadDiff. A truncated payload parsed NON-strict
+      // degrades to an empty workspace, and on THIS path that is not a
+      // misleading diff but a wipe: every live record reads as "added" and the
+      // restore deletes it. `emptyWorkspace()` carries the nine core lists as
+      // `[]`, so the absent-key guard below cannot catch that shape.
+      const version = jsonToWorkspace(verStr, { strict: true });
       const now = jsonToWorkspace(getPayload());
-      const changes = diffWorkspaces(version, now);
-      const restored = applyRestore(now, version, changes, selection);
+      const speaks = speaksForEmptySlices(readCaptureFormat(verStr));
+      const changes = diffWorkspaces(version, now, { olderSpeaksForEmptySlices: speaks });
+      const restored = applyRestore(now, version, changes, selection, { versionSpeaksForEmptySlices: speaks });
       await capturePayload(workspaceToJson(restored), "auto", null);
       applyWorkspace?.(restored);
       logActivity?.("history.restore", count, versionLabel);
@@ -240,7 +271,11 @@ export function useVersionHistory(args: UseVersionHistoryArgs): UseVersionHistor
         // STRICT parse: a truncated/malformed payload THROWS here instead of
         // silently degrading to an empty workspace (which would render a
         // misleading "everything added" diff). Surfaced as compareParseFailed.
-        return diffWorkspaces(jsonToWorkspace(fromStr, { strict: true }), jsonToWorkspace(toStr, { strict: true }));
+        return diffWorkspaces(
+          jsonToWorkspace(fromStr, { strict: true }),
+          jsonToWorkspace(toStr, { strict: true }),
+          { olderSpeaksForEmptySlices: speaksForEmptySlices(readCaptureFormat(fromStr)) },
+        );
       } catch (parseErr) {
         // A parse throw here = a truncated/malformed payload (e.g. a big version
         // stored or read past a size limit). Distinct from a network/load error;

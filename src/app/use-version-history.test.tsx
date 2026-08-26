@@ -2,6 +2,8 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
 import { useVersionHistory, isEmptyWorkspacePayload } from "./use-version-history";
+import { changeKey } from "./version-restore";
+import { CAPTURE_FORMAT, readCaptureFormat } from "./version-capture-format";
 
 vi.mock("./version-store", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
@@ -18,6 +20,34 @@ function args(over = {}) {
   return { config: cfg, projectId: "p1", enabled: true, idleMs: 1000, retention: 50,
     getPayload: stableGetPayload, onError: stableOnError, ...over };
 }
+
+// ★★★ THE END-TO-END PIN FOR THE CAPTURE MARKER, and the one test whose absence
+// would let the whole mechanism become a silent no-op. Every other test around
+// it passes whether or not a capture is stamped: an unstamped payload simply
+// reads as format 1, which is the SAFE branch everywhere — nothing is deleted,
+// no row is offered, no assertion fails. It is just permanently useless, because
+// a restore can then never remove a record added since any capture. Only an
+// assertion on what actually reaches the store can tell the two apart.
+describe("useVersionHistory capture format", () => {
+  // ★★ Shaped like real `workspaceToJson` output — `JSON.stringify(obj, null, 2)`
+  // — because `stampCaptureFormat` deliberately leaves anything else UNCHANGED
+  // rather than risk corrupting it. The one-line `stableGetPayload` above would
+  // therefore pass this test's negative half for the wrong reason.
+  const realistic = JSON.stringify({ tasks: [{ id: 1, title: "A" }], raid: [] }, null, 2);
+
+  it("stamps the capture format onto the stored payload", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => realistic })));
+    await act(async () => { await result.current.captureNow("checkpoint"); });
+    expect(append).toHaveBeenCalledTimes(1);
+    const stored = append.mock.calls[0][1].payload;
+    expect(readCaptureFormat(stored)).toBe(CAPTURE_FORMAT);
+    // Additive only: the workspace the payload described must survive intact.
+    expect((JSON.parse(stored) as { tasks: unknown[] }).tasks).toEqual([{ id: 1, title: "A" }]);
+  });
+});
 
 describe("useVersionHistory", () => {
   it("coalesces rapid saves into ONE auto capture after the idle window", async () => {
@@ -131,6 +161,22 @@ describe("useVersionHistory", () => {
   it("isEmptyWorkspacePayload: false when a content list has items, and false on parse failure", () => {
     expect(isEmptyWorkspacePayload(JSON.stringify({ tasks: [{ id: 1, taskName: "A" }] }))).toBe(false);
     expect(isEmptyWorkspacePayload("{not json")).toBe(false);
+  });
+  it("isEmptyWorkspacePayload: false for a project holding only user-authored content", () => {
+    // Each of these is a real project shape that captured NO version before:
+    // the guard counted nine legacy lists and none of these three.
+    expect(isEmptyWorkspacePayload(JSON.stringify({ documents: [{ id: 1, title: "Doc" }] }))).toBe(false);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ knowledgeItems: [{ id: "a", name: "K" }] }))).toBe(false);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ calendarEvents: [{ id: 1, title: "E" }] }))).toBe(false);
+  });
+  it("isEmptyWorkspacePayload: true for DERIVED slices alone", () => {
+    // ★★ Deliberate, not an oversight. `insights` is written by a DEBOUNCED
+    // detect effect whose timer can fire AFTER a project switch has reset the
+    // content arrays, and `documentVersions` is derived from `documents`.
+    // Counting either would let a stale write mark an empty transient
+    // non-empty — re-opening the hole this guard exists to close.
+    expect(isEmptyWorkspacePayload(JSON.stringify({ insights: [{ id: 1, key: "x" }] }))).toBe(true);
+    expect(isEmptyWorkspacePayload(JSON.stringify({ documentVersions: [{ id: 1, documentId: 1 }] }))).toBe(true);
   });
 
   it("remove deletes a snapshot and refreshes the list", async () => {
@@ -250,7 +296,13 @@ describe("useVersionHistory", () => {
     const logActivity = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace, logActivity })));
     let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    // ★★ Build the key through `changeKey`, never a literal. It is
+    // `JSON.stringify([collection, recordId])`, not a `${collection}:${id}`
+    // join — a literal in the dead join format makes `applyRestore` miss the
+    // change and `continue`, so the restore is a SILENT NO-OP that still
+    // returns true and still logs `history.restore`. That is the exact failure
+    // this test exists to catch, so the key must not be hand-spelled.
+    await act(async () => { ok = await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
     expect(ok).toBe(true); // success is reported so the UI can clear its compare state
     expect(applyWorkspace).toHaveBeenCalledTimes(1);
     const applied = applyWorkspace.mock.calls[0][0];
@@ -266,7 +318,7 @@ describe("useVersionHistory", () => {
     const onError = vi.fn();
     const { result } = renderHook(() => useVersionHistory(args({ onError, applyWorkspace })));
     let ok: boolean | undefined;
-    await act(async () => { ok = await result.current.restore("v1", { "tasks:1": ["title"] }, "v1-label"); });
+    await act(async () => { ok = await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "v1-label"); });
     expect(ok).toBe(false); // failure is reported so the UI keeps its compare state
     expect(onError).toHaveBeenCalledTimes(1);
     expect(onError.mock.calls[0][0]).toBeInstanceOf(Error);
@@ -300,7 +352,7 @@ describe("useVersionHistory", () => {
     const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
     const now = JSON.stringify({ tasks: [{ id: 1, title: "New" }], ...base });
     const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => now, applyWorkspace: vi.fn(), logActivity: vi.fn() })));
-    await act(async () => { await result.current.restore("v1", { "tasks:1": ["title"] }, "Baseline"); });
+    await act(async () => { await result.current.restore("v1", { [changeKey("tasks", 1)]: ["title"] }, "Baseline"); });
     expect(append).toHaveBeenCalledTimes(1);
     const captured = JSON.parse(append.mock.calls[0][1].payload);
     expect(captured.tasks[0].title).toBe("Old"); // the RESTORED state was captured

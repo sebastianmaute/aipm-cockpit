@@ -26,6 +26,19 @@ import { Button } from "./button";
 import { Checkbox, Input } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 
+/** Build an "everything" selection from a diff, EXCLUDING changes the restore
+ *  will skip. ★★ Keeping a non-restorable key in the selection makes the restore
+ *  claim it reverted a row it silently ignored — the two select-all paths and
+ *  the diff view's checkboxes must agree on this or the UI over-promises. */
+export function selectableSelection(changes: readonly VersionChange[]): RestoreSelection {
+  const sel: RestoreSelection = {};
+  for (const c of changes) {
+    if (c.restorable === false) continue;
+    sel[changeKey(c.collection, c.recordId)] = "all";
+  }
+  return sel;
+}
+
 interface HistoryPanelProps {
   lang: Lang;
   versions: ProjectVersionMeta[];
@@ -62,6 +75,48 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const [draftLabel, setDraftLabel] = useState("");
   // Scrolls the compare output into view once a diff resolves (T7).
   const compareRef = useRef<HTMLDivElement>(null);
+  // ★★★ SERIALISES EVERY RESTORE ENTRY POINT. The hook's `busy` does NOT close
+  // this window: `restore()` reaches `capturePayload` (which sets it) only
+  // after `await loadVersionPayload` — a whole network round-trip — and
+  // `restoreWholeVersion` runs an entire `loadDiff` before `restore()` is even
+  // called. Two restores of the same version are not a wipe (the second reverts
+  // to the same state) but they append two auto-captures and two activity
+  // entries for one user action, and the second runs a selection built against
+  // a workspace that no longer matches it.
+  // ★★ A ref AND a state flag, and READ WHICH ONE BUYS WHAT — an earlier
+  // revision of this comment credited the ref with the real-browser case and
+  // that is wrong. React flushes DISCRETE-event updates synchronously, and
+  // `setRestoring(true)` runs in the click handler's synchronous prefix, before
+  // `runExclusiveRestore`'s first await. Two PHYSICAL clicks are two separate
+  // tasks with a commit between them, so `disabled` is already applied when the
+  // second lands: the STATE is what stops the double-click a user performs. The
+  // ref uniquely covers a same-task double dispatch — two `.click()` calls in
+  // one tick, a synthetic double-fire — which is cheap to keep and is the only
+  // thing standing between a programmatic caller and two restores.
+  // ★ Both are pinned, and by tests of different shapes: the single-`act`
+  // double-click test isolates the ref (two `fireEvent.click` calls would each
+  // flush and be swallowed by `disabled`, staying green with the ref deleted),
+  // while the disabled-while-running test pins the state.
+  // ★★ KNOWN GAP (docs/open-followups.md §260): `finally` releases on resolve,
+  // reject and sync throw — but not on a request that NEVER settles. There is
+  // no timeout on the version-history fetch path, so a stalled Turso call
+  // leaves every restore control dead for the life of the mounted panel.
+  const restoreInFlight = useRef(false);
+  const [restoring, setRestoring] = useState(false);
+  const runExclusiveRestore = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
+    if (restoreInFlight.current) return undefined;
+    restoreInFlight.current = true;
+    setRestoring(true);
+    try { return await fn(); } finally { restoreInFlight.current = false; setRestoring(false); }
+  }, []);
+  // ★★ Remounts `VersionDiffView` on every compare, which is the ONLY way to
+  // clear its per-row `open` set from here: that state lives inside the child,
+  // and `react-hooks/set-state-in-effect` is banned. Replacing `diff` without a
+  // remount left stale keys behind — `changeKey("tasks", 5)` is the same string
+  // in every compare, so a row expanded in one comparison rendered
+  // pre-expanded in the next. The × button already unmounts the whole block;
+  // this covers compare→compare, which does not.
+  const [compareNonce, setCompareNonce] = useState(0);
 
   // ★ `useCallback` so the memo below is a real cache. Declared inline, this
   // was a NEW function identity every render, so `rowTokens` rebuilt its whole
@@ -108,6 +163,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
     setComparing(true);
     try {
       setDiff(await loadDiff(fromId, to));
+      setCompareNonce((n) => n + 1);
       // Bring the freshly-mounted compare output into view (covers both the
       // vs-now compare and compareSelected, which delegates here). rAF waits for
       // the diff container to commit before scrolling.
@@ -142,19 +198,29 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // "Restore this state" on a version row: revert the WHOLE workspace to that
   // version. We diff it against now and mark every change "all", reusing the
   // selective-restore machinery (no separate full-restore path needed).
-  const restoreWholeVersion = async (v: ProjectVersionMeta) => {
+  const restoreWholeVersion = (v: ProjectVersionMeta) => runExclusiveRestore(async () => {
     const changes = await loadDiff(v.id, "now");
-    if (changes.length === 0) {
-      // Empty diff = this version is EMPTY or identical to the current state.
-      // Previously a SILENT no-op ("nothing happened") — now tell the user so a
-      // dead/empty snapshot isn't a mystery.
-      showToast("info", t(lang, "historyRestoreNothing"));
+    const sel = selectableSelection(changes);
+    // ★★ Gate on the SELECTION, not on `changes`. A `changes.length === 0` test
+    // lets a documents-only session straight through: its diff is NON-empty
+    // (which is what arms a capture) while its selection is EMPTY, because
+    // document history is managed per document — so the restore would revert
+    // nothing and report success.
+    if (Object.keys(sel).length === 0) {
+      // ★★ ONE guard, TWO messages, and the split is deliberate: these are
+      // different facts, not one fact twice. An empty diff means the snapshot is
+      // dead or identical to the current state (previously a SILENT no-op, so
+      // say so rather than leave it a mystery); a NON-empty diff reaching here
+      // means every change in it is managed elsewhere. Collapsing them would
+      // tell a documents-only user "no differences from the current project"
+      // while the document rows on screen say otherwise — a falsehood this
+      // slice itself introduced, by making those rows visible in the diff.
+      const key = changes.length === 0 ? "historyRestoreNothing" : "historyRestoreNothingManaged";
+      showToast("info", t(lang, key));
       return;
     }
-    const sel: RestoreSelection = {};
-    for (const c of changes) sel[changeKey(c.collection, c.recordId)] = "all";
     await restore(v.id, sel, labelOf(v));
-  };
+  });
 
   // Delete a snapshot from history (confirm-gated — it's irreversible).
   const deleteVersionRow = async (v: ProjectVersionMeta) => {
@@ -175,7 +241,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreRecord = (key: string) => {
     const rf = restoreFrom;
     if (!rf) return;
-    void restore(rf.id, { [key]: "all" }, rf.label).then((ok) => {
+    void runExclusiveRestore(() => restore(rf.id, { [key]: "all" }, rf.label)).then((ok) => {
       // Only clear the compare/selection context on a real success — a failed
       // restore (surfaced via onError) leaves it intact so the user can retry.
       if (!ok) return;
@@ -188,11 +254,12 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
 
   // T8 — compare-header restore controls (vs-now compare only; the checkboxes
   // that these act on live in that mode).
-  const buildAllSelection = (): RestoreSelection => {
-    const sel: RestoreSelection = {};
-    for (const c of diff ?? []) sel[changeKey(c.collection, c.recordId)] = "all";
-    return sel;
-  };
+  const buildAllSelection = (): RestoreSelection => selectableSelection(diff ?? []);
+  // ★★ Gate the header's restore controls on the SELECTABLE changes, not on
+  // `diff.length`. A documents-only diff is non-empty yet yields an EMPTY
+  // selection, so "Restore this state" here would revert nothing and report
+  // success — the same over-promise `selectableSelection` exists to remove.
+  const selectableCount = Object.keys(buildAllSelection()).length;
   const selectAllRecords = () => setSelection(buildAllSelection());
   const deselectAllRecords = () => setSelection({});
   // "Restore this state" from the compare header: revert the whole compared
@@ -200,7 +267,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreCompareState = () => {
     const cf = compareFrom;
     if (!cf) return;
-    void restore(cf.id, buildAllSelection(), cf.label).then((ok) => {
+    void runExclusiveRestore(() => restore(cf.id, buildAllSelection(), cf.label)).then((ok) => {
       if (!ok) return;
       setSelection({});
       setDiff(null);
@@ -218,7 +285,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             variant="secondary"
             size="sm"
             onClick={() => compareSelected("inline")}
-            disabled={selected.length !== 2 || comparing}
+            disabled={selected.length !== 2 || comparing || restoring}
             title={t(lang, "historyCompareSelectedHint")}
           >
             {t(lang, "historyCompareSelected")}
@@ -227,7 +294,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             variant="secondary"
             size="sm"
             onClick={() => compareSelected("sideBySide")}
-            disabled={selected.length !== 2 || comparing}
+            disabled={selected.length !== 2 || comparing || restoring}
             title={t(lang, "historyCompareSideBySideHint")}
           >
             {t(lang, "historyCompareSideBySide")}
@@ -302,7 +369,17 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               <span className="flex items-center gap-2">
                 <TextButton
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
-                  disabled={comparing}
+                  // ★★ `restoring` too, and it is not symmetry for its own
+                  // sake: `runDiff` reads the LIVE workspace through
+                  // `getPayload()`, so a compare started mid-restore diffs
+                  // against a workspace being rewritten underneath it.
+                  // ★ An earlier revision gave a WEAKER reason — "every
+                  // successful restore clears the compare view" — which is
+                  // false for `restoreWholeVersion`, the one path reachable
+                  // from this very row: it ends at `await restore(...)` and
+                  // touches no compare state at all. Three of the four paths
+                  // reset; the stale-workspace reason above covers all four.
+                  disabled={comparing || restoring}
                   title={t(lang, "historyCompareVsNowHint")}
                   aria-label={rowLabel(t(lang, "historyCompareVsNow"), token)}
                   className="text-xs"
@@ -313,7 +390,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   variant="secondary"
                   size="xs"
                   onClick={() => { void restoreWholeVersion(v); }}
-                  disabled={busy || comparing}
+                  disabled={busy || comparing || restoring}
                   title={t(lang, "historyRestoreStateHint")}
                   aria-label={rowLabel(t(lang, "historyRestoreState"), token)}
                 >
@@ -344,9 +421,11 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
           <div className="mb-2 flex items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-foreground">{t(lang, "historyCompareTitle")}</h3>
             <span className="flex items-center gap-2">
-              {/* Restore controls (vs-now compare with a non-empty diff only — they
-                  act on the ticked records; an identical snapshot has none). */}
-              {compareFrom !== null && diff.length > 0 && (
+              {/* Restore controls (vs-now compare with at least one RESTORABLE
+                  change only — they act on the ticked records; an identical
+                  snapshot has none, and neither does a diff whose every row is
+                  managed per document). */}
+              {compareFrom !== null && selectableCount > 0 && (
                 <>
                   <Button
                     variant="secondary"
@@ -366,8 +445,8 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                   <Button
                     variant="primary"
                     size="sm"
-                    disabled={Object.keys(selection).length === 0}
-                    onClick={() => { const cf = compareFrom; if (cf) void restore(cf.id, selection, cf.label).then((ok) => { if (!ok) return; setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
+                    disabled={Object.keys(selection).length === 0 || restoring}
+                    onClick={() => { const cf = compareFrom; if (cf) void runExclusiveRestore(() => restore(cf.id, selection, cf.label)).then((ok) => { if (!ok) return; setSelection({}); setDiff(null); setCompareFrom(null); setRestoreFrom(null); }); }}
                     title={t(lang, "historyRestoreSelectedHint")}
                   >
                     {t(lang, "historyRestoreSelected")}
@@ -382,6 +461,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
                     variant="secondary"
                     size="sm"
                     onClick={restoreCompareState}
+                    disabled={restoring}
                     aria-label={t(lang, "historyRestoreState")}
                     title={t(lang, "historyRestoreStateHint")}
                   >
@@ -409,8 +489,10 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             <p className="text-sm text-muted-foreground">{t(lang, "historyCompareIdentical")}</p>
           ) : (
             <VersionDiffView
+              key={compareNonce}
               lang={lang}
               changes={diff}
+              restoreBusy={restoring}
               selectable={compareFrom !== null}
               selection={selection}
               onToggleRecord={toggleRecord}
