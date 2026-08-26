@@ -124,6 +124,28 @@ it has no table of its own, NOT because it sits outside the workspace.
   slices through getVersionPayload"), whose SIBLING test is the reason a pin was needed at all: it
   feeds the restore a workspace that already carries the slice, so it would pass with the capture
   still dropping it.
+  ★★★ **AN ABSENT SLICE KEY IS NOT AN EMPTY ONE, AND THE PAYLOAD NOW SAYS WHICH.** `workspaceToJson`
+  omits an additive slice's key whenever the live array is empty, and `getVersionPayload` could not
+  emit these six AT ALL before `db217e08` (2026-08-25) — so `{"tasks":[…]}` is byte-identical whether
+  the user genuinely had zero knowledge items or the format simply could not carry them. Read as
+  "empty", every live record diffs as `"added"` and the restore DELETES the lot; read as "cannot
+  speak", nothing is deleted but a restore can never again REMOVE a record added since the capture,
+  for any of the six, permanently. Both readings are wrong and no care inside the diff can separate
+  them, because the information was not in the payload. `version-capture-format.ts` puts it there:
+  `stampCaptureFormat` marks every capture at `capturePayload` — the single point `writeVersion` and
+  `restore` both funnel through — and `diffWorkspaces`/`applyRestore` each take a
+  `…SpeaksForEmptySlices` flag that DEFAULTS TO FALSE, the safe reading.
+  ★★ `PRE_FORMAT_2_BLIND_SLICES` is scoped to exactly `db217e08`'s six and BOTH ends are load-bearing:
+  wider (adding `project`/`steeringCommittee`/`timelogLinks`, additive and omitted-when-unset too but
+  emitted all along) silently turns every revert-to-unset into a no-op; narrower — dropping the
+  SINGLETON `settingsOverrides` because its five siblings are arrays — lets a restore blank a
+  project's timezone and notification overrides permanently. Both mistakes were made and caught on
+  2026-08-26; see `docs/open-followups.md` §259.
+  ★★ The suppression lives in `diffWorkspaces`, not only in `applyRestore`, and that is the half
+  that is easy to skip: a restore that SKIPS a slice is invisible to the surface — the row still
+  renders a checkbox and a "Restore this" button, the empty-selection toast does not fire, and
+  `restore()` returns `true` and logs "Restored N change(s)" for a restore that changed nothing.
+  A row the restore will refuse to act on must never be offered.
   ★★ "Deliberately omitted ⇒ preserved" is STILL true of `activityLog` alone as a statement about
   INTENT, and that is the half worth keeping: it is omitted from BOTH sides on purpose, with the
   reason written down. `features`, `fieldVisibility` and `documentAssets` are absent from the restore

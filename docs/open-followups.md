@@ -451,9 +451,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | open |
 | [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | open |
 | [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler | found 2026-08-26 | S | open |
-| [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff) | Field checkboxes collide across two simultaneously-expanded records in the version diff | pre-existing, found 2026-08-26 | S | open |
-| [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | open |
-| [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | open |
+| [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff--closed-2026-08-26) | Field checkboxes collide across two simultaneously-expanded records in the version diff | pre-existing, found 2026-08-26 | S | **CLOSED** 2026-08-26 |
+| [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag--closed-2026-08-26) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | **CLOSED** 2026-08-26 |
+| [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore--closed-2026-08-26) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | **CLOSED** 2026-08-26 |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18361,10 +18361,20 @@ exists to remove: a control that reports success and reverts nothing.
 adding an unreachable guard alongside a live behaviour change makes the live change harder to
 review, and an unreachable guard cannot be tested without first building the unreachable state.
 
-## 257. Field checkboxes collide across two simultaneously-expanded records in the version diff
+## 257. Field checkboxes collide across two simultaneously-expanded records in the version diff — CLOSED 2026-08-26
 
-**Status:** open, PRE-EXISTING. Filed 2026-08-26 at the close of the version-history-completeness
-slice, which fixed the RECORD-level controls on this surface and deliberately not this.
+**Status:** CLOSED 2026-08-26. PRE-EXISTING; filed 2026-08-26 at the close of the
+version-history-completeness slice, which fixed the RECORD-level controls on this surface and
+deliberately not this — then the cold-review round on the same branch fixed it after all, so this
+entry was stale within the day it was written.
+
+★★ The fix is that the per-FIELD checkbox is row-qualified from the same token map as every other
+control: `rowLabel(f.label, tokens.get(k) ?? c.recordLabel)` in `version-diff-view.tsx`. Pinned by
+`version-diff-view.test.tsx`'s "distinguishes the per-field checkboxes of two simultaneously
+expanded records", which deliberately does NOT pass `requireCollisionSeed` — it is a distinct-name
+regression pin over two differently-named records, and the guard would correctly throw on it.
+
+★ Read the rest of this entry as the record of the defect as filed.
 
 In `version-diff-view.tsx` the per-field checkboxes inside an expanded record are named by the field
 label alone. Expand two records at once — the disclosure state is per-record and nothing collapses a
@@ -18401,11 +18411,22 @@ is worth saying that the slice's record-level fix makes this one MORE likely to 
 a reviewer who checks this surface now finds row-unique names on four of five controls and a fresh
 `rowLabel` import, which reads as done.
 
-## 258. `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag
+## 258. `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag — CLOSED 2026-08-26
 
-**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice. NOT live
-— both `restorable: false` rows are lists — but it is the same bug class that slice exists to close,
-waiting for the first non-restorable singleton.
+**Status:** CLOSED 2026-08-26, in the cold-review round on the branch that filed it. Still NOT
+live — both `restorable: false` rows are lists — but it was the same bug class that slice exists to
+close, so it was fixed rather than left waiting for the first non-restorable singleton.
+
+★★ `diffSingleton` now carries the identical clause `diffList`'s `base()` does, and the comment
+beside it says why the two must stay in step: `applyRestore` gates on the SPEC
+(`spec.restorable === false`) while `VersionDiffView` and `selectableSelection` gate on the CHANGE
+(`c.restorable === false`). Dropping it in one place makes a `{ kind: "singleton", restorable:
+false }` spec skipped by the restore while the UI renders it a checkbox and a "Restore this"
+button and the selection carries its key — exactly the silent no-op the flag exists to remove.
+Pinned by `version-diff.test.ts`'s "carries restorable: false from a singleton spec onto its
+change", which registers a synthetic non-restorable singleton spec because no real one exists.
+
+★ Read the rest of this entry as the record of the defect as filed.
 
 ```bash
 for f in diffList diffSingleton; do printf '%-14s spec.restorable spreads: %s\n' "$f" "$(sed -n "/^function $f(/,/^}/p" src/app/version-diff.ts | grep -c 'spec.restorable')"; done
@@ -18437,11 +18458,13 @@ emits for a `restorable: false` spec carries the flag, which covers both branche
 non-restorable rows are both lists — so a fix here would ship with a test that can only exercise it
 through a synthetic spec, which is worth doing but is a separate, self-contained change.
 
-## 259. An absent slice key and a genuinely empty one are indistinguishable on restore
+## 259. An absent slice key and a genuinely empty one are indistinguishable on restore — CLOSED 2026-08-26
 
-**Status:** open. Filed 2026-08-26. This is the deliberate residue of the same-day `715c2325` fix,
-not an oversight left behind by it — the fix's own commit message names the imprecision, and this
-entry exists so it is tracked rather than only remembered.
+**Status:** CLOSED 2026-08-26 by `5c03c33c`, during the cold-review round on the branch that
+opened it. Filed 2026-08-26 as the deliberate residue of the same-day `715c2325` fix — that fix's
+own commit message named the imprecision, and this entry existed so it was tracked rather than
+only remembered. Everything below is the defect AS FILED and is left standing as the record of
+it; what closed it is at the end of the entry.
 
 `715c2325` stopped `applyRestore` (`src/app/version-restore.ts`) from treating an ABSENT list-slice
 key in a version payload as an EMPTY one — a distinction it could not make cost `knowledgeItems`,
@@ -18522,6 +18545,46 @@ would both need a decision about where it lives and how older captures without i
 pressure — the safe-direction guard was the right thing to ship immediately. A capture-format marker
 changes what is written into every future version payload and how every existing captured row is
 read back, which deserves its own design decision rather than riding along inside a bug fix.
+
+**CLOSED 2026-08-26 by `5c03c33c` — the proposed fix above, built.** `src/app/version-capture-format.ts`
+stamps `captureFormat` onto the payload at `capturePayload`, the single point both `writeVersion` and
+`restore` funnel through, so neither can forget it. `readCaptureFormat` returns `null` for an unstamped
+capture and `speaksForEmptySlices` gates on `>= CAPTURE_FORMAT`, so a payload written by a NEWER build
+(a second tab mid-upgrade, a shared Turso project) still counts as speaking. Both `diffWorkspaces` and
+`applyRestore` take the flag and default it to FALSE, which is the safe reading and the correct one
+for every caller that cannot know.
+
+★★ **Three things the fix decided that this entry did not anticipate, each of which is a defect if
+reversed:**
+
+1. **The suppression moved into `diffWorkspaces`, not just `applyRestore`.** This entry framed the
+   problem as a restore-time one, and it is not only that. `applyRestore` skipping a slice is
+   INVISIBLE to the surface: the row still renders a checkbox and a "Restore this" button,
+   `selectableSelection` includes it, the empty-selection toast does not fire, and `restore()`
+   returns `true` and logs "Restored N change(s)" for a restore that changed nothing. Two cold
+   reviewers reached that independently from disjoint scopes on 2026-08-26. A row the restore will
+   refuse to act on must never be OFFERED, so the diff emits none. The `applyRestore` guard stays as
+   defence in depth: a caller that threads one flag and forgets the other must fail safe.
+
+2. **The guard is scoped to exactly `db217e08`'s SIX slices** (`PRE_FORMAT_2_BLIND_SLICES`), not to
+   every additive key and not to all singletons. Wider is a defect: `project`, `steeringCommittee`
+   and `timelogLinks` are additive and omitted-when-unset too, but were emitted all along, so for
+   them an absent key has always meant "genuinely unset" and guarding them silently turns every
+   revert-to-unset into a no-op — an earlier cut on this branch did exactly that. Narrower is also a
+   defect: `settingsOverrides` is a SINGLETON that rode the same commit, and guarding only the five
+   arrays let a restore blank a project's timezone, notification and next-actions overrides
+   permanently (`hasAnyOverride({})` is false, so the next save omits the key).
+
+3. **`restore()` now parses STRICT**, matching `loadDiff`. Non-strict, a truncated payload degrades to
+   `emptyWorkspace()`, whose nine core lists are present as `[]` — so the absent-key guard cannot
+   catch that shape, and on the restore path the degradation is a wipe rather than a misleading diff.
+
+★ Reproduce the closure rather than trusting it: `npx vitest run src/app/version-capture-format.test.ts
+src/app/version-diff.test.ts src/app/version-restore.test.ts src/app/use-version-history.test.tsx`.
+The matched pair to read first is `version-restore.test.ts`'s "carries every slice through a restore
+to a short pre-0.259.0 capture" and "removes records added since a STAMPED capture that genuinely
+held none" — the same fixture shape, opposite outcomes, and either one read alone makes the other
+look like the bug.
 
 ## Decided — do not re-litigate
 
