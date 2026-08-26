@@ -335,9 +335,12 @@ IS in axe `A11Y_VIEWS`. Built as slices:
   hydrated value, blanked on disk by `writeSettings`, passphrase-locked → `""` → unconfigured). ★ New
   `DashboardPanel` props `onNavigate?`/`aiConfigured?` are OPTIONAL (back-compat with ~30 test sites).
   ★★ EXHAUSTIVE-DEPS LANDMINE: a `?.length`/`obj.member`/any complex expression INSIDE a `useMemo` dep array
-  is a react-hooks/exhaustive-deps WARNING. ★★ It is NOT fatal and this line said it was: the rule is
-  severity 1 and CI runs bare `eslint`, so it does not fail the build (`npx eslint --print-config
-  src/app/icons.ts`). Fix it anyway — HOIST it to a scalar local (`const milestoneCount =
+  is a react-hooks/exhaustive-deps WARNING. ★★★ IT IS FATAL, AND THIS LINE HAS NOW BEEN WRONG IN BOTH DIRECTIONS — do not
+  trust the next revision of it either. The rule is severity 1, which did NOT fail the build while
+  `npm run lint` was bare `eslint`; §214 changed that script to `eslint --max-warnings=0`, so all 25
+  severity-1 rules now fail it. Check both halves rather than this sentence: `npx eslint
+  --print-config src/app/icons.ts` for the severity, and `node -e "console.log(require('./package.json').scripts.lint)"`
+  for the flag. Fix it anyway — HOIST it to a scalar local (`const milestoneCount =
   props.milestones?.length ?? 0`) and depend on that. ★ The greeting summary is suppressed when
   `needsYou===0 && milestonesSoon===0` (avoids "0 items need you" on a blank project). ★ The live demo seeds
   a POPULATED project so the coaching card is ABSENT at scan time (buttons eye/unit-verified, not axe-gated).

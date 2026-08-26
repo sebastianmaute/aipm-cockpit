@@ -248,6 +248,19 @@ agents-symbol-check:
   script:
     - npm run docs:symbols:check
 
+# Version-sync gate — BLOCKING. src/app/version.ts is the source of truth for
+# the app version and codename; package.json, both package-lock.json entries,
+# the README shields badge and every docs/CODEMAPS header restate one or both,
+# and nothing compared them until this job. They have drifted silently before —
+# package.json six releases behind, package-lock.json eleven, while version.ts
+# and CHANGELOG.md were correct.
+# Propagate rather than hand-editing six places: npm run version:sync
+version-sync-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run version:check
+
 # Doc-claims ratchet — BLOCKING. Fails when a doc gains a NEW `path:LINE`
 # citation, or cites a line that cannot exist. It is the enforcement AGENTS.md's
 # three-star "CITE THE SYMBOL, NOT A LINE RANGE" rule never had: on 2026-08-09 a

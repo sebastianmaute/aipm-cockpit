@@ -98,13 +98,13 @@ npm run dev                 # next dev (public next, pinned EXACTLY at 16.2.11 �
                             # packages are exact-pinned; the rule and its reasoning live in CONTRIBUTING.md
                             # under "Dependencies". Read node_modules/next/dist/docs for version behavior.)
 npm run build               # next build (prebuild checks script-docs are in sync)
-npm run lint                # eslint — ★★★ there is NO `--max-warnings` gate: CI's `lint:` job runs bare
-                            # `npm run lint`, `@typescript-eslint/no-unused-vars` is severity 1, and
-                            # `noUnusedLocals` does not exist in tsconfig.json — so an unused import/var
-                            # SHIPS GREEN. Keep them out by hand; `_`-prefixed params are NOT exempt
-                            # (no argsIgnorePattern), so re-check after every extract. Verify severity:
+npm run lint                # eslint --max-warnings=0 — ★★★ EVERY warning is now FATAL, and that is 25
+                            # rules, not one: `@typescript-eslint/no-unused-vars` is still severity 1 and
+                            # `noUnusedLocals` still does not exist in tsconfig.json, but the flag makes
+                            # both moot. `_`-prefixed params are NOT exempt (no argsIgnorePattern), so an
+                            # unused param from an extract now FAILS rather than warning. Verify severity:
                             #   npx eslint --print-config src/app/icons.ts   (read .rules)
-                            # react-hooks/exhaustive-deps (severity 1, so NOT fatal) rejects an `obj.member` dep (e.g.
+                            # react-hooks/exhaustive-deps (severity 1 — FATAL since --max-warnings=0) rejects an `obj.member` dep (e.g.
                             # [snapshots.rebaselineNow]) — hoist it to a local const and depend on that.
                             # A react-hooks PURITY rule bans `Date.now()`/`Math.random()`/`new Date()`
                             # in a component RENDER body too (not just useMemo) — capture via a lazy
@@ -112,8 +112,8 @@ npm run lint                # eslint — ★★★ there is NO `--max-warnings` 
                             # `react-hooks/set-state-in-effect` is BANNED (fatal) — to sync state to a
                             # changed prop, use the render-time reconcile pattern (`if (prop !== handled)
                             # { setState(...) }` guarded by a nonce/last-seen state), NOT a useEffect.)
-                            # ★ `npx eslint --max-warnings=0 src/app` is STRICTER than CI, not a
-                            # reproduction of it.
+                            # ★ `npx eslint --max-warnings=0 src/app` now matches CI's STRICTNESS but not
+                            # its SCOPE — CI lints the whole repo, this lints one directory.
 npx tsc --noEmit            # typecheck (enforces i18n EN/DE key parity). `next build` does NOT
                             # typecheck *.test.tsx and vitest never typechecks — a test-only type
                             # error (e.g. an invalid getByRole `{exact:...}`; a string `name` is
@@ -646,6 +646,20 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
+  **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
+  truth for the version and codename; `package.json`, BOTH `package-lock.json` entries, the README
+  badge and every `docs/CODEMAPS` header restate one or both, and nothing compared them before this
+  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★★ TWO FAILURE
+  MODES, TWO EXIT CODES: **1 is DRIFT** (a satellite disagrees with `version.ts` — fix with
+  `version:sync`), **2 is the gate unable to do its job** (a missing file, a moved regex shape, an
+  empty codemap glob — a gate that scans nothing passes everything). Both were 1 until 0.260.x, so a
+  red pipeline could not be read without opening the log, and the two demand opposite responses.
+  ★ Its ONE structural blind spot is a format the reader and writer agree on and are both wrong
+  about: the README badge is a URL inside a markdown link, so a codename with a SPACE has to be
+  encoded — un-encoded, `--update` wrote a badge whose link truncates mid-codename and the gate then
+  reported IN SYNC over it. Fixed by `encode`/`decode` hooks on that one pattern; a new satellite
+  whose file format cannot hold a raw value needs the same, and no amount of reader/writer symmetry
+  substitutes] ·
   **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
   every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
   `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
@@ -681,7 +695,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
-  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `doc-claims-check`, `unit-tests`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
+  `doc-claims-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a
@@ -717,13 +732,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
-  strings). ★★ FIVE MORE PLACES CARRY THE VERSION AND **NO GATE CHECKS ANY OF THEM**:
+  strings). ★★ FIVE MORE PLACES CARRY THE VERSION, AND `npm run version:check` NOW GATES THEM:
   `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
   `packages[""]` one), the README shields badge (version **and** codename), and the
   `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
   Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
   at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
-  `CHANGELOG.md` were correct. Bump them in the SAME commit as `version.ts` or the drift restarts.
+  `CHANGELOG.md` were correct.
+  Propagate them with `npm run version:sync` rather than editing six places by hand — the
+  `version-sync-check` CI job is BLOCKING, so drift now fails the pipeline instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.
