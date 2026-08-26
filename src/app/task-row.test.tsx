@@ -1529,16 +1529,19 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // click) AND closes via `onBlur={inline.commit}` / `onBlur={inline.cancel}`.
   // Mounting a SECOND such editor anywhere in the table calls native
   // `.focus()` on it, which synchronously blurs whatever was previously
-  // focused — closing it — before the new one ever renders. A probe (see
-  // git history of this file) confirmed this concretely: double-clicking two
-  // rows' task-name buttons in sequence left only the SECOND row's `<input>`
-  // in the DOM, having silently committed the FIRST row's unedited value via
-  // `onInlinePatch` — and the same happened for the priority `<Select>`. An
-  // initial cut of a due-date test read as passing two open editors, but
-  // `getAllByLabelText` was matching the CLOSED row's ghost *button* (whose
-  // aria-label is the same string as its open-mode `<input>`, by design —
-  // task-row.tsx:205) rather than a second open input; filtering to actual
-  // `<input>` elements showed the same single-editor-at-a-time result.
+  // focused — closing it — before the new one ever renders. Reproduce this
+  // concretely with `renderCollisionRows(makeContext(), [twins named
+  // "Alpha"])`, then `fireEvent.doubleClick` the two rows' task-name buttons
+  // in sequence and inspect `within(container).queryAllByRole("textbox")`
+  // after each: only the SECOND row's `<input>` remains in the DOM, and the
+  // FIRST row's unedited value was silently committed via `onInlinePatch`
+  // (pass an `onInlinePatch: vi.fn()` override in the context to see the
+  // call) — the same happens for the priority `<Select>`. An initial cut of
+  // a due-date test read as passing two open editors, but `getAllByLabelText`
+  // was matching the CLOSED row's ghost *button* (whose aria-label is the
+  // same string as its open-mode `<input>`, by design — task-row.tsx:205)
+  // rather than a second open input; filtering to actual `<input>` elements
+  // showed the same single-editor-at-a-time result.
   //
   // The ONE exception is assignee's `ResourcePicker` (task-row.tsx:440-449):
   // it renders no `autoFocus`, and its own `.focus()` call
