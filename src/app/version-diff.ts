@@ -5,6 +5,7 @@
 // powers the read-only compare view and (Slice 3) selective restore.
 
 import type { Workspace } from "./workspace";
+import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
 
 export type ChangeType = "added" | "removed" | "modified";
 
@@ -159,9 +160,28 @@ function diffSingleton(spec: CollectionSpec, older: unknown, newer: unknown): Ve
   }];
 }
 
-export function diffWorkspaces(older: Workspace, newer: Workspace): VersionChange[] {
+/** ★★★ `olderSpeaksForEmptySlices` — pass `speaksForEmptySlices(readCaptureFormat(payload))`
+ *  for the OLDER side whenever it came from a stored capture. It defaults to
+ *  FALSE, which is the safe reading and the correct one for every caller that
+ *  cannot know (a synthetic workspace in a test, a caller yet to be threaded).
+ *  ★★ WHY THE SUPPRESSION LIVES HERE AND NOT ONLY IN `applyRestore`: a row the
+ *  restore will refuse to act on must never be OFFERED. `applyRestore` skipping
+ *  a slice is invisible to the UI — the row still renders a checkbox and a
+ *  "Restore this" button, `selectableSelection` includes it, the empty-selection
+ *  toast does not fire, and `restore()` returns `true` and logs
+ *  "Restored N change(s)" for a restore that changed nothing. Emitting no row is
+ *  the only version of this that cannot lie: a capture that cannot speak about a
+ *  slice has no opinion to show. The guard in `applyRestore` then becomes
+ *  defence in depth rather than the whole mechanism. */
+export function diffWorkspaces(
+  older: Workspace,
+  newer: Workspace,
+  opts?: { olderSpeaksForEmptySlices?: boolean },
+): VersionChange[] {
   const out: VersionChange[] = [];
+  const blind = !opts?.olderSpeaksForEmptySlices;
   for (const spec of COLLECTION_SPECS) {
+    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(spec.key) && older[spec.key] === undefined) continue;
     if (spec.kind === "list") out.push(...diffList(spec, older[spec.key] as unknown[], newer[spec.key] as unknown[]));
     else out.push(...diffSingleton(spec, older[spec.key], newer[spec.key]));
   }

@@ -101,6 +101,50 @@ describe("restorable propagation", () => {
   });
 });
 
+// ★★★ A ROW THE RESTORE WILL REFUSE TO ACT ON MUST NEVER BE OFFERED, and this
+// is where that is enforced. `applyRestore` skipping a slice is INVISIBLE to the
+// UI: the row still renders a checkbox and a "Restore this" button,
+// `selectableSelection` includes it, the empty-selection toast does not fire,
+// and `restore()` returns true and logs "Restored N change(s)" for a restore
+// that changed nothing. Suppressing the row is the only version of this that
+// cannot lie — a capture that cannot speak about a slice has no opinion to show.
+describe("diffWorkspaces and a capture that cannot speak for a slice", () => {
+  const withKnowledge = () =>
+    ws({ knowledgeItems: [{ id: "k1", name: "Runbook" } as never] });
+
+  it("emits no rows for the six blind slices when the older side is unstamped", () => {
+    const c = diffWorkspaces(ws({}), withKnowledge());
+    expect(c.filter((x) => x.collection === "knowledgeItems")).toHaveLength(0);
+  });
+
+  it("emits them when the older side is stamped — an empty slice is then a real claim", () => {
+    const c = diffWorkspaces(ws({}), withKnowledge(), { olderSpeaksForEmptySlices: true });
+    expect(c.filter((x) => x.collection === "knowledgeItems")).toHaveLength(1);
+    expect(c.find((x) => x.collection === "knowledgeItems")?.type).toBe("added");
+  });
+
+  // ★★ THE SUPPRESSION IS SCOPED TO AN ABSENT KEY, NOT TO THE SLICE. A capture
+  // that DOES carry the key still diffs fully in blind mode — otherwise the six
+  // would be permanently invisible to every restore of an older capture, which
+  // is a far bigger loss than the over-promise this guard removes.
+  it("still diffs a blind slice whose key the capture DOES carry", () => {
+    const c = diffWorkspaces(
+      ws({ knowledgeItems: [{ id: "k1", name: "Old" } as never] }),
+      ws({ knowledgeItems: [{ id: "k1", name: "New" } as never] }),
+    );
+    expect(c.filter((x) => x.collection === "knowledgeItems")).toHaveLength(1);
+    expect(c.find((x) => x.collection === "knowledgeItems")?.type).toBe("modified");
+  });
+
+  // ★★ And never to a slice outside the six: `tasks` is absent from `ws({})`'s
+  // overrides only in the sense of being `[]`, but an always-emitted additive
+  // key like `project` must keep diffing on an unstamped capture.
+  it("does not suppress an always-emitted additive slice", () => {
+    const c = diffWorkspaces(ws({}), ws({ project: { name: "Apollo" } as never }));
+    expect(c.filter((x) => x.collection === "project")).toHaveLength(1);
+  });
+});
+
 describe("summarizeDiff", () => {
   it("groups counts by collection label", () => {
     const c = diffWorkspaces(

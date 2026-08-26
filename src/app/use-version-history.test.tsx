@@ -3,6 +3,7 @@ import { renderHook, act } from "@testing-library/react";
 import * as store from "./version-store";
 import { useVersionHistory, isEmptyWorkspacePayload } from "./use-version-history";
 import { changeKey } from "./version-restore";
+import { CAPTURE_FORMAT, readCaptureFormat } from "./version-capture-format";
 
 vi.mock("./version-store", { spy: true });
 const cfg = { url: "x", authToken: "t" } as never;
@@ -19,6 +20,34 @@ function args(over = {}) {
   return { config: cfg, projectId: "p1", enabled: true, idleMs: 1000, retention: 50,
     getPayload: stableGetPayload, onError: stableOnError, ...over };
 }
+
+// ★★★ THE END-TO-END PIN FOR THE CAPTURE MARKER, and the one test whose absence
+// would let the whole mechanism become a silent no-op. Every other test around
+// it passes whether or not a capture is stamped: an unstamped payload simply
+// reads as format 1, which is the SAFE branch everywhere — nothing is deleted,
+// no row is offered, no assertion fails. It is just permanently useless, because
+// a restore can then never remove a record added since any capture. Only an
+// assertion on what actually reaches the store can tell the two apart.
+describe("useVersionHistory capture format", () => {
+  // ★★ Shaped like real `workspaceToJson` output — `JSON.stringify(obj, null, 2)`
+  // — because `stampCaptureFormat` deliberately leaves anything else UNCHANGED
+  // rather than risk corrupting it. The one-line `stableGetPayload` above would
+  // therefore pass this test's negative half for the wrong reason.
+  const realistic = JSON.stringify({ tasks: [{ id: 1, title: "A" }], raid: [] }, null, 2);
+
+  it("stamps the capture format onto the stored payload", async () => {
+    const append = vi.spyOn(store, "appendVersion").mockResolvedValue();
+    vi.spyOn(store, "pruneVersions").mockResolvedValue();
+    vi.spyOn(store, "listVersionMeta").mockResolvedValue([]);
+    const { result } = renderHook(() => useVersionHistory(args({ getPayload: () => realistic })));
+    await act(async () => { await result.current.captureNow("checkpoint"); });
+    expect(append).toHaveBeenCalledTimes(1);
+    const stored = append.mock.calls[0][1].payload;
+    expect(readCaptureFormat(stored)).toBe(CAPTURE_FORMAT);
+    // Additive only: the workspace the payload described must survive intact.
+    expect((JSON.parse(stored) as { tasks: unknown[] }).tasks).toEqual([{ id: 1, title: "A" }]);
+  });
+});
 
 describe("useVersionHistory", () => {
   it("coalesces rapid saves into ONE auto capture after the idle window", async () => {

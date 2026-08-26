@@ -6,6 +6,7 @@
 
 import type { Workspace } from "./workspace";
 import { COLLECTION_SPECS, type RecordId, type VersionChange } from "./version-diff";
+import { PRE_FORMAT_2_BLIND_SLICES } from "./version-capture-format";
 
 /** Selection keyed by changeKey(collection, recordId); value is "all" (whole
  *  record / all changed fields) or an explicit list of field names. */
@@ -43,14 +44,19 @@ function mergeFields(target: Rec, source: Rec, fields: string[] | "all", allChan
   return next;
 }
 
+/** ★ `versionSpeaksForEmptySlices` mirrors `diffWorkspaces`' option and must be
+ *  given the SAME value: pass `speaksForEmptySlices(readCaptureFormat(payload))`
+ *  for the stored capture. Defaults to FALSE — the safe reading. */
 export function applyRestore(
   current: Workspace,
   version: Workspace,
   changes: VersionChange[],
   selection: RestoreSelection,
+  opts?: { versionSpeaksForEmptySlices?: boolean },
 ): Workspace {
   const changeByKey = new Map(changes.map((c) => [changeKey(c.collection, c.recordId), c]));
   const result: Record<string, unknown> = { ...(current as unknown as Record<string, unknown>) };
+  const blind = !opts?.versionSpeaksForEmptySlices;
 
   for (const spec of COLLECTION_SPECS) {
     // ★★ Diff-visible but NOT restorable. The slice is carried through from
@@ -65,22 +71,32 @@ export function applyRestore(
     // restorable arrays on a restore to a short pre-0.259.0 capture".
     if (spec.restorable === false) continue;
     const key = spec.key as string;
+    // ★★★ AN ABSENT KEY IS NOT AN EMPTY SLICE — for these six, and ONLY while
+    // the capture predates the marker. `workspaceToJson` omits an additive
+    // slice's key when it is empty, and `getVersionPayload` could not emit these
+    // six at all before db217e08 (2026-08-25), so on an unstamped capture
+    // `undefined` means "this capture cannot speak about this slice". Read as
+    // empty, every live record diffs as "added" and the list branch below runs
+    // `cur.delete(id)` on all of them, while the singleton branch's
+    // `mergeFields(current, {}, "all", …)` takes its `else delete next[f]` arm
+    // and returns `{}`. Manual checkpoints are never pruned
+    // (`version-schema.ts` prunes `trigger = 'auto'` only), so such a capture
+    // stays restorable — and, unguarded, destructive — indefinitely.
+    // ★★★ SCOPED THREE WAYS, each load-bearing, each a defect if widened or
+    // narrowed. To the SIX slices, so `project`/`steeringCommittee`/
+    // `timelogLinks` keep reverting to unset. Across BOTH kinds, so the
+    // singleton `settingsOverrides` is covered — guarding only the five arrays
+    // blanked a project's timezone and notification overrides. And only when
+    // `blind`, so a STAMPED capture reverts normally and a restore can once
+    // again remove records added since it: reading a stamped empty slice as
+    // "cannot speak" is safe but makes restore permanently useless for new
+    // content, which is the whole reason the marker exists.
+    // ★★ Defence in depth, not the mechanism — `diffWorkspaces` given the same
+    // flag emits no row for these at all, so nothing reaches a selection. Keep
+    // both: a caller that threads one and forgets the other must fail SAFE.
+    if (blind && PRE_FORMAT_2_BLIND_SLICES.has(key)
+      && (version as unknown as Record<string, unknown>)[key] === undefined) continue;
     if (spec.kind === "list") {
-      // ★★★ AN ABSENT KEY IS NOT AN EMPTY SLICE, and treating it as one DELETES
-      // user data. `workspaceToJson` omits an additive slice's key when the
-      // array is empty, and a capture taken before `getVersionPayload` grew to
-      // emit these slices (db217e08, 2026-08-25) could not carry them at all —
-      // so `undefined` means "this capture cannot speak about this slice". Read
-      // as empty, every live record diffs as "added" and the branch below runs
-      // `cur.delete(id)` on all of them. Manual checkpoints are never pruned
-      // (`version-schema.ts` prunes `trigger = 'auto'` only), so a pre-0.259.0
-      // checkpoint stays restorable — and destructive — indefinitely.
-      // ★★ KNOWN IMPRECISION, deliberate: an empty slice and an absent one are
-      // indistinguishable here, so restoring to a capture where the user
-      // genuinely had zero records will NOT re-empty the current ones. That is
-      // the safe direction; separating the two needs a capture-format marker on
-      // the payload, which nothing writes today.
-      if ((version as unknown as Record<string, unknown>)[key] === undefined) continue;
       const cur = byId(current[spec.key] as unknown[]);
       const ver = byId(version[spec.key] as unknown[]);
       let touched = false;
@@ -103,27 +119,6 @@ export function applyRestore(
       }
       if (touched) result[key] = [...cur.values()];
     } else {
-      // ★★★ THE SAME ABSENT-KEY RULE AS THE LIST BRANCH, AND IT IS NOT COSMETIC
-      // SYMMETRY — `db217e08` (2026-08-25) added SIX slices to
-      // `getVersionPayload`: five arrays AND the singleton `settingsOverrides`.
-      // Guarding only the arrays left the sixth wiping on exactly the input the
-      // list guard exists for. `mergeFields(current, {}, "all", …)` takes the
-      // `else delete next[f]` arm for every field and returns `{}`, so a
-      // restore to any pre-db217e08 capture blanks the project's timezone,
-      // notification and next-actions overrides; `hasAnyOverride({})` is false,
-      // so the next save omits the key and the loss is permanent. Manual
-      // checkpoints are never pruned (`version-schema.ts` prunes
-      // `trigger = 'auto'` only), so it stays reachable indefinitely.
-      // ★★ UNIFORM, not `settingsOverrides`-only, and that costs something real:
-      // `project` / `steeringCommittee` / `timelogLinks` predate db217e08, so
-      // for THEM an absent key genuinely means "unset" and this guard turns a
-      // revert-to-unset into a no-op. That is the same imprecision the list
-      // branch already accepts, in the same safe direction — failing to revert
-      // is recoverable by hand, deleting is not — and one rule for both kinds
-      // beats a per-slice exception list that the next added singleton would
-      // silently miss. Separating the two needs a capture-format marker on the
-      // payload, which nothing writes today (open-followups §259).
-      if ((version as unknown as Record<string, unknown>)[key] === undefined) continue;
       const selKey = changeKey(key, null);
       const sel = selection[selKey];
       const change = changeByKey.get(selKey);

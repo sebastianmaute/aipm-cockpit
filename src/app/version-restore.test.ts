@@ -198,6 +198,46 @@ describe("applyRestore over array-typed slices", () => {
     expect(out.settingsOverrides).toEqual({ timezone: { timezone: "Europe/Berlin" } });
   });
 
+  // ★★★ THE OTHER HALF OF THE SAME AMBIGUITY, and without it the guard above is
+  // safe but useless. A capture written TODAY by a user who simply had no
+  // knowledge items omits the key too — `workspaceToJson` drops an empty
+  // additive slice — so it is byte-identical to the pre-db217e08 payload in the
+  // test above. Read blind, a restore could then NEVER remove a record added
+  // since ANY capture, for any of the six, forever. The format marker is what
+  // separates them: `versionSpeaksForEmptySlices` says this capture's silence is
+  // an assertion of emptiness, not an inability to speak.
+  // ★★ The two tests are a MATCHED PAIR over the same fixture shape. Read either
+  // alone and the opposite behaviour looks like the bug.
+  it("removes records added since a STAMPED capture that genuinely held none", () => {
+    const version = ws({});                       // no knowledgeItems key: genuinely empty
+    const now = ws({
+      knowledgeItems: [kItem("a", "Added since")],
+      settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
+    });
+    const opts = { olderSpeaksForEmptySlices: true };
+    const changes = diffWorkspaces(version, now, opts);
+    const out = applyRestore(now, version, changes, selectAll(changes), {
+      versionSpeaksForEmptySlices: true,
+    });
+    expect(out.knowledgeItems ?? []).toHaveLength(0);
+    expect(out.settingsOverrides ?? {}).toEqual({});
+  });
+
+  // ★★★ THE SCOPE OF THE GUARD, in the direction that is easy to get wrong by
+  // widening. `project` / `steeringCommittee` / `timelogLinks` are additive too
+  // and `workspaceToJson` omits them when unset — but they were in
+  // `getVersionPayload` all along, so an absent key has ALWAYS meant "genuinely
+  // unset" and must stay revertible even on an unstamped capture. An earlier cut
+  // guarded every singleton uniformly and silently turned each of these into a
+  // no-op. `PRE_FORMAT_2_BLIND_SLICES` is what keeps them out.
+  it("still reverts an always-emitted singleton to unset on an UNSTAMPED capture", () => {
+    const version = ws({});                       // no project key: genuinely unset
+    const now = ws({ project: { name: "Apollo" } as never });
+    const changes = diffWorkspaces(version, now); // blind, the default
+    const out = applyRestore(now, version, changes, selectAll(changes));
+    expect(out.project ?? {}).toEqual({});
+  });
+
   // ★★ THE GUARD MUST NOT BE OVER-BROAD. Skipping on an ABSENT key must not
   // become "skip whenever the capture disagrees" — a capture that DOES carry
   // the key still reverts fully: the record it lacks is removed, the record it
