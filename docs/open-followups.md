@@ -3612,6 +3612,14 @@ line in the baseline, was verified gone on 2026-08-25 and again on 2026-08-26. K
 record of why `--update` dropping a sub-limit entry is a no-op rather than a regression.
 ★ The live hazard this entry is adjacent to is §229 (two files at 799 with no baseline), which is
 where the near-cap work belongs.
+★★★ **TWO SENTENCES IN THE BODY BELOW CONTRADICT THIS HEADING AND ARE SUPERSEDED BY IT** — "is
+unaffected and **stays open**", and the `**No fix is proposed**` paragraph's options (a)/(b). They
+are left in place as the dated analysis they are, but they are NOT a live open item under this
+number: a partially closed entry would have to stay OPEN (see the ★★★ rule at the top of this file),
+and this one is fully closed. The one thing in them that is still LIVE — option (b), giving the
+baseline an explicit per-file `pin` the loop honours regardless of `LIMIT`, so a file that earned its
+way down can be held near where it landed — has been **carried to §229**, which is where the two
+at-799 files are tracked. Do not re-derive it from here; §229 owns it now.
 
 `scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
 800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
@@ -15124,9 +15132,29 @@ untouched, deliberately, because turning it on affects every future MR and was o
 icon migration.
 
 ★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `package.json`'s `lint` script is now
-`eslint --max-warnings=0`, the wide route this entry recommends. The four doc sentences that
-asserted the gate was absent were rewritten in the same commit; the three that merely USE the flag
-in an example command were left alone. The narrow route (promoting the single rule in
+`eslint --max-warnings=0`, the wide route this entry recommends. Four doc sentences asserting the
+gate was absent were rewritten in `4c6e47ba`; the three that merely USE the flag in an example
+command were left alone.
+★★★ **THAT WAS NOT THE WHOLE RIPPLE, AND THIS LINE CLAIMED IT WAS** — it read "the four doc
+sentences … were rewritten in the same commit", which a reader takes as the complete sweep. Twenty
+commits later `deae44c8` found **three more**, and its own message says why none was reachable the
+way the first four were: **not one of them spells `--max-warnings`.** A FIFTH doc sentence, in
+`docs/AGENTS/dashboard.md`, said `react-hooks/exhaustive-deps` "is NOT fatal"; and two entries in
+THIS file had re-scoped themselves around the gate's absence (§45's eslint-10 blast radius, §253's
+"CI is green under `--max-warnings=0`" frame). So: **five prose sentences plus two register entries,
+across two commits** — not four in one. Reproduce the split:
+
+```bash
+git log --oneline 964c20d1..55adc40b -- docs/AGENTS/dashboard.md   # deae44c8 only
+git show 4c6e47ba --stat --format=""                               # AGENTS · CONTRIBUTING · architecture
+```
+
+★★ **THE ENUMERATE COMMAND BELOW BOUNDS THIS SWEEP FROM BELOW, AND CANNOT DO BETTER.** It greps for
+the FLAG, so it finds only sentences that name it. Every claim in the miss above is about the flag's
+EFFECT — "is NOT fatal", "CI is green under" — and is invisible to it. The 4-of-7 measurement it
+reports is exact for what it asks and is not a count of falsified claims. A behaviour change needs a
+sweep for prose describing the OLD BEHAVIOUR, which no single grep expresses; budget a read, not a
+pattern. The narrow route (promoting the single rule in
 `eslint.config.mjs`) was NOT taken and remains unavailable to an agent — that file is hook-protected.
 ★★ The gate was proved live by mutation, and the FIRST proof command was vacuous: `npx eslint
 src/app/icons.ts` exits 0 on a genuinely unused import, because it invokes eslint directly and never
@@ -16700,6 +16728,22 @@ touch either file gets a red pipeline for what looked like a small change and ha
 test file at 781 shows up in the 780—800 band and is pure noise. Apply the same filters, or check any
 hit against the gate before acting on it.
 
+★★ **CARRIED HERE FROM §60 ON 2026-08-26 — a deferred DESIGN decision, not a defect.** §60 closed,
+and the one live item in its body had nothing to do with its own thesis, so it would otherwise have
+been readable only inside a closed entry and invisible to every open count. It is the mirror image of
+the prohibition two paragraphs up, and the reason this entry is where it belongs: the ratchet has no
+way to HOLD a file that earned its way down. `check-file-sizes.mjs` opens its comparison loop with
+`if (n <= LIMIT) continue;`, so once a file is under 800 the baseline is never consulted for it and
+nothing stops it climbing back to 799 one commit at a time — which is exactly the state the two files
+named in this heading are in. §2 took `use-resource-planner.ts` from 1043 to 553 for the same reason.
+The two options, unchanged from §60: **(a)** leave it — the ratchet is a ratchet, not a budget, and
+800 is the only line anyone agreed to; **(b)** give the baseline an explicit per-file `pin` the loop
+honours regardless of `LIMIT`. ★★ (b) is NOT the prohibited move above, and the distinction is the
+whole point: a baseline ENTRY admits growth past 800, a `pin` forbids growth below it. It does make
+the ratchet two mechanisms and needs a decision about who may raise a pin, which is why it is a slice
+of its own rather than a tweak. **There is no pressure to do either now** — recorded so the choice is
+visible, not to schedule it.
+
 ## 230. A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy
 
 **Status:** OPEN. Found by cold review of the §223/§225 slice, 2026-08-24. Disclosure only — no data is
@@ -17115,6 +17159,13 @@ Original status, kept as written: open — a HAZARD, not a live defect. Verified
 restatement against `src/app/version.ts` and runs as the BLOCKING `version-sync-check` job;
 `npm run version:sync` propagates. The probe this entry shipped is superseded by the gate, which
 prints the same readings — run `npm run version:check` rather than pasting the node one-liner.
+★★ **BOTH commands kept below are now FALSIFIED BY THIS CLOSURE, not just the node one-liner**, and
+naming only that one left the other reading as live. The entry's evidence grep
+`grep -rn "APP_VERSION" scripts/ .gitlab-ci.yml` is annotated `# no output — no gate reads it`; it
+now returns **7** lines and exits 0, because the gate this entry asked for is what reads it. The
+annotation was the entry's whole proof, so a reader running it today gets the opposite of the stated
+result with nothing saying why. Left in place as the dated reading it was — superseded here, not
+rewritten.
 ★ The gate throws rather than passing when a shape moves, which is this entry's own requirement, and
 exits 2 rather than passing when the codemap glob yields nothing — a gate that scans nothing passes
 everything.
@@ -17667,8 +17718,35 @@ asymmetric (`taken > 10`, `free > 5`), so an even split would have *degraded* `t
 **`codec-roundtrip.property.test.ts`** — `hazardLoadedString` splices two hazard chunks of a
 uniformly-drawn distinct class pair into each loaded value, giving p = 1/3 per class. Class pools are
 DERIVED from the same predicate record the tally counts with, applied to the CR-stripped chunk — the
-step that makes one pool serve both alphabets. Worst evaluation went from **7.5e-5** to a constructed
-bound of **2.2e-8**; the smallest of the twelve minima moved from **6 to 23**.
+step that makes one pool serve both alphabets. The EMPIRICAL result is the claim: 0 at or below the
+floor in 40,000 samples per site, and the smallest of the twelve minima moved from **6 to 23**.
+
+★★★ **THIS ROW ONCE REPEATED THE VERY MISTAKE THE ENTRY EXISTS TO TEACH, AND IT SURVIVED THE COMMIT
+THAT DELETED THE SAME FIGURE FROM THE CODE.** It read "worst evaluation went from **7.5e-5** to a
+constructed bound of **2.2e-8**". That is not a bound: it is `Binom(190, 1/6)`, an arbitrary INTERIOR
+point of a measured N range running 140..340. A bound takes the WORST N in the range —
+`Binom(140, 1/6)` = **2.5e-5**. The companion figure in the code (2.7e-3, for the one-class
+construction) was the same error at `Binom(211, 1/12)`; the honest worst case there is **9.5e-2**,
+which makes the two-class argument STRONGER, not weaker. Recompute all four:
+
+```bash
+node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(140,1/12,8),b(140,1/6,8),b(190,1/6,8),b(211,1/12,8))"
+```
+
+★★★ **DO NOT NOW QUOTE 2.5e-5 AS "THE IMPROVEMENT" EITHER** — replacing one misleading number with
+another in the pessimistic direction is the same error mirrored, and it is the easy one to make while
+correcting the first. 2.5e-5 is a WORST-CASE bound taken at the smallest N ever observed; the actual
+mixture over the N distribution is much better, and the empirical result says so — 0 at or below the
+floor in 40,000 samples per site, with the smallest of twelve minima at **23** against a floor of 8.
+What is NOT established is the low-N tail's weight, which nobody has measured, and that is precisely
+why the honest headline here is the EMPIRICAL pair (0/40,000; minima 6 → 23) rather than any single
+tail number. ★ A zero is not a bound either: rule-of-three puts 0/40,000 at 7.5e-5.
+
+★★ The lesson is narrower than "the number was wrong". `codec-roundtrip.property.test.ts`'s own
+`expectHazards` note had ALREADY declared 2.2e-8 unreproducible and "removed rather than restated" —
+while two other comments in that same file and this row went on quoting it. **Deleting a figure in
+the place that DISCUSSES it, without sweeping the places that USE it, leaves the artifact asserting
+its own correction is complete.** Found by cold review, not by any gate.
 
 ★★★ **THE FILE'S OWN JUSTIFICATION WAS FALSE, AND THAT IS THE LESSON HERE.** It read: "the lowest
 single value across every class and both alphabets was 16 (astral) … The floor sits at half that

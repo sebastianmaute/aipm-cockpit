@@ -177,8 +177,17 @@ const HAZARD_CHUNKS = Object.fromEntries(
 
 /** Every unordered pair of DISTINCT classes — 15 of them. Drawn uniformly, each
  *  class sits in exactly five, so a hazard-loaded value carries a given class
- *  with p = 1/3 exactly. Two classes rather than one is what buys the tail: at
- *  one the construction's own bound is 2.7e-3, at two it is 2.2e-8. */
+ *  with p = 1/3 exactly — and p = 1/6 per FIELD VALUE once the 5/10 loaded
+ *  weight is applied. Two classes rather than one is what buys the tail.
+ *  ★★ COMPARE THEM AT THE WORST N THE SAMPLE REACHES (140), NEVER AT AN
+ *  INTERIOR ONE: one class (p = 1/12) leaves P(< 8) = 9.5e-2, two classes give
+ *  2.5e-5. An earlier revision quoted 2.7e-3 and 2.2e-8 here, which are those
+ *  same two binomials evaluated at N ~ 211 and N ~ 190 — points nobody measured
+ *  or justified, inside a range running 140..340. Neither was a bound, and the
+ *  ★★ note on `expectHazards` says why the low-N tail is the unmeasured part.
+ *  Recompute both:
+ *    node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(140,1/12,8),b(140,1/6,8))"
+ */
 const HAZARD_PAIRS = HAZARD_CLASSES.flatMap((a, i) =>
   HAZARD_CLASSES.slice(i + 1).map((b) => [a, b] as const),
 );
@@ -219,8 +228,9 @@ const hazardLoadedString = fc.oneof(...HAZARD_PAIRS.map(([a, b]) => hazardLoaded
  *  reachable through the other two branches, and the 4:1 hostile-derived to
  *  `fc.string` ratio this alphabet always had is preserved exactly: (3 + 5) : 2.
  *
- *  ★ Do NOT raise the loaded weight to "make the floors safer". The floors are
- *  already at 2.2e-8 and the only thing more weight buys is less breadth. */
+ *  ★ Do NOT raise the loaded weight to "make the floors safer". At the worst N
+ *  the sample reaches the construction already puts P(< 8) at 2.5e-5, and the
+ *  only thing more weight buys is less breadth. */
 const anyString = fc.oneof(
   { weight: 3, arbitrary: hostileString },
   { weight: 2, arbitrary: fc.string({ maxLength: 12 }) },
@@ -368,9 +378,14 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * observed minima rose from 6 to 23. That is the claim. An earlier revision
  * also quoted "P(< 8) = 2.2e-8" as an exact mixture over the N distribution;
  * that figure is NOT reproducible from anything stated here and has been
- * removed rather than restated. The endpoints bracket it awkwardly — Binom(233,
- * 1/6) gives P(< 8) ~ 1e-10 while Binom(140, 1/6) gives ~4e-5 — so the mixture
- * is dominated by how rare the low-N tail is, and nobody has measured that.
+ * removed rather than restated — it is simply Binom(190, 1/6), an unstated
+ * interior point. ★★ It survived in two other comments in THIS file and in the
+ * register long after this paragraph declared it gone, which is the failure
+ * mode to watch: deleting a number in the place that discusses it, while the
+ * places that USE it go unswept. The endpoints bracket it awkwardly —
+ * Binom(233, 1/6) gives P(< 8) = 3.6e-11 while Binom(140, 1/6) gives 2.5e-5 —
+ * so the mixture is dominated by how rare the low-N tail is, and nobody has
+ * measured that. Recompute any of them with the one-liner on `HAZARD_PAIRS`.
  * ★ Note a zero is not a bound either: rule-of-three puts 0/40,000 at 7.5e-5,
  * which alone would not clear the defect this replaced. The case for the fix is
  * the CONSTRUCTION (p = 1/6 guaranteed, against a hazard density that was
