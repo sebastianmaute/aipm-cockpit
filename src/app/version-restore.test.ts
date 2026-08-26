@@ -133,11 +133,11 @@ describe("applyRestore over array-typed slices", () => {
   // BUG-CLASS guard — not about these two names. Any `COLLECTION_SPECS` entry
   // whose declared `kind` disagrees with the slice's real type lands here, and
   // the failure diagnostic NAMES the slice.
-  // The SIX slices `getVersionPayload` added to the capture split 5/1 at the
-  // restore layer, and the split is deliberate: only `settingsOverrides` is a
-  // genuine OBJECT singleton, so only it belongs in `COLLECTION_SPECS`. The
-  // other five are arrays and are carried through from the LIVE workspace.
-  it("reverts settingsOverrides but carries the five array slices from live state", () => {
+  // The SIX slices `getVersionPayload` captures now split 4/2 at the restore
+  // layer: `settingsOverrides` (an object singleton) plus the three
+  // user-authored arrays revert, while `documents`/`documentVersions` are
+  // diff-visible but carried from live — they own their own history.
+  it("reverts settingsOverrides and the user-authored arrays", () => {
     const version = ws({
       settingsOverrides: { timezone: { timezone: "Europe/Berlin" } },
       knowledgeItems: [kItem("a", "Old")],
@@ -152,15 +152,15 @@ describe("applyRestore over array-typed slices", () => {
     const out = applyRestore(now, version, changes, selectAll(changes));
     expect((out.settingsOverrides as { timezone: { timezone: string } }).timezone.timezone)
       .toBe("Europe/Berlin");
-    expect((out.knowledgeItems as readonly { name: string }[])[0].name).toBe("New");
-    expect((out.insights as unknown as readonly { severity: string }[])[0].severity).toBe("high");
+    expect((out.knowledgeItems as readonly { name: string }[])[0].name).toBe("Old");
+    expect((out.insights as unknown as readonly { severity: string }[])[0].severity).toBe("low");
   });
 
   // A capture taken before `getVersionPayload` emitted all 24 slices carries
-  // NONE of the six. This pins what restoring one does today, which is what the
-  // 0.259.0 changelog entry claims — five carried through from live state, and
-  // `settingsOverrides` genuinely reverted to the (absent) recorded value.
-  it("carries five slices through a short pre-0.259.0 capture and reverts the sixth", () => {
+  // NONE of the six, so every live record reads as "added" against it.
+  // Restoring it therefore REMOVES the three restorable arrays and leaves the
+  // two document slices alone.
+  it("removes the restorable arrays on a restore to a short pre-0.259.0 capture", () => {
     const version = ws({});
     const now = ws({
       knowledgeItems: [kItem("a", "Live")],
@@ -175,14 +175,13 @@ describe("applyRestore over array-typed slices", () => {
     expect({
       knowledgeItems: out.knowledgeItems?.length,
       insights: out.insights?.length,
+      calendarEvents: out.calendarEvents?.length,
       documents: out.documents?.length,
       documentVersions: out.documentVersions?.length,
-      calendarEvents: out.calendarEvents?.length,
-    }).toEqual({ knowledgeItems: 1, insights: 1, documents: 1, documentVersions: 1, calendarEvents: 1 });
-    // The one genuine object singleton of the six IS compared and reverted, so a
-    // rollback to a capture that predates an override drops it. The compare view
-    // lists it as a "Project overrides" change first.
-    expect(changes.map((c) => c.collection)).toEqual(["settingsOverrides"]);
+    }).toEqual({
+      knowledgeItems: 0, insights: 0, calendarEvents: 0,
+      documents: 1, documentVersions: 1,
+    });
     expect(out.settingsOverrides).toEqual({});
   });
 

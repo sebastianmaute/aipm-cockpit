@@ -68,6 +68,9 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   //   capture still records all 24 slices. Making them genuinely restorable
   //   needs a `kind: "list"` model and is tracked in `docs/open-followups.md`.
   //   Pinned by `version-restore.test.ts`'s array-typed-slice tests.
+  { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
+  { key: "insights", label: "Insights", kind: "list", nameField: "key" },
+  { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
   { key: "settingsOverrides", label: "Project overrides", kind: "singleton" },
 ];
 

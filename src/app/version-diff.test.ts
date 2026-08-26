@@ -50,6 +50,19 @@ describe("diffWorkspaces", () => {
     expect(c).toHaveLength(1);
     expect(c[0].recordId).toBe("drive!a1");
   });
+  it("diffs the remaining captured slices", () => {
+    const ins = (id: number, severity: string) => ({ id, key: "milestoneSlip", severity } as never);
+    const ev = (id: number, title: string) => ({ id, title } as never);
+    const c = diffWorkspaces(
+      ws({ insights: [ins(1, "low")], calendarEvents: [ev(1, "Old")] }),
+      ws({ insights: [ins(1, "high")], calendarEvents: [ev(1, "New")] }),
+    );
+    // The label comes from each row nameField: insights key, events title.
+    expect(c.map((x) => [x.collection, x.recordLabel]).sort()).toEqual([
+      ["calendarEvents", "New"],
+      ["insights", "milestoneSlip"],
+    ]);
+  });
 });
 
 describe("summarizeDiff", () => {
