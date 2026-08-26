@@ -356,13 +356,25 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * reason no single-run figure is quoted here.
  *
  * AFTER: `hazardLoadedString` gives every drawn value probability 1/3 of
- * carrying a named class (a uniform pair out of 15) at weight 5 of 10, so the
- * CONSTRUCTED contribution alone is Binom(N, 0.162) over the N ≈ 233 field
- * values a 20-run sample generates — P(< 8) = 2.2e-8, computed exactly over the
- * measured distribution of N (140..340) and IGNORING the alphabet's own hazard
- * density, which is why the real counts land near 3x that construction's mean.
- * Re-measured end-to-end at 40,000 samples per site: 0 at or below 8 anywhere,
- * and the smallest of the twelve observed minima rose from 6 to 23.
+ * carrying a named class (a uniform pair out of 15) at weight 5 of 10, so a
+ * given class rides p = (1/3)(1/2) = 1/6 per value by construction, and the
+ * CONSTRUCTED contribution alone is Binom(N, 1/6) over the N field values a
+ * 20-run sample generates (measured range 140..340, mean ~233). That IGNORES
+ * the alphabet's own hazard density, which is why the real counts land near 3x
+ * the construction's mean.
+ *
+ * ★★ WHAT IS AND IS NOT ESTABLISHED HERE. The EMPIRICAL result is: 40,000
+ * samples per site, 0 at or below 8 anywhere, and the smallest of the twelve
+ * observed minima rose from 6 to 23. That is the claim. An earlier revision
+ * also quoted "P(< 8) = 2.2e-8" as an exact mixture over the N distribution;
+ * that figure is NOT reproducible from anything stated here and has been
+ * removed rather than restated. The endpoints bracket it awkwardly — Binom(233,
+ * 1/6) gives P(< 8) ~ 1e-10 while Binom(140, 1/6) gives ~4e-5 — so the mixture
+ * is dominated by how rare the low-N tail is, and nobody has measured that.
+ * ★ Note a zero is not a bound either: rule-of-three puts 0/40,000 at 7.5e-5,
+ * which alone would not clear the defect this replaced. The case for the fix is
+ * the CONSTRUCTION (p = 1/6 guaranteed, against a hazard density that was
+ * previously incidental), corroborated by the minima, not a single tail number.
  *
  * ★★★ DO NOT TIGHTEN THIS AND DO NOT RAISE numRuns. A larger sample against an
  * unchanged absolute floor is a WEAKER guard, not a safer run; a higher floor

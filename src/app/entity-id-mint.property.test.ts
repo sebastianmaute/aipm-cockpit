@@ -75,8 +75,10 @@ const branchArb = fc.constantFrom<Branch>("contended", "uncontended", "update");
 // BLOCKING gate, on a tree that could not have caused it.
 //
 // Drawing the branch FIRST and constructing a case to match makes each branch
-// p = 1/3 by construction, so P(a branch is never visited in 50 runs) is
-// (2/3)^50 = 1.6e-9. The floor is then a fact about this arbitrary rather than a
+// p = 1/3 by construction, so P(a GIVEN branch is never visited in 50 runs) is
+// (2/3)^50 = 1.6e-9, and P(ANY of the three is missed) — which is what actually
+// reddens the suite, since all three floors run — is 3(2/3)^50 − 3(1/3)^50 =
+// 4.7e-9 by inclusion–exclusion. The floor is then a fact about this arbitrary rather than a
 // bet on the generator — the cure `sanitize-core.property.test.ts`'s
 // `midPairCutArb` already applies.
 //
@@ -338,7 +340,9 @@ describe("entity-id-mint — properties", () => {
     //
     // ★★ THE FLOORS ARE `> 0` AND THAT IS NOW A CONSTRUCTED FACT, NOT A BET.
     // `taggedCase` draws the branch first, so each has p = 1/3 and
-    // P(a branch is never visited in 50 runs) = (2/3)^50 = 1.6e-9. Before the
+    // P(a GIVEN branch is never visited in 50 runs) = (2/3)^50 = 1.6e-9; the
+    // union over all three — the number that matters, since all three floors
+    // run — is 3(2/3)^50 − 3(1/3)^50 = 4.7e-9. Before the
     // branch tag the same floors rode the generator's collision bias:
     // `uncontended` had p ≈ 0.145, mean 7.05, and drew zero in 0.058% of suite
     // runs (measured, 40,000 pooled trials), which is what took a release pipeline red.
