@@ -53,21 +53,26 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "fxRates", label: "FX rates", kind: "singleton" },
   { key: "steeringCommittee", label: "Steering committee", kind: "singleton" },
   { key: "timelogLinks", label: "TimeLog links", kind: "singleton" },
-  // ★★★ `knowledgeItems` and `insights` are DELIBERATELY ABSENT, and adding
-  //   them back is a data-loss bug, not a feature. Both are ARRAYS on
-  //   `Workspace`; a "singleton" spec routes the key through
-  //   `version-restore.ts`'s `mergeFields`, whose `{ ...target }` turns the
-  //   array into an object with numeric keys. `workspaceToJson` then gates the
-  //   slice on `.length` — `undefined` on an object — so the key is omitted and
-  //   all six write paths drop the slice on the next save. They sat here
-  //   harmlessly only while `getVersionPayload` emitted neither one; the moment
-  //   it emitted all 24 slices, `history-panel`'s plain Restore button (which
-  //   auto-selects EVERY change) could reach them. Absent from this list they
-  //   are carried through a restore from the LIVE workspace, exactly like
-  //   `documents` / `documentVersions` / `calendarEvents` already are — the
-  //   capture still records all 24 slices. Making them genuinely restorable
-  //   needs a `kind: "list"` model and is tracked in `docs/open-followups.md`.
-  //   Pinned by `version-restore.test.ts`'s array-typed-slice tests.
+  // ★★★ AN ARRAY SLICE TAKES `kind: "list"`. NEVER `"singleton"` — that is a
+  //   silent data-loss bug, not a style choice. A singleton spec routes the key
+  //   through `version-restore.ts`'s `mergeFields`, whose `{ ...target }` turns
+  //   the array into an OBJECT with numeric keys. `workspaceToJson` then gates
+  //   the slice on `.length` — `undefined` on an object — so the key is omitted
+  //   and all six write paths drop the slice on the next save, permanently.
+  //   It shipped exactly once, when `getVersionPayload` grew to emit all 24
+  //   slices and `history-panel`'s Restore button (which auto-selects EVERY
+  //   change) could finally reach two mis-declared rows.
+  //   Pinned by `version-restore.test.ts`'s "turns no array-typed slice of the
+  //   workspace into an object", whose diagnostic NAMES the offending slice.
+  //   ★★ THAT TEST IS NOT GENERIC OVER THIS REGISTRY — measured by mutation,
+  //   not reasoned. It can only see a slice its own `arrays()` fixture
+  //   POPULATES *and* CHANGES between the two workspaces: `applyRestore`'s
+  //   singleton branch bails on a slice with no diff change, so an empty-in-
+  //   both slice is never corrupted and there is nothing to detect. Flipping
+  //   `milestones` (registered, empty in both fixtures) to `"singleton"` left
+  //   the test GREEN; the identical edit to `calendarEvents` (populated, and
+  //   differing) turned it RED, naming the slice. ADD A NEW ARRAY ROW TO THAT
+  //   FIXTURE or it ships uncovered.
   { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
   { key: "insights", label: "Insights", kind: "list", nameField: "key" },
   { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },

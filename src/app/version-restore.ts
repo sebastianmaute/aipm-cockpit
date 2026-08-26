@@ -56,6 +56,13 @@ export function applyRestore(
     // ★★ Diff-visible but NOT restorable. The slice is carried through from
     // `current` untouched — exactly what an absent registry row used to do —
     // because it owns its own history and a second writer would fight it.
+    // ★★ Measured by mutation, not reasoned: delete this line and a restore to
+    // a capture predating the slice DELETES the documents (1 → 0 on both
+    // slices) rather than merely failing to revert them, because every live
+    // record reads as "added" against a capture that has no such key. This is
+    // a DATA-LOSS guard, not only a single-writer one. Pinned by BOTH
+    // "skips a collection marked restorable: false" and "removes the
+    // restorable arrays on a restore to a short pre-0.259.0 capture".
     if (spec.restorable === false) continue;
     const key = spec.key as string;
     if (spec.kind === "list") {
