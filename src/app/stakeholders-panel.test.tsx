@@ -5,6 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { StakeholdersPanel } from "./stakeholders-panel";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
 
@@ -382,5 +383,45 @@ describe("Stakeholders sortable headers", () => {
       expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
       expect(own).toHaveAttribute("aria-sort", "ascending");
     }
+  });
+});
+
+// --- row-unique names (WCAG 2.4.6, §247/§248) ------------------------------
+
+describe("row-unique names", () => {
+  // Two rows sharing a name — the checkbox / name button / Ask-Claude button
+  // all key on item.name, so without a per-row token every one of them would
+  // render twice with the identical accessible name. renderStakeholders
+  // cannot exercise the Ask-Claude button (gated on onAiEdit/aiEditEnabled),
+  // so this renders inline with those wired, rather than growing the shared
+  // helper with parameters no other caller needs.
+  //
+  // Whole-document scope (no `scope` passed): the panel's own known chrome
+  // collision — `stakeholderFieldName` naming both the search textbox (:299)
+  // and the Name column's sort button (:373) — cannot fire here because it
+  // needs the "textbox" role, which is not in `roles` below.
+  it("keeps every per-row control distinct when two rows share a name", () => {
+    const stakeholders = [
+      sampleStakeholder({ id: 1, name: "Dana" }),
+      sampleStakeholder({ id: 2, name: "Dana" }),
+    ];
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={stakeholders}
+        resources={[]}
+        milestones={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => true}
+      />,
+      { wrapper },
+    );
+    expectRowUniqueNames({
+      minControls: 21,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
   });
 });
