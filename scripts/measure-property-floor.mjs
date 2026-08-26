@@ -23,6 +23,29 @@
 // unchanged absolute floor makes the guard WEAKER, not the run safer: more
 // samples against the same threshold is a lower bar. The number that belongs
 // beside a floor is P(counter < floor), which is comparable across files.
+//
+// ★★★ `below` COUNTS `v <= floor`, WHICH MATCHES `toBeGreaterThan(floor)` AND
+// OVERSTATES `toBeGreaterThanOrEqual(floor)`. For a `>` floor, failure is
+// exactly `v <= floor` and the reported p is the answer. For a `>=` floor,
+// failure is `v < floor`, so every sample landing exactly ON the floor is
+// counted as a failure that would in fact have PASSED. The error is
+// conservative — it never hides a flake — but it is not the number to quote:
+// measured on `codec-roundtrip`'s `HAZARD_FLOOR = 8`, the difference is the
+// whole `v === 8` mass. Pass `floor - 1` for a `>=` assertion, or count
+// strictly yourself and say which you did.
+//
+// ★★ POOL REPEATED RUNS BEFORE QUOTING. These are rare-event rates, so two
+// honest 20,000-trial runs of the same generator disagree routinely — measured
+// on `entity-id-mint`'s old arbitrary, 15 zero-draws in one run against 8 in
+// another, ~2 sigma apart at p ~ 5e-4. A single-run figure does not reproduce,
+// and the next reader who re-measures concludes the comment was wrong. Quote
+// the pooled rate and the pooled trial count.
+//
+// ★★ A ZERO IS NOT A BOUND. `0/40,000` does not establish a rate below 1e-5:
+// rule-of-three puts the 95% upper bound at 3/40,000 = 7.5e-5. When the claim
+// is that a construction made a floor safe, the number to quote is the
+// CONSTRUCTED bound (a binomial over the guaranteed per-draw probability); the
+// empirical zero is corroboration, not the claim.
 
 /**
  * @param {object} opts
