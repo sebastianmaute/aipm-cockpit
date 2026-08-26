@@ -1128,10 +1128,15 @@ carrier tags can actually reach the loader.
 ★★★ **`documentAssets` IS DELIBERATELY NOT CAPTURED IN VERSION HISTORY**, and this is the record of
 that decision (`docs/open-followups.md` §254). `getVersionPayload` (`task-manager.tsx`) enumerates its
 slices literally and `documentAssets` is not among them, while the SAVE set does carry it —
-`use-storage-backend.ts` references `documentAssets` eight times (its destructure from
-`useWorkspace()`, its load-effect assignment, both save-payload object literals, both `useEffect`/
-`useCallback` dependency arrays, and its return value). So this is an omission from version history
-SPECIFICALLY, not a slice that does not exist anywhere.
+`use-storage-backend.ts` carries it through load, save and both truncation-guarded write paths. So
+this is an omission from version history SPECIFICALLY, not a slice that does not exist anywhere.
+★★ NO TALLY IS QUOTED HERE, and restoring one is a regression. This sentence first shipped with an
+itemised count — "eight times (its destructure, its load-effect assignment, both save-payload object
+literals, both dependency arrays, and its return value)" — and a reviewer caught that the itemisation
+summed to SEVEN while claiming eight, named "both" dependency arrays where there is one, and silently
+omitted two real call sites (`onPickStorageFile` and the storage-convert path, both
+`truncationOps.guardedWrite`). The total was right and every part of the breakdown was wrong. Read
+today's with `grep -n "documentAssets" src/app/use-storage-backend.ts`.
 
 Two reasons: a version row captured on every autosave that also carries every image byte in the
 project has a storage profile nothing else in this payload has — a per-capture cost that would need to
