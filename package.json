@@ -12,7 +12,7 @@
     "build": "next build",
     "start": "next start",
     "stop": "node scripts/stop-dev.mjs",
-    "lint": "eslint",
+    "lint": "eslint --max-warnings=0",
     "test": "vitest",
     "test:run": "vitest run",
     "test:coverage": "vitest run --coverage",
