@@ -74,13 +74,17 @@ describe("applyRestore over array-typed slices", () => {
   //   `ProjectDocument`/`DocVersion` (both are `number`), `capturedAt` for
   //   `savedAt`, a missing `title`/`source`/`op`, a `date` field `CalendarEvent`
   //   does not have, and an `InsightType`/`InsightStatus` pair ("overdueTask" /
-  //   "open") that are not members of either union. Nothing failed, because
-  //   neither slice is in `COLLECTION_SPECS` and only `Array.isArray` and
-  //   `.length` are ever read — which is exactly the danger: `docs/open-followups.md`
-  //   §241 proposes giving these slices `kind: "list"` rows, and on that day
-  //   `diffList` would key on ids the app can never mint, against a fixture no
-  //   code path can produce. A test that passes against an impossible shape makes
-  //   a follow-up look already-covered. Keep the annotations; never re-add a cast.
+  //   "open") that are not members of either union. Nothing failed, because at
+  //   the time NO such slice was in `COLLECTION_SPECS` and only `Array.isArray`
+  //   and `.length` were ever read.
+  //   ★★ THAT ESCAPE HATCH IS GONE, and the hypothetical this comment used to
+  //   describe in the future tense has HAPPENED: `docs/open-followups.md` §241
+  //   proposed giving these slices `kind: "list"` rows, and all five carry one
+  //   today (`version-diff.ts`), so `diffList` now keys on their ids for real. A
+  //   cast here would have `diffList` matching ids the app can never mint,
+  //   against a fixture no code path can produce — a test passing over an
+  //   impossible shape, which makes a follow-up look already-covered. The
+  //   annotations are what stand between us and that. Never re-add a cast.
   //   `kItem`/`insight`/`doc`/`docVersion`/`calEvent` now live in
   //   `../test/workspace-records` (imported above) alongside the other twelve
   //   list-slice builders `arraysFixture` composes.

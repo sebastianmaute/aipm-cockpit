@@ -19,6 +19,11 @@ import type { DocVersion } from "../app/document-versions";
 import type { CalendarEvent } from "../app/calendar-event";
 import type { Workspace } from "../app/workspace";
 
+/** Which of the two workspaces a record is being built for. Most builders take
+ *  this as a free-form label they render into a name field; `roleRec` uses it as
+ *  a branch selector and so requires exactly these two — see its docstring. */
+export type FixtureSide = "Old" | "New";
+
 export const kItem = (id: string, name: string): KnowledgeItem =>
   ({ id, name, url: `https://example.com/${id}`, kind: "file" });
 
@@ -61,7 +66,16 @@ export const resourceRec = (id: number, n: string): Resource =>
   ({ id, firstName: `Res${n}`, lastName: "Example", roleId: 1,
      utilizationMode: "percent", utilization: {} });
 
-export const roleRec = (id: number, n: string): Role =>
+/** ★★ `n` IS NARROWED HERE AND NOWHERE ELSE, deliberately. `Role` carries no
+ *  name field — it is discipline x grade — so this is the one builder whose `n`
+ *  cannot show up in its output as a label. It selects a BRANCH instead
+ *  (`internalRate`), which means a caller following every sibling's convention
+ *  and passing a descriptive string (`roleRec(1, "Dev")`) would silently get the
+ *  NEW-side fixture with nothing in the record to reveal it. The union makes that
+ *  a type error. `insight` takes a real `InsightSeverity` for the same reason and
+ *  lets `arraysFixture` do the mapping; this one keeps the uniform `(id, n)`
+ *  shape that fixture needs, so it pays for it with the narrower type. */
+export const roleRec = (id: number, n: FixtureSide): Role =>
   ({ id, disciplineId: 1, gradeId: 1, internalRate: n === "Old" ? 100 : 110, externalRate: 200 });
 
 export const disciplineRec = (id: number, n: string): Discipline => ({ id, name: `Discipline ${n}` });
@@ -83,7 +97,7 @@ export const shiftRec = (id: number, n: string): Shift =>
 // diff change; applyRestore's singleton branch bails when the diff carries
 // no change for a spec, so the slice is never walked, never corrupted, and
 // invisible to the assertion -- reproducing the exact hole this closes.
-export const arraysFixture = (n: string): Partial<Workspace> => ({
+export const arraysFixture = (n: FixtureSide): Partial<Workspace> => ({
   tasks: [taskRec(1, n)],
   raid: [raidRec(1, n)],
   changes: [changeRec(1, n)],
