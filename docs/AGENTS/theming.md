@@ -354,7 +354,7 @@
   threaded through `workspace-context` (`knowledgeItems`/`setKnowledgeItems`), set on load in BOTH
   `use-storage-backend.applyWorkspace` AND `task-manager`'s restore effect, and — CRUCIALLY — INCLUDED in the
   three `backend.save({…})` literals + `currentWorkspace()` in `use-storage-backend.ts` (steering/timelog are
-  NOT in those literals; knowledge is, so it actually autosaves). `version-diff` singleton entry. Panel: the add
+  NOT in those literals; knowledge is, so it actually autosaves). `version-diff` `kind: "list"` entry, RESTORABLE (it was briefly a `singleton` row, which corrupted the slice on restore; see `docs/open-followups.md` §241). Panel: the add
   form's target `<select>` gains a "Standalone" option → `addStandaloneItem` pushes to `setKnowledgeItems`; a
   "Knowledge library" card grid renders `ws.knowledgeItems` with remove + a per-item `<select multiple>` task
   linker. Guarded by `knowledge-items-persistence.test.ts`.

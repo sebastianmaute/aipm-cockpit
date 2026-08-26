@@ -435,8 +435,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
 | [§240](#240-the-version-restore-payload-carried-18-slices-while-the-restore-fanned-out-24-blanking-six-of-them--closed-2026-08-25) | The version-restore payload carried 18 slices while the restore fanned out 24, blanking six of them | — | — | **CLOSED** 2026-08-25 |
-| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
-| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
+| [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all--restore-half-fixed-2026-08-26-the-documents-pair-deliberately-not-restorable) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26; all five registered, the documents pair deliberately NOT restorable | — | — | open |
+| [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped--three-of-the-five-fixed-2026-08-26-insights-and-documentversions-deliberately-still-uncounted) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26; `insights` and `documentVersions` deliberately still uncounted | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -448,6 +448,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
 | [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | open |
+| [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely) | `documentAssets` is absent from the version capture set entirely — not captured, not diffed, not restorable, and nothing records the decision | found 2026-08-26 | M | open |
+| [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices) | The array-as-object guard test is not generic over the registry — its fixture seeds 5 of 17 list slices, so a `kind` mismatch on any of the other 12 ships green | found 2026-08-26 | S | open |
+| [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler (defence-in-depth, not live) | found 2026-08-26 | S | open |
+| [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff) | Field checkboxes collide across two simultaneously-expanded records in the version diff (WCAG 2.4.6); no gate in the repo can see it | pre-existing, found 2026-08-26 | S | open |
+| [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would render a control that silently no-ops | found 2026-08-26 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -17209,44 +17214,78 @@ re-captures. That half carries its own discriminating test, added separately in 
 
 ---
 
-## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all
+## 241. Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all — restore half FIXED 2026-08-26, the documents pair deliberately NOT restorable
 
-**Status:** open. Found 2026-08-25 while fixing the array-as-object corruption below; the corruption
-is fixed, this is the gap the fix deliberately left.
+**Status:** open, restore half FIXED 2026-08-26 on the version-history-completeness slice. Found
+2026-08-25 while fixing the array-as-object corruption below. All five slices are now registered, so
+consequences (2) and (3) below are closed for every one of them and (1) is closed for three;
+`documents` and `documentVersions` carry `restorable: false` and stay un-restorable BY DECISION,
+which is why this is not a full close. What would have to change to revisit that decision is in the
+closing ★.
 
 `COLLECTION_SPECS` (`version-diff.ts`) is the registry BOTH `diffWorkspaces` and `applyRestore`
-walk. Of the six slices `getVersionPayload` now captures, only `settingsOverrides` is in it. The
-other five — `knowledgeItems`, `insights`, `documents`, `documentVersions`, `calendarEvents` —
-are arrays and are absent, which has three consequences:
+walk. When this was filed, of the six slices `getVersionPayload` captures only `settingsOverrides`
+was in it. All six are now — and the two that are diff-visible but NOT restorable say so in the row:
 
 ```bash
-grep -n "key: \"" src/app/version-diff.ts   # the registry; none of the five appear
+grep -E 'key: "(knowledgeItems|insights|calendarEvents|documents|documentVersions)"' src/app/version-diff.ts
+```
+```
+  { key: "knowledgeItems", label: "Knowledge", kind: "list", nameField: "name" },
+  { key: "insights", label: "Insights", kind: "list", nameField: "key" },
+  { key: "calendarEvents", label: "Calendar events", kind: "list", nameField: "title" },
+  { key: "documents", label: "Documents", kind: "list", nameField: "title", restorable: false },
+  { key: "documentVersions", label: "Document versions", kind: "list", restorable: false },
 ```
 
-1. **They cannot be restored.** `applyRestore` starts from `now` (the LIVE workspace) and rewrites
-   only keys present in the registry, so all five are carried through untouched. Rolling a project
-   back does not roll these back. Pinned as today's behaviour by `version-restore.test.ts`
-   ("reverts settingsOverrides but carries the five array slices from live state").
-2. **The compare view never lists a change in them.** `loadDiff` returns `diffWorkspaces` output,
-   so a session of document editing shows an empty comparison.
-3. **★★★ The capture is SKIPPED ENTIRELY for a session that only touches them.** `writeVersion`
-   (`use-version-history.ts`) gates an auto-capture on `diffWorkspaces(prev, payload).length === 0`
-   — a meaningful-change check meant to suppress timestamp-only autosaves. Five slices invisible to
-   the diff means a whole session of document, knowledge, insight or calendar editing produces NO
-   version. This is the sharpest half: (1) and (2) are missing features, (3) is silent data the user
-   believes is being versioned.
+★ The command this entry was filed with is now INVERTED, not merely stale — it grepped the registry
+for every `key:` row under the comment "none of the five appear", which asserts the OPPOSITE of
+today's tree while still running and still exiting 0. Rewritten rather than deleted: a reproduce
+command is the most useful line in an entry, and one that quietly proves the opposite is worse than
+none at all.
 
-★★ **Why the smallest fix did not do this.** Two of the five were in the registry as
+The three consequences as filed, and where each now stands:
+
+1. **They cannot be restored.** — FIXED for `knowledgeItems`, `insights` and `calendarEvents`;
+   DELIBERATE for the other two. `applyRestore` starts from `now` (the LIVE workspace) and rewrites
+   only keys present in the registry, so a slice that is absent — or present with
+   `restorable: false`, which `applyRestore` skips with `if (spec.restorable === false) continue;` —
+   is carried through untouched. Pinned by `version-restore.test.ts`: "reverts settingsOverrides and
+   the user-authored arrays" for the three, "skips a collection marked restorable: false, carrying
+   it from live state" for the pair. ★★ The first of those is the RENAMED test — this entry cited it
+   as "reverts settingsOverrides but carries the five array slices from live state", which is the
+   name of the characterization it REPLACED. The old name pinned the defect; the new one pins the
+   fix, and citing a test by a name no longer in the tree is how a register entry stops being
+   checkable.
+2. **The compare view never lists a change in them.** — FIXED for all five. `loadDiff` returns
+   `diffWorkspaces` output, and all five are walked now. The two non-restorable rows render as
+   informational in `version-diff-view.tsx` (`const revertible = c.restorable !== false`) rather
+   than offering a control that would silently no-op.
+3. **★★★ The capture is SKIPPED ENTIRELY for a session that only touches them.** — FIXED for all
+   five, and this was the sharpest half. `writeVersion` (`use-version-history.ts`) gates an
+   auto-capture on `diffWorkspaces(prev, payload).length === 0` — a meaningful-change check meant to
+   suppress timestamp-only autosaves — so five slices invisible to the diff meant a whole session of
+   document, knowledge, insight or calendar editing produced NO version. A documents-only session
+   now yields a NON-empty diff (which is what arms the capture) with an EMPTY restore selection,
+   which is why `selectableSelection` (`history-panel.tsx`) exists and why the restore controls gate
+   on it rather than on `diff.length`.
+
+★★ **HISTORICAL — why the smallest fix did not do this.** Kept because it is the reasoning the fix
+had to answer, not a statement about today. Two of the five were in the registry as
 `kind: "singleton"` — a declared kind that disagreed with the real type, which corrupted the slice
 on restore (see below). Removing them restored the pre-branch behaviour without inventing a model.
-Making them genuinely restorable needs `kind: "list"`, and that is a real design task, not a
+Making them genuinely restorable needed `kind: "list"`, and that was a real design task, not a
 one-line spec change.
 
-★★ **The id plumbing is the design question, and it is NOT uniform across the five — the split is
-1 STRING / 4 NUMBERS.** `VersionChange.recordId` is `number | null` and
-`changeKey(collection, recordId)` interpolates it, while `diffList` matches records by a numeric
-`id`. ★★★ **A COMMAND PER SLICE, NOT PER CONCLUSION** — that is the whole lesson of this paragraph,
-and the reason is below. Run all five:
+★★ **HISTORICAL — the id plumbing was the design question, and it was RESOLVED by widening rather
+than by a separate keying scheme.** `VersionChange.recordId` was `number | null` and
+`changeKey(collection, recordId)` interpolated it into a joined string, while `diffList` matched
+records by a numeric `id`. It is now `RecordId = number | string`, and `changeKey` is
+`JSON.stringify([collection, recordId ?? null])` — the join was ambiguous for string ids, and that
+is a silent WRONG-RECORD restore rather than a crash, which is what the three `changeKey` tests in
+`version-restore.test.ts` pin. The split below is 1 STRING / 4 NUMBERS.
+★★★ **A COMMAND PER SLICE, NOT PER CONCLUSION** — that is the whole lesson of this paragraph, and
+the reason is below. Run all five:
 
 ```bash
 sed -n '/^export type KnowledgeLink = {/,/^};/p'  src/app/document-link.ts     | grep -n "id:"
@@ -17262,9 +17301,6 @@ claim. Caught by running it.
 
 Only `KnowledgeItem` (via `KnowledgeLink.id`) is a STRING. `Insight`, `CalendarEvent`,
 `ProjectDocument` and `DocVersion` are all `number` — and `DocVersion.documentId` is a number too.
-So FOUR of the five could take a `kind: "list"` row as-is, and only `KnowledgeItem` forces
-`recordId` to widen to `number | string | null` (and `diffList`'s `byId` map with it) or a separate
-keying scheme.
 
 ★★★ **THIS IS THE THIRD GENERATION OF ONE FALSE CLAIM, AND THE CORRECTION IS WHERE IT LIVED
 LONGEST.** The original framing said flatly "their ids are strings". The ★ that corrected it said
@@ -17276,48 +17312,83 @@ wrong (`ProjectDocument`, `DocVersion`). A command attached to a conclusion prov
 you already checked; the unchecked half rides along inside the same sentence and inherits its
 credibility. Attach one per SLICE — which is why there are five commands above and not two.
 
-★ **Restoring a DOCUMENT is not obviously a list revert anyway.** `documents` and `documentVersions`
-already have their own version model (`applyDocMutation`, before-images, tombstones — see
-[`docs/AGENTS/documents.md`](AGENTS/documents.md)), so wiring them into the workspace-level restore
-would give one document two independent histories. Decide that before adding a row for either.
+★ **Restoring a DOCUMENT is not obviously a list revert, and that is what this entry stays open
+on.** `documents` and `documentVersions` already have their own version model (`applyDocMutation`,
+before-images, tombstones — see [`docs/AGENTS/documents.md`](AGENTS/documents.md)), so wiring them
+into the workspace-level restore would give one document two independent histories. The slice
+DECIDED against it and wrote the decision down twice — in the row itself (`restorable: false`) and
+in the `restorable` docstring on `CollectionSpec` — rather than leaving an absence to be read as an
+oversight, which is exactly what §254 records the opposite of. Revisiting it means answering which
+of the two histories wins when they disagree; it is not a matter of flipping a flag.
 
 ---
 
-## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped
+## 242. `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped — three of the five FIXED 2026-08-26, `insights` and `documentVersions` deliberately still uncounted
 
-**Status:** open. Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is
-why it is a separate number — closing §241 would not touch this.
+**Status:** open, three of the five added 2026-08-26 on the version-history-completeness slice.
+Found 2026-08-25 alongside §241; a SEPARATE function with a separate fix, which is why it is a
+separate number — closing §241 did not touch this. It stays open because the two remaining slices
+are UNCOUNTED BY DECISION and nothing but this entry records the decision.
 
 `writeVersion` runs two guards before capturing. §241 is about the second; this is the FIRST:
 
 ```bash
-grep -n -A 12 "export function isEmptyWorkspacePayload" src/app/use-version-history.ts
+grep -A 14 "export function isEmptyWorkspacePayload" src/app/use-version-history.ts
+```
+```
+export function isEmptyWorkspacePayload(json: string): boolean {
+  try {
+    // Parse RAW (not jsonToWorkspace, which sanitizes/drops incomplete records) —
+    // the guard reflects what the payload literally stores.
+    const w = JSON.parse(json) as Record<string, unknown>;
+    const lists = [
+      "tasks", "raid", "milestones", "stakeholders", "resources",
+      "changes", "budgets", "absences", "shifts",
+      "knowledgeItems", "documents", "calendarEvents",
+    ];
+    return lists.every((k) => !Array.isArray(w[k]) || (w[k] as unknown[]).length === 0);
+  } catch {
+    return false;
+  }
+}
 ```
 
-Its `lists` array is `tasks`, `raid`, `milestones`, `stakeholders`, `resources`, `changes`,
-`budgets`, `absences`, `shifts`. A payload where every one of those is empty is treated as a
-transient (a project switch mid-flight) and the capture is dropped with a
-`version.skipEmptyTransientCapture` diagnostic. `knowledgeItems`, `insights`, `documents`,
-`documentVersions` and `calendarEvents` are counted by NEITHER guard, so a project holding only
-documents — or only knowledge items — is indistinguishable from a project that is genuinely empty,
-and NO version is ever written for it.
+Its `lists` array was the nine legacy names on the first two source lines. A payload where every one
+of them is empty is treated as a transient (a project switch mid-flight) and the capture is dropped
+with a `version.skipEmptyTransientCapture` diagnostic — so a project holding only documents, or only
+knowledge items, was indistinguishable from a genuinely empty one and NO version was ever written
+for it. `knowledgeItems`, `documents` and `calendarEvents` are now counted; `insights` and
+`documentVersions` are still counted by NEITHER guard, and that is deliberate:
+
+- **`insights` is machine-written, not user-authored.** `task-manager.tsx` runs a debounced
+  detect→reconcile effect (`detectInsights` → `reconcileInsights` → `setInsights`) as soon as
+  `hydrated` flips, keyed on the detection inputs. So a project-switch transient can plausibly carry
+  a non-empty `insights` while every content list is still empty — the exact shape this guard exists
+  to reject. Counting it would re-open the hole.
+- **`documentVersions` is derived from `documents`.** `workspace-context.tsx` sets it from the same
+  `applyDocMutation` result that sets `documents` (`setDocuments(result.documents);
+  setDocumentVersions(result.versions);`), so it can never be the ONLY non-empty content slice.
+  Counting it buys nothing and adds a second way to arm the same capture.
 
 ★★ **The guard's own comment says to keep the list in sync when a new CONTENT collection is added**,
-and five have been added since without it. That comment is the evidence this is an oversight rather
-than a decision.
+and five had been added since without it. That comment is the evidence the omission was an oversight
+rather than a decision — which is why the three above were added and why the two that WERE a
+decision are now written down here instead of merely being absent.
 
-★★ **Do NOT just append the five.** The guard is deliberately a SEPARATE definition from
+★★ **Do NOT bulk-append the next one either.** The guard is deliberately a SEPARATE definition from
 `isWorkspaceEmpty` — it ignores reference data (roles/disciplines/grades) because a project switch
-briefly seeds defaults, and counting those would defeat the guard. The question for each of the five
-is whether a project-switch transient can carry it non-empty while the nine are empty; if it can,
-adding it re-opens the hole this guard exists to close. `activityLog` is the known case where the
-answer is NO — `isWorkspaceEmpty` excludes it deliberately, and
+briefly seeds defaults, and counting those would defeat the guard. The question for each candidate
+is whether a project-switch transient can carry it non-empty while the nine legacy lists are empty;
+if it can, adding it re-opens the hole this guard exists to close. That question is what the two
+bullets above answer, and it is why `insights` failed it. `activityLog` is the other known NO —
+`isWorkspaceEmpty` excludes it deliberately, and
 [`docs/AGENTS/activity-log.md`](AGENTS/activity-log.md) records why counting it would turn a
 data-loss guard into a data-loss vector. Answer it per slice, do not bulk-add.
 
-★ Reproduce the skip from the diagnostic rather than by reading: seed a project with a document and
-nothing else, edit it, and watch for `version.skipEmptyTransientCapture` in the diagnostics ring.
-Turso-gated, so it needs a live database — which is also why no gate will ever see it (§215).
+★ Reproduce the remaining skip from the diagnostic rather than by reading: seed a project with an
+insight and nothing else, edit it, and watch for `version.skipEmptyTransientCapture` in the
+diagnostics ring. Turso-gated, so it needs a live database — which is also why no gate will ever see
+it (§215).
 
 ---
 
@@ -18154,6 +18225,216 @@ unterminated"` complexity family, sized at `MAX_HTML_TEXT_CHARS` rather than the
 so it asserts the reachable cost and goes red if the cap is raised or the pattern degrades further.
 ★ It runs with a ~50x margin against `CEILING_MS`; that is deliberate, not slack — see the family's
 own comment.
+
+## 254. `documentAssets` is absent from the version capture set entirely
+
+**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice, which
+deliberately did not fix it.
+
+`getVersionPayload` (`task-manager.tsx`) enumerates its slices literally, and `documentAssets` is not
+among them — while the SAVE set in `use-storage-backend.ts` does carry it. So document image bytes
+are outside version history at every layer: not captured, not diffed, not restorable.
+
+```bash
+echo -n 'version payload:  '; sed -n '/const getVersionPayload = useCallback/,/^  );$/p' src/app/task-manager.tsx | grep -c documentAssets
+echo -n 'save set:         '; grep -c documentAssets src/app/use-storage-backend.ts
+echo -n 'COLLECTION_SPECS: '; grep -c '"documentAssets"' src/app/version-diff.ts
+```
+```
+version payload:  0
+save set:         8
+COLLECTION_SPECS: 0
+```
+
+★ Read the three numbers as three different absences, not one. Zero in the payload means the bytes
+are never CAPTURED; zero in `COLLECTION_SPECS` means that even a payload that did carry them would
+be neither diffed nor restored; the eight in the save set is the control that makes both meaningful
+— the slice is real, persisted workspace data on every write path, so this is an omission from
+version history specifically and not a slice that does not exist yet.
+
+**Judgement: plausibly deliberate, and that is exactly the problem.** Versioning blobs is a
+different cost question from versioning JSON — a version row per capture carrying every image byte
+in the project has a storage profile nothing else in this table has — and the asset table is
+Turso-side with its own lifecycle (an `ENTITY_SPECS` row and a separate byte side table; see
+[`docs/AGENTS/documents.md`](AGENTS/documents.md)'s "Asset images (S3c-1)" section). Either of those
+is a sufficient reason to leave it out. But NOTHING RECORDS THE DECISION: there is no comment at
+`getVersionPayload`, no `restorable: false` row standing in for it, and no test asserting the
+absence. So the next reader cannot tell an omission from a choice — which is the same silence §241
+closed for the documents pair by writing `restorable: false` into the row rather than leaving it
+absent.
+
+**Decided here, so the next reader has something to disagree with:** leave `documentAssets` out of
+the capture, and close this by writing the reason down at `getVersionPayload` rather than by adding
+the slice. Do NOT silently add the row — a capture that carries image bytes changes the cost of
+every autosave-triggered version on a Turso project, and that is a measurement, not a docs task. If
+it is ever added, the metadata slice and the byte side table have to be decided SEPARATELY: metadata
+is small and diffable, bytes are neither.
+
+★ Note the asymmetry this leaves today, since it is the user-visible half: deleting an image from a
+document IS captured (the block referencing it changes, and `documents` is diff-visible), but
+restoring that version cannot bring the bytes back, because `documents` is `restorable: false` and
+`documentAssets` is not in the payload at all. Two independent reasons for the same outcome.
+
+## 255. The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices
+
+**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice, which
+surfaced it by mutation and deliberately did not fix it.
+
+`version-restore.test.ts`'s "turns no array-typed slice of the workspace into an object" is the ONLY
+protection against a `kind: "singleton"` spec landing on an array slice — a corruption that spreads
+the array into an object and makes every backend drop the slice on the next save, on all six write
+paths, permanently. The test's own comment calls itself a BUG-CLASS guard. It is not one: it can
+only see slices its fixture populates.
+
+```bash
+node -e '
+const fs=require("fs"), s=fs.readFileSync("src/app/version-diff.ts","utf8"), t=fs.readFileSync("src/app/version-restore.test.ts","utf8");
+const listKeys=[...s.matchAll(/key: "(\w+)", label: "[^"]*", kind: "list"/g)].map(m=>m[1]);
+const fx=t.slice(t.indexOf("const arrays"), t.indexOf("const version = ws(arrays"));
+const seeded=new Set([...fx.matchAll(/^\s+(\w+):/gm)].map(m=>m[1]));
+console.log("list slices in registry:", listKeys.length);
+console.log("seeded by the fixture: ", [...seeded].join(" "));
+console.log("UNCOVERED:            ", listKeys.filter(k=>!seeded.has(k)).join(" "));'
+```
+```
+list slices in registry: 17
+seeded by the fixture:  knowledgeItems insights documents documentVersions calendarEvents
+UNCOVERED:             tasks raid changes milestones stakeholders resources roles disciplines grades budgets absences shifts
+```
+
+**Measured by mutation, WITH A CONTROL** — which is the only reason the result is trustworthy.
+Flipping `milestones` to `kind: "singleton"` in `COLLECTION_SPECS` left the whole suite GREEN. The
+identical edit to `calendarEvents` turned it RED. Same mutation, same test, opposite verdicts: the
+difference is that the fixture populates `calendarEvents` and not `milestones`.
+
+**Root cause, and why seeding is the fix rather than a smarter assertion.** `applyRestore`'s
+singleton branch bails when the diff carries no change for that spec. A slice that is empty in BOTH
+of the test's two fixture workspaces produces no change, so it is never walked, never corrupted, and
+there is nothing for the assertion to detect. The assertion itself is already generic — it scans
+every array-valued key of the live workspace. The fixture is what is narrow.
+
+**Fix:** seed the twelve uncovered slices in that fixture with one differing record each, exactly as
+`arrays(n)` already does for the five. ★ Do not seed them identically in `Old` and `New` — an
+identical record produces no diff change and reproduces the hole it is meant to close.
+
+**Why not fixed here.** The slice that found it registered exactly five slices, and its own fixture
+covers those five. Extending the fixture to twelve more is a test-only change with no behaviour
+attached, and folding it into a branch already carrying a registry change would have put an untested
+widening of the guard in the same commit as the thing the guard exists to check.
+
+★ `roles`, `disciplines` and `grades` are reference data rather than user content, which is why they
+are excluded from `isEmptyWorkspacePayload` (§242) — but they are ordinary `kind: "list"` registry
+rows here and are corrupted by the same mutation, so they belong in the fixture. Do not carry the
+§242 exclusion across; the two lists answer different questions.
+
+## 256. `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler
+
+**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice.
+Defence-in-depth, NOT a live defect — say so before quoting it.
+
+`restoreRecord` in `history-panel.tsx` takes a caller-supplied change key and passes it straight to
+`restore` as `{ [key]: "all" }`. It never asks whether that change carries `restorable: false`.
+
+```bash
+sed -n '/const restoreRecord = (key: string)/,/^  };$/p' src/app/history-panel.tsx | grep -c "restorable\|selectable"
+grep -c "restorable" src/app/version-diff-view.tsx
+```
+```
+0
+4
+```
+
+Zero guards in the handler; four in the renderer. That split is the finding. It is unreachable today
+because `version-diff-view.tsx` renders no restore button on a non-restorable row (`const revertible
+= c.restorable !== false`, twice — once per layout), so no key reaching `restoreRecord` can be one
+`applyRestore` would skip. But the invariant "a selection never contains a skipped key" is held by
+the RENDER path alone, while the sibling whole-state path holds it in a pure function
+(`selectableSelection`) that the handler shares. A third caller, a keyboard shortcut, or a layout
+that forgets one of the two `revertible` gates re-opens it, and the symptom is the one this slice
+exists to remove: a control that reports success and reverts nothing.
+
+**Fix:** filter inside `restoreRecord` against the change the key belongs to, so the handler and
+`selectableSelection` enforce the same rule from the same place.
+
+**Why not fixed here.** It is not reachable, and the branch was already changing the restore path;
+adding an unreachable guard alongside a live behaviour change makes the live change harder to
+review, and an unreachable guard cannot be tested without first building the unreachable state.
+
+## 257. Field checkboxes collide across two simultaneously-expanded records in the version diff
+
+**Status:** open, PRE-EXISTING. Filed 2026-08-26 at the close of the version-history-completeness
+slice, which fixed the RECORD-level controls on this surface and deliberately not this.
+
+In `version-diff-view.tsx` the per-field checkboxes inside an expanded record are named by the field
+label alone. Expand two records at once — the disclosure state is per-record and nothing collapses a
+sibling — and two controls both announce as e.g. "Title" (WCAG 2.4.6).
+
+```bash
+grep -o 'aria-label={[^}]*}' src/app/version-diff-view.tsx | sort | uniq -c
+```
+```
+      1 aria-label={`${tokens.get(k) ?? c.recordLabel}
+      1 aria-label={f.label}
+      2 aria-label={rowLabel(t(lang, "historyRestoreRecord"), tokens.get(k) ?? c.recordLabel)}
+      1 aria-label={rowLabel(t(lang, "historySelectRecord"), tokens.get(k) ?? c.recordLabel)}
+```
+
+Four of the five names are qualified by the record — three through `rowLabel` over the row tokens,
+one by interpolating `recordLabel`. `aria-label={f.label}` is the one that is not, and it is the
+only per-FIELD control.
+
+**★★★ No gate in this repo can see it, in any view at any seed size.** axe has no rule that flags
+two controls sharing an accessible name — the measurement is in AGENTS.md's a11y hard-constraint
+bullet, against the installed axe-core, and it is a property of the rule set rather than of this
+surface. So the only possible detector is a unit test rendering two expanded records, and none
+exists.
+
+**Fix:** qualify with the same record token the sibling controls already use — the tokens map is in
+scope at that point, so it is `rowLabel(f.label, tokens.get(k) ?? c.recordLabel)`, and pin it with a
+two-record unit test using the shared `src/test/row-unique-names.ts` helper with
+`requireCollisionSeed: true` (two records genuinely sharing a field label is exactly the collision
+seed it checks for).
+
+**Why not fixed here.** Pre-existing and outside the slice's scope, which was the record level. ★ It
+is worth saying that the slice's record-level fix makes this one MORE likely to be missed, not less:
+a reviewer who checks this surface now finds row-unique names on four of five controls and a fresh
+`rowLabel` import, which reads as done.
+
+## 258. `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag
+
+**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice. NOT live
+— both `restorable: false` rows are lists — but it is the same bug class that slice exists to close,
+waiting for the first non-restorable singleton.
+
+```bash
+for f in diffList diffSingleton; do printf '%-14s spec.restorable spreads: %s\n' "$f" "$(sed -n "/^function $f(/,/^}/p" src/app/version-diff.ts | grep -c 'spec.restorable')"; done
+```
+```
+diffList       spec.restorable spreads: 1
+diffSingleton  spec.restorable spreads: 0
+```
+
+`diffList` carries the spec's flag onto every change it emits; `diffSingleton` builds its one change
+literally and does not. `applyRestore` reads the flag off the SPEC, so a restore would still
+correctly skip such a collection — but both consumers that make the skip HONEST read it off the
+CHANGE: `version-diff-view.tsx` decides whether to render a restore control from
+`c.restorable !== false`, and `selectableSelection` (`history-panel.tsx`) decides whether to put the
+key in a select-all from the same field. A `restorable: false` singleton would therefore render a
+restore button and be included in "restore this state", and clicking either would report success and
+revert nothing.
+
+★ That is the precise over-promise `selectableSelection` was written to remove, reachable again
+through a different door. The lesson is the general one: a flag read from TWO places (the spec and
+the change) must be projected onto the change on EVERY path that mints one, and there are two.
+
+**Fix:** spread `...(spec.restorable === false ? { restorable: false as const } : {})` in
+`diffSingleton` exactly as `diffList` does, and pin it with a test that registers a temporary
+non-restorable singleton spec — or, better, assert generically that every change `diffWorkspaces`
+emits for a `restorable: false` spec carries the flag, which covers both branches and any third.
+
+**Why not fixed here.** Not reachable from any registry row that exists, and the branch's own
+non-restorable rows are both lists — so a fix here would ship with a test that can only exercise it
+through a synthetic spec, which is worth doing but is a separate, self-contained change.
 
 ## Decided — do not re-litigate
 
