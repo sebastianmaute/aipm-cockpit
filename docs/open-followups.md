@@ -17166,9 +17166,25 @@ now returns **7** lines and exits 0, because the gate this entry asked for is wh
 annotation was the entry's whole proof, so a reader running it today gets the opposite of the stated
 result with nothing saying why. Left in place as the dated reading it was — superseded here, not
 rewritten.
-★ The gate throws rather than passing when a shape moves, which is this entry's own requirement, and
-exits 2 rather than passing when the codemap glob yields nothing — a gate that scans nothing passes
-everything.
+★ The gate refuses rather than passing when a shape moves, which is this entry's own requirement, and
+refuses when the codemap glob yields nothing — a gate that scans nothing passes everything. ★★ Both
+are now **exit 2**, kept distinct from **exit 1 = drift**: a moved shape used to reach the top level
+as an uncaught throw, printing a raw Node stack and exiting 1 — the same code as real drift, which is
+the one thing CI must be able to tell apart, since drift is fixed with `--update` and a moved shape
+is fixed by editing the pattern.
+
+★★★ **AND THE ONE DEFECT NEITHER THE DESIGN NOR THE FIRST REVIEW CAUGHT: reader/writer symmetry does
+not protect a format they are both wrong about.** The whole design rests on one regex with three
+capture groups, so the reader and writer cannot DRIFT — but the README badge is a URL inside a
+markdown link, and `--update` wrote a codename's SPACE raw into it. shields renders `_` as a space,
+and a space ENDS a CommonMark link destination, so the URL truncated mid-codename and the closing
+paren became body text. The reader's `([^%]+)` then read that raw space straight back, `diffSatellite`
+compared equal, and the gate reported IN SYNC over a badge it had just broken. Measured before the
+fix: `--update` exit 0, follow-up check exit 0. Closed with `encode`/`decode` hooks on that single
+pattern. ★★ Every codename to date is a one-word author surname, so nothing ever shipped broken —
+"Le Guin" would have. ★ The regression test asserts on the BYTES, not only the round trip, and that
+is the load-bearing part: mutation-proved by bypassing the encode hook, the round-trip case still
+PASSES, because it round-trips through the same wrong pair.
 ★★ PROVED BY MUTATION, not observed green: drifting BOTH `package.json` and the `package-lock.json`
 root sends it red naming each file, and `--update` then returns every blob to a hash identical to
 HEAD. That last check is the one that matters — the lockfile carries 681 `"version":` keys, and an

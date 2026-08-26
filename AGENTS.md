@@ -634,9 +634,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
   truth for the version and codename; `package.json`, BOTH `package-lock.json` entries, the README
   badge and every `docs/CODEMAPS` header restate one or both, and nothing compared them before this
-  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★ It THROWS rather
-  than passing when a shape moves, and exits 2 rather than passing when the codemap glob matches
-  nothing — a gate that scans nothing passes everything] ·
+  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★★ TWO FAILURE
+  MODES, TWO EXIT CODES: **1 is DRIFT** (a satellite disagrees with `version.ts` — fix with
+  `version:sync`), **2 is the gate unable to do its job** (a missing file, a moved regex shape, an
+  empty codemap glob — a gate that scans nothing passes everything). Both were 1 until 0.260.x, so a
+  red pipeline could not be read without opening the log, and the two demand opposite responses.
+  ★ Its ONE structural blind spot is a format the reader and writer agree on and are both wrong
+  about: the README badge is a URL inside a markdown link, so a codename with a SPACE has to be
+  encoded — un-encoded, `--update` wrote a badge whose link truncates mid-codename and the gate then
+  reported IN SYNC over it. Fixed by `encode`/`decode` hooks on that one pattern; a new satellite
+  whose file format cannot hold a raw value needs the same, and no amount of reader/writer symmetry
+  substitutes] ·
   **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
   every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
   `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
