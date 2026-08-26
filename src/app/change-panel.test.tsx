@@ -872,3 +872,58 @@ describe("ChangePanel linked-documents badge", () => {
     expect(getByTestId("pending-doc-filter").textContent).toBe("change:1");
   });
 });
+
+// --- row-unique names across every per-row control -------------------------
+
+describe("ChangePanel — row-unique names when two rows share a title", () => {
+  const originalScrollIntoView = Element.prototype.scrollIntoView;
+  beforeEach(() => {
+    Element.prototype.scrollIntoView = vi.fn();
+  });
+  afterEach(() => {
+    Element.prototype.scrollIntoView = originalScrollIntoView;
+  });
+
+  function note(id: number): NoteLogEntry {
+    return { id, timestamp: "2026-06-01T09:00:00.000Z", html: `<p>n${id}</p>`, text: `n${id}` };
+  }
+
+  function doc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  // TWO rows sharing the SAME title. The selectItem checkbox, InlineAiEditButton,
+  // DocumentBadge and NotesBadgeButton all keyed their accessible name on the raw
+  // item.title, so every one of these four per-row controls collided across the
+  // pair — InlineAiEditButton composes its own label internally
+  // (`${inlineAiEdit} – ${label}`), so passing the raw field collides exactly as
+  // the checkbox does, and the same is true of DocumentBadge/NotesBadgeButton's
+  // `entityTitle`/`entityName` props. requireCollisionSeed proves the fixture
+  // actually seeds that collision, not merely that the panel renders.
+  it("keeps every per-row control distinct when two changes share a title", () => {
+    const changes = [
+      ci({ id: 1, title: "Scope change", noteLog: [note(1)] }),
+      ci({ id: 2, title: "Scope change", noteLog: [note(1)] }),
+    ];
+    const documentsByEntity = indexDocumentsByEntity([
+      doc(10, [{ kind: "change", id: 1 }]),
+      doc(11, [{ kind: "change", id: 2 }]),
+    ]);
+    const { container } = render(
+      <ChangePanel
+        {...base}
+        changes={changes}
+        documentsByEntity={documentsByEntity}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => true}
+      />,
+      { wrapper: Providers },
+    );
+    expectRowUniqueNames({
+      minControls: 2,
+      scope: container,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+});

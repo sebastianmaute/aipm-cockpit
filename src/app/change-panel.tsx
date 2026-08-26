@@ -8,6 +8,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { buildRowTokens } from "./row-tokens";
 import { PanelViewsControl } from "./panel-views-control";
 import type { PanelFiltersState } from "./panel-views";
 import { descriptionText } from "./rich-text-projection";
@@ -246,6 +247,17 @@ function ChangePanelBody({
   }, [changes, typeFilter, statusFilter, search, sort, searchHaystack]);
 
   const visibleIds = useMemo(() => visible.map((c) => c.id), [visible]);
+
+  // Row-unique accessible names (WCAG 2.4.6) for the checkbox / Ask-Claude /
+  // document badge / notes badge — all four key on a change's title, so two
+  // changes sharing a title would otherwise render identically-named controls.
+  // Built over `visible` (filtered + sorted), the SAME array actually rendered
+  // below, because an occurrence index only means anything against what is on
+  // screen.
+  const rowTokens = useMemo(
+    () => buildRowTokens(visible.map((item) => ({ id: item.id, name: item.title }))),
+    [visible],
+  );
 
   // Bulk-editable fields. ChangeStatus is NOT category-specific (unlike RAID),
   // so Status is safe to bulk-set across any selection.
@@ -554,6 +566,7 @@ function ChangePanelBody({
             )}
             {visible.map((item) => {
               const rag = changeImpactRag(item.impact);
+              const token = rowTokens.get(item.id) ?? item.title;
               return (
                 <tr
                   key={item.id}
@@ -565,7 +578,7 @@ function ChangePanelBody({
                 >
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      aria-label={t(lang, "selectItem", item.title)}
+                      aria-label={t(lang, "selectItem", token)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
                       className="cursor-pointer"
@@ -586,12 +599,12 @@ function ChangePanelBody({
                     <span className="inline-flex items-center gap-1">
                       {item.title}
                       {onAiEdit && aiEditEnabled?.(item) && (
-                        <InlineAiEditButton lang={lang} label={item.title} onClick={() => onAiEdit(item)} />
+                        <InlineAiEditButton lang={lang} label={token} onClick={() => onAiEdit(item)} />
                       )}
                       <DocumentBadge
                         lang={lang}
                         count={documentsByEntity?.get(refKey("change", item.id))?.length ?? 0}
-                        entityTitle={item.title}
+                        entityTitle={token}
                         onOpen={() => requestDocumentsForEntity("change", item.id)}
                       />
                     </span>
@@ -629,7 +642,7 @@ function ChangePanelBody({
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <NotesBadgeButton
                       count={item.noteLog?.length ?? 0}
-                      entityName={item.title}
+                      entityName={token}
                       lang={lang}
                       onClick={() => onOpenNotes(item.id)}
                     />
