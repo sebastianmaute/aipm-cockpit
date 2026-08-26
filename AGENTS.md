@@ -702,13 +702,15 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   New CI gate → also update this line.
 - **Releasing:** bump `src/app/version.ts` (APP_VERSION + APP_BUILD_DATE + milestone), add
   `CHANGELOG.md` entry, append any new `versionHighlight*` key to `APP_HIGHLIGHT_KEYS` (+ EN/DE
-  strings). ★★ FIVE MORE PLACES CARRY THE VERSION AND **NO GATE CHECKS ANY OF THEM**:
+  strings). ★★ FIVE MORE PLACES CARRY THE VERSION, AND `npm run version:check` NOW GATES THEM:
   `package.json` `version`, `package-lock.json` (TWO occurrences — the root `version` and the
   `packages[""]` one), the README shields badge (version **and** codename), and the
   `<!-- Generated: … | App <version> "<codename>" … -->` header on all five `docs/CODEMAPS/*.md`.
   Verified 2026-07-30: `package.json` had been stuck at 0.203.0 for six releases, `package-lock.json`
   at 0.199.0 for eleven, and the README badge + codemap headers at 0.203.0 — while `version.ts` and
-  `CHANGELOG.md` were correct. Bump them in the SAME commit as `version.ts` or the drift restarts.
+  `CHANGELOG.md` were correct.
+  Propagate them with `npm run version:sync` rather than editing six places by hand — the
+  `version-sync-check` CI job is BLOCKING, so drift now fails the pipeline instead of accumulating.
 - **New persisted `Workspace` field → SIX write paths** (JSON/CSV/MD/Turso-single/Turso-tenant/
   IndexedDB). Miss one and data silently drops on that backend. `calendarEvents`
   ("Resource calendar meetings" below) is a worked example — one `ENTITY_SPECS` row buys three of the six.

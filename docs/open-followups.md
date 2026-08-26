@@ -3597,7 +3597,15 @@ contrast. What is not covered, and what these checks are for:
 
 ---
 
-## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open
+## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — CLOSED 2026-08-26
+
+★★ CLOSED 2026-08-26. Nothing here was ever a defect — the sub-limit blindness is the ratchet's
+design, and the entry's own 2026-08-03 correction established that a sub-limit baseline entry is
+behaviourally identical to no entry. Its one actionable residual, a stale `use-resource-planner.ts`
+line in the baseline, was verified gone on 2026-08-25 and again on 2026-08-26. Kept in place as the
+record of why `--update` dropping a sub-limit entry is a no-op rather than a regression.
+★ The live hazard this entry is adjacent to is §229 (two files at 799 with no baseline), which is
+where the near-cap work belongs.
 
 `scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
 800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
@@ -17002,9 +17010,23 @@ here. (Reasoned from the grep above, not measured against the rendered trend.)
 
 ---
 
-## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them
+## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them — CLOSED 2026-08-26
 
 **Status:** open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
+
+★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `scripts/check-version-sync.mjs` compares every
+restatement against `src/app/version.ts` and runs as the BLOCKING `version-sync-check` job;
+`npm run version:sync` propagates. The probe this entry shipped is superseded by the gate, which
+prints the same readings — run `npm run version:check` rather than pasting the node one-liner.
+★ The gate throws rather than passing when a shape moves, which is this entry's own requirement, and
+exits 2 rather than passing when the codemap glob yields nothing — a gate that scans nothing passes
+everything.
+★★ PROVED BY MUTATION, not observed green: drifting BOTH `package.json` and the `package-lock.json`
+root sends it red naming each file, and `--update` then returns every blob to a hash identical to
+HEAD. That last check is the one that matters — the lockfile carries 681 `"version":` keys, and an
+unanchored writer would have rewritten every dependency pin without changing the gate's verdict.
+★★ It does NOT cover `CHANGELOG.md` or `APP_BUILD_DATE`: neither restates the version in a form a
+regex can anchor on without guessing at prose, and a gate that guesses is one that gets switched off.
 
 `src/app/version.ts` is the source of truth. The version is restated in `package.json`, twice in
 `package-lock.json` (the root `version` and the `packages[""]` one), in the README shields badge, and
