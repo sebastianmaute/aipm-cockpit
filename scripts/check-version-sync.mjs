@@ -54,20 +54,23 @@ function main() {
   console.log(`${SOURCE_FILE}: ${version} "${milestone}"`);
 
   const problems = [];
-  let written = 0;
+  // ★★ --update BUFFERS EVERY REWRITE AND FLUSHES ONLY AFTER ALL OF THEM
+  // SUCCEED. `applyValue` throws when a shape has moved, and it is the LAST
+  // satellite that is most likely to have moved — so writing as we go left the
+  // tree half-propagated (measured: package.json and package-lock.json written,
+  // README throwing, the codemaps never reached). Nothing was corrupted and the
+  // command was re-runnable, but a partial propagation is a state no reader of
+  // this repo expects, and the version gate is the one tool whose whole job is
+  // that these files agree.
+  const pending = [];
 
   for (const satellite of SATELLITES) {
     for (const file of filesFor(satellite)) {
       const text = fs.readFileSync(file, "utf8");
       if (update) {
         const out = applyValue(satellite, text, version, milestone);
-        if (out !== text) {
-          fs.writeFileSync(file, out);
-          written++;
-          console.log(`  updated ${file}`);
-        } else {
-          console.log(`  unchanged ${file}`);
-        }
+        if (out !== text) pending.push({ file, out });
+        else console.log(`  unchanged ${file}`);
         continue;
       }
       const readings = readValue(satellite, text);
@@ -75,12 +78,16 @@ function main() {
         .map(([k, v]) => `${k}=${v}`)
         .join(" ");
       console.log(`  ${file}: ${shown}`);
-      problems.push(...diffSatellite(satellite, readings, version, milestone));
+      problems.push(...diffSatellite(satellite, readings, version, milestone, file));
     }
   }
 
   if (update) {
-    console.log(`version-sync: ${written} file(s) updated to ${version} "${milestone}"`);
+    for (const { file, out } of pending) {
+      fs.writeFileSync(file, out);
+      console.log(`  updated ${file}`);
+    }
+    console.log(`version-sync: ${pending.length} file(s) updated to ${version} "${milestone}"`);
     return;
   }
 
@@ -93,4 +100,19 @@ function main() {
   console.log(`version-sync ok — every restatement matches ${version} "${milestone}"`);
 }
 
-main();
+// ★★★ TWO FAILURE MODES, TWO EXIT CODES, AND CONFLATING THEM DEFEATS THE GATE.
+// 1 means DRIFT — a satellite disagrees with version.ts, which is the condition
+// this job exists to catch and which a release fixes with --update. 2 means the
+// gate could not do its job: a missing file, a moved shape, an empty codemap
+// glob. Both used to exit 1 (a moved shape reached the top level as an uncaught
+// throw), so a red pipeline could not be read without opening the log — and the
+// two demand opposite responses. Worse, a throw printed a raw Node stack, which
+// reads as a crashed tool rather than a refusal, when refusing is exactly what
+// the ★★ note at the top of this file promises. Never let a structural failure
+// exit 1, and never let it exit 0.
+try {
+  main();
+} catch (err) {
+  console.error(`version-sync could not complete: ${err.message}`);
+  process.exit(2);
+}

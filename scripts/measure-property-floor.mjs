@@ -1,6 +1,21 @@
-#!/usr/bin/env node
 // scripts/measure-property-floor.mjs — measure how often an anti-vacuity floor
 // would fail.
+//
+// ★★★ DO NOT GIVE THIS FILE A `#!/usr/bin/env node` SHEBANG. It had one, and it
+// made the module UNIMPORTABLE UNDER VITEST while looking completely fine
+// everywhere else: node strips a shebang before parsing and `node --check`
+// passes, esbuild strips it too, so the only symptom was vitest reporting
+// `SyntaxError: Invalid or unexpected token` WITH NO FILE AND NO LINE — an
+// error that reads as corruption in the test file rather than as the imported
+// module's first two bytes. It cost a byte-scan, a `node --check`, an esbuild
+// run and a bisect to find. ★★ That is also why this module had no test for as
+// long as it existed: the test could not import it, and "a dev-only tool does
+// not need a test" is the plausible-sounding conclusion that hides the real
+// cause. The convention the rest of `scripts/` already follows says the same
+// thing structurally — every `*-lib.mjs` is shebang-free and only a file with a
+// real CLI entry point (`check-version-sync.mjs`) carries one. This file
+// exports functions and has no `main`, so it is a lib. Verify with:
+//   for f in scripts/*.mjs; do head -c2 "$f" | grep -q '#!' && echo "$f"; done
 //
 // An anti-vacuity floor asserts a property's generator reached an interesting
 // branch at least N times in `numRuns` draws. fast-check is UNSEEDED, so that

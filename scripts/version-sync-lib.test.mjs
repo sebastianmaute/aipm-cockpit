@@ -5,7 +5,13 @@
 // happens to be mid-release, which makes it a clock rather than a test.
 import { describe, expect, it } from "vitest";
 
-import { SATELLITES, applyValue, readSourceFrom, readValue } from "./version-sync-lib.mjs";
+import {
+  SATELLITES,
+  applyValue,
+  diffSatellite,
+  readSourceFrom,
+  readValue,
+} from "./version-sync-lib.mjs";
 
 const sat = (file) => {
   const s = SATELLITES.find((x) => x.file === file);
@@ -118,5 +124,77 @@ describe("applyValue", () => {
 
   it("is a no-op when the value already matches", () => {
     expect(applyValue(sat("package.json"), PKG, "0.260.1", "Cho")).toBe(PKG);
+  });
+});
+
+describe("the README badge's two-word codename", () => {
+  // ★★★ THE DEFECT THESE PIN WAS SELF-CERTIFYING, which is why the round-trip
+  // assertion alone is NOT enough and each case below also asserts on the BYTES.
+  // Before `encode`/`decode` existed the writer emitted a raw space, the
+  // reader's `([^%]+)` read it straight back, and the gate compared equal — so
+  // `--update` exited 0 and the follow-up check exited 0 over a badge whose URL
+  // truncates mid-codename. A test that only round-trips through this same pair
+  // passes against the broken version too.
+  it("sends a space to shields as _, and never as a raw space", () => {
+    const out = applyValue(sat("README.md"), BADGE, "9.9.9", "Le Guin");
+    expect(out).toContain("_%22Le_Guin%22-2e7d32");
+    // The bytes are the claim: a space anywhere in the URL ends the CommonMark
+    // link destination, so the closing paren stops being part of the link.
+    const url = /\]\((\S*)/.exec(out)[1];
+    expect(url).toContain("Le_Guin");
+    expect(url).toContain("-2e7d32)");
+    expect(out).not.toContain("Le Guin");
+  });
+
+  it("reads that badge back as the original two-word codename", () => {
+    const out = applyValue(sat("README.md"), BADGE, "9.9.9", "Le Guin");
+    expect(readValue(sat("README.md"), out)).toEqual({ version: "9.9.9", milestone: "Le Guin" });
+  });
+
+  it("leaves a one-word codename byte-identical to the un-encoded form", () => {
+    // The encoding must not churn the badge for the case that has always worked.
+    expect(applyValue(sat("README.md"), BADGE, "0.260.1", "Cho")).toBe(BADGE);
+  });
+
+  it("does NOT encode the codemap header, which holds a real space fine", () => {
+    // Quoted in a comment, not a URL — encoding it would be a silent corruption
+    // of a file that was never broken.
+    const out = applyValue(sat("docs/CODEMAPS/*.md"), CODEMAP, "9.9.9", "Le Guin");
+    expect(out).toContain('"Le Guin"');
+    expect(readValue(sat("docs/CODEMAPS/*.md"), out)).toEqual({
+      version: "9.9.9",
+      milestone: "Le Guin",
+    });
+  });
+
+  it("refuses a codename holding an underscore rather than round-tripping it wrong", () => {
+    // shields' own escape for a literal underscore is `__`, which collides once
+    // a name holds a space AND an underscore. Refuse instead of guessing.
+    expect(() => applyValue(sat("README.md"), BADGE, "9.9.9", "Le_Guin")).toThrow(/shields/);
+  });
+});
+
+describe("diffSatellite", () => {
+  it("names the RESOLVED file, not the glob, so two drifted codemaps are told apart", () => {
+    const one = readValue(sat("docs/CODEMAPS/*.md"), CODEMAP);
+    const problems = diffSatellite(
+      sat("docs/CODEMAPS/*.md"),
+      one,
+      "9.9.9",
+      "Zelazny",
+      "docs/CODEMAPS/backend.md",
+    );
+    expect(problems).toHaveLength(2);
+    for (const p of problems) expect(p).toContain("docs/CODEMAPS/backend.md");
+    expect(problems.join(" ")).not.toContain("*.md");
+  });
+
+  it("falls back to the descriptor's own file when no path is passed", () => {
+    const problems = diffSatellite(sat("package.json"), { version: "0.0.1" }, "9.9.9", "Zelazny");
+    expect(problems).toEqual(['package.json version: 0.0.1 (expected 9.9.9)']);
+  });
+
+  it("returns nothing when every reading matches", () => {
+    expect(diffSatellite(sat("package.json"), { version: "9.9.9" }, "9.9.9", "Zelazny")).toEqual([]);
   });
 });

@@ -365,6 +365,17 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * (Markdown `comma` was 3 then 0) — ordinary noise on a rare event, and the
  * reason no single-run figure is quoted here.
  *
+ * ★★ THESE FOUR RATES COUNT `v < 8` — STRICTLY BELOW, which is what these
+ * floors actually fail on, since they are `toBeGreaterThanOrEqual(8)`. Say so
+ * because the shared harness does NOT default to it: `measureFloor`'s `below`
+ * counts `v <= floor`, so re-measuring these with `floors: [8]` reports a
+ * LARGER number by the whole `v === 8` mass, and the discrepancy reads as a
+ * contradiction of this paragraph rather than as a convention mismatch. Pass
+ * `floors: [7]` to reproduce the figures above. ★ The qualitative conclusion —
+ * that the floor was already failing rather than merely close — does not rest
+ * on the convention either way: the smallest observed count was 6, which is
+ * below 8 under both.
+ *
  * AFTER: `hazardLoadedString` gives every drawn value probability 1/3 of
  * carrying a named class (a uniform pair out of 15) at weight 5 of 10, so a
  * given class rides p = (1/3)(1/2) = 1/6 per value by construction, and the
