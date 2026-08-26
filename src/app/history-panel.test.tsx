@@ -3,6 +3,7 @@ import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { HistoryPanel, selectableSelection } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { ToastProvider } from "./toast-context";
+import { t } from "./i18n";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
@@ -17,6 +18,15 @@ vi.mock("./confirm-dialog", () => ({
 // non-UTC zone (Asia/Kolkata, +5:30) makes the zone conversion observable.
 function renderPanel(ui: React.ReactNode) {
   return render(<DisplayTimezoneProvider effectiveTz="Asia/Kolkata">{ui}</DisplayTimezoneProvider>);
+}
+
+// ★★ `useToastContext` falls back to a SILENT no-op with no provider, so a toast
+// assertion made against a bare `renderPanel` can never fail — it would pass with
+// the showToast call deleted. Any test observing a toast must go through here.
+function renderWithToast(showToast: (kind: string, text: string) => void, ui: React.ReactNode) {
+  return renderPanel(
+    <ToastProvider value={{ showToast: showToast as never, showToastAction: vi.fn() }}>{ui}</ToastProvider>,
+  );
 }
 
 const metas: ProjectVersionMeta[] = [
@@ -322,15 +332,30 @@ it("refuses a whole-version restore whose diff is entirely non-restorable", asyn
   ]);
   const restore = vi.fn().mockResolvedValue(undefined);
   const showToast = vi.fn();
-  render(
-    <DisplayTimezoneProvider effectiveTz="Asia/Kolkata">
-      <ToastProvider value={{ showToast, showToastAction: vi.fn() }}>
-        <HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />
-      </ToastProvider>
-    </DisplayTimezoneProvider>,
-  );
+  renderWithToast(showToast, <HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={restore} />);
   fireEvent.click(screen.getByRole("button", { name: "Restore this state – Baseline" }));
-  await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", expect.any(String)));
+  // ★★ Assert WHICH message, not merely that one fired. The two arms state
+  // different facts and the wrong one is a user-visible falsehood: the generic
+  // key says "no differences from the current project" while the document rows
+  // are on screen. Mutation-proved: point both arms at `historyRestoreNothing`
+  // and this goes RED (the sibling empty-diff test stays green, which is why
+  // both tests are needed to pin the branch).
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", t("en-US", "historyRestoreNothingManaged")));
+  expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "historyRestoreNothing"));
+  expect(restore).not.toHaveBeenCalled();
+});
+
+it("tells an EMPTY-diff whole-version restore that the snapshot is identical, not that it is managed", async () => {
+  // The other arm of the same guard: nothing to restore because there is nothing
+  // there at all. Mutation-proved: point both arms at `historyRestoreNothingManaged`
+  // and this goes RED while its sibling above stays green.
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  const restore = vi.fn().mockResolvedValue(undefined);
+  const showToast = vi.fn();
+  renderWithToast(showToast, <HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={vi.fn().mockResolvedValue([])} restore={restore} />);
+  fireEvent.click(screen.getByRole("button", { name: "Restore this state – Baseline" }));
+  await waitFor(() => expect(showToast).toHaveBeenCalledWith("info", t("en-US", "historyRestoreNothing")));
+  expect(showToast).not.toHaveBeenCalledWith("info", t("en-US", "historyRestoreNothingManaged"));
   expect(restore).not.toHaveBeenCalled();
 });
 

@@ -158,14 +158,22 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreWholeVersion = async (v: ProjectVersionMeta) => {
     const changes = await loadDiff(v.id, "now");
     const sel = selectableSelection(changes);
-    // ★★ Test the SELECTION, not `changes`. This subsumes the empty-diff case
-    // (a version that is EMPTY or identical to the current state — previously a
-    // SILENT no-op, so a dead snapshot isn't a mystery) AND the newer one it
-    // would miss: a documents-only session has a non-empty diff (which is what
-    // arms a capture) and an EMPTY selection, because document history is
-    // managed per document. Restoring that reverts nothing and reports success.
+    // ★★ Gate on the SELECTION, not on `changes`. A `changes.length === 0` test
+    // lets a documents-only session straight through: its diff is NON-empty
+    // (which is what arms a capture) while its selection is EMPTY, because
+    // document history is managed per document — so the restore would revert
+    // nothing and report success.
     if (Object.keys(sel).length === 0) {
-      showToast("info", t(lang, "historyRestoreNothing"));
+      // ★★ ONE guard, TWO messages, and the split is deliberate: these are
+      // different facts, not one fact twice. An empty diff means the snapshot is
+      // dead or identical to the current state (previously a SILENT no-op, so
+      // say so rather than leave it a mystery); a NON-empty diff reaching here
+      // means every change in it is managed elsewhere. Collapsing them would
+      // tell a documents-only user "no differences from the current project"
+      // while the document rows on screen say otherwise — a falsehood this
+      // slice itself introduced, by making those rows visible in the diff.
+      const key = changes.length === 0 ? "historyRestoreNothing" : "historyRestoreNothingManaged";
+      showToast("info", t(lang, key));
       return;
     }
     await restore(v.id, sel, labelOf(v));
