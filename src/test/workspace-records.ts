@@ -93,6 +93,16 @@ export const absenceRec = (id: number, n: string): Absence =>
 export const shiftRec = (id: number, n: string): Shift =>
   ({ id, assignee: "Ann", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0], note: `Shift ${n}` });
 
+/** The base `Workspace` the version-diff and version-restore suites build every
+ *  fixture on: every list slice empty, the two required singletons stubbed, and
+ *  `over` spread last. ★ It lived as a LOCAL copy in each of those two files —
+ *  identical modulo whitespace and one trailing comma — on the stated grounds
+ *  that the two suites needed different bases. They did not. */
+export const ws = (over: Partial<Workspace>): Workspace =>
+  ({ tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
+    disciplines: [], grades: [], plan: {} as never, budgets: [], milestones: [],
+    changes: [], stakeholders: [], status: {} as never, ...over } as Workspace);
+
 // ★ Old and New must DIFFER in every slice. An identical record produces no
 // diff change; applyRestore's singleton branch bails when the diff carries
 // no change for a spec, so the slice is never walked, never corrupted, and

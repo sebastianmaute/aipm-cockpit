@@ -1,14 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { applyRestore, changeKey, type RestoreSelection } from "./version-restore";
 import { diffWorkspaces, COLLECTION_SPECS } from "./version-diff";
-import { workspaceToJson, type Workspace } from "./workspace";
-import { arraysFixture, kItem, insight, doc, docVersion, calEvent } from "../test/workspace-records";
+import { workspaceToJson } from "./workspace";
+import { arraysFixture, kItem, insight, doc, docVersion, calEvent, ws } from "../test/workspace-records";
 
-function ws(over: Partial<Workspace>): Workspace {
-  return { tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
-    disciplines: [], grades: [], plan: {} as never, budgets: [], milestones: [],
-    changes: [], stakeholders: [], status: {} as never, ...over } as Workspace;
-}
 const task = (id: number, over: Record<string, unknown> = {}) => ({ id, title: `T${id}`, ...over } as never);
 
 describe("applyRestore", () => {

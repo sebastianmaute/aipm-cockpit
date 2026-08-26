@@ -1,14 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { COLLECTION_SPECS, diffWorkspaces, summarizeDiff } from "./version-diff";
-import type { Workspace } from "./workspace";
+import { ws } from "../test/workspace-records";
 
-function ws(over: Partial<Workspace>): Workspace {
-  return {
-    tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
-    disciplines: [], grades: [], plan: { } as never, budgets: [], milestones: [],
-    changes: [], stakeholders: [], status: {} as never, ...over,
-  } as Workspace;
-}
 const task = (id: number, over: Record<string, unknown> = {}) => ({ id, title: `T${id}`, ...over } as never);
 
 describe("diffWorkspaces", () => {
