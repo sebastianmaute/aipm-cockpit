@@ -21,20 +21,11 @@ const resourceFix = (over: Partial<Resource> = {}): Resource =>
   ({ id: 3, firstName: "Cy", lastName: "Meyer", email: "", ...over }) as Resource;
 
 describe("TaskKanbanCard", () => {
-  // ★★★ RECORDED, NOT FIXED — a genuine, pre-existing WCAG 2.4.6 collision that
-  // touches a SHARED primitive and is not fixable locally. Two cards for the
-  // SAME task name render two comboboxes both named "Status – Alpha":
-  // `TaskStatusSelect` (task-status-select.tsx) derives its aria-label from
-  // `task.taskName` alone, with no per-render disambiguation, and it is a
-  // per-item component with no visibility into sibling rows — it cannot build
-  // a token map itself. The identical defect exists in the TABLE row
-  // (task-row.tsx uses the same `TaskStatusSelect`), so fixing it means
-  // threading a row-token prop through TaskStatusSelect AND both of its
-  // callers (task-kanban-card.tsx/board/swimlanes AND task-row.tsx) — real
-  // restructuring, not a local qualifier swap. Joins budget-panel /
-  // roles-editor / reports as the fourth surface recorded this way (see
-  // batch 4/6 commits on this branch). Kept as the ORIGINAL single-card smoke
-  // test — seeding a twin here would only pin the bug in place.
+  // `TaskStatusSelect` derives its accessible name from `rowLabel(t(lang,
+  // "colTaskStatus"), rowToken)` (task-status-select.tsx), so this remains the
+  // single-card smoke test; the twin case is covered by "keeps every card
+  // control distinct when two tasks share a name" below, which renders
+  // `TaskStatusSelect` for two same-named tasks and asserts zero collisions.
   it("shows title, assignee, and a status select carrying an accessible name", () => {
     render(
       <TaskKanbanCard
@@ -187,18 +178,19 @@ describe("TaskKanbanCard linked-documents badge", () => {
   // duplicate accessible name at any seed size, so this test is the only
   // detector).
   //
-  // ★★ TOKENS COME FROM `buildRowTokens`, NOT `task.taskName` DIRECTLY. The
-  // earlier version passed `rowToken={task.taskName}` — fine for this file's
-  // three DISTINCT names, but a fixture seeding two SAME-named tasks would
-  // then hand both cards the identical bare name and the collision test below
-  // could not fail for the right reason (nothing here would disambiguate
-  // them). Building the map here mirrors what the real board/swimlane callers
-  // do at `task-kanban-board.tsx`/`task-kanban-swimlanes.tsx`.
-  function renderCards(tasks: Task[] = DEFAULT_CARDS, onOpenDocuments = vi.fn()) {
-    const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
-    const { container } = render(
+  // ★★ TOKENS COME FROM `buildRowTokens`, NOT `task.taskName` DIRECTLY —
+  // mirrors what the real board/swimlane callers do at
+  // `task-kanban-board.tsx`/`task-kanban-swimlanes.tsx`, even though
+  // DEFAULT_CARDS' three names are already distinct. (The shared-name
+  // collision case is covered by "keeps every card control distinct when two
+  // tasks share a name" below, which renders inline instead of through this
+  // helper — it needs onAiEdit/aiEditEnabled/assignableResources/onAssign,
+  // which this fixed three-card render does not exercise.)
+  function renderCards(onOpenDocuments = vi.fn()) {
+    const tokens = buildRowTokens(DEFAULT_CARDS.map((task) => ({ id: task.id, name: task.taskName })));
+    render(
       <>
-        {tasks.map((task) => (
+        {DEFAULT_CARDS.map((task) => (
           <TaskKanbanCard
             key={task.id}
             lang="en-US"
@@ -215,7 +207,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
         ))}
       </>,
     );
-    return { onOpenDocuments, container };
+    return { onOpenDocuments };
   }
 
   it("badges only the referenced cards, with the real count and a card-unique name", () => {
