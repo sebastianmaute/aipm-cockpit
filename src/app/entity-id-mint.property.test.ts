@@ -70,8 +70,8 @@ const branchArb = fc.constantFrom<Branch>("contended", "uncontended", "update");
 // ★★★ BRANCH-TAGGED, AND THAT IS WHAT MAKES THE THREE-BRANCH FLOORS SAFE. That
 // test used to rely on `caseArb`'s collision bias to visit all three branches by
 // luck: `uncontended` needs a FREE id AND an intent that means create, p ≈ 0.145,
-// mean ≈ 7 over 50 runs — and it drew ZERO in 0.075% of suite runs (measured,
-// 20,000 trials). That is what took the 0.259.0 release pipeline red, on a
+// mean ≈ 7 over 50 runs — and it drew ZERO in 0.058% of suite runs (measured,
+// 40,000 pooled trials). That is what took the 0.259.0 release pipeline red, on a
 // BLOCKING gate, on a tree that could not have caused it.
 //
 // Drawing the branch FIRST and constructing a case to match makes each branch
@@ -140,8 +140,8 @@ type Existence = "taken" | "free";
 // ★★★ THE SAME CURE FOR THE TWO `free > 5` FLOORS, WEIGHTED RATHER THAN EVEN.
 // Both tests below split on whether `itemId` is already taken and floor each
 // side. Under `anyCase` those counters rode the same 3:1 collision bias: `free`
-// had mean 15.70 and landed at or below its floor of 5 in 0.030% of suite runs
-// (measured, 20,000 trials). Drawing the existence FIRST removes the bet.
+// had mean 15.70 and landed at or below its floor of 5 in 0.028% of suite runs
+// (measured, 40,000 pooled trials). Drawing the existence FIRST removes the bet.
 //
 // ★★ THE WEIGHTS ARE 11:9 AND THAT IS ARITHMETIC, NOT TASTE. The two floors are
 // ASYMMETRIC — `taken > 10` and `free > 5` — so with `taken + free === 50` the
@@ -261,8 +261,8 @@ describe("entity-id-mint — properties", () => {
     // existence FIRST at 11:9, so `taken` ~ Binom(50, 0.55) and `free` is its
     // complement: P(taken ≤ 10) = 4.3e-7 and P(free ≤ 5) = 9.3e-8 (exact
     // binomial). Under the old `anyCase` the same `free` floor rode the
-    // generator's collision bias — mean 15.70, at or below 5 in 0.030% of suite
-    // runs (measured, 20,000 trials), across two blocking jobs per pipeline.
+    // generator's collision bias — mean 15.70, at or below 5 in 0.028% of suite
+    // runs (measured, 40,000 pooled trials), across two blocking jobs per pipeline.
     //
     // ★ Do NOT tighten either floor and do NOT raise numRuns: a bigger sample
     // against an unchanged absolute floor is a WEAKER guard, not a safer run,
@@ -300,7 +300,7 @@ describe("entity-id-mint — properties", () => {
     // Same construction, same guarantee as the test above: `existenceCase`
     // draws the existence FIRST at 11:9, so P(taken ≤ 10) = 4.3e-7 and
     // P(free ≤ 5) = 9.3e-8 (exact binomial, n = 50). Under the old `anyCase`
-    // this `free` floor sat at 0.030% per suite run (measured, 20,000 trials).
+    // this `free` floor sat at 0.028% per suite run (measured, 40,000 pooled trials).
     // Do NOT tighten either floor and do NOT raise numRuns — a bigger sample
     // against an unchanged absolute floor is a weaker guard, not a safer run.
     expect(taken).toBeGreaterThan(10);
@@ -340,8 +340,8 @@ describe("entity-id-mint — properties", () => {
     // `taggedCase` draws the branch first, so each has p = 1/3 and
     // P(a branch is never visited in 50 runs) = (2/3)^50 = 1.6e-9. Before the
     // branch tag the same floors rode the generator's collision bias:
-    // `uncontended` had p ≈ 0.145, mean 7.05, and drew zero in 0.075% of suite
-    // runs (measured, 20,000 trials), which is what took a release pipeline red.
+    // `uncontended` had p ≈ 0.145, mean 7.05, and drew zero in 0.058% of suite
+    // runs (measured, 40,000 pooled trials), which is what took a release pipeline red.
     //
     // ★ Do NOT "tighten" these to a larger number and do NOT raise numRuns —
     // a bigger sample against an unchanged absolute floor is a WEAKER guard,
