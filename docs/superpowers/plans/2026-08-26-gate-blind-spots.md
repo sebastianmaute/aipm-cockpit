@@ -1630,6 +1630,31 @@ const taggedCase = rowsArb(1).chain((rows) => {
 });
 ```
 
+★★★ **THE ARBITRARY ABOVE IS DEFECTIVE — DO NOT COPY IT. It is kept here only as the record of what
+went wrong.** The `contended` branch draws `isNew ∈ {true, undefined}` against a **taken** id, but
+`resolveEntitySave` falls back to `isNew ?? !taken`, so `undefined` at a taken id computes
+`create = false` — an **update**. Half of every contended draw therefore lands in `updates`, giving
+`p(contended) = 1/6`, not 1/3, and `P(contended === 0 in 50 runs) = (5/6)^50 = 1.1e-4`.
+
+That is **worse than the floor it replaces**: `contended > 0` measured 0 occurrences in 20,000 trials
+on the ORIGINAL generator. So this arbitrary would have introduced a live flake into a floor that was
+already safe, sitting underneath a comment asserting 1.6e-9 for all three branches — a fabricated
+number, and precisely the failure Step 7's ★★ tells you to look for. Measured as written:
+`contended` mean **8.32** (≈ 50/6), min 0, zero-draws in **3/20000**.
+
+★★ **The plan contradicted itself and that is what should have caught it earlier:** Step 7 below
+expects "mean near 16.7" for all three counters, which this arbitrary cannot produce — its means are
+8.33 / 16.67 / 25. When a plan's code and its stated expectation disagree, the expectation is usually
+the honest half; measure before believing either.
+
+★ **The fix, and what shipped:** pin the contended branch to `isNew: true` — the only intent that
+reaches a contended create — and move the taken-plus-`undefined` case into the `update` branch, where
+it belongs. All six (existence × intent) combinations the old `contendedCase × isNewArb` pair produced
+remain reachable, so nothing is lost. **The authoritative version is the one in
+`src/app/entity-id-mint.property.test.ts`** (`taggedCase`, and `existenceCase` beside it); read that,
+not this block. Shipped and independently re-measured at 16.66 / 16.69 / 16.65, zero at-floor draws in
+20,000 trials.
+
 - [ ] **Step 3: Rewrite the three-branch test to use it**
 
 Replace the body of the test that currently ends in the three `> 0` floors. The `fc.property` call becomes:
