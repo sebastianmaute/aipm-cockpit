@@ -895,7 +895,9 @@ node scripts/check-version-sync.mjs > /tmp/vsync.log 2>&1; echo "EXIT=$?"
 cat /tmp/vsync.log
 ```
 
-Expected: `EXIT=0`, and output listing `src/app/version.ts: 0.260.1 "Cho"` followed by nine readings (package.json, package-lock.json, README.md, and five codemaps), ending `version-sync ok`.
+Expected: `EXIT=0`, and output listing `src/app/version.ts: 0.260.1 "Cho"` followed by **eight file lines** — package.json, package-lock.json, README.md and the five codemaps — carrying **fifteen values** between them (package.json 1, lockfile 2, README 2, each codemap 2), ending `version-sync ok`.
+
+★ An earlier revision said "nine readings" while enumerating eight files, so the sentence refuted itself. Count the FILES and the VALUES separately — they are 8 and 15, and neither is 9.
 
 **If any reading is missing or the script throws, stop.** A throw means a shape moved between the design measurement and now, and the pattern needs correcting — not the file.
 
