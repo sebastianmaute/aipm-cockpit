@@ -631,6 +631,12 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   duplicated-LINE percentage across all formats, NOT per-format and NOT tokens; the `dup:check` line
   in Commands carries the bisect] · **agents-symbol-check** BLOCKING
   [`npm run docs:symbols:check` — fails when THIS FILE names a code symbol that does not exist] ·
+  **version-sync-check** BLOCKING [`npm run version:check` — `src/app/version.ts` is the source of
+  truth for the version and codename; `package.json`, BOTH `package-lock.json` entries, the README
+  badge and every `docs/CODEMAPS` header restate one or both, and nothing compared them before this
+  job. Propagate with `npm run version:sync` rather than hand-editing six places. ★ It THROWS rather
+  than passing when a shape moves, and exits 2 rather than passing when the codemap glob matches
+  nothing — a gate that scans nothing passes everything] ·
   **doc-claims-check** BLOCKING [`npm run docs:claims:check` — a RATCHET over `path:LINE` citations in
   every tracked PROSE doc — all of `docs/**` bar `docs/superpowers/`, plus the seven root/lib docs in
   `ROOT_DOCS` (the byte-pinned `golden-workspace.md` fixture is deliberately excluded). ★★ It said
@@ -666,7 +672,8 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -n quality-gate-bypass .gitlab-ci.yml`, which returns five lines in three jobs: **semgrep** and
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
-  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `doc-claims-check`, `unit-tests`,
+  `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
+  `doc-claims-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a

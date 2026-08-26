@@ -254,7 +254,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--open) | The four toolbar Outlook enable-toggles carry an untested `auto` guard — open | 0.212.0 (Nayler) | S | open |
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it — open | 0.212.0 (Nayler) | S | open |
-| [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--open) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open | pre-existing, found post-0.212.0 | S | open |
+| [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
@@ -408,7 +408,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
 | [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | open |
-| [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | open |
+| [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
 | [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
 | [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | open |
@@ -430,7 +430,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
 | [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | open |
-| [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | open |
+| [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
@@ -438,7 +438,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
-| [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
+| [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
 | [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | open |
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -2443,6 +2443,12 @@ every number here as a measurement with a date, not a property.
   any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate
   (CI runs bare `eslint`, see §202), so only a rule landing at severity **2** can fail the build; a new
   WARNING ships green. That shrinks this item's blast radius — re-scope it before quoting the old size.
+  ★★★ **RE-SCOPED BACK 2026-08-26, AND THE ORIGINAL SIZE IS THE RIGHT ONE AGAIN.** §214 set
+  `package.json`'s `lint` script to `eslint --max-warnings=0`, so the gate this bullet says does not
+  exist now does, and any rule added, renamed or changed-by-default IS an instant fatal build. The
+  shrink above applied only between 0.255.0 and 0.260.x. §214 predicted this in writing and said to
+  sequence the two deliberately; it was closed first anyway, which makes the eslint-10 upgrade
+  harder, not easier. Quote the LARGER size.
   There is also a hook blocking `eslint.config.mjs` edits, which a major would likely require. That is
   a slice with its own verification, not an install.
 
@@ -15112,7 +15118,8 @@ whichever order the harness happens to produce, which is the shape that let this
 
 ## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI — CLOSED 2026-08-26
 
-**Status:** open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
 untouched, deliberately, because turning it on affects every future MR and was out of scope for an
 icon migration.
 
@@ -17101,7 +17108,8 @@ here. (Reasoned from the grep above, not measured against the rendered trend.)
 
 ## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them — CLOSED 2026-08-26
 
-**Status:** open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
 
 ★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `scripts/check-version-sync.mjs` compares every
 restatement against `src/app/version.ts` and runs as the BLOCKING `version-sync-check` job;
@@ -17522,7 +17530,8 @@ bare, and both render on screen at once; the code carries a comment recording wh
 
 ## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red — CLOSED 2026-08-26
 
-**Status:** open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
 The class is already recorded — §22's test-validity note states it and names the cure — but no entry
 files an instance, so each recurrence is re-diagnosed from scratch. This one cost a release cycle.
 
@@ -18407,7 +18416,12 @@ fatal lint violation** — any finding claiming one is a false positive by const
 `--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
 and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
 a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
-many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
+many, and since 2026-08-26 EVERY severity-1 rule joins them — §214 set `npm run lint` to
+`eslint --max-warnings=0`, so the frame retired above is VALID AGAIN and the four findings it
+dismissed would today be real. ★★ Read this entry as a record of a period, not of today: between
+0.255.0 and 0.260.x a warning shipped green, and the reasoning here is correct for that window only.
+The severity-2 list was never the whole story anyway, NOT the two this sentence used to name as if
+exhaustively: `no-restricted-imports` is one of
 them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
 correct and this line must not be read as contradicting it. List them rather than trusting any count
 here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config

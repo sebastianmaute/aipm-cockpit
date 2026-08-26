@@ -309,8 +309,12 @@ On a noteworthy change, update `src/app/version.ts`:
 - The leading comment summarising the milestone
 - `APP_HIGHLIGHT_KEYS` if a new highlight should appear in the Version popover
 
-Then bump the version everywhere else it is written down. **Nothing in CI
-compares any of these to `APP_VERSION`**, so every one of them drifts silently:
+Then propagate the version everywhere else it is written down — run
+`npm run version:sync`, which rewrites every place in the table below from
+`version.ts`. **`npm run version:check` compares all of them to `APP_VERSION`,
+and the `version-sync-check` job is BLOCKING**, so drift now fails the pipeline
+instead of accumulating silently. Hand-edit only if the gate reports a shape it
+cannot anchor on — and fix the pattern in that case, never the file:
 
 | place | what to change |
 |---|---|
