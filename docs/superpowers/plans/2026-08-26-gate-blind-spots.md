@@ -1294,18 +1294,44 @@ export function formatMeasurement(rows, trials) {
 
 The harness must be validated against a distribution whose answer is computable, or it is just another unverified number. A Bernoulli(1/3) counter over 50 draws is Binomial(50, 1/3), and `P(X = 0) = (2/3)^50 = 1.57e-9`, `P(X <= 3) = 4.36e-6`.
 
-Write this to `/tmp/harness-check.mjs`:
+Write this to `harness-check.mjs` in the session scratchpad (never `/tmp` — it is shared across concurrent sessions):
 
 ```js
-import { formatMeasurement, measureFloor } from "./scripts/measure-property-floor.mjs";
+import { pathToFileURL } from "node:url";
+import path from "node:path";
 
-// Deterministic LCG so this control is reproducible; the harness under test is
-// distribution-agnostic, so a fixed stream is fine for validating the counting.
+// ★★ ABSOLUTE file URL, not a relative specifier. An ESM relative import
+// resolves against the IMPORTING FILE's location, not the working directory,
+// so a script living outside the repo cannot reach the harness with
+// "./scripts/...". The first version of this step got that wrong and could
+// not resolve at all.
+const { formatMeasurement, measureFloor } = await import(
+  pathToFileURL(path.resolve("C:/Projects/aipm-wt-a/scripts/measure-property-floor.mjs")).href
+);
+
+// ★★★ `Math.imul`, NOT a plain multiply. The obvious LCG
+// `seed = (seed * 1103515245 + 12345) % 2147483648` is BROKEN in JS: seed
+// reaches 2147483648, so the product reaches 2.37e18 — 263x past
+// Number.MAX_SAFE_INTEGER (9.007e15) — and the multiply silently loses
+// precision, biasing the stream. Measured over 10,000,000 draws:
+// P(rand() < 1/3) is 0.3401 with the plain multiply and 0.3332 with imul,
+// which moves the control's mean to 17.01 against an expected 16.67.
+//
+// ★★★ THAT IS THE WHOLE POINT OF THIS STEP AND IT NEARLY DEFEATED IT. This
+// control exists to pin the harness to a COMPUTABLE answer. Fed a biased
+// stream it reports 17.01, and a reader then either "fixes" a harness that
+// was counting correctly, or shrugs at 17.01-vs-16.67 as close enough and
+// validates nothing. A control that disagrees for the wrong reason is worse
+// than no control.
 let seed = 12345;
-const rand = () => ((seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648);
+const rand = () => {
+  seed = (Math.imul(seed, 1103515245) + 12345) | 0;
+  return (seed >>> 0) / 4294967296;
+};
 
+const TRIALS = 200000;
 const rows = measureFloor({
-  trials: 200000,
+  trials: TRIALS,
   floors: { third: 3 },
   run: () => {
     let third = 0;
@@ -1313,9 +1339,15 @@ const rows = measureFloor({
     return { third };
   },
 });
-console.log(formatMeasurement(rows, 200000));
+console.log(formatMeasurement(rows, TRIALS));
 console.log("expected mean ~16.67, expected P(X <= 3) ~4.36e-6 i.e. ~0.0004%");
 ```
+
+★ Read the two figures differently. The **mean** is the assertion: 200,000 trials put the standard
+error near 0.0075, so anything not within a few hundredths of 16.67 means the harness is counting
+wrong. The **tail** is not: `P(X <= 3) = 4.36e-6` predicts about 0.87 hits in 200,000, so observing
+0, 1, 2 or 3 hits is all ordinary Poisson noise (three hits has probability ~5.9%). Do not treat a
+tail count as a failed validation, and do not tune anything to reproduce a particular one.
 
 Run it:
 
