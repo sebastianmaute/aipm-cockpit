@@ -3748,6 +3748,8 @@ const enUS = {
   historyAuto: "Auto",
   historyManual: "Checkpoint",
   historyCompareTitle: "Changes",
+  historyNotRestorable: "Managed per document",
+  historySelectRecord: "Select",
   historyNoChanges: "No differences between the selected versions.",
   historyAdded: "Added",
   historyRemoved: "Removed",

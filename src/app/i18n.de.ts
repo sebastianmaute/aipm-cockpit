@@ -3692,6 +3692,8 @@ export const de: Record<TranslationKey, string> = {
   historyAuto: "Automatisch",
   historyManual: "Checkpoint",
   historyCompareTitle: "Änderungen",
+  historyNotRestorable: "Pro Dokument verwaltet",
+  historySelectRecord: "Auswählen",
   historyNoChanges: "Keine Unterschiede zwischen den gewählten Versionen.",
   historyAdded: "Hinzugefügt",
   historyRemoved: "Entfernt",
