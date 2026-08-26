@@ -1034,6 +1034,7 @@ function TaskManagerInner() {
   // restore blanks what the capture never carried. NOT the save/export set in
   // `use-storage-backend.ts` (which also carries fieldVisibility, features,
   // documentAssets, activityLog). Placed after the stakeholders hook for scope.
+  // ★★ `documentAssets` is DELIBERATELY not captured — the decision, its two reasons and its user-visible consequence are recorded in docs/AGENTS/documents.md, "Asset images (S3c-1)" (open-followups §254); pinned by "captures documents but not documentAssets".
   const getVersionPayload = useCallback(
     () => workspaceToJson({
       tasks, raid, absences, shifts, resources, roles, disciplines, grades,

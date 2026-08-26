@@ -1125,6 +1125,42 @@ from the probe.
 §218 design, not a defect. See `docs/open-followups.md` §249 for a measured open question about which
 carrier tags can actually reach the loader.
 
+★★★ **`documentAssets` IS DELIBERATELY NOT CAPTURED IN VERSION HISTORY**, and this is the record of
+that decision (`docs/open-followups.md` §254). `getVersionPayload` (`task-manager.tsx`) enumerates its
+slices literally and `documentAssets` is not among them, while the SAVE set does carry it —
+`use-storage-backend.ts` references `documentAssets` eight times (its destructure from
+`useWorkspace()`, its load-effect assignment, both save-payload object literals, both `useEffect`/
+`useCallback` dependency arrays, and its return value). So this is an omission from version history
+SPECIFICALLY, not a slice that does not exist anywhere.
+
+Two reasons: a version row captured on every autosave that also carries every image byte in the
+project has a storage profile nothing else in this payload has — a per-capture cost that would need to
+be MEASURED, not assumed, before the slice could be added. And the asset table already has its own
+Turso-side lifecycle, split exactly like the two stores described above: an `ENTITY_SPECS` metadata row
+(`DocumentAsset`) plus a separate byte side table (`document_asset_data`) outside `TABLE_NAMES` —
+folding that lifecycle into version history's capture/diff/restore cycle would be a third thing to keep
+in step, not a natural extension of it.
+
+★★ THE USER-VISIBLE CONSEQUENCE, so nobody has to derive it from the two paragraphs above: deleting an
+image from a document IS captured, because the referencing block changes and `documents` is
+diff-visible — but restoring that version cannot bring the bytes back. Two independent reasons for one
+outcome: `documents` is declared `restorable: false` in `version-diff.ts`'s `COLLECTION_SPECS` (so
+`applyRestore` skips it deliberately — see that file's own `restorable` docstring), and `documentAssets`
+is not in the version payload at all, so there is nothing to restore even if the flag were flipped.
+
+★ If it is ever added, decide the metadata slice and the byte side table SEPARATELY — metadata is small
+and diffable the way `documents` already is, bytes are neither — and measure the autosave cost first.
+
+★★★ **`documentAssets` IS ADDITIVE-ONLY IN `workspaceToJson`** — it is emitted only when non-empty,
+exactly like `documents`. That makes a naive absence assertion worthless: a payload built from an
+UNSEEDED (empty) `documentAssets` omits the key whether or not `getVersionPayload` was ever changed to
+pass the slice through, so the assertion would pass against a mutant that added the slice just as
+readily as against correct code. `"captures documents but not documentAssets"` in
+`task-manager.restore-backfill.test.tsx` closes that gap by seeding one real asset into the workspace
+context (via a captured `setDocumentAssets`) before capturing the payload — that seeding is
+load-bearing for the pin's validity, not incidental setup, and removing it to "simplify" the test would
+silently re-vacuum it.
+
 ## Image bytes in every export format (S3c-2)
 
 Shipped 0.256.0 "Khaw". Design in
