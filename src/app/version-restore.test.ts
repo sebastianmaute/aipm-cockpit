@@ -184,10 +184,18 @@ describe("applyRestore over array-typed slices", () => {
       knowledgeItems: 1, insights: 1, calendarEvents: 1,
       documents: 1, documentVersions: 1,
     });
-    // ★ The singleton branch is UNAFFECTED by that guard and deliberately so:
-    // `settingsOverrides` is an object, has no per-record identity, and a
-    // capture that genuinely held no overrides must be able to revert to none.
-    expect(out.settingsOverrides).toEqual({});
+    // ★★★ THE SIXTH SLICE, AND THIS ASSERTION WAS THE WHOLE DEFECT. It read
+    // `toEqual({})` — certifying the wipe as correct — under a comment arguing
+    // the singleton branch was "deliberately" unguarded because a capture that
+    // genuinely held no overrides must revert to none. That argument holds for
+    // `project` / `steeringCommittee` / `timelogLinks`, which were in
+    // `getVersionPayload` all along, so an absent key really does mean unset.
+    // It is FALSE for `settingsOverrides`: `db217e08` added it in the SAME
+    // commit as the five arrays above, so a pre-db217e08 capture cannot speak
+    // about it either, and blanking it destroys the user's timezone,
+    // notification and next-actions overrides irrecoverably. Five slices were
+    // guarded in this file and the sixth was pinned as a wipe beside them.
+    expect(out.settingsOverrides).toEqual({ timezone: { timezone: "Europe/Berlin" } });
   });
 
   // ★★ THE GUARD MUST NOT BE OVER-BROAD. Skipping on an ABSENT key must not

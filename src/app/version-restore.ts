@@ -103,6 +103,27 @@ export function applyRestore(
       }
       if (touched) result[key] = [...cur.values()];
     } else {
+      // ★★★ THE SAME ABSENT-KEY RULE AS THE LIST BRANCH, AND IT IS NOT COSMETIC
+      // SYMMETRY — `db217e08` (2026-08-25) added SIX slices to
+      // `getVersionPayload`: five arrays AND the singleton `settingsOverrides`.
+      // Guarding only the arrays left the sixth wiping on exactly the input the
+      // list guard exists for. `mergeFields(current, {}, "all", …)` takes the
+      // `else delete next[f]` arm for every field and returns `{}`, so a
+      // restore to any pre-db217e08 capture blanks the project's timezone,
+      // notification and next-actions overrides; `hasAnyOverride({})` is false,
+      // so the next save omits the key and the loss is permanent. Manual
+      // checkpoints are never pruned (`version-schema.ts` prunes
+      // `trigger = 'auto'` only), so it stays reachable indefinitely.
+      // ★★ UNIFORM, not `settingsOverrides`-only, and that costs something real:
+      // `project` / `steeringCommittee` / `timelogLinks` predate db217e08, so
+      // for THEM an absent key genuinely means "unset" and this guard turns a
+      // revert-to-unset into a no-op. That is the same imprecision the list
+      // branch already accepts, in the same safe direction — failing to revert
+      // is recoverable by hand, deleting is not — and one rule for both kinds
+      // beats a per-slice exception list that the next added singleton would
+      // silently miss. Separating the two needs a capture-format marker on the
+      // payload, which nothing writes today (open-followups §259).
+      if ((version as unknown as Record<string, unknown>)[key] === undefined) continue;
       const selKey = changeKey(key, null);
       const sel = selection[selKey];
       const change = changeByKey.get(selKey);
