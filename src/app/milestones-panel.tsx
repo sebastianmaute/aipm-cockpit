@@ -9,7 +9,7 @@ import {
   type SortDir,
 } from "./report-table";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
@@ -68,6 +68,10 @@ const MILESTONE_CONFIG_COLS = [
   { key: "status", labelKey: "milestonesColStatus" },
   { key: "achieved", labelKey: "milestonesColAchieved" },
 ] as const;
+
+// Module-level accessor for useRowTokens — an inline arrow would be a fresh
+// closure every render, defeating its useMemo and tripping exhaustive-deps.
+const nameOfMilestone = (m: Milestone) => m.name;
 
 const STATUS_KEY: Record<
   MilestoneStatus,
@@ -216,10 +220,7 @@ function MilestonesPanelBody({
   // identically-named controls. Built over `sorted` (filtered + sorted), the
   // SAME array actually rendered below, because an occurrence index only means
   // anything against what is on screen.
-  const rowTokens = useMemo(
-    () => buildRowTokens(sorted.map((ms) => ({ id: ms.id, name: ms.name }))),
-    [sorted],
-  );
+  const rowTokens = useRowTokens(sorted, nameOfMilestone);
 
   // Bulk-editable fields. Milestones have no status/owner; the two date fields
   // mirror the edit modal (target date + sign-off / achieved date).

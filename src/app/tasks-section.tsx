@@ -32,7 +32,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -70,6 +70,10 @@ const EMPTY_RESOURCES: readonly Resource[] = [];
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
 const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
+
+// Module-level accessor for useRowTokens — an inline arrow would be a fresh
+// closure every render, defeating its useMemo and tripping exhaustive-deps.
+const nameOfTask = (task: Task) => task.taskName;
 
 // ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
 export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
@@ -402,16 +406,10 @@ export function TasksSection({
   // render `healthFilteredTasks`. An occurrence index is only meaningful over
   // the array actually on screen, so a shared map would number the table's rows
   // against tasks the table is not showing.
-  const tableTokens = useMemo(
-    () => buildRowTokens(visibleRows.map((task) => ({ id: task.id, name: task.taskName }))),
-    [visibleRows],
-  );
+  const tableTokens = useRowTokens(visibleRows, nameOfTask);
   // ★ Board and swimlanes share this one: both render the whole array on one
   // page, so uniqueness has to span lanes and columns, not sit inside one.
-  const boardTokens = useMemo(
-    () => buildRowTokens(healthFilteredTasks.map((task) => ({ id: task.id, name: task.taskName }))),
-    [healthFilteredTasks],
-  );
+  const boardTokens = useRowTokens(healthFilteredTasks, nameOfTask);
 
   const laneIds = useMemo(
     () => laneResourceIds(healthFilteredTasks, resourcesById, extraLaneIds),

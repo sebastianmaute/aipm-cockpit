@@ -8,7 +8,7 @@
 
 import { memo, useEffect, useMemo, useState } from "react";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
-import { buildRowTokens } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 import { PanelViewsControl } from "./panel-views-control";
 import type { PanelFiltersState } from "./panel-views";
 import { descriptionText } from "./rich-text-projection";
@@ -93,6 +93,10 @@ const CHANGE_CONFIG_COLS = [
 
 // Mirrors `requestedBy`'s sanitize cap (BUDGET_NAME_MAX in sanitize-entities).
 const REQUESTED_BY_MAX = 200;
+
+// Module-level accessor for useRowTokens — an inline arrow would be a fresh
+// closure every render, defeating its useMemo and tripping exhaustive-deps.
+const nameOfChange = (item: ChangeItem) => item.title;
 
 // --- Props ---------------------------------------------------------------
 
@@ -254,10 +258,7 @@ function ChangePanelBody({
   // Built over `visible` (filtered + sorted), the SAME array actually rendered
   // below, because an occurrence index only means anything against what is on
   // screen.
-  const rowTokens = useMemo(
-    () => buildRowTokens(visible.map((item) => ({ id: item.id, name: item.title }))),
-    [visible],
-  );
+  const rowTokens = useRowTokens(visible, nameOfChange);
 
   // Bulk-editable fields. ChangeStatus is NOT category-specific (unlike RAID),
   // so Status is safe to bulk-set across any selection.
