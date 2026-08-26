@@ -19,7 +19,12 @@ export type RestoreSelection = Record<string, "all" | string[]>;
  *  its change by this key. JSON encoding is unambiguous for both and stays
  *  readable in a devtools inspection.
  *  ★ Keys are built and looked up within ONE session (`RestoreSelection` is
- *  never persisted), so changing this format needs no compatibility shim. */
+ *  never persisted), so changing this format needs no compatibility shim.
+ *  ★ The guarantee is over strings and FINITE POSITIVE numbers. `NaN` and
+ *  ±Infinity stringify to `null` and would collide with the singleton
+ *  sentinel — unreachable because every slice's sanitizer rejects a
+ *  non-finite or non-positive id before a diff can see it, but do not widen
+ *  `RecordId` past those two shapes without revisiting this. */
 export function changeKey(collection: string, recordId: RecordId | null): string {
   return JSON.stringify([collection, recordId ?? null]);
 }

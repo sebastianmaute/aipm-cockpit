@@ -130,9 +130,6 @@ describe("applyRestore over array-typed slices", () => {
     }).toEqual({ knowledgeItems: true, insights: true });
   });
 
-  // BUG-CLASS guard — not about these two names. Any `COLLECTION_SPECS` entry
-  // whose declared `kind` disagrees with the slice's real type lands here, and
-  // the failure diagnostic NAMES the slice.
   // The SIX slices `getVersionPayload` captures now split 4/2 at the restore
   // layer: `settingsOverrides` (an object singleton) plus the three
   // user-authored arrays revert, while `documents`/`documentVersions` are
@@ -185,6 +182,9 @@ describe("applyRestore over array-typed slices", () => {
     expect(out.settingsOverrides).toEqual({});
   });
 
+  // BUG-CLASS guard — not about these two names. Any `COLLECTION_SPECS` entry
+  // whose declared `kind` disagrees with the slice's real type lands here, and
+  // the failure diagnostic NAMES the slice.
   it("turns no array-typed slice of the workspace into an object", () => {
     const arrays = (n: string): Partial<Workspace> => ({
       knowledgeItems: [kItem("a", n)],
@@ -235,5 +235,11 @@ describe("changeKey", () => {
     expect(changeKey("tasks", 1)).toBe(changeKey("tasks", 1));
     expect(changeKey("tasks", 1)).not.toBe(changeKey("tasks", 2));
     expect(changeKey("project", null)).toBe(changeKey("project", null));
+    // ★★ These two kill a `String(recordId ?? null)` mutant, which passes every
+    // assertion above while restoring the very collision class this function
+    // exists to remove: it collapses 1 with "1", and an id spelled "null" with
+    // the singleton sentinel — the `"_"` bug, relocated.
+    expect(changeKey("tasks", 1)).not.toBe(changeKey("tasks", "1"));
+    expect(changeKey("x", "null")).not.toBe(changeKey("x", null));
   });
 });
