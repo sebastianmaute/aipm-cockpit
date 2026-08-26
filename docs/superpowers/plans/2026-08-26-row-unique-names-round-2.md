@@ -211,25 +211,43 @@ the same change or nothing compiles. This task only delivers the token; Tasks 3 
 
 - [ ] **Step 1: Write the failing test**
 
-Append to `src/app/tasks-section.test.tsx`. ★ This file stubs `TaskRow`, so it pins the WIRING —
-that `tasks-section` computes and passes a distinct token per row — not the rendered labels. Tasks 3
-and 4 pin the labels.
+★★★ **SUPERSEDED 2026-08-26, AND THE ORIGINAL IS KEPT BELOW BECAUSE THE ERROR IS THE
+LESSON.** The snippet this step used to prescribe called `buildRowTokens` directly on inline
+objects. It never rendered `TasksSection`, so it pinned nothing about the wiring — while the
+annotation above it claimed exactly that — and it duplicated coverage `row-tokens.test.ts`
+already carries in "numbers EVERY colliding row, the first included". It was implemented
+faithfully, shipped in `df9b5ff8`, and caught in spec review; the replacement landed in
+`7c405fc6`. A test whose comment overclaims its coverage is the precise failure this whole
+slice exists to remove, so writing one INTO the plan for it is worth recording.
 
-```tsx
-describe("row tokens", () => {
-  it("gives two same-named tasks distinct tokens on the table and the board", () => {
-    const twins = [
-      makeTask({ id: 1, taskName: "Alpha" }),
-      makeTask({ id: 2, taskName: "Alpha" }),
-    ];
-    const tokens = buildRowTokens(twins.map((t) => ({ id: t.id, name: t.taskName })));
-    // The tokeniser numbers ALL colliding rows, including the first.
-    expect(tokens.get(1)).toBe("Alpha (1)");
-    expect(tokens.get(2)).toBe("Alpha (2)");
-    expect(tokens.get(1)).not.toBe(tokens.get(2));
-  });
-});
-```
+The original text, for the record:
+
+> ★ This file stubs `TaskRow`, so it pins the WIRING — that `tasks-section` computes and
+> passes a distinct token per row — not the rendered labels. Tasks 3 and 4 pin the labels.
+> Followed by a `describe("row tokens", ...)` block that called `buildRowTokens(twins)` on two
+> inline objects and asserted `"Alpha (1)"` / `"Alpha (2)"` — with no `render()` anywhere in it.
+
+**What to write instead — TWO tests, because there are two maps.** Neither can reach the
+other array, so one alone leaves half of Step 6 uncovered.
+
+★ Only `TaskRow` is mocked in `tasks-section.test.tsx`. Board mode therefore renders the REAL
+`TaskKanban` → `TaskKanbanCard` → `TaskStatusSelect` chain, which is what makes test (a) an
+end-to-end check rather than another assertion about a stub.
+
+**(a) Board path** — seed two tasks sharing a `taskName`, render in board mode (mirror the
+existing "board cards show the live resource name" test setup), and assert the two status
+`combobox` elements carry DISTINCT accessible names, one containing `(1)` and the other `(2)`.
+
+**(b) Table path** — extend the `vi.mock("./task-row", ...)` stub to destructure `rowToken` and
+expose it as `data-row-token` on the mocked `<tr>` (mirroring the `data-deeplink-row`
+passthrough already there). Seed two same-named tasks in table mode and assert the two rows
+received DIFFERENT tokens — assert distinctness, not merely presence.
+
+★★ **Mutation-prove both before believing either.** Change the `task-kanban-board.tsx`
+`rowToken={tokens.get(task.id) ?? task.taskName}` lookup to bare `task.taskName` and confirm (a)
+goes red; do the same to the `tableTokens` lookup in `tasks-section.tsx` for (b). Restore with an
+anchored inverse edit — `git checkout -- <file>` is DENY-BLOCKED here — then prove
+`git status --short` empty. Record the mutant token span in the commit message.
 
 ★ Reuse the file's existing task factory. If it has none, build tasks with the same shape the other
 `tasks-section.test.tsx` cases use — read the top of the file first.
