@@ -19,11 +19,21 @@ describe("VersionDiffView", () => {
     expect(screen.getByText("Design sign-off")).toBeInTheDocument();
     expect(screen.getByText("Vendor delay")).toBeInTheDocument();
   });
+  // ★★★ THE `toBeVisible` HALVES ARE LOAD-BEARING, and `toBeInTheDocument`
+  // ALONE IS NOW VACUOUS HERE. The fields panel used to be conditionally
+  // rendered, so its absence before the click was what this test measured. It
+  // is `hidden`-toggled since — `aria-controls` must resolve to an element that
+  // is IN the document — so `getByText(/Old/)` finds the text whether or not the
+  // row was ever expanded, and the original two lines pass with `toggle()`
+  // deleted. jest-dom's `toBeVisible` reads the `hidden` attribute directly,
+  // which is what still tells the two states apart under jsdom (no Tailwind, no
+  // layout).
   it("reveals field before/after when a modified record is expanded", () => {
     render(<VersionDiffView lang="en-US" changes={changes} />);
+    expect(screen.getByText(/Old/)).not.toBeVisible();
     fireEvent.click(screen.getByText("Design sign-off"));
-    expect(screen.getByText(/Old/)).toBeInTheDocument();
-    expect(screen.getByText(/New/)).toBeInTheDocument();
+    expect(screen.getByText(/Old/)).toBeVisible();
+    expect(screen.getByText(/New/)).toBeVisible();
   });
   it("shows an empty state when there are no changes", () => {
     render(<VersionDiffView lang="en-US" changes={[]} />);
@@ -75,7 +85,10 @@ describe("VersionDiffView", () => {
     // row whose expansion contradicts its own "managed per document" hint is
     // worse than either alone.
     fireEvent.click(screen.getByText("Q3 report"));
-    expect(screen.getByText(/Title:/)).toBeInTheDocument(); // the row really expanded
+    // `toBeVisible`, not `toBeInTheDocument`: the panel is `hidden`-toggled, so
+    // the field text is in the document either way and the weaker assertion
+    // would no longer witness the expansion at all.
+    expect(screen.getByText(/Title:/)).toBeVisible(); // the row really expanded
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
 
@@ -249,5 +262,99 @@ describe("VersionDiffView", () => {
     // The record name is a plain span in this branch, so the restore buttons are
     // the ONLY controls — the helper's whole-document scope is exact here.
     expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
+  });
+});
+
+// ★★ THE DISCLOSURE CONTRACT. `aria-expanded` alone is cheap and half-useless:
+// it announces a state without saying what the state belongs to. The pair is
+// what a screen-reader user navigates by, and both halves have a way of being
+// silently wrong here — `aria-controls` pointing at an id that is not in the
+// document (axe `aria-valid-attr-value`, tag wcag2a, so this one a scan COULD
+// catch — but History is Turso-gated and absent from `A11Y_VIEWS`, so no scan
+// ever reaches it), and `aria-expanded` on a row that has no panel to open.
+describe("VersionDiffView disclosure semantics", () => {
+  const expandable: VersionChange = {
+    collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1,
+    recordLabel: "Design sign-off", type: "modified",
+    fields: [{ field: "title", label: "Title", before: "Old", after: "New" }],
+  };
+  const empty: VersionChange = {
+    collection: "raid", collectionLabel: "RAID", kind: "list", recordId: 9,
+    recordLabel: "Vendor delay", type: "removed", fields: [],
+  };
+
+  it("marks the disclosure expanded only once it is open", () => {
+    render(<VersionDiffView lang="en-US" changes={[expandable]} />);
+    const btn = screen.getByRole("button", { name: /Design sign-off/ });
+    expect(btn).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(btn);
+    expect(btn).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("points aria-controls at a panel that is actually in the document", () => {
+    render(<VersionDiffView lang="en-US" changes={[expandable]} />);
+    const id = screen.getByRole("button", { name: /Design sign-off/ }).getAttribute("aria-controls");
+    expect(id).toBeTruthy();
+    // ★ `getElementById`, NOT `querySelector("#" + id)`. React 19.2 emits
+    // `_r_l_`-style ids that happen to be selector-safe, but React 18 emitted
+    // `:r0:` — a colon is a legal HTML id and an illegal bare CSS selector — and
+    // nothing here pins the React major. `getElementById` takes the id
+    // literally, so it is correct under either.
+    const panel = document.getElementById(id!);
+    expect(panel).not.toBeNull();
+    // Collapsed but present — that is the whole point of hidden-toggling it.
+    expect(panel).not.toBeVisible();
+  });
+
+  it("gives two rows distinct panel ids", () => {
+    const row = (id: number): VersionChange => ({ ...expandable, recordId: id });
+    render(<VersionDiffView lang="en-US" changes={[row(1), row(2)]} />);
+    const ids = screen.getAllByRole("button").map((b) => b.getAttribute("aria-controls"));
+    expect(ids).toHaveLength(2);
+    expect(new Set(ids).size).toBe(2);
+  });
+
+  // ★★ A row with no field changes renders NO panel, so both attributes must be
+  // absent. `aria-controls` would dangle; `aria-expanded="false"` would promise
+  // a disclosure that the click handler (gated on `expandable`) never opens.
+  it("puts neither attribute on a row that has no fields to disclose", () => {
+    render(<VersionDiffView lang="en-US" changes={[empty]} />);
+    const btn = screen.getByRole("button", { name: /Vendor delay/ });
+    expect(btn).not.toHaveAttribute("aria-expanded");
+    expect(btn).not.toHaveAttribute("aria-controls");
+  });
+
+  // ★★ The hint is the answer to "why is there no restore button on this row?",
+  // and on a non-restorable row the disclosure button is the row's ONLY control
+  // — so without the association a screen-reader user reaches the control and
+  // never meets the explanation sitting beside it.
+  it("describes a non-restorable row's control with the managed-per-document hint", () => {
+    const doc: VersionChange = {
+      collection: "documents", collectionLabel: "Documents", kind: "list",
+      recordId: 1, recordLabel: "Q3 report", type: "modified",
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+      restorable: false,
+    };
+    render(<VersionDiffView lang="en-US" changes={[doc]} selectable onRestoreRecord={() => {}} />);
+    const btn = screen.getByRole("button", { name: /Q3 report/ });
+    const describedBy = btn.getAttribute("aria-describedby");
+    expect(describedBy).toBeTruthy();
+    expect(document.getElementById(describedBy!)).toHaveTextContent(/managed per document/i);
+  });
+
+  it("leaves a RESTORABLE row undescribed — it renders no hint to point at", () => {
+    render(<VersionDiffView lang="en-US" changes={[expandable]} selectable onRestoreRecord={() => {}} />);
+    // ★ Anchored on the TYPE prefix, not the bare record label: a restorable row
+    // also renders a "Restore this – Design sign-off" button, so the loose
+    // pattern matches two controls and throws.
+    expect(screen.getByRole("button", { name: /^Modified/ }))
+      .not.toHaveAttribute("aria-describedby");
+  });
+
+  // ★ The owner's ref guard is what makes a double restore impossible; this
+  // prop is the affordance. Both matter, and only this half is testable here.
+  it("disables the per-record restore button while a restore is running", () => {
+    render(<VersionDiffView lang="en-US" changes={[expandable]} onRestoreRecord={() => {}} restoreBusy />);
+    expect(screen.getByRole("button", { name: /Restore this/i })).toBeDisabled();
   });
 });

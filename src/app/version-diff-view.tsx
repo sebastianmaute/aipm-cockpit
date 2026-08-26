@@ -11,7 +11,7 @@
 // skips those collections, so both controls would be silent no-ops reporting
 // success. The row renders `historyNotRestorable` in their place instead.
 
-import { useState } from "react";
+import { useId, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { VersionChange, ChangeType } from "./version-diff";
@@ -40,6 +40,7 @@ export function VersionDiffView({
   onToggleRecord,
   onToggleField,
   onRestoreRecord,
+  restoreBusy = false,
   layout = "inline",
   leftLabel,
   rightLabel,
@@ -53,6 +54,11 @@ export function VersionDiffView({
   /** When set (vs-now compare), each record row gets a "Restore this" button
    *  that restores just that record. */
   onRestoreRecord?: (key: string) => void;
+  /** A restore is already running. The owner also guards this with a ref, so
+   *  this is the AFFORDANCE, not the correctness: without it these buttons stay
+   *  live for the whole restore and a rejected second click is
+   *  indistinguishable from a dead control. */
+  restoreBusy?: boolean;
   /** "inline" stacks before→after per field; "sideBySide" shows two columns. */
   layout?: "inline" | "sideBySide";
   /** Column headers for the side-by-side layout (the two versions' labels). */
@@ -60,6 +66,14 @@ export function VersionDiffView({
   rightLabel?: string;
 }) {
   const [open, setOpen] = useState<Set<string>>(new Set());
+  // ★★ THE PANEL IDS CANNOT BE DERIVED FROM `changeKey`, which is what the
+  // obvious version of this did. That key is `JSON.stringify([collection, id])`
+  // — quotes, brackets and a comma are all legal in an HTML5 id, but a SPACE is
+  // not, and `knowledgeItems` ids are free-form strings. Sanitising instead
+  // would risk two keys collapsing onto one id, which axe DOES flag
+  // (`duplicate-id-aria`, tag `wcag2a`), turning an a11y fix into an a11y
+  // failure. `useId` also keeps two mounted diff views from colliding.
+  const uid = useId();
   if (changes.length === 0) {
     return <p className="text-sm text-muted-foreground">{t(lang, "historyNoChanges")}</p>;
   }
@@ -86,6 +100,9 @@ export function VersionDiffView({
   // caught it. The keys are `keyOf(c)` = `changeKey(collection, recordId)`,
   // already globally unique, so one map serves every group.
   const tokens = buildRowTokens(changes.map((c) => ({ id: keyOf(c), name: c.recordLabel })));
+  // Built over ALL changes for the same reason `tokens` is: the keys are
+  // globally unique, so one map serves every group.
+  const panelIds = new Map(changes.map((c, i) => [keyOf(c), `${uid}fields-${i}`]));
 
   if (layout === "sideBySide") {
     // For a two-version compare: earlier state on the left, later on the right.
@@ -122,7 +139,8 @@ export function VersionDiffView({
                           onClick={() => onRestoreRecord(k)}
                           title={t(lang, "historyRestoreRecordHint")}
                           aria-label={rowLabel(t(lang, "historyRestoreRecord"), tokens.get(k) ?? c.recordLabel)}
-                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted dark:text-ui-light-grey"
+                          disabled={restoreBusy}
+                          className="shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60 dark:text-ui-light-grey"
                         >
                           {t(lang, "historyRestoreRecord")}
                         </button>
@@ -211,13 +229,28 @@ export function VersionDiffView({
                       // title (this button is then the row's ONLY control),
                       // impossible to write. Do not hand-roll this name again.
                       aria-label={rowLabel(t(lang, TYPE_KEY[c.type]), tokens.get(k) ?? c.recordLabel)}
+                      // ★★ BOTH ARE `undefined` WHEN THE ROW HAS NO FIELDS, and
+                      // that is not tidiness. A row with an empty `fields` array
+                      // renders no panel at all, so `aria-controls` would point
+                      // at an id that is not in the document (axe
+                      // `aria-valid-attr-value`, tag wcag2a) and
+                      // `aria-expanded={false}` would promise a disclosure that
+                      // can never open — this button's click handler is already
+                      // gated on `expandable`.
+                      aria-expanded={expandable ? open.has(k) : undefined}
+                      aria-controls={expandable ? panelIds.get(k) : undefined}
+                      // ★ Only for a NON-restorable row, where the hint is the
+                      // answer to "why is there no restore button here?" and
+                      // this button is the row's only control. On a restorable
+                      // row no hint renders, so there is nothing to point at.
+                      aria-describedby={revertible ? undefined : `${panelIds.get(k)}-managed`}
                       className="flex w-full items-center justify-between text-left"
                     >
                       <span className="text-foreground">{c.recordLabel}</span>
                       <span aria-hidden="true" className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     </button>
                     {!revertible && (
-                      <span className="ml-2 shrink-0 text-xs text-muted-foreground">
+                      <span id={`${panelIds.get(k)}-managed`} className="ml-2 shrink-0 text-xs text-muted-foreground">
                         {t(lang, "historyNotRestorable")}
                       </span>
                     )}
@@ -227,14 +260,24 @@ export function VersionDiffView({
                         onClick={() => onRestoreRecord(k)}
                         title={t(lang, "historyRestoreRecordHint")}
                         aria-label={rowLabel(t(lang, "historyRestoreRecord"), tokens.get(k) ?? c.recordLabel)}
-                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted dark:text-ui-light-grey"
+                        disabled={restoreBusy}
+                        className="ml-2 shrink-0 cursor-pointer rounded-md border border-line px-2 py-0.5 text-xs font-medium text-ui-dark-blue transition-colors hover:bg-surface-muted disabled:cursor-not-allowed disabled:opacity-60 dark:text-ui-light-grey"
                       >
                         {t(lang, "historyRestoreRecord")}
                       </button>
                     )}
                   </div>
-                  {expandable && open.has(k) && (
-                    <ul className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1">
+                  {/* ★★ MOUNTED WHENEVER THE ROW IS EXPANDABLE, hidden rather
+                      than unmounted — `aria-controls` on the button above must
+                      resolve to an element that is IN the document, or axe's
+                      `aria-valid-attr-value` (wcag2a) fails. Same pattern, and
+                      the same reason, as the next-actions reasons panel. */}
+                  {expandable && (
+                    <ul
+                      id={panelIds.get(k)}
+                      hidden={!open.has(k)}
+                      className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1"
+                    >
                       {c.fields.map((f) => (
                         <li key={f.field} className="flex flex-wrap items-center gap-1 text-xs">
                           {selectable && revertible && (

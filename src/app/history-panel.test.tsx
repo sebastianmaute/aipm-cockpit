@@ -1,5 +1,5 @@
 import { it, expect, vi } from "vitest";
-import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { render, screen, fireEvent, waitFor, act } from "@testing-library/react";
 import { HistoryPanel, selectableSelection } from "./history-panel";
 import { DisplayTimezoneProvider } from "./display-timezone-context";
 import { ToastProvider } from "./toast-context";
@@ -378,4 +378,82 @@ it("offers no compare-header restore controls when every change is non-restorabl
   expect(screen.queryByRole("button", { name: "Restore this state" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Select all" })).toBeNull();
   expect(screen.queryByRole("button", { name: "Restore selected" })).toBeNull();
+});
+
+// ★★★ THE HOOK'S `busy` DOES NOT COVER THIS WINDOW, which is why a guard exists
+// in the panel at all. `restore()` only reaches the call that sets `busy` after
+// two awaits, and `restoreWholeVersion` runs a whole `loadDiff` before that — so
+// between the click and `busy` flipping there is room for a second click. Two
+// restores of one version are not a wipe, but they append two auto-captures and
+// two activity entries for one user action.
+it("runs one restore for a double-clicked 'Restore this state'", async () => {
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  let release!: (v: VersionChange[]) => void;
+  const loadDiff = vi.fn(() => new Promise<VersionChange[]>((res) => { release = res; }));
+  const restore = vi.fn().mockResolvedValue(true);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff as never} restore={restore} />);
+  const btn = screen.getByRole("button", { name: "Restore this state – Baseline" });
+  // ★★★ ONE `act`, TWO NATIVE CLICKS — and the shape is what makes this test
+  // isolate the REF rather than the disabled attribute. React batches updates
+  // within a task, so the re-render that disables the button has not happened
+  // when the second `.click()` dispatches: it reaches a still-enabled button
+  // running the same handler closure, and only the synchronous ref turns it
+  // away. Two `fireEvent.click` calls would each flush, so the second would be
+  // swallowed by `disabled` and the test would stay green with the ref deleted.
+  act(() => { btn.click(); btn.click(); });
+  expect(loadDiff).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    release([{ collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "T1", type: "modified", fields: [] }]);
+  });
+  expect(restore).toHaveBeenCalledTimes(1);
+});
+
+it("disables the row's restore control while its restore is running, and re-enables it after", async () => {
+  const versions = [{ id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null }];
+  let release!: (v: VersionChange[]) => void;
+  const loadDiff = vi.fn(() => new Promise<VersionChange[]>((res) => { release = res; }));
+  const restore = vi.fn().mockResolvedValue(true);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff as never} restore={restore} />);
+  const btn = screen.getByRole("button", { name: "Restore this state – Baseline" });
+  expect(btn).not.toBeDisabled();
+  fireEvent.click(btn);
+  // The affordance half of the guard: without it a rejected second click is
+  // indistinguishable from a dead control.
+  expect(btn).toBeDisabled();
+  // Resolve to an EMPTY diff so the flow short-circuits on the toast path — the
+  // guard must release on every exit, not only the successful one.
+  await act(async () => { release([]); });
+  expect(restore).not.toHaveBeenCalled();
+  expect(btn).not.toBeDisabled();
+});
+
+// ★★ `VersionDiffView` owns its per-row `open` set, and the panel cannot reach
+// it (`react-hooks/set-state-in-effect` is banned). Replacing `diff` without
+// remounting left stale keys behind, and `changeKey("tasks", 1)` is the same
+// string in every compare — so a row expanded in one comparison came back
+// pre-expanded in the next. The × button already unmounts the whole block; this
+// covers compare→compare, which does not.
+it("collapses expanded rows when a second compare replaces the first", async () => {
+  const versions = [
+    { id: "v2", projectId: "p1", capturedAt: "2026-06-11T12:00:00.000Z", trigger: "manual", label: "Later", summary: null },
+    { id: "v1", projectId: "p1", capturedAt: "2026-06-10T09:00:00.000Z", trigger: "manual", label: "Baseline", summary: null },
+  ];
+  // The SAME record key in both compares — that identity is the whole hazard.
+  const change: VersionChange = {
+    collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1,
+    recordLabel: "T1", type: "modified",
+    fields: [{ field: "title", label: "Title", before: "Old", after: "New" }],
+  };
+  const loadDiff = vi.fn().mockResolvedValue([change]);
+  renderPanel(<HistoryPanel lang="en-US" versions={versions as never} busy={false} onCaptureNow={() => {}} loadDiff={loadDiff} restore={vi.fn().mockResolvedValue(true)} />);
+
+  fireEvent.click(screen.getByRole("button", { name: "Compared with current – Baseline" }));
+  await waitFor(() => expect(screen.getByText("T1")).toBeInTheDocument());
+  fireEvent.click(screen.getByText("T1"));
+  expect(screen.getByText(/Title:/)).toBeVisible();
+
+  // A second compare, WITHOUT closing the first.
+  fireEvent.click(screen.getByRole("button", { name: "Compared with current – Later" }));
+  await waitFor(() => expect(loadDiff).toHaveBeenCalledTimes(2));
+  expect(screen.getByText(/Title:/)).not.toBeVisible();
 });
