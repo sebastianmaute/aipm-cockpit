@@ -27,14 +27,25 @@ function isTransactional(stmts: SqlStmt[]): boolean {
   return /^\s*BEGIN\b/i.test(stmts[0]?.sql ?? "");
 }
 
-/** POST a pipeline request with an AbortController-based timeout.
- *  AbortController + setTimeout (rather than AbortSignal.timeout, used by the
- *  server routes) so fake-timer tests can drive the abort deterministically. */
+/** POST a pipeline request with an AbortController-based timeout, and read the
+ *  response body INSIDE the armed window.
+ *  ★★★ THE BODY READ IS THE POINT. `fetch` resolves when the HEADERS arrive, so
+ *  clearing the timer on its return leaves `res.json()` unbounded: a server that
+ *  sends headers and then stalls the body hung forever, on every caller of
+ *  `runTursoPipeline` — workspace load and save, snapshots, chat threads,
+ *  document assets and version history alike. Measured, not reasoned: `json()`
+ *  on a never-completing body is still pending with no signal armed, and an
+ *  abort raised DURING a body read rejects `AbortError`. Returning the parsed
+ *  text rather than the `Response` is what makes that structural — a caller
+ *  cannot forget to read the body in the window, because there is no `Response`
+ *  to hand it.
+ *  ★ AbortController + setTimeout (rather than `AbortSignal.timeout`, used by
+ *  the server routes) so fake-timer tests can drive the abort deterministically. */
 async function postPipeline(
   config: TursoConfig,
   stmts: SqlStmt[],
   timeoutMs: number,
-): Promise<Response> {
+): Promise<{ status: number; ok: boolean; text: string }> {
   const headers: Record<string, string> = { "Content-Type": "application/json" };
   if (config.authToken) {
     headers.Authorization = `Bearer ${config.authToken}`;
@@ -42,12 +53,17 @@ async function postPipeline(
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    return await fetch(`${config.httpUrl}/v2/pipeline`, {
+    const res = await fetch(`${config.httpUrl}/v2/pipeline`, {
       method: "POST",
       headers,
       body: JSON.stringify({ requests: stmts.map(execute) }),
       signal: controller.signal,
     });
+    // ★ Read the body even on 401 and other non-ok statuses. It is discarded,
+    // but draining it inside the armed window keeps a stalled error body from
+    // hanging and releases the connection instead of leaving it undrained.
+    const text = await res.text();
+    return { status: res.status, ok: res.ok, text };
   } finally {
     clearTimeout(timer);
   }
@@ -75,11 +91,12 @@ export async function runTursoPipeline(
   if (!config) {
     throw new StorageNotReadyError("Configure the Turso URL and token in Settings.");
   }
-  let res: Response;
+  let res: { status: number; ok: boolean; text: string };
   try {
     res = await postPipeline(config, stmts, timeoutMs);
   } catch {
-    // Network failure or timeout abort: either way the host is unreachable.
+    // Network failure, or a timeout abort on either the headers or the body:
+    // either way the host is unreachable.
     throw new StorageNotReadyError("storage-unreachable");
   }
   if (res.status === 401) {
@@ -88,7 +105,13 @@ export async function runTursoPipeline(
   if (!res.ok) {
     throw new Error(`Turso returned ${res.status}. Try again later.`);
   }
-  const raw: unknown = await res.json();
+  let raw: unknown;
+  try {
+    raw = JSON.parse(res.text);
+  } catch {
+    // A non-JSON 200 used to escape as a raw SyntaxError from `res.json()`.
+    throw new Error("Turso returned an unexpected response shape.");
+  }
   if (!raw || typeof raw !== "object" || !("results" in raw)) {
     throw new Error("Turso returned an unexpected response shape.");
   }

@@ -101,6 +101,76 @@ describe("runTursoPipeline timeout", () => {
     await runTursoPipeline(cfg, [{ sql: "SELECT 1" }]);
     expect(vi.getTimerCount()).toBe(0);
   });
+
+  /** A fetch that RESOLVES its headers immediately and then stalls the body
+   *  forever. The abort signal is wired into the stream so an abort raised
+   *  during the body read surfaces as a stream error, which is what a real
+   *  fetch body does. */
+  function stubStalledBodyFetch() {
+    const fetchMock = vi.fn((_url: unknown, init?: RequestInit) => {
+      const body = new ReadableStream({
+        start(ctrl) {
+          init?.signal?.addEventListener("abort", () =>
+            ctrl.error(new DOMException("The operation was aborted.", "AbortError")),
+          );
+        },
+      });
+      return Promise.resolve(new Response(body, { status: 200 }));
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+
+  // ★★★ THE TIMER USED TO BE DISARMED WHEN THE HEADERS LANDED, so this case —
+  // headers OK, body never completes — hung forever on every Turso caller in
+  // the app. The sibling test "clears the abort timer once the fetch resolves"
+  // stays green under BOTH the old and the new placement (it asserts no LEAKED
+  // timer after the call returns, which was always true), which is exactly why
+  // it never caught this. Mutation-proof this one by moving `clearTimeout` back
+  // above the body read: it must go red.
+  it("aborts a stalled BODY, not just a stalled connection", async () => {
+    vi.useFakeTimers();
+    stubStalledBodyFetch();
+    const p = runTursoPipeline(cfg, [{ sql: "SELECT 1" }]);
+    const settled = vi.fn();
+    void p.then(settled, settled);
+    await vi.advanceTimersByTimeAsync(DEFAULT_PIPELINE_TIMEOUT_MS - 1);
+    expect(settled).not.toHaveBeenCalled();
+    await vi.advanceTimersByTimeAsync(1);
+    await expect(p).rejects.toMatchObject({ hint: "storage-unreachable" });
+  });
+
+  // The timer now spans the body read, so it is disarmed on FOUR different exit
+  // paths and a leak on any one of them would abort an unrelated later request.
+  // The rollback path is the interesting one: it posts a SECOND pipeline, so it
+  // arms a second timer.
+  it.each([
+    ["ok", () => new Response(JSON.stringify({ results: [{ type: "ok" }] }), { status: 200 })],
+    ["non-ok", () => new Response("nope", { status: 500 })],
+    ["401", () => new Response("no", { status: 401 })],
+  ])("leaves no armed timer on the %s path", async (_name, make) => {
+    vi.useFakeTimers();
+    stubFetch(make);
+    await runTursoPipeline(cfg, [{ sql: "SELECT 1" }]).catch(() => undefined);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("leaves no armed timer when a statement error triggers the rollback", async () => {
+    vi.useFakeTimers();
+    const fetchMock = vi.fn()
+      .mockResolvedValueOnce(jsonRes(errorResults))
+      .mockResolvedValueOnce(jsonRes({ results: [] }));
+    vi.stubGlobal("fetch", fetchMock);
+    await expect(runTursoPipeline(cfg, beginBatch)).rejects.toThrow(/boom/);
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(vi.getTimerCount()).toBe(0);
+  });
+
+  it("reports a non-JSON 200 as a shape error, not a raw SyntaxError", async () => {
+    stubFetch(() => new Response("<html>gateway</html>", { status: 200 }));
+    await expect(runTursoPipeline(cfg, [{ sql: "SELECT 1" }]))
+      .rejects.toThrow(/unexpected response shape/);
+  });
 });
 
 describe("runTursoPipeline rollback on statement error", () => {
