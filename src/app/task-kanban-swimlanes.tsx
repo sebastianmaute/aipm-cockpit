@@ -33,10 +33,13 @@ interface TaskKanbanSwimlanesProps {
   extraLaneIds: readonly number[];
   /** Row-unique display tokens for `tasks`, keyed by task id. Built by the list
    *  owner (`tasks-section.tsx`) because uniqueness is a property of the
-   *  rendered list and a card cannot see its siblings. Optional (defaults
-   *  empty, falling back to the task's own name) so lightweight callers/tests
-   *  can omit it. */
-  tokens?: ReadonlyMap<number, string>;
+   *  rendered list and a card cannot see its siblings.
+   *  ★★ REQUIRED, deliberately — mirrors `rowToken` on TaskStatusSelect: an
+   *  optional prop defaulting to an empty map would silently reinstate the
+   *  WCAG 2.4.6 collision this branch exists to remove, and no gate can see
+   *  a duplicate accessible name to catch that regression. Required means
+   *  tsc enumerates every caller. */
+  tokens: ReadonlyMap<number, string>;
   /** today/holidaySet drive the per-card health dot + overdue emphasis. Optional
    *  so lightweight callers (tests) can omit them; the live pane always passes
    *  the same values the table rows use. */
@@ -84,7 +87,6 @@ interface TaskKanbanSwimlanesProps {
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
 const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
-const EMPTY_TOKENS: ReadonlyMap<number, string> = new Map();
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 const LANE_COL_CLASS = "w-40 shrink-0";
@@ -97,7 +99,7 @@ export function TaskKanbanSwimlanes({
   tasks,
   resourcesById,
   extraLaneIds,
-  tokens = EMPTY_TOKENS,
+  tokens,
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
   jiraProjectKey = "",

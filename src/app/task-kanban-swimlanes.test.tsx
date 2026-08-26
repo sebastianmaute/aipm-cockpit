@@ -12,6 +12,10 @@ const resources = new Map<number, Resource>([
   [1, { id: 1, firstName: "Anna", lastName: "Jordan", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
 ]);
 
+// tokens is required on TaskKanbanSwimlanes (row-unique accessible names,
+// WCAG 2.4.6); these tests don't seed collisions, so an empty map is enough.
+const NO_TOKENS: ReadonlyMap<number, string> = new Map();
+
 describe("TaskKanbanSwimlanes", () => {
   it("renders a lane per person plus Unassigned", () => {
     render(
@@ -20,6 +24,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -37,6 +42,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -54,6 +60,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={onSwimlaneDrop}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -73,6 +80,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 2, status: "To Do", jiraKey: "LOP-2" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -95,6 +103,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -115,6 +124,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[]}
         resourcesById={resources}
         extraLaneIds={[1]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -134,6 +144,7 @@ describe("TaskKanbanSwimlanes", () => {
           tasks={[taskFix({ id: 1, status: "To Do" })]}
           resourcesById={resources}
           extraLaneIds={[]}
+          tokens={NO_TOKENS}
           onSwimlaneDrop={vi.fn()}
           onStatusChange={vi.fn()}
           onEdit={vi.fn()}
@@ -152,6 +163,7 @@ describe("TaskKanbanSwimlanes column sizing", () => {
         tasks={[]}
         resourcesById={new Map()}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
