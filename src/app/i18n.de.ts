@@ -3764,7 +3764,7 @@ export const de: Record<TranslationKey, string> = {
   storageKeptCurrentData: "Der Speicher lieferte keine Daten — Ihr aktuelles Projekt wurde beibehalten. Laden Sie die Seite neu, falls dies weiterhin auftritt.",
   storageRefusedWipe: "Der Speicher hat ein plötzliches Leeren des gesamten Projekts verhindert, um es zu schützen (vermutlich eine Störung). Ihre gespeicherten Daten sind intakt — laden Sie die Seite neu, um sie wiederherzustellen.",
   historyRestoreNothing: "Nichts wiederherzustellen — diese Version unterscheidet sich nicht vom aktuellen Projekt (möglicherweise ein leerer Snapshot).",
-  historyRestoreNothingManaged: "Nichts wiederherzustellen — alle Änderungen dieser Version sind Dokumentversionen und werden pro Dokument verwaltet.",
+  historyRestoreNothingManaged: "Nichts wiederherzustellen — alle Änderungen dieser Version gehören zur Dokumenthistorie und werden pro Dokument verwaltet.",
   projectsSwitch: "Projekt wechseln",
   projectsEdit: "Projekt bearbeiten",
   projectsExport: "Projekt exportieren",
