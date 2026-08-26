@@ -8,18 +8,24 @@ import { TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { statusBadgeClass, statusLabelKey } from "./task-status-ui";
 import { isJiraSynced } from "./jira-status-map";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
+import { rowLabel } from "./row-tokens";
 
 interface TaskStatusSelectProps {
   lang: Lang;
   task: Pick<Task, "id" | "taskName" | "status" | "jiraKey">;
+  /** ★★ REQUIRED, deliberately. An optional prop defaulting to `task.taskName`
+   *  inside this component would compile at a caller that forgot it and ship
+   *  the collision silently; required means tsc enumerates the misses. The
+   *  fallback lives at the LIST owner, where the map lookup happens. */
+  rowToken: string;
   onStatusChange: (id: number, next: TaskStatus) => void;
 }
 
-export function TaskStatusSelect({ lang, task, onStatusChange }: TaskStatusSelectProps) {
+export function TaskStatusSelect({ lang, task, rowToken, onStatusChange }: TaskStatusSelectProps) {
   const synced = isJiraSynced(task);
   return (
     <select
-      aria-label={`${t(lang, "colTaskStatus")} – ${task.taskName}`}
+      aria-label={rowLabel(t(lang, "colTaskStatus"), rowToken)}
       value={task.status}
       disabled={synced}
       title={synced ? t(lang, "jiraManagedTooltip") : undefined}

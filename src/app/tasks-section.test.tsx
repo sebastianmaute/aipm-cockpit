@@ -4,6 +4,7 @@ import { render, screen, fireEvent, act, within } from "@testing-library/react";
 import { t, loadI18n } from "./i18n";
 import { getAppearanceSnapshot, saveProjectAppearance } from "./project-appearance-prefs";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { buildRowTokens } from "./row-tokens";
 
 vi.mock("./workspace-context", () => ({ useWorkspace: vi.fn() }));
 vi.mock("./filters-context", () => ({ useFilters: vi.fn() }));
@@ -1300,5 +1301,24 @@ describe("TasksSection", () => {
       const gutter = container.querySelector("colgroup col") as HTMLTableColElement;
       expect(gutter.style.width).toBe(`${GUTTER_WIDTH_PX}px`);
     });
+  });
+});
+
+describe("row tokens", () => {
+  // No shared task factory exists in this file — inline task-shaped objects
+  // (matching the `{ id, taskName }` shape used elsewhere here) are enough for
+  // buildRowTokens, which only reads id/name.
+  const makeTask = (over: { id: number; taskName: string }) => over;
+
+  it("gives two same-named tasks distinct tokens on the table and the board", () => {
+    const twins = [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Alpha" }),
+    ];
+    const tokens = buildRowTokens(twins.map((t) => ({ id: t.id, name: t.taskName })));
+    // The tokeniser numbers ALL colliding rows, including the first.
+    expect(tokens.get(1)).toBe("Alpha (1)");
+    expect(tokens.get(2)).toBe("Alpha (2)");
+    expect(tokens.get(1)).not.toBe(tokens.get(2));
   });
 });

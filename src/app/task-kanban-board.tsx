@@ -30,6 +30,12 @@ interface TaskKanbanProps {
    *  card. Optional (defaults empty) so lightweight callers/tests can omit it;
    *  the live board threads the same map the table rows use. */
   resourcesById?: ReadonlyMap<number, Resource>;
+  /** Row-unique display tokens for `tasks`, keyed by task id. Built by the list
+   *  owner (`tasks-section.tsx`) because uniqueness is a property of the
+   *  rendered list and a card cannot see its siblings. Optional (defaults
+   *  empty, falling back to the task's own name) so lightweight callers/tests
+   *  can omit it. */
+  tokens?: ReadonlyMap<number, string>;
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
@@ -58,6 +64,7 @@ interface TaskKanbanProps {
 const EMPTY_HOLIDAYS: Set<string> = new Set();
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
 const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
+const EMPTY_TOKENS: ReadonlyMap<number, string> = new Map();
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 /** Status column sizing, shared with task-kanban-swimlanes.tsx's
@@ -75,6 +82,7 @@ export function TaskKanban({
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
   resourcesById = EMPTY_RESOURCE_LOOKUP,
+  tokens = EMPTY_TOKENS,
   jiraProjectKey = "",
   jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
@@ -129,6 +137,7 @@ export function TaskKanban({
                     today={today}
                     holidaySet={holidaySet}
                     resourcesById={resourcesById}
+                    rowToken={tokens.get(task.id) ?? task.taskName}
                     raidRefs={raidByTask?.get(task.id)}
                     changeRefs={changeByTask?.get(task.id)}
                     documentsByEntity={documentsByEntity}

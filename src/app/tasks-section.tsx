@@ -32,6 +32,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
+import { buildRowTokens } from "./row-tokens";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -394,6 +395,22 @@ export function TasksSection({
   const visibleRows = useMemo(
     () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
     [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
+  );
+
+  // ★★ TWO maps, not one, and this is not redundancy. The table renders
+  // `visibleRows` (which also applies hide-finished) while both Kanban views
+  // render `healthFilteredTasks`. An occurrence index is only meaningful over
+  // the array actually on screen, so a shared map would number the table's rows
+  // against tasks the table is not showing.
+  const tableTokens = useMemo(
+    () => buildRowTokens(visibleRows.map((task) => ({ id: task.id, name: task.taskName }))),
+    [visibleRows],
+  );
+  // ★ Board and swimlanes share this one: both render the whole array on one
+  // page, so uniqueness has to span lanes and columns, not sit inside one.
+  const boardTokens = useMemo(
+    () => buildRowTokens(healthFilteredTasks.map((task) => ({ id: task.id, name: task.taskName }))),
+    [healthFilteredTasks],
   );
 
   const laneIds = useMemo(
@@ -872,6 +889,7 @@ export function TasksSection({
           lang={lang}
           tasks={healthFilteredTasks}
           resourcesById={resourcesById}
+          tokens={boardTokens}
           extraLaneIds={visibleExtraLaneIds}
           today={today}
           holidaySet={holidaySet}
@@ -903,6 +921,7 @@ export function TasksSection({
           today={today}
           holidaySet={holidaySet}
           resourcesById={resourcesById}
+          tokens={boardTokens}
           raidByTask={raidByTask}
           changeByTask={changeByTask}
           documentsByEntity={documentsByEntity}
@@ -994,6 +1013,7 @@ export function TasksSection({
                 <TaskRow
                   key={task.id}
                   task={task}
+                  rowToken={tableTokens.get(task.id) ?? task.taskName}
                   isSelected={selectedIds.has(task.id)}
                   isEditing={editingId === task.id}
                   isPushing={pushingIds.has(task.id)}

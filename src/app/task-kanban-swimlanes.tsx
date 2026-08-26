@@ -31,6 +31,12 @@ interface TaskKanbanSwimlanesProps {
   /** Resource ids pulled in explicitly (e.g. via an "Add person lane" picker) so
    *  an as-yet-empty lane is still droppable. Required — pass `[]` when none. */
   extraLaneIds: readonly number[];
+  /** Row-unique display tokens for `tasks`, keyed by task id. Built by the list
+   *  owner (`tasks-section.tsx`) because uniqueness is a property of the
+   *  rendered list and a card cannot see its siblings. Optional (defaults
+   *  empty, falling back to the task's own name) so lightweight callers/tests
+   *  can omit it. */
+  tokens?: ReadonlyMap<number, string>;
   /** today/holidaySet drive the per-card health dot + overdue emphasis. Optional
    *  so lightweight callers (tests) can omit them; the live pane always passes
    *  the same values the table rows use. */
@@ -78,6 +84,7 @@ interface TaskKanbanSwimlanesProps {
 
 const EMPTY_HOLIDAYS: Set<string> = new Set();
 const EMPTY_EXTRA_PROJECTS: readonly JiraExtraProject[] = [];
+const EMPTY_TOKENS: ReadonlyMap<number, string> = new Map();
 const NOOP_JUMP_TO_RAID: (taskId: number) => void = () => {};
 
 const LANE_COL_CLASS = "w-40 shrink-0";
@@ -90,6 +97,7 @@ export function TaskKanbanSwimlanes({
   tasks,
   resourcesById,
   extraLaneIds,
+  tokens = EMPTY_TOKENS,
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
   jiraProjectKey = "",
@@ -187,6 +195,7 @@ export function TaskKanbanSwimlanes({
                           today={today}
                           holidaySet={holidaySet}
                           resourcesById={resourcesById}
+                          rowToken={tokens.get(task.id) ?? task.taskName}
                           raidRefs={raidByTask?.get(task.id)}
                           changeRefs={changeByTask?.get(task.id)}
                           documentsByEntity={documentsByEntity}

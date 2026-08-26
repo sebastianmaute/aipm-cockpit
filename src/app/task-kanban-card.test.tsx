@@ -39,6 +39,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -56,6 +57,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ jiraKey: "LOP-5" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -76,6 +78,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         raidRefs={[raidFix("R"), raidFix("I")]}
@@ -103,6 +106,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ id: 7, taskName: "Alpha" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         assignableResources={[resourceFix({ id: 3, firstName: "Cy", lastName: "Meyer" })]}
@@ -122,6 +126,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ jiraKey: "LOP-8" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         assignableResources={[resourceFix()]}
@@ -139,6 +144,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -186,6 +192,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
             key={task.id}
             lang="en-US"
             task={task}
+            rowToken={task.taskName}
             today="2026-06-19"
             holidaySet={new Set()}
             documentsByEntity={documentsByEntity}

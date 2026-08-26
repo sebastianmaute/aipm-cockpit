@@ -33,6 +33,9 @@ interface TaskKanbanCardProps {
    *  a linked task; the stored `assignee` cache goes stale after a rename.
    *  Optional (defaults empty) so lightweight callers/tests can omit it. */
   resourcesById?: ReadonlyMap<number, Resource>;
+  /** This card's row-unique display token, from the board's `tokens` map.
+   *  ★ PROPS, never context — the board renders cards OUTSIDE RowContextProvider. */
+  rowToken: string;
   raidRefs?: RaidItem[];
   changeRefs?: ChangeItem[];
   /** ★★ PROPS, never context: the board renders cards OUTSIDE RowContextProvider
@@ -60,6 +63,7 @@ export function TaskKanbanCard({
   today,
   holidaySet,
   resourcesById,
+  rowToken,
   raidRefs,
   changeRefs,
   documentsByEntity,
@@ -139,7 +143,7 @@ export function TaskKanbanCard({
       </div>
 
       <div className="flex items-center justify-between gap-1.5">
-        <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+        <TaskStatusSelect lang={lang} task={task} rowToken={rowToken} onStatusChange={onStatusChange} />
         {aiEditEnabled?.(task) && (
           <button
             type="button"

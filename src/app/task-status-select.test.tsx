@@ -12,7 +12,7 @@ const task: Pick<Task, "id" | "taskName" | "status" | "jiraKey"> = {
 describe("TaskStatusSelect", () => {
   it("carries a hover affordance on the status dropdown", () => {
     const { getByRole } = render(
-      <TaskStatusSelect lang="en-US" task={task} onStatusChange={vi.fn()} />,
+      <TaskStatusSelect lang="en-US" task={task} rowToken={task.taskName} onStatusChange={vi.fn()} />,
     );
     // Palette-safe hover (TRANSITION already smooths it); mouseover changes the border.
     expect(getByRole("combobox").className).toContain("hover:border-ui-dark-blue");
@@ -20,7 +20,7 @@ describe("TaskStatusSelect", () => {
 
   it("has a row-unique accessible name", () => {
     const { getByRole } = render(
-      <TaskStatusSelect lang="en-US" task={task} onStatusChange={vi.fn()} />,
+      <TaskStatusSelect lang="en-US" task={task} rowToken={task.taskName} onStatusChange={vi.fn()} />,
     );
     expect(getByRole("combobox").getAttribute("aria-label")).toContain("Write spec");
   });

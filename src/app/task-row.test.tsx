@@ -123,6 +123,7 @@ describe("TaskRow", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -150,7 +151,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -169,7 +170,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -190,6 +191,7 @@ describe("TaskRow", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -211,6 +213,7 @@ describe("TaskRow", () => {
     const child = (
       <TaskRow
         task={task}
+        rowToken={task.taskName}
         isSelected={false}
         isEditing={false}
         isPushing={false}
@@ -245,6 +248,7 @@ describe("TaskRow", () => {
           <Profiler id="row" onRender={renderSpy}>
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={false}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -281,6 +285,7 @@ describe("TaskRow", () => {
           <Profiler id="row" onRender={renderSpy}>
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={sel}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -308,6 +313,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 21, status: "In Review" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -327,6 +333,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 22, status: "On Hold" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -345,6 +352,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 23, createdDate: "2026-01-15" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false} isPushing={false}
             raidRefs={undefined}
@@ -363,6 +371,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 24, createdDate: "2026-01-15" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false} isPushing={false}
             raidRefs={undefined}
@@ -382,6 +391,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 1, taskName: "Alpha", status: "To Do" })}
+            rowToken="Alpha"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -402,6 +412,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 1, taskName: "Sync", status: "In Progress", jiraKey: "LOP-1" })}
+            rowToken="Sync"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -420,6 +431,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 2, taskName: "Local", status: "To Do" })}
+            rowToken="Local"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -440,6 +452,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 2 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -460,6 +473,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 3 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -480,6 +494,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 4 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing            isPushing={false}
             raidRefs={undefined}
@@ -504,6 +519,7 @@ describe("TaskRow zebra striping", () => {
             // completedDate set`); a completedDate on a "To Do" task is a shape
             // applyStatusChange never produces.
             task={makeTask({ id: 5, status: "Done", completedDate: "2026-05-20" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -530,6 +546,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 6, status: "Cancelled", dueDate: "2026-01-01" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}
             isPushing={false}
@@ -560,6 +577,7 @@ describe("TaskRow closed glyph", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}
             isPushing={false}
@@ -608,7 +626,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -622,7 +640,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -644,7 +662,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -662,7 +680,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -681,6 +699,7 @@ describe("TaskRow click-to-edit", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -704,6 +723,7 @@ describe("TaskRow click-to-edit", () => {
           children: (
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={false}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -731,6 +751,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 8 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -751,6 +772,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 9 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -770,6 +792,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 10 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -986,6 +1009,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1020,6 +1044,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1061,6 +1086,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 11 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
@@ -1083,6 +1109,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 12 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1102,6 +1129,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 13 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[]}
@@ -1121,6 +1149,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 14 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 })]}
@@ -1141,6 +1170,7 @@ describe("TaskRow inline cell editing", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1361,6 +1391,7 @@ describe("TaskRow linked-documents badge", () => {
           <TaskRow
             key={task.id}
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}
             isPushing={false}

@@ -83,6 +83,8 @@ function Td({
 
 interface TaskRowProps {
   task: Task;
+  /** This row's row-unique display token, from `tasks-section`'s table map. */
+  rowToken: string;
   isSelected: boolean;
   isEditing: boolean;
   isPushing: boolean;
@@ -100,6 +102,7 @@ interface TaskRowProps {
 
 function TaskRowImpl({
   task,
+  rowToken,
   isSelected,
   isEditing,
   isPushing,
@@ -506,7 +509,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("taskStatus") && (
         <Td stopClick>
-          <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+          <TaskStatusSelect lang={lang} task={task} rowToken={rowToken} onStatusChange={onStatusChange} />
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
