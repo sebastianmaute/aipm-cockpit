@@ -174,10 +174,24 @@ export function VersionDiffView({
                     <button
                       type="button"
                       onClick={() => expandable && toggle(k)}
+                      // ★★ NAMED FROM THE TOKEN, not from its own content. This
+                      // button's name used to come from the two spans below, so
+                      // two records sharing a display name announced identically
+                      // — the same WCAG 2.4.6 fail as the checkbox, one control
+                      // over. The type badge is `aria-hidden` and folded into the
+                      // name instead, which is what keeps WCAG 2.5.3 satisfied:
+                      // axe's label-content-name-mismatch reads VISIBLE text only
+                      // (it skips aria-hidden content), so the visible label
+                      // reduces to the bare record label, and the name starts
+                      // with the token — which is that label, plus an occurrence
+                      // index only when it collides. Containment therefore holds
+                      // for a colliding row AND a non-colliding one. AT still
+                      // hears the type; nothing is lost.
+                      aria-label={`${tokens.get(k) ?? c.recordLabel} ${t(lang, TYPE_KEY[c.type])}`}
                       className="flex w-full items-center justify-between text-left"
                     >
                       <span className="text-foreground">{c.recordLabel}</span>
-                      <span className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
+                      <span aria-hidden="true" className={`text-xs ${TYPE_CLASS[c.type]}`}>{t(lang, TYPE_KEY[c.type])}</span>
                     </button>
                     {!revertible && (
                       <span className="ml-2 shrink-0 text-xs text-muted-foreground">

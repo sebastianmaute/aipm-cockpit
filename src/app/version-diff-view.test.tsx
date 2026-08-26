@@ -61,6 +61,24 @@ describe("VersionDiffView", () => {
     expect(screen.getByText(/managed per document/i)).toBeInTheDocument();
   });
 
+  it("renders no FIELD checkboxes when a non-restorable row is expanded", () => {
+    const changes: VersionChange[] = [{
+      collection: "documents", collectionLabel: "Documents", kind: "list",
+      recordId: 1, recordLabel: "Q3 report", type: "modified",
+      fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
+      restorable: false,
+    }];
+    render(<VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+      onToggleRecord={() => {}} onToggleField={() => {}} />);
+    // Expanding must not reintroduce what the collapsed row correctly withheld:
+    // a per-FIELD tick on a skipped collection is the same silent no-op, and a
+    // row whose expansion contradicts its own "managed per document" hint is
+    // worse than either alone.
+    fireEvent.click(screen.getByText("Q3 report"));
+    expect(screen.getByText(/Title:/)).toBeInTheDocument(); // the row really expanded
+    expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  });
+
   it("gives two same-named records distinct checkbox names", () => {
     const row = (id: number): VersionChange => ({
       collection: "documents", collectionLabel: "Documents", kind: "list",
@@ -79,15 +97,15 @@ describe("VersionDiffView", () => {
       fields: [{ field: "title", label: "Title", before: "a", after: "b" }],
     });
     render(<VersionDiffView lang="en-US" changes={[row(1), row(2)]} onRestoreRecord={() => {}} />);
-    // ★ NOT `expectRowUniqueNames({roles:["button"]})` here: the inline layout's
-    // per-row DISCLOSURE button takes its name from the row's own content, so two
-    // same-named records collide there too — a THIRD, pre-existing defect this
-    // change does not close (reported, not silently in scope). Asserting the two
-    // restore names directly pins what this change DOES fix without the
-    // whole-document helper tripping over the disclosure buttons. The sideBySide
-    // test below runs the real helper, in a branch with no other buttons.
-    expect(screen.getByRole("button", { name: "Restore this – Q3 report (1)" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Restore this – Q3 report (2)" })).toBeInTheDocument();
+    // ★★ The whole-document helper is the right assertion here, and it only
+    // became safe once the per-row DISCLOSURE button was ALSO named from the row
+    // token. That button takes its name from its own content, so before that fix
+    // two same-named records collided on it and this call failed on a pair the
+    // restore buttons had nothing to do with. Both of the row's buttons now
+    // carry the token, so a green run here means every control in the row is
+    // distinct — including any control added later, which is why this is
+    // stronger than asserting the two names by hand.
+    expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
   });
 
   it("renders a non-restorable side-by-side row without a restore button", () => {
