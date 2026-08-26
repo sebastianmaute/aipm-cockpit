@@ -1431,7 +1431,18 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // constant `rowToken` here would make the collision test below pass for the
   // wrong reason (it could never see a name shared by two controls) — see
   // `src/app/row-tokens.ts` and `src/test/row-unique-names.ts`.
-  function renderCollisionRows(context: RowContextValue, tasks: Task[]) {
+  //
+  // `extra.documentsByEntity`/`extra.onOpenDocuments` are optional PROPS (not
+  // context) so a caller can reach the DocumentBadge site without disturbing
+  // every other test built on this helper.
+  function renderCollisionRows(
+    context: RowContextValue,
+    tasks: Task[],
+    extra: {
+      documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+      onOpenDocuments?: (taskId: number) => void;
+    } = {},
+  ) {
     const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
     return render(
       rowWrapper({
@@ -1445,19 +1456,45 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
             isEditing={false}
             isPushing={false}
             raidRefs={undefined}
+            documentsByEntity={extra.documentsByEntity}
+            onOpenDocuments={extra.onOpenDocuments}
           />
         )),
       }),
     );
   }
 
+  /** One linked document per task id, so DocumentBadge (count > 0) renders on
+   *  BOTH twins — a badge absent from one row cannot collide with anything. */
+  function doc(id: number, taskId: number): ProjectDocument {
+    return {
+      id,
+      title: `Doc ${id}`,
+      blocks: [],
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-06-01T00:00:00.000Z",
+      linkedEntities: [{ kind: "task", id: taskId }],
+    };
+  }
+
   test("keeps every control distinct when two tasks share a name", () => {
-    const { container } = renderCollisionRows(makeContext(), [
+    // aiEditEnabled/onAiEdit + documentsByEntity/onOpenDocuments reach the two
+    // sites the earlier cut of this test never rendered: the inline
+    // Ask-Claude trigger (task-row.tsx:319, gated on `aiEditEnabled`) and
+    // `DocumentBadge` (task-row.tsx:371, which returns null at count 0). Both
+    // are ordinary usage, not exotic configuration.
+    const twins = [
       makeTask({ id: 1, taskName: "Alpha" }),
       makeTask({ id: 2, taskName: "Alpha" }),
-    ]);
+    ];
+    const documentsByEntity = indexDocumentsByEntity([doc(30, 1), doc(31, 2)]);
+    const { container } = renderCollisionRows(
+      makeContext({ aiEditEnabled: () => true, onAiEdit: vi.fn() }),
+      twins,
+      { documentsByEntity, onOpenDocuments: vi.fn() },
+    );
     expectRowUniqueNames({
-      minControls: 4,
+      minControls: 26,
       scope: container,
       roles: ["button", "combobox", "textbox", "checkbox"],
       requireCollisionSeed: true,
@@ -1471,5 +1508,63 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
       makeTask({ id: 2, taskName: "Alpha" }),
     ]);
     expect(getAllByText("Alpha", { selector: "button" })).toHaveLength(2);
+  });
+
+  // ---------------------------------------------------------------------
+  // Inline-edit-mode collisions (open-followups §247/§248 audit, part A).
+  //
+  // `useInlineCellEdit` (use-inline-cell-edit.ts) is called INSIDE
+  // `TaskRowImpl` (task-row.tsx:139) — one hook instance per mounted <tr>,
+  // holding its OWN `editing`/`draft` state with no coordinator across rows:
+  // nothing in `task-row-context.tsx` or in `tasks-section.tsx`'s `.map`
+  // (which mounts one <TaskRow> per task with no shared "active cell" prop)
+  // ties one row's editing state to another's, so the REACT STATE alone
+  // does not rule out two rows editing at once.
+  //
+  // ★★★ BUT MEASURED (not reasoned) AGAINST A REAL DOM, four of the five
+  // sites still can't collide, and the reason is native focus/blur, not
+  // React: every one of taskName/startDate/dueDate/blockers/priority's edit
+  // controls carries `autoFocus` (or — for blockers — is opened from a
+  // trigger that IS itself an ordinary React element the browser focuses on
+  // click) AND closes via `onBlur={inline.commit}` / `onBlur={inline.cancel}`.
+  // Mounting a SECOND such editor anywhere in the table calls native
+  // `.focus()` on it, which synchronously blurs whatever was previously
+  // focused — closing it — before the new one ever renders. A probe (see
+  // git history of this file) confirmed this concretely: double-clicking two
+  // rows' task-name buttons in sequence left only the SECOND row's `<input>`
+  // in the DOM, having silently committed the FIRST row's unedited value via
+  // `onInlinePatch` — and the same happened for the priority `<Select>`. An
+  // initial cut of a due-date test read as passing two open editors, but
+  // `getAllByLabelText` was matching the CLOSED row's ghost *button* (whose
+  // aria-label is the same string as its open-mode `<input>`, by design —
+  // task-row.tsx:205) rather than a second open input; filtering to actual
+  // `<input>` elements showed the same single-editor-at-a-time result.
+  //
+  // The ONE exception is assignee's `ResourcePicker` (task-row.tsx:440-449):
+  // it renders no `autoFocus`, and its own `.focus()` call
+  // (`resource-picker.tsx:136`) fires only from `choose()`, after a row
+  // selection — never on open. So opening it in one row does not steal
+  // focus, does not blur anything, and a second row's editor (assignee or
+  // otherwise) can open right alongside it. That is the one inline-edit site
+  // where two rows' editors can genuinely coexist, and it is the only one
+  // tested below.
+  // ---------------------------------------------------------------------
+
+  test("keeps the inline assignee editor distinct when two rows are edited simultaneously", () => {
+    const { container } = renderCollisionRows(makeContext(), [
+      makeTask({ id: 1, taskName: "Alpha", assignee: "Alice" }),
+      makeTask({ id: 2, taskName: "Alpha", assignee: "Bob" }),
+    ]);
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (1)" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (2)" }));
+    // Both stay open: neither ResourcePicker auto-focuses itself, so opening
+    // the second never blurs (and never commits/closes) the first — measured
+    // above, not assumed.
+    expectRowUniqueNames({
+      minControls: 4,
+      scope: container,
+      roles: ["combobox"],
+      requireCollisionSeed: true,
+    });
   });
 });
