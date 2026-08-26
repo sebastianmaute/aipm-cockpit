@@ -16543,6 +16543,95 @@ Near-unreachable in practice, since `templateFromWorkspace` captures live, alrea
 **Status:** open — a HAZARD, not a defect. Nothing is broken today, and no gate is red. Carried out
 of §220 so this fact does not retire with that entry's close.
 
+**THE SURVEY (2026-08-26) — every candidate considered, per file.** §220's false "the seam is spent"
+was reached without enumerating anything, so this records the enumeration whatever the verdict.
+Neither file is coverage-excluded (`vitest.config.ts`'s `coverage.exclude` names neither), so an
+extracted slice STAYS gated — which is a feature here, not a cost: a slice still reached through the
+same dispatcher or hook is exercised by the SAME existing tests and carries its coverage across with
+it. That is exactly what happened to `useDocumentTools`, extracted from `useChatDispatcher` and
+covered today by `use-chat-dispatcher.test.tsx`'s own harness with no test file of its own.
+
+**`use-chat-dispatcher.ts` — A COHESIVE SEAM EXISTS, and the file already carries the pattern for
+it.** Candidates, largest first. **(1) The register CRUD tools** — `listRaid` through
+`deleteStakeholder`, i.e. the whole RAID / Changes / Milestones / Stakeholders create-update-delete
+family: ~197 lines of tool bodies, plus its four refs, their four sync effects, eight names in the
+`useWorkspace()` destructure, and eight import lines nothing else in the file uses
+(`sanitizeRaidItem` · `sanitizeChangeItem` · `sanitizeMilestone` · `sanitizeStakeholder` and the
+four matching `toRaidSummary` / `toChangeSummary` / `toMilestoneSummary` / `toStakeholderSummary`
+mappers — grep each name and every hit lands inside this block). ≈225 net lines, taking the file to
+≈574. Interface: a hook taking `isReadOnly`, `logActivityAs`, `clock` and the language, calling
+`useWorkspace()` itself for its four slices and their setters — the shape
+`useDocumentTools(args.isReadOnly, args.logActivityAs)` already has, spread into the same object
+literal, with its own dispatcher interface intersected onto `ToolDispatcher` exactly as
+`DocumentToolDispatcher` is. Nothing outside the file would import it (these tools are reachable
+only through the dispatcher object). ★★ ONE HAZARD, and the file states it: the dispatcher's
+`useMemo` has deliberately empty deps except `args.isReadOnly` and `documentTools`, with a comment
+explaining that a memo'd tool object captured by the spread MUST be a dep or the first render's
+tools freeze into every later dispatcher. An extracted register-tools object is the same shape and
+needs the same dep. VERDICT: **extract** — best value on either file, and it follows a precedent the
+file already set rather than inventing one. **(2) The app-state read tools** — `getSnapshot` through
+`listBudgetBuckets`: ~75 lines of bodies plus nine refs used nowhere else in the file, their nine
+sync effects, the `useViewDigest` call and the `useChatSearchBindings` binding — ≈115 net. Every
+member is read-only reporting, so it is cohesive, and it needs only the args bag plus
+`useWorkspace()`. VERDICT: viable second seam, but it also reads `tasksRef` / `settingsRef` /
+`clockRef`, which the rest of the file keeps, so the extracted hook re-derives three refs the parent
+still holds — cheaper than (1) in lines and dearer in duplication. Take it only if (1) is not
+enough. **(3) The resource tools** — `listResources` through `deleteResource`, ~46 lines plus one
+ref and its effect, ≈50 net. Cohesive, but it is the same seam as (1) at a quarter the size: fold it
+into (1) rather than spending a file on it. **(4) The task tools** — `createTask` through
+`deleteAllTasks`, ~179 lines. REJECTED: not self-contained. `tasksRef` is also read by `getSnapshot`
+and by `sendInquiry`, and the block writes through `useTaskForm()`'s `setForm` / `setEditingId` and
+reads `editingIdRef` — so the hook would need two more contexts and would STILL leave `tasksRef`
+behind in the parent. Cohesive as a family, entangled as a module. **(5) `sendInquiry`** (~43 lines)
+and **(6) `applyFilters`** (~20). REJECTED, both: each is one tool's helper, so moving either
+relocates a function without buying a surface. `applyFilters` exists only to adapt `useFilters()`'s
+five setters, so extracting it moves that context dependency without removing it. **(7)
+`isTaskStatus` and its status set** (~8 lines). REJECTED: a module-scope type guard, ~1% of the gap,
+a pure relocation.
+
+**`use-storage-backend.ts` — A SEAM EXISTS, but every candidate is dearer than the dispatcher's, and
+the file has already been mined four times.** `useLoadTruncation`, `useFileProjectOps`,
+`useTursoProjectOps` and the `UseStorageBackendArgs` types module were all carved out of it already
+and it is still at 799 — its OWN comments now pair statements onto single lines *"because this file
+sits AT the 800-line ratchet"*, which is the pathology, not a fix. **(1) The debounced autosave
+effect** — from the single-writer guard through the visibility/pagehide flush: ~114 lines, plus
+three refs used nowhere else (the collection-count, record-count and destructive-bypass refs) and
+the `allowDestructiveSave` one-shot they drive. ≈126 gross, ≈115 net. Interface: a hook calling
+`useWorkspace()` itself (its 28-slice dep array is the whole point — passing 28 props would be worse
+than the effect), plus `backend`, hydrated/popout flags, `loadWasTruncated`,
+`mayCommitAfterTruncation`, the SHARED suppress-next-save ref (armed by the load effect,
+`onOpenStorageFile`, `onRequestStorageSwitch`, `reloadCurrentProject` and both project-ops hooks, so
+it must be passed IN, never owned), and the `emitToast` / `emitOutcome` emitters; returns
+`allowDestructiveSave`. VERDICT: the best candidate here and the only one clearing 100 lines. ★★ Its
+COST is not its line count: this is the app's persistence choke point, carrying the data-loss
+invariants and the §103 truncation gate, so unlike the dispatcher slices it is worth its own test
+file rather than riding the existing suites — and it stays coverage-gated, so that is an obligation,
+not a choice. **(2) The multi-tab broadcast block** — the `useBroadcastSync` calls and their
+`canSend` flag, ~18 lines, ≈16 net. Cohesive to the point of being a list, and an obvious hook
+taking one boolean and calling `useWorkspace()`. VERDICT: worth doing WITH (1) — on its own it buys
+little, but it is the cheapest sixteen lines in the file and it un-pairs two comments jammed onto
+one line to dodge the gate. **(3) `applyWorkspace`** (~72 lines, ~40 of them landmine comment).
+REJECTED as a hook: it fans a loaded workspace into 29 setters, so a hook calling `useWorkspace()`
+would move the setters with it — but `onOpenStorageFile` writes `setTasks` / `setRaid` directly and
+`currentWorkspace` reads every slice, so the parent keeps the destructure regardless and the saving
+collapses to the body alone. Its `seedMintFromWorkspace` and `setLoadedBackend` tail also binds it
+to the backend gate, whose ORDERING its comment marks as load-bearing; not worth carrying that
+comment across a file boundary. **(4) The load effect** (~68 lines). REJECTED: it calls
+`applyWorkspace`, `currentWorkspace`, `refreshBackendStatus`, `truncationOps`, both suppress refs
+and both emitters — six parent-scope bindings for 68 lines, and it is the save effect's counterpart,
+which (1) would already have moved elsewhere. **(5) The four storage-file handlers** —
+`onPickStorageFile` / `onGrantWriteAccess` / `onOpenStorageFile` / `onRequestStorageSwitch`, ~120
+lines. REJECTED as written: they are the residue left after the project flows went to
+`useFileProjectOps`, and they reach `truncationOps`, `refreshBackendStatus`, `emitToast`,
+`settingsRef`, `langRef`, both suppress refs and raw workspace setters. Cohesive by NAME, not by
+dependency — the candidate most likely to look easy and cost the most. **(6) The small helper
+cluster** — `currentWorkspace`, `commitRegistry`, `backendFor`, `tursoConfigNow`,
+`persistBackendHandle`, `reportProjectError`: ~65 lines together. REJECTED: five of the six are
+consumed by `useTursoProjectOps` and `useFileProjectOps` and would have to be threaded back down as
+props, so the extraction converts inline functions into a WIDER interface — a relocation that makes
+the seam worse. **(7) A baseline entry for either file.** REJECTED — see the prohibition below; it
+is the one remedy this entry exists to forbid.
+
 **The measurement.** Both files read **799** by the gate's own arithmetic and **798** from `wc -l`:
 
 ```
