@@ -17740,13 +17740,27 @@ floor in 40,000 samples per site, and the smallest of the twelve minima moved fr
 ★★★ **THIS ROW ONCE REPEATED THE VERY MISTAKE THE ENTRY EXISTS TO TEACH, AND IT SURVIVED THE COMMIT
 THAT DELETED THE SAME FIGURE FROM THE CODE.** It read "worst evaluation went from **7.5e-5** to a
 constructed bound of **2.2e-8**". That is not a bound: it is `Binom(190, 1/6)`, an arbitrary INTERIOR
-point of a measured N range running 140..340. A bound takes the WORST N in the range —
-`Binom(140, 1/6)` = **2.5e-5**. The companion figure in the code (2.7e-3, for the one-class
-construction) was the same error at `Binom(211, 1/12)`; the honest worst case there is **9.5e-2**,
-which makes the two-class argument STRONGER, not weaker. Recompute all four:
+point of the N range. The companion figure in the code (2.7e-3, for the one-class construction) was
+the same error at `Binom(211, 1/12)`.
+
+★★★ **AND THE FIRST CORRECTION REPEATED THE MISTAKE ONE LEVEL DOWN — WRITTEN, REVIEWED AND COMMITTED
+WHILE FIXING IT.** It replaced those with `Binom(140, 1/6)` = 2.5e-5 and `Binom(140, 1/12)` = 9.5e-2,
+calling 140 "the worst N". **140 was the smallest N one 5,000-sample run happened to see** — a second
+run of the same generator topped out at 325 where the first saw 340, which is what proves both are
+sample statistics. The real bound comes from the ARBITRARIES: `tasksArb` is minLength 1 / maxLength 4,
+`tallyHazards` walks 5 fields, numRuns is 20, so **N ∈ [100, 400]** with a hard floor. At N = 100 the
+per-evaluation bound is **3.8e-3**, 150x more likely than the 2.5e-5 that was committed, and the
+two-class advantage narrows from 3800x to **106x** (0.40 → 0.0038) — still decisive, but not the
+margin the fix claimed. Caught by a second cold review round, not by any gate.
+
+★ The bound is deliberately loose: N = 100 requires all twenty runs to draw exactly one task, and the
+measured per-value rate is 0.24–0.33 at both sites rather than the 1/6 the bound assumes (at which
+the same worst-case N gives 7.8e-6). **A loose bound that is TRUE outranks a tight one that is an
+artifact of the seed** — that is the whole content of this entry, and it took three attempts to
+apply it to itself. Recompute every figure named above:
 
 ```bash
-node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(140,1/12,8),b(140,1/6,8),b(190,1/6,8),b(211,1/12,8))"
+node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};for(const [l,n,p] of [['bound N=100 p=1/6',100,1/6],['one-class N=100',100,1/12],['at measured rate',100,0.240],['committed 140 1/6',140,1/6],['committed 140 1/12',140,1/12],['original 190 1/6',190,1/6],['original 211 1/12',211,1/12]]) console.log(l, b(n,p,8).toExponential(2))"
 ```
 
 ★★★ **DO NOT NOW QUOTE 2.5e-5 AS "THE IMPROVEMENT" EITHER** — replacing one misleading number with

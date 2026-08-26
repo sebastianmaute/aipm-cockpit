@@ -179,14 +179,22 @@ const HAZARD_CHUNKS = Object.fromEntries(
  *  class sits in exactly five, so a hazard-loaded value carries a given class
  *  with p = 1/3 exactly — and p = 1/6 per FIELD VALUE once the 5/10 loaded
  *  weight is applied. Two classes rather than one is what buys the tail.
- *  ★★ COMPARE THEM AT THE WORST N THE SAMPLE REACHES (140), NEVER AT AN
- *  INTERIOR ONE: one class (p = 1/12) leaves P(< 8) = 9.5e-2, two classes give
- *  2.5e-5. An earlier revision quoted 2.7e-3 and 2.2e-8 here, which are those
- *  same two binomials evaluated at N ~ 211 and N ~ 190 — points nobody measured
- *  or justified, inside a range running 140..340. Neither was a bound, and the
- *  ★★ note on `expectHazards` says why the low-N tail is the unmeasured part.
- *  Recompute both:
- *    node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(140,1/12,8),b(140,1/6,8))"
+ *  ★★★ COMPARE THEM AT THE SUPPORT MINIMUM, N = 100, WHICH IS A CONSTRUCTION
+ *  FACT: `tasksArb` is minLength 1 / maxLength 4, `tallyHazards` walks 5 fields,
+ *  and both sites run at numRuns 20 — so N ∈ [100, 400] with a HARD floor, and
+ *  a bound must be taken there. One class (p = 1/12) gives P(< 8) = 4.0e-1,
+ *  two classes give 3.8e-3: a 106x advantage, still decisive, and the ONLY
+ *  form of this comparison that holds over the whole support.
+ *  ★★★ THREE EARLIER REVISIONS OF THIS LINE EACH QUOTED AN OBSERVED N AS IF IT
+ *  WERE A BOUND, AND THE THIRD WAS WRITTEN WHILE CORRECTING THE FIRST TWO.
+ *  2.7e-3 and 2.2e-8 were `Binom(211, 1/12)` and `Binom(190, 1/6)` — interior
+ *  points nobody justified. Replacing them with 9.5e-2 and 2.5e-5 was the SAME
+ *  ERROR one level down: those are N = 140, the smallest N one 5,000-sample run
+ *  happened to see, and a second run of the same generator saw 325 rather than
+ *  340 at the top. A sample minimum is not a support minimum, which is the very
+ *  thing the ★★ note on `expectHazards` exists to say. Take N from the
+ *  arbitraries, never from a run. Recompute:
+ *    node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};console.log(b(100,1/12,8),b(100,1/6,8))"
  */
 const HAZARD_PAIRS = HAZARD_CLASSES.flatMap((a, i) =>
   HAZARD_CLASSES.slice(i + 1).map((b) => [a, b] as const),
@@ -228,9 +236,14 @@ const hazardLoadedString = fc.oneof(...HAZARD_PAIRS.map(([a, b]) => hazardLoaded
  *  reachable through the other two branches, and the 4:1 hostile-derived to
  *  `fc.string` ratio this alphabet always had is preserved exactly: (3 + 5) : 2.
  *
- *  ★ Do NOT raise the loaded weight to "make the floors safer". At the worst N
- *  the sample reaches the construction already puts P(< 8) at 2.5e-5, and the
- *  only thing more weight buys is less breadth. */
+ *  ★ Do NOT raise the loaded weight to "make the floors safer". Over the WHOLE
+ *  support — N ≥ 100 by construction, p ≥ 1/6 by construction — this already
+ *  bounds P(< 8) at 3.8e-3 per evaluation, and the only thing more weight buys
+ *  is less breadth. ★★ That bound is deliberately LOOSE and must not be read as
+ *  a flake rate: N = 100 requires all twenty runs to draw exactly one task, and
+ *  the measured per-value rate is 0.24–0.33 at both sites rather than the 1/6
+ *  the bound assumes. It is the number that holds without measuring anything,
+ *  which is the only kind worth pinning here. */
 const anyString = fc.oneof(
   { weight: 3, arbitrary: hostileString },
   { weight: 2, arbitrary: fc.string({ maxLength: 12 }) },
@@ -380,9 +393,21 @@ function tallyHazards(tasks: readonly Task[], h: Hazards): void {
  * carrying a named class (a uniform pair out of 15) at weight 5 of 10, so a
  * given class rides p = (1/3)(1/2) = 1/6 per value by construction, and the
  * CONSTRUCTED contribution alone is Binom(N, 1/6) over the N field values a
- * 20-run sample generates (measured range 140..340, mean ~233). That IGNORES
- * the alphabet's own hazard density, which is why the real counts land near 3x
- * the construction's mean.
+ * 20-run sample generates. ★★★ N IS BOUNDED BY THE ARBITRARIES, NOT BY A RUN:
+ * `tasksArb` is minLength 1 / maxLength 4, `tallyHazards` walks 5 fields per
+ * task, numRuns is 20 at both sites, so N ∈ [100, 400] — a HARD support.
+ * Observed 140..340 in one 5,000-sample run and 140..325 in another; quoting
+ * either as "the range" is the sample-minimum mistake this very paragraph
+ * warns about, and it was made here twice. **Take the worst case at N = 100:
+ * P(< 8) ≤ 3.8e-3 per evaluation, which needs no measurement and holds
+ * always.** That bound is loose on purpose — N = 100 needs all twenty runs to
+ * draw one task — but a loose bound that is TRUE outranks a tight one that is
+ * an artifact of the seed. The construction also IGNORES the alphabet's own
+ * hazard density, which is why real counts land near 3x its mean and why the
+ * measured per-value rate is 0.24–0.33 rather than 1/6 (200,000 values per
+ * site, independently reimplemented against the real `HOSTILE_CHUNKS`); at the
+ * measured rate the same worst-case N gives 7.8e-6. Corroboration, not the
+ * claim.
  *
  * ★★ WHAT IS AND IS NOT ESTABLISHED HERE. The EMPIRICAL result is: 40,000
  * samples per site, 0 at or below 8 anywhere, and the smallest of the twelve
