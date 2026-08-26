@@ -397,9 +397,12 @@ describe("row-unique names", () => {
   // helper with parameters no other caller needs.
   //
   // Whole-document scope (no `scope` passed): the panel's own known chrome
-  // collision — `stakeholderFieldName` naming both the search textbox (:299)
-  // and the Name column's sort button (:373) — cannot fire here because it
-  // needs the "textbox" role, which is not in `roles` below.
+  // collision — the `stakeholderFieldName` translation naming both the
+  // toolbar's PaneSearchInput ariaLabel (a textbox) and the Name column's
+  // SortResizeTh label (a button) — cannot fire here. `roles` below is
+  // ["button", "checkbox"], which excludes "textbox", so that pair can never
+  // both surface as candidates for this assertion; it is the roles list, not
+  // the whole-document scope, doing the exclusion.
   it("keeps every per-row control distinct when two rows share a name", () => {
     const stakeholders = [
       sampleStakeholder({ id: 1, name: "Dana" }),
