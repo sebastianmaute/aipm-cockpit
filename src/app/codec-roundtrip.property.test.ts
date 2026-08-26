@@ -232,14 +232,19 @@ const hazardLoadedString = fc.oneof(...HAZARD_PAIRS.map(([a, b]) => hazardLoaded
  *  ★ Do NOT raise the loaded weight to "make the floors safer". Over the WHOLE
  *  support — N ≥ 100 by construction, p ≥ 1/6 at THIS alphabet — this already
  *  bounds P(< 8) at 3.8e-3 per evaluation, and the only thing more weight buys
- *  is less breadth. ★★ "By construction" covers p HERE and not at the other
- *  site: `mdSafeString` wraps this alphabet in a REJECTING `.filter()` (no
- *  `<br`, no edge whitespace), and a loaded value always splices chunks where
- *  `fc.string` may draw none — so rejection correlates with the loaded branch
- *  and the conditional weight is not 5/10. The measured per-value rate there
- *  (0.24–0.33, see `expectHazards`) clears 1/6 with room, so the bound holds
- *  at that site too — by MEASUREMENT, not by construction. Do not restate it
- *  as constructed at both. ★★ That bound is deliberately LOOSE and must not be read as
+ *  is less breadth. ★★ `mdSafeString` wraps this alphabet in a REJECTING
+ *  `.filter()` (no `<br`, no edge whitespace) and accepts the three branches
+ *  at different rates — 0.75 hostile / 0.98 `fc.string` / 0.84 loaded over
+ *  200,000 draws — so the 5/10 weight is not preserved there by construction.
+ *  It is preserved in FACT: the perturbations nearly cancel (posterior loaded
+ *  weight 0.497–0.500) and the worst per-class rate over ACCEPTED values is
+ *  0.2389, clear of 1/6. ★★★ AN EARLIER REVISION OF THIS NOTE ASSERTED THE
+ *  OPPOSITE DIRECTION — "rejection correlates with the loaded branch" — from
+ *  READING the code, and measuring refuted it: loaded is accepted MORE than
+ *  hostile. `<br>`, `"  "`, `"\t"` and `"# "` satisfy no `HAZARD_TESTS`
+ *  predicate, so the two GUARANTEED chunks are never rejectable and only the
+ *  fillers are — of which `hostileString` draws up to 6 and `hazardLoaded`
+ *  up to 4. A direction is a measurement, never a reading. ★★ That bound is deliberately LOOSE and must not be read as
  *  a flake rate: N = 100 requires all twenty runs to draw exactly one task, and
  *  the measured per-value rate is 0.24–0.33 at both sites rather than the 1/6
  *  the bound assumes. It is the number that holds without measuring anything,
