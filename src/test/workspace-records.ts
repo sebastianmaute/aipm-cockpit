@@ -10,6 +10,12 @@
 // CalendarEvent lacks, and an InsightType/InsightStatus pair that are members
 // of neither union. If a record does not typecheck, the record is wrong --
 // fix the record by reading src/app/types.ts, never silence it with a cast.
+// ★★ THAT BANS CASTS ON THE RECORD BUILDERS, which is where a cast encodes a
+// wrong DOMAIN SHAPE that tsc would otherwise have caught. `ws()` at the foot
+// of this file carries three of its own and is a different case: it stubs two
+// required singletons it never reads and widens a spread-built object back to
+// `Workspace`. It asserts nothing about any record's shape, so there is no
+// wrong fact for it to hide. Do not read its casts as licence for one above.
 import type { Absence, BudgetBucket, ChangeItem, Discipline, Grade, Milestone,
   RaidItem, Resource, Role, Shift, Stakeholder, Task } from "../app/types";
 import type { KnowledgeItem } from "../app/document-link";
