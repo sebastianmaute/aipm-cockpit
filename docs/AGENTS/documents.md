@@ -1141,7 +1141,8 @@ today's with `grep -n "documentAssets" src/app/use-storage-backend.ts`.
 Two reasons: a version row captured on every autosave that also carries every image byte in the
 project has a storage profile nothing else in this payload has — a per-capture cost that would need to
 be MEASURED, not assumed, before the slice could be added. And the asset table already has its own
-Turso-side lifecycle, split exactly like the two stores described above: an `ENTITY_SPECS` metadata row
+Turso-side lifecycle, split exactly the way `DocumentAsset` itself is split earlier in THIS section
+(not the `documents`/`documentVersions` meta-blob pair, which is the opposite arrangement): an `ENTITY_SPECS` metadata row
 (`DocumentAsset`) plus a separate byte side table (`document_asset_data`) outside `TABLE_NAMES` —
 folding that lifecycle into version history's capture/diff/restore cycle would be a third thing to keep
 in step, not a natural extension of it.
