@@ -50,6 +50,133 @@ const contendedCase = caseArb(1);
 
 const isNewArb = fc.constantFrom<boolean | undefined>(true, false, undefined);
 
+// `idArb` tops out at 30 and `rowsArb` caps at 8 rows, so 31 is free in EVERY
+// draw and `freeIds` always returns at least 23 members — the constructions
+// below can therefore always find a genuinely-free id, including for an empty
+// row list where every id is free.
+const FREE_ID_CEILING = 31;
+
+const freeIds = (rows: readonly Row[]): number[] => {
+  const taken = new Set(rows.map((r) => r.id));
+  const free: number[] = [];
+  for (let id = 1; id <= FREE_ID_CEILING; id++) if (!taken.has(id)) free.push(id);
+  return free;
+};
+
+type Branch = "contended" | "uncontended" | "update";
+
+const branchArb = fc.constantFrom<Branch>("contended", "uncontended", "update");
+
+// ★★★ BRANCH-TAGGED, AND THAT IS WHAT MAKES THE THREE-BRANCH FLOORS SAFE. That
+// test used to rely on `caseArb`'s collision bias to visit all three branches by
+// luck: `uncontended` needs a FREE id AND an intent that means create, p ≈ 0.145,
+// mean ≈ 7 over 50 runs — and it drew ZERO in 0.058% of suite runs (measured,
+// 40,000 pooled trials). That is what took the 0.259.0 release pipeline red, on a
+// BLOCKING gate, on a tree that could not have caused it.
+//
+// Drawing the branch FIRST and constructing a case to match makes each branch
+// p = 1/3 by construction, so P(a GIVEN branch is never visited in 50 runs) is
+// (2/3)^50 = 1.6e-9, and P(ANY of the three is missed) — which is what actually
+// reddens the suite, since all three floors run — is 3(2/3)^50 − 3(1/3)^50 =
+// 4.7e-9 by inclusion–exclusion. The floor is then a fact about this arbitrary rather than a
+// bet on the generator — the cure `sanitize-core.property.test.ts`'s
+// `midPairCutArb` already applies.
+//
+// ★ The rows, ids and (where more than one qualifies) the intent inside each
+// branch are still drawn randomly, so this NARROWS nothing: it fixes WHICH
+// branch a draw lands in, not what the branch contains. Every (rows, itemId,
+// isNew) combination the old `contendedCase` × `isNewArb` pair could produce is
+// still reachable here, and the uncontended branch is WIDER than before — it now
+// always gets a genuinely free id, which the old generator reached only by
+// chance.
+//
+// ★★ `isNew: undefined` on a TAKEN id is an UPDATE, not a contended create
+// (`create = isNew ?? !taken`), so it belongs on the update branch and the
+// contended branch pins `isNew: true`. Admitting `undefined` there instead would
+// send half that branch's draws to `updates` and drop p(contended) to 1/6 —
+// P(zero in 50) = 1.1e-4, WORSE than the floor it is meant to secure.
+//
+// ★ `branch` is carried on the record though no assertion reads it: it is what
+// makes a shrunk counterexample legible for a branch-tagged arbitrary.
+const taggedCase = rowsArb(1).chain((rows) => {
+  const takenIds = rows.map((r) => r.id);
+  const free = freeIds(rows);
+  return branchArb.chain((branch) => {
+    const tag = { rows: fc.constant(rows), branch: fc.constant<Branch>(branch) };
+    if (branch === "contended") {
+      // A create whose open-time id was committed by someone else since.
+      return fc.record({
+        ...tag,
+        itemId: fc.constantFrom(...takenIds),
+        isNew: fc.constant<boolean | undefined>(true),
+      });
+    }
+    if (branch === "uncontended") {
+      // A create whose open-time id is still free — reached by BOTH intents
+      // that mean create, since the legacy rule creates on a free id too.
+      return fc.record({
+        ...tag,
+        itemId: fc.constantFrom(...free),
+        isNew: fc.constantFrom<boolean | undefined>(true, undefined),
+      });
+    }
+    // Every way to reach an update: an explicit `false` at ANY id, free or
+    // taken, plus the legacy `undefined` at a taken one.
+    return fc.oneof(
+      fc.record({
+        ...tag,
+        itemId: fc.constantFrom(...takenIds, ...free),
+        isNew: fc.constant<boolean | undefined>(false),
+      }),
+      fc.record({
+        ...tag,
+        itemId: fc.constantFrom(...takenIds),
+        isNew: fc.constant<boolean | undefined>(undefined),
+      }),
+    );
+  });
+});
+
+type Existence = "taken" | "free";
+
+// ★★★ THE SAME CURE FOR THE TWO `free > 5` FLOORS, WEIGHTED RATHER THAN EVEN.
+// Both tests below split on whether `itemId` is already taken and floor each
+// side. Under `anyCase` those counters rode the same 3:1 collision bias: `free`
+// had mean 15.70 and landed at or below its floor of 5 in 0.028% of suite runs
+// (measured, 40,000 pooled trials). Drawing the existence FIRST removes the bet.
+//
+// ★★ THE WEIGHTS ARE 11:9 AND THAT IS ARITHMETIC, NOT TASTE. The two floors are
+// ASYMMETRIC — `taken > 10` and `free > 5` — so with `taken + free === 50` the
+// safe window is 11 ≤ taken ≤ 44, whose centre is 27.5, i.e. p(taken) = 0.55.
+// An even 1:1 split would centre `taken` at 25 and push P(taken ≤ 10) to
+// 1.2e-5, DEGRADING a floor that measured 0/20000 today, to buy a `free` floor
+// far tighter than it needs. At 11:9 both tails are tiny: P(taken ≤ 10) =
+// 4.3e-7 and P(free ≤ 5) = 9.3e-8 (exact binomial, n = 50).
+//
+// ★ It narrows nothing. The taken branch needs a non-empty list to draw a taken
+// id FROM, but an empty list can only ever yield a free id anyway, so the free
+// branch keeps `rowsArb(0)` and with it every empty-list case `anyCase` covered.
+// The support is a strict SUPERSET of `anyCase`'s: any (rows, itemId) pair it
+// could draw is reachable through exactly one of these two branches, and the
+// free branch additionally reaches id 31.
+const existenceCase = fc
+  .oneof(
+    { arbitrary: fc.constant<Existence>("taken"), weight: 11 },
+    { arbitrary: fc.constant<Existence>("free"), weight: 9 },
+  )
+  .chain((existence) =>
+    (existence === "taken" ? rowsArb(1) : rowsArb(0)).chain((rows) =>
+      fc.record({
+        rows: fc.constant(rows),
+        existence: fc.constant<Existence>(existence),
+        itemId:
+          existence === "taken"
+            ? fc.constantFrom(...rows.map((r) => r.id))
+            : fc.constantFrom(...freeIds(rows)),
+      }),
+    ),
+  );
+
 // Models the REAL minter (`nextId(list)` = max id + 1), which is guaranteed
 // free in `existing`. A constant minter would satisfy the safety property by
 // luck on most inputs and would let a broken implementation slip through.
@@ -96,6 +223,11 @@ describe("entity-id-mint — properties", () => {
   it("an update always preserves the caller's id, whatever the intent", () => {
     // Callers replace the row AT this id. Re-minting on an update would move
     // the edit onto a row the user never opened.
+    //
+    // ★ This one deliberately KEEPS the unconstructed `anyCase` × `isNewArb`
+    // pair: it carries no anti-vacuity floor, so nothing here is a bet, and it
+    // is the breadth companion to the constructed arbitraries above — the same
+    // arrangement `sanitize-core.property.test.ts` keeps beside `midPairCutArb`.
     fc.assert(
       fc.property(anyCase, isNewArb, ({ rows, itemId }, isNew) => {
         const mint = makeMinter(rows);
@@ -114,7 +246,7 @@ describe("entity-id-mint — properties", () => {
     let taken = 0;
     let free = 0;
     fc.assert(
-      fc.property(anyCase, ({ rows, itemId }) => {
+      fc.property(existenceCase, ({ rows, itemId }) => {
         expect(resolveEntitySave(rows, itemId, true, makeMinter(rows)).create).toBe(true);
         expect(resolveEntitySave(rows, itemId, false, makeMinter(rows)).create).toBe(false);
         if (isTaken(rows, itemId)) taken++;
@@ -126,6 +258,19 @@ describe("entity-id-mint — properties", () => {
 
     // Both sides of the id-existence split must be seen, or "existence never
     // decides" is only asserted over one of the two cases it has to cover.
+    //
+    // ★★ THESE ARE NOW CONSTRUCTED FACTS, NOT BETS. `existenceCase` draws the
+    // existence FIRST at 11:9, so `taken` ~ Binom(50, 0.55) and `free` is its
+    // complement: P(taken ≤ 10) = 4.3e-7 and P(free ≤ 5) = 9.3e-8 (exact
+    // binomial). Under the old `anyCase` the same `free` floor rode the
+    // generator's collision bias — mean 15.70, at or below 5 in 0.028% of suite
+    // runs (measured, 40,000 pooled trials), across two blocking jobs per pipeline.
+    //
+    // ★ Do NOT tighten either floor and do NOT raise numRuns: a bigger sample
+    // against an unchanged absolute floor is a WEAKER guard, not a safer run,
+    // and raising a floor re-opens the tail this construction just closed. The
+    // counting stays CONDITIONAL on the real predicate so that if the arbitrary
+    // ever regresses the counter drops and these floors still catch it.
     expect(taken).toBeGreaterThan(10);
     expect(free).toBeGreaterThan(5);
   });
@@ -137,7 +282,7 @@ describe("entity-id-mint — properties", () => {
     let taken = 0;
     let free = 0;
     fc.assert(
-      fc.property(anyCase, ({ rows, itemId }) => {
+      fc.property(existenceCase, ({ rows, itemId }) => {
         const mint = makeMinter(rows);
         const result = resolveEntitySave(rows, itemId, undefined, mint);
         const legacyCreate = !isTaken(rows, itemId);
@@ -154,6 +299,12 @@ describe("entity-id-mint — properties", () => {
       { numRuns: 50 },
     );
 
+    // Same construction, same guarantee as the test above: `existenceCase`
+    // draws the existence FIRST at 11:9, so P(taken ≤ 10) = 4.3e-7 and
+    // P(free ≤ 5) = 9.3e-8 (exact binomial, n = 50). Under the old `anyCase`
+    // this `free` floor sat at 0.028% per suite run (measured, 40,000 pooled trials).
+    // Do NOT tighten either floor and do NOT raise numRuns — a bigger sample
+    // against an unchanged absolute floor is a weaker guard, not a safer run.
     expect(taken).toBeGreaterThan(10);
     expect(free).toBeGreaterThan(5);
   });
@@ -166,7 +317,7 @@ describe("entity-id-mint — properties", () => {
     let uncontended = 0;
     let updates = 0;
     fc.assert(
-      fc.property(contendedCase, isNewArb, ({ rows, itemId }, isNew) => {
+      fc.property(taggedCase, ({ rows, itemId, isNew }) => {
         const mint = makeMinter(rows);
         const result = resolveEntitySave(rows, itemId, isNew, mint);
         const wasTaken = isTaken(rows, itemId);
@@ -187,20 +338,19 @@ describe("entity-id-mint — properties", () => {
     // All three branches must actually be visited or the "never otherwise" half
     // of this property is asserted over nothing.
     //
-    // ★★★ THE FLOORS ARE `> 0` ON PURPOSE — DO NOT "TIGHTEN" THEM. Their only
-    // job is to prove each branch was REACHED; nothing here needs a branch
-    // visited N times. Earlier values of 5 / 2 / 5 were measured over 800 trials
-    // against this file's exact generators and flaked ~2.6% PER RUN
-    // (`uncontended <= 2` in 17/800, minimum observed 1; `contended <= 5` in
-    // 4/800, sitting exactly ON its floor). `uncontended` needs a free id AND
-    // `isNew ∈ {true, undefined}`, p ≈ 0.145, so its mean over 50 runs is ~7 and
-    // a floor of 3 sits inside the tail. That is a red build on two BLOCKING
-    // gates plus the weekly random-seed job, for a suite that is otherwise
-    // correct — and an intermittently-red property suite gets `.skip`ped by
-    // whoever draws the unlucky seed, costing the guard entirely.
-    // ★ A floor high enough to be meaningful would have to be CONSTRUCTED, the
-    // way sanitize-core's midPairCutArb constructs its mid-pair cut. Until it
-    // is, `> 0` is the honest assertion: it states exactly what it can prove.
+    // ★★ THE FLOORS ARE `> 0` AND THAT IS NOW A CONSTRUCTED FACT, NOT A BET.
+    // `taggedCase` draws the branch first, so each has p = 1/3 and
+    // P(a GIVEN branch is never visited in 50 runs) = (2/3)^50 = 1.6e-9; the
+    // union over all three — the number that matters, since all three floors
+    // run — is 3(2/3)^50 − 3(1/3)^50 = 4.7e-9. Before the
+    // branch tag the same floors rode the generator's collision bias:
+    // `uncontended` had p ≈ 0.145, mean 7.05, and drew zero in 0.058% of suite
+    // runs (measured, 40,000 pooled trials), which is what took a release pipeline red.
+    //
+    // ★ Do NOT "tighten" these to a larger number and do NOT raise numRuns —
+    // a bigger sample against an unchanged absolute floor is a WEAKER guard,
+    // not a safer run. Their job is to prove each branch was REACHED, and at
+    // 1.6e-9 they do that.
     expect(contended).toBeGreaterThan(0);
     expect(uncontended).toBeGreaterThan(0);
     expect(updates).toBeGreaterThan(0);

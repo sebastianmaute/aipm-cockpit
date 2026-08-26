@@ -53,6 +53,8 @@ are entered in the in-app Settings panel and stored in the browser.
 | `npm run docs:claims:check` | Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it) |
 | `npm run followups:check` | Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale) |
 | `npm run ooxml:manifest` | Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass |
+| `npm run version:check` | Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts |
+| `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
 <!-- END AUTO-GENERATED -->
 
 There is no separate `tsc` script — `next build` runs the TypeScript check
@@ -307,8 +309,12 @@ On a noteworthy change, update `src/app/version.ts`:
 - The leading comment summarising the milestone
 - `APP_HIGHLIGHT_KEYS` if a new highlight should appear in the Version popover
 
-Then bump the version everywhere else it is written down. **Nothing in CI
-compares any of these to `APP_VERSION`**, so every one of them drifts silently:
+Then propagate the version everywhere else it is written down — run
+`npm run version:sync`, which rewrites every place in the table below from
+`version.ts`. **`npm run version:check` compares all of them to `APP_VERSION`,
+and the `version-sync-check` job is BLOCKING**, so drift now fails the pipeline
+instead of accumulating silently. Hand-edit only if the gate reports a shape it
+cannot anchor on — and fix the pattern in that case, never the file:
 
 | place | what to change |
 |---|---|
@@ -449,10 +455,10 @@ Jira sync, storage backend switching, voice commands, OOXML export.
 - ESLint via `eslint-config-next` (typescript + core-web-vitals presets).
   Run `npm run lint` before opening a PR. ★ CI DOES enforce it — the `lint` job
   carries no `allow_failure`, so it blocks. (This line previously said CI did not;
-  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ But `npm run lint` is bare
-  `eslint` with no `--max-warnings`, so it exits 0 on warnings and only ERRORS
-  fail the job — check a stricter posture locally with
-  `npx eslint --max-warnings=0 src/app`.
+  corrected 2026-08-09 against `.gitlab-ci.yml`.) ★★ And `npm run lint` is
+  `eslint --max-warnings=0`, so a WARNING fails the job exactly as an error
+  does — all 25 severity-1 rules included, among them
+  `react-hooks/exhaustive-deps` and six `jsx-a11y` rules.
 - Prefer immutable updates (`...spread`) over mutation.
 - Functions should stay short — `task-manager.tsx` is already too long; do
   not add to it without a reason. Prefer splitting new logic into a helper

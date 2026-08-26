@@ -254,7 +254,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§57](#57-the-four-toolbar-outlook-enable-toggles-carry-an-untested-auto-guard--open) | The four toolbar Outlook enable-toggles carry an untested `auto` guard — open | 0.212.0 (Nayler) | S | open |
 | [§58](#58-the-axe-gate-can-pass-against-a-stale-dev-server--gate-half-fixed-post-02120-sibling-worktree-half-open) | The axe gate can pass against a STALE dev server — gate half FIXED post-0.212.0, sibling-worktree half OPEN | 0.212.0 (Nayler) | S | open |
 | [§59](#59-eye-verification-owed-on-02120--and-on-the-two-releases-before-it--open) | Eye verification owed on 0.212.0 — and on the two releases before it — open | 0.212.0 (Nayler) | S | open |
-| [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--open) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open | pre-existing, found post-0.212.0 | S | open |
+| [§60](#60-the-file-size-ratchet-ignores-every-file-at-or-under-800-lines-so-a-sub-limit-baseline-entry-is-inert--closed-2026-08-26) | The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert | pre-existing, found post-0.212.0 | S | **CLOSED** 2026-08-26 |
 | [§61](#61-three-residuals-from-the-use-resource-planner-split-plus-one-pointer--open-all-small) | Three residuals from the `use-resource-planner` split, plus one pointer — open, all small | post-0.212.0 | S | open |
 | [§62](#62-two-reference-data-handlers-have-no-production-consumer--open-pre-existing) | Two reference-data handlers have no production consumer — open, pre-existing | pre-existing, found post-0.212.0 | S | open |
 | [§63](#63-gantttsx-crossed-800-and-was-baselined-rather-than-split--closed-in-02130-split-after-all) | ~~`gantt.tsx` crossed 800 and was baselined rather than split~~ | post-0.212.0 | M | **CLOSED** in 0.213.0, split after all |
@@ -408,7 +408,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
 | [§213](#213-a-late-landing-dangling-diff-can-overwrite-a-healthy-asset-back-to-dangling) | A late-landing dangling diff can overwrite a healthy asset back to dangling | — | — | open |
-| [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | open |
+| [§214](#214-there-is-no---max-warnings-gate-anywhere-so-an-unused-import-ships-green-through-ci--closed-2026-08-26) | There is no `--max-warnings` gate anywhere, so an unused import ships green through CI | — | — | **CLOSED** 2026-08-26 |
 | [§215](#215-ci-has-no-live-turso-database-so-the-twelve-tests-that-prove-document-images-work-never-run-there) | CI has no live Turso database, so the twelve tests that prove document images work never run there | — | — | open |
 | [§216](#216-there-is-no-docx-or-pptx-byte-fixture-so-the-builders-additive-contract-is-pinned-only-by-their-own-unit-tests--closed-2026-08-24) | There is no `.docx` or `.pptx` byte fixture, so the builders' additive contract is pinned only by their own unit tests | — | — | **CLOSED** 2026-08-24 |
 | [§217](#217-media-parts-are-minted-per-occurrence-not-per-asset--one-image-used-twice-ships-twice) | Media parts are minted per OCCURRENCE, not per asset — one image used twice ships twice | — | — | open |
@@ -430,7 +430,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
 | [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | open |
-| [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | open |
+| [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
 | [§239](#239-an-imported-colour-scheme-can-pin-the-aa-derived-tokens-bypassing-the-derivation-entirely) | An imported colour scheme can pin the AA-derived tokens, bypassing the derivation entirely | — | — | open |
@@ -438,7 +438,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§241](#241-five-array-typed-slices-are-captured-but-invisible-to-diffworkspaces-so-they-can-never-be-restored-and-a-session-that-only-edits-them-captures-no-version-at-all) | Five array-typed slices are captured but invisible to `diffWorkspaces`, so they can never be restored and a session that only edits them captures no version at all | — | — | open |
 | [§242](#242-isemptyworkspacepayload-counts-nine-legacy-content-lists-so-a-documents-only-project-reads-as-empty-and-every-version-capture-is-skipped) | `isEmptyWorkspacePayload` counts nine legacy content lists, so a documents-only project reads as empty and every version capture is skipped | — | — | open |
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
-| [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | open |
+| [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
 | [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | open |
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | open |
@@ -2443,6 +2443,12 @@ every number here as a measurement with a date, not a property.
   any rule added, renamed or changed-by-default becomes an instant fatal build" — there is NO such gate
   (CI runs bare `eslint`, see §202), so only a rule landing at severity **2** can fail the build; a new
   WARNING ships green. That shrinks this item's blast radius — re-scope it before quoting the old size.
+  ★★★ **RE-SCOPED BACK 2026-08-26, AND THE ORIGINAL SIZE IS THE RIGHT ONE AGAIN.** §214 set
+  `package.json`'s `lint` script to `eslint --max-warnings=0`, so the gate this bullet says does not
+  exist now does, and any rule added, renamed or changed-by-default IS an instant fatal build. The
+  shrink above applied only between 0.255.0 and 0.260.x. §214 predicted this in writing and said to
+  sequence the two deliberately; it was closed first anyway, which makes the eslint-10 upgrade
+  harder, not easier. Quote the LARGER size.
   There is also a hook blocking `eslint.config.mjs` edits, which a major would likely require. That is
   a slice with its own verification, not an install.
 
@@ -3597,7 +3603,23 @@ contrast. What is not covered, and what these checks are for:
 
 ---
 
-## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — open
+## 60. The file-size ratchet ignores every file at or under 800 lines, so a sub-limit baseline entry is inert — CLOSED 2026-08-26
+
+★★ CLOSED 2026-08-26. Nothing here was ever a defect — the sub-limit blindness is the ratchet's
+design, and the entry's own 2026-08-03 correction established that a sub-limit baseline entry is
+behaviourally identical to no entry. Its one actionable residual, a stale `use-resource-planner.ts`
+line in the baseline, was verified gone on 2026-08-25 and again on 2026-08-26. Kept in place as the
+record of why `--update` dropping a sub-limit entry is a no-op rather than a regression.
+★ The live hazard this entry is adjacent to is §229 (two files at 799 with no baseline), which is
+where the near-cap work belongs.
+★★★ **TWO SENTENCES IN THE BODY BELOW CONTRADICT THIS HEADING AND ARE SUPERSEDED BY IT** — "is
+unaffected and **stays open**", and the `**No fix is proposed**` paragraph's options (a)/(b). They
+are left in place as the dated analysis they are, but they are NOT a live open item under this
+number: a partially closed entry would have to stay OPEN (see the ★★★ rule at the top of this file),
+and this one is fully closed. The one thing in them that is still LIVE — option (b), giving the
+baseline an explicit per-file `pin` the loop honours regardless of `LIMIT`, so a file that earned its
+way down can be held near where it landed — has been **carried to §229**, which is where the two
+at-799 files are tracked. Do not re-derive it from here; §229 owns it now.
 
 `scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
 800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
@@ -15102,11 +15124,41 @@ set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
 independently — gated promises, not `waitFor`. A test that merely awaits both will pass under
 whichever order the harness happens to produce, which is the shape that let this go unnoticed.
 
-## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI
+## 214. There is no `--max-warnings` gate anywhere, so an unused import ships green through CI — CLOSED 2026-08-26
 
-**Status:** open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open — the docs that misdescribed this were corrected in 0.255.0; the gate itself is
 untouched, deliberately, because turning it on affects every future MR and was out of scope for an
 icon migration.
+
+★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `package.json`'s `lint` script is now
+`eslint --max-warnings=0`, the wide route this entry recommends. Four doc sentences asserting the
+gate was absent were rewritten in `4c6e47ba`; the three that merely USE the flag in an example
+command were left alone.
+★★★ **THAT WAS NOT THE WHOLE RIPPLE, AND THIS LINE CLAIMED IT WAS** — it read "the four doc
+sentences … were rewritten in the same commit", which a reader takes as the complete sweep. Twenty
+commits later `deae44c8` found **three more**, and its own message says why none was reachable the
+way the first four were: **not one of them spells `--max-warnings`.** A FIFTH doc sentence, in
+`docs/AGENTS/dashboard.md`, said `react-hooks/exhaustive-deps` "is NOT fatal"; and two entries in
+THIS file had re-scoped themselves around the gate's absence (§45's eslint-10 blast radius, §253's
+"CI is green under `--max-warnings=0`" frame). So: **five prose sentences plus two register entries,
+across two commits** — not four in one. Reproduce the split:
+
+```bash
+git log --oneline 964c20d1..55adc40b -- docs/AGENTS/dashboard.md   # deae44c8 only
+git show 4c6e47ba --stat --format=""                               # AGENTS · CONTRIBUTING · architecture
+```
+
+★★ **THE ENUMERATE COMMAND BELOW BOUNDS THIS SWEEP FROM BELOW, AND CANNOT DO BETTER.** It greps for
+the FLAG, so it finds only sentences that name it. Every claim in the miss above is about the flag's
+EFFECT — "is NOT fatal", "CI is green under" — and is invisible to it. The 4-of-7 measurement it
+reports is exact for what it asks and is not a count of falsified claims. A behaviour change needs a
+sweep for prose describing the OLD BEHAVIOUR, which no single grep expresses; budget a read, not a
+pattern. The narrow route (promoting the single rule in
+`eslint.config.mjs`) was NOT taken and remains unavailable to an agent — that file is hook-protected.
+★★ The gate was proved live by mutation, and the FIRST proof command was vacuous: `npx eslint
+src/app/icons.ts` exits 0 on a genuinely unused import, because it invokes eslint directly and never
+sees a flag that lives in the npm script. Only `npm run lint -- <path>` tests what CI runs.
 
 CI's `lint:` job runs `npm run lint`, that script is bare `eslint`, and no `--max-warnings` flag
 exists anywhere in the repo's config. `@typescript-eslint/no-unused-vars` resolves to severity **1**
@@ -16526,6 +16578,95 @@ Near-unreachable in practice, since `templateFromWorkspace` captures live, alrea
 **Status:** open — a HAZARD, not a defect. Nothing is broken today, and no gate is red. Carried out
 of §220 so this fact does not retire with that entry's close.
 
+**THE SURVEY (2026-08-26) — every candidate considered, per file.** §220's false "the seam is spent"
+was reached without enumerating anything, so this records the enumeration whatever the verdict.
+Neither file is coverage-excluded (`vitest.config.ts`'s `coverage.exclude` names neither), so an
+extracted slice STAYS gated — which is a feature here, not a cost: a slice still reached through the
+same dispatcher or hook is exercised by the SAME existing tests and carries its coverage across with
+it. That is exactly what happened to `useDocumentTools`, extracted from `useChatDispatcher` and
+covered today by `use-chat-dispatcher.test.tsx`'s own harness with no test file of its own.
+
+**`use-chat-dispatcher.ts` — A COHESIVE SEAM EXISTS, and the file already carries the pattern for
+it.** Candidates, largest first. **(1) The register CRUD tools** — `listRaid` through
+`deleteStakeholder`, i.e. the whole RAID / Changes / Milestones / Stakeholders create-update-delete
+family: ~197 lines of tool bodies, plus its four refs, their four sync effects, eight names in the
+`useWorkspace()` destructure, and eight import lines nothing else in the file uses
+(`sanitizeRaidItem` · `sanitizeChangeItem` · `sanitizeMilestone` · `sanitizeStakeholder` and the
+four matching `toRaidSummary` / `toChangeSummary` / `toMilestoneSummary` / `toStakeholderSummary`
+mappers — grep each name and every hit lands inside this block). ≈225 net lines, taking the file to
+≈574. Interface: a hook taking `isReadOnly`, `logActivityAs`, `clock` and the language, calling
+`useWorkspace()` itself for its four slices and their setters — the shape
+`useDocumentTools(args.isReadOnly, args.logActivityAs)` already has, spread into the same object
+literal, with its own dispatcher interface intersected onto `ToolDispatcher` exactly as
+`DocumentToolDispatcher` is. Nothing outside the file would import it (these tools are reachable
+only through the dispatcher object). ★★ ONE HAZARD, and the file states it: the dispatcher's
+`useMemo` has deliberately empty deps except `args.isReadOnly` and `documentTools`, with a comment
+explaining that a memo'd tool object captured by the spread MUST be a dep or the first render's
+tools freeze into every later dispatcher. An extracted register-tools object is the same shape and
+needs the same dep. VERDICT: **extract** — best value on either file, and it follows a precedent the
+file already set rather than inventing one. **(2) The app-state read tools** — `getSnapshot` through
+`listBudgetBuckets`: ~75 lines of bodies plus nine refs used nowhere else in the file, their nine
+sync effects, the `useViewDigest` call and the `useChatSearchBindings` binding — ≈115 net. Every
+member is read-only reporting, so it is cohesive, and it needs only the args bag plus
+`useWorkspace()`. VERDICT: viable second seam, but it also reads `tasksRef` / `settingsRef` /
+`clockRef`, which the rest of the file keeps, so the extracted hook re-derives three refs the parent
+still holds — cheaper than (1) in lines and dearer in duplication. Take it only if (1) is not
+enough. **(3) The resource tools** — `listResources` through `deleteResource`, ~46 lines plus one
+ref and its effect, ≈50 net. Cohesive, but it is the same seam as (1) at a quarter the size: fold it
+into (1) rather than spending a file on it. **(4) The task tools** — `createTask` through
+`deleteAllTasks`, ~179 lines. REJECTED: not self-contained. `tasksRef` is also read by `getSnapshot`
+and by `sendInquiry`, and the block writes through `useTaskForm()`'s `setForm` / `setEditingId` and
+reads `editingIdRef` — so the hook would need two more contexts and would STILL leave `tasksRef`
+behind in the parent. Cohesive as a family, entangled as a module. **(5) `sendInquiry`** (~43 lines)
+and **(6) `applyFilters`** (~20). REJECTED, both: each is one tool's helper, so moving either
+relocates a function without buying a surface. `applyFilters` exists only to adapt `useFilters()`'s
+five setters, so extracting it moves that context dependency without removing it. **(7)
+`isTaskStatus` and its status set** (~8 lines). REJECTED: a module-scope type guard, ~1% of the gap,
+a pure relocation.
+
+**`use-storage-backend.ts` — A SEAM EXISTS, but every candidate is dearer than the dispatcher's, and
+the file has already been mined four times.** `useLoadTruncation`, `useFileProjectOps`,
+`useTursoProjectOps` and the `UseStorageBackendArgs` types module were all carved out of it already
+and it is still at 799 — its OWN comments now pair statements onto single lines *"because this file
+sits AT the 800-line ratchet"*, which is the pathology, not a fix. **(1) The debounced autosave
+effect** — from the single-writer guard through the visibility/pagehide flush: ~114 lines, plus
+three refs used nowhere else (the collection-count, record-count and destructive-bypass refs) and
+the `allowDestructiveSave` one-shot they drive. ≈126 gross, ≈115 net. Interface: a hook calling
+`useWorkspace()` itself (its 28-slice dep array is the whole point — passing 28 props would be worse
+than the effect), plus `backend`, hydrated/popout flags, `loadWasTruncated`,
+`mayCommitAfterTruncation`, the SHARED suppress-next-save ref (armed by the load effect,
+`onOpenStorageFile`, `onRequestStorageSwitch`, `reloadCurrentProject` and both project-ops hooks, so
+it must be passed IN, never owned), and the `emitToast` / `emitOutcome` emitters; returns
+`allowDestructiveSave`. VERDICT: the best candidate here and the only one clearing 100 lines. ★★ Its
+COST is not its line count: this is the app's persistence choke point, carrying the data-loss
+invariants and the §103 truncation gate, so unlike the dispatcher slices it is worth its own test
+file rather than riding the existing suites — and it stays coverage-gated, so that is an obligation,
+not a choice. **(2) The multi-tab broadcast block** — the `useBroadcastSync` calls and their
+`canSend` flag, ~18 lines, ≈16 net. Cohesive to the point of being a list, and an obvious hook
+taking one boolean and calling `useWorkspace()`. VERDICT: worth doing WITH (1) — on its own it buys
+little, but it is the cheapest sixteen lines in the file and it un-pairs two comments jammed onto
+one line to dodge the gate. **(3) `applyWorkspace`** (~72 lines, ~40 of them landmine comment).
+REJECTED as a hook: it fans a loaded workspace into 29 setters, so a hook calling `useWorkspace()`
+would move the setters with it — but `onOpenStorageFile` writes `setTasks` / `setRaid` directly and
+`currentWorkspace` reads every slice, so the parent keeps the destructure regardless and the saving
+collapses to the body alone. Its `seedMintFromWorkspace` and `setLoadedBackend` tail also binds it
+to the backend gate, whose ORDERING its comment marks as load-bearing; not worth carrying that
+comment across a file boundary. **(4) The load effect** (~68 lines). REJECTED: it calls
+`applyWorkspace`, `currentWorkspace`, `refreshBackendStatus`, `truncationOps`, both suppress refs
+and both emitters — six parent-scope bindings for 68 lines, and it is the save effect's counterpart,
+which (1) would already have moved elsewhere. **(5) The four storage-file handlers** —
+`onPickStorageFile` / `onGrantWriteAccess` / `onOpenStorageFile` / `onRequestStorageSwitch`, ~120
+lines. REJECTED as written: they are the residue left after the project flows went to
+`useFileProjectOps`, and they reach `truncationOps`, `refreshBackendStatus`, `emitToast`,
+`settingsRef`, `langRef`, both suppress refs and raw workspace setters. Cohesive by NAME, not by
+dependency — the candidate most likely to look easy and cost the most. **(6) The small helper
+cluster** — `currentWorkspace`, `commitRegistry`, `backendFor`, `tursoConfigNow`,
+`persistBackendHandle`, `reportProjectError`: ~65 lines together. REJECTED: five of the six are
+consumed by `useTursoProjectOps` and `useFileProjectOps` and would have to be threaded back down as
+props, so the extraction converts inline functions into a WIDER interface — a relocation that makes
+the seam worse. **(7) A baseline entry for either file.** REJECTED — see the prohibition below; it
+is the one remedy this entry exists to forbid.
+
 **The measurement.** Both files read **799** by the gate's own arithmetic and **798** from `wc -l`:
 
 ```
@@ -16586,6 +16727,22 @@ touch either file gets a red pipeline for what looked like a small change and ha
 `filter` chain and its `EXEMPT` list), so a raw walk of `src` reports files it will never charge — a
 test file at 781 shows up in the 780—800 band and is pure noise. Apply the same filters, or check any
 hit against the gate before acting on it.
+
+★★ **CARRIED HERE FROM §60 ON 2026-08-26 — a deferred DESIGN decision, not a defect.** §60 closed,
+and the one live item in its body had nothing to do with its own thesis, so it would otherwise have
+been readable only inside a closed entry and invisible to every open count. It is the mirror image of
+the prohibition two paragraphs up, and the reason this entry is where it belongs: the ratchet has no
+way to HOLD a file that earned its way down. `check-file-sizes.mjs` opens its comparison loop with
+`if (n <= LIMIT) continue;`, so once a file is under 800 the baseline is never consulted for it and
+nothing stops it climbing back to 799 one commit at a time — which is exactly the state the two files
+named in this heading are in. §2 took `use-resource-planner.ts` from 1043 to 553 for the same reason.
+The two options, unchanged from §60: **(a)** leave it — the ratchet is a ratchet, not a budget, and
+800 is the only line anyone agreed to; **(b)** give the baseline an explicit per-file `pin` the loop
+honours regardless of `LIMIT`. ★★ (b) is NOT the prohibited move above, and the distinction is the
+whole point: a baseline ENTRY admits growth past 800, a `pin` forbids growth below it. It does make
+the ratchet two mechanisms and needs a decision about who may raise a pin, which is why it is a slice
+of its own rather than a tweak. **There is no pressure to do either now** — recorded so the choice is
+visible, not to schedule it.
 
 ## 230. A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy
 
@@ -16993,9 +17150,47 @@ here. (Reasoned from the grep above, not measured against the rendered trend.)
 
 ---
 
-## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them
+## 236. Five version-carrying places are ungated, and the release checklist is the only thing holding them — CLOSED 2026-08-26
 
-**Status:** open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open — a HAZARD, not a live defect. Verified IN SYNC on 2026-08-25 by the probe below.
+
+★★ CLOSED 2026-08-26 on `chore/gate-blind-spots`. `scripts/check-version-sync.mjs` compares every
+restatement against `src/app/version.ts` and runs as the BLOCKING `version-sync-check` job;
+`npm run version:sync` propagates. The probe this entry shipped is superseded by the gate, which
+prints the same readings — run `npm run version:check` rather than pasting the node one-liner.
+★★ **BOTH commands kept below are now FALSIFIED BY THIS CLOSURE, not just the node one-liner**, and
+naming only that one left the other reading as live. The entry's evidence grep
+`grep -rn "APP_VERSION" scripts/ .gitlab-ci.yml` is annotated `# no output — no gate reads it`; it
+now returns **7** lines and exits 0, because the gate this entry asked for is what reads it. The
+annotation was the entry's whole proof, so a reader running it today gets the opposite of the stated
+result with nothing saying why. Left in place as the dated reading it was — superseded here, not
+rewritten.
+★ The gate refuses rather than passing when a shape moves, which is this entry's own requirement, and
+refuses when the codemap glob yields nothing — a gate that scans nothing passes everything. ★★ Both
+are now **exit 2**, kept distinct from **exit 1 = drift**: a moved shape used to reach the top level
+as an uncaught throw, printing a raw Node stack and exiting 1 — the same code as real drift, which is
+the one thing CI must be able to tell apart, since drift is fixed with `--update` and a moved shape
+is fixed by editing the pattern.
+
+★★★ **AND THE ONE DEFECT NEITHER THE DESIGN NOR THE FIRST REVIEW CAUGHT: reader/writer symmetry does
+not protect a format they are both wrong about.** The whole design rests on one regex with three
+capture groups, so the reader and writer cannot DRIFT — but the README badge is a URL inside a
+markdown link, and `--update` wrote a codename's SPACE raw into it. shields renders `_` as a space,
+and a space ENDS a CommonMark link destination, so the URL truncated mid-codename and the closing
+paren became body text. The reader's `([^%]+)` then read that raw space straight back, `diffSatellite`
+compared equal, and the gate reported IN SYNC over a badge it had just broken. Measured before the
+fix: `--update` exit 0, follow-up check exit 0. Closed with `encode`/`decode` hooks on that single
+pattern. ★★ Every codename to date is a one-word author surname, so nothing ever shipped broken —
+"Le Guin" would have. ★ The regression test asserts on the BYTES, not only the round trip, and that
+is the load-bearing part: mutation-proved by bypassing the encode hook, the round-trip case still
+PASSES, because it round-trips through the same wrong pair.
+★★ PROVED BY MUTATION, not observed green: drifting BOTH `package.json` and the `package-lock.json`
+root sends it red naming each file, and `--update` then returns every blob to a hash identical to
+HEAD. That last check is the one that matters — the lockfile carries 681 `"version":` keys, and an
+unanchored writer would have rewritten every dependency pin without changing the gate's verdict.
+★★ It does NOT cover `CHANGELOG.md` or `APP_BUILD_DATE`: neither restates the version in a form a
+regex can anchor on without guessing at prose, and a gate that guesses is one that gets switched off.
 
 `src/app/version.ts` is the source of truth. The version is restated in `package.json`, twice in
 `package-lock.json` (the root `version` and the `packages[""]` one), in the README shields badge, and
@@ -17400,9 +17595,10 @@ bare, and both render on screen at once; the code carries a comment recording wh
 
 ---
 
-## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red
+## 244. The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red — CLOSED 2026-08-26
 
-**Status:** open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
+**Status:** CLOSED 2026-08-26 by `chore/gate-blind-spots`.
+Original status, kept as written: open. Opened 2026-08-25 after `unit-tests-shuffled` failed the 0.259.0 release pipeline.
 The class is already recorded — §22's test-validity note states it and names the cure — but no entry
 files an instance, so each recurrence is re-diagnosed from scratch. This one cost a release cycle.
 
@@ -17486,6 +17682,133 @@ with every property added; enumerate before assuming a fix here is the end of it
 ```bash
 grep -rln "toBeGreaterThan\|toBeGreaterThanOrEqual" src/app/*.property.test.ts
 ```
+
+---
+
+★★★ **AUDITED AND CLOSED 2026-08-26 on `chore/gate-blind-spots`. THE "19 of 31" ABOVE COUNTS THE
+WRONG THING, AND EVERY PARAGRAPH ABOVE THIS LINE IS KEPT AS WRITTEN** — deleting a superseded figure
+makes the correction unverifiable. That figure is a `grep` for `toBeGreaterThan`, which sweeps in
+every PER-RUN INVARIANT asserted INSIDE an `fc.property` callback. `expect(r.total)
+.toBeGreaterThanOrEqual(0)` is the property being tested, not a guard against a generator that never
+produced an interesting case. **A reader sizing the work from it over-scopes by more than half.**
+
+Classifying by whether the assertion sits inside the callback gives **43 outside and 24 inside**, and
+**eight of the 43 are still not floors**: four in `document-model.property.test.ts` sit inside
+`assertBlockInvariants` and `assertDocInvariants`, two in `export-sections.rich.property.test.ts`
+inside `cellFor`, one is that file's `RICH_TARGETS` length check, and one in
+`gantt-engine.property.test.ts` compares the imported constants `LEFT_GUTTER_PX` and
+`GANTT_NAME_COL_MIN`.
+★★ The eight were caught by READING, not by the scan — the scan cannot tell "outside the callback"
+from "counts runs", so re-running it does not reproduce this filter. ★ The `RICH_TARGETS` one needs
+precise wording: it IS an anti-vacuity assertion and its own comment says so, but it is **not a run
+counter** — it is structural and seed-independent, so it carries no flake risk. Calling it "not an
+anti-vacuity assertion" would contradict the file.
+
+**The real surface is 35 anti-vacuity floors across 7 files, and they were never all defective.**
+
+| file | floors | construction-backed before | probabilistic | thin (fixed here) |
+|---|---|---|---|---|
+| `codec-roundtrip.property.test.ts` | 12 | 0 | 12 | **6** |
+| `entity-id-mint.property.test.ts` | 8 | 0 | 8 | **3** |
+| `rich-text-plain.property.test.ts` | 5 | 1 | 4 | 0 |
+| `document-model.property.test.ts` | 3 | 0 | 3 | 0 |
+| `export-sections.rich.property.test.ts` | 3 | 0 | 3 | 0 |
+| `sanitize-core.property.test.ts` | 3 | 3 | 0 | 0 |
+| `document-mutations.property.test.ts` | 1 | 1 | 0 | 0 |
+| **total** | **35** | **5** | **30** | **9** |
+
+**Nine floors were thin and all nine are now constructed.** The other 21 probabilistic floors carry
+per-run failure rates between 4e-7 and 1e-19 — four of them backed by exact-binomial figures already
+written into their files — and were deliberately left alone. Fixing them would be churn.
+
+**`entity-id-mint.property.test.ts`** — `taggedCase` draws the branch first (p = 1/3 each), and
+`existenceCase` draws taken-vs-free at 11:9, chosen because `taken + free === 50` and the floors are
+asymmetric (`taken > 10`, `free > 5`), so an even split would have *degraded* `taken`.
+
+| floor | before (pooled 40,000 trials) | after |
+|---|---|---|
+| `uncontended > 0` | 0.058% | 0 in 20,000; constructed `(2/3)^50` = 1.6e-9 |
+| `free > 5` (two tests) | 0.028% each | 0 in 20,000; exact binomial 9.3e-8 |
+| `taken > 10` (two tests) | 0 in 40,000 | 0 in 20,000; exact binomial 4.3e-7 |
+
+**`codec-roundtrip.property.test.ts`** — `hazardLoadedString` splices two hazard chunks of a
+uniformly-drawn distinct class pair into each loaded value, giving p = 1/3 per class. Class pools are
+DERIVED from the same predicate record the tally counts with, applied to the CR-stripped chunk — the
+step that makes one pool serve both alphabets. The EMPIRICAL result is the claim: 0 at or below the
+floor in 40,000 samples per site, and the smallest of the twelve minima moved from **6 to 23**.
+
+★★★ **THIS ROW ONCE REPEATED THE VERY MISTAKE THE ENTRY EXISTS TO TEACH, AND IT SURVIVED THE COMMIT
+THAT DELETED THE SAME FIGURE FROM THE CODE.** It read "worst evaluation went from **7.5e-5** to a
+constructed bound of **2.2e-8**". That is not a bound: it is `Binom(190, 1/6)`, an arbitrary INTERIOR
+point of the N range.
+
+★★★ **AND THE FIRST CORRECTION REPEATED THE MISTAKE ONE LEVEL DOWN — WRITTEN, REVIEWED AND COMMITTED
+WHILE FIXING IT.** It replaced those with `Binom(140, 1/6)` = 2.5e-5 and `Binom(140, 1/12)` = 9.5e-2,
+calling 140 "the worst N". **140 was the smallest N one 5,000-sample run happened to see** — a second
+run of the same generator topped out at 325 where the first saw 340, which is what proves both are
+sample statistics. The real bound comes from the ARBITRARIES: `tasksArb` is minLength 1 / maxLength 4,
+`tallyHazards` walks 5 fields, numRuns is 20, so **N ∈ [100, 400]** with a hard floor. At N = 100 the
+per-evaluation bound is **3.8e-3**, 150x more likely than the 2.5e-5 that was committed, and the
+two-class advantage narrows from 3800x to **106x** (0.40 → 0.0038) — still decisive, but not the
+margin the fix claimed. Caught by a second cold review round, not by any gate.
+
+★ The bound is deliberately loose: N = 100 requires all twenty runs to draw exactly one task, and the
+measured per-value rate is 0.24–0.33 at both sites rather than the 1/6 the bound assumes (at which
+the same worst-case N gives 7.8e-6). **A loose bound that is TRUE outranks a tight one that is an
+artifact of the seed** — that is the whole content of this entry, and it took three attempts to
+apply it to itself. Recompute every figure named above:
+
+```bash
+node -e "const lf=x=>{let s=0;for(let i=2;i<=x;i++)s+=Math.log(i);return s};const b=(n,p,k)=>{let t=0;for(let i=0;i<k;i++)t+=Math.exp(lf(n)-lf(i)-lf(n-i)+i*Math.log(p)+(n-i)*Math.log(1-p));return t};for(const [l,n,p] of [['bound N=100 p=1/6',100,1/6],['one-class N=100',100,1/12],['at measured rate',100,0.240],['committed 140 1/6',140,1/6],['committed 140 1/12',140,1/12],['original 190 1/6',190,1/6]]) console.log(l, b(n,p,8).toExponential(2))"
+```
+
+★★★ **DO NOT NOW QUOTE 2.5e-5 AS "THE IMPROVEMENT" EITHER** — replacing one misleading number with
+another in the pessimistic direction is the same error mirrored, and it is the easy one to make while
+correcting the first. 2.5e-5 is a WORST-CASE bound taken at the smallest N ever observed; the actual
+mixture over the N distribution is much better, and the empirical result says so — 0 at or below the
+floor in 40,000 samples per site, with the smallest of twelve minima at **23** against a floor of 8.
+What is NOT established is the low-N tail's weight, which nobody has measured, and that is precisely
+why the honest headline here is the EMPIRICAL pair (0/40,000; minima 6 → 23) rather than any single
+tail number. ★ A zero is not a bound either: rule-of-three puts 0/40,000 at 7.5e-5.
+
+★★ The lesson is narrower than "the number was wrong". `codec-roundtrip.property.test.ts`'s own
+`expectHazards` note had ALREADY declared 2.2e-8 unreproducible and "removed rather than restated" —
+while two other comments in that same file and this row went on quoting it. **Deleting a figure in
+the place that DISCUSSES it, without sweeping the places that USE it, leaves the artifact asserting
+its own correction is complete.** Found by cold review, not by any gate.
+
+★★★ **THE FILE'S OWN JUSTIFICATION WAS FALSE, AND THAT IS THE LESSON HERE.** It read: "the lowest
+single value across every class and both alphabets was 16 (astral) … The floor sits at half that
+worst case, so a normal seed cannot flake." Over 80,000 pooled samples the true minimum was **6**, and
+four of the twelve evaluations were failing at between 1.3e-5 and 7.5e-5. **16 was the minimum of ten
+tallies, generalised into a property of the generator.** A margin stated against an observed minimum
+is not a probability, and this is what that mistake looks like when it is wrong.
+
+★★ **MEASURE BOTH CALL SITES.** `expectHazards` runs at two sites over two alphabets, so six source
+lines are **twelve evaluations per suite run**. `mdSafeString` adds a CR-stripping map and a rejecting
+filter, halving the newline-bearing chunk pool and dropping that counter's mean from 38.8 to 25.1.
+**Three of the four failing evaluations were Markdown-only** — measuring the CSV alphabet alone would
+have shown a worst case of 1.3e-5 and justified doing nothing.
+
+★★ **AN ESTIMATE READ OFF AN ARBITRARY IS NOT A MEASUREMENT, AND ONE WAS WRONG IN THE UNSAFE
+DIRECTION.** The audit estimated `free > 5` at 1e-3…1e-2 and judged it "plausibly an order of
+magnitude worse" than `uncontended`, which would have made it the file's worst floor. Measurement put
+it at 2.8e-4, **2.5× better**. It could not be settled by reading because it turns on `P(empty)` for
+`fc.uniqueArray({minLength: 0, maxLength: 8})`, a fast-check size-bias question rather than a property
+of the file — and the audit flagged itself UNSURE on exactly that. **Never scope a fix from an
+estimated probability.**
+
+★★ WHAT THIS DOES NOT COVER. The audit classified assertions OUTSIDE an `fc.property` callback in
+`src/app/*.property.test.ts`. It says nothing about floors in `e2e/`, counters asserted by a helper
+the scan cannot see through, or **a NEW property landing with a probabilistic floor — nothing gates
+that**, and the classification above is stale the moment one does. The 21 left alone were judged from
+measured or exact-binomial rates, not proved safe for all time.
+
+★ Re-run the candidate scan with the command in `docs/superpowers/plans/2026-08-26-gate-blind-spots.md`
+(Task 9, Step 1); the eight non-floors must still be filtered by reading, so it over-reports by design.
+The measurement harness is `scripts/measure-property-floor.mjs`, whose header records three ways to
+misread it — a `>=` floor needs `floor - 1`, rare-event runs must be pooled before quoting, and a
+zero is not a bound.
 
 ## 245. The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface
 
@@ -18200,7 +18523,12 @@ fatal lint violation** — any finding claiming one is a false positive by const
 `--max-warnings` gate: CI's `lint:` job runs bare `eslint`, and `@typescript-eslint/no-unused-vars`
 and `react-hooks/exhaustive-deps` are both severity 1, so a WARNING-level violation ships green and
 a finding reporting one is not a false positive. Only severity-2 rules fail the job — and there are
-many, NOT the two this sentence used to name as if exhaustively: `no-restricted-imports` is one of
+many, and since 2026-08-26 EVERY severity-1 rule joins them — §214 set `npm run lint` to
+`eslint --max-warnings=0`, so the frame retired above is VALID AGAIN and the four findings it
+dismissed would today be real. ★★ Read this entry as a record of a period, not of today: between
+0.255.0 and 0.260.x a warning shipped green, and the reasoning here is correct for that window only.
+The severity-2 list was never the whole story anyway, NOT the two this sentence used to name as if
+exhaustively: `no-restricted-imports` is one of
 them, which is the heroicons ban itself, so "a reintroduction is fatal" elsewhere in the docs is
 correct and this line must not be read as contradicting it. List them rather than trusting any count
 here: `npx eslint --print-config src/app/icons.ts` and filter `.rules` for severity 2. Verify with `npx eslint --print-config
