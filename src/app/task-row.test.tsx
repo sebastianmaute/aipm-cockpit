@@ -12,6 +12,7 @@ import { type ChangeItem, type RaidItem, type Resource, type Task } from "./type
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buildRowTokens } from "./row-tokens";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -812,7 +813,7 @@ describe("TaskActions", () => {
           <tr>
             <td>
               <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
+                <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
               </RowContextProvider>
             </td>
           </tr>
@@ -894,7 +895,7 @@ describe("TaskActions Send inquiry", () => {
             {tasks.map((task) => (
               <tr key={task.id}>
                 <td>
-                  <TaskActions task={task} isPushing={false} />
+                  <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
                 </td>
               </tr>
             ))}
@@ -1421,5 +1422,54 @@ describe("TaskRow linked-documents badge", () => {
     const { getByRole, onOpenDocuments } = renderRows();
     fireEvent.click(getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
+  });
+});
+
+describe("row-unique accessible names (WCAG 2.4.6)", () => {
+  // Builds each row's OWN token from `buildRowTokens` — the real disambiguator,
+  // not a hand-written string and not a constant shared by every row. A
+  // constant `rowToken` here would make the collision test below pass for the
+  // wrong reason (it could never see a name shared by two controls) — see
+  // `src/app/row-tokens.ts` and `src/test/row-unique-names.ts`.
+  function renderRows(context: RowContextValue, tasks: Task[]) {
+    const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
+    return render(
+      rowWrapper({
+        context,
+        children: tasks.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            rowToken={tokens.get(task.id) ?? task.taskName}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={undefined}
+          />
+        )),
+      }),
+    );
+  }
+
+  test("keeps every control distinct when two tasks share a name", () => {
+    const { container } = renderRows(makeContext(), [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Alpha" }),
+    ]);
+    expectRowUniqueNames({
+      minControls: 4,
+      scope: container,
+      roles: ["button", "combobox", "textbox", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+
+  test("leaves the VISIBLE task name unqualified", () => {
+    // The token is an ACCESSIBLE-name device. A user reads what they typed.
+    const { getAllByText } = renderRows(makeContext(), [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Alpha" }),
+    ]);
+    expect(getAllByText("Alpha", { selector: "button" })).toHaveLength(2);
   });
 });

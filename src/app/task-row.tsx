@@ -202,7 +202,7 @@ function TaskRowImpl({
     displayClass?: string,
   ): ReactNode => {
     if (!inlineEditable) return display;
-    const label = `${t(lang, field)} – ${task.taskName}`;
+    const label = `${t(lang, field)} – ${rowToken}`;
     if (inline.editing === field) {
       return (
         <Input
@@ -257,7 +257,7 @@ function TaskRowImpl({
           onChange={(e) => inline.setDraft(e.target.value)}
           onBlur={inline.commit}
           onKeyDown={onTextareaKeyDown}
-          aria-label={`${t(lang, field)} – ${task.taskName}`}
+          aria-label={`${t(lang, field)} – ${rowToken}`}
           className={`w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
         />
       );
@@ -316,7 +316,7 @@ function TaskRowImpl({
           <button
             type="button"
             onClick={() => onAiEdit(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${rowToken}`}
             title={t(lang, "inlineAiEdit")}
             className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
@@ -368,7 +368,7 @@ function TaskRowImpl({
         <DocumentBadge
           lang={lang}
           count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
-          entityTitle={task.taskName}
+          entityTitle={rowToken}
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
@@ -392,7 +392,7 @@ function TaskRowImpl({
             onChange={(e) => inline.setDraft(e.target.value)}
             onBlur={inline.commit}
             onKeyDown={onInlineKeyDown}
-            aria-label={`${t(lang, "taskName")} – ${task.taskName}`}
+            aria-label={`${t(lang, "taskName")} – ${rowToken}`}
             className="w-full font-medium"
           />
         ) : (
@@ -400,6 +400,15 @@ function TaskRowImpl({
             type="button"
             onClick={handleNameClick}
             onDoubleClick={handleNameDoubleClick}
+            // ★★★ Without this the accessible name is the CONTENT — two tasks
+            // named "Alpha" render two identically-named buttons, on the most
+            // prominent control in the view. Found while grounding this slice;
+            // neither §247 nor §248 records it.
+            // ★ 2.5.3 holds by CONTAINMENT: visible "Alpha" sits inside the
+            // token "Alpha (1)". Set unconditionally — with no collision the
+            // token IS the bare name, so this restates the content rather than
+            // changing behaviour.
+            aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
             className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >{task.taskName}</button>
@@ -436,13 +445,13 @@ function TaskRowImpl({
                 onChange={setAssigneeDraft}
                 onBlur={commitAssignee}
                 placeholder={t(lang, "assignee")}
-                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+                aria-label={`${t(lang, "assignee")} – ${rowToken}`}
               />
             ) : inlineEditable ? (
               <button
                 type="button"
                 onClick={beginAssigneeEdit}
-                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+                aria-label={`${t(lang, "assignee")} – ${rowToken}`}
                 className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {displayName || "—"}
@@ -483,7 +492,7 @@ function TaskRowImpl({
                   inline.cancel();
                 }
               }}
-              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              aria-label={`${t(lang, "priority")} – ${rowToken}`}
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>{priorityLabel(lang, p)}</option>
@@ -493,7 +502,7 @@ function TaskRowImpl({
             <button
               type="button"
               onClick={() => inline.begin("priority", task.priority)}
-              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              aria-label={`${t(lang, "priority")} – ${rowToken}`}
               className={`rounded-md border border-transparent p-0.5 hover:border-ui-dark-blue ${INTERACTIVE}`}
             >
               <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
@@ -531,7 +540,7 @@ function TaskRowImpl({
           {/* Count badge opening the floating notes window (running note log). */}
           <NotesBadgeButton
             count={task.noteLog?.length ?? 0}
-            entityName={task.taskName}
+            entityName={rowToken}
             lang={lang}
             onClick={() => onOpenNotes(task.id)}
           />
@@ -553,7 +562,7 @@ function TaskRowImpl({
         </Td>
       )}
       <Td>
-        <TaskActions task={task} isPushing={isPushing} />
+        <TaskActions task={task} isPushing={isPushing} rowToken={rowToken} />
       </Td>
     </tr>
   );
@@ -564,9 +573,10 @@ export const TaskRow = memo(TaskRowImpl);
 interface TaskActionsProps {
   task: Task;
   isPushing: boolean;
+  rowToken: string;
 }
 
-function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
+function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
   const {
     lang,
     jiraEnabled,
@@ -609,7 +619,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           "fix" the row qualifier out of the accessible name. */}
       {showSendInquiry && (
         <IconButton
-          label={`${t(lang, "sendInquiry")} – ${task.taskName}`}
+          label={`${t(lang, "sendInquiry")} – ${rowToken}`}
           title={t(lang, "sendInquiry")}
           onClick={(e) => { stop(e); onSendInquiry(task); }}
           className="mr-1"
@@ -623,7 +633,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           type="button"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          aria-label={`${t(lang, "actionMoreActions")} – ${task.taskName}`}
+          aria-label={`${t(lang, "actionMoreActions")} – ${rowToken}`}
           title={t(lang, "actionMoreActions")}
           onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
           className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}
