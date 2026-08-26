@@ -454,6 +454,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff--closed-2026-08-26) | Field checkboxes collide across two simultaneously-expanded records in the version diff | pre-existing, found 2026-08-26 | S | **CLOSED** 2026-08-26 |
 | [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag--closed-2026-08-26) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | **CLOSED** 2026-08-26 |
 | [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore--closed-2026-08-26) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | **CLOSED** 2026-08-26 |
+| [§260](#260-a-restore-request-that-never-settles-leaves-every-restore-control-dead-for-the-life-of-the-panel) | A restore request that never settles leaves every restore control dead for the life of the panel | introduced 2026-08-26 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18585,6 +18586,46 @@ The matched pair to read first is `version-restore.test.ts`'s "carries every sli
 to a short pre-0.259.0 capture" and "removes records added since a STAMPED capture that genuinely
 held none" — the same fixture shape, opposite outcomes, and either one read alone makes the other
 look like the bug.
+
+## 260. A restore request that never settles leaves every restore control dead for the life of the panel
+
+**Status:** open. Introduced 2026-08-26 by `9846c0bf`, and found by the cold review of that same
+commit — so it is a known cost of the fix, not a discovery about old code.
+
+That commit serialised every restore entry point in `history-panel.tsx` behind a
+`runExclusiveRestore` helper holding a `useRef` in-flight flag plus a `restoring` state:
+
+```
+try { return await fn(); } finally { restoreInFlight.current = false; setRestoring(false); }
+```
+
+`finally` releases on resolve, on reject and on a synchronous throw. It does NOT release on a
+promise that never settles, and nothing on the version-history request path carries an
+`AbortSignal` or a timeout. So a stalled Turso fetch leaves `restoreInFlight.current === true`
+and `restoring === true` for the life of the mounted panel: all four restore entry points refuse,
+every per-record "Restore this" button in the open diff is disabled through `restoreBusy`, and
+both compare controls are disabled too — with no message, and no escape but navigating away and
+back.
+
+★★ **It is a NEW failure mode, and saying otherwise would be too kind to the old code.** Before
+`9846c0bf` a hung restore left the controls live. That is not straightforwardly better — clicking
+again re-issues against the same stalled backend, and if the first request ever lands the user gets
+the double restore that commit exists to prevent — but the difference is real: the old shape
+degraded to a useless retry, the new one degrades to a dead panel.
+
+★ **Not reproduced.** The cold review reasoned it from the absence of a timeout on the fetch path
+(`version-history.ts`, `turso-schema.ts`), and nothing here has driven a Turso connection into a
+hang. Treat the mechanism as read-from-source and the frequency as unknown.
+
+**Proposed fix.** Do NOT add a watchdog that merely releases the guard after N seconds — that
+re-arms the double restore it was built to stop, and does so precisely in the state where a second
+request is least likely to help. The fix belongs one layer down: give the version-history fetch path
+an `AbortSignal` with a timeout, so a stalled request REJECTS and `finally` fires on its own. The
+guard then needs no change at all, and every other caller of that path gets the same benefit.
+
+★ Scope note: this is the same shape as any other unbounded `fetch` in the app, so a fix here is
+worth checking against `src/app/turso-schema.ts`'s other callers rather than being applied to the
+history path alone.
 
 ## Decided — do not re-litigate
 

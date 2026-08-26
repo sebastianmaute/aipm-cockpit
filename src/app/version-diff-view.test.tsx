@@ -19,18 +19,15 @@ describe("VersionDiffView", () => {
     expect(screen.getByText("Design sign-off")).toBeInTheDocument();
     expect(screen.getByText("Vendor delay")).toBeInTheDocument();
   });
-  // ★★★ THE `toBeVisible` HALVES ARE LOAD-BEARING, and `toBeInTheDocument`
-  // ALONE IS NOW VACUOUS HERE. The fields panel used to be conditionally
-  // rendered, so its absence before the click was what this test measured. It
-  // is `hidden`-toggled since — `aria-controls` must resolve to an element that
-  // is IN the document — so `getByText(/Old/)` finds the text whether or not the
-  // row was ever expanded, and the original two lines pass with `toggle()`
-  // deleted. jest-dom's `toBeVisible` reads the `hidden` attribute directly,
-  // which is what still tells the two states apart under jsdom (no Tailwind, no
-  // layout).
+  // ★★ THE BEFORE-CLICK ASSERTION IS THE LOAD-BEARING ONE. Without it this test
+  // passes with `toggle()` deleted, because it only ever looks after the click.
+  // It survived a round trip through a `hidden`-toggled panel (where it had to
+  // be `not.toBeVisible()`); the panel is conditionally rendered again, so
+  // absence is the right claim — but keep SOME before-click assertion whichever
+  // shape the panel takes.
   it("reveals field before/after when a modified record is expanded", () => {
     render(<VersionDiffView lang="en-US" changes={changes} />);
-    expect(screen.getByText(/Old/)).not.toBeVisible();
+    expect(screen.queryByText(/Old/)).toBeNull();
     fireEvent.click(screen.getByText("Design sign-off"));
     expect(screen.getByText(/Old/)).toBeVisible();
     expect(screen.getByText(/New/)).toBeVisible();
@@ -85,9 +82,6 @@ describe("VersionDiffView", () => {
     // row whose expansion contradicts its own "managed per document" hint is
     // worse than either alone.
     fireEvent.click(screen.getByText("Q3 report"));
-    // `toBeVisible`, not `toBeInTheDocument`: the panel is `hidden`-toggled, so
-    // the field text is in the document either way and the weaker assertion
-    // would no longer witness the expansion at all.
     expect(screen.getByText(/Title:/)).toBeVisible(); // the row really expanded
     expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
   });
@@ -291,27 +285,40 @@ describe("VersionDiffView disclosure semantics", () => {
     expect(btn).toHaveAttribute("aria-expanded", "true");
   });
 
-  it("points aria-controls at a panel that is actually in the document", () => {
+  // ★★★ THE COLLAPSED HALF IS THE POINT. `aria-controls` naming an id that is
+  // not in the document is an axe `aria-valid-attr-value` failure (tag wcag2a),
+  // and the panel is only rendered while open — so the attribute has to come
+  // and go with it. Assert BOTH states or the pairing is unpinned in the
+  // direction that actually breaks.
+  it("names the panel in aria-controls only while it exists", () => {
     render(<VersionDiffView lang="en-US" changes={[expandable]} />);
-    const id = screen.getByRole("button", { name: /Design sign-off/ }).getAttribute("aria-controls");
+    const btn = screen.getByRole("button", { name: /Design sign-off/ });
+    expect(btn).not.toHaveAttribute("aria-controls");
+    fireEvent.click(btn);
+    const id = btn.getAttribute("aria-controls");
     expect(id).toBeTruthy();
     // ★ `getElementById`, NOT `querySelector("#" + id)`. React 19.2 emits
     // `_r_l_`-style ids that happen to be selector-safe, but React 18 emitted
     // `:r0:` — a colon is a legal HTML id and an illegal bare CSS selector — and
     // nothing here pins the React major. `getElementById` takes the id
     // literally, so it is correct under either.
-    const panel = document.getElementById(id!);
-    expect(panel).not.toBeNull();
-    // Collapsed but present — that is the whole point of hidden-toggling it.
-    expect(panel).not.toBeVisible();
+    expect(document.getElementById(id!)).not.toBeNull();
+    // ...and it goes away again with the panel.
+    fireEvent.click(btn);
+    expect(btn).not.toHaveAttribute("aria-controls");
   });
 
-  it("gives two rows distinct panel ids", () => {
+  it("gives two simultaneously expanded rows distinct panel ids", () => {
     const row = (id: number): VersionChange => ({ ...expandable, recordId: id });
     render(<VersionDiffView lang="en-US" changes={[row(1), row(2)]} />);
-    const ids = screen.getAllByRole("button").map((b) => b.getAttribute("aria-controls"));
-    expect(ids).toHaveLength(2);
+    const btns = screen.getAllByRole("button");
+    expect(btns).toHaveLength(2);
+    btns.forEach((b) => fireEvent.click(b));
+    const ids = btns.map((b) => b.getAttribute("aria-controls"));
+    expect(ids.every(Boolean)).toBe(true);
     expect(new Set(ids).size).toBe(2);
+    // Both ids resolve — a unique-but-dangling pair would pass the line above.
+    for (const id of ids) expect(document.getElementById(id!)).not.toBeNull();
   });
 
   // ★★ A row with no field changes renders NO panel, so both attributes must be

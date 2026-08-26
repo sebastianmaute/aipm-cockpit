@@ -229,16 +229,39 @@ export function VersionDiffView({
                       // title (this button is then the row's ONLY control),
                       // impossible to write. Do not hand-roll this name again.
                       aria-label={rowLabel(t(lang, TYPE_KEY[c.type]), tokens.get(k) ?? c.recordLabel)}
-                      // ★★ BOTH ARE `undefined` WHEN THE ROW HAS NO FIELDS, and
-                      // that is not tidiness. A row with an empty `fields` array
-                      // renders no panel at all, so `aria-controls` would point
-                      // at an id that is not in the document (axe
-                      // `aria-valid-attr-value`, tag wcag2a) and
-                      // `aria-expanded={false}` would promise a disclosure that
-                      // can never open — this button's click handler is already
-                      // gated on `expandable`.
+                      // ★★ `aria-expanded` is `undefined` WHEN THE ROW HAS NO
+                      // FIELDS, and that is not tidiness: `false` would promise
+                      // a disclosure that can never open, since this button's
+                      // click handler is itself gated on `expandable`.
                       aria-expanded={expandable ? open.has(k) : undefined}
-                      aria-controls={expandable ? panelIds.get(k) : undefined}
+                      // ★★★ AND `aria-controls` IS SET ONLY WHILE THE PANEL IS
+                      // OPEN — it must never name an id that is not in the
+                      // document (axe `aria-valid-attr-value`, tag wcag2a).
+                      // ★★ THE FIRST CUT CLOSED THAT THE EXPENSIVE WAY, by
+                      // always mounting the panel and toggling `hidden` — the
+                      // pattern the next-actions reasons list uses. It is the
+                      // wrong trade HERE, and the difference is the list length:
+                      // that list is capped at `MAX_VISIBLE_PER_TIER`, while a
+                      // version diff is uncapped and is the largest list in the
+                      // app. A vs-now compare against a week-old capture can
+                      // carry hundreds of modified records, and mounting every
+                      // collapsed panel materialises each one's field rows plus,
+                      // in `selectable` mode, a `Checkbox` per field — thousands
+                      // of elements nobody can see, re-rendered on every tick of
+                      // a selection checkbox.
+                      // ★★★ THE ATTRIBUTE IS OPTIONAL AND THAT IS WHAT MAKES
+                      // THIS FREE. WAI-ARIA does not require `aria-controls` on
+                      // a disclosure button and neither does the APG pattern —
+                      // only `aria-expanded` — so the conformance story is
+                      // identical either way, and axe has no rule demanding it.
+                      // Naming the panel only while it exists is both cheaper
+                      // and more truthful than naming one that is hidden: there
+                      // is nothing to move to until it opens. Do NOT "complete
+                      // the pattern" by making this unconditional without also
+                      // restoring the always-mounted panel — an unconditional
+                      // attribute over a conditional panel is the dangling
+                      // reference this comment exists to prevent.
+                      aria-controls={expandable && open.has(k) ? panelIds.get(k) : undefined}
                       // ★ Only for a NON-restorable row, where the hint is the
                       // answer to "why is there no restore button here?" and
                       // this button is the row's only control. On a restorable
@@ -267,15 +290,13 @@ export function VersionDiffView({
                       </button>
                     )}
                   </div>
-                  {/* ★★ MOUNTED WHENEVER THE ROW IS EXPANDABLE, hidden rather
-                      than unmounted — `aria-controls` on the button above must
-                      resolve to an element that is IN the document, or axe's
-                      `aria-valid-attr-value` (wcag2a) fails. Same pattern, and
-                      the same reason, as the next-actions reasons panel. */}
-                  {expandable && (
+                  {/* Rendered only while open — see the `aria-controls` note on
+                      the button above for why this is NOT hidden-toggled. The
+                      `id` is what that attribute points at, so the two are one
+                      decision: change either and you must change both. */}
+                  {expandable && open.has(k) && (
                     <ul
                       id={panelIds.get(k)}
-                      hidden={!open.has(k)}
                       className="mt-1 flex flex-col gap-0.5 border-t border-line pt-1"
                     >
                       {c.fields.map((f) => (

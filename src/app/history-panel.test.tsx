@@ -455,5 +455,9 @@ it("collapses expanded rows when a second compare replaces the first", async () 
   // A second compare, WITHOUT closing the first.
   fireEvent.click(screen.getByRole("button", { name: "Compared with current – Later" }));
   await waitFor(() => expect(loadDiff).toHaveBeenCalledTimes(2));
-  expect(screen.getByText(/Title:/)).not.toBeVisible();
+  // The panel is conditionally rendered, so a collapsed row has no field text at
+  // all — `queryByText(...) === null` is the assertion, and `getByText` would
+  // throw rather than fail. If the panel ever goes back to being hidden-toggled,
+  // this becomes `not.toBeVisible()`.
+  expect(screen.queryByText(/Title:/)).toBeNull();
 });

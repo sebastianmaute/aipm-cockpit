@@ -76,18 +76,31 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   // Scrolls the compare output into view once a diff resolves (T7).
   const compareRef = useRef<HTMLDivElement>(null);
   // ★★★ SERIALISES EVERY RESTORE ENTRY POINT. The hook's `busy` does NOT close
-  // this window: `restore()` only reaches `capturePayload` (which sets it)
-  // after two awaits, and `restoreWholeVersion` runs a whole `loadDiff` before
-  // that — so between the click and `busy` flipping there is ample room for a
-  // second click. Two restores of the same version are not a wipe (the second
-  // reverts to the same state) but they append two auto-captures and two
-  // activity entries for one user action, and the second runs a selection built
-  // against a workspace that no longer matches it.
-  // ★★ A ref AND a state flag, deliberately. The ref is the correctness guard —
-  // it flips synchronously, so a second click cannot slip past before React has
-  // re-rendered. The state is the honesty: without it the buttons stay live for
-  // the whole restore and a second click looks like a broken control rather
-  // than a rejected one.
+  // this window: `restore()` reaches `capturePayload` (which sets it) only
+  // after `await loadVersionPayload` — a whole network round-trip — and
+  // `restoreWholeVersion` runs an entire `loadDiff` before `restore()` is even
+  // called. Two restores of the same version are not a wipe (the second reverts
+  // to the same state) but they append two auto-captures and two activity
+  // entries for one user action, and the second runs a selection built against
+  // a workspace that no longer matches it.
+  // ★★ A ref AND a state flag, and READ WHICH ONE BUYS WHAT — an earlier
+  // revision of this comment credited the ref with the real-browser case and
+  // that is wrong. React flushes DISCRETE-event updates synchronously, and
+  // `setRestoring(true)` runs in the click handler's synchronous prefix, before
+  // `runExclusiveRestore`'s first await. Two PHYSICAL clicks are two separate
+  // tasks with a commit between them, so `disabled` is already applied when the
+  // second lands: the STATE is what stops the double-click a user performs. The
+  // ref uniquely covers a same-task double dispatch — two `.click()` calls in
+  // one tick, a synthetic double-fire — which is cheap to keep and is the only
+  // thing standing between a programmatic caller and two restores.
+  // ★ Both are pinned, and by tests of different shapes: the single-`act`
+  // double-click test isolates the ref (two `fireEvent.click` calls would each
+  // flush and be swallowed by `disabled`, staying green with the ref deleted),
+  // while the disabled-while-running test pins the state.
+  // ★★ KNOWN GAP (docs/open-followups.md §260): `finally` releases on resolve,
+  // reject and sync throw — but not on a request that NEVER settles. There is
+  // no timeout on the version-history fetch path, so a stalled Turso call
+  // leaves every restore control dead for the life of the mounted panel.
   const restoreInFlight = useRef(false);
   const [restoring, setRestoring] = useState(false);
   const runExclusiveRestore = useCallback(async <T,>(fn: () => Promise<T>): Promise<T | undefined> => {
@@ -272,7 +285,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             variant="secondary"
             size="sm"
             onClick={() => compareSelected("inline")}
-            disabled={selected.length !== 2 || comparing}
+            disabled={selected.length !== 2 || comparing || restoring}
             title={t(lang, "historyCompareSelectedHint")}
           >
             {t(lang, "historyCompareSelected")}
@@ -281,7 +294,7 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
             variant="secondary"
             size="sm"
             onClick={() => compareSelected("sideBySide")}
-            disabled={selected.length !== 2 || comparing}
+            disabled={selected.length !== 2 || comparing || restoring}
             title={t(lang, "historyCompareSideBySideHint")}
           >
             {t(lang, "historyCompareSideBySide")}
@@ -356,7 +369,13 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
               <span className="flex items-center gap-2">
                 <TextButton
                   onClick={() => { setSideBySide(false); setCompareLabels(null); setCompareFrom({ id: v.id, label: labelOf(v) }); setRestoreFrom({ id: v.id, label: labelOf(v) }); setSelection({}); void runDiff(v.id, "now"); }}
-                  disabled={comparing}
+                  // ★★ `restoring` too, and it is not symmetry for its own
+                  // sake: every successful restore clears the compare view
+                  // (`setDiff(null)` + the two source resets), so a compare
+                  // started while a restore is in flight is silently thrown
+                  // away the moment that restore lands. Pre-existing, and
+                  // fixable in one condition only now that the flag exists.
+                  disabled={comparing || restoring}
                   title={t(lang, "historyCompareVsNowHint")}
                   aria-label={rowLabel(t(lang, "historyCompareVsNow"), token)}
                   className="text-xs"
