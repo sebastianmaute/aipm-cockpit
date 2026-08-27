@@ -19,7 +19,7 @@
 //
 // ★★ Every write refuses in a read-only popout, exactly as before — chat tool
 // writes take no undo capture, so a mirror window must never reach a setter.
-import { useEffect, useMemo, useRef, type RefObject } from "react";
+import { useCallback, useEffect, useMemo, useRef, type RefObject } from "react";
 import type { LogActivityAsFn } from "./activity-log-context";
 import { AI_RICH_FIELDS, withAiRichFields } from "./ai-rich-text";
 import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
@@ -110,8 +110,14 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
   }, [stakeholders]);
 
   // Shared read-only refusal for the write tools (popout/mirror windows).
-  const readOnlyError = () =>
-    new Error(t(settingsRef.current.language, "popoutReadOnly"));
+  // ★ useCallback, unlike the plain arrow this was in use-chat-dispatcher: a
+  // fresh arrow each render is a dep the memo below cannot honestly carry, and
+  // the whole point of that dep array is that it needs no exhaustive-deps
+  // escape hatch. `settingsRef` is stable, so this identity never changes.
+  const readOnlyError = useCallback(
+    () => new Error(t(settingsRef.current.language, "popoutReadOnly")),
+    [settingsRef],
+  );
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
@@ -317,13 +323,30 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         return true;
       },
     }),
-    // Empty deps otherwise: every reactive value is read via a ref, so identity
-    // is stable and the dispatcher spreading this object does not rebuild on a
-    // raid/change/milestone/stakeholder edit. `isReadOnly` is the one real dep —
-    // read directly by every write guard above, and already the dep
-    // use-chat-dispatcher's own memo carries, so this object changes identity
-    // exactly when that one would have anyway.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [isReadOnly],
+    // ★★ EXHAUSTIVE ON PURPOSE — no escape hatch, unlike use-chat-dispatcher's
+    // own memo. The register data is read through the four refs above, so a
+    // raid/change/milestone/stakeholder edit does NOT move this identity; what
+    // is listed here is every non-ref value the bodies close over, and each is
+    // stable in practice (the four are `useState` setters, `readOnlyError` is
+    // the useCallback above, `clockRef` is a ref object).
+    //
+    // ★★★ `logActivityAs` IS LOAD-BEARING AND IS THE ONE THIS EXTRACTION COULD
+    // HAVE DROPPED. Before the move these bodies read `args.logActivityAs` from
+    // use-chat-dispatcher's own closure, which was refreshed whenever
+    // `documentTools` changed identity — and `logActivityAs` is one of THAT
+    // hook's deps. So a changed logger reached the register writers indirectly.
+    // Memoizing here on `[isReadOnly]` alone would have severed that path and
+    // left every register write logging through a stale function, with the whole
+    // suite green: no test flips the logger's identity mid-render.
+    [
+      isReadOnly,
+      logActivityAs,
+      readOnlyError,
+      clockRef,
+      setRaid,
+      setChanges,
+      setMilestones,
+      setStakeholders,
+    ],
   );
 }

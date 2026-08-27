@@ -567,12 +567,26 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
     // Empty deps otherwise: every reactive value is read via a ref. Identity is
-    // stable. `documentTools` and `registerTools` are REAL deps, not ref-routed
-    // values — each is itself a useMemo'd object (use-document-tools.ts /
-    // use-register-tools.ts) that changes identity when its own deps change,
-    // and the spreads above capture them by closure; omitting either here would
-    // freeze the FIRST render's tools into every later dispatcher even after a
-    // popout toggled read-only.
+    // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
+    // itself a useMemo'd object (use-document-tools.ts) that changes identity
+    // when isReadOnly/mutateDocuments/logActivityAs change, and the spread above
+    // captures it by closure; omitting it here would freeze the FIRST render's
+    // document tools into every later dispatcher even after a popout toggled
+    // read-only.
+    // ★★ `registerTools` is the SAME SHAPE, and is listed for the same reason —
+    // but do NOT read it as load-bearing TODAY, which is what a first draft of
+    // this comment claimed. REASONED, not measured: use-register-tools.ts moves
+    // identity on `isReadOnly` or `logActivityAs`, and BOTH already reach this
+    // array — the first directly, the second through `documentTools`, which
+    // carries the logger among its own deps. So every trigger that can move
+    // `registerTools` already rebuilds this memo.
+    // ★ MEASURED, and it is a weaker fact than it looks: deleting
+    // `registerTools` from this array leaves use-chat-dispatcher.test.tsx fully
+    // green (174/174). That says the SUITE cannot see the omission, not that the
+    // omission is safe — no test flips either identity mid-render.
+    // It is listed anyway because the redundancy is a property of the OTHER
+    // hook's dep array, not of this one: the day that array gains a dep this one
+    // lacks, the omission becomes the documentTools bug above, silently.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [args.isReadOnly, documentTools, registerTools],
   );
