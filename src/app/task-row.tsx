@@ -400,14 +400,9 @@ function TaskRowImpl({
             type="button"
             onClick={handleNameClick}
             onDoubleClick={handleNameDoubleClick}
-            // ★★★ Without this the accessible name is the CONTENT — two tasks
-            // named "Alpha" render two identically-named buttons, on the most
-            // prominent control in the view. Found while grounding this slice;
-            // neither §247 nor §248 records it.
-            // ★ 2.5.3 holds by CONTAINMENT: visible "Alpha" sits inside the
-            // token "Alpha (1)". Set unconditionally — with no collision the
-            // token IS the bare name, so this restates the content rather than
-            // changing behaviour.
+            // ★★★ No aria-label means the accessible name is the CONTENT —
+            // see use-row-tokens.ts for why this is set unconditionally and
+            // why 2.5.3 holds by containment, not prefix.
             aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
             className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}

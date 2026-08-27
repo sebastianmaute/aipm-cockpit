@@ -533,16 +533,10 @@ function MilestonesPanelBody({
                       <div className="flex items-center gap-1">
                         <button
                           type="button"
-                          // ★★★ Without this the accessible name is the CONTENT
-                          // — two milestones named "Go live" render two
-                          // identically-named buttons, on the row's most
-                          // prominent control. Mirrors task-row.tsx's and
-                          // task-kanban-card.tsx's name buttons. 2.5.3 holds by
-                          // CONTAINMENT: visible "Go live" sits inside the
-                          // token "Go live (1)". Set unconditionally — with no
-                          // collision the token IS the bare name, so this
-                          // restates the content rather than changing
-                          // behaviour.
+                          // ★★★ No aria-label means the accessible name is the
+                          // CONTENT — see use-row-tokens.ts for why this is
+                          // set unconditionally and why 2.5.3 holds by
+                          // containment, not prefix.
                           aria-label={token}
                           title={m.name}
                           className={`rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green ${INTERACTIVE}`}

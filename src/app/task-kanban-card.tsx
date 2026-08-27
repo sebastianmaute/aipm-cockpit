@@ -99,13 +99,9 @@ export function TaskKanbanCard({
         <button
           type="button"
           onClick={() => onEdit(task)}
-          // ★★★ Without this the accessible name is the CONTENT — two cards
-          // named "Alpha" render two identically-named buttons, on the most
-          // prominent control on the card. Mirrors task-row.tsx's name button.
-          // 2.5.3 holds by CONTAINMENT: visible "Alpha" sits inside the token
-          // "Alpha (1)". Set unconditionally — with no collision the token IS
-          // the bare name, so this restates the content rather than changing
-          // behaviour.
+          // ★★★ No aria-label means the accessible name is the CONTENT — see
+          // use-row-tokens.ts for why this is set unconditionally and why
+          // 2.5.3 holds by containment, not prefix.
           aria-label={rowToken}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
           className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface ${INTERACTIVE}`}

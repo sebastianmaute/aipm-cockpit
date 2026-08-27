@@ -22,6 +22,33 @@
 // fallback carries its own "why this can't actually miss" comment (see commit
 // 420a096f) — folding the fallback in here would bury the reasoning that
 // comment exists to surface, for a one-line saving.
+//
+// ★★★ THE SAME DEFECT HAS NOW BEEN FOUND ON FOUR SURFACES, each time on the
+// row's own most PROMINENT control: a name button with NO `aria-label` at
+// all, so its accessible name falls back to its CONTENT. Two rows sharing a
+// display name then render two identically-named buttons. Found while
+// grounding the row-unique-names slice; neither §247 nor §248 named it —
+// task-row.tsx, task-kanban-card.tsx, milestones-panel.tsx and
+// stakeholders-panel.tsx each found it independently by reading the row
+// render body, and each now carries only a pointer back to this comment.
+//
+// The fix is `aria-label={rowToken}` (the local token/`?? name` fallback),
+// set UNCONDITIONALLY on the button — not only when a collision is present.
+// With no collision the token IS the bare name, so this restates the visible
+// content rather than changing behaviour for the common case.
+//
+// ★ WCAG 2.5.3 holds by CONTAINMENT, not by PREFIX: the visible name (e.g.
+// "Alpha") sits somewhere INSIDE the accessible name (e.g. "Alpha (1)"), and
+// that is all 2.5.3 requires. Do NOT read this as "the token must START WITH
+// the visible name" — prefix is a STRICTER rule than the SC and flags
+// perfectly conformant code elsewhere in this app (see the `rowLabel`
+// docstring in row-tokens.ts and the matching AGENTS.md landmine). It holds
+// here only because `buildRowTokens` APPENDS the occurrence suffix rather
+// than prepending it — an implementation detail of this module, not
+// something 2.5.3 itself demands. A prefix framing was written into one of
+// the four call sites after this distinction had already been corrected at
+// an earlier one in the same branch; state it as containment, not prefix, so
+// that mistake is not made a fifth time.
 import { useMemo } from "react";
 import { buildRowTokens } from "./row-tokens";
 
