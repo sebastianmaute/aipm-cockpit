@@ -1,18 +1,9 @@
 import { describe, it, expect } from "vitest";
 import { applyRestore, changeKey, type RestoreSelection } from "./version-restore";
-import { diffWorkspaces } from "./version-diff";
-import { workspaceToJson, type Workspace } from "./workspace";
-import type { KnowledgeItem } from "./document-link";
-import type { Insight, InsightSeverity } from "./insights/insight";
-import type { ProjectDocument } from "./document-model";
-import type { DocVersion } from "./document-versions";
-import type { CalendarEvent } from "./calendar-event";
+import { diffWorkspaces, COLLECTION_SPECS } from "./version-diff";
+import { workspaceToJson } from "./workspace";
+import { arraysFixture, kItem, insight, doc, docVersion, calEvent, ws } from "../test/workspace-records";
 
-function ws(over: Partial<Workspace>): Workspace {
-  return { tasks: [], raid: [], absences: [], shifts: [], resources: [], roles: [],
-    disciplines: [], grades: [], plan: {} as never, budgets: [], milestones: [],
-    changes: [], stakeholders: [], status: {} as never, ...over } as Workspace;
-}
 const task = (id: number, over: Record<string, unknown> = {}) => ({ id, title: `T${id}`, ...over } as never);
 
 describe("applyRestore", () => {
@@ -78,26 +69,20 @@ describe("applyRestore over array-typed slices", () => {
   //   `ProjectDocument`/`DocVersion` (both are `number`), `capturedAt` for
   //   `savedAt`, a missing `title`/`source`/`op`, a `date` field `CalendarEvent`
   //   does not have, and an `InsightType`/`InsightStatus` pair ("overdueTask" /
-  //   "open") that are not members of either union. Nothing failed, because
-  //   neither slice is in `COLLECTION_SPECS` and only `Array.isArray` and
-  //   `.length` are ever read — which is exactly the danger: `docs/open-followups.md`
-  //   §241 proposes giving these slices `kind: "list"` rows, and on that day
-  //   `diffList` would key on ids the app can never mint, against a fixture no
-  //   code path can produce. A test that passes against an impossible shape makes
-  //   a follow-up look already-covered. Keep the annotations; never re-add a cast.
-  const kItem = (id: string, name: string): KnowledgeItem =>
-    ({ id, name, url: `https://example.com/${id}`, kind: "file" });
-  const insight = (id: number, severity: InsightSeverity): Insight =>
-    ({
-      id, key: `k${id}`, type: "overdueTrend", severity, data: {}, status: "active",
-      firstSeenAt: "2026-01-01", lastSeenAt: "2026-01-02", occurrences: 1,
-    });
-  const doc = (id: number, title: string): ProjectDocument =>
-    ({ id, title, blocks: [], createdAt: "2026-01-01", updatedAt: "2026-01-02" });
-  const docVersion = (id: number, title: string): DocVersion =>
-    ({ id, documentId: 1, title, blocks: [], savedAt: "2026-01-01", source: "user", op: "update" });
-  const calEvent = (id: number, title: string): CalendarEvent =>
-    ({ id, title, startDate: "2026-01-01", startTime: "09:00", durationMinutes: 60 });
+  //   "open") that are not members of either union. Nothing failed, because at
+  //   the time NO such slice was in `COLLECTION_SPECS` and only `Array.isArray`
+  //   and `.length` were ever read.
+  //   ★★ THAT ESCAPE HATCH IS GONE, and the hypothetical this comment used to
+  //   describe in the future tense has HAPPENED: `docs/open-followups.md` §241
+  //   proposed giving these slices `kind: "list"` rows, and all five carry one
+  //   today (`version-diff.ts`), so `diffList` now keys on their ids for real. A
+  //   cast here would have `diffList` matching ids the app can never mint,
+  //   against a fixture no code path can produce — a test passing over an
+  //   impossible shape, which makes a follow-up look already-covered. The
+  //   annotations are what stand between us and that. Never re-add a cast.
+  //   `kItem`/`insight`/`doc`/`docVersion`/`calEvent` now live in
+  //   `../test/workspace-records` (imported above) alongside the other twelve
+  //   list-slice builders `arraysFixture` composes.
   // The plain per-row "Restore" button in `history-panel` builds exactly this:
   // every change, no user input. So this is the real path, not a contrived pick.
   const selectAll = (changes: ReturnType<typeof diffWorkspaces>): RestoreSelection =>
@@ -257,26 +242,51 @@ describe("applyRestore over array-typed slices", () => {
   // whose declared `kind` disagrees with the slice's real type lands here, and
   // the failure diagnostic NAMES the slice.
   it("turns no array-typed slice of the workspace into an object", () => {
-    // ★★ FIVE SLICES, THREE COVERED. `documents` and `documentVersions` carry
-    // `restorable: false`, and `applyRestore` hits that guard BEFORE the kind
-    // branch — so neither can ever reach `mergeFields` and neither can be
-    // corrupted here whatever `kind` its spec declares. Measured: flipping
-    // `documents` to `"singleton"` leaves this test GREEN. Do not read the
-    // fixture's five entries as five covered slices.
-    const arrays = (n: string): Partial<Workspace> => ({
-      knowledgeItems: [kItem("a", n)],
-      insights: [insight(1, n === "Old" ? "low" : "high")],
-      documents: [doc(1, n)],
-      documentVersions: [docVersion(1, n)],
-      calendarEvents: [calEvent(1, n)],
-    });
-    const version = ws(arrays("Old"));
-    const now = ws(arrays("New"));
+    // ★★ SEVENTEEN SLICES, FIFTEEN COVERABLE. `documents` and `documentVersions`
+    // carry `restorable: false`, and `applyRestore` hits that guard BEFORE the
+    // kind branch — so neither can ever reach `mergeFields` and neither can be
+    // corrupted here whatever `kind` its spec declares. They stay in the
+    // fixture because the sibling completeness test requires every list spec, and
+    // because `restorable` could be dropped from either row tomorrow.
+    // ★★ "FIFTEEN COVERABLE" IS DERIVED, NOT MEASURED — 17 list specs minus the
+    // two `restorable: false` rows. The flips that WERE run against this test are
+    // recorded where the rule they establish lives, in `COLLECTION_SPECS`'
+    // array-kind comment (`version-diff.ts`); do not restate a count here.
+    const version = ws(arraysFixture("Old"));
+    const now = ws(arraysFixture("New"));
     const changes = diffWorkspaces(version, now);
     const out = applyRestore(now, version, changes, selectAll(changes)) as unknown as Record<string, unknown>;
     const before = now as unknown as Record<string, unknown>;
     const broken = Object.keys(before).filter((k) => Array.isArray(before[k]) && !Array.isArray(out[k]));
     expect(broken).toEqual([]);
+  });
+
+  // ★★★ THE FIXTURE IS THE COVERAGE, and a fixture is a snapshot: list slice 18
+  // lands uncovered and nothing says so, which is the hole the test above exists
+  // to close, one level up. This pins the fixture to the registry so a new
+  // `kind: "list"` spec fails HERE, naming itself, on the day it lands.
+  it("seeds every kind:'list' slice the registry declares", () => {
+    // ★★★ PRESENCE IS NOT COVERAGE, and neither is DIFFERENCE. `Object.keys`
+    // alone counts `foo: []` and a record identical on both sides as seeded;
+    // both produce NO diff change, so `applyRestore` never walks the slice and
+    // the two guards this fixture feeds go blind for it while this test stays
+    // green. That is ONE lazy seed re-opening §255 and §271 together.
+    // ★★ A `JSON.stringify` inequality is the same trap one step in: the
+    // property needed is "yields at least one VersionChange", and the two come
+    // apart for `IGNORED_FIELDS` — a builder differing ONLY in
+    // `localModifiedAt` (optional on every list entity) compares unequal,
+    // produces no change, and would be reported as seeded. So ask the differ
+    // itself rather than any proxy for it.
+    const seeded = new Set(
+      diffWorkspaces(ws(arraysFixture("Old")), ws(arraysFixture("New")))
+        .filter((c) => c.kind === "list")
+        .map((c) => c.collection),
+    );
+    const missing = COLLECTION_SPECS
+      .filter((s) => s.kind === "list")
+      .map((s) => s.key)
+      .filter((k) => !seeded.has(k));
+    expect(missing).toEqual([]);
   });
 
   it("skips a collection marked restorable: false, carrying it from live state", () => {

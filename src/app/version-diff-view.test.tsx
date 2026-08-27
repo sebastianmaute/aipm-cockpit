@@ -1,9 +1,10 @@
 import { describe, it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { VersionDiffView } from "./version-diff-view";
-import type { VersionChange } from "./version-diff";
+import { diffWorkspaces, type VersionChange } from "./version-diff";
 import { changeKey } from "./version-restore";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { ws, roleRec, disciplineRec, gradeRec } from "../test/workspace-records";
 
 const changes: VersionChange[] = [
   { collection: "tasks", collectionLabel: "Tasks", kind: "list", recordId: 1, recordLabel: "Design sign-off",
@@ -256,6 +257,32 @@ describe("VersionDiffView", () => {
     // The record name is a plain span in this branch, so the restore buttons are
     // the ONLY controls — the helper's whole-document scope is exact here.
     expectRowUniqueNames({ roles: ["button"], minControls: 2, requireCollisionSeed: true });
+  });
+
+  // ★★★ REPAIRING THE FIVE BROKEN `nameField`s CREATED THIS HAZARD. `#id` is
+  // unique by construction; a NAME is not. Two roles are discipline x grade, so
+  // two distinct rows genuinely label identically — and a task's `taskName` is
+  // free text, so two tasks can share one too. `buildRowTokens` already numbers
+  // colliding rows, but nothing had ever exercised it on a collision the DIFF
+  // itself produces: every other collision test in this file hands the view a
+  // hand-written `recordLabel`. This one goes through `diffWorkspaces`, so it
+  // fails if the repair stops composing a role label as well as if the
+  // tokeniser stops numbering.
+  // axe cannot see two controls sharing an accessible name in ANY view at ANY
+  // seed size, so this unit test is the only detector that can exist.
+  it("keeps row controls distinct when the diff labels two roles identically", () => {
+    const fixed = { disciplines: [disciplineRec(1, "Dev")], grades: [gradeRec(1, "Senior")] };
+    const changes = diffWorkspaces(
+      ws({ ...fixed, roles: [roleRec(1, "Old"), roleRec(2, "Old")] }),
+      ws({ ...fixed, roles: [roleRec(1, "New"), roleRec(2, "New")] }),
+    ).filter((c) => c.collection === "roles");
+    // The collision is REAL and produced by the diff, not asserted into being.
+    expect(changes).toHaveLength(2);
+    expect(changes.map((c) => c.recordLabel))
+      .toEqual(["Discipline Dev Grade Senior", "Discipline Dev Grade Senior"]);
+    render(<VersionDiffView lang="en-US" changes={changes} selectable selection={{}}
+      onToggleRecord={() => {}} onRestoreRecord={() => {}} />);
+    expectRowUniqueNames({ roles: ["checkbox", "button"], minControls: 4, requireCollisionSeed: true });
   });
 });
 

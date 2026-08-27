@@ -274,9 +274,12 @@ export function findRoleByCombo(
   return roles.find((r) => r.disciplineId === disciplineId && r.gradeId === gradeId);
 }
 
-/** Human label for a role: "Developer Senior". Empty string when role is undefined. */
+/** Human label for a role: "Developer Senior". Empty string when role is undefined.
+ *  ★ Takes only the two id fields it reads, so a caller holding a partial record
+ *  (the version diff, which sees `Record<string, unknown>`) can use it without a
+ *  cast. */
 export function roleLabel(
-  role: Role | undefined,
+  role: Pick<Role, "disciplineId" | "gradeId"> | undefined,
   disciplines: ReadonlyArray<Discipline>,
   grades: ReadonlyArray<Grade>,
 ): string {

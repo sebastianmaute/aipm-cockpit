@@ -15,6 +15,7 @@ import { useId, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
 import type { VersionChange, ChangeType } from "./version-diff";
+import { isRestorableChange } from "./version-diff";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { Checkbox } from "./form-controls";
 import { buildRowTokens, rowLabel } from "./row-tokens";
@@ -121,7 +122,7 @@ export function VersionDiffView({
             <ul className="flex flex-col gap-2">
               {items.map((c) => {
                 const k = keyOf(c);
-                const revertible = c.restorable !== false;
+                const revertible = isRestorableChange(c);
                 return (
                 <li key={k} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
                   <div className="mb-1 flex items-center justify-between gap-2">
@@ -184,7 +185,7 @@ export function VersionDiffView({
               // diff-visible but `applyRestore` SKIPS it — so a checkbox or a
               // restore button here would be a silent no-op that reports
               // success. The row says so instead.
-              const revertible = c.restorable !== false;
+              const revertible = isRestorableChange(c);
               return (
                 <li key={k} className="rounded-md border border-line bg-surface px-3 py-1.5 text-sm">
                   <div className="flex items-center gap-1">

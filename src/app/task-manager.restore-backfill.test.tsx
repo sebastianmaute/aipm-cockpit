@@ -18,6 +18,7 @@ import { act, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 import type { ActivityEntry } from "./activity-log";
+import type { DocumentAsset } from "./document-asset";
 import type { KnowledgeItem } from "./document-link";
 import type { Task } from "./types";
 import type { Workspace } from "./workspace";
@@ -33,6 +34,13 @@ let setActivityLogRef: ((v: readonly ActivityEntry[]) => void) | null = null;
 // Captured for the DEP-ARRAY pin below: it needs a setter for exactly ONE of
 // the six, driven on its own so no other dep of `getVersionPayload` moves.
 let setKnowledgeItemsRef: ((v: readonly KnowledgeItem[]) => void) | null = null;
+// Captured so the documentAssets-absence test can prove itself non-vacuous: a
+// non-empty documentAssets in CONTEXT is what makes `workspaceToJson`'s
+// additive check (workspace.ts) actually emit a `documentAssets` key IF the
+// slice were ever added to `getVersionPayload` — an unseeded (empty) slice
+// would stay omitted either way, which would make that test pass for the
+// wrong reason.
+let setDocumentAssetsRef: ((v: readonly DocumentAsset[] | undefined) => void) | null = null;
 
 // Capture the callback task-manager hands the version-history hook. This is the
 // only way in — `applyRestoredWorkspace` is not exported, and mounting the real
@@ -60,6 +68,7 @@ vi.mock("./workspace-section", async (importOriginal) => {
       const ws = useWorkspace();
       setActivityLogRef = ws.setActivityLog;
       setKnowledgeItemsRef = ws.setKnowledgeItems;
+      setDocumentAssetsRef = ws.setDocumentAssets;
       return (
         <div>
           <div data-testid="ws-fks">
@@ -232,6 +241,7 @@ beforeEach(() => {
   getPayload = null;
   setActivityLogRef = null;
   setKnowledgeItemsRef = null;
+  setDocumentAssetsRef = null;
   window.localStorage.clear();
   window.localStorage.setItem(
     "aipm-cockpit:projects",
@@ -368,6 +378,54 @@ describe("task-manager → applyRestoredWorkspace", () => {
       () => expect(screen.getByTestId("ws-six")).toHaveTextContent(SIX_PRESENT),
       { timeout: SETTLE_MS },
     );
+  }, TEST_MS);
+
+  // ★★ `documentAssets` IS DELIBERATELY ABSENT (docs/open-followups.md §254).
+  // A capture carrying image bytes changes the cost of every autosave-triggered
+  // version on a Turso project, and that is a measurement, not a docs task. This
+  // pins the decision so adding the slice is a conscious act that fails here
+  // first. `documents` is the positive control: an absence assertion alone would
+  // pass against a payload that was never built.
+  // ★ `documents` is an ADDITIVE key in `workspaceToJson` — it is only emitted
+  // when non-empty (workspace.ts) — so an unseeded mount would make the
+  // positive control fail too, for a reason unrelated to what this test is
+  // pinning. Seed it through the same restore funnel the round-trip test above
+  // uses.
+  // ★★ WHAT THIS DOES NOT CATCH, so the seeding is not credited with more than
+  // it buys: adding `documentAssets` to `getVersionPayload`'s object AND its dep
+  // array turns this RED (the deps move, the callback is rebuilt, the key
+  // appears). Adding it to the OBJECT ALONE does not — the mount-time
+  // `useCallback` closure survives, its captured `documentAssets` is undefined,
+  // and the additive key stays omitted with this test green. That mutant is
+  // unreachable in practice only because `react-hooks/exhaustive-deps` is FATAL
+  // here (`--max-warnings=0`), i.e. the lint gate is load-bearing for this pin.
+  // ★★ `documentAssets` is ALSO additive-only, so it is not enough to leave it
+  // unseeded and check for absence — an empty `documentAssets` would stay out
+  // of the payload even if `getVersionPayload` were changed to pass it through.
+  // Seed it non-empty via the workspace context directly (there is no restore-
+  // funnel path for it — `applyRestoredWorkspace` never sets it, see
+  // task-manager.tsx), so this test can actually fail if the slice is added.
+  it("captures documents but not documentAssets", async () => {
+    render(<TaskManager />);
+    await screen.findByTestId("ws-six", undefined, { timeout: MOUNT_MS });
+    await waitFor(() => expect(typeof getPayload).toBe("function"), { timeout: MOUNT_MS });
+    await waitFor(() => expect(typeof applyRestored).toBe("function"), { timeout: MOUNT_MS });
+    await waitFor(() => expect(typeof setDocumentAssetsRef).toBe("function"), { timeout: MOUNT_MS });
+
+    act(() => applyRestored!(sixSlicesWorkspace()));
+    await waitFor(
+      () => expect(screen.getByTestId("ws-six")).toHaveTextContent(SIX_PRESENT),
+      { timeout: SETTLE_MS },
+    );
+    act(() => setDocumentAssetsRef!([{
+      id: "a1", name: "x.png", mime: "image/png", size: 1, hash: "h",
+      createdAt: "2026-01-01T00:00:00.000Z",
+    }]));
+
+    const payload = getPayload!();
+    const keys = Object.keys(JSON.parse(payload));
+    expect(keys).toContain("documents");
+    expect(keys).not.toContain("documentAssets");
   }, TEST_MS);
 
   // ★★★ THE DEPENDENCY-ARRAY PIN, and the round-trip test above CANNOT be it.

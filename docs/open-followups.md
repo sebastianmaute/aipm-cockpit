@@ -448,13 +448,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
 | [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | open |
-| [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | open |
-| [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | open |
-| [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler | found 2026-08-26 | S | open |
+| [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely--closed-2026-08-27) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | **CLOSED** 2026-08-27 |
+| [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices--closed-2026-08-27) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
+| [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler--closed-2026-08-27) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
 | [§257](#257-field-checkboxes-collide-across-two-simultaneously-expanded-records-in-the-version-diff--closed-2026-08-26) | Field checkboxes collide across two simultaneously-expanded records in the version diff | pre-existing, found 2026-08-26 | S | **CLOSED** 2026-08-26 |
 | [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag--closed-2026-08-26) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | **CLOSED** 2026-08-26 |
 | [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore--closed-2026-08-26) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | **CLOSED** 2026-08-26 |
-| [§260](#260-a-restore-request-that-never-settles-leaves-every-restore-control-dead-for-the-life-of-the-panel) | A restore request that never settles leaves every restore control dead for the life of the panel | introduced 2026-08-26 | S | open |
+| [§260](#260-the-turso-pipeline-timeout-stopped-at-the-headers-so-a-stalled-response-body-hung-every-caller--closed-2026-08-27) | The Turso pipeline timeout stopped at the headers, so a stalled response BODY hung every caller | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | open |
 | [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | open |
 | [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
@@ -465,6 +465,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
 | [§269](#269-the-raid-badges-visible-glyph-string-is-not-contained-in-its-accessible-name-wcag-253) | The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) | pre-existing, found 2026-08-27 (row-unique-names round 2) | S | open |
 | [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
+| [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries | pre-existing, found 2026-08-26 | M | open |
+| [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -18614,10 +18616,24 @@ so it asserts the reachable cost and goes red if the cap is raised or the patter
 ★ It runs with a ~50x margin against `CEILING_MS`; that is deliberate, not slack — see the family's
 own comment.
 
-## 254. `documentAssets` is absent from the version capture set entirely
+## 254. `documentAssets` is absent from the version capture set entirely — CLOSED 2026-08-27
 
-**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice, which
-deliberately did not fix it.
+**Status:** CLOSED 2026-08-27. Filed 2026-08-26 at the close of the version-history-completeness
+slice, which deliberately did not fix it; closed the way the entry itself asked to be closed —
+by writing the decision down, NOT by adding the slice.
+
+**Closed by:** `2045ed87` · `0282e90f` · `50bcde32`. The decision stands as filed —
+`documentAssets` stays OUT of the capture — and the reasoning, its two independent grounds, and
+the user-visible asymmetry below now live in [`docs/AGENTS/documents.md`](AGENTS/documents.md)'s
+**"Asset images (S3c-1)"** section, which is where the rest of this slice's lifecycle is already
+documented. ★★ The record went THERE rather than to the call site because
+`task-manager.tsx` had exactly one line of headroom against its file-size baseline and this slice
+SPENT it — the file now measures its baseline exactly, which is what §272 records — so the
+`getVersionPayload` site keeps a one-line pointer to that section and this entry, and
+`"captures documents but not documentAssets"` pins the payload's key set so a future reader
+adding the slice by hand fails a test rather than shipping the cost silently.
+★ A reader arriving here from that comment should read the entry as SETTLED, not as an open
+question — what follows is the record of the decision, not a request.
 
 `getVersionPayload` (`task-manager.tsx`) enumerates its slices literally, and `documentAssets` is not
 among them — while the SAVE set in `use-storage-backend.ts` does carry it. So document image bytes
@@ -18663,10 +18679,27 @@ document IS captured (the block referencing it changes, and `documents` is diff-
 restoring that version cannot bring the bytes back, because `documents` is `restorable: false` and
 `documentAssets` is not in the payload at all. Two independent reasons for the same outcome.
 
-## 255. The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices
+## 255. The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices — CLOSED 2026-08-27
 
-**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice, which
-surfaced it by mutation and deliberately did not fix it.
+**Status:** CLOSED 2026-08-27. Filed 2026-08-26 at the close of the version-history-completeness
+slice, which surfaced it by mutation and deliberately did not fix it.
+
+**Closed by:** `c579634c` · `7ab0f4b8`. All 17 `kind: "list"` slices are now seeded, from a new
+shared `src/test/workspace-records.ts` whose record builders are cast-free and type-annotated, and
+a sibling test pins the fixture's key set against `COLLECTION_SPECS` so slice 18 fails BY NAME
+rather than silently widening the hole again. Mutation-swept all 17 — flipping each in turn to
+`kind: "singleton"` — **15 RED, 2 green**, and the two greens are the expected ones (see the
+correction below). A follow-up narrowed `roleRec`'s side parameter to `"Old" | "New"`: `Role`
+carries no name field, so that argument selects a BRANCH rather than labelling one, and
+`roleRec(1, "Dev")` had been silently producing the New-side fixture. It is now a compile error
+(probed: TS2345).
+
+★★ **THE FILED TEXT'S "5 of 17" OVERSTATES THE HOLE, and the filed text is deliberately left
+standing as the record of what was believed.** Only THREE of those five were ever effective:
+`documents` and `documentVersions` both carry `restorable: false`, and `applyRestore` checks that
+flag BEFORE it reaches the kind branch — so neither is corruptible at ANY `kind`, and seeding them
+could never have detected the mutation the guard exists to detect. That is why the sweep above
+reports 15 rather than 17. The correction belongs in this line, not in the body above it.
 
 `version-restore.test.ts`'s "turns no array-typed slice of the workspace into an object" is the ONLY
 protection against a `kind: "singleton"` spec landing on an array slice — a corruption that spreads
@@ -18715,10 +18748,22 @@ are excluded from `isEmptyWorkspacePayload` (§242) — but they are ordinary `k
 rows here and are corrupted by the same mutation, so they belong in the fixture. Do not carry the
 §242 exclusion across; the two lists answer different questions.
 
-## 256. `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler
+## 256. `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler — CLOSED 2026-08-27
 
-**Status:** open. Filed 2026-08-26 at the close of the version-history-completeness slice.
-Defence-in-depth, NOT a live defect — say so before quoting it.
+**Status:** CLOSED 2026-08-27. Filed 2026-08-26 at the close of the version-history-completeness
+slice. Defence-in-depth, NOT a live defect — say so before quoting it.
+
+**Closed by:** `7b95ff86` · `725befb6`, and the SECOND commit is the one worth reading. The first
+added the guard the entry asked for: a new exported pure `recordSelection`, with `restoreRecord`
+bailing on `null` rather than handing a non-restorable key to `restore`. The second consolidated
+the rule the guard was supposed to unify — because `restorable !== false` still had **FOUR
+independent spellings** (`selectableSelection`, the new `recordSelection`, and `revertible` twice
+in `version-diff-view.tsx`, once per layout) while `recordSelection`'s own docstring already
+claimed they "enforce ONE rule from ONE place". A single exported `isRestorableChange` now lives
+in `version-diff.ts` and all four call it, so the docstring is true rather than aspirational.
+★★ `applyRestore` deliberately stays OUT of that set: it gates on the SPEC's flag
+(`spec.restorable === false`), not the CHANGE's, and folding the two together is exactly the
+conflation §258 records — read both entries before touching either side.
 
 `restoreRecord` in `history-panel.tsx` takes a caller-supplied change key and passes it straight to
 `restore` as `{ [key]: "all" }`. It never asks whether that change carries `restorable: false`.
@@ -18973,10 +19018,73 @@ to a short pre-0.259.0 capture" and "removes records added since a STAMPED captu
 held none" — the same fixture shape, opposite outcomes, and either one read alone makes the other
 look like the bug.
 
-## 260. A restore request that never settles leaves every restore control dead for the life of the panel
+## 260. The Turso pipeline timeout stopped at the headers, so a stalled response BODY hung every caller — CLOSED 2026-08-27
 
-**Status:** open. Introduced 2026-08-26 by `9846c0bf`, and found by the cold review of that same
-commit — so it is a known cost of the fix, not a discovery about old code.
+**Status:** CLOSED 2026-08-27 by `8f38ec64` · `aa835a3c`. Filed 2026-08-26 by the cold review of
+`9846c0bf` as a history-scoped guard-deadlock; **the entry AS FILED was refuted by measurement**,
+and the heading above names what was actually there. Everything from "That commit serialised…"
+down is the defect as filed and is left standing deliberately — it was reasoned from source by a
+cold review, and the correction is the point of this entry, not an embarrassment to be quietly
+dropped.
+
+★★★ **WHAT THE FILED TEXT GOT WRONG: the version-history path is NOT untimed.** It routes through
+`runTursoPipeline` (`turso-pipeline.ts`), which already armed an `AbortController` at
+`DEFAULT_PIPELINE_TIMEOUT_MS` (15 s) and mapped the abort to
+`StorageNotReadyError("storage-unreachable")`. So a hung CONNECTION could never dead-lock the
+panel: the fetch rejected, `runExclusiveRestore`'s `finally` fired, and the controls came back.
+The filed text's "nothing on the version-history request path carries an `AbortSignal` or a
+timeout" was read off the call site (`version-history.ts`, `turso-schema.ts`) rather than off the
+transport those files delegate to, and the proposed fix — "give the version-history fetch path an
+`AbortSignal`" — would have added a second timeout to a path that already had one.
+
+★★★ **WHAT WAS REAL, AND IT WAS APP-WIDE RATHER THAN HISTORY-SCOPED.** `postPipeline` armed the
+controller, awaited `fetch`, and cleared the timer in a `finally`. But `fetch` resolves when the
+**headers** arrive — so the `res.json()` that followed ran with the timer already cleared and no
+signal armed. A server that sent headers and then stalled the body hung **forever**, on every
+caller of `runTursoPipeline`: workspace load and save, snapshots, chat threads, document assets
+and version history alike. The version-history deadlock the cold review described was therefore
+reachable — just not by the mechanism it named, and not only there.
+
+**The fix is structural, not a second timer.** `postPipeline` now reads the body to text INSIDE
+the armed window and returns `{ status, ok, text }` rather than a `Response`, so a caller cannot
+forget to read the body in the window — there is no `Response` to hand it. The body is drained on
+401 and other non-ok statuses too, which also releases the connection instead of leaving it
+undrained. `runTursoPipeline` parses the text itself, which additionally turned a non-JSON 200
+from a raw `SyntaxError` escaping `res.json()` into the same
+`"Turso returned an unexpected response shape."` every other malformed reply produces.
+Mutation-proved: moving `clearTimeout` back above the body read fails the new test **and only
+that test** (1 failed / 18 passed).
+
+★★ **ONE CONSEQUENCE, AND IT IS A REAL BEHAVIOUR CHANGE — ON READS, NOT ON SAVES.** The 15 s
+bound now covers header arrival **plus the full RESPONSE-body transfer**, where the body read was
+previously unbounded. ★★★ The REQUEST body was always inside the window, in the old code as much
+as the new: `fetch` does not settle until the response HEADERS arrive, which for a POST is after
+the request body has been transmitted, and the timer was armed before `fetch` either way. So an
+upload never gained a bound here and cannot be what regresses. What regresses is the READ side.
+The largest BOUNDED response through this path is one document asset at `ASSET_STORED_MAX_BYTES`
+(`5 * 1024 * 1024`, pinned by `document-asset-upload.test.ts`) read back by `loadAssetData`,
+which inherits the default 15 s — `ceil(5242880/3)*4 = 6990508` base64 bytes ≈ 6.67 MiB, so a
+READ on a link slower than roughly **3.7 Mbit/s** can now FAIL where it previously succeeded
+eventually. ★★ It is the largest BOUNDED one and NOT the largest one: `TursoBackend`'s `load()`
+passes the SHORTER `LOAD_TIMEOUT_MS` (10 s) and its response is UNCAPPED — it selects every table
+in `TABLE_NAMES`, including the `meta` row carrying the `documents` meta-blob — so that path has
+no computable threshold at all, only a tighter budget. It never carries asset BYTES, since
+`document_asset_data` is deliberately outside `TABLE_NAMES`, so do not reuse the figure below for
+it. ★ That figure is a **computed estimate, not a measurement**: 6990508 × 8 ÷ 15 s ≈ 3.73
+Mbit/s. It ignores request overhead, the rest of the batch riding the same pipeline, and any
+server-side latency before the first body byte — all of which make the real threshold worse, not
+better. The trade is deliberate — a bounded, retryable timeout beats an unbounded hang, and the unbounded
+case had no escape but reloading — but it is a behaviour change and this is where it belongs. If
+large-asset READS start timing out on slow links, the answer is a payload-aware timeout, NOT a
+return to an unbounded read. ★ Instrument the RESPONSE side when chasing that symptom: an earlier
+revision of this paragraph said SAVES, which points a reader at the wrong end of the connection.
+
+★ The guard-deadlock shape the filed text describes is still worth knowing and is NOT re-opened
+here: `runExclusiveRestore`'s `finally` releases on resolve, reject and synchronous throw, but not
+on a promise that never settles. What closed this entry is that no promise on that path can now
+fail to settle. A future caller that reaches Turso by some other transport re-opens it.
+
+★ Read the rest of this entry as the record of the defect as filed.
 
 That commit serialised every restore entry point in `history-panel.tsx` behind a
 `runExclusiveRestore` helper holding a `useRef` in-flight flag plus a `restoring` state:
@@ -19387,6 +19495,148 @@ cannot, since `ContactPerson` carries no `id` and the hook is declared `<T exten
 `aria-label` at all, so its accessible name is its rendered content, `t(lang, "add")`. That is not
 a collision inside this control — it renders once — and is recorded here only because an
 attribute-matching grep over this file cannot see it.
+## 271. `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries
+
+**Status:** open. Filed 2026-08-27 at the close of the version-restore-residue slice, which
+repaired every instance that existed but did NOT close the class.
+
+`COLLECTION_SPECS` (`version-diff.ts`) pairs a workspace slice with the field its records label
+themselves by. `key` is `keyof Workspace`; `nameField` is a bare `string`. **tsc cannot pair the
+two**, so a row naming a field its records do not carry compiles, ships, and produces no error —
+`recordLabel`'s `#${id}` fallback is the only symptom, and it looks like a record that merely has
+no name.
+
+**Five of sixteen shipped that way** and were repaired by this slice: `tasks`/`title`,
+`resources`/`name`, `roles`/`name`, `absences`/`reason`, `shifts`/`label`. Every task, resource,
+role, absence and shift change in every version diff was labelled `#id`. Three were fixable by
+rename (`tasks`→`taskName`, `absences` and `shifts`→`note`); two were not — a resource composes
+two fields and a role needs a cross-slice lookup into `disciplines` and `grades` — so an optional
+`nameOf(rec, ws)` was added beside `nameField`, and `diffList` now receives BOTH workspaces so a
+REMOVED record resolves its name against the older one.
+
+Measure the repair against the curated sample workspace:
+
+```bash
+node -e '
+const ws = JSON.parse(require("fs").readFileSync("sample-workspace-small.json", "utf8"));
+const nz = (v) => typeof v === "string" && v.trim() !== "";
+for (const [k, f] of [["tasks","taskName"],["absences","note"],["shifts","note"]]) {
+  const rows = ws[k] ?? [];
+  console.log(k.padEnd(10), ("nameField=" + f).padEnd(20), rows.filter(r => nz(r[f])).length + "/" + rows.length);
+}
+const res = ws.resources ?? [], rol = ws.roles ?? [];
+console.log("resources".padEnd(10), "composed via nameOf ".padEnd(20), res.filter(r => nz(r.firstName) || nz(r.lastName)).length + "/" + res.length);
+console.log("roles".padEnd(10), "composed via nameOf ".padEnd(20), rol.filter(r => r.disciplineId != null && r.gradeId != null).length + "/" + rol.length);'
+```
+```
+tasks      nameField=taskName   14/14
+absences   nameField=note       4/5
+shifts     nameField=note       4/4
+resources  composed via nameOf  5/5
+roles      composed via nameOf  6/6
+```
+
+★ `absences` is 4/5 and that is CORRECT, not a residual miss: the one record without a name is a
+note-less sick day, so `#id` is the honest label for it. Read a shortfall here as a question about
+the RECORD before treating it as a question about the spec.
+
+**Why the class is still open.** `version-diff.test.ts`'s "never falls back to #id for a
+fully-populated record" is the ONLY detector, and it can only see slices `arraysFixture`
+(`src/test/workspace-records.ts`) populates — the same fixture-is-the-coverage shape §255 records
+one level down. That leg is enforced structurally: `version-restore.test.ts`'s "seeds every
+kind:'list' slice the registry declares" fails BY NAME when a new list spec lands unseeded.
+
+★★★ **AND THAT TEST NOW ENFORCES COVERAGE RATHER THAN PRESENCE. An earlier revision of this
+entry said the residual hole needed the SAME mistake made TWICE; for the cheaper failure that was
+false, and one mistake was enough.** The test counted keys with `Object.keys`, which cannot tell a
+real seed from `foo: []` or from a record identical on both sides. Both of those produce NO diff
+change, so `applyRestore` never walks the slice and BOTH guards this fixture feeds go blind for
+it — the array-as-object guard §255 records, and the `#id` detector this entry is about — while
+the by-name test stays green. A contributor who hit the by-name failure and silenced it with an
+empty or a non-differing entry therefore re-opened §255 and §271 together with a single lazy
+seed. A slice now counts as seeded only when its Old-side value is a NON-EMPTY array whose JSON
+DIFFERS from its New-side value. Mutation-proved both ways: cutting `tasks` to `[]`, and setting
+its New-side value identical to its Old-side one, each turn the test RED naming `tasks` — one
+failure, eighteen passes, in both runs.
+
+**What remains open is the narrower target the sentence above described:** a wrong field name in
+the spec matched by the same wrong field name in the fixture record. No test can see that one —
+the fixture is the oracle, so a fixture that agrees with the spec's mistake makes the mistake
+invisible. Only the generic-key option below closes it.
+
+**Option considered and NOT taken:** make `CollectionSpec` generic in its key so `nameField` is
+`keyof Workspace[K][number]`, which would make the whole class a compile error. It is awkward for a
+heterogeneous array (each row needs its own instantiation, so the array's element type becomes a
+union of sixteen generic instantiations rather than one interface), and it would require rewriting
+`version-diff.test.ts`'s registry push/pop test, which appends a synthetic spec to the live array
+and pops it. Worth doing if a sixth instance ever appears; not worth a type refactor of the
+registry on the strength of five already-fixed ones.
+
+★★ **`documentVersions` STILL LABELS EVERY ROW `#id`, AND NOTHING IN THE REPO SAYS WHY.** Its
+`COLLECTION_SPECS` row carries neither `nameField` nor `nameOf` — `{ key: "documentVersions",
+label: "Document versions", kind: "list", restorable: false }` — while the `DocVersion` type
+carries a `title: string` that would serve. The comment block above that row explains
+`restorable: false` at length (`applyDocMutation` owns document history) and says nothing at all
+about naming, and its `documents` neighbour is `restorable: false` **with** `nameField: "title"`,
+so "non-restorable rows do not need names" is not the repo's rule either. Verified by reading the
+spec row and the type, not inferred: the omission is simply **unaddressed**, not a recorded
+decision. ★★★ It is also excluded from the only detector BY CONSTRUCTION and will stay excluded
+however long it sits here: `version-diff.test.ts`'s "never falls back to #id for a
+fully-populated record" filters `COLLECTION_SPECS` to `s.nameField || s.nameOf` before it looks
+at anything, so a spec with neither can never appear in its result. Adding a `nameField` here is
+the whole fix and it would enrol itself in the detector at the same time.
+
+★★ **THE VISIBLE ROW LABEL LOST THE DISAMBIGUATOR THE ACCESSIBLE NAME KEPT.**
+`version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the
+occurrence-numbered token from `buildRowTokens` reaches only the `aria-label` (via `rowLabel`, at
+every per-row control in both layouts). Before this slice the five repaired slices —
+`tasks`/`resources`/`roles`/`absences`/`shifts` — were unique BY CONSTRUCTION, because `#id` is
+unique; naming them by a real field made them collidable, so two tasks sharing a `taskName` now
+render two visually identical rows. A screen-reader user hears "(1)" and "(2)"; a sighted user
+gets nothing to tell the rows apart. The component behaviour is pre-existing — this slice
+enlarged the collidable population rather than introducing the gap. ★★★ **The obvious precedent
+does NOT cover the visible half, and reading it as if it did would ship the wrong fix.**
+`documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**; its
+VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it
+is precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
+visible-label question here has no precedent in the repo — a fix has to choose one (an `#id`
+suffix, the occurrence token, or a per-row secondary field) rather than copy one.
+
+## 272. `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI
+
+**Status:** open. Filed 2026-08-27 at the close of the version-restore-residue slice, which
+consumed the last line of headroom and then had to route a piece of documentation elsewhere
+because of it (§254).
+
+`file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`, and
+`task-manager.tsx` now measures exactly that number. **No line count is quoted in this entry on
+purpose** — this register has already been burned by a hardcoded line count going stale and
+feeding three false-premise entries downstream, which is precisely why the entry takes this form.
+Read both numbers off the tree:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/task-manager.tsx','utf8').split('\n').length)"
+node -e "const b=require('./docs/baselines/file-sizes.json');console.log(b['src/app/task-manager.tsx'])"
+```
+
+★★ **The gate counts `readFileSync().split("\n").length`, which for a newline-terminated file is
+ONE MORE than `wc -l`.** Budgeting a change from `wc -l` therefore overstates the available room by
+exactly one line, and the gate fails on the commit rather than in review. Use the command above,
+not `wc -l`.
+
+**The intended relief valve is extraction, and it is already a documented convention.** AGENTS.md's
+Phase-3 "Extraction conventions" prescribe a deps-object hook factory for cross-cutting
+orchestration lifted out of this orchestrator — `use-calendar-integrations.ts`,
+`use-action-center-handlers.ts` and `use-ai-orchestration.ts` are the precedents, and
+`shell-chrome.tsx` is the plain-builder variant for JSX with no hook calls. **The next contributor
+who needs a line in this file is expected to extract something**, not to trim a comment to make
+room and not to re-baseline. No specific next candidate is named here: choosing one is
+implementation work with a real cost attached (a new `.ts` hook file becomes coverage-gated unless
+it is pure UI glue added to `coverage.exclude`), and it is not a claim this register can make.
+
+★ Trimming a comment is the tempting move and the worst one available: the comments in this file
+are load-bearing — the pointer §254 leans on lives in exactly the block that was almost cut for
+space — so buying a line by deleting one trades a permanent loss of context for a temporary line.
 
 ## Decided — do not re-litigate
 

@@ -7,11 +7,13 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
+import { logDiag } from "./diagnostics";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { TextButton } from "./text-button";
 import { formatDisplayTimestamp } from "./tz-display";
 import type { ProjectVersionMeta } from "./version-history";
 import type { VersionChange } from "./version-diff";
+import { isRestorableChange } from "./version-diff";
 import { VersionDiffView } from "./version-diff-view";
 import { changeKey, type RestoreSelection } from "./version-restore";
 import { useToastContext } from "./toast-context";
@@ -33,10 +35,27 @@ import { buildRowTokens, rowLabel } from "./row-tokens";
 export function selectableSelection(changes: readonly VersionChange[]): RestoreSelection {
   const sel: RestoreSelection = {};
   for (const c of changes) {
-    if (c.restorable === false) continue;
+    if (!isRestorableChange(c)) continue;
     sel[changeKey(c.collection, c.recordId)] = "all";
   }
   return sel;
+}
+
+/** The single-record counterpart of `selectableSelection`: the selection for ONE
+ *  change key, or `null` when that key must not be restored.
+ *  ★★ The handler and the two select-all paths must enforce ONE rule from ONE
+ *  place — `isRestorableChange`, which every one of them now calls rather than
+ *  re-spelling `restorable !== false`.
+ *  `version-diff-view.tsx` renders no restore control on a non-restorable
+ *  row, so today nothing can hand this a refused key — but that invariant lives
+ *  in the RENDER path alone, and a third caller, a keyboard shortcut or a layout
+ *  that forgets one of its two `revertible` gates re-opens it. The symptom would
+ *  be the one this whole slice exists to remove: a control that reports success
+ *  and reverts nothing (`docs/open-followups.md` §256). */
+export function recordSelection(key: string, changes: readonly VersionChange[]): RestoreSelection | null {
+  const change = changes.find((c) => changeKey(c.collection, c.recordId) === key);
+  if (!change || !isRestorableChange(change)) return null;
+  return { [key]: "all" };
 }
 
 interface HistoryPanelProps {
@@ -241,7 +260,20 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
   const restoreRecord = (key: string) => {
     const rf = restoreFrom;
     if (!rf) return;
-    void runExclusiveRestore(() => restore(rf.id, { [key]: "all" }, rf.label)).then((ok) => {
+    // Refuse a key `applyRestore` would skip, rather than reporting success over
+    // a row nothing reverted. Unreachable through the rendered UI today — see
+    // `recordSelection`.
+    const sel = recordSelection(key, diff ?? []);
+    // ★ Bailing silently is the failure mode NEXT DOOR to the one this guard
+    // removes: a control that does nothing and says nothing. No toast, because
+    // the whole premise is that no user can reach this — but a third caller is
+    // exactly what the guard exists for, so leave it a trace in the diagnostics
+    // ring rather than none at all.
+    if (!sel) {
+      logDiag("warn", "version-restore-refused-key", { key });
+      return;
+    }
+    void runExclusiveRestore(() => restore(rf.id, sel, rf.label)).then((ok) => {
       // Only clear the compare/selection context on a real success — a failed
       // restore (surfaced via onError) leaves it intact so the user can retry.
       if (!ok) return;
