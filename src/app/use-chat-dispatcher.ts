@@ -6,10 +6,6 @@ import {
   type ToolDispatcher,
   type ResourceInput,
   type SettingsUpdateInput,
-  toRaidSummary,
-  toChangeSummary,
-  toMilestoneSummary,
-  toStakeholderSummary,
   toResourceSummary,
   toKnowledgeSummary,
   toCalendarEventSummary,
@@ -40,19 +36,15 @@ import {
   sanitizeLabels,
   sanitizePriority,
   sanitizeTaskName,
-  sanitizeRaidItem,
-  sanitizeChangeItem,
-  sanitizeMilestone,
-  sanitizeStakeholder,
   sanitizeResource,
 } from "./sanitize";
-import { AI_RICH_FIELDS, sanitizeAiRichText, withAiRichFields } from "./ai-rich-text";
-import { applyChangeStatus, applyModelChangeStatus, withStoredNoteLog } from "./change-log";
+import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
 import { applyStatusChange } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
+import { useRegisterTools } from "./use-register-tools";
 import type { ChatDispatcherArgs } from "./chat-dispatcher-types";
 export type { ChatDispatcherArgs };
 
@@ -67,14 +59,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const {
     tasks,
     setTasks,
-    raid,
-    setRaid,
-    changes,
-    setChanges,
     milestones,
-    setMilestones,
-    stakeholders,
-    setStakeholders,
     resources,
     setResources,
     insights,
@@ -104,10 +89,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const clockRef = useRef(args.clock);
   const viewRef = useRef(args.currentView);
   const editingIdRef = useRef(editingId);
-  const raidRef = useRef(raid);
-  const changesRef = useRef(changes);
-  const milestonesRef = useRef(milestones);
-  const stakeholdersRef = useRef(stakeholders);
   const resourcesRef = useRef(resources);
   const insightsRef = useRef(insights);
   const knowledgeItemsRef = useRef(knowledgeItems);
@@ -139,18 +120,6 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   useEffect(() => {
     editingIdRef.current = editingId;
   }, [editingId]);
-  useEffect(() => {
-    raidRef.current = raid;
-  }, [raid]);
-  useEffect(() => {
-    changesRef.current = changes;
-  }, [changes]);
-  useEffect(() => {
-    milestonesRef.current = milestones;
-  }, [milestones]);
-  useEffect(() => {
-    stakeholdersRef.current = stakeholders;
-  }, [stakeholders]);
   useEffect(() => {
     resourcesRef.current = resources;
   }, [resources]);
@@ -256,6 +225,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
   const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAs);
+  // ★ The two refs are PASSED, not re-minted there — use-register-tools.ts's
+  // header says why. Its own four register refs live in that file.
+  const registerTools = useRegisterTools({
+    isReadOnly: args.isReadOnly,
+    logActivityAs: args.logActivityAs,
+    clockRef,
+    settingsRef,
+  });
 
   // ★★★ Every writer below ends its SUCCESS path with one `logActivityAs?.`
   // call, AFTER the setter and AFTER every reject guard. Arity is UNCHECKED by
@@ -476,202 +453,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         }
         return applied;
       },
-      listRaid: () => raidRef.current.map(toRaidSummary),
-      listChanges: () => changesRef.current.map(toChangeSummary),
-      listMilestones: () => milestonesRef.current.map(toMilestoneSummary),
-      listStakeholders: () => stakeholdersRef.current.map(toStakeholderSummary),
-
-      createRaid: (input) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const id = mintId("raid", raidRef.current);
-        const sanitized = sanitizeRaidItem({
-          ...withAiRichFields(input, AI_RICH_FIELDS.raid),
-          id,
-          raisedDate: input.raisedDate || clockRef.current.today,
-          linkedTaskIds: input.linkedTaskIds ?? [],
-          causedByRaidIds: input.causedByRaidIds ?? [],
-          stakeholderIds: input.stakeholderIds ?? [],
-        });
-        if (!sanitized) throw new Error("invalid RAID item: title is required");
-        // A malformed date the model supplied is dropped to "" by the sanitizer;
-        // fall back to today so a created item always carries a raised date.
-        const item = sanitized.raisedDate
-          ? sanitized
-          : { ...sanitized, raisedDate: clockRef.current.today };
-        const next = [...raidRef.current, item];
-        raidRef.current = next;
-        setRaid(next);
-        // THREE args — "RAID #{0} created ({1}): {2}".
-        args.logActivityAs?.("ai", "raid.created", item.id, item.category, item.title);
-        return toRaidSummary(item);
-      },
-      updateRaid: (id, patch) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const existing = raidRef.current.find((r) => r.id === id);
-        if (!existing) return null;
-        const merged = sanitizeRaidItem({
-          ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.raid),
-          id,
-          localModifiedAt: new Date().toISOString(),
-        });
-        if (!merged) throw new Error("invalid RAID item update");
-        // ★★★ Re-apply the STORED log — `sanitizeRaidItem` drops `noteLog` and cannot keep it (DOM-free). §49.
-        const next = raidRef.current.map((r) => (r.id === id ? { ...merged, noteLog: existing.noteLog } : r));
-        raidRef.current = next;
-        setRaid(next);
-        args.logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
-        return toRaidSummary(merged);
-      },
-      deleteRaid: (id) => {
-        if (args.isReadOnly) throw readOnlyError();
-        // `find`, not `some` — the row names the item, and the filter below
-        // destroys the only copy of its category and title.
-        const doomed = raidRef.current.find((r) => r.id === id);
-        if (!doomed) return false;
-        const next = raidRef.current.filter((r) => r.id !== id);
-        raidRef.current = next;
-        setRaid(next);
-        args.logActivityAs?.("ai", "raid.deleted", doomed.id, doomed.category, doomed.title);
-        return true;
-      },
-
-      createChange: (input) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const sanitized = sanitizeChangeItem({
-          ...withAiRichFields(input, AI_RICH_FIELDS.change),
-          id: mintId("change", changesRef.current),
-          // Defaulted BEFORE the sanitizer, so an unparseable date lands on today rather than on the empty string the sanitizer stores for one.
-          raisedDate: sanitizeIsoDate(input.raisedDate) || clockRef.current.today,
-          linkedTaskIds: input.linkedTaskIds ?? [],
-          linkedRaidIds: input.linkedRaidIds ?? [],
-          stakeholderIds: input.stakeholderIds ?? [],
-        });
-        if (!sanitized) throw new Error("invalid change: title is required");
-        // The status routes through applyChangeStatus, where every status transition stamps or clears decisionDate — so a model-created "Approved" carries a decision date instead of shipping without one.
-        const item = applyChangeStatus(sanitized, sanitized.status, clockRef.current.today);
-        const next = [...changesRef.current, item];
-        changesRef.current = next;
-        setChanges(next);
-        args.logActivityAs?.("ai", "change.created", item.id, item.title);
-        return toChangeSummary(item);
-      },
-      updateChange: (id, patch) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const existing = changesRef.current.find((c) => c.id === id);
-        if (!existing) return null;
-        const merged = sanitizeChangeItem({
-          ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.change),
-          id, localModifiedAt: new Date().toISOString(),
-        });
-        if (!merged) throw new Error("invalid change update");
-        // Same transition, gated on the model's RAW status: absent leaves the stored pair alone, unrecognised is IGNORED rather than sanitized to "Proposed" (which would demote a decided change and clear its date). Why, in full: applyModelChangeStatus in change-log.ts.
-        const stamped = applyModelChangeStatus(merged, patch.status, existing.status, clockRef.current.today);
-        // ★★★ Re-apply the STORED log — §49's defect class, one register over. WHY, and which of the sanitizer's six call sites must do this: `withStoredNoteLog`'s docblock in `change-log.ts`. Local to HERE: an AI write takes NO undo capture, so a log lost on this path is unrecoverable.
-        const next = changesRef.current.map((c) => (c.id === id ? withStoredNoteLog(stamped, existing.noteLog) : c));
-        changesRef.current = next;
-        setChanges(next);
-        args.logActivityAs?.("ai", "change.updated", stamped.id, stamped.title);
-        return toChangeSummary(stamped);
-      },
-      deleteChange: (id) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const doomed = changesRef.current.find((c) => c.id === id);
-        if (!doomed) return false;
-        const next = changesRef.current.filter((c) => c.id !== id);
-        changesRef.current = next;
-        setChanges(next);
-        args.logActivityAs?.("ai", "change.deleted", doomed.id, doomed.title);
-        return true;
-      },
-
-      createMilestone: (input) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const id = mintId("milestone", milestonesRef.current);
-        const item = sanitizeMilestone({
-          ...withAiRichFields(input, AI_RICH_FIELDS.milestone),
-          id,
-          linkedTaskIds: input.linkedTaskIds ?? [],
-        });
-        if (!item) throw new Error("invalid milestone: name and date (YYYY-MM-DD) are required");
-        const next = [...milestonesRef.current, item];
-        milestonesRef.current = next;
-        setMilestones(next);
-        // ★ CREATE is the two-arg outlier ("Created milestone #{0} – {1}");
-        // update and delete take the id ALONE — see below.
-        args.logActivityAs?.("ai", "milestone.created", item.id, item.name);
-        return toMilestoneSummary(item);
-      },
-      updateMilestone: (id, patch) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const existing = milestonesRef.current.find((m) => m.id === id);
-        if (!existing) return null;
-        const merged = sanitizeMilestone({
-          ...existing,
-          ...withAiRichFields(patch, AI_RICH_FIELDS.milestone),
-          id,
-          localModifiedAt: new Date().toISOString(),
-        });
-        if (!merged) throw new Error("invalid milestone update");
-        const next = milestonesRef.current.map((m) => (m.id === id ? merged : m));
-        milestonesRef.current = next;
-        setMilestones(next);
-        // ★★ ONE arg. "Updated milestone #{0}" has no {1}, and
-        // milestones-panel.tsx passes the id alone — a name would be dropped
-        // silently and make the AI row and the user row disagree.
-        args.logActivityAs?.("ai", "milestone.updated", merged.id);
-        return toMilestoneSummary(merged);
-      },
-      deleteMilestone: (id) => {
-        if (args.isReadOnly) throw readOnlyError();
-        if (!milestonesRef.current.some((m) => m.id === id)) return false;
-        const next = milestonesRef.current.filter((m) => m.id !== id);
-        milestonesRef.current = next;
-        setMilestones(next);
-        // ★★ ONE arg — "Deleted milestone #{0}", same as the panel's own row.
-        args.logActivityAs?.("ai", "milestone.deleted", id);
-        return true;
-      },
-
-      createStakeholder: (input) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const id = mintId("stakeholder", stakeholdersRef.current);
-        const item = sanitizeStakeholder({ ...input, id, raci: {} });
-        if (!item) throw new Error("invalid stakeholder: name is required");
-        const next = [...stakeholdersRef.current, item];
-        stakeholdersRef.current = next;
-        setStakeholders(next);
-        args.logActivityAs?.("ai", "stakeholder.created", item.id, item.name);
-        return toStakeholderSummary(item);
-      },
-      updateStakeholder: (id, patch) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const existing = stakeholdersRef.current.find((s) => s.id === id);
-        if (!existing) return null;
-        const merged = sanitizeStakeholder({
-          ...existing,
-          ...patch,
-          id,
-          localModifiedAt: new Date().toISOString(),
-        });
-        if (!merged) throw new Error("invalid stakeholder update");
-        const next = stakeholdersRef.current.map((s) => (s.id === id ? merged : s));
-        stakeholdersRef.current = next;
-        setStakeholders(next);
-        args.logActivityAs?.("ai", "stakeholder.updated", merged.id, merged.name);
-        return toStakeholderSummary(merged);
-      },
-      deleteStakeholder: (id) => {
-        if (args.isReadOnly) throw readOnlyError();
-        const doomed = stakeholdersRef.current.find((s) => s.id === id);
-        if (!doomed) return false;
-        const next = stakeholdersRef.current.filter((s) => s.id !== id);
-        stakeholdersRef.current = next;
-        setStakeholders(next);
-        args.logActivityAs?.("ai", "stakeholder.deleted", doomed.id, doomed.name);
-        return true;
-      },
+      ...registerTools,
 
       listResources: () => resourcesRef.current.map(toResourceSummary),
       createResource: (input: ResourceInput) => {
@@ -785,13 +567,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
       listBudgetBuckets: () => (budgetsRef.current ?? []).map(toBudgetBucketSummary),
     }),
     // Empty deps otherwise: every reactive value is read via a ref. Identity is
-    // stable. `documentTools` is a REAL dep, not a ref-routed value — it is
-    // itself a useMemo'd object (use-document-tools.ts) that changes identity
-    // when isReadOnly/mutateDocuments change, and the spread above captures it
-    // by closure; omitting it here would freeze the FIRST render's document
-    // tools into every later dispatcher even after a popout toggled read-only.
+    // stable. `documentTools` and `registerTools` are REAL deps, not ref-routed
+    // values — each is itself a useMemo'd object (use-document-tools.ts /
+    // use-register-tools.ts) that changes identity when its own deps change,
+    // and the spreads above capture them by closure; omitting either here would
+    // freeze the FIRST render's tools into every later dispatcher even after a
+    // popout toggled read-only.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [args.isReadOnly, documentTools],
+    [args.isReadOnly, documentTools, registerTools],
   );
 
   return dispatcher;

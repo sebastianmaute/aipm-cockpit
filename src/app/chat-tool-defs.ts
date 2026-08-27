@@ -407,8 +407,11 @@ export const TOOL_DEFS = [
     //      state and logged NOTHING, and the description had to say so or the
     //      model would deny its own work. THAT GAP IS CLOSED: the dispatcher's
     //      entity writers now log with `actor: "ai"` — verify with
-    //      `grep -c logActivity src/app/use-chat-dispatcher.ts`, which returns
-    //      28 (it returned 1 when the caveat was written). What replaced it is
+    //      `grep -c logActivity src/app/use-chat-dispatcher.ts
+    //      src/app/use-register-tools.ts`, which returns 17 and 16 (it returned
+    //      1 for the one file that existed when the caveat was written; the
+    //      register writers were later extracted to the second — a
+    //      dispatcher-only grep no longer sees them). What replaced it is
     //      the ACTOR caution, and it is the narrower true claim: `actor` is
     //      OPTIONAL, an absent one means the entry is UNATTRIBUTABLE (older
     //      than the field, or written by a path that cannot see its own cause —
