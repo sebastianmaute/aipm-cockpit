@@ -97,9 +97,22 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   //  the five repairs above — a non-identifying field chosen over an
   //  identifying one — so `note` stays the PREFERRED label (it is what a user
   //  wrote about this row) with `assignee` as the fallback that guarantees one.
-  { key: "absences", label: "Absences", kind: "list", nameField: "note",
-    nameOf: (r) => str(r.note).trim() || str(r.assignee) },
-  { key: "shifts", label: "Shifts", kind: "list", nameField: "note",
+  // ★★ THE FALLBACK CARRIES THE DATE, and dropping it re-introduces a DIFFERENT
+  //  defect than the one above. `recordLabel` is rendered BARE
+  //  (`version-diff-view.tsx`); `buildRowTokens` occurrence-indexes the
+  //  aria-labels ONLY. So `assignee` alone would render two note-less absences
+  //  by the same person as two visually IDENTICAL rows, where the `#id` this
+  //  replaces was at least distinct. `startDate` is required on `Absence`, so
+  //  person+date is always available and always identifying.
+  { key: "absences", label: "Absences", kind: "list",
+    nameOf: (r) => str(r.note).trim()
+      || [str(r.assignee), str(r.startDate)].filter(Boolean).join(" · ") },
+  // ★ `Shift` carries NO date — it is a weekday-hours pattern — so there is no
+  //  second field to qualify it with and this one stays bare. Two note-less
+  //  shifts for the SAME person would still collide visually; that is a data
+  //  anomaly (a shift is a person's working pattern), and AT users are covered
+  //  by the row tokens either way. Recorded rather than silently accepted.
+  { key: "shifts", label: "Shifts", kind: "list",
     nameOf: (r) => str(r.note).trim() || str(r.assignee) },
   { key: "plan", label: "Resource plan", kind: "singleton" },
   { key: "status", label: "Project status", kind: "singleton" },
@@ -172,13 +185,16 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   return out;
 }
 /** ★★ `nameOf` takes precedence over `nameField` but FALLS THROUGH to it on a
- *  blank result. ★ Which specs actually EXERCISE that fall-through is worth
- *  knowing, because an earlier revision of this docstring named the wrong one:
- *  `resources` and `roles` carry `nameOf` and NO `nameField`, so a resource
- *  with neither a first nor a last name reaches the trailing `#id` directly and
- *  never touches the fall-through at all. `absences`/`shifts` are the pair that
- *  do exercise it — they declare both. In every case a blank result ends at
- *  `#id` rather than at an empty string, which is the property that matters. */
+ *  blank result — and NO SPEC EXERCISES THAT FALL-THROUGH TODAY. Two successive
+ *  revisions of this docstring claimed one did, each naming a different pair, so
+ *  the claim is worth stating in the negative: every `nameOf` spec carries no
+ *  `nameField`, and a spec declaring BOTH would be dead config, because any
+ *  input for which the `nameField` branch could return a name is one for which
+ *  `nameOf` already returned it and this function returned early. A blank result
+ *  ends at `#id` rather than at an empty string, which is the property that
+ *  matters, and it reaches `#id` directly. ★ Reproduce before re-asserting
+ *  otherwise: `grep -n 'nameOf:' src/app/version-diff.ts` against
+ *  `grep -n 'nameField:' src/app/version-diff.ts` — the two sets are disjoint. */
 function recordLabel(
   rec: Record<string, unknown> | undefined,
   id: RecordId,

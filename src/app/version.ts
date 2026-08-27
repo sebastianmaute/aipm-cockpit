@@ -7,9 +7,6 @@ export const APP_BUILD_DATE = "2026-08-27"; // 0.262.0: bound the whole Turso ex
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.262.x line is "Clement" (this slice's codename — no bio recorded for it
  *  here; not asserting one rather than guessing, per the 0.258.x note below).
- *  ★ Named at its OWN release, closing the one-release lag every entry below
- *  inherited: this list used to open at the PREVIOUS line while shipping the
- *  current one, so the shipping codename appeared nowhere with an attribution.
  *  0.261.x was "Leckie" (Ann Leckie, SF author).
  *  0.260.x was "Cho" (Zen Cho, Malaysian fantasy author).
  *  0.259.x was "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).

@@ -223,10 +223,8 @@ describe("record labels", () => {
     expect(change?.recordLabel).toBe("n/a n/a");
   });
 
-  // `absences`/`shifts` are the only specs declaring BOTH a `nameOf` and a
-  // `nameField`, so they are the only ones that exercise the fall-through — and
-  // the reason they declare it is that `note` is optional while `assignee` is
-  // required, which is what used to leave a note-less absence reading `#id`.
+  // `note` is optional on both types while `assignee` is required, which is what
+  // used to leave a note-less absence reading `#id`.
   it("names a note-less absence and shift by assignee, not #id", () => {
     const older = { absences: [absenceRec(1, "Old")], shifts: [shiftRec(1, "Old")] };
     const newer = {
@@ -234,7 +232,22 @@ describe("record labels", () => {
       shifts: [{ ...shiftRec(1, "New"), note: undefined }],
     };
     const labels = diffWorkspaces(ws(older), ws(newer)).map((c) => `${c.collection}:${c.recordLabel}`);
-    expect(labels).toEqual(["absences:Ann", "shifts:Ann"]);
+    expect(labels).toEqual(["absences:Ann · 2026-04-01", "shifts:Ann"]);
+  });
+
+  // ★★ The absence fallback carries the DATE because `recordLabel` renders BARE
+  // and only the aria-labels get occurrence tokens — so `assignee` alone would
+  // make two note-less absences for one person visually indistinguishable, which
+  // is a WORSE label than the `#id` this replaced rather than a better one.
+  // Two records, one person, no notes: the two rows must still differ.
+  it("keeps two note-less absences for one person distinguishable", () => {
+    const bare = (id: number, startDate: string) =>
+      ({ ...absenceRec(id, "Old"), note: undefined, startDate });
+    const older = { absences: [bare(1, "2026-04-01"), bare(2, "2026-05-28")] };
+    const newer = { absences: [] };
+    const labels = diffWorkspaces(ws(older), ws(newer)).map((c) => c.recordLabel);
+    expect(labels).toEqual(["Ann · 2026-04-01", "Ann · 2026-05-28"]);
+    expect(new Set(labels).size).toBe(2);
   });
 
   // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do

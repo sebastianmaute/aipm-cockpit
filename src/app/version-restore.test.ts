@@ -251,10 +251,7 @@ describe("applyRestore over array-typed slices", () => {
     // ★★ "FIFTEEN COVERABLE" IS DERIVED, NOT MEASURED — 17 list specs minus the
     // two `restorable: false` rows — and exactly ONE flip was ever run:
     // `documents` to `"singleton"`, which left this test GREEN and is what the
-    // sentence above rests on. Fifteen slices were NOT individually mutated. Read
-    // the number as the size of the set this test is meant to cover, never as a
-    // count of proofs; if you need the stronger claim, flip each of the fifteen
-    // and record the count here.
+    // sentence above rests on.
     const version = ws(arraysFixture("Old"));
     const now = ws(arraysFixture("New"));
     const changes = diffWorkspaces(version, now);

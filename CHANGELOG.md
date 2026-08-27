@@ -33,10 +33,10 @@ longer carries its own changelog comment.
   absence and shift in a comparison was labelled with a bare `#id` — the comparison knew which
   record had changed but was looking up the wrong field for its name. Tasks now show their
   titles; absences and shifts show their note, falling back to the person it belongs to when
-  no note was written; resources show a full name, and roles show their discipline and grade
+  no note was written — and an absence adds its start date, so two untitled absences for the
+  same person stay apart; resources show a full name, and roles show their discipline and grade
   together. Measured against the bundled sample project, all 14 tasks, all 5 absences, all 4
-  shifts, all 5 resources and all 6 roles now name themselves, where five of those groups
-  previously showed nothing but an id.
+  shifts, all 5 resources and all 6 roles now name themselves.
 
 - **A record that cannot be restored can no longer be restored by accident.** Restoring a
   single record went straight to the restore without checking whether that record was one the
