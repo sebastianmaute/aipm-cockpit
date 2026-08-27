@@ -10,7 +10,22 @@ interface AddFirstItemButtonProps {
   onAdd: () => void;
   /** Bold "+ New X…" call-to-action line (caller composes the leading "+" + trailing "…"). */
   addLabel: string;
-  /** Optional descriptive line shown above the CTA. Omit for the single-line (budget) variant. */
+  /** Optional descriptive line shown above the CTA. Omit for the single-line (budget) variant.
+   * ★★ 2026-08-26 DECISION — do not "fix" this against WCAG 2.5.3 (label-in-name): when `text`
+   * is set, the button's VISIBLE content is `text` + `addLabel`, but its ACCESSIBLE NAME is
+   * `ariaLabel` alone (the category-qualified CTA), which does not contain `text`. Under axe's
+   * whole-node visible-text computation that reads as a 2.5.3 mismatch. We treat the CTA line as
+   * the label and the sentence above it as supplementary description — 2.5.3 concerns the text
+   * that IDENTIFIES the control, and axe's whole-node computation is a tool implementation, not
+   * the success criterion. The gate can't disagree: the rule is `label-content-name-mismatch`,
+   * tagged `experimental`, and axe's default `tagExclude` includes `experimental` — `e2e/a11y.spec.ts`
+   * selects rules by tag only (`withTags`, no explicit rule override), so it never runs, in any
+   * view, regardless. Two fixes were considered and REJECTED, both because this binds every
+   * caller passing `text`, not just the one that raised it: moving the description out of the
+   * button would keep containment but shrink the click target (today the whole dashed box is
+   * clickable) for every calling panel; widening `ariaLabel` to contain both would be mechanically
+   * conformant but produces a very long spoken name on every empty state, regressing the AT users
+   * 2.5.3 exists to protect. */
   text?: string;
   ariaLabel?: string;
   /** Dashed-box corner radius — match the panel's own data-view scroller radius. Default "lg". */
