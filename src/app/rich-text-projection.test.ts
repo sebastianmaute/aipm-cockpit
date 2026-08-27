@@ -232,3 +232,39 @@ describe("task-item state in the plain-text projections (§140)", () => {
     expect(descriptionText("<p>plain</p><p>text</p>")).toBe("plain text");
   });
 });
+
+// ★★★ THE PROOF OBLIGATION THE `[^<>]*` CHANGE RESTS ON. `htmlToText` runs
+// DOMPurify with ALLOWED_TAGS: [] and ALLOWED_ATTR: [], and both projections
+// here call htmlPlainProjection on its OUTPUT — so no tag and no attribute
+// value survives to that point, and a `<` can only arrive as `&lt;`. That makes
+// bounding TAG/BLOCK_TAG a provable no-op for search, exports, the AI digests,
+// Jira and dedup, which is why those callers need no per-site audit.
+//
+// ★★ THE POSITIVE CONTROL IS THE HALF THAT MATTERS. Asserting only "no raw <"
+// passes just as well if descriptionText returned "" for everything — the
+// control proves the pipeline actually carried text through.
+describe("the export path never hands htmlPlainProjection a raw <", () => {
+  const HOSTILE = [
+    '<p>a<b</p>',
+    '<img alt="a<b" data-asset-id="real">',
+    '<p title="x<y">visible</p>',
+    "<p>" + "<a".repeat(50) + "</p>",
+    '<p>cost < 5k and rising</p>',
+  ];
+
+  it("leaves no bare < in the projected text, and still carries text through", () => {
+    // Positive control FIRST: an ordinary value must survive with its text.
+    expect(descriptionText("<p>ordinary <strong>text</strong> here</p>")).toBe(
+      "ordinary text here",
+    );
+
+    for (const html of HOSTILE) {
+      for (const out of [descriptionText(html), descriptionTextWithBreaks(html)]) {
+        // A `<` may legitimately appear as literal prose ("cost < 5k"), which is
+        // the whole point of the last fixture — what must never appear is a `<`
+        // that is still acting as a TAG OPENER, i.e. followed by a letter or /.
+        expect(/<[a-zA-Z/]/.test(out)).toBe(false);
+      }
+    }
+  });
+});
