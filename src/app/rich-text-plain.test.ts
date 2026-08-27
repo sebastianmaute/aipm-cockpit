@@ -362,6 +362,34 @@ describe("sanitizeRichText", () => {
     const out = sanitizeRichText("<p>Budget < 5k <em>cap</em></p>", 5000, "rich");
     expect(htmlTextLength(out)).toBe("Budget < 5k cap".length);
   });
+
+  // ★★★ §31: the cap measures VISIBLE TEXT, so markup bytes were unbounded —
+  // one visible character stored 1,800,008 bytes, on all six backends. Measured
+  // ratios of real formatting: worst legitimate shape is 8.3x (a highlight with
+  // an inline style on every word), against 500,000x and 1,800,000x for these.
+  // K = 32 sits between them with ~4x headroom over the legitimate worst case.
+  it("bounds stored bytes when markup dwarfs the visible text", () => {
+    const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
+    expect(abusive.length).toBeGreaterThan(1_000_000);
+    const out = sanitizeRichText(abusive, 5000, "rich");
+    expect(out.length).toBeLessThanOrEqual(5000 * 32 + 1024);
+  });
+
+  it("bounds a single enormous attribute value too", () => {
+    const out = sanitizeRichText(`<p data-x="${"A".repeat(500000)}">a</p>`, 5000, "rich");
+    expect(out.length).toBeLessThanOrEqual(5000 * 32 + 1024);
+  });
+
+  // ★★ THE HEADROOM ASSERTION, and it is the half that stops the ceiling being
+  // set too tight. Heavily but LEGITIMATELY formatted text — every word wrapped
+  // in a highlight with an inline style, measured at 8.3x — must pass through
+  // untouched.
+  it("leaves worst-case legitimate formatting untouched", () => {
+    const word = "delivery ";
+    const heavy = `<p>${`<mark data-color="yellow" style="background-color: yellow">${word}</mark>`.repeat(400)}</p>`;
+    expect(heavy.length / htmlTextLength(heavy)).toBeGreaterThan(8);
+    expect(sanitizeRichText(heavy, 5000, "rich")).toBe(heavy);
+  });
 });
 
 // ★★ Guard: this module runs inside the entity sanitizers, which execute under

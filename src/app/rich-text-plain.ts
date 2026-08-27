@@ -391,6 +391,27 @@ export function capHtmlText(html: string, max: number): string {
   return degradeToPlain(html, max);
 }
 
+/** Raw-byte ceiling, as a multiple of the VISIBLE-text cap it accompanies.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE VISIBLE-TEXT CAP BOUNDS THE WRONG THING (§31).
+ *  `capHtmlText` measures projected text and returns the html untouched when it
+ *  fits, so markup carried no limit at all: `<p>` + `<em></em>` x200000 + `a</p>`
+ *  is ONE visible character and 1,800,008 stored bytes, and that value lands in
+ *  a Turso row, a CSV cell and a Markdown cell on all six backends.
+ *
+ *  ★★ K = 32 IS DERIVED, NOT PICKED. Measured html:visible ratios for real
+ *  formatting: plain 1.0x, bold-per-word 2.9x, list items 2.8x, links 6.3x,
+ *  table cells 6.5x, and the worst legitimate shape found — a highlight with an
+ *  inline style on every word — 8.3x. The abuse shapes above are 500,000x and
+ *  1,800,000x. Three orders of magnitude of clear air is what makes a ratio
+ *  safe; 32 leaves ~4x headroom over the worst legitimate case. The corpus
+ *  itself tops out at 1.38x, and is too thin to set a constant from (29 rich
+ *  fields, 5 of them html).
+ *  ★ The +1024 keeps a small `max` from rejecting its own wrapper markup. */
+const RICH_BYTE_K = 32;
+const RICH_BYTE_FLOOR = 1024;
+export const richByteCeiling = (max: number): number => max * RICH_BYTE_K + RICH_BYTE_FLOOR;
+
 /** The single entry point for the entity sanitizers: guard the type, strip
  *  control characters, upgrade legacy plain text, cap by text length, and drop
  *  a visually empty value.
@@ -413,6 +434,19 @@ export function capHtmlText(html: string, max: number): string {
 export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink): string {
   const s =
     typeof raw === "string" ? raw.replace(WS_CONTROL, " ").replace(CONTROL_CHARS, "") : "";
-  const html = capHtmlText(descriptionHtml(s, sink), max);
+  const upgraded = descriptionHtml(s, sink);
+  // ★★★ THE CEILING IS CHECKED BEFORE ANYTHING PROJECTS, AND THE ORDER IS THE
+  // WHOLE POINT. capHtmlText measures htmlPlainProjection(html) — it projects
+  // the FULL raw input before deciding anything, and that projection is the
+  // work §251 bounds. A ceiling placed after it would bound what is STORED and
+  // bound nothing about what is DONE. So this is a raw `.length` comparison,
+  // O(1), and must never call the projection to decide.
+  // ★★ The hard clip may cut mid-tag. That is safe ONLY because its output goes
+  // straight to degradeToPlain, which flattens to text and cannot re-emit the
+  // severed markup — do not reorder these two lines.
+  const ceiling = richByteCeiling(max);
+  const bounded =
+    upgraded.length > ceiling ? degradeToPlain(upgraded.slice(0, ceiling), max) : upgraded;
+  const html = capHtmlText(bounded, max);
   return htmlTextLength(html) === 0 ? "" : html;
 }
