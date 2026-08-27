@@ -151,13 +151,29 @@ export const ANY_TAG_ASSET_ID_RE =
  * shape now costs 0.61 ms. Disjointness between the branches was never the
  * property that mattered — not crossing a tag boundary is.
  *
+ * ★★★ THE GUARD LOOKAHEAD IS WHAT MAKES THIS LINEAR. Excluding `<` (which the
+ * runs already do) bounds a scan to one tag REGION; it does nothing about the
+ * two runs NESTED around the id re-splitting inside that region when the closing
+ * `>` never arrives. Measured 2026-08-27: 143 ms at 32 KB rising to 16098 at
+ * 256 KB, against 2.5 ms for the guarded form at the same size. The guard fails
+ * once, in linear time, on a tag that never closes — so neither run ever starts.
+ * ★★★ ATOMIC-GROUP EMULATION — `(?=(X*))\1` — WAS TRIED HERE AND MATCHES
+ * NOTHING. The atomic run swallows the attribute list and will not give it back,
+ * so the `data-asset-id="` that must follow can never match: `<img
+ * data-asset-id="x">` yields zero matches, i.e. every asset image silently stops
+ * being recognised. Do NOT reintroduce it.
+ * ★ The id is capture group 1 and the guard is deliberately non-capturing so it
+ * stays that way. A renumbering here fails SILENTLY — a reader left on `m[1]`
+ * would get the whole attribute run, which is a non-empty string, so a
+ * truthiness check still passes.
+ *
  * ★ The quantifier stays GREEDY where `ANY_TAG_ASSET_ID_RE`'s is lazy. That is
  * the documented divergence (this one reports the LAST `data-asset-id` on a
  * tag, that one the FIRST); `document-asset-patterns.test.ts` pins it. Do not
  * "harmonise" the two while fixing character classes.
  */
 export const IMG_TAG_ASSET_ID_RE =
-  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
 
 /** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
  *  a paragraph meaningful while projecting to no visible text.

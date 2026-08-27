@@ -396,9 +396,19 @@ const ADVERSARIAL: ReadonlyArray<
   //   THE WHOLE PRODUCTION EXPOSURE — and running it at 256 KB would assert a
   //   size no stored block can reach, i.e. fail the branch over a shape the app
   //   cannot hold. `capHtmlText` truncates every paragraph to that cap on BOTH
-  //   write paths, and it does so by HTML length rather than by visible text,
-  //   which is what saves this case: the payload projects to zero visible text,
-  //   so a visible-text cap would not have touched it. Measured end to end —
+  //   write paths.
+  //   ★★★ AND THE MECHANISM RECORDED HERE WAS INVERTED UNTIL 2026-08-27. It said
+  //    the payload "projects to zero visible text, so a visible-text cap would
+  //    not have touched it", and that capHtmlText caps "by HTML length rather
+  //    than by visible text". Both are false, measured: the payload contains no
+  //    `>` at all, so neither TAG nor BLOCK_TAG matches and the projection
+  //    returns essentially the whole string — 18958 visible chars at 18959
+  //    bytes. capHtmlText measures htmlPlainProjection(html).length, i.e. it IS
+  //    a visible-text cap, and that is precisely why it bites here. The row's
+  //    OUTCOME was right and its reason was upside down, which is the dangerous
+  //    shape: it told the next reader this row is protected by a mechanism that
+  //    is not the one protecting it.
+  //   Measured end to end —
   //   `sanitizeProjectDocuments` and `normalizeBlockForStorage` both store
   //   20 010 chars of a 262 157-char payload. At that size the quadratic is
   //   ~38 ms, so this row runs with a ~50x margin and goes red if the cap is
@@ -446,4 +456,22 @@ describe("document-asset-patterns — complexity", () => {
       expect(performance.now() - started).toBeLessThan(CEILING_MS);
     });
   }
+
+  // ★★★ A PATTERN-LEVEL BOUND, DELIBERATELY SEPARATE FROM THE ROWS ABOVE. The
+  // ADVERSARIAL family is sized to MAX_HTML_TEXT_CHARS because that is the
+  // app's real exposure, and at that size the quadratic still fits the ceiling
+  // with a ~50x margin — so it cannot pin the pattern's own complexity. This
+  // one asserts the MATCHER is linear, at a size no stored block can reach, and
+  // it is the only thing that goes red if the quadratic returns. Measured on
+  // the shipped pattern 2026-08-27: 143 ms at 32 KB, 529 at 64, 1961 at 128,
+  // 16098 at 256 — an exponent above 2. The guarded pattern is 0.2 / 0.4 / 0.6
+  // / 2.5 ms across the same four sizes. These are BUDGET numbers off one
+  // machine under load: re-measure rather than trusting the cells.
+  it("IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids", () => {
+    const unit = 'data-asset-id="x" ';
+    const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
+    const started = performance.now();
+    Array.from(input.matchAll(IMG_TAG_ASSET_ID_RE));
+    expect(performance.now() - started).toBeLessThan(CEILING_MS);
+  });
 });
