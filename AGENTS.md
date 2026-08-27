@@ -521,10 +521,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   collisions.** (1) Widen it: allow whitespace around `=` and the camelCase `ariaLabel=` spelling, not
   only `aria-label="`. (2) A control with **NO `aria-label` at all** falls back to its rendered
   CONTENT as its accessible name, and a raw-content name collides exactly like a repeated attribute
-  would — found on five surfaces (`task-row.tsx`, `task-kanban-card.tsx`, `milestones-panel.tsx`,
-  `stakeholders-panel.tsx`, `resource-directory.tsx`, all now routed through the shared
-  `useRowTokens` hook, `src/app/use-row-tokens.ts`) and invisible to any attribute-matching grep by
-  construction — there is no attribute to match. (3) A shared per-row component handed the WHOLE
+  would — and invisible to any attribute-matching grep by construction, because there is no attribute
+  to match. ★★ NO SURFACE COUNT AND NO FILE LIST IS QUOTED HERE, deliberately, and restoring one is a
+  regression: this line carried five file names and a tally, which the row-unique-names branch had
+  just STRIPPED out of `src/app/use-row-tokens.ts` and replaced with a reproduce grep — re-inserting
+  it into the ALWAYS-LOADED file puts it where nothing can ever see it rot. Read today's set instead:
+  `grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test`
+  ★★ And do NOT paraphrase that set as "all routed through the shared `useRowTokens` hook" — the two
+  Tasks surfaces CANNOT call it, because a per-item component has no sibling visibility (the general
+  rule two paragraphs up), so they take the token as a PROP from whoever renders the list. A
+  `grep -rln "useRowTokens" src/app --include=*.tsx` therefore does NOT enumerate this fix and returns
+  a different set of files; `docs/open-followups.md` §247 carries the split. (3) A shared per-row component handed the WHOLE
   ENTITY, not a pre-built token, can compose a name from a raw field INSIDE ITS OWN FILE, where no
   grep over the panel that renders it will ever see the string.
   ★ **A collision test's `roles` list is load-bearing, and nothing else checks it.**

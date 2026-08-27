@@ -18022,11 +18022,32 @@ and its inline-AI-edit control all interpolate `rowToken` rather than raw `task.
 The row's most prominent control — the name/title button — was carrying **no `aria-label` at all**
 on several surfaces, so its accessible name fell back to its rendered CONTENT; that is only safe
 when the content is already row-unique, and it was the raw entity name. It is now fixed on **five**
-surfaces via the shared `useRowTokens` hook (`use-row-tokens.ts`), which sets
-`aria-label={rowToken}` UNCONDITIONALLY on the name button: `task-row.tsx`, `task-kanban-card.tsx`,
-`milestones-panel.tsx`, `stakeholders-panel.tsx`, `resource-directory.tsx`. Each carries a pointer
-comment back to `use-row-tokens.ts` rather than restating the reasoning. Reproduce:
-`grep -rln "useRowTokens" src/app --include=*.tsx | grep -v test`.
+surfaces by setting `aria-label={rowToken}` UNCONDITIONALLY on the name button: `task-row.tsx`,
+`task-kanban-card.tsx`, `milestones-panel.tsx`, `stakeholders-panel.tsx`, `resource-directory.tsx`.
+Each carries a pointer comment back to `use-row-tokens.ts` rather than restating the reasoning.
+Reproduce:
+
+```bash
+grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test
+```
+
+★ **That grep returns MORE than the five named above, and always will — read it as the set of
+surfaces USING the fix, never as a tally of what this slice found.** `documents-list.tsx` is in it
+and PREDATES this slice, and every later surface adopting `aria-label={rowToken}` joins it. No
+count is quoted here for exactly that reason: the set grew while this correction was being written.
+
+★★★ **THE OBVIOUS REPRODUCE IS THE WRONG ONE, AND THIS ENTRY SHIPPED IT.** It attached
+`grep -rln "useRowTokens" src/app --include=*.tsx | grep -v test`, a command that REFUTES the
+sentence it was attached to: it enumerates a DIFFERENT set of files, one containing
+NEITHER `task-row.tsx` NOR `task-kanban-card.tsx`. Those two do not call the hook and CANNOT — they
+are the per-item components this whole entry is about, with no sibling visibility. `task-row.tsx`
+takes `rowToken` as a prop from `tasks-section.tsx`; `task-kanban-card.tsx` takes it from
+`task-kanban-board.tsx` / `task-kanban-swimlanes.tsx`, both of which are handed the map by
+`tasks-section.tsx`, the sole hook caller on the Tasks surface. So this fix is NOT "routed through
+`useRowTokens`" on all five: three panels call the hook in their own file and two are threaded. **A
+command attached without being run is the exact hazard this slice existed to close** — the same
+shape AGENTS.md records under `doc-claims-check` ("attach the command AND run it"), committed inside
+the entry documenting it.
 
 ★★ **`use-row-tokens.ts`'s own header undercounted this by one when this entry was written — the
 exact class of error this register exists to catch.** At the time it said "found on FOUR surfaces"
@@ -18034,8 +18055,7 @@ and named `task-row.tsx`, `task-kanban-card.tsx`, `milestones-panel.tsx` and `st
 omitting `resource-directory.tsx`. Two commits later on this same branch, `a9ee2c3c` and `aa54d212`
 removed BOTH stale counts from that comment (a second, unrelated one read "one of the four call
 sites") and replaced them with a reproduce grep. **That header carries no number today** — do not go
-looking for one; reproduce today's set with `grep -rln "aria-label={rowToken}\|aria-label={token}"
-src/app --include=*.tsx | grep -v test`.
+looking for one; reproduce today's set with the grep above.
 
 Every one of the five was invisible to a field-NAME grep — there is no `aria-label=`/`ariaLabel=`
 attribute to match before the fix, since the whole point of the defect is that the attribute was
@@ -18138,8 +18158,15 @@ All five now pass a `buildRowTokens`-derived `token`, not the raw field: `change
 `milestones-panel.tsx`, `resource-directory.tsx`, `stakeholders-panel.tsx` and
 `timelog-people-table.tsx` (which, per its own note below, routes even its `displayId` — already
 likely unique — through `buildRowTokens` rather than leaving the question undecided). `raid-panel-rows.tsx`
-was on this list when the entry was filed and was converted earlier in the same branch (`71656bf2`);
-it still calls `t(lang, "selectItem", …)` and always will, but now passes `rowTitleToken`.
+was on this list when the entry was filed and had in fact been converted **in round 1, before this
+branch existed** — NOT "earlier in the same branch", as this entry originally said while citing a
+bare SHA. That SHA is on `origin/main` and predates this branch's base, so a reader tracing it
+through this MR's commits finds nothing. Reproduce with a form that survives a squash or rebase:
+`git log -S rowTitleToken -- src/app/raid-panel-rows.tsx` — every commit it names is on
+`origin/main` and predates this branch's base, which is the whole point. ★ Do not re-add the SHA:
+the one this entry quoted is not even the commit that introduced `rowTitleToken`, so the bare
+reference was doubly unhelpful. It still calls `t(lang, "selectItem", …)` and always will, but now
+passes `rowTitleToken`.
 
 **Also unrecorded anywhere when filed, found by an independent sweep of per-row controls — all three
 now FIXED:**

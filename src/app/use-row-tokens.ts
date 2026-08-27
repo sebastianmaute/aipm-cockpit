@@ -11,17 +11,28 @@
 //   const nameOfMilestone = (m: Milestone) => m.name;
 //   const tokens = useRowTokens(sorted, nameOfMilestone);
 //
-// ★ This extraction was motivated by drift: four panels had independently
+// ★ This extraction was motivated by drift: several panels had independently
 // hand-rolled the identical `useMemo(() => buildRowTokens(...), [list])`
-// block, and a fifth (`raid-panel-rows.tsx`) had already diverged by dropping
-// the `useMemo` entirely and recomputing the map on every render. One hook
-// closes both the duplication and the drift.
+// block, and one (`raid-panel-rows.tsx`) called `buildRowTokens` bare,
+// recomputing the map on every render. One hook closes both the duplication
+// and the drift. ★ NO COUNT IS QUOTED — the extraction converted only some of
+// them and the rest still hand-roll it, so a number here rots on the next
+// conversion (same reason as the ★ NO COUNT note further down). Read today's
+// set with:
+//   git grep -l buildRowTokens -- 'src/app/*.tsx' | grep -v test
 //
 // ★ The per-row fallback (`tokens.get(id) ?? name`) deliberately stays INLINE
-// at each call site rather than folding into this hook. Every call site's
-// fallback carries its own "why this can't actually miss" comment (see commit
-// 420a096f) — folding the fallback in here would bury the reasoning that
-// comment exists to surface, for a one-line saving.
+// at each call site so each site can carry its own "why this can't actually
+// miss" comment next to the code it is about — folding the fallback in here
+// would bury that reasoning for a one-line saving.
+//
+// ★★ THAT IS THE DESIGN RULE, NOT A CLAIM OF COVERAGE. This comment used to
+// say "Every call site's fallback carries its own … comment", and that was
+// false when written — several sites are bare. A false coverage claim is
+// worse than none: it tells a contributor who wants to fold the fallback in
+// here that the reasoning is already documented everywhere, so they decline
+// on a premise nothing checks. Add the comment when you touch a site that
+// lacks one; do not restore a universal.
 //
 // ★★★ THE SAME DEFECT RECURS on every surface where a row's own most
 // PROMINENT control — a name/title button — carries NO `aria-label` at
