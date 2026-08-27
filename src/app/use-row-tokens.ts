@@ -53,10 +53,10 @@
 // docstring in row-tokens.ts and the matching AGENTS.md landmine). It holds
 // here only because `buildRowTokens` APPENDS the occurrence suffix rather
 // than prepending it — an implementation detail of this module, not
-// something 2.5.3 itself demands. A prefix framing was written into one of
-// the four call sites after this distinction had already been corrected at
-// an earlier one in the same branch; state it as containment, not prefix, so
-// that mistake is not made a fifth time.
+// something 2.5.3 itself demands. A prefix framing was written into one call
+// site after this distinction had already been corrected at another one in
+// the same branch; state it as containment, not prefix, so that mistake is
+// not repeated.
 import { useMemo } from "react";
 import { buildRowTokens } from "./row-tokens";
 
