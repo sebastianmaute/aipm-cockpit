@@ -13,6 +13,7 @@ import { ACTION_SOURCE_LABEL } from "./action-source-label";
 import type { ActionSource } from "./next-actions/types";
 import { TABLE_HEAD_CLASS } from "./table-styles";
 import { useConfirm } from "./confirm-dialog";
+import { rowLabel } from "./row-tokens";
 
 interface LearningInsightsProps {
   lang: Lang;
@@ -98,7 +99,25 @@ export function LearningInsights({
                       <td className="px-3 py-2 text-right tabular-nums">{formatBias(learnedBias(d))}</td>
                       <td className="px-3 py-2">
                         <select
-                          aria-label={t(lang, "learningColOverride")}
+                          // §248: no token map here, deliberately — `kind` is
+                          // this list's React key (`Object.keys(state)`) and
+                          // cannot repeat in one render, so a per-list token
+                          // map would be ceremony. The discriminator for
+                          // this whole plan is "can this value repeat in one
+                          // rendered list", and `kind` cannot.
+                          //
+                          // ★★★ But `sourceLabel(lang, kind)` ALONE fails that
+                          // same test and was rejected: `kind` is
+                          // `${source}:${why.key}`, and several sources
+                          // legitimately emit more than one `why.key` in one
+                          // render (milestone: overdue/at-risk; task-attention:
+                          // unassigned/stale/blocked/dep-blocked) —
+                          // sourceLabel drops the why.key, so those rows would
+                          // render an IDENTICAL select name under the source
+                          // label alone. Appending the raw `kind` restores
+                          // uniqueness; it is already shown untranslated as
+                          // this row's own secondary text just above.
+                          aria-label={rowLabel(t(lang, "learningColOverride"), `${sourceLabel(lang, kind)} (${kind})`)}
                           className="rounded border border-line bg-background px-2 py-1 text-foreground"
                           value={overrides[kind] ?? "auto"}
                           onChange={(e) => onSetOverride(kind, e.target.value as LearningOverride)}

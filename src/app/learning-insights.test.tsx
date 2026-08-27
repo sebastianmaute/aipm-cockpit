@@ -2,6 +2,7 @@ import { describe, it, expect, vi, beforeAll } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { LearningInsights } from "./learning-insights";
 import { loadI18n } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 beforeAll(async () => {
   await loadI18n("de");
@@ -29,5 +30,30 @@ describe("LearningInsights", () => {
   it("shows the empty state with no data", () => {
     render(<LearningInsights {...baseProps()} state={{}} now={0} />);
     expect(screen.getByText(/No learning data yet/i)).toBeTruthy();
+  });
+
+  // §247/§248: `kind` (the React key here) cannot repeat in one render, so no
+  // token map — but the plan's own literal suggestion, qualifying with
+  // `sourceLabel(lang, kind)` ALONE, does not actually hold: several sources
+  // legitimately emit more than one `why.key` in one render, and sourceLabel
+  // drops the why.key. Seed exactly that — two REAL kinds sharing one source
+  // ("milestone:actionMilestoneWhyOverdue" / "milestone:actionMilestoneWhyAtRisk",
+  // both from next-actions/providers/milestone.ts) — the smallest fixture that
+  // can distinguish the correct fix (source + raw kind) from the naive one
+  // (source alone). `requireCollisionSeed` does not fit this file (nothing
+  // here is SUPPOSED to collide once fixed), so this asserts distinctness
+  // directly, as a regression pin over a fixture engineered to be adversarial
+  // rather than merely distinct.
+  it("keeps the override select distinct for two kinds sharing one source", () => {
+    const state = {
+      "milestone:actionMilestoneWhyOverdue": { acted: 1, snoozed: 0, dismissed: 0, lastAt: 0 },
+      "milestone:actionMilestoneWhyAtRisk": { acted: 0, snoozed: 1, dismissed: 0, lastAt: 0 },
+    };
+    render(<LearningInsights {...baseProps()} state={state} now={0} />);
+    // Measured: 2 override comboboxes + 1 Reset button = 3.
+    expectRowUniqueNames({
+      minControls: 3,
+      roles: ["combobox", "button"],
+    });
   });
 });
