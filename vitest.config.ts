@@ -64,6 +64,7 @@ export default defineConfig({
         "src/app/use-calendar-integrations.ts",
         "src/app/use-action-center-handlers.ts",
         "src/app/use-ai-orchestration.ts",
+        "src/app/use-insight-recommendations.ts",
         "src/app/use-notes-window.ts",
         "src/app/use-document-editor.ts",
         "src/app/use-digest.ts",
