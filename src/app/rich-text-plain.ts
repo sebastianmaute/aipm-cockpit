@@ -377,34 +377,18 @@ export function degradeToPlain(html: string, max: number): string {
  *  milestone-edit-modal.tsx has no counter, no describeTextCap and no
  *  useAdjustmentTracker — a >5000-character milestone description loses all
  *  markup silently. That trade-off is accepted at that call site; this shared
- *  comment used to promise a warning only two of the three modals give. */
+ *  comment used to promise a warning only two of the three modals give.
+ *
+ *  ★★ THE OVERFLOW BRANCH IS degradeToPlain, WHICH IS THE ONLY PLACE THAT
+ *  TRUNCATES. The surrogate-pair and `max <= 0` guards moved there with it;
+ *  they are not duplicated here, deliberately, because `clipText`
+ *  (sanitize-core.ts) is documented as carrying the identical fix and agreeing
+ *  with it at the boundary — a third copy makes that claim unverifiable. */
 export function capHtmlText(html: string, max: number): string {
   if (!html) return "";
   const text = htmlPlainProjection(html);
   if (text.length <= max) return html;
-  // ★★ `slice` counts UTF-16 CODE UNITS, so a cap landing inside an astral
-  // character (emoji, rarer CJK, most symbols above the BMP) kept its LONE HIGH
-  // SURROGATE. That is not a character: encoding it to UTF-8 replaces it with
-  // U+FFFD, permanently. JSON.stringify escapes it as "\ud83d" and survives, so
-  // the JSON and IndexedDB backends did NOT corrupt while CSV and Markdown DID —
-  // a backend-dependent silent corruption, harder to diagnose than a uniform
-  // one. Back the cut off by one so the character is dropped WHOLE.
-  //
-  // ★★★ `max <= 0` IS NOT ONE CASE, and an earlier revision of this comment got
-  // it wrong: it said "charCodeAt(-1) is NaN … so cut stays 0", which is true at
-  // max === 0 and FALSE at max < 0. At a negative max `cut` becomes `max`, and
-  // `slice`'s end index then counts from the END — so capHtmlText(-1) returned
-  // "<p>a\ud800</p>", a LONE SURROGATE, from the very function whose job is to
-  // never emit one. Measured, not reasoned. `clipText` (sanitize-core.ts) hit
-  // the identical trap and clamps; these two are documented as carrying the same
-  // fix, so they must agree at the boundary or the claim is false.
-  // ★ Still unreachable from the app — every caller passes TEXTAREA_MAX or
-  // MAX_HTML_TEXT_CHARS — but "no caller passes one" is exactly the reasoning
-  // this file now records as insufficient twice over.
-  if (max <= 0) return "";
-  const last = text.charCodeAt(max - 1);
-  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
-  return plainToHtml(text.slice(0, cut));
+  return degradeToPlain(html, max);
 }
 
 /** The single entry point for the entity sanitizers: guard the type, strip

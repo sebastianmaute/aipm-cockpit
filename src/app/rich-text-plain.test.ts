@@ -280,6 +280,20 @@ describe("capHtmlText", () => {
   it("survives a zero cap", () => {
     expect(capHtmlText("<p>abc</p>", 0)).toBe("");
   });
+
+  // §208: the same overflow that used to discard markup now preserves images.
+  it("keeps an asset image when the paragraph overflows the cap", () => {
+    const img = '<img data-asset-id="a1" alt="chart">';
+    const out = capHtmlText(`<p>${img}${"x".repeat(30)}</p>`, 10);
+    expect(out).toContain('data-asset-id="a1"');
+  });
+
+  // ★ The under-cap path must stay byte-identical — it returns the input
+  // untouched and never reaches degradeToPlain.
+  it("still returns an image-bearing paragraph untouched when it fits", () => {
+    const html = '<p><img data-asset-id="a1" alt="chart"> short</p>';
+    expect(capHtmlText(html, 5000)).toBe(html);
+  });
 });
 
 describe("sanitizeRichText", () => {
