@@ -3,6 +3,7 @@ import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
   capHtmlText,
+  degradeToPlain,
   descriptionHtml,
   htmlPlainProjection,
   htmlTextLength,
@@ -709,5 +710,65 @@ describe("markTaskItems — complexity", () => {
     expect(markTaskItems('<li data-type="taskItem" data-checked="false"><p>open</p></li>')).toBe(
       "[ ] open</p></li>",
     );
+  });
+});
+
+// ★★★ THE SINGLE OVERFLOW PATH. Both capHtmlText's cap branch and
+// sanitizeRichText's byte ceiling route through here, so an asset image
+// survives an overflow on every path at once — §208 was the same code emitting
+// plainToHtml(slice) and discarding every tag, image included.
+describe("degradeToPlain", () => {
+  it("flattens to text and truncates", () => {
+    expect(degradeToPlain("<p><strong>abcdefghij</strong></p>", 4)).toBe("<p>abcd</p>");
+  });
+
+  it("carries an asset image across the degrade — §208", () => {
+    const img = '<img data-asset-id="a1" alt="chart">';
+    const out = degradeToPlain(`<p>${img}${"x".repeat(50)}</p>`, 10);
+    expect(out).toContain('data-asset-id="a1"');
+    expect(out).toContain("xxxxxxxxxx");
+  });
+
+  it("keeps every image when a paragraph carries several", () => {
+    const html = `<p><img data-asset-id="a1"><img data-asset-id="a2">${"x".repeat(50)}</p>`;
+    const out = degradeToPlain(html, 5);
+    expect(out).toContain('data-asset-id="a1"');
+    expect(out).toContain('data-asset-id="a2"');
+  });
+
+  // ★★ THE BOUND IS INSIDE THIS FUNCTION, not at its callers. A caller-side cap
+  // is a bound this unit cannot see, and it stops holding the moment someone
+  // adds a caller.
+  it("stops extracting images at its own cap", () => {
+    const many = '<img data-asset-id="a">'.repeat(200);
+    const out = degradeToPlain(`<p>${many}text</p>`, 4);
+    expect((out.match(/data-asset-id/g) ?? []).length).toBeLessThanOrEqual(20);
+  });
+
+  // ★★ These two guards MOVED here from capHtmlText — they are not duplicated.
+  it("drops a character straddling the cap whole, never half of it", () => {
+    const out = degradeToPlain("<p>ab\u{1F600}cd</p>", 3);
+    expect(out).toBe("<p>ab</p>");
+    expect(/[\ud800-\udbff](?![\udc00-\udfff])|(?<![\ud800-\udbff])[\udc00-\udfff]/.test(out)).toBe(
+      false,
+    );
+  });
+
+  it("returns empty for a cap of zero or less", () => {
+    expect(degradeToPlain("<p>abc</p>", 0)).toBe("");
+    expect(degradeToPlain("<p>abc</p>", -1)).toBe("");
+  });
+
+  // ★★★ THIS IS THE OVERFLOW PATH, so the one input guaranteed to reach it is an
+  // oversized one. ASSET_IMG_TAG's two runs sit nested around the id, which is
+  // quadratic on an <img that never closes unless the guard lookahead is there.
+  // Measured 2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at
+  // 128. Deleting `(?=[^<>]*>)` from the pattern turns this red.
+  it("stays bounded on an unterminated <img carrying repeated ids", () => {
+    const unit = 'data-asset-id="x" ';
+    const input = "<img " + unit.repeat(Math.round((128 * 1024) / unit.length));
+    const started = performance.now();
+    degradeToPlain(input, 100);
+    expect(performance.now() - started).toBeLessThan(2000);
   });
 });

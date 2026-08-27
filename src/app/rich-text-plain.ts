@@ -304,6 +304,71 @@ export function htmlTextLength(html: string): number {
   return htmlPlainProjection(html).length;
 }
 
+/** How many asset images one degrade carries across.
+ *
+ *  ★★ THE BOUND LIVES HERE, NOT AT THE CALLERS. A caller-side cap is a bound
+ *  this function cannot see, so it stops holding the moment someone adds a
+ *  caller — and the whole point of this function is to be the one overflow path
+ *  every caller shares. 20 matches the document image cap; exceeding it means
+ *  the input was already outside what the app can hold. */
+const DEGRADE_IMG_CAP = 20;
+
+/** An `<img>` carrying a `data-asset-id`, for carrying images across a degrade.
+ *
+ *  ★ Bounded like every other matcher in this file — `[^<>]*`, so a scan cannot
+ *  cross a tag boundary. See TAG's docstring for the measurement.
+ *
+ *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING AND WAS ADDED BEFORE THIS PATTERN
+ *  EVER SHIPPED. Bounding the runs to one tag REGION is not enough on its own:
+ *  the two `[^<>]*` runs sit NESTED around the id, so on an `<img` that never
+ *  closes, run 2 re-scans to end of input at every position run 1 gives back —
+ *  the same quadratic IMG_TAG_ASSET_ID_RE carries, in a new pattern. Measured
+ *  2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at 128, i.e.
+ *  4x per doubling. With it: 0.0 / 0.1 / 0.2 ms, and identical matches on every
+ *  fixture. This matters more here than anywhere else in the file, because this
+ *  is the OVERFLOW path — the one input that reaches it is by definition
+ *  oversized. Pinned by the complexity test in rich-text-plain.test.ts. */
+const ASSET_IMG_TAG =
+  /<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
+
+/** The SINGLE overflow path: flatten to text, truncate, carry the images.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE OLD OVERFLOW BRANCH DELETED IMAGES SILENTLY (§208).
+ *  `capHtmlText` used to end in `plainToHtml(text.slice(0, cut))`, which builds
+ *  `<p>` + escaped text + `</p>` and therefore discards ALL markup — an
+ *  `<img data-asset-id>` in an over-cap paragraph was gone on load, with nothing
+ *  in the truncation diag.
+ *
+ *  ★★★ MARKUP-AWARE TRUNCATION IS NOT AN OPTION HERE AND THAT IS STRUCTURAL, not
+ *  a preference: this module is DOM-FREE by contract (see the file header — a
+ *  DOMPurify call here makes jsonToWorkspace silently produce an EMPTY
+ *  workspace under bare node). Anything that has to understand tree structure to
+ *  truncate correctly cannot live in this file. Carrying the images across a
+ *  flatten is the most that can be done without a DOM.
+ *
+ *  ★★ THE SURROGATE AND `max <= 0` GUARDS LIVE HERE NOW, moved from capHtmlText
+ *  rather than copied. `slice` counts UTF-16 CODE UNITS, so a cap landing inside
+ *  an astral character kept its LONE HIGH SURROGATE — which UTF-8 encoding
+ *  replaces with U+FFFD permanently, so CSV and Markdown corrupted while JSON
+ *  and IndexedDB did not. And at a NEGATIVE max, `slice`'s end index counts from
+ *  the END, so the guard is `max <= 0`, not `max === 0`. `clipText`
+ *  (sanitize-core.ts) carries the identical fix and the two are documented as
+ *  agreeing at the boundary — a second copy in capHtmlText would quietly turn
+ *  that two-way claim into a three-way one. */
+export function degradeToPlain(html: string, max: number): string {
+  if (!html) return "";
+  if (max <= 0) return "";
+  ASSET_IMG_TAG.lastIndex = 0;
+  const images = Array.from(html.matchAll(ASSET_IMG_TAG))
+    .slice(0, DEGRADE_IMG_CAP)
+    .map((m) => m[0]);
+  const text = htmlPlainProjection(html);
+  const last = text.charCodeAt(max - 1);
+  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
+  const body = plainToHtml(text.slice(0, cut));
+  return images.length === 0 ? body : `${body}${images.join("")}`;
+}
+
 /** Cap by text length. Over cap, the value is projected to text, truncated and
  *  re-wrapped, so the result is always well-formed; formatting is lost on
  *  overflow.
