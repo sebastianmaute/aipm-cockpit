@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { KnowledgeLinksField } from "./knowledge-links-field";
 import type { KnowledgeLink } from "./document-link";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const links: KnowledgeLink[] = [
   { id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/x", kind: "file" },
@@ -53,5 +54,29 @@ describe("KnowledgeLinksField", () => {
     render(<KnowledgeLinksField value={[{ id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/x", kind: "file" }]} onChange={vi.fn()} lang="en-US" acquireToken={acquire} onLog={onLog} />);
     fireEvent.click(screen.getByRole("button", { name: /remove link/i }));
     expect(onLog).toHaveBeenCalledWith("removed", "Spec.docx");
+  });
+
+  // §247/§248: the "Open in new tab" anchor carried NO name qualifier at all
+  // (its aria-label was the bare verb), and the "Remove link" button was only
+  // row-QUALIFIED (`${verb} – ${link.name}`) — both collide identically when
+  // two links share a display name. Both now key off a shared token built
+  // over `link.url` (the stable identity; two links CAN share a name but
+  // never a url). Whole-document scope: the only other control is the
+  // trailing "Add from SharePoint" button, which cannot collide with either
+  // per-row name.
+  it("keeps every per-row control distinct when two links share a display name", () => {
+    const dupes: KnowledgeLink[] = [
+      { id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/a", kind: "file" },
+      { id: "2", name: "Spec.docx", url: "https://c.sharepoint.com/b", kind: "file" },
+    ];
+    render(<KnowledgeLinksField value={dupes} onChange={vi.fn()} lang="en-US" acquireToken={acquire} />);
+    // Measured (`expectRowUniqueNames` with minControls set high, then read the
+    // printed list): 2 "Open in new tab" links + 2 "Remove link" buttons + 1
+    // "Add from SharePoint" button = 5.
+    expectRowUniqueNames({
+      minControls: 5,
+      roles: ["link", "button"],
+      requireCollisionSeed: true,
+    });
   });
 });
