@@ -26,7 +26,7 @@ describe("TaskStatusSelect", () => {
   // `rowToken` entirely — stayed GREEN. A collision-suffixed token is what the
   // list owner actually passes for a duplicate title, and it is the only fixture
   // shape that can observe the threading.
-  it("has a row-unique accessible name", () => {
+  it("threads the rowToken prop into the accessible name", () => {
     const { getByRole } = render(
       <TaskStatusSelect lang="en-US" task={task} rowToken="Write spec (2)" onStatusChange={vi.fn()} />,
     );

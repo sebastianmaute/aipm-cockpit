@@ -27,7 +27,16 @@ describe("DiagnosticsPanel", () => {
   });
 
   it("reports a clipboard copy failure", async () => {
-    Object.assign(navigator, { clipboard: { writeText: vi.fn().mockRejectedValue(new Error("blocked")) } });
+    // ★★ NOT `Object.assign` — a later test's `userEvent.setup()` installs
+    // `navigator.clipboard` as a getter-only accessor, after which an assignment
+    // throws. `defineProperty` with `configurable` is order-proof either way;
+    // `resource-directory.test.tsx` carries the full reasoning and the seed that
+    // caught it.
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: vi.fn().mockRejectedValue(new Error("blocked")) },
+      configurable: true,
+      writable: true,
+    });
     logDiag("info", "seed");
     render(<DiagnosticsPanel lang="en-US" />);
     fireEvent.click(screen.getByRole("button", { name: /copy diagnostic bundle/i }));

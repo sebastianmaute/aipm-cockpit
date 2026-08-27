@@ -1095,8 +1095,8 @@ describe("TaskRow RAID badge", () => {
         ),
       }),
     );
-    // RaidBadge renders a button with aria-label matching "raidReferencedBy"
-    // i18n key — EN value is "{0} RAID item(s) reference this task".
+    // RaidBadge renders a button with aria-label matching the "raidReferencedBy"
+    // i18n key.
     expect(getByRole("button", { name: /raid item/i })).toBeTruthy();
   });
 

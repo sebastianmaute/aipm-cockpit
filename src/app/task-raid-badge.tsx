@@ -46,6 +46,11 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // `aria-label` wins the NAME, the accessible DESCRIPTION), not a name,
       // so 2.4.6 does not reach it and repeating the row identity there would
       // only lengthen a tooltip shown on the row the user is already pointing at.
+      // ★ ACCEPTED COST: the two were byte-identical before the row token landed,
+      // so AT that suppresses a description equal to the name announced it once
+      // and now announces the bare count separately as a redundant prefix of the
+      // name. Kept because the visible content is a compact glyph string, so the
+      // tooltip is the only count a sighted mouse user gets.
       title={t(lang, "raidReferencedBy", refs.length)}
       aria-label={rowLabel(t(lang, "raidReferencedBy", refs.length), rowToken)}
       className={`ml-1 inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
