@@ -8,6 +8,7 @@
 // `generatePeriods` — identical to the orchestrator's own derivation.
 
 import type React from "react";
+import { useMemo } from "react";
 import { localeFor } from "./date-format";
 import { type Lang, t } from "./i18n";
 import { INNER_TABLE_CLASS } from "./view-styles";
@@ -22,6 +23,7 @@ import { RagBadge } from "./rag-badge";
 import { marginAmountHealth } from "./budget-health";
 import { SortResizeTh, useSortHeaderProps, type SortDir } from "./report-table";
 import { FOCUS_RING, TRANSITION, INTERACTIVE } from "./interaction-styles";
+import { useRowTokens } from "./use-row-tokens";
 import type { PlanningCol, PlanSortKey, RollupCol } from "./resources-panel-columns";
 
 /** One planning-grid row — a resource with its derived capacity + cost. */
@@ -35,6 +37,14 @@ export type PlanRow = {
   externalCost: number;
   margin: number;
 };
+
+/**
+ * Module-level accessors for `useRowTokens` — an inline arrow would be a fresh
+ * closure every render, defeating the hook's `useMemo` AND tripping
+ * `react-hooks/exhaustive-deps` (fatal here under `--max-warnings=0`). See the
+ * docstring on `src/app/use-row-tokens.ts`.
+ */
+const planRowResource = (row: PlanRow): Resource => row.resource;
 
 interface PlanningTableProps {
   lang: Lang;
@@ -89,6 +99,19 @@ export function PlanningTable({
   // so cells are read-only borrowed values (you edit at the entry granularity).
   const derived = viewGranularity !== plan.granularity;
   const th = useSortHeaderProps(planSort.key, planSort.dir, planClick, planStartResize);
+  // ★★ ROW-UNIQUE ACCESSIBLE NAMES (WCAG 2.4.6). Two resources can carry the
+  // same display name — `resourceDisplayName` is just "First Last" — and this
+  // grid renders 1 + 2×periods controls per row, every one of which was named
+  // by that raw string. Row-QUALIFIED is not row-UNIQUE: two "John Smith" rows
+  // produced identical names in EVERY period column.
+  //
+  // ★ Built over `rows`, the array this component actually RENDERS (already
+  // sorted + filtered by the orchestrator's `useSortableFilter`) — building it
+  // over the unfiltered resource list would number occurrences against rows
+  // nobody can see. The intermediate `useMemo` keeps the mapped array
+  // reference-stable so the hook's own memo is not defeated every render.
+  const planResources = useMemo(() => rows.map(planRowResource), [rows]);
+  const rowTokens = useRowTokens(planResources, resourceDisplayName);
   return (
     <>
       <div className={INNER_TABLE_CLASS}>
@@ -123,6 +146,12 @@ export function PlanningTable({
               const cost = row.cost;
               const totalHours = row.totalHours;
               const resAbs = absencesForResource(absences, r);
+              // ★ The fallback cannot fire: `rowTokens` is built from these
+              // very `rows` a few lines up, so every rendered `r.id` is a key
+              // in it. It is kept because a `?? ` costs nothing and a future
+              // edit that narrows the token source would otherwise render
+              // `undefined` into an accessible name.
+              const token = rowTokens.get(r.id) ?? resourceDisplayName(r);
               return (
                 <tr key={r.id} onClick={() => onEditResource(r)} className="cursor-pointer hover:bg-surface-muted">
                   <td className="px-3 py-2">
@@ -130,6 +159,11 @@ export function PlanningTable({
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
                       title={resourceDisplayName(r)}
+                      // ★ Set UNCONDITIONALLY, not only on a collision: with no
+                      // collision the token IS the bare name, so this restates
+                      // the visible content. WCAG 2.5.3 holds by CONTAINMENT —
+                      // the visible "John Smith" sits inside "John Smith (2)".
+                      aria-label={token}
                       className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green dark:text-ui-light-grey"
                     >
                       {resourceDisplayName(r)}
@@ -154,7 +188,7 @@ export function PlanningTable({
                       <span className="inline-flex flex-col items-start">
                       <span className="inline-flex items-center gap-0.5">
                         <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
-                          aria-label={t(lang, "resourceUtilizationForPeriod", resourceDisplayName(r), p.key)}
+                          aria-label={t(lang, "resourceUtilizationForPeriod", token, p.key)}
                           title={t(lang, "resourcesUtilizationHint")}
                           value={cellValue}
                           readOnly={derived}
@@ -166,7 +200,7 @@ export function PlanningTable({
                         </span>
                       </span>
                       <input type="number" min={0} step={1}
-                        aria-label={t(lang, "resourceAbsenceOverrideForPeriod", resourceDisplayName(r), p.key)}
+                        aria-label={t(lang, "resourceAbsenceOverrideForPeriod", token, p.key)}
                         title={t(lang, "resourcesAbsenceOverrideHint")}
                         value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
                         placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}
