@@ -237,10 +237,14 @@ export const TASK_MARK_UNCHECKED = "[ ] ";
  *  keeps marker and text on one line; the item's CLOSING tags still become a
  *  boundary, so items stay on separate lines. The collapsed projection was
  *  never affected — its separator is a space — which is exactly why one
- *  projection can look right while the other is broken. */
+ *  projection can look right while the other is broken.
+ *
+ *  ★★ ALL THREE ATTRIBUTE RUNS EXCLUDE `<`, for the reason TAG's docstring
+ *  gives: an unterminated `<li` otherwise scans to end of input three times
+ *  over. Pinned by the complexity family in rich-text-plain.test.ts. */
 export function markTaskItems(html: string): string {
   return html.replace(
-    /<li\b[^>]*\bdata-type\s*=\s*"taskItem"[^>]*>\s*(?:<p\b[^>]*>)?/gi,
+    /<li\b[^<>]*\bdata-type\s*=\s*"taskItem"[^<>]*>\s*(?:<p\b[^<>]*>)?/gi,
     (tag) => (/\bdata-checked\s*=\s*"true"/i.test(tag) ? TASK_MARK_CHECKED : TASK_MARK_UNCHECKED),
   );
 }

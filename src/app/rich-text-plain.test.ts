@@ -6,6 +6,7 @@ import {
   descriptionHtml,
   htmlPlainProjection,
   htmlTextLength,
+  markTaskItems,
   sanitizeRichText,
   separateBlockBoundaries,
 } from "./rich-text-plain";
@@ -684,4 +685,29 @@ describe("htmlPlainProjection — complexity", () => {
       expect(performance.now() - started).toBeLessThan(CEILING_MS);
     });
   }
+});
+
+// ★ markTaskItems carries THREE unbounded runs in one pattern and runs on both
+// projection paths. Same defect as TAG/BLOCK_TAG, found separately.
+describe("markTaskItems — complexity", () => {
+  it("stays bounded on unterminated list-item openers", () => {
+    const input = "<li".repeat(Math.round((128 * 1024) / 3));
+    const started = performance.now();
+    markTaskItems(input);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  // The pattern consumes the `<li …>` opener and the OPTIONAL `<p>` that
+  // follows it — nothing else. The `</p>` and `</li>` are left in place for the
+  // tag strip downstream to remove, so they belong in these expectations.
+  // Measured 2026-08-27 against the unfixed pattern; the bound must not move
+  // either value.
+  it("still marks a real task item, checked and unchecked", () => {
+    expect(markTaskItems('<li data-type="taskItem" data-checked="true"><p>done</p></li>')).toBe(
+      "[x] done</p></li>",
+    );
+    expect(markTaskItems('<li data-type="taskItem" data-checked="false"><p>open</p></li>')).toBe(
+      "[ ] open</p></li>",
+    );
+  });
 });
