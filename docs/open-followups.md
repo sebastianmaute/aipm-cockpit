@@ -18997,17 +18997,19 @@ previously unbounded. ★★★ The REQUEST body was always inside the window, i
 as the new: `fetch` does not settle until the response HEADERS arrive, which for a POST is after
 the request body has been transmitted, and the timer was armed before `fetch` either way. So an
 upload never gained a bound here and cannot be what regresses. What regresses is the READ side.
-The largest single RESPONSE through this path is one document asset at `ASSET_STORED_MAX_BYTES`
+The largest BOUNDED response through this path is one document asset at `ASSET_STORED_MAX_BYTES`
 (`5 * 1024 * 1024`, pinned by `document-asset-upload.test.ts`) read back by `loadAssetData`,
 which inherits the default 15 s — `ceil(5242880/3)*4 = 6990508` base64 bytes ≈ 6.67 MiB, so a
 READ on a link slower than roughly **3.7 Mbit/s** can now FAIL where it previously succeeded
-eventually. ★★ `TursoBackend`'s `load()` (both the single-DB and the tenant path) passes the
-SHORTER `LOAD_TIMEOUT_MS` (10 s), a stricter bound this entry did not mention when it was filed —
-the same payload needs about **5.6 Mbit/s** to clear that one. ★ Both figures are **computed
-estimates, not measurements**: 6990508 × 8 ÷ 15 s ≈ 3.73 Mbit/s, ÷ 10 s ≈ 5.59 Mbit/s. They
-ignore request overhead, the rest of the batch riding the same pipeline, and any server-side
-latency before the first body byte — all of which make the real threshold worse, not better. The
-trade is deliberate — a bounded, retryable timeout beats an unbounded hang, and the unbounded
+eventually. ★★ It is the largest BOUNDED one and NOT the largest one: `TursoBackend`'s `load()`
+passes the SHORTER `LOAD_TIMEOUT_MS` (10 s) and its response is UNCAPPED — it selects every table
+in `TABLE_NAMES`, including the `meta` row carrying the `documents` meta-blob — so that path has
+no computable threshold at all, only a tighter budget. It never carries asset BYTES, since
+`document_asset_data` is deliberately outside `TABLE_NAMES`, so do not reuse the figure below for
+it. ★ That figure is a **computed estimate, not a measurement**: 6990508 × 8 ÷ 15 s ≈ 3.73
+Mbit/s. It ignores request overhead, the rest of the batch riding the same pipeline, and any
+server-side latency before the first body byte — all of which make the real threshold worse, not
+better. The trade is deliberate — a bounded, retryable timeout beats an unbounded hang, and the unbounded
 case had no escape but reloading — but it is a behaviour change and this is where it belongs. If
 large-asset READS start timing out on slow links, the answer is a payload-aware timeout, NOT a
 return to an unbounded read. ★ Instrument the RESPONSE side when chasing that symptom: an earlier

@@ -270,10 +270,6 @@ describe("applyRestore over array-typed slices", () => {
     // so `applyRestore` never walks the slice and the two guards this fixture
     // feeds go blind for it while this test stays green. That is ONE lazy seed
     // re-opening §255 and §261 together, not the two mistakes §261 used to claim.
-    // ★ The two casts are for KEY ITERATION over a `Partial<Workspace>` only.
-    // They assert nothing about any record's shape, so they are not the kind of
-    // cast this file bans — that rule is about record BUILDERS encoding a wrong
-    // domain fact past tsc, which is the defect §261 exists for.
     const seeded = new Set(Object.keys(older).filter((k) => {
       const v = older[k];
       return Array.isArray(v) && v.length > 0 && JSON.stringify(v) !== JSON.stringify(newer[k]);
