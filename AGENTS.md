@@ -1300,7 +1300,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
   (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
   invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
-  see the ★★★ two paragraphs up; derive both with
+  see the ★★★ no-consumer-tally rule above; derive both with
   `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
   and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
   passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width
