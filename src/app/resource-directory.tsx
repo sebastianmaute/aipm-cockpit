@@ -12,6 +12,7 @@ import { resourceDisplayName, roleLabel } from "./resource-foundation";
 import type { Discipline, Grade, Resource, Role } from "./types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
+import { useRowTokens } from "./use-row-tokens";
 import { INNER_TABLE_CLASS, VIEW_PANE_RESIZABLE_CLASS } from "./view-styles";
 import { useToastContext } from "./toast-context";
 import { useRowSelection } from "./use-row-selection";
@@ -69,12 +70,18 @@ function DirectoryRoleSelect({
   disciplines,
   grades,
   onAssignRoleById,
+  lang,
+  rowToken,
 }: {
   resource: Resource;
   roles: readonly Role[];
   disciplines: readonly Discipline[];
   grades: readonly Grade[];
   onAssignRoleById: (resourceId: number, roleId: number | null) => void;
+  lang: Lang;
+  /** ★ The row's token, not `resourceDisplayName(resource)` — this component is
+   *  per-item and cannot see whether another row shares the name. */
+  rowToken: string;
 }) {
   const sortedRoles = [...roles].sort((a, b) =>
     roleLabel(a, disciplines, grades).localeCompare(roleLabel(b, disciplines, grades)),
@@ -82,7 +89,7 @@ function DirectoryRoleSelect({
   return (
     <td className="px-3 py-2">
       <select
-        aria-label={`Role for ${resourceDisplayName(resource)}`}
+        aria-label={t(lang, "resourceRoleForRow", rowToken)}
         value={resource.roleId == null ? "" : String(resource.roleId)}
         // Stop the click bubbling to the row's onClick (opens the edit modal).
         onClick={(e) => e.stopPropagation()}
@@ -102,6 +109,11 @@ function DirectoryRoleSelect({
 }
 
 type SortKey = "" | "name" | "role" | "title" | "department" | "phone" | "email" | "birthday";
+
+// Module-scope accessor for useRowTokens: an inline arrow here would be a
+// fresh closure every render, defeating the memo and tripping
+// react-hooks/exhaustive-deps (fatal in this repo). See use-row-tokens.ts.
+const nameOfResource = (r: Resource) => resourceDisplayName(r);
 
 function ResourceDirectoryInner({
   lang,
@@ -198,6 +210,10 @@ function ResourceDirectoryInner({
     }
     return filtered;
   }, [resources, roles, disciplines, grades, filter, sortKey, sortDir, hideExternal]);
+
+  // Built over `rows` — the filtered/sorted array actually rendered below —
+  // so the occurrence numbering matches what a screen-reader user navigates.
+  const rowTokens = useRowTokens(rows, nameOfResource);
 
   const visibleIds = rows.map((r) => r.id);
   const roleOptions = [
@@ -343,12 +359,16 @@ function ResourceDirectoryInner({
                 <SortResizeTh {...th} label={t(lang, "resourceColBirthday")} sortCol="birthday" width={colWidths.birthday} title={t(lang, "sortBy", t(lang, "resourceColBirthday"))} />
               </tr>
             </>} tbodyClassName="divide-y divide-line">
-              {rows.map((r) => (
+              {rows.map((r) => {
+                // ★ Cannot miss: rowTokens is built from `rows` by this same
+                // .map()'s own array, via buildRowTokens covering every id in it.
+                const token = rowTokens.get(r.id) ?? resourceDisplayName(r);
+                return (
                 <tr key={r.id} className="cursor-pointer align-middle hover:bg-surface-muted" onClick={() => onEditResource(r)}>
                   {bulkEnabled && (
                     <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                       <Checkbox
-                        aria-label={t(lang, "selectItem", resourceDisplayName(r))}
+                        aria-label={t(lang, "selectItem", token)}
                         checked={sel.isSelected(r.id)}
                         onChange={() => sel.toggle(r.id)}
                         className="cursor-pointer"
@@ -359,6 +379,11 @@ function ResourceDirectoryInner({
                     <button
                       type="button"
                       onClick={(e) => { e.stopPropagation(); onEditResource(r); }}
+                      // ★★★ No aria-label means the accessible name is the
+                      // CONTENT — see use-row-tokens.ts for why this is set
+                      // unconditionally and why 2.5.3 holds by containment,
+                      // not prefix.
+                      aria-label={token}
                       className={`rounded-md border border-transparent px-2 py-0.5 font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
                     >
                       {resourceDisplayName(r)}
@@ -375,6 +400,8 @@ function ResourceDirectoryInner({
                     disciplines={disciplines}
                     grades={grades}
                     onAssignRoleById={onAssignRoleById}
+                    lang={lang}
+                    rowToken={token}
                   />
                   <td className="px-3 py-2 text-muted-foreground" title={r.title ?? ""}>{r.title ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.department ?? ""}>{r.department ?? "—"}</td>
@@ -401,7 +428,8 @@ function ResourceDirectoryInner({
                   </td>
                   <td className="px-3 py-2 text-muted-foreground" title={r.birthday ?? ""}>{r.birthday ?? "—"}</td>
                 </tr>
-              ))}
+                );
+              })}
           </DataTable>
         </div>
       )}

@@ -30,7 +30,7 @@ export function ChatPromptChips({
   onPick: (body: string, autoSend: boolean) => void;
 }) {
   return (
-    <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label="Suggested prompts">
+    <ul className="flex flex-wrap gap-2 list-none p-0 m-0" aria-label={t(lang, "chatSuggestedPrompts")}>
       {PROMPT_CHIPS.map((chip) => (
         <li key={chip.labelKey}>
           <button

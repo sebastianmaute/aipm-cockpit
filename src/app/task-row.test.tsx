@@ -12,6 +12,7 @@ import { type ChangeItem, type RaidItem, type Resource, type Task } from "./type
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buildRowTokens } from "./row-tokens";
 
 function makeTask(overrides: Partial<Task> = {}): Task {
   return {
@@ -123,6 +124,7 @@ describe("TaskRow", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -150,7 +152,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -169,7 +171,7 @@ describe("TaskRow", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -190,6 +192,7 @@ describe("TaskRow", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -211,6 +214,7 @@ describe("TaskRow", () => {
     const child = (
       <TaskRow
         task={task}
+        rowToken={task.taskName}
         isSelected={false}
         isEditing={false}
         isPushing={false}
@@ -245,6 +249,7 @@ describe("TaskRow", () => {
           <Profiler id="row" onRender={renderSpy}>
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={false}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -281,6 +286,7 @@ describe("TaskRow", () => {
           <Profiler id="row" onRender={renderSpy}>
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={sel}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -308,6 +314,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 21, status: "In Review" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -327,6 +334,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 22, status: "On Hold" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -345,6 +353,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 23, createdDate: "2026-01-15" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false} isPushing={false}
             raidRefs={undefined}
@@ -363,6 +372,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 24, createdDate: "2026-01-15" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false} isPushing={false}
             raidRefs={undefined}
@@ -382,6 +392,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 1, taskName: "Alpha", status: "To Do" })}
+            rowToken="Alpha"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -402,6 +413,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 1, taskName: "Sync", status: "In Progress", jiraKey: "LOP-1" })}
+            rowToken="Sync"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -420,6 +432,7 @@ describe("TaskRow workflow-status badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 2, taskName: "Local", status: "To Do" })}
+            rowToken="Local"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -440,6 +453,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 2 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -460,6 +474,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 3 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -480,6 +495,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 4 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing            isPushing={false}
             raidRefs={undefined}
@@ -504,6 +520,7 @@ describe("TaskRow zebra striping", () => {
             // completedDate set`); a completedDate on a "To Do" task is a shape
             // applyStatusChange never produces.
             task={makeTask({ id: 5, status: "Done", completedDate: "2026-05-20" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -530,6 +547,7 @@ describe("TaskRow zebra striping", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 6, status: "Cancelled", dueDate: "2026-01-01" })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}
             isPushing={false}
@@ -560,6 +578,7 @@ describe("TaskRow closed glyph", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}
             isPushing={false}
@@ -608,7 +627,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -622,7 +641,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -644,7 +663,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -662,7 +681,7 @@ describe("TaskRow description + notes-log cells", () => {
       rowWrapper({
         context: ctx,
         children: (
-          <TaskRow task={task} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
+          <TaskRow task={task} rowToken={task.taskName} isSelected={false} isEditing={false} isPushing={false} raidRefs={undefined} />
         ),
       }),
     );
@@ -681,6 +700,7 @@ describe("TaskRow click-to-edit", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -704,6 +724,7 @@ describe("TaskRow click-to-edit", () => {
           children: (
             <TaskRow
               task={task}
+              rowToken={task.taskName}
               isSelected={false}
               isEditing={false}              isPushing={false}
               raidRefs={undefined}
@@ -731,6 +752,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 8 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -751,6 +773,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 9 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -770,6 +793,7 @@ describe("TaskRow changes badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 10 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -789,7 +813,7 @@ describe("TaskActions", () => {
           <tr>
             <td>
               <RowContextProvider value={ctx}>
-                <TaskActions task={task} isPushing={false} />
+                <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
               </RowContextProvider>
             </td>
           </tr>
@@ -871,7 +895,7 @@ describe("TaskActions Send inquiry", () => {
             {tasks.map((task) => (
               <tr key={task.id}>
                 <td>
-                  <TaskActions task={task} isPushing={false} />
+                  <TaskActions task={task} isPushing={false} rowToken={task.taskName} />
                 </td>
               </tr>
             ))}
@@ -986,6 +1010,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1020,6 +1045,7 @@ describe("TaskRow Ask-Claude leading cell", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1061,6 +1087,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 11 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })]}
@@ -1068,8 +1095,8 @@ describe("TaskRow RAID badge", () => {
         ),
       }),
     );
-    // RaidBadge renders a button with aria-label matching "raidReferencedBy"
-    // i18n key — EN value is "{0} RAID item(s) reference this task".
+    // RaidBadge renders a button with aria-label matching the "raidReferencedBy"
+    // i18n key.
     expect(getByRole("button", { name: /raid item/i })).toBeTruthy();
   });
 
@@ -1083,6 +1110,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 12 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1102,6 +1130,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 13 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[]}
@@ -1121,6 +1150,7 @@ describe("TaskRow RAID badge", () => {
         children: (
           <TaskRow
             task={makeTask({ id: 14 })}
+            rowToken="Sample task"
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={[makeRaidItem({ id: 1 })]}
@@ -1141,6 +1171,7 @@ describe("TaskRow inline cell editing", () => {
         children: (
           <TaskRow
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}            isPushing={false}
             raidRefs={undefined}
@@ -1361,6 +1392,7 @@ describe("TaskRow linked-documents badge", () => {
           <TaskRow
             key={task.id}
             task={task}
+            rowToken={task.taskName}
             isSelected={false}
             isEditing={false}
             isPushing={false}
@@ -1390,5 +1422,211 @@ describe("TaskRow linked-documents badge", () => {
     const { getByRole, onOpenDocuments } = renderRows();
     fireEvent.click(getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
+  });
+});
+
+describe("row-unique accessible names (WCAG 2.4.6)", () => {
+  // Builds each row's OWN token from `buildRowTokens` — the real disambiguator,
+  // not a hand-written string and not a constant shared by every row. A
+  // constant `rowToken` here would make the collision test below pass for the
+  // wrong reason (it could never see a name shared by two controls) — see
+  // `src/app/row-tokens.ts` and `src/test/row-unique-names.ts`.
+  //
+  // `extra.documentsByEntity`/`extra.onOpenDocuments` are optional PROPS (not
+  // context) so a caller can reach the DocumentBadge site without disturbing
+  // every other test built on this helper.
+  //
+  // `extra.raidRefsFor` reaches the RaidBadge site the same way. It is a
+  // per-task LOOKUP rather than one shared array because the badge's own
+  // collision axis is the REFERENCE COUNT, and a test has to be able to give
+  // two rows equal counts over DIFFERENT items.
+  function renderCollisionRows(
+    context: RowContextValue,
+    tasks: Task[],
+    extra: {
+      documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+      onOpenDocuments?: (taskId: number) => void;
+      raidRefsFor?: (taskId: number) => RaidItem[] | undefined;
+    } = {},
+  ) {
+    const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
+    return render(
+      rowWrapper({
+        context,
+        children: tasks.map((task) => (
+          <TaskRow
+            key={task.id}
+            task={task}
+            rowToken={tokens.get(task.id) ?? task.taskName}
+            isSelected={false}
+            isEditing={false}
+            isPushing={false}
+            raidRefs={extra.raidRefsFor?.(task.id)}
+            documentsByEntity={extra.documentsByEntity}
+            onOpenDocuments={extra.onOpenDocuments}
+          />
+        )),
+      }),
+    );
+  }
+
+  /** One linked document per task id, so DocumentBadge (count > 0) renders on
+   *  BOTH twins — a badge absent from one row cannot collide with anything. */
+  function doc(id: number, taskId: number): ProjectDocument {
+    return {
+      id,
+      title: `Doc ${id}`,
+      blocks: [],
+      createdAt: "2026-06-01T00:00:00.000Z",
+      updatedAt: "2026-06-01T00:00:00.000Z",
+      linkedEntities: [{ kind: "task", id: taskId }],
+    };
+  }
+
+  test("keeps every control distinct when two tasks share a name", () => {
+    // aiEditEnabled/onAiEdit + documentsByEntity/onOpenDocuments reach the two
+    // sites the earlier cut of this test never rendered: the inline
+    // Ask-Claude trigger (task-row.tsx:319, gated on `aiEditEnabled`) and
+    // `DocumentBadge` (task-row.tsx:371, which returns null at count 0). Both
+    // are ordinary usage, not exotic configuration.
+    //
+    // `raidRefsFor` reaches the THIRD such site, `RaidBadge`, which every
+    // earlier fixture in this file left at `raidRefs={undefined}` — which is
+    // exactly why its missing row identity went uncaught here. (Its own
+    // count-only collision axis is covered by the next test; this one proves
+    // it also survives the shared-NAME case.)
+    const twins = [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Alpha" }),
+    ];
+    const documentsByEntity = indexDocumentsByEntity([doc(30, 1), doc(31, 2)]);
+    const { container } = renderCollisionRows(
+      makeContext({ aiEditEnabled: () => true, onAiEdit: vi.fn() }),
+      twins,
+      {
+        documentsByEntity,
+        onOpenDocuments: vi.fn(),
+        raidRefsFor: () => [makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })],
+      },
+    );
+    expectRowUniqueNames({
+      // MEASURED, not guessed: set to 999, ran this test alone, and read the
+      // length of the `Rendered: [...]` list the throw prints. It was 26
+      // before `raidRefsFor` seeded a RaidBadge onto each of the two rows.
+      minControls: 28,
+      scope: container,
+      roles: ["button", "combobox", "textbox", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+
+  test("keeps the RAID badge distinct when two DIFFERENTLY-named tasks have equal ref counts", () => {
+    // ★★ THE BADGE'S COLLISION AXIS IS THE REFERENCE COUNT, NOT THE NAME. Its
+    // accessible name was `raidReferencedBy` alone ("Referenced by {0} RAID
+    // item(s)") — a bare count with no row identity — so two rows collided
+    // whenever their counts matched, which needs no shared task name at all
+    // and is the common case.
+    //
+    // ★ `requireCollisionSeed` is deliberately OFF here and its absence is not
+    // a weakened assertion: that guard certifies a shared-DISPLAY-NAME seed
+    // (two rendered names equal once the "(N)" suffix is stripped), and after
+    // the fix these two rows correctly share no name. The equivalent seed on
+    // THIS axis — two rows whose badge counts are equal, so their pre-fix
+    // names were byte-identical — is asserted directly below instead.
+    const rows = [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Beta" }),
+    ];
+    const { container } = renderCollisionRows(makeContext(), rows, {
+      raidRefsFor: () => [makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })],
+    });
+
+    // The count-collision seed: both rows rendered a badge, and both badges
+    // report the SAME count — so the pre-fix name was identical on both.
+    const badges = within(container).getAllByRole("button", { name: /RAID item/i });
+    expect(badges).toHaveLength(2);
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 RAID item(s) – Alpha",
+      "Referenced by 2 RAID item(s) – Beta",
+    ]);
+
+    expectRowUniqueNames({
+      // MEASURED the same way as the test above (floor 999, read the printed
+      // `Rendered: [...]` length): two rows, no AI trigger and no document
+      // badges, plus each row's RaidBadge.
+      minControls: 24,
+      scope: container,
+      roles: ["button", "combobox", "textbox", "checkbox"],
+    });
+  });
+
+  test("leaves the VISIBLE task name unqualified", () => {
+    // The token is an ACCESSIBLE-name device. A user reads what they typed.
+    const { getAllByText } = renderCollisionRows(makeContext(), [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Alpha" }),
+    ]);
+    expect(getAllByText("Alpha", { selector: "button" })).toHaveLength(2);
+  });
+
+  // ---------------------------------------------------------------------
+  // Inline-edit-mode collisions (open-followups §247/§248 audit, part A).
+  //
+  // `useInlineCellEdit` (use-inline-cell-edit.ts) is called INSIDE
+  // `TaskRowImpl` (task-row.tsx:139) — one hook instance per mounted <tr>,
+  // holding its OWN `editing`/`draft` state with no coordinator across rows:
+  // nothing in `task-row-context.tsx` or in `tasks-section.tsx`'s `.map`
+  // (which mounts one <TaskRow> per task with no shared "active cell" prop)
+  // ties one row's editing state to another's, so the REACT STATE alone
+  // does not rule out two rows editing at once.
+  //
+  // ★★★ BUT MEASURED (not reasoned) AGAINST A REAL DOM, four of the five
+  // sites still can't collide, and the reason is native focus/blur, not
+  // React: every one of taskName/startDate/dueDate/blockers/priority's edit
+  // controls carries `autoFocus` (or — for blockers — is opened from a
+  // trigger that IS itself an ordinary React element the browser focuses on
+  // click) AND closes via `onBlur={inline.commit}` / `onBlur={inline.cancel}`.
+  // Mounting a SECOND such editor anywhere in the table calls native
+  // `.focus()` on it, which synchronously blurs whatever was previously
+  // focused — closing it — before the new one ever renders. Reproduce this
+  // concretely with `renderCollisionRows(makeContext(), [twins named
+  // "Alpha"])`, then `fireEvent.doubleClick` the two rows' task-name buttons
+  // in sequence and inspect `within(container).queryAllByRole("textbox")`
+  // after each: only the SECOND row's `<input>` remains in the DOM, and the
+  // FIRST row's unedited value was silently committed via `onInlinePatch`
+  // (pass an `onInlinePatch: vi.fn()` override in the context to see the
+  // call) — the same happens for the priority `<Select>`. An initial cut of
+  // a due-date test read as passing two open editors, but `getAllByLabelText`
+  // was matching the CLOSED row's ghost *button* (whose aria-label is the
+  // same string as its open-mode `<input>`, by design — task-row.tsx:205)
+  // rather than a second open input; filtering to actual `<input>` elements
+  // showed the same single-editor-at-a-time result.
+  //
+  // The ONE exception is assignee's `ResourcePicker` (task-row.tsx:440-449):
+  // it renders no `autoFocus`, and its own `.focus()` call
+  // (`resource-picker.tsx:136`) fires only from `choose()`, after a row
+  // selection — never on open. So opening it in one row does not steal
+  // focus, does not blur anything, and a second row's editor (assignee or
+  // otherwise) can open right alongside it. That is the one inline-edit site
+  // where two rows' editors can genuinely coexist, and it is the only one
+  // tested below.
+  // ---------------------------------------------------------------------
+
+  test("keeps the inline assignee editor distinct when two rows are edited simultaneously", () => {
+    const { container } = renderCollisionRows(makeContext(), [
+      makeTask({ id: 1, taskName: "Alpha", assignee: "Alice" }),
+      makeTask({ id: 2, taskName: "Alpha", assignee: "Bob" }),
+    ]);
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (1)" }));
+    fireEvent.click(within(container).getByRole("button", { name: "Assignee – Alpha (2)" }));
+    // Both stay open: neither ResourcePicker auto-focuses itself, so opening
+    // the second never blurs (and never commits/closes) the first — measured
+    // above, not assumed.
+    expectRowUniqueNames({
+      minControls: 4,
+      scope: container,
+      roles: ["combobox"],
+      requireCollisionSeed: true,
+    });
   });
 });

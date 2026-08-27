@@ -20,6 +20,7 @@ import { priorityStyle } from "./task-status-ui";
 import { TaskStatusSelect } from "./task-status-select";
 import { effectiveAssignee, resourceDisplayName } from "./resource-foundation";
 import { Select } from "./form-controls";
+import { rowLabel } from "./row-tokens";
 import type { ChangeItem, RaidItem, Resource, Task, TaskStatus } from "./types";
 
 const EMPTY_RESOURCE_LOOKUP: ReadonlyMap<number, Resource> = new Map();
@@ -33,6 +34,9 @@ interface TaskKanbanCardProps {
    *  a linked task; the stored `assignee` cache goes stale after a rename.
    *  Optional (defaults empty) so lightweight callers/tests can omit it. */
   resourcesById?: ReadonlyMap<number, Resource>;
+  /** This card's row-unique display token, from the board's `tokens` map.
+   *  ★ PROPS, never context — the board renders cards OUTSIDE RowContextProvider. */
+  rowToken: string;
   raidRefs?: RaidItem[];
   changeRefs?: ChangeItem[];
   /** ★★ PROPS, never context: the board renders cards OUTSIDE RowContextProvider
@@ -60,6 +64,7 @@ export function TaskKanbanCard({
   today,
   holidaySet,
   resourcesById,
+  rowToken,
   raidRefs,
   changeRefs,
   documentsByEntity,
@@ -94,6 +99,11 @@ export function TaskKanbanCard({
         <button
           type="button"
           onClick={() => onEdit(task)}
+          // ★★★ No aria-label means the accessible name is the CONTENT —
+          // `rowToken` arrives as a prop from tasks-section.tsx (which
+          // imports use-row-tokens.ts); see that module for why this is set
+          // unconditionally and why 2.5.3 holds by containment, not prefix.
+          aria-label={rowToken}
           title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
           className={`cursor-pointer rounded-md border border-transparent px-1 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface ${INTERACTIVE}`}
         >
@@ -107,12 +117,12 @@ export function TaskKanbanCard({
         </Badge>
         {task.jiraKey && <JiraBadge jiraKey={task.jiraKey} lang={lang} readOnlyProject={readOnlyProject} />}
         {raidRefs && raidRefs.length > 0 && (
-          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} rowToken={rowToken} onJumpToRaid={onJumpToRaid} />
         )}
         <DocumentBadge
           lang={lang}
           count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
-          entityTitle={task.taskName}
+          entityTitle={rowToken}
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
@@ -139,12 +149,12 @@ export function TaskKanbanCard({
       </div>
 
       <div className="flex items-center justify-between gap-1.5">
-        <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+        <TaskStatusSelect lang={lang} task={task} rowToken={rowToken} onStatusChange={onStatusChange} />
         {aiEditEnabled?.(task) && (
           <button
             type="button"
             onClick={() => onAiEdit?.(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            aria-label={rowLabel(t(lang, "inlineAiEdit"), rowToken)}
             title={t(lang, "inlineAiEdit")}
             className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
@@ -157,7 +167,7 @@ export function TaskKanbanCard({
         <Select
           size="xs"
           value={task.resourceId ?? ""}
-          aria-label={t(lang, "assignPersonLabel", task.taskName)}
+          aria-label={t(lang, "assignPersonLabel", rowToken)}
           onChange={(e) => onAssign(task.id, e.target.value ? Number(e.target.value) : null)}
         >
           <option value="">{t(lang, "swimlaneUnassigned")}</option>

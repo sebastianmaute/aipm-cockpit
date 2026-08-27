@@ -1,11 +1,12 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { useState } from "react";
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { Resource, Task } from "./types";
 
 // "Plan with AI" (use-alloc-plan) reads settings.ai via useSettings(); mocked
@@ -91,6 +92,29 @@ describe("ResourcesPanel", () => {
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.change(screen.getByLabelText("Utilization for Sample in 2026-02"), { target: { value: "80" } });
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
+  });
+
+  // The DE dictionary is lazy — load it BEFORE asserting German output, or the
+  // assertion silently reads English and passes for nothing.
+  describe("planning view: utilization/absence-override cell labels", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+
+    test("translates both cells' accessible names under German", () => {
+      const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+      render(<ResourcesPanel {...baseProps} lang="de" view="planning" resources={resources} plan={plan}
+        workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+      expect(
+        screen.getByLabelText(t("de", "resourceUtilizationForPeriod", "Sample", "2026-02")),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(t("de", "resourceAbsenceOverrideForPeriod", "Sample", "2026-02")),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Utilization for Sample in 2026-02")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Absence override for Sample in 2026-02")).not.toBeInTheDocument();
+    });
   });
 
   test("planning: period date header is not right-aligned", () => {
@@ -957,5 +981,77 @@ describe("hide-external persistence", () => {
     window.localStorage.setItem("aipm-cockpit:resources-hide-external", '"true"');
     render(<ResourcesPanel {...baseProps} view="workload" resources={resources} />);
     expect(screen.getByRole("button", { name: label })).toHaveAttribute("aria-pressed", "false");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// WCAG 2.4.6 on the planning grid.
+//
+// ★★ ROW-QUALIFIED IS NOT ROW-UNIQUE, and that distinction is the whole point
+// of this block. The two period-cell labels already interpolated the person's
+// name (`resourceUtilizationForPeriod` / `resourceAbsenceOverrideForPeriod`),
+// which proves the name DIFFERS when the name differs and proves nothing when
+// it REPEATS — and `resourceDisplayName` is just "First Last", so two people
+// can share one. The row's own name button carried no `aria-label` at all, so
+// its accessible name fell back to its CONTENT and collided the same way.
+//
+// ★ axe cannot see any of this, in any view, at any seed size (measured
+// against axe-core 4.12.1) — a unit test is the only detector that can exist.
+// ---------------------------------------------------------------------------
+describe("ResourcesPanel planning grid: row-unique accessible names", () => {
+  const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+  // BYTE-IDENTICAL names. A fixture with two DIFFERENT names passes whether or
+  // not the fix is present, which is the standard way this class of test ships
+  // vacuous.
+  const twins: Resource[] = [
+    { id: 1, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} },
+    { id: 2, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} },
+  ];
+
+  function renderTwins() {
+    return render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={twins} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+  }
+
+  test("keeps every planning-row control distinct when two resources share a name", () => {
+    const { container } = renderTwins();
+    expectRowUniqueNames({
+      // MEASURED, not guessed: set to 999, ran this test alone, and read the
+      // count the throw prints.
+      minControls: 23,
+      scope: container,
+      roles: ["button", "textbox", "spinbutton", "combobox"],
+      requireCollisionSeed: true,
+    });
+  });
+
+  test("numbers both twins' period cells, not just the second", () => {
+    // ★ ALL colliding rows are numbered including the first — a bare "John
+    // Smith" alongside a "John Smith (2)" would leave a user unable to tell
+    // "the only one" from "the first of several" (`row-tokens.ts`).
+    renderTwins();
+    expect(screen.getByLabelText("Utilization for John Smith (1) in 2026-02")).toBeInTheDocument();
+    expect(screen.getByLabelText("Utilization for John Smith (2) in 2026-02")).toBeInTheDocument();
+    expect(screen.getByLabelText("Absence override for John Smith (1) in 2026-02")).toBeInTheDocument();
+    expect(screen.getByLabelText("Absence override for John Smith (2) in 2026-02")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Utilization for John Smith in 2026-02")).toBeNull();
+  });
+
+  test("leaves the VISIBLE resource name unqualified", () => {
+    // The token is an ACCESSIBLE-name device: a user reads what they typed.
+    // (`getAllByText` with a button selector also proves the occurrence index
+    // did not leak into the rendered label.)
+    renderTwins();
+    expect(screen.getAllByText("John Smith", { selector: "button" })).toHaveLength(2);
+  });
+
+  test("a single resource's controls keep the BARE name, with no occurrence index", () => {
+    // The no-collision path: `buildRowTokens` uses the name bare, so the
+    // unconditional `aria-label` restates the visible content rather than
+    // changing behaviour for the common case.
+    render(<ResourcesPanel {...baseProps} view="planning" lang="en-US" resources={[twins[0]]} plan={plan}
+      workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+    expect(screen.getByRole("button", { name: "John Smith" })).toBeInTheDocument();
+    expect(screen.getByLabelText("Utilization for John Smith in 2026-02")).toBeInTheDocument();
   });
 });

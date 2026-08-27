@@ -2,10 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.261.0";
-export const APP_BUILD_DATE = "2026-08-26"; // 0.261.0: version-history completeness — capture, diff and restore agree (Leckie)
+export const APP_VERSION = "0.262.0";
+export const APP_BUILD_DATE = "2026-08-27"; // 0.262.0: row-unique accessible names across the remaining list surfaces (Swainston)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.260.x line is "Cho" (Zen Cho, Malaysian fantasy author).
+ *  0.262.x line is "Swainston" (Steph Swainston, British fantasy author).
+ *  0.261.x was "Leckie" (Ann Leckie, SF author).
+ *  0.260.x was "Cho" (Zen Cho, Malaysian fantasy author).
  *  0.259.x was "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).
  *  0.258.x was "Mandelo" (that slice's codename — no bio recorded for it
  *  here; not asserting one now rather than guessing, per the 0.236.x note
@@ -60,7 +62,7 @@ export const APP_BUILD_DATE = "2026-08-26"; // 0.261.0: version-history complete
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Leckie";
+export const APP_MILESTONE = "Swainston";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -507,8 +507,38 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `openNew(effectiveCategory)` (the filtered category) genuinely differ, so the name now carries the
   category — scope the assertion with a comment instead when they don't. Second, a per-item component
   cannot disambiguate itself — it has no sibling visibility, so the token map must be built by whoever
-  renders the LIST and threaded down as a prop. That is why `raid-panel-rows` was fixable in place and
-  `TaskStatusSelect`/`TaskActionsImpl` were not.
+  renders the LIST and threaded down as a prop. That is why `raid-panel-rows` was fixable in place;
+  `TaskStatusSelect`/`TaskActionsImpl` needed the same token threaded in from THEIR list owners
+  (`task-row.tsx`/`task-kanban-card.tsx`) instead, which is the same rule, not an exception to it.
+  ★★ **The discriminator is "can this value repeat in one rendered list," never the call FORM.**
+  Interpolating a per-row field through a positional `t(lang, key, item.field)` argument proves the
+  name DIFFERS when the field differs; it proves nothing when the field REPEATS, and a repeating
+  field is the entire premise of this defect class (`docs/open-followups.md` §111, §126, §247, §248
+  are all the same shape). A value that cannot repeat in the list (a React list `key`, a numeric id)
+  needs only a plain qualifier; free text — a name, a title — always needs a token, regardless of
+  whether the call site passes it positionally or via a template literal.
+  ★★★ **Enumerate with three legs, not one grep — a field-name grep alone has repeatedly missed real
+  collisions.** (1) Widen it: allow whitespace around `=` and the camelCase `ariaLabel=` spelling, not
+  only `aria-label="`. (2) A control with **NO `aria-label` at all** falls back to its rendered
+  CONTENT as its accessible name, and a raw-content name collides exactly like a repeated attribute
+  would — and invisible to any attribute-matching grep by construction, because there is no attribute
+  to match. ★★ NO SURFACE COUNT AND NO FILE LIST IS QUOTED HERE, deliberately, and restoring one is a
+  regression: this line carried five file names and a tally, which the row-unique-names branch had
+  just STRIPPED out of `src/app/use-row-tokens.ts` and replaced with a reproduce grep — re-inserting
+  it into the ALWAYS-LOADED file puts it where nothing can ever see it rot. Read today's set instead:
+  `grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test`
+  ★★ And do NOT paraphrase that set as "all routed through the shared `useRowTokens` hook" — the two
+  Tasks surfaces CANNOT call it, because a per-item component has no sibling visibility (the general
+  cannot-disambiguate-itself rule), so they take the token as a PROP from whoever renders the list. A
+  `grep -rln "useRowTokens" src/app --include=*.tsx` therefore does NOT enumerate this fix and returns
+  a different set of files; `docs/open-followups.md` §247 carries the split. (3) A shared per-row component handed the WHOLE
+  ENTITY, not a pre-built token, can compose a name from a raw field INSIDE ITS OWN FILE, where no
+  grep over the panel that renders it will ever see the string.
+  ★ **A collision test's `roles` list is load-bearing, and nothing else checks it.**
+  `requireCollisionSeed` (`src/test/row-unique-names.ts`) is satisfied by ANY two controls' names
+  colliding, not necessarily the one under test — an unrelated real collision can mask a silently
+  narrowed `roles` array. The only automatic guard is `minControls`, and only when kept at its exact
+  MEASURED value for that scope; a loose floor lets the same narrowing back in unnoticed.
   ★★★ THE GATE IS SILENT ON WCAG 2.5.3 (label-in-name) IN EVERY VIEW TOO — and here, unlike the case
   above, THE RULE DOES EXIST, which is what makes it dangerous. axe 4.12.1 ships
   `label-content-name-mismatch` and it DOES carry `wcag21a`, one of the four tags the spec requests, so
@@ -1270,7 +1300,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   ★★ **`stickyLeft` DOES TWO THINGS, and the second one is the surprise.** It pins the column
   (`position: sticky` at that px offset) AND it silently changes what `width` MEANS: at every OTHER
   invocation (it is passed exactly once today, and the tally of the rest is deliberately not quoted —
-  see the ★★★ two paragraphs up; derive both with
+  see the ★★★ no-consumer-tally rule above; derive both with
   `grep -ro "stickyLeft=" src/app --include="*.tsx" | grep -v "\.test\.tsx:" | wc -l`
   and the `<SortResizeTh` count beside it) `width` is a MINIMUM (`table-layout: auto` lets content grow the column past it), but
   passing `stickyLeft` adds `max-width` + `overflow-hidden` + `whitespace-nowrap` so the declared width

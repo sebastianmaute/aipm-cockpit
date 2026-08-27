@@ -494,15 +494,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="flex items-center gap-2">
                   <DragHandle
                     {...bucketOrder.handleProps(br.bucketId)}
-                    // ★★ Bucket-QUALIFIED name (WCAG 2.4.6). Every handle carried
-                    // the identical "Reorder bucket — …", so a screen-reader
-                    // user listing the buttons heard the same label N times
-                    // with nothing to say which bucket each moved. Budget IS an
-                    // axe-scanned view and axe cannot see this at ANY seed size,
-                    // so the qualifier is written at the source. ★★ NOTHING PINS
-                    // IT — `grep -rln "budgetReorderHandle" src e2e` returns only
-                    // this file and the two i18n dicts, so a revert to the bare
-                    // label ships green. See open-followups §248.
+                    // ★★ Bucket-QUALIFIED, NOT bucket-unique (WCAG 2.4.6) — the SAME open gap
+                    // `ManualPercentCell`'s aria-label comment already documents in full (a
+                    // second consumer, not a second gap): bucket names carry no uniqueness
+                    // constraint (`budget-bucket-modal.tsx` enforces only BUDGET_NAME_MAX), so
+                    // two buckets sharing a name render byte-identical handle labels — measured,
+                    // not inferred. No test pins this; closing it needs that same
+                    // `buildRowTokens` map, and this file has no headroom for it. Deferred in
+                    // docs/open-followups.md.
                     ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own

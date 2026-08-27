@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 
 vi.mock("./use-settings", () => ({
@@ -23,6 +23,7 @@ vi.mock("./use-ms-auth", () => ({
 import { ProjectForm } from "./project-form";
 import { type Contact } from "./contacts";
 import { type ProjectMeta, type Resource } from "./types";
+import { loadI18n, t } from "./i18n";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -186,7 +187,7 @@ describe("ProjectForm", () => {
     fillRequired();
 
     fireEvent.change(contactPicker(), { target: { value: "Vera Vendor" } });
-    fireEvent.change(screen.getByPlaceholderText("email"), {
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "email")), {
       target: { value: "vera@vendor.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
@@ -310,5 +311,32 @@ describe("ProjectForm initialDraftPatch", () => {
     setup({ initial, initialDraftPatch: { name: "Seeded Name", products: "Widget" } });
     expect(screen.getByDisplayValue("Edit Mode Name")).toBeTruthy();
     expect(screen.queryByDisplayValue("Seeded Name")).toBeNull();
+  });
+});
+
+// The contact-person row's email input takes its accessible name from an
+// interpolated template, and the literal half of it shipped untranslated: a
+// German user heard "Kontakt manuell hinzufügen — email". Nothing else in this
+// file renders under DE, so this was invisible to every other assertion.
+//
+// ★ The DE dictionary is LAZY — `loadI18n("de")` must run before any DE
+// assertion, or `t("de", ...)` silently returns English on BOTH sides of the
+// comparison and the test passes for nothing.
+describe("ProjectForm contact persons: accessible names are translated", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("translates the email field's accessible name under German", () => {
+    setup({ lang: "de" });
+    expect(
+      screen.getByLabelText(`${t("de", "contactAddManual")} — ${t("de", "email")}`),
+    ).toBeInTheDocument();
+    // The mutant this kills: reverting the interpolation to the bare English
+    // literal `— email`.
+    expect(screen.queryByLabelText(`${t("de", "contactAddManual")} — email`)).toBeNull();
+    // Anti-vacuity: the two spellings really do differ in DE, so the pair of
+    // assertions above cannot both hold by accident.
+    expect(t("de", "email")).not.toBe("email");
   });
 });

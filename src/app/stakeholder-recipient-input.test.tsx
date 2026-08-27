@@ -1,13 +1,19 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { StakeholderRecipientInput } from "./stakeholder-recipient-input";
+import { loadI18n } from "./i18n";
 
 const SUGGESTIONS = ["Alice Smith", "Bob Jones", "Carol White"];
+
+beforeAll(async () => {
+  await loadI18n("de");
+});
 
 function setup(overrides: Partial<React.ComponentProps<typeof StakeholderRecipientInput>> = {}) {
   const onChange = vi.fn();
   render(
     <StakeholderRecipientInput
+      lang="en-US"
       id="test-input"
       label="Key Stakeholders"
       value={[]}
@@ -77,8 +83,17 @@ describe("StakeholderRecipientInput", () => {
   // 7. Removing a chip calls onChange without that name.
   it("calls onChange without the removed name when × is clicked", () => {
     const { onChange } = setup({ value: ["Alice Smith", "Bob Jones"] });
-    fireEvent.click(screen.getByRole("button", { name: "Remove Alice Smith" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove – Alice Smith" }));
     expect(onChange).toHaveBeenCalledWith(["Bob Jones"]);
+  });
+
+  // 7b. The remove button's accessible name is translated (German dictionary
+  // must be loaded first — it is lazy, so an un-awaited read silently falls
+  // back to English and would pass for nothing).
+  it("translates the remove button's accessible name under German", () => {
+    setup({ lang: "de", value: ["Alice Smith"] });
+    expect(screen.getByRole("button", { name: "Entfernen – Alice Smith" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^Remove/ })).not.toBeInTheDocument();
   });
 
   // 8a. A chip matching a suggestion shows the "known" affordance.

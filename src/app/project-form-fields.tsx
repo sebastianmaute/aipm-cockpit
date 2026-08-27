@@ -721,8 +721,8 @@ function ContactPersonsControl({
           <input
             type="email"
             value={draft.email}
-            placeholder="email"
-            aria-label={`${t(lang, "contactAddManual")} — email`}
+            placeholder={t(lang, "email")}
+            aria-label={`${t(lang, "contactAddManual")} — ${t(lang, "email")}`}
             onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
             className={inputClass}
           />

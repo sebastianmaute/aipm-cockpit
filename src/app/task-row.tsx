@@ -1,14 +1,13 @@
 "use client";
 
-import { createContext, memo, useCallback, useContext, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
+import { memo, useCallback, useEffect, useRef, useState, type KeyboardEvent, type MouseEvent, type ReactNode } from "react";
 import { EnvelopeIcon, SparklesIcon } from "./icons";
 import { computeTaskHealth, formatHealthTooltip, type TaskHealth } from "./health";
 import { isTaskClosed, isTaskDelivered } from "./task-closed";
 import { descriptionText } from "./rich-text-projection";
-import { priorityLabel, t, type Lang } from "./i18n";
+import { priorityLabel, t } from "./i18n";
 import { formatDuration } from "./duration";
 import { isReadOnlyIssue } from "./jira-projects";
-import type { JiraExtraProject } from "./settings-types";
 import { Badge } from "./badge";
 import { JiraBadge } from "./task-jira-badge";
 import { NotesBadgeButton } from "./notes-badge-button";
@@ -28,96 +27,18 @@ import { ResourcePicker, type ResourcePickerValue } from "./resource-picker";
 import { PopoverPanel } from "./popover-panel";
 import { IconButton } from "./icon-button";
 import type { Contact } from "./contacts";
-import { PRIORITIES, type ChangeItem, type Priority, type Resource, type Task, type TaskDependency, type TaskStatus, type RaidItem } from "./types";
+import { PRIORITIES, type ChangeItem, type Priority, type Task, type TaskDependency, type RaidItem } from "./types";
 
-export interface RowContextValue {
-  lang: Lang;
-  today: string;
-  holidaySet: Set<string>;
+import { useTaskLookup, useTaskRowContext } from "./task-row-context";
 
-  // Flattened from settings.jira so consumers only re-render
-  // on Jira-config change, not on unrelated settings changes.
-  jiraSiteUrl: string;
-  jiraExtraProjects: readonly JiraExtraProject[];
-  jiraEnabled: boolean;
-  jiraProjectKey: string;
-
-  hiddenCols: Set<string>;
-
-  // Stable callbacks (useCallback'd in TaskManagerInner).
-  onToggleSelect: (id: number) => void;
-  /** Open the floating notes window for a task (running note log). */
-  onOpenNotes: (id: number) => void;
-  onJumpToRaid: (id: number) => void;
-  onSendInquiry: (task: Task) => void;
-  onPushToJira: (id: number) => void;
-  onStatusChange: (id: number, next: TaskStatus) => void;
-  onEdit: (task: Task) => void;
-  onDelete: (id: number) => void;
-  // Inline "Ask Claude" task edit (SP1): per-row trigger + its enablement gate,
-  // threaded from the single useInlineAiEdit instance in TasksSection.
-  onAiEdit: (task: Task) => void;
-  aiEditEnabled: (task: Task) => boolean;
-  // Inline Open-Points cell editing: applies a sanitized field patch to one task
-  // (functional setter + localModifiedAt stamp on the pane side). Jira-synced
-  // rows are skipped there (read-only) and render no inline affordance here.
-  onInlinePatch: (taskId: number, patch: Partial<Task>) => void;
-  // Directory lookup (id -> Resource) for resolving the LIVE assignee name of a
-  // linked task. The stored `assignee` string is only a cache and goes stale
-  // after a resource rename/re-link, so linked rows render the resource's
-  // current name instead. Built once (useMemo) on the pane side.
-  resourcesById: ReadonlyMap<number, Resource>;
-  // Full directory list for the inline assignee ResourcePicker (dropdown of
-  // resources + free-text). Reference-stable from the pane; contacts are NOT
-  // threaded (inline picker suggests directory resources only).
-  resources: readonly Resource[];
-}
-
-const RowContext = createContext<RowContextValue | undefined>(undefined);
-
-// `tasksById` lives in its OWN context, split out of RowContextValue: it gets a
-// brand-new Map on ANY task edit (audit #6/#32), so bundling it into the main
-// value would re-render every row on every edit. Only the dependency-chip cell
-// reads the lookup, so only it re-renders when the map changes; the main value
-// stays reference-stable and unchanged rows are skipped by their React.memo.
-const RowLookupContext = createContext<Map<number, Task> | undefined>(undefined);
-
-/** Stable shared empty lookup for callers that render no dependency chips. */
-const EMPTY_TASK_LOOKUP: Map<number, Task> = new Map();
+// ★★ Re-exported so existing importers and test mocks keep resolving these
+// from "./task-row". See the header of `task-row-context.tsx` for why removing
+// this breaks `tasks-section.test.tsx`.
+export { RowContextProvider, useTaskRowContext, useTaskLookup, type RowContextValue } from "./task-row-context";
 
 /** Inline assignee picker suggests directory resources + free text only — no
  *  contacts are threaded into the row, so a stable empty list is passed. */
 const EMPTY_CONTACTS: Contact[] = [];
-
-export function RowContextProvider({
-  value,
-  tasksById = EMPTY_TASK_LOOKUP,
-  children,
-}: {
-  value: RowContextValue;
-  tasksById?: Map<number, Task>;
-  children: ReactNode;
-}) {
-  return (
-    <RowContext.Provider value={value}>
-      <RowLookupContext.Provider value={tasksById}>{children}</RowLookupContext.Provider>
-    </RowContext.Provider>
-  );
-}
-
-export function useTaskRowContext(): RowContextValue {
-  const ctx = useContext(RowContext);
-  if (!ctx)
-    throw new Error("useTaskRowContext must be used within RowContext.Provider");
-  return ctx;
-}
-
-export function useTaskLookup(): Map<number, Task> {
-  const ctx = useContext(RowLookupContext);
-  if (!ctx)
-    throw new Error("useTaskLookup must be used within RowContext.Provider");
-  return ctx;
-}
 
 // Marker re-export so TaskRow consumers can pass a typed `RaidItem[]` prop
 // without importing from `./types` separately.
@@ -162,6 +83,8 @@ function Td({
 
 interface TaskRowProps {
   task: Task;
+  /** This row's row-unique display token, from `tasks-section`'s table map. */
+  rowToken: string;
   isSelected: boolean;
   isEditing: boolean;
   isPushing: boolean;
@@ -179,6 +102,7 @@ interface TaskRowProps {
 
 function TaskRowImpl({
   task,
+  rowToken,
   isSelected,
   isEditing,
   isPushing,
@@ -278,7 +202,7 @@ function TaskRowImpl({
     displayClass?: string,
   ): ReactNode => {
     if (!inlineEditable) return display;
-    const label = `${t(lang, field)} – ${task.taskName}`;
+    const label = `${t(lang, field)} – ${rowToken}`;
     if (inline.editing === field) {
       return (
         <Input
@@ -333,7 +257,7 @@ function TaskRowImpl({
           onChange={(e) => inline.setDraft(e.target.value)}
           onBlur={inline.commit}
           onKeyDown={onTextareaKeyDown}
-          aria-label={`${t(lang, field)} – ${task.taskName}`}
+          aria-label={`${t(lang, field)} – ${rowToken}`}
           className={`w-full resize-y rounded-md border border-line bg-surface px-2 py-1 text-sm text-foreground ${FOCUS_RING} ${TRANSITION}`}
         />
       );
@@ -392,7 +316,7 @@ function TaskRowImpl({
           <button
             type="button"
             onClick={() => onAiEdit(task)}
-            aria-label={`${t(lang, "inlineAiEdit")} – ${task.taskName}`}
+            aria-label={`${t(lang, "inlineAiEdit")} – ${rowToken}`}
             title={t(lang, "inlineAiEdit")}
             className={`rounded-md px-1.5 text-ui-dark-blue opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-ui-dark-blue dark:text-ui-light-grey ${INTERACTIVE}`}
           >
@@ -439,12 +363,12 @@ function TaskRowImpl({
           );
         })()}
         {raidRefs && raidRefs.length > 0 && (
-          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} rowToken={rowToken} onJumpToRaid={onJumpToRaid} />
         )}
         <DocumentBadge
           lang={lang}
           count={documentsByEntity?.get(refKey("task", task.id))?.length ?? 0}
-          entityTitle={task.taskName}
+          entityTitle={rowToken}
           onOpen={() => onOpenDocuments?.(task.id)}
         />
         {changeRefs && changeRefs.length > 0 && (
@@ -468,7 +392,7 @@ function TaskRowImpl({
             onChange={(e) => inline.setDraft(e.target.value)}
             onBlur={inline.commit}
             onKeyDown={onInlineKeyDown}
-            aria-label={`${t(lang, "taskName")} – ${task.taskName}`}
+            aria-label={`${t(lang, "taskName")} – ${rowToken}`}
             className="w-full font-medium"
           />
         ) : (
@@ -476,6 +400,12 @@ function TaskRowImpl({
             type="button"
             onClick={handleNameClick}
             onDoubleClick={handleNameDoubleClick}
+            // ★★★ No aria-label means the accessible name is the CONTENT —
+            // `rowToken` arrives as a prop from tasks-section.tsx (which
+            // imports use-row-tokens.ts); see that module for why this is
+            // set unconditionally and why 2.5.3 holds by containment, not
+            // prefix.
+            aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
             className={`cursor-pointer rounded-md border border-transparent px-2 py-0.5 text-left font-medium hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
           >{task.taskName}</button>
@@ -512,13 +442,13 @@ function TaskRowImpl({
                 onChange={setAssigneeDraft}
                 onBlur={commitAssignee}
                 placeholder={t(lang, "assignee")}
-                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+                aria-label={`${t(lang, "assignee")} – ${rowToken}`}
               />
             ) : inlineEditable ? (
               <button
                 type="button"
                 onClick={beginAssigneeEdit}
-                aria-label={`${t(lang, "assignee")} – ${task.taskName}`}
+                aria-label={`${t(lang, "assignee")} – ${rowToken}`}
                 className={`w-full rounded-md border border-transparent px-2 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE}`}
               >
                 {displayName || "—"}
@@ -559,7 +489,7 @@ function TaskRowImpl({
                   inline.cancel();
                 }
               }}
-              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              aria-label={`${t(lang, "priority")} – ${rowToken}`}
             >
               {PRIORITIES.map((p) => (
                 <option key={p} value={p}>{priorityLabel(lang, p)}</option>
@@ -569,7 +499,7 @@ function TaskRowImpl({
             <button
               type="button"
               onClick={() => inline.begin("priority", task.priority)}
-              aria-label={`${t(lang, "priority")} – ${task.taskName}`}
+              aria-label={`${t(lang, "priority")} – ${rowToken}`}
               className={`rounded-md border border-transparent p-0.5 hover:border-ui-dark-blue ${INTERACTIVE}`}
             >
               <Badge pill className={`font-medium ${priorityStyle[task.priority]}`}>
@@ -585,7 +515,7 @@ function TaskRowImpl({
       )}
       {!hiddenCols.has("taskStatus") && (
         <Td stopClick>
-          <TaskStatusSelect lang={lang} task={task} onStatusChange={onStatusChange} />
+          <TaskStatusSelect lang={lang} task={task} rowToken={rowToken} onStatusChange={onStatusChange} />
         </Td>
       )}
       {!hiddenCols.has("blockers") && (
@@ -607,7 +537,7 @@ function TaskRowImpl({
           {/* Count badge opening the floating notes window (running note log). */}
           <NotesBadgeButton
             count={task.noteLog?.length ?? 0}
-            entityName={task.taskName}
+            entityName={rowToken}
             lang={lang}
             onClick={() => onOpenNotes(task.id)}
           />
@@ -629,7 +559,7 @@ function TaskRowImpl({
         </Td>
       )}
       <Td>
-        <TaskActions task={task} isPushing={isPushing} />
+        <TaskActions task={task} isPushing={isPushing} rowToken={rowToken} />
       </Td>
     </tr>
   );
@@ -640,9 +570,10 @@ export const TaskRow = memo(TaskRowImpl);
 interface TaskActionsProps {
   task: Task;
   isPushing: boolean;
+  rowToken: string;
 }
 
-function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
+function TaskActionsImpl({ task, isPushing, rowToken }: TaskActionsProps) {
   const {
     lang,
     jiraEnabled,
@@ -685,7 +616,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           "fix" the row qualifier out of the accessible name. */}
       {showSendInquiry && (
         <IconButton
-          label={`${t(lang, "sendInquiry")} – ${task.taskName}`}
+          label={`${t(lang, "sendInquiry")} – ${rowToken}`}
           title={t(lang, "sendInquiry")}
           onClick={(e) => { stop(e); onSendInquiry(task); }}
           className="mr-1"
@@ -699,7 +630,7 @@ function TaskActionsImpl({ task, isPushing }: TaskActionsProps) {
           type="button"
           aria-haspopup="menu"
           aria-expanded={menuOpen}
-          aria-label={`${t(lang, "actionMoreActions")} – ${task.taskName}`}
+          aria-label={`${t(lang, "actionMoreActions")} – ${rowToken}`}
           title={t(lang, "actionMoreActions")}
           onClick={(e) => { stop(e); setMenuOpen((o) => !o); }}
           className={`rounded-md border border-line px-2 py-0.5 text-xs font-medium text-muted-foreground hover:border-ui-dark-blue/40 hover:bg-ui-dark-blue/10 ${FOCUS_RING} ${TRANSITION}`}

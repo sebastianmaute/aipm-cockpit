@@ -1,15 +1,24 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeAll, describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ModeSection } from "./mode-section";
 import { defaultSettings } from "../settings-types";
 import { ALL_MODULE_IDS, type FeatureModuleId } from "../feature-modules";
+import { loadI18n, type Lang } from "../i18n";
 
-function setup(features = [...ALL_MODULE_IDS], settingsPatch: Partial<typeof defaultSettings> = {}) {
+beforeAll(async () => {
+  await loadI18n("de");
+});
+
+function setup(
+  features = [...ALL_MODULE_IDS],
+  settingsPatch: Partial<typeof defaultSettings> = {},
+  lang: Lang = "en-US",
+) {
   const onCommit = vi.fn();
   const onChange = vi.fn();
   render(
     <ModeSection
-      lang="en-US"
+      lang={lang}
       settings={{ ...defaultSettings, features, ...settingsPatch }}
       onCommitFeatures={onCommit}
       onChange={onChange}
@@ -115,5 +124,13 @@ describe("ModeSection", () => {
     expect(screen.getByRole("checkbox", { name: "RAID" })).not.toBeChecked();
     // Save is disabled because the re-seeded draft matches the new saved set.
     expect(screen.getByRole("button", { name: "Save" })).toBeDisabled();
+  });
+
+  it("translates the preset buttons' accessible names under German", () => {
+    setup([...ALL_MODULE_IDS], {}, "de");
+    expect(screen.getByRole("button", { name: "Einfaches Preset anwenden" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Erweitertes Preset anwenden" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply Simple preset" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Apply Advanced preset" })).not.toBeInTheDocument();
   });
 });

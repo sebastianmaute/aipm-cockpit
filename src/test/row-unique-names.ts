@@ -31,6 +31,11 @@
 //     that is not the same as "the fixture seeded a shared display name" — two
 //     rows genuinely titled "Q3 report (1)" and "Q3 report (2)" strip to the
 //     same string, and a single row plus any other control can satisfy it too.
+//     ★ It does not discriminate by CONTROL either — it is satisfied by ANY
+//     two names colliding within the requested `roles`, so an unrelated
+//     control's genuine collision can mask a broken one elsewhere in scope.
+//     The only automatic guard against that, given a narrowed `roles` list,
+//     is a `minControls` floor kept at its exact measured value.
 //
 // ★★ `requireCollisionSeed` is OPT-IN, and that is deliberate rather than
 // laziness. Most adopting tests are regression pins over DISTINCT-name
@@ -39,6 +44,15 @@
 // guard on there would throw at fixtures that are seeding exactly what they
 // mean to seed. Turn it on wherever the test's own name or comment claims to
 // cover a shared-name collision.
+//
+// ★ SCOPE CHOICE: default to whole-container scope. Narrow to a sub-tree only
+// when a specific, named collision with unrelated chrome has been confirmed
+// in that panel — and say which one, in a comment at the narrowing.
+// `change-panel.test.tsx` is the worked example: it narrows to `tbody`
+// because that panel reuses one translation string across a toolbar filter
+// select and a sortable-header button, a collision unrelated to row identity.
+// `milestones-panel.test.tsx` uses whole-container because its Status column
+// is a plain non-sortable `<th>` with no such collision to dodge.
 import { expect } from "vitest";
 import { controlNames } from "./toolbar-order";
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "../i18n";
 import { INTERACTIVE } from "../interaction-styles";
 import { Checkbox, Input } from "../form-controls";
@@ -10,6 +10,13 @@ import { templateFromWorkspace, type ProjectTemplate } from "../templates";
 import { useTemplates } from "../use-templates";
 import { useCurrentWorkspace } from "../use-current-workspace";
 import { useSettings } from "../use-settings";
+import { buildRowTokens, rowLabel } from "../row-tokens";
+
+// Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
+// defeat the memo and trip react-hooks/exhaustive-deps (fatal here).
+// `ProjectTemplate.id` is a string, so `useRowTokens` (constrained to
+// `{ id: number }`) does not fit — this calls `buildRowTokens` directly.
+const nameOfTemplate = (tpl: ProjectTemplate) => tpl.name;
 
 interface TemplatesSectionProps {
   lang: Lang;
@@ -42,6 +49,13 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
   const [name, setName] = useState("");
   const [includeContent, setIncludeContent] = useState(false);
   const builtIns = templates.filter((tpl) => tpl.builtIn);
+
+  // Built over `userTemplates` — the same array rendered below — so the
+  // occurrence numbering matches what a screen-reader user navigates.
+  const userTemplateTokens = useMemo(
+    () => buildRowTokens(userTemplates.map((tpl) => ({ id: tpl.id, name: nameOfTemplate(tpl) }))),
+    [userTemplates],
+  );
 
   const trimmed = name.trim();
   function saveCurrent() {
@@ -130,7 +144,12 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
           <EmptyState compact title={t(lang, "templatesEmpty")} />
         ) : (
           <ul className="flex flex-col gap-2">
-            {userTemplates.map((tpl) => (
+            {userTemplates.map((tpl) => {
+              // ★ Cannot miss: userTemplateTokens is built from this same
+              // .map()'s own userTemplates array, via buildRowTokens covering
+              // every id in it.
+              const token = userTemplateTokens.get(tpl.id) ?? tpl.name;
+              return (
               <li
                 key={tpl.id}
                 className="flex items-center justify-between gap-3 rounded-md border border-line bg-surface px-3 py-2"
@@ -141,7 +160,7 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                     size="xs"
                     className="w-full"
                     defaultValue={tpl.name}
-                    aria-label={t(lang, "templatesRename")}
+                    aria-label={rowLabel(t(lang, "templatesRename"), token)}
                     onKeyDown={(e) => {
                       if (e.key === "Enter") e.currentTarget.blur();
                     }}
@@ -152,15 +171,23 @@ export function TemplatesSection({ lang }: TemplatesSectionProps) {
                   />
                   <span className="text-xs text-muted-foreground">{modeSummary(lang, tpl)}</span>
                 </span>
+                {/* ★★★ Found beyond the plan: this button carried NO
+                    aria-label at all, so its accessible name fell back to its
+                    CONTENT — the constant translated "Delete", identical for
+                    EVERY row regardless of template name (see
+                    use-row-tokens.ts's note on this landmine). Set
+                    unconditionally, not only under a collision. */}
                 <button
                   type="button"
                   onClick={() => removeTemplate(tpl.id)}
+                  aria-label={rowLabel(t(lang, "templatesDelete"), token)}
                   className={`shrink-0 rounded-md border border-line px-3 py-1.5 text-sm text-ui-purple hover:bg-surface-muted ${INTERACTIVE}`}
                 >
                   {t(lang, "templatesDelete")}
                 </button>
               </li>
-            ))}
+              );
+            })}
           </ul>
         )}
       </div>

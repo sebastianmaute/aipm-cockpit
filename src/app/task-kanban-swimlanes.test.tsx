@@ -2,6 +2,9 @@ import { describe, expect, it, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import type { Resource, Task } from "./types";
+import { buildRowTokens } from "./row-tokens";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { indexDocumentsByEntity } from "./document-ref";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "", assigneeEmail: "", dueDate: "2026-06-01",
@@ -12,6 +15,10 @@ const resources = new Map<number, Resource>([
   [1, { id: 1, firstName: "Anna", lastName: "Jordan", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
 ]);
 
+// tokens is required on TaskKanbanSwimlanes (row-unique accessible names,
+// WCAG 2.4.6); these tests don't seed collisions, so an empty map is enough.
+const NO_TOKENS: ReadonlyMap<number, string> = new Map();
+
 describe("TaskKanbanSwimlanes", () => {
   it("renders a lane per person plus Unassigned", () => {
     render(
@@ -20,6 +27,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -37,6 +45,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -54,6 +63,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={onSwimlaneDrop}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -73,6 +83,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 2, status: "To Do", jiraKey: "LOP-2" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -95,6 +106,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[taskFix({ id: 1, resourceId: 1, status: "To Do" })]}
         resourcesById={resources}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -115,6 +127,7 @@ describe("TaskKanbanSwimlanes", () => {
         tasks={[]}
         resourcesById={resources}
         extraLaneIds={[1]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -126,6 +139,62 @@ describe("TaskKanbanSwimlanes", () => {
     expect(onRemoveLane).toHaveBeenCalledWith(1);
   });
 
+  // The per-column badge/card tests (task-kanban-card.test.tsx) cannot reach
+  // this case: a per-COLUMN fixture puts both twins in the SAME lane, so their
+  // cards never sit side by side with a peer sharing their exact name outside
+  // that lane. Seeding the twins in DIFFERENT lanes (distinct resourceId, both
+  // present in resourcesById so `laneResourceIdOf` resolves each to its own
+  // `res:<id>` lane rather than falling through to a shared Unassigned one)
+  // is the shape only the swimlane surface can exercise.
+  it("keeps names unique when same-named tasks sit in DIFFERENT lanes", () => {
+    const twinResources = new Map<number, Resource>([
+      [10, { id: 10, firstName: "Ivy", lastName: "Nkemelu", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+      [20, { id: 20, firstName: "Omar", lastName: "Reyes", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+    ]);
+    const twins = [
+      taskFix({ id: 1, taskName: "Alpha", resourceId: 10, status: "To Do" }),
+      taskFix({ id: 2, taskName: "Alpha", resourceId: 20, status: "To Do" }),
+    ];
+    // One linked document per task, so DocumentBadge (count > 0) renders on
+    // BOTH twins, plus onAiEdit/aiEditEnabled and assignableResources/onAssign
+    // — mirroring task-kanban-card.test.tsx's own collision fixture — so this
+    // test proves the SWIMLANE component's pass-through of those props, not
+    // just the card's own logic (already proven there). Without them only 2
+    // of the card's 4 converted sites ever render here.
+    const documentsByEntity = indexDocumentsByEntity([
+      { id: 40, title: "Doc 40", blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: [{ kind: "task", id: 1 }] },
+      { id: 41, title: "Doc 41", blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: [{ kind: "task", id: 2 }] },
+    ]);
+    const assignableResources: Resource[] = [
+      { id: 30, firstName: "Cara", lastName: "Diallo", roleId: null, utilizationMode: "percent", utilization: {} } as Resource,
+    ];
+    const { container } = render(
+      <TaskKanbanSwimlanes
+        lang="en-US"
+        tasks={twins}
+        resourcesById={twinResources}
+        extraLaneIds={[]}
+        tokens={buildRowTokens(twins.map((task) => ({ id: task.id, name: task.taskName })))}
+        onSwimlaneDrop={vi.fn()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onRemoveLane={vi.fn()}
+        documentsByEntity={documentsByEntity}
+        onOpenDocuments={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => true}
+        assignableResources={assignableResources}
+        onAssign={vi.fn()}
+      />,
+    );
+    expectRowUniqueNames({
+      minControls: 10,
+      scope: container,
+      roles: ["button", "combobox"],
+      requireCollisionSeed: true,
+    });
+  });
+
   it("does not throw calling useTaskRowContext-free (renders outside RowContextProvider)", () => {
     expect(() =>
       render(
@@ -134,6 +203,7 @@ describe("TaskKanbanSwimlanes", () => {
           tasks={[taskFix({ id: 1, status: "To Do" })]}
           resourcesById={resources}
           extraLaneIds={[]}
+          tokens={NO_TOKENS}
           onSwimlaneDrop={vi.fn()}
           onStatusChange={vi.fn()}
           onEdit={vi.fn()}
@@ -152,6 +222,7 @@ describe("TaskKanbanSwimlanes column sizing", () => {
         tasks={[]}
         resourcesById={new Map()}
         extraLaneIds={[]}
+        tokens={NO_TOKENS}
         onSwimlaneDrop={vi.fn()}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}

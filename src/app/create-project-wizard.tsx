@@ -386,7 +386,7 @@ export function CreateProjectWizard({
               <Button
                 variant="secondary"
                 size="sm"
-                aria-label="Apply Simple preset"
+                aria-label={t(lang, "modeApplySimplePreset")}
                 onClick={() => setFeatures([])}
               >
                 {t(lang, "modePresetSimple")}
@@ -394,7 +394,7 @@ export function CreateProjectWizard({
               <Button
                 variant="secondary"
                 size="sm"
-                aria-label="Apply Advanced preset"
+                aria-label={t(lang, "modeApplyAdvancedPreset")}
                 onClick={() => setFeatures([...ALL_MODULE_IDS])}
               >
                 {t(lang, "modePresetAdvanced")}

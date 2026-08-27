@@ -32,6 +32,7 @@ import { useDeepLinkRowFlash } from "./use-deeplink-row-flash";
 import { isTaskFinished } from "./task-status";
 import { filterTasksByHealth, type HealthFilter } from "./health";
 import { visibleTaskRows } from "./visible-task-rows";
+import { useRowTokens } from "./use-row-tokens";
 import { sanitizeInlinePatch } from "./task-inline-patch";
 import type { UndoStackApi } from "./undo/use-undo-stack";
 import { valuesDiffer } from "./undo/field-groups";
@@ -69,6 +70,10 @@ const EMPTY_RESOURCES: readonly Resource[] = [];
 /** Fixed English friction phrase to confirm clearing all tasks (mirrors the
  *  factory-reset dialog). Deliberately not localized. */
 const CLEAR_TASKS_CONFIRM_PHRASE = "yes, clear all tasks";
+
+// Module-level accessor for useRowTokens — an inline arrow would be a fresh
+// closure every render, defeating its useMemo and tripping exhaustive-deps.
+const nameOfTask = (task: Task) => task.taskName;
 
 // ★ Exported for its guard test: `taskName` must never appear here (see open-points-table-geometry.ts).
 export const CONFIGURABLE_COLS: Array<{ key: string; labelKey: TranslationKey }> = [
@@ -395,6 +400,16 @@ export function TasksSection({
     () => visibleTaskRows(filteredSortedTasks, healthFilter, hideFinished, { today, holidaySet }),
     [filteredSortedTasks, healthFilter, hideFinished, today, holidaySet],
   );
+
+  // ★★ TWO maps, not one, and this is not redundancy. The table renders
+  // `visibleRows` (which also applies hide-finished) while both Kanban views
+  // render `healthFilteredTasks`. An occurrence index is only meaningful over
+  // the array actually on screen, so a shared map would number the table's rows
+  // against tasks the table is not showing.
+  const tableTokens = useRowTokens(visibleRows, nameOfTask);
+  // ★ Board and swimlanes share this one: both render the whole array on one
+  // page, so uniqueness has to span lanes and columns, not sit inside one.
+  const boardTokens = useRowTokens(healthFilteredTasks, nameOfTask);
 
   const laneIds = useMemo(
     () => laneResourceIds(healthFilteredTasks, resourcesById, extraLaneIds),
@@ -872,6 +887,7 @@ export function TasksSection({
           lang={lang}
           tasks={healthFilteredTasks}
           resourcesById={resourcesById}
+          tokens={boardTokens}
           extraLaneIds={visibleExtraLaneIds}
           today={today}
           holidaySet={holidaySet}
@@ -903,6 +919,7 @@ export function TasksSection({
           today={today}
           holidaySet={holidaySet}
           resourcesById={resourcesById}
+          tokens={boardTokens}
           raidByTask={raidByTask}
           changeByTask={changeByTask}
           documentsByEntity={documentsByEntity}
@@ -994,6 +1011,12 @@ export function TasksSection({
                 <TaskRow
                   key={task.id}
                   task={task}
+                  // `tableTokens` is built above from `visibleRows` (the very
+                  // array this `.map` iterates), so `task.id` is always a key —
+                  // the fallback cannot fire today. Kept anyway: the two are
+                  // independently typed props/locals, so nothing structurally
+                  // binds a future edit to keep them in sync.
+                  rowToken={tableTokens.get(task.id) ?? task.taskName}
                   isSelected={selectedIds.has(task.id)}
                   isEditing={editingId === task.id}
                   isPushing={pushingIds.has(task.id)}

@@ -25,8 +25,11 @@ vi.mock("./task-row", () => ({
     capturedRowContext.current = value;
     return <>{children}</>;
   },
-  TaskRow: ({ task }: { task: { id: number; taskName: string } }) => (
-    <tr data-deeplink-row={task.id}><td>{task.taskName}</td></tr>
+  // rowToken is exposed as data-row-token so a table-mode test can assert
+  // tasks-section actually threads a distinct token per row (the wiring
+  // this stub otherwise hides, since TaskRow itself renders no real cells).
+  TaskRow: ({ task, rowToken }: { task: { id: number; taskName: string }; rowToken: string }) => (
+    <tr data-deeplink-row={task.id} data-row-token={rowToken}><td>{task.taskName}</td></tr>
   ),
 }));
 vi.mock("./use-settings", () => ({ useSettings: vi.fn() }));
@@ -431,6 +434,49 @@ describe("TasksSection", () => {
     render(<TasksSection {...makeProps()} />);
     expect(screen.getByText("Correct Name")).toBeInTheDocument();
     expect(screen.queryByText("Old Removed")).not.toBeInTheDocument();
+  });
+
+  // Board mode renders the REAL TaskKanban/TaskKanbanCard/TaskStatusSelect
+  // (only TaskRow is mocked in this file), so this exercises tasks-section's
+  // boardTokens map end to end — the wiring a `buildRowTokens` unit test
+  // cannot reach. Two same-named tasks must get row-unique status-select
+  // accessible names (WCAG 2.4.6); no gate in CI can see a duplicate one.
+  it("gives two same-named board cards distinct status-select accessible names", () => {
+    stubSettings({ tasksViewMode: "board" });
+    const twins = [
+      { id: 1, taskName: "Alpha", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" },
+      { id: 2, taskName: "Alpha", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" },
+    ];
+    stubWorkspace(twins, twins);
+    render(<TasksSection {...makeProps()} />);
+    const selects = screen.getAllByRole("combobox", { name: /^Status – Alpha/ });
+    expect(selects).toHaveLength(2);
+    const names = selects.map((s) => s.getAttribute("aria-label"));
+    expect(names).toContain("Status – Alpha (1)");
+    expect(names).toContain("Status – Alpha (2)");
+    // Each is reachable by its OWN name (getByRole throws on a tie).
+    expect(screen.getByRole("combobox", { name: "Status – Alpha (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("combobox", { name: "Status – Alpha (2)" })).toBeInTheDocument();
+  });
+
+  // Table mode: TaskRow itself is mocked (see the vi.mock at the top of this
+  // file), so this cannot see the rendered LABEL — it proves tasks-section
+  // computes and passes a DISTINCT tableTokens value per row, via the stub's
+  // data-row-token passthrough. That is the half the board test above cannot
+  // reach (tableTokens is a separate map from boardTokens).
+  it("passes two same-named table rows distinct row tokens", () => {
+    const twins = [
+      { id: 1, taskName: "Alpha", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" },
+      { id: 2, taskName: "Alpha", assignee: "", priority: "Medium", status: "To Do", dueDate: "", lastUpdateDate: "2026-05-01" },
+    ];
+    stubWorkspace(twins, twins);
+    const { container } = render(<TasksSection {...makeProps()} />);
+    const rows = Array.from(container.querySelectorAll("[data-row-token]"));
+    expect(rows).toHaveLength(2);
+    const tokens = rows.map((r) => r.getAttribute("data-row-token"));
+    expect(tokens).toContain("Alpha (1)");
+    expect(tokens).toContain("Alpha (2)");
+    expect(new Set(tokens).size).toBe(2);
   });
 
   it("swimlane add-lane picker excludes a resource who already owns a task-derived lane", () => {

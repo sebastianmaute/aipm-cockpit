@@ -4,6 +4,7 @@
 // Split out of timelog-panel.tsx (the gantt convention: a panel past the size
 // ratchet sheds PURE presentational pieces). Data and handlers arrive as props;
 // this file owns no state and makes no decisions.
+import { useMemo } from "react";
 import { t, type Lang } from "./i18n";
 import { DataTable } from "./data-table";
 import { Checkbox, Select } from "./form-controls";
@@ -14,6 +15,17 @@ import { IconButton } from "./icon-button";
 import type { Resource } from "./types";
 import type { RowSelection } from "./use-row-selection";
 import type { TimelogUser, TimelogUserLink } from "./timelog-types";
+import { buildRowTokens, rowLabel } from "./row-tokens";
+
+// Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow would
+// defeat the memo and trip react-hooks/exhaustive-deps (fatal here).
+// `TimelogUser` has no `id` field (`userId` instead), so `useRowTokens`
+// (constrained to `{ id: number }`) does not fit — this calls
+// `buildRowTokens` directly. `displayId` is `u.email || String(u.userId)`:
+// `email` is free text arriving from a system this repo does not own, so a
+// duplicate email collides all four of this row's labels at once even though
+// `userId` itself cannot repeat.
+const displayIdOf = (u: TimelogUser) => u.email || String(u.userId);
 
 export function TimelogPeopleTable({
   lang,
@@ -40,6 +52,13 @@ export function TimelogPeopleTable({
   manualLinkUser: (timelogUserId: number, resourceId: number | null) => void;
   removeUsers: (ids: readonly number[]) => void;
 }) {
+  // Built over `filteredUsers` — the same array rendered below — so the
+  // occurrence numbering matches what a screen-reader user navigates.
+  const rowTokens = useMemo(
+    () => buildRowTokens(filteredUsers.map((u) => ({ id: u.userId, name: displayIdOf(u) }))),
+    [filteredUsers],
+  );
+
   return (
     <div className="overflow-x-auto">
       <DataTable className="w-full text-sm" head={<>
@@ -77,11 +96,14 @@ export function TimelogPeopleTable({
       </>}>
           {filteredUsers.map((u) => {
             const link = effectiveUserLinks.find((l) => l.timelogUserId === u.userId);
-            const displayId = u.email || String(u.userId);
-            const selectLabel = `${t(lang, "timelogMatchPeople")} – ${displayId}`;
-            const clearLabel = `${t(lang, "timelogMatchClear")} – ${displayId}`;
-            const rowSelectLabel = t(lang, "selectItem", displayId);
-            const removeLabel = `${t(lang, "remove")} – ${displayId}`;
+            const displayId = displayIdOf(u);
+            // ★ Cannot miss: rowTokens is built from this same .map()'s own
+            // filteredUsers array, via buildRowTokens covering every userId in it.
+            const token = rowTokens.get(u.userId) ?? displayId;
+            const selectLabel = rowLabel(t(lang, "timelogMatchPeople"), token);
+            const clearLabel = rowLabel(t(lang, "timelogMatchClear"), token);
+            const rowSelectLabel = t(lang, "selectItem", token);
+            const removeLabel = rowLabel(t(lang, "remove"), token);
             return (
               <tr key={u.userId} className="border-b border-line last:border-0">
                 <td className="py-2 pr-2">
