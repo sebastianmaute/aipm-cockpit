@@ -441,8 +441,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
 | [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | open |
-| [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27-02620) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 (0.262.0) |
-| [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27-02620) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 (0.262.0) |
+| [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 |
+| [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
@@ -464,6 +464,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | open |
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
 | [§269](#269-the-raid-badges-visible-glyph-string-is-not-contained-in-its-accessible-name-wcag-253) | The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) | pre-existing, found 2026-08-27 (row-unique-names round 2) | S | open |
+| [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -2131,8 +2132,10 @@ base purple here, AND a `hover:text-ui-green` at 1.97–2.48:1 in the light sche
 section; `--ui-purple-strong` fixes only the first) ·
 `outlook-calendar-import-modal:118` · `outlook-import-modal:72` · `raid-edit-modal:361` ·
 `raid-panel-toolbar:150` · `ai-section:548` · `templates-section:158` · `storage-config:178,187,193` ·
-`task-form-fields:363` · `resources-panel-rows:175` (which additionally sets `dark:text-ui-purple`, a
-second no-op companion — ★ the COMPANION is harmless because the value is unchanged, but the SITE
+`task-form-fields:363` ·
+`resources-panel-rows` (`grep -n "dark:text-ui-purple" src/app/resources-panel-rows.tsx` — it
+additionally sets `dark:text-ui-purple`, a second no-op companion — ★ the COMPANION is harmless
+because the value is unchanged, but the SITE
 fails identically to the other twelve; listing it only as a companion note made it read as cleared).
 ★ The fix is `--ui-purple-strong`, which exists and is AA-derived.
 
@@ -18013,9 +18016,9 @@ why, and `budget-panel.test.tsx` uses a Set-based check for the same reason.
 
 ---
 
-## 247. Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings — CLOSED 2026-08-27 (0.262.0)
+## 247. Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings — CLOSED 2026-08-27
 
-**Status:** CLOSED 2026-08-27 (0.262.0). `task-status-select.tsx` now derives its `aria-label` via
+**Status:** CLOSED 2026-08-27. `task-status-select.tsx` now derives its `aria-label` via
 `rowLabel(t(lang, "colTaskStatus"), rowToken)`; `task-kanban-card.tsx`'s person `<Select>` and its
 DOM-content-only chip both key on a threaded `rowToken`; `task-row.tsx`'s `TaskActionsImpl`
 send-inquiry and more-actions controls, its name button, its priority/assignee/dependency controls
@@ -18050,7 +18053,7 @@ LIST is the durable part and the tally is what rots. ★ The same fix also made 
 period-column labels row-UNIQUE rather than row-QUALIFIED — `resourceUtilizationForPeriod` and
 `resourceAbsenceOverrideForPeriod` interpolated the raw name, and interpolating a repeatable value
 proves a label VARIES, never that it is UNIQUE, which is the distinction
-[§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27-02620)
+[§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27)
 exists to record. `grep -n "ForPeriod" src/app/resources-panel-rows.tsx`.
 
 ★★★ **THE OBVIOUS REPRODUCE IS THE WRONG ONE, AND THIS ENTRY SHIPPED IT.** It attached
@@ -18061,7 +18064,7 @@ are the per-item components this whole entry is about, with no sibling visibilit
 takes `rowToken` as a prop from `tasks-section.tsx`; `task-kanban-card.tsx` takes it from
 `task-kanban-board.tsx` / `task-kanban-swimlanes.tsx`, both of which are handed the map by
 `tasks-section.tsx`, the sole hook caller on the Tasks surface. So this fix is NOT "routed through
-`useRowTokens`" on all five: three panels call the hook in their own file and two are threaded. **A
+`useRowTokens`". **A
 command attached without being run is the exact hazard this slice existed to close** — the same
 shape AGENTS.md records under `doc-claims-check` ("attach the command AND run it"), committed inside
 the entry documenting it.
@@ -18069,8 +18072,8 @@ the entry documenting it.
 ★★ **`use-row-tokens.ts`'s own header undercounted this by one when this entry was written — the
 exact class of error this register exists to catch.** At the time it said "found on FOUR surfaces"
 and named `task-row.tsx`, `task-kanban-card.tsx`, `milestones-panel.tsx` and `stakeholders-panel.tsx`,
-omitting `resource-directory.tsx`. Two commits later on this same branch, `a9ee2c3c` and `aa54d212`
-removed BOTH stale counts from that comment (a second, unrelated one read "one of the four call
+omitting `resource-directory.tsx`. Two commits later on this same branch, both stale counts were
+removed from that comment (a second, unrelated one read "one of the four call
 sites") and replaced them with a reproduce grep. **That header carries no number today** — do not go
 looking for one; reproduce today's set with the grep above.
 
@@ -18131,9 +18134,9 @@ the permitted same-purpose shared name (contrast the roles-editor open question 
 
 ---
 
-## 248. A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE — CLOSED 2026-08-27 (0.262.0)
+## 248. A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE — CLOSED 2026-08-27
 
-**Status:** CLOSED 2026-08-27 (0.262.0). Every item this entry listed as open or unrecorded is now
+**Status:** CLOSED 2026-08-27. Every item this entry listed as open or unrecorded is now
 fixed except one, which is carried forward as its own entry rather than left as a residual bullet
 here: **Residual (still open): see [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique)**
 (the `budget-panel.tsx` `DragHandle`/`ManualPercentCell` bucket-name collision). The reasoning error
@@ -18180,10 +18183,8 @@ branch existed** — NOT "earlier in the same branch", as this entry originally 
 bare SHA. That SHA is on `origin/main` and predates this branch's base, so a reader tracing it
 through this MR's commits finds nothing. Reproduce with a form that survives a squash or rebase:
 `git log -S rowTitleToken -- src/app/raid-panel-rows.tsx` — every commit it names is on
-`origin/main` and predates this branch's base, which is the whole point. ★ Do not re-add the SHA:
-the one this entry quoted is not even the commit that introduced `rowTitleToken`, so the bare
-reference was doubly unhelpful. It still calls `t(lang, "selectItem", …)` and always will, but now
-passes `rowTitleToken`.
+`origin/main` and predates this branch's base, which is the whole point. It still calls
+`t(lang, "selectItem", …)` and always will, but now passes `rowTitleToken`.
 
 **Also unrecorded anywhere when filed, found by an independent sweep of per-row controls — all three
 now FIXED:**
@@ -19078,7 +19079,7 @@ is TWO DIFFERENT control types sharing one i18n KEY. Neither §246 nor this entr
 
 ## 262. `budget-panel.tsx`: bucket-qualified, not bucket-unique
 
-**Status:** open. Found 2026-08-27, carried forward from [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27-02620)'s
+**Status:** open. Found 2026-08-27, carried forward from [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27)'s
 `budget-panel.tsx` `DragHandle` bullet, which this entry gives its own number rather than leaving it
 as a residual on a closed entry.
 
@@ -19140,6 +19141,12 @@ conditional expression whose branches are literals is invisible to a regex over 
 nothing short of a source-level parse (see AGENTS.md's own "don't hand-roll a lexer" lesson) can see
 inside it reliably.
 
+★ **The same sweep has a SECOND failure mode that is human, not a pattern gap.** Commit `199a595e`
+this round fixed `` aria-label={`${t(lang, "contactAddManual")} — email`} `` in
+`project-form-fields.tsx` — a hardcoded English word inside a template literal, i.e. exactly the
+shape the second pattern quoted above DOES match — so widening the patterns would not have caught
+it; the method found it and a reader walked past it.
+
 ## 265. `StakeholderRecipientInput` has no production caller
 
 **Status:** open — a decision, not a fix, is owed. Found 2026-08-25 during the row-unique-names slice
@@ -19190,7 +19197,10 @@ grep -n "aria-label" src/app/task-kanban-swimlanes.tsx
 returns exactly three. (a) The lane `` <section aria-label={laneLabel}> `` — a `<section>` with an
 accessible name maps to role `region`, so the duplicate IS exposed to AT there. (b) The remove-lane
 `<button>`, named `` `${t(lang, "swimlaneRemoveLane")} – ${laneLabel}` ``: **this is the defect** —
-two buttons named "Remove lane – John Smith" that remove DIFFERENT lanes. (c) A `swimlaneCell` label
+two buttons named "Remove lane – John Smith" that remove DIFFERENT lanes — though only while BOTH
+twin lanes are EMPTY, since `canRemove` requires `isEmptyLane`, so the detector must seed the twins
+through `extraLaneIds` with no tasks or it renders zero remove buttons and observes nothing.
+(c) A `swimlaneCell` label
 on a plain `<div>` carrying NO role, which is largely inert to AT either way. Writing this up as
 "three collisions" would overstate it; (b) is what is owed.
 
@@ -19243,7 +19253,7 @@ under the four tags the spec requests — AGENTS.md's a11y bullet carries the pr
 not being covered for this defect class; a unit test rendering two same-named tasks and two
 same-named milestones is the only detector.
 
-★★ **This is NOT a false closure of [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27-02620).**
+★★ **This is NOT a false closure of [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27).**
 That entry scoped itself to the TASKS surfaces and closed against them; this is the same defect class
 on a surface it never claimed. It is a fresh instance of leg (b) of the three-leg enumeration in
 AGENTS.md — a control with NO `aria-label` is invisible to any attribute-matching grep by
@@ -19335,6 +19345,47 @@ name (`"2R · 1A · 0I · 0D, referenced by 2 RAID item(s) – Alpha"`, which le
 announcement); or drop the glyph string in favour of visible text the name already contains, which
 costs the compact badge its whole reason for existing. Neither is obviously right, which is why this
 is filed rather than fixed.
+
+## 270. Two contacts sharing a name give two identically-named remove buttons — a question, not a defect
+
+**Status:** open, and what is owed is a recorded ANSWER rather than a reflex qualifier. Raised
+2026-08-27 by a code review during round 2 of the row-unique-accessible-names slice.
+
+```bash
+grep -n 'aria-label={`${t(lang, "remove")}' src/app/project-form-fields.tsx
+```
+
+`ContactPersonsControl` names each per-row remove `<button>` from raw, repeating free text —
+`` aria-label={`${t(lang, "remove")} ${cp.name}`} `` — so two contacts sharing a name render two
+buttons both named "Remove Bob Jones".
+
+★★ **Reachability is bounded but NOT zero, and the two paths differ in kind.** The add path guards
+with `hasName`, which compares `name.trim().toLowerCase()`, so it cannot create an EXACT duplicate.
+It does not collapse INTERNAL whitespace, though, and accessible-name computation does — that is
+precisely what `collapse` in `src/app/row-tokens.ts` exists for — so `"Bob  Jones"` and
+`"Bob Jones"` are two entries with ONE accessible name, addable through the form itself.
+Separately, `contactPersons` arrives as a PROP and `sanitizeProjectMeta`
+(`src/app/sanitize-records.ts`) does not dedupe it, so an imported or hand-edited project can carry
+exact duplicates the form would have refused.
+
+★★★ **Do not "fix" this by reflex.** WCAG 2.4.6 permits two controls with the SAME PURPOSE to carry
+the same name, and the two paths do not answer alike. For the whitespace-variant pair the buttons
+remove DIFFERENT entries under one name — the shape
+[§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27)
+was about. For the exact-duplicate pair the handler filters on `c.name !== cp.name`, so EITHER
+button removes BOTH entries: genuinely the same purpose, and a data question rather than a naming
+one.
+
+★ **What would decide it.** Whether exact duplicates are reachable in practice at all (they are not
+producible by this form), and whether the whitespace-variant case earns a token map on a control
+this small. `buildRowTokens` (`src/app/row-tokens.ts`) would close it either way; `useRowTokens`
+cannot, since `ContactPerson` carries no `id` and the hook is declared `<T extends { id: number }>`
+(`grep -n "export function useRowTokens" -A 1 src/app/use-row-tokens.ts`).
+
+★ **The sibling Add button is leg (b) of AGENTS.md's three-leg enumeration.** It carries no
+`aria-label` at all, so its accessible name is its rendered content, `t(lang, "add")`. That is not
+a collision inside this control — it renders once — and is recorded here only because an
+attribute-matching grep over this file cannot see it.
 
 ## Decided — do not re-litigate
 
