@@ -48,7 +48,7 @@ const CONTROL_CHARS = /[\x00-\x08\x0e-\x1f]/g;
  *  that hit the most common shape in existing data. It reaches storage too:
  *  capHtmlText projects, truncates and re-wraps, so on overflow the fused text
  *  is what gets persisted. */
-const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>]*>/gi;
+const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^<>]*>/gi;
 /** The remaining (inline) tags, which project to nothing.
  *  ★★ The leading `[a-zA-Z]` models the HTML tokenizer: a `<` is only a tag
  *  opener when a letter (or `/`) follows it. A bare `<[^>]*>` ate everything
@@ -73,26 +73,48 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  the failure is silent, on all six write paths, with nothing in the
  *  truncation diag. Any change here wants the load-path tests in
  *  `document-model.test.ts` run against it, not just this file's own.
- *  ★★ IT IS ALSO QUADRATIC on input with many `<` and no `>` — each opener
- *  scans to end of input for a `>` that is not there (seconds at 128 KB).
- *  ★★★ SO IS `BLOCK_TAG` ABOVE, and this note said it was not. `\b` only saves
- *  it from a tag name that does NOT match its alternation, which is why a
- *  `"<a"` fixture reported it clean; `"<p"` — the likeliest opener in this
- *  corpus — is quadratic on BOTH. Measured, open-followups §251. Do not repair
- *  one of these regexes and leave the other.
- *  ★★ §251 also RETRACTS its own advice against the obvious one-character fix
- *  (excluding `<` from `[^>]*`): the reason given was that it zeroes the
- *  projection for `alt="a>b"`, and that is measurably false — `[^<>]*` leaves
- *  that shape byte-identical. It is now the cheapest known option, with a real
- *  but different trade-off recorded there. Read the entry, not this summary,
- *  before changing either regex.
+ *  ★★★ BOTH RUNS EXCLUDE `<` AND MUST KEEP EXCLUDING IT. `[^>]*` let a single
+ *  opener scan to end of input looking for a `>` that is not there, which is
+ *  quadratic: measured 2026-08-27 at 128 KB, TAG 6617 ms and BLOCK_TAG 7226 ms
+ *  against 8.4 ms for the same bytes with the tags CLOSED. Bounding the run to
+ *  one tag is the same fix ASSET_IMG_TEST_RE took for the same reason, and the
+ *  principle is stated in ANY_TAG_ASSET_ID_RE's docstring: not crossing a tag
+ *  boundary is the property that matters. Pinned by the complexity family in
+ *  rich-text-plain.test.ts — a budget test, so re-measure rather than trusting
+ *  these cells.
+ *  ★★★ IT MOVES TWO SHAPES, NOT ONE, and the second was found by a gate rather
+ *  than by planning. (1) A QUOTED attribute value carrying a bare `<`
+ *  (`<img alt="a<b" …>`) projects 11 characters instead of 0. (2) An UNQUOTED
+ *  one (`<img alt=a<b data-asset-id="real">`) projects 10 instead of 0, because
+ *  the `<img alt=a` opener can no longer match and the strip takes
+ *  `<b data-asset-id="real">` as a tag in its own right, leaving the head.
+ *  ★★ BOTH ARE THE SAFE DIRECTION for sanitizeBlock's drop condition — a
+ *  non-zero projection KEEPS the block — and (2) is the more valuable: that
+ *  block carries a REAL `data-asset-id` and was DELETED on every load path.
+ *  `document-model.test.ts` pinned that deletion as a KNOWN, ACCEPTED LOSS,
+ *  accepted ONLY because recovering it needed a predicate branch scanning past
+ *  `<`, which is quadratic. This recovers it the opposite way — by bounding the
+ *  projection — so the adversarial shape that docstring named,
+ *  `"<img ".repeat(n) + ">"`, measures 0.5 / 1.1 / 2.9 ms at 41 / 82 / 164 KB.
+ *  Its own comment set that as the acceptance test ("if a future change makes
+ *  this block survive, check what it did to the adversarial timing"), so the
+ *  test now asserts SURVIVAL.
+ *  ★ The cost of both is that the unmatched tag's head is raw markup read as
+ *  prose. Neither can reach the EXPORT projections: htmlToText runs DOMPurify
+ *  at ALLOWED_TAGS: [] and both of them project its OUTPUT, so no attribute
+ *  value survives that far (pinned with a positive control in
+ *  rich-text-projection.test.ts).
+ *  ★ This does NOT make the run quote-aware, which remains the change the three
+ *  stars above forbid: `<` exclusion and quote-awareness are two independent
+ *  narrowings with different blast radii, and conflating them is what produced
+ *  §250.
  *
  *  ★ History: both patterns once carried this same truncation and the safety
  *  was argued as a CANCELLATION between them. That argument was wrong — it held
  *  only for the one shape it was measured on, and real blocks were being
  *  deleted for shapes where the tail after the `>` was itself tag-like. See
  *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
-const TAG = /<\/?[a-zA-Z][^>]*>/g;
+const TAG = /<\/?[a-zA-Z][^<>]*>/g;
 /** A non-breaking space in every spelling the editor or a paste can produce. */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
 /** Runs of whitespace — including the ones the boundary spaces above introduce

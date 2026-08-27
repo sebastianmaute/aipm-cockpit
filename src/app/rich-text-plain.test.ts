@@ -611,3 +611,77 @@ describe("BLOCK_TAG covers pre", () => {
     );
   });
 });
+
+// ★★★ THE ONE SHAPE THIS CHANGE MOVES, PINNED DELIBERATELY. Excluding `<` from
+// the attribute run alters exactly one input: an attribute value containing a
+// bare `<`. The projection goes 0 -> 11, i.e. the value stops reading as
+// "invisible" — the SAFE direction for sanitizeBlock's drop condition, which
+// deletes a block only when the projection is zero AND no asset id is present.
+// The cost is that those 11 characters are raw markup surfacing as prose.
+describe("htmlPlainProjection — the bounded attribute run", () => {
+  it("moves the quoted-attribute shape, in the safe direction", () => {
+    // Today this projects "" — the unbounded run swallows from the first `<`
+    // through to the final `>`. Bounded, the first opener no longer matches at
+    // all (there is no `>` before the next `<`), the SECOND one does, and what
+    // is left is the 11 characters of the first tag's head.
+    expect(htmlPlainProjection('<img alt="a<b" data-asset-id="real">')).toBe('<img alt="a');
+  });
+
+  // ★★★ THE SECOND MOVED SHAPE, found by document-model.test.ts rather than by
+  // planning — the bound applies to UNQUOTED attributes too. This one matters
+  // more than the quoted case: the block carries a REAL data-asset-id and was
+  // being DELETED on every load path as a pinned "accepted loss". See the TAG
+  // docstring for why that loss stopped being acceptable.
+  it("moves the unquoted-attribute shape too, keeping a real asset block", () => {
+    expect(htmlPlainProjection('<img alt=a<b data-asset-id="real">')).toBe("<img alt=a");
+  });
+
+  // ★★★ THESE ARE THE PRE-CHANGE VALUES, MEASURED, AND THEY ARE THE POINT OF
+  // THE TEST: everything except the one shape above must come out byte-identical
+  // after the bound. Measured 2026-08-27 against the UNFIXED matchers. Do NOT
+  // write this as `expect(htmlPlainProjection(h)).toBe(htmlPlainProjection(h))`
+  // — a self-comparison passes against ANY implementation and pins nothing.
+  it("leaves every other shape byte-identical", () => {
+    const BEFORE: ReadonlyArray<readonly [string, string]> = [
+      // A `>` inside an attribute ALREADY terminates the run today, so this row
+      // surfaces markup as prose before and after. It is here to prove the
+      // change does not alter that, not to endorse it.
+      ['<img alt="a>b" data-asset-id="real">', 'b" data-asset-id="real">'],
+      ['<img alt="><c d" data-asset-id="real">', ""],
+      ['<img data-asset-id="real" alt="><c d">', ""],
+      ["<p>plain</p>", "plain"],
+      ["<p>a &lt; b</p>", "a < b"],
+      ["<ul><li><p>one</p></li><li><p>two</p></li></ul>", "one two"],
+    ];
+    for (const [html, expected] of BEFORE) {
+      expect(htmlPlainProjection(html)).toBe(expected);
+    }
+  });
+});
+
+// ★★★ THE BUDGET IS ~1000x THE MEASURED LINEAR COST AND THAT IS DELIBERATE,
+// copied from document-asset-patterns.differential.test.ts's rationale: the
+// loosest threshold that still separates linear from quadratic cannot flake on
+// a loaded machine while still failing instantly on a regression. Measured
+// 2026-08-27 on the UNFIXED patterns: 128 KB cost 6617 ms (TAG) and 7226 ms
+// (BLOCK_TAG) against 8.4 ms for the same byte count with tags CLOSED.
+// ★★ 128 KB, not 1 MB: the unfixed cost at 1 MB would blow vitest's 20 s test
+// timeout before the assertion ran, turning a precise number into a bare
+// timeout that names neither figure.
+describe("htmlPlainProjection — complexity", () => {
+  const CEILING_MS = 2000;
+  const BYTES = 128 * 1024;
+
+  for (const [label, unit] of [
+    ["unterminated inline openers", "<a"],
+    ["unterminated block openers", "<p"],
+    ["unterminated task items", "<li"],
+  ] as const) {
+    it(`stays bounded on ${label}`, () => {
+      const input = unit.repeat(Math.round(BYTES / unit.length));
+      const started = performance.now();
+      htmlPlainProjection(input);
+      expect(performance.now() - started).toBeLessThan(CEILING_MS);
+    });
+  }
+});

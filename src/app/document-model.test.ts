@@ -253,16 +253,32 @@ describe("sanitizeProjectDocuments", () => {
     expect(out[0].blocks).toEqual(shapes.map((html) => ({ type: "paragraph", html })));
   });
 
-  it("drops an image paragraph whose attribute value contains a bare `<`", () => {
-    // ★★★ A KNOWN, ACCEPTED LOSS — asserted so it cannot be reintroduced by
-    // accident in either direction. `<img alt=a<b data-asset-id="real">` is a
-    // real attribute to a parser, but recovering it requires a predicate branch
-    // that scans past `<`, and such a branch is quadratic on input that reaches
-    // this guard unbounded: `"<img ".repeat(n) + ">"` projects to zero, so the
-    // `&&` does not short-circuit and the predicate runs on the whole string.
-    // That spelling shipped once and measured SLOWER than the one it replaced.
-    // ★ If a future change makes this block survive, check what it did to the
-    // adversarial timing before calling it a fix.
+  it("keeps an image paragraph whose attribute value contains a bare `<`", () => {
+    // ★★★ WAS a KNOWN, ACCEPTED LOSS, and is not any more — the loss was
+    // accepted ONLY because recovering `<img alt=a<b data-asset-id="real">`
+    // required a predicate branch that scans past `<`, and such a branch was
+    // quadratic on input that reaches this guard unbounded: `"<img
+    // ".repeat(n) + ">"` projected to zero, so the `&&` did not short-circuit
+    // and the predicate ran on the whole string. That spelling shipped once
+    // and measured SLOWER than the one it replaced.
+    // ★★ §251 recovers this the OPPOSITE way — by bounding TAG/BLOCK_TAG's
+    // attribute run to `[^<>]*` rather than adding a branch that scans past
+    // `<` — so the trade above no longer applies: the projection itself now
+    // reports non-zero (`htmlPlainProjection` on this exact html is
+    // `"<img alt=a"`, 10 chars) and `sanitizeBlock`'s drop condition
+    // (`htmlTextLength(html) === 0 && !ASSET_IMG_TEST_RE.test(html)`) no
+    // longer fires. This block also carries a REAL `data-asset-id`, so
+    // keeping it is precisely what §208 is about — this slice exists to stop
+    // silently deleting image-bearing content.
+    // ★ This is the exact adversarial shape the original docstring named as
+    // the acceptance test ("if a future change makes this block survive,
+    // check what it did to the adversarial timing before calling it a fix").
+    // Measured against `htmlPlainProjection("<img ".repeat(n) + ">")`: 0.5ms
+    // at 41KB (8192 reps), 1.1ms at 82KB (16384 reps), 2.9ms at 164KB (32768
+    // reps) — linear, so the acceptance condition is met.
+    // ★ Asserted in BOTH directions so it cannot flip back by accident: the
+    // bare-`<` block must survive UNCHANGED, and the ordinary sibling must
+    // survive alongside it.
     const out = sanitizeProjectDocuments([
       doc({
         blocks: [
@@ -271,7 +287,10 @@ describe("sanitizeProjectDocuments", () => {
         ],
       }),
     ]);
-    expect(out[0].blocks).toEqual([{ type: "paragraph", html: "<p>Kept</p>" }]);
+    expect(out[0].blocks).toEqual([
+      { type: "paragraph", html: '<p><img alt=a<b data-asset-id="real"></p>' },
+      { type: "paragraph", html: "<p>Kept</p>" },
+    ]);
   });
 
   it("keeps an image-only paragraph whatever quoting style the attribute uses", () => {
