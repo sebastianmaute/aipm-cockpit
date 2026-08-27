@@ -119,7 +119,22 @@ describe("ResourceDirectory", () => {
 
   it("renders primary + additional emails as copy buttons and copies on click", async () => {
     const writeText = vi.fn().mockResolvedValue(undefined);
-    Object.assign(navigator, { clipboard: { writeText } });
+    // ★★ NOT `Object.assign`, and this is order-dependence, not style.
+    // `userEvent.setup()` (used by a later test in this file) installs
+    // `navigator.clipboard` as a GETTER-ONLY accessor. Once it has, an
+    // assignment throws "Cannot set property clipboard of #<Navigator> which
+    // has only a getter" — so this test passes or fails purely on whether it
+    // runs before or after that one. Test order WITHIN a file is randomised by
+    // `npm run test:shuffle` (the only local reproduction of CI's BLOCKING
+    // unit-tests-shuffled job), so that order is not fixed: this file was green
+    // at seed 1 with 22 tests and went RED at 24, when adding two tests shifted
+    // the permutation. `defineProperty` with `configurable` redefines the
+    // accessor whichever ran first, so it is order-proof in both directions.
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+      writable: true,
+    });
     const withEmails: Resource[] = [
       { id: 1, firstName: "Ada", lastName: "Byte", email: "ada@x.com", emails: ["ada.alt@y.com"], roleId: null, utilizationMode: "percent", utilization: {} },
     ];
