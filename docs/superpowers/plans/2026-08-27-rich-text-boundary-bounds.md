@@ -827,7 +827,25 @@ grep -E "Test Files|Tests " "$L/t6-green.log"
 
 Expected: EXIT=0. `document-model.test.ts` is included because `sanitizeBlock` is `capHtmlText`'s heaviest caller.
 
-- [ ] **Step 5: Commit**
+- [ ] **Step 5: Verify the guards MOVED rather than being duplicated**
+
+The surrogate and `max <= 0` guards must exist in `degradeToPlain` and NOT in `capHtmlText` — moved, not copied — because `clipText` (`sanitize-core.ts:52`, verified: `max <= 0` at :62, lone-surrogate back-off at :58) is documented as carrying the identical fix and agreeing with it at the boundary. A third copy makes that two-way claim unverifiable.
+
+★★★ **DO NOT USE A WHOLE-FILE `grep -c "0xd800"` FOR THIS — it cannot answer the question.** The claim is about ONE FUNCTION and the file contains an unrelated, pre-existing surrogate guard in `decodeNumericEntities`, so the honest whole-file count is **2** both before and after a correct move, and **2** after an incorrect duplication as well. It returns the same number in the state the claim denies. Scope the check to the function body instead:
+
+```bash
+node -e "
+const s=require('fs').readFileSync('src/app/rich-text-plain.ts','utf8');
+const body=(n)=>{const i=s.indexOf('export function '+n+'(');return s.slice(i,s.indexOf('\n}',i)+2);};
+for(const fn of ['capHtmlText','degradeToPlain'])
+  console.log(fn, '0xd800:', (body(fn).match(/0xd800/g)||[]).length,
+              'max<=0:', (body(fn).match(/if \(max <= 0\)/g)||[]).length);
+"
+```
+
+Expected: `capHtmlText 0xd800: 0 max<=0: 0` and `degradeToPlain 0xd800: 1 max<=0: 1`.
+
+- [ ] **Step 6: Commit**
 
 ```bash
 git commit --only src/app/rich-text-plain.ts src/app/rich-text-plain.test.ts -m "fix: route capHtmlText's overflow through degradeToPlain (§208)
