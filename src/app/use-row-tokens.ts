@@ -15,11 +15,7 @@
 // hand-rolled the identical `useMemo(() => buildRowTokens(...), [list])`
 // block, and one (`raid-panel-rows.tsx`) called `buildRowTokens` bare,
 // recomputing the map on every render. One hook closes both the duplication
-// and the drift. ★ NO COUNT IS QUOTED — the extraction converted only some of
-// them and the rest still hand-roll it, so a number here rots on the next
-// conversion (same reason as the ★ NO COUNT note further down). Read today's
-// set with:
-//   git grep -l buildRowTokens -- 'src/app/*.tsx' | grep -v test
+// and the drift.
 //
 // ★ The per-row fallback (`tokens.get(id) ?? name`) deliberately stays INLINE
 // at each call site so each site can carry its own "why this can't actually
@@ -40,8 +36,8 @@
 // sharing a display name render two identically-named buttons. Found
 // while grounding the row-unique-names slice; neither §247 nor §248
 // named it, and each surface that hit it found it independently by
-// reading its own row render body — each now carries only a pointer
-// back to this comment.
+// reading its own row render body — most carry a pointer back to
+// this comment.
 //
 // ★ NO COUNT IS QUOTED HERE — one was accurate for exactly one commit
 // before the next task fixed another surface, and no gate can see a

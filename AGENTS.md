@@ -529,7 +529,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test`
   ★★ And do NOT paraphrase that set as "all routed through the shared `useRowTokens` hook" — the two
   Tasks surfaces CANNOT call it, because a per-item component has no sibling visibility (the general
-  rule two paragraphs up), so they take the token as a PROP from whoever renders the list. A
+  cannot-disambiguate-itself rule), so they take the token as a PROP from whoever renders the list. A
   `grep -rln "useRowTokens" src/app --include=*.tsx` therefore does NOT enumerate this fix and returns
   a different set of files; `docs/open-followups.md` §247 carries the split. (3) A shared per-row component handed the WHOLE
   ENTITY, not a pre-built token, can compose a name from a raw field INSIDE ITS OWN FILE, where no
