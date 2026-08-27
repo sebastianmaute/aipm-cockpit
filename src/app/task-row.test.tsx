@@ -1435,12 +1435,18 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
   // `extra.documentsByEntity`/`extra.onOpenDocuments` are optional PROPS (not
   // context) so a caller can reach the DocumentBadge site without disturbing
   // every other test built on this helper.
+  //
+  // `extra.raidRefsFor` reaches the RaidBadge site the same way. It is a
+  // per-task LOOKUP rather than one shared array because the badge's own
+  // collision axis is the REFERENCE COUNT, and a test has to be able to give
+  // two rows equal counts over DIFFERENT items.
   function renderCollisionRows(
     context: RowContextValue,
     tasks: Task[],
     extra: {
       documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
       onOpenDocuments?: (taskId: number) => void;
+      raidRefsFor?: (taskId: number) => RaidItem[] | undefined;
     } = {},
   ) {
     const tokens = buildRowTokens(tasks.map((task) => ({ id: task.id, name: task.taskName })));
@@ -1455,7 +1461,7 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
             isSelected={false}
             isEditing={false}
             isPushing={false}
-            raidRefs={undefined}
+            raidRefs={extra.raidRefsFor?.(task.id)}
             documentsByEntity={extra.documentsByEntity}
             onOpenDocuments={extra.onOpenDocuments}
           />
@@ -1483,6 +1489,12 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // Ask-Claude trigger (task-row.tsx:319, gated on `aiEditEnabled`) and
     // `DocumentBadge` (task-row.tsx:371, which returns null at count 0). Both
     // are ordinary usage, not exotic configuration.
+    //
+    // `raidRefsFor` reaches the THIRD such site, `RaidBadge`, which every
+    // earlier fixture in this file left at `raidRefs={undefined}` — which is
+    // exactly why its missing row identity went uncaught here. (Its own
+    // count-only collision axis is covered by the next test; this one proves
+    // it also survives the shared-NAME case.)
     const twins = [
       makeTask({ id: 1, taskName: "Alpha" }),
       makeTask({ id: 2, taskName: "Alpha" }),
@@ -1491,13 +1503,60 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     const { container } = renderCollisionRows(
       makeContext({ aiEditEnabled: () => true, onAiEdit: vi.fn() }),
       twins,
-      { documentsByEntity, onOpenDocuments: vi.fn() },
+      {
+        documentsByEntity,
+        onOpenDocuments: vi.fn(),
+        raidRefsFor: () => [makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })],
+      },
     );
     expectRowUniqueNames({
-      minControls: 26,
+      // MEASURED, not guessed: set to 999, ran this test alone, and read the
+      // length of the `Rendered: [...]` list the throw prints. It was 26
+      // before `raidRefsFor` seeded a RaidBadge onto each of the two rows.
+      minControls: 28,
       scope: container,
       roles: ["button", "combobox", "textbox", "checkbox"],
       requireCollisionSeed: true,
+    });
+  });
+
+  test("keeps the RAID badge distinct when two DIFFERENTLY-named tasks have equal ref counts", () => {
+    // ★★ THE BADGE'S COLLISION AXIS IS THE REFERENCE COUNT, NOT THE NAME. Its
+    // accessible name was `raidReferencedBy` alone ("Referenced by {0} RAID
+    // item(s)") — a bare count with no row identity — so two rows collided
+    // whenever their counts matched, which needs no shared task name at all
+    // and is the common case.
+    //
+    // ★ `requireCollisionSeed` is deliberately OFF here and its absence is not
+    // a weakened assertion: that guard certifies a shared-DISPLAY-NAME seed
+    // (two rendered names equal once the "(N)" suffix is stripped), and after
+    // the fix these two rows correctly share no name. The equivalent seed on
+    // THIS axis — two rows whose badge counts are equal, so their pre-fix
+    // names were byte-identical — is asserted directly below instead.
+    const rows = [
+      makeTask({ id: 1, taskName: "Alpha" }),
+      makeTask({ id: 2, taskName: "Beta" }),
+    ];
+    const { container } = renderCollisionRows(makeContext(), rows, {
+      raidRefsFor: () => [makeRaidItem({ id: 1 }), makeRaidItem({ id: 2 })],
+    });
+
+    // The count-collision seed: both rows rendered a badge, and both badges
+    // report the SAME count — so the pre-fix name was identical on both.
+    const badges = within(container).getAllByRole("button", { name: /RAID item/i });
+    expect(badges).toHaveLength(2);
+    expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
+      "Referenced by 2 RAID item(s) – Alpha",
+      "Referenced by 2 RAID item(s) – Beta",
+    ]);
+
+    expectRowUniqueNames({
+      // MEASURED the same way as the test above (floor 999, read the printed
+      // `Rendered: [...]` length): two rows, no AI trigger and no document
+      // badges, plus each row's RaidBadge.
+      minControls: 24,
+      scope: container,
+      roles: ["button", "combobox", "textbox", "checkbox"],
     });
   });
 

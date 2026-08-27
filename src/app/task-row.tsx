@@ -363,7 +363,7 @@ function TaskRowImpl({
           );
         })()}
         {raidRefs && raidRefs.length > 0 && (
-          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} onJumpToRaid={onJumpToRaid} />
+          <RaidBadge taskId={task.id} refs={raidRefs} lang={lang} rowToken={rowToken} onJumpToRaid={onJumpToRaid} />
         )}
         <DocumentBadge
           lang={lang}

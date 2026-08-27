@@ -7,7 +7,7 @@ import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
-import { buildRowTokens } from "./row-tokens";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "Sam", assigneeEmail: "", dueDate: "2026-06-01",
@@ -79,7 +79,9 @@ describe("TaskKanbanCard", () => {
         onJumpToRaid={onJumpToRaid}
       />,
     );
-    const badge = screen.getByRole("button", { name: t("en-US", "raidReferencedBy", 2) });
+    // The badge's name now carries the card's row token — a bare count has no
+    // row identity, so two cards with equal ref counts used to collide.
+    const badge = screen.getByRole("button", { name: rowLabel(t("en-US", "raidReferencedBy", 2), "Alpha") });
     fireEvent.click(badge);
     expect(onJumpToRaid).toHaveBeenCalledWith(1);
   });
@@ -228,12 +230,15 @@ describe("TaskKanbanCard linked-documents badge", () => {
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
   });
 
-  // WCAG 2.4.6 collision covering all FOUR sites this fix touches: the name
+  // WCAG 2.4.6 collision covering all FIVE sites this fix touches: the name
   // button (previously had no aria-label at all — its accessible name was its
   // CONTENT, so two "Alpha" cards collided on the most prominent control on
   // the card), DocumentBadge's `entityTitle`, the inline Ask-Claude trigger
-  // and the assign select — each previously keyed on `task.taskName` alone.
-  // Only `rowToken` (built via `buildRowTokens`, mirroring what
+  // and the assign select — each previously keyed on `task.taskName` alone —
+  // plus `RaidBadge`, whose name was the bare reference COUNT with no row
+  // identity at all (`raidRefs` is seeded on both cards below; leaving it
+  // unseeded is why that site went uncaught). Only `rowToken` (built via
+  // `buildRowTokens`, mirroring what
   // task-kanban-board.tsx/task-kanban-swimlanes.tsx pass in production)
   // distinguishes the two cards.
   it("keeps every card control distinct when two tasks share a name", () => {
@@ -258,6 +263,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
             holidaySet={new Set()}
             documentsByEntity={twinDocs}
             onOpenDocuments={vi.fn()}
+            raidRefs={[raidFix("R"), raidFix("I")]}
             onStatusChange={vi.fn()}
             onEdit={vi.fn()}
             onJumpToRaid={vi.fn()}
@@ -270,7 +276,9 @@ describe("TaskKanbanCard linked-documents badge", () => {
       </>,
     );
     expectRowUniqueNames({
-      minControls: 10,
+      // MEASURED (floor 999, read the printed `Rendered: [...]` length):
+      // 10 before `raidRefs` seeded a RaidBadge onto each of the two cards.
+      minControls: 12,
       scope: container,
       roles: ["button", "combobox"],
       requireCollisionSeed: true,
