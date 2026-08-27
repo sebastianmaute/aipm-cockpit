@@ -156,12 +156,21 @@ Append to `src/app/rich-text-plain.test.ts`:
 // deletes a block only when the projection is zero AND no asset id is present.
 // The cost is that those 11 characters are raw markup surfacing as prose.
 describe("htmlPlainProjection — the bounded attribute run", () => {
-  it("moves exactly one shape, in the safe direction", () => {
+  it("moves the quoted-attribute shape, in the safe direction", () => {
     // Today this projects "" — the unbounded run swallows from the first `<`
     // through to the final `>`. Bounded, the first opener no longer matches at
     // all (there is no `>` before the next `<`), the SECOND one does, and what
     // is left is the 11 characters of the first tag's head.
     expect(htmlPlainProjection('<img alt="a<b" data-asset-id="real">')).toBe('<img alt="a');
+  });
+
+  // ★★★ THE SECOND MOVED SHAPE, found by document-model.test.ts rather than by
+  // planning — the bound applies to UNQUOTED attributes too. This one matters
+  // more than the quoted case: the block carries a REAL data-asset-id and was
+  // being DELETED on every load path as a pinned "accepted loss". See the TAG
+  // docstring for why that loss stopped being acceptable.
+  it("moves the unquoted-attribute shape too, keeping a real asset block", () => {
+    expect(htmlPlainProjection('<img alt=a<b data-asset-id="real">')).toBe("<img alt=a");
   });
 
   // ★★★ THESE ARE THE PRE-CHANGE VALUES, MEASURED, AND THEY ARE THE POINT OF
@@ -259,14 +268,28 @@ Then update the `TAG` docstring. Replace the two-star paragraph beginning `★�
  *  boundary is the property that matters. Pinned by the complexity family in
  *  rich-text-plain.test.ts — a budget test, so re-measure rather than trusting
  *  these cells.
- *  ★★ IT MOVES EXACTLY ONE SHAPE, and that shape is pinned: an attribute value
- *  containing a bare `<` (`<img alt="a<b" …>`) now projects 11 characters
- *  instead of 0. That is the SAFE direction for sanitizeBlock's drop condition
- *  — a non-zero projection keeps the block — and the cost is that those 11
- *  characters are raw markup read as prose. It cannot reach the EXPORT
- *  projections: htmlToText runs DOMPurify at ALLOWED_TAGS: [] and both of them
- *  project its OUTPUT, so no attribute value survives that far (pinned with a
- *  positive control in rich-text-projection.test.ts).
+ *  ★★★ IT MOVES TWO SHAPES, NOT ONE, and the second was found by a gate rather
+ *  than by planning. (1) A QUOTED attribute value carrying a bare `<`
+ *  (`<img alt="a<b" …>`) projects 11 characters instead of 0. (2) An UNQUOTED
+ *  one (`<img alt=a<b data-asset-id="real">`) projects 10 instead of 0, because
+ *  the `<img alt=a` opener can no longer match and the strip takes
+ *  `<b data-asset-id="real">` as a tag in its own right, leaving the head.
+ *  ★★ BOTH ARE THE SAFE DIRECTION for sanitizeBlock's drop condition — a
+ *  non-zero projection KEEPS the block — and (2) is the more valuable: that
+ *  block carries a REAL `data-asset-id` and was DELETED on every load path.
+ *  `document-model.test.ts` pinned that deletion as a KNOWN, ACCEPTED LOSS,
+ *  accepted ONLY because recovering it needed a predicate branch scanning past
+ *  `<`, which is quadratic. This recovers it the opposite way — by bounding the
+ *  projection — so the adversarial shape that docstring names,
+ *  `"<img ".repeat(n) + ">"`, measures 0.5 / 1.1 / 2.9 ms at 41 / 82 / 164 KB.
+ *  Its own comment set that as the acceptance test ("if a future change makes
+ *  this block survive, check what it did to the adversarial timing"), so the
+ *  test now asserts SURVIVAL.
+ *  ★ The cost of both is that the unmatched tag's head is raw markup read as
+ *  prose. Neither can reach the EXPORT projections: htmlToText runs DOMPurify
+ *  at ALLOWED_TAGS: [] and both of them project its OUTPUT, so no attribute
+ *  value survives that far (pinned with a positive control in
+ *  rich-text-projection.test.ts).
  *  ★ This does NOT make the run quote-aware, which remains the change the three
  *  stars above forbid: `<` exclusion and quote-awareness are two independent
  *  narrowings with different blast radii, and conflating them is what produced
@@ -289,7 +312,20 @@ npx vitest run src/app/document-model.test.ts src/app/document-asset-patterns.te
 grep -E "Test Files|Tests " "$L/t2-docs.log"
 ```
 
-Expected: EXIT=0. This is the suite that would catch a repeat of §250. If it is red, do not adjust the expectation — report, because a red here means the change deletes blocks.
+This is the suite that would catch a repeat of §250.
+
+★★★ **ONE TEST HERE IS EXPECTED TO GO RED, AND IT MUST BE FLIPPED, NOT SILENCED.**
+`document-model.test.ts` → `sanitizeProjectDocuments` → **"drops an image paragraph whose attribute value contains a bare `` ` ``<`` ` ``"**. It pins a KNOWN, ACCEPTED LOSS: `<p><img alt=a<b data-asset-id="real"></p>` was DELETED on load. The bound makes it survive, because the projection now returns `"<img alt=a"` (10 chars) instead of `""`, so `sanitizeBlock`'s `htmlTextLength(html) === 0` term is false.
+
+**That is a fix, not a regression, and the test's own docstring is what authorises it:** *"If a future change makes this block survive, check what it did to the adversarial timing before calling it a fix."* The loss was accepted ONLY because recovering the block needed a predicate branch scanning past `<`, which is quadratic. This recovers it the opposite way — by bounding the projection — and the adversarial shape that docstring names measures **0.5 / 1.1 / 2.9 ms at 41 / 82 / 164 KB**. The block carries a REAL `data-asset-id`, so keeping it is the whole point of §208.
+
+Flip it:
+
+- Rename to `"keeps an image paragraph whose attribute value contains a bare \`<\`"`.
+- Expect BOTH paragraphs to survive, unchanged: the fixture block and `<p>Kept</p>`.
+- Replace the docstring with one recording that the loss was accepted for a timing reason that no longer applies, quoting the three measurements above and naming `"<img ".repeat(n) + ">"` as the shape they came from.
+
+Any OTHER red in this suite is a genuine regression — report it and stop.
 
 - [ ] **Step 6: Verify line endings survived**
 
@@ -300,15 +336,24 @@ git ls-files --eol src/app/rich-text-plain.ts   # expect: i/lf w/crlf
 - [ ] **Step 7: Commit**
 
 ```bash
-git commit --only src/app/rich-text-plain.ts src/app/rich-text-plain.test.ts -m "fix: bound TAG and BLOCK_TAG to a single tag (§251)
+git commit --only src/app/rich-text-plain.ts src/app/rich-text-plain.test.ts src/app/document-model.test.ts -m "fix: bound TAG and BLOCK_TAG to a single tag (§251)
 
 [^>]* let one opener scan to end of input for a > that is not there. Measured
 at 128 KB: TAG 6617 ms, BLOCK_TAG 7226 ms, against 8.4 ms for the same bytes
 with tags closed. Both now exclude <.
 
-Moves exactly one shape — an attribute value carrying a bare < projects 11
-chars instead of 0 — which is the safe direction for sanitizeBlock's drop
-condition, and unreachable from the export projections. Pinned both ways."
+It moves two shapes, not one, and the second was found by document-model.test.ts
+rather than by planning. A quoted attribute carrying a bare < projects 11 chars
+instead of 0; an unquoted one projects 10. Both keep a block that was previously
+dropped, which is the safe direction for sanitizeBlock, and neither is reachable
+from the export projections.
+
+The unquoted case flips a pinned accepted loss: <img alt=a<b data-asset-id=real>
+carries a REAL asset id and was deleted on every load path. That loss was
+accepted only because recovering it needed a predicate branch scanning past <,
+which is quadratic. This recovers it by bounding the projection instead, so the
+adversarial shape its docstring named now measures 0.5/1.1/2.9 ms at 41/82/164
+KB. The test asserts survival, as its own comment invited."
 ```
 
 ---
@@ -985,7 +1030,10 @@ statement inside the `try` being the `typeof window === "undefined"` early retur
 describe("sanitizeRichText — the degrade is reported", () => {
   it("does not throw under bare node, where logDiag is inert", () => {
     const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
-    expect(() => sanitizeRichText(abusive, TEXTAREA_MAX, RICH_SINK)).not.toThrow();
+    // Literals, not TEXTAREA_MAX/RICH_SINK — this file deliberately does not
+    // import them, and adding an import here is the very thing the DOM-free
+    // guard below is about. Matches the convention in Task 7.
+    expect(() => sanitizeRichText(abusive, 5000, "rich")).not.toThrow();
   });
 });
 ```
@@ -1187,7 +1235,7 @@ Do **not** push, open an MR, or merge. Those need an explicit instruction from t
 
 **Spec coverage.** Every section maps to a task: bounded matchers → Tasks 2–4; `degradeToPlain` → Task 5; `capHtmlText` delegation → Task 6; byte ceiling with the corrected ordering → Task 7; `logDiag` rather than the truncation channel → Task 8; the export-path proof obligation → Task 1; the false comment → Task 4 Step 5; §252 and §250 stay out of scope and no task touches them.
 
-**Two things the spec did not cover, added here.** `markTaskItems` (Task 3), found by grepping for the real sites rather than trusting the entry's list. And `IMG_TAG_ASSET_ID_RE`'s **capture-group renumbering** (Task 4 Step 3) — the id moves from group 1 to group 2, which is a silent failure for any caller still reading `m[1]`, since the atomic capture is a non-empty string and passes a truthiness check.
+**Two things the spec did not cover, added here.** `markTaskItems` (Task 3), found by grepping for the real sites rather than trusting the entry's list. And the second moved shape in Task 2 — the bound applies to UNQUOTED attributes too, which flips a pinned accepted-loss test in `document-model.test.ts`. That one was found by the gate, not by planning.
 
 **Three plan defects caught by this review and fixed inline.** Task 7's test code imported
 `TEXTAREA_MAX` and `RICH_SINK`, which `rich-text-plain.test.ts` deliberately does not import — its
@@ -1202,4 +1250,4 @@ modules to three, for observability. That is the sort of change AGENTS.md warns 
 isolated in its own task, at the end, after every defect is already fixed — if it is dropped, the
 slice still closes all four entries. Treat it as optional.
 
-**Known risk this plan does not remove.** Task 4's atomic-group rewrite is the least mechanical change here. If the differential suite's parser-ground-truth tests go red at Step 4, the rewrite changed *what* matches, not just how fast — revert it and re-plan rather than adjusting expectations, because those tests are the only thing standing between this and a fifth defective spelling of that pattern.
+**Known risk this plan does not remove.** Task 4's guard lookahead is the least mechanical change here. If the differential suite's parser-ground-truth tests go red at Step 4, it changed *what* matches, not just how fast — revert and re-plan rather than adjusting expectations, because those tests are the only thing standing between this and a fifth defective spelling of that pattern. The first version of Task 4 WAS such a spelling: atomic-group emulation, which matches nothing at all and would have silently unhooked every asset image. It was caught by measuring the candidate against the shipped pattern on nine fixtures before dispatching, not by any gate.
