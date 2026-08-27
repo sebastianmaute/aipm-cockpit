@@ -1,4 +1,4 @@
-pre-existing, found 2026-08-27 (row-unique-names round 2) | S |row-unique-names round 2 (2026-08-27) | — |row-unique-names round 2 (2026-08-27) | M |row-unique-names round 2 (2026-08-27) | M |undefinedpre-existing, found 2026-08-27 (row-unique-names round 2) | S |undefinedrow-unique-names round 2 (2026-08-27) | — |undefinedrow-unique-names round 2 (2026-08-27) | M |undefinedrow-unique-names round 2 (2026-08-27) | M |# Open follow-ups — central register
+# Open follow-ups — central register
 
 _Opened 2026-07-27, at the close of 0.203.0 "Czerneda". Self-contained: it absorbed the R5 calendar
 follow-ups, the 49-finding audit campaign's remainder, and the 2026-06 refactor review._
