@@ -18,6 +18,7 @@
 // a sanitize pass a provable no-op.
 import { plainToHtml } from "./sanitize-html";
 import { isHtmlStart, type RichTextSink } from "./html-start";
+import { logDiag } from "./diagnostics";
 
 /** Whitespace control characters — TAB (0x09), vertical tab and form feed —
  *  collapse to a SINGLE SPACE instead of being deleted.
@@ -445,8 +446,21 @@ export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink):
   // straight to degradeToPlain, which flattens to text and cannot re-emit the
   // severed markup — do not reorder these two lines.
   const ceiling = richByteCeiling(max);
-  const bounded =
-    upgraded.length > ceiling ? degradeToPlain(upgraded.slice(0, ceiling), max) : upgraded;
+  let bounded = upgraded;
+  if (upgraded.length > ceiling) {
+    bounded = degradeToPlain(upgraded.slice(0, ceiling), max);
+    // ★★ logDiag, DELIBERATELY NOT lastLoadTruncation. That channel blocks
+    // writes through mayCommitAfterTruncation, on the premise that the SOURCE
+    // still holds what was not loaded — true for a document whose blocks were
+    // dropped, false here. A degrade is idempotent and already committed, so
+    // blocking the flush would strand the user with a workspace the app refuses
+    // to save, protecting data that exists nowhere else.
+    logDiag("warn", "rich-text-bytes-degraded", {
+      before: upgraded.length,
+      after: bounded.length,
+      ceiling,
+    });
+  }
   const html = capHtmlText(bounded, max);
   return htmlTextLength(html) === 0 ? "" : html;
 }

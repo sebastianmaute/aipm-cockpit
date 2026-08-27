@@ -428,7 +428,7 @@ describe("DOM-free guard", () => {
     expect(code).not.toMatch(/sanitizeDocumentHtml/);
   });
 
-  it("imports exactly the two modules it is allowed to import", () => {
+  it("imports exactly the three modules it is allowed to import", () => {
     // ★ The old guard banned four SYMBOL names. That let two things past:
     // plainToHtml growing a DOMPurify.sanitize call (its own comment warns
     // against exactly that), and a future `import { descriptionText } from
@@ -445,7 +445,25 @@ describe("DOM-free guard", () => {
     const specifiers = [...code.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)]
       .map((m) => m[1])
       .sort();
-    expect(specifiers).toEqual(["./html-start", "./sanitize-html"]);
+    expect(specifiers).toEqual(["./diagnostics", "./html-start", "./sanitize-html"]);
+  });
+
+  // ★★★ `./diagnostics` WAS ADDED TO THIS ALLOWLIST DELIBERATELY, AND IT IS THE
+  // ONLY WIDENING THIS GUARD HAS EVER TAKEN. It carries an obligation the other
+  // two do not, because the whole point of the allowlist is that a NEW module
+  // can reach a DOM. So the reachable closure is asserted here rather than
+  // assumed: diagnostics imports only ./version and ./diagnostics-redact, and
+  // NEITHER may reach a sanitiser. If this assertion ever has to be relaxed,
+  // remove the import instead — the diagnostic is observability, and it is not
+  // worth the guard.
+  it("keeps the newly allowed diagnostics import DOM-free transitively", () => {
+    for (const mod of ["diagnostics.ts", "diagnostics-redact.ts", "version.ts"]) {
+      const src = readFileSync(join(import.meta.dirname, mod), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
+      expect(src).not.toMatch(/dompurify/i);
+      expect(src).not.toMatch(/from "\.\/sanitize-html"/);
+    }
   });
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {
@@ -812,5 +830,18 @@ describe("degradeToPlain", () => {
     const started = performance.now();
     degradeToPlain(input, 100);
     expect(performance.now() - started).toBeLessThan(2000);
+  });
+});
+
+// ★★ The degrade is REPORTED, not silent. logDiag is a no-op when `window` is
+// undefined, which is what makes it legal in this DOM-free module — the sample
+// generator runs here under bare node and must not throw.
+describe("sanitizeRichText — the degrade is reported", () => {
+  it("does not throw under bare node, where logDiag is inert", () => {
+    const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
+    // Literals, not TEXTAREA_MAX/RICH_SINK — this file deliberately does not
+    // import them, and adding an import here is the very thing the DOM-free
+    // guard below is about.
+    expect(() => sanitizeRichText(abusive, 5000, "rich")).not.toThrow();
   });
 });
