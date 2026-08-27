@@ -722,7 +722,7 @@ function ContactPersonsControl({
             type="email"
             value={draft.email}
             placeholder={t(lang, "email")}
-            aria-label={`${t(lang, "contactAddManual")} — email`}
+            aria-label={`${t(lang, "contactAddManual")} — ${t(lang, "email")}`}
             onChange={(e) => setDraft((d) => ({ ...d, email: e.target.value }))}
             className={inputClass}
           />
