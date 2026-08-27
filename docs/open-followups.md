@@ -19141,8 +19141,9 @@ conditional expression whose branches are literals is invisible to a regex over 
 nothing short of a source-level parse (see AGENTS.md's own "don't hand-roll a lexer" lesson) can see
 inside it reliably.
 
-★ **The same sweep has a SECOND failure mode that is human, not a pattern gap.** Commit `199a595e`
-this round fixed `` aria-label={`${t(lang, "contactAddManual")} — email`} `` in
+★ **The same sweep has a SECOND failure mode that is human, not a pattern gap.** ★ Named by its
+CHANGE, not by a SHA — the commit was branch-local when this was written, so a squash strips it;
+find it with ``git log -S'} — email`' -- src/app/project-form-fields.tsx`` (first hit). It changed `` aria-label={`${t(lang, "contactAddManual")} — email`} `` in
 `project-form-fields.tsx` — a hardcoded English word inside a template literal, i.e. exactly the
 shape the second pattern quoted above DOES match — so widening the patterns would not have caught
 it; the method found it and a reader walked past it.
