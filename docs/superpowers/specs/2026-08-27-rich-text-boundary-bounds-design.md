@@ -78,7 +78,17 @@ character class cannot reach, so it takes atomic-group emulation — `(?=((?:…
 
 The governing principle is already written in this repo, in `ANY_TAG_ASSET_ID_RE`'s docstring:
 *"Disjointness between the branches was never the property that mattered — not crossing a tag
-boundary is."* This slice applies that same principle to the three matchers that still lack it.
+boundary is."* This slice applies that same principle to every matcher that still lacks it.
+
+**A third site, found while planning and not in the first cut of this design.** `markTaskItems`
+(`rich-text-plain.ts`) carries THREE more unbounded runs in one pattern —
+`/<li\b[^>]*\bdata-type\s*=\s*"taskItem"[^>]*>\s*(?:<p\b[^>]*>)?/gi` — and it is on both projection
+paths. Enumerate the real sites rather than trusting this list, since a comment mentioning `[^>]*`
+greps identically to code using it:
+
+```bash
+grep -n '\[\^>\]\*' src/app/rich-text-plain.ts src/app/document-asset-patterns.ts | grep -v '^\S*: *\*'
+```
 
 **The one behaviour change, and it is deliberate.** `[^<>]*` alters exactly one shape:
 `<img alt="a<b" …>` projects 0 -> 11 visible characters. That is the SAFE direction for `sanitizeBlock`'s
@@ -138,10 +148,31 @@ codec / import / AI write
   -> sanitize-records.ts        (the entity sanitizers)
     -> sanitizeRichText(raw, max, sink)
       -> descriptionHtml        (legacy plain -> html, or verbatim pass-through)
+      -> raw bytes > ceiling?   -> HARD-CLIP to the ceiling  ) NEW, and in
+                                 -> degradeToPlain(html, max) ) THIS ORDER
       -> capHtmlText(html, max)
-        -> overflow?            -> degradeToPlain(html, max)      <- NEW, one path
-      -> raw bytes > ceiling?   -> degradeToPlain(html, max)      <- NEW
+        -> overflow?            -> degradeToPlain(html, max)      <- NEW
 ```
+
+### ★★★ The ceiling is checked BEFORE `capHtmlText`, and the order is the whole point
+
+`capHtmlText` measures `htmlPlainProjection(html)` — it projects the **full raw input** before it
+decides anything. That projection is where §251's quadratic runs. §251 states the consequence
+directly: *"No size cap applies before it: `capHtmlText` is applied to the RETURN value."*
+
+So a byte ceiling placed downstream of `capHtmlText` bounds what is STORED and bounds nothing about
+what is DONE. The projection has already run, on unbounded input, at whatever cost the matchers
+impose. Ordering it first is what makes §31's fix also a bound on §251's exposure — belt and braces,
+since (a) removes the quadratic anyway.
+
+A ceiling check must therefore be a **raw `.length` comparison**, which is O(1), and must not call
+the projection to decide. Over-ceiling input is hard-clipped to the ceiling FIRST — a cheap
+`slice` — and only then handed to `degradeToPlain`. The clip may cut mid-tag; that is safe precisely
+because its output goes straight to `degradeToPlain`, which flattens to text and never re-emits the
+severed markup.
+
+An earlier revision of this design had the ceiling AFTER `capHtmlText` and would have shipped a fix
+that did not bound the thing it was written to bound.
 
 ## This applies on LOAD as well as write
 
@@ -187,6 +218,23 @@ not.
   unfixed regex. Each timing assertion is proved red against the pre-fix pattern before it is kept,
   and the budget is a wall-clock ceiling generous enough to survive a loaded machine — the register
   records these figures moving 2-3x between runs.
+
+## One false claim to correct on the way past
+
+`document-asset-patterns.differential.test.ts`'s cap-sized adversarial row justifies itself with:
+*"the payload projects to zero visible text, so a visible-text cap would not have touched it"* and
+*"`capHtmlText` … does so by HTML length rather than by visible text."*
+
+Both halves are false, measured 2026-08-27. The payload is `"<img " + 'data-asset-id="x" '.repeat(n)`
+— it contains no `>` at all, so neither `TAG` nor `BLOCK_TAG` matches and the projection returns
+essentially the whole string: **18958 visible characters** at an 18959-byte payload, not zero. And
+`capHtmlText` measures `htmlPlainProjection(html).length`, which is exactly a visible-text cap.
+
+The row's OUTCOME is right — the payload is truncated, at the size the comment states — but for the
+opposite reason to the one recorded. A false explanation attached to a passing gate is the dangerous
+kind: it tells the next reader the row is protected by a mechanism that is not the one protecting it,
+and this slice changes both of the things it names. Correct the comment in the same commit that
+touches the row.
 
 ## Risks
 
