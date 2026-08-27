@@ -40,7 +40,14 @@ function isTransactional(stmts: SqlStmt[]): boolean {
  *  cannot forget to read the body in the window, because there is no `Response`
  *  to hand it.
  *  ★ AbortController + setTimeout (rather than `AbortSignal.timeout`, used by
- *  the server routes) so fake-timer tests can drive the abort deterministically. */
+ *  the server routes) so fake-timer tests can drive the abort deterministically.
+ *  ★★ THE BOUND IS THE PLATFORM'S, NOT OURS. There is no independent watchdog:
+ *  the timer calls `abort()` and nothing here rejects unless the transport
+ *  ERRORS THE BODY STREAM in response. Real `fetch` does, and the test double
+ *  models it — but a transport swap that accepted the signal and ignored it
+ *  during the body read would silently restore the unbounded hang with every
+ *  test still green, because the tests assert on the rejection the double
+ *  raises. Re-verify against the new transport, not against the double. */
 async function postPipeline(
   config: TursoConfig,
   stmts: SqlStmt[],

@@ -13,26 +13,30 @@ longer carries its own changelog comment.
 ### Fixed
 
 - **A stalled database reply no longer hangs the app forever.** Every request to a Turso
-  project already gave up after 15 seconds if the server never answered — but the clock was
-  stopped the moment the server sent its *headers*, before the answer itself had been read. A
-  server that replied and then stalled mid-answer left the app waiting with nothing to cancel
-  it: no error, no timeout, no way out but reloading the page. That affected every Turso
-  operation — loading and saving a project, snapshots, chat threads, document images and
-  version history alike. The 15-second budget now covers the whole exchange, so a stalled
-  reply fails cleanly and can be retried. A malformed but successful reply now also produces
-  the same readable message as every other bad response instead of an internal error.
-  ★ One trade worth knowing: because the budget now covers the full download, *loading* a very
-  large document image back over a slow connection can time out where it previously succeeded
-  eventually. Sending data was always inside the old budget, so it is reads that changed and
-  not saves. A bounded, retryable failure was judged better than an unbounded hang.
+  project already gave up if the server never answered — after 15 seconds for most operations,
+  10 for loading a project — but the clock was stopped the moment the server sent its
+  *headers*, before the answer itself had been read. A server that replied and then stalled
+  mid-answer left the app waiting with nothing to cancel it: no error, no timeout, no way out
+  but reloading the page. That affected every Turso operation — loading and saving a project,
+  snapshots, chat threads, document images and version history alike. Each budget now covers
+  the whole exchange, so a stalled reply fails cleanly and can be retried. A malformed but
+  successful reply now also produces the same readable message as every other bad response
+  instead of an internal error.
+  ★ One trade worth knowing: because a budget now covers the full download, a large reply over
+  a slow connection can time out where it previously succeeded eventually. That applies to
+  *loading* a document image back, on the 15-second budget, and to loading the project itself
+  on the 10-second one — the largest reply the app receives, and the one with no size limit at
+  all. Sending data was always inside the old budget, so it is reads that changed and not
+  saves. A bounded, retryable failure was judged better than an unbounded hang.
 
 - **Version comparisons name records instead of showing an id.** Every task, resource, role,
   absence and shift in a comparison was labelled with a bare `#id` — the comparison knew which
-  record had changed but was looking up the wrong field for its name. Tasks, absences and
-  shifts now show their own titles and notes; resources show a full name, and roles show their
-  discipline and grade together. Measured against the bundled sample project, all 14 tasks, 4
-  of 5 absences, all 4 shifts, all 5 resources and all 6 roles now name themselves. (The one
-  remaining `#id` is an absence with no note recorded — there is genuinely no name to show.)
+  record had changed but was looking up the wrong field for its name. Tasks now show their
+  titles; absences and shifts show their note, falling back to the person it belongs to when
+  no note was written; resources show a full name, and roles show their discipline and grade
+  together. Measured against the bundled sample project, all 14 tasks, all 5 absences, all 4
+  shifts, all 5 resources and all 6 roles now name themselves, where five of those groups
+  previously showed nothing but an id.
 
 - **A record that cannot be restored can no longer be restored by accident.** Restoring a
   single record went straight to the restore without checking whether that record was one the

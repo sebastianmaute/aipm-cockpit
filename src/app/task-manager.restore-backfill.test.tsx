@@ -391,6 +391,14 @@ describe("task-manager → applyRestoredWorkspace", () => {
   // positive control fail too, for a reason unrelated to what this test is
   // pinning. Seed it through the same restore funnel the round-trip test above
   // uses.
+  // ★★ WHAT THIS DOES NOT CATCH, so the seeding is not credited with more than
+  // it buys: adding `documentAssets` to `getVersionPayload`'s object AND its dep
+  // array turns this RED (the deps move, the callback is rebuilt, the key
+  // appears). Adding it to the OBJECT ALONE does not — the mount-time
+  // `useCallback` closure survives, its captured `documentAssets` is undefined,
+  // and the additive key stays omitted with this test green. That mutant is
+  // unreachable in practice only because `react-hooks/exhaustive-deps` is FATAL
+  // here (`--max-warnings=0`), i.e. the lint gate is load-bearing for this pin.
   // ★★ `documentAssets` is ALSO additive-only, so it is not enough to leave it
   // unseeded and check for absence — an empty `documentAssets` would stay out
   // of the payload even if `getVersionPayload` were changed to pass it through.

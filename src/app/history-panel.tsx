@@ -7,6 +7,7 @@
 import { useCallback, useMemo, useRef, useState } from "react";
 import { t } from "./i18n";
 import type { Lang } from "./i18n";
+import { logDiag } from "./diagnostics";
 import { useDisplayTimezone } from "./display-timezone-context";
 import { TextButton } from "./text-button";
 import { formatDisplayTimestamp } from "./tz-display";
@@ -263,7 +264,15 @@ export function HistoryPanel({ lang, versions, busy, onCaptureNow, loadDiff, res
     // a row nothing reverted. Unreachable through the rendered UI today — see
     // `recordSelection`.
     const sel = recordSelection(key, diff ?? []);
-    if (!sel) return;
+    // ★ Bailing silently is the failure mode NEXT DOOR to the one this guard
+    // removes: a control that does nothing and says nothing. No toast, because
+    // the whole premise is that no user can reach this — but a third caller is
+    // exactly what the guard exists for, so leave it a trace in the diagnostics
+    // ring rather than none at all.
+    if (!sel) {
+      logDiag("warn", "version-restore-refused-key", { key });
+      return;
+    }
     void runExclusiveRestore(() => restore(rf.id, sel, rf.label)).then((ok) => {
       // Only clear the compare/selection context on a real success — a failed
       // restore (surfaced via onError) leaves it intact so the user can retry.

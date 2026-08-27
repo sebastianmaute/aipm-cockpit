@@ -245,10 +245,16 @@ describe("applyRestore over array-typed slices", () => {
     // ★★ SEVENTEEN SLICES, FIFTEEN COVERABLE. `documents` and `documentVersions`
     // carry `restorable: false`, and `applyRestore` hits that guard BEFORE the
     // kind branch — so neither can ever reach `mergeFields` and neither can be
-    // corrupted here whatever `kind` its spec declares. Measured: flipping
-    // `documents` to `"singleton"` leaves this test GREEN. They stay in the
+    // corrupted here whatever `kind` its spec declares. They stay in the
     // fixture because the sibling completeness test requires every list spec, and
     // because `restorable` could be dropped from either row tomorrow.
+    // ★★ "FIFTEEN COVERABLE" IS DERIVED, NOT MEASURED — 17 list specs minus the
+    // two `restorable: false` rows — and exactly ONE flip was ever run:
+    // `documents` to `"singleton"`, which left this test GREEN and is what the
+    // sentence above rests on. Fifteen slices were NOT individually mutated. Read
+    // the number as the size of the set this test is meant to cover, never as a
+    // count of proofs; if you need the stronger claim, flip each of the fifteen
+    // and record the count here.
     const version = ws(arraysFixture("Old"));
     const now = ws(arraysFixture("New"));
     const changes = diffWorkspaces(version, now);
@@ -263,17 +269,22 @@ describe("applyRestore over array-typed slices", () => {
   // to close, one level up. This pins the fixture to the registry so a new
   // `kind: "list"` spec fails HERE, naming itself, on the day it lands.
   it("seeds every kind:'list' slice the registry declares", () => {
-    const older = arraysFixture("Old") as Record<string, unknown>;
-    const newer = arraysFixture("New") as Record<string, unknown>;
-    // ★★★ PRESENCE IS NOT COVERAGE. `Object.keys` alone counts `foo: []` and a
-    // record identical on both sides as seeded — and both produce NO diff change,
-    // so `applyRestore` never walks the slice and the two guards this fixture
-    // feeds go blind for it while this test stays green. That is ONE lazy seed
-    // re-opening §255 and §261 together, not the two mistakes §261 used to claim.
-    const seeded = new Set(Object.keys(older).filter((k) => {
-      const v = older[k];
-      return Array.isArray(v) && v.length > 0 && JSON.stringify(v) !== JSON.stringify(newer[k]);
-    }));
+    // ★★★ PRESENCE IS NOT COVERAGE, and neither is DIFFERENCE. `Object.keys`
+    // alone counts `foo: []` and a record identical on both sides as seeded;
+    // both produce NO diff change, so `applyRestore` never walks the slice and
+    // the two guards this fixture feeds go blind for it while this test stays
+    // green. That is ONE lazy seed re-opening §255 and §261 together.
+    // ★★ A `JSON.stringify` inequality is the same trap one step in: the
+    // property needed is "yields at least one VersionChange", and the two come
+    // apart for `IGNORED_FIELDS` — a builder differing ONLY in
+    // `localModifiedAt` (optional on every list entity) compares unequal,
+    // produces no change, and would be reported as seeded. So ask the differ
+    // itself rather than any proxy for it.
+    const seeded = new Set(
+      diffWorkspaces(ws(arraysFixture("Old")), ws(arraysFixture("New")))
+        .filter((c) => c.kind === "list")
+        .map((c) => c.collection),
+    );
     const missing = COLLECTION_SPECS
       .filter((s) => s.kind === "list")
       .map((s) => s.key)

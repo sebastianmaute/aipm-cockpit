@@ -91,8 +91,16 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   { key: "disciplines", label: "Disciplines", kind: "list", nameField: "name" },
   { key: "grades", label: "Grades", kind: "list", nameField: "name" },
   { key: "budgets", label: "Budget buckets", kind: "list", nameField: "name" },
-  { key: "absences", label: "Absences", kind: "list", nameField: "note" },
-  { key: "shifts", label: "Shifts", kind: "list", nameField: "note" },
+  // ★★ `note` is OPTIONAL on both while `assignee` is REQUIRED, so naming these
+  //  by `note` alone left a record with no note reading `#id` while every other
+  //  absence surface in the app names it by person. That is the same shape as
+  //  the five repairs above — a non-identifying field chosen over an
+  //  identifying one — so `note` stays the PREFERRED label (it is what a user
+  //  wrote about this row) with `assignee` as the fallback that guarantees one.
+  { key: "absences", label: "Absences", kind: "list", nameField: "note",
+    nameOf: (r) => str(r.note).trim() || str(r.assignee) },
+  { key: "shifts", label: "Shifts", kind: "list", nameField: "note",
+    nameOf: (r) => str(r.note).trim() || str(r.assignee) },
   { key: "plan", label: "Resource plan", kind: "singleton" },
   { key: "status", label: "Project status", kind: "singleton" },
   { key: "project", label: "Project info", kind: "singleton" },
@@ -164,8 +172,13 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
   return out;
 }
 /** ★★ `nameOf` takes precedence over `nameField` but FALLS THROUGH to it on a
- *  blank result — that fall-through is what keeps a resource with neither a
- *  first nor a last name labelled `#id` rather than an empty string. */
+ *  blank result. ★ Which specs actually EXERCISE that fall-through is worth
+ *  knowing, because an earlier revision of this docstring named the wrong one:
+ *  `resources` and `roles` carry `nameOf` and NO `nameField`, so a resource
+ *  with neither a first nor a last name reaches the trailing `#id` directly and
+ *  never touches the fall-through at all. `absences`/`shifts` are the pair that
+ *  do exercise it — they declare both. In every case a blank result ends at
+ *  `#id` rather than at an empty string, which is the property that matters. */
 function recordLabel(
   rec: Record<string, unknown> | undefined,
   id: RecordId,

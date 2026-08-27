@@ -18564,7 +18564,8 @@ by writing the decision down, NOT by adding the slice.
 the user-visible asymmetry below now live in [`docs/AGENTS/documents.md`](AGENTS/documents.md)'s
 **"Asset images (S3c-1)"** section, which is where the rest of this slice's lifecycle is already
 documented. ★★ The record went THERE rather than to the call site because
-`task-manager.tsx` sits at its file-size baseline with one line of headroom (§262), so the
+`task-manager.tsx` had exactly one line of headroom against its file-size baseline and this slice
+SPENT it — the file now measures its baseline exactly, which is what §262 records — so the
 `getVersionPayload` site keeps a one-line pointer to that section and this entry, and
 `"captures documents but not documentAssets"` pins the payload's key set so a future reader
 adding the slice by hand fails a test rather than shipping the cost silently.

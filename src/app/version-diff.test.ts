@@ -206,6 +206,37 @@ describe("record labels", () => {
     expect(change?.recordLabel).toBe("Discipline Dev Grade Senior");
   });
 
+  // Pins the BRANCH the `num` sentinel's comment is about — an unresolvable
+  // discipline/grade misses both lookups, `roleLabel` returns "n/a n/a", and
+  // that is non-blank, so `recordLabel` takes it as a real name and the row does
+  // NOT fall back to `#id`. That choice is what a user sees and nothing read it
+  // before.
+  // ★★ It does NOT pin the `-1` ITSELF, and reading it as though it did is the
+  // trap: `disciplines`/`grades` are EMPTY here, so `find` misses whatever `num`
+  // returns and the assertion holds for `0` or `NaN` just as well. The property
+  // `-1` actually buys — a value no minted id can collide with — needs a fixture
+  // carrying a record whose id equals the substitute, which this is not.
+  it("labels a role with unresolvable ids as n/a rather than #id", () => {
+    const older = { disciplines: [], grades: [], roles: [roleRec(1, "Old")] };
+    const newer = { disciplines: [], grades: [], roles: [roleRec(1, "New")] };
+    const change = diffWorkspaces(ws(older), ws(newer)).find((c) => c.collection === "roles");
+    expect(change?.recordLabel).toBe("n/a n/a");
+  });
+
+  // `absences`/`shifts` are the only specs declaring BOTH a `nameOf` and a
+  // `nameField`, so they are the only ones that exercise the fall-through — and
+  // the reason they declare it is that `note` is optional while `assignee` is
+  // required, which is what used to leave a note-less absence reading `#id`.
+  it("names a note-less absence and shift by assignee, not #id", () => {
+    const older = { absences: [absenceRec(1, "Old")], shifts: [shiftRec(1, "Old")] };
+    const newer = {
+      absences: [{ ...absenceRec(1, "New"), note: undefined }],
+      shifts: [{ ...shiftRec(1, "New"), note: undefined }],
+    };
+    const labels = diffWorkspaces(ws(older), ws(newer)).map((c) => `${c.collection}:${c.recordLabel}`);
+    expect(labels).toEqual(["absences:Ann", "shifts:Ann"]);
+  });
+
   // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do
   // not carry lands here — the fallback to `#id` is the only symptom, and
   // nothing else in the suite reads it.
