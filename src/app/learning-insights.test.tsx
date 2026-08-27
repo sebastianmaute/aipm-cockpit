@@ -66,6 +66,12 @@ describe("LearningInsights", () => {
     // pass either way and make this test vacuous — if you change this
     // fixture, keep two why-keys under one shared source or this stops
     // proving anything.
+    //
+    // Measured, not merely reasoned: swapping this fixture for two DIFFERENT
+    // sources with one why-key each ("milestone:actionMilestoneWhyOverdue" +
+    // "task-attention:actionTaskWhyUnassigned") passes under BOTH the correct
+    // fix and the naive `sourceLabel(lang, kind)`-alone one — that shape is
+    // vacuous here, which is why it is not what this fixture seeds.
     expectRowUniqueNames({
       minControls: 3,
       roles: ["combobox", "button"],

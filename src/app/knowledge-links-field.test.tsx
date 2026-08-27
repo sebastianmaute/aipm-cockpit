@@ -64,6 +64,9 @@ describe("KnowledgeLinksField", () => {
   // never a url). Whole-document scope: the only other control is the
   // trailing "Add from SharePoint" button, which cannot collide with either
   // per-row name.
+  //
+  // Mutation-proved: anchor -> bare `t(lang,"documentsOpen")` gives "Open in new tab" x2.
+  // Mutation-proved: Remove button -> old row-qualified-only shape gives "Remove link – Spec.docx" x2.
   it("keeps every per-row control distinct when two links share a display name", () => {
     const dupes: KnowledgeLink[] = [
       { id: "1", name: "Spec.docx", url: "https://c.sharepoint.com/a", kind: "file" },

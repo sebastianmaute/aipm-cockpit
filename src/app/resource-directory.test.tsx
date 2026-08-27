@@ -272,6 +272,10 @@ describe("ResourceDirectory", () => {
   // row renders: the name button, the row checkbox, and the role <select>
   // (a combobox). Whole-document scope: this pane's toolbar carries no
   // control reusing a per-row name, so nothing here can mask a broken row.
+  //
+  // Mutation-proved: role select -> old `` `Role for ${resourceDisplayName(resource)}` `` gives "Role for Dana Ames" x2.
+  // Mutation-proved: name button -> aria-label removed entirely gives "Dana Ames" x2.
+  // Mutation-proved: row checkbox -> raw `resourceDisplayName(r)` gives "Select Dana Ames" x2.
   it("keeps every per-row control distinct when two resources share a display name", () => {
     const dupes: Resource[] = [
       { id: 1, firstName: "Dana", lastName: "Ames", roleId: null, utilizationMode: "percent", utilization: {} },

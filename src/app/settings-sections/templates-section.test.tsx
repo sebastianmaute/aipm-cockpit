@@ -47,6 +47,9 @@ describe("TemplatesSection", () => {
   // task's own enumeration. Both now key off a shared per-list token. Seed
   // two user templates with the SAME name via the real save flow (there is no
   // `userTemplates` prop to seed directly — it comes from the settings hook).
+  //
+  // Mutation-proved: rename input -> bare constant gives "Template name" x2.
+  // Mutation-proved: Delete button -> aria-label removed entirely gives "Delete" x2.
   it("keeps every per-row control distinct when two user templates share a name", () => {
     render(<TemplatesSection lang="en-US" />, { wrapper });
     const nameInput = screen.getByLabelText(t("en-US", "templateSaveName"));
