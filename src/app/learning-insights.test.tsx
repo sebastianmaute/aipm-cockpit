@@ -51,6 +51,21 @@ describe("LearningInsights", () => {
     };
     render(<LearningInsights {...baseProps()} state={state} now={0} />);
     // Measured: 2 override comboboxes + 1 Reset button = 3.
+    //
+    // `requireCollisionSeed` is deliberately OMITTED: it throws unless two
+    // rendered names collide, and nothing here is SUPPOSED to collide once
+    // the fix is correct — so the guard could never fire and would only add
+    // ceremony. What makes this assertion non-vacuous instead is the fixture
+    // itself: "milestone:actionMilestoneWhyOverdue" and
+    // "milestone:actionMilestoneWhyAtRisk" are two REAL why-keys sharing one
+    // source, chosen because `sourceLabel(lang, kind)` alone maps both to the
+    // same string ("Milestone") — this is the minimal case that fails under
+    // the naive fix and passes under the correct one (see mutation 1 in the
+    // commit that added this test). A fixture with only one why-key per
+    // source (e.g. two different sources, or one milestone kind alone) would
+    // pass either way and make this test vacuous — if you change this
+    // fixture, keep two why-keys under one shared source or this stops
+    // proving anything.
     expectRowUniqueNames({
       minControls: 3,
       roles: ["combobox", "button"],
