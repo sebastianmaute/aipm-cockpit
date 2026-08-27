@@ -157,19 +157,32 @@ Append to `src/app/rich-text-plain.test.ts`:
 // The cost is that those 11 characters are raw markup surfacing as prose.
 describe("htmlPlainProjection — the bounded attribute run", () => {
   it("moves exactly one shape, in the safe direction", () => {
-    expect(htmlPlainProjection('<img alt="a<b" data-asset-id="real">')).toBe('b" data-asset-id="real">');
+    // Today this projects "" — the unbounded run swallows from the first `<`
+    // through to the final `>`. Bounded, the first opener no longer matches at
+    // all (there is no `>` before the next `<`), the SECOND one does, and what
+    // is left is the 11 characters of the first tag's head.
+    expect(htmlPlainProjection('<img alt="a<b" data-asset-id="real">')).toBe('<img alt="a');
   });
 
-  it("leaves the shapes a > inside an attribute produces byte-identical", () => {
-    for (const html of [
-      '<img alt="a>b" data-asset-id="real">',
-      '<img alt="><c d" data-asset-id="real">',
-      '<img data-asset-id="real" alt="><c d">',
-      "<p>plain</p>",
-      "<p>a &lt; b</p>",
-      "<ul><li><p>one</p></li><li><p>two</p></li></ul>",
-    ]) {
-      expect(htmlPlainProjection(html)).toBe(htmlPlainProjection(html));
+  // ★★★ THESE ARE THE PRE-CHANGE VALUES, MEASURED, AND THEY ARE THE POINT OF
+  // THE TEST: everything except the one shape above must come out byte-identical
+  // after the bound. Measured 2026-08-27 against the UNFIXED matchers. Do NOT
+  // write this as `expect(htmlPlainProjection(h)).toBe(htmlPlainProjection(h))`
+  // — a self-comparison passes against ANY implementation and pins nothing.
+  it("leaves every other shape byte-identical", () => {
+    const BEFORE: ReadonlyArray<readonly [string, string]> = [
+      // A `>` inside an attribute ALREADY terminates the run today, so this row
+      // surfaces markup as prose before and after. It is here to prove the
+      // change does not alter that, not to endorse it.
+      ['<img alt="a>b" data-asset-id="real">', 'b" data-asset-id="real">'],
+      ['<img alt="><c d" data-asset-id="real">', ""],
+      ['<img data-asset-id="real" alt="><c d">', ""],
+      ["<p>plain</p>", "plain"],
+      ["<p>a &lt; b</p>", "a < b"],
+      ["<ul><li><p>one</p></li><li><p>two</p></li></ul>", "one two"],
+    ];
+    for (const [html, expected] of BEFORE) {
+      expect(htmlPlainProjection(html)).toBe(expected);
     }
   });
 });
@@ -209,9 +222,16 @@ npx vitest run src/app/rich-text-plain.test.ts --maxWorkers=2 > "$L/t2-red.log" 
 grep -E "stays bounded|moves exactly one|Tests " "$L/t2-red.log"
 ```
 
-Expected: **EXIT=1**. `stays bounded on unterminated inline openers` and `... block openers` fail with a measured value in the thousands of ms. `moves exactly one shape` fails, because today the unbounded run swallows through to the final `>` and projects `""`.
+Expected: **EXIT=1**, with exactly three failures:
+
+- `stays bounded on unterminated inline openers` and `... block openers` — a measured value in the thousands of ms.
+- `moves exactly one shape` — today the unbounded run swallows through to the final `>` and projects `""`, so the assertion sees `""` against `'<img alt="a'`.
+
+`leaves every other shape byte-identical` must **PASS in the red phase** — those are the pre-change values. If it is red here, the measurement in the plan is wrong; report before going further.
 
 Record the actual failing numbers in the task notes — they are the evidence the budget is not vacuous.
+
+★★ **If `moves exactly one shape` is still red AFTER Step 3, do NOT edit the source to match the literal.** That literal was derived by reading the pipeline, not measured against the bounded matcher. A mismatch means the derivation is wrong — report the actual value and stop.
 
 - [ ] **Step 3: Bound both matchers**
 
@@ -316,12 +336,17 @@ describe("markTaskItems — complexity", () => {
     expect(performance.now() - started).toBeLessThan(2000);
   });
 
+  // The pattern consumes the `<li …>` opener and the OPTIONAL `<p>` that
+  // follows it — nothing else. The `</p>` and `</li>` are left in place for the
+  // tag strip downstream to remove, so they belong in these expectations.
+  // Measured 2026-08-27 against the unfixed pattern; the bound must not move
+  // either value.
   it("still marks a real task item, checked and unchecked", () => {
     expect(markTaskItems('<li data-type="taskItem" data-checked="true"><p>done</p></li>')).toBe(
-      "[x] done</li>",
+      "[x] done</p></li>",
     );
     expect(markTaskItems('<li data-type="taskItem" data-checked="false"><p>open</p></li>')).toBe(
-      "[ ] open</li>",
+      "[ ] open</p></li>",
     );
   });
 });
@@ -381,7 +406,11 @@ it is on both projection paths. Found while planning, not by a gate."
 
 ### Task 4: Make `IMG_TAG_ASSET_ID_RE` non-backtracking
 
-`<` is already excluded here, so a character class cannot help: the cost is the greedy alternation re-splitting **within** one unterminated tag region. JavaScript has no possessive quantifier, so the fix is atomic-group emulation — `(?=(X*))\1` — which captures the longest run once and refuses to give it back.
+`<` is already excluded here, so a character class cannot help: the cost is the two greedy runs **nested** around the id, re-splitting within one unterminated tag region. The fix is a **guard lookahead** asserting the tag actually closes, placed immediately after `<img\b`. If there is no `>`, the guard fails once in linear time and the match aborts before either run starts; if there is one, the runs are bounded by the tag and the guard costs a single extra scan of it.
+
+★★★ **THIS TASK WAS RE-DERIVED ON 2026-08-27 AND THE FIRST VERSION WAS DANGEROUS.** The plan originally prescribed atomic-group emulation, `(?=(X*))\1`, on both runs. Measured: **it matches nothing at all.** The atomic run swallows the whole attribute list and then refuses to give any of it back, so the `data-asset-id="` that must follow can never match — `<img data-asset-id="x">` yields zero matches. Shipping it would have silently stopped every asset image from being recognised, which is §250's exact class of defect. Verified against the shipped pattern on nine fixtures: shipped `["x"]`, atomic `[]`. **Do not reintroduce the atomic form.**
+
+★★ The guard also keeps the **capture numbering unchanged** — the id stays group **1**. The atomic version moved it to group 2, and a reader left on `m[1]` would have got the whole attribute run: a non-empty string, so a truthiness check passes and it fails silently. That whole hazard is now absent, which is a second reason to prefer this form.
 
 **Files:**
 - Modify: `src/app/document-asset-patterns.ts` (`IMG_TAG_ASSET_ID_RE`, line 159)
@@ -398,9 +427,10 @@ Append inside the existing `describe("document-asset-patterns — complexity", .
   // with a ~50x margin — so it cannot pin the pattern's own complexity. This
   // one asserts the MATCHER is linear, at a size no stored block can reach, and
   // it is the only thing that goes red if the quadratic returns. Measured on
-  // the shipped pattern: 112 ms at 32 KB, 388 at 64, 1548 at 128, 8029 at 256
-  // — exponent ~2.1. Closing the tag is 1.0 ms at 256 KB, so the trigger is
-  // specifically the missing `>`.
+  // the shipped pattern 2026-08-27: 143 ms at 32 KB, 529 at 64, 1961 at 128,
+  // 16098 at 256 — an exponent above 2. The guarded pattern is 0.2 / 0.4 / 0.6
+  // / 2.5 ms across the same four sizes. These are BUDGET numbers off one
+  // machine under load: re-measure rather than trusting the cells.
   it("IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids", () => {
     const unit = 'data-asset-id="x" ';
     const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
@@ -417,39 +447,41 @@ npx vitest run src/app/document-asset-patterns.differential.test.ts -t "linear o
 grep -E "linear on an unterminated|Tests " "$L/t4-red.log"
 ```
 
-Expected: EXIT=1, measured value ~8000 ms against a 2000 ms ceiling. Record the number.
+Expected: EXIT=1, measured value in the many thousands of ms against a 2000 ms ceiling. Record the number.
 
-- [ ] **Step 3: Make the runs atomic**
+- [ ] **Step 3: Add the guard lookahead**
 
 In `src/app/document-asset-patterns.ts`:
 
 ```ts
 export const IMG_TAG_ASSET_ID_RE =
-  /<img\b(?=((?:[^<>"']|"[^"]*"|'[^']*')*))\1(?<![-\w])data-asset-id="([^"]*)"(?=((?:[^<>"']|"[^"]*"|'[^']*')*))\3>/g;
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
 ```
 
-**The capture group numbering changed and it matters.** The id is now group **2**, not group 1. Groups 1 and 3 are the atomic-emulation captures. Every reader of this pattern must be checked — search for it and confirm each use reads `m[2]`:
+The only change is the inserted `(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)`. Both runs, the lookbehind and the capture are untouched, so **the id remains capture group 1 and no call site changes.** Confirm that is still true rather than assuming it — the readers should need no edit:
 
 ```bash
 grep -rn "IMG_TAG_ASSET_ID_RE" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
 ```
 
-Update each match site accordingly.
-
 Add to the pattern's docstring, above the existing `★ The quantifier stays GREEDY` paragraph:
 
 ```
- * ★★★ THE TWO RUNS ARE ATOMIC — `(?=(X*))\1`, not `X*` — and that is what makes
- * this linear. Excluding `<` (which it already does) bounds a scan to one tag
- * REGION; it does nothing about the greedy alternation re-splitting inside that
- * region when the closing `>` never arrives, which is quadratic: measured 112 ms
- * at 32 KB rising to 8029 at 256 KB, exponent ~2.1, while the same input with
- * the tag CLOSED costs 1.0 ms. JavaScript has no possessive quantifier, so the
- * lookahead-plus-backreference form is the only way to say "take the longest run
- * and never give it back".
- * ★★★ CONSEQUENCE FOR CALLERS: THE ID IS CAPTURE GROUP 2. Groups 1 and 3 are the
- * atomic captures. A reader still using `m[1]` gets the whole attribute run and
- * fails silently — it is a non-empty string, so a truthiness check passes.
+ * ★★★ THE GUARD LOOKAHEAD IS WHAT MAKES THIS LINEAR. Excluding `<` (which the
+ * runs already do) bounds a scan to one tag REGION; it does nothing about the
+ * two runs NESTED around the id re-splitting inside that region when the closing
+ * `>` never arrives. Measured 2026-08-27: 143 ms at 32 KB rising to 16098 at
+ * 256 KB, against 2.5 ms for the guarded form at the same size. The guard fails
+ * once, in linear time, on a tag that never closes — so neither run ever starts.
+ * ★★★ ATOMIC-GROUP EMULATION — `(?=(X*))\1` — WAS TRIED HERE AND MATCHES
+ * NOTHING. The atomic run swallows the attribute list and will not give it back,
+ * so the `data-asset-id="` that must follow can never match: `<img
+ * data-asset-id="x">` yields zero matches, i.e. every asset image silently stops
+ * being recognised. Do NOT reintroduce it.
+ * ★ The id is capture group 1 and the guard is deliberately non-capturing so it
+ * stays that way. A renumbering here fails SILENTLY — a reader left on `m[1]`
+ * would get the whole attribute run, which is a non-empty string, so a
+ * truthiness check still passes.
 ```
 
 - [ ] **Step 4: Run the full asset-pattern suites**
@@ -485,15 +517,19 @@ Still in `src/app/document-asset-patterns.differential.test.ts`, the cap-sized A
 npx vitest run src/app/document-asset-patterns.differential.test.ts --maxWorkers=2 > "$L/t4-final.log" 2>&1; echo "EXIT=$?"
 grep -E "Test Files|Tests " "$L/t4-final.log"
 git ls-files --eol src/app/document-asset-patterns.ts   # expect i/lf w/crlf
-git commit --only src/app/document-asset-patterns.ts src/app/document-asset-patterns.differential.test.ts -m "fix: make IMG_TAG_ASSET_ID_RE's attribute runs atomic (§253)
+git commit --only src/app/document-asset-patterns.ts src/app/document-asset-patterns.differential.test.ts -m "fix: guard IMG_TAG_ASSET_ID_RE against an unterminated tag (§253)
 
 Excluding < already bounded the scan to one tag region; the residual quadratic
-was the greedy alternation re-splitting INSIDE that region when the closing >
-never arrives. 8029 ms at 256 KB, against 1.0 ms with the tag closed. JS has no
-possessive quantifier, so the runs use (?=(X*))\\1.
+was the two runs nested around the id re-splitting INSIDE that region when the
+closing > never arrives. 16098 ms at 256 KB, against 2.5 ms guarded.
 
-The id moves to capture group 2. Also corrects the cap-sized row's comment,
-whose stated mechanism was the inverse of the real one."
+The fix is a non-capturing lookahead asserting the tag closes, so the match
+aborts before either run starts. Capture numbering is unchanged and no call
+site moves. Atomic-group emulation was tried first and matches nothing at all,
+because the atomic run will not give back the attribute list the id sits in.
+
+Also corrects the cap-sized row's comment, whose stated mechanism was the
+inverse of the real one."
 ```
 
 ---
@@ -554,6 +590,19 @@ describe("degradeToPlain", () => {
     expect(degradeToPlain("<p>abc</p>", 0)).toBe("");
     expect(degradeToPlain("<p>abc</p>", -1)).toBe("");
   });
+
+  // ★★★ THIS IS THE OVERFLOW PATH, so the one input guaranteed to reach it is an
+  // oversized one. ASSET_IMG_TAG's two runs sit nested around the id, which is
+  // quadratic on an <img that never closes unless the guard lookahead is there.
+  // Measured 2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at
+  // 128. Deleting `(?=[^<>]*>)` from the pattern turns this red.
+  it("stays bounded on an unterminated <img carrying repeated ids", () => {
+    const unit = 'data-asset-id="x" ';
+    const input = "<img " + unit.repeat(Math.round((128 * 1024) / unit.length));
+    const started = performance.now();
+    degradeToPlain(input, 100);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
 });
 ```
 
@@ -585,8 +634,20 @@ const DEGRADE_IMG_CAP = 20;
 /** An `<img>` carrying a `data-asset-id`, for carrying images across a degrade.
  *
  *  ★ Bounded like every other matcher in this file — `[^<>]*`, so a scan cannot
- *  cross a tag boundary. See TAG's docstring for the measurement. */
-const ASSET_IMG_TAG = /<img\b[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
+ *  cross a tag boundary. See TAG's docstring for the measurement.
+ *
+ *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING AND WAS ADDED BEFORE THIS PATTERN
+ *  EVER SHIPPED. Bounding the runs to one tag REGION is not enough on its own:
+ *  the two `[^<>]*` runs sit NESTED around the id, so on an `<img` that never
+ *  closes, run 2 re-scans to end of input at every position run 1 gives back —
+ *  the same quadratic IMG_TAG_ASSET_ID_RE carries, in a new pattern. Measured
+ *  2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at 128, i.e.
+ *  4x per doubling. With it: 0.0 / 0.1 / 0.2 ms, and identical matches on every
+ *  fixture. This matters more here than anywhere else in the file, because this
+ *  is the OVERFLOW path — the one input that reaches it is by definition
+ *  oversized. Pinned by the complexity test in rich-text-plain.test.ts. */
+const ASSET_IMG_TAG =
+  /<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
 
 /** The SINGLE overflow path: flatten to text, truncate, carry the images.
  *
