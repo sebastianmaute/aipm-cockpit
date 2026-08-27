@@ -239,7 +239,9 @@ describe("record labels", () => {
   // and only the aria-labels get occurrence tokens — so `assignee` alone would
   // make two note-less absences for one person visually indistinguishable, which
   // is a WORSE label than the `#id` this replaced rather than a better one.
-  // Two records, one person, no notes: the two rows must still differ.
+  // Two records, one person, no notes, DIFFERENT start dates: the two rows must
+  // still differ. ★ Same-day is deliberately NOT covered, because it still
+  // collides — see the spec comment; this pins the case the date actually fixes.
   it("keeps two note-less absences for one person distinguishable", () => {
     const bare = (id: number, startDate: string) =>
       ({ ...absenceRec(id, "Old"), note: undefined, startDate });
@@ -247,7 +249,6 @@ describe("record labels", () => {
     const newer = { absences: [] };
     const labels = diffWorkspaces(ws(older), ws(newer)).map((c) => c.recordLabel);
     expect(labels).toEqual(["Ann · 2026-04-01", "Ann · 2026-05-28"]);
-    expect(new Set(labels).size).toBe(2);
   });
 
   // ★★★ BUG-CLASS GUARD. Any spec declaring a name source that its records do

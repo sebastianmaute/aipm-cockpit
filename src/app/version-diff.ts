@@ -103,7 +103,10 @@ export const COLLECTION_SPECS: CollectionSpec[] = [
   //  aria-labels ONLY. So `assignee` alone would render two note-less absences
   //  by the same person as two visually IDENTICAL rows, where the `#id` this
   //  replaces was at least distinct. `startDate` is required on `Absence`, so
-  //  person+date is always available and always identifying.
+  //  person+date is always AVAILABLE. ★ It is not always UNIQUE — two untitled
+  //  absences for one person STARTING THE SAME DAY still collide, and no field
+  //  on the record separates them. That is a narrower residue than the one this
+  //  closes, not its elimination.
   { key: "absences", label: "Absences", kind: "list",
     nameOf: (r) => str(r.note).trim()
       || [str(r.assignee), str(r.startDate)].filter(Boolean).join(" · ") },
@@ -188,13 +191,12 @@ function fieldChanges(before: Record<string, unknown>, after: Record<string, unk
  *  blank result — and NO SPEC EXERCISES THAT FALL-THROUGH TODAY. Two successive
  *  revisions of this docstring claimed one did, each naming a different pair, so
  *  the claim is worth stating in the negative: every `nameOf` spec carries no
- *  `nameField`, and a spec declaring BOTH would be dead config, because any
- *  input for which the `nameField` branch could return a name is one for which
- *  `nameOf` already returned it and this function returned early. A blank result
- *  ends at `#id` rather than at an empty string, which is the property that
- *  matters, and it reaches `#id` directly. ★ Reproduce before re-asserting
- *  otherwise: `grep -n 'nameOf:' src/app/version-diff.ts` against
- *  `grep -n 'nameField:' src/app/version-diff.ts` — the two sets are disjoint. */
+ *  `nameField`. A blank result ends at `#id` rather than at an empty string,
+ *  which is the property that matters, and it reaches `#id` directly.
+ *  ★ Settle it by READING `COLLECTION_SPECS` above, not by grepping the two
+ *  field names: a row declaring both puts them on different LINES, so a
+ *  line-number comparison reports "disjoint" either way and cannot see the
+ *  state this paragraph denies. */
 function recordLabel(
   rec: Record<string, unknown> | undefined,
   id: RecordId,

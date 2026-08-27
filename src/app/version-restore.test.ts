@@ -249,9 +249,9 @@ describe("applyRestore over array-typed slices", () => {
     // fixture because the sibling completeness test requires every list spec, and
     // because `restorable` could be dropped from either row tomorrow.
     // ★★ "FIFTEEN COVERABLE" IS DERIVED, NOT MEASURED — 17 list specs minus the
-    // two `restorable: false` rows — and exactly ONE flip was ever run:
-    // `documents` to `"singleton"`, which left this test GREEN and is what the
-    // sentence above rests on.
+    // two `restorable: false` rows. The flips that WERE run against this test are
+    // recorded where the rule they establish lives, in `COLLECTION_SPECS`'
+    // array-kind comment (`version-diff.ts`); do not restate a count here.
     const version = ws(arraysFixture("Old"));
     const now = ws(arraysFixture("New"));
     const changes = diffWorkspaces(version, now);
