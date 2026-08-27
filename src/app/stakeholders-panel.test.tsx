@@ -396,13 +396,28 @@ describe("row-unique names", () => {
   // so this renders inline with those wired, rather than growing the shared
   // helper with parameters no other caller needs.
   //
-  // Whole-document scope (no `scope` passed): the panel's own known chrome
-  // collision — the `stakeholderFieldName` translation naming both the
-  // toolbar's PaneSearchInput ariaLabel (a textbox) and the Name column's
-  // SortResizeTh label (a button) — cannot fire here. `roles` below is
-  // ["button", "checkbox"], which excludes "textbox", so that pair can never
-  // both surface as candidates for this assertion; it is the roles list, not
-  // the whole-document scope, doing the exclusion.
+  // Whole-document scope (no `scope` passed): the `stakeholderFieldName`
+  // translation names THREE controls in this panel, and the two exclusions
+  // keeping them apart are different mechanisms, not one rule applied twice.
+  //   - PaneSearchInput's `aria-label` renders `<input type="search">`,
+  //     which computes to role `searchbox` — excluded because `roles` below
+  //     is ["button", "checkbox"], neither of which is "searchbox".
+  //   - The Name column's SortResizeTh renders a sort `button` labelled
+  //     "Name" — a real `button`, IN `roles`, but it is the only one, so it
+  //     never collides with itself.
+  //   - ColumnConfigPopover's per-column checklist (STAKEHOLDER_CONFIG_COLS)
+  //     renders a `<Checkbox>` inside a `<label>` reading "Name" for the
+  //     "name" column — a `checkbox`, also IN `roles`, and it WOULD collide
+  //     with the sort button's "Name" if both were mounted. It is out of
+  //     scope only because ColumnConfigPopover's `open` state defaults to
+  //     `false` and `PopoverPanel` returns `null` while closed, so this test
+  //     never mounts it — not because of anything in `roles`. A test that
+  //     opens that popover before asserting here would need to re-derive
+  //     this collision, not assume it away.
+  //
+  // In short: `roles` protects against the search box; the popover's
+  // closed-by-default state protects against the third control. Different
+  // mechanisms, and only one of them is visible in this file.
   it("keeps every per-row control distinct when two rows share a name", () => {
     const stakeholders = [
       sampleStakeholder({ id: 1, name: "Dana" }),
