@@ -23,6 +23,7 @@ vi.mock("./use-ms-auth", () => ({
 import { ProjectForm } from "./project-form";
 import { type Contact } from "./contacts";
 import { type ProjectMeta, type Resource } from "./types";
+import { t } from "./i18n";
 
 const STAKEHOLDERS = ["Alice Smith", "Bob Jones"];
 const ADDRESS_BOOK: Contact[] = [
@@ -186,7 +187,7 @@ describe("ProjectForm", () => {
     fillRequired();
 
     fireEvent.change(contactPicker(), { target: { value: "Vera Vendor" } });
-    fireEvent.change(screen.getByPlaceholderText("email"), {
+    fireEvent.change(screen.getByPlaceholderText(t("en-US", "email")), {
       target: { value: "vera@vendor.com" },
     });
     fireEvent.click(screen.getByRole("button", { name: "Add" }));
