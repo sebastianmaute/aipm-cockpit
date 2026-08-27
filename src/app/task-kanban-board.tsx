@@ -30,6 +30,15 @@ interface TaskKanbanProps {
    *  card. Optional (defaults empty) so lightweight callers/tests can omit it;
    *  the live board threads the same map the table rows use. */
   resourcesById?: ReadonlyMap<number, Resource>;
+  /** Row-unique display tokens for `tasks`, keyed by task id. Built by the list
+   *  owner (`tasks-section.tsx`) because uniqueness is a property of the
+   *  rendered list and a card cannot see its siblings.
+   *  ★★ REQUIRED, deliberately — mirrors `rowToken` on TaskStatusSelect: an
+   *  optional prop defaulting to an empty map would silently reinstate the
+   *  WCAG 2.4.6 collision this branch exists to remove, and no gate can see
+   *  a duplicate accessible name to catch that regression. Required means
+   *  tsc enumerates every caller. */
+  tokens: ReadonlyMap<number, string>;
   /** Per-task RAID / change references (same maps the table rows use). */
   raidByTask?: Map<number, RaidItem[]>;
   changeByTask?: Map<number, ChangeItem[]>;
@@ -75,6 +84,7 @@ export function TaskKanban({
   today = "",
   holidaySet = EMPTY_HOLIDAYS,
   resourcesById = EMPTY_RESOURCE_LOOKUP,
+  tokens,
   jiraProjectKey = "",
   jiraExtraProjects = EMPTY_EXTRA_PROJECTS,
   raidByTask,
@@ -129,6 +139,13 @@ export function TaskKanban({
                     today={today}
                     holidaySet={holidaySet}
                     resourcesById={resourcesById}
+                    // `cols` is `groupByStatus(tasks)` — a partition of the
+                    // `tasks` prop, and the caller builds `tokens` from that
+                    // same array, so `task.id` is always a key here; the
+                    // fallback cannot fire today. Kept anyway: `tasks` and
+                    // `tokens` are independently typed props, so nothing
+                    // structurally binds a future caller to keep them in sync.
+                    rowToken={tokens.get(task.id) ?? task.taskName}
                     raidRefs={raidByTask?.get(task.id)}
                     changeRefs={changeByTask?.get(task.id)}
                     documentsByEntity={documentsByEntity}

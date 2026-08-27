@@ -5,6 +5,7 @@ import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider } from "./workspace-context";
 import { WorkspaceTabProvider } from "./workspace-tab-context";
 import { StakeholdersPanel } from "./stakeholders-panel";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import { t } from "./i18n";
 import type { Stakeholder } from "./types";
 
@@ -382,5 +383,63 @@ describe("Stakeholders sortable headers", () => {
       expect(sorted()[0], `clicking ${key} sorted a different column`).toBe(own);
       expect(own).toHaveAttribute("aria-sort", "ascending");
     }
+  });
+});
+
+// --- row-unique names (WCAG 2.4.6, §247/§248) ------------------------------
+
+describe("row-unique names", () => {
+  // Two rows sharing a name — the checkbox / name button / Ask-Claude button
+  // all key on item.name, so without a per-row token every one of them would
+  // render twice with the identical accessible name. renderStakeholders
+  // cannot exercise the Ask-Claude button (gated on onAiEdit/aiEditEnabled),
+  // so this renders inline with those wired, rather than growing the shared
+  // helper with parameters no other caller needs.
+  //
+  // Whole-document scope (no `scope` passed): the `stakeholderFieldName`
+  // translation names THREE controls in this panel, and the two exclusions
+  // keeping them apart are different mechanisms, not one rule applied twice.
+  //   - PaneSearchInput's `aria-label` renders `<input type="search">`,
+  //     which computes to role `searchbox` — excluded because `roles` below
+  //     is ["button", "checkbox"], neither of which is "searchbox".
+  //   - The Name column's SortResizeTh renders a sort `button` labelled
+  //     "Name" — a real `button`, IN `roles`, but it is the only one, so it
+  //     never collides with itself.
+  //   - ColumnConfigPopover's per-column checklist (STAKEHOLDER_CONFIG_COLS)
+  //     renders a `<Checkbox>` inside a `<label>` reading "Name" for the
+  //     "name" column — a `checkbox`, also IN `roles`, and it WOULD collide
+  //     with the sort button's "Name" if both were mounted. It is out of
+  //     scope only because ColumnConfigPopover's `open` state defaults to
+  //     `false` and `PopoverPanel` returns `null` while closed, so this test
+  //     never mounts it — not because of anything in `roles`. A test that
+  //     opens that popover before asserting here would need to re-derive
+  //     this collision, not assume it away.
+  //
+  // In short: `roles` protects against the search box; the popover's
+  // closed-by-default state protects against the third control. Different
+  // mechanisms, and only one of them is visible in this file.
+  it("keeps every per-row control distinct when two rows share a name", () => {
+    const stakeholders = [
+      sampleStakeholder({ id: 1, name: "Dana" }),
+      sampleStakeholder({ id: 2, name: "Dana" }),
+    ];
+    render(
+      <StakeholdersPanel
+        lang="en-US"
+        stakeholders={stakeholders}
+        resources={[]}
+        milestones={[]}
+        onSave={vi.fn()}
+        onDelete={vi.fn()}
+        onAiEdit={vi.fn()}
+        aiEditEnabled={() => true}
+      />,
+      { wrapper },
+    );
+    expectRowUniqueNames({
+      minControls: 21,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
   });
 });

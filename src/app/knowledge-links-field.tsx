@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { type Lang, t } from "./i18n";
 import { isSafeHttpUrl, type KnowledgeLink } from "./document-link";
 import { SharePointPickerModal } from "./sharepoint-picker-modal";
@@ -8,6 +8,15 @@ import type { AcquireToken } from "./use-sharepoint-browser";
 import { FOCUS_RING } from "./interaction-styles";
 import { XMarkIcon } from "./icons";
 import { IconButton } from "./icon-button";
+import { buildRowTokens, rowLabel } from "./row-tokens";
+
+// Module-scope accessor (see use-row-tokens.ts): a fresh inline arrow re-created
+// every render would defeat memoization and trip react-hooks/exhaustive-deps
+// (fatal here). `useRowTokens` itself is constrained to `{ id: number }`, but
+// a KnowledgeLink's stable identity here is its `url` (a string — links have
+// no numeric id), so this calls `buildRowTokens` directly instead of going
+// through that hook.
+const nameOfKnowledgeLink = (l: KnowledgeLink) => l.name;
 
 export interface KnowledgeLinksFieldProps {
   value: KnowledgeLink[];
@@ -19,6 +28,14 @@ export interface KnowledgeLinksFieldProps {
 
 export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog }: KnowledgeLinksFieldProps) {
   const [pickerOpen, setPickerOpen] = useState(false);
+
+  // Keyed on `link.url` — the rendered list's stable identity — over the SAME
+  // `value` array rendered below, so occurrence numbering matches what a
+  // screen-reader user navigates.
+  const tokens = useMemo(
+    () => buildRowTokens(value.map((l) => ({ id: l.url, name: nameOfKnowledgeLink(l) }))),
+    [value],
+  );
 
   function add(link: KnowledgeLink) {
     if (value.some((l) => l.url === link.url)) return;
@@ -39,7 +56,11 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
         <p className="text-xs text-muted-foreground">{t(lang, "documentsEmpty")}</p>
       ) : (
         <ul className="flex flex-col gap-1">
-          {value.map((link) => (
+          {value.map((link) => {
+            // ★ Cannot miss: `tokens` is built from this same `.map()`'s own
+            // `value` array, via buildRowTokens covering every url in it.
+            const token = tokens.get(link.url) ?? link.name;
+            return (
             <li key={link.url} className="flex items-center gap-2 rounded border border-line bg-surface px-2 py-1 text-sm">
               <span aria-hidden className="text-muted-foreground">
                 {link.linkKind === "confluence" ? "🔷" : link.linkKind === "url" ? "🔗" : link.kind === "folder" ? "📁" : "📄"}
@@ -49,7 +70,11 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
                   href={link.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  aria-label={t(lang, "documentsOpen")}
+                  // Row-UNIQUE name: closes 2.4.6 (via the token) AND 2.5.3
+                  // (the visible text is `link.name`, which the token CONTAINS
+                  // — see row-tokens.ts's rowLabel docstring on containment vs
+                  // prefix).
+                  aria-label={rowLabel(t(lang, "documentsOpen"), token)}
                   className="flex-1 truncate text-ui-dark-blue underline hover:opacity-80 dark:text-ui-light-grey"
                 >
                   {link.name}
@@ -57,20 +82,20 @@ export function KnowledgeLinksField({ value, onChange, lang, acquireToken, onLog
               ) : (
                 <span className="flex-1 truncate text-foreground">{link.name}</span>
               )}
-              {/* Row-QUALIFIED name: N links otherwise yield N identical
-                  "Remove link" buttons (WCAG 2.4.6). The axe gate passes that
-                  whenever the seeded workspace has only one link, so the
-                  collision never renders at scan time. */}
+              {/* Row-UNIQUE name via the shared token (§247/§248) — a plain
+                  `${verb} – ${link.name}` is only row-QUALIFIED: two links
+                  sharing a display name still collide. */}
               <IconButton
                 variant="danger"
                 onClick={() => remove(link.url)}
-                label={`${t(lang, "documentsRemove")} – ${link.name}`}
-                title={`${t(lang, "documentsRemove")} – ${link.name}`}
+                label={rowLabel(t(lang, "documentsRemove"), token)}
+                title={rowLabel(t(lang, "documentsRemove"), token)}
               >
                 <XMarkIcon aria-hidden="true" className="h-4 w-4" />
               </IconButton>
             </li>
-          ))}
+            );
+          })}
         </ul>
       )}
       <div>

@@ -8,22 +8,26 @@ const t = (over: Partial<Task>): Task =>
      lastUpdateDate: "2026-05-01", priority: "Medium", blockers: "", notes: "",
      status: "To Do", ...over }) as Task;
 
+// tokens is required on TaskKanban (row-unique accessible names, WCAG 2.4.6);
+// these tests don't seed collisions, so an empty map is enough.
+const NO_TOKENS: ReadonlyMap<number, string> = new Map();
+
 describe("TaskKanban", () => {
   it("renders all six status columns", () => {
-    render(<TaskKanban lang="en-US" tasks={[]} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
+    render(<TaskKanban lang="en-US" tasks={[]} tokens={NO_TOKENS} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
     for (const label of ["To Do", "In Progress", "On Hold", "In Review", "Cancelled", "Done"])
       expect(screen.getByRole("heading", { name: new RegExp(label) })).toBeInTheDocument();
   });
   it("dropping a card on a column calls onStatusChange(id, columnStatus)", () => {
     const onStatusChange = vi.fn();
-    render(<TaskKanban lang="en-US" tasks={[t({ id: 7, status: "To Do" })]} onStatusChange={onStatusChange} onEdit={vi.fn()} />);
+    render(<TaskKanban lang="en-US" tasks={[t({ id: 7, status: "To Do" })]} tokens={NO_TOKENS} onStatusChange={onStatusChange} onEdit={vi.fn()} />);
     const col = screen.getByTestId("kanban-col-In Progress");
     fireEvent.dragOver(col);
     fireEvent.drop(col, { dataTransfer: { getData: () => "7" } });
     expect(onStatusChange).toHaveBeenCalledWith(7, "In Progress");
   });
   it("a synced card is not draggable", () => {
-    render(<TaskKanban lang="en-US" tasks={[t({ id: 9, jiraKey: "LOP-9" })]} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
+    render(<TaskKanban lang="en-US" tasks={[t({ id: 9, jiraKey: "LOP-9" })]} tokens={NO_TOKENS} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
     expect(screen.getByTestId("kanban-card-9").getAttribute("draggable")).toBe("false");
   });
   // Regression: cards render OUTSIDE the table RowContextProvider, so a task
@@ -36,6 +40,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[t({ id: 3, status: "To Do" })]}
+        tokens={NO_TOKENS}
         raidByTask={raidByTask}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -51,6 +56,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[t({ id: 4, status: "To Do" }), t({ id: 5, status: "Done" })]}
+        tokens={NO_TOKENS}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
       />,
@@ -63,6 +69,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[t({ id: 4, status: "To Do" }), t({ id: 5, status: "Done" })]}
+        tokens={NO_TOKENS}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
         flashId={4}
@@ -76,6 +83,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[t({ id: 4, status: "To Do" })]}
+        tokens={NO_TOKENS}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
       />,
@@ -95,6 +103,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[task]}
+        tokens={NO_TOKENS}
         raidByTask={raidByTask}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
@@ -119,6 +128,7 @@ describe("TaskKanban", () => {
         lang="en-US"
         tasks={[t({ id: 3, status: "To Do", assignee: "Old Removed", resourceId: 7 })]}
         resourcesById={resourcesById}
+        tokens={NO_TOKENS}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
       />,
@@ -131,6 +141,7 @@ describe("TaskKanban", () => {
       <TaskKanban
         lang="en-US"
         tasks={[t({ id: 4, status: "To Do" })]}
+        tokens={NO_TOKENS}
         onStatusChange={vi.fn()}
         onEdit={vi.fn()}
         onAiEdit={vi.fn()}
@@ -143,7 +154,7 @@ describe("TaskKanban", () => {
 
 describe("TaskKanban column sizing", () => {
   it("status columns carry the shared flex-fill class (min 256px, max 400px, growing)", () => {
-    render(<TaskKanban lang="en-US" tasks={[]} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
+    render(<TaskKanban lang="en-US" tasks={[]} tokens={NO_TOKENS} onStatusChange={vi.fn()} onEdit={vi.fn()} />);
     const col = screen.getByTestId("kanban-col-To Do");
     expect(col.className).toContain("min-w-64");
     expect(col.className).toContain("max-w-[25rem]");

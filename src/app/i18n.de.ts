@@ -379,6 +379,14 @@ export const de: Record<TranslationKey, string> = {
   add: "Hinzufügen",
   noCountriesSelected: "Keine Länder ausgewählt. Nur Wochenenden werden ausgeschlossen.",
   remove: "Entfernen",
+  resourceRoleForRow: "Rolle für {0}",
+  resourceUtilizationForPeriod: "Auslastung für {0} in {1}",
+  resourceAbsenceOverrideForPeriod: "Abwesenheits-Überschreibung für {0} in {1}",
+  chatSuggestedPrompts: "Vorgeschlagene Prompts",
+  modeApplySimplePreset: "Einfaches Preset anwenden",
+  modeApplyAdvancedPreset: "Erweitertes Preset anwenden",
+  workspaceTabsLabel: "Arbeitsbereich-Tabs",
+  workspaceSubTabsLabel: "Arbeitsbereich-Untertabs",
 
   voiceCommand: "Sprachbefehl",
   voiceCommandTip:

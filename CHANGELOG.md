@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.261.1] - 2026-08-27 "Leckie"
+## [0.262.1] - 2026-08-27 "Swainston"
 
 ### Fixed
 
@@ -52,6 +52,36 @@ longer carries its own changelog comment.
   without being covered.
 - The decision to keep document image bytes out of version history is now written down, with
   its reasons and its one user-visible consequence, instead of being an unexplained absence.
+## [0.262.0] - 2026-08-27 "Swainston"
+
+### Accessibility
+
+- **Controls in a list no longer share their name with the row above them.** Wherever two
+  records can carry the same title — two changes both called "Scope revision", two people
+  both called "John Smith", two milestones sharing a name — every control in those rows
+  announced itself identically, so a screen-reader user listing the buttons heard the same
+  label repeated with nothing to say which row each one belonged to. Colliding rows are now
+  numbered; a row whose name is already unique is announced exactly as before. This covers
+  Open Points rows and Kanban cards, Changes, RAID, Milestones, Stakeholders, the resource
+  directory and the planning grid, Time bookings, knowledge links, the document and notes
+  badges, budget bucket reordering, and the settings template list.
+- **Resource planning was the worst instance.** Each row carries a role control plus two
+  controls for every period in view, and all of them were named by the bare person name — so
+  two people sharing a name produced identical control names in every column of the grid.
+- **Controls that had no name at all now have one.** The workspace tab and sub-tab strips, the
+  suggested-prompt list in the assistant, and the role, utilization and absence-override cells
+  in resource planning were all reaching assistive technology unnamed.
+
+### Fixed
+
+- **German no longer falls back to English on three controls.** The assistant's suggested-prompt
+  list and the two preset buttons in the project setup wizard carried hard-coded English
+  accessible names, so a German user heard English regardless of the selected language.
+
+### Notes
+
+- Nothing here changes what any screen looks like. The names described above are announced by
+  screen readers and are not otherwise visible.
 
 ## [0.261.0] - 2026-08-26 "Leckie"
 

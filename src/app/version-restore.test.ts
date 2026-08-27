@@ -270,7 +270,7 @@ describe("applyRestore over array-typed slices", () => {
     // alone counts `foo: []` and a record identical on both sides as seeded;
     // both produce NO diff change, so `applyRestore` never walks the slice and
     // the two guards this fixture feeds go blind for it while this test stays
-    // green. That is ONE lazy seed re-opening §255 and §261 together.
+    // green. That is ONE lazy seed re-opening §255 and §271 together.
     // ★★ A `JSON.stringify` inequality is the same trap one step in: the
     // property needed is "yields at least one VersionChange", and the two come
     // apart for `IGNORED_FIELDS` — a builder differing ONLY in

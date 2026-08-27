@@ -54,7 +54,7 @@ export function WorkspaceTabStrip({
     <>
       <div
         role="tablist"
-        aria-label="Workspace tabs"
+        aria-label={t(lang, "workspaceTabsLabel")}
         onKeyDown={roving}
         className={
           workspaceCollapsed
@@ -188,7 +188,7 @@ export function WorkspaceTabStrip({
       {subTabs.length > 0 && (
         <div
           role="tablist"
-          aria-label="Workspace sub-tabs"
+          aria-label={t(lang, "workspaceSubTabsLabel")}
           onKeyDown={roving}
           className="mb-2 flex flex-wrap items-center gap-1 border-b border-line pb-1"
         >

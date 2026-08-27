@@ -7,6 +7,7 @@ import type { ProjectDocument } from "./document-model";
 import { t } from "./i18n";
 import type { RaidItem, Resource, Task } from "./types";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 const taskFix = (over: Partial<Task> = {}): Task =>
   ({ id: 1, taskName: "Alpha", assignee: "Sam", assigneeEmail: "", dueDate: "2026-06-01",
@@ -20,25 +21,17 @@ const resourceFix = (over: Partial<Resource> = {}): Resource =>
   ({ id: 3, firstName: "Cy", lastName: "Meyer", email: "", ...over }) as Resource;
 
 describe("TaskKanbanCard", () => {
-  // ★★★ RECORDED, NOT FIXED — a genuine, pre-existing WCAG 2.4.6 collision that
-  // touches a SHARED primitive and is not fixable locally. Two cards for the
-  // SAME task name render two comboboxes both named "Status – Alpha":
-  // `TaskStatusSelect` (task-status-select.tsx) derives its aria-label from
-  // `task.taskName` alone, with no per-render disambiguation, and it is a
-  // per-item component with no visibility into sibling rows — it cannot build
-  // a token map itself. The identical defect exists in the TABLE row
-  // (task-row.tsx uses the same `TaskStatusSelect`), so fixing it means
-  // threading a row-token prop through TaskStatusSelect AND both of its
-  // callers (task-kanban-card.tsx/board/swimlanes AND task-row.tsx) — real
-  // restructuring, not a local qualifier swap. Joins budget-panel /
-  // roles-editor / reports as the fourth surface recorded this way (see
-  // batch 4/6 commits on this branch). Kept as the ORIGINAL single-card smoke
-  // test — seeding a twin here would only pin the bug in place.
+  // `TaskStatusSelect` derives its accessible name from `rowLabel(t(lang,
+  // "colTaskStatus"), rowToken)` (task-status-select.tsx), so this remains the
+  // single-card smoke test; the twin case is covered by "keeps every card
+  // control distinct when two tasks share a name" below, which renders
+  // `TaskStatusSelect` for two same-named tasks and asserts zero collisions.
   it("shows title, assignee, and a status select carrying an accessible name", () => {
     render(
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -56,6 +49,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ jiraKey: "LOP-5" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -76,6 +70,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         raidRefs={[raidFix("R"), raidFix("I")]}
@@ -84,25 +79,26 @@ describe("TaskKanbanCard", () => {
         onJumpToRaid={onJumpToRaid}
       />,
     );
-    const badge = screen.getByRole("button", { name: t("en-US", "raidReferencedBy", 2) });
+    // The badge's name now carries the card's row token — a bare count has no
+    // row identity, so two cards with equal ref counts used to collide.
+    const badge = screen.getByRole("button", { name: rowLabel(t("en-US", "raidReferencedBy", 2), "Alpha") });
     fireEvent.click(badge);
     expect(onJumpToRaid).toHaveBeenCalledWith(1);
   });
 
-  // ★★★ RECORDED, NOT FIXED — same class of collision as the status select
-  // above. Two cards with the SAME taskName render two "Assign – Alpha"
-  // comboboxes (the inline `<Select aria-label={t(lang,"assignPersonLabel",
-  // task.taskName)}>` in task-kanban-card.tsx, keyed on task.taskName alone).
-  // TaskKanbanCard is a per-item component with no visibility into sibling
-  // cards, so it cannot disambiguate itself — fixing needs a token threaded
-  // down from the board/swimlanes caller. Kept as the ORIGINAL single-card
-  // test; seeding a twin here would only pin the bug in place.
+  // FIXED (was: "RECORDED, NOT FIXED" — same class of collision as the status
+  // select above). The inline `<Select aria-label={t(lang,"assignPersonLabel",
+  // rowToken)}>` now keys on the row-unique token rather than `task.taskName`
+  // alone, mirroring the fix already threaded through TaskStatusSelect. Kept
+  // as the single-card smoke test; the twin case is covered by "keeps every
+  // card control distinct when two tasks share a name" below.
   it("the person select assigns without a drag", async () => {
     const onAssign = vi.fn();
     render(
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ id: 7, taskName: "Alpha" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         assignableResources={[resourceFix({ id: 3, firstName: "Cy", lastName: "Meyer" })]}
@@ -122,6 +118,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix({ jiraKey: "LOP-8" })}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         assignableResources={[resourceFix()]}
@@ -139,6 +136,7 @@ describe("TaskKanbanCard", () => {
       <TaskKanbanCard
         lang="en-US"
         task={taskFix()}
+        rowToken="Alpha"
         today="2026-06-19"
         holidaySet={new Set()}
         onStatusChange={vi.fn()}
@@ -170,22 +168,36 @@ describe("TaskKanbanCard linked-documents badge", () => {
     doc(12, [{ kind: "raid", id: 7 }]),
   ]);
 
-  // THREE cards on purpose. Two carry a badge with DIFFERENT counts (2 vs 1), so
-  // a hardcoded number cannot pass and the `– <taskName>` qualifier is proved to
-  // make the name card-unique (WCAG 2.4.6 — axe has no rule for a duplicate
-  // accessible name at any seed size, so this test is the only detector).
+  const DEFAULT_CARDS: Task[] = [
+    taskFix({ id: 7, taskName: "Alpha" }),
+    taskFix({ id: 8, taskName: "Beta" }),
+    taskFix({ id: 9, taskName: "Gamma" }),
+  ];
+
+  // THREE cards on purpose (default fixture). Two carry a badge with DIFFERENT
+  // counts (2 vs 1), so a hardcoded number cannot pass and the qualifier is
+  // proved to make the name card-unique (WCAG 2.4.6 — axe has no rule for a
+  // duplicate accessible name at any seed size, so this test is the only
+  // detector).
+  //
+  // ★★ TOKENS COME FROM `buildRowTokens`, NOT `task.taskName` DIRECTLY —
+  // mirrors what the real board/swimlane callers do at
+  // `task-kanban-board.tsx`/`task-kanban-swimlanes.tsx`, even though
+  // DEFAULT_CARDS' three names are already distinct. (The shared-name
+  // collision case is covered by "keeps every card control distinct when two
+  // tasks share a name" below, which renders inline instead of through this
+  // helper — it needs onAiEdit/aiEditEnabled/assignableResources/onAssign,
+  // which this fixed three-card render does not exercise.)
   function renderCards(onOpenDocuments = vi.fn()) {
+    const tokens = buildRowTokens(DEFAULT_CARDS.map((task) => ({ id: task.id, name: task.taskName })));
     render(
       <>
-        {[
-          taskFix({ id: 7, taskName: "Alpha" }),
-          taskFix({ id: 8, taskName: "Beta" }),
-          taskFix({ id: 9, taskName: "Gamma" }),
-        ].map((task) => (
+        {DEFAULT_CARDS.map((task) => (
           <TaskKanbanCard
             key={task.id}
             lang="en-US"
             task={task}
+            rowToken={tokens.get(task.id) ?? task.taskName}
             today="2026-06-19"
             holidaySet={new Set()}
             documentsByEntity={documentsByEntity}
@@ -197,7 +209,7 @@ describe("TaskKanbanCard linked-documents badge", () => {
         ))}
       </>,
     );
-    return onOpenDocuments;
+    return { onOpenDocuments };
   }
 
   it("badges only the referenced cards, with the real count and a card-unique name", () => {
@@ -213,8 +225,63 @@ describe("TaskKanbanCard linked-documents badge", () => {
   });
 
   it("clicking a badge opens the Documents pane for THAT task", () => {
-    const onOpenDocuments = renderCards();
+    const { onOpenDocuments } = renderCards();
     fireEvent.click(screen.getByRole("button", { name: "Referenced by 1 document(s) – Beta" }));
     expect(onOpenDocuments).toHaveBeenCalledWith(8);
+  });
+
+  // WCAG 2.4.6 collision covering all FIVE sites this fix touches: the name
+  // button (previously had no aria-label at all — its accessible name was its
+  // CONTENT, so two "Alpha" cards collided on the most prominent control on
+  // the card), DocumentBadge's `entityTitle`, the inline Ask-Claude trigger
+  // and the assign select — each previously keyed on `task.taskName` alone —
+  // plus `RaidBadge`, whose name was the bare reference COUNT with no row
+  // identity at all (`raidRefs` is seeded on both cards below; leaving it
+  // unseeded is why that site went uncaught). Only `rowToken` (built via
+  // `buildRowTokens`, mirroring what
+  // task-kanban-board.tsx/task-kanban-swimlanes.tsx pass in production)
+  // distinguishes the two cards.
+  it("keeps every card control distinct when two tasks share a name", () => {
+    const twins = [
+      taskFix({ id: 1, taskName: "Alpha" }),
+      taskFix({ id: 2, taskName: "Alpha" }),
+    ];
+    const tokens = buildRowTokens(twins.map((task) => ({ id: task.id, name: task.taskName })));
+    const twinDocs = indexDocumentsByEntity([
+      doc(20, [{ kind: "task", id: 1 }]),
+      doc(21, [{ kind: "task", id: 2 }]),
+    ]);
+    const { container } = render(
+      <>
+        {twins.map((task) => (
+          <TaskKanbanCard
+            key={task.id}
+            lang="en-US"
+            task={task}
+            rowToken={tokens.get(task.id) ?? task.taskName}
+            today="2026-06-19"
+            holidaySet={new Set()}
+            documentsByEntity={twinDocs}
+            onOpenDocuments={vi.fn()}
+            raidRefs={[raidFix("R"), raidFix("I")]}
+            onStatusChange={vi.fn()}
+            onEdit={vi.fn()}
+            onJumpToRaid={vi.fn()}
+            onAiEdit={vi.fn()}
+            aiEditEnabled={() => true}
+            assignableResources={[resourceFix()]}
+            onAssign={vi.fn()}
+          />
+        ))}
+      </>,
+    );
+    expectRowUniqueNames({
+      // MEASURED (floor 999, read the printed `Rendered: [...]` length):
+      // 10 before `raidRefs` seeded a RaidBadge onto each of the two cards.
+      minControls: 12,
+      scope: container,
+      roles: ["button", "combobox"],
+      requireCollisionSeed: true,
+    });
   });
 });

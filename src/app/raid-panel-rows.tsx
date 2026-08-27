@@ -20,7 +20,8 @@ import { ColumnResizeHandle } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
 import { INTERACTIVE } from "./interaction-styles";
-import { buildRowTokens, rowLabel } from "./row-tokens";
+import { rowLabel } from "./row-tokens";
+import { useRowTokens } from "./use-row-tokens";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { RAID_CONFIG_COLS, RAID_COL_WIDTHS } from "./raid-panel-columns";
 import type { PanelSort } from "./panel-views";
@@ -31,6 +32,10 @@ import { DocumentBadge } from "./document-badge";
 import { refKey, type DocRefKind } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { DataTable } from "./data-table";
+
+// Module-level accessor for useRowTokens — an inline arrow would be a fresh
+// closure every render, defeating its useMemo and tripping exhaustive-deps.
+const nameOfRaidItem = (item: RaidItem) => item.title;
 
 const categoryPillClass: Record<RaidCategory, string> = {
   R: "bg-ui-pink/15 text-ui-dark-blue dark:bg-ui-pink/20 dark:text-ui-light-grey",
@@ -113,12 +118,14 @@ export function RaidTable({
   // Row-select / Ask-Claude / linked-documents / Send-inquiry / Notes-log all
   // key their accessible name on item.title ALONE — two items sharing a title
   // collided (WCAG 2.4.6), since none of the component contracts is actually
-  // enforced by its own props. One token map, built once per render,
-  // disambiguates all five the same way the trailing Add button already does.
+  // enforced by its own props. One token map disambiguates all five the same
+  // way the trailing Add button already does.
   // ★ The select checkbox is role=checkbox, not role=button, so a detector
   // left at the default `roles: ["button"]` is BLIND to it — its test must
   // pass `roles: ["button", "checkbox"]`.
-  const titleTokens = buildRowTokens(visible.map((r) => ({ id: r.id, name: r.title })));
+  // ★ Previously rebuilt with a bare `buildRowTokens` call (no memo) on every
+  // render — now memoized via useRowTokens like every other adopting panel.
+  const titleTokens = useRowTokens(visible, nameOfRaidItem);
   return (
     <DataTable className="min-w-full text-left text-sm" head={<>
         <tr>

@@ -571,6 +571,52 @@ describe("achieved toggle", () => {
   });
 });
 
+// --- row-unique names (WCAG 2.4.6, §247/§248) ------------------------------
+
+describe("row-unique names", () => {
+  function rowUniqueDoc(id: number, links: DocEntityRef[]): ProjectDocument {
+    return { id, title: `Doc ${id}`, blocks: [], createdAt: "2026-06-01T00:00:00.000Z", updatedAt: "2026-06-01T00:00:00.000Z", linkedEntities: links };
+  }
+
+  // Two rows sharing a name — the checkbox / name button / Ask-Claude button /
+  // DocumentBadge / Achieved toggle all key on m.name, so without a per-row
+  // token every one of them would render twice with the identical accessible
+  // name. `renderMilestones` cannot exercise all five: InlineAiEditButton is
+  // gated on onAiEdit/aiEditEnabled and DocumentBadge returns null at count 0,
+  // so this renders inline with those wired, rather than growing the shared
+  // helper with parameters no other caller needs.
+  it("keeps every per-row control distinct when two rows share a name", () => {
+    const milestones = [
+      { id: 1, name: "Go live", date: "2026-06-10", linkedTaskIds: [] },
+      { id: 2, name: "Go live", date: "2026-06-20", linkedTaskIds: [] },
+    ];
+    const documentsByEntity = indexDocumentsByEntity([
+      rowUniqueDoc(10, [{ kind: "milestone", id: 1 }]),
+      rowUniqueDoc(11, [{ kind: "milestone", id: 2 }]),
+    ]);
+    const { container } = render(
+      <>
+        <Seed milestones={milestones} />
+        <MilestonesPanel
+          lang="en-US"
+          today="2026-06-02"
+          holidaySet={new Set()}
+          documentsByEntity={documentsByEntity}
+          onAiEdit={vi.fn()}
+          aiEditEnabled={() => true}
+        />
+      </>,
+      { wrapper },
+    );
+    expectRowUniqueNames({
+      minControls: 20,
+      scope: container,
+      roles: ["button", "checkbox"],
+      requireCollisionSeed: true,
+    });
+  });
+});
+
 // --- linked-documents badge ------------------------------------------------
 
 describe("MilestonesPanel linked-documents badge", () => {

@@ -1,8 +1,14 @@
 import { render, screen } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
-import { CustomerFields, OptionalDetailsFields, emptyProjectDraft } from "./project-form-fields";
+import { beforeAll, describe, expect, it } from "vitest";
+import {
+  CustomerFields,
+  IdentityPeopleFields,
+  OptionalDetailsFields,
+  emptyProjectDraft,
+} from "./project-form-fields";
 import { IDENTITY_TYPES, REGULATORY_REQUIREMENTS } from "./project-options";
 import { expectNoLabelBoundToButton, labelsContainingLabels } from "../test/label-binding";
+import { loadI18n } from "./i18n";
 
 // Render guard for the two CHECKBOX-GRID captions.
 //
@@ -67,5 +73,17 @@ describe("project form checkbox-grid captions", () => {
     for (const option of options) {
       expect(screen.getByRole("checkbox", { name: option })).toBeInTheDocument();
     }
+  });
+});
+
+describe("manual-contact email field", () => {
+  beforeAll(async () => {
+    await loadI18n("de");
+  });
+
+  it("translates the placeholder under German", () => {
+    render(<IdentityPeopleFields {...props} lang="de" />);
+    expect(screen.getByPlaceholderText("E-Mail")).toBeInTheDocument();
+    expect(screen.queryByPlaceholderText("email")).not.toBeInTheDocument();
   });
 });

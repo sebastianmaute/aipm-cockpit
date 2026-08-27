@@ -15,6 +15,7 @@ import { useDeepLinkRowFlash, flashOutlineClass } from "./use-deeplink-row-flash
 import { compareStakeholder, nextStakeholderId, type StakeholderSortKey } from "./stakeholders";
 import { type Lang, t, type TranslationKey } from "./i18n";
 import { PanelFiltersProvider, usePanelFilters } from "./panel-filters-context";
+import { useRowTokens } from "./use-row-tokens";
 import { PanelViewsControl } from "./panel-views-control";
 import { ColumnConfigPopover, type ColumnConfigCol } from "./column-config-popover";
 import type { PanelFiltersState } from "./panel-views";
@@ -115,6 +116,11 @@ const LEVEL_CHIP: Record<InfluenceInterest, string> = {
 
 // --- Component --------------------------------------------------------------
 
+// Module-scope accessor for useRowTokens: an inline arrow here would be a
+// fresh closure every render, defeating the hook's useMemo and tripping
+// react-hooks/exhaustive-deps (fatal in this repo).
+const nameOfStakeholder = (item: Stakeholder) => item.name;
+
 function StakeholdersPanelBody({
   lang,
   stakeholders,
@@ -170,6 +176,14 @@ function StakeholdersPanelBody({
   }, [stakeholders, search, sort]);
 
   const visibleIds = useMemo(() => visible.map((s) => s.id), [visible]);
+
+  // Row-unique accessible names (WCAG 2.4.6) for the checkbox / name button /
+  // Ask-Claude button — all three key on a stakeholder's name, so two
+  // stakeholders sharing a name would otherwise render identically-named
+  // controls. Built over `visible` (filtered + sorted), the SAME array
+  // actually rendered below, because an occurrence index only means anything
+  // against what is on screen.
+  const rowTokens = useRowTokens(visible, nameOfStakeholder);
 
   // Bulk-editable fields: Category / Influence / Interest (all are simple
   // enums, so a single value applies cleanly across a mixed selection).
@@ -428,6 +442,9 @@ function StakeholdersPanelBody({
             )}
             {visible.map((item) => {
               const linked = item.resourceId != null ? resourceById.get(item.resourceId) : undefined;
+              // ★ Cannot miss: buildRowTokens covers every id in `visible`, and
+              // `item` is drawn from that same array by this very .map().
+              const token = rowTokens.get(item.id) ?? item.name;
               return (
                 <tr
                   key={item.id}
@@ -439,7 +456,7 @@ function StakeholdersPanelBody({
                 >
                   <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
                     <Checkbox
-                      aria-label={t(lang, "selectItem", item.name)}
+                      aria-label={t(lang, "selectItem", token)}
                       checked={sel.isSelected(item.id)}
                       onChange={() => sel.toggle(item.id)}
                       className="cursor-pointer"
@@ -451,13 +468,18 @@ function StakeholdersPanelBody({
                       <button
                         type="button"
                         onClick={(e) => { e.stopPropagation(); openEdit(item); }}
+                        // ★★★ No aria-label means the accessible name is the
+                        // CONTENT — see use-row-tokens.ts for why this is set
+                        // unconditionally and why 2.5.3 holds by containment,
+                        // not prefix.
+                        aria-label={token}
                         title={item.name}
                         className="rounded-md border border-transparent px-2 py-0.5 text-left font-medium text-foreground hover:border-ui-dark-blue hover:bg-surface-muted focus:outline-none focus-visible:ring-2 focus-visible:ring-ui-green"
                       >
                         {item.name}
                       </button>
                       {onAiEdit && aiEditEnabled?.(item) && (
-                        <InlineAiEditButton lang={lang} label={item.name} onClick={() => onAiEdit(item)} />
+                        <InlineAiEditButton lang={lang} label={token} onClick={() => onAiEdit(item)} />
                       )}
                     </div>
                   </td>
