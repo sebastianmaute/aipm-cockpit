@@ -34,8 +34,7 @@ longer carries its own changelog comment.
   record had changed but was looking up the wrong field for its name. Tasks now show their
   titles; absences and shifts show their note, falling back to the person it belongs to when
   no note was written, an absence adding its start date as well; resources show a full name,
-  and roles show their discipline and grade
-  together. Measured against the bundled sample project, all 14 tasks, all 5 absences, all 4
+  and roles show their discipline and grade together. Measured against the bundled sample project, all 14 tasks, all 5 absences, all 4
   shifts, all 5 resources and all 6 roles now name themselves.
 
 - **A record that cannot be restored can no longer be restored by accident.** Restoring a
@@ -52,6 +51,7 @@ longer carries its own changelog comment.
   without being covered.
 - The decision to keep document image bytes out of version history is now written down, with
   its reasons and its one user-visible consequence, instead of being an unexplained absence.
+
 ## [0.262.0] - 2026-08-27 "Swainston"
 
 ### Accessibility
