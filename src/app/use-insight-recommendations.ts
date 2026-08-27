@@ -8,10 +8,11 @@
 // the inline `useCallback`/`useMemo` preserve the exact memoization the code had
 // inline. Move-only — no behaviour change.
 //
-// ★★★ CALL SITE PLACEMENT IS LOAD-BEARING. This block's original comment said it
+// ★★ CALL SITE PLACEMENT IS LOAD-BEARING. This block's original comment said it
 // lived "after `dispatcher` exists" — confirmInsightRecommendation replays proposed
 // tool calls through the useChatDispatcher result. The call must stay AFTER
-// useChatDispatcher and BEFORE useFxRates.
+// useChatDispatcher and BEFORE the first consumer of this hook's return values
+// (`insightActions`, task-manager.tsx).
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
 import type { Task, RaidItem, Milestone, ChangeItem, Stakeholder, Resource, ProjectMeta } from "./types";
@@ -33,7 +34,7 @@ import { runTool, type ToolDispatcher } from "./chat-tools";
 import { descriptionText } from "./rich-text-projection";
 import { effectivePersonName } from "./resource-foundation";
 import type { ToastKind } from "./use-toast";
-import type { ActivityActor, ActivityKind } from "./activity-log";
+import type { LogActivityAsFn } from "./activity-log-context";
 
 // Cap on any free-text field folded into the linked-entity digest of an insight
 // recommendation prompt — the digest rides a billed call, so an unbounded
@@ -57,7 +58,7 @@ export interface InsightRecommendationDeps {
   setInsights: Dispatch<SetStateAction<readonly Insight[] | undefined>>;
   dispatcher: ToolDispatcher;
   showToast: (kind: ToastKind, text: string) => void;
-  logActivityAs: (actor: ActivityActor, kind: ActivityKind, ...args: (string | number)[]) => void;
+  logActivityAs: LogActivityAsFn;
   onAcknowledgeInsight: (id: number) => void;
   onActInsight: (id: number) => void;
   onDismissInsight: (id: number) => void;

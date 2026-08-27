@@ -863,9 +863,10 @@ function TaskManagerInner() {
     [isPopout, setInsights, today],
   );
   // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
-  // that references them) need `dispatcher` (apply replays proposed tool calls
-  // through it), so they're defined further down, right after `dispatcher` is
-  // created — see "Insights → Action Loop (#6B SP2)" below.
+  // that references them) live in `useInsightRecommendations`
+  // (use-insight-recommendations.ts) — apply replays proposed tool calls
+  // through `dispatcher`, so that hook is called right after `dispatcher` is
+  // created, below.
 
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
