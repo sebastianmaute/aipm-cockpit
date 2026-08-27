@@ -23,14 +23,22 @@
 // 420a096f) — folding the fallback in here would bury the reasoning that
 // comment exists to surface, for a one-line saving.
 //
-// ★★★ THE SAME DEFECT HAS NOW BEEN FOUND ON FOUR SURFACES, each time on the
-// row's own most PROMINENT control: a name button with NO `aria-label` at
-// all, so its accessible name falls back to its CONTENT. Two rows sharing a
-// display name then render two identically-named buttons. Found while
-// grounding the row-unique-names slice; neither §247 nor §248 named it —
-// task-row.tsx, task-kanban-card.tsx, milestones-panel.tsx and
-// stakeholders-panel.tsx each found it independently by reading the row
-// render body, and each now carries only a pointer back to this comment.
+// ★★★ THE SAME DEFECT RECURS on every surface where a row's own most
+// PROMINENT control — a name/title button — carries NO `aria-label` at
+// all, so its accessible name falls back to its CONTENT, and two rows
+// sharing a display name render two identically-named buttons. Found
+// while grounding the row-unique-names slice; neither §247 nor §248
+// named it, and each surface that hit it found it independently by
+// reading its own row render body — each now carries only a pointer
+// back to this comment.
+//
+// ★ NO COUNT IS QUOTED HERE — one was accurate for exactly one commit
+// before the next task fixed another surface, and no gate can see a
+// count rot (AGENTS.md records the same class: "the 20 lazy panels"
+// passing every run while the number was 23). Read today's set instead:
+//   grep -rln "aria-label={rowToken}\|aria-label={token}" src/app --include=*.tsx | grep -v test
+// `documents-list.tsx` is in that set and predates this slice — this is
+// the set of surfaces USING the fix, not a tally of what this slice found.
 //
 // The fix is `aria-label={rowToken}` (the local token/`?? name` fallback),
 // set UNCONDITIONALLY on the button — not only when a collision is present.
