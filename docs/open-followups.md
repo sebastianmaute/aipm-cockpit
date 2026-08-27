@@ -18028,12 +18028,14 @@ surfaces via the shared `useRowTokens` hook (`use-row-tokens.ts`), which sets
 comment back to `use-row-tokens.ts` rather than restating the reasoning. Reproduce:
 `grep -rln "useRowTokens" src/app --include=*.tsx | grep -v test`.
 
-★★ **`use-row-tokens.ts`'s own header undercounts this by one, which is the class of error this
-whole register exists to catch.** Its comment says "found on FOUR surfaces" and names
-`task-row.tsx`, `task-kanban-card.tsx`, `milestones-panel.tsx` and `stakeholders-panel.tsx` —
-`resource-directory.tsx` imports and calls `useRowTokens` identically (`grep -n useRowTokens
-src/app/resource-directory.tsx`) and is not in that list. **Never quote the count** — derive it with
-the grep above — and go re-read that header before adding a sixth surface: it will still say four.
+★★ **`use-row-tokens.ts`'s own header undercounted this by one when this entry was written — the
+exact class of error this register exists to catch.** At the time it said "found on FOUR surfaces"
+and named `task-row.tsx`, `task-kanban-card.tsx`, `milestones-panel.tsx` and `stakeholders-panel.tsx`,
+omitting `resource-directory.tsx`. Two commits later on this same branch, `a9ee2c3c` and `aa54d212`
+removed BOTH stale counts from that comment (a second, unrelated one read "one of the four call
+sites") and replaced them with a reproduce grep. **That header carries no number today** — do not go
+looking for one; reproduce today's set with `grep -rln "aria-label={rowToken}\|aria-label={token}"
+src/app --include=*.tsx | grep -v test`.
 
 Every one of the five was invisible to a field-NAME grep — there is no `aria-label=`/`ariaLabel=`
 attribute to match before the fix, since the whole point of the defect is that the attribute was
@@ -18998,12 +19000,32 @@ grep -n 'ariaLabel={t(lang, "stakeholderFieldName")}\|label={t(lang, "stakeholde
   the filter is `PaneSearchInput`'s `<input type="search">` (role `searchbox`), not a `<select>`, so
   this is a searchbox-vs-button collision rather than select-vs-button.
 
-★ **`milestones-panel.tsx` is immune, and the reason matters more than the fact.** It has TWO
-`SortResizeTh` columns (`grep -c "<SortResizeTh" src/app/milestones-panel.tsx`), so it is not immune
-for lacking sortable headers — its authors simply used two DISTINCT keys, `milestonesFilterName`
-("Filter by name") for the toolbar filter and `milestonesColName` ("Milestone") for the column. That
-is the fix for the other three panels too: give the filter and the sort header separate keys, not a
-shared "field name" key reused as both a filter label and a column label.
+★★★ **These 7 are pairs by SCOPE, not by fact — a `ColumnConfigPopover` checkbox shares each of these
+same keys too, making six of the seven a 3-WAY collision.** Every `*_CONFIG_COLS` array pairs a
+column's `key` with the SAME `labelKey` its filter/header already uses:
+`CHANGE_CONFIG_COLS`'s `type`/`status` entries key on `changeFieldType`/`changeFieldStatus`
+(`change-panel.tsx`); `RAID_CONFIG_COLS`'s `category`/`severity`/`status`/`owner` entries key on
+`raidCategory`/`raidSeverity`/`raidStatus`/`raidOwner` (`raid-panel-columns.ts`); and
+`STAKEHOLDER_CONFIG_COLS`'s `name` entry keys on `stakeholderFieldName`
+(`stakeholders-panel.tsx`). The stakeholder
+case is already documented, in `8fc27918` — its own test comment records that the checkbox is out of
+scope THERE only because `ColumnConfigPopover` starts closed and `PopoverPanel` renders `null` while
+closed, not because the collision does not exist once it is opened. Reproduce:
+`grep -n 'labelKey: "changeField\|labelKey: "raid\|labelKey: "stakeholderFieldName"' src/app/change-panel.tsx src/app/raid-panel-columns.ts src/app/stakeholders-panel.tsx`.
+This entry's "7 pairs" and its reproduce greps above name only the filter/header half of each; scope
+it that way explicitly rather than implying the checkbox does not exist.
+
+★ **`milestones-panel.tsx` is immune to the FILTER-vs-HEADER pairing, not to this defect class as a
+whole — this entry's wording overclaimed the second part.** It has TWO `SortResizeTh` columns
+(`grep -c "<SortResizeTh" src/app/milestones-panel.tsx`), so it is not immune for lacking sortable
+headers — its authors used two DISTINCT keys, `milestonesFilterName` ("Filter by name") for the
+toolbar filter and `milestonesColName` ("Milestone") for the column, which is the fix the other three
+panels want for THEIR filter/header pair. But `MILESTONE_CONFIG_COLS`'s checkbox keys —
+`milestonesColName`, `milestonesColDate`, `milestonesColStatus`, `milestonesColAchieved` — match the
+COLUMN keys, not the filter key: `milestonesFilterName` stays exclusive to the toolbar filter
+(`grep -n "milestonesFilterName\|milestonesColName" src/app/milestones-panel.tsx`). So milestones
+swaps WHICH two controls collide — HEADER-vs-CHECKBOX on all four column keys, not FILTER-vs-HEADER —
+rather than escaping the defect. Not counted in this entry's "7 pairs" either.
 
 ★★ This is the same defect shape §246 already opened for `InfoTooltip` and `SortResizeTh`
 independently — a shared primitive reused across unrelated call sites collides on name — but the
