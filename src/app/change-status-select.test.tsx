@@ -17,15 +17,24 @@ describe("ChangeStatusSelect", () => {
   // The axe gate provably cannot see two controls sharing an accessible name
   // (measured against axe-core 4.12.1). A multi-row unit test is the ONLY
   // possible detector, so it must render TWO rows.
+  //
+  // ★★ THE TWO ROWS MUST SHARE A TITLE. With distinct titles ("Scope cut" /
+  // "Budget uplift") the two names differed because the TITLES differed, so the
+  // one-token mutation `rowLabel(t(lang, "changeFieldStatus"), item.title)` —
+  // dropping `rowToken` entirely — kept both names distinct and stayed GREEN.
+  // Colliding titles plus occurrence-suffixed tokens is the shape
+  // `buildRowTokens` actually emits, and the only one where the names can differ
+  // ONLY because the token was honoured.
   it("gives two rows DIFFERENT accessible names", () => {
     render(
       <>
-        <ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} rowToken="Scope cut" onStatusChange={() => {}} />
-        <ChangeStatusSelect lang="en-US" item={item(2, "Budget uplift")} rowToken="Budget uplift" onStatusChange={() => {}} />
+        <ChangeStatusSelect lang="en-US" item={item(1, "Scope cut")} rowToken="Scope cut (1)" onStatusChange={() => {}} />
+        <ChangeStatusSelect lang="en-US" item={item(2, "Scope cut")} rowToken="Scope cut (2)" onStatusChange={() => {}} />
       </>,
     );
-    expect(screen.getByRole("combobox", { name: `${t("en-US", "changeFieldStatus")} – Scope cut` })).toBeTruthy();
-    expect(screen.getByRole("combobox", { name: `${t("en-US", "changeFieldStatus")} – Budget uplift` })).toBeTruthy();
+    expect(screen.getAllByRole("combobox")).toHaveLength(2);
+    expect(screen.getByRole("combobox", { name: `${t("en-US", "changeFieldStatus")} – Scope cut (1)` })).toBeTruthy();
+    expect(screen.getByRole("combobox", { name: `${t("en-US", "changeFieldStatus")} – Scope cut (2)` })).toBeTruthy();
   });
 
   it("renders every status as an option", () => {
