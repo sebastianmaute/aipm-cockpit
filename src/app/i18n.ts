@@ -376,6 +376,13 @@ const enUS = {
   noCountriesSelected: "No countries selected. Only weekends are excluded.",
   remove: "Remove",
   resourceRoleForRow: "Role for {0}",
+  resourceUtilizationForPeriod: "Utilization for {0} in {1}",
+  resourceAbsenceOverrideForPeriod: "Absence override for {0} in {1}",
+  chatSuggestedPrompts: "Suggested prompts",
+  modeApplySimplePreset: "Apply Simple preset",
+  modeApplyAdvancedPreset: "Apply Advanced preset",
+  workspaceTabsLabel: "Workspace tabs",
+  workspaceSubTabsLabel: "Workspace sub-tabs",
 
   voiceCommand: "Voice command",
   voiceCommandTip:

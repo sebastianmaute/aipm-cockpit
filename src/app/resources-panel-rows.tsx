@@ -154,7 +154,7 @@ export function PlanningTable({
                       <span className="inline-flex flex-col items-start">
                       <span className="inline-flex items-center gap-0.5">
                         <input type="number" min={0} step={r.utilizationMode === "percent" ? 5 : 1}
-                          aria-label={`Utilization for ${resourceDisplayName(r)} in ${p.key}`}
+                          aria-label={t(lang, "resourceUtilizationForPeriod", resourceDisplayName(r), p.key)}
                           title={t(lang, "resourcesUtilizationHint")}
                           value={cellValue}
                           readOnly={derived}
@@ -166,7 +166,7 @@ export function PlanningTable({
                         </span>
                       </span>
                       <input type="number" min={0} step={1}
-                        aria-label={`Absence override for ${resourceDisplayName(r)} in ${p.key}`}
+                        aria-label={t(lang, "resourceAbsenceOverrideForPeriod", resourceDisplayName(r), p.key)}
                         title={t(lang, "resourcesAbsenceOverrideHint")}
                         value={derived ? "" : (r.absenceOverride?.[p.key] ?? "")}
                         placeholder={derived ? "" : String(absenceWorkdays(resAbs, p.start, p.end, holidaySet) * workdayHours)}

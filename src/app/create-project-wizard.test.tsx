@@ -6,7 +6,7 @@ import { type ProjectMeta } from "./types";
 import { type NewProjectOpts } from "./new-project-workspace";
 import { defaultSettings } from "./settings-types";
 import { SETTINGS_KEY } from "./use-settings";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 const generateMock = vi.fn();
 vi.mock("./use-project-proposal", () => ({
@@ -311,6 +311,62 @@ describe("CreateProjectWizard", () => {
     expect(
       screen.getByRole("button", { name: /choose functions yourself/i }),
     ).toHaveAttribute("aria-pressed", "true");
+  });
+
+  // The DE dictionary is lazy — load it BEFORE asserting German output, or the
+  // assertion silently reads English and passes for nothing.
+  it("translates the Step 3 preset buttons' accessible names under German", async () => {
+    await loadI18n("de");
+    setup({ lang: "de" });
+
+    // Step 1, all labels/placeholders/buttons in German; the NACE code, date
+    // values and the regulatory-framework checkbox label are data, not UI
+    // copy, so they stay as in the English flow.
+    function setText(label: string, value: string) {
+      fireEvent.change(screen.getByLabelText(label, { exact: false }), {
+        target: { value },
+      });
+    }
+    setText(t("de", "projectName"), "WizardProj");
+    setText(t("de", "projectCode"), "WZ-1");
+    setText(t("de", "projectManager"), "Dana PM");
+    setText(t("de", "projectStakeholderCount"), "2");
+    setText(t("de", "projectCustomer"), "ACME Corp");
+    fireEvent.change(screen.getByLabelText(t("de", "projectNaceSection"), { exact: false }), {
+      target: { value: "C" },
+    });
+    setText(t("de", "projectProducts"), "Widget");
+    fireEvent.change(screen.getByLabelText(t("de", "projectDeployment"), { exact: false }), {
+      target: { value: "Cloud" },
+    });
+    setText(t("de", "projectStartDate"), "2026-01-01");
+    setText(t("de", "projectEndDate"), "2026-06-01");
+    setText(t("de", "projectProfitCenter"), "PC-9");
+    fireEvent.click(screen.getByLabelText("GDPR / data protection regulation"));
+    fireEvent.change(screen.getByPlaceholderText(t("de", "contactAddManual")), {
+      target: { value: "Pat Contact" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("de", "add") }));
+    fireEvent.click(screen.getByRole("button", { name: t("de", "wizardNext") }));
+
+    // Step 2 → Blank (choose functions yourself) → Step 3.
+    fireEvent.click(screen.getByRole("button", { name: /Funktionen selbst/i }));
+    fireEvent.click(screen.getByRole("button", { name: t("de", "wizardNext") }));
+
+    // Step 3: both preset buttons carry the translated accessible name, and
+    // the hardcoded English string is gone.
+    expect(
+      screen.getByRole("button", { name: t("de", "modeApplySimplePreset") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("button", { name: t("de", "modeApplyAdvancedPreset") }),
+    ).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Apply Simple preset" }),
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: "Apply Advanced preset" }),
+    ).not.toBeInTheDocument();
   });
 });
 

@@ -77,7 +77,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
-          aria-label="Apply Simple preset"
+          aria-label={t(lang, "modeApplySimplePreset")}
           onClick={() => setDraft([])}
           className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >
@@ -85,7 +85,7 @@ export function ModeSection({ lang, settings, onCommitFeatures, onChange }: Mode
         </button>
         <button
           type="button"
-          aria-label="Apply Advanced preset"
+          aria-label={t(lang, "modeApplyAdvancedPreset")}
           onClick={() => setDraft([...ALL_MODULE_IDS])}
           className={`rounded-md border border-line px-3 py-1.5 text-sm hover:bg-surface-muted ${INTERACTIVE}`}
         >

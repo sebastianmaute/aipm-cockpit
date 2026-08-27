@@ -1,6 +1,11 @@
 import { render, screen, fireEvent } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { beforeAll, describe, it, expect, vi } from "vitest";
 import { ChatPromptChips } from "./chat-prompt-chips";
+import { loadI18n } from "./i18n";
+
+beforeAll(async () => {
+  await loadI18n("de");
+});
 
 describe("ChatPromptChips", () => {
   it("renders a labelled suggested-prompts list with at least one chip", () => {
@@ -17,5 +22,11 @@ describe("ChatPromptChips", () => {
     expect(onPick).toHaveBeenCalledTimes(1);
     expect(typeof onPick.mock.calls[0][0]).toBe("string");
     expect(typeof onPick.mock.calls[0][1]).toBe("boolean");
+  });
+
+  it("translates the list's accessible name under German", () => {
+    render(<ChatPromptChips lang="de" onPick={vi.fn()} />);
+    expect(screen.getByRole("list", { name: "Vorgeschlagene Prompts" })).toBeInTheDocument();
+    expect(screen.queryByRole("list", { name: "Suggested prompts" })).not.toBeInTheDocument();
   });
 });

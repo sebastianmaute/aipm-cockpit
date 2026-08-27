@@ -15,8 +15,11 @@ import { useEffect, useId, useRef, useState } from "react";
 import { XMarkIcon } from "./icons";
 import type React from "react";
 import { INTERACTIVE } from "./interaction-styles";
+import { type Lang, t } from "./i18n";
+import { rowLabel } from "./row-tokens";
 
 export interface StakeholderRecipientInputProps {
+  lang: Lang;
   value: string[];
   onChange: (next: string[]) => void;
   suggestions: string[];
@@ -25,6 +28,7 @@ export interface StakeholderRecipientInputProps {
 }
 
 export function StakeholderRecipientInput({
+  lang,
   value,
   onChange,
   suggestions,
@@ -157,7 +161,7 @@ export function StakeholderRecipientInput({
                     e.stopPropagation();
                     remove(name);
                   }}
-                  aria-label={`Remove ${name}`}
+                  aria-label={rowLabel(t(lang, "remove"), name)}
                   className={`-mr-1 rounded-full text-muted-foreground hover:text-ui-pink ${INTERACTIVE}`}
                 >
                   <XMarkIcon aria-hidden="true" className="h-3 w-3" />

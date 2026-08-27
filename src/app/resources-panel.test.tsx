@@ -1,10 +1,10 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { useState } from "react";
-import { describe, test, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, test, expect, vi, beforeAll, beforeEach, afterEach } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ResourcesPanel } from "./resources-panel";
-import { t } from "./i18n";
+import { loadI18n, t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
 import type { Resource, Task } from "./types";
 
@@ -91,6 +91,29 @@ describe("ResourcesPanel", () => {
       onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
     fireEvent.change(screen.getByLabelText("Utilization for Sample in 2026-02"), { target: { value: "80" } });
     expect(onSetUtilization).toHaveBeenCalledWith(1, "2026-02", 80);
+  });
+
+  // The DE dictionary is lazy — load it BEFORE asserting German output, or the
+  // assertion silently reads English and passes for nothing.
+  describe("planning view: utilization/absence-override cell labels", () => {
+    beforeAll(async () => {
+      await loadI18n("de");
+    });
+
+    test("translates both cells' accessible names under German", () => {
+      const resources = [{ id: 1, firstName: "Sample", lastName: "", roleId: null, utilizationMode: "percent" as const, utilization: {} }];
+      const plan = { startDate: "2026-02-01", endDate: "2026-02-28", granularity: "month" as const, currency: "EUR" };
+      render(<ResourcesPanel {...baseProps} lang="de" view="planning" resources={resources} plan={plan}
+        workdayHours={8} onSetUtilization={() => {}} onSetAbsenceOverride={() => {}} onSetPlanWindow={() => {}} />);
+      expect(
+        screen.getByLabelText(t("de", "resourceUtilizationForPeriod", "Sample", "2026-02")),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByLabelText(t("de", "resourceAbsenceOverrideForPeriod", "Sample", "2026-02")),
+      ).toBeInTheDocument();
+      expect(screen.queryByLabelText("Utilization for Sample in 2026-02")).not.toBeInTheDocument();
+      expect(screen.queryByLabelText("Absence override for Sample in 2026-02")).not.toBeInTheDocument();
+    });
   });
 
   test("planning: period date header is not right-aligned", () => {
