@@ -375,6 +375,7 @@ const enUS = {
   add: "Add",
   noCountriesSelected: "No countries selected. Only weekends are excluded.",
   remove: "Remove",
+  resourceRoleForRow: "Role for {0}",
 
   voiceCommand: "Voice command",
   voiceCommandTip:

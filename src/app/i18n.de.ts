@@ -379,6 +379,7 @@ export const de: Record<TranslationKey, string> = {
   add: "Hinzufügen",
   noCountriesSelected: "Keine Länder ausgewählt. Nur Wochenenden werden ausgeschlossen.",
   remove: "Entfernen",
+  resourceRoleForRow: "Rolle für {0}",
 
   voiceCommand: "Sprachbefehl",
   voiceCommandTip:

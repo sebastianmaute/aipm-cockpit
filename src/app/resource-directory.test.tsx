@@ -4,7 +4,8 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 import { ResourceDirectory } from "./resource-directory";
 import { ConfirmProvider } from "./confirm-dialog";
 import type { Resource } from "./types";
-import { t } from "./i18n";
+import { t, loadI18n } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const rs: Resource[] = [{ id: 1, firstName: "Sample", lastName: "Dummy", title: "Architect", roleId: null, utilizationMode: "percent", utilization: {} }];
 
@@ -260,6 +261,59 @@ describe("ResourceDirectory", () => {
       }),
     );
     expect(field.value).toBe("");
+  });
+
+  // §247/§248: the role select's aria-label was hardcoded English built from
+  // the raw display name (`Role for ${resourceDisplayName(resource)}`), and
+  // the row checkbox read the raw name too — so two resources sharing a
+  // display name rendered identical accessible names on BOTH controls, and
+  // the name button had no aria-label at all (its accessible name fell back
+  // to its content, the same raw name). `roles` names every control type the
+  // row renders: the name button, the row checkbox, and the role <select>
+  // (a combobox). Whole-document scope: this pane's toolbar carries no
+  // control reusing a per-row name, so nothing here can mask a broken row.
+  it("keeps every per-row control distinct when two resources share a display name", () => {
+    const dupes: Resource[] = [
+      { id: 1, firstName: "Dana", lastName: "Ames", roleId: null, utilizationMode: "percent", utilization: {} },
+      { id: 2, firstName: "Dana", lastName: "Ames", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(
+      <ResourceDirectory
+        {...common}
+        resources={dupes}
+        roles={[{ id: 5, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 }]}
+        disciplines={[{ id: 1, name: "Engineering" }]}
+        grades={[{ id: 1, name: "Senior" }]}
+        onBulkEditResources={vi.fn()}
+        onBulkDeleteResources={vi.fn()}
+      />,
+    );
+    // Measured (`expectRowUniqueNames` with minControls set high, then read the
+    // printed list): 6 toolbar buttons (Add resource, Add absence, Hide
+    // external, Print, reset-columns, reset-size) + 7 sortable column headers
+    // + 2 name buttons + 1 select-all checkbox + 2 row checkboxes + 2 role
+    // comboboxes = 20.
+    expectRowUniqueNames({
+      minControls: 20,
+      roles: ["button", "checkbox", "combobox"],
+      requireCollisionSeed: true,
+    });
+  });
+
+  it("translates the role select's accessible name", async () => {
+    await loadI18n("de");
+    const rDe: Resource[] = [
+      { id: 1, firstName: "Sample", lastName: "Dummy", roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(
+      <ResourceDirectory
+        {...common}
+        lang="de"
+        resources={rDe}
+      />,
+    );
+    expect(screen.queryByRole("combobox", { name: /^Role for/ })).toBeNull();
+    expect(screen.getByRole("combobox", { name: /^Rolle für/ })).toBeInTheDocument();
   });
 });
 
