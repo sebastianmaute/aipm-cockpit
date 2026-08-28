@@ -304,3 +304,61 @@ export const IMG_TAG_ASSET_ID_RE =
  *   for it, so it costs no cap slot and no export. */
 export const ASSET_IMG_TEST_RE =
   /<img\b[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)|<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
+
+/** The WHOLE `<img>` tag carrying an asset id, for carrying images across a
+ *  degrade (`degradeToPlain`, `rich-text-plain.ts`). Matches the tag; captures
+ *  nothing — the consumer re-emits `m[0]` verbatim.
+ *
+ *  ★★★ IT LIVES HERE, NOT BESIDE ITS ONLY CONSUMER, AND THAT IS THE WHOLE
+ *  POINT. It shipped in 0.262.2 as a PRIVATE fourth spelling in
+ *  `rich-text-plain.ts` and diverged immediately: bare `[^<>]*` runs where the
+ *  three above are quote-aware, so a `>` inside a quoted attribute value
+ *  sitting BEFORE the id ended the run early and the tag did not match.
+ *  Measured: `<img title="Q1 > Q2" data-asset-id="real">` — which every
+ *  renderer draws — was carried across a degrade as NOTHING, and its severed
+ *  head leaked into the user's prose as `Q2" data-as`. That is §208's own
+ *  defect (an image silently dropped on overflow) surviving inside §208's fix.
+ *  ★★★ NOTHING CAUGHT IT. `document-asset-patterns.test.ts` asserts the
+ *  divergences between these patterns DIRECTLY, pattern against pattern over a
+ *  shared corpus — that differential is §209's entire closure argument, and a
+ *  spelling in another module is outside it. Keep every `data-asset-id` matcher
+ *  in this file so the corpus can see it; a private one is unreachable by the
+ *  only gate that checks this class.
+ *
+ *  ★★★ IT IS NOT `IMG_TAG_ASSET_ID_RE` AND MUST NOT BE COLLAPSED INTO IT. That
+ *  was proposed during review and measured: the export pattern requires a
+ *  DOUBLE-QUOTED id and is `/g`, so it returns NOTHING for four shapes this one
+ *  carries — `data-asset-id='a'`, `data-asset-id=a`, `data-asset-id = "a"` and
+ *  `<IMG DATA-ASSET-ID="a">`. Collapsing would trade three silent drops for
+ *  four. The two are INCOMPARABLE, not nested: this one is deliberately liberal
+ *  about quoting and case because it only has to RECOGNISE a tag to preserve it,
+ *  while the export pattern has to EXTRACT an id it can look up.
+ *
+ *  ★★ ONE SHAPE IS DELIBERATELY DROPPED that the private version carried:
+ *  `<img alt="data-asset-id=x">`, a decoy inside a quoted value with no real
+ *  asset. Quote-awareness is exactly what stops it counting, and
+ *  `ASSET_IMG_TEST_RE`'s docstring above calls that the false-TRUE direction —
+ *  so losing it here is the correction, not a regression. It is the only case
+ *  in the corpus where this pattern is narrower than its predecessor.
+ *
+ *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING. The two runs sit NESTED around the
+ *  id, so on an `<img` that never closes run 2 re-scans to end of input at every
+ *  position run 1 gives back — quadratic, the same shape §253 fixed on
+ *  `IMG_TAG_ASSET_ID_RE`. Measured 2026-08-28 on an unterminated `<img` carrying
+ *  repeated ids, guarded vs the same pattern with the lookahead deleted:
+ *  0.3/0.6/0.8/1.4 ms against 216/844/3671/18321 ms at 32/64/128/256 KB — 4x per
+ *  doubling unguarded, flat with it. The guard fails once, in linear time, so
+ *  neither run ever starts. Do NOT "simplify" it away.
+ *  ★ Atomic-group emulation `(?=(X*))\1` matches NOTHING here for the reason
+ *  `IMG_TAG_ASSET_ID_RE`'s docstring gives — the atomic run swallows the
+ *  attribute list and will not give back the `data-asset-id` that must follow.
+ *
+ *  ★ Like both patterns above it, it treats `/` as an attribute separator
+ *  (§252, still open): `<img alt=x/data-asset-id="realid">` matches. Inherited
+ *  from the shared `(?<![-\w])` lookbehind, measured not assumed.
+ *  ★ NOT strictly match-preserving against its own body, and neither was the
+ *  private version: `<img data-asset-id=a<b>` has a `<` in an UNQUOTED value,
+ *  which the value branch permits and neither guard's run does. Invalid HTML,
+ *  unchanged by the move, recorded so the next reader does not rediscover it. */
+export const ASSET_IMG_TAG_RE =
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)(?:[^<>"']|"[^"]*"|'[^']*')*>/gi;

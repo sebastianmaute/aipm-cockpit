@@ -1,4 +1,4 @@
-import { describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
 import {
@@ -11,6 +11,14 @@ import {
   sanitizeRichText,
   separateBlockBoundaries,
 } from "./rich-text-plain";
+import { logDiag } from "./diagnostics";
+
+// ★★ Mocked so the degrade REPORT can be asserted. Under bare node logDiag is
+// already inert (it returns early with no `window`), so without the mock there
+// is nothing to observe and every payload mutant ships green — which is exactly
+// what happened. The mock is file-wide and harmless: no other test here asserts
+// on diagnostics, and a spy is at least as inert as the real early return.
+vi.mock("./diagnostics", () => ({ logDiag: vi.fn() }));
 
 describe("descriptionHtml", () => {
   it("escapes and wraps a legacy plain value", () => {
@@ -390,6 +398,51 @@ describe("sanitizeRichText", () => {
     expect(heavy.length / htmlTextLength(heavy)).toBeGreaterThan(8);
     expect(sanitizeRichText(heavy, 5000, "rich")).toBe(heavy);
   });
+
+  // ★★★ THE THREE ASSERTIONS ABOVE PIN THE CEILING ONLY TO A WIDE BAND, AND ONE
+  // OF ITS TWO CONSTANTS NOT AT ALL. Measured by mutation: RICH_BYTE_K survives
+  // every value in [8, 99] (only K <= 4 fails the headroom test and K >= 100
+  // fails the attribute test), and RICH_BYTE_FLOOR survives 0, 1, 10_000 and
+  // 100_000 — the whole constant could be deleted with the suite green. The
+  // reason is scale: those tests all use max = 5000, where the floor is 1024
+  // against a 160,000-byte K term and cannot change the verdict.
+  //
+  // ★★ SO THE FLOOR NEEDS A SMALL `max`, WHICH IS THE ONLY REGIME IT GOVERNS.
+  // At max = 10 the ceiling is 10*32 + 1024 = 1344. This value is 433 bytes and
+  // three visible characters — a ratio of 144x, far past K, so it survives ONLY
+  // because of the floor. With FLOOR = 0 the ceiling drops to 320 and it
+  // degrades. That is the floor's entire purpose: keep a small cap from
+  // rejecting its own wrapper markup.
+  it("keeps a small-cap value alive on the floor alone", () => {
+    const small = `<p><span data-x="${"A".repeat(400)}">abc</span></p>`;
+    expect(small.length).toBeGreaterThan(10 * 32); // past the K term…
+    expect(small.length).toBeLessThan(10 * 32 + 1024); // …but under the floor'd ceiling
+    expect(sanitizeRichText(small, 10, "rich")).toBe(small);
+  });
+
+  // ★★ And the other side of the floor: past it, a small cap still bounds.
+  // Without this, FLOOR could grow without limit and nothing would object.
+  it("still degrades a small-cap value that clears the floor", () => {
+    const big = `<p><span data-x="${"A".repeat(4000)}">abc</span></p>`;
+    expect(big.length).toBeGreaterThan(10 * 32 + 1024);
+    expect(sanitizeRichText(big, 10, "rich")).not.toBe(big);
+  });
+
+  // ★★★ THE CEILING CLIPS RAW BYTES BEFORE ANYTHING PROJECTS, so it is NOT a
+  // cap on visible text — everything past the byte offset is gone regardless of
+  // how far under `max` the visible text is. That is the price of deciding
+  // before the projection, which is the ordering the whole fix turns on (the
+  // projection IS the work being bounded). Pinned because it is a real,
+  // surprising loss that the closure text has to keep disclosing, and because
+  // dropping `.slice(0, ceiling)` is otherwise an unkilled behavioural mutant.
+  it("clips raw bytes, so visible text past the ceiling is lost", () => {
+    const pad = "<em></em>".repeat(200000);
+    const value = `<p>HEAD${pad}TAIL</p>`;
+    const out = sanitizeRichText(value, 5000, "rich");
+    expect(htmlTextLength(value)).toBeLessThan(5000); // never reached the visible cap
+    expect(out).toContain("HEAD");
+    expect(out).not.toContain("TAIL"); // …and yet the tail is gone
+  });
 });
 
 // ★★ Guard: this module runs inside the entity sanitizers, which execute under
@@ -428,7 +481,7 @@ describe("DOM-free guard", () => {
     expect(code).not.toMatch(/sanitizeDocumentHtml/);
   });
 
-  it("imports exactly the three modules it is allowed to import", () => {
+  it("imports exactly the four modules it is allowed to import", () => {
     // ★ The old guard banned four SYMBOL names. That let two things past:
     // plainToHtml growing a DOMPurify.sanitize call (its own comment warns
     // against exactly that), and a future `import { descriptionText } from
@@ -445,7 +498,12 @@ describe("DOM-free guard", () => {
     const specifiers = [...code.matchAll(/(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g)]
       .map((m) => m[1])
       .sort();
-    expect(specifiers).toEqual(["./diagnostics", "./html-start", "./sanitize-html"]);
+    expect(specifiers).toEqual([
+      "./diagnostics",
+      "./document-asset-patterns",
+      "./html-start",
+      "./sanitize-html",
+    ]);
   });
 
   // ★★★ `./diagnostics` WAS ADDED TO THIS ALLOWLIST DELIBERATELY, AND IT IS THE
@@ -456,14 +514,66 @@ describe("DOM-free guard", () => {
   // NEITHER may reach a sanitiser. If this assertion ever has to be relaxed,
   // remove the import instead — the diagnostic is observability, and it is not
   // worth the guard.
-  it("keeps the newly allowed diagnostics import DOM-free transitively", () => {
-    for (const mod of ["diagnostics.ts", "diagnostics-redact.ts", "version.ts"]) {
+  it("keeps every allowed import DOM-free transitively", () => {
+    for (const mod of [
+      "diagnostics.ts",
+      "diagnostics-redact.ts",
+      "version.ts",
+      "document-asset-patterns.ts",
+    ]) {
       const src = readFileSync(join(import.meta.dirname, mod), "utf8")
         .replace(/\/\*[\s\S]*?\*\//g, "")
         .replace(/\/\/.*$/gm, "");
       expect(src).not.toMatch(/dompurify/i);
       expect(src).not.toMatch(/from "\.\/sanitize-html"/);
     }
+  });
+
+  // ★★★ THE TEST ABOVE DOES NOT TEST WHAT ITS NAME CLAIMS, WHICH IS WHY THIS
+  // ONE EXISTS. Scanning for `dompurify` proves a module does not SANITISE; it
+  // says nothing about whether the module touches a DOM. `diagnostics.ts` in
+  // fact references `window` throughout — it is safe only because every
+  // reference is GUARDED, and the guard is what has to hold, not the absence of
+  // a DOMPurify call. A future edit dropping the `typeof window` check would
+  // sail past the scan above and make `jsonToWorkspace` throw under bare node,
+  // which is precisely the failure the allowlist exists to prevent (and which
+  // `scripts/generate-sample-workspace.ts` would hit first).
+  //
+  // ★★ `document-asset-patterns.ts` is pinned at ZERO imports rather than
+  // scanned, because that is the property that makes it safe: a leaf cannot
+  // acquire a DOM reach transitively. If it ever needs an import, this is the
+  // assertion that must be argued with.
+  it("pins the facts that make the allowed imports safe, not just the absence of DOMPurify", () => {
+    const strip = (mod: string) =>
+      readFileSync(join(import.meta.dirname, mod), "utf8")
+        .replace(/\/\*[\s\S]*?\*\//g, "")
+        .replace(/\/\/.*$/gm, "");
+
+    // 1. document-asset-patterns is a LEAF — no imports at all, so its closure
+    //    is itself and cannot widen without this going red.
+    const assetSpecifiers = [
+      ...strip("document-asset-patterns.ts").matchAll(
+        /(?:\bfrom|\bimport|\brequire)\s*\(?\s*["'`]([^"'`]+)["'`]/g,
+      ),
+    ].map((m) => m[1]);
+    expect(assetSpecifiers).toEqual([]);
+
+    // 2. Every top-level `window` reach in diagnostics.ts is behind a
+    //    `typeof window` guard. A bare top-level `window.x = …` would throw on
+    //    IMPORT alone, before any function runs.
+    const diag = strip("diagnostics.ts");
+    for (const line of diag.split("\n")) {
+      // Top-level = column 0. Indented lines are inside a function body, which
+      // only runs when called, and logDiag's own early return covers those.
+      if (/^\S/.test(line) && /\bwindow\b/.test(line)) {
+        expect(line).toMatch(/typeof window/);
+      }
+    }
+
+    // 3. logDiag bails before touching storage when there is no window. Pinned
+    //    by name because the plan called this load-bearing: if it stops being
+    //    true the import must be removed, not repaired.
+    expect(diag).toMatch(/typeof window === "undefined"/);
   });
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {
@@ -802,7 +912,10 @@ describe("degradeToPlain", () => {
   it("stops extracting images at its own cap", () => {
     const many = '<img data-asset-id="a">'.repeat(200);
     const out = degradeToPlain(`<p>${many}text</p>`, 4);
-    expect((out.match(/data-asset-id/g) ?? []).length).toBeLessThanOrEqual(20);
+    // ★ EXACTLY 20, not "at most 20" — the loose form let DEGRADE_IMG_CAP be
+    // mutated 20 -> 19 (or lower) with the suite green, so it pinned the
+    // existence of a cap but not its value.
+    expect((out.match(/data-asset-id/g) ?? []).length).toBe(20);
   });
 
   // ★★ These two guards MOVED here from capHtmlText — they are not duplicated.
@@ -820,28 +933,143 @@ describe("degradeToPlain", () => {
   });
 
   // ★★★ THIS IS THE OVERFLOW PATH, so the one input guaranteed to reach it is an
-  // oversized one. ASSET_IMG_TAG's two runs sit nested around the id, which is
+  // oversized one. ASSET_IMG_TAG_RE's two runs sit nested around the id, which is
   // quadratic on an <img that never closes unless the guard lookahead is there.
-  // Measured 2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at
-  // 128. Deleting `(?=[^<>]*>)` from the pattern turns this red.
+  //
+  // ★★★ THE SIZE IS 256 KB AND MUST NOT BE LOWERED — AT 128 KB THIS TEST WAS
+  // GREEN AGAINST THE MUTANT IT NAMES. Its previous comment claimed "deleting
+  // `(?=[^<>]*>)` turns this red" while quoting its own measurement as 1062 ms
+  // at 128 KB — which is UNDER this 2000 ms ceiling, so the claim refuted
+  // itself on the page. Three independent reviewers measured the guard-deleted
+  // pattern at 128 KB: 795 ms, 974 ms, and a five-run spread of
+  // 1141/1220/1678/2620/2546 ms — i.e. green 3 times in 5. A budget test whose
+  // mutant passes is worse than no test: it reads as protection.
+  // Measured 2026-08-28, guarded vs guard-deleted, on this exact shape:
+  //   32 KB  0.3 ms vs   216 ms
+  //   64 KB  0.6 ms vs   844 ms
+  //  128 KB  0.8 ms vs  3671 ms   <- reviewers saw ~1-2.6s on slower runs
+  //  256 KB  1.4 ms vs 18321 ms   <- 9x the ceiling, on every machine measured
+  // The sibling guard test in document-asset-patterns.differential.test.ts
+  // already used 256 KB for the same defect class; this one was copied from the
+  // htmlPlainProjection family above, where 128 KB IS sufficient.
   it("stays bounded on an unterminated <img carrying repeated ids", () => {
     const unit = 'data-asset-id="x" ';
-    const input = "<img " + unit.repeat(Math.round((128 * 1024) / unit.length));
+    const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
     const started = performance.now();
     degradeToPlain(input, 100);
     expect(performance.now() - started).toBeLessThan(2000);
+  });
+
+  // ★★★ THE SHAPES THE FIRST CUT SILENTLY DROPPED, AND THE REASON THE MATCHER
+  // MOVED MODULES. `ASSET_IMG_TAG` shipped private to this file with bare
+  // `[^<>]*` runs, so a `>` inside a QUOTED attribute value sitting BEFORE the
+  // id ended the run early and the whole tag failed to match — the image was
+  // dropped from the degrade while all three canonical patterns, and therefore
+  // every renderer, kept it. That is §208's own defect inside §208's fix.
+  // ★★ `title="Q1 > Q2"` is ordinary prose, not an adversarial fixture, and an
+  // HTML serializer escapes only `&` and `"` inside an attribute value — never
+  // `>` — so this is what a real DOM round-trip emits.
+  it("carries an image whose attribute value contains a `>` before the id", () => {
+    for (const img of [
+      '<img alt="a>b" data-asset-id="a3">',
+      "<img alt='p>q' data-asset-id=\"a5\">",
+      '<img title="Q1 > Q2" data-asset-id="real">',
+    ]) {
+      const out = degradeToPlain(`<p>${img}${"x".repeat(50)}</p>`, 10);
+      expect(out).toContain("data-asset-id");
+      // The tag is re-emitted WHOLE, not truncated at the inner `>`.
+      expect(out).toContain(img);
+    }
+  });
+
+  // ★★★ THIS SHAPE HAS TWO LOSSES AND THE MATCHER FIX CLOSES ONLY ONE. Asserted
+  // rather than left implicit, because the first cut of the test above claimed
+  // both were fixed and went red on the second — an over-claim caught only by
+  // running it.
+  // (1) FIXED: the image is carried across the degrade (test above).
+  // (2) NOT FIXED, and deliberately: `TAG` matches `<img alt="a>` — from the
+  //     `<` to the FIRST `>`, which sits inside the quoted value — so the
+  //     remainder `b" data-asset-id="a3">` is not a tag and projects as prose.
+  //     The user sees `b" data-as` in their text.
+  // ★★★ DO NOT "FIX" (2) BY MAKING `TAG` QUOTE-AWARE. AGENTS.md forbids it in
+  // terms: `<`-exclusion and quote-awareness are two independent narrowings with
+  // different blast radii, and conflating them is what produced §250. `TAG` runs
+  // on every rich-field load path; this matcher runs only on the overflow path.
+  // The projection leak is the documented §251 moved shape and is recorded as a
+  // residual on §208, not repaired here.
+  it("still leaks the attribute tail into prose — the §251 residual", () => {
+    const out = degradeToPlain(`<p><img alt="a>b" data-asset-id="a3">${"x".repeat(50)}</p>`, 10);
+    expect(out).toContain('b" data-as');
+  });
+
+  // ★★ The liberal value quoting is deliberate and is why this pattern is NOT
+  // `IMG_TAG_ASSET_ID_RE`. Collapsing the two was proposed in review; the export
+  // pattern requires a double-quoted id and is `/g`, so it returns nothing for
+  // all four of these. Pinned so a future "deduplicate these" cannot land
+  // silently.
+  it("carries single-quoted, unquoted, spaced and uppercase ids", () => {
+    for (const img of [
+      "<img data-asset-id='a8'>",
+      "<img data-asset-id=a9>",
+      '<img data-asset-id = "a10">',
+      '<IMG DATA-ASSET-ID="a11">',
+    ]) {
+      const out = degradeToPlain(`<p>${img}${"x".repeat(50)}</p>`, 10);
+      expect(out.toLowerCase()).toContain("data-asset-id");
+    }
   });
 });
 
 // ★★ The degrade is REPORTED, not silent. logDiag is a no-op when `window` is
 // undefined, which is what makes it legal in this DOM-free module — the sample
 // generator runs here under bare node and must not throw.
+//
+// ★★★ THE `not.toThrow()` ASSERTION BELOW WAS ONCE THE ONLY ONE HERE, AND IT
+// PINNED NOTHING ABOUT THE REPORT. Every one of these mutants shipped green
+// against it: deleting the whole `logDiag(...)` call; renaming the event;
+// dropping "warn" to "info"; zeroing `before`; removing `ceiling` from the
+// payload. The describe block was named "the degrade is reported" and no
+// assertion touched the reporting — a false coverage claim, which reads as
+// protection and stops the next audit. The mock below is the actual pin.
 describe("sanitizeRichText — the degrade is reported", () => {
+  beforeEach(() => {
+    vi.mocked(logDiag).mockClear();
+  });
+
   it("does not throw under bare node, where logDiag is inert", () => {
     const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
     // Literals, not TEXTAREA_MAX/RICH_SINK — this file deliberately does not
     // import them, and adding an import here is the very thing the DOM-free
     // guard below is about.
     expect(() => sanitizeRichText(abusive, 5000, "rich")).not.toThrow();
+  });
+
+  it("reports the degrade with the event name, level and full payload", () => {
+    const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
+    sanitizeRichText(abusive, 5000, "rich");
+
+    expect(logDiag).toHaveBeenCalledTimes(1);
+    const [level, event, payload] = vi.mocked(logDiag).mock.calls[0];
+    expect(level).toBe("warn");
+    expect(event).toBe("rich-text-bytes-degraded");
+    // Each field asserted on its own — a `toMatchObject` with one key would let
+    // the other two be dropped.
+    expect(payload).toMatchObject({
+      before: abusive.length,
+      ceiling: 5000 * 32 + 1024,
+    });
+    // `after` is the degraded size: real, smaller than `before`, and not zero.
+    const after = (payload as { after: number }).after;
+    expect(after).toBeGreaterThan(0);
+    expect(after).toBeLessThan(abusive.length);
+  });
+
+  // ★★ THE SILENCE HALF. Without this, "always log" passes the test above — and
+  // a warn on every ordinary sanitize would flood the diagnostics ring, whose
+  // eviction policy drops the oldest entries and would therefore destroy the
+  // data-loss records it exists to keep.
+  it("stays silent when the value is under the ceiling", () => {
+    sanitizeRichText("<p><strong>ordinary</strong> content</p>", 5000, "rich");
+    expect(logDiag).not.toHaveBeenCalled();
   });
 });

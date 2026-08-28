@@ -19,6 +19,7 @@
 import { plainToHtml } from "./sanitize-html";
 import { isHtmlStart, type RichTextSink } from "./html-start";
 import { logDiag } from "./diagnostics";
+import { ASSET_IMG_TAG_RE } from "./document-asset-patterns";
 
 /** Whitespace control characters — TAB (0x09), vertical tab and form feed —
  *  collapse to a SINGLE SPACE instead of being deleted.
@@ -314,23 +315,15 @@ export function htmlTextLength(html: string): number {
  *  the input was already outside what the app can hold. */
 const DEGRADE_IMG_CAP = 20;
 
-/** An `<img>` carrying a `data-asset-id`, for carrying images across a degrade.
- *
- *  ★ Bounded like every other matcher in this file — `[^<>]*`, so a scan cannot
- *  cross a tag boundary. See TAG's docstring for the measurement.
- *
- *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING AND WAS ADDED BEFORE THIS PATTERN
- *  EVER SHIPPED. Bounding the runs to one tag REGION is not enough on its own:
- *  the two `[^<>]*` runs sit NESTED around the id, so on an `<img` that never
- *  closes, run 2 re-scans to end of input at every position run 1 gives back —
- *  the same quadratic IMG_TAG_ASSET_ID_RE carries, in a new pattern. Measured
- *  2026-08-27 without the guard: 57 ms at 32 KB, 226 at 64, 1062 at 128, i.e.
- *  4x per doubling. With it: 0.0 / 0.1 / 0.2 ms, and identical matches on every
- *  fixture. This matters more here than anywhere else in the file, because this
- *  is the OVERFLOW path — the one input that reaches it is by definition
- *  oversized. Pinned by the complexity test in rich-text-plain.test.ts. */
-const ASSET_IMG_TAG =
-  /<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
+/** ★★★ THE MATCHER THIS FUNCTION USES LIVES IN `document-asset-patterns.ts`,
+ *  DELIBERATELY, AND MOVING IT BACK RE-OPENS §209. It shipped here as a private
+ *  fourth `data-asset-id` spelling and diverged on arrival — bare `[^<>]*` runs
+ *  where the three canonical ones are quote-aware, so an image carrying a `>` in
+ *  a quoted attribute before the id was silently dropped from a degrade while
+ *  every renderer drew it. That is §208's own defect inside §208's fix, and the
+ *  differential corpus in `document-asset-patterns.test.ts` — the only gate that
+ *  checks this class — could not see it from another module. Read
+ *  `ASSET_IMG_TAG_RE`'s docstring there before changing anything here. */
 
 /** The SINGLE overflow path: flatten to text, truncate, carry the images.
  *
@@ -359,10 +352,20 @@ const ASSET_IMG_TAG =
 export function degradeToPlain(html: string, max: number): string {
   if (!html) return "";
   if (max <= 0) return "";
-  ASSET_IMG_TAG.lastIndex = 0;
-  const images = Array.from(html.matchAll(ASSET_IMG_TAG))
-    .slice(0, DEGRADE_IMG_CAP)
-    .map((m) => m[0]);
+  // ★★ BREAK OUT OF THE ITERATOR — do NOT `Array.from(...).slice(0, CAP)`. That
+  // spelling materialises EVERY match before discarding all but the first CAP,
+  // so the cap bounded the OUTPUT while the work stayed unbounded — on the one
+  // path whose input is oversized by definition. `matchAll` is lazy, so the
+  // break makes the cap bound the scan too.
+  // ★ `lastIndex = 0` is defensive: `matchAll` HONOURS the source regex's
+  // lastIndex but never mutates it, and this is a shared module-level pattern
+  // now, so it can no longer be reasoned about from this file alone.
+  ASSET_IMG_TAG_RE.lastIndex = 0;
+  const images: string[] = [];
+  for (const m of html.matchAll(ASSET_IMG_TAG_RE)) {
+    if (images.length >= DEGRADE_IMG_CAP) break;
+    images.push(m[0]);
+  }
   const text = htmlPlainProjection(html);
   const last = text.charCodeAt(max - 1);
   const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
