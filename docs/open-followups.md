@@ -28,6 +28,38 @@ closure — and read the LIST, never a number:
 grep -E "^## [0-9]+." docs/open-followups.md | grep -vE "— CLOSED" | grep -E "FIXED|CLOSED"
 ```
 
+★★★ **EVERY OPEN ENTRY MUST CARRY A `**Status:**` LINE, AND A BLOCKING CI JOB NOW ENFORCES IT.**
+The line states what the entry is, carries an ISO date, and either cites the command that reproduced
+the claim or says outright `never machine-verified`. Four clauses, checked by
+`npm run followups:status:check` (CI job `followups-status-check`):
+
+1. it begins with the literal `**Status:**`;
+2. it MUST NOT contain the word CLOSED — the `##` heading owns closure, and a body line claiming it
+   breaks every count above;
+3. it carries at least one ISO `YYYY-MM-DD` date;
+4. it names the last EXECUTED verification, or says `never machine-verified`.
+
+★★★ **DO NOT SATISFY A RED RUN BY INVENTING A VERIFICATION.** `never machine-verified` is a
+CONFORMING answer and is the honest one for an entry nobody has probed — silence is what 118 of 175
+open entries had on 2026-08-28, and silence is what the gate exists to end. Clause 4 wants a
+command shape (`grep` / `npm run` / `npx` / `node scripts`), not merely something in backticks: a
+backticked FILENAME is not a verification, and accepting one was measured to admit ten entries that
+named none.
+
+★★ **"Reproduced by" means the cited command was RUN and its output is consistent with the entry —
+not that the command alone demonstrates the defect.** Many are presence witnesses (a symbol still
+exists, a guard is still absent); reading them as full reproductions over-claims what a `grep` can
+be. Absence claims are the ones where a `grep` exiting 1 IS the whole witness.
+
+★ Status lines cite SYMBOLS and commands, never a `path:LINE` pair — this file is inside
+`doc-claims-check`'s scan set, and that gate is a RATCHET.
+
+★★ Exit codes split the way `version-sync-check`'s do, because the two demand opposite responses:
+**1 is DRIFT** (write the Status line), **2 is the gate unable to scan at all** — an unreadable
+register, or fewer than 50 entries parsed. The floor is 50 rather than zero because the reachable
+failure is a parser that recognises one heading shape and drops the rest: at a zero-only guard that
+reported "1 open entries scanned — all conforming", green, in a blocking job.
+
 ★★ **A disclosed RESIDUAL inside a closed entry does NOT reopen it.** Closure is about the entry's
 HEADLINE claim, and many closed entries carry a `**Residual (still open):**` block naming what was
 deliberately left behind — that is the house style, not a contradiction. A residual big enough to
@@ -1871,9 +1903,9 @@ leading position, plus an entity in the body. A model would have to emit that un
 ★ Same root cause as §32 (`HTML_START` classification), so fixing that likely closes this too — worth
 handling together rather than special-casing the third pass.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names `HTML_START`, a constant §114 deleted. The mechanism is unchanged because the rich sink derives from `RICH_ALLOWED_TAGS`, which contains `a`, and the word boundary still matches before the hyphen — but the identifier to read is `isHtmlStart` with the rich sink. Reproduced by `grep -n "htmlStartRe" src/app/html-start.ts`.
+
+---
 
 ## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
 
@@ -2653,9 +2685,9 @@ and `focus-within:` is the fix if a label shape is ever genuinely wanted.
 ★ A grep for the ring class proves nothing on its own — presence of `focus:ring-*` says nothing about
 whether the element carrying it can receive focus. Check the element type, not the class.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `globals.css` contains ZERO occurrences of focus, outline or label. One line matches today — a comment added by the 0.255.0 lucide migration. The substantive claim survives; the sentence should say no such RULE. Reproduced by `grep -c "outline" src/app/globals.css`.
+
+---
 
 ## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
 
@@ -3578,9 +3610,9 @@ migrated to `ToggleButton` wholesale, which also settles the open question above
 the binary cases. The two mic buttons are the remaining genuine binary toggles and are the natural
 next migration; the radio-like groups still want the `role="radio"` answer instead.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, two of its twelve line numbers drifted — the `comm-templates-section.tsx` pair moved, the other ten did not. The file set and the count of twelve are exact. This is the fourth instance of the drift class the entry itself documents three times; the fix is to symbolise those two, never to renumber. Reproduced by `grep -rn "aria-pressed={" src/app --include=*.tsx`.
+
+---
 
 ## 56. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
 
@@ -3734,9 +3766,9 @@ renders once server-side and nothing on the client recomputes or rewrites the va
 the serving process's own version, which is the whole point. That is recorded in the JSX comment too,
 because "is this attribute client-authoritative?" is the first question anyone will have.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the Resolution paragraph quotes a suite size and a combo/view product that are both stale. Read the count off the spec itself, never off this entry. Reproduced by `npx playwright test e2e/a11y.spec.ts --list`.
+
+---
 
 ## 59. Eye verification owed on 0.212.0 — and on the two releases before it — open
 
@@ -4273,9 +4305,9 @@ which is why it was not folded into a presentation batch. Anything done here mus
 predicates distinct: `isTaskClosed` answers "will this be worked on again?", `isTaskDelivered`
 answers "was it delivered?", and collapsing them is the defect 0.213.0 existed to remove.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `dashboard-panel.tsx` still renders the all-cancelled string. It does not; the two renderers are elsewhere. Symptom unchanged and the renderer count is still two — only the file names are stale. Reproduced by `grep -rn "dashboardAllCancelled" src/app --include=*.tsx`.
+
+---
 
 ## 66. ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ — CLOSED post-0.216.0
 
@@ -5938,9 +5970,9 @@ because it is answerable as worded; it asks about meetings, not availability.
 Building the tool is the real fix and is not hard — absences are in `Workspace` (unlike timelog entries
 in §86, which are live external calls) — it was simply out of scope for this slice.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the reproduce command is described as returning nothing. It now returns two hits, both prose inside comments — the same comment-line trap §93 warns about. The substantive claim is untouched. Reproduced by `grep -n "absence" src/app/view-ai-scope.ts`.
+
+---
 
 ## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
 
@@ -6445,9 +6477,9 @@ store unfiltered HTML, which is the vulnerability the pass exists to close.
 is in the generator's import graph). Both are true at once, of different modules, which is exactly why
 neither should be quoted as a general rule.
 
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `csvToDocuments` and `markdownToDocuments` take no diag. Both now take a `DocTruncationDiag`. That is the wrong diag for this entry — it reports the document CAP, not an import failure — and the swallowing catch still never touches it, so the reporting gap is intact and only the wording is stale. Reproduced by `grep -rn "csvToDocuments" src/app --include=*.ts`.
+
+---
 
 ## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
 
@@ -8265,7 +8297,9 @@ OUTSIDE the repo and run it FROM the repo root, so `node_modules` resolves: boot
 `window`/`document` from a `jsdom` instance, then dynamically import
 `src/app/sanitize-html` and `src/app/document-model`, and run with `npx vite-node`.
 
-### (a) An image-only paragraph is DELETED on every load path
+### (a) An image-only paragraph is DELETED on every load path — CLOSED 2026-08-25
+
+★★★ **CLOSED 2026-08-25, and the text below is the INPUT it was written as — read it as the state before the fix, not as today's.** The guard is now image-aware, so an image-only paragraph survives the load. It landed on `main`, not only on a feature branch. Reproduced by `grep -n "ASSET_IMG_TEST_RE" src/app/document-model.ts`. The embedded reproduce further down still returns a hit and no longer witnesses the defect.
 
 `document-model.ts` `sanitizeBlock` drops a paragraph block with no visible text:
 
@@ -9827,9 +9861,9 @@ single-field path from `useInlineCellEdit`.
 ★ Left in place rather than deleted because it is a SANITIZER: the branch is the guard that would apply if a
 future inline affordance did patch the field, and deleting it makes reintroducing that affordance silently
 unsanitised. Recorded so a dead-code sweep does not mistake it for an oversight in either direction.
----
-
 ★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the reproduce command reads an exit code THROUGH A PIPE, which is this repo's own documented trap — the printed zero is the witness, but the pipeline status is the last stage's. Rewrite it before relying on `$?`. Reproduced by `grep -n "sanitizeInlinePatch" src/app/task-inline-patch.ts`.
+
+---
 
 ## 137. The seven rich entity fields' editor cannot represent three tags their storage permits — CLOSED 2026-08-11
 
@@ -10596,7 +10630,9 @@ Neither mutant alone proves both halves.
 flat projection at all; it emits the STORED HTML, which is exactly what `golden-workspace.test.ts`
 pins. Reproduce: `grep -n 'workspaceToCsv\|buildExportSections' src/app/export.ts`.
 
-### (c) §31's unbounded markup bytes
+### (c) §31's unbounded markup bytes — CLOSED 2026-08-28 with §31
+
+★★★ **CLOSED 2026-08-28, when its PREMISE closed — read the text below as the input it was.** This sub-part had no defect of its own: it pointed at §31, which now applies a raw-byte ceiling before any projection, so "markup bytes are unbounded" no longer describes the tree. Reproduced by `grep -n "richByteCeiling" src/app/rich-text-plain.ts`.
 
 Caps measure VISIBLE TEXT (`htmlTextLength`), never `html.length`, so markup bytes are unbounded.
 The 21-tag list makes a given amount of visible text able to carry more markup than the 8- or 11-tag

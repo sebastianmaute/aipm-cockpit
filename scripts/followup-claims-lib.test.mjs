@@ -969,6 +969,7 @@ describe("reproCoverageIn", () => {
       extracted: 2,
       notRunnable: 1,
       shellMeta: 1,
+      unparseable: 0,
     });
   });
 
@@ -982,6 +983,7 @@ describe("reproCoverageIn", () => {
       extracted: 1,
       notRunnable: 0,
       shellMeta: 0,
+      unparseable: 0,
     });
   });
 
@@ -991,16 +993,28 @@ describe("reproCoverageIn", () => {
       extracted: 0,
       notRunnable: 0,
       shellMeta: 0,
+      unparseable: 0,
     });
   });
 
   // ★ The invariant that must hold on ANY input, including the real register:
   // every seen line lands in exactly one of the three buckets.
-  it("partitions: extracted + notRunnable + shellMeta === seen", () => {
+  it("partitions: extracted + notRunnable + shellMeta + unparseable === seen", () => {
     const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
     const c = reproCoverageIn(real);
     expect(c.seen).toBeGreaterThan(0);
-    expect(c.extracted + c.notRunnable + c.shellMeta).toBe(c.seen);
+    expect(c.extracted + c.notRunnable + c.shellMeta + c.unparseable).toBe(c.seen);
+  });
+
+  // ★★★ THE BUCKET A COLD REVIEW ADDED, AND WHY IT IS ITS OWN TEST. A line
+  // `splitTrailingComment` cannot parse used to be filtered out BEFORE counting,
+  // so it left the DENOMINATOR and the reported coverage rose. Measured on the
+  // real register: 384 counted against 405 real lines. Erring upward is the one
+  // direction a coverage disclosure must never take.
+  it("counts an unparseable line rather than dropping it from the denominator", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const c = reproCoverageIn(real);
+    expect(c.unparseable).toBeGreaterThan(0);
   });
 });
 

@@ -4,7 +4,9 @@
 // shipped was a regex defect, and both were found by running against the real
 // docs rather than by reading the code. So the last case here runs the contract
 // over the real register.
-import { readFileSync } from "node:fs";
+import { mkdtempSync, mkdirSync, writeFileSync, readFileSync } from "node:fs";
+import { spawnSync } from "node:child_process";
+import os from "node:os";
 import path from "node:path";
 
 import { describe, expect, it } from "vitest";
@@ -90,5 +92,84 @@ describe("statusViolations", () => {
   it("is not applied to closed entries", () => {
     const closed = parseEntries(register()).filter((e) => isClosed(e.title));
     expect(closed.length).toBeGreaterThan(0);
+  });
+});
+
+// ★★★ THE ENTRY POINT'S EXIT CODES, PINNED. The design doc claimed exit 2 was
+// "pinned by a unit test" while nothing spawned the script at all — a false
+// coverage claim reads as protection and stops the audit, which is worse than an
+// admitted gap. A cold review caught it; these make the claim true.
+//
+// ★★ The FLOOR case is the one that matters, and it is the one that was missing.
+// An earlier cut tripped exit 2 only at ZERO entries, so a parser that
+// recognised one heading shape and dropped the rest reported "1 open entries
+// scanned — all conforming" at exit 0, green, inside a BLOCKING job. Measured
+// against a fixture, then fixed to match `check-followup-claims.mjs`'s
+// long-standing floor of 50 rather than inventing a second number.
+//
+// ★ Newlines here are REAL, inside template literals, not `\n` escapes. Three
+// separate patches in this file's history were mangled by escape handling before
+// this was written down.
+describe("check-followup-status.mjs exit codes", () => {
+  const GATE = path.join(process.cwd(), "scripts", "check-followup-status.mjs");
+
+  const runAgainst = (registerText) => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "followup-status-"));
+    mkdirSync(path.join(dir, "docs"), { recursive: true });
+    writeFileSync(path.join(dir, "docs", "open-followups.md"), registerText, "utf8");
+    return spawnSync(process.execPath, [GATE], { cwd: dir, encoding: "utf8", shell: false });
+  };
+
+  const conforming = (n) => `## ${n}. entry ${n} — open
+
+**Status:** open — a thing. 2026-08-28, never machine-verified.
+
+`;
+
+  const manyConforming = (count) => {
+    let out = `# register
+
+`;
+    for (let i = 1; i <= count; i++) out += conforming(i);
+    return out;
+  };
+
+  it("exits 2 when the register is missing entirely", () => {
+    const dir = mkdtempSync(path.join(os.tmpdir(), "followup-status-"));
+    const r = spawnSync(process.execPath, [GATE], { cwd: dir, encoding: "utf8", shell: false });
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/CANNOT SCAN/);
+  });
+
+  it("exits 2 when no entry parses at all", () => {
+    const r = runAgainst(`# register
+
+no headings here
+`);
+    expect(r.status).toBe(2);
+  });
+
+  it("exits 2 when only a handful parse — the floor, not just zero", () => {
+    const r = runAgainst(`${conforming(1)}## 2) not a heading the parser knows
+
+body
+`);
+    expect(r.status).toBe(2);
+    expect(r.stderr).toMatch(/floor is 50/);
+  });
+
+  it("exits 1 on drift once enough entries parse", () => {
+    const r = runAgainst(`${manyConforming(60)}## 61. an entry with no Status line — open
+
+body
+`);
+    expect(r.status).toBe(1);
+    expect(r.stdout).toMatch(/MISSING/);
+  });
+
+  it("exits 0 when every parsed entry conforms", () => {
+    const r = runAgainst(manyConforming(60));
+    expect(r.status).toBe(0);
+    expect(r.stdout).toMatch(/All open entries carry a conforming Status line/);
   });
 });

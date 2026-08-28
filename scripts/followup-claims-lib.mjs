@@ -396,16 +396,27 @@ export function reproCoverageIn(text) {
     // That overstates the rejected buckets, which is the one direction a
     // coverage disclosure must never err in. (`fencedLines` already drops blank
     // lines, so those need no guard.)
-    .filter((e) => e !== null && e.cmd !== "");
+    .filter((e) => e === null || e.cmd !== "");
   let extracted = 0;
   let notRunnable = 0;
   let shellMeta = 0;
+  let unparseable = 0;
   for (const e of lines) {
-    if (!RUNNABLE_RE.test(e.cmd)) notRunnable++;
+    // ★★★ A `null` FROM `splitTrailingComment` IS A LINE, AND DROPPING IT
+    // INFLATED THE COVERAGE PERCENTAGE. It means the quoting could not be
+    // resolved — in practice the continuation lines of a multi-line `node -e`
+    // block. An earlier cut filtered those out BEFORE counting, so they left
+    // the denominator entirely and the reported share rose. A cold review
+    // measured the gap: 384 counted against 405 real lines, i.e. 22% reported
+    // where 21% is true. Small, but in the ONE direction a coverage
+    // disclosure must never err, and the sibling comment below already
+    // claimed that direction was guarded. Counted as its own bucket now.
+    if (e === null) unparseable++;
+    else if (!RUNNABLE_RE.test(e.cmd)) notRunnable++;
     else if (SHELL_META.test(e.cmd)) shellMeta++;
     else extracted++;
   }
-  return { seen: lines.length, extracted, notRunnable, shellMeta };
+  return { seen: lines.length, extracted, notRunnable, shellMeta, unparseable };
 }
 
 export function reproCommandsIn(text) {

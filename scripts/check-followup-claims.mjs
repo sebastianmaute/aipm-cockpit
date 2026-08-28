@@ -304,7 +304,7 @@ console.log(`\n${Object.entries(tally).map(([k, v]) => `${k}=${v}`).join("  ")}`
 // on the whole register; it is a verdict on the commands this runner can
 // actually spawn, which is a minority of them. A green `--run-repro` that names
 // no denominator is the same shape as reading an exit code through a pipe.
-const cov = { seen: 0, extracted: 0, notRunnable: 0, shellMeta: 0 };
+const cov = { seen: 0, extracted: 0, notRunnable: 0, shellMeta: 0, unparseable: 0 };
 let entriesWithRunnable = 0;
 let entriesWithBlockButNothingRunnable = 0;
 for (const e of entries) {
@@ -313,6 +313,7 @@ for (const e of entries) {
   cov.extracted += c.extracted;
   cov.notRunnable += c.notRunnable;
   cov.shellMeta += c.shellMeta;
+  cov.unparseable += c.unparseable;
   if (c.extracted > 0) entriesWithRunnable++;
   else if (c.seen > 0) entriesWithBlockButNothingRunnable++;
 }
@@ -323,6 +324,8 @@ console.log(
     `  extracted (runnable)      : ${cov.extracted} (${covPct}%)\n` +
     `  rejected, not runnable    : ${cov.notRunnable}   (no grep/npm/npx/node-scripts prefix)\n` +
     `  rejected, shell metachar  : ${cov.shellMeta}   (a shell would interpret it; spawn is shell:false)\n` +
+    `  unresolvable quoting     : ${cov.unparseable}   (splitTrailingComment could not parse it; counted, never dropped)
+` +
     `  open entries with >=1 runnable command : ${entriesWithRunnable} / ${entries.length}\n` +
     `  open entries whose repro block was skipped ENTIRELY : ${entriesWithBlockButNothingRunnable}`,
 );

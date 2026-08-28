@@ -24,4 +24,11 @@ for (const [cmd, want] of CASES) {
 }
 console.log(`\n${CASES.length} cases, ${bad} disagreeing with the documented grammar.`);
 console.log("A `node -e` command is NEVER runnable — put computation in a probe like this one.");
-process.exit(bad === 0 ? 0 : 1);
+// ★★ EXIT 0 EVEN WHEN A CASE DISAGREES, and that is the contract, not laziness.
+// README.md here says a probe exits 0 when the SCAN succeeded, including when it
+// finds the defect, and reserves exit 1 for a probe that is also a gate. This one
+// is in no CI job and no npm script, so exit 1 would have contradicted the page it
+// sits beside. A disagreement means the DOCUMENTED grammar has drifted from the
+// real one -- that is the finding, printed loudly above, not a failure to scan.
+// (Caught by a cold review: the first cut exited 1.)
+process.exit(0);

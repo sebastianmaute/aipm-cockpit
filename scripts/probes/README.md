@@ -29,7 +29,11 @@ that shows only what works cannot show what to avoid.
 - **Exit 2** when the probe could not scan at all: a missing file, a parser that
   returned nothing. A scan that reads nothing passes everything, so this vacuity
   guard is mandatory.
-- Exit 1 only if the probe is also used as a gate.
+- Exit 1 only if the probe is also used as a gate. `followup-grammar.mjs` is the
+  worked example of the rule biting: it self-checks a documented invariant and
+  its first cut exited 1 on a disagreement, contradicting this page. It exits 0
+  now and prints the disagreement count instead. A drifted grammar is a
+  FINDING, not a failure to scan.
 - No shebang line. A `#!` on a `.mjs` that is ever imported makes vitest throw a
   SyntaxError naming the wrong file — and the error names the importer, not the
   file carrying the shebang.

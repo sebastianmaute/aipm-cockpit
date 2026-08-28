@@ -57,14 +57,15 @@ Result: 5 `REPRO_UNRUNNABLE`, **zero drift**, verdict buckets unchanged
 (`CLEAN=165 PATH_MISSING=1 NO_MACHINE_CLAIM=1 SYMBOL_THIRD_PARTY=2 SYMBOL_MISSING=4
 PATH_THIRD_PARTY=1 SYMBOL_SELF_EXCLUDED=1`).
 
-That green is worth 22%:
+That green is worth 21%:
 
 | | |
 |---|---|
-| command lines inside fences, open entries | 384 |
-| commands `reproEntriesIn` extracts | 85 (22%) |
-| rejected — no runnable prefix | 180 |
-| rejected — shell metacharacter | 119 |
+| command lines inside fences, open entries | 405 |
+| commands `reproEntriesIn` extracts | 85 (21%) |
+| rejected — no runnable prefix | 193 |
+| rejected — shell metacharacter | 106 |
+| unresolvable quoting | 21 |
 | open entries with at least one runnable command | 50 / 175 |
 | open entries whose reproduce block was skipped ENTIRELY | 49 |
 
@@ -75,6 +76,8 @@ NUMERATOR is identical at 85, so both measured the same extraction; only the den
 differed, and the ad-hoc one under-counted fenced lines. The real coverage is WORSE than the figure
 that motivated this slice. Read today's off `node scripts/check-followup-claims.mjs`, which now
 prints every one of these; do not re-quote them here.
+
+★★★ **CORRECTED A SECOND TIME, 2026-08-28, and the direction is the point.** The table first said 297 lines / 29%, was corrected to 384 / 22% by `reproCoverageIn` itself, and a cold review then found that `reproCoverageIn` was DROPPING the 21 lines `splitTrailingComment` cannot parse before counting them — so they left the denominator and the reported share rose. True figure 85/405 = 21%. Every one of the three numbers erred in the SAME direction, flattering the coverage, and the second was written by the very tool built to stop the first. Read today's off the gate, never off this table.
 
 The report's closing line — *"Every entry above still needs a probe"* — is true but says nothing
 about the 49 entries whose reproduce blocks were silently skipped in full. **This is the AGENTS.md
@@ -221,6 +224,6 @@ Verdicts: `LIVE` (reproduced today) · `DEAD` (a command contradicts the claim, 
 |---|---|
 | `git blame` points at reformatting commits, not authorship, and entries get mis-dated | vintage recovery fails loudly; an unrecoverable entry gets "never machine-verified" rather than a guessed date |
 | a wrongly-closed entry | executed proof only; controller re-verifies every subagent verdict against the command's real output |
-| the new gate is defeated by a vacuous scan | exit 2 on zero entries parsed, pinned by a unit test |
+| the new gate is defeated by a vacuous scan | exit 2 below a FLOOR of 50 parsed entries, not merely at zero — pinned by tests that spawn the script. ★★ Both halves were review findings: the first cut tripped only at zero, so a partial parse reported "1 open entries scanned — all conforming" at exit 0 in a blocking job; and this row claimed "pinned by a unit test" while nothing spawned the script at all. |
 | adding 118 Status lines introduces a line citation and reddens `doc-claims-check` | contract clause: symbols only; run `npm run docs:claims:check` before the gate task |
 | the register grows | accepted — the file is a record, and `size:check` walks `src`, not docs |
