@@ -48,9 +48,15 @@
 // ★ SCOPE CHOICE: default to whole-container scope. Narrow to a sub-tree only
 // when a specific, named collision with unrelated chrome has been confirmed
 // in that panel — and say which one, in a comment at the narrowing.
-// `change-panel.test.tsx` is the worked example: it narrows to `tbody`
-// because that panel reuses one translation string across a toolbar filter
-// select and a sortable-header button, a collision unrelated to row identity.
+// ★★ THIS RULE CURRENTLY HAS NO LIVE WORKED EXAMPLE, and that is the honest
+// state rather than an omission. `change-panel.test.tsx` was it — that panel
+// reused one translation string across a toolbar filter select and a
+// sortable-header button — but §261 gave the two distinct strings, so the
+// collision it demonstrated no longer exists and the citation would send a
+// reader looking for something the tree does not contain. The test still
+// narrows to `tbody`; read the reason recorded AT the narrowing, which is a
+// different and weaker one (keeping the assertion about row identity), not
+// the confirmed-collision case this paragraph governs.
 // `milestones-panel.test.tsx` uses whole-container because its Status column
 // is a plain non-sortable `<th>` with no such collision to dodge.
 import { expect } from "vitest";

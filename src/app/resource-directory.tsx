@@ -443,6 +443,11 @@ function ResourceDirectoryInner({
                         return true;
                       });
                       if (emailList.length === 0) return "—";
+                      // ★ `key={addr}` is safe only as a CONSEQUENCE of the filter above:
+                      // the dedupe is case-insensitive, so every survivor differs from
+                      // every other case-insensitively, hence also exactly. Drop the
+                      // `.toLowerCase()` from the key and this becomes a duplicate-key
+                      // warning for "Bob@x" beside "bob@x".
                       return emailList.map((addr, i) => (
                         <span key={addr}>
                           {i > 0 && <span aria-hidden="true">; </span>}
