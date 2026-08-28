@@ -196,7 +196,12 @@ describe("TaskKanbanSwimlanes", () => {
     // The `<section>`s map to role `region`, so their duplicate names ARE
     // exposed to AT; `expectRowUniqueNames` reads controls only, so assert this
     // one directly. Three lanes: the two twins plus Unassigned.
-    const regionNames = screen.getAllByRole("region").map((r) => r.getAttribute("aria-label"));
+    // ★ SCOPED, like the `group` query below and for the same reason given
+    // there — and this one asserts an EXACT count, so it is the most exposed
+    // query in the test if left document-wide.
+    const regionNames = within(container)
+      .getAllByRole("region")
+      .map((r) => r.getAttribute("aria-label"));
     expect(regionNames).toHaveLength(3);
     expect(new Set(regionNames).size).toBe(regionNames.length);
 
@@ -208,12 +213,11 @@ describe("TaskKanbanSwimlanes", () => {
     // what makes this test go red if the role is ever removed and the names go
     // back to being announced to nobody. `expectRowUniqueNames` reads CONTROLS,
     // so it cannot cover `group`; assert directly.
-    // ★ SCOPED to the container, not `screen`. Querying the whole document would
-    // make this a claim about every `group` on the page, so a `role="group"`
-    // later added by a card, a wrapper or a portal would change what it measures
-    // — and the failure direction is a false RED that reads like a naming
-    // regression. Nothing else in this subtree exposes `group` today; the scope
-    // is what keeps that from mattering.
+    // ★ SCOPED to the container, not `screen`. A document-wide query makes this
+    // a claim about every `group` on the page, so one later added by a card, a
+    // wrapper or a portal changes what it measures — a false RED that reads like
+    // a naming regression. (The `button` query above stays unqualified for the
+    // reason given there: this fixture renders no other control.)
     const cellNames = within(container)
       .getAllByRole("group")
       .map((c) => c.getAttribute("aria-label"));

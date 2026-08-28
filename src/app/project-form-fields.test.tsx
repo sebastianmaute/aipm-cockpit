@@ -184,12 +184,10 @@ describe("contact persons", () => {
   });
 
   // ★★★ THESE TWO PIN THE CONDITIONAL, AND NEITHER IS REACHABLE FROM THE
-  // DEFAULT FIXTURE. `contactDisplay`'s `cp.email ? …` branch never ran while
-  // every contact took the blank default, so the token's INPUT could be changed
-  // in either direction with the whole file green. The pair is what makes the
-  // "only where it buys something" rule a claim a test can falsify: the first
-  // fails if the email stops reaching a colliding row, the second fails if it
-  // reaches a row that does not need it.
+  // DEFAULT FIXTURE — the `contact` helper above says why. The pair is what
+  // makes the "only where it buys something" rule a claim a test can falsify:
+  // the first fails if the email stops reaching a colliding row, the second
+  // fails if it reaches a row that does not need it.
   it("discriminates same-named contacts by address instead of an occurrence index", () => {
     render(
       <IdentityPeopleFields

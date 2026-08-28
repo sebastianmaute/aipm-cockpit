@@ -674,21 +674,22 @@ function ContactPersonsControl({
    *  ★★ Spending it UNCONDITIONALLY was the first cut and was wrong for the same
    *  reason `row-tokens.ts` rejects ids: a cost paid on every control, by exactly
    *  the users 2.4.6 protects, for a discriminator almost no row needs. On the
-   *  repo's own sample project it took a two-contact list with no collision at
-   *  all from "Remove – David Okoro" to "Remove – David Okoro
-   *  <david.okoro@northwind.example>". Number the colliding rows, leave the rest
+   *  repo's own sample project — two contacts, no collision — it more than
+   *  doubled every remove label. Number the colliding rows, leave the rest
    *  bare — the same principle `buildRowTokens` itself applies.
    *  ★★ The benefit is IMPORT-ONLY: `addDraft` rejects a duplicate via `hasName`,
    *  which compares names alone, so the product cannot create this pair. It
    *  arrives from a file, because `sanitizeProjectMeta` does not dedupe.
-   *  ★ Counting mirrors `hasName`'s own comparison. Where it disagrees with
-   *  `buildRowTokens`' whitespace `collapse`, the fallback is still correct:
-   *  two rows left bare that collapse-collide simply get the occurrence index,
-   *  which is the behaviour this replaces.
-   *  ★ NOT a WCAG 2.5.3 question either way — an earlier revision of this comment
-   *  claimed it was. The rendered name is a SIBLING `<span>`, not this button's
-   *  label; the button's own visible text is "×". 2.5.3 governs a control's name
-   *  against its OWN label, and says nothing about adjacent content. */
+   *  ★★ Counting mirrors `hasName` (trim + case-fold); `buildRowTokens`
+   *  collapses whitespace and does NOT case-fold, so they disagree on TWO axes
+   *  and only one is caught. Whitespace: a bare pair that collapse-collides gets
+   *  the occurrence index. CASE is NOT caught — "Bob"/"bob" are both counted as
+   *  colliding so both take the address path, yet neither is numbered, and with
+   *  equal emails they are spoken alike. Measured identical before this change,
+   *  so it is pre-existing, and `hasName` case-folds so only an import reaches it.
+   *  ★ The 2.5.3 claim an earlier revision made here was wrong: the rendered name
+   *  is a SIBLING `<span>`, not this button's label. Its own visible text is "×",
+   *  which axe curates out as punctuation before it compares anything. */
   const contactNameCounts = new Map<string, number>();
   for (const cp of contactPersons) {
     const key = cp.name.trim().toLowerCase();
@@ -738,8 +739,8 @@ function ContactPersonsControl({
               <button
                 type="button"
                 onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
-                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? contactDisplay(cp))}
-                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? contactDisplay(cp))}
+                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
+                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
                 className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×
