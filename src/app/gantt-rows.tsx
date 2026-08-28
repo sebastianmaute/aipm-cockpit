@@ -9,6 +9,7 @@ import { type Absence, type Milestone, type Resource, type Task } from "./types"
 import { effectivePersonName } from "./resource-foundation";
 import { isAchieved, milestoneStatus, MILESTONE_DUE_SOON_WORKDAYS } from "./milestones";
 import { isTaskClosed } from "./task-closed";
+import { rowLabel } from "./row-tokens";
 import { type BarDrag, type GanttBarDrag } from "./use-gantt-bar-drag";
 import {
   absenceBandBg,
@@ -29,6 +30,7 @@ import {
 
 export function GanttTaskRow({
   task,
+  rowToken,
   bar,
   lang,
   today,
@@ -53,6 +55,14 @@ export function GanttTaskRow({
   onEditTask,
 }: {
   task: Task;
+  /**
+   * The row's display name, already disambiguated against its siblings by
+   * GanttPanel (`buildRowTokens`). With no collision this IS `task.taskName`.
+   *
+   * ★ A prop rather than something derived here: this component sees one row
+   * and cannot know whether another row carries the same name.
+   */
+  rowToken: string;
   bar: { start: Date; end: Date };
   lang: Lang;
   today: Date;
@@ -171,6 +181,16 @@ export function GanttTaskRow({
             type="button"
             onClick={() => onEditTask(task)}
             onPointerDown={(e) => e.stopPropagation()}
+            // ★ Set UNCONDITIONALLY, not only under a collision: with no
+            // collision the token IS the bare name, so this restates the
+            // visible content for the common case. Without it the button takes
+            // its name from its CONTENT, and two tasks sharing a name render
+            // two identically-named buttons.
+            // ★ WCAG 2.5.3 holds by CONTAINMENT — the visible "Alpha" sits
+            // inside "Alpha (2)" because `buildRowTokens` APPENDS its suffix.
+            // ★ The `#id` span sits OUTSIDE this button, so it disambiguates
+            // nothing here.
+            aria-label={rowToken}
             title={`${task.taskName} — ${t(lang, "clickToEdit")}`}
             className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               isComplete
@@ -354,9 +374,14 @@ export function GanttTaskRow({
                     hit zone — or even the panel — without
                     losing the drag.
                   */}
+                  {/* ★ Each handle's label carries the row token: these three
+                      names are the SAME string on every row, so N editable
+                      tasks put 3N identically-named controls in one view. The
+                      handles render no visible text, so 2.5.3 does not
+                      constrain the wording. */}
                   <div
                     role="button"
-                    aria-label={t(lang, "ganttBarResizeStart")}
+                    aria-label={rowLabel(t(lang, "ganttBarResizeStart"), rowToken)}
                     className="absolute left-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "resize-start")
@@ -364,7 +389,7 @@ export function GanttTaskRow({
                   />
                   <div
                     role="button"
-                    aria-label={t(lang, "ganttBarMove")}
+                    aria-label={rowLabel(t(lang, "ganttBarMove"), rowToken)}
                     className="absolute inset-x-1.5 top-0 z-0 h-full cursor-grab active:cursor-grabbing"
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "move")
@@ -372,7 +397,7 @@ export function GanttTaskRow({
                   />
                   <div
                     role="button"
-                    aria-label={t(lang, "ganttBarResizeEnd")}
+                    aria-label={rowLabel(t(lang, "ganttBarResizeEnd"), rowToken)}
                     className="absolute right-0 top-0 z-10 h-full w-1.5 cursor-ew-resize"
                     onPointerDown={(e) =>
                       startBarDrag(e, task, bar, "resize-end")
@@ -390,6 +415,7 @@ export function GanttTaskRow({
 
 export function GanttMilestoneRow({
   m,
+  rowToken,
   lang,
   range,
   timelineWidthPx,
@@ -401,6 +427,12 @@ export function GanttMilestoneRow({
   showBaseline,
 }: {
   m: Milestone;
+  /**
+   * The milestone's display name, disambiguated by GanttPanel against every
+   * OTHER ROW in the chart — task rows included, since they are siblings in
+   * the same view. With no collision this IS `m.name`.
+   */
+  rowToken: string;
   lang: Lang;
   range: { min: Date };
   timelineWidthPx: number;
@@ -461,6 +493,11 @@ export function GanttMilestoneRow({
           <button
             type="button"
             onClick={() => onEditMilestone(m)}
+            // ★ Same rule as the task row's name button: set unconditionally,
+            // because without it the accessible name falls back to the CONTENT
+            // and two milestones sharing a name render two identical buttons.
+            // This row renders no id, so nothing else disambiguates it.
+            aria-label={rowToken}
             title={`${m.name} · ${fmtFull(md, lang)} — ${t(lang, "clickToEdit")}`}
             className={`truncate rounded-md border border-transparent px-1 py-0.5 text-left hover:border-ui-dark-blue hover:bg-surface-muted ${INTERACTIVE} ${
               achieved

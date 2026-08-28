@@ -11,6 +11,13 @@ const base = {
   nameColWidth: 240,
   tasksById: new Map(),
   todayISO: "2026-06-10",
+  // The row-unique display token (WCAG 2.4.6). GanttPanel builds it over the
+  // whole row list and threads it down — a single row cannot disambiguate
+  // itself — so an isolated render just passes the bare name, which is what
+  // the tokeniser emits for a non-colliding row anyway. ★ The COLLISION case
+  // is unreachable from here for exactly that reason; it is covered by
+  // `gantt.test.tsx`, which renders the panel.
+  rowToken: m.name,
 };
 
 function countDiamonds(c: HTMLElement): number {

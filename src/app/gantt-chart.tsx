@@ -32,6 +32,23 @@ import {
   ROW_HEIGHT_PX,
 } from "./gantt-engine";
 
+/**
+ * The row-token map's key for one row.
+ *
+ * ★ Task ids and milestone ids are INDEPENDENT number spaces — task 1 and
+ * milestone 1 both exist — so the kind has to be part of the key or one row
+ * would silently shadow the other in the map. The `t-`/`m-` prefixes are the
+ * same ones this file already uses for the React `key`.
+ *
+ * ★ It lives HERE rather than in `gantt-engine.ts` so the panel that BUILDS the
+ * map and the chart that READS it derive the key from one function: two call
+ * sites spelling the prefixes by hand is a silent lookup miss waiting to happen,
+ * and the fallback would hide it behind a plausible bare name.
+ */
+export function ganttRowKey(row: GanttRow): string {
+  return row.kind === "task" ? `t-${row.task.id}` : `m-${row.milestone.id}`;
+}
+
 /** The three "why is this empty" strings, decided once by GanttPanel. */
 export type GanttEmptyMessageKey =
   | "ganttNoStatusSelected"
@@ -56,6 +73,7 @@ export function GanttChart({
   holidaySet,
   totalRowsCount,
   rows,
+  rowTokens,
   bars,
   placeable,
   taskRowIndexById,
@@ -101,6 +119,14 @@ export function GanttChart({
   holidaySet: ReadonlySet<string>;
   totalRowsCount: number;
   rows: readonly GanttRow[];
+  /**
+   * Row-unique display names, keyed by `ganttRowKey` and built by GanttPanel
+   * over `rows` — a per-row component has no sibling visibility and so cannot
+   * disambiguate its own name (WCAG 2.4.6). ONE map spanning both row kinds,
+   * because a task and a milestone sharing a name are two same-named controls
+   * in one view exactly as two tasks would be.
+   */
+  rowTokens: ReadonlyMap<string, string>;
   bars: ReadonlyMap<number, { start: Date; end: Date }>;
   placeable: readonly Task[];
   taskRowIndexById: ReadonlyMap<number, number>;
@@ -234,6 +260,12 @@ export function GanttChart({
                   <GanttTaskRow
                     key={`t-${task.id}`}
                     task={task}
+                    // ★ The map is built over THIS list and keyed by the same
+                    // function, so a miss would mean `rows` and the token memo
+                    // had diverged. The bare name is the honest fallback —
+                    // correct label, possibly ambiguous — rather than an empty
+                    // accessible name.
+                    rowToken={rowTokens.get(ganttRowKey(row)) ?? task.taskName}
                     bar={bar}
                     lang={lang}
                     today={today}
@@ -264,6 +296,8 @@ export function GanttChart({
                 <GanttMilestoneRow
                   key={`m-${m.id}`}
                   m={m}
+                  // ★ Same reasoning as the task row's token above.
+                  rowToken={rowTokens.get(ganttRowKey(row)) ?? m.name}
                   lang={lang}
                   range={range}
                   timelineWidthPx={timelineWidthPx}
