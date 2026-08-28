@@ -158,20 +158,36 @@ export function TruncatedLoadBanner({
   onReopen: () => void;
 }) {
   const confirm = useConfirm();
-  // ★ Entries dominate when both are present, mirroring `useLoadTruncation`'s own
-  // `truncationText` — losing whole documents is the larger loss, and the banner
-  // must not disagree with the toast the same load already fired.
-  // ★ The decode count is LAST, not because it matters least, but because the
-  // two truncation counts are mutually exclusive with it in practice and the
-  // precedence above must keep reading as it did.
-  const countText =
+  // ★ Entries dominate BLOCKS when both are present, mirroring
+  // `useLoadTruncation`'s own `truncationText` — losing whole documents is the
+  // larger loss, and the banner must not disagree with the toast the same load
+  // already fired.
+  const truncationCount =
     truncation != null && truncation.entries > 0
       ? t(lang, "documentsTruncatedEntriesCount", truncation.entries)
       : truncation != null && truncation.blocks > 0
         ? t(lang, "documentsTruncatedBlocksCount", truncation.blocks)
-        : decodeFailureCount > 0
-          ? t(lang, "documentsUnreadableCount", decodeFailureCount)
-          : null;
+        : null;
+  // ★★★ A JOIN ACROSS THE TWO CAUSES, NEVER A THIRD TERNARY ARM. The decode
+  // count used to sit below the two truncation arms under a comment calling the
+  // causes "mutually exclusive in practice", and they are not: `rowsToWorkspace`
+  // accumulates both into ONE `DocTruncationDiag`, so a load whose `documents`
+  // blob overflowed the cap while an unrelated slice (`settings_overrides`,
+  // `insights`, `activityLog`) threw reports both at once. The short-circuit then
+  // dropped the decode magnitude on the floor — and unlike the toast, which is
+  // single-slot and gone in 7s, this line and the confirm dialog it feeds are the
+  // only PERSISTENT surface either magnitude has, so it reached the user nowhere
+  // at all. `refuseWrite` (`use-load-truncation.ts`) already joins the same two
+  // parts for the same reason; this follows it rather than inventing a second
+  // rule. Both strings are complete sentences in EN and DE, so a single space is
+  // the whole composition.
+  // ★ Each single-cause case still renders EXACTLY one sentence, unchanged: the
+  // join is only visible when both hold.
+  const countParts = [
+    truncationCount,
+    decodeFailureCount > 0 ? t(lang, "documentsUnreadableCount", decodeFailureCount) : null,
+  ].filter((part): part is string => part !== null);
+  const countText = countParts.length > 0 ? countParts.join(" ") : null;
   const askThenSave = async () => {
     const body = t(lang, "documentsTruncatedConfirmBody");
     const ok = await confirm({

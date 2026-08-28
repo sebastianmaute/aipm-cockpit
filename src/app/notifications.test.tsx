@@ -203,6 +203,46 @@ describe("TruncatedLoadBanner", () => {
     expect(screen.queryByText(/document entries/i)).toBeNull();
   });
 
+  it("names BOTH magnitudes when one load truncated AND failed to decode", async () => {
+    // ★★★ THE TWO CAUSES CO-OCCUR, and the count line used to short-circuit on
+    // the truncation branch under a comment asserting they did not.
+    // `rowsToWorkspace` (`turso-schema.ts`) threads ONE `DocTruncationDiag`
+    // through `sanitizeProjectDocuments` AND every `reportUnreadableSlice`, so a
+    // `documents` blob over the cap plus a thrown `settings_overrides` is a
+    // single load reporting both. The decode magnitude then reached NO
+    // persistent surface: its toast is single-slot and 7s long, and this line
+    // and the dialog it feeds are all that outlives it.
+    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
+    expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
+
+    // ★ And into the dialog — the last thing the user sees before discarding it
+    // all. A banner that names both while the dialog names one still decides the
+    // question on half the loss.
+    fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
+    await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
+    const message = String(confirmState.lastOpts?.message ?? "");
+    expect(message).toMatch(/5 document entries/i);
+    expect(message).toMatch(/3 kinds of saved data/i);
+  });
+
+  it("still names exactly ONE cause when only one is present", () => {
+    // ★ The control for the join above. Without it, a `countText` that
+    // unconditionally concatenated both strings would pass that test while
+    // telling every truncation-only user that some unnamed number of kinds of
+    // data was unreadable too — a joined line that reads as thorough and is
+    // false. Both directions, because each is a separate way to get it wrong.
+    const { unmount } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByRole("alert").textContent ?? "").not.toMatch(/could not be read/i);
+    unmount();
+
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/2 kinds of saved data could not be read/i);
+    expect(alert.textContent ?? "").not.toMatch(/document entries|blocks in stored documents/i);
+  });
+
   it("uses the DESTRUCTIVE button variant, not the recommended-action primary", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign
