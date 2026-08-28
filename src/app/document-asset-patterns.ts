@@ -353,12 +353,32 @@ export const ASSET_IMG_TEST_RE =
  *  about quoting and case because it only has to RECOGNISE a tag to preserve it,
  *  while the export pattern has to EXTRACT an id it can look up.
  *
- *  ★★ ONE SHAPE IS DELIBERATELY DROPPED that the private version carried:
- *  `<img alt="data-asset-id=x">`, a decoy inside a quoted value with no real
- *  asset. Quote-awareness is exactly what stops it counting, and
- *  `ASSET_IMG_TEST_RE`'s docstring above calls that the false-TRUE direction —
- *  so losing it here is the correction, not a regression. It is the only case
- *  in the corpus where this pattern is narrower than its predecessor.
+ *  ★★★ IT IS A UNION OF TWO GUARDED BRANCHES, AND THE SECOND ONE IS THERE SO
+ *  THIS PATTERN CAN NEVER LOSE A TAG. Branch 1 is quote-aware and catches a `>`
+ *  inside a quoted value (`alt="a>b"`) — the shape the private predecessor
+ *  dropped. Branch 2 is NOT quote-aware and is byte-for-byte that predecessor,
+ *  which catches every shape carrying an UNBALANCED quote (`alt=it's`,
+ *  `alt=5"`, `alt=Bobs'`) — a quote-aware run waits for a closing quote that
+ *  never arrives and matches nothing. Neither branch alone covers both
+ *  families. `ASSET_IMG_TEST_RE` above is a union for exactly this reason.
+ *  ★★★ THE UNION IS A STRICT SUPERSET OF THE PREDECESSOR BY CONSTRUCTION, which
+ *  is the property to preserve: branch 2 IS the old pattern, so no edit that
+ *  leaves it intact can drop a tag that used to be carried. A first cut shipped
+ *  branch 1 ALONE and traded three gained shapes for four lost ones while its
+ *  docstring claimed a single deliberate loss — do not re-derive that.
+ *  ★★★ AND "NOT DRAWABLE" IS THE WRONG TEST FOR WHETHER A LOSS MATTERS. The
+ *  review that found this argued the lost shapes were safe because
+ *  `IMG_TAG_ASSET_ID_RE` extracts no id from them, so no EXPORT could draw one.
+ *  On-screen rendering does not go through any regex: `document-asset-images.ts`
+ *  resolves images with `querySelectorAll("img[data-asset-id]")`, i.e. the
+ *  BROWSER PARSER, which reads `<img alt=it's data-asset-id="real">` as a
+ *  perfectly ordinary image and paints it. So a tag no regex here can read is
+ *  still a picture the user is looking at, and dropping it from a degrade
+ *  deletes it. Judge a matcher against the browser, not against its siblings.
+ *  ★ The decoy `<img alt="data-asset-id=x">` (no real asset) still matches, via
+ *  branch 2, exactly as it did before. That is `ASSET_IMG_TEST_RE`'s documented
+ *  false-TRUE direction — the block survives as a source-less image rather than
+ *  vanishing — and it costs one of the 20 cap slots. Consistent, not a defect.
  *
  *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING. The two runs sit NESTED around the
  *  id, so on an `<img` that never closes run 2 re-scans to end of input at every
@@ -380,4 +400,4 @@ export const ASSET_IMG_TEST_RE =
  *  which the value branch permits and neither guard's run does. Invalid HTML,
  *  unchanged by the move, recorded so the next reader does not rediscover it. */
 export const ASSET_IMG_TAG_RE =
-  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)(?:[^<>"']|"[^"]*"|'[^']*')*>/gi;
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)(?:[^<>"']|"[^"]*"|'[^']*')*>|<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;

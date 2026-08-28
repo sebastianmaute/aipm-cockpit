@@ -17,14 +17,13 @@ longer carries its own changelog comment.
   picture in it. The picture was gone the next time the project was opened, with nothing to say
   it had ever been there. Long paragraphs are still shortened, and still lose their formatting
   when that happens, but the pictures now come through — including pictures whose caption or
-  tooltip contains a `>`, which an earlier version of this fix still dropped. Up to 20 pictures
+  tooltip contains a `>`. Up to 20 pictures
   are carried across; a paragraph past that was already beyond what the app can hold.
 
 - **A very large hidden-markup field keeps less of its text than its length limit suggests.**
   Noted because it is surprising rather than because it changed: when a field trips the new size
-  ceiling below, it is cut at that point in the stored text, so text and pictures beyond the cut
-  are lost even though the visible length limit was never reached. Reaching it needs roughly
-  thirty times more hidden markup than heavily formatted text produces.
+  ceiling, it is cut at that point in the stored text, so text and pictures beyond the cut
+  are lost even though the visible length limit was never reached.
 
 - **A malformed picture tag no longer causes the whole paragraph to be deleted on load.** A
   paragraph whose picture tag was slightly broken could be dropped entirely when the project was

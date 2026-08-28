@@ -14808,7 +14808,7 @@ predicate has since moved to `document-asset-patterns.ts`; `sanitizeBlock`, whic
 ## 209. One `data-asset-id` pattern, FOUR hand-maintained spellings (was five) — CLOSED 2026-08-25
 
 **Status:** CLOSED 2026-08-25 by `fix/asset-id-extraction`, built as the "clean shape" this entry
-asked for below and not as a narrower substitute. The three spellings now live in one module,
+asked for below and not as a narrower substitute. The spellings now live in one module,
 `document-asset-patterns.ts`, as `ANY_TAG_ASSET_ID_RE` (was `ASSET_ID_RE`, `document-asset-usage.ts`),
 `IMG_TAG_ASSET_ID_RE` (was `IMG_TAG_RE`, `document-export-assets.ts`) and `ASSET_IMG_TEST_RE` (was
 `ASSET_IMG_RE`, `document-model.ts`, module-private — now EXPORTED, which is what makes the next

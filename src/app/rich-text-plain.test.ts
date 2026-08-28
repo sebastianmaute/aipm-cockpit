@@ -561,14 +561,28 @@ describe("DOM-free guard", () => {
     // 2. Every top-level `window` reach in diagnostics.ts is behind a
     //    `typeof window` guard. A bare top-level `window.x = …` would throw on
     //    IMPORT alone, before any function runs.
+    // ★★ THE COLUMN-0 HEURISTIC HAS A REAL HOLE AND ITS FIRST COMMENT ASSERTED
+    // THE HOLE AWAY. It read "indented lines are inside a function body, which
+    // only runs when called" — false for a multi-line top-level initializer:
+    //     const origin =
+    //       window.location.origin;
+    // is top-level, indented, throws on IMPORT, and is invisible to a column-0
+    // scan. So brace depth is what decides top-level, not indentation.
     const diag = strip("diagnostics.ts");
+    let depth = 0;
+    let checked = 0;
     for (const line of diag.split("\n")) {
-      // Top-level = column 0. Indented lines are inside a function body, which
-      // only runs when called, and logDiag's own early return covers those.
-      if (/^\S/.test(line) && /\bwindow\b/.test(line)) {
+      if (depth === 0 && /\bwindow\b/.test(line)) {
+        checked += 1;
         expect(line).toMatch(/typeof window/);
       }
+      depth += (line.match(/[{(]/g) ?? []).length - (line.match(/[})]/g) ?? []).length;
     }
+    // ★★★ ANTI-VACUITY. Without this the loop passes over a file with zero
+    // top-level `window` lines — including one where a refactor moved them all
+    // behind a helper, which is the case this guard most needs to see. Measured
+    // at 1 today; a change here is a question, not a number to bump.
+    expect(checked).toBe(1);
 
     // 3. logDiag bails before touching storage when there is no window. Pinned
     //    by name because the plan called this load-bearing: if it stops being
@@ -844,7 +858,7 @@ describe("htmlPlainProjection — the bounded attribute run", () => {
 // line used to claim ~1000x while quoting 8.4 ms against the same 2000 ms
 // ceiling, so it refuted itself on the page. An independent measurement of the
 // closed-tag cost came in at 2.3 ms (855x), so the true figure moves with the
-// machine; the SEPARATION is what matters (8.4 ms vs 6617 ms is three orders),
+// machine; the SEPARATION is what matters,
 // not the exact multiple. Recompute it if either number is re-measured, or
 // quote neither.
 describe("htmlPlainProjection — complexity", () => {
@@ -880,9 +894,11 @@ describe("markTaskItems — complexity", () => {
   // `"<li".repeat(...)`, run 1 reverted costs 4409 ms (red) while runs 2 and 3
   // reverted cost 0.3 ms and 1.0 ms — functionally identical, so that fixture
   // pinned one bound of three and read as pinning all of them.
-  // ★★ Run 2 is the run BETWEEN the opener and `data-type="taskItem"`, so its
-  // witness has to actually reach the literal: an opener that never closes but
-  // DOES carry the attribute. Measured: 303 ms reverted vs 0.6 ms shipped at
+  // ★★ Run 2's witness has to actually reach the `data-type="taskItem"`
+  // literal: an opener that never closes but DOES carry the attribute. (An
+  // earlier wording called run 2 "the run BETWEEN the opener and the literal",
+  // which is run 1 — the one the fixture above already pins. The run this
+  // fixture kills is the one AFTER the literal, before the `>`.) Measured: 303 ms reverted vs 0.6 ms shipped at
   // 131 KB, so this runs at 256 KB for margin, matching the other guard tests.
   // ★ Run 3 (the optional trailing `<p …>`) has NO witness — three shapes were
   // tried and none separated it. It may be an equivalent mutant or a missing

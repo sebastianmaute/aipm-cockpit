@@ -248,13 +248,72 @@ describe("document-asset-patterns", () => {
   // spaced-`=` and uppercase ids that the export pattern returns nothing for.
   // Collapsing the two was proposed during review; it would trade three silent
   // drops for four. They are incomparable, not nested.
-  describe("the degrade carries every image the export can draw", () => {
-    for (const [html, , imgIds] of TABLE) {
-      if (imgIds.length === 0) continue;
-      it("carries " + JSON.stringify(html), () => {
+  describe("the degrade carries every image the LOAD kept", () => {
+    // ★★★ THE REFERENCE IS THE LOAD PREDICATE, NOT THE EXPORT PATTERN, AND THE
+    // FIRST CUT GOT THIS WRONG. It iterated rows with a non-empty EXPORT id and
+    // skipped the rest, on the reasoning that a tag no export can draw is not
+    // worth carrying. That reasoning is false: on-screen rendering uses
+    // `querySelectorAll("img[data-asset-id]")` — the BROWSER PARSER — so
+    // `<img alt=it's data-asset-id="real">`, which every regex here reads as
+    // having no id, is painted for the user like any other image. Its corpus row
+    // has an empty export column, so the first cut SKIPPED the one row that
+    // would have caught the loss it was written to prevent.
+    // ★★ `survivesLoad` is the right column because it is what decides whether
+    // the block reaches the screen at all. If the load keeps it, the degrade
+    // must not delete its image.
+    // ★★★ ONE ROW IS A KNOWN, PRE-EXISTING GAP AND IS ASSERTED AS A SET RATHER
+    // THAN SKIPPED. `<img data-asset-id="real" alt=a<b>` carries a bare `<` in
+    // an UNQUOTED value; both branches' guards require a `>` before any `<`, so
+    // neither can match it, and the pre-0.262.2 pattern could not either — it is
+    // not a regression. It IS a real loss: the browser recovers that markup and
+    // paints the image, so an overflow deletes a picture the user can see.
+    // Closing it needs a guard that scans past `<`, which is the quadratic this
+    // whole slice exists to remove — so it is accepted, not repaired.
+    // ★★ Written as an exact set, never a `continue`: a skip makes the exemption
+    // invisible and lets it grow silently. If another row joins this list, that
+    // is a new loss and this test says so by name.
+    const KNOWN_UNMATCHABLE = ['<img data-asset-id="real" alt=a<b>'];
+
+    it("matches every load-kept row except the documented bare-`<` gap", () => {
+      const missed: string[] = [];
+      for (const [html, , , survivesLoad] of TABLE) {
+        if (!survivesLoad) continue;
         ASSET_IMG_TAG_RE.lastIndex = 0;
-        expect(html.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBeGreaterThan(0);
-      });
+        if ((html.match(ASSET_IMG_TAG_RE)?.length ?? 0) === 0) missed.push(html);
+      }
+      expect(missed).toEqual(KNOWN_UNMATCHABLE);
+    });
+
+    // ★★ ANTI-VACUITY: the loop above proves nothing if no row is load-kept.
+    it("actually exercises the load-kept rows", () => {
+      expect(TABLE.filter(([, , , keeps]) => keeps).length).toBeGreaterThan(5);
+    });
+  });
+
+  // ★★ MULTIPLICITY, separately. The containment loop above asserts "at least
+  // one", which would pass on a row holding two tags where only the first
+  // matched. No corpus row carries two today, so this is the pin for that.
+  it("carries EVERY tag in a row, not just the first", () => {
+    const two = '<img alt="a>b" data-asset-id="one"><img alt=it\'s data-asset-id="two">';
+    ASSET_IMG_TAG_RE.lastIndex = 0;
+    // One from each branch of the union: the first needs quote-awareness, the
+    // second needs its absence.
+    expect(two.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBe(2);
+  });
+
+  // ★★★ THE SUPERSET PROPERTY, PINNED. Branch 2 of the union IS the pre-0.262.2
+  // private pattern, so this matcher cannot lose a tag that used to be carried.
+  // A first cut shipped branch 1 alone and silently dropped four shapes; this is
+  // what makes that unrepeatable.
+  it("never matches less than the non-quote-aware branch alone", () => {
+    const BRANCH_2_ONLY =
+      /<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
+    for (const [html] of TABLE) {
+      BRANCH_2_ONLY.lastIndex = 0;
+      ASSET_IMG_TAG_RE.lastIndex = 0;
+      const old = html.match(BRANCH_2_ONLY)?.length ?? 0;
+      const now = html.match(ASSET_IMG_TAG_RE)?.length ?? 0;
+      expect(now).toBeGreaterThanOrEqual(old);
     }
   });
 
