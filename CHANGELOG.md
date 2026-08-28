@@ -8,6 +8,45 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.263.0] - 2026-08-28 "Okorafor"
+
+### Accessibility
+
+- **A second wave of controls that announced themselves identically now say which row
+  they belong to.** 0.262.0 numbered colliding rows across the record lists; this release
+  covers the surfaces that release did not reach. Filter and column controls in Changes
+  and RAID shared one name with each other and with the column headers above them, so a
+  screen-reader user tabbing a toolbar heard the same word several times with nothing to
+  separate the controls. The budget reorder and percentage controls, the swimlane board's
+  lanes and their controls, the Gantt rows and their bar-drag handles, and the project
+  contact list all had the same problem. Each control is now named for what it does and
+  which row or lane it acts on.
+- **A filter that said it searched names in fact searched four fields.** The stakeholder
+  filter was labelled "Name" — which also collided with the Name column header beside it —
+  while it matched name, organization, title and email. It now says so.
+- **Swimlane cells were labelled for nobody.** Each per-status drop cell carried a name,
+  but on a plain container element assistive technology is required to discard it, so the
+  label never reached anyone. The cells are now exposed as named groups.
+
+### Fixed
+
+- **Removing one of two contacts with the same name removed both.** A project's contact
+  list identified a contact by their name, so deleting "John Smith" from a list holding
+  two of them dropped both rows. Contacts are now identified by position. Duplicate names
+  reaching a project through an imported file were also announced identically; they are
+  now distinguished by address, and by an occurrence number when the addresses match too.
+- **A resource with the same address listed twice offered a copy button for each.** One
+  button per distinct address now.
+
+### Internal
+
+- A new `rownames:check` report enumerates every surface that renders a list of controls
+  and how each one is covered, so this class of defect can be found by running something
+  rather than by reading.
+- Three extractions with no behaviour change: the insight-recommendation wiring out of the
+  root orchestrator, the register CRUD tools out of the chat dispatcher, and the budget
+  panel's cell components into their own module.
+
 ## [0.262.2] - 2026-08-28 "Swainston"
 
 ### Fixed

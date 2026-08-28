@@ -29,6 +29,7 @@ import {
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
 import { ResourcePicker } from "./resource-picker";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
 import {
   type ContactPerson,
@@ -654,6 +655,57 @@ function ContactPersonsControl({
   const hasName = (name: string) =>
     contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
 
+  // ★★★ A CONTACT'S IDENTITY IS ITS POSITION, NEVER ITS NAME. Removal used to
+  // filter on `c.name !== cp.name`, so two contacts sharing a name meant either
+  // ✕ deleted BOTH — silent data loss, and a nicer button label would only have
+  // hidden it. The same mistake sat in the list `key`. Duplicates are reachable
+  // in two ways: `hasName` trims but does not COLLAPSE internal whitespace runs
+  // (which accessible-name computation does), so "Bob  Jones" adds happily
+  // beside "Bob Jones"; and `sanitizeProjectMeta` does not dedupe an imported
+  // project, so exact repeats arrive from a file.
+  /** The string the row actually RENDERS. */
+  const contactDisplay = (cp: ContactPerson) => `${cp.name}${cp.email ? ` <${cp.email}>` : ""}`;
+  /** ★★★ THE EMAIL JOINS THE TOKEN ONLY FOR A NAME THAT ACTUALLY REPEATS, and
+   *  the conditional is the whole point. Two "Bob Jones" rows with different
+   *  addresses are visually distinct but would announce as "Remove – Bob Jones
+   *  (1)" / "(2)", leaving an AT user to guess which ✕ they were on; the address
+   *  is a discriminator already on screen, so the colliding subset uses it and
+   *  drops the index entirely.
+   *  ★★ Spending it UNCONDITIONALLY was the first cut and was wrong for the same
+   *  reason `row-tokens.ts` rejects ids: a cost paid on every control, by exactly
+   *  the users 2.4.6 protects, for a discriminator almost no row needs. On the
+   *  repo's own sample project — two contacts, no collision — it more than
+   *  doubled every remove label. Number the colliding rows, leave the rest
+   *  bare — the same principle `buildRowTokens` itself applies.
+   *  ★★ The benefit is IMPORT-ONLY: `addDraft` rejects a duplicate via `hasName`,
+   *  which compares names alone, so the product cannot create this pair. It
+   *  arrives from a file, because `sanitizeProjectMeta` does not dedupe.
+   *  ★★ Counting mirrors `hasName` (trim + case-fold); `buildRowTokens`
+   *  collapses whitespace and does NOT case-fold, so they disagree on TWO axes
+   *  and only one is caught. Whitespace: a bare pair that collapse-collides gets
+   *  the occurrence index. CASE is NOT caught — "Bob"/"bob" are both counted as
+   *  colliding so both take the address path, yet neither is numbered, and with
+   *  equal emails they are spoken alike. Measured identical before this change,
+   *  so it is pre-existing, and `hasName` case-folds so only an import reaches it.
+   *  ★ The 2.5.3 claim an earlier revision made here was wrong: 2.5.3 governs a
+   *  control's name against its OWN label, and the rendered name is a SIBLING
+   *  `<span>`. This button's only visible content is the glyph "×" (U+00D7) — an
+   *  icon, not text for the name to have to contain. ★★ NOT because axe curates
+   *  it: measured, `removeUnicode("×", {punctuations: true})` returns it
+   *  UNCHANGED (U+00D7 is a math symbol), and the rule is `experimental` so
+   *  `tagExclude` drops it regardless. A third revision of this paragraph. */
+  const contactNameCounts = new Map<string, number>();
+  for (const cp of contactPersons) {
+    const key = cp.name.trim().toLowerCase();
+    contactNameCounts.set(key, (contactNameCounts.get(key) ?? 0) + 1);
+  }
+  const contactTokens = buildRowTokens(
+    contactPersons.map((cp, i) => ({
+      id: i,
+      name: (contactNameCounts.get(cp.name.trim().toLowerCase()) ?? 0) > 1 ? contactDisplay(cp) : cp.name,
+    })),
+  );
+
   const addDraft = () => {
     const name = draft.name.trim();
     if (!name || hasName(name)) return;
@@ -677,22 +729,22 @@ function ContactPersonsControl({
 
       {contactPersons.length > 0 && (
         <ul className="mb-2 flex flex-col gap-1">
-          {contactPersons.map((cp) => (
+          {contactPersons.map((cp, idx) => (
             <li
-              key={cp.name}
+              key={idx}
               className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground"
             >
               <span className="flex items-center gap-1.5">
                 {cp.resourceId != null && (
                   <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-ui-green" title={t(lang, "resourcePickerLinked")} />
                 )}
-                <span>{cp.name}{cp.email ? ` <${cp.email}>` : ""}</span>
+                <span>{contactDisplay(cp)}</span>
               </span>
               <button
                 type="button"
-                onClick={() => onChange(contactPersons.filter((c) => c.name !== cp.name))}
-                aria-label={`${t(lang, "remove")} ${cp.name}`}
-                title={`${t(lang, "remove")} ${cp.name}`}
+                onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
+                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
+                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
                 className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×

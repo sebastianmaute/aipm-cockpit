@@ -7,6 +7,8 @@ import userEvent from "@testing-library/user-event";
 import { GanttPanel } from "./gantt";
 import { t } from "./i18n";
 import { expectButtonOrder } from "../test/toolbar-order";
+import { expectRowUniqueNames } from "../test/row-unique-names";
+import { rowLabel } from "./row-tokens";
 import { DEFAULT_PREFS, type GanttPrefs, savePrefs } from "./gantt-engine";
 import type { Milestone, Task } from "./types";
 
@@ -908,7 +910,12 @@ describe("GanttPanel bar drag handles", () => {
       />,
     );
     expect(
-      screen.getAllByRole("button", { name: t("en-US", "ganttBarMove") }),
+      // ★ The handle labels are row-qualified (WCAG 2.4.6 — three identical
+      // names per row would otherwise repeat across every editable task), so
+      // the whole-string RTL `name` match has to carry the row token too.
+      screen.getAllByRole("button", {
+        name: rowLabel(t("en-US", "ganttBarMove"), "Live"),
+      }),
     ).toHaveLength(1);
   });
 
@@ -924,7 +931,9 @@ describe("GanttPanel bar drag handles", () => {
     // the drag affordance that is gone.
     expect(screen.getByText("Dropped")).toBeInTheDocument();
     expect(
-      screen.queryAllByRole("button", { name: t("en-US", "ganttBarMove") }),
+      screen.queryAllByRole("button", {
+        name: rowLabel(t("en-US", "ganttBarMove"), "Dropped"),
+      }),
     ).toHaveLength(0);
   });
 });
@@ -1031,5 +1040,108 @@ describe("GanttPanel display toggles", () => {
       <GanttPanel {...BASE_PROPS} tasks={ABSENT_TASKS} absences={ABSENCES} />,
     );
     expect(off.querySelectorAll("[data-absence]")).toHaveLength(0);
+  });
+});
+
+// ---------- WCAG 2.4.6: row-unique accessible names -------------------------
+//
+// ★★★ THE AXE GATE CANNOT CATCH THIS, in this view or any other, at any seed
+// size: of axe-core 4.12.1's 105 rules, the 69 carrying a tag `e2e/a11y.spec.ts`
+// requests contain NOT ONE that flags two controls sharing an accessible name.
+// Gantt IS in `A11Y_VIEWS`, so a green scan says nothing here — this test is
+// the only detector that can exist for the surface.
+//
+// ★★ IT LIVES IN THIS FILE, NOT `gantt-rows.test.tsx`, ON PURPOSE. The defect
+// is that the token map has to REACH the row: the map is built by `GanttPanel`
+// (a per-row component has no sibling visibility and cannot disambiguate
+// itself) and threaded through `GanttChart`. Rendering `GanttTaskRow` in
+// isolation with a hand-made token passes with that threading severed.
+
+describe("GanttPanel row-unique accessible names", () => {
+  beforeEach(() => window.localStorage.clear());
+  afterEach(() => window.localStorage.clear());
+
+  const mk = (over: Partial<Task> & { id: number; taskName: string }): Task =>
+    ({
+      assignee: "x",
+      priority: "Medium" as const,
+      startDate: dayPlus(-10),
+      dueDate: dayPlus(10),
+      ...over,
+    }) as unknown as Task;
+
+  const mkMilestone = (id: number, name: string): Milestone =>
+    ({ id, name, date: dayPlus(20), linkedTaskIds: [] }) as unknown as Milestone;
+
+  it("keeps every per-row control distinct when two tasks and two milestones share a name", () => {
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Alpha" }), mk({ id: 2, taskName: "Alpha" })]}
+        milestones={[mkMilestone(1, "M1"), mkMilestone(2, "M1")]}
+        onEditTask={() => {}}
+        onEditMilestone={() => {}}
+        onUpdateBar={() => {}}
+      />,
+    );
+
+    // ★ Whole-container scope, per `expectRowUniqueNames`' guidance: the Gantt
+    // toolbar carries no collision of its own to dodge, so there is nothing to
+    // justify narrowing — and narrowing would drop the bar-drag handles, which
+    // are part of what this test covers.
+    // ★ `minControls` is the MEASURED control count for this fixture, not a
+    // round number. It only proves the scope is non-empty; kept exact so a
+    // silently narrowed `roles` array cannot slip past while
+    // `requireCollisionSeed` is satisfied by some unrelated pair.
+    expectRowUniqueNames({
+      scope: container,
+      minControls: 18,
+      requireCollisionSeed: true,
+    });
+
+    // The uniqueness scan alone cannot say the names are the RIGHT ones — it is
+    // equally satisfied by two differently-broken labels. Pin each of the three
+    // fixed surfaces positively.
+    expect(screen.getByRole("button", { name: "Alpha (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Alpha (2)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "M1 (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "M1 (2)" })).toBeInTheDocument();
+    for (const key of ["ganttBarResizeStart", "ganttBarMove", "ganttBarResizeEnd"] as const) {
+      expect(
+        screen.getByRole("button", { name: rowLabel(t("en-US", key), "Alpha (1)") }),
+      ).toBeInTheDocument();
+      expect(
+        screen.getByRole("button", { name: rowLabel(t("en-US", key), "Alpha (2)") }),
+      ).toBeInTheDocument();
+    }
+  });
+
+  it("qualifies a task and a milestone that share a name, across the kind boundary", () => {
+    // ★★ THE CROSS-KIND CASE, and the reason GanttPanel builds ONE token map
+    // rather than one per row kind. Task rows and milestone rows are siblings
+    // in a single view, so a task called "Sync" and a milestone called "Sync"
+    // are two controls with one accessible name — the same 2.4.6 failure as
+    // two tasks. Numbering each kind against only its own siblings leaves both
+    // BARE: each is unique within its kind, so neither gets a suffix, and the
+    // test above cannot see it because its two collisions are within-kind.
+    const { container } = render(
+      <GanttPanel
+        {...BASE_PROPS}
+        tasks={[mk({ id: 1, taskName: "Sync" })]}
+        milestones={[mkMilestone(1, "Sync")]}
+        onEditTask={() => {}}
+        onEditMilestone={() => {}}
+      />,
+    );
+
+    // ★ No `onUpdateBar` here, so no bar-drag handles — the measured floor is
+    // lower than the test above on purpose, and kept exact for the same reason.
+    expectRowUniqueNames({
+      scope: container,
+      minControls: 10,
+      requireCollisionSeed: true,
+    });
+    expect(screen.getByRole("button", { name: "Sync (1)" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Sync (2)" })).toBeInTheDocument();
   });
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import type { Resource, Task } from "./types";
 import { buildRowTokens } from "./row-tokens";
@@ -98,6 +98,10 @@ describe("TaskKanbanSwimlanes", () => {
   // test, not a distinctness one. `expectRowUniqueNames` needs ≥1 rendered
   // control to say anything at all; forcing it here would either throw (no
   // controls to check) or check nothing. Skip on future sweeps of this bucket.
+  // ★ THAT IS THE SINGLE-LANE CASE ONLY, and reading it as "this surface has no
+  // controls to check" is what left the lane-name collision uncovered. TWO empty
+  // twin lanes render TWO remove buttons — see "gives twin same-named lanes
+  // distinct remove-lane names" below, which does use the helper.
   it("shows a row-unique remove-lane control only for an empty linked lane", () => {
     const onRemoveLane = vi.fn();
     render(
@@ -137,6 +141,88 @@ describe("TaskKanbanSwimlanes", () => {
     const removeBtn = screen.getByRole("button", { name: "Remove lane – Anna Jordan" });
     fireEvent.click(removeBtn);
     expect(onRemoveLane).toHaveBeenCalledWith(1);
+  });
+
+  // ★★★ THE REMOVE CONTROL ONLY RENDERS ON AN EMPTY LINKED LANE
+  // (`canRemove = lane.resourceId != null && isEmptyLane`), so the twins have to
+  // arrive via `extraLaneIds` with ZERO tasks between them. Seeding a task on
+  // either lane renders no button there, and the assertion would then observe
+  // nothing while passing.
+  //
+  // ★★ THE LANE COLLISION AXIS IS THE PERSON'S NAME, NOT THE TASK'S — two
+  // directory resources can genuinely share a display name, and the lane label
+  // is the LIVE directory name (`effectiveAssignee`), so nothing upstream
+  // disambiguates it. The `tokens` prop is a TASK-token map and is irrelevant
+  // here: it names cards, not lanes.
+  it("gives twin same-named lanes distinct remove-lane names", () => {
+    const twinResources = new Map<number, Resource>([
+      [1, { id: 1, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+      [2, { id: 2, firstName: "John", lastName: "Smith", roleId: null, utilizationMode: "percent", utilization: {} } as Resource],
+    ]);
+    const { container } = render(
+      <TaskKanbanSwimlanes
+        lang="en-US"
+        tasks={[]}
+        resourcesById={twinResources}
+        extraLaneIds={[1, 2]}
+        tokens={NO_TOKENS}
+        onSwimlaneDrop={vi.fn()}
+        onStatusChange={vi.fn()}
+        onEdit={vi.fn()}
+        onRemoveLane={vi.fn()}
+      />,
+    );
+    // MEASURED, not guessed (floor 999, read the length of the `Rendered: [...]`
+    // list the throw prints): the two remove buttons are the only controls this
+    // fixture renders — no tasks means no cards, so no status selects.
+    expectRowUniqueNames({
+      minControls: 2,
+      scope: container,
+      roles: ["button"],
+      requireCollisionSeed: true,
+    });
+
+    // ★ Anti-vacuity, and the mutant it kills is the realistic one: the scan
+    // above proves only that the two names DIFFER, so it passes against a "fix"
+    // that replaced the label with any unique nonsense (`aria-label={String(i)}`)
+    // — the exact shape that resolves a collision by destroying the name. Assert
+    // that each name still carries the lane's person.
+    // (Unqualified `getAllByRole("button")` on purpose: as measured just above,
+    // the two remove-lane buttons are the ONLY controls this fixture renders.)
+    const removeNames = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
+    expect(removeNames).toHaveLength(2);
+    for (const n of removeNames) expect(n).toContain("John Smith");
+
+    // The `<section>`s map to role `region`, so their duplicate names ARE
+    // exposed to AT; `expectRowUniqueNames` reads controls only, so assert this
+    // one directly. Three lanes: the two twins plus Unassigned.
+    // ★ SCOPED, like the `group` query below and for the same reason given
+    // there — and this one asserts an EXACT count, so it is the most exposed
+    // query in the test if left document-wide.
+    const regionNames = within(container)
+      .getAllByRole("region")
+      .map((r) => r.getAttribute("aria-label"));
+    expect(regionNames).toHaveLength(3);
+    expect(new Set(regionNames).size).toBe(regionNames.length);
+
+    // The per-status drop cells carry `swimlaneCell` = "{lane} – {status}", so
+    // they collide on the same axis. They are `role="group"` — a role that
+    // SUPPORTS naming, unlike the `generic` a bare <div> computes to, for which
+    // ARIA 1.2 prohibits `aria-label` and AT drops it. That role is why the
+    // query below can be role-based at all, and asserting through the role is
+    // what makes this test go red if the role is ever removed and the names go
+    // back to being announced to nobody. `expectRowUniqueNames` reads CONTROLS,
+    // so it cannot cover `group`; assert directly.
+    // ★ SCOPED to the container, not `screen`. A document-wide query makes this
+    // a claim about every `group` on the page, so one later added by a card, a
+    // wrapper or a portal changes what it measures — a false RED that reads like
+    // a naming regression. (The `button` query above stays unqualified for the
+    // reason given there: this fixture renders no other control.)
+    const cellNames = within(container)
+      .getAllByRole("group")
+      .map((c) => c.getAttribute("aria-label"));
+    expect(cellNames.length).toBeGreaterThan(0);
+    expect(new Set(cellNames).size).toBe(cellNames.length);
   });
 
   // The per-column badge/card tests (task-kanban-card.test.tsx) cannot reach

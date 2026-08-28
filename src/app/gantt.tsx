@@ -34,7 +34,7 @@ import { useResizable } from "./use-resizable";
 import { useGanttBarDrag } from "./use-gantt-bar-drag";
 import { useGanttPrefs } from "./use-gantt-prefs";
 import { GanttToolbar } from "./gantt-chrome";
-import { GanttChart } from "./gantt-chart";
+import { GanttChart, ganttRowKey } from "./gantt-chart";
 import { dayLeftPx } from "./gantt-overlays";
 import { type Absence, type Milestone, type Priority, type Resource, type Task } from "./types";
 import { effectivePersonName } from "./resource-foundation";
@@ -42,6 +42,7 @@ import { descriptionText } from "./rich-text-projection";
 import { sortMilestones } from "./milestones";
 import { milestoneStatusBucket, taskStatusBuckets } from "./gantt-status-buckets";
 import { isTaskClosed } from "./task-closed";
+import { buildRowTokens } from "./row-tokens";
 import {
   addDays,
   ALL_GANTT_STATUSES,
@@ -390,6 +391,44 @@ export function GanttPanel({
     [visible, visibleMilestones, milestonePlacement, allBars],
   );
 
+  // Row-unique display tokens for the two name buttons and the three bar-drag
+  // handles. Two rows sharing a name would otherwise put several identically
+  // named controls in one view — a WCAG 2.4.6 failure that the axe gate cannot
+  // see in ANY view at ANY seed size, so the unit test in `gantt.test.tsx` is
+  // the only detector this surface can have.
+  //
+  // ★ Built from `rows`, NOT from `visible`/`visibleMilestones`: `row-tokens.ts`
+  // requires the rows in the order the USER navigates, AS RENDERED, and
+  // `buildGanttRows` both interleaves the two lists and reorders them.
+  //
+  // ★★ ONE MAP OVER BOTH ROW KINDS, not one per kind. Tasks and milestones
+  // render as sibling rows in a single view, so a task and a milestone sharing
+  // a name collide exactly like two tasks do — numbering each kind against only
+  // its own siblings leaves both bare and reproduces the defect across the kind
+  // boundary. Task and milestone ids are independent number spaces, so the map
+  // is keyed on `ganttRowKey`, which carries the kind.
+  //
+  // ★ A per-row component cannot disambiguate itself — it has no sibling
+  // visibility — so the map is built here, where the list is, and threaded down
+  // through `GanttChart` as a prop.
+  //
+  // ★★ KNOWN RESIDUAL, deliberately NOT claimed closed: `gantt-chart.tsx` skips
+  // any task whose bar is null (`if (!bar) return null`), so a task numbered
+  // "(2)" here can render while the "(1)" it is numbered against is NOT on
+  // screen — the suffix then tells the user about a row they cannot find.
+  // Filed rather than fixed: numbering around it would have to duplicate the
+  // chart's own render condition here, and the two would drift.
+  const rowTokens = useMemo(
+    () =>
+      buildRowTokens(
+        rows.map((r) => ({
+          id: ganttRowKey(r),
+          name: r.kind === "task" ? r.task.taskName : r.milestone.name,
+        })),
+      ),
+    [rows],
+  );
+
   // Row index lookups for the dependency-arrow + milestone-connector overlays.
   // Keyed on the FULL row list so both task arrows and milestone connectors
   // point at the right Y regardless of interleaving. Misses read as -1 to keep
@@ -685,6 +724,7 @@ export function GanttPanel({
         holidaySet={holidaySet}
         totalRowsCount={totalRowsCount}
         rows={rows}
+        rowTokens={rowTokens}
         bars={layout.bars}
         placeable={layout.placeable}
         taskRowIndexById={taskRowIndexById}

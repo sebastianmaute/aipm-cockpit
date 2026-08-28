@@ -919,13 +919,34 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       />,
       { wrapper: Providers },
     );
-    // Scoped to <tbody>, not the whole container: the toolbar's "Type"/"Status"
-    // filter <select>s literally share their accessible NAME with the
+    // Scoped to <tbody>, not the whole container.
+    //
+    // ★★ THE NARROWING'S ORIGINAL JUSTIFICATION NO LONGER EXISTS, and it is
+    // replaced here rather than silently inherited. The toolbar's "Type"/"Status"
+    // filter <select>s used to share their accessible NAME with the
     // sortable-header BUTTONS of the same columns (both read the same
-    // "changeFieldType"/"changeFieldStatus" translation) — a real but
-    // cross-ROLE, pre-existing naming overlap that has nothing to do with the
-    // per-row title collision this test seeds, and scanning the whole
-    // container would fail on it unrelatedly.
+    // "changeFieldType"/"changeFieldStatus" translation), so a whole-container
+    // scan failed here for a reason that had nothing to do with row identity.
+    // That overlap was CLOSED for §261 — the filters now read
+    // "changeFilterType"/"changeFilterStatus".
+    //
+    // ★★ THE REASON IT IS KEPT IS `requireCollisionSeed`, NOT a second confirmed
+    // chrome collision. That guard is satisfied by ANY two names colliding
+    // within `roles`, anywhere in scope — the masking hazard `row-unique-names.ts`
+    // documents. At <tbody> scope the only candidates are the ten seeded row
+    // controls, so a green run is attributable to the title pair this test names;
+    // widened to the container, an unrelated chrome collision could certify the
+    // fixture as collision-bearing while the seeded pair had quietly stopped
+    // colliding, and `minControls` would stop being a count of the seeded rows
+    // and start moving with every toolbar change.
+    // ★ NOTE this is a DIFFERENT justification from the "confirm a specific
+    // collision and name it" rule in `row-unique-names.ts`'s SCOPE CHOICE
+    // paragraph. That rule does not apply here — no collision with unrelated
+    // chrome is claimed for this narrowing.
+    // ★ Whole-container coverage is not lost: "gives the type/status filters and
+    // their sort headers distinct names" at the bottom of this file scans
+    // strictly wider (whole DOCUMENT, all three roles, column-config popover
+    // open) precisely because THIS scope cannot see it.
     const tbody = container.querySelector("tbody") as HTMLElement;
     expect(tbody).toBeTruthy();
     expectRowUniqueNames({
@@ -938,4 +959,89 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       requireCollisionSeed: true,
     });
   });
+});
+
+// §261. The toolbar's type/status filter <select>s used to read the SAME
+// translation as the sortable-header BUTTONS of the same columns
+// ("changeFieldType"/"changeFieldStatus"), so each name was carried by two
+// controls with genuinely different purposes — filtering the list vs. sorting
+// it (WCAG 2.4.6). axe has no rule that flags two controls sharing an
+// accessible name, in any view at any seed size, so this unit test is the only
+// detector that can exist for it.
+describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
+  it("gives the type/status filters and their sort headers distinct names", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+
+    // Opening the column-config popover is load-bearing, not incidental: its
+    // per-column checkboxes are the THIRD control carrying each of these column
+    // translations, and `PopoverPanel` returns null while closed — so a test
+    // that left it shut would assert over two thirds of the collision and pass.
+    fireEvent.click(getByRole("button", { name: t("en-US", "colConfigTitle") }));
+
+    // Un-narrowed roles and whole-document scope on purpose: this collision is
+    // cross-ROLE (combobox vs. button vs. checkbox), so every existing test in
+    // this file was structurally blind to it — they each narrow to one role
+    // family, or scope to <tbody>, which excludes both the toolbar filter and
+    // the column-config checklist.
+    expectRowUniqueNames({
+      // MEASURED against this fixture WITH THE POPOVER OPEN, not guessed and not
+      // scaled from the closed-popover figure: 5 comboboxes + 17 buttons +
+      // 11 checkboxes. The 8 extra checkboxes are CHANGE_CONFIG_COLS' toggles.
+      // `minControls` only proves the scope is non-empty, so it is pinned to the
+      // exact count — a loose floor would silently re-admit a narrowed `roles`
+      // list, or a popover that stopped opening.
+      minControls: 33,
+      roles: ["combobox", "button", "checkbox"],
+    });
+
+    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
+    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
+    // `aria-label || textContent`, and a sort header has no aria-label — so its
+    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
+    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
+    // `change-panel.tsx` defaults `pf.sort` to null (`?? null` / `?? "off"`), so
+    // every header here renders inactive and scans as the bare column label —
+    // which is the ONLY reason the pre-fix `"Type" x2` / `"Status" x2` collisions
+    // were visible to it. Set a default sort on one of these columns and that
+    // header scans as "Type ↑" while its REAL accessible name is still "Type":
+    // the scan silently stops detecting the collision and stays green. The
+    // positive lookups below are unaffected — `getByRole({name})` computes the
+    // real accessible name — so they are what would still bite.
+    //
+    // Anti-vacuity: name each side of the former collision positively, so a
+    // "fix" that merely deleted a label could not pass.
+    expect(getByRole("combobox", { name: t("en-US", "changeFilterType") })).toBeTruthy();
+    expect(getByRole("combobox", { name: t("en-US", "changeFilterStatus") })).toBeTruthy();
+    // The COLUMNS keep their own names — the filters moved, the headers did not.
+    expect(getByRole("button", { name: t("en-US", "changeFieldType") })).toBeTruthy();
+    expect(getByRole("button", { name: t("en-US", "changeFieldStatus") })).toBeTruthy();
+    // ...and the column-config toggles name their own action, so the third
+    // control carrying each translation no longer reads as the column itself.
+    for (const key of ["changeFieldType", "changeFieldStatus"] as const) {
+      expect(
+        getByRole("checkbox", { name: t("en-US", "colConfigToggleColumn", t("en-US", key)) }),
+      ).toBeTruthy();
+    }
+  });
+
+  // ★ THE THIRD LEG IS NOW COVERED, IN THE TEST ABOVE. It used to be deferred:
+  // the column-config checkboxes took their accessible name from their wrapping
+  // <label>'s text alone, so they too read "Type"/"Status" and collided with the
+  // headers. `column-config-popover.tsx` now sets
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}`, so the
+  // test opens the popover with the "colConfigTitle" gear button, scans all 8
+  // toggles, and names two of them positively.
+  // ★★ That aria-label is ALSO what makes those checkboxes VISIBLE to this
+  // assertion at all: `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name, and an <input>
+  // has no textContent — so before the fix all 8 reported "" and opening the
+  // popover would have failed on a spurious `"" x8` duplicate that has nothing
+  // to do with §261.
+  // ★★ THE TWO HALVES WERE MUTATION-PROVED SEPARATELY, because the first MASKS
+  // the second rather than firing alongside it. Deleting the aria-label outright
+  // fails on that `"" x8` duplicate — `expectRowUniqueNames` throws before the
+  // `getByRole` lookups below are ever reached. Passing the raw column KEY
+  // instead of its translation gives distinct, non-empty names, so the scan
+  // passes and the test fails on the lookups instead. Only the second mutant
+  // proves the §261-specific half; keep both in mind before trusting a red here.
 });

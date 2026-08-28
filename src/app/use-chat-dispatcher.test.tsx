@@ -2548,9 +2548,15 @@ describe("useChatDispatcher – document tool rejection reporting", () => {
 // Their arities happened to be right, so nothing was broken; the point is that
 // nothing would have SAID SO. Every kind the dispatcher emits now has one.
 // Re-derive that rather than trusting this sentence — enumerate the emit sites
-// with `grep -n 'logActivityAs?.("ai"' src/app/use-chat-dispatcher.ts` (23 on
-// 2026-08-16) and check each KIND against a toHaveBeenCalledWith below. A new
-// writer adds a row to that grep and nothing else forces a test — add one here.
+// with `grep -n 'logActivityAs?.("ai"' src/app/use-chat-dispatcher.ts
+// src/app/use-register-tools.ts` (23 on 2026-08-27) and check each KIND against
+// a toHaveBeenCalledWith below. A new writer adds a row to that grep and nothing
+// else forces a test — add one here.
+// ★★ BOTH FILES, and the second one is easy to drop: the sixteen register-CRUD
+// writers were extracted to use-register-tools.ts for the file-size ratchet, so
+// a dispatcher-only grep now returns 11 and silently stops enumerating twelve
+// kinds this describe block still covers. The kinds and their arities did not
+// move — 11 + 12 is the same 23 the one-file grep used to return.
 describe("useChatDispatcher – AI entity writes reach the activity log", () => {
   function renderWithLog(tasks: Task[] = seedTasks()) {
     const logActivityAs = vi.fn();

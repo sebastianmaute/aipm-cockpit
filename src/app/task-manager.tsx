@@ -43,8 +43,7 @@ import { useNotesWindow } from "./use-notes-window";
 import { applyStatusChange } from "./task-status";
 import { sanitizeRaidItem } from "./sanitize";
 import { useFxRates } from "./use-fx-rates";
-import { splitName, resourceDisplayName, effectivePersonName, backfillTaskResourceFks } from "./resource-foundation";
-import { descriptionText } from "./rich-text-projection";
+import { splitName, resourceDisplayName, backfillTaskResourceFks } from "./resource-foundation";
 import { mintId, peekMintId, seedMintFromWorkspace } from "./id-mint-session";
 import { buildRaidByTaskIndex, nextRaidId } from "./raid";
 import { buildChangeByTaskIndex } from "./change-log";
@@ -99,19 +98,12 @@ import { buildDashboardInput, computeDashboard } from "./dashboard";
 import { detectInsights, type InsightInput } from "./insights/detect";
 import { insightsMateriallyEqual, reconcileInsights } from "./insights/reconcile";
 import { loadLandingState } from "./landing-state";
-import type { Insight, InsightActions, InsightRecommendation } from "./insights/insight";
-import { ALLOWED_REC_TOOLS } from "./insights/insight";
 import { metricAtActionPatch } from "./insights/outcome";
-import { useInsightRecommend } from "./use-insight-recommend";
-import { useInsightRecommendRunner } from "./use-insight-recommend-runner";
-import { buildRecommendContext } from "./insights/recommend-context";
-import { describeRecommendationPlan } from "./insights/recommend-plan";
+import { useInsightRecommendations } from "./use-insight-recommendations";
 import { RecommendationReviewModal } from "./insights/recommendation-review-modal";
-import { buildGroundingIndex } from "./action-ai";
 import { executeActionCta } from "./action-cta-exec";
-import { runTool } from "./chat-tools";
 import { getTursoConfig } from "./turso-config";
-import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, DEFAULT_INSIGHT_REC_INTERVAL_MIN, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
+import { aiAssistantOpener, aiKeyIfEnabled, isAiEnabled, defaultExportConfig, defaultNextActionsLearning, defaultSnapshotSettings, type JiraExtraProject, type Settings } from "./settings-types";
 import { resolveEffectiveSettings } from "./settings-effective";
 import { TaskDeleteButton, TaskEditorActions, TaskEditorExtras } from "./task-editor-actions";
 import { APP_VERSION_LABEL } from "./version";
@@ -181,11 +173,6 @@ const VERSION_IDLE_MS = 180_000; // 3 minutes
 // Debounce before the insights detect→reconcile runner fires, so a burst of
 // edits collapses into one recompute (#6B Insights → Action Loop, SP1).
 const INSIGHTS_RECONCILE_DEBOUNCE_MS = 4_000;
-
-// Cap on any free-text field folded into the linked-entity digest of an insight
-// recommendation prompt — the digest rides a billed call, so an unbounded
-// description must not blow up the token count (SP3).
-const ENTITY_DIGEST_TEXT_CAP = 200;
 
 // Stable empty fallback so an unset `settings.jira.extraProjects` doesn't create
 // a fresh `[]` each render — that churns the task row context value and
@@ -876,9 +863,10 @@ function TaskManagerInner() {
     [isPopout, setInsights, today],
   );
   // The SP2 generate/apply/reject handlers (+ the `insightActions` assembly
-  // that references them) need `dispatcher` (apply replays proposed tool calls
-  // through it), so they're defined further down, right after `dispatcher` is
-  // created — see "Insights → Action Loop (#6B SP2)" below.
+  // that references them) live in `useInsightRecommendations`
+  // (use-insight-recommendations.ts) — apply replays proposed tool calls
+  // through `dispatcher`, so that hook is called right after `dispatcher` is
+  // created, below.
 
   // Pre-computed workload alerts (over-allocated / overload) for the `workload`
   // next-actions provider; computed once on the surface and fed into the engine.
@@ -1705,210 +1693,21 @@ function TaskManagerInner() {
     getAllocationsSnapshot,
   });
 
-  // --- Insights → Action Loop (#6B SP2) ---------------------------------
-  // Generate/apply/reject handlers for an insight's AI recommendation. Apply
-  // replays the recommendation's proposed tool calls through the SAME
-  // dispatcher the chat/inline-edit tools use (runTool re-sanitizes per
-  // entity — the security boundary — and no-ops a stale id gracefully), so
-  // these live here, after `dispatcher` exists.
-  const buildInsightGroundingIndex = useCallback(
-    () => buildGroundingIndex({ tasks, raid, milestones, changes, stakeholders }),
-    [tasks, raid, milestones, changes, stakeholders],
-  );
-  // Resolve an insight's entityRef to a compact title + field digest for the
-  // recommendation context. Only milestoneSlip/raidAging carry an entityRef —
-  // the other detectors are project-level singletons, so there is deliberately
-  // no resolver for them. Bounded: a short fixed field list per view, never the
-  // whole row, and free text is capped — this text rides a billed prompt. The
-  // fields chosen EXCLUDE what `insight.data` already carries (name/date/
-  // daysOverdue, title/targetDate/daysSinceUpdate) so the digest adds signal
-  // rather than repeating it.
-  const resolveInsightEntity = useCallback(
-    (insight: Insight) => {
-      const ref = insight.entityRef;
-      if (!ref) return undefined;
-      if (ref.view === "milestones") {
-        const m = milestones.find((x) => x.id === ref.id);
-        if (!m) return undefined;
-        return {
-          view: ref.view,
-          id: m.id,
-          title: m.name,
-          fields: [
-            `achieved: ${m.achievedDate ?? "no"}`,
-            `linkedTasks: ${m.linkedTaskIds.length}`,
-            `description: ${descriptionText(m.description).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
-          ].join("\n"),
-        };
-      }
-      if (ref.view === "raid") {
-        const r = raid.find((x) => x.id === ref.id);
-        if (!r) return undefined;
-        // Owner via the shared live-name helper — the cached `owner` string can
-        // be stale after a rename/re-link (same rule every other surface uses).
-        const owner = effectivePersonName(r.owner ?? "", r.ownerResourceId, resourcesById);
-        return {
-          view: ref.view,
-          id: r.id,
-          title: r.title,
-          fields: [
-            `category: ${r.category}`,
-            `status: ${r.status}`,
-            `severity: ${r.severity ?? "(unset)"}`,
-            `owner: ${owner || "(unassigned)"}`,
-            // Worth the extra field despite the free text: it tells the model what
-            // has ALREADY been tried, so it stops re-proposing the existing plan.
-            `mitigation: ${descriptionText(r.mitigation).slice(0, ENTITY_DIGEST_TEXT_CAP) || "(none)"}`,
-          ].join("\n"),
-        };
-      }
-      return undefined;
-    },
-    [milestones, raid, resourcesById],
-  );
-  const buildInsightRecommendContext = useCallback(
-    (insight: Insight) => {
-      const entity = resolveInsightEntity(insight);
-      return buildRecommendContext({
-        projectName: project?.name ?? "",
-        today,
-        insightType: insight.type,
-        severity: insight.severity,
-        data: insight.data,
-        ...(entity ? { entity } : {}),
-        relatedTasks: tasks.map((tk) => ({ id: tk.id, title: tk.taskName })),
-      });
-    },
-    [project, today, tasks, resolveInsightEntity],
-  );
-  const applyInsightRecommendation = useCallback(
-    (id: number, rec: InsightRecommendation) => {
-      setInsights((prev) => (prev ?? []).map((i) => (i.id === id ? { ...i, recommendation: rec } : i)));
-    },
-    [setInsights],
-  );
   const {
-    generatingId: insightGeneratingId,
-    generate: generateInsightRecommendation,
-    cancel: cancelInsightRecommendation,
-  } = useInsightRecommend({
-    insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
-    today,
-    buildIndex: buildInsightGroundingIndex,
-    buildContextFor: buildInsightRecommendContext,
-    applyRecommendation: applyInsightRecommendation,
-    isPopout,
-    onError: (kind) => {
-      showToast("error", t(lang, kind === "limit" ? "aiUsageLimitReached" : "insightRecommendationError"));
-    },
+    insightActions,
+    insightGeneratingId,
+    cancelInsightRecommendation,
+    confirmInsightRecommendation,
+    reviewInsight,
+    reviewPlan,
+    setReviewInsightId,
+  } = useInsightRecommendations({
+    isPopout, settings, lang, today, project,
+    tasks, raid, milestones, changes, stakeholders,
+    resourcesById, insights, setInsights, dispatcher,
+    showToast, logActivityAs,
+    onAcknowledgeInsight, onActInsight, onDismissInsight,
   });
-  useInsightRecommendRunner({
-    enabled: isAiEnabled(settings.ai) && settings.ai.insightRecommendations === true && !isPopout,
-    insights: insights ?? [],
-    ai: { apiKey: aiKeyIfEnabled(settings.ai), model: settings.ai?.model ?? "claude-sonnet-4-6" },
-    today,
-    intervalMinutes: settings.ai.insightRecommendationIntervalMinutes ?? DEFAULT_INSIGHT_REC_INTERVAL_MIN,
-    buildIndex: buildInsightGroundingIndex,
-    buildContextFor: buildInsightRecommendContext,
-    applyRecommendation: applyInsightRecommendation,
-  });
-
-  const onGenerateRecommendationInsight = useCallback(
-    (id: number) => { void generateInsightRecommendation(id); },
-    [generateInsightRecommendation],
-  );
-  // Opens the review modal; the modal's Confirm button runs the actual apply
-  // (confirmInsightRecommendation, below — it needs the live insight + its
-  // recommendation, read at confirm time so a stale id is a safe no-op).
-  const [reviewInsightId, setReviewInsightId] = useState<number | null>(null);
-  const onApplyRecommendationInsight = useCallback((id: number) => { setReviewInsightId(id); }, [setReviewInsightId]);
-  const onRejectRecommendationInsight = useCallback(
-    (id: number) => {
-      if (isPopout) return;
-      setInsights((prev) =>
-        (prev ?? []).map((i) =>
-          i.id === id && i.recommendation
-            ? { ...i, recommendation: { ...i.recommendation, status: "rejected" as const } }
-            : i,
-        ),
-      );
-    },
-    [isPopout, setInsights],
-  );
-  const insightActions: InsightActions = useMemo(
-    () => ({
-      onAcknowledge: onAcknowledgeInsight, onAct: onActInsight, onDismiss: onDismissInsight,
-      onGenerateRecommendation: onGenerateRecommendationInsight,
-      onApplyRecommendation: onApplyRecommendationInsight,
-      onRejectRecommendation: onRejectRecommendationInsight,
-    }),
-    [onAcknowledgeInsight, onActInsight, onDismissInsight, onGenerateRecommendationInsight,
-      onApplyRecommendationInsight, onRejectRecommendationInsight],
-  );
-
-  // The insight currently under review + a live preview of its recommendation's
-  // proposed calls (re-grounded against the CURRENT workspace, since a
-  // background-generated recommendation can be stale by the time it's reviewed).
-  const reviewInsight = (insights ?? []).find((i) => i.id === reviewInsightId) ?? null;
-  const reviewPlan = useMemo(
-    () =>
-      reviewInsight?.recommendation
-        ? describeRecommendationPlan(reviewInsight.recommendation.proposedCalls, {
-            tasks, raid, changes, milestones, stakeholders,
-          })
-        : null,
-    [reviewInsight, tasks, raid, changes, milestones, stakeholders],
-  );
-  const confirmInsightRecommendation = useCallback(async () => {
-    const insight = (insights ?? []).find((i) => i.id === reviewInsightId);
-    const rec = insight?.recommendation;
-    // Close the modal FIRST (before any await) — this is also the re-entrancy
-    // guard: a rapid double-click on Confirm finds reviewInsightId already null
-    // on the second fire and early-returns, so the same recommendation can't be
-    // applied twice (which would duplicate create_* entities). The insight/rec
-    // needed for the apply are already captured in this closure.
-    setReviewInsightId(null);
-    if (!insight || !rec) return;
-    // Security: re-enforce the allow-set at apply — a persisted/imported blob must
-    // never drive a destructive tool (delete_*/update_settings) through runTool,
-    // even if it slipped a stale load path. Load-time sanitize also strips these.
-    const calls = rec.proposedCalls.filter((c) => ALLOWED_REC_TOOLS.has(c.name));
-    // Per-call, NON-transactional apply. Each runTool is its own try/catch so one
-    // call that THROWS (e.g. an enum/date the entity's sanitizer rejects) can't
-    // abort the remaining calls. (A stale update id does NOT throw — the
-    // dispatcher's id-based find no-ops it — so `failed` counts hard errors, not
-    // silently-skipped stale updates.) We ALWAYS advance the insight to
-    // acted/applied afterwards (even on partial failure) so a retry can never
-    // re-run the calls that DID commit — that would duplicate create_* entities.
-    let failed = 0;
-    for (const call of calls) {
-      try {
-        await runTool(dispatcher, call.name, call.input as Record<string, unknown>);
-      } catch {
-        failed++;
-      }
-    }
-    setInsights((prev) =>
-      (prev ?? []).map((i) =>
-        i.id === insight.id
-          ? {
-              ...i,
-              status: "acted" as const,
-              actedAt: today,
-              // SP3: same shared baseline capture as the manual Act path.
-              ...metricAtActionPatch(i),
-              recommendation: { ...rec, status: "applied" as const, appliedAt: today, appliedSummary: rec.summary },
-            }
-          : i,
-      ),
-    );
-    logActivityAs("ai", "ai.insightRecommendation", insight.id, rec.summary);
-    showToast(
-      failed > 0 ? "error" : "info",
-      t(lang, failed > 0 ? "insightRecommendationApplyFailed" : "insightRecommendationApplied"),
-    );
-  }, [insights, reviewInsightId, dispatcher, setInsights, setReviewInsightId, today, logActivityAs, showToast, lang]);
 
   const cacheFxRates = useCallback((fx: import("./types").FxRates) => setFxRates(fx), [setFxRates]);
   const { refresh: refreshFx, loading: fxLoading } = useFxRates(cacheFxRates);

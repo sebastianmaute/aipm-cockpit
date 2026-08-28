@@ -2,10 +2,12 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.262.2";
-export const APP_BUILD_DATE = "2026-08-28"; // 0.262.2: bound the rich-text boundary — work and bytes (Swainston)
+export const APP_VERSION = "0.263.0";
+export const APP_BUILD_DATE = "2026-08-28"; // 0.263.0: row-unique names, round 3 (Okorafor)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
- *  0.262.x line is "Swainston" (Steph Swainston, British fantasy author).
+ *  0.263.x line is "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
+ *  author). Reused: 0.223.x and 0.25.x also ran under this name.
+ *  0.262.x was "Swainston" (Steph Swainston, British fantasy author).
  *  0.261.x was "Leckie" (Ann Leckie, SF author).
  *  0.260.x was "Cho" (Zen Cho, Malaysian fantasy author).
  *  0.259.x was "Tsutsui" (Yasutaka Tsutsui, Japanese SF author).
@@ -62,7 +64,7 @@ export const APP_BUILD_DATE = "2026-08-28"; // 0.262.2: bound the rich-text boun
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Swainston";
+export const APP_MILESTONE = "Okorafor";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

@@ -415,7 +415,7 @@ function ChangePanelBody({
       <Select
         value={typeFilter}
         onChange={(e) => pf.setFilter("type", e.target.value)}
-        aria-label={t(lang, "changeFieldType")}
+        aria-label={t(lang, "changeFilterType")}
         size="xs"
         className="h-[30px]"
       >
@@ -429,7 +429,7 @@ function ChangePanelBody({
       <Select
         value={statusFilter}
         onChange={(e) => pf.setFilter("status", e.target.value)}
-        aria-label={t(lang, "changeFieldStatus")}
+        aria-label={t(lang, "changeFilterStatus")}
         size="xs"
         className="h-[30px]"
       >

@@ -35,6 +35,9 @@ interface RaidBadgeProps {
 
 function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadgeProps) {
   const counts = countByCategory(refs);
+  // The badge's VISIBLE content — the compact per-category glyph string. It is
+  // also the head of the accessible name below, so the two cannot drift.
+  const mix = t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D);
   return (
     <button
       type="button"
@@ -52,10 +55,24 @@ function RaidBadgeImpl({ taskId, refs, lang, rowToken, onJumpToRaid }: RaidBadge
       // name. Kept because the visible content is a compact glyph string, so the
       // tooltip is the only count a sighted mouse user gets.
       title={t(lang, "raidReferencedBy", refs.length)}
-      aria-label={rowLabel(t(lang, "raidReferencedBy", refs.length), rowToken)}
+      // ★★★ WCAG 2.5.3 (label in name): the accessible name must CONTAIN the
+      // control's visible text. The visible text is the glyph string `mix`,
+      // so the name LEADS with it, then the spelled-out count, then the row
+      // token that closes 2.4.6. Nesting `rowLabel` twice reuses the existing
+      // separator and the two existing i18n keys — no new key, no untranslated
+      // literal.
+      // ★★ CONTAINMENT, NOT PREFIX — 2.5.3 is case-insensitive and
+      // position-independent; front position here is the Understanding note's
+      // best practice, not the criterion. Do not "enforce" prefixing elsewhere
+      // on the strength of this line.
+      // ★★ No gate can see a regression here: axe's `label-content-name-mismatch`
+      // carries `wcag21a` but is also `experimental`, which axe's default
+      // tagExclude drops, so the a11y gate never runs it. `task-raid-badge.test.tsx`
+      // is the only detector.
+      aria-label={rowLabel(rowLabel(mix, t(lang, "raidReferencedBy", refs.length)), rowToken)}
       className={`ml-1 inline-flex items-center rounded bg-ui-purple px-1.5 py-0.5 text-[10px] font-medium text-white hover:bg-ui-purple/90 ${INTERACTIVE}`}
     >
-      {t(lang, "raidReferencedByMix", counts.R, counts.A, counts.I, counts.D)}
+      {mix}
     </button>
   );
 }

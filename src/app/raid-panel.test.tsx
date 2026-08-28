@@ -522,8 +522,11 @@ describe("RAID bulk edit", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Vendor risk") }));
     // open the bulk panel
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Severity + set it to High (the bulk select shares its name with the
-    // toolbar filter — disambiguate by the bulk control's id)
+    // enable Severity + set it to High. The id lookup is belt-and-braces since
+    // §261: the toolbar filter used to share this select's accessible name and
+    // no longer does ("raidFilterSeverity"), so the query resolves uniquely
+    // today — but the bulk select still shares it with the sortable-header
+    // BUTTON, so keep the id in case a future control lands in this role.
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
     const bulkSeverity = screen
       .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
@@ -963,7 +966,7 @@ describe("RaidPanel owner filter", () => {
     const { container } = renderPanel(makeProps({ raid: items }));
     // Both rows visible initially.
     expect(rowIds(container)).toEqual(["#1", "#2"]);
-    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidFilterOwner") });
     fireEvent.change(ownerSelect, { target: { value: "Alice Owner" } });
     expect(rowIds(container)).toEqual(["#1"]);
   });
@@ -975,7 +978,7 @@ describe("RaidPanel owner filter", () => {
       makeRaidItem({ id: 4, title: "Delta", severity: "High", owner: "Someone Else" }),
     ];
     const { container } = renderPanel(makeProps({ raid: items, resources }));
-    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidFilterOwner") });
     fireEvent.change(ownerSelect, { target: { value: "Live Owner" } });
     expect(rowIds(container)).toEqual(["#3"]);
   });
@@ -1195,4 +1198,103 @@ describe("RaidPanel row-unique accessible names (WCAG 2.4.6)", () => {
       screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryA")}` }),
     ).toBeInTheDocument();
   });
+});
+
+// §261. The toolbar's category/severity/status/owner filter <select>s used to
+// read the SAME translations as the sortable-header BUTTONS of the same
+// columns ("raidCategory"/"raidSeverity"/"raidStatus"/"raidOwner"), so each of
+// those four names was carried by two controls with genuinely different
+// purposes — filtering the register vs. sorting it (WCAG 2.4.6).
+// ★ The collision spans two files that only meet at runtime: the filters live
+// in `raid-panel-toolbar.tsx`, the sort headers in `raid-panel-rows.tsx`, and
+// `raid-panel.tsx` mounts both into one DOM scope — so neither file could be
+// read on its own and shown to be defective.
+// ★★★ axe has no rule that flags two controls sharing an accessible name, in
+// any view at any seed size, so this unit test is the only detector that can
+// exist for it.
+describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
+  it("gives the category/severity/status/owner filters and their sort headers distinct names", () => {
+    // One item carrying an OWNER is load-bearing: the owner <select> renders
+    // only when `ownerOptions` is non-empty (`raid-panel.tsx`), so an
+    // owner-less fixture would silently drop a quarter of the pairs under test
+    // and still pass.
+    renderPanel(
+      makeProps({ raid: [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Alice" })] }),
+    );
+
+    // Opening the column-config popover is load-bearing, not incidental: its
+    // per-column checkboxes are the THIRD control carrying each of these column
+    // translations, and `PopoverPanel` returns null while closed — so a test
+    // that left it shut would assert over two thirds of the collision and pass.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+
+    // Un-narrowed roles and whole-document scope on purpose: this collision is
+    // cross-ROLE (combobox vs. button vs. checkbox), so every existing test in
+    // this file was structurally blind to it — they each narrow to one role
+    // family, or scope to the row controls, which excludes both the toolbar
+    // filters and the column-config checklist.
+    expectRowUniqueNames({
+      // MEASURED against this fixture WITH THE POPOVER OPEN, not guessed and not
+      // scaled from the closed-popover figure: 5 comboboxes + 17 buttons +
+      // 12 checkboxes. The 10 extra checkboxes are RAID_CONFIG_COLS' toggles.
+      // `minControls` only proves the scope is non-empty, so it is pinned to the
+      // exact count — a loose floor would silently re-admit a narrowed `roles`
+      // list, or a popover that stopped opening.
+      minControls: 34,
+      roles: ["combobox", "button", "checkbox"],
+    });
+
+    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
+    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
+    // `aria-label || textContent`, and a sort header has no aria-label — so its
+    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
+    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
+    // `raid-panel.tsx` defaults `sort` to null, so every header here renders
+    // inactive and scans as the bare column label — which is the ONLY reason the
+    // pre-fix `"Category"/"Severity"/"Status"/"Owner" x2` collisions were visible
+    // to it. Set a default sort on one of these columns and that header scans as
+    // "Owner ↑" while its REAL accessible name is still "Owner": the scan
+    // silently stops detecting the collision and stays green. The positive
+    // lookups below are unaffected — `getByRole({name})` computes the real
+    // accessible name — so they are what would still bite.
+    //
+    // Anti-vacuity: name each side of all four former collisions positively, so
+    // a "fix" that merely deleted a label could not pass.
+    for (const key of ["raidFilterCategory", "raidFilterSeverity", "raidFilterStatus", "raidFilterOwner"] as const) {
+      expect(screen.getByRole("combobox", { name: t("en-US", key) })).toBeTruthy();
+    }
+    // The COLUMNS keep their own names — the filters moved, the headers did not.
+    // The sort glyph is `aria-hidden`, so the accessible name is the bare label.
+    for (const key of ["raidCategory", "raidSeverity", "raidStatus", "raidOwner"] as const) {
+      expect(screen.getByRole("button", { name: t("en-US", key) })).toBeTruthy();
+    }
+    // ...and the column-config toggles name their own action, so the third
+    // control carrying each translation no longer reads as the column itself.
+    for (const key of ["raidCategory", "raidSeverity", "raidStatus", "raidOwner"] as const) {
+      expect(
+        screen.getByRole("checkbox", { name: t("en-US", "colConfigToggleColumn", t("en-US", key)) }),
+      ).toBeTruthy();
+    }
+  });
+
+  // ★ THE THIRD LEG IS NOW COVERED, IN THE TEST ABOVE. It used to be deferred:
+  // the column-config checkboxes took their accessible name from their wrapping
+  // <label>'s text alone, so four of them read "Category"/"Severity"/"Status"/
+  // "Owner" and collided with the headers. `column-config-popover.tsx` now sets
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}`, so the
+  // test opens the popover with the "colConfigTitle" gear button, scans all 10
+  // toggles, and names those four positively.
+  // ★★ That aria-label is ALSO what makes those checkboxes VISIBLE to this
+  // assertion at all: `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name, and an <input>
+  // has no textContent — so before the fix all 10 reported "" and opening the
+  // popover would have failed on a spurious `"" x10` duplicate that has nothing
+  // to do with §261.
+  // ★★ THE TWO HALVES WERE MUTATION-PROVED SEPARATELY, because the first MASKS
+  // the second rather than firing alongside it. Deleting the aria-label outright
+  // fails on that `"" x10` duplicate — `expectRowUniqueNames` throws before the
+  // `getByRole` lookups below are ever reached. Passing the raw column KEY
+  // instead of its translation gives distinct, non-empty names, so the scan
+  // passes and the test fails on the lookups instead. Only the second mutant
+  // proves the §261-specific half; keep both in mind before trusting a red here.
 });

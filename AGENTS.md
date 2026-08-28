@@ -891,12 +891,14 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `use-calendar-integrations.ts` (ALL Outlook push/pull/background-auto-sync for milestones +
   committee + task/raid/change/absence), `use-action-center-handlers.ts` (assign / mark-done /
   clear-blocker / reschedule / draft / escalate / rebaseline / create-task CTAs), `use-ai-orchestration.ts`
-  (Analyze-with-AI + weight-suggestion context + scheduled-job runner), `shell-chrome.tsx`
+  (Analyze-with-AI + weight-suggestion context + scheduled-job runner),
+  `use-insight-recommendations.ts` (entity resolution + the insight-recommendation confirm/replay
+  path), `shell-chrome.tsx`
   (`buildShellChrome` — a plain builder, NOT a hook — assembles BOTH header mounts), and
-  `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ These three hook files are
+  `calendar-summary-modals.tsx` (the four two-way pull-summary modals). ★★ These four hook files are
   RENDER-SCOPE UI GLUE and are EXCLUDED from the coverage gate (`vitest.config.ts` `coverage.exclude`,
   same class as `.tsx`) — extracting a `use*` factory from task-manager into a NEW `.ts` file makes its
-  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. The
+  handlers coverage-GATED, so either exclude the new file or expect a function-coverage drop. ★ A THIRD option, and the better one when the hook holds real logic rather than glue: TEST it. `use-view-digest.ts` (0.216.0) is a deps-object hook that assembles the AI view digest from live pane state; it is coverage-GATED and stays above the floors on its own tests, so it is deliberately NOT in `coverage.exclude`. Exclude glue, not logic. ★★ The fourth entry above is the borderline case and is filed as one: `use-insight-recommendations.ts` was excluded on coverage-NEUTRALITY grounds (the code was unmeasured inside `task-manager.tsx` before extraction), but the block's comment says its members are "not unit-testable in isolation", which does not fit an allow-set filter that is a documented security boundary. `docs/open-followups.md` §275 carries it. The
   task-manager→WorkspaceSection prop contract is pinned by `task-manager.characterization.test.tsx`.
 - **Extraction conventions (Phase 3) — follow these by default for new work:**
   1. **Deps-object hook.** Cross-cutting orchestration extracted from task-manager takes a typed `deps`

@@ -1545,9 +1545,13 @@ describe("row-unique accessible names (WCAG 2.4.6)", () => {
     // report the SAME count — so the pre-fix name was identical on both.
     const badges = within(container).getAllByRole("button", { name: /RAID item/i });
     expect(badges).toHaveLength(2);
+    // ★ The name LEADS with the badge's visible glyph string, so the accessible
+    // name contains the visible text (WCAG 2.5.3, pinned in
+    // task-raid-badge.test.tsx). Both fixture items are category "R", hence
+    // "2R · 0A · 0I · 0D"; the spelled-out count and the row token follow.
     expect(badges.map((b) => b.getAttribute("aria-label"))).toEqual([
-      "Referenced by 2 RAID item(s) – Alpha",
-      "Referenced by 2 RAID item(s) – Beta",
+      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Alpha",
+      "2R · 0A · 0I · 0D – Referenced by 2 RAID item(s) – Beta",
     ]);
 
     expectRowUniqueNames({

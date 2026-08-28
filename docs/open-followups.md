@@ -423,7 +423,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
 | [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | open |
 | [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
-| [§229](#229-use-chat-dispatcherts-and-use-storage-backendts-sit-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet) | `use-chat-dispatcher.ts` and `use-storage-backend.ts` sit at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | open |
+| [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | open |
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | open |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
@@ -444,7 +444,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 |
 | [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
-| [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
+| [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then---closed-2026-08-25-02601) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-25 (0.260.1) |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path--closed-2026-08-28) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-08-28 |
 | [§252](#252-all-four-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id--closed-2026-08-28) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-28 |
@@ -455,18 +455,29 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§258](#258-restorable-is-spread-onto-changes-in-difflist-only-so-a-non-restorable-singleton-would-lose-the-flag--closed-2026-08-26) | `restorable` is spread onto changes in `diffList` only, so a non-restorable SINGLETON would lose the flag | found 2026-08-26 | S | **CLOSED** 2026-08-26 |
 | [§259](#259-an-absent-slice-key-and-a-genuinely-empty-one-are-indistinguishable-on-restore--closed-2026-08-26) | An absent slice key and a genuinely empty one are indistinguishable on restore | found 2026-08-26 | M | **CLOSED** 2026-08-26 |
 | [§260](#260-the-turso-pipeline-timeout-stopped-at-the-headers-so-a-stalled-response-body-hung-every-caller--closed-2026-08-27) | The Turso pipeline timeout stopped at the headers, so a stalled response BODY hung every caller | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-27 |
-| [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | open |
-| [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | open |
+| [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28) | Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
+| [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28) | `budget-panel.tsx`: bucket-qualified, not bucket-unique | row-unique-names round 2 (2026-08-27), carried from §248 | S | **CLOSED** 2026-08-28 |
 | [§263](#263-budget-panel-totalstsxs-structured-aria-labels-are-untranslated-by-design) | `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design | row-unique-names round 2 (2026-08-27) | — | open |
 | [§264](#264-the-i18n-sweep-enumeration-method-has-a-blind-spot-a-literal-inside-a-ternary) | The i18n-sweep enumeration method has a blind spot: a literal inside a ternary | row-unique-names round 2 (2026-08-27) | S | open |
 | [§265](#265-stakeholderrecipientinput-has-no-production-caller) | `StakeholderRecipientInput` has no production caller | row-unique-names round 2 (2026-08-27) | — | open |
-| [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | open |
-| [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | open |
-| [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
-| [§269](#269-the-raid-badges-visible-glyph-string-is-not-contained-in-its-accessible-name-wcag-253) | The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) | pre-existing, found 2026-08-27 (row-unique-names round 2) | S | open |
-| [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | open |
+| [§266](#266-swimlane-lanes-are-named-by-an-unqualified-resource-display-name--closed-2026-08-28) | Swimlane lanes are named by an unqualified resource display name | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
+| [§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28) | Gantt task and milestone name buttons take their accessible name from CONTENT | row-unique-names round 2 (2026-08-27) | M | **CLOSED** 2026-08-28 |
+| [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
+| [§269](#269-the-raid-badges-visible-glyph-string-is-not-contained-in-its-accessible-name-wcag-253--closed-2026-08-28) | The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) | pre-existing, found 2026-08-27 (row-unique-names round 2) | S | **CLOSED** 2026-08-28 |
+| [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect--closed-2026-08-28) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
 | [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries | pre-existing, found 2026-08-26 | M | open |
-| [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | open |
+| [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
+| [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | open |
+| [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
+| [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
+| [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives | scan 2026-08-28 | L | open |
+| [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
+| [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | open |
+| [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
+| [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
+| [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
+| [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
+| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -3679,7 +3690,8 @@ design, and the entry's own 2026-08-03 correction established that a sub-limit b
 behaviourally identical to no entry. Its one actionable residual, a stale `use-resource-planner.ts`
 line in the baseline, was verified gone on 2026-08-25 and again on 2026-08-26. Kept in place as the
 record of why `--update` dropping a sub-limit entry is a no-op rather than a regression.
-★ The live hazard this entry is adjacent to is §229 (two files at 799 with no baseline), which is
+★ The live hazard this entry is adjacent to is §229 (a file at 799 with no baseline — it named TWO
+until `use-chat-dispatcher.ts` was extracted on 2026-08-28), which is
 where the near-cap work belongs.
 ★★★ **TWO SENTENCES IN THE BODY BELOW CONTRADICT THIS HEADING AND ARE SUPERSEDED BY IT** — "is
 unaffected and **stays open**", and the `**No fix is proposed**` paragraph's options (a)/(b). They
@@ -3687,8 +3699,8 @@ are left in place as the dated analysis they are, but they are NOT a live open i
 number: a partially closed entry would have to stay OPEN (see the ★★★ rule at the top of this file),
 and this one is fully closed. The one thing in them that is still LIVE — option (b), giving the
 baseline an explicit per-file `pin` the loop honours regardless of `LIMIT`, so a file that earned its
-way down can be held near where it landed — has been **carried to §229**, which is where the two
-at-799 files are tracked. Do not re-derive it from here; §229 owns it now.
+way down can be held near where it landed — has been **carried to §229**, which is where the
+remaining at-799 file is tracked. Do not re-derive it from here; §229 owns it now.
 
 `scripts/check-file-sizes.mjs`'s comparison loop opens with `if (n <= LIMIT) continue;` and `LIMIT` is
 800. **A baseline entry is never consulted for a file at or under 800 lines.** So the ratchet cannot
@@ -16735,10 +16747,85 @@ tasks" count is the PRE-sanitise number. If a row were ever dropped (`sanitizeSe
 `null` for a missing id or a blank name) the popover count could disagree with what actually lands.
 Near-unreachable in practice, since `templateFromWorkspace` captures live, already-valid rows.
 
-## 229. `use-chat-dispatcher.ts` and `use-storage-backend.ts` sit at 799 with no baseline entry — TWO net lines fail the ratchet
+## 229. `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet
 
-**Status:** open — a HAZARD, not a defect. Nothing is broken today, and no gate is red. Carried out
-of §220 so this fact does not retire with that entry's close.
+**Status:** open, NARROWED 2026-08-28 — a HAZARD, not a defect. Nothing is broken today, and no gate
+is red. Carried out of §220 so this fact does not retire with that entry's close.
+
+★★★ **NARROWED: `use-chat-dispatcher.ts` IS NO LONGER AT THE CAP, and this entry's own top-ranked
+candidate is what took it there.** `f953cc16` extracted candidate (1) — the register CRUD tools —
+into `use-register-tools.ts`, exactly the shape the survey below prescribes (a hook taking
+`isReadOnly` / `logActivityAs` / clock / language, calling `useWorkspace()` itself, its dispatcher
+interface intersected onto `ToolDispatcher` as `DocumentToolDispatcher` already was). The heading and
+this entry now scope to `use-storage-backend.ts` alone; everything below about the dispatcher is
+kept as the survey that was acted on, not as a live hazard. Measure rather than trust:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/use-chat-dispatcher.ts','utf8').split('\n').length)"
+node -e "console.log(require('fs').readFileSync('src/app/use-register-tools.ts','utf8').split('\n').length)"
+```
+
+★★ **The survey named a HAZARD for that extraction and it was real — and it was caught by self-review
+rather than by any gate or test.** The dispatcher's `useMemo` has deliberately empty deps except
+`args.isReadOnly` and `documentTools`; the first cut of the extraction severed the path by which a
+changed `logActivityAs` reaches the register writers, and `982f5cbb` restored it. ★★★ Read the
+severity honestly: `ad0cb602` later qualified it as **LATENT, not live** — today's `logActivityAs` is
+a `useCallback` over a raw setter, so its identity never moves and no user-visible behaviour was ever
+wrong. What makes it worth recording is the DETECTION story, not the impact: no gate, no test and no
+type could see it, because a stale captured callback of the right shape is indistinguishable from a
+fresh one until its identity actually changes. Any future extraction that captures a memo'd object
+needs that dep whether or not the object currently moves.
+
+★★★ **`use-storage-backend.ts` WAS SURVEYED THIS ROUND AND DECLINED, AND THE REASON IS NOT LINE
+COUNT — FOUR TESTS READ THIS FILE AS RAW SOURCE TEXT.** They are the anti-vacuity guards for the
+six-write-paths invariant, and they are anchored on the very block candidate (1) proposes to move:
+
+```bash
+grep -rln "use-storage-backend.ts" src --include=*.test.ts --include=*.test.tsx   | xargs grep -ln "readFileSync"
+```
+
+→ `calendar-events-persistence.test.ts` · `insights-autosave.test.ts` ·
+`timelog-links-persistence.test.ts` · `use-load-truncation.test.ts`.
+
+**The evidence table.** Candidate (1) is the debounced autosave effect, the 114 lines from the
+single-writer guard to the visibility/pagehide flush. It contains the `outgoing` snapshot, one of the
+five whole-workspace save literals, and the file's ONLY autosave deps array. Simulated in memory —
+the effect's line range removed and each test's own scan logic re-run against the result, with the
+tree untouched — every one of the four goes red.
+
+★★ **READ THAT TOGETHER WITH THE ★★ BELOW THE TABLE, NEVER ALONE — the two are both true and they
+pull opposite ways.** All four test FILES go red, which is what the table records. But one of them
+goes red on its SECOND assertion only, while its FIRST degrades silently to exactly the floor and
+goes on passing over two fewer literals. "Every one of the four goes red" is therefore a claim about
+the four FILES, not about every assertion inside them, and the silent half is the one a reader has to
+act on. The table below reports, per file, the assertion that FAILS:
+
+| test | anchor it scans for | before → after | verdict |
+|---|---|---|---|
+| `calendar-events-persistence.test.ts` | `}, [tasks, raid, absences…]` deps array, `toBeGreaterThan(0)` | 1 → **0** | FAILS |
+| `insights-autosave.test.ts` | lines carrying `knowledgeItems` + `settingsOverrides`, `toBeGreaterThanOrEqual(5)` | 6 → **3** | FAILS |
+| `timelog-links-persistence.test.ts` | the same tuple scan, same floor | 6 → **3** | FAILS |
+| `use-load-truncation.test.ts` | every `.save(` in three `WRITE_FILES`, `toHaveLength(EXPECTED_WRITES.length)` | 5 → **4** | FAILS |
+
+★★★ **FOUR, not three — and the fourth is the one that matters most, because it fails for a reason
+that survives being "fixed".** `use-load-truncation.test.ts` loses
+`use-storage-backend.ts emitStorageConfig — backend` from its census. The tempting repair is to add
+the new file to `WRITE_FILES`; the trap is that the census exists BECAUSE a whole-workspace write
+once lived in a file that list did not name (its own ★★★ says so), so an extraction that silently
+moves a write out of the scanned set is the exact regression it was written to catch. Any extraction
+here must update `WRITE_FILES` in the same commit, and nothing enforces that.
+
+★★ **ONE of the four degrades SILENTLY rather than failing, which is the worst outcome available.**
+`calendar-events-persistence.test.ts`'s FIRST assertion counts save literals with
+`toBeGreaterThanOrEqual(3)`: 5 → 3 lands exactly ON the floor, so it goes on passing while covering
+two fewer literals. Only its second assertion is loud. A future extraction that moved a DIFFERENT
+literal instead would take that count to 2 and be caught — this particular one hides.
+
+★ **This is a reason to be careful, not a reason never to extract.** The four guards are source-text
+scans by construction (a deps array is not observable from a behavioural round trip, as
+`insights-autosave.test.ts`'s own header says), so they are coupled to the file's SHAPE and would
+have to move with it. Recorded here so the next person budgeting this file discovers the coupling
+before the extraction, not after.
 
 **THE SURVEY (2026-08-26) — every candidate considered, per file.** §220's false "the seam is spent"
 was reached without enumerating anything, so this records the enumeration whatever the verdict.
@@ -18281,7 +18368,7 @@ the permitted same-purpose shared name (contrast the roles-editor open question 
 
 **Status:** CLOSED 2026-08-27. Every item this entry listed as open or unrecorded is now
 fixed except one, which is carried forward as its own entry rather than left as a residual bullet
-here: **Residual (still open): see [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique)**
+here: **Residual (still open): see [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28)**
 (the `budget-panel.tsx` `DragHandle`/`ManualPercentCell` bucket-name collision). The reasoning error
 this entry records is the durable part and is unaffected by the fixes below — read the rest of this
 entry as the record of both.
@@ -18345,7 +18432,7 @@ excluded from the gate by default tagExclude, so no gate can flag it either way.
 as a defect without reopening the decision first.
 
 - `budget-panel.tsx`'s bucket `DragHandle` — **not fixed here; carried forward as
-  [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique).** Still true as filed: nothing
+  [§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28).** Still true as filed: nothing
   pins the qualifier, and `br.name` is bucket-QUALIFIED, never bucket-UNIQUE. §262 has the current
   measurement and the reason it goes with §246 rather than closing here.
 
@@ -18464,7 +18551,7 @@ the round's intent rather than checked against the diff.
 this is about a pattern correctly matching something the loader never delivers in the shape everyone
 writes down.
 
-## 250. `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<`
+## 250. `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` — CLOSED 2026-08-25 (0.260.1)
 
 **Status:** CLOSED 2026-08-25 (0.260.1) — a **live data-loss defect**, pre-existing, found by cold
 review of the branch that opened this entry. ★★★ This entry was FIRST WRITTEN AS THE OPPOSITE: it
@@ -19317,10 +19404,52 @@ guard then needs no change at all, and every other caller of that path gets the 
 worth checking against `src/app/turso-schema.ts`'s other callers rather than being applied to the
 history path alone.
 
-## 261. Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels
+## 261. Toolbar-filter vs sortable-header name collisions, systemic: 7 pairs across 3 panels — CLOSED 2026-08-28
 
-**Status:** open. Found 2026-08-27, at the close of round 2 of the row-unique-accessible-names slice,
-by re-grepping every panel embedding both a `SortResizeTh` column and a same-field toolbar filter.
+**Status:** CLOSED 2026-08-28 by `acd4c0c9` (the eight new EN+DE keys) · `ef437389` (change-panel) ·
+`a1f88942` (RAID) · `9f795700` (stakeholders) · `615cf7e0` (the third leg — the column-toggle
+checkboxes, in all five consumers at once). Found 2026-08-27, at the close of round 2 of the
+row-unique-accessible-names slice, by re-grepping every panel embedding both a `SortResizeTh` column
+and a same-field toolbar filter.
+
+★★★ **CORRECTION — "six of the seven" below was wrong; it is SEVEN of seven, and this entry's own
+enumeration already said so.** That paragraph lists `changeFieldType` · `changeFieldStatus` (2) +
+`raidCategory` · `raidSeverity` · `raidStatus` · `raidOwner` (4) + `stakeholderFieldName` (1) = seven
+`*_CONFIG_COLS` entries against seven pairs, so the "six" was an arithmetic slip sitting beside a
+correct list — the reason it survived review is that the list, not the number, is what a reader
+checks. Measured against `origin/main` at `adacc564` rather than re-reasoned:
+
+```bash
+git show adacc564:src/app/change-panel.tsx       | grep -c 'labelKey: "changeFieldType"\|labelKey: "changeFieldStatus"'
+git show adacc564:src/app/raid-panel-columns.ts  | grep -c 'labelKey: "raidCategory"\|labelKey: "raidSeverity"\|labelKey: "raidStatus"\|labelKey: "raidOwner"'
+git show adacc564:src/app/stakeholders-panel.tsx | grep -c 'labelKey: "stakeholderFieldName"'
+```
+
+→ `2`, `4`, `1`. Every one of the seven was a 3-WAY collision, which is why the fix needed a third
+leg rather than the two the entry originally scoped.
+
+**What shipped.** New filter keys separate the filter half from the header half, leaving the
+`SortResizeTh` columns on the field keys they already had. Enumerate today's set with
+`grep -rn "FilterType\|FilterStatus\|FilterCategory\|FilterSeverity\|FilterOwner\|SearchPlaceholder" src/app/i18n.ts`
+— the list is deliberately not spelled out here, because one member has already been renamed since
+this entry was written (the stakeholders box searches four fields, so a "Filter by name" key would
+have lied about its own value). The third leg is one key,
+`colConfigToggleColumn` ("Show column – {0}", EN DASH), applied inside `ColumnConfigPopover` itself,
+so the checkbox now announces its ACTION and the fix reaches every consumer at once rather than
+five times over. Enumerate the consumers rather than trusting a number here — and note the grep
+returns the component's OWN file as well, so subtract it:
+
+```bash
+grep -rln "ColumnConfigPopover" src/app --include=*.tsx | grep -v test | grep -v "column-config-popover.tsx"
+```
+
+★★ **RESIDUAL, disclosed and given its own number rather than left here:** the BULK-EDIT field
+labels reuse the same column-header keys in four panels, which is this entry's shape on a different
+control pair, and nothing in this slice touched it. See [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair).
+
+★ **`milestones-panel.tsx` and `tasks-section.tsx` received the third leg without a panel-level
+regression pin** — the shared `column-config-popover.test.tsx` covers the mechanism, and only the
+three panels this entry names got a panel-level assertion. See [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin).
 
 ★★★ **The shape.** A toolbar filter control and the same-column `SortResizeTh` sort BUTTON share one
 i18n key, so two controls with genuinely different purposes — filter this list vs sort by this column
@@ -19349,7 +19478,8 @@ grep -n 'ariaLabel={t(lang, "stakeholderFieldName")}\|label={t(lang, "stakeholde
   this is a searchbox-vs-button collision rather than select-vs-button.
 
 ★★★ **These 7 are pairs by SCOPE, not by fact — a `ColumnConfigPopover` checkbox shares each of these
-same keys too, making six of the seven a 3-WAY collision.** Every `*_CONFIG_COLS` array pairs a
+same keys too, making six of the seven a 3-WAY collision.**
+Every `*_CONFIG_COLS` array pairs a
 column's `key` with the SAME `labelKey` its filter/header already uses:
 `CHANGE_CONFIG_COLS`'s `type`/`status` entries key on `changeFieldType`/`changeFieldStatus`
 (`change-panel.tsx`); `RAID_CONFIG_COLS`'s `category`/`severity`/`status`/`owner` entries key on
@@ -19380,9 +19510,9 @@ independently — a shared primitive reused across unrelated call sites collides
 mechanism here is different: it is not the PRIMITIVE repeating a name across instances of itself, it
 is TWO DIFFERENT control types sharing one i18n KEY. Neither §246 nor this entry subsumes the other.
 
-## 262. `budget-panel.tsx`: bucket-qualified, not bucket-unique
+## 262. `budget-panel.tsx`: bucket-qualified, not bucket-unique — CLOSED 2026-08-28
 
-**Status:** open. Found 2026-08-27, carried forward from [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27)'s
+**Status:** CLOSED 2026-08-28 by `58e34d3c`. Found 2026-08-27, carried forward from [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27)'s
 `budget-panel.tsx` `DragHandle` bullet, which this entry gives its own number rather than leaving it
 as a residual on a closed entry.
 
@@ -19405,6 +19535,32 @@ of its hard 800-line cap (`node -e "console.log(require('fs').readFileSync('src/
 — re-run rather than trusting this number, the ratchet script counts the same way). §246 already
 opens this file for its `InfoTooltip` collisions, so the two fixes belong in the same pass rather than
 two separate ones each claiming headroom the file does not have twice.
+
+★★★ **CORRECTION — the fix shape above named the wrong source array, and the "no headroom" premise
+is spent.** The token map must be built over **`visibleBuckets`**, not over the raw bucket list: that
+list is both FILTERED (by the bucket query) and REORDERED — `computeBudgetReport` sorts by
+`order ?? id`, so `report.buckets` is not the prop's array order — and an occurrence index has to
+follow what is ON SCREEN or the "(2)" suffix numbers a row against siblings the user cannot see.
+★★ Bucket ids are `number`, which makes the `useRowTokens(buckets)` shortcut TYPE-CHECK while
+numbering by the wrong sequence: the compiler is no help here, so this is the one seam where reading
+the array name matters more than reading the types. Reproduce:
+
+```bash
+grep -n "buildRowTokens(visibleBuckets" src/app/budget-panel.tsx
+grep -n "order ?? a.id" src/app/budget-report.ts
+```
+
+**What shipped.** `58e34d3c` builds the map over `visibleBuckets` and threads the token into the
+reorder `DragHandle` and `ManualPercentCell`. The headroom objection this entry raised was retired
+first: `74761580` extracted `budget-panel-cards.tsx`, which took the file well under its cap. Read
+today's number rather than trusting either this entry's `795` or any successor to it —
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8').split('\n').length)"
+```
+
+— and note that the remaining large block in the file has its own entry,
+[§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting).
 
 ## 263. `budget-panel-totals.tsx`'s structured `aria-label`s are untranslated by design
 
@@ -19473,10 +19629,11 @@ management surface (if any) was meant to use a multi-token chip input for names 
 for this entry. Whoever picks this up should also fold §264's fix into whichever resolution wins,
 since it touches the same file.
 
-## 266. Swimlane lanes are named by an unqualified resource display name
+## 266. Swimlane lanes are named by an unqualified resource display name — CLOSED 2026-08-28
 
-**Status:** open. Found 2026-08-27, at the close of round 2 of the row-unique-accessible-names slice,
-by reading the lane HEADER of `task-kanban-swimlanes.tsx` after tokenising the card it contains.
+**Status:** CLOSED 2026-08-28 by `cd797634`. Found 2026-08-27, at the close of round 2 of the
+row-unique-accessible-names slice, by reading the lane HEADER of `task-kanban-swimlanes.tsx` after
+tokenising the card it contains.
 
 ★★★ **Two directory resources sharing a display name produce two DISTINCT lanes whose labels are
 byte-identical, and they render ADJACENT.** `laneOf` (`src/app/task-kanban.ts`) keys a
@@ -19520,8 +19677,30 @@ all — measured against axe-core 4.12.1 under the four tags `e2e/a11y.spec.ts` 
 AGENTS.md's a11y hard-constraint bullet — so a green run says nothing here. A unit test rendering two
 directory resources with the same display name is the only possible detector.
 
-**Fix shape (recorded, not implemented):** build a lane-token map from `grouping.lanes` and name (a)
-and (b) from it. Lane ids are STRINGS (`` `res:3` ``, `` `name:<string>` ``), so this needs
+★★★ **CORRECTION — the fix shape below is incomplete in the one place it decides correctness: the
+token must be built from the COMPUTED `laneLabel`, never from `lane.label`.** The unassigned lane's
+raw `label` is the EMPTY STRING; the header substitutes `t(lang, "swimlaneUnassigned")` at render
+time. Tokenising the raw field therefore names that lane off `""` — so a workspace with an
+unassigned lane and one directory twin pair gets a token map whose keys do not match what any row
+announces, which is a worse failure than the collision it replaces (silently wrong rather than
+visibly duplicated). Both the map and the label now derive from the same conditional — ★ though it is
+SPELLED TWICE, once per site, so what actually stops them drifting is that ONE grep prints both and
+any divergence shows up in its output. **No line distance is quoted here on purpose:** an earlier
+revision of this sentence said "one line apart", the two sites are nowhere near that, and a distance
+rots on the next insertion while buying the reader nothing the grep does not give:
+
+```bash
+grep -n "UNASSIGNED_LANE ? t(lang" src/app/task-kanban-swimlanes.tsx
+```
+
+→ two lines, the token map's `name` and the rendered `laneLabel`.
+
+**What shipped.** `cd797634` builds a `laneTokens` map with `buildRowTokens` (called DIRECTLY, since
+lane ids are strings and `useRowTokens` is declared `<T extends { id: number }>`) and names both the
+`<section>` region and the remove-lane button from it.
+
+**Fix shape (as recorded before the fix, kept for the record):** build a lane-token map from
+`grouping.lanes` and name (a) and (b) from it. Lane ids are STRINGS (`` `res:3` ``, `` `name:<string>` ``), so this needs
 `buildRowTokens` (`src/app/row-tokens.ts`) DIRECTLY — `useRowTokens` is declared
 `<T extends { id: number }>` and cannot take them
 (`grep -n "export function useRowTokens" -A 1 src/app/use-row-tokens.ts`).
@@ -19531,10 +19710,50 @@ it into the CARD (`` rowToken={tokens.get(task.id) ?? task.taskName} ``) while l
 contains the card unqualified — the token map was already in scope, one closure away from the label
 that needed one. `grep -n "tokens" src/app/task-kanban-swimlanes.tsx`.
 
-## 267. Gantt task and milestone name buttons take their accessible name from CONTENT
+## 267. Gantt task and milestone name buttons take their accessible name from CONTENT — CLOSED 2026-08-28
 
-**Status:** open. Found 2026-08-27 during round 2 of the row-unique-accessible-names slice, by
-checking leg (b) of AGENTS.md's three-leg enumeration on a surface outside the slice's scope.
+**Status:** CLOSED 2026-08-28 by `3a29ae99`. Found 2026-08-27 during round 2 of the
+row-unique-accessible-names slice, by checking leg (b) of AGENTS.md's three-leg enumeration on a
+surface outside the slice's scope.
+
+★★★ **CORRECTION 1 — THE THREE `aria-label` LINES THIS ENTRY QUOTES WERE THEMSELVES THE DEFECT, AND
+IT READ STRAIGHT PAST THEM.** The grep below returns three bar-drag handles, and the entry used that
+output only as evidence that the two NAME buttons are absent from it. Each of those three handles
+renders once per task row and was named from a bare i18n key — `ganttBarResizeStart`, `ganttBarMove`,
+`ganttBarResizeEnd` — with nothing per-row in the name at all. That is not the DATA-repeats shape
+this entry is about; it is the strictly worse FIXED shape, where every row announces the same name
+whatever the data. Three handles × N rows, in no register entry anywhere, found only because the fix
+touched the file. ★★ The lesson is the reusable half: a grep run to establish an ABSENCE prints
+evidence about what is PRESENT, and an entry scoped to the absence will not read it. Look at the
+output you quote for what it says as well as for what it does not.
+
+★★★ **CORRECTION 2 — the fix shape named the wrong source array.** It prescribes threading the
+"derived task and milestone arrays" from `GanttPanel`. Those are the wrong lists: `row-tokens.ts`
+numbers by the order the user NAVIGATES, and `buildGanttRows` both interleaves the two lists and
+reorders them, so a map built over `visible`/`visibleMilestones` numbers rows against a sequence the
+chart does not render. It must be built over the interleaved `rows`.
+
+★★★ **CORRECTION 3 — and the fix shape was wrong about splitting by kind, which is the half that
+would have reproduced the defect.** It prescribes SEPARATE maps for tasks and milestones on the
+grounds that one shared map "would either collide their id spaces or number them against the wrong
+siblings". The id-space objection is real and the conclusion drawn from it is not: tasks and
+milestones render as SIBLING ROWS IN ONE VIEW, so a task and a milestone sharing a name collide
+exactly as two tasks do, and numbering each kind against only its own siblings leaves BOTH bare —
+the defect intact across the kind boundary. The answer to the id spaces is a composite KEY, not a
+second map: `3a29ae99` builds ONE map keyed on `ganttRowKey`, which carries the kind. Reproduce:
+
+```bash
+grep -n "ONE MAP OVER BOTH ROW KINDS" src/app/gantt.tsx
+grep -n "id: ganttRowKey(r)" src/app/gantt.tsx
+```
+
+**What shipped.** `3a29ae99` names both row-kind buttons and all three bar-drag handles from that one
+map — `grep -n "aria-label" src/app/gantt-rows.tsx` now returns five lines, every one row-qualified.
+
+★★ **DISCLOSED RESIDUAL, deliberately not claimed closed:** `gantt-chart.tsx` drops any task whose
+bar is null, so a row numbered "(2)" can render while the "(1)" it is numbered against is off screen.
+It has its own number — see [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual)
+— and the comment at the token `useMemo` in `gantt.tsx` says the same thing at the call site.
 
 ```bash
 grep -n "aria-label" src/app/gantt-rows.tsx
@@ -19563,16 +19782,42 @@ on a surface it never claimed. It is a fresh instance of leg (b) of the three-le
 AGENTS.md — a control with NO `aria-label` is invisible to any attribute-matching grep by
 construction, since the whole defect is that there is no attribute to match.
 
-**Fix shape (recorded, not implemented):** thread a token map from `GanttPanel` (`src/app/gantt.tsx`),
+**Fix shape (as recorded before the fix, kept for the record — see corrections 2 and 3 above, which
+this paragraph is wrong about twice):** thread a token map from `GanttPanel` (`src/app/gantt.tsx`),
 which holds the derived task and milestone arrays, down to `gantt-rows.tsx` — the shape
 `tasks-section.tsx` already uses for the table and board (`grep -n "useRowTokens" src/app/tasks-section.tsx`).
 Tasks and milestones need SEPARATE maps: they are different entities interleaved in one list, so one
 shared map would either collide their id spaces or number them against the wrong siblings.
 
-## 268. Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect
+## 268. Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect — CLOSED 2026-08-28
 
-**Status:** open, and what is owed is a recorded ANSWER rather than a reflex qualifier. Raised
-2026-08-27 during round 2 of the row-unique-accessible-names slice.
+**Status:** CLOSED 2026-08-28 by `39087271`. Raised 2026-08-27 during round 2 of the
+row-unique-accessible-names slice as a question; what closes it is the ANSWER, and the two
+sub-questions it posed answered OPPOSITELY — which is why the reflex qualifier this entry warns
+against would have been the wrong fix in one case and a cover-up in the other.
+
+★★★ **THE ANSWER. Cross-row: same purpose, permitted, LEFT ALONE. Within-row: a DATA defect, fixed.**
+Two resources sharing a mailbox do the identical thing when copied, so WCAG 2.4.6's same-purpose
+allowance applies and the names stay as they are — qualifying them would have added noise to every
+announcement to satisfy a rule that does not apply. The within-row duplicate is not a naming question
+at all: `[r.email, ...(r.emails ?? [])]` had no dedupe, so an address present in BOTH fields rendered
+the same button twice in one row — with the same accessible name AND the same React `key`, which is a
+second, unrelated defect the name question had been hiding. `39087271` dedupes the list instead.
+
+★★ **The dedupe key is `trim().toLowerCase()`, and that choice is load-bearing.** It is how this repo
+decides email IDENTITY everywhere else, and `sanitizeEmail` does NOT case-fold, so the variance is
+live rather than theoretical. The FIRST spelling survives verbatim — the user reads and copies the
+address as it is stored, so the fix must not normalise what it renders. Reproduce:
+
+```bash
+grep -n "seenAddr" src/app/resource-directory.tsx
+grep -rn "toLowerCase()" src/app/resource-foundation.ts | head -3
+```
+
+★ **A naming fix would have SHIPPED the data defect.** Adding a row token to the copy button makes
+the two within-row buttons distinguishable and leaves the duplicate address, the duplicate `key` and
+the wasted row untouched — a green detector over a defect that is still there. That is the whole
+reason this entry was filed as a question.
 
 ```bash
 grep -n "resourceEmailCopyLabel" src/app/resource-directory.tsx src/app/i18n.ts
@@ -19585,7 +19830,7 @@ buttons both named "Copy ops@acme.com".
 ★★★ **Do not "fix" this by reflex.** WCAG 2.4.6 permits two controls with the SAME PURPOSE to carry
 the same name, and copying the same address to the clipboard arguably IS the same purpose — the two
 buttons do the identical thing, unlike the filter-vs-sort pair in
-[§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels).
+[§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28).
 AGENTS.md states the rule this entry is applying: a duplicate-name detection is a QUESTION ("do these
 two rows actually differ?"), not an automatic fix. The RAID toolbar-Add/row-Add case was qualified
 only because `openNew()` and `openNew(effectiveCategory)` genuinely differ; nothing comparable has
@@ -19608,10 +19853,29 @@ same row — the select checkbox (`t(lang, "selectItem", token)`), the name butt
 one alone rather than qualifying it without an answer.
 `grep -n "token" src/app/resource-directory.tsx`.
 
-## 269. The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3)
+## 269. The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) — CLOSED 2026-08-28
 
-**Status:** open. The MISMATCH pre-dates this branch; round 2 of the row-unique-accessible-names slice
-changed only the row-identity half of the name, which is what made it worth filing.
+**Status:** CLOSED 2026-08-28 by `b0d182d0`. The MISMATCH pre-dated this branch; round 2 of the
+row-unique-accessible-names slice changed only the row-identity half of the name, which is what made
+it worth filing.
+
+**What shipped, and why it is not the product call this entry feared.** The entry framed the choice
+as "lengthen every announcement" versus "lose the compact badge", and read both as costly. The fix
+takes the first and it costs no new i18n key and no untranslated literal: the visible glyph string is
+hoisted to a `mix` const, and the name NESTS `rowLabel` twice —
+`rowLabel(rowLabel(mix, t(lang, "raidReferencedBy", refs.length)), rowToken)` — reusing the existing
+separator and both existing keys. Because `mix` is now the single source for the visible text AND the
+head of the name, the two cannot drift apart, which the two separate `t(...)` calls it replaced could.
+
+```bash
+grep -n "const mix\|aria-label=" src/app/task-raid-badge.tsx
+```
+
+★★ **Front position is a best practice, not the criterion.** 2.5.3 is CONTAINMENT — case-insensitive
+and position-independent — so the leading placement here is the Understanding note's advice, not what
+makes this conformant. Do not cite this fix as licence to enforce prefixing anywhere else; the source
+carries the same warning at the call site. `task-raid-badge.test.tsx` remains the only detector, for
+the tagExclude reason this entry measures above.
 
 ```bash
 grep -n "aria-label\|raidReferencedByMix" src/app/task-raid-badge.tsx
@@ -19650,10 +19914,41 @@ announcement); or drop the glyph string in favour of visible text the name alrea
 costs the compact badge its whole reason for existing. Neither is obviously right, which is why this
 is filed rather than fixed.
 
-## 270. Two contacts sharing a name give two identically-named remove buttons — a question, not a defect
+★★ **THAT LAST CLAUSE IS THE ENTRY AS FILED AND THE CLOSE FALSIFIED IT.** `b0d182d0` took the FIRST
+option and it cost neither a new i18n key nor an untranslated literal, because hoisting the visible
+glyph string to a `mix` const let the name NEST the two existing keys — see "What shipped" at the top
+of this entry. Flagged rather than deleted: the trade-off the paragraph names is real and the next
+person weighing a 2.5.3 fix elsewhere needs it. Only "rather than fixed" is stale.
 
-**Status:** open, and what is owed is a recorded ANSWER rather than a reflex qualifier. Raised
-2026-08-27 by a code review during round 2 of the row-unique-accessible-names slice.
+## 270. Two contacts sharing a name give two identically-named remove buttons — a question, not a defect — CLOSED 2026-08-28
+
+**Status:** CLOSED 2026-08-28 by `a1f1b02d`. Raised 2026-08-27 by a code review during round 2 of
+the row-unique-accessible-names slice as a question.
+
+★★★ **THE ANSWER, AND IT IS NOT THE NAMING QUESTION: A CONTACT'S IDENTITY IS ITS POSITION, NEVER ITS
+NAME — the removal was a live DATA-LOSS defect.** This entry had the mechanism written down and drew
+the wrong conclusion from it. It notes that the handler filters on `c.name !== cp.name` so "EITHER
+button removes BOTH entries", and files that as *"genuinely the same purpose, and a data question
+rather than a naming one"* — i.e. as the argument for leaving it alone. Same purpose is exactly what
+it is not: one ✕ silently deleting a row the user did not point at is data loss, and it is worse for
+the whitespace-variant pair the entry itself establishes is reachable through the form, where the two
+contacts are DIFFERENT people. The same mistake sat in the list `key`.
+
+**What shipped.** `a1f1b02d` re-keys removal on the array INDEX (`filter((_, i) => i !== idx)`), keys
+the list on the index too, and names each ✕ from a `buildRowTokens` map so the two remaining
+whitespace-variant rows are distinguishable. Both halves were needed: the token alone leaves the
+double-delete, and the index alone leaves two identically-named buttons.
+
+```bash
+grep -n "i !== idx\|contactTokens" src/app/project-form-fields.tsx
+```
+
+★★★ **The reusable lesson: "same purpose" is a claim about what the two controls DO, and it has to be
+checked against the handler, not against the label.** Read from the label alone, two ✕ buttons on two
+identically-named contacts look like the RAID copy-button case in
+[§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28)
+— and §268 really did resolve that way. Here the handler makes them a different thing entirely. Two
+adjacent entries, the same surface shape, opposite answers.
 
 ```bash
 grep -n 'aria-label={`${t(lang, "remove")}' src/app/project-form-fields.tsx
@@ -19797,14 +20092,36 @@ is precedent for the accessible-name pattern `version-diff-view.tsx` already fol
 visible-label question here has no precedent in the repo — a fix has to choose one (an `#id`
 suffix, the occurrence token, or a per-row secondary field) rather than copy one.
 
-## 272. `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI
+## 272. `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI — CLOSED 2026-08-28
 
-**Status:** open. Filed 2026-08-27 at the close of the version-restore-residue slice, which
-consumed the last line of headroom and then had to route a piece of documentation elsewhere
-because of it (§254).
+**Status:** CLOSED 2026-08-28 by `f3f49ab6`. Filed 2026-08-27 at the close of the
+version-restore-residue slice, which consumed the last line of headroom and then had to route a piece
+of documentation elsewhere because of it (§254).
 
-`file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`, and
-`task-manager.tsx` now measures exactly that number. **No line count is quoted in this entry on
+**What shipped — the relief valve this entry prescribed, taken as prescribed.** `f3f49ab6` extracted
+`use-insight-recommendations.ts` as a deps-object hook factory, the Phase-3 convention this entry
+points at, and the baseline was deliberately NOT touched. Read both numbers rather than trusting a
+figure here — this entry refuses to quote one on purpose, and closing it is not a reason to start:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/task-manager.tsx','utf8').split('\n').length)"
+node -e "const b=require('./docs/baselines/file-sizes.json');console.log(b['src/app/task-manager.tsx'])"
+```
+
+★★ **The extraction's own dead-import count refutes the method that produced it, and that is worth
+more than the headroom.** The plan listed EIGHT imports the moved body would strand; there were
+ELEVEN. The three it missed were found by `eslint`, not by the comment-out-and-typecheck method the
+plan used, and the reason is structural rather than a slip: an unused import is not a `tsc` error, so
+commenting out a block can only REFUTE a listed import, never DISCOVER an unlisted one. Any future
+extraction from this file should run `npx eslint --max-warnings=0 src` for the import sweep and treat
+`tsc` as the correctness check alone.
+
+★★ **The coverage question this extraction raised is NOT closed with it** — the new file was added to
+`vitest.config.ts` `coverage.exclude` under a rationale that does not fit all of what moved. See
+[§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary).
+
+`file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`.
+**No line count is quoted in this entry on
 purpose** — this register has already been burned by a hardcoded line count going stale and
 feeding three false-premise entries downstream, which is precisely why the entry takes this form.
 Read both numbers off the tree:
@@ -19832,6 +20149,599 @@ it is pure UI glue added to `coverage.exclude`), and it is not a claim this regi
 ★ Trimming a comment is the tempting move and the worst one available: the comments in this file
 are load-bearing — the pointer §254 leans on lives in exactly the block that was almost cut for
 space — so buying a line by deleting one trades a permanent loss of context for a temporary line.
+
+## 273. Gantt numbers rows the chart may not render — the `!bar` residual
+
+**Status:** open — a disclosed RESIDUAL of
+[§267](#267-gantt-task-and-milestone-name-buttons-take-their-accessible-name-from-content--closed-2026-08-28), filed
+2026-08-28 rather than left inside a closed entry. Small, and deliberately not fixed.
+
+`gantt.tsx` builds ONE row-token map over the interleaved `rows` list, which is correct — it is the
+order the user navigates. `gantt-chart.tsx` then drops any task whose derived bar is null
+(`if (!bar) return null`), and the token map does not know that. So a task numbered `"(2)"` can
+render while the `"(1)"` it is numbered against is NOT on screen: the suffix tells a screen-reader
+user about a sibling row they cannot find.
+
+```bash
+grep -n "if (!bar) return null" src/app/gantt-chart.tsx
+grep -n "KNOWN RESIDUAL" src/app/gantt.tsx
+```
+
+★★ **Why it was filed rather than closed, and this is the load-bearing part.** Numbering around it
+means duplicating the chart's own render condition inside the token `useMemo` — two copies of one
+predicate, in two files, with nothing tying them together. The two would drift on the first change to
+bar derivation, and a token map computed from a STALE copy of the render condition is worse than the
+residual: it would number rows against a set the chart does not render, silently, with the detector
+tests still green (they seed rows that all have bars). The honest fix is to derive the rendered set
+ONCE and feed both the map and the chart from it, which is a change to the panel's data flow rather
+than to its naming.
+
+★ **The residual is bounded.** It needs a name collision AND one of the colliding rows to have no
+bar. A row has no bar when its dates do not resolve into the visible window, so the affected rows are
+exactly the ones the user has already filtered or scrolled away from.
+
+★ The comment at the token `useMemo` in `gantt.tsx` states all of this at the call site, so a reader
+of the code reaches it without finding this entry. That is deliberate — the register is the backup
+copy here, not the primary one.
+
+## 274. `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting
+
+**Status:** open. Filed 2026-08-28 while closing
+[§262](#262-budget-paneltsx-bucket-qualified-not-bucket-unique--closed-2026-08-28), whose headroom objection was
+retired by `74761580` (`budget-panel-cards.tsx`) without touching the largest block in the file.
+
+AGENTS.md's Phase-3 "Panel split (gantt pattern)" convention says a panel crossing ~700 lines splits
+into orchestrator + `*-rows` + `*-toolbar` (+ a `*-columns` leaf), rows and toolbar PURE
+presentational, BEFORE it crosses the 800-line ratchet. `budget-panel.tsx` is over that 700-line
+trigger, and its single `visibleBuckets.map((br: BucketReport) => …)` bucket-card block is by a wide
+margin the largest thing in it — it is the `*-rows` half of the prescribed split, still inline.
+
+**No line count is quoted here, on purpose** — §272 records what a hardcoded one costs this register.
+Measure the file and the block together:
+
+```bash
+node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8').split('\n').length)"
+grep -n "visibleBuckets.map((br: BucketReport)" src/app/budget-panel.tsx
+```
+
+★★ **What the extraction has to carry, and why it is not a mechanical move.** The block reads
+`bucketTokens` (the §262 row-token map, which must stay built by whoever holds the LIST — a per-item
+component cannot disambiguate itself), the period columns, the discipline/grade reference data and
+several edit handlers. Threading those as props is the point of the convention; passing the whole
+props bag through would relocate the lines without buying the seam, which is the failure mode
+AGENTS.md's extraction conventions name for the "cohesive by NAME, not by dependency" candidates.
+
+★ `budget-panel-cards.tsx` already exists as the destination-shaped sibling (`74761580` put
+`ManualPercentCell` and `Cci` there), so this is an extension of a split already started rather than
+a new file's worth of argument.
+
+★ Not urgent: the file is under the cap with real headroom today. This is filed so the next person
+adding to it extracts rather than trims — the same disposition §272 asked for and got.
+
+## 275. `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary
+
+**Status:** open. Filed 2026-08-28. `f3f49ab6`'s commit message says a follow-up "is filed
+separately"; this entry is what makes that sentence true.
+
+`f3f49ab6` extracted the insight-recommendation handlers out of `task-manager.tsx` (closing §272) and
+added the new file to `vitest.config.ts` `coverage.exclude`, inside a block whose comment says its
+members are *"not unit-testable in isolation"*.
+
+```bash
+grep -n "use-insight-recommendations.ts" vitest.config.ts
+grep -n "not unit-testable in isolation" vitest.config.ts
+```
+
+★★ **The rationale as WRITTEN does not fit what moved, and the rationale actually RELIED ON is a
+different one the same comment also states.** The block's closing sentence — *"matching how this code
+was treated (unmeasured, inside task-manager.tsx) before extraction"* — is coverage NEUTRALITY, and
+that is a sound reason to exclude on the extraction commit: an extraction that mechanically raises
+the floor pressures the next person into writing tests to pay for a refactor that changed no
+behaviour. The "not unit-testable in isolation" clause is the part that overstates.
+`resolveInsightEntity` and `confirmInsightRecommendation` are real logic, and the hook they live on
+is exported, so `renderHook` reaches them. ★ They are `useCallback`s INSIDE the hook and are NOT
+separately exported, so "testable" here means through the hook, not by importing them — do not read
+this entry as claiming the extraction produced two importable pure functions.
+
+★★★ **THE SPECIFIC THING WORTH TESTING IS A DOCUMENTED SECURITY BOUNDARY WITH NO TEST ON IT.**
+`confirmInsightRecommendation` filters the replayed calls through `ALLOWED_REC_TOOLS` before handing
+them to `runTool` — the guard that stops a persisted or imported insight blob smuggling a
+`delete_*` / `update_settings` call past the apply step. Delete that `.filter(...)` and nothing in
+the suite notices.
+
+★★ **AND THE COVERAGE EXCLUSION MAKES IT PERMANENTLY INVISIBLE RATHER THAN MERELY UNCOVERED — that
+is the half this entry understated when it was filed.** An uncovered line in a MEASURED file is still
+a red number in the next coverage report anyone reads, so it stays discoverable by an instrument
+nobody has to remember to run. `use-insight-recommendations.ts` is in `vitest.config.ts`
+`coverage.exclude`, so this filter contributes to no percentage anywhere: there is no test on it AND
+nothing that will ever report its absence. Whatever closes this entry has to add the test
+deliberately — no gate, floor or report will prompt for one.
+
+```bash
+grep -rn "ALLOWED_REC_TOOLS" src --include=*.ts --include=*.tsx | grep -v "\.test\."
+grep -rln "ALLOWED_REC_TOOLS" src --include=*.test.ts --include=*.test.tsx
+```
+
+→ several non-test sites (the declaration, `recommend.ts`'s generation-time check,
+`sanitize-insights.ts`'s load-time check, and this apply-time filter) against exactly ONE test file,
+`insights/recommend.test.ts`, which asserts the SET's MEMBERSHIP — that every member is a real chat
+tool, and that it matches the tool schema's enum. Membership is not enforcement: the set could be
+perfect and the apply-time filter deleted, and both of its assertions still pass.
+
+★★ **MEASURED 2026-08-28, not reasoned — the mutant survives.** This entry first stated "delete that
+`.filter(...)` and nothing in the suite notices" as an inference from coverage (one test file, and it
+asserts membership only). It has since been run: replacing the filter with a bare
+`const calls = rec.proposedCalls;` and executing every insights suite plus the recommendation runner,
+the insights panel and the task-manager characterization test gives **236 tests passed, 0 failed**
+across 18 files. The mutant was reverted and `git diff --stat` proved empty. Reproduce:
+
+```bash
+grep -n "rec.proposedCalls.filter" src/app/use-insight-recommendations.ts
+npx vitest run src/app/insights src/app/use-insight-recommend-runner.test.ts src/app/insights-panel.test.tsx src/app/task-manager.characterization.test.tsx --maxWorkers=1 --pool=threads
+```
+
+★★ **`src/app/insights` is a vitest SUBSTRING filter, not a directory** — it matches every test path
+containing that string, so `insights-panel.test.tsx` already sits inside the first argument and naming
+it again is redundant. The command must also carry the characterization test, or it selects a smaller
+set than the prose describes and cannot reproduce its own headline. Count the population rather than
+trusting this sentence — it moves with every insights test added:
+
+```bash
+git ls-files | grep -E '\.(test|spec)\.(ts|tsx)$' | grep -c 'src/app/insights'
+```
+
+★ Read the scope honestly: it says the guard is UNPINNED, not that the app is exploitable today. Two
+other enforcement points do sit upstream of it — `recommend.ts`'s generation-time check (reached only
+through `parseRecommendation`) and `sanitize-insights.ts`'s load-time check.
+
+★★★ **THEY SIT ON DISJOINT ORIGINS, NOT IN SERIES, and this line used to say a blob "would have to
+get past BOTH" to reach the apply-time filter — which overstates the depth by 2×, in the direction of
+understating risk.** A model-generated recommendation is filtered by `parseRecommendation` and never
+touches `sanitizeInsights`; a tampered or imported blob — the threat the apply-time filter's own
+comment names — is filtered by `sanitizeInsights` and never touches `parseRecommendation`. Anything
+arriving at `confirmInsightRecommendation` got past exactly ONE upstream check, whichever one guards
+its origin. Measured by call site, not reasoned:
+
+```bash
+grep -rn "parseRecommendation(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+grep -rn "sanitizeInsights(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+→ `parseRecommendation` has exactly ONE caller, `insights/recommend-call.ts` (the model-generation
+path); `sanitizeInsights` has FIVE, all load paths — `browser-backend.ts` · `csv-codecs-config.ts` ·
+`markdown-codecs-core.ts` · `turso-schema.ts` · `workspace.ts`. ★ Each grep also returns the
+DECLARATION line, so read the call sites rather than the line count.
+
+What survives that correction is what motivated the entry: this filter is still the LAST check before
+`runTool`, and still the one no test will ever incidentally cover — a layer that only matters once an
+earlier one has failed is never on a happy path, which is exactly why it can be deleted with the suite
+green and exactly why it should not be.
+
+★★ **A stale docstring falls out of the same move and is still there.** `insights/insight.ts`'s
+comment on `ALLOWED_REC_TOOLS` names the three enforcement points as *"generation
+(parseRecommendation), load (sanitizeInsights), and apply (task-manager)"*. The apply point is no
+longer in `task-manager.tsx`, and `git log adacc564..HEAD -- src/app/insights/insight.ts` is empty —
+so the extraction falsified a comment in a file it never opened. Correct it with whatever closes this
+entry rather than before: a correction is a new claim, and one made while the thing it describes is
+still moving is the shape this repo keeps re-staling.
+
+## 276. The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives
+
+**Status:** open — an INVENTORY, filed 2026-08-28. Nothing here was fixed by the slice that produced
+it, deliberately: the scan exists to SIZE the remaining surface, and fixing from a scan without
+asking the WCAG 2.4.6 same-purpose question per site is the reflex this register keeps warning
+against — §268 and §270 are two adjacent entries that asked it and answered oppositely.
+
+`npm run rownames:check` (`scripts/check-rowname-surfaces.mjs`, added by `f8466714` · `122abf8f` ·
+`bd06f81d`, corrected by `5aa07575`) enumerates every per-row accessible-name site. **It is a REPORT,
+not a gate: it is not wired into CI, and should not be.**
+
+★★ **"It always exits 0" was this entry's first wording and it is FALSE — there are two
+`process.exit(2)` paths, and telling them apart decides how to read a non-zero run.** Exit 0 means a
+scan SUCCEEDED. Exit 2 means it could not SCAN AT ALL: either `--json` was passed with no path after
+it, or zero `.tsx` sources were found. The second is a VACUITY guard, not a finding — a scan that
+reads nothing passes everything, so it fails loudly rather than printing an empty, reassuring report.
+Neither exit 2 is ever a WCAG result, so a red run here is never a defect count. The script's own
+banner says this; it was corrected in `5aa07575` at the same time.
+
+```bash
+grep -n -B 3 "process.exit(2)" scripts/check-rowname-surfaces.mjs
+```
+
+★★★ **EVERY FIGURE BELOW MOVES WITH THE TREE, AND EVERY ONE OF THEM ALREADY HAS ONCE.** This entry
+was first filed against a run predating `5aa07575` (three scanner defects, below) and `9afd9b8d` (the
+src-side fixes), and not one number survived the pair — a whole new leg appeared as well. Re-run
+before quoting anything here:
+
+```bash
+node scripts/check-rowname-surfaces.mjs
+```
+
+★★★ **THE THREE SCANNER DEFECTS `5aa07575` FIXED, because they say what a green-looking earlier run
+was actually worth.** (1) `MAP_RE` could not see a DESTRUCTURED callback parameter
+(`cols.map(({ key, labelKey }) => …)`), so those scopes were never opened. (2) A self-closing control
+inside a `<label>` was dismissed as unlabelled when the wrapping label names it — the new
+`wrapping-label` leg. (3) Found while fixing the other two: `scanOpenTag` treated an apostrophe inside
+a `//` comment in an attribute list as a STRING OPENER, ran to the end of the file looking for its
+close, and returned `null` — which `findSurfaces` reads as "not a tag", silently dropping every
+control in that element. It had a live instance (`combobox-shared.tsx`), which is why the same class
+is now filed against `matchDelimiters` as a live follow-up rather than a theoretical one — see
+[§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag).
+★ Defect (1)'s blast radius is smaller than the review that found it reported: it was described as
+"9 of 11 destructured-map files absent from the report", but 9 was the count of files carrying the
+IDIOM. After the fix only **3** of those 9 contribute any site at all; the other 6 have their scopes
+opened and contain no control element. Do not repeat the inflated framing.
+
+**Headline, re-derived 2026-08-28 from one run at `9afd9b8d`.** 353 `.tsx` sources and 949 test files
+scanned; 163 tests found asserting the property (matched by CONTENT, never by test name);
+**268 sites in 115 files**.
+
+| axis | values |
+|---|---|
+| by leg | attribute 162 · content 60 · **wrapping-label 15** · delegated 31 · labelledby 0 |
+| by name class | FIXED 14 · DATA 211 · TOKENIZED 43 · UNRESOLVED 0 |
+| by coverage — ANY marker (files) | COVERED 65 · COVERED_VIA_PARENT 35 · **GAP 15** |
+| by coverage — `expectRowUniqueNames` ONLY (files) | COVERED 28 · COVERED_VIA_PARENT 23 · **GAP 64** |
+| strongest marker per covered file | `expectRowUniqueNames` 42 · "accessible name" 53 · `unique` 5 · `row-unique` 0 |
+
+★★★ **QUOTE THE STRONG-MARKER GAP BESIDE THE WEAK ONE, ALWAYS — 15 is the number that gets repeated
+and 64 is the number that describes the risk.** The weak GAP asks only "does ANY asserting test
+mention this module?", and a lone `unique` in a test about unique IDs satisfies it. The strong GAP
+asks the question this slice exists for: "did someone reach for `expectRowUniqueNames`, the shared
+helper written for THIS property?" Four times as many files fail the second. Neither is a defect
+count — read the caveats at the foot of this entry before treating either as one — but a file inside
+the strong GAP and outside the weak one is a file whose only evidence is a phrase match.
+
+★ **The `wrapping-label` leg is a CORRECTION, not growth.** Its sites were being reported as
+unlabelled-and-skipped before `5aa07575`; nothing about the tree changed to create them.
+
+★★★ **THE `FIXED` SITES ARE THE MOST ACTIONABLE FINDING AND ALSO THE MOST OVER-READ.** `FIXED`
+means nothing per-row survives into the name — every row announces the SAME string whatever the data,
+a stronger claim than `DATA` (which collides only when a value repeats). But the scanner cannot see
+CONTROL FLOW, and that turns some of them into non-findings. Worked example, checked by hand:
+`projects-panel.tsx` reports four `FIXED` sites and they split two and two.
+`projectsEdit` / `projectsExport` sit inside an `isCurrent ? (…)` branch within `projects.map`, so at
+most ONE row ever renders them — no collision is possible.
+`projectsRestore` / `projectsDeletePermanently` sit in the ARCHIVED list's `.map` with no guard, so N
+archived projects give N buttons named "Restore" and N named "Delete permanently" — a real 2.4.6
+defect. Reproduce:
+
+```bash
+grep -n "isCurrent ? (" src/app/projects-panel.tsx
+grep -n "archivedProjects ?? " src/app/projects-panel.tsx
+```
+
+**The 15 weak-marker GAP files — no asserting test found at all.** `actions-panel.tsx` ·
+`alloc-plan-modal.tsx` · `export-menu.tsx` · `influence-interest-matrix.tsx` · `knowledge-panel.tsx` ·
+`milestone-horizon-strip.tsx` · `node-graph.tsx` · `projects-panel.tsx` ·
+`settings-sections/comm-templates-section.tsx` · `settings-sections/export-section.tsx` ·
+`settings-sections/next-actions-section.tsx` · `settings-sections/notifications-section.tsx` ·
+`stakeholder-map-panel.tsx` · `tour-catalog.tsx` · `trends-panel.tsx`.
+
+★★ **`actions-panel.tsx` and `settings-sections/export-section.tsx` are the two the earlier run did
+not list, and NEITHER is a new defect — both are scanner-fix artefacts, and `9afd9b8d` touched
+neither file.** `actions-panel.tsx`'s two sites sit inside a `TIERS.map(({ tier, labelKey }) => …)`,
+the destructured callback parameter defect (1) could not open; `export-section.tsx`'s single site is a
+`wrapping-label`, the leg defect (2) created. Measured, not inferred:
+
+```bash
+grep -n "\.map((\s*{" src/app/actions-panel.tsx
+node scripts/check-rowname-surfaces.mjs | grep -A 2 "export-section.tsx"
+git show --stat --oneline 9afd9b8d | grep -E "actions-panel|export-section"   # no output
+```
+
+★ `actions-panel.tsx` also carries an apostrophe inside a `//` comment, the defect (3) shape, so it
+may have been unreachable by two mechanisms at once. Which one dominated was not established and does
+not matter — the point is that a file's ABSENCE from an earlier run was never evidence about the file.
+**The 64-file strong-marker GAP is NOT enumerated here on purpose** — it is four times this list, it
+moves on every test edit, and a list that long in a register entry is a list nobody re-derives. Print
+it from the run itself.
+
+**The eight `FIXED` sites the report enumerates individually.** All eight sit in GAP files, which is
+why the report prints them line by line. The remaining SIX `FIXED` sites sit in files the report
+summarises as one line with a file-level class set, so it names the file and not the site:
+`budget-panel.tsx`, `change-edit-modal.tsx` and `resource-workload.tsx` are `COVERED`, and
+`budget-bucket-modal.tsx` is `COVERED_VIA_PARENT`.
+
+★★ **`COVERED` and `COVERED_VIA_PARENT` are DIFFERENT statuses and an earlier revision of this
+paragraph folded four files into "COVERED files" while two of them were the other one** — the same
+distinction this entry enumerates separately in its own headline table. It also named
+`entity-link-picker.tsx` and `gantt-chart.tsx`, neither of which carries a `FIXED` site today.
+Re-derive the split rather than trusting the list above; it is one grep over the run:
+
+```bash
+node scripts/check-rowname-surfaces.mjs | grep -E "^COVERED" | grep FIXED
+```
+
+| file | control | name key |
+|---|---|---|
+| `influence-interest-matrix.tsx` | `<span>` | `stakeholderNeedsComms` |
+| `projects-panel.tsx` | `<Button>` ×2 | `projectsEdit`, `projectsExport` — **guarded by `isCurrent`, NOT a collision** |
+| `projects-panel.tsx` | `<Button>` ×2 | `projectsRestore`, `projectsDeletePermanently` — **unguarded, real** |
+| `settings-sections/comm-templates-section.tsx` | `<Button>` | `commTplSetDefault` |
+| `trends-panel.tsx` | `<button>`, `<TextButton>` | `trendsSetBaseline`, `snapshotDelete` |
+
+★★★ **WHAT THE SCAN CANNOT SEE — quote these before acting on any line of it.** They are the
+scanner's own caveats, and the first and the fifth are the ones that change what a reader should do.
+(1) Whether any two names ACTUALLY collide: that depends on the DATA, which is not in the source, so
+only a rendered test can answer it. (2) A list built by anything other than `.map`. (3) A control
+inside a component the scanner does not recognise as one — the component-name rule is a suffix
+heuristic and is the weakest rule in it. (4) Leg (3) is approximate by construction: it fires only
+when the name is `DATA` and its base identifier is a DESTRUCTURED prop, so a component reading its
+entity off a context is missed. (5) **Whether a `COVERED` test is VACUOUS — `COVERED` is NOT evidence
+of correctness.** `src/test/row-unique-names.ts` records a floor-guarded assertion that passed
+against a zero-row fixture. A `GAP` is a question; a `COVERED` is a weaker question. (6) A `GAP` may
+be covered by a test two hops away, or by one asserting the property without any of the marker
+phrases.
+
+★★★ **A WORKED EXAMPLE OF (3) AND (4), because an ABSENCE from this report is the easiest thing to
+misread as a clean bill.** No `gantt-*` file appears anywhere in today's run — not `COVERED`, not
+`COVERED_VIA_PARENT`, not `GAP`. That is not because Gantt has no per-row names; it is because the
+scanner cannot reach them. `src/app/gantt-rows.tsx` composes five of them today — three through
+`rowLabel(...)`, two as a bare `rowToken` — inside per-item components that receive their row as a
+prop rather than mapping over a list in this file, which is exactly blind spots (3) and (4). Those
+names are the fix that closed §267. Reproduce both halves:
+
+```bash
+grep -c "aria-label" src/app/gantt-rows.tsx
+node scripts/check-rowname-surfaces.mjs | grep -c gantt
+```
+
+→ `5`, and `0`. **A file's absence from this report is not evidence about that file.**
+
+★★ **Two further limits are the scanner's OWN internals rather than the tree's shape, and each now
+has its own entry so it is fixed deliberately rather than rediscovered:** `matchDelimiters` counts
+brackets without skipping strings or comments — the class that had a live instance in `scanOpenTag`
+until `5aa07575` ([§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag)) — and
+`moduleKey` is basename-only, so two modules sharing a file name in different directories collapse
+into one key and can credit each other's tests
+([§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key)).
+Both are printed in the report's own "WHAT THIS CANNOT SEE" footer.
+
+★ The marker printed on each `COVERED` line grades the evidence: a bare `unique` may be about a
+unique id, while `expectRowUniqueNames` means someone meant THIS property. Sort by that before
+sorting by anything else.
+
+## 277. Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair
+
+**Status:** open. Found 2026-08-28 while closing
+[§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28), by
+asking whether that entry's filter/header pairing was the only pair sharing a key in the panels it
+touched. It is not, and this half was never in anyone's brief.
+
+Each panel's `bulkFields` list labels its fields with the SAME i18n keys its `SortResizeTh` columns
+use. `bulk-edit-panel.tsx` then spends each label TWICE — on the field's enable checkbox (via a
+`<label htmlFor>` pointing at the `-enable` id) and on the field control itself (via
+`aria-label={label}`) — so one shared key names three controls with three different purposes:
+enable-this-field-for-bulk-edit, set-this-field's-bulk-value, and sort-by-this-column.
+
+Reproduce the enumeration rather than trusting the list below. RAID's header side lives in a
+DIFFERENT file from its bulk side, so a single-file grep misses three of the thirteen:
+
+```bash
+node -e '
+const fs=require("fs");
+const pairs=[["stakeholders-panel","stakeholders-panel"],["change-panel","change-panel"],
+             ["resource-directory","resource-directory"],["raid-panel","raid-panel-rows"],
+             ["milestones-panel","milestones-panel"]];
+for(const [bulk,hdr] of pairs){
+  const H=new Set([...fs.readFileSync("src/app/"+hdr+".tsx","utf8")
+    .matchAll(/<SortResizeTh[^>]*label=\{t\(lang, "([A-Za-z0-9_]+)"/g)].map(m=>m[1]));
+  const B=new Set([...fs.readFileSync("src/app/"+bulk+".tsx","utf8")
+    .matchAll(/(?:selectField|textField|numberField|dateField)\(\s*"[^"]*",\s*\n?\s*t\(lang, "([A-Za-z0-9_]+)"/g)].map(m=>m[1]));
+  console.log(bulk.padEnd(20), [...B].filter(k=>H.has(k)).join(", ")||"none");
+}'
+```
+
+→ on 2026-08-28: `stakeholders-panel` 3 (`stakeholderFieldCategory`, `stakeholderFieldInfluence`,
+`stakeholderFieldInterest`) · `change-panel` 4 (`changeFieldStatus`, `changeFieldType`,
+`changeFieldImpact`, `changeFieldRequestedBy`) · `resource-directory` 3 (`role`,
+`resourceColDepartment`, `resourceColTitle`) · `raid-panel` ↔ `raid-panel-rows` 3 (`raidSeverity`,
+`raidOwner`, `raidTargetDate`) · `milestones-panel` none. Thirteen keys, four panels.
+
+★★ **`change-panel.tsx` proves this is NOT what §261 fixed.** That entry's fix moved the toolbar
+FILTERS onto new `changeFilterType` / `changeFilterStatus` keys and left the columns on
+`changeFieldType` / `changeFieldStatus` — which is exactly where the bulk fields still are. Both
+collisions lived in one file, and only one of them was in scope.
+
+```bash
+grep -n "changeFieldType\|changeFilterType" src/app/change-panel.tsx
+```
+
+★★ **An existing test already documents the collision and works around it, which is how it stayed
+invisible.** `stakeholders-panel.test.tsx`'s bulk-edit test disambiguates by DOM id
+(`.find((el) => el.id === "bulk-influence")`) under a comment saying the bulk select "shares its name
+with the column-header sort control". A workaround comment inside a PASSING test is the cheapest
+place a defect can hide: nothing greps for it and nothing fails.
+
+★ **The same-purpose question still has to be asked per key, and at least one answer may be "leave
+it".** These are three genuinely different actions, so the naming case looks strong — but the bulk
+panel is mounted only while bulk edit is OPEN, which bounds the exposure, and a fix costs either one
+new i18n key per field or a structural change to how `bulk-edit-panel.tsx` derives its two names from
+one label. The second is the better shape: one qualifier applied inside the shared primitive, exactly
+how `colConfigToggleColumn` closed §261's third leg in five consumers at once.
+
+## 278. Two of the five column-toggle consumers got the fix with no panel-level regression pin
+
+**Status:** open — a TEST-COVERAGE gap, not a defect. Nothing is broken. Filed 2026-08-28 at the
+close of [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28).
+
+`615cf7e0` closed §261's third leg inside `ColumnConfigPopover` itself, so all five consumers were
+fixed by one edit. Three of them — the panels that round's tasks touched — gained a panel-level
+assertion; `milestones-panel.tsx` and `tasks-section.tsx` gained none.
+
+```bash
+grep -rln "colConfigToggleColumn" src e2e
+grep -rln "ColumnConfigPopover" src/app --include=*.tsx | grep -v test | grep -v "column-config-popover.tsx"
+```
+
+→ the first returns the shared `column-config-popover.test.tsx` plus `change-panel.test.tsx`,
+`raid-panel.test.tsx` and `stakeholders-panel.test.tsx` (and `column-config-popover.tsx` itself and
+the two i18n dictionaries); the second lists the five consumers, of which `milestones-panel.tsx` and
+`tasks-section.tsx` appear in neither. ★ The second grep needs its trailing filter: without it the
+component's own file is returned alongside its consumers and the list reads as six.
+
+★★ **Whether this is worth closing is a real question, not a formality.** The shared component test
+covers the MECHANISM, and a per-consumer test of a name the consumer does not compute is close to
+testing the framework. What a panel-level test would actually catch is a consumer that stops routing
+its checkboxes through the shared primitive — a hand-rolled `<input type="checkbox">` beside the
+popover, or a `*_CONFIG_COLS` entry rendered somewhere else. That is a real regression shape, and the
+shared test cannot see it.
+
+★ If it is closed, close it with the shared `src/test/row-unique-names.ts` helper and
+`requireCollisionSeed: true`, never a hand-rolled enumeration — AGENTS.md records that a
+floor-guarded assertion passes against a one-row and even a zero-row fixture, which is exactly the
+vacuous shape a "we added the missing panel test" commit produces.
+
+## 279. `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string
+
+**Status:** open — a TOOLING hazard in the shared test helper, filed 2026-08-28. It shaped three
+tests on the round-3 slice and will shape the next one.
+
+`controlNames` (`src/test/toolbar-order.ts`), which `expectRowUniqueNames` is built on, computes each
+control's name as `el.getAttribute("aria-label") || el.textContent || ""`. That is a deliberate
+approximation and the file says so — but it fails in one direction that matters, and it is the
+direction a collision test runs into.
+
+```bash
+grep -n "getAttribute(\"aria-label\")" src/test/toolbar-order.ts
+```
+
+★★★ **AN `<input>` HAS NO `textContent`, so an input with no `aria-label` reports `""` — and two of
+them "collide" on the empty string.** Before `615cf7e0` gave the column-config checkboxes an
+`aria-label`, every one of them reported `""` to this helper. A collision assertion pointed at that
+popover would have gone red for a reason unrelated to any real name: those controls were named by an
+adjacent `<label>`, which the real accessible-name computation follows and this helper does not. So
+the helper reports a FALSE collision on `<label for>`-labelled controls, and would report a TRUE one
+there only by accident.
+
+★★ **The `||` is load-bearing and must not become `??`** — the file's own comment says so.
+`aria-label=""` returns `""` rather than `null`, which under `??` would shadow the `textContent`
+fallback and contribute an empty name for every element carrying an empty label. A fix for the
+`<label for>` gap must not disturb that.
+
+★ **What a fix costs.** The honest computation is `dom-accessibility-api`'s `computeAccessibleName`,
+which `@testing-library/dom` already depends on — so this is a behaviour change to a shared helper
+many tests use, not a new dependency. It would make some currently-passing assertions stricter and
+some currently-impossible ones possible. Not attempted here; recorded so the next person writing a
+collision test over `<label for>`-labelled or `<input>`-only controls knows why their red is not
+about names.
+
+## 280. `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag`
+
+**Status:** open. Filed 2026-08-28, out of the fix round that produced `5aa07575`.
+
+`scripts/rowname-surfaces-lib.mjs`'s `matchDelimiters` walks forward from an opening `(`/`{`/`[`
+counting depth until it balances. It does not skip STRING literals or COMMENTS, so a bracket
+character inside either is counted as structure. Its sibling `scanOpenTag` — which walks an element's
+attribute list — DOES skip both, and it skips comments FIRST, before it looks at quotes.
+
+```bash
+grep -n "function matchDelimiters" -A 20 scripts/rowname-surfaces-lib.mjs
+grep -n "function scanOpenTag" -A 20 scripts/rowname-surfaces-lib.mjs
+```
+
+★★★ **FILE THIS AS LIVE, NOT THEORETICAL — the identical class had a real instance in this very tree
+days ago, and its symptom was silence.** `scanOpenTag` did not skip comments until `5aa07575`, so an
+apostrophe inside a `//` comment sitting in an attribute list opened a "string" that never closed; the
+scan ran to end-of-file, returned `null`, and `findSurfaces` read that as "not a tag" and dropped every
+control in the element. The live instance was `combobox-shared.tsx`. Nothing failed, nothing warned,
+and the report simply had fewer rows — which is the worst failure mode a REPORT has, because its output
+still looks complete. `matchDelimiters` is the same shape one layer down: an unbalanced `(` or `{`
+inside a string literal or a comment would corrupt every scope match AFTER it in that file, silently
+shrinking the surface list again.
+
+★ **No instance in the tree today**, which is why this is a follow-up and not a defect. That is a fact
+about today's source, not about the function — and the `scanOpenTag` history is the argument for not
+waiting for the next one. The report's own "WHAT THIS CANNOT SEE" footer carries the same caveat.
+
+★★ **The fix is cheap and the TEST is the expensive half.** Teaching `matchDelimiters` the two skips is
+a few lines borrowed from `scanOpenTag`; proving it needs a fixture that is currently absent from the
+corpus by construction, so the regression pin has to be a hand-built string, not a real file. Write the
+mutant first: revert the skip, and check the new test goes red on the fixture rather than on some
+incidental parse difference.
+
+★ Related: [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives)
+holds the report this function feeds, and the three defects `5aa07575` fixed.
+
+## 281. `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key
+
+**Status:** open. Filed 2026-08-28. Measured, and **nothing is mis-credited today** — this is a
+latent-correctness entry, recorded so a future file name does not quietly turn a GAP into a COVERED.
+
+`scripts/rowname-surfaces-lib.mjs`'s `moduleKey` reduces a path to its BASENAME with the extension
+stripped, and the coverage attribution is keyed on that alone: a test's relative imports become a set
+of basenames, and a surface file is `COVERED` when an asserting test's import set contains ITS
+basename. Two source files sharing a basename in different directories therefore share one key, and
+either can be credited with the other's tests.
+
+```bash
+grep -n "export function moduleKey" -A 5 scripts/rowname-surfaces-lib.mjs
+```
+
+**Measured 2026-08-28 over the non-test `src` tree.** Seven basenames collide: `_helpers` ·
+`page` · `raid` · `route` · `schedule` · `stakeholder-comms` · `types`. Exactly ONE of them, `page`,
+collides inside the `.tsx` set the scanner enumerates surfaces from (four Next route files). **None of
+the seven is a surface file** — no site in today's report sits in a file with any of those basenames —
+so no coverage verdict currently depends on the ambiguity. Reproduce both halves:
+
+```bash
+git ls-files 'src/**' | grep -v "\.test\." | sed 's#.*/##' | sed 's/\.tsx\?$//' | sort | uniq -d
+node scripts/check-rowname-surfaces.mjs | grep -cE "/(_helpers|page|raid|route|schedule|stakeholder-comms|types)\.tsx"
+```
+
+→ the seven names, then `0`.
+
+★★ **The report's own footer under-counts this, and the difference is the whole hazard.** It says "one
+collision in the tree", which is the count over the `.tsx` SOURCE set. But import specifiers resolve to
+`.ts` files too, so the population that can collide is the whole non-test tree — seven, not one. The
+narrower number is not wrong about `page`; it is wrong about how much room there is for the next one.
+
+★ **The direction of the failure decides how much to care: it can only ever manufacture COVERAGE, never
+a GAP.** A collision makes an asserting test's import set match a file it never imported, so a genuinely
+uncovered surface can be reported `COVERED` — a false green in a report whose entire job is to say what
+is untested. It cannot invent a GAP, so nobody will be sent chasing a phantom.
+
+★★ **A real fix is a repo-relative key, and it is not a one-liner** — `relativeImportsIn` returns
+specifiers (`./foo`, `../bar/foo`), so resolving them properly means resolving them against the
+importing file's directory and trying the extension list, which is what `moduleKey` exists to avoid.
+The cheap alternative is a guard rather than a fix: fail the scan when two SURFACE files share a key,
+which costs nothing today (there are none) and turns the latent case into a loud one.
+
+## 282. The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example
+
+**Status:** open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
+because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills.
+
+`src/test/row-unique-names.ts`'s SCOPE CHOICE rule says: default to whole-container scope, and narrow
+to a sub-tree only when a specific, named collision with unrelated chrome has been CONFIRMED in that
+panel — saying which one, in a comment at the narrowing. Its worked example was
+`change-panel.test.tsx`, where one translation string was shared between a toolbar filter select and a
+sortable-header button. [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28)
+gave those two distinct strings, so the collision the example demonstrated no longer exists.
+
+```bash
+grep -n "SCOPE CHOICE" -A 14 src/test/row-unique-names.ts
+```
+
+★★★ **THE RULE NOW HAS NO LIVE WORKED EXAMPLE, and the comment says so rather than pretending
+otherwise — which is the right state to be in and the wrong state to stay in.** A rule whose only
+illustration is "there isn't one" is a rule readers apply by guess. Worse, the file still contains a
+narrowing (`change-panel.test.tsx` narrows to `tbody`) whose recorded reason is a DIFFERENT and weaker
+one — keeping the assertion about row identity — so a reader skimming for the pattern finds a
+narrowing that does not exemplify the rule governing narrowings.
+
+★★ **Do NOT close this by citing whichever narrowing is nearest to hand.** The rule's whole content is
+that the collision must be CONFIRMED and NAMED; a citation picked to fill the slot re-creates exactly
+the failure §261 caused here, one release later. Either find a narrowing whose collision is real today
+and record which one it is, or state that the repo currently has none and let the rule stand on its
+prose.
+
+★ The general shape is worth more than this instance: **a fix that closes a collision falsifies every
+doc, comment and test that used it as an EXAMPLE**, and nothing links the two. Neither
+`docs:symbols:check` nor `docs:claims:check` can see it — the first proves a NAME exists (both names
+still do), the second only that a cited LINE could exist. When closing a naming defect, grep for the
+panel's name across `src/test/`, `docs/AGENTS/` and this register.
 
 ## Decided — do not re-litigate
 
@@ -20202,3 +21112,26 @@ MR → poll the MR-ref pipeline to `status:success` yourself → plain
 `glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
 green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
 `npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
+
+## 283. Export sections emits an empty angle-bracket pair for a contact with no email
+
+**Status:** open. Found 2026-08-28 by a cold review of the round-3 fix round, while checking whether
+`contactDisplay` is the canonical spelling of a contact's display string. It is not.
+
+`export-sections.ts` builds the same string UNCONDITIONALLY:
+
+```bash
+grep -n 'cp.name} <\${cp.email}' src/app/export-sections.ts
+```
+
+so a contact with no address exports as `Bob Jones <>`. `email` is REQUIRED on `ContactPerson` and
+holds `""` when unset (`sanitizeEmail` returns a string, never undefined), and the Add path does not
+require one — so the empty case is ordinary rather than degenerate, and the export reads `<>` rather
+than `<undefined>`.
+
+★ The `<span>` the form renders guards it (`contactDisplay`) and the exporter does not, so the two
+disagree for exactly that input. Close it by exporting through a shared helper, or accept the
+divergence deliberately.
+
+★ NOT a regression from the round-3 branch — `git log -S'<${cp.email}>' -- src/app/export-sections.ts`
+predates it. The branch is what made the divergence visible.
