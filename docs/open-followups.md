@@ -20929,15 +20929,14 @@ green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `n
 grep -n 'cp.name} <\${cp.email}' src/app/export-sections.ts
 ```
 
-so a contact with no address exports as `Bob Jones <>`. `email` is optional on `ContactPerson` and the
-Add path does not require one, so the empty case is ordinary, not degenerate.
+so a contact with no address exports as `Bob Jones <>`. `email` is REQUIRED on `ContactPerson` and
+holds `""` when unset (`sanitizeEmail` returns a string, never undefined), and the Add path does not
+require one — so the empty case is ordinary rather than degenerate, and the export reads `<>` rather
+than `<undefined>`.
 
-★★ The reason this is worth an entry rather than a one-line fix in passing: the form now renders that
-string through a `contactDisplay` helper that DOES guard the empty case, and its comment says the
-token map and the `<span>` share "this ONE function". A reader takes that to mean the spelling is
-canonical app-wide. It is not — the exporter has its own copy, and the two now disagree for exactly
-the input the guard was added for. Whichever way this is closed, close it so the claim becomes true:
-either export through the shared helper, or stop implying there is one spelling.
+★ The `<span>` the form renders guards it (`contactDisplay`) and the exporter does not, so the two
+disagree for exactly that input. Close it by exporting through a shared helper, or accept the
+divergence deliberately.
 
 ★ NOT a regression from the round-3 branch — `git log -S'<${cp.email}>' -- src/app/export-sections.ts`
 predates it. The branch is what made the divergence visible.
