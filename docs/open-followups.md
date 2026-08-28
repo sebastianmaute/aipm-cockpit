@@ -470,10 +470,13 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | open |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
-| [§276](#276-the-row-name-surface-scan-13-files-with-no-asserting-test-and-16-sites-where-nothing-per-row-survives) | The row-name surface scan: 13 files with no asserting test, and 16 sites where nothing per-row survives | scan 2026-08-28 | L | open |
+| [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives | scan 2026-08-28 | L | open |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | open |
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
+| [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
+| [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
+| [§282](#282-row-unique-namests-cites-change-paneltesttsx-as-its-confirmed-collision-example-and-261-closed-that-collision) | `row-unique-names.ts` cites `change-panel.test.tsx` as its confirmed-collision example, and §261 closed that collision | found 2026-08-28 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -16646,7 +16649,14 @@ grep -rln "use-storage-backend.ts" src --include=*.test.ts --include=*.test.tsx 
 single-writer guard to the visibility/pagehide flush. It contains the `outgoing` snapshot, one of the
 five whole-workspace save literals, and the file's ONLY autosave deps array. Simulated in memory —
 the effect's line range removed and each test's own scan logic re-run against the result, with the
-tree untouched — every one of the four goes red:
+tree untouched — every one of the four goes red.
+
+★★ **READ THAT TOGETHER WITH THE ★★ BELOW THE TABLE, NEVER ALONE — the two are both true and they
+pull opposite ways.** All four test FILES go red, which is what the table records. But one of them
+goes red on its SECOND assertion only, while its FIRST degrades silently to exactly the floor and
+goes on passing over two fewer literals. "Every one of the four goes red" is therefore a claim about
+the four FILES, not about every assertion inside them, and the silent half is the one a reader has to
+act on. The table below reports, per file, the assertion that FAILS:
 
 | test | anchor it scans for | before → after | verdict |
 |---|---|---|---|
@@ -19270,7 +19280,12 @@ grep -n 'ariaLabel={t(lang, "stakeholderFieldName")}\|label={t(lang, "stakeholde
   this is a searchbox-vs-button collision rather than select-vs-button.
 
 ★★★ **These 7 are pairs by SCOPE, not by fact — a `ColumnConfigPopover` checkbox shares each of these
-same keys too, making six of the seven a 3-WAY collision.** Every `*_CONFIG_COLS` array pairs a
+same keys too, making six of the seven a 3-WAY collision.**
+★★★ **"six" IS THE WRONG NUMBER — it is SEVEN of seven, corrected at the top of this entry, and this
+marker exists only because the error carried three stars and bold while its correction carried
+neither.** A reader skimming for emphasis lands on the false figure first; the enumeration in the rest
+of THIS paragraph is what to check, and it lists seven `*_CONFIG_COLS` entries, not six.
+Every `*_CONFIG_COLS` array pairs a
 column's `key` with the SAME `labelKey` its filter/header already uses:
 `CHANGE_CONFIG_COLS`'s `type`/`status` entries key on `changeFieldType`/`changeFieldStatus`
 (`change-panel.tsx`); `RAID_CONFIG_COLS`'s `category`/`severity`/`status`/`owner` entries key on
@@ -19474,8 +19489,11 @@ raw `label` is the EMPTY STRING; the header substitutes `t(lang, "swimlaneUnassi
 time. Tokenising the raw field therefore names that lane off `""` — so a workspace with an
 unassigned lane and one directory twin pair gets a token map whose keys do not match what any row
 announces, which is a worse failure than the collision it replaces (silently wrong rather than
-visibly duplicated). Both the map and the label now derive from the same conditional, one line
-apart, which is what stops them drifting:
+visibly duplicated). Both the map and the label now derive from the same conditional — ★ though it is
+SPELLED TWICE, once per site, so what actually stops them drifting is that ONE grep prints both and
+any divergence shows up in its output. **No line distance is quoted here on purpose:** an earlier
+revision of this sentence said "one line apart", the two sites are nowhere near that, and a distance
+rots on the next insertion while buying the reader nothing the grep does not give:
 
 ```bash
 grep -n "UNASSIGNED_LANE ? t(lang" src/app/task-kanban-swimlanes.tsx
@@ -19702,6 +19720,12 @@ announcement); or drop the glyph string in favour of visible text the name alrea
 costs the compact badge its whole reason for existing. Neither is obviously right, which is why this
 is filed rather than fixed.
 
+★★ **THAT LAST CLAUSE IS THE ENTRY AS FILED AND THE CLOSE FALSIFIED IT.** `b0d182d0` took the FIRST
+option and it cost neither a new i18n key nor an untranslated literal, because hoisting the visible
+glyph string to a `mix` const let the name NEST the two existing keys — see "What shipped" at the top
+of this entry. Flagged rather than deleted: the trade-off the paragraph names is real and the next
+person weighing a 2.5.3 fix elsewhere needs it. Only "rather than fixed" is stale.
+
 ## 270. Two contacts sharing a name give two identically-named remove buttons — a question, not a defect — CLOSED 2026-08-28
 
 **Status:** CLOSED 2026-08-28 by `a1f1b02d`. Raised 2026-08-27 by a code review during round 2 of
@@ -19902,6 +19926,15 @@ extraction from this file should run `npx eslint --max-warnings=0 src` for the i
 `vitest.config.ts` `coverage.exclude` under a rationale that does not fit all of what moved. See
 [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary).
 
+★★★ **EVERYTHING FROM HERE DOWN IS THE ENTRY AS FILED (2026-08-27), AND ITS FIRST SENTENCE IS EXACTLY
+WHAT THE CLOSE FALSIFIED.** "`task-manager.tsx` now measures exactly that number" was true when it was
+written and is false today: `f3f49ab6` extracted a hook and deliberately did NOT touch the baseline, so
+the file now sits well BELOW it with real headroom — which is the whole point of closing the entry. It
+is flagged rather than rewritten because a reader landing mid-entry would otherwise take a present-tense
+claim about a CI gate at face value, and because deleting it would hide what the entry was filed
+against. Read the two commands in "What shipped" above for today's numbers; no figure is quoted here,
+for the reason the next paragraph gives.
+
 `file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`, and
 `task-manager.tsx` now measures exactly that number. **No line count is quoted in this entry on
 purpose** — this register has already been burned by a hardcoded line count going stale and
@@ -20031,6 +20064,14 @@ them to `runTool` — the guard that stops a persisted or imported insight blob 
 `delete_*` / `update_settings` call past the apply step. Delete that `.filter(...)` and nothing in
 the suite notices.
 
+★★ **AND THE COVERAGE EXCLUSION MAKES IT PERMANENTLY INVISIBLE RATHER THAN MERELY UNCOVERED — that
+is the half this entry understated when it was filed.** An uncovered line in a MEASURED file is still
+a red number in the next coverage report anyone reads, so it stays discoverable by an instrument
+nobody has to remember to run. `use-insight-recommendations.ts` is in `vitest.config.ts`
+`coverage.exclude`, so this filter contributes to no percentage anywhere: there is no test on it AND
+nothing that will ever report its absence. Whatever closes this entry has to add the test
+deliberately — no gate, floor or report will prompt for one.
+
 ```bash
 grep -rn "ALLOWED_REC_TOOLS" src --include=*.ts --include=*.tsx | grep -v "\.test\."
 grep -rln "ALLOWED_REC_TOOLS" src --include=*.test.ts --include=*.test.tsx
@@ -20051,15 +20092,49 @@ across 18 files. The mutant was reverted and `git diff --stat` proved empty. Rep
 
 ```bash
 grep -n "rec.proposedCalls.filter" src/app/use-insight-recommendations.ts
-npx vitest run src/app/insights src/app/use-insight-recommend-runner.test.ts src/app/insights-panel.test.tsx --maxWorkers=1 --pool=threads
+npx vitest run src/app/insights src/app/use-insight-recommend-runner.test.ts src/app/insights-panel.test.tsx src/app/task-manager.characterization.test.tsx --maxWorkers=1 --pool=threads
+```
+
+★★ **That command CARRIES the characterization test because the prose above does — an earlier
+revision of this entry dropped it, so the command and the sentence described different selections and
+only the sentence's could reach 18 files.** `src/app/insights` is a vitest SUBSTRING filter, not a
+directory: it matches every test path containing that string, which is 16 files today — the 13 under
+`insights/` plus `insights-autosave`, `insights-panel` and `insights-persistence`. So
+`insights-panel.test.tsx` already sits inside the first argument and naming it again is redundant
+(kept only because the prose names it). 16 + the runner + the characterization test = 18; without the
+last path the command selects 17 and cannot reproduce its own headline. Count the population rather
+than trusting this sentence — it moves with every insights test added:
+
+```bash
+git ls-files | grep -E '\.(test|spec)\.(ts|tsx)$' | grep -c 'src/app/insights'
 ```
 
 ★ Read the scope honestly: it says the guard is UNPINNED, not that the app is exploitable today. Two
-other enforcement points sit upstream of it — `recommend.ts`'s generation-time check and
-`sanitize-insights.ts`'s load-time check — so this is the innermost layer of a defence-in-depth
-chain, and a blob would have to get past both to reach it. That is exactly why it can be deleted with
-the suite green, and exactly why it should not be: the layer that only matters when the others have
-already failed is the one no test will ever incidentally cover.
+other enforcement points do sit upstream of it — `recommend.ts`'s generation-time check (reached only
+through `parseRecommendation`) and `sanitize-insights.ts`'s load-time check.
+
+★★★ **THEY SIT ON DISJOINT ORIGINS, NOT IN SERIES, and this line used to say a blob "would have to
+get past BOTH" to reach the apply-time filter — which overstates the depth by 2×, in the direction of
+understating risk.** A model-generated recommendation is filtered by `parseRecommendation` and never
+touches `sanitizeInsights`; a tampered or imported blob — the threat the apply-time filter's own
+comment names — is filtered by `sanitizeInsights` and never touches `parseRecommendation`. Anything
+arriving at `confirmInsightRecommendation` got past exactly ONE upstream check, whichever one guards
+its origin. Measured by call site, not reasoned:
+
+```bash
+grep -rn "parseRecommendation(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+grep -rn "sanitizeInsights(" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+```
+
+→ `parseRecommendation` has exactly ONE caller, `insights/recommend-call.ts` (the model-generation
+path); `sanitizeInsights` has FIVE, all load paths — `browser-backend.ts` · `csv-codecs-config.ts` ·
+`markdown-codecs-core.ts` · `turso-schema.ts` · `workspace.ts`. ★ Each grep also returns the
+DECLARATION line, so read the call sites rather than the line count.
+
+What survives that correction is what motivated the entry: this filter is still the LAST check before
+`runTool`, and still the one no test will ever incidentally cover — a layer that only matters once an
+earlier one has failed is never on a happy path, which is exactly why it can be deleted with the suite
+green and exactly why it should not be.
 
 ★★ **A stale docstring falls out of the same move and is still there.** `insights/insight.ts`'s
 comment on `ALLOWED_REC_TOOLS` names the three enforcement points as *"generation
@@ -20069,7 +20144,7 @@ so the extraction falsified a comment in a file it never opened. Correct it with
 entry rather than before: a correction is a new claim, and one made while the thing it describes is
 still moving is the shape this repo keeps re-staling.
 
-## 276. The row-name surface scan: 13 files with no asserting test, and 16 sites where nothing per-row survives
+## 276. The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives
 
 **Status:** open — an INVENTORY, filed 2026-08-28. Nothing here was fixed by the slice that produced
 it, deliberately: the scan exists to SIZE the remaining surface, and fixing from a scan without
@@ -20077,16 +20152,69 @@ asking the WCAG 2.4.6 same-purpose question per site is the reflex this register
 against — §268 and §270 are two adjacent entries that asked it and answered oppositely.
 
 `npm run rownames:check` (`scripts/check-rowname-surfaces.mjs`, added by `f8466714` · `122abf8f` ·
-`bd06f81d`) enumerates every per-row accessible-name site. **It is a REPORT, not a gate: it always
-exits 0, is not wired into CI, and should not be.** Re-run it rather than trusting any number below —
-every one of them moves with the tree.
+`bd06f81d`, corrected by `5aa07575`) enumerates every per-row accessible-name site. **It is a REPORT,
+not a gate: it is not wired into CI, and should not be.**
 
-**Headline, as of 2026-08-28.** 353 `.tsx` sources and 949 test files scanned; 163 tests found
-asserting the property (matched by CONTENT, never by test name); **247 sites in 106 files**. By leg:
-attribute 156 · content 59 · delegated 32 · labelledby 0. By name class: FIXED 16 · DATA 188 ·
-TOKENIZED 43 · UNRESOLVED 0. By coverage: COVERED 59 · COVERED_VIA_PARENT 34 · **GAP 13 files**.
+★★ **"It always exits 0" was this entry's first wording and it is FALSE — there are two
+`process.exit(2)` paths, and telling them apart decides how to read a non-zero run.** Exit 0 means a
+scan SUCCEEDED. Exit 2 means it could not SCAN AT ALL: either `--json` was passed with no path after
+it, or zero `.tsx` sources were found. The second is a VACUITY guard, not a finding — a scan that
+reads nothing passes everything, so it fails loudly rather than printing an empty, reassuring report.
+Neither exit 2 is ever a WCAG result, so a red run here is never a defect count. The script's own
+banner says this; it was corrected in `5aa07575` at the same time.
 
-★★★ **THE 16 `FIXED` SITES ARE THE MOST ACTIONABLE FINDING AND ALSO THE MOST OVER-READ.** `FIXED`
+```bash
+grep -n -B 3 "process.exit(2)" scripts/check-rowname-surfaces.mjs
+```
+
+★★★ **EVERY FIGURE BELOW MOVES WITH THE TREE, AND EVERY ONE OF THEM ALREADY HAS ONCE.** This entry
+was first filed against a run predating `5aa07575` (three scanner defects, below) and `9afd9b8d` (the
+src-side fixes), and not one number survived the pair: sites 247 → 268, files 106 → 115, `FIXED`
+16 → 14, GAP files 13 → 15, and a whole new leg appeared. Re-run before quoting anything here:
+
+```bash
+node scripts/check-rowname-surfaces.mjs
+```
+
+★★★ **THE THREE SCANNER DEFECTS `5aa07575` FIXED, because they say what a green-looking earlier run
+was actually worth.** (1) `MAP_RE` could not see a DESTRUCTURED callback parameter
+(`cols.map(({ key, labelKey }) => …)`), so those scopes were never opened. (2) A self-closing control
+inside a `<label>` was dismissed as unlabelled when the wrapping label names it — the new
+`wrapping-label` leg. (3) Found while fixing the other two: `scanOpenTag` treated an apostrophe inside
+a `//` comment in an attribute list as a STRING OPENER, ran to the end of the file looking for its
+close, and returned `null` — which `findSurfaces` reads as "not a tag", silently dropping every
+control in that element. It had a live instance (`combobox-shared.tsx`), which is why the same class
+is now filed against `matchDelimiters` as a live follow-up rather than a theoretical one — see
+[§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag).
+★ Defect (1)'s blast radius is smaller than the review that found it reported: it was described as
+"9 of 11 destructured-map files absent from the report", but 9 was the count of files carrying the
+IDIOM. After the fix only **3** of those 9 contribute any site at all; the other 6 have their scopes
+opened and contain no control element. Do not repeat the inflated framing.
+
+**Headline, re-derived 2026-08-28 from one run at `9afd9b8d`.** 353 `.tsx` sources and 949 test files
+scanned; 163 tests found asserting the property (matched by CONTENT, never by test name);
+**268 sites in 115 files**.
+
+| axis | values |
+|---|---|
+| by leg | attribute 162 · content 60 · **wrapping-label 15** · delegated 31 · labelledby 0 |
+| by name class | FIXED 14 · DATA 211 · TOKENIZED 43 · UNRESOLVED 0 |
+| by coverage — ANY marker (files) | COVERED 65 · COVERED_VIA_PARENT 35 · **GAP 15** |
+| by coverage — `expectRowUniqueNames` ONLY (files) | COVERED 28 · COVERED_VIA_PARENT 23 · **GAP 64** |
+| strongest marker per covered file | `expectRowUniqueNames` 42 · "accessible name" 53 · `unique` 5 · `row-unique` 0 |
+
+★★★ **QUOTE THE STRONG-MARKER GAP BESIDE THE WEAK ONE, ALWAYS — 15 is the number that gets repeated
+and 64 is the number that describes the risk.** The weak GAP asks only "does ANY asserting test
+mention this module?", and a lone `unique` in a test about unique IDs satisfies it. The strong GAP
+asks the question this slice exists for: "did someone reach for `expectRowUniqueNames`, the shared
+helper written for THIS property?" Four times as many files fail the second. Neither is a defect
+count — read the caveats at the foot of this entry before treating either as one — but a file inside
+the strong GAP and outside the weak one is a file whose only evidence is a phrase match.
+
+★ **The `wrapping-label` leg's 15 sites are a CORRECTION, not growth.** They were being reported as
+unlabelled-and-skipped before `5aa07575`; nothing about the tree changed to create them.
+
+★★★ **THE `FIXED` SITES ARE THE MOST ACTIONABLE FINDING AND ALSO THE MOST OVER-READ.** `FIXED`
 means nothing per-row survives into the name — every row announces the SAME string whatever the data,
 a stronger claim than `DATA` (which collides only when a value repeats). But the scanner cannot see
 CONTROL FLOW, and that turns some of them into non-findings. Worked example, checked by hand:
@@ -20102,17 +20230,47 @@ grep -n "isCurrent ? (" src/app/projects-panel.tsx
 grep -n "archivedProjects ?? " src/app/projects-panel.tsx
 ```
 
-**The 13 GAP files — no asserting test found.** `alloc-plan-modal.tsx` · `export-menu.tsx` ·
-`influence-interest-matrix.tsx` · `knowledge-panel.tsx` · `milestone-horizon-strip.tsx` ·
-`node-graph.tsx` · `projects-panel.tsx` · `settings-sections/comm-templates-section.tsx` ·
+**The 15 weak-marker GAP files — no asserting test found at all.** `actions-panel.tsx` ·
+`alloc-plan-modal.tsx` · `export-menu.tsx` · `influence-interest-matrix.tsx` · `knowledge-panel.tsx` ·
+`milestone-horizon-strip.tsx` · `node-graph.tsx` · `projects-panel.tsx` ·
+`settings-sections/comm-templates-section.tsx` · `settings-sections/export-section.tsx` ·
 `settings-sections/next-actions-section.tsx` · `settings-sections/notifications-section.tsx` ·
 `stakeholder-map-panel.tsx` · `tour-catalog.tsx` · `trends-panel.tsx`.
 
-**The eight `FIXED` sites the report enumerates individually.** All eight are in GAP files; the
-remaining `FIXED` sites sit inside COVERED files, for which the report prints only a file-level class
-set — `budget-bucket-modal.tsx`, `budget-panel.tsx`, `change-edit-modal.tsx`,
-`entity-link-picker.tsx`, `gantt-chart.tsx`, `resource-workload.tsx`. So the eight below are the ones
-this register can name; the rest need the report re-run to locate.
+★★ **`actions-panel.tsx` and `settings-sections/export-section.tsx` are the two the earlier run did
+not list, and NEITHER is a new defect — both are scanner-fix artefacts, and `9afd9b8d` touched
+neither file.** `actions-panel.tsx`'s two sites sit inside a `TIERS.map(({ tier, labelKey }) => …)`,
+the destructured callback parameter defect (1) could not open; `export-section.tsx`'s single site is a
+`wrapping-label`, the leg defect (2) created. Measured, not inferred:
+
+```bash
+grep -n "\.map((\s*{" src/app/actions-panel.tsx
+node scripts/check-rowname-surfaces.mjs | grep -A 2 "export-section.tsx"
+git show --stat --oneline 9afd9b8d | grep -E "actions-panel|export-section"   # no output
+```
+
+★ `actions-panel.tsx` also carries an apostrophe inside a `//` comment, the defect (3) shape, so it
+may have been unreachable by two mechanisms at once. Which one dominated was not established and does
+not matter — the point is that a file's ABSENCE from an earlier run was never evidence about the file.
+**The 64-file strong-marker GAP is NOT enumerated here on purpose** — it is four times this list, it
+moves on every test edit, and a list that long in a register entry is a list nobody re-derives. Print
+it from the run itself.
+
+**The eight `FIXED` sites the report enumerates individually.** All eight sit in GAP files, which is
+why the report prints them line by line. The remaining SIX `FIXED` sites sit in files the report
+summarises as one line with a file-level class set, so it names the file and not the site:
+`budget-panel.tsx`, `change-edit-modal.tsx` and `resource-workload.tsx` are `COVERED`, and
+`budget-bucket-modal.tsx` is `COVERED_VIA_PARENT`.
+
+★★ **`COVERED` and `COVERED_VIA_PARENT` are DIFFERENT statuses and an earlier revision of this
+paragraph folded four files into "COVERED files" while two of them were the other one** — the same
+distinction this entry enumerates separately in its own headline table. It also named
+`entity-link-picker.tsx` and `gantt-chart.tsx`, neither of which carries a `FIXED` site today.
+Re-derive the split rather than trusting the list above; it is one grep over the run:
+
+```bash
+node scripts/check-rowname-surfaces.mjs | grep -E "^COVERED" | grep FIXED
+```
 
 | file | control | name key |
 |---|---|---|
@@ -20134,6 +20292,30 @@ of correctness.** `src/test/row-unique-names.ts` records a floor-guarded asserti
 against a zero-row fixture. A `GAP` is a question; a `COVERED` is a weaker question. (6) A `GAP` may
 be covered by a test two hops away, or by one asserting the property without any of the marker
 phrases.
+
+★★★ **A WORKED EXAMPLE OF (3) AND (4), because an ABSENCE from this report is the easiest thing to
+misread as a clean bill.** No `gantt-*` file appears anywhere in today's run — not `COVERED`, not
+`COVERED_VIA_PARENT`, not `GAP`. That is not because Gantt has no per-row names; it is because the
+scanner cannot reach them. `src/app/gantt-rows.tsx` composes five of them today — three through
+`rowLabel(...)`, two as a bare `rowToken` — inside per-item components that receive their row as a
+prop rather than mapping over a list in this file, which is exactly blind spots (3) and (4). Those
+names are the fix that closed §267. Reproduce both halves:
+
+```bash
+grep -c "aria-label" src/app/gantt-rows.tsx
+node scripts/check-rowname-surfaces.mjs | grep -c gantt
+```
+
+→ `5`, and `0`. **A file's absence from this report is not evidence about that file.**
+
+★★ **Two further limits are the scanner's OWN internals rather than the tree's shape, and each now
+has its own entry so it is fixed deliberately rather than rediscovered:** `matchDelimiters` counts
+brackets without skipping strings or comments — the class that had a live instance in `scanOpenTag`
+until `5aa07575` ([§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag)) — and
+`moduleKey` is basename-only, so two modules sharing a file name in different directories collapse
+into one key and can credit each other's tests
+([§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key)).
+Both are printed in the report's own "WHAT THIS CANNOT SEE" footer.
 
 ★ The marker printed on each `COVERED` line grades the evidence: a bare `unique` may be about a
 unique id, while `expectRowUniqueNames` means someone meant THIS property. Sort by that before
@@ -20263,6 +20445,122 @@ many tests use, not a new dependency. It would make some currently-passing asser
 some currently-impossible ones possible. Not attempted here; recorded so the next person writing a
 collision test over `<label for>`-labelled or `<input>`-only controls knows why their red is not
 about names.
+
+## 280. `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag`
+
+**Status:** open. Filed 2026-08-28, out of the fix round that produced `5aa07575`.
+
+`scripts/rowname-surfaces-lib.mjs`'s `matchDelimiters` walks forward from an opening `(`/`{`/`[`
+counting depth until it balances. It does not skip STRING literals or COMMENTS, so a bracket
+character inside either is counted as structure. Its sibling `scanOpenTag` — which walks an element's
+attribute list — DOES skip both, and it skips comments FIRST, before it looks at quotes.
+
+```bash
+grep -n "function matchDelimiters" -A 20 scripts/rowname-surfaces-lib.mjs
+grep -n "function scanOpenTag" -A 20 scripts/rowname-surfaces-lib.mjs
+```
+
+★★★ **FILE THIS AS LIVE, NOT THEORETICAL — the identical class had a real instance in this very tree
+days ago, and its symptom was silence.** `scanOpenTag` did not skip comments until `5aa07575`, so an
+apostrophe inside a `//` comment sitting in an attribute list opened a "string" that never closed; the
+scan ran to end-of-file, returned `null`, and `findSurfaces` read that as "not a tag" and dropped every
+control in the element. The live instance was `combobox-shared.tsx`. Nothing failed, nothing warned,
+and the report simply had fewer rows — which is the worst failure mode a REPORT has, because its output
+still looks complete. `matchDelimiters` is the same shape one layer down: an unbalanced `(` or `{`
+inside a string literal or a comment would corrupt every scope match AFTER it in that file, silently
+shrinking the surface list again.
+
+★ **No instance in the tree today**, which is why this is a follow-up and not a defect. That is a fact
+about today's source, not about the function — and the `scanOpenTag` history is the argument for not
+waiting for the next one. The report's own "WHAT THIS CANNOT SEE" footer carries the same caveat.
+
+★★ **The fix is cheap and the TEST is the expensive half.** Teaching `matchDelimiters` the two skips is
+a few lines borrowed from `scanOpenTag`; proving it needs a fixture that is currently absent from the
+corpus by construction, so the regression pin has to be a hand-built string, not a real file. Write the
+mutant first: revert the skip, and check the new test goes red on the fixture rather than on some
+incidental parse difference.
+
+★ Related: [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives)
+holds the report this function feeds, and the three defects `5aa07575` fixed.
+
+## 281. `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key
+
+**Status:** open. Filed 2026-08-28. Measured, and **nothing is mis-credited today** — this is a
+latent-correctness entry, recorded so a future file name does not quietly turn a GAP into a COVERED.
+
+`scripts/rowname-surfaces-lib.mjs`'s `moduleKey` reduces a path to its BASENAME with the extension
+stripped, and the coverage attribution is keyed on that alone: a test's relative imports become a set
+of basenames, and a surface file is `COVERED` when an asserting test's import set contains ITS
+basename. Two source files sharing a basename in different directories therefore share one key, and
+either can be credited with the other's tests.
+
+```bash
+grep -n "export function moduleKey" -A 5 scripts/rowname-surfaces-lib.mjs
+```
+
+**Measured 2026-08-28 over the non-test `src` tree.** Seven basenames collide: `_helpers` ·
+`page` · `raid` · `route` · `schedule` · `stakeholder-comms` · `types`. Exactly ONE of them, `page`,
+collides inside the `.tsx` set the scanner enumerates surfaces from (four Next route files). **None of
+the seven is a surface file** — no site in today's report sits in a file with any of those basenames —
+so no coverage verdict currently depends on the ambiguity. Reproduce both halves:
+
+```bash
+git ls-files 'src/**' | grep -v "\.test\." | sed 's#.*/##' | sed 's/\.tsx\?$//' | sort | uniq -d
+node scripts/check-rowname-surfaces.mjs | grep -cE "/(_helpers|page|raid|route|schedule|stakeholder-comms|types)\.tsx"
+```
+
+→ the seven names, then `0`.
+
+★★ **The report's own footer under-counts this, and the difference is the whole hazard.** It says "one
+collision in the tree", which is the count over the `.tsx` SOURCE set. But import specifiers resolve to
+`.ts` files too, so the population that can collide is the whole non-test tree — seven, not one. The
+narrower number is not wrong about `page`; it is wrong about how much room there is for the next one.
+
+★ **The direction of the failure decides how much to care: it can only ever manufacture COVERAGE, never
+a GAP.** A collision makes an asserting test's import set match a file it never imported, so a genuinely
+uncovered surface can be reported `COVERED` — a false green in a report whose entire job is to say what
+is untested. It cannot invent a GAP, so nobody will be sent chasing a phantom.
+
+★★ **A real fix is a repo-relative key, and it is not a one-liner** — `relativeImportsIn` returns
+specifiers (`./foo`, `../bar/foo`), so resolving them properly means resolving them against the
+importing file's directory and trying the extension list, which is what `moduleKey` exists to avoid.
+The cheap alternative is a guard rather than a fix: fail the scan when two SURFACE files share a key,
+which costs nothing today (there are none) and turns the latent case into a loud one.
+
+## 282. `row-unique-names.ts` cites `change-panel.test.tsx` as its confirmed-collision example, and §261 closed that collision
+
+**Status:** open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
+because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills.
+
+`src/test/row-unique-names.ts`'s SCOPE CHOICE rule says: default to whole-container scope, and narrow
+to a sub-tree only when a specific, named collision with unrelated chrome has been CONFIRMED in that
+panel — saying which one, in a comment at the narrowing. Its worked example was
+`change-panel.test.tsx`, where one translation string was shared between a toolbar filter select and a
+sortable-header button. [§261](#261-toolbar-filter-vs-sortable-header-name-collisions-systemic-7-pairs-across-3-panels--closed-2026-08-28)
+gave those two distinct strings, so the collision the example demonstrated no longer exists.
+
+```bash
+grep -n "SCOPE CHOICE" -A 14 src/test/row-unique-names.ts
+```
+
+★★★ **THE RULE NOW HAS NO LIVE WORKED EXAMPLE, and the comment says so rather than pretending
+otherwise — which is the right state to be in and the wrong state to stay in.** A rule whose only
+illustration is "there isn't one" is a rule readers apply by guess. Worse, the file still contains a
+narrowing (`change-panel.test.tsx` narrows to `tbody`) whose recorded reason is a DIFFERENT and weaker
+one — keeping the assertion about row identity — so a reader skimming for the pattern finds a
+narrowing that does not exemplify the rule governing narrowings.
+
+★★ **Do NOT close this by citing whichever narrowing is nearest to hand.** The rule's whole content is
+that the collision must be CONFIRMED and NAMED; a citation picked to fill the slot re-creates exactly
+the failure §261 caused here, one release later. Either find a narrowing whose collision is real today
+and record which one it is, or state that the repo currently has none and let the rule stand on its
+prose.
+
+★ The general shape is worth more than this instance: **a fix that closes a collision falsifies every
+doc, comment and test that used it as an EXAMPLE**, and nothing links the two. Neither
+`docs:symbols:check` nor `docs:claims:check` can see it — the first proves a NAME exists (both names
+still do), the second only that a cited LINE could exist. When closing a naming defect, grep for the
+panel's name across `src/test/`, `docs/AGENTS/` and this register.
 
 ## Decided — do not re-litigate
 

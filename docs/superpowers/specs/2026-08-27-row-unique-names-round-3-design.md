@@ -14,6 +14,26 @@ three rounds necessary.
 **Files new entries for:** §267's bar-drag residual · whatever the §245 scanner finds
 **Also fixes:** the §250 index/heading status desync in the register
 
+> ★★★ **THIS IS A DATED PRE-IMPLEMENTATION DESIGN RECORD, NOT A LIVE DOCUMENT.** Every measurement
+> below was taken on `adacc564`, BEFORE any of the work it describes; the slice then changed the code
+> those measurements describe, so a number here that disagrees with today's tree is the record working,
+> not a defect in it. **Do not update it to match HEAD** — same treatment as
+> `docs/security/findings-2026-07.md`. What a design record is good for is saying what was believed and
+> measured before the work, which is the only way the outcome can be reviewed against the intent; a
+> spec silently rewritten to agree with the implementation can never disagree with it.
+>
+> ★★ Two things in particular have moved and are worth naming because a reader will hit them first.
+> (1) The scanner this spec designs shipped and was then CORRECTED — `5aa07575` fixed three defects in
+> it (a destructured-map blind spot, self-closing controls inside a `<label>`, and `scanOpenTag`
+> mis-reading an apostrophe in a comment as a string opener), so every figure the scan produced before
+> that commit is superseded. (2) Register entries this spec lists under **Closes** are closed, so their
+> present-tense descriptions of live defects no longer hold. Today's numbers live in
+> `docs/open-followups.md` §276 and, better, in a fresh `node scripts/check-rowname-surfaces.mjs`.
+>
+> ★ Nothing gates any of this: `docs:claims:check` excludes `docs/superpowers/` outright, so no
+> pipeline has ever read this file and none will report it rotting further. Re-verify any claim here
+> against HEAD before acting on it; if a claim still matters, restate it in a live doc.
+
 ---
 
 ## 0. Provenance of every number in this spec

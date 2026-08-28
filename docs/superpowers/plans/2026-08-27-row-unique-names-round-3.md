@@ -12,6 +12,34 @@
 **Branch:** `feat/row-unique-names-round-3`, already checked out at `186885b4`, branched off `main` at `adacc564` (0.262.1 "Swainston").
 **Target release:** 0.263.0 "Okorafor" (spare codename: "Robson").
 
+> ★★★ **THIS IS A DATED PRE-IMPLEMENTATION RECORD, NOT A LIVE DOCUMENT. Its `path:LINE` citations
+> described the tree at the branch point (`adacc564`) and are deliberately NOT renumbered.**
+> The plan's own tasks moved the lines it cites, so most of them now point somewhere else — sampled
+> 2026-08-28 after implementation, five of six resolved to the wrong construct
+> (`budget-panel.tsx:505` lands on a bare `<th`; `project-form-fields.tsx:693` on a blank line;
+> `gantt.tsx:670`, `gantt-chart.tsx:234` and `task-raid-badge.tsx:55` all drifted). The sixth,
+> `change-panel.tsx:418`, still lands on the intended control — but on the POST-fix i18n key, so even
+> the surviving cite now reads as if the plan had proposed what it in fact changed. Re-verify any line
+> here against HEAD before acting on it, and if a claim still matters, restate it in a live doc rather
+> than editing this one.
+>
+> ★★ **Rewriting a planning record to match today's tree destroys the only thing it is good for** — it
+> says what was believed and measured BEFORE the work, which is what makes a plan reviewable against
+> its outcome. Same treatment as `docs/security/findings-2026-07.md`. ★ Nothing gates these citations
+> either way: `docs:claims:check` excludes `docs/superpowers/` outright, so no pipeline has ever read
+> them and none will notice them rotting further.
+>
+> ★ Re-derive the drift rather than trusting the sample above; it is one loop:
+> ```bash
+> grep -oE "[a-z0-9-]+\.tsx?:[0-9]+" docs/superpowers/plans/2026-08-27-row-unique-names-round-3.md \
+>   | sort -u | while IFS=: read -r f l; do printf "%-34s %s\n" "$f:$l" "$(sed -n "${l}p" "src/app/$f" 2>/dev/null | cut -c1-70)"; done
+> ```
+> ★★ **Read that loop's output knowing its own blind spot, or it will lie to you in the reassuring
+> direction:** the pattern captures only the LAST dotted segment, so every `<name>.test.tsx:NNN`
+> citation reduces to a bare `test.tsx:NNN` that resolves against no file and prints an empty line —
+> indistinguishable from a real cite landing on a blank line. Cites into `src/test/` and `e2e/` miss
+> the hardcoded `src/app/` prefix for the same reason. It samples; it does not audit.
+
 ---
 
 ## Rules that apply to EVERY task

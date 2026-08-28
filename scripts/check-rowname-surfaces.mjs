@@ -1,7 +1,12 @@
 // Enumerates the places a per-row control's accessible name is composed, and
 // says which of them a unit test asserts are distinct (WCAG 2.4.6).
 //
-// ★★★ A REPORT, NOT A GATE. It always exits 0 on a successful scan. It is
+// ★★★ A REPORT, NOT A GATE. Exit 0 on a successful scan; exit 2 means it could
+// not SCAN at all — a bad `--json` argument, or zero sources found, the latter
+// being a vacuity guard rather than a finding (a scan that reads nothing passes
+// everything). ★ Read that qualifier as load-bearing: an earlier revision of
+// this line said only "always exits 0", four lines above the two `process.exit(2)`
+// paths, and at a glance it reads as the unqualified claim. It is
 // deliberately absent from `.gitlab-ci.yml`, and adding it there would be a
 // mistake: a real gate would have to RENDER each panel against a collision
 // fixture and read the accessible names off the tree, which nothing static can
