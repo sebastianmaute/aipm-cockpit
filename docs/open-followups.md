@@ -20196,7 +20196,7 @@ helper written for THIS property?" Four times as many files fail the second. Nei
 count — read the caveats at the foot of this entry before treating either as one — but a file inside
 the strong GAP and outside the weak one is a file whose only evidence is a phrase match.
 
-★ **The `wrapping-label` leg's 15 sites are a CORRECTION, not growth.** They were being reported as
+★ **The `wrapping-label` leg is a CORRECTION, not growth.** Its sites were being reported as
 unlabelled-and-skipped before `5aa07575`; nothing about the tree changed to create them.
 
 ★★★ **THE `FIXED` SITES ARE THE MOST ACTIONABLE FINDING AND ALSO THE MOST OVER-READ.** `FIXED`
