@@ -408,10 +408,26 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-muted-foreground" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {(() => {
-                      // ★★ `emails` may repeat the primary `email` — nothing
-                      // dedupes the two lists — so an overlapping row rendered
-                      // the same address twice: two copy buttons carrying the
-                      // same accessible name AND the same React `key`.
+                      // ★★ `emails` may repeat the primary `email`, so an
+                      // overlapping row rendered the same address twice: two
+                      // copy buttons carrying the same accessible name AND the
+                      // same React `key`.
+                      // ★★ THE VECTOR IS IN-SESSION, NOT PERSISTED, and saying
+                      // "nothing dedupes the two lists" (as this comment used
+                      // to) sends a reader hunting for a storage bug that does
+                      // not exist. `sanitizeEmailList` (`sanitize-entities.ts`)
+                      // seeds its `seen` set with `primary.toLowerCase()` and
+                      // is called as `sanitizeEmailList(input.emails, email)`,
+                      // so anything arriving through `sanitizeResource` already
+                      // has the primary stripped out of `emails`. What is NOT
+                      // deduped is a live in-session write that bypasses it:
+                      // `resource-edit-modal.tsx`'s save maps `draft.emails`
+                      // through `.trim()` + a blank filter and nothing else, so
+                      // the duplicate exists in memory from that save until the
+                      // next load. Any other writer that skips the sanitizer
+                      // has the same effect. Reproduce:
+                      //   grep -n "seen.add(primary" src/app/sanitize-entities.ts
+                      //   grep -n "const emails = (draft.emails" src/app/resource-edit-modal.tsx
                       // ★ Keyed on `trim().toLowerCase()`, which is how this
                       // repo decides email IDENTITY everywhere else
                       // (`resource-foundation.ts`'s `byEmail` index,

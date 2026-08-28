@@ -1,4 +1,4 @@
-import { render, screen } from "@testing-library/react";
+import { render, screen, within } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import { beforeAll, describe, expect, it, vi } from "vitest";
 import {
@@ -12,7 +12,7 @@ import { IDENTITY_TYPES, REGULATORY_REQUIREMENTS } from "./project-options";
 import { expectNoLabelBoundToButton, labelsContainingLabels } from "../test/label-binding";
 import { expectRowUniqueNames } from "../test/row-unique-names";
 import { controlNames } from "../test/toolbar-order";
-import { loadI18n } from "./i18n";
+import { loadI18n, t } from "./i18n";
 
 // Render guard for the two CHECKBOX-GRID captions.
 //
@@ -104,9 +104,15 @@ const withContacts = (...names: string[]) => ({
 });
 
 // ★★ SCOPE IS NARROWED TO THE CONTACTS LIST, and the named collision that
-// forces it is `InfoTooltip`: this section renders THREE of them (project name,
-// code, manager) plus the contacts one, every button accessibly named "More
-// information". Measured at whole-document scope: `"More information" x3`.
+// forces it is `InfoTooltip`: this section renders FOUR of them, of which
+// exactly THREE share one name. `info-tooltip.tsx` computes
+// `aria-label={label ?? text}`, and `Field` (`project-form-fields.tsx`) passes
+// `label={t(lang,"infoMore")}` — so the three tooltips rendered THROUGH `Field`
+// (project name, code, manager) are all accessibly named "More information",
+// while the contacts one is rendered directly with NO `label` prop and is
+// therefore named by its `text`, `contactPersonsTip`. That is why the measured
+// figure is 3 and not 4. Measured at whole-document scope:
+// `"More information" x3`.
 // Two consequences, and the second is the dangerous one — it would leave the
 // assertion permanently red, AND it satisfies `requireCollisionSeed` all by
 // itself, so a `roles` list or fixture that stopped seeding a contact collision
@@ -145,6 +151,21 @@ describe("contact persons", () => {
       scope: contactsList(),
       requireCollisionSeed: true,
     });
+
+    // ★ Anti-vacuity, and the mutant it kills is the realistic one: the scan
+    // proves only that the two names DIFFER, so it passes against a "fix" that
+    // replaced the label with any unique nonsense (`aria-label={String(idx)}`) —
+    // the exact shape that resolves a collision by destroying the name. Assert
+    // that each name still carries the contact's own display string, and the
+    // action verb with it.
+    const names = within(contactsList())
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? "");
+    expect(names).toHaveLength(2);
+    for (const n of names) {
+      expect(n).toContain("Bob Jones");
+      expect(n).toContain(t("en-US", "remove"));
+    }
   });
 
   // ★★★ `expectRowUniqueNames` CANNOT SEE THIS CASE, and that is a property of

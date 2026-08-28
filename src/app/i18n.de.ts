@@ -280,7 +280,7 @@ export const de: Record<TranslationKey, string> = {
   raidFilterSeverity: "Nach Schweregrad filtern",
   raidFilterStatus: "Nach Status filtern",
   raidFilterOwner: "Nach Verantwortlichem filtern",
-  stakeholderFilterName: "Nach Namen filtern",
+  stakeholderSearchPlaceholder: "Name, Organisation, Titel, E-Mail durchsuchen…",
   colConfigToggleColumn: "Spalte anzeigen – {0}",
   savedViewsApply: "Gespeicherte Ansicht anwenden",
   savedViewsPlaceholder: "Gespeicherte Ansichten…",

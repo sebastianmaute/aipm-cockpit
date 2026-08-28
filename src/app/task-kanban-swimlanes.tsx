@@ -199,6 +199,22 @@ export function TaskKanbanSwimlanes({
               return (
                 <div
                   key={status}
+                  // ★★ `role="group"` IS LOAD-BEARING, NOT DECORATION. A bare
+                  // <div>'s implicit role is `generic`, for which ARIA 1.2
+                  // PROHIBITS `aria-label` — browsers and AT drop the name
+                  // outright, so this cell's lane/status name was computed,
+                  // tokenised and then announced to nobody. `group` is a role
+                  // that supports naming, so the name is actually exposed.
+                  // ★ Deliberately NOT a <section> (which is what
+                  // `task-kanban-board.tsx` uses for the flat board's columns):
+                  // a named <section> maps to `region`, a LANDMARK, and there
+                  // are lanes × TASK_STATUSES of these — turning every drop cell
+                  // into a landmark floods the AT landmark list.
+                  // ★★ axe cannot police either half: `aria-prohibited-attr` is
+                  // tagged `wcag2a` but lands in `incomplete`, not `violations`,
+                  // so the e2e gate was silent before this and is silent now.
+                  // `task-kanban-swimlanes.test.tsx` is the only detector.
+                  role="group"
                   data-testid={`swimlane-cell-${lane.key}-${status}`}
                   aria-label={t(lang, "swimlaneCell", laneToken, statusLabel)}
                   onDragOver={(e) => e.preventDefault()}

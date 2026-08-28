@@ -919,17 +919,34 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       />,
       { wrapper: Providers },
     );
-    // Scoped to <tbody>, not the whole container, to keep this test about the
-    // per-row TITLE collision it seeds and nothing else.
-    // ★ The reason this narrowing originally HAD to exist is gone: the toolbar's
-    // "Type"/"Status" filter <select>s used to share their accessible NAME with
-    // the sortable-header BUTTONS of the same columns (both read the same
+    // Scoped to <tbody>, not the whole container.
+    //
+    // ★★ THE NARROWING'S ORIGINAL JUSTIFICATION NO LONGER EXISTS, and it is
+    // replaced here rather than silently inherited. The toolbar's "Type"/"Status"
+    // filter <select>s used to share their accessible NAME with the
+    // sortable-header BUTTONS of the same columns (both read the same
     // "changeFieldType"/"changeFieldStatus" translation), so a whole-container
-    // scan failed here for an unrelated reason. That overlap was CLOSED for
-    // §261 — the filters now read "changeFilterType"/"changeFilterStatus" — and
-    // is pinned by "gives the type/status filters and their sort headers
-    // distinct names" at the bottom of this file, which scans the whole document
-    // across all three roles precisely because THIS scope cannot see it.
+    // scan failed here for a reason that had nothing to do with row identity.
+    // That overlap was CLOSED for §261 — the filters now read
+    // "changeFilterType"/"changeFilterStatus".
+    //
+    // ★★ THE REASON IT IS KEPT IS `requireCollisionSeed`, NOT a second confirmed
+    // chrome collision. That guard is satisfied by ANY two names colliding
+    // within `roles`, anywhere in scope — the masking hazard `row-unique-names.ts`
+    // documents. At <tbody> scope the only candidates are the ten seeded row
+    // controls, so a green run is attributable to the title pair this test names;
+    // widened to the container, an unrelated chrome collision could certify the
+    // fixture as collision-bearing while the seeded pair had quietly stopped
+    // colliding, and `minControls` would stop being a count of the seeded rows
+    // and start moving with every toolbar change.
+    // ★ NOTE this is a DIFFERENT justification from the "confirm a specific
+    // collision and name it" rule in `row-unique-names.ts`'s SCOPE CHOICE
+    // paragraph — which still cites THIS file as its worked example for that
+    // rule, and is stale at HEAD for exactly the reason above.
+    // ★ Whole-container coverage is not lost: "gives the type/status filters and
+    // their sort headers distinct names" at the bottom of this file scans
+    // strictly wider (whole DOCUMENT, all three roles, column-config popover
+    // open) precisely because THIS scope cannot see it.
     const tbody = container.querySelector("tbody") as HTMLElement;
     expect(tbody).toBeTruthy();
     expectRowUniqueNames({
@@ -977,6 +994,20 @@ describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
       roles: ["combobox", "button", "checkbox"],
     });
 
+    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
+    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
+    // `aria-label || textContent`, and a sort header has no aria-label — so its
+    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
+    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
+    // `change-panel.tsx` defaults `pf.sort` to null (`?? null` / `?? "off"`), so
+    // every header here renders inactive and scans as the bare column label —
+    // which is the ONLY reason the pre-fix `"Type" x2` / `"Status" x2` collisions
+    // were visible to it. Set a default sort on one of these columns and that
+    // header scans as "Type ↑" while its REAL accessible name is still "Type":
+    // the scan silently stops detecting the collision and stays green. The
+    // positive lookups below are unaffected — `getByRole({name})` computes the
+    // real accessible name — so they are what would still bite.
+    //
     // Anti-vacuity: name each side of the former collision positively, so a
     // "fix" that merely deleted a label could not pass.
     expect(getByRole("combobox", { name: t("en-US", "changeFilterType") })).toBeTruthy();

@@ -1244,6 +1244,20 @@ describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
       roles: ["combobox", "button", "checkbox"],
     });
 
+    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
+    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
+    // `aria-label || textContent`, and a sort header has no aria-label — so its
+    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
+    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
+    // `raid-panel.tsx` defaults `sort` to null, so every header here renders
+    // inactive and scans as the bare column label — which is the ONLY reason the
+    // pre-fix `"Category"/"Severity"/"Status"/"Owner" x2` collisions were visible
+    // to it. Set a default sort on one of these columns and that header scans as
+    // "Owner ↑" while its REAL accessible name is still "Owner": the scan
+    // silently stops detecting the collision and stays green. The positive
+    // lookups below are unaffected — `getByRole({name})` computes the real
+    // accessible name — so they are what would still bite.
+    //
     // Anti-vacuity: name each side of all four former collisions positively, so
     // a "fix" that merely deleted a label could not pass.
     for (const key of ["raidFilterCategory", "raidFilterSeverity", "raidFilterStatus", "raidFilterOwner"] as const) {

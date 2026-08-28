@@ -11,8 +11,15 @@
 // ★★ CALL SITE PLACEMENT IS LOAD-BEARING. This block's original comment said it
 // lived "after `dispatcher` exists" — confirmInsightRecommendation replays proposed
 // tool calls through the useChatDispatcher result. The call must stay AFTER
-// useChatDispatcher and BEFORE the first consumer of this hook's return values
-// (`insightActions`, task-manager.tsx).
+// useChatDispatcher and BEFORE the first CONSUMER of this hook's return values.
+// ★ `insightActions` is this hook's OWN return value, destructured out of the
+// `useInsightRecommendations({...})` call itself — naming it as the boundary (as
+// an earlier revision here did) makes the window read as zero-width. The real
+// boundary is the first place a returned value is READ, which today is the
+// `insightActions: isPopout ? undefined : insightActions` prop in
+// `task-manager.tsx`'s shell props. Derive today's window rather than trusting
+// line numbers:
+//   grep -n "useChatDispatcher\|useInsightRecommendations\|insightActions" src/app/task-manager.tsx
 import { useCallback, useMemo, useState, type Dispatch, type SetStateAction } from "react";
 import { type Lang, t } from "./i18n";
 import type { Task, RaidItem, Milestone, ChangeItem, Stakeholder, Resource, ProjectMeta } from "./types";

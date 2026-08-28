@@ -46,12 +46,23 @@ it("qualifies every column toggle with its action, keeping the visible label ins
     // fails against the bare column name the <label> alone would have given.
     expect(screen.getByRole("checkbox", { name: accessible })).toBeTruthy();
 
+    // ★★ THIS LINE IS NOT THE 2.5.3 PIN, and reading it as one would be a false
+    // coverage claim: BOTH sides derive from the same i18n template — `accessible`
+    // is computed HERE as `t("en-US","colConfigToggleColumn", visible)` — so it
+    // asserts only that `{0}` survives interpolation. It would still pass if the
+    // component dropped the visible label entirely. It is kept because that
+    // interpolation is a real precondition of the `getByRole({name: accessible})`
+    // lookup ABOVE (which is what actually bites the component), and because it
+    // documents the containment RULE that governs the shape of the string:
     // WCAG 2.5.3 (label in name) is CONTAINMENT — case-insensitive and
     // position-independent, per Understanding SC 2.5.3 and axe's own
     // `curatedCompareWith.includes(curatedCompare)`. Deliberately NOT a prefix
     // test: that is stricter than the SC and flags conformant code elsewhere in
     // this app (the dependency type select's "Predecessor type for next link"
     // contains, but is not prefixed by, its visible "Type for next link").
+    // ★ The REAL 2.5.3 assertion against the rendered component is the
+    // `row?.textContent` check below (the one marked "Anti-vacuity") — that one
+    // reads the DOM rather than re-deriving the i18n template.
     expect(accessible.toLowerCase()).toContain(visible.toLowerCase());
 
     // ★ Anti-vacuity: the qualifier must not have REPLACED the visible text.

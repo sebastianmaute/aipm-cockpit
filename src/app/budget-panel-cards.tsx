@@ -3,9 +3,20 @@
  *  complete" input, and the CCI tile the project and bucket summaries repeat.
  *
  *  Split out of `budget-panel.tsx` to keep that orchestrator under the 800-line
- *  size ratchet (the gantt orchestrator + presentational-leaf convention). Both
- *  bodies moved with every comment attached; the ONLY change to either is the
- *  `export` keyword each `function` now carries. */
+ *  size ratchet (the gantt orchestrator + presentational-leaf convention).
+ *
+ *  ★★ AT THE EXTRACTION COMMIT (`74761580`) both bodies moved with every comment
+ *  attached and the ONLY change to either was the `export` keyword each
+ *  `function` now carries — but that "pure move" claim is now true of `Cci`
+ *  ALONE. `58e34d3c` ("fix(a11y): bucket-unique names for budget reorder and
+ *  percent controls") gave `ManualPercentCell` a NEW REQUIRED `rowToken` prop
+ *  and replaced its template-literal `aria-label` with `rowLabel(...)`, so its
+ *  accessible-name computation is no longer the one `budget-panel.tsx` had.
+ *  Do not read this file as a mirror of the pre-split orchestrator when
+ *  auditing the Budget accessible-name work — read `ManualPercentCell` itself.
+ *  Reproduce the split:
+ *    git show 74761580 --stat -- src/app/budget-panel-cards.tsx
+ *    git log --oneline 74761580..HEAD -- src/app/budget-panel-cards.tsx */
 import { type Lang, t } from "./i18n";
 import { formatCurrency } from "./resource-cost";
 import type { CciValue } from "./budget-report";

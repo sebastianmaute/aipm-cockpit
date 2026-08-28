@@ -129,6 +129,21 @@ describe("BudgetPanel", () => {
       requireCollisionSeed: true,
     });
 
+    // ★ Anti-vacuity, and the mutant it kills is the realistic one: the scan
+    // proves only that the two percent boxes' names DIFFER, so it passes against
+    // a "fix" that replaced the label with any unique nonsense
+    // (`aria-label={String(idx)}`) — the exact shape that resolves a collision by
+    // destroying the name. The BUTTON half above already asserts `toContain("PAM")`
+    // on the reorder handles; this is the same pin for the spinbutton half, and
+    // it names BOTH parts of `rowLabel(t(lang,"budgetPercentComplete"), rowToken)`
+    // so neither half can be dropped silently.
+    const percentNames = within(scope)
+      .getAllByRole("spinbutton")
+      .map((el) => el.getAttribute("aria-label") ?? "")
+      .filter((n) => n.includes(t("en-US", "budgetPercentComplete")));
+    expect(percentNames).toHaveLength(2);
+    for (const n of percentNames) expect(n).toContain("PAM");
+
     // ★★ THE BUTTON HALF cannot go through the same call, and this is measured
     // rather than assumed: that same scope renders 52 buttons, of which the
     // per-bucket InfoTooltip hints, the "Role" sort header and the trailing

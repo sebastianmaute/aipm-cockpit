@@ -277,7 +277,7 @@ const enUS = {
   raidFilterSeverity: "Filter by severity",
   raidFilterStatus: "Filter by status",
   raidFilterOwner: "Filter by owner",
-  stakeholderFilterName: "Filter by name",
+  stakeholderSearchPlaceholder: "Search name, organization, title, email…",
   colConfigToggleColumn: "Show column – {0}",
   savedViewsApply: "Apply a saved view",
   savedViewsPlaceholder: "Saved views…",

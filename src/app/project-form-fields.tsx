@@ -663,7 +663,20 @@ function ContactPersonsControl({
   // (which accessible-name computation does), so "Bob  Jones" adds happily
   // beside "Bob Jones"; and `sanitizeProjectMeta` does not dedupe an imported
   // project, so exact repeats arrive from a file.
-  const contactTokens = buildRowTokens(contactPersons.map((cp, i) => ({ id: i, name: cp.name })));
+  /** The string the row actually RENDERS. ★★ Load-bearing that the token map
+   *  below and the `<span>` in the list share this ONE function: `row-tokens.ts`
+   *  documents that callers pass the row's DISPLAY name, and building the token
+   *  from `cp.name` alone discarded a discriminator that is already on screen —
+   *  two "Bob Jones" rows with different addresses read as visually distinct but
+   *  announced as "Remove – Bob Jones (1)" / "(2)", making AT users guess which
+   *  ✕ they were on. With the display string, distinct addresses give distinct
+   *  tokens outright and no occurrence index is needed; identical-or-absent
+   *  addresses still fall through to the index, which is the old behaviour.
+   *  ★ Sharing the function is also what stops the two from drifting: a token
+   *  spelled differently from the visible text would be a WCAG 2.5.3
+   *  (label-in-name) failure rather than a fix. */
+  const contactDisplay = (cp: ContactPerson) => `${cp.name}${cp.email ? ` <${cp.email}>` : ""}`;
+  const contactTokens = buildRowTokens(contactPersons.map((cp, i) => ({ id: i, name: contactDisplay(cp) })));
 
   const addDraft = () => {
     const name = draft.name.trim();
@@ -697,13 +710,13 @@ function ContactPersonsControl({
                 {cp.resourceId != null && (
                   <span aria-hidden="true" className="h-1.5 w-1.5 shrink-0 rounded-full bg-ui-green" title={t(lang, "resourcePickerLinked")} />
                 )}
-                <span>{cp.name}{cp.email ? ` <${cp.email}>` : ""}</span>
+                <span>{contactDisplay(cp)}</span>
               </span>
               <button
                 type="button"
                 onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
-                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
-                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
+                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? contactDisplay(cp))}
+                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? contactDisplay(cp))}
                 className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×

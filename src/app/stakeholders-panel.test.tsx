@@ -403,7 +403,7 @@ describe("row-unique names", () => {
   //     `aria-label`, and was excluded only because `roles` below is
   //     ["button", "checkbox"] while `<input type="search">` computes to role
   //     `searchbox`. That crutch is GONE: §261 moved the search box to
-  //     `stakeholderFilterName`, so it no longer shares the name at all.
+  //     `stakeholderSearchPlaceholder`, so it no longer shares the name at all.
   //     Pinned by "gives the name filter and its sort header distinct names"
   //     at the bottom of this file, which scans across `searchbox` too —
   //     precisely because this `roles` list cannot see it.
@@ -490,14 +490,28 @@ describe("StakeholdersPanel — toolbar search vs. Name column header (§261)", 
       roles: ["searchbox", "button", "checkbox"],
     });
 
+    // ★★ THE SCAN ABOVE RESTS ON AN UNDOCUMENTED DEPENDENCY: THIS FIXTURE SORTS
+    // NOTHING. `controlNames` (`src/test/toolbar-order.ts`) reads
+    // `aria-label || textContent`, and a sort header has no aria-label — so its
+    // scanned "name" is raw textContent, which INCLUDES the aria-hidden ↑/↓ that
+    // `SortHeaderButton` (`report-table.tsx`) renders only while `active`.
+    // `stakeholders-panel.tsx` defaults `pf.sort` to null (`?? null` / `?? "off"`),
+    // so every header here renders inactive and scans as the bare column label —
+    // which is the ONLY reason the pre-fix `"Name" x2` collision was visible to
+    // it. Set a default sort on the Name column and that header scans as
+    // "Name ↑" while its REAL accessible name is still "Name": the scan silently
+    // stops detecting the collision and stays green. The positive lookups below
+    // are unaffected — `getByRole({name})` computes the real accessible name —
+    // so they are what would still bite.
+    //
     // Anti-vacuity: name each side of the former collision positively, so a
     // "fix" that merely deleted a label could not pass. The clear ✕ the atom
     // overlays inside the field is qualified with the same key, so it is named
     // here too — fixing only the input would leave the ✕ naming the column.
-    expect(screen.getByRole("searchbox", { name: t("en-US", "stakeholderFilterName") })).toBeTruthy();
+    expect(screen.getByRole("searchbox", { name: t("en-US", "stakeholderSearchPlaceholder") })).toBeTruthy();
     expect(
       screen.getByRole("button", {
-        name: `${t("en-US", "clear")} – ${t("en-US", "stakeholderFilterName")}`,
+        name: `${t("en-US", "clear")} – ${t("en-US", "stakeholderSearchPlaceholder")}`,
       }),
     ).toBeTruthy();
     // The COLUMN keeps its own name — the filter moved, the header did not.

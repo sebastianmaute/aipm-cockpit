@@ -182,6 +182,17 @@ describe("TaskKanbanSwimlanes", () => {
       requireCollisionSeed: true,
     });
 
+    // ★ Anti-vacuity, and the mutant it kills is the realistic one: the scan
+    // above proves only that the two names DIFFER, so it passes against a "fix"
+    // that replaced the label with any unique nonsense (`aria-label={String(i)}`)
+    // — the exact shape that resolves a collision by destroying the name. Assert
+    // that each name still carries the lane's person.
+    // (Unqualified `getAllByRole("button")` on purpose: as measured just above,
+    // the two remove-lane buttons are the ONLY controls this fixture renders.)
+    const removeNames = screen.getAllByRole("button").map((b) => b.getAttribute("aria-label"));
+    expect(removeNames).toHaveLength(2);
+    for (const n of removeNames) expect(n).toContain("John Smith");
+
     // The `<section>`s map to role `region`, so their duplicate names ARE
     // exposed to AT; `expectRowUniqueNames` reads controls only, so assert this
     // one directly. Three lanes: the two twins plus Unassigned.
@@ -190,10 +201,14 @@ describe("TaskKanbanSwimlanes", () => {
     expect(new Set(regionNames).size).toBe(regionNames.length);
 
     // The per-status drop cells carry `swimlaneCell` = "{lane} – {status}", so
-    // they collide on the same axis. They carry no role, hence the raw query.
-    const cellNames = [...container.querySelectorAll("[data-testid^='swimlane-cell-']")].map((c) =>
-      c.getAttribute("aria-label"),
-    );
+    // they collide on the same axis. They are `role="group"` — a role that
+    // SUPPORTS naming, unlike the `generic` a bare <div> computes to, for which
+    // ARIA 1.2 prohibits `aria-label` and AT drops it. That role is why the
+    // query below can be role-based at all, and asserting through the role is
+    // what makes this test go red if the role is ever removed and the names go
+    // back to being announced to nobody. `expectRowUniqueNames` reads CONTROLS,
+    // so it cannot cover `group`; assert directly.
+    const cellNames = screen.getAllByRole("group").map((c) => c.getAttribute("aria-label"));
     expect(cellNames.length).toBeGreaterThan(0);
     expect(new Set(cellNames).size).toBe(cellNames.length);
   });

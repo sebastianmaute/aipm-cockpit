@@ -307,11 +307,23 @@ function StakeholdersPanelBody({
       >
         + {t(lang, "stakeholdersAdd")}
       </AddButton>
+      {/* ★★ SEARCH-SCOPED, NOT "Filter by name", and the difference is not
+          cosmetic: `PaneSearchInput` is `placeholder={placeholder ?? ariaLabel}`
+          and this call site passes no placeholder, so this string is what a
+          sighted user READS as well as what AT announces. The `visible`
+          predicate matches name, organization, title AND email, so a name-only
+          label is actively false (WCAG 2.4.6 asks a label to describe purpose)
+          — a user pasting an address would read that the box cannot do what it
+          in fact does. Mirrors `raidSearchPlaceholder` and the tasks
+          `searchPlaceholder`, which both enumerate their predicate's fields.
+          ★ It must also stay distinct from `stakeholderFieldName`, the Name
+          sort header in this same panel — that collision is what §261 fixed
+          here, and a name-shaped label would reintroduce it. */}
       <PaneSearchInput
         value={search}
         onChange={pf.setSearch}
-        ariaLabel={t(lang, "stakeholderFilterName")}
-        clearLabel={`${t(lang, "clear")} – ${t(lang, "stakeholderFilterName")}`}
+        ariaLabel={t(lang, "stakeholderSearchPlaceholder")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "stakeholderSearchPlaceholder")}`}
       />
       {/* ★ The atom now overlays its own ✕, so the former sibling clear button
           was removed: two clears for one field is exactly what the shared
