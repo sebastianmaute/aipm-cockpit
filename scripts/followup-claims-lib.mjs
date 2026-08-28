@@ -221,7 +221,22 @@ export function fencedLines(text) {
  *  from doing something surprising, and it must not be cited as containment.
  *  Tightening it is a separate change, and one that has to MEASURE what it drops
  *  from today's register first. */
-const RUNNABLE_RE = /^(?:grep\b|node -e |node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
+/** ★★★ `node -e ` WAS LISTED HERE AND COULD NEVER FIRE. SHELL_META rejects
+ *  ( ) { } $ backtick | ; & < > and no useful JavaScript one-liner avoids all of
+ *  them, so the alternative was dead grammar that read as capability. That
+ *  mattered out of proportion to its size: `node -e` is this repo's house idiom
+ *  for measurement, so the commonest reproduce form in the register looked
+ *  runnable and never was. Measured 2026-08-28 in both quoting styles, and a
+ *  test pins that no line in the register was ever extracted through it — which
+ *  is what made the removal a no-op rather than a loss of coverage.
+ *
+ *  ★★ DO NOT REINTRODUCE IT by loosening SHELL_META. `spawnSync` runs with
+ *  `shell: false`, so those metacharacters are inert as argv — but `node -e`
+ *  would then execute arbitrary JavaScript lifted verbatim out of a markdown
+ *  file on every --run-repro. Computation belongs in a committed probe under
+ *  `scripts/probes/`, which lint, review and `git log` can all see. See
+ *  `scripts/probes/README.md`. */
+const RUNNABLE_RE = /^(?:grep\b|node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
 const SHELL_META = /[|;&><`$(){}]/;
 
 /** Split a shell-ish line into the command and its trailing `# …` comment.

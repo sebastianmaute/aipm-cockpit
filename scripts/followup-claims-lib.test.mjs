@@ -1003,3 +1003,38 @@ describe("reproCoverageIn", () => {
     expect(c.extracted + c.notRunnable + c.shellMeta).toBe(c.seen);
   });
 });
+
+describe("the node -e grammar branch", () => {
+  // ★★★ THE CLAIM: `node -e` cannot carry real JavaScript past SHELL_META, so
+  // listing it in RUNNABLE_RE was dead grammar. Both quoting styles, measured.
+  it.each([
+    ['node -e "console.log(1)"'],
+    ["node -e 'console.log(1)'"],
+    ['node -e "const a = {b: 1}"'],
+  ])("rejects %s", (cmd) => {
+    expect(reproEntriesIn("```bash\n" + cmd + "\n```")).toEqual([]);
+  });
+
+  // ★★ The counter-assertion. Without it this file would pass with
+  // reproEntriesIn hard-coded to return [], which would delete the gate.
+  it("still accepts the shapes the register actually uses", () => {
+    for (const cmd of [
+      "grep -n foo src/app/x.ts",
+      "npm run docs:claims:check",
+      "npx tsc --noEmit",
+      "node scripts/probes/followup-grammar.mjs",
+    ]) {
+      expect(reproEntriesIn("```bash\n" + cmd + "\n```")).toHaveLength(1);
+    }
+  });
+
+  // ★★★ THE REMOVAL IS ONLY SAFE IF NO LINE IN THE REGISTER RELIES ON IT. A
+  // metacharacter-free `node -e` would be extracted today and stop being. This
+  // asserts the register contains none, which is what makes the change a no-op
+  // rather than a silent loss of coverage.
+  it("no line in the real register is extracted via the node -e branch", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const viaNodeE = reproEntriesIn(real).filter((e) => e.cmd.startsWith("node -e "));
+    expect(viaNodeE).toEqual([]);
+  });
+});
