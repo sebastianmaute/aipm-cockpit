@@ -424,6 +424,26 @@ describe("buildReport", () => {
     expect(s.via).toContain("widget-panel");
   });
 
+  it("★★ prefers the test carrying the STRONGEST marker, not the first one seen", () => {
+    // Several tests can import one module. Crediting whichever came first in
+    // directory order lets a bare `unique` — which can be about a unique id —
+    // stand in front of a file that calls the shared assertion helper, and the
+    // reported marker is the only thing a reader has to discount a COVERED with.
+    const report = buildReport({
+      sources,
+      tests: new Map([
+        ["src/app/a-weak.test.tsx", 'import { List } from "./widget-list";\n// unique ids only'],
+        [
+          "src/app/z-strong.test.tsx",
+          'import { List } from "./widget-list";\nexpectRowUniqueNames({ container });',
+        ],
+      ]),
+    });
+    const s = report.surfaces.find((x) => x.module === "widget-list");
+    expect(s.via).toBe("src/app/z-strong.test.tsx");
+    expect(s.markers[0]).toBe("expectRowUniqueNames");
+  });
+
   it("counts each leg, so the summary can state what it found", () => {
     const report = buildReport({ sources, tests: new Map() });
     expect(report.summary.byLeg.attribute).toBe(1);

@@ -225,7 +225,11 @@ function attributeValue(attrs, at) {
 
 /** The `{...}` interpolations inside an element's children, joined. Element
  *  children are stripped, so an icon-only button reads as having no dynamic
- *  part rather than as DATA because of the icon's tag name. */
+ *  part rather than as DATA because of the icon's tag name.
+ *  ★ The close tag is found by plain search, so a same-tag element NESTED inside
+ *  this one ends the children early or late. That over- or under-captures the
+ *  name string; the error direction is over-reporting a FIXED name as DATA,
+ *  which is the safe one for a report whose findings are questions. */
 function contentExpression(text, from, tag) {
   const close = text.indexOf(`</${tag}>`, from);
   if (close < 0) return "";
@@ -412,8 +416,19 @@ export function buildReport({ sources, tests }) {
   for (const [file, text] of tests) {
     const markers = coverageMarkersIn(text);
     if (markers.length === 0) continue;
-    asserting.push({ file, markers, imports: new Set(relativeImportsIn(text)) });
+    asserting.push({
+      file,
+      markers,
+      // Rank by the STRONGEST marker the file carries. Several tests can import
+      // one module; crediting whichever came first in directory order would let
+      // a bare `unique` — which can be about a unique id — stand in front of a
+      // file that actually calls the shared assertion helper, and the reported
+      // marker list is the only thing a reader has to discount a COVERED with.
+      strength: COVERAGE_MARKERS.findIndex((m) => m.name === markers[0]),
+      imports: new Set(relativeImportsIn(text)),
+    });
   }
+  asserting.sort((a, b) => a.strength - b.strength);
 
   // module -> modules that import it, one hop, over the source corpus.
   const importers = new Map();

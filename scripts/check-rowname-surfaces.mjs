@@ -147,6 +147,9 @@ out("    src/test/row-unique-names.ts, where a floor-guarded assertion passed ag
 out("    a zero-row fixture. A GAP is a question; a COVERED is a weaker question.");
 out("  * a GAP may be covered by a test two hops away, or by one that asserts the");
 out("    property without using any of the marker phrases.");
+out("  * the marker on a COVERED line says how strong the evidence is. A lone");
+out("    `unique` can be about a unique id; `expectRowUniqueNames` is the shared");
+out("    helper and means someone meant THIS property.");
 
 console.log(lines.join("\n"));
 
