@@ -159,6 +159,30 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(banner() as HTMLElement).getByText(/9 document entries could not be opened/i)).toBeInTheDocument();
   }, 45000);
 
+  it("names how many kinds of data were unreadable in the save-anyway dialog", async () => {
+    // ★★★ THE DECODE CAUSE HAS NO `truncation` COUNTS, so the banner's count
+    // line and — the part that matters — the confirm dialog would name NO
+    // magnitude at all. That dialog is the last thing the user sees before
+    // permanently discarding the data, and "some data" is not enough to decide.
+    override.value = {
+      ...override.value,
+      truncation: null,
+      decodeFailureCount: 2,
+      loadWasIncomplete: true,
+    };
+    await mountApp();
+    const el = banner();
+    expect(el).not.toBeNull();
+    fireEvent.click(within(el as HTMLElement).getByRole("button", { name: "Save anyway" }));
+    await screen.findByText("Save anyway?");
+    // ★ Scoped to the DIALOG. The banner's own count line carries the same
+    // sentence, so an unscoped query matches twice and errors — and the dialog
+    // is the half that decides, so it is the half asserted here.
+    // ★ Named, because the guided tour's welcome dialog is mounted too.
+    const dialog = screen.getByRole("dialog", { name: "Save anyway?" });
+    expect(within(dialog).getByText(/2 kinds of saved data could not be read/)).toBeInTheDocument();
+  }, 45000);
+
   it("stops reporting storage as healthy while saving is paused", async () => {
     // ★ `storageOk` must fold in `loadWasIncomplete`. Reporting healthy while
     // nothing is being written is the WRONG signal, not merely a missing one.

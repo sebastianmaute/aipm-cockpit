@@ -139,10 +139,15 @@ export function StorageBanner({
  *  ★ `truncation` may be `null` (counts unknown) — the decision is then made on
  *  a screen showing no magnitude, so pass them whenever the guard has them. */
 export function TruncatedLoadBanner({
-  lang, truncation, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
+  lang, truncation, decodeFailureCount, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
 }: {
   lang: Lang;
   truncation: { entries: number; blocks: number } | null;
+  /** How many stored slices the load could not DECODE — the guard's second
+   *  cause, `null` truncation and all. ★ Without it the count line and the
+   *  confirm dialog name no magnitude at all on that path, and the dialog is the
+   *  last thing the user sees before permanently discarding the data. */
+  decodeFailureCount: number;
   /** Hidden by the user. The save guard stays armed either way. */
   dismissed: boolean;
   /** The layout shows a persistent "saving paused" control elsewhere (the modern
@@ -156,13 +161,16 @@ export function TruncatedLoadBanner({
   // ★ Entries dominate when both are present, mirroring `useLoadTruncation`'s own
   // `truncationText` — losing whole documents is the larger loss, and the banner
   // must not disagree with the toast the same load already fired.
+  // ★ The decode count is LAST, not because it matters least, but because the
+  // two truncation counts are mutually exclusive with it in practice and the
+  // precedence above must keep reading as it did.
   const countText =
-    truncation == null
-      ? null
-      : truncation.entries > 0
-        ? t(lang, "documentsTruncatedEntriesCount", truncation.entries)
-        : truncation.blocks > 0
-          ? t(lang, "documentsTruncatedBlocksCount", truncation.blocks)
+    truncation != null && truncation.entries > 0
+      ? t(lang, "documentsTruncatedEntriesCount", truncation.entries)
+      : truncation != null && truncation.blocks > 0
+        ? t(lang, "documentsTruncatedBlocksCount", truncation.blocks)
+        : decodeFailureCount > 0
+          ? t(lang, "documentsUnreadableCount", decodeFailureCount)
           : null;
   const askThenSave = async () => {
     const body = t(lang, "documentsTruncatedConfirmBody");

@@ -2775,6 +2775,8 @@ const enUS = {
   documentsCardNotApplied: "Not applied:",
   documentsCardMoreReasons: "…and {0} not shown",
   documentsTruncatedWarning: "{0} document entries could not be opened - this project is over the limit. Saving is paused so nothing is overwritten.",
+  documentsUnreadableWarning: "{0} kinds of saved data could not be read. Saving is paused so nothing is overwritten.",
+  documentsUnreadableCount: "{0} kinds of saved data could not be read.",
   documentsTruncatedBlocksWarning: "{0} blocks in stored documents could not be opened. Saving is paused so nothing is overwritten.",
   documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsTruncatedSaveAnyway: "Save anyway",

@@ -2711,6 +2711,8 @@ export const de: Record<TranslationKey, string> = {
   documentsCardNotApplied: "Nicht übernommen:",
   documentsCardMoreReasons: "…und {0} nicht angezeigt",
   documentsTruncatedWarning: "{0} Dokumenteinträge konnten nicht geöffnet werden - dieses Projekt überschreitet das Limit. Das Speichern ist pausiert, damit nichts überschrieben wird.",
+  documentsUnreadableWarning: "{0} Arten gespeicherter Daten konnten nicht gelesen werden. Das Speichern ist pausiert, damit nichts überschrieben wird.",
+  documentsUnreadableCount: "{0} Arten gespeicherter Daten konnten nicht gelesen werden.",
   documentsTruncatedBlocksWarning: "{0} Blöcke in gespeicherten Dokumenten konnten nicht geöffnet werden. Das Speichern ist pausiert, damit nichts überschrieben wird.",
   documentsTruncatedBanner: "Ein Teil der Dokumentdaten dieses Projekts konnte nicht geöffnet werden. Das Speichern ist pausiert, um Ihr gespeichertes Projekt zu schützen - es enthält weiterhin alles.",
   documentsTruncatedSaveAnyway: "Trotzdem speichern",

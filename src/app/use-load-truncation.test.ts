@@ -131,6 +131,92 @@ describe("useLoadTruncation — import diagnostics", () => {
   });
 });
 
+// ★★★ A DECODE FAILURE IS AN INCOMPLETE LOAD, and it routes into THIS guard
+// rather than a second mechanism. A malformed meta blob left its slice
+// undefined and the load proceeded silently; the next save then ran
+// `DELETE FROM meta` and re-inserted only the rows it had, destroying the blob.
+// Same banner, same lockout, same escape — and the escape is load-bearing here
+// in a way it is not for truncation: the user cannot repair a corrupt blob from
+// inside the app at any cap, so without a reachable way out this is a permanent
+// save lockout.
+describe("useLoadTruncation — undecodable meta slices", () => {
+  /** A backend stand-in for the decode channel. `lastLoadTruncation` is left
+   *  undefined so nothing observed here comes from the §103 cap. */
+  const decoding = (slices: readonly string[]) => ({
+    lastLoadTruncation: undefined,
+    lastImportDroppedRows: 0,
+    lastImportUnterminatedQuote: false,
+    lastDecodeFailures: slices,
+  });
+
+  it("pauses saving when a load could not decode a slice", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+  });
+
+  it("a clean load lowers the flag again", () => {
+    // The same invariant a clean load holds for truncation: the flag is scoped
+    // to the workspace that is live RIGHT NOW, and this one decoded fine.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("the escape hatch releases a decode-failure lockout", () => {
+    const { result } = render();
+    act(() => {
+      result.current.truncationOps.reportFor(decoding(["documents", "insights"]));
+    });
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+    act(() => { result.current.allowIncompleteSave(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(true);
+  });
+
+  it("names how many slices failed, for the banner — and drops it on a clean load", () => {
+    // The count is what the "Save anyway" dialog shows. The KEYS stay internal:
+    // `documentVersions` / `settings_overrides` are identifiers, not copy.
+    const { result } = render();
+    expect(result.current.decodeFailureCount).toBe(0);
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents", "insights"])); });
+    expect(result.current.decodeFailureCount).toBe(2);
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.decodeFailureCount).toBe(0);
+  });
+
+  it("tells the user, and stays quiet on a clean load", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("1"));
+    showToast.mockClear();
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("treats a backend that publishes NO decode field as a clean read", () => {
+    // `lastDecodeFailures` is optional on `StorageBackend` — only Turso stores
+    // meta blobs — so an undefined read means "nothing to report", not "unknown".
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(backendReporting(undefined)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.decodeFailureCount).toBe(0);
+  });
+
+  it("SKIPS a best-effort flush while a decode failure is unresolved", async () => {
+    // The lockout has to reach the same choke point truncation does; a flag
+    // nothing consults is the loss this guard exists to prevent.
+    const save = vi.fn(async () => {});
+    const { result } = render(save);
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    await act(async () => { await result.current.truncationOps.flushCurrent(); });
+    expect(save).not.toHaveBeenCalled();
+  });
+});
+
 describe("useLoadTruncation — flushCurrent", () => {
   it("writes when nothing is unresolved", async () => {
     const save = vi.fn(async () => {});
