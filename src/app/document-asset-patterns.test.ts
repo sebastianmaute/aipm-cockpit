@@ -15,7 +15,12 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { stripComments } from "../test/strip-comments";
 import * as PATTERNS from "./document-asset-patterns";
-import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./document-asset-patterns";
+import {
+  ANY_TAG_ASSET_ID_RE,
+  IMG_TAG_ASSET_ID_RE,
+  ASSET_IMG_TEST_RE,
+  ASSET_IMG_TAG_RE,
+} from "./document-asset-patterns";
 
 const ids = (re: RegExp, html: string): string[] => Array.from(html.matchAll(re), (m) => m[1]);
 
@@ -220,12 +225,122 @@ function domReferences(src: string, fileName: string): string[] {
 
 describe("document-asset-patterns", () => {
   describe("the divergence table", () => {
-    for (const [html, anyTagIds, imgIds, survivesLoad] of TABLE) {
+    for (const [html, anyTagIds, imgIds, loadPredicate] of TABLE) {
       it("agrees with the measured answers for " + JSON.stringify(html), () => {
         expect(ids(ANY_TAG_ASSET_ID_RE, html)).toEqual(anyTagIds);
         expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual(imgIds);
-        expect(ASSET_IMG_TEST_RE.test(html)).toBe(survivesLoad);
+        expect(ASSET_IMG_TEST_RE.test(html)).toBe(loadPredicate);
       });
+    }
+  });
+
+  // ★★★ THE INVARIANT THAT BROKE IN 0.262.2, ASSERTED OVER THE SAME CORPUS.
+  // `ASSET_IMG_TAG_RE` is what `degradeToPlain` uses to carry images across an
+  // overflow, and `IMG_TAG_ASSET_ID_RE` is what the three renderers use to draw
+  // them. So the degrade must recognise EVERY tag the export can draw, or the
+  // overflow path deletes an image the user can see — which is exactly what
+  // shipped: the degrade's matcher was private to `rich-text-plain.ts`, was not
+  // quote-aware, and dropped `<img title="Q1 > Q2" data-asset-id="real">`.
+  //
+  // ★★ THIS IS A CONTAINMENT ASSERTION, NOT AN EQUALITY ONE, and the direction
+  // is the whole point. The reverse does NOT hold and must not be asserted:
+  // `ASSET_IMG_TAG_RE` deliberately also carries single-quoted, unquoted,
+  // spaced-`=` and uppercase ids that the export pattern returns nothing for.
+  // Collapsing the two was proposed during review; it would trade three silent
+  // drops for four. They are incomparable, not nested.
+  describe("the degrade carries every image the LOAD kept", () => {
+    // ★★★ THE REFERENCE IS THE LOAD PREDICATE, NOT THE EXPORT PATTERN, AND THE
+    // FIRST CUT GOT THIS WRONG. It iterated rows with a non-empty EXPORT id and
+    // skipped the rest, on the reasoning that a tag no export can draw is not
+    // worth carrying. That reasoning is false: on-screen rendering uses
+    // `querySelectorAll("img[data-asset-id]")` — the BROWSER PARSER — so
+    // `<img alt=it's data-asset-id="real">`, which every regex here reads as
+    // having no id, is painted for the user like any other image. Its corpus row
+    // has an empty export column, so the first cut SKIPPED the one row that
+    // would have caught the loss it was written to prevent.
+    // ★★ THE COLUMN IS THE RIGHT REFERENCE, BUT DO NOT CALL IT "SURVIVES LOAD".
+    // It was destructured as `survivesLoad` here and described as "what decides
+    // whether the block reaches the screen at all" — which is the end-to-end
+    // reading the TABLE docstring above explicitly retires, in those words,
+    // because it once helped hide a real block-deletion bug. The column is
+    // `ASSET_IMG_TEST_RE.test(html)` and NOTHING MORE: one of the two terms in
+    // `sanitizeBlock`'s drop condition. It is the right reference for THIS
+    // assertion because a block the predicate keeps is a block whose image the
+    // degrade must not delete — not because it settles what reaches the screen.
+    // ★★★ ONE ROW IS A KNOWN, PRE-EXISTING GAP AND IS ASSERTED AS A SET RATHER
+    // THAN SKIPPED. `<img data-asset-id="real" alt=a<b>` carries a bare `<` in
+    // an UNQUOTED value; both branches' guards require a `>` before any `<`, so
+    // neither can match it, and the pre-0.262.2 pattern could not either — it is
+    // not a regression. It IS a real loss: the browser recovers that markup and
+    // paints the image, so an overflow deletes a picture the user can see.
+    // Closing it needs a guard that scans past `<`, which is the quadratic this
+    // whole slice exists to remove — so it is accepted, not repaired.
+    // ★★ Written as an exact set, never a `continue`: a skip makes the exemption
+    // invisible and lets it grow silently. If another row joins this list, that
+    // is a new loss and this test says so by name.
+    const KNOWN_UNMATCHABLE = ['<img data-asset-id="real" alt=a<b>'];
+
+    it("matches every load-kept row except the documented bare-`<` gap", () => {
+      const missed: string[] = [];
+      for (const [html, , , loadPredicate] of TABLE) {
+        if (!loadPredicate) continue;
+        ASSET_IMG_TAG_RE.lastIndex = 0;
+        if ((html.match(ASSET_IMG_TAG_RE)?.length ?? 0) === 0) missed.push(html);
+      }
+      expect(missed).toEqual(KNOWN_UNMATCHABLE);
+    });
+
+    // ★★ ANTI-VACUITY: the loop above proves nothing if no row is load-kept.
+    // ★★ EXACT, NOT A FLOOR. This was `toBeGreaterThan(5)` against an actual 14,
+    // so a corpus edit could delete eight load-kept rows — more than half the
+    // coverage — and stay green. Counted 2026-08-28: 14 kept, 5 dropped, 19
+    // total. A change here is a question about the corpus, not a number to bump.
+    it("actually exercises the load-kept rows", () => {
+      expect(TABLE.filter(([, , , keeps]) => keeps).length).toBe(14);
+      expect(TABLE.length).toBe(19);
+    });
+  });
+
+  // ★★ MULTIPLICITY, separately. The containment loop above asserts "at least
+  // one", which would pass on a row holding two tags where only the first
+  // matched. No corpus row carries two today, so this is the pin for that.
+  it("carries EVERY tag in a row, not just the first", () => {
+    const two = '<img alt="a>b" data-asset-id="one"><img alt=it\'s data-asset-id="two">';
+    ASSET_IMG_TAG_RE.lastIndex = 0;
+    // One from each branch of the union: the first needs quote-awareness, the
+    // second needs its absence.
+    expect(two.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBe(2);
+  });
+
+  // ★★★ THE SUPERSET PROPERTY, PINNED. Branch 2 of the union IS the pre-0.262.2
+  // private pattern, so this matcher cannot lose a tag that used to be carried.
+  // A first cut shipped branch 1 alone and silently dropped four shapes; this is
+  // what makes that unrepeatable.
+  it("never matches less than the non-quote-aware branch alone", () => {
+    const BRANCH_2_ONLY =
+      /<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
+    for (const [html] of TABLE) {
+      BRANCH_2_ONLY.lastIndex = 0;
+      ASSET_IMG_TAG_RE.lastIndex = 0;
+      const old = html.match(BRANCH_2_ONLY)?.length ?? 0;
+      const now = html.match(ASSET_IMG_TAG_RE)?.length ?? 0;
+      expect(now).toBeGreaterThanOrEqual(old);
+    }
+  });
+
+  it("carries the quoting and case variants the export pattern cannot read", () => {
+    // ★ These four are the reason this is a fourth pattern rather than a reuse.
+    // Each returns NOTHING from IMG_TAG_ASSET_ID_RE (it requires a
+    // double-quoted id and is /g, not /gi) and must still survive a degrade.
+    for (const html of [
+      "<img data-asset-id='a8'>",
+      "<img data-asset-id=a9>",
+      '<img data-asset-id = "a10">',
+      '<IMG DATA-ASSET-ID="a11">',
+    ]) {
+      expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual([]);
+      ASSET_IMG_TAG_RE.lastIndex = 0;
+      expect(html.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBe(1);
     }
   });
 

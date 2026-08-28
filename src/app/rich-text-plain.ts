@@ -18,6 +18,8 @@
 // a sanitize pass a provable no-op.
 import { plainToHtml } from "./sanitize-html";
 import { isHtmlStart, type RichTextSink } from "./html-start";
+import { logDiag } from "./diagnostics";
+import { ASSET_IMG_TAG_RE } from "./document-asset-patterns";
 
 /** Whitespace control characters — TAB (0x09), vertical tab and form feed —
  *  collapse to a SINGLE SPACE instead of being deleted.
@@ -48,7 +50,7 @@ const CONTROL_CHARS = /[\x00-\x08\x0e-\x1f]/g;
  *  that hit the most common shape in existing data. It reaches storage too:
  *  capHtmlText projects, truncates and re-wraps, so on overflow the fused text
  *  is what gets persisted. */
-const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>]*>/gi;
+const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^<>]*>/gi;
 /** The remaining (inline) tags, which project to nothing.
  *  ★★ The leading `[a-zA-Z]` models the HTML tokenizer: a `<` is only a tag
  *  opener when a letter (or `/`) follows it. A bare `<[^>]*>` ate everything
@@ -73,26 +75,48 @@ const BLOCK_TAG = /<\/?(?:p|div|br|li|ul|ol|pre|h[1-6]|blockquote|tr|td|th)\b[^>
  *  the failure is silent, on all six write paths, with nothing in the
  *  truncation diag. Any change here wants the load-path tests in
  *  `document-model.test.ts` run against it, not just this file's own.
- *  ★★ IT IS ALSO QUADRATIC on input with many `<` and no `>` — each opener
- *  scans to end of input for a `>` that is not there (seconds at 128 KB).
- *  ★★★ SO IS `BLOCK_TAG` ABOVE, and this note said it was not. `\b` only saves
- *  it from a tag name that does NOT match its alternation, which is why a
- *  `"<a"` fixture reported it clean; `"<p"` — the likeliest opener in this
- *  corpus — is quadratic on BOTH. Measured, open-followups §251. Do not repair
- *  one of these regexes and leave the other.
- *  ★★ §251 also RETRACTS its own advice against the obvious one-character fix
- *  (excluding `<` from `[^>]*`): the reason given was that it zeroes the
- *  projection for `alt="a>b"`, and that is measurably false — `[^<>]*` leaves
- *  that shape byte-identical. It is now the cheapest known option, with a real
- *  but different trade-off recorded there. Read the entry, not this summary,
- *  before changing either regex.
+ *  ★★★ BOTH RUNS EXCLUDE `<` AND MUST KEEP EXCLUDING IT. `[^>]*` let a single
+ *  opener scan to end of input looking for a `>` that is not there, which is
+ *  quadratic: measured 2026-08-27 at 128 KB, TAG 6617 ms and BLOCK_TAG 7226 ms
+ *  against 8.4 ms for the same bytes with the tags CLOSED. Bounding the run to
+ *  one tag is the same fix ASSET_IMG_TEST_RE took for the same reason, and the
+ *  principle is stated in ANY_TAG_ASSET_ID_RE's docstring: not crossing a tag
+ *  boundary is the property that matters. Pinned by the complexity family in
+ *  rich-text-plain.test.ts — a budget test, so re-measure rather than trusting
+ *  these cells.
+ *  ★★★ IT MOVES TWO SHAPES, NOT ONE, and the second was found by a gate rather
+ *  than by planning. (1) A QUOTED attribute value carrying a bare `<`
+ *  (`<img alt="a<b" …>`) projects 11 characters instead of 0. (2) An UNQUOTED
+ *  one (`<img alt=a<b data-asset-id="real">`) projects 10 instead of 0, because
+ *  the `<img alt=a` opener can no longer match and the strip takes
+ *  `<b data-asset-id="real">` as a tag in its own right, leaving the head.
+ *  ★★ BOTH ARE THE SAFE DIRECTION for sanitizeBlock's drop condition — a
+ *  non-zero projection KEEPS the block — and (2) is the more valuable: that
+ *  block carries a REAL `data-asset-id` and was DELETED on every load path.
+ *  `document-model.test.ts` pinned that deletion as a KNOWN, ACCEPTED LOSS,
+ *  accepted ONLY because recovering it needed a predicate branch scanning past
+ *  `<`, which is quadratic. This recovers it the opposite way — by bounding the
+ *  projection — so the adversarial shape that docstring named,
+ *  `"<img ".repeat(n) + ">"`, measures 0.5 / 1.1 / 2.9 ms at 41 / 82 / 164 KB.
+ *  Its own comment set that as the acceptance test ("if a future change makes
+ *  this block survive, check what it did to the adversarial timing"), so the
+ *  test now asserts SURVIVAL.
+ *  ★ The cost of both is that the unmatched tag's head is raw markup read as
+ *  prose. Neither can reach the EXPORT projections: htmlToText runs DOMPurify
+ *  at ALLOWED_TAGS: [] and both of them project its OUTPUT, so no attribute
+ *  value survives that far (pinned with a positive control in
+ *  rich-text-projection.test.ts).
+ *  ★ This does NOT make the run quote-aware, which remains the change the three
+ *  stars above forbid: `<` exclusion and quote-awareness are two independent
+ *  narrowings with different blast radii, and conflating them is what produced
+ *  §250.
  *
  *  ★ History: both patterns once carried this same truncation and the safety
  *  was argued as a CANCELLATION between them. That argument was wrong — it held
  *  only for the one shape it was measured on, and real blocks were being
  *  deleted for shapes where the tail after the `>` was itself tag-like. See
  *  `ASSET_IMG_TEST_RE`'s docstring for the measurement. */
-const TAG = /<\/?[a-zA-Z][^>]*>/g;
+const TAG = /<\/?[a-zA-Z][^<>]*>/g;
 /** A non-breaking space in every spelling the editor or a paste can produce. */
 const NBSP = /&nbsp;|&#0*160;|&#x0*a0;/gi;
 /** Runs of whitespace — including the ones the boundary spaces above introduce
@@ -215,10 +239,14 @@ export const TASK_MARK_UNCHECKED = "[ ] ";
  *  keeps marker and text on one line; the item's CLOSING tags still become a
  *  boundary, so items stay on separate lines. The collapsed projection was
  *  never affected — its separator is a space — which is exactly why one
- *  projection can look right while the other is broken. */
+ *  projection can look right while the other is broken.
+ *
+ *  ★★ ALL THREE ATTRIBUTE RUNS EXCLUDE `<`, for the reason TAG's docstring
+ *  gives: an unterminated `<li` otherwise scans to end of input three times
+ *  over. Pinned by the complexity family in rich-text-plain.test.ts. */
 export function markTaskItems(html: string): string {
   return html.replace(
-    /<li\b[^>]*\bdata-type\s*=\s*"taskItem"[^>]*>\s*(?:<p\b[^>]*>)?/gi,
+    /<li\b[^<>]*\bdata-type\s*=\s*"taskItem"[^<>]*>\s*(?:<p\b[^<>]*>)?/gi,
     (tag) => (/\bdata-checked\s*=\s*"true"/i.test(tag) ? TASK_MARK_CHECKED : TASK_MARK_UNCHECKED),
   );
 }
@@ -278,6 +306,87 @@ export function htmlTextLength(html: string): number {
   return htmlPlainProjection(html).length;
 }
 
+/** How many asset images one degrade carries across.
+ *
+ *  ★★ THE BOUND LIVES HERE, NOT AT THE CALLERS. A caller-side cap is a bound
+ *  this function cannot see, so it stops holding the moment someone adds a
+ *  caller — and the whole point of this function is to be the one overflow path
+ *  every caller shares. 20 matches the document image cap; exceeding it means
+ *  the input was already outside what the app can hold. */
+const DEGRADE_IMG_CAP = 20;
+
+/** ★★★ THE MATCHER THIS FUNCTION USES LIVES IN `document-asset-patterns.ts`,
+ *  DELIBERATELY, AND MOVING IT BACK RE-OPENS §209. It shipped here as a private
+ *  fourth `data-asset-id` spelling and diverged on arrival — bare `[^<>]*` runs
+ *  where the three canonical ones are quote-aware, so an image carrying a `>` in
+ *  a quoted attribute before the id was silently dropped from a degrade while
+ *  every renderer drew it. That is §208's own defect inside §208's fix, and the
+ *  differential corpus in `document-asset-patterns.test.ts` — the only gate that
+ *  checks this class — could not see it from another module. Read
+ *  `ASSET_IMG_TAG_RE`'s docstring there before changing anything here. */
+
+/** The SINGLE overflow path: flatten to text, truncate, carry the images.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE OLD OVERFLOW BRANCH DELETED IMAGES SILENTLY (§208).
+ *  `capHtmlText` used to end in `plainToHtml(text.slice(0, cut))`, which builds
+ *  `<p>` + escaped text + `</p>` and therefore discards ALL markup — an
+ *  `<img data-asset-id>` in an over-cap paragraph was gone on load, with nothing
+ *  in the truncation diag.
+ *
+ *  ★★★ MARKUP-AWARE TRUNCATION IS NOT AN OPTION HERE AND THAT IS STRUCTURAL, not
+ *  a preference: this module is DOM-FREE by contract (see the file header — a
+ *  DOMPurify call here makes jsonToWorkspace silently produce an EMPTY
+ *  workspace under bare node). Anything that has to understand tree structure to
+ *  truncate correctly cannot live in this file. Carrying the images across a
+ *  flatten is the most that can be done without a DOM.
+ *
+ *  ★★ THE SURROGATE AND `max <= 0` GUARDS LIVE HERE NOW, moved from capHtmlText
+ *  rather than copied. `slice` counts UTF-16 CODE UNITS, so a cap landing inside
+ *  an astral character kept its LONE HIGH SURROGATE — which UTF-8 encoding
+ *  replaces with U+FFFD permanently, so CSV and Markdown corrupted while JSON
+ *  and IndexedDB did not. And at a NEGATIVE max, `slice`'s end index counts from
+ *  the END, so the guard is `max <= 0`, not `max === 0`. `clipText`
+ *  (sanitize-core.ts) carries the identical fix and the two are documented as
+ *  agreeing at the boundary — a second copy in capHtmlText would quietly turn
+ *  that two-way claim into a three-way one. */
+export function degradeToPlain(html: string, max: number): string {
+  if (!html) return "";
+  if (max <= 0) return "";
+  // ★★ BREAK OUT OF THE ITERATOR — do NOT `Array.from(...).slice(0, CAP)`. That
+  // spelling materialises EVERY match before discarding all but the first CAP,
+  // so the cap bounded the OUTPUT while the work stayed unbounded — on the one
+  // path whose input is oversized by definition. `matchAll` is lazy, so the
+  // break makes the cap bound the scan too.
+  // ★★ NOTHING PINS THIS, AND THE COMMENT ABOVE SHOULD NOT BE READ AS COVERAGE.
+  // Reverting to `Array.from(...).slice(0, CAP)` leaves every test green. The
+  // unterminated-`<img>` budget test cannot see it — that input yields ZERO
+  // matches, so both spellings drain the iterator identically. At any reachable
+  // size it is probably an EQUIVALENT mutant (the byte ceiling caps input at
+  // 161,024 bytes, so ~7,000 possible tags, and materialising 7,000 matches is
+  // sub-ms), which is why no test was added. Recorded as unproven rather than
+  // claimed — from here, an equivalent mutant and a missing test look the same.
+  // ★★ `lastIndex = 0` IS LOAD-BEARING, NOT DEFENSIVE — this comment called it
+  // defensive and that undersells it. `matchAll` HONOURS the source regex's
+  // lastIndex (measured 2026-08-28: seeded to 25, it yielded 1 match instead of
+  // 3) and never mutates it. The pattern is shared and module-level now, so a
+  // future `.test()`/`.exec()` consumer ANYWHERE would leave it dirty — those
+  // two DO advance it — and this reset is the only thing between that and a
+  // silent mid-string scan here. There is no such consumer today.
+  // ★ Breaking out of the loop above leaves lastIndex at 0, so the cap cannot
+  // strand it either.
+  ASSET_IMG_TAG_RE.lastIndex = 0;
+  const images: string[] = [];
+  for (const m of html.matchAll(ASSET_IMG_TAG_RE)) {
+    if (images.length >= DEGRADE_IMG_CAP) break;
+    images.push(m[0]);
+  }
+  const text = htmlPlainProjection(html);
+  const last = text.charCodeAt(max - 1);
+  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
+  const body = plainToHtml(text.slice(0, cut));
+  return images.length === 0 ? body : `${body}${images.join("")}`;
+}
+
 /** Cap by text length. Over cap, the value is projected to text, truncated and
  *  re-wrapped, so the result is always well-formed; formatting is lost on
  *  overflow.
@@ -286,35 +395,59 @@ export function htmlTextLength(html: string): number {
  *  milestone-edit-modal.tsx has no counter, no describeTextCap and no
  *  useAdjustmentTracker — a >5000-character milestone description loses all
  *  markup silently. That trade-off is accepted at that call site; this shared
- *  comment used to promise a warning only two of the three modals give. */
+ *  comment used to promise a warning only two of the three modals give.
+ *
+ *  ★★ THE OVERFLOW BRANCH IS degradeToPlain, WHICH IS THE ONLY PLACE THAT
+ *  TRUNCATES. The surrogate-pair and `max <= 0` guards moved there with it;
+ *  they are not duplicated here, deliberately, because `clipText`
+ *  (sanitize-core.ts) is documented as carrying the identical fix and agreeing
+ *  with it at the boundary — a third copy makes that claim unverifiable. */
 export function capHtmlText(html: string, max: number): string {
   if (!html) return "";
   const text = htmlPlainProjection(html);
   if (text.length <= max) return html;
-  // ★★ `slice` counts UTF-16 CODE UNITS, so a cap landing inside an astral
-  // character (emoji, rarer CJK, most symbols above the BMP) kept its LONE HIGH
-  // SURROGATE. That is not a character: encoding it to UTF-8 replaces it with
-  // U+FFFD, permanently. JSON.stringify escapes it as "\ud83d" and survives, so
-  // the JSON and IndexedDB backends did NOT corrupt while CSV and Markdown DID —
-  // a backend-dependent silent corruption, harder to diagnose than a uniform
-  // one. Back the cut off by one so the character is dropped WHOLE.
-  //
-  // ★★★ `max <= 0` IS NOT ONE CASE, and an earlier revision of this comment got
-  // it wrong: it said "charCodeAt(-1) is NaN … so cut stays 0", which is true at
-  // max === 0 and FALSE at max < 0. At a negative max `cut` becomes `max`, and
-  // `slice`'s end index then counts from the END — so capHtmlText(-1) returned
-  // "<p>a\ud800</p>", a LONE SURROGATE, from the very function whose job is to
-  // never emit one. Measured, not reasoned. `clipText` (sanitize-core.ts) hit
-  // the identical trap and clamps; these two are documented as carrying the same
-  // fix, so they must agree at the boundary or the claim is false.
-  // ★ Still unreachable from the app — every caller passes TEXTAREA_MAX or
-  // MAX_HTML_TEXT_CHARS — but "no caller passes one" is exactly the reasoning
-  // this file now records as insufficient twice over.
-  if (max <= 0) return "";
-  const last = text.charCodeAt(max - 1);
-  const cut = last >= 0xd800 && last <= 0xdbff ? max - 1 : max;
-  return plainToHtml(text.slice(0, cut));
+  return degradeToPlain(html, max);
 }
+
+/** Raw-byte ceiling, as a multiple of the VISIBLE-text cap it accompanies.
+ *
+ *  ★★★ IT EXISTS BECAUSE THE VISIBLE-TEXT CAP BOUNDS THE WRONG THING (§31).
+ *  `capHtmlText` measures projected text and returns the html untouched when it
+ *  fits, so markup carried no limit at all: `<p>` + `<em></em>` x200000 + `a</p>`
+ *  is ONE visible character and 1,800,008 stored bytes, and that value lands in
+ *  a Turso row, a CSV cell and a Markdown cell on all six backends.
+ *
+ *  ★★ K = 32 IS DERIVED, NOT PICKED. Measured html:visible ratios for real
+ *  formatting: plain 1.0x, bold-per-word 2.9x, list items 2.8x, links 6.3x,
+ *  table cells 6.5x, and the worst legitimate shape found — a highlight with an
+ *  inline style on every word — 8.3x. The two abuse shapes are 500,000x
+ *  (`<p data-x="A"x500000>a</p>`) and 1,800,000x (the `<em></em>` repeat named
+ *  above); both are pinned in rich-text-plain.test.ts. Three orders of
+ *  magnitude of clear air is what makes a ratio safe; 32 leaves ~4x headroom
+ *  over the worst legitimate case. An independent review then tried to build a
+ *  legitimate shape that trips it and reached 14.2x (a 400-row table with a
+ *  styled span per cell), so the headroom is ~2.3x against the worst
+ *  ADVERSARIALLY-sought legitimate content, not merely against the surveyed
+ *  set. The corpus itself tops out at 1.38x, and is too thin to set a constant
+ *  from (29 rich fields, 5 of them html).
+ *  ★★ "The abuse shapes ABOVE" was wrong — only one of the two appears above
+ *  this docstring; the other lives in the register and in a test. Name a shape
+ *  or cite where it lives; a positional reference rots the moment either
+ *  paragraph moves.
+ *  ★ The +1024 keeps a small `max` from rejecting its own wrapper markup, and
+ *  it governs the small-`max` regime ALONE — at max 5000 it is 1024 against a
+ *  160,000-byte K term and cannot change any verdict, which is why every test
+ *  that used max 5000 left it unpinned. `keeps a small-cap value alive on the
+ *  floor alone` is the one that holds it. */
+const RICH_BYTE_K = 32;
+const RICH_BYTE_FLOOR = 1024;
+// ★ NOT exported: it shipped `export`ed with zero consumers, and the tests
+// deliberately spell `5000 * 32 + 1024` by hand rather than calling it — a test
+// that derives both sides of a comparison from one constant pins nothing. Dead
+// export surface reads as a supported API; `--max-warnings=0` does not flag an
+// unused EXPORT, only an unused local. Export it when something needs to
+// predict the ceiling, not before.
+const richByteCeiling = (max: number): number => max * RICH_BYTE_K + RICH_BYTE_FLOOR;
 
 /** The single entry point for the entity sanitizers: guard the type, strip
  *  control characters, upgrade legacy plain text, cap by text length, and drop
@@ -338,6 +471,43 @@ export function capHtmlText(html: string, max: number): string {
 export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink): string {
   const s =
     typeof raw === "string" ? raw.replace(WS_CONTROL, " ").replace(CONTROL_CHARS, "") : "";
-  const html = capHtmlText(descriptionHtml(s, sink), max);
+  const upgraded = descriptionHtml(s, sink);
+  // ★★★ THE CEILING IS CHECKED BEFORE ANYTHING PROJECTS, AND THE ORDER IS THE
+  // WHOLE POINT. capHtmlText measures htmlPlainProjection(html) — it projects
+  // the FULL raw input before deciding anything, and that projection is the
+  // work §251 bounds. A ceiling placed after it would bound what is STORED and
+  // bound nothing about what is DONE. So this is a raw `.length` comparison,
+  // O(1), and must never call the projection to decide.
+  // ★★ The hard clip may cut mid-tag. That is safe ONLY because its output goes
+  // straight to degradeToPlain, which flattens to text and cannot re-emit the
+  // severed markup — do not reorder these two lines.
+  const ceiling = richByteCeiling(max);
+  let bounded = upgraded;
+  if (upgraded.length > ceiling) {
+    bounded = degradeToPlain(upgraded.slice(0, ceiling), max);
+    // ★★★ logDiag, DELIBERATELY NOT lastLoadTruncation — AND NOT BECAUSE THE
+    // SOURCE NO LONGER HOLDS THE DATA. An earlier revision of this comment said
+    // exactly that ("a degrade is idempotent and already committed … protecting
+    // data that exists nowhere else") and it is backwards on the only load that
+    // matters. sanitizeRichText is a LOAD-path sanitizer (sanitize-records.ts →
+    // workspace.ts), so on the FIRST load after this ships the source file or
+    // Turso row still holds the full markup — which is precisely the premise
+    // mayCommitAfterTruncation is built on, not a refutation of it. "Already
+    // committed" only becomes true after the next save has overwritten the
+    // source, i.e. after the loss is permanent.
+    // ★★ The decision stands; the derivation does not. It is a JUDGEMENT: a
+    // degrade is deterministic and reproduces identically on every reload, so
+    // blocking every write would strand a user with a workspace the app refuses
+    // to save over a value it will keep degrading the same way. The price is
+    // that the first save makes it permanent with only this diag entry as the
+    // record — visible here so that whoever next lowers RICH_BYTE_K sees what
+    // they are trading, rather than inheriting a false reason.
+    logDiag("warn", "rich-text-bytes-degraded", {
+      before: upgraded.length,
+      after: bounded.length,
+      ceiling,
+    });
+  }
+  const html = capHtmlText(bounded, max);
   return htmlTextLength(html) === 0 ? "" : html;
 }

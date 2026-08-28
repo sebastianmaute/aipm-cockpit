@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.262.1";
-export const APP_BUILD_DATE = "2026-08-27"; // 0.262.1: bound the whole Turso exchange, not just the headers (Swainston)
+export const APP_VERSION = "0.262.2";
+export const APP_BUILD_DATE = "2026-08-28"; // 0.262.2: bound the rich-text boundary — work and bytes (Swainston)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.262.x line is "Swainston" (Steph Swainston, British fantasy author).
  *  0.261.x was "Leckie" (Ann Leckie, SF author).

@@ -8,6 +8,40 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.262.2] - 2026-08-28 "Swainston"
+
+### Fixed
+
+- **Pictures no longer disappear from a long paragraph.** When a paragraph ran past its length
+  limit, the app shortened it by rebuilding it as plain text — which quietly threw away every
+  picture in it. The picture was gone the next time the project was opened, with nothing to say
+  it had ever been there. Long paragraphs are still shortened, and still lose their formatting
+  when that happens, but the pictures now come through — including pictures whose caption or
+  tooltip contains a `>`. Up to 20 pictures
+  are carried across; a paragraph past that was already beyond what the app can hold.
+
+- **A very large hidden-markup field keeps less of its text than its length limit suggests.**
+  Noted because it is surprising rather than because it changed: when a field trips the new size
+  ceiling, it is cut at that point in the stored text, so text and pictures beyond the cut
+  are lost even though the visible length limit was never reached.
+
+- **A malformed picture tag no longer causes the whole paragraph to be deleted on load.** A
+  paragraph whose picture tag was slightly broken could be dropped entirely when the project was
+  opened, even though the picture inside it was real. It is now kept.
+
+- **A project holding unusual text no longer takes minutes to open.** Certain shapes of stored
+  text — an unclosed tag repeated many times — made the app re-scan the same text over and over.
+  A moderately sized field of that shape took several seconds on its own, and the app touches
+  every such field on every load. Those scans are now bounded: the same input that took 16
+  seconds now takes hundredths of one.
+
+- **Stored text can no longer grow without limit behind the scenes.** The length limit counted
+  only the words a reader sees, so invisible formatting was unbounded — a single visible
+  character could sit behind nearly two megabytes of hidden markup, saved to every backend. There
+  is now a size ceiling as well, set far above anything real formatting produces, so ordinary
+  heavily formatted text is untouched. When it does trip, the reduction is recorded in the
+  diagnostics log rather than happening silently.
+
 ## [0.262.1] - 2026-08-27 "Swainston"
 
 ### Fixed

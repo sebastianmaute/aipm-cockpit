@@ -386,10 +386,22 @@ describe("rich-text-plain — properties", () => {
         // and the equality is trivially true — so count the runs where it
         // actually rewrote something, or the whole property could pass on a
         // generator that never emits a <p>.
-        if (separateBlockBoundaries(html) !== html) exercised += 1;
-        expect(htmlPlainProjection(separateBlockBoundaries(html))).toBe(
-          htmlPlainProjection(html),
-        );
+        const sep = separateBlockBoundaries(html);
+        if (sep !== html) exercised += 1;
+        // ★★★ THE PRECONDITION IS THE WHOLE NARROWING (0.262.2). The identity
+        // below holds exactly when the BLOCK_TAG pass is idempotent ON THIS
+        // input, and since 0.262.2 it is not idempotent for every input — see
+        // the paragraph under `numRuns` and the pin in the sibling test. This
+        // is a PROOF, not a sample: proj(sep(x)) is TAGpass(BLOCKpass(BLOCKpass
+        // (x))) and proj(x) is TAGpass(BLOCKpass(x)), so they coincide the
+        // moment BLOCKpass(BLOCKpass(x)) === BLOCKpass(x).
+        // ★★ `exercised` is counted BEFORE this returns, deliberately: the
+        // counter is the only detector of the mutant the property cannot kill
+        // (gutting separateBlockBoundaries to the identity), and skipping a run
+        // without counting it would shift the very distribution the floor below
+        // was derived from.
+        if (separateBlockBoundaries(sep) !== sep) return;
+        expect(htmlPlainProjection(sep)).toBe(htmlPlainProjection(html));
       }),
       // ★★ THE SAME RANDOM-VARIABLE TRAP AS THE astral COUNTER ABOVE, and it
       // reached CI: this test failed once in a full-suite shard on a branch
@@ -398,15 +410,37 @@ describe("rich-text-plain — properties", () => {
       // P(exercised <= 10) = 2.05e-4 — about 1 run in 4,900. The exact
       // Binomial(50, 0.4513) tail is 1.88e-4 (1 in 5,300), i.e. the empirical
       // and exact figures agree to within ~10%. The old assertion was `> 10`.
-      // ★★★ THE PROPERTY IS NOT THE FLAKY PART, AND IT CANNOT BE — it is an
-      //   IDENTITY, which is worth knowing before anyone "strengthens" it.
-      //   `htmlPlainProjection` BEGINS with the same `replace(BLOCK_TAG, " ")`
-      //   that `separateBlockBoundaries` IS, so `proj(sep(x)) === proj(x)`
-      //   reduces to BLOCK_TAG-replacement being idempotent — and it is, because
-      //   the replacement inserts a space and never a "<" or ">", while every
-      //   match spans "<"…">", so no second pass can find a new match. Zero
-      //   counterexamples over 20.2M generated inputs plus an exhaustive sweep
-      //   of every string of length <= 6 over the tag-forming alphabet.
+      // ★★★ THE PROPERTY IS NOT THE FLAKY PART, AND IT CANNOT BE — it is a
+      //   CONDITIONAL identity, which is worth knowing before anyone
+      //   "strengthens" it. `htmlPlainProjection` BEGINS with the same
+      //   `replace(BLOCK_TAG, " ")` that `separateBlockBoundaries` IS, so
+      //   `proj(sep(x)) === proj(x)` reduces to BLOCK_TAG-replacement being
+      //   idempotent — which the property now REQUIRES as a precondition rather
+      //   than assuming.
+      // ★★★ IT USED TO ASSUME IT, AND THE ARGUMENT WAS RIGHT UNTIL 0.262.2. The
+      //   old reasoning ran: the replacement inserts a space and never a "<" or
+      //   ">", while every match spans "<"…">", so no second pass can find a new
+      //   match. That held while BLOCK_TAG's attribute run was `[^>]*`, which
+      //   let one match span from the FIRST "<" to the first ">" — swallowing
+      //   any nested "<" on the way. §251 bounded the run to `[^<>]*` so it
+      //   cannot cross a tag boundary (it was quadratic: 7226 ms at 128 KB), and
+      //   a bounded match can no longer span `<p <p>`. It matches the INNER
+      //   `<p>` instead and LEAVES `<p  >` — a residue the replacement did not
+      //   write, but which IS a fresh BLOCK_TAG match. Idempotence dies there.
+      // ★★ THE DIVERGENCE IS REAL, NOT THEORETICAL, and is pinned by name in
+      //   the sibling test below: "a<p <p>>b" projects "ab" raw and "a b"
+      //   pre-separated. It needs a bare "<" INSIDE a tag, i.e. malformed markup
+      //   no editor emits — the same class §251 already documents as moving.
+      // ★★ IT CANNOT REACH `descriptionText`, which is the contract this
+      //   property is a proxy FOR: that path runs DOMPurify at ALLOWED_TAGS: []
+      //   and projects its OUTPUT, so no bare "<" survives to the projection.
+      //   Proven with a positive control in rich-text-projection.test.ts — do
+      //   not treat THIS test's narrowing as evidence the export path moved.
+      // ★ Before the bound: zero counterexamples over 20.2M generated inputs
+      //   plus an exhaustive sweep of every string of length <= 6 over the
+      //   tag-forming alphabet. Those figures describe the OLD unconditional
+      //   claim; they are kept because they are why the precondition is the
+      //   only change needed, and not a licence to re-widen it.
       // ★★ So the runs do NOT buy the property anything — every mutant this
       //   property can kill dies within 8 runs. They buy the COUNTER, which is
       //   the only detector of the mutant the property CANNOT kill: gutting
@@ -435,6 +469,34 @@ describe("rich-text-plain — properties", () => {
     // ★ Reproduce the table rather than trusting it — it is exact binomial, so
     //   it needs no sampling: P(X <= f) for X ~ Bin(n, q), n=250, f=80.
     expect(exercised).toBeGreaterThan(80);
+  });
+
+  // ★★★ THE EXACT SHAPE THE PROPERTY ABOVE NOW EXCLUDES, PINNED DETERMINISTICALLY
+  // SO THE NARROWING CANNOT QUIETLY WIDEN. A precondition that nothing exercises
+  // is indistinguishable from a deleted assertion: if BLOCK_TAG ever became
+  // idempotent again, `separateBlockBoundaries(sep) !== sep` would stop firing,
+  // the property would silently go back to covering everything, and nobody would
+  // learn that from a green run. This test fails in THAT direction too.
+  //
+  // ★★ These two values were MEASURED against 0.262.2 and against the
+  // pre-§251 module side by side: `"a<p <p>>b"` was equal on BOTH paths before
+  // the bound and is not after. fast-check found the first one on its own at
+  // seed -1116299406, shrunk to "&amp;<p <p>>a"; it is recorded here as a
+  // literal because an unseeded generator finding it again is not something a
+  // future run can be relied on to do.
+  test("the BLOCK_TAG pass is NOT idempotent on a bare < inside a tag", () => {
+    for (const html of ["a<p <p>>b", "&amp;<p <p>>a"]) {
+      const sep = separateBlockBoundaries(html);
+      // The precondition the property leans on really does exclude this input…
+      expect(separateBlockBoundaries(sep)).not.toBe(sep);
+      // …and it has to, because the projections genuinely disagree here.
+      expect(htmlPlainProjection(sep)).not.toBe(htmlPlainProjection(html));
+    }
+    // The divergence is a separator, not lost content: the raw path lets the
+    // later TAG pass DELETE the residue, the pre-separated path turns it into a
+    // space. Spelled out so a future reader can see it is not data loss.
+    expect(htmlPlainProjection("a<p <p>>b")).toBe("ab");
+    expect(htmlPlainProjection(separateBlockBoundaries("a<p <p>>b"))).toBe("a b");
   });
 
   test("preserveBreaks differs from the default only in newline-vs-space", () => {

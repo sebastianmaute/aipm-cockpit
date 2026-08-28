@@ -232,3 +232,84 @@ describe("task-item state in the plain-text projections (§140)", () => {
     expect(descriptionText("<p>plain</p><p>text</p>")).toBe("plain text");
   });
 });
+
+// ★★★ THE PROOF OBLIGATION THE `[^<>]*` CHANGE RESTS ON. `htmlToText` runs
+// DOMPurify with ALLOWED_TAGS: [] and ALLOWED_ATTR: [], and both projections
+// here call htmlPlainProjection on its OUTPUT — so no tag and no attribute
+// value survives to that point, and a `<` can only arrive as `&lt;`. That makes
+// bounding TAG/BLOCK_TAG a provable no-op for search, exports, the AI digests,
+// Jira and dedup, which is why those callers need no per-site audit.
+//
+// ★★ THE POSITIVE CONTROL IS THE HALF THAT MATTERS. Asserting only "no raw <"
+// passes just as well if descriptionText returned "" for everything — the
+// control proves the pipeline actually carried text through.
+describe("the export path never hands htmlPlainProjection a raw <", () => {
+  const HOSTILE = [
+    '<p>a<b</p>',
+    '<img alt="a<b" data-asset-id="real">',
+    '<p title="x<y">visible</p>',
+    "<p>" + "<a".repeat(50) + "</p>",
+    '<p>cost < 5k and rising</p>',
+  ];
+
+  it("leaves no bare < in the projected text, and still carries text through", () => {
+    // Positive control FIRST: an ordinary value must survive with its text.
+    expect(descriptionText("<p>ordinary <strong>text</strong> here</p>")).toBe(
+      "ordinary text here",
+    );
+
+    for (const html of HOSTILE) {
+      for (const out of [descriptionText(html), descriptionTextWithBreaks(html)]) {
+        // A `<` may legitimately appear as literal prose ("cost < 5k"), which is
+        // the whole point of the last fixture — what must never appear is a `<`
+        // that is still acting as a TAG OPENER, i.e. followed by a letter or /.
+        expect(/<[a-zA-Z/]/.test(out)).toBe(false);
+      }
+    }
+  });
+
+  // ★★★ THE CONTROL ABOVE IS ON A DIFFERENT INPUT FROM THE HOSTILE FIVE, WHICH
+  // IS THE HOLE THIS CLOSES. Mutate `descriptionText` to return "" for any input
+  // containing a bare `<` and every assertion above still passes: the control
+  // has no bare `<` so it is unaffected, and `/<[a-zA-Z/]/.test("")` is false,
+  // so all ten absence checks pass over empty strings. An absence assertion
+  // needs a per-input positive observable, not a neighbouring one.
+  it("carries the hostile inputs' own text through, not just an empty string", () => {
+    // The `<` here is real prose and must SURVIVE as prose — this is the one
+    // fixture that proves the pipeline is not simply deleting everything.
+    expect(descriptionText("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
+
+    // ★★ Per-fixture EXPECTED values, not a "non-empty" heuristic. The first cut
+    // asserted `length > 0` for everything but the image fixture and went red:
+    // a run of unterminated `<a` openers is ALL markup and correctly projects
+    // nothing, so the heuristic mistook a legitimate empty for a failure. Two
+    // fixtures here are supposed to be empty and two are not, and only naming
+    // each one says which.
+    expect(descriptionText("<p>a<b</p>")).toBe("a");
+    expect(descriptionText('<p title="x<y">visible</p>')).toBe("visible");
+    // Empty BY DESIGN — asserted so a future change that starts leaking markup
+    // here is visible rather than silently widening the "no bare <" check.
+    expect(descriptionText('<img alt="a<b" data-asset-id="real">')).toBe("");
+    expect(descriptionText("<p>" + "<a".repeat(50) + "</p>")).toBe("");
+  });
+
+  // ★★★ THE TEST ABOVE CLOSED HALF THE HOLE IT NAMED. The absence loop runs
+  // BOTH projections over the five fixtures — ten checks, as its own comment
+  // counts — but the positive observables covered `descriptionText` ALONE. So
+  // the mutant "`descriptionTextWithBreaks` returns "" for any input containing
+  // a bare `<`" stayed green against the whole file, and five of the ten
+  // absence checks still had no per-input positive observable: exactly the gap
+  // the comment above declares fatal, left open in the fix for it.
+  // ★★ Values MEASURED, not copied from the sibling test — the two projections
+  // differ on block boundaries, so assuming they agree is the same guess this
+  // pair of tests exists to stop anyone making.
+  it("carries the hostile inputs through descriptionTextWithBreaks too", () => {
+    expect(descriptionTextWithBreaks("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
+    expect(descriptionTextWithBreaks("<p>a<b</p>")).toBe("a");
+    expect(descriptionTextWithBreaks('<p title="x<y">visible</p>')).toBe("visible");
+    // Empty BY DESIGN, same reasons as above: an `img` is void and has no text
+    // content, and a run of unterminated `<a` openers is all markup.
+    expect(descriptionTextWithBreaks('<img alt="a<b" data-asset-id="real">')).toBe("");
+    expect(descriptionTextWithBreaks("<p>" + "<a".repeat(50) + "</p>")).toBe("");
+  });
+});
