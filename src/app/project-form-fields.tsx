@@ -663,20 +663,43 @@ function ContactPersonsControl({
   // (which accessible-name computation does), so "Bob  Jones" adds happily
   // beside "Bob Jones"; and `sanitizeProjectMeta` does not dedupe an imported
   // project, so exact repeats arrive from a file.
-  /** The string the row actually RENDERS. ★★ Load-bearing that the token map
-   *  below and the `<span>` in the list share this ONE function: `row-tokens.ts`
-   *  documents that callers pass the row's DISPLAY name, and building the token
-   *  from `cp.name` alone discarded a discriminator that is already on screen —
-   *  two "Bob Jones" rows with different addresses read as visually distinct but
-   *  announced as "Remove – Bob Jones (1)" / "(2)", making AT users guess which
-   *  ✕ they were on. With the display string, distinct addresses give distinct
-   *  tokens outright and no occurrence index is needed; identical-or-absent
-   *  addresses still fall through to the index, which is the old behaviour.
-   *  ★ Sharing the function is also what stops the two from drifting: a token
-   *  spelled differently from the visible text would be a WCAG 2.5.3
-   *  (label-in-name) failure rather than a fix. */
+  /** The string the row actually RENDERS. */
   const contactDisplay = (cp: ContactPerson) => `${cp.name}${cp.email ? ` <${cp.email}>` : ""}`;
-  const contactTokens = buildRowTokens(contactPersons.map((cp, i) => ({ id: i, name: contactDisplay(cp) })));
+  /** ★★★ THE EMAIL JOINS THE TOKEN ONLY FOR A NAME THAT ACTUALLY REPEATS, and
+   *  the conditional is the whole point. Two "Bob Jones" rows with different
+   *  addresses are visually distinct but would announce as "Remove – Bob Jones
+   *  (1)" / "(2)", leaving an AT user to guess which ✕ they were on; the address
+   *  is a discriminator already on screen, so the colliding subset uses it and
+   *  drops the index entirely.
+   *  ★★ Spending it UNCONDITIONALLY was the first cut and was wrong for the same
+   *  reason `row-tokens.ts` rejects ids: a cost paid on every control, by exactly
+   *  the users 2.4.6 protects, for a discriminator almost no row needs. On the
+   *  repo's own sample project it took a two-contact list with no collision at
+   *  all from "Remove – David Okoro" to "Remove – David Okoro
+   *  <david.okoro@northwind.example>". Number the colliding rows, leave the rest
+   *  bare — the same principle `buildRowTokens` itself applies.
+   *  ★★ The benefit is IMPORT-ONLY: `addDraft` rejects a duplicate via `hasName`,
+   *  which compares names alone, so the product cannot create this pair. It
+   *  arrives from a file, because `sanitizeProjectMeta` does not dedupe.
+   *  ★ Counting mirrors `hasName`'s own comparison. Where it disagrees with
+   *  `buildRowTokens`' whitespace `collapse`, the fallback is still correct:
+   *  two rows left bare that collapse-collide simply get the occurrence index,
+   *  which is the behaviour this replaces.
+   *  ★ NOT a WCAG 2.5.3 question either way — an earlier revision of this comment
+   *  claimed it was. The rendered name is a SIBLING `<span>`, not this button's
+   *  label; the button's own visible text is "×". 2.5.3 governs a control's name
+   *  against its OWN label, and says nothing about adjacent content. */
+  const contactNameCounts = new Map<string, number>();
+  for (const cp of contactPersons) {
+    const key = cp.name.trim().toLowerCase();
+    contactNameCounts.set(key, (contactNameCounts.get(key) ?? 0) + 1);
+  }
+  const contactTokens = buildRowTokens(
+    contactPersons.map((cp, i) => ({
+      id: i,
+      name: (contactNameCounts.get(cp.name.trim().toLowerCase()) ?? 0) > 1 ? contactDisplay(cp) : cp.name,
+    })),
+  );
 
   const addDraft = () => {
     const name = draft.name.trim();

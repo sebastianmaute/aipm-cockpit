@@ -210,9 +210,18 @@ export function TaskKanbanSwimlanes({
                   // a named <section> maps to `region`, a LANDMARK, and there
                   // are lanes × TASK_STATUSES of these — turning every drop cell
                   // into a landmark floods the AT landmark list.
-                  // ★★ axe cannot police either half: `aria-prohibited-attr` is
-                  // tagged `wcag2a` but lands in `incomplete`, not `violations`,
-                  // so the e2e gate was silent before this and is silent now.
+                  // ★★★ THE GATE IS SILENT HERE, BUT NOT FOR THE REASON AN EARLIER
+                  // REVISION OF THIS COMMENT GAVE. It claimed `aria-prohibited-attr`
+                  // lands in `incomplete` rather than `violations`. Measured against
+                  // axe-core 4.12.1 under the gate's own four tags, that is only true
+                  // of a NON-EMPTY cell: `ariaProhibitedAttrEvaluate` is a `none`
+                  // check that returns incomplete when the subtree has text and FAILS
+                  // outright when it does not. Most person×status cells are empty, so
+                  // the pre-fix majority bucket was violations, not incomplete.
+                  // The real reason the gate never saw it: no e2e view renders
+                  // swimlanes at all (`grep -rn -i swimlane e2e/` → nothing). So
+                  // `role="group"` removes a REAL violation the day anyone adds this
+                  // surface to `A11Y_VIEWS`, and until then
                   // `task-kanban-swimlanes.test.tsx` is the only detector.
                   role="group"
                   data-testid={`swimlane-cell-${lane.key}-${status}`}

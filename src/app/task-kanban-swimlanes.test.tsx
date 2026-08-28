@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from "vitest";
-import { render, screen, fireEvent } from "@testing-library/react";
+import { render, screen, fireEvent, within } from "@testing-library/react";
 import { TaskKanbanSwimlanes } from "./task-kanban-swimlanes";
 import type { Resource, Task } from "./types";
 import { buildRowTokens } from "./row-tokens";
@@ -208,7 +208,15 @@ describe("TaskKanbanSwimlanes", () => {
     // what makes this test go red if the role is ever removed and the names go
     // back to being announced to nobody. `expectRowUniqueNames` reads CONTROLS,
     // so it cannot cover `group`; assert directly.
-    const cellNames = screen.getAllByRole("group").map((c) => c.getAttribute("aria-label"));
+    // ★ SCOPED to the container, not `screen`. Querying the whole document would
+    // make this a claim about every `group` on the page, so a `role="group"`
+    // later added by a card, a wrapper or a portal would change what it measures
+    // — and the failure direction is a false RED that reads like a naming
+    // regression. Nothing else in this subtree exposes `group` today; the scope
+    // is what keeps that from mattering.
+    const cellNames = within(container)
+      .getAllByRole("group")
+      .map((c) => c.getAttribute("aria-label"));
     expect(cellNames.length).toBeGreaterThan(0);
     expect(new Set(cellNames).size).toBe(cellNames.length);
   });

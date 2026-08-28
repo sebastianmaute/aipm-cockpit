@@ -96,11 +96,26 @@ describe("manual-contact email field", () => {
 // Contact persons: identity is the ROW, never the NAME
 // ---------------------------------------------------------------------------
 
-const contact = (name: string) => ({ name, email: "", synced: false });
+// ★★ The email DEFAULTS to blank, and for a long while every fixture in this
+// file took that default — which made the whole `cp.email ? …` branch of
+// `contactDisplay` unreachable, so a change to it was green by construction.
+// Pass a real address whenever the assertion is about the token's INPUT.
+const contact = (name: string, email = "") => ({ name, email, synced: false });
 
+// ★ `names.map((n) => contact(n))`, never `names.map(contact)` — the bare
+// reference hands `map`'s INDEX to the email parameter.
 const withContacts = (...names: string[]) => ({
   ...props,
-  draft: { ...emptyProjectDraft(), contactPersons: names.map(contact) },
+  draft: { ...emptyProjectDraft(), contactPersons: names.map((n) => contact(n)) },
+});
+
+/** Contacts with explicit addresses, for the cases about the token's INPUT. */
+const withContactPeople = (...people: { name: string; email?: string }[]) => ({
+  ...props,
+  draft: {
+    ...emptyProjectDraft(),
+    contactPersons: people.map((p) => contact(p.name, p.email ?? "")),
+  },
 });
 
 // ★★ SCOPE IS NARROWED TO THE CONTACTS LIST, and the named collision that
@@ -166,6 +181,56 @@ describe("contact persons", () => {
       expect(n).toContain("Bob Jones");
       expect(n).toContain(t("en-US", "remove"));
     }
+  });
+
+  // ★★★ THESE TWO PIN THE CONDITIONAL, AND NEITHER IS REACHABLE FROM THE
+  // DEFAULT FIXTURE. `contactDisplay`'s `cp.email ? …` branch never ran while
+  // every contact took the blank default, so the token's INPUT could be changed
+  // in either direction with the whole file green. The pair is what makes the
+  // "only where it buys something" rule a claim a test can falsify: the first
+  // fails if the email stops reaching a colliding row, the second fails if it
+  // reaches a row that does not need it.
+  it("discriminates same-named contacts by address instead of an occurrence index", () => {
+    render(
+      <IdentityPeopleFields
+        {...withContactPeople(
+          { name: "Bob Jones", email: "bob@north.example" },
+          { name: "Bob Jones", email: "bob@south.example" },
+        )}
+      />,
+    );
+    const names = within(contactsList())
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? "");
+    expect(names).toHaveLength(2);
+    expect(names[0]).toContain("bob@north.example");
+    expect(names[1]).toContain("bob@south.example");
+    // The address IS the discriminator here, so no row is numbered.
+    for (const n of names) expect(n).not.toMatch(/\(\d+\)$/);
+  });
+
+  it("leaves a contact whose name is already unique bare, address and all", () => {
+    render(
+      <IdentityPeopleFields
+        {...withContactPeople(
+          { name: "David Okoro", email: "david.okoro@northwind.example" },
+          { name: "Alex Example", email: "Sample.Dummy@example.com" },
+        )}
+      />,
+    );
+    const names = within(contactsList())
+      .getAllByRole("button")
+      .map((b) => b.getAttribute("aria-label") ?? "");
+    expect(names).toHaveLength(2);
+    // ★ The cost this asserts the ABSENCE of is what the first cut charged every
+    // AT user on every row: "Remove – David Okoro" is 20 characters, and with the
+    // address unconditionally appended it was 52.
+    for (const n of names) {
+      expect(n).not.toContain("@");
+      expect(n).not.toMatch(/\(\d+\)$/);
+    }
+    expect(names[0]).toContain("David Okoro");
+    expect(names[1]).toContain("Alex Example");
   });
 
   // ★★★ `expectRowUniqueNames` CANNOT SEE THIS CASE, and that is a property of
