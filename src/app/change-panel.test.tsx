@@ -941,8 +941,8 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
     // and start moving with every toolbar change.
     // ★ NOTE this is a DIFFERENT justification from the "confirm a specific
     // collision and name it" rule in `row-unique-names.ts`'s SCOPE CHOICE
-    // paragraph — which still cites THIS file as its worked example for that
-    // rule, and is stale at HEAD for exactly the reason above.
+    // paragraph. That rule does not apply here — no collision with unrelated
+    // chrome is claimed for this narrowing.
     // ★ Whole-container coverage is not lost: "gives the type/status filters and
     // their sort headers distinct names" at the bottom of this file scans
     // strictly wider (whole DOCUMENT, all three roles, column-config popover

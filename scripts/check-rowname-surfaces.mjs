@@ -4,9 +4,7 @@
 // ★★★ A REPORT, NOT A GATE. Exit 0 on a successful scan; exit 2 means it could
 // not SCAN at all — a bad `--json` argument, or zero sources found, the latter
 // being a vacuity guard rather than a finding (a scan that reads nothing passes
-// everything). ★ Read that qualifier as load-bearing: an earlier revision of
-// this line said only "always exits 0", four lines above the two `process.exit(2)`
-// paths, and at a glance it reads as the unqualified claim. It is
+// everything). It is
 // deliberately absent from `.gitlab-ci.yml`, and adding it there would be a
 // mistake: a real gate would have to RENDER each panel against a collision
 // fixture and read the accessible names off the tree, which nothing static can
@@ -102,7 +100,7 @@ out(
 // these files are dense with the phrase; a bare `unique` can be about a unique
 // id. The per-file `[marker]` said so already, but the SUMMARY — the line a
 // reader quotes — carried only the four-marker split, so the quotable GAP count
-// was 4.3x optimistic (13 against 56 when this was measured).
+// understated the risk. Compare the two lines below on any run.
 out(
   `  strong marker    COVERED ${summary.byStrongStatus.COVERED} | COVERED_VIA_PARENT ${summary.byStrongStatus.COVERED_VIA_PARENT} | GAP ${summary.byStrongStatus.GAP}   (files, ${STRONG_MARKER} only)`,
 );

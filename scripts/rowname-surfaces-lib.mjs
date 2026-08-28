@@ -165,9 +165,8 @@ export function scanOpenTag(text, lt) {
  *  The first two require an IDENTIFIER after `.map(`, so the mainstream React
  *  idiom `rows.map(({ key, labelKey }) => …)` matched NEITHER — `repeatScopes`
  *  returned 0, every control inside fell to the `!inRepeat` branch of
- *  `findSurfaces`, and the whole file was dropped from the enumeration. Measured
- *  blast radius when it was found: nine files absent from the report outright,
- *  among them `column-config-popover.tsx` — the file the row-unique-names branch
+ *  `findSurfaces`, and the whole file was dropped from the enumeration.
+ *  `column-config-popover.tsx` is the worked case — the file the row-unique-names branch
  *  edited to CLOSE a 2.4.6 defect contributed zero sites to the enumeration
  *  built to find that class. `[{[]` catches object AND array destructuring. */
 const MAP_RE = /\.map\(\s*(?:\(\s*(?:([A-Za-z_$][\w$]*)|[{[])|([A-Za-z_$][\w$]*)\s*=>)/g;
@@ -561,10 +560,8 @@ export function collectSources(repoRoot) {
  * ★★★ THE HEADLINE IS COMPUTED TWICE, AND THE SECOND NUMBER IS THE HONEST ONE.
  * `COVERAGE_MARKERS` counts the bare phrase `accessible name` — anywhere in the
  * file, a comment included, and these test files are dense with it — as evidence
- * that a test asserts. Measured when that was found: under all four markers the
- * split was COVERED 59 | VIA_PARENT 34 | GAP 13, and under `expectRowUniqueNames`
- * alone it was 27 | 23 | 56. The gap count a reader quotes was 4.3x optimistic,
- * and the per-file `[marker]` that would have discounted it never reached the
+ * that a test asserts. The gap count a reader quotes is the optimistic one, and
+ * the per-file `[marker]` that would have discounted it never reached the
  * summary line. So `byStatus` (all markers) and `byStrongStatus`
  * (`expectRowUniqueNames` only) are both computed here and both printed: the
  * strong number is now impossible to quote away.

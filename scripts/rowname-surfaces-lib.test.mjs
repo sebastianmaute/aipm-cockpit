@@ -634,11 +634,9 @@ describe("buildReport", () => {
     // becomes a copy of `byStatus`.
     // `COVERAGE_MARKERS` counts the bare phrase `accessible name` — anywhere in
     // a test file, a COMMENT included, and these files are dense with it — as
-    // evidence that a test asserts. Measured over the real tree when this was
-    // found: 59 | 34 | 13 under all four markers against 27 | 23 | 56 under
-    // `expectRowUniqueNames` alone. The per-file `[marker]` already said so;
+    // evidence that a test asserts. The per-file `[marker]` already said so;
     // the SUMMARY line, the one a reader quotes, did not, so the quotable GAP
-    // count was 4.3x optimistic. Both are now computed and both are printed.
+    // count understated the risk. Both are now computed and both are printed.
     const report = buildReport({
       sources,
       tests: new Map([

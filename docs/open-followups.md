@@ -476,7 +476,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
-| [§282](#282-row-unique-namests-cites-change-paneltesttsx-as-its-confirmed-collision-example-and-261-closed-that-collision) | `row-unique-names.ts` cites `change-panel.test.tsx` as its confirmed-collision example, and §261 closed that collision | found 2026-08-28 | S | open |
+| [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -19232,10 +19232,12 @@ git show adacc564:src/app/stakeholders-panel.tsx | grep -c 'labelKey: "stakehold
 → `2`, `4`, `1`. Every one of the seven was a 3-WAY collision, which is why the fix needed a third
 leg rather than the two the entry originally scoped.
 
-**What shipped.** Seven new filter keys separate the filter half from the header half —
-`changeFilterType`, `changeFilterStatus`, `raidFilterCategory`, `raidFilterSeverity`,
-`raidFilterStatus`, `raidFilterOwner`, `stakeholderFilterName`, all "Filter by …" — leaving the
-`SortResizeTh` columns on the field keys they already had. The third leg is one key,
+**What shipped.** New filter keys separate the filter half from the header half, leaving the
+`SortResizeTh` columns on the field keys they already had. Enumerate today's set with
+`grep -rn "FilterType\|FilterStatus\|FilterCategory\|FilterSeverity\|FilterOwner\|SearchPlaceholder" src/app/i18n.ts`
+— the list is deliberately not spelled out here, because one member has already been renamed since
+this entry was written (the stakeholders box searches four fields, so a "Filter by name" key would
+have lied about its own value). The third leg is one key,
 `colConfigToggleColumn` ("Show column – {0}", EN DASH), applied inside `ColumnConfigPopover` itself,
 so the checkbox now announces its ACTION and the fix reaches every consumer at once rather than
 five times over. Enumerate the consumers rather than trusting a number here — and note the grep
@@ -19281,10 +19283,6 @@ grep -n 'ariaLabel={t(lang, "stakeholderFieldName")}\|label={t(lang, "stakeholde
 
 ★★★ **These 7 are pairs by SCOPE, not by fact — a `ColumnConfigPopover` checkbox shares each of these
 same keys too, making six of the seven a 3-WAY collision.**
-★★★ **"six" IS THE WRONG NUMBER — it is SEVEN of seven, corrected at the top of this entry, and this
-marker exists only because the error carried three stars and bold while its correction carried
-neither.** A reader skimming for emphasis lands on the false figure first; the enumeration in the rest
-of THIS paragraph is what to check, and it lists seven `*_CONFIG_COLS` entries, not six.
 Every `*_CONFIG_COLS` array pairs a
 column's `key` with the SAME `labelKey` its filter/header already uses:
 `CHANGE_CONFIG_COLS`'s `type`/`status` entries key on `changeFieldType`/`changeFieldStatus`
@@ -19926,17 +19924,8 @@ extraction from this file should run `npx eslint --max-warnings=0 src` for the i
 `vitest.config.ts` `coverage.exclude` under a rationale that does not fit all of what moved. See
 [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary).
 
-★★★ **EVERYTHING FROM HERE DOWN IS THE ENTRY AS FILED (2026-08-27), AND ITS FIRST SENTENCE IS EXACTLY
-WHAT THE CLOSE FALSIFIED.** "`task-manager.tsx` now measures exactly that number" was true when it was
-written and is false today: `f3f49ab6` extracted a hook and deliberately did NOT touch the baseline, so
-the file now sits well BELOW it with real headroom — which is the whole point of closing the entry. It
-is flagged rather than rewritten because a reader landing mid-entry would otherwise take a present-tense
-claim about a CI gate at face value, and because deleting it would hide what the entry was filed
-against. Read the two commands in "What shipped" above for today's numbers; no figure is quoted here,
-for the reason the next paragraph gives.
-
-`file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`, and
-`task-manager.tsx` now measures exactly that number. **No line count is quoted in this entry on
+`file-size-ratchet` is BLOCKING in CI. Its baseline lives in `docs/baselines/file-sizes.json`.
+**No line count is quoted in this entry on
 purpose** — this register has already been burned by a hardcoded line count going stale and
 feeding three false-premise entries downstream, which is precisely why the entry takes this form.
 Read both numbers off the tree:
@@ -20095,15 +20084,11 @@ grep -n "rec.proposedCalls.filter" src/app/use-insight-recommendations.ts
 npx vitest run src/app/insights src/app/use-insight-recommend-runner.test.ts src/app/insights-panel.test.tsx src/app/task-manager.characterization.test.tsx --maxWorkers=1 --pool=threads
 ```
 
-★★ **That command CARRIES the characterization test because the prose above does — an earlier
-revision of this entry dropped it, so the command and the sentence described different selections and
-only the sentence's could reach 18 files.** `src/app/insights` is a vitest SUBSTRING filter, not a
-directory: it matches every test path containing that string, which is 16 files today — the 13 under
-`insights/` plus `insights-autosave`, `insights-panel` and `insights-persistence`. So
-`insights-panel.test.tsx` already sits inside the first argument and naming it again is redundant
-(kept only because the prose names it). 16 + the runner + the characterization test = 18; without the
-last path the command selects 17 and cannot reproduce its own headline. Count the population rather
-than trusting this sentence — it moves with every insights test added:
+★★ **`src/app/insights` is a vitest SUBSTRING filter, not a directory** — it matches every test path
+containing that string, so `insights-panel.test.tsx` already sits inside the first argument and naming
+it again is redundant. The command must also carry the characterization test, or it selects a smaller
+set than the prose describes and cannot reproduce its own headline. Count the population rather than
+trusting this sentence — it moves with every insights test added:
 
 ```bash
 git ls-files | grep -E '\.(test|spec)\.(ts|tsx)$' | grep -c 'src/app/insights'
@@ -20169,8 +20154,8 @@ grep -n -B 3 "process.exit(2)" scripts/check-rowname-surfaces.mjs
 
 ★★★ **EVERY FIGURE BELOW MOVES WITH THE TREE, AND EVERY ONE OF THEM ALREADY HAS ONCE.** This entry
 was first filed against a run predating `5aa07575` (three scanner defects, below) and `9afd9b8d` (the
-src-side fixes), and not one number survived the pair: sites 247 → 268, files 106 → 115, `FIXED`
-16 → 14, GAP files 13 → 15, and a whole new leg appeared. Re-run before quoting anything here:
+src-side fixes), and not one number survived the pair — a whole new leg appeared as well. Re-run
+before quoting anything here:
 
 ```bash
 node scripts/check-rowname-surfaces.mjs
@@ -20527,7 +20512,7 @@ importing file's directory and trying the extension list, which is what `moduleK
 The cheap alternative is a guard rather than a fix: fail the scan when two SURFACE files share a key,
 which costs nothing today (there are none) and turns the latent case into a loud one.
 
-## 282. `row-unique-names.ts` cites `change-panel.test.tsx` as its confirmed-collision example, and §261 closed that collision
+## 282. The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example
 
 **Status:** open. Filed 2026-08-28. The stale citation itself is already gone — this entry exists
 because what replaced it is an acknowledged HOLE, and a hole nobody has filed is a hole nobody fills.

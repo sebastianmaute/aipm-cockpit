@@ -30,9 +30,8 @@ three rounds necessary.
 > present-tense descriptions of live defects no longer hold. Today's numbers live in
 > `docs/open-followups.md` §276 and, better, in a fresh `node scripts/check-rowname-surfaces.mjs`.
 >
-> ★ Nothing gates any of this: `docs:claims:check` excludes `docs/superpowers/` outright, so no
-> pipeline has ever read this file and none will report it rotting further. Re-verify any claim here
-> against HEAD before acting on it; if a claim still matters, restate it in a live doc.
+> Re-verify any claim here against HEAD before acting on it; if a claim still matters, restate it in a
+> live doc. (Nothing gates this file — see the same note on the plan.)
 
 ---
 
