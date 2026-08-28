@@ -16616,10 +16616,8 @@ this entry now scope to `use-storage-backend.ts` alone; everything below about t
 kept as the survey that was acted on, not as a live hazard. Measure rather than trust:
 
 ```bash
-node -e "console.log(require('fs').readFileSync('src/app/use-chat-dispatcher.ts','utf8').split('
-').length)"
-node -e "console.log(require('fs').readFileSync('src/app/use-register-tools.ts','utf8').split('
-').length)"
+node -e "console.log(require('fs').readFileSync('src/app/use-chat-dispatcher.ts','utf8').split('\n').length)"
+node -e "console.log(require('fs').readFileSync('src/app/use-register-tools.ts','utf8').split('\n').length)"
 ```
 
 ★★ **The survey named a HAZARD for that extraction and it was real — and it was caught by self-review
@@ -19349,8 +19347,7 @@ first: `74761580` extracted `budget-panel-cards.tsx`, which took the file well u
 today's number rather than trusting either this entry's `795` or any successor to it —
 
 ```bash
-node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8').split('
-').length)"
+node -e "console.log(require('fs').readFileSync('src/app/budget-panel.tsx','utf8').split('\n').length)"
 ```
 
 — and note that the remaining large block in the file has its own entry,
@@ -19889,8 +19886,7 @@ points at, and the baseline was deliberately NOT touched. Read both numbers rath
 figure here — this entry refuses to quote one on purpose, and closing it is not a reason to start:
 
 ```bash
-node -e "console.log(require('fs').readFileSync('src/app/task-manager.tsx','utf8').split('
-').length)"
+node -e "console.log(require('fs').readFileSync('src/app/task-manager.tsx','utf8').split('\n').length)"
 node -e "const b=require('./docs/baselines/file-sizes.json');console.log(b['src/app/task-manager.tsx'])"
 ```
 
