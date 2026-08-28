@@ -435,15 +435,27 @@ describe("malformed meta blobs are reported, not swallowed", () => {
   });
 
   it("leaves sibling slices intact when one blob is malformed", () => {
+    // ★ The sibling has to be a POSITIVE observable, not merely a slice that
+    // "didn't throw". `insights` decodes with `if (ins.length) ws.insights =
+    // ins;` — an EMPTY array never reaches the assignment, so a `[]` seed
+    // (the shape this test used to carry) leaves `ws.insights` undefined
+    // regardless of whether the decode ran at all, and the test was green
+    // whether the sibling decode worked or was entirely broken. A
+    // `knowledge_items` seed that survives `sanitizeKnowledgeItems` non-empty
+    // gives the assertion something that can actually fail.
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     try {
       const ws = rowsToWorkspace(
         metaOnlyResults([
           ["documents", "{not json"],
-          ["insights", JSON.stringify([])],
+          ["knowledge_items", JSON.stringify([
+            { id: "ki-1", name: "Spec doc", url: "https://example.com/doc", kind: "file" },
+          ])],
         ]),
       );
       expect(ws.documents).toBeUndefined();
+      expect(ws.knowledgeItems).toHaveLength(1);
+      expect(ws.knowledgeItems?.[0]?.id).toBe("ki-1");
     } finally {
       spy.mockRestore();
     }
