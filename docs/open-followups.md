@@ -225,7 +225,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--open-needs-a-decision) | A link in a task description loses its address in document exports — open, needs a decision | 0.210.0 (Larbalestier) | M | open |
-| [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--open-affects-all-four-rich-entities) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | open |
+| [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
@@ -402,7 +402,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§205](#205-the-missing-image-glyph-in-document-asset-imagests-is-not-eye-verified) | The missing-image glyph in `document-asset-images.ts` is not eye-verified | — | — | open |
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
 | [§207](#207-single-tenant-asset-metadata-is-global-while-the-bytes-are-always-partitioned) | Single-tenant asset metadata is global while the bytes are always partitioned | — | — | open |
-| [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | open |
+| [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
 | [§209](#209-one-data-asset-id-pattern-three-hand-maintained-spellings-was-five--closed-2026-08-25) | One `data-asset-id` pattern, THREE hand-maintained spellings (was five) | — | — | **CLOSED** 2026-08-25 |
 | [§210](#210-standalone-html-and-pdf-export-carry-an-image-with-no-source-and-no-placeholder-either--closed-2026-08-22) | Standalone HTML and PDF export carry an image with no source, and no placeholder either | — | — | **CLOSED** 2026-08-22 |
 | [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
@@ -445,9 +445,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
-| [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | open |
+| [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path--closed-2026-08-28) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-08-28 |
 | [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
-| [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | open |
+| [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id--closed-2026-08-28) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-28 |
 | [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely--closed-2026-08-27) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices--closed-2026-08-27) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
 | [§256](#256-restorerecord-does-not-check-restorable--the-invariant-is-held-by-the-renderer-not-the-handler--closed-2026-08-27) | `restoreRecord` does not check `restorable` — the invariant is held by the renderer, not the handler | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
@@ -1622,7 +1622,29 @@ that search, the AI digests and the inline-AI preview also use, and none of them
 
 ---
 
-## 31. `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities
+## 31. `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities — CLOSED 2026-08-28
+
+**CLOSED 2026-08-28 (0.262.2).** `sanitizeRichText` now applies a raw-byte ceiling,
+`richByteCeiling(max) = max * 32 + 1024`, and over-ceiling input is hard-clipped and flattened
+through `degradeToPlain`.
+
+★★★ **THE ORDERING IS THE FIX, not the ceiling.** The check is a raw `.length` comparison evaluated
+**before** anything projects. `capHtmlText` measures `htmlPlainProjection(html)` — it projects the
+FULL raw input to decide — so a ceiling placed after it would have bounded what is STORED and
+nothing about what is DONE. An earlier draft of the design had exactly that order and would have
+shipped a fix that did not bound the thing it was written to bound.
+
+★★ **K = 32 is derived, not picked.** Measured html:visible ratios: plain 1.0x, bold-per-word 2.9x,
+lists 2.8x, links 6.3x, table cells 6.5x, and the worst legitimate shape found — a highlight with an
+inline style on every word — 8.3376x (30007 bytes / 3599 visible). The abuse shapes are 500,000x and
+1,800,000x. A test pins the legitimate case passing through UNTOUCHED, so the ceiling cannot later be
+tightened into one that clips real documents without going red. `golden-workspace.test.ts`, which
+pins exact stored CSV/Markdown bytes, passed without fixture regeneration.
+
+**Residual (still open):** a degrade preserves the asset image and the visible text, and loses every
+other tag — bold, links, list structure. That is inherent to a DOM-free flatten, not a gap in this
+fix: markup-aware truncation needs a tree, and `rich-text-plain.ts` cannot have one (a DOMPurify call
+there makes `jsonToWorkspace` silently emit an EMPTY workspace under bare node).
 
 Found auditing 0.210.0's write-boundary fix. Not introduced by it in general — RAID/change/milestone
 already had this property via `sanitize-records.ts` — but that fix DID remove the one byte bound that
@@ -14640,7 +14662,34 @@ It also needs a migration story that does not exist: every byte already stored i
 way and `document_asset_data` carries no version marker to drive a re-key, so changing the scheme
 would orphan an existing library rather than move it.
 
-## 208. `capHtmlText` silently strips an image from any paragraph over the visible-text cap
+## 208. `capHtmlText` silently strips an image from any paragraph over the visible-text cap — CLOSED 2026-08-28
+
+**CLOSED 2026-08-28 (0.262.2).** `capHtmlText`'s overflow branch was
+`plainToHtml(text.slice(0, cut))`, which builds `<p>` + escaped text + `</p>` and therefore discards
+ALL markup — so an `<img data-asset-id>` in an over-cap paragraph was gone on load, with nothing in
+the truncation diag. It now delegates to a new `degradeToPlain(html, max)`, the SINGLE overflow path,
+which flattens to text, truncates, and carries the asset images across. §31's byte ceiling routes
+through the same function, so an image survives an overflow on every path at once.
+
+★★ The image cap (`DEGRADE_IMG_CAP = 20`) lives INSIDE `degradeToPlain`, not at its callers — a
+caller-side bound is one this unit cannot see, and it stops holding the moment someone adds a caller.
+
+★★ The surrogate-pair and `max <= 0` guards MOVED there rather than being copied, because `clipText`
+(`sanitize-core.ts` — `grep -n "function clipText" src/app/sanitize-core.ts`) is documented as
+carrying the identical fix and agreeing with it at the boundary; a third copy would make that
+two-way claim unverifiable. Verified by a function-scoped
+check, not a whole-file grep — the file holds an unrelated pre-existing surrogate guard in
+`decodeNumericEntities`, so `grep -c "0xd800"` returns the same number whether the guards were moved
+or duplicated.
+
+★ The degrade is now REPORTED via `logDiag("warn", "rich-text-bytes-degraded", …)` — deliberately
+NOT `lastLoadTruncation`, which blocks writes on the premise that the SOURCE still holds what was not
+loaded. That is false for an idempotent, already-committed degrade, and blocking there would strand
+the user with a workspace the app refuses to save.
+
+**Residual (still open):** a degrade preserves the asset image and the visible text, and loses every
+other tag — bold, links, list structure. That is inherent to a DOM-free flatten, not a gap in this
+fix: markup-aware truncation needs a tree, and this module cannot have one.
 
 **Status:** open — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round. Fixing it
 in place would weaken a DoS bound.
@@ -18452,9 +18501,45 @@ affected" from a fixture whose tag name its own alternation rejects. **All three
 careful; what transfers silently is not the measurement but the generalisation drawn from it.**
 Each was found by one substitution in a fixture string.
 
-## 251. `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path
+## 251. `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path — CLOSED 2026-08-28
 
-**Status:** OPEN — pre-existing, found 2026-08-25 by cold review of `fix/asset-id-extraction`.
+**CLOSED 2026-08-28 (0.262.2).** All three matchers in `rich-text-plain.ts` now bound their attribute
+runs to `[^<>]*` so a scan cannot cross a tag boundary: `TAG`, `BLOCK_TAG` (which this entry had
+already corrected itself about) and `markTaskItems`, whose THREE unbounded runs in one pattern this
+entry never named — found by grepping for the real sites rather than trusting the list here. Pinned
+by a complexity family in `rich-text-plain.test.ts`.
+
+★★★ **IT MOVED TWO SHAPES, NOT ONE, AND THE SECOND WAS FOUND BY A GATE.** (1) A QUOTED attribute
+carrying a bare `<` projects 11 characters instead of 0. (2) An UNQUOTED one
+(`<img alt=a<b data-asset-id="real">`) projects 10 instead of 0. Both KEEP a block that was
+previously dropped — the safe direction for `sanitizeBlock` — and (2) flipped a pinned accepted-loss
+test in `document-model.test.ts`: that block carries a REAL `data-asset-id` and was being deleted on
+every load path. The loss had been accepted ONLY because recovering it needed a predicate branch
+scanning past `<`, which was quadratic. This recovers it the opposite way, so the adversarial shape
+that test's docstring named, `"<img ".repeat(n) + ">"`, measures 0.5 / 1.1 / 2.9 ms at 41 / 82 / 164
+KB. Its own comment set that as the acceptance condition, and the test now asserts SURVIVAL.
+
+★★★ **IT ALSO FALSIFIED A DOCUMENTED INVARIANT, which no per-file run could have caught.**
+`rich-text-plain.property.test.ts` asserted `proj(sep(x)) === proj(x)` as an IDENTITY that "cannot be
+flaky", on the argument that the replacement writes no `<` or `>` and every match spans `<`…`>`, so
+no second pass finds a new match. That held only while the run was `[^>]*`, which let ONE match span
+from the first `<` past any nested `<` to the first `>`. A bounded match cannot: on `a<p <p>>b` it
+matches the INNER `<p>` and leaves `<p  >` — a residue the replacement did not write, but which IS a
+fresh `BLOCK_TAG` match. The identity is now CONDITIONAL on that pass being idempotent for the input,
+which is a proof rather than a sample, and a sibling test pins the excluded shape deterministically so
+the narrowing cannot silently re-widen. It cannot reach `descriptionText`, the contract that property
+is a proxy for — that path runs DOMPurify at `ALLOWED_TAGS: []` and projects its OUTPUT (pinned with
+a positive control in `rich-text-projection.test.ts`).
+
+★★ Restoring idempotence by looping the pass to a fixpoint was evaluated and REJECTED: on nested
+input it needs O(n) passes of O(n) work, reintroducing the very quadratic this entry is about.
+
+★ Found only by the FULL suite. Every per-task run was green — `rich-text-plain.property.test.ts` was
+in no task's file list, and fast-check is unseeded there, so the counterexample surfaced once (seed
+-1116299406, shrunk to `"&amp;<p <p>>a"`) and a re-run at another seed passed. A green re-run is not
+a refutation of a concrete counterexample; the reproduction has to be the INPUT.
+
+**Status:** was OPEN — pre-existing, found 2026-08-25 by cold review of `fix/asset-id-extraction`.
 Deliberately NOT fixed there: `TAG` is the regex §250's fix now depends on, and
 `rich-text-plain.ts` carries a warning against changing it in passing. Recording it so the next
 person to open that file has the measurement instead of rediscovering it.
@@ -18557,9 +18642,27 @@ it needs raw stored html with an unquoted attribute value; DOMPurify quotes valu
 unquoted value followed by `/`", with a quoted control beside it so the assertion is about `/`
 AFTER AN UNQUOTED VALUE rather than about `/`. A fix must delete that test deliberately.
 
-## 253. `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id`
+## 253. `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` — CLOSED 2026-08-28
 
-**Status:** OPEN — pre-existing, found 2026-08-25 by a cold review of the differential suite, not by
+**CLOSED 2026-08-28 (0.262.2).** `IMG_TAG_ASSET_ID_RE` now carries a non-capturing guard lookahead,
+`(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)`, immediately after `<img\b`. Excluding `<` — which the runs
+already did — bounds a scan to one tag REGION; it does nothing about the two runs NESTED around the
+id re-splitting inside that region when the closing `>` never arrives. The guard fails once, in
+linear time, on a tag that never closes, so neither run ever starts. Measured: 143 ms at 32 KB rising
+to 16098 at 256 KB, against 0.2 / 0.4 / 0.6 / 2.5 ms guarded across the same sizes.
+
+★★★ **ATOMIC-GROUP EMULATION WAS TRIED FIRST AND MATCHES NOTHING.** `(?=(X*))\1` on both runs was the
+planned fix. Measured against the shipped pattern on nine fixtures before it was ever dispatched:
+shipped `["x"]`, atomic `[]` — the atomic run swallows the attribute list and will not give it back,
+so the `data-asset-id="` that must follow can never match. Seven call sites read this pattern, two
+behind truthiness guards, so every image would have silently stopped being recognised in DOCX, PPTX,
+HTML and PDF with nothing thrown. Do NOT reintroduce it.
+
+★ The guard is deliberately non-capturing, so the id stays capture group **1** and no call site
+moved. A renumbering here fails SILENTLY — a reader left on `m[1]` would get the whole attribute run,
+which is a non-empty string and passes a truthiness check.
+
+**Status:** was OPEN — pre-existing, found 2026-08-25 by a cold review of the differential suite, not by
 any gate. Bounded in production by a cap; deliberately not fixed. See below.
 
 **The shape.** `IMG_TAG_ASSET_ID_RE` must find a closing `>` AFTER the attribute
