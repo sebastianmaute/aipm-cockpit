@@ -2,6 +2,7 @@ import { it, expect, vi } from "vitest";
 import { render, screen, fireEvent } from "@testing-library/react";
 import { ColumnConfigPopover } from "./column-config-popover";
 import { t } from "./i18n";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 
 const COLS = [
   { key: "email", labelKey: "stakeholderFieldEmail" as const },
@@ -23,4 +24,44 @@ it("fires onToggle(key) when a checkbox is clicked", () => {
   fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
   fireEvent.click(screen.getByLabelText(t("en-US", "stakeholderFieldEmail")));
   expect(onToggle).toHaveBeenCalledWith("email");
+});
+
+// §261, third leg. Each toggle used to take its accessible name from its
+// wrapping <label>'s text alone — the bare column name — so in every consuming
+// panel it read exactly what that column's sort header (and, before tasks 5-7,
+// its toolbar filter) read: two controls, one name, genuinely different
+// purposes (WCAG 2.4.6). One `aria-label` here closes the leg in all five
+// consumers at once.
+// ★★★ axe has no rule that flags two controls sharing an accessible name, in
+// any view at any seed size, so this unit test is the only detector that can
+// exist for it.
+it("qualifies every column toggle with its action, keeping the visible label inside the name", () => {
+  render(<ColumnConfigPopover lang="en-US" cols={COLS} hidden={new Set()} onToggle={vi.fn()} />);
+  fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+
+  for (const { labelKey } of COLS) {
+    const visible = t("en-US", labelKey);
+    const accessible = t("en-US", "colConfigToggleColumn", visible);
+    // Whole-string match (testing-library has no `exact` option), so this
+    // fails against the bare column name the <label> alone would have given.
+    expect(screen.getByRole("checkbox", { name: accessible })).toBeTruthy();
+
+    // WCAG 2.5.3 (label in name) is CONTAINMENT — case-insensitive and
+    // position-independent, per Understanding SC 2.5.3 and axe's own
+    // `curatedCompareWith.includes(curatedCompare)`. Deliberately NOT a prefix
+    // test: that is stricter than the SC and flags conformant code elsewhere in
+    // this app (the dependency type select's "Predecessor type for next link"
+    // contains, but is not prefixed by, its visible "Type for next link").
+    expect(accessible.toLowerCase()).toContain(visible.toLowerCase());
+
+    // ★ Anti-vacuity: the qualifier must not have REPLACED the visible text.
+    // Speech-input and sighted users both depend on the label still rendering.
+    const row = screen.getByRole("checkbox", { name: accessible }).closest("label");
+    expect(row?.textContent).toContain(visible);
+  }
+
+  // The whole point: the two toggles no longer share a name with anything,
+  // including each other. MEASURED against this fixture, not guessed:
+  // 1 gear button + 2 checkboxes = 3.
+  expectRowUniqueNames({ minControls: 3, roles: ["button", "checkbox"] });
 });

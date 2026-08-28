@@ -955,16 +955,25 @@ describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
   it("gives the type/status filters and their sort headers distinct names", () => {
     const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
 
+    // Opening the column-config popover is load-bearing, not incidental: its
+    // per-column checkboxes are the THIRD control carrying each of these column
+    // translations, and `PopoverPanel` returns null while closed — so a test
+    // that left it shut would assert over two thirds of the collision and pass.
+    fireEvent.click(getByRole("button", { name: t("en-US", "colConfigTitle") }));
+
     // Un-narrowed roles and whole-document scope on purpose: this collision is
-    // cross-ROLE (combobox vs. button), so every existing test in this file was
-    // structurally blind to it — they each narrow to one role family, or scope
-    // to <tbody>, which excludes the toolbar filter that is half the pair.
+    // cross-ROLE (combobox vs. button vs. checkbox), so every existing test in
+    // this file was structurally blind to it — they each narrow to one role
+    // family, or scope to <tbody>, which excludes both the toolbar filter and
+    // the column-config checklist.
     expectRowUniqueNames({
-      // MEASURED against this fixture, not guessed: 5 comboboxes + 17 buttons +
-      // 3 checkboxes. `minControls` only proves the scope is non-empty, so it is
-      // pinned to the exact count — a loose floor would silently re-admit a
-      // narrowed `roles` list.
-      minControls: 25,
+      // MEASURED against this fixture WITH THE POPOVER OPEN, not guessed and not
+      // scaled from the closed-popover figure: 5 comboboxes + 17 buttons +
+      // 11 checkboxes. The 8 extra checkboxes are CHANGE_CONFIG_COLS' toggles.
+      // `minControls` only proves the scope is non-empty, so it is pinned to the
+      // exact count — a loose floor would silently re-admit a narrowed `roles`
+      // list, or a popover that stopped opening.
+      minControls: 33,
       roles: ["combobox", "button", "checkbox"],
     });
 
@@ -975,19 +984,33 @@ describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
     // The COLUMNS keep their own names — the filters moved, the headers did not.
     expect(getByRole("button", { name: t("en-US", "changeFieldType") })).toBeTruthy();
     expect(getByRole("button", { name: t("en-US", "changeFieldStatus") })).toBeTruthy();
+    // ...and the column-config toggles name their own action, so the third
+    // control carrying each translation no longer reads as the column itself.
+    for (const key of ["changeFieldType", "changeFieldStatus"] as const) {
+      expect(
+        getByRole("checkbox", { name: t("en-US", "colConfigToggleColumn", t("en-US", key)) }),
+      ).toBeTruthy();
+    }
   });
 
-  // ★ DELIBERATELY NOT COVERED HERE — for Task 8, which adds
-  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}` to
-  // `column-config-popover.tsx`. Until it lands, the column-config checkboxes
-  // take their accessible name from their wrapping <label>'s text, so they too
-  // read "Type"/"Status" and collide with the headers above. Two things to do
-  // when it does: open the popover with the "colConfigTitle" gear button before
-  // asserting, and re-MEASURE `minControls` (8 more checkboxes appear).
-  // ★★ Note `controlNames` (`src/test/toolbar-order.ts`) reads
-  // `aria-label || textContent`, NOT the real accessible name — an <input> has
-  // no textContent, so today all 8 of those checkboxes report "" and opening
-  // the popover would fail this assertion on a spurious `"" x8` duplicate that
-  // has nothing to do with §261. Task 8's aria-label is what makes them
-  // visible to this helper at all.
+  // ★ THE THIRD LEG IS NOW COVERED, IN THE TEST ABOVE. It used to be deferred:
+  // the column-config checkboxes took their accessible name from their wrapping
+  // <label>'s text alone, so they too read "Type"/"Status" and collided with the
+  // headers. `column-config-popover.tsx` now sets
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}`, so the
+  // test opens the popover with the "colConfigTitle" gear button, scans all 8
+  // toggles, and names two of them positively.
+  // ★★ That aria-label is ALSO what makes those checkboxes VISIBLE to this
+  // assertion at all: `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name, and an <input>
+  // has no textContent — so before the fix all 8 reported "" and opening the
+  // popover would have failed on a spurious `"" x8` duplicate that has nothing
+  // to do with §261.
+  // ★★ THE TWO HALVES WERE MUTATION-PROVED SEPARATELY, because the first MASKS
+  // the second rather than firing alongside it. Deleting the aria-label outright
+  // fails on that `"" x8` duplicate — `expectRowUniqueNames` throws before the
+  // `getByRole` lookups below are ever reached. Passing the raw column KEY
+  // instead of its translation gives distinct, non-empty names, so the scan
+  // passes and the test fails on the lookups instead. Only the second mutant
+  // proves the §261-specific half; keep both in mind before trusting a red here.
 });

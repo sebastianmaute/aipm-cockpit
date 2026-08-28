@@ -55,10 +55,18 @@ export function ColumnConfigPopover({ lang, cols, hidden, onToggle }: ColumnConf
           {cols.map(({ key, labelKey }) => (
             <li key={key}>
               <label className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-sm text-foreground hover:bg-surface-muted">
+                {/* §261. Without this the box takes its name from the wrapping
+                    <label>'s text alone — the bare column name — which every
+                    consuming panel ALSO renders on that column's sort header,
+                    so one name named two controls with different purposes
+                    (WCAG 2.4.6). The visible text below stays put: WCAG 2.5.3
+                    holds by CONTAINMENT ("Email" sits inside "Show column –
+                    Email"), not by prefix. */}
                 <Checkbox
                   size="sm"
                   checked={!hidden.has(key)}
                   onChange={() => onToggle(key)}
+                  aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}
                 />
                 {t(lang, labelKey)}
               </label>

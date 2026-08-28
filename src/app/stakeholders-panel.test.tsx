@@ -397,8 +397,8 @@ describe("row-unique names", () => {
   // helper with parameters no other caller needs.
   //
   // Whole-document scope (no `scope` passed): the `stakeholderFieldName`
-  // translation now names TWO controls in this panel — it named three until
-  // §261 — and only ONE crutch is still holding them apart.
+  // translation now names exactly ONE control in this panel — it named three
+  // until §261 — and no crutch is holding anything apart any more.
   //   - PaneSearchInput used to carry this same translation as its
   //     `aria-label`, and was excluded only because `roles` below is
   //     ["button", "checkbox"] while `<input type="search">` computes to role
@@ -411,16 +411,15 @@ describe("row-unique names", () => {
   //     "Name" — a real `button`, IN `roles`, but it is the only one, so it
   //     never collides with itself.
   //   - ColumnConfigPopover's per-column checklist (STAKEHOLDER_CONFIG_COLS)
-  //     renders a `<Checkbox>` inside a `<label>` reading "Name" for the
-  //     "name" column — a `checkbox`, also IN `roles`, and it WOULD collide
-  //     with the sort button's "Name" if both were mounted. ★ THIS CRUTCH IS
-  //     STILL LOAD-BEARING: it is out of scope only because
-  //     ColumnConfigPopover's `open` state defaults to `false` and
-  //     `PopoverPanel` returns `null` while closed, so this test never mounts
-  //     it — not because of anything in `roles`. Task 8 is what closes it, by
-  //     qualifying those checkbox labels; until it lands, a test that opens
-  //     the popover before asserting here would have to re-derive this
-  //     collision, not assume it away.
+  //     renders a `<Checkbox>` for the "name" column — a `checkbox`, also IN
+  //     `roles`. It USED to read a bare "Name" from its wrapping <label> and
+  //     would have collided with the sort button's "Name" if both were mounted;
+  //     that crutch is GONE. The popover still defaults closed
+  //     (`PopoverPanel` returns `null`), so this test does not mount it — but
+  //     the collision behind it is closed at the source: the toggle now carries
+  //     `aria-label={t(lang, "colConfigToggleColumn", …)}`, so it reads "Show
+  //     column – Name". Pinned by "gives the name filter and its sort header
+  //     distinct names" at the bottom of this file, which DOES open the popover.
   it("keeps every per-row control distinct when two rows share a name", () => {
     const stakeholders = [
       sampleStakeholder({ id: 1, name: "Dana" }),
@@ -469,16 +468,25 @@ describe("StakeholdersPanel — toolbar search vs. Name column header (§261)", 
     // uncovered. "Amy" matches one of the two seeded rows.
     fireEvent.change(screen.getByRole("searchbox"), { target: { value: "Amy" } });
 
+    // Opening the column-config popover is load-bearing, not incidental: its
+    // "name" checkbox is the THIRD control carrying `stakeholderFieldName`, and
+    // `PopoverPanel` returns null while closed — so a test that left it shut
+    // would assert over two thirds of the collision and pass.
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "colConfigTitle") }));
+
     // Un-narrowed roles and whole-document scope on purpose: this collision is
-    // cross-ROLE (searchbox vs. button), and "searchbox" is the leg every
-    // other test in this file deliberately excludes.
+    // cross-ROLE (searchbox vs. button vs. checkbox), and "searchbox" is the leg
+    // every other test in this file deliberately excludes.
     expectRowUniqueNames({
-      // MEASURED against this fixture AFTER the "Amy" filter, not guessed:
-      // 1 searchbox + 16 buttons + 2 checkboxes. `minControls` only proves the
-      // scope is non-empty, so it is pinned to the exact count — a loose floor
-      // would silently re-admit a narrowed `roles` list, and dropping
-      // "searchbox" is precisely the narrowing that hid this defect.
-      minControls: 19,
+      // MEASURED against this fixture AFTER the "Amy" filter and WITH THE
+      // POPOVER OPEN, not guessed and not scaled from the closed-popover
+      // figure: 1 searchbox + 16 buttons + 10 checkboxes. The 8 extra
+      // checkboxes are STAKEHOLDER_CONFIG_COLS' toggles. `minControls` only
+      // proves the scope is non-empty, so it is pinned to the exact count — a
+      // loose floor would silently re-admit a narrowed `roles` list (dropping
+      // "searchbox" is precisely the narrowing that hid this defect), or a
+      // popover that stopped opening.
+      minControls: 27,
       roles: ["searchbox", "button", "checkbox"],
     });
 
@@ -495,20 +503,33 @@ describe("StakeholdersPanel — toolbar search vs. Name column header (§261)", 
     // The COLUMN keeps its own name — the filter moved, the header did not.
     // The sort glyph is `aria-hidden`, so the accessible name is the bare label.
     expect(screen.getByRole("button", { name: t("en-US", "stakeholderFieldName") })).toBeTruthy();
+    // ...and the column-config toggle names its own action, so the third control
+    // carrying `stakeholderFieldName` no longer reads as the column itself.
+    expect(
+      screen.getByRole("checkbox", {
+        name: t("en-US", "colConfigToggleColumn", t("en-US", "stakeholderFieldName")),
+      }),
+    ).toBeTruthy();
   });
 
-  // ★ DELIBERATELY NOT COVERED HERE — for Task 8, which adds
-  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}` to
-  // `column-config-popover.tsx`. Until it lands, the column-config checkboxes
-  // take their accessible name from their wrapping <label>'s text, so the one
-  // for the "name" column also reads "Name" and would collide with the sort
-  // header above. Two things to do when it does: open the popover with the
-  // "colConfigTitle" gear button before asserting, and re-MEASURE
-  // `minControls` (one extra checkbox per configurable column appears).
-  // ★★ Note `controlNames` (`src/test/toolbar-order.ts`) reads
-  // `aria-label || textContent`, NOT the real accessible name — an <input> has
-  // no textContent, so today every one of those checkboxes reports "" and
-  // opening the popover would fail this assertion on a spurious `"" xN`
-  // duplicate that has nothing to do with §261. Task 8's aria-label is what
-  // makes them visible to this helper at all.
+  // ★ THE THIRD LEG IS NOW COVERED, IN THE TEST ABOVE. It used to be deferred:
+  // the column-config checkboxes took their accessible name from their wrapping
+  // <label>'s text alone, so the one for the "name" column also read "Name" and
+  // collided with the sort header. `column-config-popover.tsx` now sets
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}`, so the
+  // test opens the popover with the "colConfigTitle" gear button, scans all 8
+  // toggles, and names that one positively.
+  // ★★ That aria-label is ALSO what makes those checkboxes VISIBLE to this
+  // assertion at all: `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name, and an <input>
+  // has no textContent — so before the fix all 8 reported "" and opening the
+  // popover would have failed on a spurious `"" x8` duplicate that has nothing
+  // to do with §261.
+  // ★★ THE TWO HALVES WERE MUTATION-PROVED SEPARATELY, because the first MASKS
+  // the second rather than firing alongside it. Deleting the aria-label outright
+  // fails on that `"" x8` duplicate — `expectRowUniqueNames` throws before the
+  // `getByRole` lookup below is ever reached. Passing the raw column KEY
+  // instead of its translation gives distinct, non-empty names, so the scan
+  // passes and the test fails on the lookup instead. Only the second mutant
+  // proves the §261-specific half; keep both in mind before trusting a red here.
 });
