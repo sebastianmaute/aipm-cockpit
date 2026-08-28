@@ -415,6 +415,20 @@ export interface StorageBackend {
    * build", which overstates both what runs it and what it checks.
    */
   lastLoadTruncation?: { entries: number; blocks: number };
+  /**
+   * Optional: which meta-blob slices the LAST {@link load} could not decode
+   * at all. Distinct from {@link StorageBackend.lastLoadTruncation}, which
+   * counts what the caps discarded — this is data that was unreadable.
+   *
+   * ★★ A backend that leaves this undefined reports no decode failure, and its
+   * users lose those slices in silence on the next save. Today only the Turso
+   * backend can produce one (meta blobs are a Turso storage detail), but the
+   * field is on the interface so a future blob-storing backend inherits the
+   * obligation rather than rediscovering it.
+   * ★ Reset it on EVERY load before any early return. A stale value pauses
+   * saving on a healthy project.
+   */
+  lastDecodeFailures?: readonly string[];
 }
 
 /** Serialize a workspace to the JSON envelope (schemaVersion + entity arrays). */
