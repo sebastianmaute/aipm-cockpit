@@ -151,13 +151,29 @@ export const ANY_TAG_ASSET_ID_RE =
  * shape now costs 0.61 ms. Disjointness between the branches was never the
  * property that mattered — not crossing a tag boundary is.
  *
+ * ★★★ THE GUARD LOOKAHEAD IS WHAT MAKES THIS LINEAR. Excluding `<` (which the
+ * runs already do) bounds a scan to one tag REGION; it does nothing about the
+ * two runs NESTED around the id re-splitting inside that region when the closing
+ * `>` never arrives. Measured 2026-08-27: 143 ms at 32 KB rising to 16098 at
+ * 256 KB, against 2.5 ms for the guarded form at the same size. The guard fails
+ * once, in linear time, on a tag that never closes — so neither run ever starts.
+ * ★★★ ATOMIC-GROUP EMULATION — `(?=(X*))\1` — WAS TRIED HERE AND MATCHES
+ * NOTHING. The atomic run swallows the attribute list and will not give it back,
+ * so the `data-asset-id="` that must follow can never match: `<img
+ * data-asset-id="x">` yields zero matches, i.e. every asset image silently stops
+ * being recognised. Do NOT reintroduce it.
+ * ★ The id is capture group 1 and the guard is deliberately non-capturing so it
+ * stays that way. A renumbering here fails SILENTLY — a reader left on `m[1]`
+ * would get the whole attribute run, which is a non-empty string, so a
+ * truthiness check still passes.
+ *
  * ★ The quantifier stays GREEDY where `ANY_TAG_ASSET_ID_RE`'s is lazy. That is
  * the documented divergence (this one reports the LAST `data-asset-id` on a
  * tag, that one the FIRST); `document-asset-patterns.test.ts` pins it. Do not
  * "harmonise" the two while fixing character classes.
  */
 export const IMG_TAG_ASSET_ID_RE =
-  /<img\b(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id="([^"]*)"(?:[^<>"']|"[^"]*"|'[^']*')*>/g;
 
 /** An `<img>` carrying a NON-EMPTY `data-asset-id` — the only markup that makes
  *  a paragraph meaningful while projecting to no visible text.
@@ -254,8 +270,19 @@ export const IMG_TAG_ASSET_ID_RE =
  *   boundaries, so every `<img` in the input restarts a scan over the whole
  *   tail: quadratic, and MEASURED WORSE THAN THE SPELLING IT REPLACED. It is
  *   reachable — `sanitizeBlock` only evaluates this predicate when the
- *   projection is zero, and `"<img ".repeat(n) + ">"` projects to zero because
- *   `TAG` eats it as one match. This runs on RAW, uncapped, pre-sanitizer html
+ *   projection is zero, and `"<img ".repeat(n) + ">"` projected to zero because
+ *   `TAG` ate it as one match.
+ *   ★★★ THAT REACHABILITY ARGUMENT IS STALE AS OF 0.262.2 AND THE PROBE BELOW
+ *   NO LONGER REACHES. §251 bounded `TAG` to `[^<>]*`, so that string now
+ *   projects to essentially its whole length rather than to zero — the figure
+ *   this once quoted was unreproducible from the text, which writes the probe as
+ *   `"<img ".repeat(n)` without ever stating `n` — the `&&` short-circuits and this predicate is
+ *   never evaluated on it. The LINEARITY requirement below is unchanged and
+ *   still binding; what changed is that this particular string stopped being
+ *   the witness for it. Do not read a fast run of it as evidence that a
+ *   replacement is linear — it no longer executes this code at all. A witness
+ *   now needs a shape that still projects to zero.
+ *   This runs on RAW, uncapped, pre-sanitizer html
  *   on every load path (the cap applies to the RETURN value, not the input),
  *   and the offending block is itself stored, so the cost repeats on every
  *   boot. `[^<>]*` bounds each scan to one tag and restores linearity.
@@ -265,11 +292,20 @@ export const IMG_TAG_ASSET_ID_RE =
  *   A change satisfying only one of those has been shipped twice on this
  *   branch. Measure any replacement against BOTH the shape table in
  *   `document-asset-patterns.test.ts` and `"<img ".repeat(n) + ">"`.
- *   ★ THE PRICE, and it is a real one: `<img alt=a<b data-asset-id="real">`
- *   carries a genuine attribute and is now dropped, because no branch may
+ *   ★ THE PRICE, and it WAS a real one: `<img alt=a<b data-asset-id="real">`
+ *   carries a genuine attribute and was dropped here, because no branch may
  *   cross the `<`. It needs an unquoted attribute value containing `<` in raw
  *   stored html — DOMPurify quotes and escapes it — which is why the freeze was
  *   judged the worse of the two. Do not "restore" it by widening branch 1 back.
+ *   ★★★ THE BLOCK SURVIVES AGAIN AS OF 0.262.2, BY A ROUTE THAT DOES NOT TOUCH
+ *   THIS PREDICATE — so the paragraph above describes why THIS pattern still
+ *   refuses it, not what the loader does. §251's `[^<>]*` bound made
+ *   `htmlPlainProjection` report 10 non-zero characters for that html, so
+ *   `sanitizeBlock`'s drop condition (`htmlTextLength === 0 && !predicate`)
+ *   short-circuits before reaching here and the block is KEPT.
+ *   `document-model.test.ts` asserts that survival by name. Both statements are
+ *   true at once and the distinction is the whole point: this predicate says
+ *   DROP, and nothing asks it any more.
  *   ★★ THAT IS THE BEFORE CASE ONLY, and reading it as "a bare `<` costs the
  *   block" is wrong in a way that hides a live divergence. Put the same value
  *   AFTER the target attribute — `<img data-asset-id="real" alt=a<b>` — and
@@ -288,3 +324,109 @@ export const IMG_TAG_ASSET_ID_RE =
  *   for it, so it costs no cap slot and no export. */
 export const ASSET_IMG_TEST_RE =
   /<img\b[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)|<img\b(?:[^<>"']|"[^"]*"|'[^']*')*?(?<![-\w])data-asset-id\s*=\s*(?:"[^"]+"|'[^']+'|[^\s"'>]+)/i;
+
+/** The WHOLE `<img>` tag carrying an asset id, for carrying images across a
+ *  degrade (`degradeToPlain`, `rich-text-plain.ts`). Matches the tag; captures
+ *  nothing — the consumer re-emits `m[0]` verbatim.
+ *
+ *  ★★★ IT LIVES HERE, NOT BESIDE ITS ONLY CONSUMER, AND THAT IS THE WHOLE
+ *  POINT. It shipped in 0.262.2 as a PRIVATE fourth spelling in
+ *  `rich-text-plain.ts` and diverged immediately: bare `[^<>]*` runs where the
+ *  three above are quote-aware, so a `>` inside a quoted attribute value
+ *  sitting BEFORE the id ended the run early and the tag did not match.
+ *  Measured: `<img title="Q1 > Q2" data-asset-id="real">` — which every
+ *  renderer draws — was carried across a degrade as NOTHING, and its severed
+ *  head leaked into the user's prose as `Q2" data-as`. That is §208's own
+ *  defect (an image silently dropped on overflow) surviving inside §208's fix.
+ *  ★★★ NOTHING CAUGHT IT. `document-asset-patterns.test.ts` asserts the
+ *  divergences between these patterns DIRECTLY, pattern against pattern over a
+ *  shared corpus — that differential is §209's entire closure argument, and a
+ *  spelling in another module is outside it. Keep every `data-asset-id` matcher
+ *  in this file so the corpus can see it; a private one is unreachable by the
+ *  only gate that checks this class.
+ *
+ *  ★★★ IT IS NOT `IMG_TAG_ASSET_ID_RE` AND MUST NOT BE COLLAPSED INTO IT. That
+ *  was proposed during review and measured: the export pattern requires a
+ *  DOUBLE-QUOTED id and is `/g`, so it returns NOTHING for four shapes this one
+ *  carries — `data-asset-id='a'`, `data-asset-id=a`, `data-asset-id = "a"` and
+ *  `<IMG DATA-ASSET-ID="a">`. Collapsing would trade three silent drops for
+ *  four. The two are INCOMPARABLE, not nested: this one is deliberately liberal
+ *  about quoting and case because it only has to RECOGNISE a tag to preserve it,
+ *  while the export pattern has to EXTRACT an id it can look up.
+ *
+ *  ★★★ IT IS A UNION OF TWO GUARDED BRANCHES, AND THE SECOND ONE IS THERE SO
+ *  THIS PATTERN CAN NEVER LOSE A TAG. Branch 1 is quote-aware and catches a `>`
+ *  inside a quoted value (`alt="a>b"`) — the shape the private predecessor
+ *  dropped. Branch 2 is NOT quote-aware and is byte-for-byte that predecessor,
+ *  which catches every shape carrying an UNBALANCED quote (`alt=it's`,
+ *  `alt=5"`, `alt=Bobs'`) — a quote-aware run waits for a closing quote that
+ *  never arrives and matches nothing. Neither branch alone covers both
+ *  families. `ASSET_IMG_TEST_RE` above is a union for exactly this reason.
+ *  ★★★ IT IS **NOT** A STRICT SUPERSET OF THE PREDECESSOR, AND THIS DOCSTRING
+ *  CLAIMED IT WAS. The reasoning was "branch 2 IS the old pattern, so no edit
+ *  that leaves it intact can drop a tag that used to be carried" — which does
+ *  not follow. Alternation gives a superset of match POSITIONS for one attempt;
+ *  under `/g` the match SET is not a superset, because branch 1 can win at an
+ *  EARLIER position with a LONGER extent and consume past a position where the
+ *  predecessor would have started. Refuted 2026-08-28 by fuzzing, with this
+ *  witness:
+ *      <img data-asset-id=a alt=5"><img data-asset-id="a>b">
+ *  The predecessor returns both tags whole. This pattern returns ONE match that
+ *  ends strictly INSIDE the second tag: `alt=5"` opens an unbalanced quote, so
+ *  branch 1 reads `"><img data-asset-id="` as a single quoted run and closes on
+ *  the `>` inside the SECOND tag's id value.
+ *  ★★★ WHAT ACTUALLY HOLDS IS CONTAINMENT, AND ONLY UNDER THE ALLOW-LIST: every
+ *  predecessor match is a SUBSTRING of some match here, so nothing is lost for a
+ *  consumer that re-emits `m[0]` verbatim — which `degradeToPlain` does. The
+ *  witness above is the one family that breaks even containment, and it requires
+ *  a `>` INSIDE the id value, which `sanitize-html.ts` rejects
+ *  (`/^[A-Za-z0-9_-]{1,64}$/`). Measured: 27,865 losses in 600k inputs whose ids
+ *  may carry `>`, and ZERO in 1.5M sanitizer-valid ones.
+ *  ★★ SO THE PROPERTY TO PRESERVE IS NOT "KEEP BRANCH 2 INTACT" — that is what
+ *  the false version licensed, and an edit to BRANCH 1 ALONE can break
+ *  containment while leaving branch 2 untouched. Re-run the fuzz against the
+ *  predecessor after any change to either branch.
+ *  ★ A first cut shipped branch 1 ALONE and traded three gained shapes for four
+ *  lost ones while its docstring claimed a single deliberate loss — that is a
+ *  real EXISTENCE loss and a different failure from the extent loss above; do
+ *  not re-derive it, and do not conflate the two.
+ *  ★★★ AND "NOT DRAWABLE" IS THE WRONG TEST FOR WHETHER A LOSS MATTERS. The
+ *  review that found this argued the lost shapes were safe because
+ *  `IMG_TAG_ASSET_ID_RE` extracts no id from them, so no EXPORT could draw one.
+ *  On-screen rendering does not go through any regex: `document-asset-images.ts`
+ *  resolves images with `querySelectorAll("img[data-asset-id]")`, i.e. the
+ *  BROWSER PARSER, which reads `<img alt=it's data-asset-id="real">` as a
+ *  perfectly ordinary image and paints it. So a tag no regex here can read is
+ *  still a picture the user is looking at, and dropping it from a degrade
+ *  deletes it. Judge a matcher against the browser, not against its siblings.
+ *  ★ The decoy `<img alt="data-asset-id=x">` (no real asset) still matches, via
+ *  branch 2, exactly as it did before. That is `ASSET_IMG_TEST_RE`'s documented
+ *  false-TRUE direction — the block survives as a source-less image rather than
+ *  vanishing — and it costs one of the 20 cap slots. Consistent, not a defect.
+ *
+ *  ★★★ THE GUARD LOOKAHEAD IS LOAD-BEARING. The two runs sit NESTED around the
+ *  id, so on an `<img` that never closes run 2 re-scans to end of input at every
+ *  position run 1 gives back — quadratic, the same shape §253 fixed on
+ *  `IMG_TAG_ASSET_ID_RE`. Measured 2026-08-28 on an unterminated `<img` carrying
+ *  repeated ids, guarded vs the same pattern with the lookahead deleted:
+ *  4x per doubling unguarded, ~2x (linear) with it. ★★ NO ABSOLUTE ms FIGURES
+ *  ARE QUOTED, because two sets of them rotted inside THIS FILE on ONE branch:
+ *  the deleted `ASSET_IMG_TAG` docstring gave 57/226/1062 ms for the same
+ *  doublings its replacement gave as 216/844/3671 — same claim, same day, 4x
+ *  apart, because they were taken on differently-loaded machines. The RATIO is
+ *  the load-bearing half and it reproduces anywhere. The guard fails once, in
+ *  linear time, so
+ *  neither run ever starts. Do NOT "simplify" it away.
+ *  ★ Atomic-group emulation `(?=(X*))\1` matches NOTHING here for the reason
+ *  `IMG_TAG_ASSET_ID_RE`'s docstring gives — the atomic run swallows the
+ *  attribute list and will not give back the `data-asset-id` that must follow.
+ *
+ *  ★ Like both patterns above it, it treats `/` as an attribute separator
+ *  (§252, still open): `<img alt=x/data-asset-id="realid">` matches. Inherited
+ *  from the shared `(?<![-\w])` lookbehind, measured not assumed.
+ *  ★ NOT strictly match-preserving against its own body, and neither was the
+ *  private version: `<img data-asset-id=a<b>` has a `<` in an UNQUOTED value,
+ *  which the value branch permits and neither guard's run does. Invalid HTML,
+ *  unchanged by the move, recorded so the next reader does not rediscover it. */
+export const ASSET_IMG_TAG_RE =
+  /<img\b(?=(?:[^<>"']|"[^"]*"|'[^']*')*>)(?:[^<>"']|"[^"]*"|'[^']*')*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)(?:[^<>"']|"[^"]*"|'[^']*')*>|<img\b(?=[^<>]*>)[^<>]*(?<![-\w])data-asset-id\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]*)[^<>]*>/gi;
