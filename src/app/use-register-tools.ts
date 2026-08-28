@@ -1,8 +1,9 @@
 // src/app/use-register-tools.ts — the sixteen register-CRUD tools the AI chat
 // calls through ToolDispatcher: RAID, changes, milestones and stakeholders
-// (list/create/update/delete each). Extracted VERBATIM from
-// use-chat-dispatcher.ts, which sat one line under the 800-line ratchet; the
-// bodies, their comments and their order are unchanged.
+// (list/create/update/delete each). Extracted from use-chat-dispatcher.ts,
+// which sat one line under the 800-line ratchet, verbatim apart from the
+// dropped `args.` prefix (24 lines); the bodies, their comments and their
+// order are unchanged.
 //
 // ★★ NOT coverage-excluded, for the same reason use-document-tools.ts is not
 // (see its header): these are real decisions — what each model input is
@@ -330,14 +331,22 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     // stable in practice (the four are `useState` setters, `readOnlyError` is
     // the useCallback above, `clockRef` is a ref object).
     //
-    // ★★★ `logActivityAs` IS LOAD-BEARING AND IS THE ONE THIS EXTRACTION COULD
-    // HAVE DROPPED. Before the move these bodies read `args.logActivityAs` from
-    // use-chat-dispatcher's own closure, which was refreshed whenever
-    // `documentTools` changed identity — and `logActivityAs` is one of THAT
-    // hook's deps. So a changed logger reached the register writers indirectly.
-    // Memoizing here on `[isReadOnly]` alone would have severed that path and
-    // left every register write logging through a stale function, with the whole
-    // suite green: no test flips the logger's identity mid-render.
+    // ★★ `logActivityAs` IS THE DEP THIS EXTRACTION COULD HAVE DROPPED. Before
+    // the move these bodies read `args.logActivityAs` from use-chat-dispatcher's
+    // own closure, which was refreshed whenever `documentTools` changed identity
+    // — and `logActivityAs` is one of THAT hook's deps. So a changed logger
+    // reached the register writers indirectly. Memoizing here on `[isReadOnly]`
+    // alone would sever that path.
+    //
+    // ★★ READ THAT AS LATENT, NOT LIVE — an earlier draft of this comment said
+    // the omission "would have left every register write logging through a stale
+    // function", and that overclaims. `logActivityAs` is a `useCallback` over the
+    // raw `setActivityLog` setter (use-activity-log.ts), so its identity never
+    // moves for the life of the provider and the trigger cannot fire today. The
+    // dep is carried because that is the difference between safe and safe BY
+    // ACCIDENT, one rewiring away — not because a defect is observable now. The
+    // same qualification applies to the indirect path described above: sound, but
+    // never actually exercised.
     [
       isReadOnly,
       logActivityAs,
