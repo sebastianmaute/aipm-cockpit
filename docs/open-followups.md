@@ -477,6 +477,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
+| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -20916,3 +20917,27 @@ MR → poll the MR-ref pipeline to `status:success` yourself → plain
 `glab mr merge <iid> --remove-source-branch --yes` → sync main → confirm the post-merge MAIN pipeline
 green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
 `npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
+
+## 283. Export sections emits an empty angle-bracket pair for a contact with no email
+
+**Status:** open. Found 2026-08-28 by a cold review of the round-3 fix round, while checking whether
+`contactDisplay` is the canonical spelling of a contact's display string. It is not.
+
+`export-sections.ts` builds the same string UNCONDITIONALLY:
+
+```bash
+grep -n 'cp.name} <\${cp.email}' src/app/export-sections.ts
+```
+
+so a contact with no address exports as `Bob Jones <>`. `email` is optional on `ContactPerson` and the
+Add path does not require one, so the empty case is ordinary, not degenerate.
+
+★★ The reason this is worth an entry rather than a one-line fix in passing: the form now renders that
+string through a `contactDisplay` helper that DOES guard the empty case, and its comment says the
+token map and the `<span>` share "this ONE function". A reader takes that to mean the spelling is
+canonical app-wide. It is not — the exporter has its own copy, and the two now disagree for exactly
+the input the guard was added for. Whichever way this is closed, close it so the claim becomes true:
+either export through the shared helper, or stop implying there is one spelling.
+
+★ NOT a regression from the round-3 branch — `git log -S'<${cp.email}>' -- src/app/export-sections.ts`
+predates it. The branch is what made the divergence visible.
