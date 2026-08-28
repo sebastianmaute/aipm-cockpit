@@ -179,6 +179,13 @@ export interface DocumentsPanelProps {
   // Asset gate + byte-store scope + documentAssets, as ONE bag (house
   // convention). OPTIONAL — absent here means "disabled", not broken.
   assetPane?: DocumentAssetPaneProps;
+  /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
+   *  the instant a delete is confirmed. `documents` counts toward
+   *  `workspaceRecordCount`, so deleting several in one debounce window is a
+   *  mass deletion by Layer B's arithmetic — and this IS the explicit user
+   *  action the bypass exists for. Optional: the panel renders in contexts
+   *  (tests, popouts) that supply no bypass at all. */
+  allowDestructiveSave?: () => void;
 }
 
 export function DocumentsPanel({
@@ -191,6 +198,7 @@ export function DocumentsPanel({
   isReadOnly,
   onResetSize,
   assetPane,
+  allowDestructiveSave,
 }: DocumentsPanelProps) {
   // Lazy initialiser: reads storage ONCE at mount, never during a render body
   // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
@@ -553,6 +561,12 @@ export function DocumentsPanel({
       confirmLabel: t(lang, "documentsDelete"),
     });
     if (!ok) return;
+    // ★★ Arm the one-shot destructive-save bypass. Documents now count toward
+    //    workspaceRecordCount, so deleting several in one debounce window is a
+    //    mass deletion by Layer B's arithmetic — and this IS the explicit user
+    //    action the bypass exists for. Without it the widening refuses a
+    //    legitimate delete.
+    allowDestructiveSave?.();
     // ★ A delete is the one mutation whose before-image is the ONLY surviving
     // copy of the document — `mutateDocuments` writes that tombstone version,
     // which is what makes the deleted-documents list and Restore possible.

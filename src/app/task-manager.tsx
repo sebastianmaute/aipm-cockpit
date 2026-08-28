@@ -2002,6 +2002,7 @@ function TaskManagerInner() {
     },
     changes,
     documentsByEntity,
+    allowDestructiveSave,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
     handleChangeStatusChange: guardEdit(handleChangeStatusChange),

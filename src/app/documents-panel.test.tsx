@@ -172,7 +172,10 @@ function boxMutator(box: Box) {
   };
 }
 
-function renderPanel(initial: readonly ProjectDocument[] = []) {
+function renderPanel(
+  initial: readonly ProjectDocument[] = [],
+  opts: { allowDestructiveSave?: () => void } = {},
+) {
   const box: Box = { docs: initial, versions: [] };
   const mutateDocuments = boxMutator(box);
   vi.mocked(downloadDocument).mockClear();
@@ -186,6 +189,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         documentVersions={[]}
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
+        allowDestructiveSave={opts.allowDestructiveSave}
       />
     </PanelHost>,
   );
@@ -463,6 +467,25 @@ describe("DocumentsPanel", () => {
     const confirmBtn = await screen.findByRole("button", { name: "Delete" });
     fireEvent.click(confirmBtn);
     await waitFor(() => expect(box.docs.map((d) => d.id)).toEqual([2]));
+  });
+
+  it("arms the destructive-save bypass when a document is deleted", async () => {
+    const allowDestructiveSave = vi.fn();
+    const { box } = renderPanel([doc(1, "Alpha"), doc(2, "Beta")], { allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    const confirmBtn = await screen.findByRole("button", { name: "Delete" });
+    fireEvent.click(confirmBtn);
+    await waitFor(() => expect(box.docs.map((d) => d.id)).toEqual([2]));
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT arm the destructive-save bypass when the confirm is cancelled", async () => {
+    const allowDestructiveSave = vi.fn();
+    renderPanel([doc(1, "Alpha"), doc(2, "Beta")], { allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 
   it("does NOT delete when the confirm is cancelled", async () => {
