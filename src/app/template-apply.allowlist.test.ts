@@ -120,6 +120,81 @@ describe("applyTemplate allow-lists the seed's rich fields", () => {
     expect(ws.raid[0].mitigation).toContain("ok");
   });
 
+  it("strips a script element from a seed RAID note-log entry", () => {
+    // ★★ This was the one field of the nine with no test on the first cut, and
+    // a mutant restoring the raw captured RAID log passed the whole suite.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({
+        raid: [
+          mkRaid({
+            noteLog: [
+              {
+                id: 1,
+                timestamp: "2026-01-01T00:00:00.000Z",
+                html: "<p>ok</p><script>alert(1)</script>",
+                text: "ok",
+              },
+            ],
+          }),
+        ],
+      }),
+      { includeSeed: true },
+    );
+    expect(ws.raid[0].noteLog?.[0].html).not.toContain("script");
+    expect(ws.raid[0].noteLog?.[0].html).toContain("ok");
+  });
+
+  it("strips a script element from a seed milestone description", () => {
+    // ★★ Milestones have no note log but DO have a rich description, so the
+    // allow-list's footprint is "what is rich", not "what has a note log".
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({
+        milestones: [
+          {
+            id: 1,
+            name: "M1",
+            date: "2026-06-01",
+            description: "<p>ok</p><script>alert(1)</script>",
+            linkedTaskIds: [],
+          },
+        ],
+      }),
+      { includeSeed: true },
+    );
+    expect((ws.milestones ?? [])[0].description).not.toContain("script");
+    expect((ws.milestones ?? [])[0].description).toContain("ok");
+  });
+
+  it("re-derives a note entry's text from the allow-listed html", () => {
+    // ★★★ The projection is taken BEFORE the allow-list runs, so a captured
+    // `text` describes markup the allow-list is about to remove. Carrying it
+    // through stores a text that names a script the html no longer contains —
+    // and `text` is what CSV/MD export, cellText, DOCX and search actually read.
+    const ws = applyTemplate(
+      emptyWorkspace(),
+      tpl({
+        tasks: [
+          {
+            ...mkTask(""),
+            noteLog: [
+              {
+                id: 1,
+                timestamp: "2026-01-01T00:00:00.000Z",
+                html: "<p>ok</p><script>alert(1)</script>",
+                text: "ok alert(1)",
+              },
+            ],
+          },
+        ],
+      }),
+      { includeSeed: true },
+    );
+    expect(ws.tasks[0].noteLog?.[0].text).not.toContain("alert(1)");
+    expect(ws.tasks[0].noteLog?.[0].text).toContain("ok");
+  });
+
   // ★★ Changes carry FOUR rich fields, and the note log only became reachable
   // here when the seed carry landed on the change route — so each one is its
   // own hole, silent and independent of the others.

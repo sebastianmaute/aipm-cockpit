@@ -41,6 +41,26 @@ describe("sanitizeSeedNoteLog, through sanitizeSeedTask", () => {
     expect(task?.noteLog?.[0].text).toBe("keep");
   });
 
+  it("puts a captured entry through sanitizeRichText, not straight into storage", () => {
+    // ★★★ The docstring says every entry goes through the same boundary the
+    // description does, and NOTHING pinned that: a mutant replacing the
+    // sanitizeRichText call with a raw passthrough passed the whole suite.
+    // A plain-text capture is the observable — the boundary UPGRADES it to
+    // HTML with the metacharacters escaped, so raw passthrough cannot fake it.
+    // (It is deliberately not a <script> case: this boundary is DOM-free and
+    // upgrades rather than allow-lists. Stripping happens at apply time, in
+    // template-apply.ts — see template-apply.allowlist.test.ts.)
+    const task = sanitizeSeedTask({
+      id: 1,
+      taskName: "T1",
+      noteLog: [{ id: 1, timestamp: "2026-01-01T00:00:00.000Z", html: "a < b & c" }],
+    });
+    const html = task?.noteLog?.[0].html ?? "";
+    expect(html).not.toBe("a < b & c");
+    expect(html).toContain("&lt;");
+    expect(html).toContain("&amp;");
+  });
+
   it("omits noteLog entirely when nothing survives, rather than storing []", () => {
     // The field is optional on Task. An empty array is a different value from
     // absent and would round-trip differently through the six write paths.

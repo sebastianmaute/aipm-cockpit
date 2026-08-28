@@ -1927,9 +1927,21 @@ channel**. `importTemplate` / `exportTemplate` do not exist (re-verified 2026-08
 template-JSON path either. A template is captured from your own workspace into your own
 `settings.templates`, so the trust level is "your own settings", not "a file someone sent you". Every
 read of the field also re-sanitizes at its sink.
-★★ It cannot be fixed in `templates.ts`: that file is in the sample generator's import graph, whose
-DOM-free contract the import-graph guard in `rich-text-plain.test.ts` enforces by banning the
-DOMPurify-bearing modules. The fix is an allow-list pass at the browser-side caller.
+★★ It cannot be fixed in `templates.ts`: the seed sanitizers are the DOM-free layer by contract. The
+fix is an allow-list pass at the browser-side caller.
+
+★★★ **AND THE ENFORCEMENT CLAIM WAS FALSE TOO — the first correction of this entry replaced one false
+rationale with another, which is the very failure §151 exists to stop.** It said the graph-wide
+import-graph guard "bans the DOMPurify-bearing modules". Read that guard's predicate: it names
+`rich-text-projection` and `ai-rich-text` and NOTHING else. Measured 2026-08-28 by adding
+`import { sanitizeRichHtml } from "./sanitize-html"` to `templates.ts` and running
+`npx vitest run src/app/rich-text-plain.test.ts` — **81 passed, green**. The prohibition was a bare
+convention with no enforcement, while three separate sites cited "the guard" as the reason it was safe.
+★★ It CANNOT be folded into the graph-wide sweep: `sanitize-html` is legitimately imported BY graph
+members (`html-start.ts` takes `RICH_ALLOWED_TAGS` from it, `note-log.ts` calls it), so a blanket ban
+across the graph fails on correct code. The contract is per MODULE, not per graph.
+★ Now enforced by its own test — `keeps the DOMPurify-bearing sanitiser out of templates.ts
+specifically` in `rich-text-plain.test.ts`, which fails on exactly the import that used to pass.
 
 ★★★ **THE REASON GIVEN HERE WAS FALSE, AND IT SURVIVED INTO THE FIX'S OWN DESIGN.** This entry said a
 DOMPurify call in `templates.ts` "breaks the generator under bare node". Measured 2026-08-28, both
@@ -1947,20 +1959,42 @@ The pass lives in `template-apply.ts` — outside the graph, so it may call DOMP
 NOT the function's name; a narrower list would destroy a captured heading the classifier had already
 accepted, which is pinned by its own test.
 
-★★★ **THE SCOPE IS EVERY RICH FIELD ON ALL THREE NOTE-LOG ENTITIES, NOT THE TASK DESCRIPTION THIS
-ENTRY NAMES** — nine fields, and each is an independent silent hole:
+★★★ **THE SCOPE IS EVERY RICH FIELD ON EVERY SEEDED ENTITY, NOT THE TASK DESCRIPTION THIS ENTRY
+NAMES** — ten fields, and each is an independent silent hole:
 
 | entity | allow-listed |
 |---|---|
 | task | `description`, `noteLog[].html` |
 | RAID | `description`, `mitigation`, `noteLog[].html` |
 | change | `description`, `impactDescription`, `resolutionNotes`, `noteLog[].html` |
+| milestone | `description` |
+
+★★★ **MILESTONE WAS MISSED ON THE FIRST CUT AND A COLD REVIEW CAUGHT IT — the entry said "all three
+note-log entities", which is a property of §168's CARRY, not of this allow-list.** The two have
+different footprints: milestones have no note log but DO have a rich `description`, upgraded by
+`sanitizeMilestone` through the same `sanitizeRichText`/`RICH_SINK` pair inside the same DOM-free
+module. Derive the entity list from "what is rich", never from "what has a note log" — there are
+seven rich entity fields plus the note logs, enumerable with
+`grep -rn "sanitizeRichText(" src/app --include=*.ts | grep -v test`.
 
 ★★ RAID's `description` needed it exactly as much as `mitigation` did — `sanitizeSeedRaidItem` runs
 BOTH through nothing but a trim, so neither ever got even the upgrade this entry credits the boundary
 with. A brief written from this entry's wording said otherwise and was corrected by reading the source.
 ★★ The change fields became reachable in the SAME slice, because §168's carry lands a note log there.
-All four are mutation-proved: disabling the change branch fails exactly those four tests.
+
+★★★ **EVERY ROW OF THAT TABLE IS MUTATION-PROVED, AND SAYING SO IS NOT DECORATION — the first cut
+claimed nine fields while EIGHT had tests.** RAID's `noteLog[].html` had none, and a mutant restoring
+the raw captured RAID log passed the entire suite; a cold review found it by mutating rather than by
+reading. Each mutant now kills exactly its own test and no other: the change branch (4 tests), the
+RAID note log, the milestone branch, the `text` re-derivation, and the seed-side `sanitizeRichText`
+call. ★ A field named in this table with no test beside it is the same false-coverage shape as the
+enforcement claim above — check the table against the test file, not against this sentence.
+
+★★ `text` is RE-DERIVED after the allow-list, not carried. The projection is taken BEFORE the pass
+runs, so a captured `text` describes markup the allow-list is about to remove — `<p>ok</p><script>
+alert(1)</script>` projects to `"ok alert(1)"`, and `NoteLogEntry.text` is what CSV/MD export,
+`cellText`, DOCX and search actually read. Carrying it stored a text naming a script the html no
+longer contained, contradicting the rule `sanitizeSeedNoteLog` states on the way in.
 
 ★ Still true, and still why this was low risk: there is no template import channel. The seed is
 captured from your own workspace into your own `settings.templates`.
@@ -11668,6 +11702,7 @@ Posture of every site, classified BY READING it — the sweep below only produce
 | §28 (this file) | ASSERTS — "out of scope by construction" |
 | §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added |
 | `templates.ts` `sanitizeSeedTask` | **RETRACTS as of 2026-08-28** — was ASSERTING, and is the site a fixer reads first |
+| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring comment also says "the graph is 76 files today" against the 92 measured 2026-08-28 |
 | `docs/AGENTS/rich-text.md`, the `sanitizeSeedTask` mention | **RETRACTS as of 2026-08-28** — the other four mentions there still ASSERT |
 | §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
 
@@ -21918,3 +21953,47 @@ with two routes of which one is armed. That is a narrower guarantee than the def
 it, which is why this is filed rather than fixed.
 
 ★ Read with §98 (which owns the counters themselves) and §284 (which owns the widening).
+
+---
+
+## 286. The template seed's note-log validator diverges from the canonical one in six ways — open
+
+**Status:** open — a second note-log validator with six unforced divergences from `sanitizeNoteLog`. Found 2026-08-28 by a cold review of the §168 carry; reproduce by reading the two side by side (`grep -n "function sanitizeNoteLog" src/app/note-log.ts` and `grep -n "function sanitizeSeedNoteLog" src/app/templates.ts`).
+
+★★ **THIS ENTRY WAS FILED AS 284 AND THE COLLISION HAPPENED.** It was minted 2026-08-28 while
+`fix/meta-decode-loss-chain` was unmerged; that branch landed as `948aa293` taking BOTH 284 and 285,
+and this became 286 on the rebase. Recorded because the register's own rule — a number is reserved
+only once it is on `origin/main` — is easy to read as advice and is in fact the only thing that
+prevents two entries with one number.
+
+§168's fix added `sanitizeSeedNoteLog` to `templates.ts` as a SECOND note-log validator. That much is
+legitimate and forced: the canonical `sanitizeNoteLog` (`note-log.ts`) calls `sanitizeRichHtml`, and
+`templates.ts` is the DOM-free layer, so it cannot reuse it. What is NOT forced is that the two
+disagree on six behaviours that have nothing to do with DOM access — every one is reachable DOM-free:
+
+| | canonical `sanitizeNoteLog` | seed `sanitizeSeedNoteLog` |
+|---|---|---|
+| entry count | caps at `MAX_NOTE_ENTRIES` | unbounded |
+| html cap | byte `.slice` at `MAX_NOTE_HTML` | visible-text cap `TEXTAREA_MAX`, degrades to plain past the ceiling |
+| `text` | control chars stripped, capped | raw projection, uncapped, no control strip |
+| `authorName` | control chars stripped, capped | `nonEmptyStr`, uncapped |
+| missing / duplicate `id` | **mints** one, de-dupes | **drops** the entry; duplicates pass |
+| `timestamp` | must parse as a date | any non-empty string |
+
+★★★ **THE `id` ROW IS THE ONE THAT BITES, AND A TEST PINS THE WRONG SIDE OF IT.** The canonical
+sanitizer MINTS a missing id because its own docstring says legacy entries without one exist. The
+seed validator DROPS them — so §168, whose heading is "template import drops every register's note
+log", is fixed except for exactly the legacy entries the canonical repair was written for. The new
+test `drops an entry with no usable id or timestamp, keeping its siblings` certifies that drop as
+intended behaviour. Decide which is right before that test is read as settled.
+
+★★ Duplicate ids pass through unchanged, and the notes window edits and deletes BY id — so two
+captured entries sharing `id: 1` make one of them unaddressable in the UI after apply.
+
+★ The html-cap divergence is a content-loss path in the opposite direction from §168: a captured note
+above the visible-text ceiling is degraded to PLAIN TEXT on the template route while the identical
+note stays rich HTML on every other route.
+
+★ Fix shape, if wanted: extract the DOM-free half of `sanitizeNoteLog` into a shared helper both call,
+leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
+sanitiser on six write paths, which is why it is filed rather than done inside a bug-fix slice.

@@ -706,6 +706,34 @@ describe("DOM-free guard", () => {
     // it is the one AGENTS.md warns a reader away from.
     expect([...graph].some((f) => f.endsWith("/src/app/templates.ts"))).toBe(true);
   });
+
+  it("keeps the DOMPurify-bearing sanitiser out of templates.ts specifically", () => {
+    // ★★★ THE GUARD ABOVE DOES NOT COVER THIS, AND THREE COMMENTS CLAIMED IT DID.
+    // Its offender predicate names `rich-text-projection` and `ai-rich-text` and
+    // nothing else, so `import { sanitizeRichHtml } from "./sanitize-html"` in
+    // templates.ts passed it green — measured 2026-08-28 by adding exactly that
+    // import and running this file: 81 passed. The prohibition was a bare
+    // convention with no enforcement anywhere, while the register, AGENTS' rich-text
+    // doc and the sanitizeSeedTask comment all cited "the guard" as the reason it
+    // was safe. That is the false-coverage shape: a claimed guard stops the audit.
+    //
+    // ★★ It CANNOT be folded into the graph-wide sweep, which is why it is its own
+    // test. `sanitize-html` is legitimately imported BY graph members — `html-start.ts`
+    // takes RICH_ALLOWED_TAGS from it and `note-log.ts` calls it — so a blanket ban
+    // across the graph would fail on correct code. The DOM-free contract is per
+    // module, not per graph, and templates.ts is the module that carries it.
+    //
+    // ★ Deliberately NOT justified by "it would throw under bare node": that
+    // rationale is false (the generator installs JSDOM globals before its dynamic
+    // import, and sanitize-html is already in the graph). The reason is that the
+    // seed sanitizers are the DOM-free layer by contract, with the allow-list
+    // running at apply time in template-apply.ts instead. See open-followups §151.
+    const src = readFileSync(join(import.meta.dirname, "templates.ts"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(src).not.toMatch(/dompurify/i);
+    expect(src).not.toMatch(/["'`][^"'`]*sanitize-html[^"'`]*["'`]/);
+  });
 });
 
 describe("break-preserving mode", () => {

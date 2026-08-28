@@ -453,9 +453,14 @@ register's fix to another is how two of them broke. Read the note that names you
   far likelier — it did not create reachability from nothing. THREE of the four boundaries go through
   **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
   ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT: that file is in
-  `scripts/generate-sample-workspace.ts`'s import graph, whose DOM-free contract is enforced by
-  `rich-text-plain.test.ts`'s import-graph guard. Do not "complete the sweep" by importing the helper
-  there; the guard bans it precisely so you cannot.
+  `scripts/generate-sample-workspace.ts`'s import graph, and the seed sanitizers are that graph's
+  DOM-free layer by contract. Do not "complete the sweep" by importing the helper there.
+  ★★ The guard that stops you is `keeps the DOMPurify-bearing sanitiser out of templates.ts
+  specifically` (`rich-text-plain.test.ts`), NOT the graph-wide sweep beside it — that one's predicate
+  names only `rich-text-projection` and `ai-rich-text`, and passed GREEN on a `./sanitize-html` import
+  in `templates.ts` (measured 2026-08-28). Three sites, this one included, cited the sweep as the
+  enforcement; it never was. A blanket graph ban is impossible anyway — `html-start.ts` and
+  `note-log.ts` import `sanitize-html` legitimately.
   ★★★ **THE REASON IS THE CONTRACT AND THE GUARD, NOT "it would throw under bare node" — that
   rationale is FALSE and this bullet asserted it.** Measured 2026-08-28: the generator constructs a
   `JSDOM` and `Object.assign`s `window`/`document` onto `globalThis` BEFORE its dynamic

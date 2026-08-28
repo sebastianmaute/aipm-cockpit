@@ -176,9 +176,12 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // plainToHtml would escape it into visible tags (AGENTS.md, rich-text bullet).
     // ★★★ And NOT `sanitizeAiRichText`, however much this looks like the same
     // boundary: THIS FILE IS IN `scripts/generate-sample-workspace.ts`'s import
-    // graph, and that graph's DOM-free contract is enforced by the import-graph
-    // guard in rich-text-plain.test.ts, which bans the DOMPurify-bearing modules
-    // so this cannot be "fixed" by accident.
+    // graph, and the seed sanitizers are that graph's DOM-free layer by contract.
+    // ★★ Enforced by `keeps the DOMPurify-bearing sanitiser out of templates.ts
+    // specifically` in rich-text-plain.test.ts — NOT by the graph-wide sweep
+    // beside it, whose predicate names only rich-text-projection and
+    // ai-rich-text. That sweep passed green on a `./sanitize-html` import here
+    // (measured 2026-08-28), and three comments claimed otherwise.
     // ★★★ THE REASON IS THE CONTRACT AND THE GUARD, NOT "it would throw under
     // bare node" — that rationale is FALSE and this comment used to assert it.
     // Measured 2026-08-28: the generator installs JSDOM globals BEFORE its

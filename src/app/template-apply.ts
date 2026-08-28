@@ -11,6 +11,7 @@ import type {
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
 import { sanitizeRichHtml } from "./sanitize-html";
+import { htmlPlainProjection } from "./rich-text-plain";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
@@ -79,7 +80,19 @@ function remapDeps(
  * the classifier had already accepted as live markup.
  */
 function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] | undefined {
-  return noteLog?.map((n) => ({ ...n, html: sanitizeRichHtml(n.html) }));
+  // ★★ `text` MUST be re-derived, not carried. The allow-list can remove markup
+  // whose inner text the projection had already captured — `<p>ok</p><script>
+  // alert(1)</script>` projects to "ok alert(1)", and keeping that beside an
+  // allow-listed `<p>ok</p>` stores a `text` that describes markup no longer
+  // present. `NoteLogEntry.text` feeds CSV/MD export, `cellText`, DOCX and
+  // search, so the stale projection is what a reader actually sees.
+  // ★ Same rule `sanitizeSeedNoteLog` states on the way in: the html is the
+  // source of truth and `text` is derived from it, at every boundary that
+  // rewrites the html.
+  return noteLog?.map((n) => {
+    const html = sanitizeRichHtml(n.html);
+    return { ...n, html, text: htmlPlainProjection(html) };
+  });
 }
 
 /** Allow-lists the description + note-log rich fields every seed entity with a
@@ -295,6 +308,17 @@ export function applyTemplate(
   }
   if (seed.changes) {
     seed = { ...seed, changes: seed.changes.map(allowListChange) };
+  }
+  // ★★ Milestones carry NO note log but DO carry a rich `description` —
+  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
+  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
+  // is the fourth seeded rich field and belongs here exactly as the other three
+  // do. It was missed on the first cut because the scope was framed as "the
+  // note-log entities", which is a property of the CARRY (§168) and not of this
+  // allow-list — the two have different footprints and the entity list must be
+  // derived from "what is rich", never from "what has a note log".
+  if (seed.milestones) {
+    seed = { ...seed, milestones: seed.milestones.map(allowListRich) };
   }
   return appendSeed(base, remapSeed(ws, seed));
 }
