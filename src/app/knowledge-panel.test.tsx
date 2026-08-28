@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen, fireEvent, within } from "@testing-library/react";
@@ -111,6 +111,34 @@ describe("KnowledgePanel", () => {
     fireEvent.click(remove);
     expect(screen.queryByText(/Spec\.docx/)).not.toBeInTheDocument();
     expect(screen.getByText(t("en-US", "documentsTabEmpty"))).toBeInTheDocument();
+  });
+
+  // ★★ `knowledgeItems` counts toward `workspaceRecordCount`, so a burst of
+  // library removes inside ONE save-debounce window reads as a Layer-B mass
+  // deletion and the save is REFUSED unless the one-shot bypass was armed. The
+  // debounce RESETS on every change (debounced-save.ts), so an ordinary
+  // click-per-second burst coalesces — this is not a 500ms-reflex edge case.
+  // ★ Scoped to the LIBRARY card: the attached-document remove above shares the
+  // `documentsRemove` key, so the item name is what keeps the two apart. The
+  // string `name` is already a whole-string match in RTL (no `exact` option —
+  // passing one fails tsc), and the seeded task carries no links, so nothing
+  // else can answer to this name.
+  it("arms allowDestructiveSave when a knowledge-library item is removed", () => {
+    const allowDestructiveSave = vi.fn();
+    const item: KnowledgeItem = { ...LINK, id: "ki-arm-1", name: "Library only.docx" };
+    render(
+      <>
+        <SeedTasks tasks={[seededTask([])]} />
+        <SeedKnowledgeItems items={[item]} />
+        <KnowledgePanel allowDestructiveSave={allowDestructiveSave} />
+      </>,
+      { wrapper },
+    );
+    const remove = screen.getByRole("button", { name: `${t("en-US", "documentsRemove")} – ${item.name}` });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    fireEvent.click(remove);
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText(/Library only\.docx/)).not.toBeInTheDocument();
   });
 
   it("navigates to the source via requestOpen when the source button is clicked", () => {
@@ -285,6 +313,19 @@ describe("KnowledgePanel", () => {
       screen.getByRole("button", { name: new RegExp(`${t("en-US", "taskUnlink")} #7`) }),
     ).toBeInTheDocument();
     expectNoLabelBoundToButton();
+  });
+
+  // ★★★ THE CALL SITE, which no behavioural test here can reach. Every case
+  // above renders `KnowledgePanel` directly and supplies the prop itself, so
+  // dropping it in workspace-section.tsx is invisible to all of them — the same
+  // structural blind spot workspace-panels.documents.test.tsx exists for on the
+  // Documents side. That file can mount its wrapper; this one cannot, because
+  // `workspace-section.tsx` needs the whole app's prop surface to render. A
+  // SOURCE assertion is the honest remaining option, and it is deliberately
+  // narrow: it proves the prop is passed, not that the value is right.
+  it("is handed the destructive-save bypass by its call site in workspace-section", () => {
+    const src = readFileSync(join(__dirname, "workspace-section.tsx"), "utf8");
+    expect(src).toMatch(/<KnowledgePanel allowDestructiveSave=\{allowDestructiveSave\} \/>/);
   });
 
   it("does not pack knowledge-library cards three-up before xl", () => {

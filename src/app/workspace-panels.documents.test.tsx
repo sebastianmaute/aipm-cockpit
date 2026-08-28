@@ -101,7 +101,7 @@ function seedFilePortfolioWithTurso() {
   });
 }
 
-function renderTab(isPopout: boolean, seed?: () => void) {
+function renderTab(isPopout: boolean, seed?: () => void, allowDestructiveSave?: () => void) {
   seen.length = 0;
   // `test:shuffle` reorders tests within a file, so nothing one case seeds may
   // leak into the next — the size key, and now the four sources the asset pane
@@ -119,7 +119,7 @@ function renderTab(isPopout: boolean, seed?: () => void) {
   return render(
     <FiltersProvider>
       <WorkspaceProvider>
-        <DocumentsTabPanel className="c" lang="en-US" isPopout={isPopout} />
+        <DocumentsTabPanel className="c" lang="en-US" isPopout={isPopout} allowDestructiveSave={allowDestructiveSave} />
       </WorkspaceProvider>
     </FiltersProvider>,
   );
@@ -283,6 +283,7 @@ describe("DocumentsTabPanel — the assetPane bag", () => {
       projectId: string;
       assets: readonly DocumentAsset[] | undefined;
       setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+      allowDestructiveSave?: () => void;
     };
 
   const ASSET: DocumentAsset = {
@@ -333,6 +334,20 @@ describe("DocumentsTabPanel — the assetPane bag", () => {
         expect.objectContaining({ id: "a1", name: "diagram.png" }),
       ]),
     );
+  });
+
+  it("threads the destructive-save bypass into the bag, not just onto the panel", async () => {
+    // ★★ The asset remove is a SECOND delete route into a counted slice
+    // (`documentAssets`), so it needs the same bypass the panel's own document
+    // delete gets. Drop the `allowDestructiveSave,` line from the bag and the
+    // optional call below becomes a silent no-op — which is exactly the shape
+    // of the production defect: an armed-looking route that arms nothing, and
+    // a user's own deliberate deletes refused by the Layer-B guard.
+    const bypass = vi.fn();
+    renderTab(false, seedFilePortfolioWithTurso, bypass);
+    await screen.findByTestId("documents-panel-stub");
+    assetPaneOf(seen.at(-1)!).allowDestructiveSave?.();
+    expect(bypass).toHaveBeenCalledTimes(1);
   });
 
   it("REFUSES in Safe Mode: no tursoConfig, so the byte store is never re-partitioned", async () => {

@@ -445,6 +445,51 @@ describe("useDocumentAssets — rename and remove", () => {
     await waitFor(() => expect(deleteAssetData).toHaveBeenCalledWith(config, "a1", "p1"));
   });
 
+  // ★★ `documentAssets` counts toward `workspaceRecordCount`, so a burst of
+  // removes inside ONE save-debounce window reads as a Layer-B mass deletion
+  // and the save is REFUSED unless the one-shot bypass was armed. The debounce
+  // RESETS on every change (debounced-save.ts), so an ordinary click-per-second
+  // burst coalesces — this is not a 500ms-reflex edge case.
+  it("arms allowDestructiveSave exactly once per remove", () => {
+    const allowDestructiveSave = vi.fn();
+    const assets: DocumentAsset[] = [
+      { id: "a1", name: "x.png", mime: "image/png", size: 1, hash: "h1", createdAt: "" },
+    ];
+    const setAssets = vi.fn();
+    const { result } = renderHook(() =>
+      useDocumentAssets({ config, assets, setAssets, projectId: "p1", allowDestructiveSave }));
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    act(() => { result.current.remove("a1"); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ THE REF INDIRECTION IS THE POINT OF THIS ONE. The producer
+  // (`use-storage-backend.ts`) re-creates its `allowDestructiveSave` arrow
+  // every render, so it is NOT in `remove`'s dep list — `remove` reads a mirror
+  // synced by an effect instead. A missing sync effect keeps this hook arming
+  // the callback captured at MOUNT, which for a long-lived pane is a stale
+  // closure over a torn-down storage hook. `setAssets` is hoisted stable
+  // precisely so `remove` does NOT re-mint here: with an inline `vi.fn()` a
+  // fresh `commitAssets` would re-mint `remove` each render and the test would
+  // pass with the sync effect deleted.
+  it("reads the LIVE bypass, not the one captured when `remove` was minted", () => {
+    const first = vi.fn();
+    const second = vi.fn();
+    const assets: DocumentAsset[] = [
+      { id: "a1", name: "x.png", mime: "image/png", size: 1, hash: "h1", createdAt: "" },
+    ];
+    const setAssets = vi.fn();
+    const { result, rerender } = renderHook(
+      ({ cb }: { cb: () => void }) =>
+        useDocumentAssets({ config, assets, setAssets, projectId: "p1", allowDestructiveSave: cb }),
+      { initialProps: { cb: first } },
+    );
+    rerender({ cb: second });
+    act(() => { result.current.remove("a1"); });
+    expect(first).not.toHaveBeenCalled();
+    expect(second).toHaveBeenCalledTimes(1);
+  });
+
   it("swallows a byte-delete failure — the metadata removal already committed", async () => {
     vi.mocked(deleteAssetData).mockRejectedValue(new Error("network"));
     const assets: DocumentAsset[] = [

@@ -944,7 +944,7 @@ export function WorkspaceSection({
 
         {activeTab === "knowledge" && (
           <div id="panel-knowledge" role="tabpanel" className={panelClass}>
-            <KnowledgePanel />
+            <KnowledgePanel allowDestructiveSave={allowDestructiveSave} />
           </div>
         )}
 

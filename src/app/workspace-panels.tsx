@@ -244,6 +244,9 @@ export function DocumentsTabPanel({
             projectId: assetsProjectId,
             assets: ws.documentAssets,
             setAssets: ws.setDocumentAssets,
+            // ★ The SAME bypass the panel itself gets — the asset remove is a
+            //   second delete route into a counted slice, so it needs it too.
+            allowDestructiveSave,
           }}
         />
       </div>

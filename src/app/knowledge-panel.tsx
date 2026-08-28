@@ -64,7 +64,18 @@ const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "
 
 const STANDALONE_KEY = "__standalone__";
 
-export function KnowledgePanel() {
+export interface KnowledgePanelProps {
+  /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
+   *  on a standalone-item remove. `knowledgeItems` counts toward
+   *  `workspaceRecordCount`, so removing several inside one save-debounce
+   *  window is a mass deletion by Layer B's arithmetic — and the debounce
+   *  RESETS on every change, so an ordinary click-per-second burst coalesces
+   *  into one save. Optional: the panel renders in contexts (tests, popouts)
+   *  that supply no bypass at all. */
+  allowDestructiveSave?: () => void;
+}
+
+export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {}) {
   const { settings } = useSettings();
   const lang = settings.language;
   const { ref, reset } = useResizable("aipm-cockpit:documents-size-full");
@@ -176,6 +187,11 @@ export function KnowledgePanel() {
     setLinkTaskIds([]);
   }
   function removeStandalone(idx: number) {
+    // ★★ Arm the one-shot destructive-save bypass. knowledgeItems now counts
+    //    toward workspaceRecordCount, so removing several in one debounce
+    //    window is a mass deletion by Layer B's arithmetic — and this IS the
+    //    explicit user action the bypass exists for.
+    allowDestructiveSave?.();
     ws.setKnowledgeItems((prev) => (prev ?? []).filter((_, i) => i !== idx));
   }
   function setStandaloneTasks(idx: number, taskIds: number[]) {
