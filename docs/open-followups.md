@@ -225,7 +225,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§28](#28-csv--markdown--turso-never-dompurify-a-rich-field-at-load--open-needs-a-new-boundary) | CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary | 0.196.0, widened 0.209.0 and again 2026-08-11 | M | open |
 | [§29](#29-formnotelog-is-dead-state-in-the-task-form--closed-in-02111) | ~~`form.noteLog` is dead state in the task form~~ | 0.209.0, promoted 0.210.0 | S | **CLOSED** in 0.211.1 |
 | [§30](#30-a-link-in-a-task-description-loses-its-address-in-document-exports--open-needs-a-decision) | A link in a task description loses its address in document exports — open, needs a decision | 0.210.0 (Larbalestier) | M | open |
-| [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — open, affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
+| [§31](#31-sanitizerichtext-caps-visible-text-so-markup-bytes-are-unbounded--affects-all-four-rich-entities--closed-2026-08-28) | `sanitizeRichText` caps VISIBLE TEXT, so markup bytes are unbounded — affects all four rich entities | 0.210.0, pre-existing for 3 of 4 | M | **CLOSED** 2026-08-28 |
 | [§32](#32-html_start-misclassifies-eight-plain-text-prefixes-and-the-text-is-then-deleted--open-small) | `HTML_START` misclassifies eight plain-text prefixes, and the text is then DELETED — open, small | pre-existing, reach widened 0.210.0 | S | open |
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
@@ -403,7 +403,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§206](#206-documents-history-modaltsx-does-not-resolve-images--closed-2026-08-23) | `documents-history-modal.tsx` does not resolve images | — | — | **CLOSED** 2026-08-23 |
 | [§207](#207-single-tenant-asset-metadata-is-global-while-the-bytes-are-always-partitioned) | Single-tenant asset metadata is global while the bytes are always partitioned | — | — | open |
 | [§208](#208-caphtmltext-silently-strips-an-image-from-any-paragraph-over-the-visible-text-cap--closed-2026-08-28) | `capHtmlText` silently strips an image from any paragraph over the visible-text cap | — | — | **CLOSED** 2026-08-28 |
-| [§209](#209-one-data-asset-id-pattern-three-hand-maintained-spellings-was-five--closed-2026-08-25) | One `data-asset-id` pattern, THREE hand-maintained spellings (was five) | — | — | **CLOSED** 2026-08-25 |
+| [§209](#209-one-data-asset-id-pattern-four-hand-maintained-spellings-was-five--closed-2026-08-25) | One `data-asset-id` pattern, FOUR hand-maintained spellings (was five) | — | — | **CLOSED** 2026-08-25 |
 | [§210](#210-standalone-html-and-pdf-export-carry-an-image-with-no-source-and-no-placeholder-either--closed-2026-08-22) | Standalone HTML and PDF export carry an image with no source, and no placeholder either | — | — | **CLOSED** 2026-08-22 |
 | [§211](#211-a-single-tenant-turso-db-created-by-a-pre-fix-build-keeps-id-integer-primary-key-on-document_assets-forever) | A SINGLE-TENANT Turso DB created by a pre-fix build keeps `id INTEGER PRIMARY KEY` on `document_assets` forever | — | — | open |
 | [§212](#212-a-dangling-asset-cannot-be-repaired-in-place--the-dedup-short-circuit-blocks-the-retry--closed-2026-08-22) | A dangling asset cannot be repaired in place — the dedup short-circuit blocks the retry | — | — | **CLOSED** 2026-08-22 |
@@ -446,7 +446,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
 | [§250](#250-sanitizeblock-silently-deleted-real-image-blocks-on-load-when-an-earlier-attribute-value-contained--then-) | `sanitizeBlock` silently deleted real image blocks on load when an earlier attribute value contained `>` then `<` | pre-existing, found 2026-08-25 | M | open |
 | [§251](#251-htmlplainprojections-tag-regex-is-quadratic-on-unterminated-tag-input-on-every-rich-field-load-path--closed-2026-08-28) | `htmlPlainProjection`'s `TAG` regex is quadratic on unterminated-tag input, on every rich-field load path | pre-existing, found 2026-08-25 | S | **CLOSED** 2026-08-28 |
-| [§252](#252-all-three-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
+| [§252](#252-all-four-data-asset-id-patterns-treat--as-an-attribute-separator-unconditionally) | All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally | pre-existing, found 2026-08-25 | S | open |
 | [§253](#253-img_tag_asset_id_re-is-quadratic-on-an-unterminated-img-carrying-repeated-data-asset-id--closed-2026-08-28) | `IMG_TAG_ASSET_ID_RE` is quadratic on an unterminated `<img` carrying repeated `data-asset-id` | pre-existing, found 2026-08-25 | M | **CLOSED** 2026-08-28 |
 | [§254](#254-documentassets-is-absent-from-the-version-capture-set-entirely--closed-2026-08-27) | `documentAssets` is absent from the version capture set entirely | found 2026-08-26 | M | **CLOSED** 2026-08-27 |
 | [§255](#255-the-array-as-object-guard-test-is-not-generic-over-the-registry--it-covers-5-of-17-list-slices--closed-2026-08-27) | The array-as-object guard test is not generic over the registry — it covers 5 of 17 list slices | found 2026-08-26 | S | **CLOSED** 2026-08-27 |
@@ -1641,10 +1641,34 @@ inline style on every word — 8.3376x (30007 bytes / 3599 visible). The abuse s
 tightened into one that clips real documents without going red. `golden-workspace.test.ts`, which
 pins exact stored CSV/Markdown bytes, passed without fixture regeneration.
 
-**Residual (still open):** a degrade preserves the asset image and the visible text, and loses every
-other tag — bold, links, list structure. That is inherent to a DOM-free flatten, not a gap in this
-fix: markup-aware truncation needs a tree, and `rich-text-plain.ts` cannot have one (a DOMPurify call
-there makes `jsonToWorkspace` silently emit an EMPTY workspace under bare node).
+★★★ **THE CEILING CLIPS RAW BYTES, SO IT IS NOT A CAP ON VISIBLE TEXT.** Over-ceiling input is
+truncated at `richByteCeiling(max)` before any projection runs; everything past that byte offset —
+visible characters and asset images alike — is gone, regardless of how far under `max` the visible
+text is. Measured: a 1.8 MB value with 579 visible characters at `max = 5000` stored 281 of them and
+dropped an image placed after the padding. That is the price of checking the ceiling BEFORE
+projecting, and the ordering is not negotiable: bounding the work means deciding before the
+projection, because the projection IS the work. Disclosed cost, not a repairable bug.
+
+**Residual (still open) — TWO losses, not one.** The first cut of this paragraph named only the
+second and asserted the degrade "preserves the asset image and the visible text", which is false on
+this entry's own path — see the paragraph immediately above.
+
+(a) The byte clip above discards visible text and images past the ceiling.
+
+(b) Everything that is not an asset image is lost by design — bold, links, list structure. That half
+is inherent to a DOM-free flatten, not a gap in this fix: markup-aware truncation needs a tree, and
+`rich-text-plain.ts` cannot have one (a DOMPurify call there makes `jsonToWorkspace` silently emit an
+EMPTY workspace under bare node).
+
+★★ `RICH_BYTE_FLOOR` governs the small-`max` regime ALONE and was unpinned by every test in the
+first cut: at `max = 5000` the floor is 1024 against a 160,000-byte K term and cannot change any
+verdict, so 0, 1, 10_000 and 100_000 all shipped green. `RICH_BYTE_K` was pinned only to the band
+[8, 99]. Both now have small-`max` fixtures.
+
+★ **Out of scope and still true:** `document-model.ts` calls `capHtmlText` DIRECTLY rather than
+`sanitizeRichText`, so this ceiling does not reach document block paragraphs — the unbounded-markup
+property survives there. This entry is scoped to the four rich ENTITIES, so that is not a gap in the
+fix, but nothing said so and the docstring frames the defect as a property of `capHtmlText`.
 
 Found auditing 0.210.0's write-boundary fix. Not introduced by it in general — RAID/change/milestone
 already had this property via `sanitize-records.ts` — but that fix DID remove the one byte bound that
@@ -14669,7 +14693,10 @@ would orphan an existing library rather than move it.
 ALL markup — so an `<img data-asset-id>` in an over-cap paragraph was gone on load, with nothing in
 the truncation diag. It now delegates to a new `degradeToPlain(html, max)`, the SINGLE overflow path,
 which flattens to text, truncates, and carries the asset images across. §31's byte ceiling routes
-through the same function, so an image survives an overflow on every path at once.
+through the same function, so the `capHtmlText` overflow path carries images too. The §31 ceiling
+path carries only the images that fall inside its byte clip — see the residual below. ★ This
+sentence read "so an image survives an overflow on every path at once", which is false for the
+ceiling path and was the more useful half of what review found here.
 
 ★★ The image cap (`DEGRADE_IMG_CAP = 20`) lives INSIDE `degradeToPlain`, not at its callers — a
 caller-side bound is one this unit cannot see, and it stops holding the moment someone adds a caller.
@@ -14687,12 +14714,47 @@ NOT `lastLoadTruncation`, which blocks writes on the premise that the SOURCE sti
 loaded. That is false for an idempotent, already-committed degrade, and blocking there would strand
 the user with a workspace the app refuses to save.
 
-**Residual (still open):** a degrade preserves the asset image and the visible text, and loses every
-other tag — bold, links, list structure. That is inherent to a DOM-free flatten, not a gap in this
-fix: markup-aware truncation needs a tree, and this module cannot have one.
+**Residual (still open) — TWO losses, not one.** The first cut of this paragraph named only the
+second and asserted the degrade "preserves the asset image and the visible text", which is false on
+the §31 path.
 
-**Status:** open — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round. Fixing it
-in place would weaken a DoS bound.
+(a) **The byte ceiling clips RAW BYTES before anything projects**, so it is not a cap on visible
+text. Over-ceiling input is truncated at `richByteCeiling(max)` and everything past that offset —
+visible characters and `<img data-asset-id>` alike — is discarded even when the value is far under
+`max`. Measured through the real `sanitizeRichText`: a 1.8 MB value carrying 579 visible characters
+at `max = 5000` stored 281 of them and no image. That is the price of deciding BEFORE the
+projection, which is the ordering the whole fix turns on — the projection is the work being bounded
+— so it is a disclosed cost, not a repairable bug. Pinned by "clips raw bytes, so visible text past
+the ceiling is lost" in `rich-text-plain.test.ts`.
+
+(b) Everything that is not an asset image is lost by design — bold, links, list structure. That half
+is inherent to a DOM-free flatten: markup-aware truncation needs a tree, and `rich-text-plain.ts`
+cannot have one (a DOMPurify call there makes `jsonToWorkspace` silently emit an EMPTY workspace
+under bare node).
+
+★★ A THIRD loss existed for one release and is now FIXED, recorded because it is the sharpest
+example of this entry's own defect surviving inside this entry's fix. `degradeToPlain` shipped with
+a PRIVATE fourth `data-asset-id` matcher that was not quote-aware, so an image whose attribute
+carried a `>` before the id — `<img title="Q1 > Q2" data-asset-id="real">`, which every renderer
+draws, and which is what an HTML serializer emits, since `>` is not escaped inside an attribute
+value — was carried across a degrade as NOTHING. The matcher now lives in
+`document-asset-patterns.ts` as `ASSET_IMG_TAG_RE` and is asserted against the same differential
+corpus as the three canonical ones; see §209.
+
+★ One loss on that shape REMAINS and is not repairable here: `TAG` matches `<img alt="a>` up to the
+`>` inside the quoted value, so the remainder projects as prose and the user sees `b" data-as` in
+their text. Fixing it means making `TAG` quote-aware, which AGENTS.md forbids by name — `<`
+exclusion and quote-awareness are independent narrowings with different blast radii, and conflating
+them produced §250. Asserted as a residual in `rich-text-plain.test.ts` so it cannot be mistaken for
+fixed.
+
+**Status:** was OPEN — latent, pre-existing, and deliberately NOT fixed in the S3c-1 fix round,
+where fixing it in place would have weakened a DoS bound. CLOSED 2026-08-28: §251 bounded the
+projection instead, which removed that objection, and the overflow branch now routes through
+`degradeToPlain`. ★ This line still read `**Status:** open` under a `— CLOSED` heading after the
+first pass — §251 and §253 were both updated and this one was missed, so the entry was
+simultaneously closed and open depending on which of the four places you read. A heading edit here
+is a FOUR-place edit: heading, table status cell, table anchor, and this line.
 
 Every paragraph that survives `sanitizeBlock` (`document-model.ts`) then passes through
 `capHtmlText(html, MAX_HTML_TEXT_CHARS)`. `capHtmlText` (`rich-text-plain.ts`) measures VISIBLE text
@@ -14743,7 +14805,7 @@ written; §209) landed in `document-model.ts`, while `capHtmlText` is in `rich-t
 and `plainToHtml` in `sanitize-html.ts` — so this cannot be closed where that one was. ★ The
 predicate has since moved to `document-asset-patterns.ts`; `sanitizeBlock`, which calls it, has not.
 
-## 209. One `data-asset-id` pattern, THREE hand-maintained spellings (was five) — CLOSED 2026-08-25
+## 209. One `data-asset-id` pattern, FOUR hand-maintained spellings (was five) — CLOSED 2026-08-25
 
 **Status:** CLOSED 2026-08-25 by `fix/asset-id-extraction`, built as the "clean shape" this entry
 asked for below and not as a narrower substitute. The three spellings now live in one module,
@@ -14751,6 +14813,27 @@ asked for below and not as a narrower substitute. The three spellings now live i
 `IMG_TAG_ASSET_ID_RE` (was `IMG_TAG_RE`, `document-export-assets.ts`) and `ASSET_IMG_TEST_RE` (was
 `ASSET_IMG_RE`, `document-model.ts`, module-private — now EXPORTED, which is what makes the next
 sentence possible).
+
+★★★ **A FOURTH SPELLING LANDED 2026-08-28, OUTSIDE THIS ENTRY'S GATE, AND DIVERGED IMMEDIATELY —
+THEN WAS FOLDED IN.** 0.262.2's §208 fix added `ASSET_IMG_TAG` PRIVATE to `rich-text-plain.ts`, to
+carry images across a degrade. It was not quote-aware where the three above are, so it dropped
+`<img title="Q1 > Q2" data-asset-id="real">` — a tag every renderer draws — meaning the overflow
+path deleted an image the user could see, which is precisely the defect §208 exists to close. **The
+differential corpus could not see it**: that corpus is this entry's entire closure argument ("a
+change to one that silently pulls it toward another goes red") and it compares only the patterns in
+THIS module. A spelling one file away is invisible to it.
+
+Fixed the same day by moving it here as `ASSET_IMG_TAG_RE`, quote-aware, and asserting it against
+the same corpus under a CONTAINMENT invariant: the degrade must recognise every tag the export can
+DRAW. The reverse is deliberately false and must not be asserted — this one also carries
+single-quoted, unquoted, spaced-`=` and uppercase ids that `IMG_TAG_ASSET_ID_RE` returns nothing
+for, so collapsing the two (proposed during review as the cheap fix) would have traded three silent
+drops for four. They are incomparable, not nested.
+
+★★ So the count is FOUR, not three, and the lesson is that this entry's guarantee is scoped to a
+DIRECTORY LOCATION rather than to a property. Any new `data-asset-id` matcher must be born in this
+module; one born elsewhere is unreachable by the only gate that checks this class, and will diverge
+before anyone notices. The set-reproduce command below returns four lines now.
 
 ★★★ **"NOTHING GATES THEM AGREEING" NO LONGER HOLDS, which was this entry's whole complaint.**
 `document-asset-patterns.test.ts` asserts the divergences DIRECTLY, pattern against pattern over a
@@ -14790,8 +14873,11 @@ these patterns could change §231's behaviour as a side effect. The fold itself 
 ★ It did NOT give `ANY_TAG_ASSET_ID_RE` an `<img>` anchor; the tag-agnostic reading §218 depends on
 is intact.
 
-★ The set-reproduce command below still works and now returns its three lines from ONE file, which
-is the closure in one command.
+★ The set-reproduce command below still works and now returns its lines from ONE file, which is the
+closure in one command. ★★ It returns FOUR as of 2026-08-28, not three — `ASSET_IMG_TAG_RE` joined
+the module (see the fourth-spelling note above). NO COUNT IS QUOTED IN THIS SENTENCE ANY MORE: it
+said "three" while the tree held four, and a tally in prose beside a command that prints today's is
+the half that rots. Run it.
 
 **The entry as written follows.** Its "three spellings, three files" framing is history; the
 divergences it enumerates are all still real and still deliberate.
@@ -18614,18 +18700,18 @@ shares an input class with it.
 
 ---
 
-## 252. All three `data-asset-id` patterns treat `/` as an attribute separator unconditionally
+## 252. All four `data-asset-id` patterns treat `/` as an attribute separator unconditionally
 
 **Status:** OPEN — pre-existing, found 2026-08-25 by the differential suite added in the same
 commit, not by review. Small, and deliberately not fixed; see below.
 
 **The divergence.** `/` ends an attribute value only when that value was QUOTED. After an UNQUOTED
-value it is an ordinary value character. All three patterns accept it as a separator either way, so:
+value it is an ordinary value character. All four patterns accept it as a separator either way, so:
 
 ```
 <img alt=x/data-asset-id="realid">
   parser:     one attribute, alt = 'x/data-asset-id="realid"'.  NO asset reference.
-  patterns:   ANY_TAG ["realid"] · IMG_TAG ["realid"] · predicate true
+  patterns:   ANY_TAG ["realid"] · IMG_TAG ["realid"] · predicate true · ASSET_IMG_TAG matches
 ```
 
 **Effect.** A phantom id spends a slot of the 20-image cap and can satisfy the duplicate check,
