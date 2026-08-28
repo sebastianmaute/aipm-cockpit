@@ -587,7 +587,15 @@ describe("DOM-free guard", () => {
     // 3. logDiag bails before touching storage when there is no window. Pinned
     //    by name because the plan called this load-bearing: if it stops being
     //    true the import must be removed, not repaired.
-    expect(diag).toMatch(/typeof window === "undefined"/);
+    // ★★ THE MATCH MUST BE SCOPED TO logDiag'S OWN BODY. A bare
+    //    /typeof window === "undefined"/ pinned nothing: that literal occurs
+    //    THREE times in diagnostics.ts (readDiagLog, the legacy-key migration,
+    //    and logDiag), so deleting logDiag's guard left two behind and this
+    //    assertion stayed green. Anchoring on the declaration is what makes the
+    //    deletion red.
+    expect(diag).toMatch(
+      /export function logDiag\([^)]*\): void \{\s*try \{\s*if \(typeof window === "undefined"\) return;/,
+    );
   });
 
   it("keeps rich-text-projection out of every DOM-free reach", () => {
@@ -898,15 +906,26 @@ describe("markTaskItems — complexity", () => {
   // literal: an opener that never closes but DOES carry the attribute. (An
   // earlier wording called run 2 "the run BETWEEN the opener and the literal",
   // which is run 1 — the one the fixture above already pins. The run this
-  // fixture kills is the one AFTER the literal, before the `>`.) Measured: 303 ms reverted vs 0.6 ms shipped at
-  // 131 KB, so this runs at 256 KB for margin, matching the other guard tests.
+  // fixture kills is the one AFTER the literal, before the `>`.)
+  // ★★★ 256 KB WAS NOT ENOUGH, AND THIS TEST SHIPPED GREEN AGAINST ITS OWN
+  // MUTANT — the identical false-green the `<img>` guard test in this same file
+  // was raised from 128 KB to fix, in this same commit, with the note that a
+  // budget test whose mutant passes is worse than no test. The arithmetic that
+  // refutes the old sizing was already on this page and went unread: 303 ms
+  // reverted at 131 KB, and one doubling of a QUADRATIC is 4x, so ~1200 ms at
+  // 256 KB — under this 2000 ms ceiling. Measured 2026-08-28 at 256 KB, three
+  // runs: 1262/1295/2791 ms reverted, RED on only the third. At 512 KB it is
+  // 10278/14916/14463 ms against 2 ms shipped, a 5x floor.
+  // ★★ SIZE A BUDGET TEST BY THE MUTANT'S MARGIN, NEVER BY THE SHIPPED COLUMN.
+  // The shipped side is flat here at every size (1-4 ms), so it can never tell
+  // you the fixture is too small; only running the mutant can.
   // ★ Run 3 (the optional trailing `<p …>`) has NO witness — three shapes were
   // tried and none separated it. It may be an equivalent mutant or a missing
   // test; from here those look identical, and it is recorded as unproven rather
   // than claimed as covered.
   it("stays bounded on unterminated openers that carry the taskItem attribute", () => {
     const unit = '<li data-type="taskItem" ';
-    const input = unit.repeat(Math.round((256 * 1024) / unit.length));
+    const input = unit.repeat(Math.round((512 * 1024) / unit.length));
     const started = performance.now();
     markTaskItems(input);
     expect(performance.now() - started).toBeLessThan(2000);
@@ -1080,7 +1099,18 @@ describe("sanitizeRichText — the degrade is reported", () => {
     vi.mocked(logDiag).mockClear();
   });
 
-  it("does not throw under bare node, where logDiag is inert", () => {
+  // ★★★ THIS USED TO BE TITLED "does not throw under bare node, where logDiag
+  // is inert", AND IT NEVER PINNED THAT — in two independent ways, either of
+  // which alone is fatal. (1) `logDiag` is `vi.mock`ed for this whole FILE, so
+  // the real implementation does not run and its inertness cannot be observed
+  // from here at all. (2) Even unmocked it would not hold: `logDiag`'s body in
+  // `diagnostics.ts` is wrapped in `try { … } catch {}`, so deleting its
+  // `typeof window === "undefined"` guard raises a ReferenceError that the
+  // CATCH swallows. The guard is not what prevents the throw — the catch is.
+  // The name is now what the assertion actually checks. The guard itself is
+  // pinned by the scoped source-text match in the DOM-free test above, which is
+  // the only place it can be.
+  it("does not throw on an abusive value", () => {
     const abusive = `<p>${"<em></em>".repeat(200000)}a</p>`;
     // Literals, not TEXTAREA_MAX/RICH_SINK — this file deliberately does not
     // import them, and adding an import here is the very thing the DOM-free

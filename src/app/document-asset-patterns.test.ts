@@ -225,11 +225,11 @@ function domReferences(src: string, fileName: string): string[] {
 
 describe("document-asset-patterns", () => {
   describe("the divergence table", () => {
-    for (const [html, anyTagIds, imgIds, survivesLoad] of TABLE) {
+    for (const [html, anyTagIds, imgIds, loadPredicate] of TABLE) {
       it("agrees with the measured answers for " + JSON.stringify(html), () => {
         expect(ids(ANY_TAG_ASSET_ID_RE, html)).toEqual(anyTagIds);
         expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual(imgIds);
-        expect(ASSET_IMG_TEST_RE.test(html)).toBe(survivesLoad);
+        expect(ASSET_IMG_TEST_RE.test(html)).toBe(loadPredicate);
       });
     }
   });
@@ -258,9 +258,15 @@ describe("document-asset-patterns", () => {
     // having no id, is painted for the user like any other image. Its corpus row
     // has an empty export column, so the first cut SKIPPED the one row that
     // would have caught the loss it was written to prevent.
-    // ★★ `survivesLoad` is the right column because it is what decides whether
-    // the block reaches the screen at all. If the load keeps it, the degrade
-    // must not delete its image.
+    // ★★ THE COLUMN IS THE RIGHT REFERENCE, BUT DO NOT CALL IT "SURVIVES LOAD".
+    // It was destructured as `survivesLoad` here and described as "what decides
+    // whether the block reaches the screen at all" — which is the end-to-end
+    // reading the TABLE docstring above explicitly retires, in those words,
+    // because it once helped hide a real block-deletion bug. The column is
+    // `ASSET_IMG_TEST_RE.test(html)` and NOTHING MORE: one of the two terms in
+    // `sanitizeBlock`'s drop condition. It is the right reference for THIS
+    // assertion because a block the predicate keeps is a block whose image the
+    // degrade must not delete — not because it settles what reaches the screen.
     // ★★★ ONE ROW IS A KNOWN, PRE-EXISTING GAP AND IS ASSERTED AS A SET RATHER
     // THAN SKIPPED. `<img data-asset-id="real" alt=a<b>` carries a bare `<` in
     // an UNQUOTED value; both branches' guards require a `>` before any `<`, so
@@ -276,8 +282,8 @@ describe("document-asset-patterns", () => {
 
     it("matches every load-kept row except the documented bare-`<` gap", () => {
       const missed: string[] = [];
-      for (const [html, , , survivesLoad] of TABLE) {
-        if (!survivesLoad) continue;
+      for (const [html, , , loadPredicate] of TABLE) {
+        if (!loadPredicate) continue;
         ASSET_IMG_TAG_RE.lastIndex = 0;
         if ((html.match(ASSET_IMG_TAG_RE)?.length ?? 0) === 0) missed.push(html);
       }
@@ -285,8 +291,13 @@ describe("document-asset-patterns", () => {
     });
 
     // ★★ ANTI-VACUITY: the loop above proves nothing if no row is load-kept.
+    // ★★ EXACT, NOT A FLOOR. This was `toBeGreaterThan(5)` against an actual 14,
+    // so a corpus edit could delete eight load-kept rows — more than half the
+    // coverage — and stay green. Counted 2026-08-28: 14 kept, 5 dropped, 19
+    // total. A change here is a question about the corpus, not a number to bump.
     it("actually exercises the load-kept rows", () => {
-      expect(TABLE.filter(([, , , keeps]) => keeps).length).toBeGreaterThan(5);
+      expect(TABLE.filter(([, , , keeps]) => keeps).length).toBe(14);
+      expect(TABLE.length).toBe(19);
     });
   });
 

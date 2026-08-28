@@ -292,4 +292,24 @@ describe("the export path never hands htmlPlainProjection a raw <", () => {
     expect(descriptionText('<img alt="a<b" data-asset-id="real">')).toBe("");
     expect(descriptionText("<p>" + "<a".repeat(50) + "</p>")).toBe("");
   });
+
+  // ★★★ THE TEST ABOVE CLOSED HALF THE HOLE IT NAMED. The absence loop runs
+  // BOTH projections over the five fixtures — ten checks, as its own comment
+  // counts — but the positive observables covered `descriptionText` ALONE. So
+  // the mutant "`descriptionTextWithBreaks` returns "" for any input containing
+  // a bare `<`" stayed green against the whole file, and five of the ten
+  // absence checks still had no per-input positive observable: exactly the gap
+  // the comment above declares fatal, left open in the fix for it.
+  // ★★ Values MEASURED, not copied from the sibling test — the two projections
+  // differ on block boundaries, so assuming they agree is the same guess this
+  // pair of tests exists to stop anyone making.
+  it("carries the hostile inputs through descriptionTextWithBreaks too", () => {
+    expect(descriptionTextWithBreaks("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
+    expect(descriptionTextWithBreaks("<p>a<b</p>")).toBe("a");
+    expect(descriptionTextWithBreaks('<p title="x<y">visible</p>')).toBe("visible");
+    // Empty BY DESIGN, same reasons as above: an `img` is void and has no text
+    // content, and a run of unterminated `<a` openers is all markup.
+    expect(descriptionTextWithBreaks('<img alt="a<b" data-asset-id="real">')).toBe("");
+    expect(descriptionTextWithBreaks("<p>" + "<a".repeat(50) + "</p>")).toBe("");
+  });
 });
