@@ -163,6 +163,7 @@ No environment variables are required to run the app — every integration is co
 | `npm run docs:symbols:check` | Fail if AGENTS.md or any docs/AGENTS/*.md names a code symbol that does not exist (nothing else gates them) |
 | `npm run docs:claims:check` | Fail if a doc gains a new `path:LINE` citation or cites a line that cannot exist (ratchet; prefer a symbol, a line number rots on any insertion above it) |
 | `npm run followups:check` | Report which claims in docs/open-followups.md a machine can still check — REPORTING ONLY, never blocking, and it rules claims OUT rather than IN (a CLEAN entry may still be stale) |
+| `npm run rownames:check` | Enumerate where a per-row control's accessible name is composed and which surfaces a unit test asserts are distinct (WCAG 2.4.6) — REPORTING ONLY, never blocking, and a COVERED line is not evidence the test is non-vacuous |
 | `npm run ooxml:manifest` | Regenerate the ordered OOXML part-manifest baseline (docs/baselines/ooxml-parts.json) — deliberate act only, never run to make a red pipeline pass |
 | `npm run version:check` | Fail if a version restatement (package.json, lockfile, README badge, codemap headers) has drifted from src/app/version.ts |
 | `npm run version:sync` | Propagate src/app/version.ts's version and codename to every restatement |
