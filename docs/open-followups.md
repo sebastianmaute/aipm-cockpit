@@ -731,6 +731,8 @@ row that must exist), column resize, and the axe scan. Own batch, carefully.
 
 ## 6. Undo residuals (audit #11) — optional, unscheduled
 
+**Status:** open — a set of optional, unscheduled undo residuals. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 #11's large part shipped (0.173.0 "Jordan" + 0.174.0 "Egan"): a backend-agnostic in-memory
 undo stack covering all 11 single-entity deletes, bulk edit, clear-all, bulk delete and cascade
 deletes. What was explicitly left out:
@@ -1049,6 +1051,8 @@ parameters does not change either property; do not add a guard while in there.
 
 ## 13. Security audit is scope-stale — open
 
+**Status:** open — a scope-stale audit, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 `docs/security/findings-2026-07.md` is dated **2026-07-02, scope "v0.164 Cixin"**. The app is
 **0.259.0** (re-read 2026-08-25 at that release — `grep -n APP_VERSION src/app/version.ts`; this
 line said 0.203.0 until that day, so the un-audited delta was ~55 releases wider than it read).
@@ -1178,6 +1182,8 @@ browser, which is why both sites use `sr-only`.
 
 ## 16. Dictation flattens rich formatting — open, needs a design
 
+**Status:** open — a design gap in dictation, with no design chosen yet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 `appendDictationToHtml` round-trips the field through plain text before appending, because Web
 Speech fires `onFinal` **multiple times per hold** and each segment must join onto the previous one
 rather than replace it (the landmine already recorded in AGENTS.md's dictation bullet). The
@@ -1209,6 +1215,8 @@ worse (it loses dictated words, not formatting).
 ---
 
 ## 21. Eye verification owed on two editors and four detail cases — open, slice B (0.209.0)
+
+**Status:** open — an eye-verification debt owed on two editors and four detail cases. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Verified by screenshot against seeded data: the **RAID editor** and the **task editor's inline note
 log**. Not verified:
@@ -1415,6 +1423,8 @@ produces numeric forms — so this is genuinely small and genuinely optional.
 ---
 
 ## 28. CSV / Markdown / Turso never DOMPurify a rich field at load — open, needs a new boundary
+
+**Status:** open — a missing sanitiser boundary on three load paths. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `9e284c68` closed the two **whole-object cast** load paths: `jsonToWorkspace` (file-JSON, SharePoint,
 local-file) and the IndexedDB read now route all six rich fields through the escape-then-sanitize
@@ -1839,6 +1849,8 @@ handling together rather than special-casing the third pass.
 
 ## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
 
+**Status:** open — two rich-field write/export postures claimed as recorded that were not. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
 Both surfaced in round-6 reviews of 0.210.0. Filed together because the shared defect was documentary: two
 places pointed at §28 for a posture §28 does not cover (§28 is scoped to the **codec** load paths — it names
 `buildMilestoneFromObj` and "the codecs run under bare node").
@@ -1870,6 +1882,8 @@ readable text (author · date · text per entry).
 ---
 
 ## 37. `RaidItem` has NO storage-side length cap on any path — open, pre-existing
+
+**Status:** open — a missing storage-side length cap, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Produced by a round-6 review exchange in 0.210.0: a reviewer asserted the modal cap merely duplicated a
 sanitizer one, I showed the sanitizer is not on the save path, and tracing it properly turned up something
@@ -1970,6 +1984,8 @@ reflects what is actually storable rather than implying an attribute that cannot
 
 ## 39. The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed
 
+**Status:** open — a fix that landed over a mechanism still only a CANDIDATE — the precondition is proved, the causation unreproduced. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 `timelog-panel.test.tsx` → "surfaces a partial-failure toast when Refresh drops some projects". Eight CI
 failures, always this one assertion, always with the other ~767 files green and the full suite passing
 locally: 0.205.0 · 0.208.0 · twice on the 0.209.0 MR · once on main after that merge (which left main
@@ -2066,6 +2082,8 @@ frequency data lived only in a code comment and a memory file.
 ---
 
 ## 40. `text-ui-dark-blue` without a mode-appropriate companion — open, needs its own slice
+
+**Status:** open — a theming gap needing its own slice. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `--ui-dark-blue` is a near-black navy in all three dark scheme maps, so as TEXT on `--surface` it
 measures roughly **1.10:1 (harbor) / 1.17:1 (meridian) / 1.31:1 (umber)** — not "low contrast",
@@ -2386,6 +2404,8 @@ assignment was refused") *was* false there and was fixed. Closing it is one prop
 ---
 
 ## 44. The last two UX-roadmap slices — S6 designed and planned but UNEXECUTED, S7 undesigned
+
+**Status:** open — two UX-roadmap slices — S6 designed and planned but unexecuted, S7 undesigned. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★★ **Recorded here because it was invisible to every tracked document — until `0.253.0 "Schroeder"`
 (2026-08-21).** The 8-slice roadmap and S6's own spec and plan live under `docs/superpowers/`, which
@@ -2832,6 +2852,8 @@ write-through field list — is recorded separately as §177, not folded in here
 
 ## 51. A SECOND load-sensitive test — `use-tasks-dedup` "on confirm" — open, narrower: the recorded symptom cannot recur, the mechanism is unreproduced
 
+**Status:** open — a load-sensitive test whose recorded symptom cannot recur and whose mechanism is unreproduced. Last asserted 2026-08-20; never machine-verified by a committed probe.
+
 `use-tasks-dedup.test.tsx` → "on confirm, removes the duplicate and records ONE undo entry" failed on
 the post-merge main pipeline **#5418** (2026-08-02, MR !338), in the same `unit-tests` job where §39
 failed for the 8th time. It left main red.
@@ -2982,6 +3004,8 @@ and neither did `timelog-panel.test.tsx`.** Record what that is and is not worth
 ---
 
 ## 52. `useColumnResize`'s v1→v2 migration pins defaults for existing users — open, deliberate
+
+**Status:** open — a deliberate migration trade-off, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 0.212.0 changed the hook to persist `{v:2, widths}` holding ONLY columns the user actually dragged,
 so that a later change to a `*_COL_WIDTHS` default reaches people who had dragged some unrelated
@@ -3758,6 +3782,8 @@ is a slice of its own rather than a tweak. There is no pressure to do either now
 
 ## 61. Three residuals from the `use-resource-planner` split, plus one pointer — open, all small
 
+**Status:** open — three small residuals from the resource-planner split, plus one pointer. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Left deliberately by §2's move-only extractions. None blocks anything; grouped as one entry because
 they share a cause and would be fixed in one pass.
 
@@ -3824,6 +3850,8 @@ grep -c use-resource-planner docs/baselines/file-sizes.json
 ---
 
 ## 62. Two reference-data handlers have no production consumer — open, pre-existing
+
+**Status:** open — two reference-data handlers with no production consumer, pre-existing. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `handleAssignResourceRole` and `handleClearResourceRole` (`use-reference-data.ts`)
 are reachable only from `use-resource-planner.test.tsx`. Nothing
@@ -5423,6 +5451,8 @@ two are controls that pass under both old and new code, and none exercised the a
 
 ## 82. The task-FK backfill lives in a React hook, outside the numbered migration chain — open
 
+**Status:** open — a migration-ordering gap — the task-FK backfill sits outside the numbered chain. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
 `backfillTaskResourceFks` runs from `applyWorkspace` (`use-storage-backend.ts`) and
 `applyRestoredWorkspace` (`task-manager.tsx`), not from `migrateWorkspaceV*`. That placement is
 correct for *reach* — the chain misses CSV, Markdown and the Turso relational tables entirely, and no
@@ -5700,6 +5730,8 @@ chip there would be a dead prompt.
 
 ## 87. AI cannot read the activity log — CORRECTED 2026-08-18, stale
 
+**Status:** open — an AI capability gap, corrected once and stale since. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 ★★★ **STALE — a read tool now exists, and this entry's own reasoning is what the fix had to solve.**
 `chat-tool-defs.ts` declares a `search_history` tool, and `chat-tools.ts` exposes
 `getActivityLog(): readonly ActivityEntry[]` on the dispatcher, consumed inside `chat-tools.ts` to
@@ -5749,6 +5781,8 @@ this paragraph was written, so the TITLE is the durable half of that pointer.
 ---
 
 ## 88. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
+
+**Status:** open — an a11y heading-semantics gap. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Found while building the view-scoped AI prompts' Settings disclosure. At the time it was planned under
 the working name `AiViewScopeDisclosure`, in a file to be named `settings-sections/ai-view-scope-disclosure.tsx`.
@@ -5825,6 +5859,8 @@ in §86, which are live external calls) — it was simply out of scope for this 
 ---
 
 ## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
+
+**Status:** open — an unguarded popout handler. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Every mutating handler `task-manager` threads to `WorkspaceSection` is either wrapped in
 `guardEdit` (`makeEditGuard(isPopout, …)`) or self-guards; `onChangeBudgets` was the exception and was
@@ -6059,6 +6095,8 @@ problem for free. Prefer that trick wherever a marker can carry no prose.
 
 ## 94. PPTX pagination counts LOGICAL lines, so a wrapped line still overflows — open (eye-verify owed)
 
+**Status:** open — a pagination defect with an eye-verify owed. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 **Half of this is already fixed — do not re-open the fixed half.** `BODY_LINES_PER_SLIDE` is derived
 from the body box and font size, and each slide's lines are chunked through `paginateLines`, so
 overflow went from UNBOUNDED to BOUNDED.
@@ -6099,6 +6137,8 @@ from the box width and an average glyph width, which is still an estimate but a 
 ---
 
 ## 95. No test in CI exercises a real Turso database — open, NARROWED 2026-08-25
+
+**Status:** open — a CI coverage gap — no job exercises a real Turso database. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Framing matters here: this is **not** a `documents` gap. It is a known limit of the whole meta-blob
 class and of the Turso layer generally, and `documents` merely inherits it.
@@ -6314,6 +6354,8 @@ neither should be quoted as a general rule.
 ---
 
 ## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+
+**Status:** open — a MISSING NET with no known live path. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Nothing is broken today and this is NOT a regression the documents slice introduced.** It is a
 pre-existing boundary that the documents feature makes newly consequential, and it is recorded
@@ -6569,6 +6611,8 @@ touching every segmented control in the app wants its own slice and its own eye-
 evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
 
 ## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
+
+**Status:** open — a hand-rolled-UI ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 The full audit is [`docs/handrolled-ui-inventory.md`](handrolled-ui-inventory.md), taken 2026-08-07 on
 `63e4d768`. It is the work-list for **both** parts; this entry exists so the register points at it.
@@ -6940,6 +6984,8 @@ the cap never refused.
 
 ## 104. The `ai.documentWrite` deep-link is still dead — `activityViewOf` has no production caller — open
 
+**Status:** open — a dead deep-link — `activityViewOf` has no production caller. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 `d7f1e0b9` wired the emitter: `use-document-tools.ts` now writes an `ai.documentWrite` row on every
 AI create / update / delete that actually CHANGED something. Before it, the kind was registered in
 four places and emitted from none.
@@ -7286,6 +7332,8 @@ sample fixture does. Unmeasured in the wild — the mechanism is read from the c
 ---
 ## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
 
+**Status:** open — a tooltip-and-naming ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
 main took 105–108 as well. Every commit message on that branch says §103 and none can be edited.
@@ -7446,6 +7494,8 @@ thirteen-file list.
 
 ## 111. Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN
 
+**Status:** open — PARTLY FIXED — the `documents-list.tsx` half is fixed, the `#docId` sub-section is not. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 ★★★ **DO NOT READ THIS SECTION AS DONE.** It carries TWO defects and the slice that closed it
 addressed ONE. The `documents-list.tsx` six-control body below is CLOSED; the `### Same family,
 weaker` sub-section — whose own stated position is that the part worth fixing is the RATIONALE — was
@@ -7577,6 +7627,8 @@ width before the branch renders, so there is no group to reflow.
 ---
 
 ## 113. The documents roadmap — block editor, entity attachment, images, OOXML media — ALL SIX SLICES SHIPPED; kept as the decision record
+
+**Status:** open — a decision record kept deliberately after its slices shipped, not a defect. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★★ **CORRECTED 2026-08-21 — this entry's own title used to say "designed, UNIMPLEMENTED" and
 that had rotted into the dangerous direction.** S3a, S4 and S3b (0.222.0–0.249.0) and a structural
@@ -8021,6 +8073,8 @@ Recorded so a reader who remembers "two lines" does not go looking for a change 
 ---
 
 ## 116. The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision
+
+**Status:** open — an accepted decision about what the duplication gate measures. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★ **This entry shipped with its central claim inverted, and the inversion was INHERITED rather than
 invented.** The first revision said the gate reads the per-format TOKEN percentage, put tsx at 1.70%
@@ -8672,6 +8726,8 @@ grep -n "PeopleDisclosureLabel" src/app/budget-panel-people-rows.tsx src/app/bud
 
 ## 124. A popover opened by a click that also scrolls its ancestor never mounts — open, UI
 
+**Status:** open — a UI defect — a popover opened by a scrolling click never mounts. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 ★ **Filed as §123** — see the renumbering note at the head of §120.
 
 Found 2026-08-08 while driving the Open Points row ⋮ menu for slice 3's task-14 eye-verify.
@@ -8925,6 +8981,8 @@ finding, and why it is worth pinning with a test rather than a grep.
 matters is per-mount, not per-file.
 
 ## 128. `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI
+
+**Status:** open — a UI defect — a superseded run clears its busy flag. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Split out of §127 on 2026-08-09. It was first written as a bullet INSIDE §127, which was the wrong
 home twice over: §127 is CLOSED, and a live defect in a closed entry has no index row and stops being
@@ -9198,6 +9256,8 @@ follow is worse than no guard: the comment is what the next reader checks.
 ---
 
 ## 131. The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured
+
+**Status:** open — accepted, measured debt in the doc-claims ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 **Where:** `scripts/check-doc-claims.mjs`, `docs/baselines/doc-line-cites.json`, CI job `doc-claims-check`.
 
@@ -9499,6 +9559,8 @@ unnamed multi-row edit capture in the app, which is a far wider blast radius tha
 
 ## 133. A redo-created dangling dependency is repaired on two of six backends — open, measured
 
+**Status:** open — a repair that reaches two of the six backends. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Undo of a successor fan-out restores the target arrays from images resolved at capture time. Create task 5
 with successor 2 → undo → delete 5 → redo merges `{taskId:5}` back onto task 2, pointing at a task that no
 longer exists.
@@ -9534,6 +9596,8 @@ and a missing id renders nothing. It is recorded because a code comment stated f
 the next load, which is false exactly where most users are.
 
 ## 134. ONE `captureComposite` caller flags no primary and rides the positional fallback — open, latent, measured
+
+**Status:** open — a latent, measured positional-fallback dependency. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 `compositeUndoRunner` picks the remap source with `Math.max(0, findIndex(isPrimary))`, so an unflagged
 composite silently nominates fragment 0. Of the SEVEN call sites, **six** flag one; only
@@ -9575,6 +9639,8 @@ pointed at is CLOSED and only `use-task-submit.ts` is left — where the same sh
 composite has no cascade to remap.
 
 ## 135. A mixed-type dependency pair arriving from OUTSIDE the modal is invisible there and not individually removable — open, UI
+
+**Status:** open — a UI gap — a mixed-type dependency pair is invisible there and not individually removable. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 ★★★ **REWRITTEN 2026-08-25 — THE ORIGINAL PREMISE WAS KILLED BY A REDESIGN THAT RECORDED THE
 OPPOSITE DECISION IN SOURCE, AND THE OLD FIX INSTRUCTION WOULD HAVE UNDONE IT.** This entry used to
@@ -9907,6 +9973,8 @@ A rule stated once and referenced twice can disagree with itself, and the implem
 a reader trusts.
 
 ## 138. The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured
+
+**Status:** open — a deferred consolidation — P2 to P4 unstarted, scope measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 The 2026-08-10 slice that produced `scripts/check-followup-claims.mjs` (npm `followups:check`) was
 phase P0+P1 of a five-phase consolidation. **P2–P4 are not started.** The spec and plan that defined
@@ -10977,6 +11045,8 @@ packages, a shared NAME is not a shared GLYPH, and no gate in this repo can tell
 
 ## 146. `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` — open, a11y, measured
 
+**Status:** open — an a11y focus-restore defect, measured. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Found by a cold review of the §144(a) branch, deliberately NOT fixed there. PRE-EXISTING and app-wide:
 `PopoverPanel` has never returned focus to its trigger, and the §144(a) diff does not change that.
 
@@ -11240,6 +11310,8 @@ not an independent defect.
 
 ## 151. "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe
 
+**Status:** open — a retracted rationale still asserted in eight places; needs a probe. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
 
@@ -11488,6 +11560,8 @@ ordering change is how an ordering change acquires a behavioural regression.
 
 ## 153. PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured
 
+**Status:** open — a measured export-fidelity gap in PPTX. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Opened 2026-08-16 out of §141(b), which gave DOCX and the HTML/PDF path full structural fidelity for
 the seven rich entity fields and deliberately left both PPTX paths on the flat `.text` projection.
 That was the right call for that slice — but the reason PPTX is hard is NOT the missing bullet XML,
@@ -11619,6 +11693,8 @@ deletion) in a part that already exists.
 
 ## 156. A `<blockquote>`, `<pre>` or `<hN>` inside a list item loses the item’s indent — open, deliberate
 
+**Status:** open — a deliberate limitation in list-item indent. Last asserted 2026-08-21; never machine-verified by a committed probe.
+
 Opened 2026-08-17 alongside the continuation fix (`continuation: true` on `RichLine`), which gave a
 wrapped list item’s later lines the item’s geometry. That fix covers exactly the content that
 INHERITS its kind — the text after a `<br>`, a second `<p>`, a `<div>`. It deliberately does NOT
@@ -11653,6 +11729,8 @@ starts under the MARKER rather than under the item’s text. Fixing that properl
 `numbering.xml` (§154), which would retire the literal marker text altogether.
 
 ## 157. An item with no `li` line AT ITS OWN DEPTH still spends an ordinal and renders no marker — open
+
+**Status:** open — an ordinal-and-marker defect in list rendering. Last asserted 2026-08-21; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the fix that closes the larger half of this. `promoteItemHead`
 (`rich-text-runs.ts`) makes the FIRST `li` line an item put into the output its HEAD, so an item
@@ -11700,6 +11778,8 @@ the editor always puts a `<p>` first. AI-authored and imported HTML can produce 
 the unbuilt second axis, not lost names.
 
 ## 158. A `<blockquote>`'s OWN `data-align` is DROPPED — imported/AI HTML only — open
+
+**Status:** open — a dropped alignment attribute on imported or AI HTML only. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Opened 2026-08-17 by the round that softened an overclaiming test comment. `htmlToRichLines`
 (`rich-text-runs.ts`) carries a block's alignment down to a line a `<br>` re-opens, and
@@ -13088,6 +13168,8 @@ nor id alone. Scoping that inside the fix round that closed §50 is how a regres
 ---
 
 ## 180. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+
+**Status:** open — an invariant gap — `buildBulkFieldEdits` ignores the `FieldGroup` coupling. Last asserted 2026-08-24; never machine-verified by a committed probe.
 
 `changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
 `TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),
@@ -18128,6 +18210,8 @@ zero is not a bound.
 
 ## 245. The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface
 
+**Status:** open — a bounded sweep — test names miss surface a property-based scan finds. Last asserted 2026-08-25; never machine-verified by a committed probe.
+
 Filed 2026-08-25, at the close of the row-unique-accessible-names slice. Not a defect — a scope
 record for the sweep's own boundary, so the gap is documented rather than quietly dropped.
 
@@ -18201,6 +18285,8 @@ one is mechanical to convert — the gap is in FINDING candidates, not fixing th
 ---
 
 ## 246. Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app
+
+**Status:** open — two shared primitives colliding on accessible name across the app. Last asserted 2026-08-25; never machine-verified by a committed probe.
 
 Filed 2026-08-25, at the close of the row-unique-accessible-names slice, by probing each primitive
 with a colliding fixture. Deliberately NOT fixed here — neither collision is fixable per call site;
