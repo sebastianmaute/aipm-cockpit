@@ -57,18 +57,28 @@ Result: 5 `REPRO_UNRUNNABLE`, **zero drift**, verdict buckets unchanged
 (`CLEAN=165 PATH_MISSING=1 NO_MACHINE_CLAIM=1 SYMBOL_THIRD_PARTY=2 SYMBOL_MISSING=4
 PATH_THIRD_PARTY=1 SYMBOL_SELF_EXCLUDED=1`).
 
-That green is worth 29%:
+That green is worth 22%:
 
 | | |
 |---|---|
-| command lines inside bash fences, open entries | 297 |
-| commands `reproEntriesIn` extracts | 85 (29%) |
-| open entries with at least one runnable command | 49 / 175 (28%) |
+| command lines inside fences, open entries | 384 |
+| commands `reproEntriesIn` extracts | 85 (22%) |
+| rejected — no runnable prefix | 180 |
+| rejected — shell metacharacter | 119 |
+| open entries with at least one runnable command | 50 / 175 |
+| open entries whose reproduce block was skipped ENTIRELY | 49 |
 
-Two independently-derived measures, same ratio. The report's closing line — *"Every entry above
-still needs a probe"* — is true but says nothing about the 126 entries whose reproduce blocks were
-silently skipped. **This is the AGENTS.md "a defeated gate reports success" shape**: a green that
-reads as coverage it does not have.
+★★ **CORRECTED 2026-08-28, in the commit that shipped the disclosure.** This table first read
+"297 lines / 85 extracted / 29%", from an ad-hoc counter written while measuring. `reproCoverageIn`
+— the same `fencedLines` + `splitTrailingComment` path the runner itself uses — reports 384. The
+NUMERATOR is identical at 85, so both measured the same extraction; only the denominator method
+differed, and the ad-hoc one under-counted fenced lines. The real coverage is WORSE than the figure
+that motivated this slice. Read today's off `node scripts/check-followup-claims.mjs`, which now
+prints every one of these; do not re-quote them here.
+
+The report's closing line — *"Every entry above still needs a probe"* — is true but says nothing
+about the 49 entries whose reproduce blocks were silently skipped in full. **This is the AGENTS.md
+"a defeated gate reports success" shape**: a green that reads as coverage it does not have.
 
 ### `node -e ` is dead in `RUNNABLE_RE`
 

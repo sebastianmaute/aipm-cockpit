@@ -23,6 +23,7 @@ import {
   classify,
   isClosed,
   parseEntries,
+  reproCoverageIn,
   toArgv,
 } from "./followup-claims-lib.mjs";
 
@@ -299,6 +300,32 @@ for (const r of results.filter((x) => x.problems.length)) {
   for (const p of r.problems) console.log(`      ${p.kind}: ${p.detail}`);
 }
 console.log(`\n${Object.entries(tally).map(([k, v]) => `${k}=${v}`).join("  ")}`);
+// ★★★ COVERAGE DISCLOSURE. Without this, the summary above reads as a verdict
+// on the whole register; it is a verdict on the commands this runner can
+// actually spawn, which is a minority of them. A green `--run-repro` that names
+// no denominator is the same shape as reading an exit code through a pipe.
+const cov = { seen: 0, extracted: 0, notRunnable: 0, shellMeta: 0 };
+let entriesWithRunnable = 0;
+let entriesWithBlockButNothingRunnable = 0;
+for (const e of entries) {
+  const c = reproCoverageIn(e.body.join("\n"));
+  cov.seen += c.seen;
+  cov.extracted += c.extracted;
+  cov.notRunnable += c.notRunnable;
+  cov.shellMeta += c.shellMeta;
+  if (c.extracted > 0) entriesWithRunnable++;
+  else if (c.seen > 0) entriesWithBlockButNothingRunnable++;
+}
+const covPct = cov.seen === 0 ? 0 : Math.round((cov.extracted / cov.seen) * 100);
+console.log(
+  `\nREPRO COVERAGE — what a green run above is actually worth\n` +
+    `  fenced command lines seen : ${cov.seen}\n` +
+    `  extracted (runnable)      : ${cov.extracted} (${covPct}%)\n` +
+    `  rejected, not runnable    : ${cov.notRunnable}   (no grep/npm/npx/node-scripts prefix)\n` +
+    `  rejected, shell metachar  : ${cov.shellMeta}   (a shell would interpret it; spawn is shell:false)\n` +
+    `  open entries with >=1 runnable command : ${entriesWithRunnable} / ${entries.length}\n` +
+    `  open entries whose repro block was skipped ENTIRELY : ${entriesWithBlockButNothingRunnable}`,
+);
 console.log(`\nEvery entry above still needs a probe. This gate rules claims OUT, never IN.`);
 
 if (jsonPath) {

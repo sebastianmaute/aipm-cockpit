@@ -357,6 +357,42 @@ export function reproEntriesIn(text) {
     .filter((e) => e !== null && RUNNABLE_RE.test(e.cmd) && !SHELL_META.test(e.cmd));
 }
 
+/** Coverage of `reproEntriesIn` over one body, for disclosure.
+ *
+ *  ★★★ THIS EXISTS BECAUSE A GREEN `--run-repro` READ AS COVERAGE IT DID NOT
+ *  HAVE. Measured 2026-08-28 across the open entries: a minority of the fenced
+ *  command lines were extracted, and a minority of entries had even one runnable
+ *  command, while the report said "no drift" and named neither number. Same
+ *  shape as reading an exit code through a pipe: the answer is real, the
+ *  question was not the one anyone thought was asked. Read today's split off
+ *  `node scripts/check-followup-claims.mjs`, which prints it; a figure quoted
+ *  here would rot on the next entry anyone files.
+ *
+ *  ★ The three buckets PARTITION `seen`, and a test pins that on the real
+ *  register. A bucket that can double-count is a disclosure that overstates
+ *  itself, which is the one failure mode worse than no disclosure. */
+export function reproCoverageIn(text) {
+  const lines = fencedLines(text)
+    .map((l) => splitTrailingComment(l.replace(/^\s*(?:>\s?)*/, "").trim()))
+    // ★★ `e.cmd !== ""` is load-bearing and was MEASURED, not reasoned.
+    // `splitTrailingComment` returns `{cmd: "", comment: "# …"}` for a
+    // COMMENT-ONLY line — it does NOT return null — so without this filter a
+    // comment inside a fence is counted as a command that failed RUNNABLE_RE.
+    // That overstates the rejected buckets, which is the one direction a
+    // coverage disclosure must never err in. (`fencedLines` already drops blank
+    // lines, so those need no guard.)
+    .filter((e) => e !== null && e.cmd !== "");
+  let extracted = 0;
+  let notRunnable = 0;
+  let shellMeta = 0;
+  for (const e of lines) {
+    if (!RUNNABLE_RE.test(e.cmd)) notRunnable++;
+    else if (SHELL_META.test(e.cmd)) shellMeta++;
+    else extracted++;
+  }
+  return { seen: lines.length, extracted, notRunnable, shellMeta };
+}
+
 export function reproCommandsIn(text) {
   return reproEntriesIn(text).map((e) => e.cmd);
 }

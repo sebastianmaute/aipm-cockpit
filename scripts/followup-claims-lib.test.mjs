@@ -19,6 +19,7 @@ import {
   isClosed,
   parseEntries,
   reproCommandsIn,
+  reproCoverageIn,
   reproEntriesIn,
   stripTrailingComment,
   symbolsIn,
@@ -943,5 +944,62 @@ describe("buildSelfExcludedSymbols", () => {
 
   it("never reports a name the known set already holds", () => {
     expect(run(null).has("realSrcName")).toBe(false);
+  });
+});
+
+describe("reproCoverageIn", () => {
+  it("splits fenced command lines into extracted and the two rejection causes", () => {
+    const text = [
+      "```bash",
+      "grep -n foo src/app/x.ts",
+      "npm run docs:claims:check",
+      "cat docs/open-followups.md",
+      // ★ Exercises shellMeta via a PIPE, deliberately not via `node -e`:
+      // the next commit removes the node -e alternative from RUNNABLE_RE, which
+      // would move that line from the shellMeta bucket to notRunnable and break
+      // this fixture. A grep with a pipe is stable across both grammars.
+      "grep -n foo src | head -3",
+      "# a pure comment line",
+      "",
+      "```",
+    ].join("\n");
+
+    expect(reproCoverageIn(text)).toEqual({
+      seen: 4,
+      extracted: 2,
+      notRunnable: 1,
+      shellMeta: 1,
+    });
+  });
+
+  // ★★★ THE CASE THAT ALREADY BIT THIS WORK. splitTrailingComment returns
+  // `{cmd: "", comment: "# …"}` for a comment-only line, NOT null, so the naive
+  // filter counts a comment as a rejected command and overstates the gap.
+  it("does not count a comment-only line as a command", () => {
+    const text = ["```bash", "# just a comment", "grep -n foo src", "```"].join("\n");
+    expect(reproCoverageIn(text)).toEqual({
+      seen: 1,
+      extracted: 1,
+      notRunnable: 0,
+      shellMeta: 0,
+    });
+  });
+
+  it("counts nothing outside a fence", () => {
+    expect(reproCoverageIn("grep -n foo src")).toEqual({
+      seen: 0,
+      extracted: 0,
+      notRunnable: 0,
+      shellMeta: 0,
+    });
+  });
+
+  // ★ The invariant that must hold on ANY input, including the real register:
+  // every seen line lands in exactly one of the three buckets.
+  it("partitions: extracted + notRunnable + shellMeta === seen", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const c = reproCoverageIn(real);
+    expect(c.seen).toBeGreaterThan(0);
+    expect(c.extracted + c.notRunnable + c.shellMeta).toBe(c.seen);
   });
 });
