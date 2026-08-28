@@ -3,11 +3,16 @@
 **Goal:** Close four register entries that share one theme — data lost, or loss left unreported, on a
 load or an import path — without touching the classifier that decides what stored rich text *means*.
 
-**Architecture:** A malformed-quote detector added to the existing CSV scan; the load-hold machinery
-generalised from one reason (§103 document truncation) to two; the import-diagnostics channel split
-from the truncation flag and given per-section attribution; and a DOM-free note-log carry through
-template capture/apply, with the allow-list pass placed in the one module that is outside the sample
-generator's import graph.
+**Architecture:** A malformed-quote detector added to the existing CSV scan, surfaced as a third
+cause on the incomplete-load guard; the import-diagnostics channel split from that guard and given
+per-section attribution; and a DOM-free note-log carry through template capture/apply, with the
+allow-list pass placed in the one module outside the sample generator's import graph.
+
+**★★★ SEQUENCED BEHIND `fix/meta-decode-loss-chain`.** That branch is cut from the same base, lands
+first, and this slice rebases onto it and adopts its vocabulary. Both slices touch
+`use-load-truncation.ts`, `use-storage-backend.ts` and the `reportFor` census; an earlier draft of
+this spec renamed the same three guard symbols to different names, which would have been a hard
+conflict. See §3 and §4.
 
 **Closes:** §150, §152, §168, §36(a).
 **Deliberately out of scope:** §32 (see "Out of scope").
@@ -118,35 +123,52 @@ The import **proceeds** — the user must be able to see and export what loaded.
 held, on the same sticky mechanism §103 already uses, because the damage in §150 is autosave writing
 the mislabelled workspace back over its source.
 
-`useLoadTruncation` today holds `truncation: {entries, blocks} | null` as its single source of truth,
-with `loadWasTruncated` derived from it. Generalise that to one discriminated union rather than
-adding a second flag — the file's own comment warns that a second `useState` here is a second source
-of truth that can drift:
+**★★★ THIS SLICE SEQUENCES BEHIND `fix/meta-decode-loss-chain` AND ADOPTS ITS VOCABULARY.** That
+branch, cut from the same base (`24581bc6`), generalises this guard first: truncation stops being the
+only reason a load is incomplete, because a malformed meta blob leaves a slice undefined and must
+pause saving for the same reason. It renames the three cause-agnostic names ahead of its behavioural
+change:
 
-```ts
-type LoadHold =
-  | { kind: "truncation"; entries: number; blocks: number }
-  | { kind: "malformedQuotes"; count: number };
+| before | after |
+|---|---|
+| `loadWasTruncated` | `loadWasIncomplete` |
+| `mayCommitAfterTruncation` | `mayCommitAfterIncompleteLoad` |
+| `allowTruncatedSave` | `allowIncompleteSave` |
+
+**Do not re-do that rename here, and do not invent a competing one.** An earlier draft of this spec
+proposed `loadIsHeld` / `mayCommitAfterLoadHold` / `allowHeldSave` for the same three symbols — a
+direct collision. Rebase onto their branch once it lands and use their names.
+
+★★ Their branch is **not pushed**, so these names are not yet fixed. Verify the three at
+implementation time rather than trusting this table:
+
+```bash
+grep -rn "loadWasIncomplete\|mayCommitAfterIncompleteLoad\|allowIncompleteSave" src/app --include=*.ts --include=*.tsx
 ```
 
-Renames, so the names stay honest once the gate holds for two reasons:
+### The shape to follow
 
-| today | after |
-|---|---|
-| `truncation` | `hold` |
-| `loadWasTruncated` | `loadIsHeld` |
-| `allowTruncatedSave` | `allowHeldSave` |
-| `mayCommitAfterTruncation` | `mayCommitAfterLoadHold` |
+They deliberately do **not** use a discriminated union. Each cause gets its own state slot, with one
+derivation over all of them — their reasoning being that the hook's warning against a second
+`useState` is about restating the *same* fact twice, whereas a different cause is a different fact
+with different data:
 
-Call sites are few — the save effect in `use-storage-backend.ts`, the banner and props in
-`task-manager.tsx`, `notifications.tsx`, and the two test files. `truncationOps` /
-`TruncationOps` keep their names: they remain the load/flush choke points, which is what they are
-named for.
+```ts
+const [truncation, setTruncation] = useState<{ entries: number; blocks: number } | null>(null);
+const [decodeFailures, setDecodeFailures] = useState<readonly string[] | null>(null);
+const loadWasIncomplete = truncation !== null || decodeFailures !== null;
+```
 
-Everything the existing guard holds must survive the generalisation, in particular: a clean load
-**lowers** the hold; `clearForFreshWorkspace` still clears it for built-not-loaded workspaces;
-`wouldRefuseWrite` stays non-mutating while `mayCommitAfterLoadHold` still spends the one-shot
-bypass; and the escape hatch stays reachable from the UI.
+§150 is therefore a **third slot** and nothing more: `malformedQuotes: number | null`, folded into
+`loadWasIncomplete`, cleared by `allowIncompleteSave` alongside the other two, recorded in
+`reportFor`, and **lowered on a clean load** exactly as the other causes are. This is strictly
+additive to their design — no restructuring, no rename.
+
+Everything the existing guard holds must still hold: `clearForFreshWorkspace` clears it for
+built-not-loaded workspaces; `wouldRefuseWrite` stays non-mutating while
+`mayCommitAfterIncompleteLoad` still spends the one-shot bypass; the escape hatch stays reachable
+from the UI. `truncationOps` / `TruncationOps` keep their names — they are the load/flush choke
+points, which is what they are named for.
 
 ### Strings
 
@@ -168,6 +190,14 @@ hold, for the path that must not raise the §103 flag. `reportFor` keeps its cur
 The census test in `use-load-truncation.test.ts` counts a `reportFor` per `backend.load()` and is
 what catches a new load path that forgets to report. It must be widened to accept **either** op, or
 it fails on the new path — and widening it must not let a path reporting *neither* pass.
+
+★★ **`fix/meta-decode-loss-chain` rewrites this same census first**, so compose with its version, not
+with today's. That branch widens the census beyond its hardcoded two-file `OPS_FILES` (which misses
+`use-storage-backend.ts`, holding three of the six load sites) and introduces a
+`REPORT_EXEMPT_MARKER` comment — `"NO reportFor:"` — for paths that legitimately do not report. Two
+consequences: the second op must be counted as satisfying the census, and it must **not** be
+expressible via the exemption marker, or a path can claim exemption while silently reporting nothing.
+Read their final version before editing; the marker string is not yet pushed and may change.
 
 ### The attribution
 
@@ -290,8 +320,13 @@ because the seam is already open, not because it is urgent.
 
 - `csv-line-scan.ts` has a **zero-import** rule; verify with
   `grep -nE "^\s*(import|require)" src/app/csv-line-scan.ts` printing nothing.
+- **Sequencing.** Do not start implementation until `fix/meta-decode-loss-chain` is on `origin/main`;
+  rebase onto it, then re-verify the three guard names and the census shape. Starting early means
+  redoing the §150 and §152 work against a moved guard.
 - `use-storage-backend.ts` stands at **799** against the hard 800 cap with no baseline entry, and the
-  gate counts `wc -l` plus one. Anything added there must be extracted. Re-read the number:
+  gate counts `wc -l` plus one — **and the other slice adds to that same file first**, so the one
+  line of headroom may be gone by the time this one starts. Re-measure after the rebase and budget an
+  extraction rather than assuming room exists. Re-read the number:
   `node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"`
 - `i18n.de.ts` is CRLF and the Edit tool corrupts umlauts in it — patch with a node UTF-8 write
   matching `\r\n`. Real umlauts only; the `i18n-encoding` test bans ASCII substitutes and `\u00XX`.
@@ -324,6 +359,9 @@ should be argued in its own slice rather than smuggled in here.
 
 ## 9. Definition of done
 
+- Rebased onto `fix/meta-decode-loss-chain` after it merges, using its three guard names verbatim and
+  composing with its rewritten `reportFor` census. No competing rename anywhere in the diff:
+  `grep -rn "loadWasTruncated\|mayCommitAfterTruncation\|allowTruncatedSave" src/app` returns nothing.
 - Four register entries closed with their Status lines updated to the new blocking contract:
   §150, §152, §168, §36(a).
 - §150's "Why no fix is proposed" section rewritten — it argues a conclusion this slice disproves.
