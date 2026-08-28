@@ -347,6 +347,14 @@ function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
   return noteLog ? { ...item, noteLog } : item;
 }
 
+/** ★ Exported for TESTS only — no other module imports it, and its only caller
+ *  is `sanitizeTemplate` below (verify:
+ *  `grep -rnE "\bsanitizeSeed\b" src scripts e2e | grep -v "\.test\."`). The seed note-log
+ *  carry is wired per-route (tasks and RAID locally, changes through
+ *  `sanitizeSeedChangeItem`), and a test calling the per-item helpers directly
+ *  would pass with every route unwired. Reaching them THROUGH here is what
+ *  proves the wiring, so the widening buys a real assertion rather than
+ *  convenience. Do not add a production caller without revisiting that. */
 export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};

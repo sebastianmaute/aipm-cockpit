@@ -84,6 +84,10 @@ describe("the RAID seed carry", () => {
         },
       ],
     });
+    // ★ Assert the ROW survived first. Without this, a rejected row and a
+    // dropped noteLog both surface as the same TypeError on `[0]`, so the test
+    // cannot tell "the carry is broken" from "my fixture is invalid".
+    expect(seed?.raid).toHaveLength(1);
     expect(seed?.raid?.[0].noteLog).toHaveLength(1);
     expect(seed?.raid?.[0].noteLog?.[0].text).toBe("raid note");
   });
@@ -102,6 +106,8 @@ describe("the change seed carry", () => {
         },
       ],
     });
+    // ★ Row first, for the same reason as the RAID case above.
+    expect(seed?.changes).toHaveLength(1);
     expect(seed?.changes?.[0].noteLog).toHaveLength(1);
     expect(seed?.changes?.[0].noteLog?.[0].text).toBe("change note");
   });
