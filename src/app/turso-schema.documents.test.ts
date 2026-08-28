@@ -443,6 +443,14 @@ describe("malformed meta blobs are reported, not swallowed", () => {
     // whether the sibling decode worked or was entirely broken. A
     // `knowledge_items` seed that survives `sanitizeKnowledgeItems` non-empty
     // gives the assertion something that can actually fail.
+    //
+    // ★★ THIS IS THE BEFORE-THE-FAILURE DIRECTION ONLY, and on its own it
+    // proves much less than its name suggests: `rowsToWorkspace` decodes
+    // `knowledge_items` well ABOVE `documents`, so the sibling is already
+    // assigned by the time the throw happens. The only way this can fail is if
+    // the whole decoder throws outright. Kept because that IS a real regression
+    // to pin — the failure must not become a rethrow — but the direction that
+    // matters is the case below.
     const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
     try {
       const ws = rowsToWorkspace(
@@ -456,6 +464,41 @@ describe("malformed meta blobs are reported, not swallowed", () => {
       expect(ws.documents).toBeUndefined();
       expect(ws.knowledgeItems).toHaveLength(1);
       expect(ws.knowledgeItems?.[0]?.id).toBe("ki-1");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not abort the slices decoded AFTER the malformed one", () => {
+    // ★★★ THE DIRECTION THAT ACTUALLY MATTERS, and the one the test above
+    // cannot reach. A decode failure has to leave its own slice undefined and
+    // let the REMAINING decodes run; if it ever short-circuits, every slice
+    // below the failure silently disappears from the load — and the next save
+    // runs `DELETE FROM meta` and re-inserts only what it has, so the loss is
+    // then permanent. The guard in `use-load-truncation.ts` pauses saving on a
+    // reported failure, but it is fed a COUNT: it cannot tell one lost slice
+    // from six, so this is the only place the difference is visible.
+    //
+    // ★★ `settings_overrides` is the sibling BECAUSE OF ITS POSITION — it is
+    // the LAST slice `rowsToWorkspace` decodes, several below `documents`
+    // (`documents` → `documentVersions` → `settings_overrides`). Re-read that
+    // order before swapping the seed for a different key: a sibling that moved
+    // above `documents` turns this back into the weaker test above with no
+    // visible change.
+    // ★ And it is a POSITIVE observable for the same reason the sibling above
+    // is: it is assigned behind `if (hasAnyOverride(so))`, so an empty or
+    // invalid override would leave `ws.settingsOverrides` undefined whether the
+    // decode ran or not.
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const ws = rowsToWorkspace(
+        metaOnlyResults([
+          ["documents", "{not json"],
+          ["settings_overrides", JSON.stringify({ timezone: { timezone: "Europe/Berlin" } })],
+        ]),
+      );
+      expect(ws.documents).toBeUndefined();
+      expect(ws.settingsOverrides?.timezone?.timezone).toBe("Europe/Berlin");
     } finally {
       spy.mockRestore();
     }
