@@ -124,8 +124,10 @@ if (!gapsOnly) {
     // under --all; burying 13 answerable gaps under 93 covered files is how a
     // report stops being read.
     const classes = [...new Set(surface.sites.map((s) => s.nameClass))].sort().join("/");
+    // The marker stays on the compact line: it is the only thing a reader has
+    // to discount a COVERED with, and the limitations block below says so.
     out(
-      `${surface.status.padEnd(18)} ${surface.file}  ${surface.sites.length} site(s) ${classes}  <- ${surface.via}`,
+      `${surface.status.padEnd(18)} ${surface.file}  ${surface.sites.length} site(s) ${classes}  <- ${surface.via} [${surface.markers[0]}]`,
     );
   }
 }
