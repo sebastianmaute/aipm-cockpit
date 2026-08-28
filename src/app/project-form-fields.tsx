@@ -687,9 +687,13 @@ function ContactPersonsControl({
    *  colliding so both take the address path, yet neither is numbered, and with
    *  equal emails they are spoken alike. Measured identical before this change,
    *  so it is pre-existing, and `hasName` case-folds so only an import reaches it.
-   *  ★ The 2.5.3 claim an earlier revision made here was wrong: the rendered name
-   *  is a SIBLING `<span>`, not this button's label. Its own visible text is "×",
-   *  which axe curates out as punctuation before it compares anything. */
+   *  ★ The 2.5.3 claim an earlier revision made here was wrong: 2.5.3 governs a
+   *  control's name against its OWN label, and the rendered name is a SIBLING
+   *  `<span>`. This button's only visible content is the glyph "×" (U+00D7) — an
+   *  icon, not text for the name to have to contain. ★★ NOT because axe curates
+   *  it: measured, `removeUnicode("×", {punctuations: true})` returns it
+   *  UNCHANGED (U+00D7 is a math symbol), and the rule is `experimental` so
+   *  `tagExclude` drops it regardless. A third revision of this paragraph. */
   const contactNameCounts = new Map<string, number>();
   for (const cp of contactPersons) {
     const key = cp.name.trim().toLowerCase();
