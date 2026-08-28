@@ -1873,6 +1873,8 @@ handling together rather than special-casing the third pass.
 
 ---
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names `HTML_START`, a constant §114 deleted. The mechanism is unchanged because the rich sink derives from `RICH_ALLOWED_TAGS`, which contains `a`, and the word boundary still matches before the hyphen — but the identifier to read is `isHtmlStart` with the rich sink. Reproduced by `grep -n "htmlStartRe" src/app/html-start.ts`.
+
 ## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
 
 **Status:** open — two rich-field write/export postures claimed as recorded that were not. Last asserted 2026-08-21; never machine-verified by a committed probe.
@@ -2652,6 +2654,8 @@ and `focus-within:` is the fix if a label shape is ever genuinely wanted.
 whether the element carrying it can receive focus. Check the element type, not the class.
 
 ---
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `globals.css` contains ZERO occurrences of focus, outline or label. One line matches today — a comment added by the 0.255.0 lucide migration. The substantive claim survives; the sentence should say no such RULE. Reproduced by `grep -c "outline" src/app/globals.css`.
 
 ## 47. `chat-panel` clicks a `display:none` file input — open, pre-existing
 
@@ -3576,6 +3580,8 @@ next migration; the radio-like groups still want the `role="radio"` answer inste
 
 ---
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, two of its twelve line numbers drifted — the `comm-templates-section.tsx` pair moved, the other ten did not. The file set and the count of twelve are exact. This is the fourth instance of the drift class the entry itself documents three times; the fix is to symbolise those two, never to renumber. Reproduced by `grep -rn "aria-pressed={" src/app --include=*.tsx`.
+
 ## 56. `ToggleButton`'s pressed state is near-invisible in all three DARK schemes — open
 
 **Status:** open — a pressed state under the 3:1 non-text contrast floor in the dark schemes. Reproduced 2026-08-28 by `grep -n "accent border" src/app/toggle-button.tsx`.
@@ -3729,6 +3735,8 @@ the serving process's own version, which is the whole point. That is recorded in
 because "is this attribute client-authoritative?" is the first question anyone will have.
 
 ---
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the Resolution paragraph quotes a suite size and a combo/view product that are both stale. Read the count off the spec itself, never off this entry. Reproduced by `npx playwright test e2e/a11y.spec.ts --list`.
 
 ## 59. Eye verification owed on 0.212.0 — and on the two releases before it — open
 
@@ -4266,6 +4274,8 @@ predicates distinct: `isTaskClosed` answers "will this be worked on again?", `is
 answers "was it delivered?", and collapsing them is the defect 0.213.0 existed to remove.
 
 ---
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `dashboard-panel.tsx` still renders the all-cancelled string. It does not; the two renderers are elsewhere. Symptom unchanged and the renderer count is still two — only the file names are stale. Reproduced by `grep -rn "dashboardAllCancelled" src/app --include=*.tsx`.
 
 ## 66. ~~The R/A/G tile counts a cancelled task GREEN, one tile from the fix~~ — CLOSED post-0.216.0
 
@@ -5930,6 +5940,8 @@ in §86, which are live external calls) — it was simply out of scope for this 
 
 ---
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the reproduce command is described as returning nothing. It now returns two hits, both prose inside comments — the same comment-line trap §93 warns about. The substantive claim is untouched. Reproduced by `grep -n "absence" src/app/view-ai-scope.ts`.
+
 ## 90. `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open
 
 **Status:** open — an unguarded popout handler. Last asserted 2026-08-21; never machine-verified by a committed probe.
@@ -6435,6 +6447,8 @@ neither should be quoted as a general rule.
 
 ---
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry says `csvToDocuments` and `markdownToDocuments` take no diag. Both now take a `DocTruncationDiag`. That is the wrong diag for this entry — it reports the document CAP, not an import failure — and the swallowing catch still never touches it, so the reporting gap is intact and only the wording is stale. Reproduced by `grep -rn "csvToDocuments" src/app --include=*.ts`.
+
 ## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
 
 **Status:** open — a MISSING NET with no known live path. Last asserted 2026-08-25; never machine-verified by a committed probe.
@@ -6616,6 +6630,8 @@ nothing. The cost is otherwise entirely in whatever the scan then finds.
 from `IDB_VERSION`. They agree today; a future store addition that bumps one and not the other seeds
 the wrong shape silently. A comment now sits at that line.
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry hardcodes a ten-slice optional list and a six-slice dropped set. There are twelve optional slices and seven are unseeded — `activityLog` arrived after the entry was written and its own probe cannot see it, so the entry's command confirms an understated number. That is the rot it warns about twice. Reproduced by `grep -c "const KV_" src/app/browser-backend.ts`.
+
 ## 100. Tab ejects focus from a portaled popover opened inside a modal — open, a11y
 
 **Status:** open — a Tab trap blind to a portaled popover. Reproduced 2026-08-28 by `grep -n "container.contains(active)" src/app/modal.tsx`.
@@ -6697,6 +6713,8 @@ touching every segmented control in the app wants its own slice and its own eye-
 
 ★ Invisible to both gates: axe 4.12.1's only `wcag141` rule is `link-in-text-block`, and jsdom cannot
 evaluate CSS custom-property colour maths. The numbers above are the only coverage this has.
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry quotes an invocation count and file count that have both grown. The drift is in the direction that STRENGTHENS the entry. Reproduced by `grep -rn "SegmentedControl" src/app --include=*.tsx`.
 
 ## 102. Hand-rolled UI that should be a shared primitive, and glyphs that should be heroicons — open, ratchet
 
@@ -9810,6 +9828,8 @@ single-field path from `useInlineCellEdit`.
 future inline affordance did patch the field, and deleting it makes reintroducing that affordance silently
 unsanitised. Recorded so a dead-code sweep does not mistake it for an oversight in either direction.
 ---
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the reproduce command reads an exit code THROUGH A PIPE, which is this repo's own documented trap — the printed zero is the witness, but the pipeline status is the last stage's. Rewrite it before relying on `$?`. Reproduced by `grep -n "sanitizeInlinePatch" src/app/task-inline-patch.ts`.
 
 ## 137. The seven rich entity fields' editor cannot represent three tags their storage permits — CLOSED 2026-08-11
 
@@ -13805,6 +13825,8 @@ warn as the cap approaches, so overflow is a choice rather than a surprise, or
 the larger one — it needs a DOM-free HTML truncator, and `rich-text-plain.ts` may
 never call DOMPurify.
 
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry anchors on `capHtmlText`, but §208 moved the truncation branch to `degradeToPlain`, which now APPENDS surviving asset images. "Bold, links, lists and headings are REMOVED" is still exactly true; "loses every mark" is one degree too strong. Reproduced by `grep -n "degradeToPlain" src/app/rich-text-plain.ts`.
+
 ## 186. The block-editor conflict reason reaches users untranslated
 
 **Status:** open. **Severity:** low. **Found by:** cold review of the S3b fix
@@ -13830,6 +13852,8 @@ bug: the banner is better than the silent abandon it replaced either way.
 **To close:** give the rejection a code the panel maps to an i18n key, keeping
 the engine string as the diagnostic detail. Do NOT translate inside the engine —
 `document-mutations.ts` is i18n-free by contract.
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** This entry names only the replace rejection. `applyOps` emits the same untranslated shape for delete and move too, so three strings reach that banner and a fix mapping only replace would leave two behind. Reproduced by `grep -rn "was changed by another writer" src/app --include=*.ts`.
 
 ## 187. `useDocumentTools` has no test file, and one guard there is unpinned
 
@@ -14874,6 +14898,8 @@ no-`src` shape, and jsdom has no rendering engine to test it at all. What IS pin
 `data-asset-missing` attribute being set and the border/background styling classes being applied —
 not that the glyph actually paints. Eye-verify in a real browser (Chromium at minimum) before
 relying on this as the user-visible signal for a broken image reference.
+
+★★ **TEXT CORRECTION 2026-08-28, found by the register-wide triage. The CLAIM survives; the wording did not.** In this entry, the HEADING attributes the glyph to the wrong file; the body already carries the correction. Anyone triaging by heading alone is misled. Reproduced by `grep -n "data-asset-missing" src/app/globals.css`.
 
 ## 206. `documents-history-modal.tsx` does not resolve images — CLOSED 2026-08-23
 
