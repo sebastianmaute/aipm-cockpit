@@ -310,8 +310,8 @@ function StakeholdersPanelBody({
       <PaneSearchInput
         value={search}
         onChange={pf.setSearch}
-        ariaLabel={t(lang, "stakeholderFieldName")}
-        clearLabel={`${t(lang, "clear")} – ${t(lang, "stakeholderFieldName")}`}
+        ariaLabel={t(lang, "stakeholderFilterName")}
+        clearLabel={`${t(lang, "clear")} – ${t(lang, "stakeholderFilterName")}`}
       />
       {/* ★ The atom now overlays its own ✕, so the former sibling clear button
           was removed: two clears for one field is exactly what the shared
