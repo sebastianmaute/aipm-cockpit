@@ -74,8 +74,10 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
  *
  *  Every line of this is pinned by is-workspace-empty.test.ts, in both
  *  directions — each exclusion was mutation-checked, so adding one of these
- *  slices to a counter turns that exclusion's test red. A NEW slice will be
- *  caught by workspace-slice-policy.test.ts, which a following task adds.
+ *  slices to a counter turns that exclusion's test red. A NEW slice is caught
+ *  by workspace-slice-policy.test.ts, which parses the Workspace type and fails
+ *  when a slice has no recorded decision in workspace-slice-policy.ts — the
+ *  registry of these decisions, which does NOT drive the counters below.
  *  See docs/open-followups.md §98. */
 
 /** Number of user collections that hold at least one record. Used by the
