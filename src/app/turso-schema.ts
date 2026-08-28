@@ -35,6 +35,7 @@ import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-mod
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { logDiag } from "./diagnostics";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -187,8 +188,18 @@ export function rowsToWorkspace(
   if (statusRow?.value) {
     try {
       ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
-    } catch {
-      // malformed — leave the emptyWorkspace() default
+    } catch (err) {
+      // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel
+      //    for this loss, exactly as `jsonToWorkspace` does for the same class
+      //    of failure on `documents` ("a user who opens a file and finds no
+      //    documents has something to find"). Rethrowing would let ONE corrupt
+      //    slice discard the whole workspace — the load already proceeds with
+      //    whatever entity tables came back, so silently dropping this slice
+      //    is the failure the diagnostic exists to surface instead.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "project_status",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
@@ -196,8 +207,12 @@ export function rowsToWorkspace(
     try {
       const fv = sanitizeFieldVisibility(JSON.parse(fvRow.value));
       if (fv) ws.fieldVisibility = fv;
-    } catch {
-      // malformed — leave default (undefined)
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "field_visibility",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const fnRow = rowObjects(byTable.get("meta")).find((r) => r.key === "features");
@@ -205,8 +220,12 @@ export function rowsToWorkspace(
     try {
       const f = sanitizeFeatures(JSON.parse(fnRow.value));
       if (f !== undefined) ws.features = f;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "features",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const scRow = rowObjects(byTable.get("meta")).find((r) => r.key === "steering_committee");
@@ -214,8 +233,12 @@ export function rowsToWorkspace(
     try {
       const sc = sanitizeSteeringCommittee(JSON.parse(scRow.value));
       if (sc) ws.steeringCommittee = sc;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "steering_committee",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const tlRow = rowObjects(byTable.get("meta")).find((r) => r.key === "timelog_links");
@@ -223,8 +246,12 @@ export function rowsToWorkspace(
     try {
       const tl = sanitizeTimelogLinks(JSON.parse(tlRow.value));
       if (tl) ws.timelogLinks = tl;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "timelog_links",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const kiRow = rowObjects(byTable.get("meta")).find((r) => r.key === "knowledge_items");
@@ -232,8 +259,12 @@ export function rowsToWorkspace(
     try {
       const ki = sanitizeKnowledgeItems(JSON.parse(kiRow.value));
       if (ki.length) ws.knowledgeItems = ki;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "knowledge_items",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const insRow = rowObjects(byTable.get("meta")).find((r) => r.key === "insights");
@@ -241,8 +272,12 @@ export function rowsToWorkspace(
     try {
       const ins = sanitizeInsights(JSON.parse(insRow.value));
       if (ins.length) ws.insights = ins;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "insights",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const logRow = rowObjects(byTable.get("meta")).find((r) => r.key === "activityLog");
@@ -250,8 +285,12 @@ export function rowsToWorkspace(
     try {
       const log = sanitizeActivityLog(JSON.parse(logRow.value));
       if (log.length) ws.activityLog = log;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "activityLog",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   // Documents ride `meta` as one JSON blob — no table of their own, so
@@ -264,8 +303,12 @@ export function rowsToWorkspace(
     try {
       const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
       if (docs.length) ws.documents = docs;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "documents",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   // documentVersions ride `meta` too — same two-pass shape as documents just
@@ -287,8 +330,12 @@ export function rowsToWorkspace(
         }).blocks,
       }));
       if (versions.length) ws.documentVersions = versions;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "documentVersions",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
@@ -296,8 +343,12 @@ export function rowsToWorkspace(
     try {
       const so = sanitizeSettingsOverrides(JSON.parse(soRow.value));
       if (hasAnyOverride(so)) ws.settingsOverrides = so;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      // Same channel as project_status above — see the comment there.
+      logDiag("error", "turso.metaSliceUnreadable", {
+        slice: "settings_overrides",
+        message: err instanceof Error ? err.message : String(err),
+      });
     }
   }
   return migrateWorkspaceV10(ws);

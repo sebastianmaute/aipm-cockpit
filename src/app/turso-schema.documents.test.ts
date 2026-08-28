@@ -1,13 +1,14 @@
 // Documents ride the `meta` table as ONE JSON blob (like insights) — they have
 // no table of their own, so `TABLE_NAMES` (derived from ENTITY_SPECS) is
 // deliberately untouched and its guard test stays green unmodified.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   TABLE_NAMES, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables,
   type PipelineResultLike,
 } from "./turso-schema";
 import { tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace } from "./workspace";
+import * as diagnostics from "./diagnostics";
 import {
   MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS,
   type DocTruncationDiag, type ProjectDocument,
@@ -412,5 +413,39 @@ describe("turso — documentVersions load", () => {
     const ws = rowsToWorkspace(metaOnlyResults([["documentVersions", JSON.stringify([VERSION])]]), diag);
     expect(ws.documentVersions).toEqual([VERSION]);
     expect(diag.truncatedBlocks).toBeUndefined();
+  });
+});
+
+describe("malformed meta blobs are reported, not swallowed", () => {
+  it("logs a diagnostic naming the slice that failed to decode", () => {
+    const seen: Array<{ level: string; code: string; fields?: Record<string, unknown> }> = [];
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation((level, code, fields) => {
+      seen.push({ level, code, fields });
+    });
+    try {
+      const ws = rowsToWorkspace(metaOnlyResults([["documents", "{not json"]]));
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+    const hit = seen.find((e) => e.code === "turso.metaSliceUnreadable");
+    expect(hit, "a malformed documents blob must emit turso.metaSliceUnreadable").toBeDefined();
+    expect(hit?.level).toBe("error");
+    expect(hit?.fields?.slice).toBe("documents");
+  });
+
+  it("leaves sibling slices intact when one blob is malformed", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const ws = rowsToWorkspace(
+        metaOnlyResults([
+          ["documents", "{not json"],
+          ["insights", JSON.stringify([])],
+        ]),
+      );
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
   });
 });
