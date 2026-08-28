@@ -20046,6 +20046,25 @@ grep -rln "ALLOWED_REC_TOOLS" src --include=*.test.ts --include=*.test.tsx
 tool, and that it matches the tool schema's enum. Membership is not enforcement: the set could be
 perfect and the apply-time filter deleted, and both of its assertions still pass.
 
+★★ **MEASURED 2026-08-28, not reasoned — the mutant survives.** This entry first stated "delete that
+`.filter(...)` and nothing in the suite notices" as an inference from coverage (one test file, and it
+asserts membership only). It has since been run: replacing the filter with a bare
+`const calls = rec.proposedCalls;` and executing every insights suite plus the recommendation runner,
+the insights panel and the task-manager characterization test gives **236 tests passed, 0 failed**
+across 18 files. The mutant was reverted and `git diff --stat` proved empty. Reproduce:
+
+```bash
+grep -n "rec.proposedCalls.filter" src/app/use-insight-recommendations.ts
+npx vitest run src/app/insights src/app/use-insight-recommend-runner.test.ts src/app/insights-panel.test.tsx --maxWorkers=1 --pool=threads
+```
+
+★ Read the scope honestly: it says the guard is UNPINNED, not that the app is exploitable today. Two
+other enforcement points sit upstream of it — `recommend.ts`'s generation-time check and
+`sanitize-insights.ts`'s load-time check — so this is the innermost layer of a defence-in-depth
+chain, and a blob would have to get past both to reach it. That is exactly why it can be deleted with
+the suite green, and exactly why it should not be: the layer that only matters when the others have
+already failed is the one no test will ever incidentally cover.
+
 ★★ **A stale docstring falls out of the same move and is still there.** `insights/insight.ts`'s
 comment on `ALLOWED_REC_TOOLS` names the three enforcement points as *"generation
 (parseRecommendation), load (sanitizeInsights), and apply (task-manager)"*. The apply point is no
