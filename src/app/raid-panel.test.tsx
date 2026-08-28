@@ -522,8 +522,11 @@ describe("RAID bulk edit", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "selectItem", "Vendor risk") }));
     // open the bulk panel
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "bulkEdit") }));
-    // enable Severity + set it to High (the bulk select shares its name with the
-    // toolbar filter — disambiguate by the bulk control's id)
+    // enable Severity + set it to High. The id lookup is belt-and-braces since
+    // §261: the toolbar filter used to share this select's accessible name and
+    // no longer does ("raidFilterSeverity"), so the query resolves uniquely
+    // today — but the bulk select still shares it with the sortable-header
+    // BUTTON, so keep the id in case a future control lands in this role.
     fireEvent.click(screen.getByRole("checkbox", { name: t("en-US", "raidSeverity") }));
     const bulkSeverity = screen
       .getAllByRole("combobox", { name: t("en-US", "raidSeverity") })
@@ -963,7 +966,7 @@ describe("RaidPanel owner filter", () => {
     const { container } = renderPanel(makeProps({ raid: items }));
     // Both rows visible initially.
     expect(rowIds(container)).toEqual(["#1", "#2"]);
-    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidFilterOwner") });
     fireEvent.change(ownerSelect, { target: { value: "Alice Owner" } });
     expect(rowIds(container)).toEqual(["#1"]);
   });
@@ -975,7 +978,7 @@ describe("RaidPanel owner filter", () => {
       makeRaidItem({ id: 4, title: "Delta", severity: "High", owner: "Someone Else" }),
     ];
     const { container } = renderPanel(makeProps({ raid: items, resources }));
-    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidOwner") });
+    const ownerSelect = screen.getByRole("combobox", { name: t("en-US", "raidFilterOwner") });
     fireEvent.change(ownerSelect, { target: { value: "Live Owner" } });
     expect(rowIds(container)).toEqual(["#3"]);
   });
@@ -1195,4 +1198,68 @@ describe("RaidPanel row-unique accessible names (WCAG 2.4.6)", () => {
       screen.getByRole("button", { name: `${t("en-US", "raidAddItem")} – ${t("en-US", "raidCategoryA")}` }),
     ).toBeInTheDocument();
   });
+});
+
+// §261. The toolbar's category/severity/status/owner filter <select>s used to
+// read the SAME translations as the sortable-header BUTTONS of the same
+// columns ("raidCategory"/"raidSeverity"/"raidStatus"/"raidOwner"), so each of
+// those four names was carried by two controls with genuinely different
+// purposes — filtering the register vs. sorting it (WCAG 2.4.6).
+// ★ The collision spans two files that only meet at runtime: the filters live
+// in `raid-panel-toolbar.tsx`, the sort headers in `raid-panel-rows.tsx`, and
+// `raid-panel.tsx` mounts both into one DOM scope — so neither file could be
+// read on its own and shown to be defective.
+// ★★★ axe has no rule that flags two controls sharing an accessible name, in
+// any view at any seed size, so this unit test is the only detector that can
+// exist for it.
+describe("RaidPanel — toolbar filters vs. column headers (§261)", () => {
+  it("gives the category/severity/status/owner filters and their sort headers distinct names", () => {
+    // One item carrying an OWNER is load-bearing: the owner <select> renders
+    // only when `ownerOptions` is non-empty (`raid-panel.tsx`), so an
+    // owner-less fixture would silently drop a quarter of the pairs under test
+    // and still pass.
+    renderPanel(
+      makeProps({ raid: [makeRaidItem({ id: 1, title: "Vendor risk", severity: "High", owner: "Alice" })] }),
+    );
+
+    // Un-narrowed roles and whole-document scope on purpose: this collision is
+    // cross-ROLE (combobox vs. button), so every existing test in this file was
+    // structurally blind to it — they each narrow to one role family, or scope
+    // to the row controls, which excludes the toolbar filters that are half of
+    // every pair.
+    expectRowUniqueNames({
+      // MEASURED against this fixture, not guessed: 5 comboboxes + 17 buttons +
+      // 2 checkboxes. `minControls` only proves the scope is non-empty, so it is
+      // pinned to the exact count — a loose floor would silently re-admit a
+      // narrowed `roles` list.
+      minControls: 24,
+      roles: ["combobox", "button", "checkbox"],
+    });
+
+    // Anti-vacuity: name each side of all four former collisions positively, so
+    // a "fix" that merely deleted a label could not pass.
+    for (const key of ["raidFilterCategory", "raidFilterSeverity", "raidFilterStatus", "raidFilterOwner"] as const) {
+      expect(screen.getByRole("combobox", { name: t("en-US", key) })).toBeTruthy();
+    }
+    // The COLUMNS keep their own names — the filters moved, the headers did not.
+    // The sort glyph is `aria-hidden`, so the accessible name is the bare label.
+    for (const key of ["raidCategory", "raidSeverity", "raidStatus", "raidOwner"] as const) {
+      expect(screen.getByRole("button", { name: t("en-US", key) })).toBeTruthy();
+    }
+  });
+
+  // ★ DELIBERATELY NOT COVERED HERE — for Task 8, which adds
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}` to
+  // `column-config-popover.tsx`. Until it lands, the column-config checkboxes
+  // take their accessible name from their wrapping <label>'s text, so the four
+  // above also read "Category"/"Severity"/"Status"/"Owner" and collide with the
+  // headers. Two things to do when it does: open the popover with the
+  // "colConfigTitle" gear button before asserting, and re-MEASURE `minControls`
+  // (one extra checkbox per configurable column appears).
+  // ★★ Note `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name — an <input> has
+  // no textContent, so today every one of those checkboxes reports "" and
+  // opening the popover would fail this assertion on a spurious `"" xN`
+  // duplicate that has nothing to do with §261. Task 8's aria-label is what
+  // makes them visible to this helper at all.
 });

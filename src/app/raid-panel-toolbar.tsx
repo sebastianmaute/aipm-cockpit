@@ -87,7 +87,7 @@ export function RaidToolbar({
       <Select
         value={categoryFilter}
         onChange={(e) => onSetFilter("category", e.target.value)}
-        aria-label={t(lang, "raidCategory")}
+        aria-label={t(lang, "raidFilterCategory")}
         title={t(lang, "raidCategoryFilterHint")}
         size="xs"
         className="h-[30px]"
@@ -102,7 +102,7 @@ export function RaidToolbar({
       <Select
         value={severityFilter}
         onChange={(e) => onSetFilter("severity", e.target.value)}
-        aria-label={t(lang, "raidSeverity")}
+        aria-label={t(lang, "raidFilterSeverity")}
         title={t(lang, "raidSeverityFilterHint")}
         size="xs"
         className="h-[30px]"
@@ -117,7 +117,7 @@ export function RaidToolbar({
       <Select
         value={statusFilter}
         onChange={(e) => onSetFilter("status", e.target.value)}
-        aria-label={t(lang, "raidStatus")}
+        aria-label={t(lang, "raidFilterStatus")}
         title={t(lang, "raidStatusFilterHint")}
         size="xs"
         className="h-[30px]"
@@ -130,7 +130,7 @@ export function RaidToolbar({
         <Select
           value={ownerFilter}
           onChange={(e) => onSetFilter("owner", e.target.value)}
-          aria-label={t(lang, "raidOwner")}
+          aria-label={t(lang, "raidFilterOwner")}
           size="xs"
           className="h-[30px]"
         >
