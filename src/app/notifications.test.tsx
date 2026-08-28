@@ -317,6 +317,28 @@ describe("TruncatedLoadBanner", () => {
     expect(confirmState.calls).toBe(0);
   });
 
+  it("names the DECODE magnitude on the dismissed chip, not a bare 'Saving paused'", () => {
+    // ★★ The chip's `countText ?? t(lang, "storageSavingPaused")` was covered
+    // for truncation only — every other render in this file passes
+    // `decodeFailureCount={0}`, so on a decode-only failure the one line a
+    // classic user gets was pinned nowhere. It matters most there: that layout
+    // has no sidebar footer, so this chip is the entire persistent account of
+    // what happened, and the decode cause has no counts object to fall back on.
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /show how to resolve/i })).toBeInTheDocument();
+  });
+
+  it("falls back to the status text on the chip only when NO magnitude is known", () => {
+    // ★ The control for the case above: without it, a chip hardcoded to the
+    // count string would pass that assertion, and a chip that ignored the count
+    // entirely would pass this one. `truncation` null with a zero decode count
+    // is the only shape that reaches the fallback.
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText("Saving paused")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be read|could not be opened/i)).toBeNull();
+  });
+
   it("renders nothing when dismissed and the footer already carries the indicator (modern layout)", () => {
     const { container } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     // Control: the SAME props with hasFooterIndicator=false DO render something
