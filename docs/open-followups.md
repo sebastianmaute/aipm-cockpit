@@ -324,7 +324,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
-| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-no-known-live-path) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
+| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--open-a11y) | Tab ejects focus from a portaled popover opened inside a modal — open, a11y | field controls → modal header, unreleased | M | open |
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes--open-a11y) | `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y | field controls → modal header, unreleased | S | open |
@@ -6483,7 +6483,7 @@ neither should be quoted as a general rule.
 
 ---
 
-## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284)
 
 **Status:** open — the counters were WIDENED 2026-08-29: `documents`, `knowledgeItems` and
 `documentAssets` now count toward both. Kept open for the decision record and because the widening
@@ -6495,10 +6495,10 @@ project is never machine-verified.
 ★★★ **CORRECTED 2026-08-29: "no known live path" WAS FALSE, and the path does not start here.** A
 malformed Turso meta blob is discarded in silence at load and then written over as an intentional
 empty by the next save — see §284, which owns links 1 and 2. These counters are the THIRD link: what
-should have caught the loss at the save choke point and did not. The heading above still carries the
-false parenthetical, deliberately, because the anchor is cited from outside this file and
-renumbering or retitling silently redirects every citation; read it as the claim this bullet
-retracts, not as a summary.
+should have caught the loss at the save choke point and did not. The heading and the table row were corrected in the
+same commit rather than left standing: the anchor was cited from exactly ONE place, the table in
+this file, so nothing outside it could be redirected. A heading that still asserted the disproved
+claim would be the most-read part of the entry.
 
 ★★ **The "five" below is also wrong, in both directions.** `timelogLinks` and `settingsOverrides`
 are OBJECT-typed, not arrays (`Readonly<TimelogLinks>` / `Readonly<SettingsOverrides>` on
