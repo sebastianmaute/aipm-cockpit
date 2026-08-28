@@ -20,6 +20,7 @@ import type { ProjectDocument } from "./document-model";
 import { TaskKanbanCard } from "./task-kanban-card";
 import { flashOutlineClass } from "./use-deeplink-row-flash";
 import { INTERACTIVE } from "./interaction-styles";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 
 interface TaskKanbanSwimlanesProps {
   lang: Lang;
@@ -125,6 +126,31 @@ export function TaskKanbanSwimlanes({
     [tasks, resourcesById, extraLaneIds],
   );
 
+  // Lane-unique display tokens (WCAG 2.4.6). Two directory resources can
+  // genuinely share a display name, and a lane's label is the LIVE directory
+  // name (`effectiveAssignee`), so nothing upstream disambiguates it — two
+  // "John Smith" lanes rendered two identically-named `region`s AND two
+  // identical "Remove lane – John Smith" buttons.
+  //
+  // ★★★ TOKENISE THE COMPUTED LABEL, NOT `lane.label`. The Unassigned lane's
+  // raw label is "" by construction (`task-kanban.ts` keeps that module
+  // i18n-free and lets the caller supply the translated string), so tokenising
+  // the raw field would name that lane off an empty string.
+  //
+  // ★ `buildRowTokens` is generic over the id type and lane keys are strings,
+  // so it fits directly; `useRowTokens` is constrained to a numeric id and
+  // does not.
+  const laneTokens = useMemo(
+    () =>
+      buildRowTokens(
+        grouping.lanes.map((lane) => ({
+          id: lane.key,
+          name: lane.key === UNASSIGNED_LANE ? t(lang, "swimlaneUnassigned") : lane.label,
+        })),
+      ),
+    [grouping, lang],
+  );
+
   return (
     <div ref={containerRef} className="flex min-h-0 flex-1 flex-col overflow-auto pb-2">
       <div className="flex">
@@ -141,12 +167,17 @@ export function TaskKanbanSwimlanes({
 
       {grouping.lanes.map((lane) => {
         const laneLabel = lane.key === UNASSIGNED_LANE ? t(lang, "swimlaneUnassigned") : lane.label;
+        // ★ The VISIBLE header stays the bare label — the token is an
+        // ACCESSIBLE-name device, and a user reads the name the directory
+        // holds. The fallback cannot fire (the map is built from these very
+        // lanes) but keeps the label non-empty if that ever stops holding.
+        const laneToken = laneTokens.get(lane.key) ?? laneLabel;
         const laneCells = grouping.cells[lane.key];
         const isEmptyLane = TASK_STATUSES.every((status) => laneCells[status].length === 0);
         const canRemove = lane.resourceId != null && isEmptyLane;
 
         return (
-          <section key={lane.key} aria-label={laneLabel} className="flex">
+          <section key={lane.key} aria-label={laneToken} className="flex">
             <div
               className={`sticky left-0 z-10 ${LANE_COL_CLASS} flex items-center justify-between gap-1 border-r border-b border-line bg-surface-muted px-3 py-2 text-sm font-medium text-foreground`}
             >
@@ -155,7 +186,7 @@ export function TaskKanbanSwimlanes({
                 <button
                   type="button"
                   onClick={() => onRemoveLane(lane.resourceId!)}
-                  aria-label={`${t(lang, "swimlaneRemoveLane")} – ${laneLabel}`}
+                  aria-label={rowLabel(t(lang, "swimlaneRemoveLane"), laneToken)}
                   title={t(lang, "swimlaneRemoveLane")}
                   className={`shrink-0 rounded p-0.5 text-muted-foreground hover:text-ui-pink-strong ${INTERACTIVE}`}
                 >
@@ -169,7 +200,7 @@ export function TaskKanbanSwimlanes({
                 <div
                   key={status}
                   data-testid={`swimlane-cell-${lane.key}-${status}`}
-                  aria-label={t(lang, "swimlaneCell", laneLabel, statusLabel)}
+                  aria-label={t(lang, "swimlaneCell", laneToken, statusLabel)}
                   onDragOver={(e) => e.preventDefault()}
                   onDrop={(e) => {
                     e.preventDefault();
