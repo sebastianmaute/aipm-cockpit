@@ -249,12 +249,41 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     expect(src.match(/deps\.backend\s*\./g)).toBeNull();
   });
 
-  it.each(OPS_FILES)("%s reports every load it performs", (file) => {
+  // ★★★ THIS CENSUS USED TO BE BLIND TO HALF THE LOAD SITES. It read OPS_FILES
+  // — the two ops files only — while `use-storage-backend.ts` holds THREE of
+  // the six `.load()` sites and was not in the list at all: loads=3 reports=2,
+  // unseen.
+  //
+  // ★★ Widening it naively goes RED on correct code. `onOpenStorageFile`
+  // (`use-storage-backend.ts`) deliberately does not report: that path applies
+  // tasks and RAID only, never the loaded documents, so raising the flag would
+  // warn about documents the user still has, and lowering it would clear a
+  // warning still true of the live ones. So this census honours a MARKED
+  // exemption at the site — the `ABSENCE_MARKERS` pattern from
+  // `scripts/check-agents-symbols.mjs`, where a deliberate absence is declared
+  // near the site and the scanner honours it — rather than a lower expected
+  // count. A bare lower count would be satisfied by any file with the same
+  // ratio, including one that simply forgot.
+  const CENSUS_FILES = [
+    "src/app/use-storage-backend.ts",
+    "src/app/use-storage-file-ops.ts",
+    "src/app/use-storage-turso-ops.ts",
+  ];
+  const REPORT_EXEMPT_MARKER = "NO reportFor:";
+
+  it.each(CENSUS_FILES)("%s reports for every load it does not explicitly exempt", (file) => {
     const src = readFileSync(file, "utf8");
     const loads = src.match(/\.load\(\)/g)?.length ?? 0;
     const reports = src.match(/reportFor\(/g)?.length ?? 0;
-    expect(loads).toBeGreaterThan(0); // control: the scan is looking at the right file
-    expect(reports).toBe(loads);
+    const exemptRe = new RegExp(REPORT_EXEMPT_MARKER, "g");
+    const exempt = src.match(exemptRe)?.length ?? 0;
+    expect(loads, `${file}: no load sites found — the census would be vacuous`).toBeGreaterThan(0);
+    expect(
+      reports + exempt,
+      `${file}: ${loads} load(s), ${reports} report(s), ${exempt} marked exemption(s). ` +
+        `Every load must call truncationOps.reportFor, or carry a "${REPORT_EXEMPT_MARKER}" ` +
+        `comment at the site saying why it must not.`,
+    ).toBe(loads);
   });
 
   // ★★★ THIS CENSUS EXISTS BECAUSE THE SCAN ABOVE MISSED A REAL DEFECT.
