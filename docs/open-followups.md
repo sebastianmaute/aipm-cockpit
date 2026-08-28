@@ -1644,14 +1644,16 @@ pins exact stored CSV/Markdown bytes, passed without fixture regeneration.
 ★★★ **THE CEILING CLIPS RAW BYTES, SO IT IS NOT A CAP ON VISIBLE TEXT.** Over-ceiling input is
 truncated at `richByteCeiling(max)` before any projection runs; everything past that byte offset —
 visible characters and asset images alike — is gone, regardless of how far under `max` the visible
-text is. Measured: a 1.8 MB value with 579 visible characters at `max = 5000` stored 281 of them and
-dropped an image placed after the padding. That is the price of checking the ceiling BEFORE
+text is. ★★ NO FIGURES ARE QUOTED HERE ANY MORE: this sentence claimed a 1.8 MB value with 579
+visible characters stored 281 of them and dropped an image after the padding, citing a test whose
+fixture is `<p>HEAD${"<em></em>".repeat(200000)}TAIL</p>` — 8 visible characters and NO `<img>` at
+all (`grep -rn "579" src/app/rich-text-plain.test.ts` returns nothing). The PROPERTY is pinned by
+that test, which asserts the tail is gone; the numbers and the image half never were. That is the
+price of checking the ceiling BEFORE
 projecting, and the ordering is not negotiable: bounding the work means deciding before the
 projection, because the projection IS the work. Disclosed cost, not a repairable bug.
 
-**Residual (still open) — TWO losses, not one.** The first cut of this paragraph named only the
-second and asserted the degrade "preserves the asset image and the visible text", which is false on
-this entry's own path — see the paragraph immediately above.
+**Residual (still open) — TWO losses, not one.**
 
 (a) The byte clip above discards visible text and images past the ceiling.
 
@@ -14714,18 +14716,15 @@ NOT `lastLoadTruncation`, which blocks writes on the premise that the SOURCE sti
 loaded. That is false for an idempotent, already-committed degrade, and blocking there would strand
 the user with a workspace the app refuses to save.
 
-**Residual (still open) — TWO losses, not one.** The first cut of this paragraph named only the
-second and asserted the degrade "preserves the asset image and the visible text", which is false on
-the §31 path.
+**Residual (still open) — TWO losses, not one.**
 
 (a) **The byte ceiling clips RAW BYTES before anything projects**, so it is not a cap on visible
 text. Over-ceiling input is truncated at `richByteCeiling(max)` and everything past that offset —
 visible characters and `<img data-asset-id>` alike — is discarded even when the value is far under
-`max`. Measured through the real `sanitizeRichText`: a 1.8 MB value carrying 579 visible characters
-at `max = 5000` stored 281 of them and no image. That is the price of deciding BEFORE the
-projection, which is the ordering the whole fix turns on — the projection is the work being bounded
-— so it is a disclosed cost, not a repairable bug. Pinned by "clips raw bytes, so visible text past
-the ceiling is lost" in `rich-text-plain.test.ts`.
+`max`. That is the price of deciding BEFORE the projection, which is the ordering the whole fix
+turns on — the projection is the work being bounded — so it is a disclosed cost, not a repairable
+bug. §31 owns this and carries the detail; do not restate it here. ★ The figures this paragraph
+used to quote were unreproducible and have been cut from both copies — see §31.
 
 (b) Everything that is not an asset image is lost by design — bold, links, list structure. That half
 is inherent to a DOM-free flatten: markup-aware truncation needs a tree, and `rich-text-plain.ts`
@@ -14738,8 +14737,17 @@ a PRIVATE fourth `data-asset-id` matcher that was not quote-aware, so an image w
 carried a `>` before the id — `<img title="Q1 > Q2" data-asset-id="real">`, which every renderer
 draws, and which is what an HTML serializer emits, since `>` is not escaped inside an attribute
 value — was carried across a degrade as NOTHING. The matcher now lives in
-`document-asset-patterns.ts` as `ASSET_IMG_TAG_RE` and is asserted against the same differential
-corpus as the three canonical ones; see §209.
+`document-asset-patterns.ts` as `ASSET_IMG_TAG_RE` and is asserted under a CONTAINMENT invariant
+over the divergence TABLE in `document-asset-patterns.test.ts`; see §209.
+
+★★ **IT IS STILL OUTSIDE THE GENERATED DIFFERENTIAL, AND THIS LINE SAID OTHERWISE** — it read
+"asserted against the same differential corpus as the three canonical ones", which is false and was
+the exact false-coverage shape that stops the next audit. There are TWO corpora:
+`document-asset-patterns.test.ts` holds `TABLE` (hand-written rows, where the containment invariant
+really does run), and `document-asset-patterns.differential.test.ts` holds `CORPUS` (generated from
+`SEPARATORS`/`NAMES`/`EQUALS`/`VALUES`/`CLOSERS`). The fourth pattern is not imported by the second
+file at all — which is precisely the gap §209's own "the count is FOUR" note warns about. Reproduce:
+`grep -n "^import" src/app/document-asset-patterns.differential.test.ts` returns three patterns.
 
 ★ One loss on that shape REMAINS and is not repairable here: `TAG` matches `<img alt="a>` up to the
 `>` inside the quoted value, so the remainder projects as prose and the user sees `b" data-as` in
@@ -14833,7 +14841,7 @@ drops for four. They are incomparable, not nested.
 ★★ So the count is FOUR, not three, and the lesson is that this entry's guarantee is scoped to a
 DIRECTORY LOCATION rather than to a property. Any new `data-asset-id` matcher must be born in this
 module; one born elsewhere is unreachable by the only gate that checks this class, and will diverge
-before anyone notices. The set-reproduce command below returns four lines now.
+before anyone notices.
 
 ★★★ **"NOTHING GATES THEM AGREEING" NO LONGER HOLDS, which was this entry's whole complaint.**
 `document-asset-patterns.test.ts` asserts the divergences DIRECTLY, pattern against pattern over a
@@ -14874,10 +14882,8 @@ these patterns could change §231's behaviour as a side effect. The fold itself 
 is intact.
 
 ★ The set-reproduce command below still works and now returns its lines from ONE file, which is the
-closure in one command. ★★ It returns FOUR as of 2026-08-28, not three — `ASSET_IMG_TAG_RE` joined
-the module (see the fourth-spelling note above). NO COUNT IS QUOTED IN THIS SENTENCE ANY MORE: it
-said "three" while the tree held four, and a tally in prose beside a command that prints today's is
-the half that rots. Run it.
+closure in one command. ★★ No count is quoted here — a tally in prose beside a command that prints
+today's is the half that rots. Run it.
 
 **The entry as written follows.** Its "three spellings, three files" framing is history; the
 divergences it enumerates are all still real and still deliberate.
@@ -18711,7 +18717,7 @@ value it is an ordinary value character. All four patterns accept it as a separa
 ```
 <img alt=x/data-asset-id="realid">
   parser:     one attribute, alt = 'x/data-asset-id="realid"'.  NO asset reference.
-  patterns:   ANY_TAG ["realid"] · IMG_TAG ["realid"] · predicate true · ASSET_IMG_TAG matches
+  patterns:   ANY_TAG ["realid"] · IMG_TAG ["realid"] · predicate true · ASSET_IMG_TAG_RE matches
 ```
 
 **Effect.** A phantom id spends a slot of the 20-image cap and can satisfy the duplicate check,
