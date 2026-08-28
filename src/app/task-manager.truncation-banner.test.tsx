@@ -22,7 +22,7 @@ import { __resetMintStateForTests } from "./id-mint-session";
 // needs from storage keeps working and only the truncation fields are staged.
 const override = vi.hoisted(() => ({
   value: {} as Record<string, unknown>,
-  allowTruncatedSave: vi.fn(),
+  allowIncompleteSave: vi.fn(),
 }));
 
 vi.mock("./use-storage-backend", async (importOriginal) => {
@@ -65,7 +65,7 @@ const TRUNCATED = { entries: 5, blocks: 0 };
 beforeEach(() => {
   __resetMintStateForTests();
   footerSeen.storageReady.length = 0;
-  override.allowTruncatedSave = vi.fn();
+  override.allowIncompleteSave = vi.fn();
   override.value = {
     // ★ Forced true so `storageOk`'s OTHER terms cannot decide the outcome. The
     // real browser backend never reports ready inside this harness, which would
@@ -73,8 +73,8 @@ beforeEach(() => {
     // with the truncation guard — a vacuous pass.
     storageReady: true,
     truncation: TRUNCATED,
-    loadWasTruncated: true,
-    allowTruncatedSave: override.allowTruncatedSave,
+    loadWasIncomplete: true,
+    allowIncompleteSave: override.allowIncompleteSave,
   };
   window.localStorage.clear();
   window.localStorage.setItem(
@@ -112,17 +112,17 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(el as HTMLElement).getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   }, 45000);
 
-  it("wires the primary action to allowTruncatedSave, not to the dismiss handler", async () => {
+  it("wires the primary action to allowIncompleteSave, not to the dismiss handler", async () => {
     await mountApp();
     fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: "Save anyway" }));
 
     // Real ConfirmProvider is in the tree, so the gate is exercised end to end.
     await screen.findByText("Save anyway?");
-    expect(override.allowTruncatedSave).not.toHaveBeenCalled();
+    expect(override.allowIncompleteSave).not.toHaveBeenCalled();
 
     const confirms = screen.getAllByRole("button", { name: "Save anyway" });
     fireEvent.click(confirms[confirms.length - 1]);
-    await waitFor(() => expect(override.allowTruncatedSave).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(override.allowIncompleteSave).toHaveBeenCalledTimes(1));
     // ...and it did NOT merely hide itself: the guard is what resolves this.
     expect(banner()).not.toBeNull();
   }, 45000);
@@ -133,7 +133,7 @@ describe("task-manager → truncation banner mount", () => {
 
     await waitFor(() => expect(banner()).toBeNull());
     // The lockout is still in force — dismissing is not consenting.
-    expect(override.allowTruncatedSave).not.toHaveBeenCalled();
+    expect(override.allowIncompleteSave).not.toHaveBeenCalled();
 
     // ...and the door back exists and works.
     const control = pausedControl();
@@ -144,7 +144,7 @@ describe("task-manager → truncation banner mount", () => {
 
   it("a NEW truncated load re-shows a dismissed banner, with the new count", async () => {
     // ★★ The render-time reconcile. Two truncated projects in a row never lower
-    // `loadWasTruncated`, so a dismissal keyed on the BOOLEAN would carry over
+    // `loadWasIncomplete`, so a dismissal keyed on the BOOLEAN would carry over
     // and project #2's banner would arrive already dismissed — the user is never
     // told its documents could not be opened either. Keyed on the counts object,
     // a fresh report re-opens it.
@@ -160,7 +160,7 @@ describe("task-manager → truncation banner mount", () => {
   }, 45000);
 
   it("stops reporting storage as healthy while saving is paused", async () => {
-    // ★ `storageOk` must fold in `loadWasTruncated`. Reporting healthy while
+    // ★ `storageOk` must fold in `loadWasIncomplete`. Reporting healthy while
     // nothing is being written is the WRONG signal, not merely a missing one.
     // The control for this assertion is the clean-load test below, which proves
     // this harness DOES reach `storageReady: true` once a load lands — without
@@ -171,7 +171,7 @@ describe("task-manager → truncation banner mount", () => {
   }, 45000);
 
   it("shows neither the banner nor the paused indicator on a clean load, and reports healthy", async () => {
-    override.value = { storageReady: true, truncation: null, loadWasTruncated: false, allowTruncatedSave: override.allowTruncatedSave };
+    override.value = { storageReady: true, truncation: null, loadWasIncomplete: false, allowIncompleteSave: override.allowIncompleteSave };
     await mountApp();
     expect(banner()).toBeNull();
     expect(pausedControl()).toBeNull();

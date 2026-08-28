@@ -118,7 +118,7 @@ export function StorageBanner({
 /** §103 — a load that truncated the documents array pauses autosave (see
  *  `use-load-truncation.ts`). This banner is the ONLY route out: the user cannot
  *  get under the cap by editing, because the excess entries were never loaded.
- *  ★★ Dismissing hides the banner but must NOT clear `loadWasTruncated` — the
+ *  ★★ Dismissing hides the banner but must NOT clear `loadWasIncomplete` — the
  *  save guard stays armed. Only "Save anyway" resolves it.
  *
  *  ★★ `role="alert"`, NOT the `"region"` its siblings use. The other three sit

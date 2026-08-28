@@ -2409,7 +2409,7 @@ describe("useStorageBackend — Layer B mass-deletion guard", () => {
 // An over-cap load truncates the documents array; the next AUTOMATIC save then
 // commits that loss permanently on all six write paths, because the excess
 // documents are still in the source file. The guard pauses saving until the user
-// resolves it, and `allowTruncatedSave` is the only way out — the user cannot get
+// resolves it, and `allowIncompleteSave` is the only way out — the user cannot get
 // under the cap by editing, since the excess entries were never loaded.
 describe("useStorageBackend — §103 truncated-load guard", () => {
   // A LOCAL backend per test: `lastLoadTruncation` is a plain PROPERTY, so
@@ -2449,7 +2449,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("5 document entries could not be opened"));
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("does neither when the load reported no truncation", async () => {
@@ -2458,7 +2458,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     await act(async () => { await Promise.resolve(); });
 
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("could not be opened"));
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("a BLOCKS-only truncation toasts the blocks string, never '0 document entries'", async () => {
@@ -2474,7 +2474,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     // with nothing recorded until §103's fix), so the old wording was false.
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("7 blocks in stored documents could not be opened"));
     expect(showToast).not.toHaveBeenCalledWith("error", expect.stringContaining("document entries"));
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("refuses an AUTOMATIC save while the load is unresolved", async () => {
@@ -2492,10 +2492,10 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(backend.save).not.toHaveBeenCalled();
     // Sticky: the refusal does not consume the flag, so every later autosave is
     // refused too until the user acts.
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
-  it("allowTruncatedSave() lets the pending edit through — the escape, not just an unlock", async () => {
+  it("allowIncompleteSave() lets the pending edit through — the escape, not just an unlock", async () => {
     // ★★★ This is the test separating a guard from a permanent save LOCKOUT.
     // The refusal above is only correct if this path actually WRITES.
     const backend = useTruncBackend({ entries: 5, blocks: 0 });
@@ -2512,14 +2512,14 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     // never engaged at all.
     expect(backend.save).not.toHaveBeenCalled();
 
-    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { result.current.allowIncompleteSave(); });
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
     expect(backend.save).toHaveBeenCalledWith(
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T1" })] }),
     );
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   // ── the one-shot destructive bypass must not outlive a truncation refusal ──
@@ -2569,7 +2569,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
 
     // Later, the user resolves the banner. The pending state is still a 19-of-20
     // deletion, and Layer B must now judge it on its own merits.
-    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { result.current.allowIncompleteSave(); });
     await act(async () => { vi.advanceTimersByTime(600); });
     await act(async () => { await Promise.resolve(); });
 
@@ -2596,7 +2596,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(backend.save).not.toHaveBeenCalled();
 
     await act(async () => {
-      result.current.allowTruncatedSave();
+      result.current.allowIncompleteSave();
       result.current.allowDestructiveSave();
     });
     await act(async () => { vi.advanceTimersByTime(600); });
@@ -2664,12 +2664,12 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
 
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(false); // control: not already raised
+    expect(result.current.loadWasIncomplete).toBe(false); // control: not already raised
 
     await act(async () => { await result.current.switchToProject("t-1"); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("4 document entries could not be opened"));
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("loadProjectFromFile reports the opened file's truncation", async () => {
@@ -2680,12 +2680,12 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
 
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
 
     await act(async () => { await result.current.loadProjectFromFile("json"); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("9 document entries could not be opened"));
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   it("reloadCurrentProject reports the re-read's truncation", async () => {
@@ -2695,13 +2695,13 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     createBackendMock.mockReturnValue(b);
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
 
     b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 3, blocks: 0 }; return emptyWorkspace(); });
     await act(async () => { await result.current.reloadCurrentProject(); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("3 document entries could not be opened"));
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
   });
 
   // ── CRITICAL 3: a CLEAN load must LOWER the flag ───────────────────────────
@@ -2719,11 +2719,11 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
 
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(true); // control: really raised
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
 
     await act(async () => { await result.current.switchToProject("healthy"); });
 
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("reloadCurrentProject also lowers it — the recovery click a user would actually try", async () => {
@@ -2731,12 +2731,12 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     createBackendMock.mockReturnValue(b);
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
 
     b.load.mockImplementationOnce(async () => { b.lastLoadTruncation = { entries: 0, blocks: 0 }; return emptyWorkspace(); });
     await act(async () => { await result.current.reloadCurrentProject(); });
 
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   // ── WRITE PATHS: each best-effort flush must SKIP while unresolved ─────────
@@ -2801,7 +2801,7 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // triggers. Without the clear, this brand-new project inherits the OLD one's
     // pause: every edit to it is silently refused and the banner reports the old
     // project's counts against a project with no documents at all.
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("createDemoProject SKIPS its flush of the outgoing project", async () => {
@@ -2820,7 +2820,7 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     // ★ Kill line for THIS path's `clearForFreshWorkspace`. Three mechanically
     // identical one-liners is not a reason to pin only one of them — that is how
     // two of the three end up deletable on a green board.
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("switchToTursoProject SKIPS its flush, and the clean target load lowers the flag", async () => {
@@ -2836,14 +2836,14 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
       } as unknown as Settings,
     }));
     await act(async () => { await Promise.resolve(); });
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
     main.save.mockClear();
 
     await act(async () => { await result.current.switchToTursoProject("turso-p2"); });
 
     expect(main.save).not.toHaveBeenCalled();
     // The mocked TursoBackend publishes no truncation → a clean load → flag down.
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 
   it("a skipped flush is NOT reported as a flush FAILURE (Turso surfaces those with a toast)", async () => {
@@ -2941,14 +2941,14 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
     b.save.mockClear();
-    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { result.current.allowIncompleteSave(); });
 
     await act(async () => { await result.current.onPickStorageFile(); });
 
     expect(b.save).toHaveBeenCalled();
   });
 
-  it("after allowTruncatedSave() the flush is no longer skipped", async () => {
+  it("after allowIncompleteSave() the flush is no longer skipped", async () => {
     // The mirror of every skip above: a guard that never re-opens is a lockout.
     const main = makeBackend({ entries: 7, blocks: 0 });
     const target = makeBackend();
@@ -2958,7 +2958,7 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
     const { result } = renderBackend(makeArgs({ setStorageConfig }));
     await act(async () => { await Promise.resolve(); });
     main.save.mockClear();
-    await act(async () => { result.current.allowTruncatedSave(); });
+    await act(async () => { result.current.allowIncompleteSave(); });
 
     await act(async () => { await result.current.switchToProject("t-3"); });
 

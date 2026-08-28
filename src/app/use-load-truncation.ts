@@ -18,7 +18,7 @@ type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
  *
  * ★★★ THEY EXIST BECAUSE PER-CALL-SITE PATCHING IS WHAT BROKE THIS. The first
  * cut of the guard reported truncation at ONE of six `backend.load()` call
- * sites and checked `mayCommitAfterTruncation` at ONE of seven write sites, so
+ * sites and checked `mayCommitAfterIncompleteLoad` at ONE of seven write sites, so
  * a project switch both failed to warn AND committed the loss the banner was
  * meant to prevent. Anything that loads or flushes goes through here; nothing
  * in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` holds a backend it
@@ -86,7 +86,7 @@ export interface TruncationOps {
    *  it. Guarding a write is not the same as guarding an ACTION; when the action
    *  has side effects of its own, check first and call this. */
   /** Would a write be refused right now? NON-MUTATING, unlike
-   *  `mayCommitAfterTruncation`, which SPENDS the one-shot bypass when it
+   *  `mayCommitAfterIncompleteLoad`, which SPENDS the one-shot bypass when it
    *  answers. A caller that must decline before its own irreversible side effect
    *  has to ask without consuming anything — otherwise merely *checking* burns
    *  the authorisation the user just gave, and the write that follows is refused
@@ -100,7 +100,7 @@ export interface TruncationOps {
    *  These paths build their workspace rather than loading it, so `reportFor`
    *  never runs, and they set `suppressNextLoadRef`, so the load their
    *  storageConfig change triggers takes the suppress branch and reports nothing
-   *  either — leaving `loadWasTruncated` raised over a project that has no
+   *  either — leaving `loadWasIncomplete` raised over a project that has no
    *  documents at all. Every edit to it is then silently refused, and the banner
    *  reports the OLD project's counts against it. It is the same invariant
    *  `reportLoadTruncation` holds for a clean load ("scoped to the workspace
@@ -115,19 +115,19 @@ export interface LoadTruncationGuard {
    *  7s single-slot toast is gone by the time the user reads the banner, and
    *  "some data" is not enough to decide whether to accept the loss. */
   truncation: { entries: number; blocks: number } | null;
-  /** True while a truncated load is unresolved. Derived from `truncation` (one
+  /** True while an incomplete load is unresolved. Derived from `truncation` (one
    *  source of truth) — drives the persistent banner and the save-effect dep.
-   *  See the lockout note on `allowTruncatedSave`. */
-  loadWasTruncated: boolean;
-  /** Lower the flag so saving resumes and the truncated set may be committed.
+   *  See the lockout note on `allowIncompleteSave`. */
+  loadWasIncomplete: boolean;
+  /** Lower the flag so saving resumes and the incomplete set may be committed.
    *  ★★★ THIS IS THE ONLY WAY OUT AND IT MUST STAY REACHABLE FROM THE UI. The
    *  user CANNOT get under the cap by editing: the excess entries were never
    *  loaded, so the rows that would have to go are precisely the ones that are
    *  not there. Without a visible escape the sticky flag below is a permanent
    *  save lockout — a worse defect than the one §103 is about. */
-  allowTruncatedSave: () => void;
+  allowIncompleteSave: () => void;
   /** True when a save may proceed. */
-  mayCommitAfterTruncation: () => boolean;
+  mayCommitAfterIncompleteLoad: () => boolean;
   /** The choke points — see `TruncationOps`. */
   truncationOps: TruncationOps;
 }
@@ -190,28 +190,28 @@ export function useLoadTruncation(
 ): LoadTruncationGuard {
   // ★ The COUNTS are the state, not a boolean — the banner has to name a
   // magnitude, and a second `useState` for it would be a second source of truth
-  // that can drift from the flag. `loadWasTruncated` is derived below.
+  // that can drift from the flag. `loadWasIncomplete` is derived below.
   const [truncation, setTruncation] = useState<{ entries: number; blocks: number } | null>(null);
-  const loadWasTruncated = truncation !== null;
+  const loadWasIncomplete = truncation !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
-  // saving is the STATE going false: `loadWasTruncated` is a dep of the save
+  // saving is the STATE going false: `loadWasIncomplete` is a dep of the save
   // effect (`use-storage-backend.ts`), so lowering it re-runs the effect with
   // the guard already down, and the handler closures the ops hooks hold are
   // rebuilt on that same render. Measured 2026-08-07 by mutation: replacing the
-  // whole of `mayCommitAfterTruncation` with `return !loadWasTruncated` left all
+  // whole of `mayCommitAfterIncompleteLoad` with `return !loadWasIncomplete` left all
   // 110 tests across the three suites GREEN, so nothing observes this ref today.
   // It is kept for the one shape a test cannot easily stage — a flush reached
   // from a closure captured BEFORE the click, which would otherwise skip a write
   // the user just authorised. Delete it only with that case in hand.
-  const allowTruncatedSaveRef = useRef(false);
+  const allowIncompleteSaveRef = useRef(false);
   /** The counts last reported, so an explicit-action refusal can restate WHY it
    *  refused. Not derivable from the backend at refusal time: the write target
    *  may be a different backend that never served a load (storage conversion). */
   const lastTruncationRef = useRef<{ entries: number; blocks: number } | null>(null);
 
-  const allowTruncatedSave = () => {
-    allowTruncatedSaveRef.current = true;
+  const allowIncompleteSave = () => {
+    allowIncompleteSaveRef.current = true;
     lastTruncationRef.current = null;
     setTruncation(null);
   };
@@ -283,9 +283,9 @@ export function useLoadTruncation(
   // explicit bulk op always mutates the workspace, so the save effect runs and
   // the branch above catches every armed bypass. Spending it from a background
   // flush would refuse a deletion the user did authorise, for no added safety.
-  const mayCommitAfterTruncation = (): boolean => {
-    if (loadWasTruncated && !allowTruncatedSaveRef.current) return false;
-    allowTruncatedSaveRef.current = false;
+  const mayCommitAfterIncompleteLoad = (): boolean => {
+    if (loadWasIncomplete && !allowIncompleteSaveRef.current) return false;
+    allowIncompleteSaveRef.current = false;
     return true;
   };
 
@@ -324,13 +324,13 @@ export function useLoadTruncation(
       // load that also reported import diagnostics raises both, and the import
       // toast — fired second — is the one that survives. That is the acceptable
       // direction, because truncation additionally raises the persistent banner
-      // (`truncation` / `loadWasTruncated`), which names its counts for as long
+      // (`truncation` / `loadWasIncomplete`), which names its counts for as long
       // as the user needs them, while import diagnostics have only the toast.
       reportLoadTruncation(backend.lastLoadTruncation);
       reportImportDiagnostics(backend);
     },
     flushCurrent: async () => {
-      if (!mayCommitAfterTruncation()) {
+      if (!mayCommitAfterIncompleteLoad()) {
         // Leave a forensic trail: the skip is invisible at the call site (every
         // flush is best-effort and swallows its own errors), so without this a
         // "my project switch did not save" report has nothing to read.
@@ -343,7 +343,7 @@ export function useLoadTruncation(
       lastTruncationRef.current = null;
       setTruncation(null);
     },
-    wouldRefuseWrite: () => loadWasTruncated && !allowTruncatedSaveRef.current,
+    wouldRefuseWrite: () => loadWasIncomplete && !allowIncompleteSaveRef.current,
     refuseWrite: () => {
       const last = lastTruncationRef.current;
       logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}) });
@@ -356,7 +356,7 @@ export function useLoadTruncation(
       // ★ ONE implementation of the refusal, shared with `refuseWrite` above, so
       // a caller that declines early and one that declines at the write cannot
       // report the loss differently.
-      if (!mayCommitAfterTruncation()) {
+      if (!mayCommitAfterIncompleteLoad()) {
         truncationOps.refuseWrite();
         return false;
       }
@@ -365,5 +365,5 @@ export function useLoadTruncation(
     },
   };
 
-  return { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps };
+  return { truncation, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps };
 }

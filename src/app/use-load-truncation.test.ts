@@ -30,7 +30,7 @@ describe("useLoadTruncation — reportFor", () => {
   it("raises the flag and toasts on truncated ENTRIES", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("5"));
   });
 
@@ -42,12 +42,12 @@ describe("useLoadTruncation — reportFor", () => {
     // documents could not be opened.
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
-    expect(result.current.loadWasTruncated).toBe(true); // control: really raised
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
 
     showToast.mockClear();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 0, blocks: 0 })); });
 
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
     expect(showToast).not.toHaveBeenCalled(); // a clean load is silent, not reassuring
   });
 
@@ -57,7 +57,7 @@ describe("useLoadTruncation — reportFor", () => {
     const { result } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
     act(() => { result.current.truncationOps.reportFor(backendReporting(undefined)); });
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 });
 
@@ -158,7 +158,7 @@ describe("useLoadTruncation — flushCurrent", () => {
     });
   });
 
-  it("allowTruncatedSave() re-opens the flush", async () => {
+  it("allowIncompleteSave() re-opens the flush", async () => {
     // The mirror of the skip: a guard with no way out is a save LOCKOUT.
     const save = vi.fn(async () => {});
     const { result } = render(save);
@@ -166,7 +166,7 @@ describe("useLoadTruncation — flushCurrent", () => {
     await act(async () => { await result.current.truncationOps.flushCurrent(); });
     expect(save).not.toHaveBeenCalled(); // control
 
-    act(() => { result.current.allowTruncatedSave(); });
+    act(() => { result.current.allowIncompleteSave(); });
     await act(async () => { await result.current.truncationOps.flushCurrent(); });
 
     expect(save).toHaveBeenCalledTimes(1);
@@ -214,7 +214,7 @@ describe("useLoadTruncation — guardedWrite (explicit user actions)", () => {
     await act(async () => { await result.current.truncationOps.guardedWrite(target(), {} as never); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("9"));
-    expect(result.current.loadWasTruncated).toBe(true); // refusing must not clear the flag
+    expect(result.current.loadWasIncomplete).toBe(true); // refusing must not clear the flag
   });
 
   it("propagates a REAL save error rather than reporting a refusal", async () => {
@@ -293,7 +293,7 @@ describe("ops files — no unguarded backend access (source scan)", () => {
    *  a 200-character destructure that merely happens to contain the binder. */
   const EXPECTED_WRITES = [
     // The choke point itself — the binder handed to useLoadTruncation, which
-    // `flushCurrent` calls only after `mayCommitAfterTruncation()`.
+    // `flushCurrent` calls only after `mayCommitAfterIncompleteLoad()`.
     "use-storage-backend.ts useStorageBackend — backend",
     // The debounced save effect, gated at the top of the same effect.
     "use-storage-backend.ts emitStorageConfig — backend",

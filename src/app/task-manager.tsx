@@ -441,7 +441,7 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
-    truncation, loadWasTruncated, allowTruncatedSave,
+    truncation, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -581,7 +581,7 @@ function TaskManagerInner() {
   const currentProjectName = project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
-  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:
+  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasIncomplete` is NOT:
   // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
   // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
   const storageOk = storageReady && !storageError;
@@ -2467,8 +2467,8 @@ function TaskManagerInner() {
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
-      {!isPopout && loadWasTruncated && (
-        <TruncatedLoadBanner lang={lang} truncation={truncation} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
+      {!isPopout && loadWasIncomplete && (
+        <TruncatedLoadBanner lang={lang} truncation={truncation} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
     </>
   );
@@ -2661,8 +2661,8 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasTruncated}
-            savingPaused={!isPopout && loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
+            storageReady={storageOk && !loadWasIncomplete}
+            savingPaused={!isPopout && loadWasIncomplete} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}

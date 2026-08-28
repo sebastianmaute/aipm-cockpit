@@ -137,7 +137,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
+  const { truncation, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -401,7 +401,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //        keeps the data; a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterTruncation()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
+    if (!mayCommitAfterIncompleteLoad()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
     const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
     const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
     if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
@@ -479,11 +479,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       document.removeEventListener("visibilitychange", onVisibilityChange);
       window.removeEventListener("pagehide", flush);
     };
-    // ★ `loadWasTruncated` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
+    // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasTruncated]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -789,7 +789,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, truncation, loadWasTruncated, allowTruncatedSave,
+    reloadCurrentProject, allowDestructiveSave, truncation, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

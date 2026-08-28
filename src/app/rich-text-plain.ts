@@ -492,7 +492,7 @@ export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink):
     // matters. sanitizeRichText is a LOAD-path sanitizer (sanitize-records.ts →
     // workspace.ts), so on the FIRST load after this ships the source file or
     // Turso row still holds the full markup — which is precisely the premise
-    // mayCommitAfterTruncation is built on, not a refutation of it. "Already
+    // mayCommitAfterIncompleteLoad is built on, not a refutation of it. "Already
     // committed" only becomes true after the next save has overwritten the
     // source, i.e. after the loss is permanent.
     // ★★ The decision stands; the derivation does not. It is a JUDGEMENT: a
