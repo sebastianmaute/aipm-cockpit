@@ -176,14 +176,20 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // plainToHtml would escape it into visible tags (AGENTS.md, rich-text bullet).
     // ★★★ And NOT `sanitizeAiRichText`, however much this looks like the same
     // boundary: THIS FILE IS IN `scripts/generate-sample-workspace.ts`'s import
-    // graph, so a DOMPurify call here throws under bare node and jsonToWorkspace's
-    // catch-all turns that into an EMPTY workspace which then "successfully"
-    // writes near-empty sample files. Template import therefore gets the upgrade
-    // but NO allow-list — the same DOM-free posture as the codec load paths in
-    // open-followups.md §28 — but recorded as its own item in §36(a), because §28
-    // covers the CODEC load paths and not this boundary. The guard in
-    // rich-text-plain.test.ts bans the import so this cannot be "fixed" by
-    // accident.
+    // graph, and that graph's DOM-free contract is enforced by the import-graph
+    // guard in rich-text-plain.test.ts, which bans the DOMPurify-bearing modules
+    // so this cannot be "fixed" by accident.
+    // ★★★ THE REASON IS THE CONTRACT AND THE GUARD, NOT "it would throw under
+    // bare node" — that rationale is FALSE and this comment used to assert it.
+    // Measured 2026-08-28: the generator installs JSDOM globals BEFORE its
+    // dynamic `await import("../src/app/storage")`, so a DOMPurify call
+    // downstream has a DOM; and sanitize-html.ts — which imports dompurify — is
+    // ALREADY in that 92-file graph, via html-start.ts and again via
+    // note-log.ts. Neither leg survives. See open-followups.md §151.
+    // ★★ The allow-list DOES run, just not here: `template-apply.ts` is outside
+    // the graph and allow-lists every rich field on all three note-log entities
+    // at apply time (§36(a)). Do not read this DOM-free posture as "the seed is
+    // never allow-listed".
     // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy
     // `notes` must fall back to the notes, and `??` only catches null/undefined.
     // ★★ The sink is the DESTINATION field's, never this file's. The value lands

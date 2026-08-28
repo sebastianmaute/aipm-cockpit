@@ -1909,9 +1909,9 @@ handling together rather than special-casing the third pass.
 
 ---
 
-## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
+## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small
 
-**Status:** open — two rich-field write/export postures claimed as recorded that were not. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** (a) fixed 2026-08-28 by an apply-time allow-list; (b) the `noteLog` export blob is still open and is a decision, not a bug fix. (a) verified by `npx vitest run src/app/template-apply.allowlist.test.ts`.
 
 Both surfaced in round-6 reviews of 0.210.0. Filed together because the shared defect was documentary: two
 places pointed at §28 for a posture §28 does not cover (§28 is scoped to the **codec** load paths — it names
@@ -1927,9 +1927,49 @@ channel**. `importTemplate` / `exportTemplate` do not exist (re-verified 2026-08
 template-JSON path either. A template is captured from your own workspace into your own
 `settings.templates`, so the trust level is "your own settings", not "a file someone sent you". Every
 read of the field also re-sanitizes at its sink.
-★★ It CANNOT be fixed in `templates.ts` — that file is in the sample generator's import graph, so a
-DOMPurify call there breaks the generator under bare node (and the guard now bans the import). The fix, if
-ever wanted, is an allow-list pass at the browser-side caller of `sanitizeTemplate`.
+★★ It cannot be fixed in `templates.ts`: that file is in the sample generator's import graph, whose
+DOM-free contract the import-graph guard in `rich-text-plain.test.ts` enforces by banning the
+DOMPurify-bearing modules. The fix is an allow-list pass at the browser-side caller.
+
+★★★ **THE REASON GIVEN HERE WAS FALSE, AND IT SURVIVED INTO THE FIX'S OWN DESIGN.** This entry said a
+DOMPurify call in `templates.ts` "breaks the generator under bare node". Measured 2026-08-28, both
+legs fail: the generator installs JSDOM globals BEFORE its dynamic `await import("../src/app/storage")`,
+so a call downstream has a DOM; and `sanitize-html.ts` — the module importing `dompurify` — is ALREADY
+one of the 92 files in that graph, reached via `html-start.ts` and again via `note-log.ts`. The
+CONCLUSION stands on the contract and the guard, which are real; it never stood on this. §151 is the
+entry that exists to stop this being re-derived, and this is its fifth recorded site.
+
+### (a) FIXED 2026-08-28
+
+The pass lives in `template-apply.ts` — outside the graph, so it may call DOMPurify — as
+`allowListRich` / `allowListRaid` / `allowListChange`, using `sanitizeRichHtml`: the SAME 21-tag list
+`RICH_SINK` classifies against. ★★ That agreement between classifier and sink is what makes it safe,
+NOT the function's name; a narrower list would destroy a captured heading the classifier had already
+accepted, which is pinned by its own test.
+
+★★★ **THE SCOPE IS EVERY RICH FIELD ON ALL THREE NOTE-LOG ENTITIES, NOT THE TASK DESCRIPTION THIS
+ENTRY NAMES** — nine fields, and each is an independent silent hole:
+
+| entity | allow-listed |
+|---|---|
+| task | `description`, `noteLog[].html` |
+| RAID | `description`, `mitigation`, `noteLog[].html` |
+| change | `description`, `impactDescription`, `resolutionNotes`, `noteLog[].html` |
+
+★★ RAID's `description` needed it exactly as much as `mitigation` did — `sanitizeSeedRaidItem` runs
+BOTH through nothing but a trim, so neither ever got even the upgrade this entry credits the boundary
+with. A brief written from this entry's wording said otherwise and was corrected by reading the source.
+★★ The change fields became reachable in the SAME slice, because §168's carry lands a note log there.
+All four are mutation-proved: disabling the change branch fails exactly those four tests.
+
+★ Still true, and still why this was low risk: there is no template import channel. The seed is
+captured from your own workspace into your own `settings.templates`.
+
+★★ **NOT fixed, and NOT this entry's scope:** `templateFromWorkspace` puts live `RaidItem[]` into the
+seed BY REFERENCE, so a same-session save-then-apply never runs RAID rows through
+`sanitizeSeedRaidItem` at all — the allow-list touches the three rich fields and re-validates nothing
+else (id/category/status shape, the FK arrays). That is the RAID-side twin of the §228 hazard the
+task-side comment documents, and it wants its own entry.
 
 **(b) `noteLog` exports as a raw JSON blob into the document formats.** `noteLog` is a `CSV_COLUMNS` entry
 (`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every CSV column through
@@ -11561,9 +11601,9 @@ first ordinary save runs.
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
 
-## 151. "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe
+## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
 
-**Status:** open — a retracted rationale still asserted in eight places; needs a probe. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
 
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
@@ -11577,6 +11617,31 @@ would swallow the throw into a near-empty sample file."
 `await import("../src/app/storage")` — its own comment says the install exists so the DOM-bound
 sanitizers downstream work. It is also the only script that imports `src/app` at all; the other
 `scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.
+
+**There is a SECOND leg, added 2026-08-28, and it is the one that kills the weaker restatement.** Sites
+that hedge toward "a DOMPurify call there would PULL DOMPurify INTO the graph" are wrong too:
+`sanitize-html.ts`, the module that does `import DOMPurify from "dompurify"`, is ALREADY one of the 92
+files, reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
+`note-log.ts`. So the graph contains the dependency either way; what the guard bans is the two named
+modules being imported by a graph member, which is a CONTRACT, not a consequence.
+★★ Keep the two legs separate. Leg 1 refutes "the call would throw"; leg 2 refutes "the import would
+pull it in". A correction that cites only one leaves the other restatement standing — and both
+spellings are in circulation.
+★ Resolve the graph rather than trusting either count; it moves on any import edit:
+
+```bash
+node -e 'const {readFileSync,existsSync,statSync}=require("fs"),{join,resolve,dirname}=require("path");
+const n=p=>p.split(String.fromCharCode(92)).join("/"),r=n(process.cwd());
+const rs=(f,s)=>{if(!s.startsWith("."))return null;const b=resolve(dirname(f),s);
+for(const c of [b,b+".ts",b+".tsx",join(b,"index.ts")])if(existsSync(c)&&statSync(c).isFile())return n(c);return null};
+const g=new Set(),q=[n(join(r,"scripts","generate-sample-workspace.ts"))];
+while(q.length){const f=q.pop();if(g.has(f))continue;g.add(f);
+for(const m of readFileSync(f,"utf8").matchAll(/(?:from|import)\s*\(?\s*["\x27]([^"\x27]+)["\x27]/g)){const x=rs(f,m[1]);if(x)q.push(x)}}
+console.log(g.size);for(const f of ["sanitize-html","html-start","note-log","templates","template-apply"])
+console.log((g.has(r+"/src/app/"+f+".ts")?"IN  ":"out ")+f)'
+```
+Measured 2026-08-28: 92 files; `sanitize-html`, `html-start`, `note-log`, `templates` all IN;
+`template-apply` OUT — which is why §36(a)'s allow-list is legal in the latter and not the former.
 
 ### Measured
 
@@ -11601,7 +11666,9 @@ Posture of every site, classified BY READING it — the sweep below only produce
 | §97 (this file) | RETRACTS, scoped to the DOCUMENT load paths only |
 | `docs/AGENTS/rich-text.md`, four separate mentions | ASSERTS — **moved out of AGENTS.md, see below** |
 | §28 (this file) | ASSERTS — "out of scope by construction" |
-| §36(a) (this file) | ASSERTS — the stated REASON the boundary cannot be added |
+| §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added |
+| `templates.ts` `sanitizeSeedTask` | **RETRACTS as of 2026-08-28** — was ASSERTING, and is the site a fixer reads first |
+| `docs/AGENTS/rich-text.md`, the `sanitizeSeedTask` mention | **RETRACTS as of 2026-08-28** — the other four mentions there still ASSERT |
 | §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
 
 Candidate sweep, flattening whitespace first — the phrase WRAPS ACROSS LINES in several headers, so a
@@ -12864,9 +12931,9 @@ grep -rn "applyChangeStatus\|applyModelChangeStatus" src/app --include=*.ts --in
 ★ The status/`decisionDate` invariant is now held at all four transition points (row select, modal,
 bulk, dispatcher), matching what the task register does through `applyStatusChange`.
 
-## 168. Template import drops every register's note log — open, pre-existing
+## 168. Template import drops every register's note log — CLOSED 2026-08-28
 
-**Status:** open — note logs dropped on template import. Reproduced 2026-08-28 by `grep -c "noteLog" src/app/templates.ts`.
+**Status:** fixed 2026-08-28 — the seed sanitizers carry the note log on all three routes. Verified by `npx vitest run src/app/template-note-carry.test.ts`.
 
 Capturing a template from a workspace assigns the live entity arrays verbatim
 (`templateFromWorkspace` does `seed.changes = ws.changes`, and the same for `tasks` and `raid`),
@@ -12894,6 +12961,29 @@ UN-SANITISED, and `rich-text-plain.test.ts`'s import-graph guard bans `templates
 the DOMPurify-bearing modules precisely so this cannot be done by reflex. A real fix needs a
 sanitised carry that stays DOM-free — the same shape as the open item on `sanitizeSeedTask`
 (§36(a)), and it should probably be solved once for both.
+
+### Fixed 2026-08-28 — and it WAS solved once for both, as this entry predicted
+
+`sanitizeSeedNoteLog` (`templates.ts`) is the DOM-free carry: each entry goes through
+`sanitizeRichText` against `RICH_SINK`, the same boundary `description` already used, so nothing is
+re-attached un-sanitised. `text` is DERIVED from the sanitised html rather than carried, so a stale
+captured projection cannot survive a sink change.
+
+★★ **The three routes did NOT take the same fix, and that asymmetry is the point.** Tasks and RAID
+call the carry directly from their local seed sanitizers. Changes do NOT: they route through the
+canonical `sanitizeChangeItem`, which is also the workspace load-path and AI-write-path validator and
+which drops `noteLog` DELIBERATELY — the load paths re-attach from the STORED row via
+`withStoredNoteLog` so a decoded or model-written change can never inject one. Wiring a carry into
+that shared sanitizer would have handed the AI path a capability it must not have, so the re-attach
+happens in a seed-local `sanitizeSeedChangeItem` wrapper instead, from the seed's own captured log.
+`sanitize-records.ts` is untouched — and the obvious "complete the pattern" edit there is the defect
+this entry would otherwise have caused.
+
+★ The wrapper is mutation-proved: pointing the seed's change mapping back at `sanitizeChangeItem`
+fails exactly the change test and nothing else.
+
+★★ Carrying the log made the §36(a) allow-list gap WIDER before it closed it — a captured note log is
+rich HTML reaching a new sink. Both landed in the same slice; see §36(a).
 
 ## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
 

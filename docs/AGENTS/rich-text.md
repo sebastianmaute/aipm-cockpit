@@ -452,12 +452,21 @@ register's fix to another is how two of them broke. Read the note that names you
   description through a read tool and echoes HTML back), so 0.210.0 added a second route and made a hit
   far likelier — it did not create reachability from nothing. THREE of the four boundaries go through
   **`sanitizeAiRichText`** (`ai-rich-text.ts`); chat and persisted insight-recommendation replay share two.
-  ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT, and CANNOT: that file is in
-  `scripts/generate-sample-workspace.ts`'s import graph, so a DOMPurify call there throws under bare node
-  and `jsonToWorkspace`'s catch-all writes near-empty sample files. Template import gets the upgrade but no
-  allow-list — the same DOM-free CAUSE as the codec load paths (§28), recorded as its own item in
-  `docs/open-followups.md` **§36(a)**, since §28 is scoped to the codecs and does not cover this boundary.
-  Do not "complete the sweep" by importing the helper there; the guard bans it precisely so you cannot.
+  ★★★ The FOURTH — `templates.ts` `sanitizeSeedTask` — deliberately does NOT: that file is in
+  `scripts/generate-sample-workspace.ts`'s import graph, whose DOM-free contract is enforced by
+  `rich-text-plain.test.ts`'s import-graph guard. Do not "complete the sweep" by importing the helper
+  there; the guard bans it precisely so you cannot.
+  ★★★ **THE REASON IS THE CONTRACT AND THE GUARD, NOT "it would throw under bare node" — that
+  rationale is FALSE and this bullet asserted it.** Measured 2026-08-28: the generator constructs a
+  `JSDOM` and `Object.assign`s `window`/`document` onto `globalThis` BEFORE its dynamic
+  `await import("../src/app/storage")`, so a DOMPurify call downstream has a DOM; and
+  `sanitize-html.ts` — the module that imports `dompurify` — is ALREADY one of the 92 files in that
+  graph, reached by `html-start.ts` and again by `note-log.ts`. Neither leg of the claim survives.
+  Recorded as a corrected site in `docs/open-followups.md` **§151**, which exists to stop this
+  rationale being re-derived a fifth time. Reproduce with the graph resolver named in §151.
+  ★★ The CONCLUSION that followed it is also stale: template import no longer "gets the upgrade but no
+  allow-list". The allow-list runs at APPLY time in `template-apply.ts`, which is outside the graph —
+  over every rich field on all three note-log entities, not just the task description. See **§36(a)**.
   ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
   six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are
   DOM-FREE and therefore CANNOT run an allow-list — verified: `sanitizeRaidItem` stored
