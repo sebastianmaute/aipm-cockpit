@@ -267,4 +267,29 @@ describe("the export path never hands htmlPlainProjection a raw <", () => {
       }
     }
   });
+
+  // ★★★ THE CONTROL ABOVE IS ON A DIFFERENT INPUT FROM THE HOSTILE FIVE, WHICH
+  // IS THE HOLE THIS CLOSES. Mutate `descriptionText` to return "" for any input
+  // containing a bare `<` and every assertion above still passes: the control
+  // has no bare `<` so it is unaffected, and `/<[a-zA-Z/]/.test("")` is false,
+  // so all ten absence checks pass over empty strings. An absence assertion
+  // needs a per-input positive observable, not a neighbouring one.
+  it("carries the hostile inputs' own text through, not just an empty string", () => {
+    // The `<` here is real prose and must SURVIVE as prose — this is the one
+    // fixture that proves the pipeline is not simply deleting everything.
+    expect(descriptionText("<p>cost < 5k and rising</p>")).toBe("cost < 5k and rising");
+
+    // ★★ Per-fixture EXPECTED values, not a "non-empty" heuristic. The first cut
+    // asserted `length > 0` for everything but the image fixture and went red:
+    // a run of unterminated `<a` openers is ALL markup and correctly projects
+    // nothing, so the heuristic mistook a legitimate empty for a failure. Two
+    // fixtures here are supposed to be empty and two are not, and only naming
+    // each one says which.
+    expect(descriptionText("<p>a<b</p>")).toBe("a");
+    expect(descriptionText('<p title="x<y">visible</p>')).toBe("visible");
+    // Empty BY DESIGN — asserted so a future change that starts leaking markup
+    // here is visible rather than silently widening the "no bare <" check.
+    expect(descriptionText('<img alt="a<b" data-asset-id="real">')).toBe("");
+    expect(descriptionText("<p>" + "<a".repeat(50) + "</p>")).toBe("");
+  });
 });

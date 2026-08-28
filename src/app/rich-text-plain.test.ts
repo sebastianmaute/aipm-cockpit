@@ -868,6 +868,27 @@ describe("markTaskItems — complexity", () => {
     expect(performance.now() - started).toBeLessThan(2000);
   });
 
+  // ★★★ THE FIXTURE ABOVE ONLY WITNESSES RUN 1. The pattern has THREE bounded
+  // runs and reverting each to `[^>]*` is a separate mutant; measured against
+  // `"<li".repeat(...)`, run 1 reverted costs 4409 ms (red) while runs 2 and 3
+  // reverted cost 0.3 ms and 1.0 ms — functionally identical, so that fixture
+  // pinned one bound of three and read as pinning all of them.
+  // ★★ Run 2 is the run BETWEEN the opener and `data-type="taskItem"`, so its
+  // witness has to actually reach the literal: an opener that never closes but
+  // DOES carry the attribute. Measured: 303 ms reverted vs 0.6 ms shipped at
+  // 131 KB, so this runs at 256 KB for margin, matching the other guard tests.
+  // ★ Run 3 (the optional trailing `<p …>`) has NO witness — three shapes were
+  // tried and none separated it. It may be an equivalent mutant or a missing
+  // test; from here those look identical, and it is recorded as unproven rather
+  // than claimed as covered.
+  it("stays bounded on unterminated openers that carry the taskItem attribute", () => {
+    const unit = '<li data-type="taskItem" ';
+    const input = unit.repeat(Math.round((256 * 1024) / unit.length));
+    const started = performance.now();
+    markTaskItems(input);
+    expect(performance.now() - started).toBeLessThan(2000);
+  });
+
   // The pattern consumes the `<li …>` opener and the OPTIONAL `<p>` that
   // follows it — nothing else. The `</p>` and `</li>` are left in place for the
   // tag strip downstream to remove, so they belong in these expectations.

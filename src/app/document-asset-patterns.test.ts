@@ -15,7 +15,12 @@ import { readFileSync } from "node:fs";
 import ts from "typescript";
 import { stripComments } from "../test/strip-comments";
 import * as PATTERNS from "./document-asset-patterns";
-import { ANY_TAG_ASSET_ID_RE, IMG_TAG_ASSET_ID_RE, ASSET_IMG_TEST_RE } from "./document-asset-patterns";
+import {
+  ANY_TAG_ASSET_ID_RE,
+  IMG_TAG_ASSET_ID_RE,
+  ASSET_IMG_TEST_RE,
+  ASSET_IMG_TAG_RE,
+} from "./document-asset-patterns";
 
 const ids = (re: RegExp, html: string): string[] => Array.from(html.matchAll(re), (m) => m[1]);
 
@@ -226,6 +231,46 @@ describe("document-asset-patterns", () => {
         expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual(imgIds);
         expect(ASSET_IMG_TEST_RE.test(html)).toBe(survivesLoad);
       });
+    }
+  });
+
+  // ★★★ THE INVARIANT THAT BROKE IN 0.262.2, ASSERTED OVER THE SAME CORPUS.
+  // `ASSET_IMG_TAG_RE` is what `degradeToPlain` uses to carry images across an
+  // overflow, and `IMG_TAG_ASSET_ID_RE` is what the three renderers use to draw
+  // them. So the degrade must recognise EVERY tag the export can draw, or the
+  // overflow path deletes an image the user can see — which is exactly what
+  // shipped: the degrade's matcher was private to `rich-text-plain.ts`, was not
+  // quote-aware, and dropped `<img title="Q1 > Q2" data-asset-id="real">`.
+  //
+  // ★★ THIS IS A CONTAINMENT ASSERTION, NOT AN EQUALITY ONE, and the direction
+  // is the whole point. The reverse does NOT hold and must not be asserted:
+  // `ASSET_IMG_TAG_RE` deliberately also carries single-quoted, unquoted,
+  // spaced-`=` and uppercase ids that the export pattern returns nothing for.
+  // Collapsing the two was proposed during review; it would trade three silent
+  // drops for four. They are incomparable, not nested.
+  describe("the degrade carries every image the export can draw", () => {
+    for (const [html, , imgIds] of TABLE) {
+      if (imgIds.length === 0) continue;
+      it("carries " + JSON.stringify(html), () => {
+        ASSET_IMG_TAG_RE.lastIndex = 0;
+        expect(html.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBeGreaterThan(0);
+      });
+    }
+  });
+
+  it("carries the quoting and case variants the export pattern cannot read", () => {
+    // ★ These four are the reason this is a fourth pattern rather than a reuse.
+    // Each returns NOTHING from IMG_TAG_ASSET_ID_RE (it requires a
+    // double-quoted id and is /g, not /gi) and must still survive a degrade.
+    for (const html of [
+      "<img data-asset-id='a8'>",
+      "<img data-asset-id=a9>",
+      '<img data-asset-id = "a10">',
+      '<IMG DATA-ASSET-ID="a11">',
+    ]) {
+      expect(ids(IMG_TAG_ASSET_ID_RE, html)).toEqual([]);
+      ASSET_IMG_TAG_RE.lastIndex = 0;
+      expect(html.match(ASSET_IMG_TAG_RE)?.length ?? 0).toBe(1);
     }
   });
 
