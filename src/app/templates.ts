@@ -23,7 +23,7 @@ import {
   sanitizeTaskName,
   TEXTAREA_MAX,
 } from "./sanitize";
-import { sanitizeRichText } from "./rich-text-plain";
+import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import {
   DEPENDENCY_TYPES,
@@ -32,6 +32,7 @@ import {
   type ChangeItem,
   type DependencyType,
   type Milestone,
+  type NoteLogEntry,
   type RaidCategory,
   type RaidItem,
   type RaidStatus,
@@ -102,6 +103,44 @@ const RAID_STATUS_SET = new Set<RaidStatus>([
 ]);
 
 const RISK_SCALES = new Set([1, 2, 3, 4, 5]);
+
+/**
+ * The DOM-free seed carry for a captured note log.
+ *
+ * ★★ Same posture as `description` below — `sanitizeRichText` against
+ * `RICH_SINK`, no DOMPurify pass. This file is in the sample generator's import
+ * graph, and its DOM-free contract is deliberate; the allow-list runs at APPLY
+ * time in `template-apply.ts`, which is outside that graph.
+ *
+ * ★★★ DO NOT "fix" this by re-attaching the captured log after sanitizing. That
+ * stores it un-sanitised. The whole point of the carry is that every entry goes
+ * through the same boundary the description does.
+ *
+ * ★ `text` is DERIVED, never carried. A captured projection can disagree with
+ * its html — a hand-edited template, or a sink change since capture — and the
+ * html is the source of truth.
+ */
+function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: NoteLogEntry[] = [];
+  for (const item of raw) {
+    if (!isPlainObject(item)) continue;
+    const id = fkIdOrUndefined(item.id);
+    if (id === undefined) continue;
+    const timestamp = nonEmptyStr(item.timestamp);
+    if (!timestamp) continue;
+    const html = sanitizeRichText(item.html, TEXTAREA_MAX, RICH_SINK);
+    const entry: NoteLogEntry = { id, timestamp, html, text: htmlPlainProjection(html) };
+    const authorResourceId = fkIdOrUndefined(item.authorResourceId);
+    if (authorResourceId !== undefined) entry.authorResourceId = authorResourceId;
+    const authorName = nonEmptyStr(item.authorName);
+    if (authorName) entry.authorName = authorName;
+    const editedAt = nonEmptyStr(item.editedAt);
+    if (editedAt) entry.editedAt = editedAt;
+    out.push(entry);
+  }
+  return out.length ? out : undefined;
+}
 
 /**
  * Minimal single-item Task sanitizer for template seed content. The workspace
@@ -202,6 +241,8 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  if (noteLog) task.noteLog = noteLog;
   // `migrateTask` derives a valid workflow status for legacy/sparse seed
   // content; a present-and-valid status is left alone, EVEN when it
   // contradicts `completedDate` — its only status write is guarded on
