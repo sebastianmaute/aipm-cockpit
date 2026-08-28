@@ -19,6 +19,7 @@ import {
   isClosed,
   parseEntries,
   reproCommandsIn,
+  reproCoverageIn,
   reproEntriesIn,
   stripTrailingComment,
   symbolsIn,
@@ -943,5 +944,111 @@ describe("buildSelfExcludedSymbols", () => {
 
   it("never reports a name the known set already holds", () => {
     expect(run(null).has("realSrcName")).toBe(false);
+  });
+});
+
+describe("reproCoverageIn", () => {
+  it("splits fenced command lines into extracted and the two rejection causes", () => {
+    const text = [
+      "```bash",
+      "grep -n foo src/app/x.ts",
+      "npm run docs:claims:check",
+      "cat docs/open-followups.md",
+      // ★ Exercises shellMeta via a PIPE, deliberately not via `node -e`:
+      // the next commit removes the node -e alternative from RUNNABLE_RE, which
+      // would move that line from the shellMeta bucket to notRunnable and break
+      // this fixture. A grep with a pipe is stable across both grammars.
+      "grep -n foo src | head -3",
+      "# a pure comment line",
+      "",
+      "```",
+    ].join("\n");
+
+    expect(reproCoverageIn(text)).toEqual({
+      seen: 4,
+      extracted: 2,
+      notRunnable: 1,
+      shellMeta: 1,
+      unparseable: 0,
+    });
+  });
+
+  // ★★★ THE CASE THAT ALREADY BIT THIS WORK. splitTrailingComment returns
+  // `{cmd: "", comment: "# …"}` for a comment-only line, NOT null, so the naive
+  // filter counts a comment as a rejected command and overstates the gap.
+  it("does not count a comment-only line as a command", () => {
+    const text = ["```bash", "# just a comment", "grep -n foo src", "```"].join("\n");
+    expect(reproCoverageIn(text)).toEqual({
+      seen: 1,
+      extracted: 1,
+      notRunnable: 0,
+      shellMeta: 0,
+      unparseable: 0,
+    });
+  });
+
+  it("counts nothing outside a fence", () => {
+    expect(reproCoverageIn("grep -n foo src")).toEqual({
+      seen: 0,
+      extracted: 0,
+      notRunnable: 0,
+      shellMeta: 0,
+      unparseable: 0,
+    });
+  });
+
+  // ★ The invariant that must hold on ANY input, including the real register:
+  // every seen line lands in exactly one of the three buckets.
+  it("partitions: extracted + notRunnable + shellMeta + unparseable === seen", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const c = reproCoverageIn(real);
+    expect(c.seen).toBeGreaterThan(0);
+    expect(c.extracted + c.notRunnable + c.shellMeta + c.unparseable).toBe(c.seen);
+  });
+
+  // ★★★ THE BUCKET A COLD REVIEW ADDED, AND WHY IT IS ITS OWN TEST. A line
+  // `splitTrailingComment` cannot parse used to be filtered out BEFORE counting,
+  // so it left the DENOMINATOR and the reported coverage rose. Measured on the
+  // real register: 384 counted against 405 real lines. Erring upward is the one
+  // direction a coverage disclosure must never take.
+  it("counts an unparseable line rather than dropping it from the denominator", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const c = reproCoverageIn(real);
+    expect(c.unparseable).toBeGreaterThan(0);
+  });
+});
+
+describe("the node -e grammar branch", () => {
+  // ★★★ THE CLAIM: `node -e` cannot carry real JavaScript past SHELL_META, so
+  // listing it in RUNNABLE_RE was dead grammar. Both quoting styles, measured.
+  it.each([
+    ['node -e "console.log(1)"'],
+    ["node -e 'console.log(1)'"],
+    ['node -e "const a = {b: 1}"'],
+  ])("rejects %s", (cmd) => {
+    expect(reproEntriesIn("```bash\n" + cmd + "\n```")).toEqual([]);
+  });
+
+  // ★★ The counter-assertion. Without it this file would pass with
+  // reproEntriesIn hard-coded to return [], which would delete the gate.
+  it("still accepts the shapes the register actually uses", () => {
+    for (const cmd of [
+      "grep -n foo src/app/x.ts",
+      "npm run docs:claims:check",
+      "npx tsc --noEmit",
+      "node scripts/probes/followup-grammar.mjs",
+    ]) {
+      expect(reproEntriesIn("```bash\n" + cmd + "\n```")).toHaveLength(1);
+    }
+  });
+
+  // ★★★ THE REMOVAL IS ONLY SAFE IF NO LINE IN THE REGISTER RELIES ON IT. A
+  // metacharacter-free `node -e` would be extracted today and stop being. This
+  // asserts the register contains none, which is what makes the change a no-op
+  // rather than a silent loss of coverage.
+  it("no line in the real register is extracted via the node -e branch", () => {
+    const real = fs.readFileSync(path.join(process.cwd(), "docs/open-followups.md"), "utf8");
+    const viaNodeE = reproEntriesIn(real).filter((e) => e.cmd.startsWith("node -e "));
+    expect(viaNodeE).toEqual([]);
   });
 });

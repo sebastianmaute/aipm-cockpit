@@ -281,6 +281,23 @@ doc-claims-check:
   script:
     - npm run docs:claims:check
 
+# Status-line contract — BLOCKING. Every OPEN entry in docs/open-followups.md
+# must carry a `**Status:**` line with an ISO date that either cites a command
+# or says `never machine-verified`. 118 of 175 open entries had no such line on
+# 2026-08-28 and nothing had ever checked, which is how it got to 118.
+# TWO FAILURE MODES, TWO EXIT CODES: 1 is DRIFT (write the Status line); 2 means
+# the gate could not scan at all — an unreadable register, or too few entries
+# parsed (the floor is 50, not zero: a scan that reads ALMOST nothing would
+# otherwise pass ALMOST everything). 2 is the load-bearing
+# one. Do NOT satisfy a red run by inventing a verification: `never
+# machine-verified` is a conforming answer and is the honest one for an entry
+# nobody has probed.
+followups-status-check:
+  stage: quality
+  needs: []
+  script:
+    - npm run followups:status:check
+
 # Duplication gate — BLOCKING as of Phase 4 (ratchet, not absolute). jscpd exits
 # non-zero if any format's duplication % exceeds the `--threshold` set in the
 # `dup:check` script (post-TD-6 exit level: tsx 1.69% / typescript 1.71% [binding]

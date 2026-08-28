@@ -696,7 +696,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   "every tracked doc" while `CHANGELOG.md`, `CLAUDE.md` and the two `lib/*.md` guides were NOT
   scanned; a cold review caught it and the scope was widened to match the claim rather than the claim
   narrowed. Proves only that a cited line COULD exist, never that it
-  is right — the Commands entry carries the measurement] · **unit** [coverage floors: global lines 92/funcs 91/branch
+  is right — the Commands entry carries the measurement] ·
+  **followups-status-check** BLOCKING [`npm run followups:status:check` — every OPEN entry in
+  `docs/open-followups.md` must carry a `**Status:**` line with an ISO date that either cites a
+  command or says `never machine-verified`. ★★ TWO EXIT CODES, opposite responses, the same split
+  `version-sync-check` documents: **1 is DRIFT** (write the Status line), **2 is the gate unable to
+  scan at all** — an unreadable register, or zero entries parsed. The vacuity guard is the
+  load-bearing half, because a scan that reads nothing passes everything. ★★★ DO NOT satisfy a red
+  run by inventing a verification — `never machine-verified` is a CONFORMING answer and is the
+  honest one for an entry nobody has probed. ★ The check is command-SHAPED, not merely backticked:
+  a backticked filename is not a verification, and accepting one was measured to admit 10 entries
+  that named none] · **unit** [coverage floors: global lines 92/funcs 91/branch
   80/stmts 89 + per-engine globs in `vitest.config.ts`] · **unit-tests-shuffled** BLOCKING [runs the full
   unit suite at `--sequence.shuffle --sequence.seed=1`; `needs: [install, {job: unit-tests, artifacts:
   false}]` so it cannot run concurrently with **unit-tests** — two full vitest runs on one runner is the
@@ -726,7 +736,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   **file-size-ratchet** carry a full commented `rules:` block; **duplication-gate** only NAMES the label
   in prose, with no rules block; and EVERY other quality-stage job mentions it nowhere (`lint`,
   `typecheck`, `dependency-audit`, `dependency-audit-full`, `agents-symbol-check`, `version-sync-check`,
-  `doc-claims-check`, `unit-tests`,
+  `doc-claims-check`, `followups-status-check`, `unit-tests`,
   `unit-tests-shuffled`, `unit-tests-shuffled-random` — enumerate with
   `grep -nE "^[a-z][a-zA-Z0-9_-]*:" .gitlab-ci.yml`). ★★★ FOUR successive revisions of this
   sentence were wrong — each named the wrong jobs or under-enumerated, sending an operator hunting for a

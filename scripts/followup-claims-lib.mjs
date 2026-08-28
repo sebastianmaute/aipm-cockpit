@@ -221,7 +221,22 @@ export function fencedLines(text) {
  *  from doing something surprising, and it must not be cited as containment.
  *  Tightening it is a separate change, and one that has to MEASURE what it drops
  *  from today's register first. */
-const RUNNABLE_RE = /^(?:grep\b|node -e |node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
+/** ★★★ `node -e ` WAS LISTED HERE AND COULD NEVER FIRE. SHELL_META rejects
+ *  ( ) { } $ backtick | ; & < > and no useful JavaScript one-liner avoids all of
+ *  them, so the alternative was dead grammar that read as capability. That
+ *  mattered out of proportion to its size: `node -e` is this repo's house idiom
+ *  for measurement, so the commonest reproduce form in the register looked
+ *  runnable and never was. Measured 2026-08-28 in both quoting styles, and a
+ *  test pins that no line in the register was ever extracted through it — which
+ *  is what made the removal a no-op rather than a loss of coverage.
+ *
+ *  ★★ DO NOT REINTRODUCE IT by loosening SHELL_META. `spawnSync` runs with
+ *  `shell: false`, so those metacharacters are inert as argv — but `node -e`
+ *  would then execute arbitrary JavaScript lifted verbatim out of a markdown
+ *  file on every --run-repro. Computation belongs in a committed probe under
+ *  `scripts/probes/`, which lint, review and `git log` can all see. See
+ *  `scripts/probes/README.md`. */
+const RUNNABLE_RE = /^(?:grep\b|node scripts\/[\w.-]+|npm run [a-z0-9:_-]+$|npx [\w@/.-]+)/;
 const SHELL_META = /[|;&><`$(){}]/;
 
 /** Split a shell-ish line into the command and its trailing `# …` comment.
@@ -355,6 +370,53 @@ export function reproEntriesIn(text) {
     // a set-aside comment can never reach the runner, while metacharacters in
     // the command itself are still rejected.
     .filter((e) => e !== null && RUNNABLE_RE.test(e.cmd) && !SHELL_META.test(e.cmd));
+}
+
+/** Coverage of `reproEntriesIn` over one body, for disclosure.
+ *
+ *  ★★★ THIS EXISTS BECAUSE A GREEN `--run-repro` READ AS COVERAGE IT DID NOT
+ *  HAVE. Measured 2026-08-28 across the open entries: a minority of the fenced
+ *  command lines were extracted, and a minority of entries had even one runnable
+ *  command, while the report said "no drift" and named neither number. Same
+ *  shape as reading an exit code through a pipe: the answer is real, the
+ *  question was not the one anyone thought was asked. Read today's split off
+ *  `node scripts/check-followup-claims.mjs`, which prints it; a figure quoted
+ *  here would rot on the next entry anyone files.
+ *
+ *  ★ The three buckets PARTITION `seen`, and a test pins that on the real
+ *  register. A bucket that can double-count is a disclosure that overstates
+ *  itself, which is the one failure mode worse than no disclosure. */
+export function reproCoverageIn(text) {
+  const lines = fencedLines(text)
+    .map((l) => splitTrailingComment(l.replace(/^\s*(?:>\s?)*/, "").trim()))
+    // ★★ `e.cmd !== ""` is load-bearing and was MEASURED, not reasoned.
+    // `splitTrailingComment` returns `{cmd: "", comment: "# …"}` for a
+    // COMMENT-ONLY line — it does NOT return null — so without this filter a
+    // comment inside a fence is counted as a command that failed RUNNABLE_RE.
+    // That overstates the rejected buckets, which is the one direction a
+    // coverage disclosure must never err in. (`fencedLines` already drops blank
+    // lines, so those need no guard.)
+    .filter((e) => e === null || e.cmd !== "");
+  let extracted = 0;
+  let notRunnable = 0;
+  let shellMeta = 0;
+  let unparseable = 0;
+  for (const e of lines) {
+    // ★★★ A `null` FROM `splitTrailingComment` IS A LINE, AND DROPPING IT
+    // INFLATED THE COVERAGE PERCENTAGE. It means the quoting could not be
+    // resolved — in practice the continuation lines of a multi-line `node -e`
+    // block. An earlier cut filtered those out BEFORE counting, so they left
+    // the denominator entirely and the reported share rose. A cold review
+    // measured the gap: 384 counted against 405 real lines, i.e. 22% reported
+    // where 21% is true. Small, but in the ONE direction a coverage
+    // disclosure must never err, and the sibling comment below already
+    // claimed that direction was guarded. Counted as its own bucket now.
+    if (e === null) unparseable++;
+    else if (!RUNNABLE_RE.test(e.cmd)) notRunnable++;
+    else if (SHELL_META.test(e.cmd)) shellMeta++;
+    else extracted++;
+  }
+  return { seen: lines.length, extracted, notRunnable, shellMeta, unparseable };
 }
 
 export function reproCommandsIn(text) {
@@ -531,6 +593,14 @@ export const THIRD_PARTY_SYMBOLS = new Map([
   ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
   ["getScope", "eslint-plugin-react-hooks — context feature detection"],
   ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
+  // ★★ A BROWSER API, not a proposed repo symbol, and the distinction decides the
+  // remedy. §58 names it as a debugging TECHNIQUE that was run once and discarded
+  // (a MutationObserver registered inside a Playwright init script, to prove the
+  // addInitScript one-liner was a no-op) — never as code this repo defines. An
+  // absence marker would have said "this does not exist and a fix would add it",
+  // which is false in both halves. AGENTS.md routes genuinely non-repo names here
+  // WITH a reason; this is that reason.
+  ["MutationObserver", "DOM standard — named as a test technique, never repo code"],
 ]);
 
 /** `env` is injected so this stays pure and testable:
