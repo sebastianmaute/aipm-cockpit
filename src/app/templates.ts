@@ -313,16 +313,38 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
     const impact = sanitizeRiskScale(raw.impact);
     if (impact !== undefined) item.impact = impact;
   }
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  if (noteLog) item.noteLog = noteLog;
   return item;
 }
 
-function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
+/**
+ * ★★★ Changes route through the canonical `sanitizeChangeItem`, which
+ * deliberately DROPS `noteLog`: the load paths re-attach it from the STORED row
+ * via `withStoredNoteLog`, so a decoded or model-written change can never inject
+ * one. A template seed has no stored row, so the same re-attach happens here,
+ * from the seed's own captured log, through the same DOM-free boundary every
+ * other seed rich field uses.
+ *
+ * ★★★ DO NOT move this into `sanitizeChangeItem`. That would give every caller —
+ * the workspace load paths and the AI write path included — a note-log carry
+ * they must not have.
+ */
+function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
+  const item = sanitizeChangeItem(raw);
+  if (!item) return null;
+  if (!isPlainObject(raw)) return item;
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  return noteLog ? { ...item, noteLog } : item;
+}
+
+export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};
   const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
   const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeMilestone);
   const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
-  const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeChangeItem);
+  const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
   const stakeholders = sanitizeArr<Stakeholder>(
     raw.stakeholders,
     sanitizeStakeholder,
