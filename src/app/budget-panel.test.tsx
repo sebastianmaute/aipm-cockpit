@@ -6,6 +6,7 @@ import { BudgetPanel } from "./budget-panel";
 import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
+import { expectRowUniqueNames } from "../test/row-unique-names";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -88,6 +89,65 @@ describe("BudgetPanel", () => {
     // …and each one names ITS bucket, not merely some distinct suffix.
     expect(names.some((n) => n?.includes("PAM"))).toBe(true);
     expect(names.some((n) => n?.includes("DEV"))).toBe(true);
+  });
+
+  // ★★★ THE COLLISION CASE, which the test above cannot reach: bucket names carry
+  // no uniqueness constraint (`budget-bucket-modal.tsx` enforces only
+  // BUDGET_NAME_MAX), so two buckets can genuinely share one. Both controls in a
+  // bucket-card header then render byte-identical accessible names, and axe
+  // cannot see it in ANY view at ANY seed size — no rule under the four tags
+  // `e2e/a11y.spec.ts` requests flags two controls sharing a name. This unit
+  // test is the only detector that can exist. (docs/open-followups.md §262.)
+  const collidingBuckets = (): BudgetBucket[] => [
+    // Storage order is deliberately the REVERSE of `order`: the panel renders
+    // `report.buckets`, which `computeBudgetReport` sorts by `order ?? id`, so
+    // the occurrence index must number by RENDERED order, not array order.
+    { ...buckets[0], id: 1, name: "PAM", order: 1 },
+    { ...buckets[0], id: 2, name: "PAM", order: 0 },
+  ];
+
+  test("keeps every bucket control bucket-unique when two buckets share a name", () => {
+    render(<BudgetPanel {...props} buckets={collidingBuckets()} />);
+    const handles = screen.getAllByRole("button", { name: /reorder bucket/i });
+    expect(handles).toHaveLength(2);
+
+    // ★★ THE SPINBUTTON HALF. The "Manual % complete" box is `type="number"`, so
+    // its role is `spinbutton` — a `roles: ["button"]` scan misses it entirely.
+    // Scope is the bucket-card SECTION (the handle's card's parent). Measured
+    // over this fixture: 26 spinbuttons — the two percent boxes plus 2×12 period
+    // hour cells, whose labels are already bucket-id-qualified
+    // (`budget-<bucketId>-<roleId>-<period>`) and therefore all distinct. So the
+    // ONLY stripped collision `requireCollisionSeed` can be satisfied by is the
+    // percent pair under test — the masking hazard the helper's docstring warns
+    // about does not apply at this role list, and `minControls` is pinned to the
+    // exact measured count so a narrowed scan cannot pass vacuously.
+    const scope = handles[0].closest("div.rounded-xl")!.parentElement as HTMLElement;
+    expectRowUniqueNames({
+      minControls: 26,
+      roles: ["spinbutton"],
+      scope,
+      requireCollisionSeed: true,
+    });
+
+    // ★★ THE BUTTON HALF cannot go through the same call, and this is measured
+    // rather than assumed: that same scope renders 52 buttons, of which the
+    // per-bucket InfoTooltip hints, the "Role" sort header and the trailing
+    // Edit/Close/Remove bucket controls are all byte-identical across the two
+    // cards. Those are a real WCAG 2.4.6 gap but NOT the one §262 fixes, and no
+    // element in the tree holds both reorder handles without also holding them.
+    // Scanning `["button"]` here would fail on pre-existing debt; scanning it at
+    // a narrower scope is impossible. So the handles are checked by name, with
+    // the same two properties the helper asserts: pairwise-unique names, and a
+    // genuine collision seed (both strip to one string once "(N)" is removed).
+    const names = handles.map((h) => h.getAttribute("aria-label") ?? "");
+    // Assert on the DUPES, not on a Set size: "expected 1 to be 2" names neither
+    // the colliding string nor the control, and this is the only detector there
+    // can be — so its failure has to say what collided.
+    const dupes = names.filter((n, i) => names.indexOf(n) !== i);
+    expect(dupes, `WCAG 2.4.6: reorder handles share ${dupes.length} name(s) — ${dupes.join(", ")}`).toEqual([]);
+    const stripped = new Set(names.map((n) => n.replace(/ \(\d+\)$/, "")));
+    expect(stripped.size).toBe(1);
+    expect([...stripped][0]).toContain("PAM");
   });
 
   // The control is the shared ToggleButton primitive, NOT a bare checkbox: it

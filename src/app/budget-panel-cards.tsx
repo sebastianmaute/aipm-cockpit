@@ -16,16 +16,26 @@ import { useCommitDraft } from "./use-commit-draft";
 import { RagBadge } from "./rag-badge";
 import type { Health } from "./health";
 import { InfoTooltip } from "./info-tooltip";
+import { rowLabel } from "./row-tokens";
 import { FOCUS_RING, TRANSITION } from "./interaction-styles";
 
 /** The bucket's Manual % complete, editable without opening the bucket modal.
  *  The placeholder shows the task-derived percentage so the override
  *  relationship is visible in place. */
 export function ManualPercentCell({
-  lang, bucket, tasks, onCommit,
+  lang, bucket, rowToken, tasks, onCommit,
 }: {
   lang: Lang;
   bucket: BudgetBucket;
+  /** The bucket's WCAG 2.4.6 disambiguation token, from a `buildRowTokens`
+   *  (`row-tokens.ts`) map built over the RENDERED bucket list.
+   *
+   *  ★ REQUIRED, and it is a prop rather than something computed here because a
+   *  per-item component has no sibling visibility — it cannot know whether some
+   *  OTHER bucket carries the same name. Only the caller that maps the list can.
+   *  Passing `bucket.name` defeats it: names are free text with no uniqueness
+   *  constraint (`budget-bucket-modal.tsx` enforces only BUDGET_NAME_MAX). */
+  rowToken: string;
   /** OPTIONAL on the panel — a caller that omits it gets no derived hint, never
    *  a misleading 0 %. */
   tasks: readonly Task[] | undefined;
@@ -46,20 +56,18 @@ export function ManualPercentCell({
       {t(lang, "budgetPercentComplete")}
       <InfoTooltip text={t(lang, "budgetPercentCompleteHint")} />
       <input
-        // ★★ Bucket-QUALIFIED, which is NOT bucket-UNIQUE — an earlier revision
-        // of this comment read as if the qualifier closed 2.4.6, and it does
-        // not. N identical "Manual % complete" labels is a WCAG 2.4.6 failure
-        // the axe gate cannot see (of axe-core 4.12.1's rules, not one carrying
-        // a tag e2e/a11y.spec.ts requests flags two controls sharing a name),
-        // and appending the bucket name fixes only the ordinary case. The
-        // RESIDUAL case is live: `budget-bucket-modal.tsx` edits the name as
-        // free text with no uniqueness constraint (only `BUDGET_NAME_MAX`), so
-        // two buckets can carry one name and these inputs then collide
-        // byte-for-byte again. Closing it needs a `buildRowTokens`
-        // (`row-tokens.ts`) map built where the buckets are MAPPED and threaded
-        // down as a prop — a per-item component has no sibling visibility — so
-        // it is a deferred follow-up, deliberately not attempted here.
-        aria-label={`${t(lang, "budgetPercentComplete")} – ${bucket.name}`}
+        // ★★ Bucket-UNIQUE via `rowToken`, NOT merely bucket-qualified. N
+        // identical "Manual % complete" labels is a WCAG 2.4.6 failure the axe
+        // gate cannot see (of axe-core 4.12.1's rules, not one carrying a tag
+        // e2e/a11y.spec.ts requests flags two controls sharing a name), so the
+        // only detector is the unit test in `budget-panel.test.tsx` — "keeps
+        // every bucket control bucket-unique when two buckets share a name".
+        // ★ `budget-bucket-modal.tsx` renders a SECOND percent input carrying
+        // the BARE `budgetPercentComplete` label. That is not this collision and
+        // must not be "fixed" to match: the modal is the only such control in
+        // its own dialog, and `modal.tsx` sets `aria-modal="true"`, which hides
+        // these background copies from AT. 2.4.6 is about one context.
+        aria-label={rowLabel(t(lang, "budgetPercentComplete"), rowToken)}
         type="number"
         min={0}
         max={100}

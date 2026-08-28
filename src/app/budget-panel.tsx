@@ -39,6 +39,7 @@ import { AddFirstItemButton } from "./add-first-item-button";
 import { ViewCallout } from "./view-callout";
 import { BudgetUnappliedNotice } from "./budget-unapplied-notice";
 import { useConfirm } from "./confirm-dialog";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import {
   DOT_COL_PX, TOTAL_COL_PX, HoursTd, BucketRowLeadCells, BucketTotalRow, bucketColumnTotals,
   type TotalsRow,
@@ -185,6 +186,22 @@ export function BudgetPanel(props: BudgetPanelProps) {
   const visibleBuckets = bucketQuery
     ? report.buckets.filter((b) => b.name.toLowerCase().includes(bucketQuery))
     : report.buckets;
+
+  // WCAG 2.4.6 disambiguation tokens for the per-bucket controls. Bucket names
+  // carry no uniqueness constraint (`budget-bucket-modal.tsx` enforces only
+  // BUDGET_NAME_MAX), so two buckets can share one and their controls would
+  // otherwise render byte-identical accessible names.
+  //
+  // ★★★ BUILT OVER `visibleBuckets`, THE RENDERED LIST — not over `buckets`.
+  // The occurrence index has to follow what is on screen, and this list is both
+  // FILTERED (`bucketQuery`) and REORDERED: `computeBudgetReport` sorts by
+  // `order ?? id`, so `report.buckets` is not the prop's array order. Bucket ids
+  // are `number`, which makes the `useRowTokens(buckets)` shortcut type-check —
+  // and number the tokens by the wrong sequence.
+  //
+  // ★ A fresh Map every render, for the reason `sortedBucketIds()` below gives:
+  // memoising would key on an array `visibleBuckets` rebuilds anyway under a filter.
+  const bucketTokens = buildRowTokens(visibleBuckets.map((br) => ({ id: br.bucketId, name: br.name })));
 
   // Hoisted for exhaustive-deps inside the hook (no `obj.member` in a dep array).
   const disciplines = props.disciplines;
@@ -406,15 +423,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <div className="flex items-center gap-2">
                   <DragHandle
                     {...bucketOrder.handleProps(br.bucketId)}
-                    // ★★ Bucket-QUALIFIED, NOT bucket-unique (WCAG 2.4.6) — the SAME open gap
-                    // `ManualPercentCell`'s aria-label comment already documents in full (a
-                    // second consumer, not a second gap): bucket names carry no uniqueness
-                    // constraint (`budget-bucket-modal.tsx` enforces only BUDGET_NAME_MAX), so
-                    // two buckets sharing a name render byte-identical handle labels — measured,
-                    // not inferred. No test pins this; closing it needs that same
-                    // `buildRowTokens` map, and this file has no headroom for it. Deferred in
-                    // docs/open-followups.md.
-                    ariaLabel={`${t(lang, "budgetReorderHandle")} – ${br.name}`}
+                    // ★ Bucket-UNIQUE, not merely bucket-qualified: two buckets may share a
+                    // name, so the token — not `br.name` — is what makes this WCAG 2.4.6-clean.
+                    ariaLabel={rowLabel(t(lang, "budgetReorderHandle"), bucketTokens.get(br.bucketId) ?? br.name)}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own
                     // base; `leading-none` went with the text glyph it used to tune.
@@ -431,6 +442,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   <ManualPercentCell
                     lang={lang}
                     bucket={bucket}
+                    rowToken={bucketTokens.get(br.bucketId) ?? br.name}
                     tasks={props.tasks}
                     onCommit={(pct) => updateBucket(bucket.id, { percentComplete: pct })}
                   />
