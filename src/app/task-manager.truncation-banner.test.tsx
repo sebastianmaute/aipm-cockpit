@@ -159,6 +159,29 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(banner() as HTMLElement).getByText(/9 document entries could not be opened/i)).toBeInTheDocument();
   }, 45000);
 
+  it("a SECOND decode-failing load re-shows a dismissed banner, at the same failure count", async () => {
+    // ★★★ THE DECODE PATH HAS NO COUNTS OBJECT TO KEY ON. `truncation` is null
+    // for the whole of it, so a reconcile keyed on that alone never fires:
+    // project A fails to decode → banner → dismiss → project B ALSO fails, and
+    // B's banner arrives already dismissed while saving is paused on B and
+    // nothing on screen says so.
+    // ★★ THE COUNT IS DELIBERATELY HELD AT 2 ACROSS BOTH LOADS. Keying on
+    // `decodeFailureCount` would pass this test's premise (two projects, two
+    // banners) while failing exactly here — the commonest real shape is the same
+    // number of slices failing twice, and a fix that reads as done is worse than
+    // none. The nonce is what moves.
+    override.value = { ...override.value, truncation: null, decodeFailureCount: 2, decodeFailureNonce: 1, loadWasIncomplete: true };
+    const { rerender } = await mountApp();
+    fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(banner()).toBeNull());
+
+    override.value = { ...override.value, decodeFailureNonce: 2 };
+    rerender(<TaskManager />);
+
+    await waitFor(() => expect(banner()).not.toBeNull());
+    expect(within(banner() as HTMLElement).getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
+  }, 45000);
+
   it("names how many kinds of data were unreadable in the save-anyway dialog", async () => {
     // ★★★ THE DECODE CAUSE HAS NO `truncation` COUNTS, so the banner's count
     // line and — the part that matters — the confirm dialog would name NO

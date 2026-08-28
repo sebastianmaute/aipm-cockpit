@@ -441,17 +441,33 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
-    truncation, decodeFailureCount, loadWasIncomplete, allowIncompleteSave,
+    truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
-  // truncated load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
+  // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
   // ★ Keyed on the counts OBJECT — the boolean never lowers between two truncated loads.
+  // ★★★ AND ON THE DECODE NONCE, because the guard has TWO causes and the object
+  // covers only one: on the decode path `truncation` is `null` throughout, so a
+  // key made of it alone never moves and project #2's banner arrives ALREADY
+  // DISMISSED with saving paused and nothing on screen saying so. The nonce and
+  // not `decodeFailureCount`: a count compares equal when two projects fail the
+  // same NUMBER of slices, which reads as fixed while the defect survives.
   const [truncationSeen, setTruncationSeen] = useState<typeof truncation>(null);
-  if (truncation !== truncationSeen) { setTruncationSeen(truncation); setTruncationBannerDismissed(false); }
+  // ★ Seeded with the guard's OWN starting value, not with the live one. The
+  // guard mounts in this same render (task-manager calls the hook that owns it),
+  // so 0 is what it really is here — and seeding from the live value is the
+  // remount-swallow shape, where a fresh mount sees `value === seed` and drops a
+  // pending report.
+  const [decodeNonceSeen, setDecodeNonceSeen] = useState(0);
+  if (truncation !== truncationSeen || decodeFailureNonce !== decodeNonceSeen) {
+    setTruncationSeen(truncation);
+    setDecodeNonceSeen(decodeFailureNonce);
+    setTruncationBannerDismissed(false);
+  }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and

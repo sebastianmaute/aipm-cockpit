@@ -123,6 +123,31 @@ export interface LoadTruncationGuard {
    *  `settings_overrides`) and the diagnostics ring already carries them for an
    *  operator. */
   decodeFailureCount: number;
+  /** Bumped once per LOAD that reported at least one undecodable slice — the
+   *  identity a dismissal-reconcile needs, and NOT a magnitude.
+   *
+   *  ★★★ THE COUNT CANNOT SERVE AS THAT KEY, which is the whole reason this
+   *  exists. `task-manager.tsx` re-opens a dismissed banner by comparing what it
+   *  last saw against what the guard reports now; on the decode path `truncation`
+   *  is `null` on both sides, so the counts object never moves, and
+   *  `decodeFailureCount` is a NUMBER — two projects in a row failing the same
+   *  two slices compare equal. Either way the second project's banner arrives
+   *  already dismissed while saving is paused, and nothing tells the user.
+   *
+   *  ★★ MONOTONIC, and never reset — not by `allowIncompleteSave`, not by
+   *  `clearForFreshWorkspace`. Resetting would make a later value compare equal
+   *  to one a consumer had already seen, which is the same collision one level
+   *  down. Consumers must treat it as opaque: only `!==` against their own last
+   *  seen value is meaningful, never its size or its delta.
+   *
+   *  ★ A NONCE RATHER THAN THE `decodeFailures` ARRAY ITSELF, though that array
+   *  is freshly minted per failing load today (`turso-backend.ts` builds a new
+   *  `diag` per `load()`, and `turso-schema.ts` mints the array into it with
+   *  `??=`). Depending on that would make the reconcile correct by accident of
+   *  how one backend happens to allocate; a backend publishing a reused array
+   *  would silently reintroduce the pre-dismissed banner. It also keeps the slice
+   *  KEYS off the guard's public surface — see `decodeFailureCount` above. */
+  decodeFailureNonce: number;
   /** True while an incomplete load is unresolved — from EITHER cause: a
    *  truncating load, or a meta slice that could not be decoded. Derived from
    *  the two states below it (one derivation, so they cannot disagree) — drives
@@ -212,6 +237,12 @@ export function useLoadTruncation(
   // how many entries), and `loadWasIncomplete` below is the single derivation
   // over both, so the two causes cannot disagree about whether saving is paused.
   const [decodeFailures, setDecodeFailures] = useState<readonly string[] | null>(null);
+  // ★★ NOT a third source of truth about whether saving is paused — it says
+  // nothing about that, and `loadWasIncomplete` below still derives from the two
+  // states alone. It is a per-failing-load IDENTITY, the one fact neither of
+  // those two carries: see `decodeFailureNonce` on `LoadTruncationGuard` for
+  // what breaks without it.
+  const [decodeFailureNonce, setDecodeFailureNonce] = useState(0);
   const loadWasIncomplete = truncation !== null || decodeFailures !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
@@ -307,6 +338,11 @@ export function useLoadTruncation(
     lastDecodeCountRef.current = failed.length;
     showToast("error", t(langRef.current, "documentsUnreadableWarning", failed.length));
     setDecodeFailures(failed);
+    // ★ Bumped HERE, in the failing branch only, so it marks a load that
+    // actually reported a loss. A clean load lowers the flag above and returns;
+    // moving this out of the branch would make every clean load look like a new
+    // failure to a consumer keying on it.
+    setDecodeFailureNonce((n) => n + 1);
   };
 
   // ★★ Deliberately does NOT touch the caller's L3/B baselines
@@ -445,6 +481,7 @@ export function useLoadTruncation(
   return {
     truncation,
     decodeFailureCount: decodeFailures?.length ?? 0,
+    decodeFailureNonce,
     loadWasIncomplete,
     allowIncompleteSave,
     mayCommitAfterIncompleteLoad,
