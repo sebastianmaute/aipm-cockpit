@@ -270,8 +270,18 @@ export const IMG_TAG_ASSET_ID_RE =
  *   boundaries, so every `<img` in the input restarts a scan over the whole
  *   tail: quadratic, and MEASURED WORSE THAN THE SPELLING IT REPLACED. It is
  *   reachable — `sanitizeBlock` only evaluates this predicate when the
- *   projection is zero, and `"<img ".repeat(n) + ">"` projects to zero because
- *   `TAG` eats it as one match. This runs on RAW, uncapped, pre-sanitizer html
+ *   projection is zero, and `"<img ".repeat(n) + ">"` projected to zero because
+ *   `TAG` ate it as one match.
+ *   ★★★ THAT REACHABILITY ARGUMENT IS STALE AS OF 0.262.2 AND THE PROBE BELOW
+ *   NO LONGER REACHES. §251 bounded `TAG` to `[^<>]*`, so that string now
+ *   projects to essentially its whole length (measured: 40954 chars from 40960
+ *   bytes) rather than to zero — the `&&` short-circuits and this predicate is
+ *   never evaluated on it. The LINEARITY requirement below is unchanged and
+ *   still binding; what changed is that this particular string stopped being
+ *   the witness for it. Do not read a fast run of it as evidence that a
+ *   replacement is linear — it no longer executes this code at all. A witness
+ *   now needs a shape that still projects to zero.
+ *   This runs on RAW, uncapped, pre-sanitizer html
  *   on every load path (the cap applies to the RETURN value, not the input),
  *   and the offending block is itself stored, so the cost repeats on every
  *   boot. `[^<>]*` bounds each scan to one tag and restores linearity.
@@ -281,11 +291,20 @@ export const IMG_TAG_ASSET_ID_RE =
  *   A change satisfying only one of those has been shipped twice on this
  *   branch. Measure any replacement against BOTH the shape table in
  *   `document-asset-patterns.test.ts` and `"<img ".repeat(n) + ">"`.
- *   ★ THE PRICE, and it is a real one: `<img alt=a<b data-asset-id="real">`
- *   carries a genuine attribute and is now dropped, because no branch may
+ *   ★ THE PRICE, and it WAS a real one: `<img alt=a<b data-asset-id="real">`
+ *   carries a genuine attribute and was dropped here, because no branch may
  *   cross the `<`. It needs an unquoted attribute value containing `<` in raw
  *   stored html — DOMPurify quotes and escapes it — which is why the freeze was
  *   judged the worse of the two. Do not "restore" it by widening branch 1 back.
+ *   ★★★ THE BLOCK SURVIVES AGAIN AS OF 0.262.2, BY A ROUTE THAT DOES NOT TOUCH
+ *   THIS PREDICATE — so the paragraph above describes why THIS pattern still
+ *   refuses it, not what the loader does. §251's `[^<>]*` bound made
+ *   `htmlPlainProjection` report 10 non-zero characters for that html, so
+ *   `sanitizeBlock`'s drop condition (`htmlTextLength === 0 && !predicate`)
+ *   short-circuits before reaching here and the block is KEPT.
+ *   `document-model.test.ts` asserts that survival by name. Both statements are
+ *   true at once and the distinction is the whole point: this predicate says
+ *   DROP, and nothing asks it any more.
  *   ★★ THAT IS THE BEFORE CASE ONLY, and reading it as "a bare `<` costs the
  *   block" is wrong in a way that hides a live divergence. Put the same value
  *   AFTER the target attribute — `<img data-asset-id="real" alt=a<b>` — and

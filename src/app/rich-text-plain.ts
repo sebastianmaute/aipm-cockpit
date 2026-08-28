@@ -406,15 +406,34 @@ export function capHtmlText(html: string, max: number): string {
  *  ★★ K = 32 IS DERIVED, NOT PICKED. Measured html:visible ratios for real
  *  formatting: plain 1.0x, bold-per-word 2.9x, list items 2.8x, links 6.3x,
  *  table cells 6.5x, and the worst legitimate shape found — a highlight with an
- *  inline style on every word — 8.3x. The abuse shapes above are 500,000x and
- *  1,800,000x. Three orders of magnitude of clear air is what makes a ratio
- *  safe; 32 leaves ~4x headroom over the worst legitimate case. The corpus
- *  itself tops out at 1.38x, and is too thin to set a constant from (29 rich
- *  fields, 5 of them html).
- *  ★ The +1024 keeps a small `max` from rejecting its own wrapper markup. */
+ *  inline style on every word — 8.3x. The two abuse shapes are 500,000x
+ *  (`<p data-x="A"x500000>a</p>`) and 1,800,000x (the `<em></em>` repeat named
+ *  above); both are pinned in rich-text-plain.test.ts. Three orders of
+ *  magnitude of clear air is what makes a ratio safe; 32 leaves ~4x headroom
+ *  over the worst legitimate case. An independent review then tried to build a
+ *  legitimate shape that trips it and reached 14.2x (a 400-row table with a
+ *  styled span per cell), so the headroom is ~2.3x against the worst
+ *  ADVERSARIALLY-sought legitimate content, not merely against the surveyed
+ *  set. The corpus itself tops out at 1.38x, and is too thin to set a constant
+ *  from (29 rich fields, 5 of them html).
+ *  ★★ "The abuse shapes ABOVE" was wrong — only one of the two appears above
+ *  this docstring; the other lives in the register and in a test. Name a shape
+ *  or cite where it lives; a positional reference rots the moment either
+ *  paragraph moves.
+ *  ★ The +1024 keeps a small `max` from rejecting its own wrapper markup, and
+ *  it governs the small-`max` regime ALONE — at max 5000 it is 1024 against a
+ *  160,000-byte K term and cannot change any verdict, which is why every test
+ *  that used max 5000 left it unpinned. `keeps a small-cap value alive on the
+ *  floor alone` is the one that holds it. */
 const RICH_BYTE_K = 32;
 const RICH_BYTE_FLOOR = 1024;
-export const richByteCeiling = (max: number): number => max * RICH_BYTE_K + RICH_BYTE_FLOOR;
+// ★ NOT exported: it shipped `export`ed with zero consumers, and the tests
+// deliberately spell `5000 * 32 + 1024` by hand rather than calling it — a test
+// that derives both sides of a comparison from one constant pins nothing. Dead
+// export surface reads as a supported API; `--max-warnings=0` does not flag an
+// unused EXPORT, only an unused local. Export it when something needs to
+// predict the ceiling, not before.
+const richByteCeiling = (max: number): number => max * RICH_BYTE_K + RICH_BYTE_FLOOR;
 
 /** The single entry point for the entity sanitizers: guard the type, strip
  *  control characters, upgrade legacy plain text, cap by text length, and drop
@@ -452,12 +471,23 @@ export function sanitizeRichText(raw: unknown, max: number, sink: RichTextSink):
   let bounded = upgraded;
   if (upgraded.length > ceiling) {
     bounded = degradeToPlain(upgraded.slice(0, ceiling), max);
-    // ★★ logDiag, DELIBERATELY NOT lastLoadTruncation. That channel blocks
-    // writes through mayCommitAfterTruncation, on the premise that the SOURCE
-    // still holds what was not loaded — true for a document whose blocks were
-    // dropped, false here. A degrade is idempotent and already committed, so
-    // blocking the flush would strand the user with a workspace the app refuses
-    // to save, protecting data that exists nowhere else.
+    // ★★★ logDiag, DELIBERATELY NOT lastLoadTruncation — AND NOT BECAUSE THE
+    // SOURCE NO LONGER HOLDS THE DATA. An earlier revision of this comment said
+    // exactly that ("a degrade is idempotent and already committed … protecting
+    // data that exists nowhere else") and it is backwards on the only load that
+    // matters. sanitizeRichText is a LOAD-path sanitizer (sanitize-records.ts →
+    // workspace.ts), so on the FIRST load after this ships the source file or
+    // Turso row still holds the full markup — which is precisely the premise
+    // mayCommitAfterTruncation is built on, not a refutation of it. "Already
+    // committed" only becomes true after the next save has overwritten the
+    // source, i.e. after the loss is permanent.
+    // ★★ The decision stands; the derivation does not. It is a JUDGEMENT: a
+    // degrade is deterministic and reproduces identically on every reload, so
+    // blocking every write would strand a user with a workspace the app refuses
+    // to save over a value it will keep degrading the same way. The price is
+    // that the first save makes it permanent with only this diag entry as the
+    // record — visible here so that whoever next lowers RICH_BYTE_K sees what
+    // they are trading, rather than inheriting a false reason.
     logDiag("warn", "rich-text-bytes-degraded", {
       before: upgraded.length,
       after: bounded.length,

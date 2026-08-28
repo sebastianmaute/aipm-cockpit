@@ -831,7 +831,7 @@ describe("htmlPlainProjection — the bounded attribute run", () => {
   });
 });
 
-// ★★★ THE BUDGET IS ~1000x THE MEASURED LINEAR COST AND THAT IS DELIBERATE,
+// ★★★ THE BUDGET IS ~240x THE MEASURED LINEAR COST AND THAT IS DELIBERATE,
 // copied from document-asset-patterns.differential.test.ts's rationale: the
 // loosest threshold that still separates linear from quadratic cannot flake on
 // a loaded machine while still failing instantly on a regression. Measured
@@ -840,6 +840,13 @@ describe("htmlPlainProjection — the bounded attribute run", () => {
 // ★★ 128 KB, not 1 MB: the unfixed cost at 1 MB would blow vitest's 20 s test
 // timeout before the assertion ran, turning a precise number into a bare
 // timeout that names neither figure.
+// ★★ THE RATIO IS DERIVED FROM THE TWO NUMBERS ABOVE — 2000 / 8.4 — and this
+// line used to claim ~1000x while quoting 8.4 ms against the same 2000 ms
+// ceiling, so it refuted itself on the page. An independent measurement of the
+// closed-tag cost came in at 2.3 ms (855x), so the true figure moves with the
+// machine; the SEPARATION is what matters (8.4 ms vs 6617 ms is three orders),
+// not the exact multiple. Recompute it if either number is re-measured, or
+// quote neither.
 describe("htmlPlainProjection — complexity", () => {
   const CEILING_MS = 2000;
   const BYTES = 128 * 1024;

@@ -413,9 +413,16 @@ const ADVERSARIAL: ReadonlyArray<
   //   20 010 chars of a 262 157-char payload. At that size the quadratic is
   //   ~38 ms, so this row runs with a ~50x margin and goes red if the cap is
   //   raised or the pattern degrades further. The unbounded property itself is
-  //   recorded in `docs/open-followups.md` §253 — deliberately NOT fixed here,
-  //   because bounding the trailing run is the same narrowing class that
-  //   produced §250's two regressions.
+  //   recorded in `docs/open-followups.md` §253.
+  //   ★★★ THAT ENTRY IS NOW CLOSED AND THIS COMMENT SAID THE OPPOSITE — it read
+  //   "deliberately NOT fixed here, because bounding the trailing run is the
+  //   same narrowing class that produced §250's two regressions", roughly forty
+  //   lines above the test that fixes and pins it. §253 was closed in 0.262.2
+  //   by a GUARD LOOKAHEAD rather than by narrowing the trailing run, which is
+  //   why the §250 objection did not apply: the guard changes no match, only
+  //   whether the nested runs ever start. The row below still measures the
+  //   end-to-end cap behaviour, which is a different claim from the pattern's
+  //   own complexity.
   [
     "<img with N data-asset-id, unterminated",
     (n) => "<img " + 'data-asset-id="x" '.repeat(Math.round(n / 19)),
@@ -463,10 +470,15 @@ describe("document-asset-patterns — complexity", () => {
   // with a ~50x margin — so it cannot pin the pattern's own complexity. This
   // one asserts the MATCHER is linear, at a size no stored block can reach, and
   // it is the only thing that goes red if the quadratic returns. Measured on
-  // the shipped pattern 2026-08-27: 143 ms at 32 KB, 529 at 64, 1961 at 128,
-  // 16098 at 256 — an exponent above 2. The guarded pattern is 0.2 / 0.4 / 0.6
-  // / 2.5 ms across the same four sizes. These are BUDGET numbers off one
-  // machine under load: re-measure rather than trusting the cells.
+  // the PRE-FIX pattern 2026-08-27: 143 ms at 32 KB, 529 at 64, 1961 at 128,
+  // 16098 at 256 — an exponent above 2. The guarded pattern, which is what
+  // ships today, is 0.2 / 0.4 / 0.6 / 2.5 ms across the same four sizes.
+  // ★★ The first two numbers were labelled "the shipped pattern" while the
+  // guarded one was already shipping, so a reader would have concluded today's
+  // code is quadratic. Name the pattern a measurement belongs to, not its
+  // status at the moment of writing — status moves, and the sentence does not.
+  // These are BUDGET numbers off one machine under load: re-measure rather than
+  // trusting the cells.
   it("IMG_TAG_ASSET_ID_RE is linear on an unterminated <img carrying repeated ids", () => {
     const unit = 'data-asset-id="x" ';
     const input = "<img " + unit.repeat(Math.round((256 * 1024) / unit.length));
