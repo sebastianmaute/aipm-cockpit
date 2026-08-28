@@ -29,6 +29,7 @@ import {
 import { NACE_SECTIONS } from "./nace-sections";
 import { type ProjectDraft, type ProjectErrorField } from "./project-validation";
 import { ResourcePicker } from "./resource-picker";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
 import {
   type ContactPerson,
@@ -654,6 +655,16 @@ function ContactPersonsControl({
   const hasName = (name: string) =>
     contactPersons.some((c) => c.name.trim().toLowerCase() === name.trim().toLowerCase());
 
+  // ★★★ A CONTACT'S IDENTITY IS ITS POSITION, NEVER ITS NAME. Removal used to
+  // filter on `c.name !== cp.name`, so two contacts sharing a name meant either
+  // ✕ deleted BOTH — silent data loss, and a nicer button label would only have
+  // hidden it. The same mistake sat in the list `key`. Duplicates are reachable
+  // in two ways: `hasName` trims but does not COLLAPSE internal whitespace runs
+  // (which accessible-name computation does), so "Bob  Jones" adds happily
+  // beside "Bob Jones"; and `sanitizeProjectMeta` does not dedupe an imported
+  // project, so exact repeats arrive from a file.
+  const contactTokens = buildRowTokens(contactPersons.map((cp, i) => ({ id: i, name: cp.name })));
+
   const addDraft = () => {
     const name = draft.name.trim();
     if (!name || hasName(name)) return;
@@ -677,9 +688,9 @@ function ContactPersonsControl({
 
       {contactPersons.length > 0 && (
         <ul className="mb-2 flex flex-col gap-1">
-          {contactPersons.map((cp) => (
+          {contactPersons.map((cp, idx) => (
             <li
-              key={cp.name}
+              key={idx}
               className="flex items-center justify-between rounded-md border border-line bg-surface px-3 py-1.5 text-sm text-foreground"
             >
               <span className="flex items-center gap-1.5">
@@ -690,9 +701,9 @@ function ContactPersonsControl({
               </span>
               <button
                 type="button"
-                onClick={() => onChange(contactPersons.filter((c) => c.name !== cp.name))}
-                aria-label={`${t(lang, "remove")} ${cp.name}`}
-                title={`${t(lang, "remove")} ${cp.name}`}
+                onClick={() => onChange(contactPersons.filter((_, i) => i !== idx))}
+                aria-label={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
+                title={rowLabel(t(lang, "remove"), contactTokens.get(idx) ?? cp.name)}
                 className="rounded-full px-1 text-muted-foreground hover:text-ui-pink"
               >
                 ×
