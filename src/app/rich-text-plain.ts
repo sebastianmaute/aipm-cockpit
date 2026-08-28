@@ -357,9 +357,23 @@ export function degradeToPlain(html: string, max: number): string {
   // so the cap bounded the OUTPUT while the work stayed unbounded — on the one
   // path whose input is oversized by definition. `matchAll` is lazy, so the
   // break makes the cap bound the scan too.
-  // ★ `lastIndex = 0` is defensive: `matchAll` HONOURS the source regex's
-  // lastIndex but never mutates it, and this is a shared module-level pattern
-  // now, so it can no longer be reasoned about from this file alone.
+  // ★★ NOTHING PINS THIS, AND THE COMMENT ABOVE SHOULD NOT BE READ AS COVERAGE.
+  // Reverting to `Array.from(...).slice(0, CAP)` leaves every test green. The
+  // unterminated-`<img>` budget test cannot see it — that input yields ZERO
+  // matches, so both spellings drain the iterator identically. At any reachable
+  // size it is probably an EQUIVALENT mutant (the byte ceiling caps input at
+  // 161,024 bytes, so ~7,000 possible tags, and materialising 7,000 matches is
+  // sub-ms), which is why no test was added. Recorded as unproven rather than
+  // claimed — from here, an equivalent mutant and a missing test look the same.
+  // ★★ `lastIndex = 0` IS LOAD-BEARING, NOT DEFENSIVE — this comment called it
+  // defensive and that undersells it. `matchAll` HONOURS the source regex's
+  // lastIndex (measured 2026-08-28: seeded to 25, it yielded 1 match instead of
+  // 3) and never mutates it. The pattern is shared and module-level now, so a
+  // future `.test()`/`.exec()` consumer ANYWHERE would leave it dirty — those
+  // two DO advance it — and this reset is the only thing between that and a
+  // silent mid-string scan here. There is no such consumer today.
+  // ★ Breaking out of the loop above leaves lastIndex at 0, so the cap cannot
+  // strand it either.
   ASSET_IMG_TAG_RE.lastIndex = 0;
   const images: string[] = [];
   for (const m of html.matchAll(ASSET_IMG_TAG_RE)) {

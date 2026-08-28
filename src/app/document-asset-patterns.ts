@@ -274,8 +274,9 @@ export const IMG_TAG_ASSET_ID_RE =
  *   `TAG` ate it as one match.
  *   ★★★ THAT REACHABILITY ARGUMENT IS STALE AS OF 0.262.2 AND THE PROBE BELOW
  *   NO LONGER REACHES. §251 bounded `TAG` to `[^<>]*`, so that string now
- *   projects to essentially its whole length (measured: 40954 chars from 40960
- *   bytes) rather than to zero — the `&&` short-circuits and this predicate is
+ *   projects to essentially its whole length rather than to zero — the figure
+ *   this once quoted was unreproducible from the text, which writes the probe as
+ *   `"<img ".repeat(n)` without ever stating `n` — the `&&` short-circuits and this predicate is
  *   never evaluated on it. The LINEARITY requirement below is unchanged and
  *   still binding; what changed is that this particular string stopped being
  *   the witness for it. Do not read a fast run of it as evidence that a
@@ -361,11 +362,34 @@ export const ASSET_IMG_TEST_RE =
  *  `alt=5"`, `alt=Bobs'`) — a quote-aware run waits for a closing quote that
  *  never arrives and matches nothing. Neither branch alone covers both
  *  families. `ASSET_IMG_TEST_RE` above is a union for exactly this reason.
- *  ★★★ THE UNION IS A STRICT SUPERSET OF THE PREDECESSOR BY CONSTRUCTION, which
- *  is the property to preserve: branch 2 IS the old pattern, so no edit that
- *  leaves it intact can drop a tag that used to be carried. A first cut shipped
- *  branch 1 ALONE and traded three gained shapes for four lost ones while its
- *  docstring claimed a single deliberate loss — do not re-derive that.
+ *  ★★★ IT IS **NOT** A STRICT SUPERSET OF THE PREDECESSOR, AND THIS DOCSTRING
+ *  CLAIMED IT WAS. The reasoning was "branch 2 IS the old pattern, so no edit
+ *  that leaves it intact can drop a tag that used to be carried" — which does
+ *  not follow. Alternation gives a superset of match POSITIONS for one attempt;
+ *  under `/g` the match SET is not a superset, because branch 1 can win at an
+ *  EARLIER position with a LONGER extent and consume past a position where the
+ *  predecessor would have started. Refuted 2026-08-28 by fuzzing, with this
+ *  witness:
+ *      <img data-asset-id=a alt=5"><img data-asset-id="a>b">
+ *  The predecessor returns both tags whole. This pattern returns ONE match that
+ *  ends strictly INSIDE the second tag: `alt=5"` opens an unbalanced quote, so
+ *  branch 1 reads `"><img data-asset-id="` as a single quoted run and closes on
+ *  the `>` inside the SECOND tag's id value.
+ *  ★★★ WHAT ACTUALLY HOLDS IS CONTAINMENT, AND ONLY UNDER THE ALLOW-LIST: every
+ *  predecessor match is a SUBSTRING of some match here, so nothing is lost for a
+ *  consumer that re-emits `m[0]` verbatim — which `degradeToPlain` does. The
+ *  witness above is the one family that breaks even containment, and it requires
+ *  a `>` INSIDE the id value, which `sanitize-html.ts` rejects
+ *  (`/^[A-Za-z0-9_-]{1,64}$/`). Measured: 27,865 losses in 600k inputs whose ids
+ *  may carry `>`, and ZERO in 1.5M sanitizer-valid ones.
+ *  ★★ SO THE PROPERTY TO PRESERVE IS NOT "KEEP BRANCH 2 INTACT" — that is what
+ *  the false version licensed, and an edit to BRANCH 1 ALONE can break
+ *  containment while leaving branch 2 untouched. Re-run the fuzz against the
+ *  predecessor after any change to either branch.
+ *  ★ A first cut shipped branch 1 ALONE and traded three gained shapes for four
+ *  lost ones while its docstring claimed a single deliberate loss — that is a
+ *  real EXISTENCE loss and a different failure from the extent loss above; do
+ *  not re-derive it, and do not conflate the two.
  *  ★★★ AND "NOT DRAWABLE" IS THE WRONG TEST FOR WHETHER A LOSS MATTERS. The
  *  review that found this argued the lost shapes were safe because
  *  `IMG_TAG_ASSET_ID_RE` extracts no id from them, so no EXPORT could draw one.
@@ -385,8 +409,13 @@ export const ASSET_IMG_TEST_RE =
  *  position run 1 gives back — quadratic, the same shape §253 fixed on
  *  `IMG_TAG_ASSET_ID_RE`. Measured 2026-08-28 on an unterminated `<img` carrying
  *  repeated ids, guarded vs the same pattern with the lookahead deleted:
- *  0.3/0.6/0.8/1.4 ms against 216/844/3671/18321 ms at 32/64/128/256 KB — 4x per
- *  doubling unguarded, flat with it. The guard fails once, in linear time, so
+ *  4x per doubling unguarded, ~2x (linear) with it. ★★ NO ABSOLUTE ms FIGURES
+ *  ARE QUOTED, because two sets of them rotted inside THIS FILE on ONE branch:
+ *  the deleted `ASSET_IMG_TAG` docstring gave 57/226/1062 ms for the same
+ *  doublings its replacement gave as 216/844/3671 — same claim, same day, 4x
+ *  apart, because they were taken on differently-loaded machines. The RATIO is
+ *  the load-bearing half and it reproduces anywhere. The guard fails once, in
+ *  linear time, so
  *  neither run ever starts. Do NOT "simplify" it away.
  *  ★ Atomic-group emulation `(?=(X*))\1` matches NOTHING here for the reason
  *  `IMG_TAG_ASSET_ID_RE`'s docstring gives — the atomic run swallows the
