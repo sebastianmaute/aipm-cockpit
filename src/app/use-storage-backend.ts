@@ -14,7 +14,9 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
+import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
+import { evaluateSaveGuard } from "./save-guard";
+import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
@@ -383,7 +385,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog } as Workspace;
+    // ★ ONE object: counted by the guard below AND handed to backend.save. The save used to
+    //   re-spell this 28-field literal, so a new Workspace field could be counted here and
+    //   never written. ★★ The `: Workspace` annotation (not `as`) only catches a missing
+    //   REQUIRED field, and only 9 of the 28 are required — new slices add OPTIONAL ones.
+    //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
+    //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
+    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -392,24 +400,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       prevRecordCountRef.current = curRecords;
       return;
     }
-    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends):
-    //   L3 — a full wipe of a >=2-collection project (protects small projects).
-    //   B  — an unexplained MASS deletion: >=5 records removed leaving <=10% of the
-    //        prior total (protects big projects; catches partial-but-catastrophic
-    //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
-    //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
-    //        keeps the data; a reload restores it.
+    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
+    //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
+    //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
+    //   arms allowDestructiveRef one-shot to bypass them; on refusal the backend keeps the
+    //   data, so a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
     if (!mayCommitAfterIncompleteLoad()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
-    const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
-    const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
-    if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
+    const verdict = evaluateSaveGuard({ prevCollections: prevCollectionCountRef.current, prevRecords: prevRecordCountRef.current, curCollections, curRecords, allowDestructive: allowDestructiveRef.current });
+    if (verdict.refuse) {
       recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
       emitToast("info", t(langRef.current, "storageRefusedWipe"));
       return; // keep baselines so a later change re-evaluates
     }
-    if (curCollections === 0 && prevCollectionCountRef.current === 1) {
+    if (verdict.forensic) {
       // A single-collection full-empty L3 lets through — leave a forensic trail.
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
@@ -426,7 +431,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }).then(() => {
+      backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -448,37 +453,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
       });
     };
-    // `fired` guards against double-firing: once either the debounce timer or a
-    // flush has started the save, later triggers are no-ops. (If the timer
-    // already fired and that save is still in flight, skipping the flush is the
-    // simple, acceptable choice — the in-flight save carries this effect run's
-    // workspace snapshot anyway.)
-    let fired = false;
-    const timer = setTimeout(() => { fired = true; doSave(); }, 500);
-    // Flush-on-hide: a pending debounced save would be silently lost if the
-    // user hides or closes the tab within the 500ms window. `visibilitychange`
-    // → "hidden" is the primary signal; `pagehide` is the backup for actual
-    // unload/navigation (chosen over `beforeunload`, which is unreliable with
-    // the back/forward cache and not used elsewhere in this codebase).
-    // Listeners are only registered on effect runs that passed the hydrated/
-    // popout/suppress gates above, so the flush obeys the exact same gating as
-    // the debounced save and never fires when no save is pending.
-    const flush = () => {
-      if (fired) return;
-      fired = true;
-      clearTimeout(timer);
-      doSave();
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("pagehide", flush);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("pagehide", flush);
-    };
+    // ★ Debounce + flush-on-hide (the double-fire guard, why `pagehide` backs up
+    //   `visibilitychange`, and why this may only be reached AFTER the hydrated/
+    //   popout/suppress gates above) all live in debounced-save.ts. Read it there.
+    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS);
     // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
