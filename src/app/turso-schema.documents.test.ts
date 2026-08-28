@@ -461,3 +461,30 @@ describe("malformed meta blobs are reported, not swallowed", () => {
     }
   });
 });
+
+describe("decode failures are accumulated for the caller", () => {
+  it("records the slice key in the diag", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const diag: DocTruncationDiag = {};
+    try {
+      rowsToWorkspace(metaOnlyResults([["documents", "{not json"]]), diag);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(diag.decodeFailedSlices).toEqual(["documents"]);
+  });
+
+  it("records every failing slice, and stays absent when all decode cleanly", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const bad: DocTruncationDiag = {};
+    const good: DocTruncationDiag = {};
+    try {
+      rowsToWorkspace(metaOnlyResults([["documents", "{not json"], ["insights", "{also not json"]]), bad);
+      rowsToWorkspace(metaOnlyResults([["insights", JSON.stringify([])]]), good);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(bad.decodeFailedSlices).toEqual(["insights", "documents"]);
+    expect(good.decodeFailedSlices).toBeUndefined();
+  });
+});

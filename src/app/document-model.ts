@@ -312,6 +312,12 @@ function sanitizeDocument(raw: unknown): ProjectDocument | null {
 export interface DocTruncationDiag {
   truncatedEntries?: number;
   truncatedBlocks?: number;
+  /** Meta-blob slices whose stored JSON could not be decoded at all. ★ A
+   *  DIFFERENT loss from the two counts above: those record what the CAPS
+   *  deliberately discarded, this records what was unreadable. Absent (not
+   *  empty) when every slice decoded cleanly, so a caller can distinguish
+   *  "nothing failed" from "nobody looked". */
+  decodeFailedSlices?: string[];
 }
 
 /** The SINGLE validator for the persisted documents array. Every load path

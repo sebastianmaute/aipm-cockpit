@@ -184,22 +184,31 @@ export function rowsToWorkspace(
   if (fxRow) {
     ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
   }
+  // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel for
+  //    this loss, exactly as `jsonToWorkspace` does for the same class of
+  //    failure on `documents` ("a user who opens a file and finds no
+  //    documents has something to find"). Rethrowing would let ONE corrupt
+  //    slice discard the whole workspace — the load already proceeds with
+  //    whatever entity tables came back, so silently dropping this slice is
+  //    the failure the diagnostic exists to surface instead.
+  //
+  //    Reports to BOTH channels, always: the diagnostics ring for an operator
+  //    reading logs, and the `diag` accumulator for the caller — the ring is
+  //    not reachable from the save-time load guard, and the accumulator is
+  //    not visible to an operator reading logs.
+  const reportUnreadableSlice = (slice: string, err: unknown): void => {
+    logDiag("error", "turso.metaSliceUnreadable", {
+      slice,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    if (diag) (diag.decodeFailedSlices ??= []).push(slice);
+  };
   const statusRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_status");
   if (statusRow?.value) {
     try {
       ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
     } catch (err) {
-      // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel
-      //    for this loss, exactly as `jsonToWorkspace` does for the same class
-      //    of failure on `documents` ("a user who opens a file and finds no
-      //    documents has something to find"). Rethrowing would let ONE corrupt
-      //    slice discard the whole workspace — the load already proceeds with
-      //    whatever entity tables came back, so silently dropping this slice
-      //    is the failure the diagnostic exists to surface instead.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "project_status",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("project_status", err);
     }
   }
   const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
@@ -208,11 +217,7 @@ export function rowsToWorkspace(
       const fv = sanitizeFieldVisibility(JSON.parse(fvRow.value));
       if (fv) ws.fieldVisibility = fv;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "field_visibility",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("field_visibility", err);
     }
   }
   const fnRow = rowObjects(byTable.get("meta")).find((r) => r.key === "features");
@@ -221,11 +226,7 @@ export function rowsToWorkspace(
       const f = sanitizeFeatures(JSON.parse(fnRow.value));
       if (f !== undefined) ws.features = f;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "features",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("features", err);
     }
   }
   const scRow = rowObjects(byTable.get("meta")).find((r) => r.key === "steering_committee");
@@ -234,11 +235,7 @@ export function rowsToWorkspace(
       const sc = sanitizeSteeringCommittee(JSON.parse(scRow.value));
       if (sc) ws.steeringCommittee = sc;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "steering_committee",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("steering_committee", err);
     }
   }
   const tlRow = rowObjects(byTable.get("meta")).find((r) => r.key === "timelog_links");
@@ -247,11 +244,7 @@ export function rowsToWorkspace(
       const tl = sanitizeTimelogLinks(JSON.parse(tlRow.value));
       if (tl) ws.timelogLinks = tl;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "timelog_links",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("timelog_links", err);
     }
   }
   const kiRow = rowObjects(byTable.get("meta")).find((r) => r.key === "knowledge_items");
@@ -260,11 +253,7 @@ export function rowsToWorkspace(
       const ki = sanitizeKnowledgeItems(JSON.parse(kiRow.value));
       if (ki.length) ws.knowledgeItems = ki;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "knowledge_items",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("knowledge_items", err);
     }
   }
   const insRow = rowObjects(byTable.get("meta")).find((r) => r.key === "insights");
@@ -273,11 +262,7 @@ export function rowsToWorkspace(
       const ins = sanitizeInsights(JSON.parse(insRow.value));
       if (ins.length) ws.insights = ins;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "insights",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("insights", err);
     }
   }
   const logRow = rowObjects(byTable.get("meta")).find((r) => r.key === "activityLog");
@@ -286,11 +271,7 @@ export function rowsToWorkspace(
       const log = sanitizeActivityLog(JSON.parse(logRow.value));
       if (log.length) ws.activityLog = log;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "activityLog",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("activityLog", err);
     }
   }
   // Documents ride `meta` as one JSON blob — no table of their own, so
@@ -304,11 +285,7 @@ export function rowsToWorkspace(
       const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
       if (docs.length) ws.documents = docs;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "documents",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("documents", err);
     }
   }
   // documentVersions ride `meta` too — same two-pass shape as documents just
@@ -331,11 +308,7 @@ export function rowsToWorkspace(
       }));
       if (versions.length) ws.documentVersions = versions;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "documentVersions",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("documentVersions", err);
     }
   }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
@@ -344,11 +317,7 @@ export function rowsToWorkspace(
       const so = sanitizeSettingsOverrides(JSON.parse(soRow.value));
       if (hasAnyOverride(so)) ws.settingsOverrides = so;
     } catch (err) {
-      // Same channel as project_status above — see the comment there.
-      logDiag("error", "turso.metaSliceUnreadable", {
-        slice: "settings_overrides",
-        message: err instanceof Error ? err.message : String(err),
-      });
+      reportUnreadableSlice("settings_overrides", err);
     }
   }
   return migrateWorkspaceV10(ws);
