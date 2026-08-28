@@ -919,13 +919,17 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       />,
       { wrapper: Providers },
     );
-    // Scoped to <tbody>, not the whole container: the toolbar's "Type"/"Status"
-    // filter <select>s literally share their accessible NAME with the
-    // sortable-header BUTTONS of the same columns (both read the same
-    // "changeFieldType"/"changeFieldStatus" translation) — a real but
-    // cross-ROLE, pre-existing naming overlap that has nothing to do with the
-    // per-row title collision this test seeds, and scanning the whole
-    // container would fail on it unrelatedly.
+    // Scoped to <tbody>, not the whole container, to keep this test about the
+    // per-row TITLE collision it seeds and nothing else.
+    // ★ The reason this narrowing originally HAD to exist is gone: the toolbar's
+    // "Type"/"Status" filter <select>s used to share their accessible NAME with
+    // the sortable-header BUTTONS of the same columns (both read the same
+    // "changeFieldType"/"changeFieldStatus" translation), so a whole-container
+    // scan failed here for an unrelated reason. That overlap was CLOSED for
+    // §261 — the filters now read "changeFilterType"/"changeFilterStatus" — and
+    // is pinned by "gives the type/status filters and their sort headers
+    // distinct names" at the bottom of this file, which scans the whole document
+    // across all three roles precisely because THIS scope cannot see it.
     const tbody = container.querySelector("tbody") as HTMLElement;
     expect(tbody).toBeTruthy();
     expectRowUniqueNames({
@@ -938,4 +942,52 @@ describe("ChangePanel — row-unique names when two rows share a title", () => {
       requireCollisionSeed: true,
     });
   });
+});
+
+// §261. The toolbar's type/status filter <select>s used to read the SAME
+// translation as the sortable-header BUTTONS of the same columns
+// ("changeFieldType"/"changeFieldStatus"), so each name was carried by two
+// controls with genuinely different purposes — filtering the list vs. sorting
+// it (WCAG 2.4.6). axe has no rule that flags two controls sharing an
+// accessible name, in any view at any seed size, so this unit test is the only
+// detector that can exist for it.
+describe("ChangePanel — toolbar filters vs. column headers (§261)", () => {
+  it("gives the type/status filters and their sort headers distinct names", () => {
+    const { getByRole } = render(<ChangePanel {...base} />, { wrapper: Providers });
+
+    // Un-narrowed roles and whole-document scope on purpose: this collision is
+    // cross-ROLE (combobox vs. button), so every existing test in this file was
+    // structurally blind to it — they each narrow to one role family, or scope
+    // to <tbody>, which excludes the toolbar filter that is half the pair.
+    expectRowUniqueNames({
+      // MEASURED against this fixture, not guessed: 5 comboboxes + 17 buttons +
+      // 3 checkboxes. `minControls` only proves the scope is non-empty, so it is
+      // pinned to the exact count — a loose floor would silently re-admit a
+      // narrowed `roles` list.
+      minControls: 25,
+      roles: ["combobox", "button", "checkbox"],
+    });
+
+    // Anti-vacuity: name each side of the former collision positively, so a
+    // "fix" that merely deleted a label could not pass.
+    expect(getByRole("combobox", { name: t("en-US", "changeFilterType") })).toBeTruthy();
+    expect(getByRole("combobox", { name: t("en-US", "changeFilterStatus") })).toBeTruthy();
+    // The COLUMNS keep their own names — the filters moved, the headers did not.
+    expect(getByRole("button", { name: t("en-US", "changeFieldType") })).toBeTruthy();
+    expect(getByRole("button", { name: t("en-US", "changeFieldStatus") })).toBeTruthy();
+  });
+
+  // ★ DELIBERATELY NOT COVERED HERE — for Task 8, which adds
+  // `aria-label={t(lang, "colConfigToggleColumn", t(lang, labelKey))}` to
+  // `column-config-popover.tsx`. Until it lands, the column-config checkboxes
+  // take their accessible name from their wrapping <label>'s text, so they too
+  // read "Type"/"Status" and collide with the headers above. Two things to do
+  // when it does: open the popover with the "colConfigTitle" gear button before
+  // asserting, and re-MEASURE `minControls` (8 more checkboxes appear).
+  // ★★ Note `controlNames` (`src/test/toolbar-order.ts`) reads
+  // `aria-label || textContent`, NOT the real accessible name — an <input> has
+  // no textContent, so today all 8 of those checkboxes report "" and opening
+  // the popover would fail this assertion on a spurious `"" x8` duplicate that
+  // has nothing to do with §261. Task 8's aria-label is what makes them
+  // visible to this helper at all.
 });
