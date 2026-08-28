@@ -408,7 +408,24 @@ function ResourceDirectoryInner({
                   <td className="px-3 py-2 text-muted-foreground" title={r.businessPhone ?? ""}>{r.businessPhone ?? "—"}</td>
                   <td className="px-3 py-2 text-muted-foreground">
                     {(() => {
-                      const emailList = [r.email, ...(r.emails ?? [])].filter((e): e is string => !!e);
+                      // ★★ `emails` may repeat the primary `email` — nothing
+                      // dedupes the two lists — so an overlapping row rendered
+                      // the same address twice: two copy buttons carrying the
+                      // same accessible name AND the same React `key`.
+                      // ★ Keyed on `trim().toLowerCase()`, which is how this
+                      // repo decides email IDENTITY everywhere else
+                      // (`resource-foundation.ts`'s `byEmail` index,
+                      // `use-resource-directory.ts`'s add/remove diff), and
+                      // `sanitizeEmail` does not case-fold, so the variance is
+                      // live. The FIRST spelling survives verbatim — the user
+                      // reads and copies the address as it is stored.
+                      const seenAddr = new Set<string>();
+                      const emailList = [r.email, ...(r.emails ?? [])].filter((e): e is string => {
+                        const key = (e ?? "").trim().toLowerCase();
+                        if (!key || seenAddr.has(key)) return false;
+                        seenAddr.add(key);
+                        return true;
+                      });
                       if (emailList.length === 0) return "—";
                       return emailList.map((addr, i) => (
                         <span key={addr}>

@@ -148,6 +148,41 @@ describe("ResourceDirectory", () => {
     expect(writeText).toHaveBeenCalledWith("ada.alt@y.com");
   });
 
+  // ★★ A DATA DEFECT WEARING A NAMING DEFECT'S CLOTHES. `emails` may repeat the
+  // primary `email` — nothing dedupes the two lists — so one row rendered the
+  // same address twice, as two buttons with the same accessible name AND the
+  // same React `key`. Cross-ROW sharing of a mailbox is a different matter and
+  // deliberately left alone: both buttons then copy the identical string, which
+  // is genuinely same-purpose, and WCAG 2.4.6 permits a shared name for that.
+  // Only the within-row repeat is a bug.
+  it("renders one copy button per distinct address when email and emails overlap", () => {
+    const overlapping: Resource[] = [
+      { id: 1, firstName: "Ops", lastName: "Desk", email: "ops@acme.com", emails: ["ops@acme.com"], roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(<ResourceDirectory {...common} resources={overlapping} />);
+    expect(screen.getAllByRole("button", { name: "Copy ops@acme.com" })).toHaveLength(1);
+  });
+
+  // ★★ CASE- AND WHITESPACE-INSENSITIVE, matching how this repo already decides
+  // email IDENTITY everywhere it matters — `resource-foundation.ts` indexes
+  // resources by `(r.email ?? "").trim().toLowerCase()`, and
+  // `use-resource-directory.ts` (the hook behind THIS panel) keys its own
+  // add/remove diff the same way. `sanitizeEmail` is `sanitizeText`, which does
+  // not case-fold, so the variance is live rather than theoretical. The DISPLAY
+  // keeps the first occurrence verbatim: the user reads the address as stored.
+  it("treats a case- or whitespace-variant address as the same address", () => {
+    const variants: Resource[] = [
+      { id: 1, firstName: "Ops", lastName: "Desk", email: "Ops@Acme.com", emails: [" ops@acme.com ", "night@acme.com"], roleId: null, utilizationMode: "percent", utilization: {} },
+    ];
+    render(<ResourceDirectory {...common} resources={variants} />);
+    // One button for the mailbox, however it was spelled, and the primary's
+    // own spelling is the one shown.
+    expect(screen.getAllByRole("button", { name: /^Copy\s+ops@acme\.com$/i })).toHaveLength(1);
+    expect(screen.getByRole("button", { name: "Copy Ops@Acme.com" })).toBeInTheDocument();
+    // ★ The counter-assertion: a genuinely different address is NOT collapsed.
+    expect(screen.getByRole("button", { name: "Copy night@acme.com" })).toBeInTheDocument();
+  });
+
   it("shows no checkbox column without bulk handlers", () => {
     render(<ResourceDirectory {...common} resources={twoResources} />);
     expect(screen.queryByRole("checkbox", { name: /select all/i })).toBeNull();
