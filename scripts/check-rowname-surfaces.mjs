@@ -30,7 +30,12 @@ import { writeFileSync } from "node:fs";
 import path from "node:path";
 import url from "node:url";
 
-import { buildReport, collectSources } from "./rowname-surfaces-lib.mjs";
+import {
+  COVERAGE_MARKERS,
+  STRONG_MARKER,
+  buildReport,
+  collectSources,
+} from "./rowname-surfaces-lib.mjs";
 
 const args = process.argv.slice(2);
 const gapsOnly = args.includes("--gaps");
@@ -60,6 +65,7 @@ const { summary } = report;
 const LEG_NOTE = {
   attribute: "aria-label / ariaLabel / a component's label prop (whitespace-tolerant)",
   content: "no aria-label — name falls back to CONTENT",
+  "wrapping-label": "no name of its own — named by an enclosing <label>",
   delegated: "per-item component composing a name from a prop entity",
   labelledby: "aria-labelledby — name lives elsewhere, not classifiable here",
 };
@@ -69,23 +75,38 @@ const out = (s = "") => lines.push(s);
 
 out("Row-name surfaces — WCAG 2.4.6 enumeration");
 out("=".repeat(78));
-out("REPORT, NOT A GATE. Always exits 0. Not wired into CI, and should not be.");
+out("REPORT, NOT A GATE. Not wired into CI, and should not be. Exit 0 on a");
+out("successful scan; exit 2 means it could not SCAN at all (a bad --json");
+out("argument, or no sources found — a scan that reads nothing passes");
+out("everything, so that one is a vacuity guard, not a finding).");
 out("");
 out(`scanned            ${summary.sourceFiles} .tsx sources, ${summary.testFiles} test files`);
 out(`tests asserting    ${summary.assertingTests} (matched by CONTENT, never by test name)`);
 out(`surfaces           ${summary.sites} sites in ${summary.surfaceFiles} files`);
 out(
-  `  by leg           attribute ${summary.byLeg.attribute} | content ${summary.byLeg.content} | delegated ${summary.byLeg.delegated} | labelledby ${summary.byLeg.labelledby}`,
+  `  by leg           attribute ${summary.byLeg.attribute} | content ${summary.byLeg.content} | wrapping-label ${summary.byLeg["wrapping-label"]} | delegated ${summary.byLeg.delegated} | labelledby ${summary.byLeg.labelledby}`,
 );
 out(
   `  by name class    FIXED ${summary.byClass.FIXED} | DATA ${summary.byClass.DATA} | TOKENIZED ${summary.byClass.TOKENIZED} | UNRESOLVED ${summary.byClass.UNRESOLVED}`,
 );
 out(
-  `  by coverage      COVERED ${summary.byStatus.COVERED} | COVERED_VIA_PARENT ${summary.byStatus.COVERED_VIA_PARENT} | GAP ${summary.byStatus.GAP}   (files)`,
+  `  by coverage      COVERED ${summary.byStatus.COVERED} | COVERED_VIA_PARENT ${summary.byStatus.COVERED_VIA_PARENT} | GAP ${summary.byStatus.GAP}   (files, ANY marker)`,
+);
+// ★★★ THE LINE ABOVE IS THE OPTIMISTIC ONE AND MUST NEVER BE PRINTED ALONE.
+// `accessible name` matches anywhere in a test file, a comment included, and
+// these files are dense with the phrase; a bare `unique` can be about a unique
+// id. The per-file `[marker]` said so already, but the SUMMARY — the line a
+// reader quotes — carried only the four-marker split, so the quotable GAP count
+// was 4.3x optimistic (13 against 56 when this was measured).
+out(
+  `  strong marker    COVERED ${summary.byStrongStatus.COVERED} | COVERED_VIA_PARENT ${summary.byStrongStatus.COVERED_VIA_PARENT} | GAP ${summary.byStrongStatus.GAP}   (files, ${STRONG_MARKER} only)`,
+);
+out(
+  `  covered by       ${COVERAGE_MARKERS.map((m) => `${m.name} ${summary.byMarker[m.name]}`).join(" | ")}   (strongest marker per covered file)`,
 );
 out("");
 out("legs");
-for (const [leg, note] of Object.entries(LEG_NOTE)) out(`  ${leg.padEnd(11)} ${note}`);
+for (const [leg, note] of Object.entries(LEG_NOTE)) out(`  ${leg.padEnd(14)} ${note}`);
 out("");
 out("name classes");
 out("  FIXED       nothing per-row survives — every row announces the SAME name");
@@ -121,8 +142,12 @@ if (!gapsOnly) {
       continue;
     }
     // One line per file by default. The per-site detail for these is available
-    // under --all; burying 13 answerable gaps under 93 covered files is how a
-    // report stops being read.
+    // under --all; burying the answerable gaps under a much longer covered list
+    // is how a report stops being read. ★ No count in this comment on purpose:
+    // it stood here as "13 answerable gaps under 93 covered files", nothing
+    // would ever have updated it, and a hardcoded tally inside the tool whose
+    // whole purpose is to make these numbers derivable is the joke writing
+    // itself. The live figures are in the summary above.
     const classes = [...new Set(surface.sites.map((s) => s.nameClass))].sort().join("/");
     // The marker stays on the compact line: it is the only thing a reader has
     // to discount a COVERED with, and the limitations block below says so.
@@ -151,7 +176,25 @@ out("  * a GAP may be covered by a test two hops away, or by one that asserts th
 out("    property without using any of the marker phrases.");
 out("  * the marker on a COVERED line says how strong the evidence is. A lone");
 out("    `unique` can be about a unique id; `expectRowUniqueNames` is the shared");
-out("    helper and means someone meant THIS property.");
+out("    helper and means someone meant THIS property. The `strong marker` line");
+out("    in the summary is this same report recomputed with only that one.");
+out("  * a control named by a `<label>` is seen only through an ENCLOSING label");
+out("    (implicit association). A `<label htmlFor={id}>` sitting BESIDE the");
+out("    control names it just as well and is invisible here — the name lives in");
+out("    another element, which is the `labelledby` leg's problem too.");
+out("  * a control with NO name source anywhere — an icon-only button, a bare");
+out("    `<Checkbox />` — is SKIPPED, not reported. That is the unlabelled-control");
+out("    defect, which the axe gate DOES catch, and a different question from");
+out("    2.4.6. Both spellings are skipped alike; the self-closing one used to be");
+out("    skipped while the open/close one was reported FIXED with an empty name.");
+out("  * `moduleKey` is basename-only, so two modules sharing a file name in");
+out("    different directories collapse to one key and can credit each other's");
+out("    tests. One collision in the tree when this was measured (`page`, across");
+out("    route files, none of them a surface file, so nothing was mis-credited).");
+out("  * `matchDelimiters` counts brackets without skipping strings or comments,");
+out("    unlike `scanOpenTag`, which does. An unbalanced `(` or `{` inside a");
+out("    string literal would corrupt every scope match after it. No instance in");
+out("    the tree today.");
 
 console.log(lines.join("\n"));
 

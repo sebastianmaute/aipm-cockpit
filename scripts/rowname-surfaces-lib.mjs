@@ -82,6 +82,11 @@ export const COVERAGE_MARKERS = [
   { name: "unique", re: /\bunique\b/i },
 ];
 
+/** The one marker that is near-conclusive: a file calling the shared assertion
+ *  helper meant THIS property. `byStrongStatus` is the report recomputed
+ *  against this marker alone. */
+export const STRONG_MARKER = "expectRowUniqueNames";
+
 const PAIRS = { "(": ")", "{": "}", "[": "]" };
 
 /** Index of the delimiter closing the one at `open`, or -1 when unbalanced.
@@ -104,11 +109,36 @@ export function matchDelimiters(text, open) {
  *  ★★★ THE WHOLE REASON THIS IS NOT A REGEX. `<button[^>]*>` terminates on the
  *  `>` inside `onClick={() => open(row)}`, which truncates the attribute list
  *  and silently loses every attribute after it — including the `aria-label`.
- *  A first cut of this scanner did exactly that and reported ZERO sites. */
+ *  A first cut of this scanner did exactly that and reported ZERO sites.
+ *
+ *  ★★★ COMMENTS ARE SKIPPED BEFORE QUOTES, AND THAT ORDER IS THE FIX. A `//`
+ *  comment sitting between two attributes is ordinary in this repo — the
+ *  attribute list is where a reviewer explains a class name. One in
+ *  `combobox-shared.tsx` ends "…under 1.4.11's 3:1)." and that APOSTROPHE opened
+ *  a string literal that never closed, so the walk ran to end of file and
+ *  returned null — and `findSurfaces` reads a null as "not a tag" and drops the
+ *  control silently. Measured: the `<button role=option>` at that site was
+ *  absent from the report entirely, while its parent `<li>` was present, so the
+ *  file LOOKED enumerated. Nothing about the output said a tag had failed to
+ *  parse. A `/>` is safe here — the character after the `/` is `>`, not `/` or
+ *  `*` — and a regex literal cannot reach this loop, because it can only appear
+ *  inside a `{…}` expression, which is consumed whole above. */
 export function scanOpenTag(text, lt) {
   let i = lt + 1;
   while (i < text.length) {
     const ch = text[i];
+    if (ch === "/" && (text[i + 1] === "/" || text[i + 1] === "*")) {
+      if (text[i + 1] === "/") {
+        const nl = text.indexOf("\n", i);
+        if (nl < 0) return null;
+        i = nl + 1;
+      } else {
+        const end = text.indexOf("*/", i + 2);
+        if (end < 0) return null;
+        i = end + 2;
+      }
+      continue;
+    }
     if (ch === "{") {
       const end = matchDelimiters(text, i);
       if (end < 0) return null;
@@ -131,12 +161,28 @@ export function scanOpenTag(text, lt) {
   return null;
 }
 
-const MAP_RE = /\.map\(\s*(?:\(\s*([A-Za-z_$][\w$]*)|([A-Za-z_$][\w$]*)\s*=>)/g;
+/** ★★★ THE THIRD ALTERNATIVE IS LOAD-BEARING AND WAS MISSING FOR A RELEASE.
+ *  The first two require an IDENTIFIER after `.map(`, so the mainstream React
+ *  idiom `rows.map(({ key, labelKey }) => …)` matched NEITHER — `repeatScopes`
+ *  returned 0, every control inside fell to the `!inRepeat` branch of
+ *  `findSurfaces`, and the whole file was dropped from the enumeration. Measured
+ *  blast radius when it was found: nine files absent from the report outright,
+ *  among them `column-config-popover.tsx` — the file the row-unique-names branch
+ *  edited to CLOSE a 2.4.6 defect contributed zero sites to the enumeration
+ *  built to find that class. `[{[]` catches object AND array destructuring. */
+const MAP_RE = /\.map\(\s*(?:\(\s*(?:([A-Za-z_$][\w$]*)|[{[])|([A-Za-z_$][\w$]*)\s*=>)/g;
 
 /** Every `.map(callback)` body in the file, delimiter-matched.
- *  ★ `.map` only. `flatMap`, a `for` loop pushing JSX, or a list built by a
- *  helper in another module are all invisible — a real limitation the report
- *  states rather than hides. */
+ *  ★ `.map` only, and only the arrow forms `(x) =>` / `x =>` / `({…}) =>` /
+ *  `([…]) =>`. `flatMap`, a `for` loop pushing JSX, a `.map(function (x) {…})`,
+ *  or a list built by a helper in another module are all invisible — real
+ *  limitations the report states rather than hides.
+ *  ★★ `param` is `null` for a DESTRUCTURED callback parameter, because there is
+ *  no single binding to name: `({ key, labelKey })` introduces two names and
+ *  `([id, row])` two more, and picking one of them would invent an item name the
+ *  source never had. Nothing in this file reads `param` — the scope's START and
+ *  END are what `findSurfaces` uses to decide "is this control inside a repeat" —
+ *  so a null there costs no detection. It is reported for the reader. */
 export function repeatScopes(text) {
   const scopes = [];
   MAP_RE.lastIndex = 0;
@@ -145,7 +191,7 @@ export function repeatScopes(text) {
     const openParen = text.indexOf("(", m.index);
     const end = matchDelimiters(text, openParen);
     if (end < 0) continue;
-    scopes.push({ param: m[1] || m[2], start: openParen, end });
+    scopes.push({ param: m[1] ?? m[2] ?? null, start: openParen, end });
   }
   return scopes;
 }
@@ -223,26 +269,105 @@ function attributeValue(attrs, at) {
   return null;
 }
 
-/** The `{...}` interpolations inside an element's children, joined. Element
- *  children are stripped, so an icon-only button reads as having no dynamic
- *  part rather than as DATA because of the icon's tag name.
+/** What a run of JSX children contributes to an accessible name: the `{...}`
+ *  interpolations joined, and whether any literal TEXT is in there.
+ *
+ *  ★★ NESTED TAGS ARE SKIPPED WHOLE, attributes included. Collecting every brace
+ *  naively pulls a nested element's ATTRIBUTE expressions into the name — an
+ *  icon's `className={x}`, a checkbox's `checked={row.on}` — and the site then
+ *  reports DATA over a name that is the same on every row. The nested element's
+ *  own children still count, because they are announced (`<span>{row.title}</span>`).
+ *
+ *  ★★ `hasText` is what separates "this control's name is a literal" from "this
+ *  control has NO name at all". Both used to yield an empty expression, so an
+ *  icon-only `<button><TrashIcon /></button>` was reported FIXED with an empty
+ *  name — a real defect, but the UNLABELLED-control one, which this report says
+ *  in the same breath is out of scope for the self-closing spelling of the very
+ *  same thing. See `findSurfaces`. */
+function childInterpolations(children) {
+  const parts = [];
+  let hasText = false;
+  for (let i = 0; i < children.length; i++) {
+    const ch = children[i];
+    if (ch === "<") {
+      const tag = scanOpenTag(children, i);
+      if (!tag) break;
+      i = tag.end;
+      continue;
+    }
+    if (ch === "{") {
+      const end = matchDelimiters(children, i);
+      if (end < 0) break;
+      parts.push(children.slice(i, end + 1));
+      i = end;
+      continue;
+    }
+    if (!/\s/.test(ch)) hasText = true;
+  }
+  return { expr: parts.join(" "), hasText };
+}
+
+/** The name an element's own children compose.
  *  ★ The close tag is found by plain search, so a same-tag element NESTED inside
  *  this one ends the children early or late. That over- or under-captures the
  *  name string; the error direction is over-reporting a FIXED name as DATA,
  *  which is the safe one for a report whose findings are questions. */
 function contentExpression(text, from, tag) {
   const close = text.indexOf(`</${tag}>`, from);
-  if (close < 0) return "";
-  const children = text.slice(from, close);
-  const parts = [];
-  for (let i = 0; i < children.length; i++) {
-    if (children[i] !== "{") continue;
-    const end = matchDelimiters(children, i);
-    if (end < 0) break;
-    parts.push(children.slice(i, end + 1));
-    i = end;
+  if (close < 0) return { expr: "", hasText: false };
+  return childInterpolations(text.slice(from, close));
+}
+
+const LABEL_OPEN_RE = /<label(?=[\s/>])/g;
+
+/** The innermost `<label>…</label>` enclosing the element that opens at `at`,
+ *  or null.
+ *
+ *  ★★★ THE HALF OF LEG (2) THAT USED TO BE DROPPED SILENTLY. A self-closing
+ *  control with no `aria-label` was dismissed as "an unlabelled control, a
+ *  different defect" — true of a bare `<Checkbox />`, and FALSE of
+ *  `<label><Checkbox … />{text}</label>`, which is not unlabelled at all: it is
+ *  named by the wrapping label, and that name repeats per row exactly like any
+ *  other. It is also the PRE-FIX shape of this branch's own
+ *  `column-config-popover.tsx`, so the scanner would have missed the defect it
+ *  was built to enumerate by a second independent mechanism.
+ *
+ *  ★ Innermost, not first: nested labels are invalid HTML but a truncated scan
+ *  should still attribute the control to the label closest to it.
+ *  ★ The `</label>` is found by plain search, the same approximation
+ *  `contentExpression` makes and for the same reason. */
+function enclosingLabel(text, at) {
+  let found = null;
+  LABEL_OPEN_RE.lastIndex = 0;
+  let m;
+  while ((m = LABEL_OPEN_RE.exec(text)) && m.index < at) {
+    const open = scanOpenTag(text, m.index);
+    if (!open || open.selfClosing) continue;
+    const close = text.indexOf("</label>", open.end);
+    if (close > at) found = { start: open.end + 1, close };
   }
-  return parts.join(" ");
+  return found;
+}
+
+/** Tags a wrapping `<label>` actually names. The HTML "labelable elements" set,
+ *  minus the ones that are not controls here (`meter`, `output`, `progress`).
+ *  ★ `a` and a role-bearing `<div role="button">` are deliberately ABSENT: a
+ *  `<label>` around either names nothing, so reading the label's text as their
+ *  accessible name would invent a name the browser never computes. */
+const LABELABLE_TAGS = ["button", "input", "select", "textarea"];
+
+function isLabelable(tag) {
+  return LABELABLE_TAGS.includes(tag) || /^[A-Z]/.test(tag);
+}
+
+/** The name a wrapping `<label>` gives a control that has none of its own, or
+ *  null when there is no such label or the label composes no name either. */
+function wrappingLabelName(text, tag, at) {
+  if (!isLabelable(tag)) return null;
+  const wrap = enclosingLabel(text, at);
+  if (!wrap) return null;
+  const name = childInterpolations(text.slice(wrap.start, wrap.close));
+  return name.expr || name.hasText ? name : null;
 }
 
 function isControl(tag, attrs) {
@@ -265,6 +390,13 @@ function isControl(tag, attrs) {
  *                      attribute-matching grep BY CONSTRUCTION: there is no
  *                      attribute to match, so the only way to see it is to
  *                      notice the attribute is absent.
+ *   leg "wrapping-label"
+ *                    — (2), other half: a control with no name of its OWN,
+ *                      wrapped in a `<label>` that names it implicitly. Same
+ *                      invisibility, and the same collision: the label's text
+ *                      repeats per row like any other name. ★★ This leg did not
+ *                      exist for a release and the docstring above claimed its
+ *                      class anyway — see `enclosingLabel`.
  *   leg "delegated"  — (3) a per-item component handed a whole entity, which
  *                      composes the name inside its OWN file where no grep over
  *                      the panel that renders it will ever see the string. It
@@ -307,13 +439,28 @@ export function findSurfaces(text) {
     } else if (ARIA_LABELLEDBY_RE.test(attrs)) {
       leg = "labelledby";
       expr = "";
-    } else if (open.selfClosing) {
-      // No name source at all. That is an axe-visible defect of a different
-      // kind (an unlabelled control), not a 2.4.6 collision — out of scope.
-      continue;
     } else {
-      leg = "content";
-      expr = contentExpression(text, open.end + 1, tag);
+      // Its own children first, then a wrapping `<label>`, then nothing.
+      const own = open.selfClosing
+        ? { expr: "", hasText: false }
+        : contentExpression(text, open.end + 1, tag);
+      if (own.expr || own.hasText) {
+        leg = "content";
+        expr = own.expr;
+      } else {
+        const wrapped = wrappingLabelName(text, tag, m.index);
+        // ★★ No name source ANYWHERE — an icon-only control with no label of any
+        // kind. That is an axe-visible defect of a different kind (an unlabelled
+        // control), not a 2.4.6 collision, so it is out of scope. The rule is now
+        // the SAME for `<Checkbox />` and for `<button><TrashIcon /></button>`:
+        // the self-closing spelling was skipped here while the open/close one was
+        // reported FIXED with an empty name, which put one defect class on both
+        // sides of the scope line and padded the FIXED headline with sites no
+        // reader could act on.
+        if (!wrapped) continue;
+        leg = "wrapping-label";
+        expr = wrapped.expr;
+      }
     }
 
     const cls = leg === "labelledby" ? "UNRESOLVED" : nameClass(expr);
@@ -410,6 +557,17 @@ export function collectSources(repoRoot) {
  *                        "nothing exists": a test that renders this surface
  *                        through a grandparent, or asserts the property without
  *                        any of the marker phrases, lands here too.
+ *
+ * ★★★ THE HEADLINE IS COMPUTED TWICE, AND THE SECOND NUMBER IS THE HONEST ONE.
+ * `COVERAGE_MARKERS` counts the bare phrase `accessible name` — anywhere in the
+ * file, a comment included, and these test files are dense with it — as evidence
+ * that a test asserts. Measured when that was found: under all four markers the
+ * split was COVERED 59 | VIA_PARENT 34 | GAP 13, and under `expectRowUniqueNames`
+ * alone it was 27 | 23 | 56. The gap count a reader quotes was 4.3x optimistic,
+ * and the per-file `[marker]` that would have discounted it never reached the
+ * summary line. So `byStatus` (all markers) and `byStrongStatus`
+ * (`expectRowUniqueNames` only) are both computed here and both printed: the
+ * strong number is now impossible to quote away.
  */
 export function buildReport({ sources, tests }) {
   const asserting = [];
@@ -429,6 +587,7 @@ export function buildReport({ sources, tests }) {
     });
   }
   asserting.sort((a, b) => a.strength - b.strength);
+  const strongOnly = asserting.filter((a) => a.markers.includes(STRONG_MARKER));
 
   // module -> modules that import it, one hop, over the source corpus.
   const importers = new Map();
@@ -440,43 +599,53 @@ export function buildReport({ sources, tests }) {
     }
   }
 
+  /** Which of `pool`'s tests reaches `key`, directly or one hop up. */
+  const attributeCoverage = (key, pool) => {
+    const direct = pool.find((a) => a.imports.has(key));
+    if (direct) return { status: "COVERED", via: direct.file, markers: direct.markers };
+    const parents = importers.get(key) ?? new Set();
+    const indirect = pool.find((a) => [...parents].some((p) => a.imports.has(p)));
+    if (!indirect) return { status: "GAP", via: null, markers: [] };
+    return {
+      status: "COVERED_VIA_PARENT",
+      via: `${indirect.file} -> ${[...parents].find((p) => indirect.imports.has(p))}`,
+      markers: indirect.markers,
+    };
+  };
+
   const surfaces = [];
   for (const [file, text] of sources) {
     const sites = findSurfaces(text);
     if (sites.length === 0) continue;
     const key = moduleKey(file);
-    const direct = asserting.find((a) => a.imports.has(key));
-    let status = "GAP";
-    let via = null;
-    let markers = [];
-    if (direct) {
-      status = "COVERED";
-      via = direct.file;
-      markers = direct.markers;
-    } else {
-      const parents = importers.get(key) ?? new Set();
-      const indirect = asserting.find((a) => [...parents].some((p) => a.imports.has(p)));
-      if (indirect) {
-        status = "COVERED_VIA_PARENT";
-        via = `${indirect.file} -> ${[...parents].find((p) => indirect.imports.has(p))}`;
-        markers = indirect.markers;
-      }
-    }
-    surfaces.push({ file, module: key, sites, status, via, markers });
+    surfaces.push({
+      file,
+      module: key,
+      sites,
+      ...attributeCoverage(key, asserting),
+      strongStatus: attributeCoverage(key, strongOnly).status,
+    });
   }
 
   const summary = {
     sourceFiles: sources.size,
     testFiles: tests.size,
     assertingTests: asserting.length,
+    strongAssertingTests: strongOnly.length,
     surfaceFiles: surfaces.length,
     sites: surfaces.reduce((n, s) => n + s.sites.length, 0),
-    byLeg: { attribute: 0, content: 0, delegated: 0, labelledby: 0 },
+    byLeg: { attribute: 0, content: 0, "wrapping-label": 0, delegated: 0, labelledby: 0 },
     byClass: { FIXED: 0, DATA: 0, TOKENIZED: 0, UNRESOLVED: 0 },
     byStatus: { COVERED: 0, COVERED_VIA_PARENT: 0, GAP: 0 },
+    byStrongStatus: { COVERED: 0, COVERED_VIA_PARENT: 0, GAP: 0 },
+    // Covered files by the STRONGEST marker their crediting test carries. The
+    // three weak rows are the distance between the two status lines above.
+    byMarker: Object.fromEntries(COVERAGE_MARKERS.map((m) => [m.name, 0])),
   };
   for (const surface of surfaces) {
     summary.byStatus[surface.status]++;
+    summary.byStrongStatus[surface.strongStatus]++;
+    if (surface.markers.length > 0) summary.byMarker[surface.markers[0]]++;
     for (const site of surface.sites) {
       summary.byLeg[site.leg]++;
       summary.byClass[site.nameClass]++;
