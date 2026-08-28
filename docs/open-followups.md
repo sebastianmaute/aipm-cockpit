@@ -773,7 +773,7 @@ render-time reconcile to a `useEffect` would FAIL CI, since `set-state-in-effect
 
 | # | Finding | Verified state |
 |---|---|---|
-| **A1** | `Field()` wrapper re-declared in two files → extract a shared `form-field.tsx` | Still two declarations and still no `src/app/form-field.tsx` — but **not in the two files named, and no longer identical**. See the A1 note below. |
+| **A1** | `Field()` wrapper re-declared in two files → extract a shared `form-field.tsx` | Still two declarations, and no `form-field.tsx` / `src/app/form-field.tsx` exists — both are proposed by this row, not claimed to be present — but **not in the two files named, and no longer identical**. See the A1 note below. |
 | **A3** | `resetAllCols` chains N× `resetColWidths()` with a repeated deps array → `useResetTableColumns(resizers[])` | Still in `change-report-panel.tsx`, `raid-report-panel.tsx`, `resources-report.tsx`; no shared hook. |
 | **A4** | `getValue` sort callbacks copy-pasted → a `makeGetValue(mapping)` factory | Six files declare one: budget-report · change-report · milestones-panel · raid-report · reports-tables · resources-report. |
 | **B4** | Jira API responses not schema-validated (untrusted external data) | No `zod` in `package.json`. **Zod is a new dependency → ask first**, or hand-roll guards. |
@@ -14595,9 +14595,9 @@ chat history** (`history_json` / `display_json`) and its **steering-committee re
 indefinitely in a database the user believes they emptied, growing without bound. Treat it as a
 privacy/retention defect first and a disk one second.
 
-**The fix should take the shape already in the file:** a `deleteAllChatThreadsForProject` /
-`deleteAllCommitteeReportVersionsForProject` pair — **neither name exists in the code today; they
-are proposed here** — beside `deleteAllAssetDataForProject`, called from
+**The fix should take the shape already in the file:** a pair of new helpers, where
+`deleteAllChatThreadsForProject` / `deleteAllCommitteeReportVersionsForProject` do not exist in the
+code today and are **proposed by this entry** — beside `deleteAllAssetDataForProject`, called from
 `hardDeleteProject` in the same non-fatal `try`/`logDiag` style and for the same stated reason —
 leaked rows are recoverable, a half-deleted project is not. ★★ **Do NOT build it from this entry.**
 It was an explicit non-goal of the housekeeping slice that confirmed the leak; it wants its own
@@ -15289,9 +15289,9 @@ of a closed one. Whatever closes §213 has to leave that test's shape intact.
 every render. Neither touches `danglingIds`: this entry's marker race is unchanged in either
 direction by that work.
 
-**Candidate fix.** Have the effect ignore ids this session is known to have written: a
-`wroteBytesRef` populated on a successful `saveAssetData` and subtracted from `next` before the
-set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
+**Candidate fix.** `wroteBytesRef` does not exist and is proposed by this entry: have the effect
+ignore ids this session is known to have written, via a ref populated on a successful
+`saveAssetData` and subtracted from `next` before the set is stored. Deliberately NOT done as part of §212 (scope), and no comment in
 `use-document-assets.ts` claims otherwise.
 
 ★ A test needs to control the resolution ORDER of `loadAssetDataIds` and `saveAssetData`
@@ -15463,7 +15463,8 @@ database holding anything, and that is a property of the DATABASE, not of the te
 ★★ **Concurrent pipelines would collide.** The spec uses fixed fixture ids under one project
 partition, and the probe drops a shared table. Two MR pipelines against one database corrupt each
 other's results in both directions. Option (b) gives isolation for free; option (a) needs a database
-per pipeline, or a `resource_group` to serialise the job.
+per pipeline, or a GitLab `resource_group` to serialise the job — `resource_group` does not exist
+in this repo's `.gitlab-ci.yml` today and is proposed by this entry.
 
 ★★★ **`NEXT_PUBLIC_*` variables are INLINED INTO THE CLIENT BUNDLE at build time.** Under option (a)
 the auth token would be baked into `.next/` and published as a job artifact — downloadable by anyone

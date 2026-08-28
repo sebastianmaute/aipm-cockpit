@@ -582,6 +582,14 @@ export const THIRD_PARTY_SYMBOLS = new Map([
   ["asyncWrapper", "@testing-library/dom — config.js / wait-for.js"],
   ["getScope", "eslint-plugin-react-hooks — context feature detection"],
   ["contextOrFilename", "eslint-plugin-react — util/version.js parameter"],
+  // ★★ A BROWSER API, not a proposed repo symbol, and the distinction decides the
+  // remedy. §58 names it as a debugging TECHNIQUE that was run once and discarded
+  // (a MutationObserver registered inside a Playwright init script, to prove the
+  // addInitScript one-liner was a no-op) — never as code this repo defines. An
+  // absence marker would have said "this does not exist and a fix would add it",
+  // which is false in both halves. AGENTS.md routes genuinely non-repo names here
+  // WITH a reason; this is that reason.
+  ["MutationObserver", "DOM standard — named as a test technique, never repo code"],
 ]);
 
 /** `env` is injected so this stays pure and testable:
