@@ -36,14 +36,6 @@ longer carries its own changelog comment.
   empty enough of the workspace to look like an accidental wipe and be withheld, with the deleted
   records back on the next reload.
 
-- **The permission a confirmed deletion gives the guard could outlive that deletion and later wave
-  a genuine accident through.** Telling the guard a deletion is deliberate is meant to cover that
-  one save and nothing else. If the project was reloaded, or switched, in the moment between the
-  confirmation and the deletion being applied, the permission was neither used nor cleared — it
-  stayed live and was spent by whatever deletion happened next, however much later. An accidental
-  mass deletion arriving then was saved without the protection ever engaging. The permission is now
-  cleared on that path too, so it can only ever cover the action that asked for it.
-
 ## [0.264.0] - 2026-08-29 "Russell"
 
 ### Fixed

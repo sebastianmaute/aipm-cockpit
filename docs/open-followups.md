@@ -22369,6 +22369,11 @@ proposal here has to either accept a registry of this shape or fall back to enum
 **Status:** open — never machine-verified. Filed 2026-08-29 while fixing the second instance, by
 reading the save effect's returns rather than by any gate.
 
+★★ CORRECTED 2026-08-29 after a cold review: this entry first said the obligation was "decided
+three times by hand". It is decided TWICE and left by accident THREE times — the entry counted
+`verdict.refuse` as a decision while its own paragraph below says nothing states it. The heading now
+matches the body.
+
 `allowDestructiveRef` in `use-storage-backend.ts` is a one-shot: an explicit bulk op arms it via
 `allowDestructiveSave` so the NEXT save gets past the Layer-B mass-deletion guard, and the effect
 clears it at the consume site below `evaluateSaveGuard`. Every early return ABOVE that site is
@@ -22379,14 +22384,27 @@ hand, separately, at each one.
 several files away; the consume site reads as the single owner of the lifetime; and the returns above
 it look like ordinary guard clauses with nothing to do with destruction. Both fixes so far were found
 by reading the whole effect top to bottom, once for the truncation return and once for the
-suppress-after-load one, and the second was NOT noticed while fixing the first despite the two
-sitting five lines apart.
+suppress-after-load one, and the second was NOT noticed while fixing the first. ★ No line distance is
+quoted here: this entry said "five lines apart" and the two returns measured 9 apart today, 9 at the
+parent commit and 11 at the commit that fixed the first — never 5, at any moment the sentence could
+have meant. The claim needs no number.
 
 ★★ **The two spend for DIFFERENT reasons, which is why one did not suggest the other.** The
 incomplete-load return leaves the arm unspent because the save never ran at all. The
 suppress-after-load return resyncs the baselines to the freshly-loaded counts, so the deletion
 becomes invisible to the guard and the arm was never needed. A reader who has internalised the first
 rationale ("spend it when the save is skipped") does not obviously reach the second.
+
+★★★ **WHAT ACTUALLY MAKES SPENDING SAFE AT THE SUPPRESS RETURN — and it is not the resync alone.**
+The resync folds an ALREADY-LANDED deletion into the baseline, so the arm has nothing left to
+authorise. It does nothing for a deletion that has not landed yet: there the arm is still needed, and
+spending it refuses a deletion the user did authorise. The property that closes the gap is that every
+arming call site arms in the SAME synchronous block as its mutation, so React commits both together
+and the mutation is always already in the counts. `use-load-truncation.ts`'s `guardedWrite` comment
+states the same invariant from the other side. Consequence, and it is a NEW obligation this fix
+creates: an arming site that arms, AWAITS, then mutates loses its permission and its deletion is
+refused. Enumerate the sites before adding one — `grep -rn "allowDestructiveSave" src/app
+--include=*.ts --include=*.tsx`.
 
 ★ **A third return is safe only by a cross-module coincidence, and nothing states it.** The
 `verdict.refuse` return does not spend the arm, and does not need to, because `refuse` is
@@ -22396,9 +22414,15 @@ anything local. Widening `refuse` to fire for a reason unrelated to the bypass w
 that return into a third leak, and the change would be made in `save-guard.ts` by someone with no
 reason to open the save effect.
 
-★ The two remaining returns (`!args.hydrated`, `args.isPopout`) also leave the arm unspent. Neither
-is a live vector today — a popout never saves at all, and the pre-hydration window is closed by the
-load that follows — but both are unspent by accident rather than by decision, and neither says so.
+★ The two remaining returns (`!args.hydrated`, `args.isPopout`) also leave the arm unspent, by
+accident rather than by decision, and neither says so. Neither is a live vector, but the reasons this
+entry first gave were both wrong. "A popout never saves at all" is a claim about the whole app that
+the code does not support — `use-load-truncation.ts`'s `guardedWrite` is a second `backend.save` with
+no `isPopout` check in that file. The true, narrower reason is local: the save EFFECT returns before
+the guard is ever consulted, so an arm stranded past that return can be neither spent nor used there.
+"The pre-hydration window is closed by the load that follows" is likewise wrong as a mechanism — the
+load effect has four exits and only one sets `suppressNextSaveRef`. The window is closed instead by
+nothing arming the bypass before hydration.
 
 **Consequence:** a new early return added above the consume site leaks the one-shot by default. It
 fails no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
@@ -22408,14 +22432,28 @@ data-loss vector the guard exists to prevent, reached through the mechanism mean
 **Reproduce:**
 ```
 grep -n "allowDestructiveRef.current" src/app/use-storage-backend.ts
-grep -n "return" src/app/use-storage-backend.ts | sed -n '/377/,/470/p'
+awk '/Save workspace to backend on change/,/scheduleDebouncedSave/ { if (/return|allowDestructiveRef/) printf "%d: %s
+", NR, $0 }' src/app/use-storage-backend.ts
 ```
-The first shows the arm site, the three spend sites and the guard read; the second shows the returns
-between them. Nothing relates the two lists.
+The first shows the arm site, the spend sites and the guard read; the second shows every return in
+the save effect beside them. Nothing relates the two lists.
+
+★★ The second command was WRONG in this entry's first revision and is worth recording, because it
+looked authoritative: it was `grep -n "return" … | sed -n '/377/,/470/p'`. `sed` addresses are
+REGEXES OVER CONTENT, not line numbers — `/470/` matched no output line, so it ran to EOF and printed
+28 returns spanning source lines 377-776, most of them outside the effect entirely, while reading
+like a precise census. The opening address `/377/` "worked" only because that output line happened to
+contain the digits 377, so any insertion above it would have broken the range silently. A fenced
+block also hides this from `docs:claims:check`, which ignores fenced content by design.
 
 **Fix shape, if wanted:** make the spend structural rather than per-return — e.g. read the arm into a
 local at the top of the effect and clear the ref immediately, so every path below is spending it by
 construction and the decision becomes "does this path USE the local", which a reader cannot skip. The
 behavioural difference is confined to paths that currently return before the read; each of those
-would need its own test, since the two known ones are pinned by tests written against the current
-shape.
+would need its own test. The two known returns are each pinned by a leak test AND a control in
+`use-storage-backend.test.tsx` — "does not carry a destructive bypass armed during the refusal into
+the eventual 'save anyway'" / "still honours a bypass armed AFTER the truncation is resolved" for the
+truncation return, and "does not carry a destructive bypass across the suppress-after-load early
+return" / "still honours a bypass armed AFTER a suppressed load" for this one. The controls are
+load-bearing, not decoration: a cold review mutated `save-guard.ts` to refuse every mass deletion
+regardless of the arm and both leak tests still PASSED, while all four controls failed.

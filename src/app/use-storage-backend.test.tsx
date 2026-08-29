@@ -2610,13 +2610,16 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   // ── the SECOND unspent early return: the suppress-after-load branch ────────
   // ★★★ THE SAME LEAK, ONE BRANCH HIGHER, AND ITS MECHANISM IS DIFFERENT ENOUGH
   // TO HAVE BEEN MISSED WHEN THE TRUNCATION ONE WAS FIXED. `suppressNextSaveRef`
-  // is set by every load/apply path, and its early return RESYNCS the baselines
-  // to the freshly-loaded counts — so the deletion the user armed for becomes
-  // invisible to the guard and the arm is never needed, never spent, and still
-  // live an unbounded number of edits later. The scenario: confirmed bulk delete
-  // arms the bypass → a reload lands before the debounce fires → the pending
-  // deletion is discarded along with the need for the arm → an accidental mass
-  // deletion hours later is waved straight through by the stale one-shot.
+  // is set by NINE load/apply sites (project switch and create included, not just
+  // the three load paths), and its early return RESYNCS the baselines to the
+  // freshly-loaded counts — so a deletion that already landed is folded into the
+  // baseline, the arm is never needed, and it is never spent.
+  // ★★ HOW LONG IT SURVIVES, stated correctly: a live arm makes `refuse`
+  // impossible, so the very next save of ANY kind reaches the consume site and
+  // spends it. It therefore survives unbounded loads and unbounded idle time, but
+  // NOT one ordinary edit. The accident it can wave through is whatever saves
+  // FIRST after the suppressed load — not something "hours later", which an
+  // earlier revision of this comment and of the CHANGELOG both claimed.
   function useReloadableBackend() {
     const b = {
       load: vi.fn(async () => ({ tasks: manyTasks, raid: [], absences: [], shifts: [] })),

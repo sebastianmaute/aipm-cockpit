@@ -57,8 +57,10 @@ interface Props {
    *  EDITED (the assignee/owner is blanked, the record stays), while matching
    *  absences and shifts are REMOVED from the workspace outright. Only the
    *  second kind empties anything, which is why `task-manager.tsx` arms the
-   *  one-shot destructive-save bypass here and gates that arming on the two
-   *  filters having matched — an edit-only clear must not arm. An earlier
+   *  one-shot destructive-save bypass here, gated on `removesAbsence ||
+   *  removesShift` — two `.some(matchName)` probes read off the LIVE arrays
+   *  BEFORE any setter runs, deliberately not from inside an updater (React
+   *  may invoke one twice). An edit-only clear must not arm. An earlier
    *  revision of this comment described all four as blanking, which reads as
    *  "removes no record" and would justify dropping that arming. Omitted in
    *  read-only popouts. */

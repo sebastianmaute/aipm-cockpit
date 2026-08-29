@@ -399,14 +399,22 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = false;
       prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
       prevRecordCountRef.current = curRecords;
-      // ★★★ SPEND the bypass here too, for the SAME reason as the incomplete-load return
-      //   below — but note the mechanism differs, and that is why this one is easy to miss.
-      //   There the arm is unspent because the save never ran; HERE the baselines have just
-      //   been resynced to the post-mutation counts, so the guard can no longer see the
-      //   deletion at all and the arm was never needed. Either way an un-spent one-shot
-      //   survives into a LATER, unrelated save — a bypass armed by a deliberate deletion
-      //   silently waving through an accidental mass one hours afterwards. A one-shot that
-      //   outlives the mutation that armed it is a data-loss vector, not a data-loss fix.
+      // ★★★ SPEND the bypass here too — but NOT for the incomplete-load return's reason,
+      //   which an earlier revision of this comment copied. "The save never ran" is true of
+      //   BOTH returns, so it distinguishes nothing. There the arm is still NEEDED and
+      //   spending it costs a legitimate save (accepted — the user gets a refusal toast and
+      //   the data survives). HERE the baselines have just been resynced, so a deletion that
+      //   ALREADY landed is folded into the baseline and the arm has nothing left to authorise.
+      // ★★★ THAT HOLDS ONLY BECAUSE ARMING AND MUTATING ARE ATOMIC. Every call site arms in
+      //   the SAME synchronous block as its mutation, so React commits both together and the
+      //   mutation is always already in the counts by the time this branch runs. A future site
+      //   that arms, AWAITS, then mutates would have its permission spent here and its
+      //   deletion refused. `use-load-truncation.ts`'s `guardedWrite` leans on the same
+      //   invariant from the other side — read that comment before adding an arming site.
+      //   Enumerate them: grep -rn "allowDestructiveSave" src/app --include=*.ts --include=*.tsx
+      // ★ Leaving it armed is the worse trade: a live arm makes `refuse` impossible, so the
+      //   NEXT save of any kind spends it — the accident it waves through is whatever saves
+      //   first after this branch, not one "hours afterwards" (docs/open-followups.md §294).
       allowDestructiveRef.current = false;
       return;
     }
@@ -772,7 +780,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   };
 
   // Grouped one line per concern — a plain re-export list, and the cheapest block
-  // to compress in a file that sits AT the 800-line ratchet.
+  // to compress in a file that runs close to the 800-line ratchet. ★ Do not quote a
+  // number here — this comment said "sits AT" while the file had 14 lines of headroom.
+  // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
