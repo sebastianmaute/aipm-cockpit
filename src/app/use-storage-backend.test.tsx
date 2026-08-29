@@ -3513,3 +3513,104 @@ describe("useStorageBackend — StrictMode mount re-set (§72)", () => {
     expect(onStorageOutcome).toHaveBeenCalledWith(null);
   });
 });
+
+// ★★★ THE DECODE SIGNAL MUST SURVIVE AN EMPTY-LOAD REFUSAL, on BOTH paths.
+// Each refusal `return`s before its `truncationOps.reportFor(backend)`, under a
+// comment written for TRUNCATION: the refusal applies nothing, so raising or
+// lowering that flag would not describe the live workspace. Sound for
+// truncation — a property of documents that were never applied. A DECODE
+// failure is a fact about the STORED BYTES that autosave is about to overwrite,
+// and after a refusal autosave is still armed against exactly that backend.
+//
+// The shape this pins: a documents-only project whose `documents` blob is
+// corrupt loads EMPTY, the guard fires, the user takes the SAFE option, and the
+// next edit runs `DELETE FROM meta` over the blob. Choosing the cautious answer
+// was what disarmed the guard.
+describe("useStorageBackend — the decode signal survives the empty-load refusal", () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(mockBackend);
+  });
+
+  afterEach(() => {
+    // `mockBackend` is module-level and `vi.clearAllMocks()` does not touch
+    // plain PROPERTIES — a leaked `lastDecodeFailures` would raise the guard in
+    // an unrelated test, and under the shuffled seed it would surface far from
+    // here. Same hazard the `save` reset at the top of this file documents.
+    Reflect.deleteProperty(mockBackend, "lastDecodeFailures");
+    vi.restoreAllMocks();
+  });
+
+  it("publishes it when the load effect refuses an empty load over a populated one", async () => {
+    const backendB = {
+      kind: "local-json",
+      load: vi.fn().mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue("b.json"),
+      // The unreadable meta blob, published by the load that came back empty.
+      lastDecodeFailures: ["documents"],
+    };
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "Still in memory" }],
+    });
+    const createBackendMock = storageMod.createBackend as ReturnType<typeof vi.fn>;
+    createBackendMock.mockReturnValueOnce(mockBackend).mockReturnValue(backendB);
+
+    const argsRef = { current: makeArgs() };
+    const { result, rerender } = renderHook(
+      () => {
+        const backend = useStorageBackend(argsRef.current);
+        const { tasks } = useWorkspace();
+        return { ...backend, tasks };
+      },
+      { wrapper: ({ children }) => <TestProviders>{children}</TestProviders> },
+    );
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks).toHaveLength(1); // control: render scope is populated
+    expect(result.current.loadWasIncomplete).toBe(false); // control: nothing raised yet
+
+    argsRef.current = makeArgs({
+      settings: { storageConfig: { kind: "local-json" } } as unknown as Settings,
+    });
+    await act(async () => { rerender(); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Control: the REFUSAL branch really was taken — the empty load did not
+    // replace the populated workspace.
+    expect(backendB.load).toHaveBeenCalled();
+    expect(result.current.tasks).toHaveLength(1);
+    // The signal reached the guard, so autosave is paused against the backend
+    // whose blob could not be read.
+    expect(result.current.decodeFailureCount).toBe(1);
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+
+  it("publishes it when the user CANCELS the reload's empty-load confirm", async () => {
+    mockBackend.load.mockResolvedValue({
+      ...storageMod.emptyWorkspace(),
+      tasks: [{ id: 1, taskName: "Still in memory" }],
+    });
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.tasks).toHaveLength(1); // control
+    expect(result.current.loadWasIncomplete).toBe(false); // control
+
+    // The reload comes back empty, and the blob it could not read is published
+    // with it.
+    mockBackend.load.mockResolvedValue({ tasks: [], raid: [], absences: [], shifts: [] });
+    (mockBackend as { lastDecodeFailures?: readonly string[] }).lastDecodeFailures = ["documents", "insights"];
+    // THE CAUTIOUS ANSWER. This is the whole point: declining is the safe
+    // choice, and it used to be the one that left the guard down.
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+
+    // Control: the decline really happened — the workspace was NOT replaced.
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(result.current.tasks).toHaveLength(1);
+    expect(result.current.decodeFailureCount).toBe(2);
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+});

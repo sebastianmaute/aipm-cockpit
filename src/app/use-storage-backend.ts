@@ -334,13 +334,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Refusing to APPLY does not un-arm autosave against THIS backend, and a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
         }
         applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
-        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
+        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
@@ -738,6 +739,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));
         recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
         if (!confirmed) {
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★★ THE CAUTIOUS ANSWER MUST NOT DISARM THE GUARD. Declining keeps the in-memory workspace and leaves autosave pointed at THIS backend, so an undecodable meta blob here is precisely the loss the flag exists to pause — the user picking the SAFE option was what skipped the report and left the next edit free to `DELETE FROM meta` over it. Raise-only, and truncation is deliberately not published: see `raiseDecodeFailuresFor`.
           emitOutcome(null);
           return;
         }

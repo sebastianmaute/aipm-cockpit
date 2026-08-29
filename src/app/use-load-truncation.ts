@@ -58,6 +58,38 @@ export interface TruncationOps {
       | "lastDecodeFailures"
     >,
   ) => void;
+  /** The DECODE half of `reportFor`, RAISE-ONLY — for a load whose workspace was
+   *  REFUSED rather than applied (the two empty-load data-loss guards in
+   *  `use-storage-backend.ts`).
+   *
+   *  ★★★ THOSE PATHS MUST NOT CALL `reportFor`, AND MUST NOT STAY SILENT
+   *  EITHER. `reportFor` reports three things about the load, and only one of
+   *  them survives a refusal:
+   *    • TRUNCATION is a property of documents that were never applied, so
+   *      neither raising nor lowering it would describe the live workspace —
+   *      that is the reasoning the `reportFor` call sites carry, and it stands.
+   *    • A DECODE failure is not about the applied workspace at all. It is a
+   *      fact about the STORED BYTES that autosave is about to overwrite, and
+   *      autosave stays armed against exactly that backend after a refusal.
+   *      Measured shape: a documents-only project whose `documents` blob is
+   *      corrupt loads EMPTY, the reload confirm appears, the user picks the
+   *      SAFE option, the early return skips the report, `loadWasIncomplete`
+   *      stays false, and the next edit runs `DELETE FROM meta` over the blob.
+   *      Choosing the cautious option was what disarmed the guard.
+   *
+   *  ★★★ RAISE-ONLY IS THE LOAD-BEARING HALF, not an omission. `reportFor`
+   *  lowers the flag on a clean read because it is "scoped to the workspace that
+   *  is live RIGHT NOW" and that workspace was just applied. After a refusal
+   *  NOTHING was applied — the live workspace is still the PREVIOUS load's, and
+   *  so is any flag raised over it — so lowering here would clear a warning that
+   *  is still true, resuming autosave over a database that failed to decode
+   *  minutes ago on the strength of one suspicious empty read. Same rule as
+   *  `reportFor`, applied to a path where the two directions come apart.
+   *
+   *  ★ Import diagnostics are deliberately NOT published here either: they are
+   *  the same class as truncation (a property of rows that were not applied),
+   *  and the known gap around them is recorded at `onOpenStorageFile`. */
+  raiseDecodeFailuresFor: (backend: Pick<StorageBackend, "lastDecodeFailures">) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -429,6 +461,16 @@ export function useLoadTruncation(
       reportLoadTruncation(backend.lastLoadTruncation);
       reportDecodeFailures(backend);
       reportImportDiagnostics(backend);
+    },
+    raiseDecodeFailuresFor: (backend) => {
+      // ★ The RAISE-ONLY gate, and the only line that differs from the shared
+      // implementation below — see this member's doc for why lowering a flag
+      // here would clear a warning that is still true of the live workspace.
+      if ((backend.lastDecodeFailures ?? []).length === 0) return;
+      // ★ Delegated rather than re-spelled: `reportDecodeFailures` reaches only
+      // its raising branch with a non-empty list, so the toast, the diagnostics
+      // row, the state and the nonce cannot drift from the `reportFor` path.
+      reportDecodeFailures(backend);
     },
     flushCurrent: async () => {
       if (!mayCommitAfterIncompleteLoad()) {
