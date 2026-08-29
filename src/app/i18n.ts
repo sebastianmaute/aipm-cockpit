@@ -437,6 +437,11 @@ const enUS = {
   projectLoadedToast: "Loaded project {0}.",
   importDroppedRowsWarning: "{0} invalid row(s) in the file were skipped during import.",
   importUnbalancedQuotesWarning: "The file has an unclosed quotation mark, so some rows may be missing. Check the file before saving over it.",
+  // ★★ Says the file is MALFORMED, never that a section was lost — that is
+  // undecidable, and a message claiming it would be a guess dressed as a fact.
+  // ★ A complete sentence: `reportImportDiagnostics` joins the applicable
+  // warnings with a single space.
+  importMalformedQuotesWarning: "The file breaks CSV quoting rules in {0} place(s), so it may not have been read correctly. Saving is paused until you confirm.",
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",

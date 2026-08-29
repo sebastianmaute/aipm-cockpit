@@ -442,6 +442,7 @@ export const de: Record<TranslationKey, string> = {
   projectLoadedToast: "Projekt {0} geladen.",
   importDroppedRowsWarning: "{0} ungültige Zeile(n) in der Datei wurden beim Import übersprungen.",
   importUnbalancedQuotesWarning: "Die Datei enthält ein nicht geschlossenes Anführungszeichen, daher fehlen möglicherweise Zeilen. Prüfen Sie die Datei, bevor Sie sie überschreiben.",
+  importMalformedQuotesWarning: "Die Datei verletzt an {0} Stelle(n) die CSV-Anführungsregeln und wurde möglicherweise nicht korrekt gelesen. Das Speichern ist angehalten, bis Sie bestätigen.",
   projectSwitchNotFound: "Dieses Projekt ist nicht mehr in deinem Portfolio.",
   projectSwitchHandleMissing:
     "Die Datei für dieses Projekt wurde nicht gefunden. Bitte erneut aus einer Datei öffnen.",

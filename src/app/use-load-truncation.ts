@@ -55,6 +55,7 @@ export interface TruncationOps {
       | "lastLoadTruncation"
       | "lastImportDroppedRows"
       | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
       | "lastDecodeFailures"
     >,
   ) => void;
@@ -275,7 +276,24 @@ export function useLoadTruncation(
   // those two carries: see `decodeFailureNonce` on `LoadTruncationGuard` for
   // what breaks without it.
   const [decodeFailureNonce, setDecodeFailureNonce] = useState(0);
-  const loadWasIncomplete = truncation !== null || decodeFailures !== null;
+  // ★★ THE THIRD CAUSE, and a separate slot for the same reason `decodeFailures`
+  // is one: a different fact with different data (how many RFC 4180 violations,
+  // not which slices or how many entries). The warning against a second
+  // `useState` above is about restating ONE fact twice; this is not that.
+  // ★★★ IT IS NOT AN IMPORT DIAGNOSTIC IN THE `reportImportDiagnostics` SENSE,
+  // however much it arrives on the same channel. Dropped rows and an
+  // unterminated quote describe rows that never made it in, and the source file
+  // is still on disk to re-import — they toast and nothing more. A file
+  // carrying quoting VIOLATIONS was REINTERPRETED, applied to render scope, and
+  // the next save writes that reading back OVER the source. The hold exists to
+  // stop a silent overwrite of the only copy, which is exactly why truncation
+  // and undecodable slices hold too.
+  // ★★ It says the file is MALFORMED, never that a section marker was
+  // swallowed — that question is undecidable (§150) and nothing here may be
+  // relabelled to imply it.
+  const [malformedQuotes, setMalformedQuotes] = useState<number | null>(null);
+  const loadWasIncomplete =
+    truncation !== null || decodeFailures !== null || malformedQuotes !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
   // saving is the STATE going false: `loadWasIncomplete` is a dep of the save
@@ -296,11 +314,16 @@ export function useLoadTruncation(
    *  of an explicit action may be a backend that never served a load, so its
    *  `lastDecodeFailures` is empty and reading it would report "clean". */
   const lastDecodeCountRef = useRef(0);
+  /** The same, for the quoting cause, and for the same reason: an explicit
+   *  action may write to a backend that never served a load. */
+  const lastMalformedQuotesRef = useRef(0);
 
   const allowIncompleteSave = () => {
     allowIncompleteSaveRef.current = true;
     lastTruncationRef.current = null;
     lastDecodeCountRef.current = 0;
+    lastMalformedQuotesRef.current = 0;
+    setMalformedQuotes(null);
     setTruncation(null);
     // ★ BOTH causes, or the escape hatch is not one: clearing only the
     // truncation leaves `loadWasIncomplete` derived-true off the other state and
@@ -437,13 +460,49 @@ export function useLoadTruncation(
    * two are different losses with different remedies, so neither may be dropped
    * when both hold.
    */
+  /**
+   * The THIRD cause of an incomplete load: the imported CSV violates RFC 4180.
+   *
+   * ★★★ WHY THIS HOLDS SAVING WHILE ITS TWO CHANNEL-MATES DO NOT. Dropped rows
+   * and an unterminated quote are toast-only because they describe rows that
+   * never entered the workspace, and the file they came from is untouched on
+   * disk. A malformed file was REINTERPRETED — our reading of it is now in
+   * render scope, and the next save writes that reading back over the source.
+   * Holding is the only thing between a mis-parse and the loss of the only copy.
+   *
+   * ★★★ IT REPORTS MALFORMEDNESS, NOT A SWALLOWED SECTION MARKER. Whether a
+   * `# SECTION` line was absorbed into a quoted cell is UNDECIDABLE — the
+   * swallowed and the legitimate cases are byte-identical (§150) — so this may
+   * never be relabelled as "a section may have been lost". What it says is that
+   * the file breaks the format, which is weaker and actually true.
+   *
+   * ★ Lowers on a clean read, exactly as the other two do: the flag is scoped to
+   * the workspace live RIGHT NOW.
+   */
+  const reportMalformedQuotes = (backend: Pick<StorageBackend, "lastImportMalformedQuotes">) => {
+    const count = backend.lastImportMalformedQuotes ?? 0;
+    if (count <= 0) {
+      lastMalformedQuotesRef.current = 0;
+      setMalformedQuotes(null);
+      return;
+    }
+    logDiag("error", "workspace.importMalformedQuotes", { count });
+    lastMalformedQuotesRef.current = count;
+    setMalformedQuotes(count);
+  };
+
   const reportImportDiagnostics = (
-    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote">,
+    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote" | "lastImportMalformedQuotes">,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
     if (dropped > 0) parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
     if (backend.lastImportUnterminatedQuote) parts.push(t(langRef.current, "importUnbalancedQuotesWarning"));
+    // ★ A THIRD complete sentence on the same join. It is a different loss from
+    // the two above — those rows are absent, these are present but possibly
+    // mis-parsed — so it is added, never substituted.
+    const malformed = backend.lastImportMalformedQuotes ?? 0;
+    if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
     if (parts.length > 0) showToast("error", parts.join(" "));
   };
 
@@ -460,6 +519,14 @@ export function useLoadTruncation(
       // costs the user nothing they cannot read back.
       reportLoadTruncation(backend.lastLoadTruncation);
       reportDecodeFailures(backend);
+      // ★★ RAISES THE HOLD, and is deliberately NOT inside
+      // `reportImportDiagnostics` even though its toast text is. That function
+      // is about to become reachable from an import-only path (§152) which must
+      // NOT touch the hold — it applies rows into an existing workspace rather
+      // than replacing it, so no save of ITS backing file is pending. Keeping
+      // the state change here and the sentence there is what lets one op report
+      // and the other both report and hold.
+      reportMalformedQuotes(backend);
       reportImportDiagnostics(backend);
     },
     raiseDecodeFailuresFor: (backend) => {
@@ -485,6 +552,8 @@ export function useLoadTruncation(
     clearForFreshWorkspace: () => {
       lastTruncationRef.current = null;
       lastDecodeCountRef.current = 0;
+      lastMalformedQuotesRef.current = 0;
+      setMalformedQuotes(null);
       setTruncation(null);
       // ★ Both causes, for the reason in this member's doc: a brand-new project
       // has no load to hang either flag on, so anything left raised is the
@@ -495,7 +564,8 @@ export function useLoadTruncation(
     refuseWrite: () => {
       const last = lastTruncationRef.current;
       const decoded = lastDecodeCountRef.current;
-      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}), decodeFailures: decoded });
+      const malformed = lastMalformedQuotesRef.current;
+      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}), decodeFailures: decoded, malformedQuotes: malformed });
       // Say it out loud. The caller returns, so no success toast and no config
       // repoint follow — the user is not left believing a store they just chose
       // holds a project it does not.

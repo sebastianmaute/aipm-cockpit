@@ -139,6 +139,82 @@ describe("useLoadTruncation — import diagnostics", () => {
 // in a way it is not for truncation: the user cannot repair a corrupt blob from
 // inside the app at any cap, so without a reachable way out this is a permanent
 // save lockout.
+// ★★★ MALFORMED QUOTING IS THE THIRD HOLD CAUSE, AND IT IS NOT THE SAME AS THE
+// TWO IMPORT DIAGNOSTICS ABOVE. Dropped rows and an unterminated quote are
+// TOAST-ONLY: they describe rows that never made it in, and the file they came
+// from is still on disk to re-import. A file carrying RFC 4180 violations is
+// different — we REINTERPRETED it, applied our reading to render scope, and the
+// next save writes that reading back OVER the source. So the hold exists to stop
+// a silent overwrite of the only copy, which is the same reasoning truncation
+// and undecodable slices already use.
+// ★★ It reports MALFORMEDNESS, never "a section was swallowed" — that question
+// is undecidable (§150) and no assertion here may imply otherwise.
+describe("useLoadTruncation — malformed quoting", () => {
+  const malformed = (count?: number) => ({
+    lastLoadTruncation: undefined,
+    lastImportMalformedQuotes: count,
+  });
+
+  it("raises the hold when the file violates RFC 4180", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+
+  it("LOWERS the hold on a clean load", () => {
+    // Same invariant as truncation: the flag is scoped to the workspace live
+    // RIGHT NOW, so leaving it raised blocks saving on a healthy project.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
+    act(() => { result.current.truncationOps.reportFor(malformed(0)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("also lowers it for a backend publishing no such field at all", () => {
+    // The field is optional and MD/JSON never set it; undefined means "fine",
+    // not "unknown".
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => { result.current.truncationOps.reportFor(malformed(undefined)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("refuses a write while the hold is up, and allows one after acknowledgement", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(true);
+
+    act(() => { result.current.allowIncompleteSave(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(false);
+  });
+
+  it("is cleared for a brand-new workspace", () => {
+    // A fresh project has no load to hang the flag on, so anything left raised
+    // belongs to the PREVIOUS project and would refuse every edit to this one.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => { result.current.truncationOps.clearForFreshWorkspace(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("holds independently of the other two causes", () => {
+    // ★ A clean truncation report must not lower a hold raised by quoting, or
+    // one cause silently cancels another — the failure the single derivation
+    // over separate slots exists to prevent.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: { entries: 0, blocks: 0 },
+        lastImportMalformedQuotes: 2,
+      });
+    });
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+});
+
 describe("useLoadTruncation — undecodable meta slices", () => {
   /** A backend stand-in for the decode channel. `lastLoadTruncation` is left
    *  undefined so nothing observed here comes from the §103 cap. */
