@@ -22041,6 +22041,16 @@ it, which is why this is filed rather than fixed.
 
 **Status:** open — a second note-log validator with six unforced divergences from `sanitizeNoteLog`. Found 2026-08-28 by a cold review of the §168 carry; reproduce by reading the two side by side (`grep -n "function sanitizeNoteLog" src/app/note-log.ts` and `grep -n "function sanitizeSeedNoteLog" src/app/templates.ts`).
 
+★★★ **AND THE COMMIT THAT FILED IT STILL SAYS 284.** `26a66e7f`'s message reads "Filed rather than
+fixed: 284 records six unforced divergences…", which now points at "A malformed Turso meta blob is
+discarded in silence" — a different entry entirely. The message cannot be corrected (amending a
+pushed commit in a shared worktree is its own hazard), so the correction lives HERE, at the number a
+reader arrives with. Anyone following that commit message lands on the wrong entry and concludes this
+one was never filed. Verify with `git show 26a66e7f -- docs/open-followups.md | grep -E "^\+## "`,
+which prints `+## 286.` — the diff is the witness, not the prose above it.
+★ The same message's subject says it closes "the six defects a cold review found"; it closes FIVE and
+FILES the sixth (this one). A filing is not a closure.
+
 ★★ **THIS ENTRY WAS FILED AS 284 AND THE COLLISION HAPPENED.** It was minted 2026-08-28 while
 `fix/meta-decode-loss-chain` was unmerged; that branch landed as `948aa293` taking BOTH 284 and 285,
 and this became 286 on the rebase. Recorded because the register's own rule — a number is reserved
@@ -22081,7 +22091,14 @@ sanitiser on six write paths, which is why it is filed rather than done inside a
 
 ## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading
 
-**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save.
+**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save. Independently re-read by a cold reviewer on 2026-08-29, who confirmed the mechanism and added the `refreshBackendStatus()` half below.
+
+★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
+`refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =
+true`. So after a decline the storage description still names the PREVIOUS file while the persisted
+handle points at the picked one — the user has no on-screen signal that anything moved, and the next
+debounced save goes to a file they were never told they were pointed at. A silent re-point is bad; a
+silent re-point behind a stale label is why nobody reports it.
 
 Found while splitting the import signals for §152, which is why that entry points here.
 
