@@ -86,6 +86,33 @@ describe("mergeFieldValue", () => {
     expect(mergeFieldValue("scalar", "other", "live")).toBe("scalar");
     expect(mergeFieldValue({ a: 1 }, { a: 2 }, null)).toEqual({ a: 1 });
   });
+
+  // ★★★ THESE TWO ARE THE DETERMINISTIC DETECTOR FOR THE NO-RACE SHORT-CIRCUIT,
+  // and they exist because the property test above is NOT one. Deleting
+  // `if (!differs(live, other)) return target;` was mutation-tested twice, by two
+  // people, on the same code, with OPPOSITE results: killed once, survived once.
+  // fast-check is unseeded, and the only shape that distinguishes the guarded
+  // function from the mutant is a pure REORDER — same members, different order —
+  // which `fc.assert` essentially never produces because it draws `target` and
+  // `other` independently. Measured reachability under that generator space:
+  // ~0.19% per draw, i.e. well under one expected hit across 300 runs.
+  //
+  // So the property test is a COIN FLIP on this mutant. A mutation scorecard that
+  // records a lucky kill is worse than one that records a survival, because it
+  // certifies a guard nothing reliably protects. These two cases are the ones the
+  // module header's "including for a pure reorder" claim actually rests on.
+  it("returns a reordered array verbatim when nothing raced", () => {
+    expect(mergeFieldValue(["a", "b"], ["b", "a"], ["b", "a"])).toEqual(["a", "b"]);
+  });
+
+  it("returns a reordered record verbatim when nothing raced", () => {
+    // Key ORDER, not content: `mergeRecord` seeds from `live` and appends
+    // target-only keys, so without the short-circuit it would rebuild this in
+    // live's key order. `toEqual` is order-insensitive for objects, so the
+    // assertion is on `Object.keys` — the thing that actually differs.
+    const out = mergeFieldValue({ b: 1, a: 2 }, { a: 2, b: 1 }, { a: 2, b: 1 });
+    expect(Object.keys(out as Record<string, unknown>)).toEqual(["b", "a"]);
+  });
 });
 
 describe("mergeFieldPatch", () => {
