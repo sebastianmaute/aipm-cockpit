@@ -1704,6 +1704,9 @@ function TaskManagerInner() {
     setSettings,
     isReadOnly: isPopout,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
+    // ★ `delete_document` is a second removal route into a COUNTED slice — see
+    //   the arming site in `use-document-tools.ts`.
+    allowDestructiveSave,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,

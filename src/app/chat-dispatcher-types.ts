@@ -96,4 +96,13 @@ export interface ChatDispatcherArgs {
    *  the Activity panel and in the model's own history feed. The per-kind
    *  contract is pinned ONLY by `use-chat-dispatcher.test.tsx`. */
   logActivityAs?: LogActivityAsFn;
+  /** ★★ Arms the one-shot destructive-save bypass (`use-storage-backend.ts`) —
+   *  threaded through to `useDocumentTools`, which is the only consumer today.
+   *  `documents` counts toward `workspaceRecordCount`, and several
+   *  `delete_document` calls in ONE assistant turn execute back-to-back in one
+   *  tick, so they coalesce into a single debounced save that Layer B reads as
+   *  a mass deletion and REFUSES — the deletions show as applied while the
+   *  backend still holds them. Optional, like `logActivityAs`: a test harness
+   *  or a popout supplies no bypass at all. */
+  allowDestructiveSave?: () => void;
 }

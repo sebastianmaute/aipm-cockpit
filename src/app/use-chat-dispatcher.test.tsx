@@ -1,4 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { asTimeZoneForTests, createProjectClock } from "./timezone";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { act, renderHook } from "@testing-library/react";
@@ -195,6 +197,10 @@ function renderDispatcher(
   // absent). Only the activity-row suites pass a spy.
   logActivityAs?: LogActivityAsFn,
   onSettingsLoggedByAi?: () => void,
+  // ★ Same contract as `logActivityAs`: optional on ChatDispatcherArgs, so the
+  //   ~60 callers that omit it are the standing proof the write paths do not
+  //   throw without a bypass. Only the arming suite passes a spy.
+  allowDestructiveSave?: () => void,
 ) {
   const setSelectedIds = vi.fn();
   const setSettings = vi.fn();
@@ -217,6 +223,7 @@ function renderDispatcher(
         getAllocationsSnapshot: stubGetAllocationsSnapshot,
         logActivityAs,
         onSettingsLoggedByAi,
+        allowDestructiveSave,
       }),
     { wrapper },
   );
@@ -2059,6 +2066,92 @@ describe("useChatDispatcher – document tools", () => {
     expect(out.deleted).toBe(true);
     expect(out.restorableVersionId).not.toBeNull();
     expect(result.current.getDocument(id)).toBeNull();
+  });
+});
+
+// ★★ THE ONE-SHOT DESTRUCTIVE-SAVE BYPASS ON THE AI DELETE ROUTE. `documents`
+// counts toward `workspaceRecordCount`, and it has TWO removal routes —
+// `documents-panel.tsx` and this one. Only the panel armed, so a turn that
+// emitted several `delete_document` calls (one tick, one debounced save) tripped
+// Layer B's mass-deletion arithmetic and the save was withheld while the UI
+// showed the documents gone.
+describe("useChatDispatcher — delete_document arms the destructive-save bypass", () => {
+  function renderWithBypass(isReadOnly = false) {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderDispatcher(
+      seedTasks(), isReadOnly, "open-points", undefined, undefined, allowDestructiveSave,
+    );
+    return { result, allowDestructiveSave };
+  }
+
+  it("arms once per deleted document, and not before the delete", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    let a!: number;
+    let b!: number;
+    act(() => {
+      a = result.current.createDocument("Draft A", []).id;
+      b = result.current.createDocument("Draft B", []).id;
+    });
+    // A create is not a removal — the bypass exists for deletions only.
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    act(() => {
+      result.current.deleteDocument(a);
+      result.current.deleteDocument(b);
+    });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(2);
+    // Positive observable: the deletes really ran, so the arming is not being
+    // counted on a no-op path.
+    expect(result.current.listDocuments()).toEqual([]);
+  });
+
+  it("does NOT arm when the id does not exist", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    let id!: number;
+    act(() => {
+      id = result.current.createDocument("Draft", []).id;
+    });
+    act(() => {
+      result.current.deleteDocument(id + 999);
+    });
+    // `changed:false` — nothing was removed, so nothing consumes the one-shot
+    // and arming here would leave it up indefinitely.
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    // POSITIVE CONTROL: the id that DOES exist arms.
+    act(() => {
+      result.current.deleteDocument(id);
+    });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT arm for a delete refused in a read-only popout", () => {
+    const { result, allowDestructiveSave } = renderWithBypass(true);
+    expect(() => result.current.deleteDocument(1)).toThrow(/read-only/);
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when no bypass is supplied", () => {
+    const { result } = renderDispatcher();
+    let id!: number;
+    expect(() => {
+      act(() => {
+        id = result.current.createDocument("Draft", []).id;
+        result.current.deleteDocument(id);
+      });
+    }).not.toThrow();
+    expect(result.current.getDocument(id)).toBeNull();
+  });
+
+  // ★★★ THE CALL SITE, which no behavioural test above can reach — every one of
+  // them supplies the prop itself, so dropping it in `task-manager.tsx` is
+  // invisible to all of them. Same structural blind spot, and same remedy, as
+  // `knowledge-panel.test.tsx`'s workspace-section scan. Deliberately narrow: it
+  // proves the prop is passed, not that the value is right.
+  it("is handed the bypass by its call site in task-manager", () => {
+    const src = readFileSync(join(__dirname, "task-manager.tsx"), "utf8");
+    const start = src.indexOf("useChatDispatcher({");
+    expect(start, "useChatDispatcher call not found in task-manager.tsx").toBeGreaterThan(-1);
+    const call = src.slice(start, src.indexOf("\n  });", start));
+    expect(call).toMatch(/^\s*allowDestructiveSave,\s*$/m);
   });
 });
 

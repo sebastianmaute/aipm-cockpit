@@ -141,6 +141,10 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
 export function useDocumentTools(
   isReadOnly: boolean,
   logActivityAs?: LogActivityAsFn,
+  /** ★★ The one-shot destructive-save bypass — see the arming site in
+   *  `deleteDocument` below for why this route needs it and the panel route is
+   *  not enough. */
+  allowDestructiveSave?: () => void,
 ): DocumentToolDispatcher {
   const { documents, documentVersions, mutateDocuments } = useWorkspace();
 
@@ -156,6 +160,18 @@ export function useDocumentTools(
   useEffect(() => {
     versionsRef.current = documentVersions;
   }, [documentVersions]);
+
+  // ★★ A MIRROR, for the same reason `use-document-assets.ts` and
+  // `use-bulk-operations.ts` keep one: the producer (`use-storage-backend.ts`)
+  // re-creates this arrow every render, so taking it into the `useMemo` dep
+  // list below would rebuild the whole dispatcher on every render of the tree —
+  // defeating the stable identity the refs above exist to preserve. The ref
+  // keeps the deps stable while the arming site still reads the LIVE callback.
+  // Synced in an effect, never during render.
+  const allowDestructiveSaveRef = useRef(allowDestructiveSave);
+  useEffect(() => {
+    allowDestructiveSaveRef.current = allowDestructiveSave;
+  }, [allowDestructiveSave]);
 
   const readOnlyError = () =>
     new Error("This window is read-only; open the main window to make changes.");
@@ -440,6 +456,22 @@ export function useDocumentTools(
         // `changed:false` here means the id did not exist — nothing was
         // deleted, so nothing is logged.
         if (result.changed) {
+          // ★★★ ARM THE ONE-SHOT DESTRUCTIVE-SAVE BYPASS. `documents` counts
+          // toward `workspaceRecordCount`, and this is the SECOND removal route
+          // — `documents-panel.tsx` armed and this one did not. Several
+          // `delete_document` calls in one assistant turn run back-to-back in
+          // ONE tick, so they land in a single debounced save: 8 deletes in a
+          // project of 8 documents and 1 task make `isMassDeletion` true, the
+          // save is refused, the UI shows them gone and the backend still holds
+          // them.
+          // ★★ ARMED PER DELETE AND ONLY WHEN `changed`, deliberately, NOT once
+          // per tool run. There is no run-begin seam in the dispatcher, and
+          // arming for a run that deletes nothing leaks the one-shot: the
+          // bypass is consumed by the next SAVE, so with no state change none
+          // ever runs and it stays up indefinitely (the shape
+          // `documents-panel.tsx` was fixed for). Gating on `changed` means a
+          // state change is guaranteed, so the save that spends it is too.
+          allowDestructiveSaveRef.current?.();
           logActivityAs?.("ai", "ai.documentWrite", id, before?.title ?? "");
         }
         const newest = result.versions[result.versions.length - 1];
