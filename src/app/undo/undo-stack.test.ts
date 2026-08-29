@@ -488,3 +488,30 @@ describe("preserve on restore and redo", () => {
     expect(out[0].sev).toBe("an unrelated new row");
   });
 });
+
+describe("delete-branch identity under a write-through write (open-followups §179)", () => {
+  type Row = { id: number; title: string; noteLog?: { id: string; text: string }[] };
+  const PRESERVE = ["noteLog", "outlookEventId"];
+
+  it("removes the row on redo even though a note was added after the restore", () => {
+    // The sequence from the register: delete a row, undo it, add a note through
+    // the notes window (write-through — no undo entry, so the redo stack
+    // survives), then redo. The redo must still remove the row it restored.
+    const recovered: Row = { id: 7, title: "Risk A" };
+    const live: Row[] = [{ id: 7, title: "Risk A", noteLog: [{ id: "n1", text: "added later" }] }];
+    const out = applyUndoForward(live, [{ index: 0, item: recovered, op: "delete" }], PRESERVE);
+    expect(out).toEqual([]);
+  });
+
+  it("still refuses to remove an unrelated row that merely reused the freed id", () => {
+    // This is the guard the relaxation must not break. A capture-bypassing delete
+    // freed id 7 and a new row took it; redo must leave that row alone. Note this
+    // row carries NO write-through field, so it is a STRICTER guard than the
+    // neighbouring "rowsEqual identity guard" test above, whose live row differs
+    // on `noteLog` as well as on content.
+    const recovered: Row = { id: 7, title: "Risk A" };
+    const live: Row[] = [{ id: 7, title: "Something else entirely" }];
+    const out = applyUndoForward(live, [{ index: 0, item: recovered, op: "delete" }], PRESERVE);
+    expect(out).toEqual(live);
+  });
+});

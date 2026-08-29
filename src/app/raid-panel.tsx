@@ -46,7 +46,7 @@ import { RaidEditModal } from "./raid-edit-modal";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
 import { useRowSelection } from "./use-row-selection";
-import { buildBulkFieldEdits } from "./undo/field-groups";
+import { RAID_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, dateField, type BulkField } from "./bulk-edit-panel";
 import { resourceDisplayName, effectivePersonName } from "./resource-foundation";
@@ -328,10 +328,10 @@ function RaidPanelBody({
     // set DERIVING from the capture is what matters: `buildBulkFieldEdits` drops a
     // row whose diff is empty, and saving such a row anyway stamps a fresh
     // `localModifiedAt` and logs a `raid.updated` that no undo entry can reverse.
-    // ★ `buildBulkFieldEdits(rows)` is hoisted out of the optional call on purpose:
+    // ★ `buildBulkFieldEdits(rows, …)` is hoisted out of the optional call on purpose:
     // `onCaptureBulk?.(build())` would not evaluate `build()` at all when no
     // capture prop is wired, leaving `wrote` empty and writing nothing.
-    const edits = buildBulkFieldEdits(rows);
+    const edits = buildBulkFieldEdits(rows, RAID_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
     onCaptureBulk?.(edits);
     for (const { after } of rows) {

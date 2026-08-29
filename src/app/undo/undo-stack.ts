@@ -222,6 +222,39 @@ function rowsEqual(a: unknown, b: unknown): boolean {
   return ka.every((k) => rowsEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]));
 }
 
+/** `rowsEqual`, ignoring the write-through keys at the row's TOP level only —
+ *  the identity notion the redo delete-filter needs (open-followups §179).
+ *
+ *  Whole-row equality was too strict: a note added through the notes window
+ *  after an undo restored the row made the live row unequal to the recovered
+ *  image, so the redo declined to remove it and the next undo spliced a SECOND
+ *  copy in under a fresh id. Id-alone is too loose: the filter exists to stop a
+ *  redo destroying an unrelated live row that merely reused a freed id. This
+ *  sits between them — a recycled-id row differs on ordinary content fields and
+ *  is still caught.
+ *
+ *  ★ TOP LEVEL ONLY, deliberately. The recursion below is plain `rowsEqual`, so
+ *  a write-through key NESTED inside another object is still compared. Every
+ *  member of the list is a top-level row field, and widening the skip to every
+ *  depth would make an unrelated row easier to mistake for the recovered one.
+ *
+ *  ★ KNOWN RESIDUE: a recycled-id row differing from the recovered image ONLY on
+ *  write-through fields is still destroyed. Reaching that needs a new row whose
+ *  every other field coincidentally matches a deleted one. */
+function rowsEqualExcept(a: unknown, b: unknown, ignore: readonly string[]): boolean {
+  if (typeof a !== "object" || typeof b !== "object" || a === null || b === null) {
+    return rowsEqual(a, b);
+  }
+  if (Array.isArray(a) || Array.isArray(b)) return rowsEqual(a, b);
+  const skip = new Set(ignore);
+  const ka = Object.keys(a as object).filter((k) => !skip.has(k));
+  const kb = Object.keys(b as object).filter((k) => !skip.has(k));
+  if (ka.length !== kb.length) return false;
+  return ka.every((k) =>
+    rowsEqual((a as Record<string, unknown>)[k], (b as Record<string, unknown>)[k]),
+  );
+}
+
 export function applyUndoForward<T extends { id: number }>(
   current: readonly T[],
   forward: readonly BeforeImage<T>[],
@@ -244,7 +277,7 @@ export function applyUndoForward<T extends { id: number }>(
     // would destroy that live row (data loss). Mismatched id → skip.
     out = out.filter((r) => {
       const recovered = deletes.get(r.id);
-      return recovered === undefined || !rowsEqual(r, recovered);
+      return recovered === undefined || !rowsEqualExcept(r, recovered, preserve);
     });
   }
   return out;

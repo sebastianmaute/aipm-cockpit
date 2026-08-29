@@ -293,12 +293,18 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   // background calendar push (open-followups §50).
   const captureRaidBulkUndo = useCallback(
     (edits: readonly { id: number; before: Partial<RaidItem>; after: Partial<RaidItem> }[]) => {
-      // No `stampField` here: this register omits it while the tasks bulk edit
-      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
-      // undo that does not restamp may not propagate to a backend that syncs on
-      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
-      // four registers without reading it.
-      if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid" });
+      // `stampField` matches the tasks bulk edit. §181 asked which of the two
+      // registers was right and deliberately declined to guess; the measurement
+      // is that RAID has TWO behavioural readers of this field — `raidLastTouch`
+      // (`insights/detect.ts`, the aging insight) and `lastTouch`
+      // (`raid-review.ts`, feeding `daysSinceReview`). The bulk APPLY stamps every
+      // written row (`handleSaveRaid`'s `withStamp`; `suppressFieldUndo` suppresses
+      // only the undo capture, never the stamp), so an undo that does not re-stamp
+      // leaves the apply's timestamp on a row whose content moved backwards and
+      // both readers report a reverted item as freshly touched.
+      // ★ Milestones deliberately still does NOT stamp — its apply does not either,
+      // so there is no false timestamp there to correct (open-followups §181).
+      if (edits.length) captureFieldRowsRef.current({ setter: setRaid, kind: "bulk.edit", edits, entityKey: "raid", stampField: "localModifiedAt" });
     },
     [setRaid],
   );

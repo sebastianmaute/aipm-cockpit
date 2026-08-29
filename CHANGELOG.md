@@ -8,7 +8,7 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
-## [0.263.3] - 2026-08-29 "Okorafor"
+## [0.264.1] - 2026-08-29 "Russell"
 
 ### Fixed
 
@@ -43,6 +43,33 @@ longer carries its own changelog comment.
   stayed live and was spent by whatever deletion happened next, however much later. An accidental
   mass deletion arriving then was saved without the protection ever engaging. The permission is now
   cleared on that path too, so it can only ever cover the action that asked for it.
+
+## [0.264.0] - 2026-08-29 "Russell"
+
+### Fixed
+
+- **Undoing a bulk RACI suggestion no longer discards a cell you assigned while it was
+  applied.** Suggest RACI writes a whole block of responsibilities at once. If you then set one
+  cell yourself for a different milestone and pressed Ctrl+Z to drop the suggestion, your own
+  entry went with it, because the undo replaced the entire block rather than the parts the
+  suggestion had written. An undo now puts back only what it actually changed.
+- **Undoing a bulk edit no longer reverts a note or a calendar link that another part of the
+  app wrote in the meantime.** The same cause: notes added through the notes window, and
+  calendar links stamped by the background Outlook sync, are written without an undo step of
+  their own, so an undo that replaced whole values quietly took them with it.
+- **Redoing a deleted register item no longer leaves a duplicate behind.** Deleting a risk,
+  undoing that, adding a note to the restored row, then redoing the delete left the row in
+  place — and the next undo added a second copy of it. The redo now recognises the row it
+  restored even after a note has been added to it.
+- **Undoing a bulk status change now restores the completion date along with it.** Reverting a
+  bulk change to Done previously put the status back but left the completion date behind, so a
+  task could read as open while still carrying a date. The pair is now always reverted
+  together, as it already was when editing a single row. The same holds for a change request
+  and its decision date, and for an assignee and their contact details.
+- **Undoing a bulk edit to risks, change requests or stakeholders now records that the row was
+  touched.** Reverting left the last-modified time reading as the moment of the edit you had
+  just undone, so a reverted risk could still count as recently reviewed and stay out of the
+  ageing and review lists.
 
 ## [0.263.2] - 2026-08-29 "Okorafor"
 
