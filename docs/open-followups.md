@@ -22151,9 +22151,15 @@ classify-and-upgrade against `RICH_SINK` with no allow-list pass. Only the TASK 
 classified rich on its leading `<p` and stored verbatim.
 
 ★★ HONEST SCOPE, because over-reading this is the likelier error. It is **not** a live XSS:
-`RichTextView` sanitises at render (`sanitizeRichHtml` on the `dangerouslySetInnerHTML` path), and
-the whole-object load normalizer allow-lists on the next load. The exposure is unsanitised-AT-REST
-plus whatever export sinks do not re-sanitise on the way out.
+`RichTextView` sanitises at render (`sanitizeRichHtml` on the `dangerouslySetInnerHTML` path). The
+exposure is unsanitised-AT-REST plus whatever export sinks do not re-sanitise on the way out.
+
+★★ DO NOT add "and the load normalizer allow-lists it on the next load" as further reassurance —
+that clause was here and was deleted 2026-08-29 as false on four of the six write paths.
+`sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` are called
+from `browser-backend.ts` (IndexedDB) and `jsonToWorkspace` only; CSV, Markdown and both Turso
+layouts never run them. Verify before believing either version:
+`grep -rn "sanitizeRaidRichFields\|sanitizeChangeRichFields" src/app --include=*.ts | grep -v "\.test\."`
 
 ★ Why it is worth an entry anyway: AGENTS.md states `sanitizeAiRichText` + `AI_RICH_FIELDS` apply on
 *every* model-write path, and this is a model-write path where they do not. Either the code or that

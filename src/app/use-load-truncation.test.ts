@@ -347,9 +347,7 @@ describe("useLoadTruncation — reportImportFor", () => {
   // has no meta blob to fail decoding and typically no document truncation. So
   // `wouldRefuseWrite()` returned true, `refuseWrite()` built an EMPTY `parts`,
   // and the user's explicit "Pick storage file" click did nothing and said
-  // nothing. Nothing tested `refuseWrite` at all before this: `grep -rn
-  // "refuseWrite" src/app/*.test.ts src/app/*.test.tsx` returned only `vi.fn()`
-  // mocks.
+  // nothing. Nothing tested `refuseWrite`'s BEHAVIOUR at all before this.
   it("speaks when the ONLY cause is malformed quoting", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 3 })); });

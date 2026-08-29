@@ -139,15 +139,13 @@ register's fix to another is how two of them broke. Read the note that names you
   `grep -rn "withStoredNoteLog" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`.
   ★★ RAID's fix (take the log from the stored `previous` row inside the save handler) would not reach
   a decoder, and this helper would be wrong for RAID, which has no sanitizer call on those paths.
-  ★★ SAME SWEEP TRAP, WORSE: `sanitizeChangeItem` is called at SIX sites and **TWO pass it BY
-  REFERENCE** — `buildList` in `ai-project-proposal.ts` and `sanitizeArr` in `templates.ts` — so a
-  call-shaped `sanitizeChangeItem(` grep sees FOUR of the six and reports its list as complete. Sweep
+  ★★ SAME SWEEP TRAP: `sanitizeChangeItem` is passed BY REFERENCE in at least one place, so a
+  call-shaped `sanitizeChangeItem(` grep under-reports and reads as complete. Sweep
   the BARE name: `grep -rn sanitizeChangeItem src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
   (which also returns the imports, the declaration, and every source COMMENT naming it — including the
   copy of this same grep inside `withStoredNoteLog`'s docblock, i.e. the grep matching itself. It is
-  scoped to `src/app`, so it does NOT return this file). ★ The three that do NOT carry a log are CREATES with
-  nothing stored to lose; the full split, and why template import deliberately drops a captured log,
-  live in `withStoredNoteLog`'s own docblock — read it rather than restating it here.
+  scoped to `src/app`, so it does NOT return this file). ★ The full split lives in
+  `withStoredNoteLog`'s own docblock — read it rather than restating it here.
   ★★★ §50 IS CLOSED (0.247.0) AND THE FIX IS **TWO** MECHANISMS — do not "simplify" either away.
   A whole-row `capture()` undo used to restore a stale row, so undoing a BULK edit reverted the note
   log. Now: (1) the ENGINE BACKSTOP — `applyUndoRestoreWithRemap`, `applyUndoForward` and the
@@ -471,7 +469,7 @@ register's fix to another is how two of them broke. Read the note that names you
   rationale being re-derived a fifth time. Reproduce with the graph resolver named in §151.
   ★★ The CONCLUSION that followed it is also stale: template import no longer "gets the upgrade but no
   allow-list". The allow-list runs at APPLY time in `template-apply.ts`, which is outside the graph —
-  over every rich field on all three note-log entities, not just the task description. See **§36(a)**.
+  over every rich field it names, not just the task description. See **§36(a)** for the current set.
   ★★★ AND SO DO THE OTHER THREE ENTITIES, via `withAiRichFields(input, AI_RICH_FIELDS.<entity>)` at the
   six raid/change/milestone create+update sites. Their entity sanitizers (`sanitize-records.ts`) are
   DOM-FREE and therefore CANNOT run an allow-list — verified: `sanitizeRaidItem` stored

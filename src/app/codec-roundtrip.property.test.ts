@@ -869,11 +869,13 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
     // coverage was missing.
     // ★★★ A FRACTION, NEVER A SAMPLE MINIMUM. An absolute count gets EASIER to
     // clear as `numRuns` rises, so a floor pinned to the count you happened to
-    // observe silently weakens the moment anyone raises N. At 0.75: P(false
-    // failure) is 3.0e-10 even if the true rate slipped to 0.90, and 7.7e-5 at
-    // 0.85 — negligible beside this suite's other flake sources — while it still
-    // trips essentially always if the class disappears. 0.85 was rejected as too
-    // tight (~1 spurious red per 100 runs at p=0.90).
+    // observe silently weakens the moment anyone raises N. 0.75 sits far enough
+    // below the observed rate that a false failure is negligible beside this
+    // suite's other flake sources, while still tripping if the class disappears.
+    // ★ Compute the false-failure probability rather than quoting one. This
+    // comment carried two figures that modelled `ratio < 0.75` while the
+    // assertion is `toBeGreaterThan(0.75)`, which fails at `ratio <= 0.75` — off
+    // by one boundary step. The tail to evaluate is P(X <= 150) at n = 200.
     // ★ Re-measure, do not re-guess, if the alphabet changes. The indicator is
     // per-RUN ("this CSV holds >=1 multi-line quoted cell"), which is what this
     // floor counts; it is NOT a per-cell rate and the two are not
