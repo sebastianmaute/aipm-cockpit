@@ -52,3 +52,46 @@ export const CSV_SECTION_DOCUMENTS = "# DOCUMENTS";
 export const CSV_SECTION_DOCUMENT_VERSIONS = "# DOCUMENT VERSIONS";
 export const CSV_SECTION_DOCUMENT_ASSETS = "# DOCUMENT ASSETS";
 export const CSV_SECTION_ACTIVITY = "# ACTIVITY LOG";
+
+/**
+ * The sections a dropped IMPORT ROW can be attributed to — the answer to "which
+ * part of my file lost data", which the flat `ImportDiag.droppedRows` cannot
+ * give (§152).
+ *
+ * ★★★ NARROWER THAN THE MARKER LIST ABOVE, ON PURPOSE. Only a section whose
+ * decoder can REJECT A ROW belongs here. The config-blob sections carry one
+ * `config,<json>` row and either parse or do not; blank rows are skipped, not
+ * counted; and dangling-dependency pruning drops FK entries rather than rows.
+ * None of those bump the counter today and none may start to — a key existing
+ * here is an invitation to make it fire.
+ *
+ * ★★★ DELIBERATELY NOT DERIVED FROM THE `CSV_SECTION_*` STRINGS, though the
+ * plan for this slice said to derive it. Those values are STORAGE FORMAT bytes
+ * pinned by `golden-workspace.test`, so keying a diagnostic on them would make
+ * a marker reword a silent diagnostic break — and the banner above already
+ * forbids rewording them for exactly that class of reason. These are workspace
+ * SLICE names instead, which is also what `i18n` labels them by.
+ *
+ * ★ Both codec families use these: Markdown has no `# TASKS` marker at all
+ * (it uses `# AIPM Tasks` headings), so a marker-derived union could not have
+ * served it. This module imports nothing, which is what lets both import from
+ * here without a cycle.
+ */
+export const IMPORT_SECTION_KEYS = [
+  "tasks",
+  "raid",
+  "absences",
+  "shifts",
+  "calendarEvents",
+  "documentAssets",
+  "milestones",
+  "changes",
+  "stakeholders",
+  "resources",
+  "roles",
+  "budgets",
+  "disciplines",
+  "grades",
+] as const;
+
+export type ImportSectionKey = (typeof IMPORT_SECTION_KEYS)[number];

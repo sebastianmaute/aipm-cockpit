@@ -46,7 +46,9 @@ import type { DocumentAsset } from "./document-asset";
 import { type Workspace, migrateWorkspaceV10 } from "./workspace";
 import {
   type ImportDiag,
+  type ImportSectionKey,
   buildCalendarEventFromObj,
+  countDroppedRow,
   buildDocumentAssetFromObj,
   buildRaidItemFromObj,
   decodeRatesMap,
@@ -202,7 +204,7 @@ const ABSENCE_ALIASES: Record<string, string> = {
 };
 
 function markdownToAbsences(md: string, diag?: ImportDiag): Absence[] {
-  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence, diag);
+  return decodeMdTable(md, ABSENCE_ALIASES, sanitizeAbsence, "absences", diag);
 }
 
 /** Derived from EVENTS_MD_COLUMNS (markdown-codecs-core.ts), not hand-written —
@@ -215,7 +217,7 @@ const EVENTS_MD_ALIASES: Record<string, string> = Object.fromEntries(
 );
 
 function markdownToCalendarEvents(md: string, diag?: ImportDiag): CalendarEvent[] {
-  return decodeMdTable(md, EVENTS_MD_ALIASES, buildCalendarEventFromObj, diag);
+  return decodeMdTable(md, EVENTS_MD_ALIASES, buildCalendarEventFromObj, "calendarEvents", diag);
 }
 
 /** Derived from DOCUMENT_ASSETS_MD_COLUMNS (markdown-columns.ts), same
@@ -226,7 +228,7 @@ const DOCUMENT_ASSETS_MD_ALIASES: Record<string, string> = Object.fromEntries(
 );
 
 function markdownToDocumentAssets(md: string, diag?: ImportDiag): DocumentAsset[] {
-  return decodeMdTable(md, DOCUMENT_ASSETS_MD_ALIASES, buildDocumentAssetFromObj, diag);
+  return decodeMdTable(md, DOCUMENT_ASSETS_MD_ALIASES, buildDocumentAssetFromObj, "documentAssets", diag);
 }
 
 const SHIFT_ALIASES: Record<string, string> = {
@@ -240,7 +242,7 @@ const SHIFT_ALIASES: Record<string, string> = {
 };
 
 function markdownToShifts(md: string, diag?: ImportDiag): Shift[] {
-  return decodeMdTable(md, SHIFT_ALIASES, sanitizeShift, diag);
+  return decodeMdTable(md, SHIFT_ALIASES, sanitizeShift, "shifts", diag);
 }
 
 
@@ -259,7 +261,7 @@ const RESOURCE_ALIASES: Record<string, string> = {
 };
 
 function markdownToResources(md: string, diag?: ImportDiag): Resource[] {
-  return decodeMdTable(md, RESOURCE_ALIASES, sanitizeResource, diag);
+  return decodeMdTable(md, RESOURCE_ALIASES, sanitizeResource, "resources", diag);
 }
 
 /** Map MD column labels to sanitizer field keys for roles. */
@@ -273,7 +275,7 @@ const ROLE_ALIASES: Record<string, string> = {
 };
 
 function markdownToRoles(md: string, diag?: ImportDiag): Role[] {
-  return decodeMdTable(md, ROLE_ALIASES, sanitizeRole, diag);
+  return decodeMdTable(md, ROLE_ALIASES, sanitizeRole, "roles", diag);
 }
 
 const BUDGET_ALIASES: Record<string, string> = {
@@ -292,7 +294,7 @@ const BUDGET_ALIASES: Record<string, string> = {
 };
 
 function markdownToBudgets(md: string, diag?: ImportDiag): BudgetBucket[] {
-  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket, diag);
+  return decodeMdTable(md, BUDGET_ALIASES, sanitizeBudgetBucket, "budgets", diag);
 }
 
 function parseFxRatesMarkdown(md: string): FxRates | null {
@@ -315,9 +317,12 @@ const REF_ALIASES: Record<string, string> = {
 function markdownToRefs<T extends Discipline | Grade>(
   md: string,
   sanitize: (input: unknown) => T | null,
+  /** ★ ONE function serves TWO sections here, so it cannot hardcode a key —
+   *  disciplines and grades share this wrapper and each caller names its own. */
+  section: Extract<ImportSectionKey, "disciplines" | "grades">,
   diag?: ImportDiag,
 ): T[] {
-  return decodeMdTable(md, REF_ALIASES, sanitize, diag);
+  return decodeMdTable(md, REF_ALIASES, sanitize, section, diag);
 }
 
 function parsePlanMarkdown(md: string): ResourcePlan | null {
@@ -351,7 +356,7 @@ const RAID_ALIASES: Record<string, string> = {
 };
 
 function markdownToRaid(md: string, diag?: ImportDiag): RaidItem[] {
-  return decodeMdTable(md, RAID_ALIASES, buildRaidItemFromObj, diag);
+  return decodeMdTable(md, RAID_ALIASES, buildRaidItemFromObj, "raid", diag);
 }
 
 /** Parses all sections out of a (possibly multi-section) markdown string. Pass
@@ -371,8 +376,8 @@ export function markdownToWorkspace(md: string, diag?: ImportDiag): Workspace {
     shifts: s.shiftsMd.trim() ? markdownToShifts(s.shiftsMd, diag) : [],
     resources: s.resourcesMd.trim() ? markdownToResources(s.resourcesMd, diag) : [],
     roles: s.rolesMd.trim() ? markdownToRoles(s.rolesMd, diag) : [],
-    disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline, diag) : [],
-    grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade, diag) : [],
+    disciplines: s.disciplinesMd.trim() ? markdownToRefs(s.disciplinesMd, sanitizeDiscipline, "disciplines", diag) : [],
+    grades: s.gradesMd.trim() ? markdownToRefs(s.gradesMd, sanitizeGrade, "grades", diag) : [],
     plan: (s.planMd.trim() && parsePlanMarkdown(s.planMd)) || defaultResourcePlan(new Date().toISOString().slice(0, 10)),
     budgets: s.budgetsMd.trim() ? markdownToBudgets(s.budgetsMd, diag) : [],
     fxRates: s.fxRatesMd.trim() ? parseFxRatesMarkdown(s.fxRatesMd) : null,
@@ -501,7 +506,7 @@ function markdownToTasks(md: string, diag?: ImportDiag): Task[] {
     });
     const id = Number(obj.id);
     if (!Number.isFinite(id) || id <= 0) {
-      if (diag) diag.droppedRows++;
+      countDroppedRow(diag, "tasks");
       continue;
     }
     const inq = Number(obj.inquiriesSent);

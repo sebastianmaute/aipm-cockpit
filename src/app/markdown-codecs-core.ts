@@ -47,6 +47,8 @@ import { sanitizeActivityLog } from "./activity-log";
 import type { ActivityEntry } from "./activity-log";
 import {
   type ImportDiag,
+  type ImportSectionKey,
+  countDroppedRow,
   PROJECT_CSV_COLUMNS,
   STATUS_FIELDS,
   absenceFieldToString,
@@ -520,7 +522,7 @@ const MILESTONE_ALIASES: Record<string, string> = {
 };
 
 export function markdownToMilestones(md: string, diag?: ImportDiag): Milestone[] {
-  return decodeMdTable(md, MILESTONE_ALIASES, buildMilestoneFromObj, diag);
+  return decodeMdTable(md, MILESTONE_ALIASES, buildMilestoneFromObj, "milestones", diag);
 }
 
 function changesToMarkdown(changes: readonly ChangeItem[]): string {
@@ -551,7 +553,7 @@ const CHANGE_ALIASES: Record<string, string> = {
 };
 
 export function markdownToChanges(md: string, diag?: ImportDiag): ChangeItem[] {
-  return decodeMdTable(md, CHANGE_ALIASES, buildChangeFromObj, diag);
+  return decodeMdTable(md, CHANGE_ALIASES, buildChangeFromObj, "changes", diag);
 }
 
 function stakeholdersToMarkdown(stakeholders: readonly Stakeholder[]): string {
@@ -576,7 +578,7 @@ const STAKEHOLDER_ALIASES: Record<string, string> = {
 };
 
 export function markdownToStakeholders(md: string, diag?: ImportDiag): Stakeholder[] {
-  return decodeMdTable(md, STAKEHOLDER_ALIASES, buildStakeholderFromObj, diag);
+  return decodeMdTable(md, STAKEHOLDER_ALIASES, buildStakeholderFromObj, "stakeholders", diag);
 }
 
 function fxRatesToMarkdown(fx: FxRates): string {
@@ -761,6 +763,10 @@ export function decodeMdTable<T>(
   md: string,
   aliases: Record<string, string>,
   build: (obj: Record<string, string>) => T | null,
+  /** ★ REQUIRED, and BEFORE the optional `diag`: this collector serves every MD
+   *  entity table, so it cannot know which section it was handed — the key can
+   *  only come from the caller (§152). */
+  section: ImportSectionKey,
   diag?: ImportDiag,
 ): T[] {
   const out: T[] = [];
@@ -772,7 +778,7 @@ export function decodeMdTable<T>(
     }
     const item = build(mapped);
     if (item !== null) out.push(item);
-    else if (diag) diag.droppedRows++;
+    else countDroppedRow(diag, section);
   }
   return out;
 }
