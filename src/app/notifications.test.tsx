@@ -243,6 +243,48 @@ describe("TruncatedLoadBanner", () => {
     expect(alert.textContent ?? "").not.toMatch(/document entries|blocks in stored documents/i);
   });
 
+  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS ELEVEN
+  // SLICES. `reportUnreadableSlice` reaches project_status, field_visibility,
+  // features, steering_committee, timelog_links, knowledge_items, insights,
+  // activityLog, documents, documentVersions and settings_overrides. A corrupt
+  // steering-committee blob in a project with NO documents announced itself as
+  // "document data", the user concluded it did not apply, and clicked the
+  // PERMANENT-discard button — on a screen that misnamed what was discarded.
+  it("does not call a decode failure 'document data', in the copy OR the accessible name", () => {
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    // The HEADLINE specifically: the count line legitimately says "kinds of
+    // saved data", so a whole-node scan for /document/i would be answered by a
+    // line that is not under test. Scoped to the first paragraph.
+    const headline = alert.querySelector("p")?.textContent ?? "";
+    expect(headline).toMatch(/saved data could not be opened/i);
+    expect(headline).not.toMatch(/document/i);
+    expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/document/i);
+  });
+
+  it("keeps the narrower 'document data' headline for a truncation-only load", () => {
+    // The control for the rule above, and the no-regression pin: truncation
+    // genuinely IS about documents (the cap cuts document entries and blocks),
+    // so widening its wording would lose real specificity.
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("p")?.textContent ?? "").toMatch(/document data could not be opened/i);
+    expect(alert.getAttribute("aria-label")).toBe("Document data could not be opened");
+  });
+
+  it("takes the WIDER headline when both causes hold", () => {
+    // ★ Both really can arrive together — `rowsToWorkspace` accumulates them
+    // into one diagnostic — and the only headline accurate for the pair is the
+    // one that names neither cause specifically. The count line below it still
+    // names each magnitude in its own vocabulary, so nothing is lost.
+    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("p")?.textContent ?? "").not.toMatch(/document data/i);
+    // Positive control: the magnitudes are still both there, one line down.
+    expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
+    expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
+  });
+
   it("uses the DESTRUCTIVE button variant, not the recommended-action primary", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign

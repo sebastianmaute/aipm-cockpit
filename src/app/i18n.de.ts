@@ -2717,6 +2717,8 @@ export const de: Record<TranslationKey, string> = {
   documentsTruncatedBanner: "Ein Teil der Dokumentdaten dieses Projekts konnte nicht geöffnet werden. Das Speichern ist pausiert, um Ihr gespeichertes Projekt zu schützen - es enthält weiterhin alles.",
   documentsTruncatedSaveAnyway: "Trotzdem speichern",
   documentsTruncatedBannerAria: "Dokumentdaten konnten nicht geöffnet werden",
+  documentsUnreadableBanner: "Ein Teil der gespeicherten Daten dieses Projekts konnte nicht geöffnet werden. Das Speichern ist pausiert, um Ihr gespeichertes Projekt zu schützen - es enthält weiterhin alles.",
+  documentsUnreadableBannerAria: "Gespeicherte Daten konnten nicht geöffnet werden",
   documentsTruncatedEntriesCount: "{0} Dokumenteinträge konnten nicht geöffnet werden.",
   documentsTruncatedBlocksCount: "{0} Blöcke in gespeicherten Dokumenten konnten nicht geöffnet werden.",
   documentsTruncatedConfirmTitle: "Trotzdem speichern?",

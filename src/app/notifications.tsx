@@ -188,6 +188,25 @@ export function TruncatedLoadBanner({
     decodeFailureCount > 0 ? t(lang, "documentsUnreadableCount", decodeFailureCount) : null,
   ].filter((part): part is string => part !== null);
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
+  // ★★★ THE HEADLINE FOLLOWS THE CAUSE, because "document data" was true of only
+  // one of the two. Truncation IS about documents — the cap cuts document
+  // entries and blocks — but the decode cause reaches ELEVEN meta slices
+  // (`reportUnreadableSlice`), so a corrupt `steering_committee` blob in a
+  // project with NO documents announced itself as document data, the user read
+  // a headline that plainly did not apply to them, and clicked "Save anyway".
+  // That button is a PERMANENT discard, and it was being pressed on a screen
+  // that misnamed what was being discarded.
+  // ★★ TRUNCATION-ONLY keeps the original, narrower wording — nothing about the
+  // truncation copy regresses. Every other case takes the wider one, INCLUDING
+  // the case where both causes hold: `rowsToWorkspace` accumulates them into one
+  // diagnostic, so both really can arrive together, and the only headline
+  // accurate for that pair is the one that names neither cause specifically.
+  // ★ The count line below still names each magnitude in its own vocabulary
+  // ("N document entries…", "N kinds of saved data…"), so the specificity the
+  // wider headline gives up is not lost — it moves one line down.
+  const truncationOnly = truncation != null && decodeFailureCount === 0;
+  const bannerKey = truncationOnly ? "documentsTruncatedBanner" : "documentsUnreadableBanner";
+  const bannerAriaKey = truncationOnly ? "documentsTruncatedBannerAria" : "documentsUnreadableBannerAria";
   const askThenSave = async () => {
     const body = t(lang, "documentsTruncatedConfirmBody");
     const ok = await confirm({
@@ -228,7 +247,7 @@ export function TruncatedLoadBanner({
     );
   }
   return (
-    <AlertBanner severity="error" role="alert" ariaLabel={t(lang, "documentsTruncatedBannerAria")} icon="⚠"
+    <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
       actions={<>
         <Button variant="destructive" size="xs" onClick={() => { void askThenSave(); }}>
           {t(lang, "documentsTruncatedSaveAnyway")}
@@ -236,7 +255,7 @@ export function TruncatedLoadBanner({
         <DismissButton lang={lang} onClick={onDismiss} />
       </>}>
       <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {t(lang, "documentsTruncatedBanner")}
+        {t(lang, bannerKey)}
       </p>
       {countText && (
         <p className="text-xs text-ui-dark-blue dark:text-ui-light-grey">{countText}</p>
