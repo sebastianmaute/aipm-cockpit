@@ -191,6 +191,28 @@ export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {
     //    toward workspaceRecordCount, so removing several in one debounce
     //    window is a mass deletion by Layer B's arithmetic — and this IS the
     //    explicit user action the bypass exists for.
+    // ★★★ AND THIS IS THE ONE ARMING ROUTE WITH NO CONFIRM IN FRONT OF IT —
+    //    deliberately, and the asymmetry is recorded here because nothing else
+    //    marks it. `documents-panel.tsx` awaits a `confirm(...)` and
+    //    `asset-library.tsx` gates its `onDelete` behind one; this button is
+    //    wired straight to `onClick`. The reason is the VALUE of the row, not
+    //    the bypass: a knowledge item is a name plus a URL, re-enterable from
+    //    the add form in seconds, while those two destroy a document whose only
+    //    surviving copy is a version before-image, and asset BYTES. Gating a
+    //    two-field link behind a modal would be heavier than every comparable
+    //    row delete in the app.
+    // ★★ WHAT BOUNDS THE EXPOSURE, since a stray click does arm L3 and Layer B:
+    //    the `filter` below ALWAYS mints a new array, so the slice changes
+    //    reference, the save effect always runs, and the one-shot is always
+    //    consumed by that save — at most one debounce cycle later. It cannot
+    //    leak the way `documents-panel.tsx`'s did, where `mutateDocuments`
+    //    could return `changed:false` and leave nothing to spend it. The
+    //    residual risk is an accidental mass deletion landing inside the same
+    //    ~500ms window as a stray click, which is not a human sequence.
+    // ★ Do NOT copy the "(the caller confirms each delete before reaching
+    //    here)" clause from `use-document-assets.ts` onto this route — it is
+    //    false here, and that wording being reused MINUS its clause is exactly
+    //    what made the difference invisible.
     allowDestructiveSave?.();
     ws.setKnowledgeItems((prev) => (prev ?? []).filter((_, i) => i !== idx));
   }
