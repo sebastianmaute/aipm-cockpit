@@ -23,6 +23,23 @@ import { evaluateSaveGuard } from "./save-guard";
  * ★★ The behavioural proof for each route lives in that route's own test
  * file, next to the harness that can render it. This file holds the
  * enumeration and the guard-level tie only.
+ *
+ * Mutation record, 2026-08-29 — which mutant backs which assertion. A row is
+ * the ONLY thing entitling that assertion to be called mutation-proved.
+ *   M1 arming absent from deleteAllTasks        → "deleteAllTasks arms once…"        [red step]
+ *   M2 hoist the arming above the !doomed guard → "deleteTask does NOT arm…"         [mutated]
+ *   M3 empty removalToolNames()                 → "enumerates a non-empty tool set"  [mutated]
+ *   M4 filter out delete_document                → "reaches delete_document…"         [mutated]
+ *   M5 arming removed, use-stakeholders          → "arms once for a stakeholder…"     [red step]
+ *   M6 arming removed, use-change-log            → "arms once for a change…"          [red step]
+ *   M7 arming removed, use-calendar-events       → "arms once for an event…"          [red step]
+ * [mutated] = a mutant applied to the committed tree and reverted here.
+ * [red step] = the assertion was observed failing against a tree that genuinely
+ * lacked the arming, which is the same observable as deleting it.
+ *
+ * ★★ EVERY OTHER ASSERTION IN THIS SLICE IS UNPROVED BY MUTATION and is stated
+ * as such. In particular the nine UI single-delete routes' leak blocks are
+ * pinned only by their own positive controls, not by a hoist mutant.
  */
 
 /** Every AI tool that removes records, and where its arming is proved. */
