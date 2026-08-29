@@ -511,10 +511,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
-| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
+| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
+| [§289](#289-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21951,10 +21952,15 @@ be silently swallowed by this ordering.
 
 ---
 
-## 285. Nothing gates that a counted slice's delete routes arm the destructive-save bypass
+## 285. Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29
 
-**Status:** open — never machine-verified. Raised 2026-08-29 during the meta-decode-loss slice, by a
-post-hoc read of the widened counters rather than by any gate.
+**Status:** resolved 2026-08-29 — `fix/destructive-save-arming` armed every instance this entry names
+(the `documents`/`knowledgeItems`/`documentAssets` widening gaps, the AI `delete_document` route, and
+the pre-existing `deleteAllTasks` route) and added `src/app/destructive-save-arming.test.ts`, an
+enumeration gate over the imported `TOOL_DEFS` that fails when a new AI removal tool carries no
+recorded arming decision. That gate reaches the AI surface only — the UI surface has no equivalent
+enumeration to gate from, which is why it is filed separately rather than folded into this closure:
+see §289.
 
 `workspace-slice-policy.test.ts` gates WHICH slices count toward the save-time data-loss guards: it
 parses the `Workspace` type and fails when an array slice carries no recorded decision in
@@ -22175,3 +22181,49 @@ grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
 **Fix shape, if wanted:** route `appendSeed`'s rich fields through the same `allowListRich` pass
 `template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
 Not scoped to a template-carry slice, and it wants its own test for each entity.
+
+## 289. The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate
+
+**Status:** open — never machine-verified. Filed 2026-08-29 while closing §285, by reading
+`destructive-save-arming.test.ts`'s own enumeration source rather than by any gate.
+
+§285 asked for something that would catch a counted slice's removal route missing its
+`allowDestructiveSave` call. `fix/destructive-save-arming` armed every route the census in §285 named
+and added `destructive-save-arming.test.ts`, which enumerates `TOOL_DEFS` (imported from
+`chat-tool-defs.ts`) and fails when an AI tool whose name matches a removal shape carries no recorded
+arming decision. That closes the invariant for the AI surface, and only the AI surface.
+
+★★ **The UI surface has nothing to enumerate FROM, which is the whole gap.** `TOOL_DEFS` exists
+because every AI tool is declared once, in one array, with a name and a handler — a census can walk
+it. The panel-level delete handlers have no equivalent registry: each is a plain function bound to a
+button's `onClick` inside its own panel component, with no shared list a script could import and
+walk. A source scan for "a setter called with a value derived by filtering out one record" cannot
+stand in for that census either — the same shape describes an ordinary field edit (`setTasks(prev =>
+prev.map(...))` vs `prev.filter(...)`) and a scan cannot tell a delete from an edit without
+understanding what the callback computes, which is exactly the judgement call the census in §285 was
+done by hand.
+
+★ **Consequence, stated plainly:** an eighteenth UI delete handler added tomorrow — a new panel, or a
+new remove affordance on an existing one — fails nothing. Not `destructive-save-arming.test.ts` (it
+never sees the UI surface), not `workspace-slice-policy.test.ts` (that gates which slices COUNT, not
+whether their routes arm the bypass), not lint, tsc, coverage or axe. It would be caught only by
+another hand-written per-route test, the same way each of the nine Tier-C UI routes on this branch
+was — or by the same kind of post-hoc read that found §285's instances and this entry both.
+
+★ This is a narrower, more honest restatement of §285's own closing note ("What such a gate CANNOT
+do is prove the routes are COMPLETE") rather than a new discovery — filed as its own entry because
+§285 is now closed and a live gap should not be read as resolved by a closed heading.
+
+**Reproduce:**
+```
+grep -n "TOOL_DEFS" src/app/destructive-save-arming.test.ts
+grep -rln "allowDestructiveSave" src/app --include=*.tsx | grep -v "\.test\."
+```
+The first shows the enumeration's only source; the second lists panels that arm the bypass today by
+hand, with no script generating or checking that list against the panels' own delete handlers.
+
+**Fix shape, if wanted:** give the UI surface the same kind of single declared registry `TOOL_DEFS`
+gives the AI surface — e.g. a `DELETE_ROUTES` list each panel's delete handler is required to appear
+in — so a census can walk it the way `destructive-save-arming.test.ts` already walks `TOOL_DEFS`.
+Short of that, there is no source-level signal that distinguishes a delete from an edit, so any gate
+proposal here has to either accept a registry of this shape or fall back to enumeration by hand.
