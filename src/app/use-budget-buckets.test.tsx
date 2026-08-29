@@ -8,13 +8,14 @@ const bucket = (id: number, name = `B${id}`): BudgetBucket =>
 
 function setup(budgets: readonly BudgetBucket[]) {
   const setBudgets = vi.fn();
+  const allowDestructiveSave = vi.fn();
   const capture = vi.fn();
   const captureComposite = vi.fn();
   const logActivity = vi.fn();
   const { result } = renderHook(() =>
-    useBudgetBuckets({ budgets, setBudgets, capture, captureComposite, logActivity }),
+    useBudgetBuckets({ budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity }),
   );
-  return { result, setBudgets, capture, captureComposite, logActivity };
+  return { result, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity };
 }
 
 describe("commitBuckets", () => {
@@ -80,6 +81,33 @@ describe("commitBuckets", () => {
     expect(opts.parts[0]).toBe(tasksPart);
     expect(opts.parts[1]).not.toBeNull();
   });
+  // ★★ `budgets` is a COUNTED slice, so a deliberate bucket deletion can trip
+  // the save-time data-loss guard. The bypass is ONE-SHOT: these two tests are
+  // split so vitest cannot abort at the first hard assertion and leave the
+  // other unexecuted — the leak case is the one that turns a data-loss FIX into
+  // a data-loss VECTOR, and it must be proved on its own.
+  test("commitBuckets arms the destructive-save bypass once when it removed a bucket", () => {
+    const keep = bucket(1); // by reference — see the delete test
+    const gone = bucket(2, "Build");
+    const s = setup([keep, gone]);
+    s.result.current.commitBuckets([keep]);
+    expect(s.allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  test("commitBuckets does NOT arm when the commit removed nothing", () => {
+    const keep = bucket(1, "Design");
+    const gone = bucket(2, "Build");
+    const s = setup([keep, gone]);
+    // An EDIT-only commit: `touched` is 1, `deleted` is empty. Arming here
+    // would leak the one-shot bypass into whatever save comes next.
+    s.result.current.commitBuckets([{ ...keep, name: "Design phase" }, gone]);
+    expect(s.allowDestructiveSave).not.toHaveBeenCalled();
+    // POSITIVE CONTROL — same hook, same spy. Without it this block passes
+    // identically against a tree where the arming line was never written.
+    s.result.current.commitBuckets([keep]);
+    expect(s.allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
   test("callerLogs suppresses the boundary log so a bulk apply writes ONE row", () => {
     const prev = bucket(1, "Design");
     const s = setup([prev]);

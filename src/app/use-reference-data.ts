@@ -247,6 +247,9 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         ],
       });
       logActivityRef.current("discipline.deleted", id, removed.name);
+      // `disciplines` is a counted slice — a deliberate delete must arm the
+      // one-shot bypass or the save guard refuses the user's own removal.
+      allowDestructiveRef.current?.();
     }
   }, [disciplines, roles, setDisciplines, setRoles]);
 
@@ -268,6 +271,9 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         ],
       });
       logActivityRef.current("grade.deleted", id, removed.name);
+      // `grades` is a counted slice — same one-shot arming as the discipline
+      // and role routes above.
+      allowDestructiveRef.current?.();
     }
   }, [grades, roles, setGrades, setRoles]);
 

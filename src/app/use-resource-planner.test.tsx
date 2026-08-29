@@ -3,7 +3,7 @@ import { act, renderHook } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { sanitizeRichHtml } from "./sanitize-html";
-import type { Absence, RaidItem, Resource, Role, Shift } from "./types";
+import type { Absence, Discipline, Grade, RaidItem, Resource, Role, Shift } from "./types";
 import type { CalendarEvent } from "./calendar-event";
 import { buildMoveOccurrenceHandler } from "./calendar-event-move-handler";
 import type { Occurrence } from "./recurrence";
@@ -1529,7 +1529,10 @@ describe("useResourcePlanner", () => {
     });
   });
 
-  describe("useReferenceData — role delete arms the destructive-save bypass", () => {
+  describe("useReferenceData — deletes arm the destructive-save bypass", () => {
+    const mkDiscipline = (id: number, name: string): Discipline => ({ id, name });
+    const mkGrade = (id: number, name: string): Grade => ({ id, name });
+
     it("handleDeleteRole arms once for a role that exists", () => {
       const allowDestructiveSave = vi.fn();
       const { result } = renderPlanner({ allowDestructiveSave });
@@ -1548,6 +1551,48 @@ describe("useResourcePlanner", () => {
       // POSITIVE CONTROL
       const id = result.current.workspace.roles[0]!.id;
       act(() => { result.current.planner.handleDeleteRole(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("onDeleteDiscipline arms once for a discipline that exists", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setDisciplines([mkDiscipline(1, "Developer")]); });
+      const id = result.current.workspace.disciplines[0]!.id;
+      act(() => { result.current.planner.onDeleteDiscipline(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("onDeleteDiscipline does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setDisciplines([mkDiscipline(1, "Developer")]); });
+      act(() => { result.current.planner.onDeleteDiscipline(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.disciplines[0]!.id;
+      act(() => { result.current.planner.onDeleteDiscipline(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("onDeleteGrade arms once for a grade that exists", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setGrades([mkGrade(1, "Senior")]); });
+      const id = result.current.workspace.grades[0]!.id;
+      act(() => { result.current.planner.onDeleteGrade(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("onDeleteGrade does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setGrades([mkGrade(1, "Senior")]); });
+      act(() => { result.current.planner.onDeleteGrade(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.grades[0]!.id;
+      act(() => { result.current.planner.onDeleteGrade(id); });
       expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     });
   });
