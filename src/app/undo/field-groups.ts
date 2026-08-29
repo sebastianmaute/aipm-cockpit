@@ -7,6 +7,7 @@
 
 import type { Task, ChangeItem, RaidItem, Milestone, Stakeholder, Resource } from "../types";
 import type { CalendarEvent } from "../calendar-event";
+import { WRITE_THROUGH_KEYS } from "./write-through-fields";
 
 export type FieldGroup<T> = readonly (keyof T & string)[];
 
@@ -137,11 +138,10 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * with an explicit `undefined` on the other side, so a bulk edit that CLEARS a
  * field is undoable.
  *
- * See also `WRITE_THROUGH_FIELDS` in `use-undo-stack.ts` — that constant decides
- * what a whole-row undo PRESERVES; this one decides what a patch CAPTURES.
+ * Both views now come from `write-through-fields.ts`: the tuple decides what a
+ * whole-row undo PRESERVES, the derived set decides what a patch CAPTURES. They
+ * are one list and can no longer drift (open-followups §177).
  */
-const WRITE_THROUGH_KEYS: ReadonlySet<string> = new Set(["noteLog", "outlookEventId"]);
-
 export function buildBulkFieldEdits<T extends { id: number }>(
   rows: readonly { before: T; after: T }[],
 ): { id: number; before: Partial<T>; after: Partial<T> }[] {
