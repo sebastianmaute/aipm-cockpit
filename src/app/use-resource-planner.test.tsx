@@ -1458,6 +1458,10 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.workspace.setAbsences([mkAbsence(1)]); });
       act(() => { result.current.planner.handleDeleteAbsence(999_999); });
       expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.absences[0]!.id;
+      act(() => { result.current.planner.handleDeleteAbsence(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     });
 
     it("handleDeleteShift does NOT arm for an id that does not exist", () => {
@@ -1466,6 +1470,10 @@ describe("useResourcePlanner", () => {
       act(() => { result.current.workspace.setShifts([mkShift(1)]); });
       act(() => { result.current.planner.handleDeleteShift(999_999); });
       expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.shifts[0]!.id;
+      act(() => { result.current.planner.handleDeleteShift(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     });
 
     it("does not throw when no bypass is supplied", () => {

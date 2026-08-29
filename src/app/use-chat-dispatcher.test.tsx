@@ -2216,6 +2216,12 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     const { result, allowDestructiveSave } = renderWithBypass();
     act(() => { result.current.deleteResource(999_999); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }).id;
+    });
+    act(() => { result.current.deleteResource(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("does not throw when no bypass is supplied", () => {
@@ -2247,18 +2253,36 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     const { result, allowDestructiveSave } = renderWithBypass();
     act(() => { result.current.deleteMilestone(999_999); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createMilestone({ name: "M1", date: "2026-09-01" }).id;
+    });
+    act(() => { result.current.deleteMilestone(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteChange arms only when a change was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
     act(() => { result.current.deleteChange(999_999); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createChange({ title: "C1" }).id;
+    });
+    act(() => { result.current.deleteChange(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 
   it("deleteStakeholder arms only when a stakeholder was removed", () => {
     const { result, allowDestructiveSave } = renderWithBypass();
     act(() => { result.current.deleteStakeholder(999_999); });
     expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createStakeholder({ name: "S1" }).id;
+    });
+    act(() => { result.current.deleteStakeholder(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 });
 
