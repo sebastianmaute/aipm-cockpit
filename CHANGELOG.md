@@ -12,20 +12,22 @@ longer carries its own changelog comment.
 
 ### Fixed
 
-- **Deleting every task through the AI assistant, or bulk-deleting resources, could be silently
-  refused by the data-loss guard, so the deletion looked like it worked but never actually saved.**
+- **Deleting every task through the AI assistant, or bulk-deleting resources, could be refused by
+  the data-loss guard, so the deletion looked like it worked but was never actually saved.**
   The app refuses to save a change that looks like an accidental wipe or mass deletion unless the
   action that caused it says the deletion was deliberate. Two routes never said so: clearing every
   task via the assistant, and bulk-deleting resources. Either one could trip the guard, and the
-  workspace would keep showing the old data on the next reload with no error shown at the time.
-  Both now tell the guard the deletion is intentional, so it saves as expected.
+  app would report that it had withheld the save to protect your data — which is the right thing
+  to say about an accident, but wrong here, because the deletion was exactly what you asked for.
+  The deleted records then came back on the next reload. Both routes now tell the guard the
+  deletion is intentional, so it saves as expected.
 
-- **Several deletions made by the assistant in quick succession could add up to a "mass deletion" and
-  be refused, even though each one individually was fine.** When multiple assistant actions land in
-  the same short save window, their combined effect is what the guard checks — so a handful of
+- **Several deletions made by the assistant in quick succession could add up to a "mass deletion"
+  and be refused, even though each one individually was fine.** When multiple assistant actions land
+  in the same short save window, their combined effect is what the guard checks — so a handful of
   ordinary deletions in one exchange could cross the same threshold as an accidental wipe and be
-  silently refused. This is now accounted for as well, so a save is no longer refused for a batch of
-  deletions the assistant made deliberately.
+  refused with the same withheld-save notice. This is now accounted for as well, so a save is no
+  longer refused for a batch of deletions the assistant made deliberately.
 
 ## [0.263.2] - 2026-08-29 "Okorafor"
 

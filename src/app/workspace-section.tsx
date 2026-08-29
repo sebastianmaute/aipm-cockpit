@@ -784,8 +784,7 @@ export function WorkspaceSection({
               showHints={effectiveSettings.showViewHints !== false}
               isPopout={isPopout}
               onLearnMore={requestHelpConcept}
-              onAiEdit={milestoneInlineAi.onAiEdit}
-              aiEditEnabled={milestoneInlineAi.aiEditEnabled}
+              onAiEdit={milestoneInlineAi.onAiEdit} aiEditEnabled={milestoneInlineAi.aiEditEnabled}
               allowDestructiveSave={allowDestructiveSave}
             />
             {milestoneInlineAi.popover}
