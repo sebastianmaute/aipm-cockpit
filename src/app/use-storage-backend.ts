@@ -399,6 +399,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = false;
       prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
       prevRecordCountRef.current = curRecords;
+      // ★★★ SPEND the bypass here too, for the SAME reason as the incomplete-load return
+      //   below — but note the mechanism differs, and that is why this one is easy to miss.
+      //   There the arm is unspent because the save never ran; HERE the baselines have just
+      //   been resynced to the post-mutation counts, so the guard can no longer see the
+      //   deletion at all and the arm was never needed. Either way an un-spent one-shot
+      //   survives into a LATER, unrelated save — a bypass armed by a deliberate deletion
+      //   silently waving through an accidental mass one hours afterwards. A one-shot that
+      //   outlives the mutation that armed it is a data-loss vector, not a data-loss fix.
+      allowDestructiveRef.current = false;
       return;
     }
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and

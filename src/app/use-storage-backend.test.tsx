@@ -2606,6 +2606,90 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
       expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
     );
   });
+
+  // ── the SECOND unspent early return: the suppress-after-load branch ────────
+  // ★★★ THE SAME LEAK, ONE BRANCH HIGHER, AND ITS MECHANISM IS DIFFERENT ENOUGH
+  // TO HAVE BEEN MISSED WHEN THE TRUNCATION ONE WAS FIXED. `suppressNextSaveRef`
+  // is set by every load/apply path, and its early return RESYNCS the baselines
+  // to the freshly-loaded counts — so the deletion the user armed for becomes
+  // invisible to the guard and the arm is never needed, never spent, and still
+  // live an unbounded number of edits later. The scenario: confirmed bulk delete
+  // arms the bypass → a reload lands before the debounce fires → the pending
+  // deletion is discarded along with the need for the arm → an accidental mass
+  // deletion hours later is waved straight through by the stale one-shot.
+  function useReloadableBackend() {
+    const b = {
+      load: vi.fn(async () => ({ tasks: manyTasks, raid: [], absences: [], shifts: [] })),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(b);
+    return b;
+  }
+
+  it("does not carry a destructive bypass across the suppress-after-load early return", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });   // 20 records → baseline 20
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // ★★★ THE ARM IS ALONE ON PURPOSE, and getting this wrong makes the test
+    // VACUOUS — measured, not reasoned. `allowDestructiveSave()` only writes a
+    // ref, so it schedules no render and runs no effect; pairing it with the
+    // deletion in one act() lets the effect body reach the GUARD, which spends
+    // the arm at its normal consume site and resyncs the baselines, and the
+    // suppress branch below then never sees a live arm at all. That shape
+    // passes against the unfixed tree. The real window is an arm whose mutation
+    // has not landed yet — a confirm handler that arms, then applies — with a
+    // load/apply (reload, project switch, background sync) interleaving first.
+    await act(async () => { result.current.allowDestructiveSave(); });
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled(); // control: the suppress branch really engaged
+
+    // A LATER, unrelated mass deletion with no arming of its own. Layer B must
+    // judge it on its own merits, not on an arm spent nowhere.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();
+    expect(showToast).toHaveBeenCalledWith("info", expect.stringContaining("blocked a sudden wipe"));
+  });
+
+  it("still honours a bypass armed AFTER a suppressed load", async () => {
+    // ★★★ THE CONTROL THAT MAKES THE TEST ABOVE MEAN SOMETHING — a guard that
+    // refused every mass deletion unconditionally satisfies "save was not
+    // called" just as well, while breaking the confirmed clear-all the bypass
+    // exists for. Same fixture, same reload, same deletion; only the ORDER of
+    // the arming differs, and that alone must flip the outcome.
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();
+
+    await act(async () => {
+      result.current.allowDestructiveSave();
+      result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]);
+    });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).toHaveBeenCalledWith(
+      expect.objectContaining({ tasks: [expect.objectContaining({ id: 1, taskName: "T" })] }),
+    );
+  });
 });
 
 // ── §103: the guard must reach EVERY load and EVERY flush ────────────────────
