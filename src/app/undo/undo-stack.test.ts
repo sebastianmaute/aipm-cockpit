@@ -493,9 +493,7 @@ describe("delete-branch identity under a write-through write (open-followups §1
   type Row = { id: number; title: string; noteLog?: { id: string; text: string }[] };
   const PRESERVE = ["noteLog", "outlookEventId"];
 
-  // Un-skipped by the §179 fix in the next commit. Left skipped here so this
-  // commit records the reproduction without shipping a red suite.
-  it.skip("removes the row on redo even though a note was added after the restore", () => {
+  it("removes the row on redo even though a note was added after the restore", () => {
     // The sequence from the register: delete a row, undo it, add a note through
     // the notes window (write-through — no undo entry, so the redo stack
     // survives), then redo. The redo must still remove the row it restored.
