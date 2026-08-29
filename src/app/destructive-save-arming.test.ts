@@ -48,6 +48,8 @@ import { evaluateSaveGuard } from "./save-guard";
  *                                                    open modal"
  *   M9 drop the `removesAbsence || removesShift` → "onClearUnlinked does NOT arm      [mutated]
  *      guard, task-manager.tsx onClearUnlinked       when nothing matched"
+ *   M10 drop the `|| removesShift` disjunct ONLY,→ "onClearUnlinked does NOT arm      [mutated]
+ *       task-manager.tsx onClearUnlinked             when nothing matched"
  * [mutated] = a mutant applied to the committed tree and reverted here.
  * [red step] = the assertion was observed failing against a tree that genuinely
  * lacked the arming, which is the same observable as deleting it.
@@ -59,8 +61,6 @@ import { evaluateSaveGuard } from "./save-guard";
  * `onDeleteDiscipline`, `onDeleteGrade` and `commitBuckets` carry a
  * positive/negative pair and nothing more, so they are the least-proved arming
  * in the slice.
- *   M10 drop the `|| removesShift` disjunct     → "onClearUnlinked does NOT arm      [mutated]
- *       only, task-manager.tsx onClearUnlinked      when nothing matched"
  * ★★ M10 is the one that proves the OR is real, and it is a SEPARATE mutant
  * from M9 on purpose: M9 deletes the whole guard, which a single-fixture test
  * would also have caught. Only M10 shows the two fixtures drive the absence

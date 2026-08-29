@@ -65,7 +65,7 @@ a refusal on its own:**
 
 ★★★ **"NON-CASCADING" IS LOAD-BEARING AND THIS PARAGRAPH SHIPPED WITHOUT IT**, which is how the
 CHANGELOG came to under-claim. A handler that removes records from a SECOND collection is not a
-single-record delete however it reads at the call site, and two of them do:
+single-record delete however it reads at the call site, and these do:
 
 - `handleDeleteResource` (`use-resource-directory.ts`) cascades through `purgeCalendarFor`, which
   removes the person's `absences` and `shifts`. On `resources=[R1]`, `absences=[A1 owned by R1]`,
@@ -87,12 +87,16 @@ So the routes are NOT equal live defects. Three tiers:
 | **B — reachable by aggregation** | the six other AI single-delete routes | Several tool calls in ONE model turn land inside one save debounce window and aggregate. A model deleting six risks from a six-risk register removes 6 and leaves 0, which is refused. |
 | **C — defence in depth** | the remaining UI single-delete handlers | Each is behind its own confirm dialog; five confirms inside one debounce window is not a realistic user action. Armed for CONSISTENCY with `documents-panel.tsx`, which already arms on every single delete for the aggregate reason, not because a live refusal has been demonstrated. |
 
-★★ **NO ROUTE COUNT IS QUOTED IN THIS SECTION, DELIBERATELY.** It said "seventeen" and the census was
+★★ **EVERY ROUTE COUNT IN THIS DOCUMENT IS A FILING-TIME SNAPSHOT — the tier table above and
+the "seventeen" below included.** The census was
 short by four — `onClearUnlinked`, `onDeleteDiscipline`, `onDeleteGrade` and `commitBuckets`, all
 confirm-gated removals on counted slices, two of them in a file this slice had already edited. A
 by-hand census states a completeness it cannot prove, and the number is what makes it read as proved.
-Enumerate today's armed set instead:
-`grep -rn "allowDestructiveSave?\.()\|allowDestructiveRef\.current?\.()" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
+Enumerate the armed set instead. ★★ THERE ARE THREE ARMING SPELLINGS, NOT TWO — a pattern naming
+only `allowDestructiveSave?.()` and `allowDestructiveRef.current?.()` silently drops every
+`allowDestructiveSaveRef.current?.()` site, `use-bulk-operations.ts` among them, which is the very
+route §285 is about. Match the family, never the two spellings you happen to remember:
+`grep -rnE "allowDestructive[A-Za-z.]*\?\.\(\)" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
 
 **Tier C must not be described as a fixed user-facing bug** — in the CHANGELOG, in the register, or
 in a commit message. The CHANGELOG entry covers tiers A and B. Tier C is an internal consistency fix.
@@ -100,6 +104,10 @@ in a commit message. The CHANGELOG entry covers tiers A and B. Tier C is an inte
 ---
 
 ## 3. The census — seventeen routes
+
+★★ SNAPSHOT AT FILING, AND SHORT BY FOUR — see the note in §2.1. Left unrenumbered on purpose:
+rewriting it to match the fixed tree destroys the only thing it is good for, which is showing what
+a by-hand census missed.
 
 Measured 2026-08-29 on `3961777b`, clean tree.
 
@@ -115,7 +123,7 @@ Measured 2026-08-29 on `3961777b`, clean tree.
 | UI | `use-calendar-events.ts` | `handleDeleteCalendarEvent` |
 | UI | `milestones-panel.tsx` | `del` |
 
-Already arming, and therefore out of scope: `use-bulk-operations.ts`, `task-manager.tsx`,
+Already arming, and therefore out of scope: `use-bulk-operations.ts`,
 `knowledge-panel.tsx`, `documents-panel.tsx`, `documents-asset-section.tsx`,
 `use-document-assets.ts`, `use-document-tools.ts`, `use-storage-backend.ts`.
 
@@ -135,7 +143,7 @@ OPEN, so a moved anchor degrades the count to a guaranteed 0 with no diagnostic 
     sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave
 
 The first is the control and must be non-zero; the second is 0 before this slice and 1 after.
-`grep -c allowDestructiveSave src/app/use-register-tools.ts` returns 0 today.
+`grep -c allowDestructiveSave src/app/use-register-tools.ts` returned 0 at `3961777b`.
 
 ---
 
@@ -238,7 +246,7 @@ Completeness only works where a declaration exists to enumerate from.
   an edit, and would need to model seven idioms to try.
 
 The ten UI routes therefore get behavioural blocks like the others, but nothing fails when an
-eighteenth UI route is added. That asymmetry goes in the test's docstring in the same words, and is
+eighteenth UI route is added. That asymmetry goes in the test's docstring, and is
 FILED as a follow-up rather than left implied — a gate whose blind spot is undocumented reads as
 covering more than it does, which is the failure class this repo's register exists to prevent.
 

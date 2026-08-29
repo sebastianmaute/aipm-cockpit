@@ -34,9 +34,7 @@ longer carries its own changelog comment.
   removes that person's absences and shift entries, and "Clear unlinked" removes every absence and
   shift still carrying their name, which can be many rows at once. On a smaller project either could
   empty enough of the workspace to look like an accidental wipe and be withheld, with the deleted
-  records back on the next reload. Every remaining deletion — disciplines, grades, budget lines,
-  milestones, risks, changes, stakeholders, calendar entries and roles — now says the same thing to
-  the guard, so a deliberate removal is no longer treated as an accident on any route.
+  records back on the next reload.
 
 ## [0.263.2] - 2026-08-29 "Okorafor"
 

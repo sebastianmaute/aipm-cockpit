@@ -22220,7 +22220,7 @@ confirm-gated removal on a counted slice, each arming nothing: `onClearUnlinked`
 which filters `absences` and `shifts` by name and so removes an UNBOUNDED number of rows on one
 confirm — reaching `isMassDeletion` with no aggregation at all), `onDeleteDiscipline` and
 `onDeleteGrade` (`use-reference-data.ts` — the same file the slice had already edited to arm
-`handleDeleteRole`, a few lines above), and `commitBuckets` (`use-budget-buckets.ts`, the single
+`handleDeleteRole`), and `commitBuckets` (`use-budget-buckets.ts`, the single
 commit boundary for `budgets`, wired to a confirm-gated per-row remove in `budget-panel.tsx`). All
 four are armed now. ★★ Read the LESSON, not the fix: the census was not careless — it was
 hand-written, and a hand-written census asserts a completeness it has no way to establish. Two of the
