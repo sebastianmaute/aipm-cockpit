@@ -257,7 +257,7 @@ function MilestonesPanelBody({
     // ★ The build stays hoisted out of the optional `captureFieldRows?.(…)` call:
     // inlined, it would not run at all when no capture prop is wired, emptying
     // `wrote` and suppressing every save.
-    const edits = buildBulkFieldEdits(rows);
+    const edits = buildBulkFieldEdits(rows, MILESTONE_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
     // No `stampField` here: this register omits it while the tasks bulk edit
     // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"`.

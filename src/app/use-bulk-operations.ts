@@ -20,7 +20,7 @@ import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-hel
 import { applyStatusChange } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
-import { buildBulkFieldEdits } from "./undo/field-groups";
+import { TASK_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 import { visibleTaskRows } from "./visible-task-rows";
 
 // Fields Jira owns on a synced task (mirrors issueToTaskFields). Bulk-editing
@@ -282,7 +282,7 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // wrote, and a note added through the notes window (or an outlookEventId
     // stamped by a background Outlook push) survives the undo (§50).
     const taskEdits = taskFieldsEnabled
-      ? buildBulkFieldEdits(beforeRows.map((row) => ({ before: row, after: patchRow(row) })))
+      ? buildBulkFieldEdits(beforeRows.map((row) => ({ before: row, after: patchRow(row) })), TASK_UNDO_GROUPS)
       : [];
     // ★★★ THE ROWS THE CAPTURE RECORDS AND THE ROWS THE WRITE TOUCHES ARE ONE
     // SET, derived from the one `patchRow` diff above. Gating the write on

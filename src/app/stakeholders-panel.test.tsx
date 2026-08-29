@@ -201,7 +201,7 @@ describe("Stakeholders bulk edit", () => {
   });
 
   // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
-  // panel. The panel hoists `buildBulkFieldEdits(rows)` above the optional
+  // panel. The panel hoists `buildBulkFieldEdits(rows, …)` above the optional
   // `onCaptureBulk?.(build())` call so the builder runs even unwired. Two ticked
   // fields over THREE rows, each row a different shape of overlap with the pick:
   //   Dana  — both picked values are new            → both keys captured, saved

@@ -48,7 +48,7 @@ import {
 import { setRaciRole } from "./stakeholders";
 import { RaciSuggestModal } from "./raci-suggest-modal";
 import { AiTriggerButton } from "./ai-trigger-button";
-import { buildBulkFieldEdits } from "./undo/field-groups";
+import { STAKEHOLDER_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 
 type Phase = "idle" | "thinking" | "preview" | "applying";
 
@@ -254,7 +254,7 @@ export function useRaciSuggest(deps: RaciSuggestDeps): RaciSuggest {
     // folds over the SAME `stakeholders` list `originalById` is built from, so every
     // `after.id` resolves and `rows.length === updated.length`; the null filter above
     // is defensive.
-    const edits = buildBulkFieldEdits(rows);
+    const edits = buildBulkFieldEdits(rows, STAKEHOLDER_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
     onCaptureBulk?.(edits);
     for (const { after } of rows) {

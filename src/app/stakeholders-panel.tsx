@@ -39,7 +39,7 @@ import { PaneToolbar, PaneSearchInput, AddButton } from "./pane-toolbar";
 import { useRowSelection } from "./use-row-selection";
 import { PanelTableScaffold } from "./panel-table-scaffold";
 import { selectField, type BulkField } from "./bulk-edit-panel";
-import { buildBulkFieldEdits } from "./undo/field-groups";
+import { STAKEHOLDER_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 
 const STAKEHOLDER_FILTER_DEFAULTS: PanelFiltersState = { search: "", filters: {}, sort: null, hiddenCols: [] };
 
@@ -230,7 +230,7 @@ function StakeholdersPanelBody({
     // ★ Hoisting the build out of the optional call is load-bearing, not tidiness:
     // `onCaptureBulk?.(build())` skips `build()` entirely when no capture prop is
     // wired, which would empty `wrote` and suppress every save.
-    const edits = buildBulkFieldEdits(rows);
+    const edits = buildBulkFieldEdits(rows, STAKEHOLDER_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
     onCaptureBulk?.(edits);
     for (const { after } of rows) {
