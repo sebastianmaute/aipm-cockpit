@@ -1,10 +1,11 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, fireEvent, within } from "@testing-library/react";
+import { render, screen, fireEvent, within, waitFor } from "@testing-library/react";
 import { __resetMintStateForTests } from "./id-mint-session";
 import { useEffect, type ReactNode } from "react";
 import { FiltersProvider } from "./filters-context";
 import { WorkspaceProvider, useWorkspace } from "./workspace-context";
 import { WorkspaceTabProvider, useWorkspaceTab } from "./workspace-tab-context";
+import { ConfirmProvider } from "./confirm-dialog";
 import { indexDocumentsByEntity, type DocEntityRef } from "./document-ref";
 import type { ProjectDocument } from "./document-model";
 import { ToastProvider } from "./toast-context";
@@ -61,15 +62,22 @@ function Seed({ milestones }: { milestones: readonly Milestone[] }) {
 function renderMilestones({
   milestones = [],
   today = "2026-06-02",
+  allowDestructiveSave,
 }: {
   milestones?: readonly Milestone[];
   today?: string;
+  allowDestructiveSave?: () => void;
 } = {}) {
   return render(
-    <>
+    <ConfirmProvider lang="en-US">
       <Seed milestones={milestones} />
-      <MilestonesPanel lang="en-US" today={today} holidaySet={new Set()} />
-    </>,
+      <MilestonesPanel
+        lang="en-US"
+        today={today}
+        holidaySet={new Set()}
+        allowDestructiveSave={allowDestructiveSave}
+      />
+    </ConfirmProvider>,
     { wrapper },
   );
 }
@@ -825,5 +833,25 @@ describe("Milestones bulk edit undo", () => {
     // ...and so did the concurrent rename, which no backstop protects.
     expect(screen.getByTestId("name-1").textContent).toBe("Alpha (renamed)");
     expect(screen.getByTestId("name-2").textContent).toBe("Beta");
+  });
+});
+
+describe("MilestonesPanel — delete arms the destructive-save bypass", () => {
+  it("arms once for a milestone that exists", async () => {
+    const allowDestructiveSave = vi.fn();
+    renderMilestones({ milestones: [m("Kickoff", "2026-01-15")], allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Kickoff" }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "delete") }));
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    await waitFor(() => expect(allowDestructiveSave).toHaveBeenCalledTimes(1));
+    expect(screen.queryByText("Kickoff")).toBeNull();
+  });
+
+  it("does not throw when no bypass is supplied", async () => {
+    renderMilestones({ milestones: [m("Kickoff", "2026-01-15")] });
+    fireEvent.click(screen.getByRole("button", { name: "Kickoff" }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "delete") }));
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    await waitFor(() => expect(screen.queryByText("Kickoff")).toBeNull());
   });
 });

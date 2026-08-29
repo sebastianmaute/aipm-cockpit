@@ -786,6 +786,7 @@ export function WorkspaceSection({
               onLearnMore={requestHelpConcept}
               onAiEdit={milestoneInlineAi.onAiEdit}
               aiEditEnabled={milestoneInlineAi.aiEditEnabled}
+              allowDestructiveSave={allowDestructiveSave}
             />
             {milestoneInlineAi.popover}
           </div>
