@@ -340,7 +340,15 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     // raid/change/milestone/stakeholder edit does NOT move this identity; what
     // is listed here is every non-ref value the bodies close over, and each is
     // stable in practice (the four are `useState` setters, `readOnlyError` is
-    // the useCallback above, `clockRef` is a ref object).
+    // the useCallback above, `clockRef` is a ref object, and
+    // `allowDestructiveSave` is a `useCallback` with an EMPTY deps array over a
+    // single ref write in use-storage-backend.ts, so its identity never moves
+    // either). ★ That last one arrived with the destructive-save arming and was
+    // a plain arrow at first — re-created every render, which made this memo
+    // recompute every render and propagated the churn to use-chat-dispatcher,
+    // whose own dispatcher memo lists `registerTools`. Verify before trusting
+    // this line: `grep -n "const allowDestructiveSave" src/app/use-storage-backend.ts`
+    // must show the useCallback wrapper.
     //
     // ★★ `logActivityAs` IS THE DEP THIS EXTRACTION COULD HAVE DROPPED. Before
     // the move these bodies read `args.logActivityAs` from use-chat-dispatcher's

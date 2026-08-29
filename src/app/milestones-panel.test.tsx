@@ -854,4 +854,43 @@ describe("MilestonesPanel — delete arms the destructive-save bypass", () => {
     fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
     await waitFor(() => expect(screen.queryByText("Kickoff")).toBeNull());
   });
+
+  // ★★ THE NEGATIVE CASE — a no-op delete must NOT spend the one-shot bypass,
+  // matching every other delete route on this branch. Staged by opening the
+  // edit modal for a milestone and then re-seeding the workspace WITHOUT it:
+  // the panel re-renders, so the `onDelete` the still-open modal now holds is
+  // a `del` closed over an array the id has left, and its `if (doomed)` guard
+  // misses. Hoisting `allowDestructiveSave?.()` above that guard turns this red.
+  // ★ The re-seed must land BEFORE the Delete click — clicking first captures
+  //   the pre-reseed `del` in the pending `await confirm(...)`, which still
+  //   finds the milestone and legitimately arms.
+  it("does not arm when the milestone left the workspace under an open modal", async () => {
+    const allowDestructiveSave = vi.fn();
+    const kickoff = m("Kickoff", "2026-01-15");
+    const handover = m("Handover", "2026-03-01");
+    const tree = (milestones: readonly Milestone[]) => (
+      <ConfirmProvider lang="en-US">
+        <Seed milestones={milestones} />
+        <MilestonesPanel
+          lang="en-US"
+          today="2026-06-02"
+          holidaySet={new Set()}
+          allowDestructiveSave={allowDestructiveSave}
+        />
+      </ConfirmProvider>
+    );
+    const { rerender } = render(tree([kickoff, handover]), { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "Kickoff" }));
+    expect(await screen.findByRole("button", { name: t("en-US", "delete") })).toBeTruthy();
+    rerender(tree([handover]));
+    // The row is gone from the list while the modal for it stays open.
+    await waitFor(() => expect(screen.queryByRole("button", { name: "Kickoff" })).toBeNull());
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "delete") }));
+    fireEvent.click(await screen.findByRole("button", { name: /^confirm$/i }));
+    // POSITIVE OBSERVABLE — `del` ends in setEditing(null), so both dialogs
+    // closing proves the delete path really ran and the assertion below is
+    // about the guard rather than about a confirm that never resolved.
+    await waitFor(() => expect(screen.queryAllByRole("dialog")).toHaveLength(0));
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
 });

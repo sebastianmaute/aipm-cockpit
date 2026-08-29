@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
@@ -137,7 +137,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
    *  refused by the persistence guard. */
-  const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
+  const allowDestructiveSave = useCallback(() => { allowDestructiveRef.current = true; }, []); // ★ useCallback with EMPTY deps: it only writes a ref, so it closes over nothing that can go stale — and use-register-tools.ts lists it in an exhaustive useMemo deps array that assumes every member is identity-stable.
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
