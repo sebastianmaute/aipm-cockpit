@@ -403,11 +403,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--open-pre-existing) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing | — | — | open |
 | [§175](#175-buildchatpointerblock-is-no-longer-bounded-by-any-test--closed-2026-08-20) | `buildChatPointerBlock` is no longer bounded by any test | — | — | **CLOSED** 2026-08-20 |
 | [§176](#176-the-chat-pointer-title-path-flipped-from-flatten-then-cap-to-cap-then-flatten-and-no-test-pins-either-order--closed-2026-08-20) | The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order | — | — | **CLOSED** 2026-08-20 |
-| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open |
-| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--open-pre-existing) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing | — | — | open |
-| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--open-pre-existing) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing | — | — | open |
-| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--open) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open | — | — | open |
-| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--open-unresolved) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED | — | — | open |
+| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open (177a closed 2026-08-29; 177b open) |
+| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field | — | — | **CLOSED** 2026-08-29 |
+| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row | — | — | **CLOSED** 2026-08-29 |
+| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent | — | — | **CLOSED** 2026-08-29 |
+| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it | — | — | **CLOSED** 2026-08-29 (3 of 4; milestones correct as-is) |
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
@@ -13487,7 +13487,15 @@ by reversing the order.
 
 ## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
 
-**Status:** open — whole-row capture paths and a hand-duplicated field list. Reproduced 2026-08-28 by `grep -n "WRITE_THROUGH_FIELDS" src/app/undo/use-undo-stack.ts`.
+**Status:** open — the 177b whole-row capture sweep only. The 177a duplicated field list is done (2026-08-29) but this entry stays open for 177b, so the heading is deliberately not struck. Verified 2026-08-29 by `grep -rn "WRITE_THROUGH_FIELDS\|WRITE_THROUGH_KEYS" src/app --include=*.ts`, which now shows one authoring site (`src/app/undo/write-through-fields.ts`) and imports everywhere else.
+
+★ **177a is DONE (2026-08-29, commit `4694344e`); this entry stays open for 177b alone.**
+The hand-duplicated field list is gone — `WRITE_THROUGH_FIELDS` (what a whole-row undo PRESERVES)
+and `WRITE_THROUGH_KEYS` (what a bulk patch CAPTURES) held the same two strings in two files with
+nothing enforcing they agreed, and both now come from `src/app/undo/write-through-fields.ts`, the set
+DERIVED from the tuple. ★★ That closes the DRIFT risk, not the residue this entry is named for: the
+list still only protects the fields it names, and 177b — converting the remaining whole-row capture
+sites to field patches across six subsystems — is untouched and is why the heading is not struck.
 
 §50's field-patch conversion (closed 2026-08-18) made the five converted PANEL bulk-edit sites immune
 to the write-through clobber BY CONSTRUCTION — a field patch merges only the fields the op itself
@@ -13561,9 +13569,9 @@ grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
 
 ---
 
-## 178. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
+## 178. ~~A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field~~ — CLOSED 2026-08-29
 
-**Status:** open — a field-patch undo that reverts a concurrent write to another key. Reproduced 2026-08-28 by `grep -n "pick(before, changed)" src/app/undo/field-groups.ts`.
+**Status:** **CLOSED** 2026-08-29 — `captureFieldPart` routes every captured key through `mergeFieldPatch` (`src/app/undo/merge-field-value.ts`) instead of a wholesale spread. Verified by `npx vitest run src/app/undo/use-undo-stack.test.tsx -t "RACI"`; restoring the old spread turns all three new tests red.
 
 §50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
 this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
@@ -13607,9 +13615,9 @@ runner. That is a design slice, not a fix-round edit to shared undo machinery �
 
 ---
 
-## 179. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
+## 179. ~~The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row~~ — CLOSED 2026-08-29
 
-**Status:** open — a delete branch relying on whole-row equality. Reproduced 2026-08-28 by `grep -n "rowsEqual" src/app/undo/undo-stack.ts`.
+**Status:** **CLOSED** 2026-08-29 — the redo delete-filter compares with `rowsEqualExcept(r, recovered, preserve)`. Verified by `npx vitest run src/app/undo/undo-stack.test.ts -t "§179"`; replacing the filter with remove-by-id turns three tests red, including the recycled-id guard.
 
 §50's Part A backstop is wired into the EDIT branch only. Both `applyPreserved(item, …)` call sites
 sit inside an `op === "edit"` loop — one in `applyUndoRestoreWithRemap`, one in `applyUndoForward`:
@@ -13649,9 +13657,9 @@ nor id alone. Scoping that inside the fix round that closed §50 is how a regres
 
 ---
 
-## 180. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+## 180. ~~`buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent~~ — CLOSED 2026-08-29
 
-**Status:** open — an invariant gap — `buildBulkFieldEdits` ignores the `FieldGroup` coupling. Last asserted 2026-08-24; never machine-verified by a committed probe.
+**Status:** **CLOSED** 2026-08-29 — `buildBulkFieldEdits(rows, groups)` completes every group a changed key belongs to; `groups` is REQUIRED, so tsc is the call-site sweep. Verified by `npx vitest run src/app/undo/field-groups.test.ts -t "group completion"`.
 
 `changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
 `TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),
@@ -13709,9 +13717,9 @@ which is exactly the class §50 declined to make inside a fix round.
 
 ---
 
-## 181. Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED
+## 181. ~~Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it~~ — CLOSED 2026-08-29
 
-**Status:** open — four of five bulk-edit sites omitting the stamp field. Reproduced 2026-08-28 by `grep -rn "captureFieldRows" src/app --include=*.ts`.
+**Status:** **CLOSED** 2026-08-29 — settled by measuring all 116 non-test mentions, not by harmonising. THREE of the four now stamp; milestones deliberately does not, because its apply does not stamp either. Verified by `npx vitest run src/app/use-resource-planner.undo.test.tsx -t "re-stamps"`.
 
 §50's field-patch conversion wired five PANEL bulk-edit sites to `captureFieldRows`. Exactly ONE of
 them — tasks (`use-bulk-operations.ts`) — passes `stampField: "localModifiedAt"`. RAID
