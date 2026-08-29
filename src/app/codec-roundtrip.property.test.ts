@@ -796,6 +796,37 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
     expect(quoted).toBeGreaterThan(50);
   });
 
+  // ★★★ THE FALSE-POSITIVE GUARANTEE, STATED AS A LAW RATHER THAN ASSERTED.
+  // `malformedQuotes` is surfaced to the USER as an incomplete-load signal, so
+  // an over-firing detector is worse than none: it would hold saves on every
+  // correct import. `csvEscape` wraps and doubles, so nothing this app writes
+  // can violate RFC 4180 — and that is exactly the kind of claim a comment
+  // gets wrong silently. Running it over the hostile alphabet, through the
+  // REAL encoder, is what makes it checkable.
+  // ★★ This is the property §150 could not have: intent is undecidable, so no
+  // law can be stated about "was a marker swallowed". Malformedness is
+  // syntactic, so it can be.
+  it("never fires malformedQuotes on output our own encoder wrote", () => {
+    let quotedCells = 0;
+    let embeddedNewlines = 0;
+    fc.assert(
+      fc.property(tasksArb(anyString), (tasks) => {
+        const csv = workspaceToCsv({ ...emptyWorkspace(), tasks });
+        if (csv.includes('"')) quotedCells++;
+        if (/"[^"]*\r\n/.test(csv)) embeddedNewlines++;
+        expect(splitCsvLines(csv).malformedQuotes).toBe(0);
+      }),
+      { numRuns: 200 },
+    );
+    // ★★ Anti-vacuity, and it is not optional here: a run whose encoder output
+    // never QUOTED anything would satisfy the property trivially, and this
+    // test's whole subject is what the escaper does with quotes. Floors sit far
+    // below the observed rate — re-measure if the alphabet changes, and do not
+    // tighten either to the number you happen to see.
+    expect(quotedCells).toBeGreaterThan(20);
+    expect(embeddedNewlines).toBeGreaterThan(5);
+  });
+
   // ★★★ DO NOT write this one as `parseCsv(rejoined) === parseCsv(normalized)`.
   // That is VACUOUS: the property above says rejoining REPRODUCES the
   // normalized input, so such a test compares a value with itself and cannot

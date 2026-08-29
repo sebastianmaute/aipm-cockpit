@@ -68,3 +68,42 @@ describe("splitCsvLines", () => {
     }
   });
 });
+
+describe("malformedQuotes", () => {
+  it("counts a quote opening mid-field", () => {
+    expect(splitCsvLines('a"b,c\r\n').malformedQuotes).toBe(1);
+  });
+
+  it("counts a quoted field closing before a non-delimiter", () => {
+    expect(splitCsvLines('"a"b,c\r\n').malformedQuotes).toBe(1);
+  });
+
+  it("does NOT fire on a legitimately quoted marker-shaped cell", () => {
+    // ★★★ THE CONTROL THAT MATTERS, and the reason this detector is allowed to
+    // exist at all. §150 REJECTS a detector that fires on this input — a
+    // well-formed file legitimately carrying a marker-shaped line inside a
+    // quoted cell is exactly the §105 shape the quote-aware split exists to
+    // handle, and a "the two splits disagree" detector flags every one of them.
+    // Without this assertion the suite cannot tell this detector from that one.
+    expect(splitCsvLines('1,"# MILESTONES\r\nstill the same cell",x\r\n').malformedQuotes).toBe(0);
+  });
+
+  it("does NOT fire on a doubled quote inside a quoted cell", () => {
+    expect(splitCsvLines('1,"say ""hi""",x\r\n').malformedQuotes).toBe(0);
+  });
+
+  it("does NOT fire on a well-formed unquoted row, or on an empty document", () => {
+    expect(splitCsvLines("a,b,c\r\nd,e,f\r\n").malformedQuotes).toBe(0);
+    expect(splitCsvLines("").malformedQuotes).toBe(0);
+  });
+
+  it("accepts a closing quote at end of input with no trailing delimiter", () => {
+    // A final row need not be newline-terminated; treating EOF as a delimiter
+    // is what keeps this from firing on every file that lacks a trailing CRLF.
+    expect(splitCsvLines('a,"b"').malformedQuotes).toBe(0);
+  });
+
+  it("counts each violation, so two malformed fields report two", () => {
+    expect(splitCsvLines('a"b,c"d\r\n').malformedQuotes).toBe(2);
+  });
+});
