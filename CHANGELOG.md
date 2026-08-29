@@ -29,6 +29,15 @@ longer carries its own changelog comment.
   refused with the same withheld-save notice. This is now accounted for as well, so a save is no
   longer refused for a batch of deletions the assistant made deliberately.
 
+- **Deleting a person, or clearing a departed person's leftover calendar records, could be refused
+  the same way.** Both remove more than the single row they appear to: deleting a resource also
+  removes that person's absences and shift entries, and "Clear unlinked" removes every absence and
+  shift still carrying their name, which can be many rows at once. On a smaller project either could
+  empty enough of the workspace to look like an accidental wipe and be withheld, with the deleted
+  records back on the next reload. Every remaining deletion — disciplines, grades, budget lines,
+  milestones, risks, changes, stakeholders, calendar entries and roles — now says the same thing to
+  the guard, so a deliberate removal is no longer treated as an accident on any route.
+
 ## [0.263.2] - 2026-08-29 "Okorafor"
 
 ### Fixed

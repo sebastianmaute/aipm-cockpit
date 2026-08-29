@@ -16,9 +16,19 @@ import { evaluateSaveGuard } from "./save-guard";
  * complete for the UI surface, because completeness needs a declaration to
  * enumerate from and only the AI surface has one (`TOOL_DEFS`). There is no
  * declaration of "routes that remove records"; a source scan for a setter
- * called with a `filter` cannot tell a delete from an edit. So an eighteenth
+ * called with a `filter` cannot tell a delete from an edit. So one more
  * UI delete handler added tomorrow fails NOTHING here. That asymmetry is
  * filed, not fixed — see the register entry this file's commit names.
+ *
+ * ★★★ THAT BOUND IS NOT HYPOTHETICAL — IT HAS ALREADY BEEN PAID ONCE. The
+ * by-hand census this file was written beside missed FOUR live routes
+ * (`onClearUnlinked`, `onDeleteDiscipline`, `onDeleteGrade`, `commitBuckets`),
+ * every one a confirm-gated removal on a counted slice, and two of them sat in
+ * a file the same slice had already edited to arm a sibling handler. A cold
+ * review found them; nothing in this file could have. Do not read a green run
+ * here as evidence that the UI surface is fully armed — it cannot see that
+ * surface at all, and the one time the question was answered by hand the
+ * answer was wrong by four.
  *
  * ★★ The behavioural proof for each route lives in that route's own test
  * file, next to the harness that can render it. This file holds the
@@ -33,13 +43,30 @@ import { evaluateSaveGuard } from "./save-guard";
  *   M5 arming removed, use-stakeholders          → "arms once for a stakeholder…"     [red step]
  *   M6 arming removed, use-change-log            → "arms once for a change…"          [red step]
  *   M7 arming removed, use-calendar-events       → "arms once for an event…"          [red step]
+ *   M8 hoist the arming above `if (doomed)`,     → "does not arm when the milestone   [mutated]
+ *      milestones-panel.tsx `del`                    left the workspace under an
+ *                                                    open modal"
+ *   M9 drop the `removesAbsence || removesShift` → "onClearUnlinked does NOT arm      [mutated]
+ *      guard, task-manager.tsx onClearUnlinked       when nothing matched"
  * [mutated] = a mutant applied to the committed tree and reverted here.
  * [red step] = the assertion was observed failing against a tree that genuinely
  * lacked the arming, which is the same observable as deleting it.
  *
  * ★★ EVERY OTHER ASSERTION IN THIS SLICE IS UNPROVED BY MUTATION and is stated
- * as such. In particular the nine UI single-delete routes' leak blocks are
- * pinned only by their own positive controls, not by a hoist mutant.
+ * as such. In particular most UI routes' leak blocks are pinned only by their
+ * own positive controls, not by a hoist mutant. Of the four routes armed after
+ * the cold review, ONLY `onClearUnlinked` has a mutation row (M9);
+ * `onDeleteDiscipline`, `onDeleteGrade` and `commitBuckets` carry a
+ * positive/negative pair and nothing more, so they are the least-proved arming
+ * in the slice.
+ *   M10 drop the `|| removesShift` disjunct     → "onClearUnlinked does NOT arm      [mutated]
+ *       only, task-manager.tsx onClearUnlinked      when nothing matched"
+ * ★★ M10 is the one that proves the OR is real, and it is a SEPARATE mutant
+ * from M9 on purpose: M9 deletes the whole guard, which a single-fixture test
+ * would also have caught. Only M10 shows the two fixtures drive the absence
+ * half and the shift half independently, so half the guard cannot be deleted
+ * silently. An earlier revision of this docstring asserted that property off
+ * M9 alone, which M9 does not establish.
  */
 
 /** Every AI tool that removes records, and where its arming is proved. */

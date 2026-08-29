@@ -21992,15 +21992,19 @@ own clear-all self-arms against. Measure the HANDLER, not the file — the file 
 for an unrelated pass-through, so a file-level count answers a different question:
 
 ```bash
-sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave   # 0
+sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave   # 0 when filed; 1 since the fix below
 sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | wc -l                          # non-zero, or the range never opened
 ```
 
 ★ The second line is the control, and it is not optional: a `sed` range address fails OPEN, so a
 moved anchor degrades the first command to a guaranteed 0 with no diagnostic — the exact failure §98
-records against itself. Measured 2026-08-29. Not introduced by this branch and not fixed by it;
-recorded because a gate proposed for this invariant has to be measured against the instances that
-already exist, not only against the ones the widening created.
+records against itself. Measured 2026-08-29. Not introduced by the branch that FILED this entry
+(`meta-decode-loss-chain`) and not fixed by it; recorded because a gate proposed for this invariant
+has to be measured against the instances that already exist, not only against the ones the widening
+created. ★★ `fix/destructive-save-arming` — the branch that CLOSED this entry — DID arm it, which is
+why the count above now reads 1. Read the sentence before this one as the state at FILING time; an
+earlier revision left it unqualified, so a closed entry asserted both "armed the pre-existing
+`deleteAllTasks` route" in its Status line and "not fixed by it" in its body, about the same route.
 
 It is now held by **hand-written tests and nothing else**, so a newly counted slice, or a NEW
 removal route on an already-counted one, is unguarded from the moment it is written. One test per
@@ -22203,12 +22207,27 @@ prev.map(...))` vs `prev.filter(...)`) and a scan cannot tell a delete from an e
 understanding what the callback computes, which is exactly the judgement call the census in §285 was
 done by hand.
 
-★ **Consequence, stated plainly:** an eighteenth UI delete handler added tomorrow — a new panel, or a
+★ **Consequence, stated plainly:** one more UI delete handler added tomorrow — a new panel, or a
 new remove affordance on an existing one — fails nothing. Not `destructive-save-arming.test.ts` (it
 never sees the UI surface), not `workspace-slice-policy.test.ts` (that gates which slices COUNT, not
 whether their routes arm the bypass), not lint, tsc, coverage or axe. It would be caught only by
-another hand-written per-route test, the same way each of the nine Tier-C UI routes on this branch
+another hand-written per-route test, the same way each Tier-C UI route on this branch
 was — or by the same kind of post-hoc read that found §285's instances and this entry both.
+
+★★★ **THE GAP IS NOT HYPOTHETICAL AND WAS PAID BEFORE THIS ENTRY WAS A DAY OLD.** A cold review of
+the very branch that filed this entry found FOUR live routes the by-hand census had missed, each a
+confirm-gated removal on a counted slice, each arming nothing: `onClearUnlinked` (`task-manager.tsx`,
+which filters `absences` and `shifts` by name and so removes an UNBOUNDED number of rows on one
+confirm — reaching `isMassDeletion` with no aggregation at all), `onDeleteDiscipline` and
+`onDeleteGrade` (`use-reference-data.ts` — the same file the slice had already edited to arm
+`handleDeleteRole`, a few lines above), and `commitBuckets` (`use-budget-buckets.ts`, the single
+commit boundary for `budgets`, wired to a confirm-gated per-row remove in `budget-panel.tsx`). All
+four are armed now. ★★ Read the LESSON, not the fix: the census was not careless — it was
+hand-written, and a hand-written census asserts a completeness it has no way to establish. Two of the
+four were in an ALREADY-OPEN file, which is the part worth keeping: proximity did not help.
+★ It also disproved a REASONING claim, not just an enumeration one — the spec's "a single-record
+delete cannot trip a refusal" is false for any handler whose delete CASCADES into a second
+collection, and `handleDeleteResource` does exactly that via `purgeCalendarFor`.
 
 ★ This is a narrower, more honest restatement of §285's own closing note ("What such a gate CANNOT
 do is prove the routes are COMPLETE") rather than a new discovery — filed as its own entry because

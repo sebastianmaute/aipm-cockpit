@@ -55,21 +55,44 @@ what they asked for.
 
 ### 2.1 Reachability, split honestly
 
-This is the part a scope decision must not blur. **A single-record delete cannot trip a refusal on
-its own:**
+This is the part a scope decision must not blur. **A NON-CASCADING single-record delete cannot trip
+a refusal on its own:**
 
 - `massDelete` needs at least 5 records removed; a single delete removes 1.
 - `fullWipe` needs `curCollections === 0` with `prevCollections >= 2`; a single delete can only reach
   `curCollections === 0` from a workspace holding one record in one collection, and then
   `prevCollections === 1`, which is `forensic`, not `refuse`.
 
-So the seventeen routes are NOT seventeen equal live defects. Three tiers:
+★★★ **"NON-CASCADING" IS LOAD-BEARING AND THIS PARAGRAPH SHIPPED WITHOUT IT**, which is how the
+CHANGELOG came to under-claim. A handler that removes records from a SECOND collection is not a
+single-record delete however it reads at the call site, and two of them do:
+
+- `handleDeleteResource` (`use-resource-directory.ts`) cascades through `purgeCalendarFor`, which
+  removes the person's `absences` and `shifts`. On `resources=[R1]`, `absences=[A1 owned by R1]`,
+  nothing else: `prevCollections === 2`, and one click leaves `curCollections === 0` — `fullWipe`,
+  refused. One click, one confirm, no aggregation, no 5-record threshold.
+- `onClearUnlinked` (`task-manager.tsx`) filters `absences` and `shifts` by name, so a single confirm
+  removes an UNBOUNDED number of rows and can reach `massDelete` alone.
+
+★★ The cascade question WAS asked once — of `handleDeleteRole`, correctly answered safe, because that
+one cascades a `roleId → null` FIELD EDIT, which empties no collection. The error was applying that
+answer to a census without re-asking it per route. Removal cascades and edit cascades are not the
+same class; check which one a handler has before tiering it.
+
+So the routes are NOT equal live defects. Three tiers:
 
 | Tier | Routes | Reachability |
 |---|---|---|
-| **A — trivially reachable** | `deleteAllTasks`, `handleBulkDeleteResources` | One call clears or bulk-removes; on any register of at least 5 leaving at most 10%, refused today. |
+| **A — trivially reachable** | `deleteAllTasks`, `handleBulkDeleteResources`, `handleDeleteResource`, `onClearUnlinked` | One call clears, bulk-removes, or cascades across collections; on any register of at least 5 leaving at most 10%, or any cascade emptying a two-collection project, refused today. The last two joined this tier on review — see the cascade note above. |
 | **B — reachable by aggregation** | the six other AI single-delete routes | Several tool calls in ONE model turn land inside one save debounce window and aggregate. A model deleting six risks from a six-risk register removes 6 and leaves 0, which is refused. |
-| **C — defence in depth** | the nine UI single-delete handlers | Each is behind its own confirm dialog; five confirms inside one debounce window is not a realistic user action. Armed for CONSISTENCY with `documents-panel.tsx`, which already arms on every single delete for the aggregate reason, not because a live refusal has been demonstrated. |
+| **C — defence in depth** | the remaining UI single-delete handlers | Each is behind its own confirm dialog; five confirms inside one debounce window is not a realistic user action. Armed for CONSISTENCY with `documents-panel.tsx`, which already arms on every single delete for the aggregate reason, not because a live refusal has been demonstrated. |
+
+★★ **NO ROUTE COUNT IS QUOTED IN THIS SECTION, DELIBERATELY.** It said "seventeen" and the census was
+short by four — `onClearUnlinked`, `onDeleteDiscipline`, `onDeleteGrade` and `commitBuckets`, all
+confirm-gated removals on counted slices, two of them in a file this slice had already edited. A
+by-hand census states a completeness it cannot prove, and the number is what makes it read as proved.
+Enumerate today's armed set instead:
+`grep -rn "allowDestructiveSave?\.()\|allowDestructiveRef\.current?\.()" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."`
 
 **Tier C must not be described as a fixed user-facing bug** — in the CHANGELOG, in the register, or
 in a commit message. The CHANGELOG entry covers tiers A and B. Tier C is an internal consistency fix.
