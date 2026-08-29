@@ -40,6 +40,20 @@ longer carries its own changelog comment.
   change requests were discarded when a template was applied. They are now carried through,
   and passed through the same safety filter as any other imported rich text.
 
+- **When saving was paused over a broken spreadsheet, "Pick storage file" did nothing and said
+  nothing.** Saving pauses after a file with broken quoting is opened, and choosing a new
+  storage file is refused while it is paused — but on this cause the refusal was silent, so the
+  button appeared dead. It now explains why it was refused.
+
+- **The warning banner said saving was paused without saying how much was at stake.** For a
+  broken-quoting file the banner showed no figure, and neither did the "Save anyway"
+  confirmation — which permanently discards whatever could not be read. Both now name how many
+  places break the quoting rules.
+
+- **Dismissing that banner hid it for later files too.** After dismissing the warning, opening a
+  second file with broken quoting brought saving to a halt again but left the banner hidden, so
+  nothing on screen said so. Each new affected file now re-shows it.
+
 ## [0.263.1] - 2026-08-29 "Okorafor"
 
 ### Fixed
