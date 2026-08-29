@@ -140,12 +140,17 @@ export function useChangeLog(args: UseChangeLogArgs) {
   // carries a noteLog too, as of 0.245.0.
   const captureBulkUndo = useCallback(
     (edits: readonly { id: number; before: Partial<ChangeItem>; after: Partial<ChangeItem> }[]) => {
-      // No `stampField` here: this register omits it while the tasks bulk edit
-      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
-      // undo that does not restamp may not propagate to a backend that syncs on
-      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
-      // four registers without reading it.
-      if (edits.length) args.captureFieldRows?.({ setter: setChanges, kind: "bulk.edit", edits, entityKey: "change" });
+      // `stampField` matches the tasks bulk edit (open-followups §181, measured
+      // and closed). This register's APPLY stamps a fresh `localModifiedAt` on
+      // every written row, so an undo that does not re-stamp leaves a timestamp
+      // asserting a modification time the row's content no longer matches.
+      // ★ HONEST SCOPE: unlike RAID — whose `raidLastTouch`/`lastTouch` readers
+      // make it observable — no consumer branches on a ChangeItem's stamp today
+      // (`version-diff.ts` and `activity-log.ts` both ignore it by name, and the
+      // Jira sync comparison is tasks-only). This is fixed for CONSISTENCY with
+      // its own apply, not because a reader was found. Do not cite it as a
+      // measured defect.
+      if (edits.length) args.captureFieldRows?.({ setter: setChanges, kind: "bulk.edit", edits, entityKey: "change", stampField: "localModifiedAt" });
     },
     [setChanges, args],
   );

@@ -259,18 +259,21 @@ function MilestonesPanelBody({
     // `wrote` and suppressing every save.
     const edits = buildBulkFieldEdits(rows, MILESTONE_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
-    // No `stampField` here: this register omits it while the tasks bulk edit
-    // (`use-bulk-operations.ts`) passes `stampField: "localModifiedAt"`.
-    // `stampField` does NOT restore the prior stamp — it writes a FRESH
-    // `new Date().toISOString()` on undo AND redo, the reversal being itself a
-    // local modification. Which of the two registers is right is UNRESOLVED: an
-    // undo that does not restamp may not propagate to a backend that syncs on
-    // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
-    // four registers without reading it.
-    // ★ Milestones sit further out than the other three: `Milestone` HAS an
-    // optional `localModifiedAt`, but `save` below never writes it, so this
-    // register's APPLY does not stamp either. Weigh that before answering §181
-    // here — it is a different question from the one the stamping registers ask.
+    // NO `stampField` here, and that is now the MEASURED answer rather than an
+    // open question (open-followups §181, closed). `stampField` does not restore
+    // the prior stamp — it writes a FRESH `new Date().toISOString()` on undo AND
+    // redo, the reversal being itself a local modification.
+    // ★★ Milestones is the one register of the four where omitting it is CORRECT,
+    // and the reason is local: `Milestone` HAS an optional `localModifiedAt`, but
+    // `save` below never writes it, so this register's APPLY does not stamp
+    // either. There is no apply-time timestamp here for an undo to leave stale,
+    // so stamping on undo would CREATE a stamp the register otherwise never sets
+    // — inventing a modification time rather than correcting a false one.
+    // ★ The other three were harmonised in the same commit because their applies
+    // DO stamp: RAID because two readers (`raidLastTouch` in `insights/detect.ts`,
+    // `lastTouch` in `raid-review.ts`) make it observable, changes and
+    // stakeholders for consistency with their own apply. If `save` ever starts
+    // stamping here, this register joins them — that is the trigger to re-decide.
     if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
     for (const { after } of rows) {
       if (wrote.has(after.id)) save(after, undefined, { suppressFieldUndo: true });
