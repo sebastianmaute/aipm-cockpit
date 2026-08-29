@@ -384,7 +384,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   );
 
   // CRUD extracted to use-calendar-events.ts (useChangeLog/useStakeholders convention).
-  const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit });
+  const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit, allowDestructiveSave: args.allowDestructiveSave });
 
   // Reference-data (roles/disciplines/grades) CRUD extracted to use-reference-data.ts.
   const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate, allowDestructiveSave: args.allowDestructiveSave });

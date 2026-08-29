@@ -22,8 +22,11 @@ const base: CalendarEvent = {
   id: 1, title: "Standup", startDate: "2026-06-01", startTime: "09:00", durationMinutes: 15,
 };
 
-function renderCalendarEvents() {
-  return renderHook(() => useCalendarEvents({ today: "2026-06-20" }), { wrapper: Wrapper });
+function renderCalendarEvents(overrides: { allowDestructiveSave?: () => void } = {}) {
+  return renderHook(
+    () => useCalendarEvents({ today: "2026-06-20", ...overrides }),
+    { wrapper: Wrapper },
+  );
 }
 
 describe("useCalendarEvents", () => {
@@ -237,5 +240,29 @@ describe("useCalendarEvents — activity log + undo", () => {
     expect(Array.isArray(seen[0])).toBe(true);
     // And the restore actually landed, so the adapter forwards as well as guards.
     expect(result.current.calendarEvents).toEqual([base]);
+  });
+});
+
+describe("useCalendarEvents — delete arms the destructive-save bypass", () => {
+  it("arms once for an event that exists", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderCalendarEvents({ allowDestructiveSave });
+    act(() => { result.current.handleSaveCalendarEvent({ ...base, id: 7 }, true); });
+    const id = result.current.calendarEvents![0]!.id;
+    act(() => { result.current.handleDeleteCalendarEvent(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // Positive observable: the delete really ran.
+    expect(result.current.calendarEvents ?? []).toHaveLength(0);
+  });
+
+  it("does NOT arm for an id that does not exist", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderCalendarEvents({ allowDestructiveSave });
+    act(() => { result.current.handleSaveCalendarEvent({ ...base, id: 7 }, true); });
+    act(() => { result.current.handleDeleteCalendarEvent(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    // POSITIVE CONTROL
+    act(() => { result.current.handleDeleteCalendarEvent(result.current.calendarEvents![0]!.id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
   });
 });
