@@ -561,16 +561,26 @@ export function DocumentsPanel({
       confirmLabel: t(lang, "documentsDelete"),
     });
     if (!ok) return;
+    // ★ A delete is the one mutation whose before-image is the ONLY surviving
+    // copy of the document — `mutateDocuments` writes that tombstone version,
+    // which is what makes the deleted-documents list and Restore possible.
+    const result = mutate({ kind: "delete", id: doc.id });
     // ★★ Arm the one-shot destructive-save bypass. Documents now count toward
     //    workspaceRecordCount, so deleting several in one debounce window is a
     //    mass deletion by Layer B's arithmetic — and this IS the explicit user
     //    action the bypass exists for. Without it the widening refuses a
     //    legitimate delete.
-    allowDestructiveSave?.();
-    // ★ A delete is the one mutation whose before-image is the ONLY surviving
-    // copy of the document — `mutateDocuments` writes that tombstone version,
-    // which is what makes the deleted-documents list and Restore possible.
-    mutate({ kind: "delete", id: doc.id });
+    // ★★★ AFTER THE MUTATION AND ONLY WHEN IT `changed`, never before it.
+    //    `mutateDocuments` (`workspace-context.tsx`) returns EARLY on
+    //    `!result.changed` — no `setDocuments`, so no state change, so the save
+    //    effect never runs and never CONSUMES the one-shot. Arming first
+    //    therefore LEAKED it for an unbounded time whenever the delete turned
+    //    out to be a no-op: open the confirm for document X, a concurrent
+    //    writer (the AI `delete_document` tool, or another tab via broadcast
+    //    sync) removes X, confirm anyway → `changed:false` → the bypass stays
+    //    up, and a later accidental mass deletion rides through L3 and Layer B
+    //    unchecked. Gating on `changed` guarantees the save that spends it.
+    if (result.changed) allowDestructiveSave?.();
   }
 
   return (
