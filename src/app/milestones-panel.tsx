@@ -272,8 +272,15 @@ function MilestonesPanelBody({
     // ★ The other three were harmonised in the same commit because their applies
     // DO stamp: RAID because two readers (`raidLastTouch` in `insights/detect.ts`,
     // `lastTouch` in `raid-review.ts`) make it observable, changes and
-    // stakeholders for consistency with their own apply. If `save` ever starts
-    // stamping here, this register joins them — that is the trigger to re-decide.
+    // stakeholders for consistency with their own apply.
+    // ★★ THE DECISION HAS SINCE BEEN MADE THAT MILESTONES SHOULD STAMP — see
+    // open-followups §289, which is OPEN and not yet implemented. Read this
+    // comment as describing what the code does TODAY and why that is coherent,
+    // NOT as an argument against changing it. ★★★ When §289 is done, the apply
+    // (`save`, below — `finalItem` is `{ ...next, id }` and never stamps) goes
+    // FIRST. Adding `stampField` here alone would produce a stamp that appears
+    // only when a user REVERSES something, which is strictly worse than the
+    // current uniform absence.
     if (edits.length) captureFieldRows?.({ setter: setMilestones, kind: "bulk.edit", edits, entityKey: "milestone" });
     for (const { after } of rows) {
       if (wrote.has(after.id)) save(after, undefined, { suppressFieldUndo: true });

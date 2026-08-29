@@ -515,6 +515,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--open) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | open |
+| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -22183,3 +22187,108 @@ grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
 **Fix shape, if wanted:** route `appendSeed`'s rich fields through the same `allowListRich` pass
 `template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
 Not scoped to a template-carry slice, and it wants its own test for each entity.
+
+## 289. Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either — open
+
+**Status:** open — decided 2026-08-29 that milestones SHOULD stamp; not yet implemented. Reproduced 2026-08-29 by `grep -n "stampField" src/app/milestones-panel.tsx`, whose only two hits are inside a COMMENT (read them, do not count them — the file has ZERO code occurrences), against `grep -c "stampField" src/app/use-stakeholders.ts` → 3.
+
+§181 measured the four registers that omitted `stampField` on their bulk undo capture and closed
+THREE of them. Milestones was deliberately left alone, on the ground that its APPLY does not stamp
+either — so an undo-only stamp would have INVENTED a modification time rather than corrected a false
+one. That reasoning still holds for the undo in isolation. This entry records the decision that the
+premise itself is what should change: milestones should stamp, like every other register.
+
+★★ **THE ORDER MATTERS AND THE UNDO IS NOT THE PLACE TO START.** `Milestone` already declares an
+optional `localModifiedAt` (`types.ts`) and it is a real column on every write path — CSV, Markdown
+and both Turso layouts (`MILESTONE_CSV_COLUMNS` in `csv-codecs-core.ts`). What is missing is a
+WRITER: `milestones-panel.tsx`'s local `save` builds `finalItem` as `{ ...next, id }` and never
+stamps, so the field is serialized-but-never-populated for this entity alone.
+
+★ **The omission is consistent across all THREE paths here, which is why it is a coherent decision
+rather than a bug to patch in one spot.** Unlike the other registers — whose single-row
+`captureFieldChanges` passes `stampField` while only their BULK capture omitted it, which is what
+made §181 an asymmetry — milestones omits it on the apply, on the single-row capture AND on the bulk
+capture. §181's finding was an inconsistency; this one is a uniform absence. Adding `stampField` to the bulk undo WITHOUT fixing the apply would produce a stamp
+that appears only when a user REVERSES something — strictly worse than today, because the field would
+then be present exactly on the rows least likely to have been touched last. Fix the apply first; the
+undo follows for free, and only then does it match the other three registers.
+
+★ **What it buys.** Two consumers derive staleness from this field today and both are RAID-only
+(`raidLastTouch` in `insights/detect.ts`, `lastTouch` in `raid-review.ts`), so nothing reads a
+milestone's stamp yet — this is not a live defect and closing it fixes no reported behaviour. The
+value is that the field stops lying by omission: a milestone edited five minutes ago is currently
+indistinguishable from one untouched for a year, on every backend, which forecloses any future
+staleness or last-touch view over milestones and makes milestone rows the one asymmetric case in
+every export.
+
+**Fix shape:** stamp in the milestone save handler the way `use-stakeholders.ts` and
+`use-change-log.ts` do (a `withStamp` build), then add `stampField: "localModifiedAt"` to
+`milestones-panel.tsx`'s `captureFieldRows` call and delete the comment there explaining why it is
+absent. Wants a test on each half — the apply stamping, and the undo re-stamping — since the second
+is exactly the assertion §181 added for RAID and it needs the post-apply comparison, not a comparison
+against the seeded value.
+
+## 290. `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open
+
+**Status:** open — never machine-verified as a defect; it is a tidiness item, found 2026-08-29 while exporting `differs` for §178. Reproduce with `sed -n '/^export function valuesDiffer/,/^}/p' src/app/undo/field-groups.ts`, whose whole body is `return differs(a, b);`.
+
+`valuesDiffer` was the public alias while `differs` was module-private. §178's merge module needed
+the predicate directly, so `differs` is now exported too and the file has two exported names for one
+function. Consumers today: `valuesDiffer` has exactly one (`tasks-section.tsx`, at its import and one
+call); `differs` has exactly one (`undo/merge-field-value.ts`).
+
+★★ **Do NOT enumerate `differs` consumers with a bare word grep.** "differs" is an ordinary English
+word and appears in prose comments throughout the tree, so `grep -rln "differs" src/app` answers a
+different question entirely — it returns two orders of magnitude more files than there are importers.
+No count is quoted here because every comment added anywhere moves it; run both and compare. Match the
+import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | grep "field-groups"`.
+
+**Fix shape, if wanted:** collapse to one name. `differs` is the better one — `valuesDiffer` reads as
+a different predicate than it is. One import line and one call site move. Deliberately NOT done in
+the §178 slice: renaming a public export is unrelated to that fix and would have widened its diff.
+
+## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
+
+**Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
+
+`mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
+present only in `target` lands at the END of the key order rather than at its original position.
+Undoing an edit to a record-valued field can therefore return an object that is `toEqual`-identical
+to the pre-edit value but enumerates its keys in a different order.
+
+★ **Why it is filed rather than fixed.** No consumer depends on key order: these values are plain
+JSON at rest, every serializer writes them through `JSON.stringify` or a column codec, and `toEqual`
+is order-insensitive, so nothing in the app or its tests can observe it. `Stakeholder.raci` — the
+one reachable record-valued field §178 was built for — is keyed by milestone id and rendered through
+a lookup, never by enumeration.
+
+★★ **It is not cosmetic, though, and that is the reason to record it.** This is exactly what let the
+no-race short-circuit's mutant survive a mutation run: a pure key REORDER is the only shape that
+distinguishes the guarded merge from the unguarded one, so the ordering behaviour and the guard's
+detectability are the same fact seen twice. See §292.
+
+## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
+
+**Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
+
+The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
+`JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That
+certifies the GENERATOR produced varied inputs. It does NOT certify that any run reached the merge
+body, because the no-race short-circuit returns before it — the floor is satisfied entirely by runs
+that short-circuit.
+
+★★★ **This is a live, measured weakness, not a theoretical one.** The same mutation of that
+short-circuit was run twice on identical code and gave OPPOSITE verdicts — killed once, survived
+once. `fc.assert` draws `target` and `other` independently, so the only distinguishing shape (same
+members, different order) arises in roughly 0.19% of draws, well under one expected hit across the
+300 runs. A mutation scorecard recording a lucky kill is worse than one recording a survival: it
+certifies a guard nothing reliably protects.
+
+★ Two deterministic cases were added in the same slice (commit `c2454fc2`) and DO kill that mutant
+3/3, so the guard is covered today. This entry is about the PROPERTY test's floor, which remains
+misleading for anyone who reads it as evidence of path coverage.
+
+**Fix shape, if wanted:** count the runs that actually reach the merge body (increment inside a
+branch that the short-circuit cannot take, or assert on a second counter incremented past both early
+returns) and put the floor on THAT. Alternatively add a generator that derives `other` as a
+permutation of `target` so the killing shape is drawn on purpose rather than by luck.
