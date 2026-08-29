@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.263.2";
-export const APP_BUILD_DATE = "2026-08-29"; // 0.263.2: import-loss reporting and template note carry (Okorafor)
+export const APP_VERSION = "0.264.0";
+export const APP_BUILD_DATE = "2026-08-29"; // 0.264.0: undo residue preservation (Russell)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.263.x line is "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
  *  author). Reused: 0.223.x and 0.25.x also ran under this name.
@@ -64,7 +64,7 @@ export const APP_BUILD_DATE = "2026-08-29"; // 0.263.2: import-loss reporting an
 // version of this comment blamed the checklist for not counting it, which sends the
 // next maintainer to add an item that is already there. What failed was execution.
 // Bump BOTH together.
-export const APP_MILESTONE = "Okorafor";
+export const APP_MILESTONE = "Russell";
 /** Version with its milestone codename for UI display, e.g. `0.39.0 "Tchaikovsky"`. */
 export const APP_VERSION_LABEL = `${APP_VERSION} "${APP_MILESTONE}"`;
 export const APP_REPO_URL = "https://www.example.com";

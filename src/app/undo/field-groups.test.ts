@@ -114,7 +114,7 @@ describe("buildBulkFieldEdits", () => {
   it("emits one edit per row carrying only the CHANGED keys", () => {
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low", owner: "ann" }, after: { id: 1, sev: "High", owner: "ann" } },
-    ]);
+    ], []);
     expect(edits).toEqual([{ id: 1, before: { sev: "Low" }, after: { sev: "High" } }]);
   });
 
@@ -122,14 +122,14 @@ describe("buildBulkFieldEdits", () => {
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low" } },
       { before: { id: 2, sev: "Low" }, after: { id: 2, sev: "High" } },
-    ]);
+    ], []);
     expect(edits.map((e) => e.id)).toEqual([2]);
   });
 
   it("never captures id or localModifiedAt", () => {
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low", localModifiedAt: "t0" }, after: { id: 1, sev: "High", localModifiedAt: "t1" } },
-    ]);
+    ], []);
     expect(Object.keys(edits[0].before)).toEqual(["sev"]);
   });
 
@@ -142,7 +142,7 @@ describe("buildBulkFieldEdits", () => {
     // docblock in field-groups.ts for the call-site enumeration command.
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low", noteLog: ["a"] }, after: { id: 1, sev: "High", noteLog: ["a", "b"] } },
-    ]);
+    ], []);
     expect(Object.keys(edits[0].before)).toEqual(["sev"]);
   });
 
@@ -150,12 +150,60 @@ describe("buildBulkFieldEdits", () => {
     const edits = buildBulkFieldEdits<Row>([
       { before: { id: 1, sev: "Low" }, after: { id: 1, sev: "Low", owner: "ann" } },
       { before: { id: 2, sev: "Low", owner: "bo" }, after: { id: 2, sev: "Low" } },
-    ]);
+    ], []);
     expect(edits[0]).toEqual({ id: 1, before: { owner: undefined }, after: { owner: "ann" } });
     expect(edits[1]).toEqual({ id: 2, before: { owner: "bo" }, after: { owner: undefined } });
   });
 
   it("returns an empty array for an empty input", () => {
-    expect(buildBulkFieldEdits<Row>([])).toEqual([]);
+    expect(buildBulkFieldEdits<Row>([], [])).toEqual([]);
+  });
+});
+
+describe("buildBulkFieldEdits group completion", () => {
+  type Row = { id: number; status: string; completedDate?: string; title: string };
+  const GROUPS: readonly FieldGroup<Row>[] = [["status", "completedDate"]];
+
+  it("captures the whole group when only one member differs", () => {
+    // The stored row is already split — Done with no completedDate — which is the
+    // only way a lone-member difference arises. Reverting `status` alone would
+    // leave the pair inconsistent in the other direction.
+    const before: Row = { id: 1, status: "Done", title: "a" };
+    const after: Row = { id: 1, status: "To Do", title: "a" };
+    const [edit] = buildBulkFieldEdits([{ before, after }], GROUPS);
+    expect(Object.keys(edit.before).sort()).toEqual(["completedDate", "status"]);
+    expect(Object.keys(edit.after).sort()).toEqual(["completedDate", "status"]);
+    expect(edit.before.completedDate).toBeUndefined();
+  });
+
+  it("leaves an ungrouped changed key alone", () => {
+    const before: Row = { id: 1, status: "To Do", title: "a" };
+    const after: Row = { id: 1, status: "To Do", title: "b" };
+    const [edit] = buildBulkFieldEdits([{ before, after }], GROUPS);
+    expect(Object.keys(edit.before)).toEqual(["title"]);
+  });
+
+  it("does not let one group's completion trigger another group", () => {
+    // `completedDate` is added by the first group. If the second group were tested
+    // against the GROWING set rather than the original diff, `note` would join too.
+    const groups: readonly FieldGroup<Row & { note?: string }>[] = [
+      ["status", "completedDate"],
+      ["completedDate", "note"],
+    ];
+    // Annotated so `T` infers WIDE enough to hold both groups' keys — inferred
+    // from the literals alone, `T` would lack `completedDate`/`note` and the
+    // `groups` argument would not typecheck. Neither key is PRESENT on either
+    // row, which is the point: `completedDate` still joins via the first group.
+    const before: Row & { note?: string } = { id: 1, status: "Done", title: "a" };
+    const after: Row & { note?: string } = { id: 1, status: "To Do", title: "a" };
+    const [edit] = buildBulkFieldEdits([{ before, after }], groups);
+    expect(Object.keys(edit.before).sort()).toEqual(["completedDate", "status"]);
+  });
+
+  it("keeps an empty group list behaving exactly as before", () => {
+    const before: Row = { id: 1, status: "Done", title: "a" };
+    const after: Row = { id: 1, status: "To Do", title: "a" };
+    const [edit] = buildBulkFieldEdits([{ before, after }], []);
+    expect(Object.keys(edit.before)).toEqual(["status"]);
   });
 });

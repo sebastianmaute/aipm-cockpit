@@ -295,4 +295,59 @@ describe("useResourcePlanner — per-field edit undo", () => {
     act(() => { result.current.planner.handleSaveRaidItem(item); });
     expect(captureFieldEdit).not.toHaveBeenCalled();
   });
+
+  // open-followups §181, settled by MEASUREMENT rather than by picking a side.
+  // Two behavioural readers derive RAID staleness from `localModifiedAt`:
+  // `raidLastTouch` (insights/detect.ts, the aging insight) and `lastTouch`
+  // (raid-review.ts, feeding `daysSinceReview`). Both fall back to `raisedDate`
+  // only when the stamp is absent.
+  //
+  // The bulk APPLY stamps every written row — `handleSaveRaid` builds `withStamp`
+  // with a fresh `localModifiedAt` and `suppressFieldUndo` suppresses only the
+  // undo CAPTURE, not the stamp. So an undo that does not re-stamp leaves the
+  // apply's timestamp on a row whose content has moved backwards, and both
+  // readers then report a reverted item as freshly touched.
+  //
+  // ★★★ THE COMPARISON IS AGAINST THE POST-APPLY STAMP, NOT THE SEEDED ONE.
+  // The apply has already moved the stamp off its seed value, so asserting
+  // "differs from the seed" passes with or without the fix — a vacuous test that
+  // would look like coverage. Fake timers give the undo a clock reading the apply
+  // cannot coincidentally equal; without them the two calls can land in the same
+  // millisecond and the test flakes green.
+  it("re-stamps localModifiedAt when a RAID bulk edit is undone", () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date("2026-06-01T10:00:00.000Z"));
+      const { result } = renderPlannerWithRealUndo();
+      const item: RaidItem = {
+        id: 1, category: "R", title: "Budget risk", description: "May overspend",
+        severity: "Low", status: "Open", owner: "Alice", ownerEmail: "alice@test.com",
+        mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [], stakeholderIds: [],
+        raisedDate: "2026-05-20", targetDate: undefined,
+        localModifiedAt: "2026-05-20T00:00:00.000Z",
+      };
+      act(() => { result.current.workspace.setRaid([item]); });
+
+      act(() => {
+        result.current.planner.captureRaidBulkUndo([
+          { id: 1, before: { severity: "Low" }, after: { severity: "High" } },
+        ]);
+        result.current.planner.handleSaveRaidItem({ ...item, severity: "High" }, undefined, { suppressFieldUndo: true });
+      });
+
+      const raid1 = () => result.current.workspace.raid.find((r) => r.id === 1)!;
+      const afterApply = raid1().localModifiedAt;
+      // The apply really did stamp — if this ever stops holding, the premise of
+      // the assertion below is gone and the test must be rethought, not relaxed.
+      expect(afterApply).not.toBe("2026-05-20T00:00:00.000Z");
+
+      vi.setSystemTime(new Date("2026-06-01T11:00:00.000Z"));
+      act(() => { result.current.undo(); });
+
+      expect(raid1().severity).toBe("Low");
+      expect(raid1().localModifiedAt).not.toBe(afterApply);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
 });

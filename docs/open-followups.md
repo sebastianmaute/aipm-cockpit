@@ -403,11 +403,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--open-pre-existing) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing | — | — | open |
 | [§175](#175-buildchatpointerblock-is-no-longer-bounded-by-any-test--closed-2026-08-20) | `buildChatPointerBlock` is no longer bounded by any test | — | — | **CLOSED** 2026-08-20 |
 | [§176](#176-the-chat-pointer-title-path-flipped-from-flatten-then-cap-to-cap-then-flatten-and-no-test-pins-either-order--closed-2026-08-20) | The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order | — | — | **CLOSED** 2026-08-20 |
-| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open |
-| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--open-pre-existing) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing | — | — | open |
-| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--open-pre-existing) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing | — | — | open |
-| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--open) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open | — | — | open |
-| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--open-unresolved) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED | — | — | open |
+| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open (177a closed 2026-08-29; 177b open) |
+| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field | — | — | **CLOSED** 2026-08-29 |
+| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row | — | — | **CLOSED** 2026-08-29 |
+| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent | — | — | **CLOSED** 2026-08-29 |
+| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it | — | — | **CLOSED** 2026-08-29 (3 of 4; milestones correct as-is) |
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
@@ -515,6 +515,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--open) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | open |
+| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -13487,7 +13491,15 @@ by reversing the order.
 
 ## 177. Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope
 
-**Status:** open — whole-row capture paths and a hand-duplicated field list. Reproduced 2026-08-28 by `grep -n "WRITE_THROUGH_FIELDS" src/app/undo/use-undo-stack.ts`.
+**Status:** open — the 177b whole-row capture sweep only. The 177a duplicated field list is done (2026-08-29) but this entry stays open for 177b, so the heading is deliberately not struck. Verified 2026-08-29 by `grep -rn "WRITE_THROUGH_FIELDS\|WRITE_THROUGH_KEYS" src/app --include=*.ts`, which now shows one authoring site (`src/app/undo/write-through-fields.ts`) and imports everywhere else.
+
+★ **177a is DONE (2026-08-29, commit `4694344e`); this entry stays open for 177b alone.**
+The hand-duplicated field list is gone — `WRITE_THROUGH_FIELDS` (what a whole-row undo PRESERVES)
+and `WRITE_THROUGH_KEYS` (what a bulk patch CAPTURES) held the same two strings in two files with
+nothing enforcing they agreed, and both now come from `src/app/undo/write-through-fields.ts`, the set
+DERIVED from the tuple. ★★ That closes the DRIFT risk, not the residue this entry is named for: the
+list still only protects the fields it names, and 177b — converting the remaining whole-row capture
+sites to field patches across six subsystems — is untouched and is why the heading is not struck.
 
 §50's field-patch conversion (closed 2026-08-18) made the five converted PANEL bulk-edit sites immune
 to the write-through clobber BY CONSTRUCTION — a field patch merges only the fields the op itself
@@ -13561,9 +13573,9 @@ grep -n "WRITE_THROUGH_KEYS" src/app/undo/field-groups.ts
 
 ---
 
-## 178. A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field — open, pre-existing
+## 178. ~~A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field~~ — CLOSED 2026-08-29
 
-**Status:** open — a field-patch undo that reverts a concurrent write to another key. Reproduced 2026-08-28 by `grep -n "pick(before, changed)" src/app/undo/field-groups.ts`.
+**Status:** **CLOSED** 2026-08-29 — `captureFieldPart` routes every captured key through `mergeFieldPatch` (`src/app/undo/merge-field-value.ts`) instead of a wholesale spread. Verified by `npx vitest run src/app/undo/use-undo-stack.test.tsx -t "RACI"`; restoring the old spread turns all three new tests red.
 
 §50's Part B captures field PATCHES rather than whole rows, and its Resolution originally claimed that
 this "preserves EVERY concurrent edit on that row". It does not. `buildBulkFieldEdits` diffs
@@ -13607,9 +13619,9 @@ runner. That is a design slice, not a fix-round edit to shared undo machinery �
 
 ---
 
-## 179. The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row — open, pre-existing
+## 179. ~~The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row~~ — CLOSED 2026-08-29
 
-**Status:** open — a delete branch relying on whole-row equality. Reproduced 2026-08-28 by `grep -n "rowsEqual" src/app/undo/undo-stack.ts`.
+**Status:** **CLOSED** 2026-08-29 — the redo delete-filter compares with `rowsEqualExcept(r, recovered, preserve)`. Verified by `npx vitest run src/app/undo/undo-stack.test.ts -t "§179"`; replacing the filter with remove-by-id turns three tests red, including the recycled-id guard.
 
 §50's Part A backstop is wired into the EDIT branch only. Both `applyPreserved(item, …)` call sites
 sit inside an `op === "edit"` loop — one in `applyUndoRestoreWithRemap`, one in `applyUndoForward`:
@@ -13649,9 +13661,9 @@ nor id alone. Scoping that inside the fix round that closed §50 is how a regres
 
 ---
 
-## 180. `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent — open
+## 180. ~~`buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent~~ — CLOSED 2026-08-29
 
-**Status:** open — an invariant gap — `buildBulkFieldEdits` ignores the `FieldGroup` coupling. Last asserted 2026-08-24; never machine-verified by a committed probe.
+**Status:** **CLOSED** 2026-08-29 — `buildBulkFieldEdits(rows, groups)` completes every group a changed key belongs to; `groups` is REQUIRED, so tsc is the call-site sweep. Verified by `npx vitest run src/app/undo/field-groups.test.ts -t "group completion"`.
 
 `changedFieldGroups` exists because some fields must be captured and reverted TOGETHER —
 `TASK_UNDO_GROUPS` couples `status` with `completedDate` (and the three assignee-identity fields),
@@ -13709,9 +13721,9 @@ which is exactly the class §50 declined to make inside a fix round.
 
 ---
 
-## 181. Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it — open, UNRESOLVED
+## 181. ~~Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it~~ — CLOSED 2026-08-29
 
-**Status:** open — four of five bulk-edit sites omitting the stamp field. Reproduced 2026-08-28 by `grep -rn "captureFieldRows" src/app --include=*.ts`.
+**Status:** **CLOSED** 2026-08-29 — settled by measuring all 116 non-test mentions, not by harmonising. THREE of the four now stamp; milestones deliberately does not, because its apply does not stamp either. Verified by `npx vitest run src/app/use-resource-planner.undo.test.tsx -t "re-stamps"`.
 
 §50's field-patch conversion wired five PANEL bulk-edit sites to `captureFieldRows`. Exactly ONE of
 them — tasks (`use-bulk-operations.ts`) — passes `stampField: "localModifiedAt"`. RAID
@@ -22175,3 +22187,108 @@ grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
 **Fix shape, if wanted:** route `appendSeed`'s rich fields through the same `allowListRich` pass
 `template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
 Not scoped to a template-carry slice, and it wants its own test for each entity.
+
+## 289. Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either — open
+
+**Status:** open — decided 2026-08-29 that milestones SHOULD stamp; not yet implemented. Reproduced 2026-08-29 by `grep -n "stampField" src/app/milestones-panel.tsx`, whose only two hits are inside a COMMENT (read them, do not count them — the file has ZERO code occurrences), against `grep -c "stampField" src/app/use-stakeholders.ts` → 3.
+
+§181 measured the four registers that omitted `stampField` on their bulk undo capture and closed
+THREE of them. Milestones was deliberately left alone, on the ground that its APPLY does not stamp
+either — so an undo-only stamp would have INVENTED a modification time rather than corrected a false
+one. That reasoning still holds for the undo in isolation. This entry records the decision that the
+premise itself is what should change: milestones should stamp, like every other register.
+
+★★ **THE ORDER MATTERS AND THE UNDO IS NOT THE PLACE TO START.** `Milestone` already declares an
+optional `localModifiedAt` (`types.ts`) and it is a real column on every write path — CSV, Markdown
+and both Turso layouts (`MILESTONE_CSV_COLUMNS` in `csv-codecs-core.ts`). What is missing is a
+WRITER: `milestones-panel.tsx`'s local `save` builds `finalItem` as `{ ...next, id }` and never
+stamps, so the field is serialized-but-never-populated for this entity alone.
+
+★ **The omission is consistent across all THREE paths here, which is why it is a coherent decision
+rather than a bug to patch in one spot.** Unlike the other registers — whose single-row
+`captureFieldChanges` passes `stampField` while only their BULK capture omitted it, which is what
+made §181 an asymmetry — milestones omits it on the apply, on the single-row capture AND on the bulk
+capture. §181's finding was an inconsistency; this one is a uniform absence. Adding `stampField` to the bulk undo WITHOUT fixing the apply would produce a stamp
+that appears only when a user REVERSES something — strictly worse than today, because the field would
+then be present exactly on the rows least likely to have been touched last. Fix the apply first; the
+undo follows for free, and only then does it match the other three registers.
+
+★ **What it buys.** Two consumers derive staleness from this field today and both are RAID-only
+(`raidLastTouch` in `insights/detect.ts`, `lastTouch` in `raid-review.ts`), so nothing reads a
+milestone's stamp yet — this is not a live defect and closing it fixes no reported behaviour. The
+value is that the field stops lying by omission: a milestone edited five minutes ago is currently
+indistinguishable from one untouched for a year, on every backend, which forecloses any future
+staleness or last-touch view over milestones and makes milestone rows the one asymmetric case in
+every export.
+
+**Fix shape:** stamp in the milestone save handler the way `use-stakeholders.ts` and
+`use-change-log.ts` do (a `withStamp` build), then add `stampField: "localModifiedAt"` to
+`milestones-panel.tsx`'s `captureFieldRows` call and delete the comment there explaining why it is
+absent. Wants a test on each half — the apply stamping, and the undo re-stamping — since the second
+is exactly the assertion §181 added for RAID and it needs the post-apply comparison, not a comparison
+against the seeded value.
+
+## 290. `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open
+
+**Status:** open — never machine-verified as a defect; it is a tidiness item, found 2026-08-29 while exporting `differs` for §178. Reproduce with `sed -n '/^export function valuesDiffer/,/^}/p' src/app/undo/field-groups.ts`, whose whole body is `return differs(a, b);`.
+
+`valuesDiffer` was the public alias while `differs` was module-private. §178's merge module needed
+the predicate directly, so `differs` is now exported too and the file has two exported names for one
+function. Consumers today: `valuesDiffer` has exactly one (`tasks-section.tsx`, at its import and one
+call); `differs` has exactly one (`undo/merge-field-value.ts`).
+
+★★ **Do NOT enumerate `differs` consumers with a bare word grep.** "differs" is an ordinary English
+word and appears in prose comments throughout the tree, so `grep -rln "differs" src/app` answers a
+different question entirely — it returns two orders of magnitude more files than there are importers.
+No count is quoted here because every comment added anywhere moves it; run both and compare. Match the
+import instead: `grep -rn "differs" src/app --include=*.ts --include=*.tsx | grep "field-groups"`.
+
+**Fix shape, if wanted:** collapse to one name. `differs` is the better one — `valuesDiffer` reads as
+a different predicate than it is. One import line and one call site move. Deliberately NOT done in
+the §178 slice: renaming a public export is unrelated to that fix and would have widened its diff.
+
+## 291. `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open
+
+**Status:** open — never machine-verified as user-visible; the ORDERING behaviour itself is pinned by a test as of 2026-08-29. Reproduce with `npx vitest run src/app/undo/merge-field-value.test.ts -t "reordered record"`.
+
+`mergeRecord` seeds `out` from `{ ...live }` and then writes the keys the op touched, so a key
+present only in `target` lands at the END of the key order rather than at its original position.
+Undoing an edit to a record-valued field can therefore return an object that is `toEqual`-identical
+to the pre-edit value but enumerates its keys in a different order.
+
+★ **Why it is filed rather than fixed.** No consumer depends on key order: these values are plain
+JSON at rest, every serializer writes them through `JSON.stringify` or a column codec, and `toEqual`
+is order-insensitive, so nothing in the app or its tests can observe it. `Stakeholder.raci` — the
+one reachable record-valued field §178 was built for — is keyed by milestone id and rendered through
+a lookup, never by enumeration.
+
+★★ **It is not cosmetic, though, and that is the reason to record it.** This is exactly what let the
+no-race short-circuit's mutant survive a mutation run: a pure key REORDER is the only shape that
+distinguishes the guarded merge from the unguarded one, so the ordering behaviour and the guard's
+detectability are the same fact seen twice. See §292.
+
+## 292. The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open
+
+**Status:** open — measured 2026-08-29 by applying the mutant and running three times (2, 3 and 3 failures; the property test did not fire on the first). Reproduce by deleting `if (!differs(live, other)) return target;` from `src/app/undo/merge-field-value.ts` and running `npx vitest run src/app/undo/merge-field-value.test.ts` repeatedly.
+
+The "returns the target verbatim whenever nothing raced" property counts a run as non-trivial when
+`JSON.stringify(target) !== JSON.stringify(other)` and asserts that fraction exceeds 0.5. That
+certifies the GENERATOR produced varied inputs. It does NOT certify that any run reached the merge
+body, because the no-race short-circuit returns before it — the floor is satisfied entirely by runs
+that short-circuit.
+
+★★★ **This is a live, measured weakness, not a theoretical one.** The same mutation of that
+short-circuit was run twice on identical code and gave OPPOSITE verdicts — killed once, survived
+once. `fc.assert` draws `target` and `other` independently, so the only distinguishing shape (same
+members, different order) arises in roughly 0.19% of draws, well under one expected hit across the
+300 runs. A mutation scorecard recording a lucky kill is worse than one recording a survival: it
+certifies a guard nothing reliably protects.
+
+★ Two deterministic cases were added in the same slice (commit `c2454fc2`) and DO kill that mutant
+3/3, so the guard is covered today. This entry is about the PROPERTY test's floor, which remains
+misleading for anyone who reads it as evidence of path coverage.
+
+**Fix shape, if wanted:** count the runs that actually reach the merge body (increment inside a
+branch that the short-circuit cannot take, or assert on a second counter incremented past both early
+returns) and put the floor on THAT. Alternatively add a generator that derives `other` as a
+permutation of `target` so the killing shape is drawn on purpose rather than by luck.

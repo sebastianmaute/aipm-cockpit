@@ -56,7 +56,7 @@ import {
 import type { EntityPaneCalendarHintsProps } from "./workspace-section-types";
 import { useColumnResize } from "./use-column-resize";
 import { useResizable } from "./use-resizable";
-import { buildBulkFieldEdits } from "./undo/field-groups";
+import { CHANGE_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
 import { ColumnResizeHandle, ResetColWidthsButton, ResetSizeButton, PrintButton } from "./task-manager-ui";
 import { SortResizeTh, useSortHeaderProps } from "./report-table";
 import { RagDot } from "./rag-dot";
@@ -313,7 +313,7 @@ function ChangePanelBody({
     // ★ Hoisted out of the optional call deliberately: `onCaptureBulk?.(build())`
     // never evaluates `build()` when no capture prop is wired, which would leave
     // `wrote` empty and write NOTHING at all.
-    const edits = buildBulkFieldEdits(rows);
+    const edits = buildBulkFieldEdits(rows, CHANGE_UNDO_GROUPS);
     const wrote = new Set(edits.map((e) => e.id));
     onCaptureBulk?.(edits);
     for (const { after } of rows) {

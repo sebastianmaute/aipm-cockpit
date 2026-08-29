@@ -88,12 +88,14 @@ export function useStakeholders(args: UseStakeholdersArgs) {
   // by remembering this file.
   const captureBulkUndo = useCallback(
     (edits: readonly { id: number; before: Partial<Stakeholder>; after: Partial<Stakeholder> }[]) => {
-      // No `stampField` here: this register omits it while the tasks bulk edit
-      // passes it (`use-bulk-operations.ts`). That asymmetry is UNRESOLVED — an
-      // undo that does not restamp may not propagate to a backend that syncs on
-      // `localModifiedAt`. Tracked as open-followups §181; do not "harmonise" the
-      // four registers without reading it.
-      if (edits.length) args.captureFieldRows?.({ setter: setStakeholders, kind: "bulk.edit", edits, entityKey: "stakeholder" });
+      // `stampField` matches the tasks bulk edit (open-followups §181, measured
+      // and closed). This register's APPLY stamps a fresh `localModifiedAt` on
+      // every written row, so an undo that does not re-stamp leaves a timestamp
+      // asserting a modification time the row's content no longer matches.
+      // ★ HONEST SCOPE: as with changes, no consumer branches on a Stakeholder's
+      // stamp today — this is fixed for CONSISTENCY with its own apply, not
+      // because a reader was found. RAID is the one with measured readers.
+      if (edits.length) args.captureFieldRows?.({ setter: setStakeholders, kind: "bulk.edit", edits, entityKey: "stakeholder", stampField: "localModifiedAt" });
     },
     [setStakeholders, args],
   );

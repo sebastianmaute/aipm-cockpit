@@ -510,7 +510,7 @@ describe("Changes bulk edit", () => {
   });
 
   // The capture is the ONLY input to the bulk undo, and nothing pinned it from a
-  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows))` is an OPTIONAL call, so a
+  // panel: `onCaptureBulk?.(buildBulkFieldEdits(rows, …))` is an OPTIONAL call, so a
   // suite that never passes the prop does not even RUN the builder. Assert the
   // real payload, per row, against what the saves actually wrote.
   it("captures one patch per changed row, and neither captures NOR saves a row already holding every value the patch sets", () => {
@@ -582,13 +582,17 @@ describe("Changes bulk edit", () => {
     expect(first.after).toEqual({ status: "Approved", decisionDate: base.today });
 
     const second = edits.find((e) => e.id === 2)!;
-    // Only `status` moved, so the patch is status-only: undoing this row cannot
-    // rewrite a decisionDate the bulk edit never touched. This is also what
-    // separates a real patch from a whole-row capture — a whole-row capture would
-    // carry title/type/raisedDate here too.
-    expect(Object.keys(second.before)).toEqual(["status"]);
-    expect(second.before).toEqual({ status: "Rejected" });
-    expect(second.after).toEqual({ status: "Approved" });
+    // `status` is the only key that MOVED, but `decisionDate` is its partner in
+    // CHANGE_UNDO_GROUPS, so the pair now travels together (open-followups §180):
+    // the patch carries BOTH, with `decisionDate` value-identical on each side.
+    // Undoing rewrites that identical value — harmless — and the invariant can
+    // never be restored half-applied. Before the groups reached the bulk path
+    // this was a status-only patch, which is the defect, not the contract.
+    // The key set is still what separates a real patch from a whole-row capture:
+    // a whole-row capture would carry title/type/raisedDate here too.
+    expect(Object.keys(second.before).sort()).toEqual(["decisionDate", "status"]);
+    expect(second.before).toEqual({ status: "Rejected", decisionDate: "2026-06-05" });
+    expect(second.after).toEqual({ status: "Approved", decisionDate: "2026-06-05" });
 
     // STATEMENT ORDER ONLY. This pins that the capture call precedes the first
     // save; it does NOT pin the rationale in the panel's "Capture BEFORE the

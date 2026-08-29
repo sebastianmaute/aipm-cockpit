@@ -7,6 +7,7 @@
 
 import type { Task, ChangeItem, RaidItem, Milestone, Stakeholder, Resource } from "../types";
 import type { CalendarEvent } from "../calendar-event";
+import { WRITE_THROUGH_KEYS } from "./write-through-fields";
 
 export type FieldGroup<T> = readonly (keyof T & string)[];
 
@@ -23,7 +24,7 @@ export function pick<T extends object>(row: T, keys: readonly (keyof T & string)
 
 /** Structural inequality for our plain-JSON entity values (primitives + arrays
  *  of primitives + small objects). Object.is fast-path; JSON for the rest. */
-function differs(a: unknown, b: unknown): boolean {
+export function differs(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return false;
   const aObj = typeof a === "object" && a !== null;
   const bObj = typeof b === "object" && b !== null;
@@ -101,6 +102,12 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * Build the `{id, before, after}` field patches a bulk edit needs, by diffing
  * each row against the row the op is about to write.
  *
+ * `groups` completes a coupled pair the same way `changedFieldGroups` does on the
+ * single-row modal path: a changed key drags its group partners into the patch,
+ * so `status` cannot revert without `completedDate`/`decisionDate` (§180). A row
+ * whose diff is EMPTY is still dropped before any group is consulted — group
+ * completion widens a patch, it never creates one.
+ *
  * ★★★ WHY A PATCH AND NOT THE ROW. `capturePart` captures WHOLE rows, so undoing
  * a bulk edit also reverts whatever a concurrent writer changed on those rows —
  * a note added through the notes window, an `outlookEventId` stamped by the
@@ -137,22 +144,15 @@ export const CALENDAR_EVENT_UNDO_GROUPS: readonly FieldGroup<CalendarEvent>[] = 
  * with an explicit `undefined` on the other side, so a bulk edit that CLEARS a
  * field is undoable.
  *
- * See also `WRITE_THROUGH_FIELDS` in `use-undo-stack.ts` — that constant decides
- * what a whole-row undo PRESERVES; this one decides what a patch CAPTURES.
+ * Both views now come from `write-through-fields.ts`: the tuple decides what a
+ * whole-row undo PRESERVES, the derived set decides what a patch CAPTURES. They
+ * are one list and can no longer drift (open-followups §177).
  */
-const WRITE_THROUGH_KEYS: ReadonlySet<string> = new Set(["noteLog", "outlookEventId"]);
-
 export function buildBulkFieldEdits<T extends { id: number }>(
   rows: readonly { before: T; after: T }[],
+  groups: readonly FieldGroup<T>[],
 ): { id: number; before: Partial<T>; after: Partial<T> }[] {
   const out: { id: number; before: Partial<T>; after: Partial<T> }[] = [];
-  // KNOWN GAP: this diffs key-by-key and takes NO `FieldGroup[]`, so the
-  // invariants `changedFieldGroups` exists to hold (status+completedDate,
-  // status+decisionDate) are not enforced here — if only one member of such a
-  // pair differs, only that member is captured and the undo can leave the pair
-  // inconsistent. Reaching it needs already-inconsistent stored data, since the
-  // writers keep the pairs in step. Filed as a register entry; do not "fix" it
-  // here without reading that entry first.
   for (const { before, after } of rows) {
     const keys = new Set<string>([...Object.keys(before), ...Object.keys(after)]);
     const changed: (keyof T & string)[] = [];
@@ -163,7 +163,21 @@ export function buildBulkFieldEdits<T extends { id: number }>(
       }
     }
     if (changed.length === 0) continue;
-    out.push({ id: before.id, before: pick(before, changed), after: pick(after, changed) });
+    // Complete every group one changed key belongs to, so a coupled pair reverts
+    // together even when only one member differs (open-followups §180). `seed` is
+    // the ORIGINAL diff: testing groups against the growing set would let one
+    // group's completion trigger the next, which is not the invariant.
+    const seed: ReadonlySet<string> = new Set<string>(changed);
+    const complete = new Set<string>(changed);
+    for (const g of groups) {
+      if (!g.some((k) => seed.has(k))) continue;
+      for (const k of g) {
+        if (NEVER_CAPTURE.has(k) || WRITE_THROUGH_KEYS.has(k)) continue;
+        complete.add(k);
+      }
+    }
+    const captured = [...complete] as (keyof T & string)[];
+    out.push({ id: before.id, before: pick(before, captured), after: pick(after, captured) });
   }
   return out;
 }
