@@ -85,9 +85,18 @@ export interface UseDocumentAssetsDeps {
   /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
    *  on `remove`. `documentAssets` counts toward `workspaceRecordCount`, so
    *  removing several inside one save-debounce window is a mass deletion by
-   *  Layer B's arithmetic — and the debounce RESETS on every change, so an
-   *  ordinary click-per-second burst coalesces into one save. Optional: the
-   *  pane renders in contexts (tests, popouts) that supply no bypass at all. */
+   *  Layer B's arithmetic.
+   *  ★★★ THE WINDOW IS NARROWER THAN THIS COMMENT USED TO CLAIM. It said an
+   *  "ordinary click-per-second burst coalesces into one save", which the
+   *  constant contradicts: `SAVE_DEBOUNCE_MS` is 500 and the debounce is
+   *  TRAILING, so a click at t=0 fires its save at t=500, BEFORE a click at
+   *  t=1000 arrives — one-per-second clicks each get their own save and each
+   *  advances the committed baseline. Coalescing needs changes CLOSER TOGETHER
+   *  than 500ms. The arming still earns its place: a genuinely fast burst does
+   *  coalesce, and the AI `delete_document` route is several mutations in ONE
+   *  TICK (`use-document-tools.ts`), which coalesces unambiguously.
+   *  Optional: the pane renders in contexts (tests, popouts) that supply no
+   *  bypass at all. */
   allowDestructiveSave?: () => void;
 }
 

@@ -115,9 +115,13 @@ describe("KnowledgePanel", () => {
 
   // ★★ `knowledgeItems` counts toward `workspaceRecordCount`, so a burst of
   // library removes inside ONE save-debounce window reads as a Layer-B mass
-  // deletion and the save is REFUSED unless the one-shot bypass was armed. The
-  // debounce RESETS on every change (debounced-save.ts), so an ordinary
-  // click-per-second burst coalesces — this is not a 500ms-reflex edge case.
+  // deletion and the save is REFUSED unless the one-shot bypass was armed.
+  // ★★★ THAT WINDOW IS 500ms, NOT A SECOND. This comment used to say an
+  // "ordinary click-per-second burst coalesces — this is not a 500ms-reflex
+  // edge case", and `SAVE_DEBOUNCE_MS` (debounced-save.ts) refutes it: the
+  // debounce is TRAILING at 500ms, so a click at t=0 has already fired its save
+  // when a click at t=1000 arrives. Changes must be closer together than 500ms
+  // to coalesce — a real but narrower window than the one described.
   // ★ Scoped to the LIBRARY card: the attached-document remove above shares the
   // `documentsRemove` key, so the item name is what keeps the two apart. The
   // string `name` is already a whole-string match in RTL (no `exact` option —

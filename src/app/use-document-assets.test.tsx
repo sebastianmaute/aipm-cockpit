@@ -447,9 +447,14 @@ describe("useDocumentAssets — rename and remove", () => {
 
   // ★★ `documentAssets` counts toward `workspaceRecordCount`, so a burst of
   // removes inside ONE save-debounce window reads as a Layer-B mass deletion
-  // and the save is REFUSED unless the one-shot bypass was armed. The debounce
-  // RESETS on every change (debounced-save.ts), so an ordinary click-per-second
-  // burst coalesces — this is not a 500ms-reflex edge case.
+  // and the save is REFUSED unless the one-shot bypass was armed.
+  // ★★★ THAT WINDOW IS 500ms, NOT A SECOND. This comment used to say an
+  // "ordinary click-per-second burst coalesces — this is not a 500ms-reflex
+  // edge case", and `SAVE_DEBOUNCE_MS` (debounced-save.ts) refutes it: the
+  // debounce is TRAILING at 500ms, so a click at t=0 has already fired its save
+  // when a click at t=1000 arrives. Changes must be closer together than 500ms
+  // to coalesce. The arming is still justified — the AI `delete_document` route
+  // lands several mutations in ONE TICK, which always coalesces.
   it("arms allowDestructiveSave exactly once per remove", () => {
     const allowDestructiveSave = vi.fn();
     const assets: DocumentAsset[] = [

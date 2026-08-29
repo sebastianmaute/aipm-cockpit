@@ -68,10 +68,19 @@ export interface KnowledgePanelProps {
   /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
    *  on a standalone-item remove. `knowledgeItems` counts toward
    *  `workspaceRecordCount`, so removing several inside one save-debounce
-   *  window is a mass deletion by Layer B's arithmetic — and the debounce
-   *  RESETS on every change, so an ordinary click-per-second burst coalesces
-   *  into one save. Optional: the panel renders in contexts (tests, popouts)
-   *  that supply no bypass at all. */
+   *  window is a mass deletion by Layer B's arithmetic.
+   *  ★★★ THE WINDOW IS NARROWER THAN THIS COMMENT USED TO CLAIM. It said an
+   *  "ordinary click-per-second burst coalesces into one save", which
+   *  `SAVE_DEBOUNCE_MS` (debounced-save.ts) contradicts: the debounce is
+   *  TRAILING at 500ms, so a click at t=0 fires its save at t=500, before a
+   *  click at t=1000 arrives — one-per-second clicks each get their own save
+   *  and each advances the committed baseline. Coalescing needs changes CLOSER
+   *  TOGETHER than 500ms. The arming still earns its place: a genuinely fast
+   *  burst does coalesce, and the AI `delete_document` route is several
+   *  mutations in ONE TICK (`use-document-tools.ts`), which coalesces
+   *  unambiguously.
+   *  Optional: the panel renders in contexts (tests, popouts) that supply no
+   *  bypass at all. */
   allowDestructiveSave?: () => void;
 }
 
