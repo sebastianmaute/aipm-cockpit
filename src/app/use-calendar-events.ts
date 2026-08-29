@@ -48,6 +48,8 @@ export interface UseCalendarEventsArgs {
   capture?: UndoStackApi["capture"];
   /** Capture per-field edits for undo (modal save). */
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
+  /** Arms the one-shot destructive-save bypass — called only when a delete actually removed a row. */
+  allowDestructiveSave?: () => void;
 }
 
 function emptyCalendarEventDraft(id: number, today: string): CalendarEvent {
@@ -143,7 +145,13 @@ export function useCalendarEvents(args: UseCalendarEventsArgs) {
         args.capture?.({ setter: setEventsForUndo, kind: "calendarEvent.deleted", removed: [doomed], fromArray: events, name: doomed.title });
       }
       setCalendarEvents((prev) => (prev ?? []).filter((e) => e.id !== id));
-      if (doomed) args.logActivity?.("calendarEvent.deleted", id, doomed.title);
+      if (doomed) {
+        args.logActivity?.("calendarEvent.deleted", id, doomed.title);
+        // ★★ Meetings count toward the save-time data-loss guards. Armed
+        //    inside the `doomed` guard so a miss never arms — the setter
+        //    above runs either way (open-followups §285).
+        args.allowDestructiveSave?.();
+      }
       setEditingCalendarEvent(null);
     },
     [calendarEvents, setCalendarEvents, setEventsForUndo, args],

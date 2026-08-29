@@ -52,6 +52,9 @@ export interface UseReferenceDataArgs {
     next: object,
     ...args: (string | number)[]
   ) => void;
+  /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
+   *  supply none. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useReferenceData(args: UseReferenceDataArgs) {
@@ -63,6 +66,8 @@ export function useReferenceData(args: UseReferenceDataArgs) {
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
   const captureCompositeRef = useRef(args.captureComposite);
   useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
+  const allowDestructiveRef = useRef(args.allowDestructiveSave);
+  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
 
   // ── moved verbatim from use-resource-planner.ts ──
 
@@ -125,6 +130,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
           ],
         });
         logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
+        allowDestructiveRef.current?.();
       }
     },
     [roles, resources, setRoles, setResources],
@@ -241,6 +247,9 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         ],
       });
       logActivityRef.current("discipline.deleted", id, removed.name);
+      // `disciplines` is a counted slice — a deliberate delete must arm the
+      // one-shot bypass or the save guard refuses the user's own removal.
+      allowDestructiveRef.current?.();
     }
   }, [disciplines, roles, setDisciplines, setRoles]);
 
@@ -262,6 +271,9 @@ export function useReferenceData(args: UseReferenceDataArgs) {
         ],
       });
       logActivityRef.current("grade.deleted", id, removed.name);
+      // `grades` is a counted slice — same one-shot arming as the discipline
+      // and role routes above.
+      allowDestructiveRef.current?.();
     }
   }, [grades, roles, setGrades, setRoles]);
 

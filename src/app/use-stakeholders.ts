@@ -27,6 +27,8 @@ export interface UseStakeholdersArgs {
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** Capture a bulk field-patch edit for undo (stakeholders bulk apply). */
   captureFieldRows?: UndoStackApi["captureFieldRows"];
+  /** Arms the one-shot destructive-save bypass — called only when a delete actually removed a row. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useStakeholders(args: UseStakeholdersArgs) {
@@ -74,7 +76,13 @@ export function useStakeholders(args: UseStakeholdersArgs) {
 
   const handleDeleteStakeholder = useCallback((id: number, name: string) => {
     const doomed = stakeholders.find((s) => s.id === id);
-    if (doomed) args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", removed: [doomed], fromArray: stakeholders, name });
+    if (doomed) {
+      args.capture?.({ setter: setStakeholders, kind: "stakeholder.deleted", removed: [doomed], fromArray: stakeholders, name });
+      // ★★ Stakeholders count toward the save-time data-loss guards. Armed
+      //    inside the `doomed` guard so a miss never arms — the setter below
+      //    runs either way (open-followups §285).
+      args.allowDestructiveSave?.();
+    }
     setStakeholders((prev) => prev.filter((s) => s.id !== id));
     args.logActivity?.("stakeholder.deleted", id, name);
   }, [stakeholders, setStakeholders, args]);

@@ -511,7 +511,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
-| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
+| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
@@ -519,6 +519,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
 | [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
+| [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
+| [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -21963,10 +21966,15 @@ be silently swallowed by this ordering.
 
 ---
 
-## 285. Nothing gates that a counted slice's delete routes arm the destructive-save bypass
+## 285. Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29
 
-**Status:** open — never machine-verified. Raised 2026-08-29 during the meta-decode-loss slice, by a
-post-hoc read of the widened counters rather than by any gate.
+**Status:** resolved 2026-08-29 — `fix/destructive-save-arming` armed every instance this entry names
+(the `documents`/`knowledgeItems`/`documentAssets` widening gaps, the AI `delete_document` route, and
+the pre-existing `deleteAllTasks` route) and added `src/app/destructive-save-arming.test.ts`, an
+enumeration gate over the imported `TOOL_DEFS` that fails when a new AI removal tool carries no
+recorded arming decision. That gate reaches the AI surface only — the UI surface has no equivalent
+enumeration to gate from, which is why it is filed separately rather than folded into this closure:
+see §289.
 
 `workspace-slice-policy.test.ts` gates WHICH slices count toward the save-time data-loss guards: it
 parses the `Workspace` type and fails when an array slice carries no recorded decision in
@@ -21998,15 +22006,19 @@ own clear-all self-arms against. Measure the HANDLER, not the file — the file 
 for an unrelated pass-through, so a file-level count answers a different question:
 
 ```bash
-sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave   # 0
+sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave   # 0 when filed; 1 since the fix below
 sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | wc -l                          # non-zero, or the range never opened
 ```
 
 ★ The second line is the control, and it is not optional: a `sed` range address fails OPEN, so a
 moved anchor degrades the first command to a guaranteed 0 with no diagnostic — the exact failure §98
-records against itself. Measured 2026-08-29. Not introduced by this branch and not fixed by it;
-recorded because a gate proposed for this invariant has to be measured against the instances that
-already exist, not only against the ones the widening created.
+records against itself. Measured 2026-08-29. Not introduced by the branch that FILED this entry
+(`meta-decode-loss-chain`) and not fixed by it; recorded because a gate proposed for this invariant
+has to be measured against the instances that already exist, not only against the ones the widening
+created. ★★ `fix/destructive-save-arming` — the branch that CLOSED this entry — DID arm it, which is
+why the count above now reads 1. Read the sentence before this one as the state at FILING time; an
+earlier revision left it unqualified, so a closed entry asserted both "armed the pre-existing
+`deleteAllTasks` route" in its Status line and "not fixed by it" in its body, about the same route.
 
 It is now held by **hand-written tests and nothing else**, so a newly counted slice, or a NEW
 removal route on an already-counted one, is unguarded from the moment it is written. One test per
@@ -22292,3 +22304,208 @@ misleading for anyone who reads it as evidence of path coverage.
 branch that the short-circuit cannot take, or assert on a second counter incremented past both early
 returns) and put the floor on THAT. Alternatively add a generator that derives `other` as a
 permutation of `target` so the killing shape is drawn on purpose rather than by luck.
+## 293. The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate
+
+**Status:** open — never machine-verified. Filed 2026-08-29 while closing §285, by reading
+`destructive-save-arming.test.ts`'s own enumeration source rather than by any gate.
+
+§285 asked for something that would catch a counted slice's removal route missing its
+`allowDestructiveSave` call. `fix/destructive-save-arming` armed every route the census in §285 named
+and added `destructive-save-arming.test.ts`, which enumerates `TOOL_DEFS` (imported from
+`chat-tool-defs.ts`) and fails when an AI tool whose name matches a removal shape carries no recorded
+arming decision. That closes the invariant for the AI surface, and only the AI surface.
+
+★★ **The UI surface has nothing to enumerate FROM, which is the whole gap.** `TOOL_DEFS` exists
+because every AI tool is declared once, in one array, with a name and a handler — a census can walk
+it. The panel-level delete handlers have no equivalent registry: each is a plain function bound to a
+button's `onClick` inside its own panel component, with no shared list a script could import and
+walk. A source scan for "a setter called with a value derived by filtering out one record" cannot
+stand in for that census either — the same shape describes an ordinary field edit (`setTasks(prev =>
+prev.map(...))` vs `prev.filter(...)`) and a scan cannot tell a delete from an edit without
+understanding what the callback computes, which is exactly the judgement call the census in §285 was
+done by hand.
+
+★ **Consequence, stated plainly:** one more UI delete handler added tomorrow — a new panel, or a
+new remove affordance on an existing one — fails nothing. Not `destructive-save-arming.test.ts` (it
+never sees the UI surface), not `workspace-slice-policy.test.ts` (that gates which slices COUNT, not
+whether their routes arm the bypass), not lint, tsc, coverage or axe. It would be caught only by
+another hand-written per-route test, the same way each Tier-C UI route on this branch
+was — or by the same kind of post-hoc read that found §285's instances and this entry both.
+
+★★★ **THE GAP IS NOT HYPOTHETICAL AND WAS PAID BEFORE THIS ENTRY WAS A DAY OLD.** A cold review of
+the very branch that filed this entry found FOUR live routes the by-hand census had missed, each a
+confirm-gated removal on a counted slice, each arming nothing: `onClearUnlinked` (`task-manager.tsx`,
+which filters `absences` and `shifts` by name and so removes an UNBOUNDED number of rows on one
+confirm — reaching `isMassDeletion` with no aggregation at all), `onDeleteDiscipline` and
+`onDeleteGrade` (`use-reference-data.ts` — the same file the slice had already edited to arm
+`handleDeleteRole`), and `commitBuckets` (`use-budget-buckets.ts`, the single
+commit boundary for `budgets`, wired to a confirm-gated per-row remove in `budget-panel.tsx`). All
+four are armed now. ★★ Read the LESSON, not the fix: the census was not careless — it was
+hand-written, and a hand-written census asserts a completeness it has no way to establish. Two of the
+four were in an ALREADY-OPEN file, which is the part worth keeping: proximity did not help.
+★ It also disproved a REASONING claim, not just an enumeration one — the spec's "a single-record
+delete cannot trip a refusal" is false for any handler whose delete CASCADES into a second
+collection, and `handleDeleteResource` does exactly that via `purgeCalendarFor`.
+
+★ This is a narrower, more honest restatement of §285's own closing note ("What such a gate CANNOT
+do is prove the routes are COMPLETE") rather than a new discovery — filed as its own entry because
+§285 is now closed and a live gap should not be read as resolved by a closed heading.
+
+**Reproduce:**
+```
+grep -n "TOOL_DEFS" src/app/destructive-save-arming.test.ts
+grep -rln "allowDestructiveSave" src/app --include=*.tsx | grep -v "\.test\."
+```
+The first shows the enumeration's only source; the second lists panels that arm the bypass today by
+hand, with no script generating or checking that list against the panels' own delete handlers.
+
+**Fix shape, if wanted:** give the UI surface the same kind of single declared registry `TOOL_DEFS`
+gives the AI surface — e.g. a `DELETE_ROUTES` list each panel's delete handler is required to appear
+in — so a census can walk it the way `destructive-save-arming.test.ts` already walks `TOOL_DEFS`.
+Short of that, there is no source-level signal that distinguishes a delete from an edit, so any gate
+proposal here has to either accept a registry of this shape or fall back to enumeration by hand.
+
+## 294. Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either
+
+**Status:** open — never machine-verified. Filed 2026-08-29 while fixing the second instance, by
+reading the save effect's returns rather than by any gate.
+
+★★ CORRECTED 2026-08-29 after a cold review: this entry first said the obligation was "decided
+three times by hand". It is decided TWICE and left by accident THREE times — the entry counted
+`verdict.refuse` as a decision while its own paragraph below says nothing states it. The heading now
+matches the body.
+
+`allowDestructiveRef` in `use-storage-backend.ts` is a one-shot: an explicit bulk op arms it via
+`allowDestructiveSave` so the NEXT save gets past the Layer-B mass-deletion guard, and the effect
+clears it at the consume site below `evaluateSaveGuard`. Every early return ABOVE that site is
+therefore a decision about whether the arm survives — and the answer has had to be written out by
+hand, separately, at each one.
+
+★★ **The obligation is invisible at the site that creates it.** Arming happens in a panel handler
+several files away; the consume site reads as the single owner of the lifetime; and the returns above
+it look like ordinary guard clauses with nothing to do with destruction. Both fixes so far were found
+by reading the whole effect top to bottom, once for the truncation return and once for the
+suppress-after-load one, and the second was NOT noticed while fixing the first. ★ No line distance is
+quoted here: this entry said "five lines apart" and the two returns measured 9 apart today, 9 at the
+parent commit and 11 at the commit that fixed the first — never 5, at any moment the sentence could
+have meant. The claim needs no number.
+
+★★ **The two spend for DIFFERENT reasons, which is why one did not suggest the other.** The
+incomplete-load return leaves the arm unspent because the save never ran at all. The
+suppress-after-load return resyncs the baselines to the freshly-loaded counts, so the deletion
+becomes invisible to the guard and the arm was never needed. A reader who has internalised the first
+rationale ("spend it when the save is skipped") does not obviously reach the second.
+
+★★★ **WHAT ACTUALLY MAKES SPENDING SAFE AT THE SUPPRESS RETURN — and it is not the resync alone.**
+The resync folds an ALREADY-LANDED deletion into the baseline, so the arm has nothing left to
+authorise. It does nothing for a deletion that has not landed yet: there the arm is still needed, and
+spending it refuses a deletion the user did authorise. The property that closes the gap is that every
+arming call site arms in the SAME synchronous block as its mutation, so React commits both together
+and the mutation is always already in the counts. `use-load-truncation.ts`'s `guardedWrite` comment
+states the same invariant from the other side. Consequence, and it is a NEW obligation this fix
+creates: an arming site that arms, AWAITS, then mutates loses its permission and its deletion is
+refused. Enumerate the sites before adding one — `grep -rn "allowDestructiveSave" src/app
+--include=*.ts --include=*.tsx`.
+
+★ **A third return is safe only by a cross-module coincidence, and nothing states it.** The
+`verdict.refuse` return does not spend the arm, and does not need to, because `refuse` is
+`(fullWipe || massDelete) && !allowDestructive` in `save-guard.ts` — so reaching that branch already
+implies the arm was false. That is a property of the guard's formula, in another file, not of
+anything local. Widening `refuse` to fire for a reason unrelated to the bypass would silently turn
+that return into a third leak, and the change would be made in `save-guard.ts` by someone with no
+reason to open the save effect.
+
+★ The two remaining returns (`!args.hydrated`, `args.isPopout`) also leave the arm unspent, by
+accident rather than by decision, and neither says so. Neither is a live vector, but the reasons this
+entry first gave were both wrong. "A popout never saves at all" is a claim about the whole app that
+the code does not support — `use-load-truncation.ts`'s `guardedWrite` is a second `backend.save` with
+no `isPopout` check in that file. The true, narrower reason is local: the save EFFECT returns before
+the guard is ever consulted, so an arm stranded past that return can be neither spent nor used there.
+"The pre-hydration window is closed by the load that follows" is likewise wrong as a mechanism — the
+load effect has four exits and only one sets `suppressNextSaveRef`. The window is closed instead by
+nothing arming the bypass before hydration.
+
+**Consequence:** a new early return added above the consume site leaks the one-shot by default. It
+fails no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
+deletion silently waving through an unrelated accidental one at the NEXT save of any kind. ★ That is an
+arbitrary WALL-CLOCK time later — a live arm survives unbounded loads and unbounded idle, because
+`refuse` is unreachable while it is set — but it is never "some later edit": the first save to reach
+the consume site spends it. An earlier revision said only "an arbitrary time later", which reads as
+the second and let a source comment cite this entry for a phrase it does not contain. Either way it
+is the data-loss vector the guard exists to prevent, reached through the mechanism meant to prevent
+it.
+
+**Reproduce:**
+```
+grep -n "allowDestructiveRef.current" src/app/use-storage-backend.ts
+awk '/Save workspace to backend on change/,/scheduleDebouncedSave/ { if (/return|allowDestructiveRef/) printf "%d: %s
+", NR, $0 }' src/app/use-storage-backend.ts
+```
+The first shows the arm site, the spend sites and the guard read; the second shows every return in
+the save effect beside them. Nothing relates the two lists.
+
+★★ The second command was WRONG in this entry's first revision and is worth recording, because it
+looked authoritative: it was `grep -n "return" … | sed -n '/377/,/470/p'`. `sed` addresses are
+REGEXES OVER CONTENT, not line numbers — `/470/` matched no output line, so it ran to EOF and printed
+28 returns spanning source lines 377-776, most of them outside the effect entirely, while reading
+like a precise census. The opening address `/377/` "worked" only because that output line happened to
+contain the digits 377, so any insertion above it would have broken the range silently. A fenced
+block also hides this from `docs:claims:check`, which ignores fenced content by design.
+
+**Fix shape, if wanted:** make the spend structural rather than per-return — e.g. read the arm into a
+local at the top of the effect and clear the ref immediately, so every path below is spending it by
+construction and the decision becomes "does this path USE the local", which a reader cannot skip. The
+behavioural difference is confined to paths that currently return before the read; each of those
+would need its own test. The two known returns are each pinned by a leak test AND a control in
+`use-storage-backend.test.tsx` — "does not carry a destructive bypass armed during the refusal into
+the eventual 'save anyway'" / "still honours a bypass armed AFTER the truncation is resolved" for the
+truncation return, and "does not carry a destructive bypass across the suppress-after-load early
+return" / "still honours a bypass armed AFTER a suppressed load" for this one. The controls are
+load-bearing, not decoration: a cold review mutated `save-guard.ts` to refuse every mass deletion
+regardless of the arm and both leak tests still PASSED, while all four controls failed.
+
+## 295. Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard
+
+**Status:** open — never machine-verified. Filed 2026-08-29 immediately after merging main's
+0.264.0 undo-residue slice into `fix/destructive-save-arming`, by reading the merged tree. What is
+measured is the ABSENCE of arming and the presence of a redo-side removal; what is NOT measured is
+whether a redo reaches the save guard at refusing volume. Nobody has run that sequence.
+
+`fix/destructive-save-arming` armed every removal route the §285 census named, and §293 records that
+the resulting gate covers the AI surface only. Both censuses predate the undo stack growing a redo
+path that re-applies deletions, so neither looked at it.
+
+★★ **The undo module arms nothing.** `grep -rn "allowDestructive" src/app/undo/` returns zero
+non-test hits. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
+tagged `op: "delete"`, and the runner it builds is explicitly bidirectional — its own docstring says
+applying it "mutates state (undo OR redo) via its captured setter(s)" and returns the inverse runner.
+So a redo drives the same workspace setters the save effect watches, with no bypass armed.
+
+★★ **Clear-all is the concrete case, and it is undoable by declaration.** `use-bulk-operations.ts`
+documents its `capture` dep as "a pre-op snapshot for undo (clear-all deletes, bulk-edit changes)".
+That hook DOES arm the bypass for the original clear-all. The sequence that skips the arming is:
+clear all tasks (armed, saves) → undo (restores every row) → **redo** (removes them all again,
+through the undo runner, which arms nothing). The guard then sees a full wipe or a mass deletion with
+`allowDestructive` false and refuses the save — the user's redo appears to work on screen and is
+never persisted, and the rows return on the next reload.
+
+★ **That is the same user-visible shape as the three defects this release already fixes**, reached
+through a route none of them touched: those were panel and AI delete handlers, this is the undo
+stack replaying one of them.
+
+★ **Why it is filed rather than fixed.** The fix is not obviously "arm in the redo thunk" — the
+runner is generic over any captured array and does not know whether a given replay removes records or
+restores them, which is exactly the delete-versus-edit distinction §293 explains no source scan can
+make. Arming unconditionally on every redo would hand a one-shot bypass to ordinary bulk-edit undo,
+which is the leak class §294 is about. The honest options are to arm from the CONSUMER that knows its
+op was destructive, or to have the runner report whether the applied images net-removed rows.
+
+**Reproduce:**
+```
+grep -rn "allowDestructive" src/app/undo/ | grep -v "\.test\." | wc -l
+grep -n "removed" src/app/undo/undo-stack.ts
+grep -n "clear-all deletes" src/app/use-bulk-operations.ts
+```
+The first returns 0, the second shows the removal images a redo re-applies, the third shows clear-all
+is captured for undo. None of the three proves a redo trips the guard — that needs a test driving
+clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owes.

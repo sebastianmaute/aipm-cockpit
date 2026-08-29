@@ -171,3 +171,42 @@ describe("useStakeholders — logActivity", () => {
     expect(result.current.stakeholders.find((s) => s.id === 2)?.influence).toBe("Low");
   });
 });
+
+describe("useStakeholders — delete arms the destructive-save bypass", () => {
+  it("arms once for a stakeholder that exists", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderHook(
+      () => useStakeholders({ today: "2026-06-09", allowDestructiveSave }),
+      { wrapper: Wrapper },
+    );
+    act(() => result.current.handleSaveStakeholder(mk(1)));
+    expect(result.current.stakeholders).toHaveLength(1);
+    const victim = result.current.stakeholders[0]!;
+    act(() => { result.current.handleDeleteStakeholder(victim.id, victim.name); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT arm for an id that does not exist", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderHook(
+      () => useStakeholders({ today: "2026-06-09", allowDestructiveSave }),
+      { wrapper: Wrapper },
+    );
+    act(() => result.current.handleSaveStakeholder(mk(1)));
+    act(() => { result.current.handleDeleteStakeholder(999_999, "ghost"); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    // POSITIVE CONTROL
+    const victim = result.current.stakeholders[0]!;
+    act(() => { result.current.handleDeleteStakeholder(victim.id, victim.name); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when no bypass is supplied", () => {
+    const { result } = renderHook(() => useStakeholders({ today: "2026-06-09" }), { wrapper: Wrapper });
+    act(() => result.current.handleSaveStakeholder(mk(1)));
+    const victim = result.current.stakeholders[0]!;
+    expect(() => {
+      act(() => { result.current.handleDeleteStakeholder(victim.id, victim.name); });
+    }).not.toThrow();
+  });
+});

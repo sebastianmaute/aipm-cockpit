@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.264.0";
-export const APP_BUILD_DATE = "2026-08-29"; // 0.264.0: undo residue preservation (Russell)
+export const APP_VERSION = "0.264.1";
+export const APP_BUILD_DATE = "2026-08-29"; // 0.264.1: destructive-save arming (Russell)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.263.x line is "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
  *  author). Reused: 0.223.x and 0.25.x also ran under this name.
