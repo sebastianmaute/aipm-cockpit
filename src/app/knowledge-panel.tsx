@@ -76,9 +76,13 @@ export interface KnowledgePanelProps {
    *  click at t=1000 arrives — one-per-second clicks each get their own save
    *  and each advances the committed baseline. Coalescing needs changes CLOSER
    *  TOGETHER than 500ms. The arming still earns its place: a genuinely fast
-   *  burst does coalesce, and the AI `delete_document` route is several
-   *  mutations in ONE TICK (`use-document-tools.ts`), which coalesces
-   *  unambiguously.
+   *  burst does coalesce, and the AI `delete_document` route coalesces
+   *  unambiguously: `chat-panel.tsx` runs EVERY tool_use block of one response
+   *  in a single loop with no model round-trip between, and each block is a
+   *  local mutation. ★ Say it as the LOOP SHAPE, not "one tick" — each block is
+   *  awaited, so consecutive blocks are separated by microtask turns rather
+   *  than sharing a React batch. The argument needs only "closer than 500ms",
+   *  which holds by orders of magnitude and survives a batching change.
    *  Optional: the panel renders in contexts (tests, popouts) that supply no
    *  bypass at all. */
   allowDestructiveSave?: () => void;

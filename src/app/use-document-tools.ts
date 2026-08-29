@@ -459,11 +459,23 @@ export function useDocumentTools(
           // ★★★ ARM THE ONE-SHOT DESTRUCTIVE-SAVE BYPASS. `documents` counts
           // toward `workspaceRecordCount`, and this is the SECOND removal route
           // — `documents-panel.tsx` armed and this one did not. Several
-          // `delete_document` calls in one assistant turn run back-to-back in
-          // ONE tick, so they land in a single debounced save: 8 deletes in a
-          // project of 8 documents and 1 task make `isMassDeletion` true, the
-          // save is refused, the UI shows them gone and the backend still holds
-          // them.
+          // `delete_document` calls in one assistant turn run back-to-back —
+          // `chat-panel.tsx` walks EVERY tool_use block of ONE response in a
+          // single loop with no model round-trip between, and each block is a
+          // local mutation — so they land orders of magnitude inside
+          // SAVE_DEBOUNCE_MS and coalesce into one save. That save can then be
+          // REFUSED: the UI shows the documents gone while the backend still
+          // holds them.
+          // ★★★ THE THRESHOLD IS NOT INTUITIVE AND THIS COMMENT ONCE GOT IT
+          // WRONG. It claimed 8 deletes in a project of 8 documents + 1 task
+          // refuse. They do NOT: `isMassDeletion(9,1)` passes the floor (8 >= 5)
+          // and FAILS the fraction (1 <= 0.9 is false), so every document goes
+          // and Layer B stays silent. The near-miss is ONE RECORD wide. Run it,
+          // do not re-derive it:
+          //   node -e 'const f=(p,c,fl=5,fr=0.1)=>c<p&&(p-c)>=fl&&c<=p*fr;
+          //     console.log(f(10,1), f(9,1), f(8,0))'   -> true false true
+          // So 9 docs + 1 task refuses, and 8 docs with no other records
+          // refuses; 8 docs + 1 task does not.
           // ★★ ARMED PER DELETE AND ONLY WHEN `changed`, deliberately, NOT once
           // per tool run. There is no run-begin seam in the dispatcher, and
           // arming for a run that deletes nothing leaks the one-shot: the
