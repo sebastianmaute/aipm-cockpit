@@ -516,6 +516,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
 | [§289](#289-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
+| [§290](#290-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation-decided-three-times-by-hand-and-checked-by-nothing) | Spending the one-shot destructive-save bypass is a per-early-return obligation, decided three times by hand and checked by nothing | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -22246,3 +22247,59 @@ gives the AI surface — e.g. a `DELETE_ROUTES` list each panel's delete handler
 in — so a census can walk it the way `destructive-save-arming.test.ts` already walks `TOOL_DEFS`.
 Short of that, there is no source-level signal that distinguishes a delete from an edit, so any gate
 proposal here has to either accept a registry of this shape or fall back to enumeration by hand.
+
+## 290. Spending the one-shot destructive-save bypass is a per-early-return obligation, decided three times by hand and checked by nothing
+
+**Status:** open — never machine-verified. Filed 2026-08-29 while fixing the second instance, by
+reading the save effect's returns rather than by any gate.
+
+`allowDestructiveRef` in `use-storage-backend.ts` is a one-shot: an explicit bulk op arms it via
+`allowDestructiveSave` so the NEXT save gets past the Layer-B mass-deletion guard, and the effect
+clears it at the consume site below `evaluateSaveGuard`. Every early return ABOVE that site is
+therefore a decision about whether the arm survives — and the answer has had to be written out by
+hand, separately, at each one.
+
+★★ **The obligation is invisible at the site that creates it.** Arming happens in a panel handler
+several files away; the consume site reads as the single owner of the lifetime; and the returns above
+it look like ordinary guard clauses with nothing to do with destruction. Both fixes so far were found
+by reading the whole effect top to bottom, once for the truncation return and once for the
+suppress-after-load one, and the second was NOT noticed while fixing the first despite the two
+sitting five lines apart.
+
+★★ **The two spend for DIFFERENT reasons, which is why one did not suggest the other.** The
+incomplete-load return leaves the arm unspent because the save never ran at all. The
+suppress-after-load return resyncs the baselines to the freshly-loaded counts, so the deletion
+becomes invisible to the guard and the arm was never needed. A reader who has internalised the first
+rationale ("spend it when the save is skipped") does not obviously reach the second.
+
+★ **A third return is safe only by a cross-module coincidence, and nothing states it.** The
+`verdict.refuse` return does not spend the arm, and does not need to, because `refuse` is
+`(fullWipe || massDelete) && !allowDestructive` in `save-guard.ts` — so reaching that branch already
+implies the arm was false. That is a property of the guard's formula, in another file, not of
+anything local. Widening `refuse` to fire for a reason unrelated to the bypass would silently turn
+that return into a third leak, and the change would be made in `save-guard.ts` by someone with no
+reason to open the save effect.
+
+★ The two remaining returns (`!args.hydrated`, `args.isPopout`) also leave the arm unspent. Neither
+is a live vector today — a popout never saves at all, and the pre-hydration window is closed by the
+load that follows — but both are unspent by accident rather than by decision, and neither says so.
+
+**Consequence:** a new early return added above the consume site leaks the one-shot by default. It
+fails no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
+deletion silently waving through an unrelated accidental one an arbitrary time later, which is the
+data-loss vector the guard exists to prevent, reached through the mechanism meant to prevent it.
+
+**Reproduce:**
+```
+grep -n "allowDestructiveRef.current" src/app/use-storage-backend.ts
+grep -n "return" src/app/use-storage-backend.ts | sed -n '/377/,/470/p'
+```
+The first shows the arm site, the three spend sites and the guard read; the second shows the returns
+between them. Nothing relates the two lists.
+
+**Fix shape, if wanted:** make the spend structural rather than per-return — e.g. read the arm into a
+local at the top of the effect and clear the ref immediately, so every path below is spending it by
+construction and the decision becomes "does this path USE the local", which a reader cannot skip. The
+behavioural difference is confined to paths that currently return before the read; each of those
+would need its own test, since the two known ones are pinned by tests written against the current
+shape.
