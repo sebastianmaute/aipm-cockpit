@@ -324,7 +324,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§95](#95-no-test-in-ci-exercises-a-real-turso-database--open-narrowed-2026-08-25) | No test in CI exercises a real Turso database — open, NARROWED 2026-08-25 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M | open |
 | [§96](#96-the-previewprint-path-loads-the-whole-section-registry-unconditionally--open-priority-unknown) | The preview/print path loads the whole section registry unconditionally — open, priority UNKNOWN | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S–M | open |
 | [§97](#97-the-dom-constraint-inverted-for-the-document-load-paths--open-trap-safe-today) | The DOM constraint INVERTED for the document load paths — open (TRAP, safe today) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S | open |
-| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-no-known-live-path) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
+| [§98](#98-documents-is-invisible-to-both-save-time-data-loss-guards--open-missing-net-counters-widened-2026-08-29-live-path-found--284) | `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284) | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | M — two lines of code, but it moves a live save-REFUSAL threshold | open |
 | [§99](#99-the-e2e-seed-writes-only-four-of-browserbackends-ten-optional-slices-so-some-axe-scans-run-on-an-empty-state--open-partly-fixed-2026-08-08) | The e2e seed writes only four of BrowserBackend's ten optional slices, so some axe scans run on an empty state — open, PARTLY FIXED 2026-08-08 | AI document authoring S1 — **shipped in 0.219.0 "Elgin"** | S per slice | open |
 | [§100](#100-tab-ejects-focus-from-a-portaled-popover-opened-inside-a-modal--open-a11y) | Tab ejects focus from a portaled popover opened inside a modal — open, a11y | field controls → modal header, unreleased | M | open |
 | [§101](#101-segmentedcontrols-selected-segment-is-colour-only-in-the-three-dark-schemes--open-a11y) | `SegmentedControl`'s selected segment is colour-only in the three DARK schemes — open, a11y | field controls → modal header, unreleased | S | open |
@@ -455,7 +455,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§226](#226-the-conflict-path-ignores-a-remote-status-change-when-the-completion-date-does-not-differ--closed-2026-08-24) | The conflict path ignores a remote status change when the completion date does not differ | — | — | **CLOSED** 2026-08-24 |
 | [§227](#227-the-jira-conflict-merge-is-a-pass-through-not-a-normaliser-so-a-local-pick-re-emits-an-already-split-pair) | The Jira conflict merge is a pass-through, not a normaliser, so a local pick re-emits an already-split pair | — | — | open |
 | [§228](#228-a-template-saved-from-the-live-workspace-bypasses-the-pair-reconciler-until-the-next-page-load) | A template saved from the live workspace bypasses the pair reconciler until the next page load | — | — | open |
-| [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | open |
+| [§229](#229-use-storage-backendts-sits-at-799-with-no-baseline-entry--two-net-lines-fail-the-ratchet--closed-2026-08-29) | `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet | — | — | **CLOSED** 2026-08-29 |
 | [§230](#230-a-declined-asset-image-is-indistinguishable-from-a-missing-one-and-the-library-says-the-row-is-healthy) | A DECLINED asset image is indistinguishable from a MISSING one, and the library says the row is healthy | — | — | open |
 | [§231](#231-asset_id_re-is-a-naive-attribute-match-so-the-20-image-cap-counts-text-content--and-in-one-reachable-by-import-shape-a-phantom-id-instead-of-the-real-one--closed-2026-08-25) | `ASSET_ID_RE` is a naive attribute match, so the 20-image cap counts text content — and, in one reachable-by-import shape, a phantom id instead of the real one | — | — | **CLOSED** 2026-08-25 |
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
@@ -510,6 +510,8 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof DISCHARGED 2026-08-29 |
+| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -6481,20 +6483,74 @@ neither should be quoted as a general rule.
 
 ---
 
-## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET, no known live path)
+## 98. `documents` is invisible to both save-time data-loss guards — open (MISSING NET; counters WIDENED 2026-08-29, live path FOUND — §284)
 
-**Status:** open — a MISSING NET with no known live path. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — the counters were WIDENED 2026-08-29: `documents`, `knowledgeItems` and
+`documentAssets` now count toward both. Kept open for the decision record and because the widening
+moved a live save-REFUSAL threshold that nothing has exercised against a real project. Membership
+re-measured 2026-08-29 by `grep -cE "ws[.](documents|knowledgeItems|documentAssets)" src/app/workspace-metrics.ts`
+(→ 7, across `isWorkspaceEmpty` and both counters). The threshold change's effect on a real
+project is never machine-verified.
+
+★★★ **CORRECTED 2026-08-29: "no known live path" WAS FALSE, and the path does not start here.** A
+malformed Turso meta blob is discarded in silence at load and then written over as an intentional
+empty by the next save — see §284, which owns links 1 and 2. These counters are the THIRD link: what
+should have caught the loss at the save choke point and did not. The heading and the table row were corrected in the
+same commit rather than left standing: the anchor was cited from exactly ONE place, the table in
+this file, so nothing outside it could be redirected. A heading that still asserted the disproved
+claim would be the most-read part of the entry.
+
+★★ **The uncounted-collection list below is also wrong, in both directions** — the sentence reading
+"`documents` is in neither — and neither are `knowledgeItems`, `insights`, `timelogLinks` or
+`settingsOverrides`", which the clause after it calls "four sibling slices" (five items counting
+`documents` itself). The word "five" appears nowhere below; quote the sentence, not the number.
+`timelogLinks` and `settingsOverrides`
+are OBJECT-typed, not arrays (`Readonly<TimelogLinks>` / `Readonly<SettingsOverrides>` on
+`Workspace`), so "count its records" does not mean the same thing for them and they never belonged
+in a list of uncounted collections. And the list OMITTED three that did: `documentVersions`,
+`documentAssets` and `features`. The measured set was SEVEN uncounted ARRAY slices, not five —
+twenty array members minus the thirteen entity collections. Derive it rather than trusting either
+figure:
+
+```bash
+node -e 'const s=require("fs").readFileSync("src/app/workspace.ts","utf8");
+const b=s.match(/export type Workspace = \{[\s\S]*?\n\};/)[0];
+const m=[...b.matchAll(/^\s{2}(\w+)\??:\s*([^;]+);/gm)];
+const arr=m.filter(([,,t])=>/\[\]|ReadonlyArray/.test(t)).map(x=>x[1]);
+console.log("array slices",arr.length,"|",arr.join(","))'
+```
+
+★ All twenty now carry a RECORDED DECISION in `SLICE_POLICY` (`workspace-slice-policy.ts`) — the
+reason is required in both directions, and for an exclusion it must state what would BREAK — and
+`workspace-slice-policy.test.ts` parses the `Workspace` type and fails when a slice appears with
+none. ★★ That gates WHICH slices count. It does NOT gate that a counted slice's removal routes arm
+the destructive-save bypass, which is a second invariant and its own entry: §285.
 
 **Nothing is broken today and this is NOT a regression the documents slice introduced.** It is a
 pre-existing boundary that the documents feature makes newly consequential, and it is recorded
 separately because the reason it now matters did not exist before this slice.
 
-`nonEmptyCollectionCount` and `workspaceRecordCount` (both defined in `workspace-metrics.ts`;
-`workspace.ts` only RE-EXPORTS them) each enumerate the same THIRTEEN entity collections.
-`documents` is in neither — and neither are `knowledgeItems`, `insights`,
-`timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
-sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
-will go looking for a bug that is not there.
+★★★ **THE QUOTED PARAGRAPH BELOW IS THE STATE BEFORE 2026-08-29 AND NO LONGER HOLDS. DO NOT ACT ON
+ITS INSTRUCTION** — it tells the reader to repeat a scoping that is now false, which is the one shape
+that spreads a stale claim rather than merely holding it. Both counters now enumerate SIXTEEN
+collections, and `documents`, `knowledgeItems` and `documentAssets` are in BOTH; only `insights`,
+`timelogLinks` and `settingsOverrides` remain outside. Measure rather than reading either figure:
+
+```bash
+sed -n '/export function nonEmptyCollectionCount/,/^}/p' src/app/workspace-metrics.ts | grep -c "n++"          # 16
+grep -cE "ws[.](documents|knowledgeItems|documentAssets)" src/app/workspace-metrics.ts                          # 7
+```
+
+It is bannered rather than rewritten, per this register's convention: the entry's whole argument —
+including the "why it matters more than the four siblings" section below — is built on the scoping it
+states, so deleting it would leave that argument with no premise.
+
+> `nonEmptyCollectionCount` and `workspaceRecordCount` (both defined in `workspace-metrics.ts`;
+> `workspace.ts` only RE-EXPORTS them) each enumerate the same THIRTEEN entity collections.
+> `documents` is in neither — and neither are `knowledgeItems`, `insights`,
+> `timelogLinks` or `settingsOverrides`. **State that scoping whenever this entry is quoted:** four
+> sibling slices are equally invisible, so anyone reading it as "the documents slice forgot a counter"
+> will go looking for a bug that is not there.
 
 ### Measured, with a positive control
 
@@ -6509,6 +6565,14 @@ First run 2026-08-06, repointed and re-run 2026-08-25 with the outputs shown. Th
 `ws.calendarEvents` lines are the control, so a zero from a broken pattern cannot masquerade as a
 finding. `knowledgeItems` and `insights` also return 0 from the first command, which is how the
 scoping above was established rather than assumed.
+
+★★★ **THE `# 0` ANNOTATIONS ABOVE ARE A 2026-08-25 SNAPSHOT AND NO LONGER HOLD — re-run them, do
+not read them.** Both `ws.documents` lines return **1** as of 2026-08-29, because the counters were
+widened (see the Status line and §284). The block is left as written rather than renumbered: it is
+the record of a measurement that was made, and the entry immediately below it is about a control
+that was printed and not read — rewriting the outputs to match today's tree would destroy the only
+thing that section is good for. `knowledgeItems` now returns 1 from the first command too;
+`insights` still returns 0, deliberately.
 
 ### ★★★ 2026-08-25 — the positive controls FAILED SILENTLY, on the entry that exists to demand them
 
@@ -7039,7 +7103,8 @@ What shipped:
    and the refusal was a bare `return` with no toast, so a single ✕ silently dropped every later
    edit to every entity for the session while the storage indicator read healthy. The sidebar footer
    now carries a "saving paused" state that is CLICKABLE to bring the banner back, so dismiss means
-   "stop shouting", never "stop telling me". ★ `loadWasTruncated` is deliberately NOT folded into
+   "stop shouting", never "stop telling me". ★ `loadWasIncomplete` (spelled `loadWasTruncated` until
+   2026-08-29, when §284 widened the flag to cover an undecodable meta slice) is deliberately NOT folded into
    `storageOk`: two of that value's three consumers read it as "configured", so folding it in made
    `storage-config` print three FALSE diagnoses on a healthy file (write-permission-needed, a
    Grant-access button, Turso-needs-configuration). The term is applied at the footer call site only.
@@ -11487,8 +11552,8 @@ some external check, or accept the class. Neither is scoped here.
 
 ### The autosave interaction
 
-Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterTruncation`
-gates on `loadWasTruncated` only, so import diagnostics never block a save — and here there is no
+Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterIncompleteLoad`
+(`mayCommitAfterTruncation` until 2026-08-29, §284) gates on `loadWasIncomplete` only, so import diagnostics never block a save — and here there is no
 diagnostic to block on: `reportImportDiagnostics` fires on `droppedRows` or `unterminatedQuote`, and
 both are falsy. The milestone rows are gone from `milestones` and present as tasks by the time the
 first ordinary save runs.
@@ -17052,10 +17117,43 @@ tasks" count is the PRE-sanitise number. If a row were ever dropped (`sanitizeSe
 `null` for a missing id or a blank name) the popover count could disagree with what actually lands.
 Near-unreachable in practice, since `templateFromWorkspace` captures live, already-valid rows.
 
-## 229. `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet
+## 229. `use-storage-backend.ts` sits at 799 with no baseline entry — TWO net lines fail the ratchet — CLOSED 2026-08-29
 
-**Status:** open, NARROWED 2026-08-28 — a HAZARD, not a defect. Nothing is broken today, and no gate
-is red. Carried out of §220 so this fact does not retire with that entry's close. Never machine-verified by a committed probe.
+**Status:** CLOSED 2026-08-29 by `0f354e7d` on the meta-decode-loss branch. Filed as a
+HAZARD carried out of §220; NARROWED 2026-08-28 when the dispatcher half was taken by `f953cc16`.
+
+**What paid it — the debounced-save extraction this entry ranked first, taken as ranked.** The
+meta-decode-loss slice needed room in this file for the decode-failure guard and could not have it,
+which is the hazard arriving exactly as described. `0f354e7d` carved the save-guard DECISION out as
+a pure function (`save-guard.ts`) and the debounce timer out beside it (`debounced-save.ts`), and
+the file dropped well under the cap with the two new modules far below it. There is still NO baseline
+entry for any of the three, which is the correct end state: a file under the limit does not need one,
+and adding a baseline would have converted a hazard into a permanent allowance.
+
+★★ Read the numbers rather than trusting a figure here — this entry's own heading quotes a line count
+that has been wrong since the extraction landed, which is the whole reason it refuses to quote the
+new one:
+
+```bash
+for f in use-storage-backend save-guard debounced-save; do
+  echo "$f $(node -e "console.log(require('fs').readFileSync('src/app/$f.ts','utf8').split('\n').length)")"
+done
+node -e "const b=require('./docs/baselines/file-sizes.json');console.log('baselined:', ['use-storage-backend','save-guard','debounced-save'].filter(f=>b['src/app/'+f+'.ts']!==undefined))"
+```
+
+★★★ **The survey below is kept as the survey that was ACTED ON, not as a live hazard, and one of its
+premises turned out to be the load-bearing one.** It called the debounced autosave effect "the app's
+persistence choke point, carrying the data-loss invariants and the §103 truncation gate", and argued
+that this made the extraction worth its own test file rather than riding the existing suites. That
+was right for a reason the survey did not give: the extraction is what made the save-guard decision
+addressable as a pure function at all, and §284's widening of the guards is written against that
+function. An extraction justified on line count would have cut somewhere cheaper and bought none of
+it.
+
+★ Two of the three names the survey lists for the extracted interface no longer exist under those
+spellings — `loadWasTruncated` and `mayCommitAfterTruncation` became `loadWasIncomplete` and
+`mayCommitAfterIncompleteLoad` when §284 widened the flag past truncation. The occurrences below are
+annotated in place.
 
 ★★★ **NARROWED: `use-chat-dispatcher.ts` IS NO LONGER AT THE CAP, and this entry's own top-ranked
 candidate is what took it there.** `f953cc16` extracted candidate (1) — the register CRUD tools —
@@ -17187,8 +17285,8 @@ effect** — from the single-writer guard through the visibility/pagehide flush:
 three refs used nowhere else (the collection-count, record-count and destructive-bypass refs) and
 the `allowDestructiveSave` one-shot they drive. ≈126 gross, ≈115 net. Interface: a hook calling
 `useWorkspace()` itself (its 28-slice dep array is the whole point — passing 28 props would be worse
-than the effect), plus `backend`, hydrated/popout flags, `loadWasTruncated`,
-`mayCommitAfterTruncation`, the SHARED suppress-next-save ref (armed by the load effect,
+than the effect), plus `backend`, hydrated/popout flags, `loadWasIncomplete`,
+`mayCommitAfterIncompleteLoad` (both renamed 2026-08-29 by §284), the SHARED suppress-next-save ref (armed by the load effect,
 `onOpenStorageFile`, `onRequestStorageSwitch`, `reloadCurrentProject` and both project-ops hooks, so
 it must be passed IN, never owned), and the `emitToast` / `emitOutcome` emitters; returns
 `allowDestructiveSave`. VERDICT: the best candidate here and the only one clearing 100 lines. ★★ Its
@@ -21444,3 +21542,289 @@ divergence deliberately.
 
 ★ NOT a regression from the round-3 branch — `git log -S'<${cp.email}>' -- src/app/export-sections.ts`
 predates it. The branch is what made the divergence visible.
+
+---
+
+## 284. A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29
+
+**Status:** open — the code fix shipped 2026-08-29 on the meta-decode-loss branch, and the end-to-end
+proof was DISCHARGED the same day against a real Turso database:
+`npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1` (1 passed), run
+with `PORT=3100` in the environment for THAT command as well as for the `npm run dev` that starts
+the server and the `npm run stop` that ends it. All three need it, and the test invocation is the
+easy one to miss: `playwright.config.ts` derives its base URL from `PORT` (default 3000), so a bare
+invocation drives the long-running :3000 server instead, where `reuseExistingServer` attaches to
+whatever predates `.env.local` — which tests nothing. The env pair is inlined at SERVER START for
+that same reason.
+CI is still permanently silent on it — there is no live database there (§95, §215) — so this entry
+stays OPEN as the place recording how to RE-MEASURE the chain, not as an unfinished fix.
+
+★★★ **THE PROOF IS MUTATION-PROVED BY TWO MUTANTS, AND ONE WAS NOT ENOUGH.** A live-database test
+that has quietly stopped exercising the product still passes, so re-do BOTH before trusting a green
+run after any refactor of the decode or save-guard path. Measured 2026-08-29, each red → green →
+red → green:
+
+- **M1 — the banner.** Neuter the single line in `rowsToWorkspace` that records a failed slice (the
+  accumulator push inside `reportUnreadableSlice`). RED at "an undecodable slice must raise the
+  incomplete-load banner" — the pre-fix silent swallow, exactly. It discriminates: the same function
+  also calls `logDiag`, and neutering THAT leaves the spec green, so the assertion is specific to the
+  accumulator rather than to the catch merely existing.
+- **M2 — the withholding.** Force `mayCommitAfterIncompleteLoad` to return true, which leaves the
+  banner up and disarms the save guard. Step 3 stays GREEN and the DATABASE-ROW assertion goes RED at
+  "the save must be WITHHELD while the load is incomplete".
+
+★★★ M2 EXISTS BECAUSE M1 PROVED ONE ASSERTION OF FIVE, AND THIS ENTRY CLAIMED OTHERWISE FOR A DAY.
+Playwright aborts at the first hard `expect`, so under M1 the database-row assertions — the ones the
+spec's own header calls load-bearing — NEVER EXECUTED, and an unexecuted assertion is unproved however
+green the revert looks. A mutant that kills an early assertion can never certify a later one. Found by
+a cold review, not by any gate; generalise it to every mutation claim made from an ordered e2e spec.
+
+★★ What the run establishes, in order, and why each step is load-bearing: the load PROCEEDS (the
+seeded anchor task renders, so the entity tables came back populated and `isWorkspaceEmpty` did not
+refuse — without that the spec would silently exercise the refusal path instead); the banner is
+raised; an edit that genuinely dirties `meta` does NOT overwrite the row, i.e. the save is withheld;
+and "Save anyway" is what commits the loss. That last step is a NEGATIVE CONTROL rather than a
+nicety — "the row is unchanged after an edit" reads identically to "nothing ever saves in this
+harness", and it caught two drafts that would have passed for the wrong reason.
+
+**The chain, in three links.** Each link was established by READING code and by unit-level facts;
+the sequence was then run end to end against a live database — see the discharge record below:
+
+1. **The load discards the slice and says nothing.** `rowsToWorkspace` (`turso-schema.ts`) decodes
+   eleven meta-blob slices, each inside its own `try`/`catch`. EVERY one of those catch bodies was
+   a bare comment — no `diag`, no throw, no counter. A malformed `documents` blob therefore left the
+   slice `undefined` and produced no signal at any layer. ★ Eleven is the DECODED count, and it is the
+   number that matters here: `meta` also holds a `schema_version` row, but it is WRITTEN and never
+   read back, so it has no `try`/`catch` to be silent in and could not have carried this loss.
+   Reproduce all three spellings of the count together —
+   `grep -c "r.key ===" src/app/turso-schema.ts`, `grep -c "reportUnreadableSlice(" src/app/turso-schema.ts`
+   and `grep -c 'dirty.add("meta")' src/app/turso-schema.ts` are 11 / 11 / 11, against
+   `grep -c schema_version src/app/turso-schema.ts` → 1, an INSERT.
+2. **The load is ACCEPTED, because the empty-read guard asks a different question.**
+   `isWorkspaceEmpty` refuses only a TOTALLY empty read, and the entity tables came back populated,
+   so the guard that exists to stop a bad read overwriting a good project passed the read straight
+   through.
+3. **The next save destroys the blob.** A workspace save runs the `DELETE FROM` sweep for the dirty
+   `meta` table and re-inserts only the rows it holds. An absent `documents` slice writes no row, so
+   the delete is not followed by a replacement — and §98's counters, which are the save choke point's
+   own data-loss net, did not count `documents` at all, so nothing looked destructive.
+
+★★★ **The trigger required no documents-related action whatsoever.** The `meta` table is dirty
+whenever ANY of its eleven slices changes reference, and `activityLog` is auto-appended by ordinary
+use. A user who opened the project and did anything at all would arm link 3 without ever touching a
+document.
+
+### What changed
+
+- All eleven silent catches now route through `reportUnreadableSlice`, which emits
+  `turso.metaSliceUnreadable` and accumulates the slice key into `DocTruncationDiag`'s
+  `decodeFailedSlices`. A decode failure does not abort the REMAINING slices — pinned by a test, so
+  one bad blob cannot cost the other ten.
+- The Turso backend publishes the result as `lastDecodeFailures`, and `reportFor`
+  (`use-load-truncation.ts`) carries it to the surface.
+- The §103 guard now treats a decode failure as an INCOMPLETE LOAD — same persistent banner, same
+  save lockout, same escape. The three cause-agnostic names were renamed to match what they now mean:
+  `loadWasTruncated` → `loadWasIncomplete`, `mayCommitAfterTruncation` → `mayCommitAfterIncompleteLoad`,
+  `allowTruncatedSave` → `allowIncompleteSave`.
+- ★★★ **The escape is load-bearing, and MORE so here than for truncation.** A truncated load can be
+  repaired by raising the cap; a corrupt blob cannot be repaired from inside the app at ANY cap, so
+  without "Save anyway" the user's only exit from the lockout would be to abandon the project. A
+  sticky flag with no escape is a worse defect than the one being fixed — the same argument §103
+  makes for its own escape, arriving here with more force.
+- §98's two save-time counters were widened to count `documents`, `knowledgeItems` and
+  `documentAssets`. The end state this slice ships for is that EVERY removal route into a counted
+  slice arms the destructive-save bypass, so a user's own deliberate deletion is not refused by the
+  very guard the counting just armed. ★★ Do not read that as verified: nothing GATES it, the widening
+  shipped with routes that did not hold it, and the routes are being closed separately from this
+  entry. §285 owns the invariant, the instances found unarmed, and what a gate could and could not
+  prove — check it there rather than assuming completeness here.
+- `workspace-slice-policy.test.ts` fails when a new `Workspace` array slice carries no recorded
+  decision in `SLICE_POLICY`, so the omission that made link 3 possible cannot recur silently.
+
+### Three qualifications, none of them optional
+
+★ **Reachability of the ENTRY POINT is narrow.** Our own encoder always writes valid JSON, so
+reaching link 1 needs truncation, corruption, or a foreign write to the `meta` table. The
+CONSEQUENCE, once a blob IS malformed, was not narrow at all — links 2 and 3 follow from ordinary use
+with no further bad luck.
+
+★★ **The trigger is broader than "malformed JSON".** `reportUnreadableSlice` fires on ANY throw
+inside the eleven catches, so a sanitizer bug on otherwise-VALID stored data would pause saving
+workspace-wide, not merely warn about one slice. A review spot-checked the reachable date paths and
+found no live instance, and the escape hatch mitigates the rest. This is the same over-broad-trigger
+shape the guard's own docstring already records for unloadable blocks — a known cost of the design
+rather than a surprise, but a cost.
+
+★★ **Layer B's reachability depends on a mechanism worth stating**, or the next reader deletes the
+bypass arming as dead code. `scheduleDebouncedSave`'s timer is cleared and RESTARTED by the save
+effect's cleanup on every workspace change, so it is a TRAILING debounce that resets — not a fixed
+500 ms bucket. Any click cadence faster than one per `SAVE_DEBOUNCE_MS` coalesces the whole run into
+a single save — and, read the other way, anything SLOWER coalesces NOTHING: at one click per second
+each 500 ms timer fires before the next click arrives, so every removal gets its own save and the
+committed baseline advances with it.
+
+★★ **The arithmetic, because the example that stood here was wrong three ways.** `isMassDeletion`
+takes its thresholds as defaulted parameters rather than constants, and reduces to
+`(prev - cur) >= 5 && cur <= prev * 0.1` — so at a prior total of twenty it needs `cur` at most TWO,
+i.e. **eighteen** records removed, not nine. On a fixed-500 ms-bucket reading that would demand ~36
+clicks per second, not ~18, and would indeed read as unreachable. On the real trailing-reset
+mechanism it needs those eighteen removals spaced CLOSER than 500 ms apart — a burst, not a steady
+cadence. ★ The case that reaches it with no cadence question at all is a bulk operation that removes
+many records in ONE state update: that is a single reference change and therefore a single save, and
+it is exactly why clear-all self-arms the bypass.
+
+★★ **The likeliest real-world trigger is an AI turn, and the MECHANISM is what to record — the
+conclusion alone has been mis-stated three times on this branch.** `chat-panel.tsx`'s
+`stop_reason === "tool_use"` branch walks EVERY `tool_use` block of ONE assistant response in a
+single `for (const block of response.content)` loop, awaiting `runTool` per block; the model
+round-trip happens AFTER the loop, when the results are fed back — never between blocks. And
+`deleteDocument` (`use-document-tools.ts`) is a local state mutation with no network call. So
+consecutive `delete_document` blocks land orders of magnitude inside `SAVE_DEBOUNCE_MS`, each one
+restarting the trailing timer, which therefore does not fire until the run ends: N deletes in one
+turn become ONE save.
+
+★★★ **EXECUTE THE THRESHOLD, DO NOT EYEBALL IT — the near-miss here is one record wide.** Nine
+deletes in a project of nine documents and one task DO satisfy `isMassDeletion` (prev 10, cur 1).
+EIGHT documents and one task do NOT (prev 9, cur 1 — one is more than a tenth of nine), even though
+every document in the project is gone. The floor and the fraction disagree in that gap, which is
+exactly the shape that survives a plausible-sounding paragraph:
+
+```bash
+node -e 'const f=(p,c,fl=5,fr=0.1)=>c<p&&(p-c)>=fl&&c<=p*fr;
+console.log(f(9,1), f(10,1), f(8,0), f(20,2), f(20,3))'   # false true true true false
+```
+
+Reproduce the loop shape rather than trusting this paragraph:
+
+```bash
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | grep -c "await runTool"                          # 1
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | grep -c "for (const block of response.content)"   # 1
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | wc -l                                            # 30 — the control
+```
+
+★ The third line is the control and is not optional: a `sed` range address fails OPEN, so a moved
+anchor degrades both counts to a silent 0. ★★ Deliberately NOT written as "in one tick": each block
+is AWAITED, so consecutive blocks are separated by microtask turns rather than sharing a React
+batch. The debounce needs only that they arrive closer together than 500 ms, which they do by orders
+of magnitude — so this case rests on the loop shape, not on batching semantics, and stays true if
+React's batching changes.
+
+Read the thresholds from the function rather than from this paragraph:
+
+```bash
+sed -n '/export function isMassDeletion/,/^}/p' src/app/workspace-metrics.ts
+```
+
+### ★★★ What WAS owed, and what discharged it — 2026-08-29
+
+For one day this section read "no step was ever run end-to-end against a live Turso database", and
+that was accurate: the unit tests pin the pieces, not the sequence, and CI has no database (§215),
+so no green suite in this repo was evidence for this chain. `e2e/meta-decode-loss.spec.ts` now runs
+all four owed steps in a single pass against a real database, in order:
+
+1. Corrupt a `documents` meta row in a real Turso project. ✓
+2. Load it, and confirm the incomplete-load banner is raised. ✓ ★ As first written this step said
+   "naming the slice", which OVER-SPECIFIED it — the banner headline is deliberately not
+   slice-specific, because one decode cause covers eleven slices. The spec asserts the banner; the
+   slice NAME goes to `logDiag`, not to the headline. Do not restore the stricter wording without
+   changing the product first.
+3. Confirm the automatic save is WITHHELD while the banner stands. ✓
+4. Confirm "Save anyway" is the only thing that commits the loss. ✓ ★ This is the NEGATIVE CONTROL
+   for step 3, not a fifth nicety — see the paragraph above on the two drafts it caught.
+
+★★ That discharges the PROOF, not the entry. CI still cannot run this file (§215), so these four
+steps are re-measured only when someone holding a database runs it by hand — which is the whole
+reason the Status block above carries the command and the isolated-port setup it needs.
+
+★ **One thing observed while wiring the surface, recorded here rather than as its own entry.**
+`reportFor` fires three reporters into a SINGLE-SLOT toast — truncation, then decode, then import —
+so a load hitting more than one shows only the LAST. That is the acceptable direction only because
+truncation and decode each have the persistent banner behind them; import diagnostics have the toast
+and nothing else, which is why they are fired last. A fourth reporter with no banner behind it would
+be silently swallowed by this ordering.
+
+---
+
+## 285. Nothing gates that a counted slice's delete routes arm the destructive-save bypass
+
+**Status:** open — never machine-verified. Raised 2026-08-29 during the meta-decode-loss slice, by a
+post-hoc read of the widened counters rather than by any gate.
+
+`workspace-slice-policy.test.ts` gates WHICH slices count toward the save-time data-loss guards: it
+parses the `Workspace` type and fails when an array slice carries no recorded decision in
+`SLICE_POLICY`. That is one invariant. It does **not** gate the second one — that each COUNTED
+slice's removal routes call `allowDestructiveSave`, so a user's own deliberate deletion is not
+refused by the very guard the counting just armed.
+
+**That second invariant is exactly what was missed when the counters were widened.** §284 made
+`documents`, `knowledgeItems` and `documentAssets` count. Only the `documents` delete path armed the
+bypass; the knowledge panel's standalone remove and the document-asset remove did not. The gap was
+found by a post-hoc read — not by lint, tsc, coverage, axe or any suite. Every gate was green across
+the commit that introduced it.
+
+★★ **A THIRD instance, and how it was found is the part worth recording.** The AI `delete_document`
+route (`use-document-tools.ts`) did not arm either. It surfaced by enumerating removal routes FROM
+the counters rather than by reading this branch's commits — the widening never touched that file, so
+a commit-by-commit review could not have reached it, which is precisely why the gate this entry asks
+for would have to work from the counted set and not from a diff. Closed on the same branch:
+`grep -c allowDestructiveSave src/app/use-document-tools.ts` → 5.
+★ Its arming is per-delete AND gated on the mutation having CHANGED something, deliberately. The
+bypass is a one-shot consumed by the next SAVE, so arming for a run that deletes nothing leaks it
+indefinitely — the same shape `documents-panel.tsx` was fixed for. A gate that only checked "does
+this route mention `allowDestructiveSave`" would pass both the correct form and the leaking one.
+
+★★ **And the shape is not new to the widening — there is a PRE-EXISTING instance on a slice that
+counted all along.** `use-chat-dispatcher.ts`'s `deleteAllTasks` empties every task from a chat tool
+call and never arms the bypass, so an AI-driven clear-all is exposed to the same refusal the panel's
+own clear-all self-arms against. Measure the HANDLER, not the file — the file mentions the identifier
+for an unrelated pass-through, so a file-level count answers a different question:
+
+```bash
+sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | grep -c allowDestructiveSave   # 0
+sed -n '/deleteAllTasks: () => {/,/^      },/p' src/app/use-chat-dispatcher.ts | wc -l                          # non-zero, or the range never opened
+```
+
+★ The second line is the control, and it is not optional: a `sed` range address fails OPEN, so a
+moved anchor degrades the first command to a guaranteed 0 with no diagnostic — the exact failure §98
+records against itself. Measured 2026-08-29. Not introduced by this branch and not fixed by it;
+recorded because a gate proposed for this invariant has to be measured against the instances that
+already exist, not only against the ones the widening created.
+
+It is now held by **hand-written tests and nothing else**, so a newly counted slice, or a NEW
+removal route on an already-counted one, is unguarded from the moment it is written. One test per
+widened route — `documents-panel.test.tsx`'s "arms the destructive-save bypass when a document is
+deleted", `knowledge-panel.test.tsx`'s "arms allowDestructiveSave when a knowledge-library item is
+removed", and `use-document-assets.test.tsx`'s "arms allowDestructiveSave exactly once per remove" —
+plus two on the `tasks` route in `use-bulk-operations.test.tsx`, which counted long before this
+branch. Five tests, four files:
+
+```bash
+grep -rn 'it("arms ' src/app --include=*.test.tsx
+```
+
+★★ **That command is title-matched on purpose, and the obvious identifier-matched one does NOT answer
+this sentence.** `grep -rln "allowDestructiveSave" src/app --include=*.test.tsx` returns a STRICTLY
+LARGER set, because the identifier also appears in tests of the guard's own mechanism
+(`use-storage-backend.test.tsx`), of prop threading rather than of any removal route
+(`workspace-panels.documents.test.tsx`, `use-chat-dispatcher.test.tsx`), and in render harnesses that
+merely accept the prop. ★ No total is quoted for it deliberately: the number moves whenever a route
+is threaded or a harness gains the prop, and a count read off that grep never described the route
+coverage in the first place — which is the error this paragraph replaces. READ the list, do not
+count it.
+
+★★ **`knowledge-panel.test.tsx` carries a SOURCE-LEVEL REGEX beside its render test, and that half
+proves less than it looks.** It reads `workspace-section.tsx` as raw text and asserts the prop is PASSED
+to `KnowledgePanel` — it cannot render that file (which needs the whole app's prop surface), so it
+proves only that the prop APPEARS at the call site, never that its value is the live
+`allowDestructiveSave` rather than a stale or undefined one. A change on the producing side that
+kept the prop name would pass it.
+
+★ **Why a gate is plausible here and not merely wishful.** `SLICE_POLICY` already names the counted
+set and `allowDestructiveSave` is a single distinctive identifier, so a check could require that
+every `counted: true` slice has at least one removal route mentioning it — the same shape as the
+existing policy test. What such a gate CANNOT do is prove the routes are COMPLETE: nothing enumerates
+a slice's removal paths, so it would catch a slice with zero armed routes and stay silent on a slice
+with two routes of which one is armed. That is a narrower guarantee than the defect that motivated
+it, which is why this is filed rather than fixed.
+
+★ Read with §98 (which owns the counters themselves) and §284 (which owns the widening).

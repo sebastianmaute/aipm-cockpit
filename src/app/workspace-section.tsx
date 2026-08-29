@@ -112,7 +112,7 @@ export function WorkspaceSection({
   onCaptureUndo,
   onCaptureFieldEdit, onCaptureFieldRows,
   changes,
-  documentsByEntity,
+  documentsByEntity, allowDestructiveSave,
   handleSaveChange,
   handleDeleteChange,
   handleChangeStatusChange,
@@ -944,11 +944,11 @@ export function WorkspaceSection({
 
         {activeTab === "knowledge" && (
           <div id="panel-knowledge" role="tabpanel" className={panelClass}>
-            <KnowledgePanel />
+            <KnowledgePanel allowDestructiveSave={allowDestructiveSave} />
           </div>
         )}
 
-        {activeTab === "documents" && <DocumentsTabPanel className={panelClass} lang={lang} isPopout={isPopout} />}
+        {activeTab === "documents" && <DocumentsTabPanel className={panelClass} lang={lang} isPopout={isPopout} allowDestructiveSave={allowDestructiveSave} />}
 
         {activeTab === "timelog" && (
           <div id="panel-timelog" role="tabpanel" className={panelClass}>

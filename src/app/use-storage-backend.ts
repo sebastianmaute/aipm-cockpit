@@ -14,7 +14,9 @@ import {
   pickFileForBackend,
   requestWriteAccessForBackend,
 } from "./storage";
-import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount, isMassDeletion } from "./workspace";
+import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
+import { evaluateSaveGuard } from "./save-guard";
+import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
 import { backfillTaskResourceFks } from "./resource-foundation";
 import { recordDataLossEvent } from "./dataloss-forensics";
 import { logDiag } from "./diagnostics";
@@ -137,7 +139,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
+  const { truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -332,13 +334,14 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         if (isWorkspaceEmpty(workspace) && !isWorkspaceEmpty(currentWorkspace())) {
           recordDataLossEvent({ path: "load", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: true });
           emitToast("info", t(langRef.current, "storageKeptCurrentData"));
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★ Refusing to APPLY does not un-arm autosave against THIS backend, and a decode failure is a fact about its stored bytes, not about the workspace that stayed live — so the decode half is published while truncation's is not. AFTER the toast above: single-slot surface, see the landmine on `reportFor`. Raise-only; the doc on `raiseDecodeFailuresFor` carries why lowering here would clear a warning that is still true.
           await refreshBackendStatus();
           emitOutcome(null);
           return;
         }
         applyWorkspace(workspace, "reset", "merge"); // "merge": SAME project — keep appends made while this load was in flight.
         logDiag("info", "storage.loaded", { records: workspaceRecordCount(workspace) });
-        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the flag would describe the workspace that is actually live.
+        truncationOps.reportFor(backend); // ★ after applyWorkspace only: the empty-load REFUSAL above applies nothing, so neither raising nor lowering the TRUNCATION flag would describe the workspace that is actually live. ★★ That reasoning is TRUNCATION-specific and does NOT extend to the decode cause — the refusal path publishes that one itself, just above.
         suppressNextSaveRef.current = true;
         await refreshBackendStatus();
         emitOutcome(null);
@@ -383,7 +386,13 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     // windows would also race, and popup storage is often blocked
     // ("AbortError: Aborted due to security policy") — skipping fixes both.
     if (args.isPopout) return;
-    const outgoing = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog } as Workspace;
+    // ★ ONE object: counted by the guard below AND handed to backend.save. The save used to
+    //   re-spell this 28-field literal, so a new Workspace field could be counted here and
+    //   never written. ★★ The `: Workspace` annotation (not `as`) only catches a missing
+    //   REQUIRED field, and only 9 of the 28 are required — new slices add OPTIONAL ones.
+    //   Measured: dropping `activityLog` from this literal keeps tsc GREEN. The single
+    //   spelling, NOT tsc, is what protects this; do not re-inline the literal at the save.
+    const outgoing: Workspace = { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
     const curCollections = nonEmptyCollectionCount(outgoing);
     const curRecords = workspaceRecordCount(outgoing);
     if (suppressNextSaveRef.current) {
@@ -392,24 +401,21 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       prevRecordCountRef.current = curRecords;
       return;
     }
-    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends):
-    //   L3 — a full wipe of a >=2-collection project (protects small projects).
-    //   B  — an unexplained MASS deletion: >=5 records removed leaving <=10% of the
-    //        prior total (protects big projects; catches partial-but-catastrophic
-    //        loss L3 misses). An explicit user bulk-op (clear-all / bulk delete)
-    //        sets allowDestructiveRef one-shot to bypass. On refusal the backend
-    //        keeps the data; a reload restores it.
+    // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
+    //   Layer B, both decided by the pure `evaluateSaveGuard` (save-guard.ts) — read the
+    //   two invariants there, not here. An explicit user bulk-op (clear-all / bulk delete)
+    //   arms allowDestructiveRef one-shot to bypass them; on refusal the backend keeps the
+    //   data, so a reload restores it.
     // ★★ §103: an AUTOMATIC save must never commit a truncated load — the excess documents
     // are still in the source file. Baselines deliberately untouched (use-load-truncation.ts).
-    if (!mayCommitAfterTruncation()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
-    const fullWipe = curCollections === 0 && prevCollectionCountRef.current >= 2;
-    const massDelete = isMassDeletion(prevRecordCountRef.current, curRecords);
-    if ((fullWipe || massDelete) && !allowDestructiveRef.current) {
+    if (!mayCommitAfterIncompleteLoad()) { allowDestructiveRef.current = false; return; } // ★★★ SPEND the bypass here too — a sticky guard would otherwise carry it for hours (use-load-truncation.ts).
+    const verdict = evaluateSaveGuard({ prevCollections: prevCollectionCountRef.current, prevRecords: prevRecordCountRef.current, curCollections, curRecords, allowDestructive: allowDestructiveRef.current });
+    if (verdict.refuse) {
       recordDataLossEvent({ path: "save-effect", prevCollections: prevCollectionCountRef.current, nextCollections: curCollections, refused: true });
       emitToast("info", t(langRef.current, "storageRefusedWipe"));
       return; // keep baselines so a later change re-evaluates
     }
-    if (curCollections === 0 && prevCollectionCountRef.current === 1) {
+    if (verdict.forensic) {
       // A single-collection full-empty L3 lets through — leave a forensic trail.
       recordDataLossEvent({ path: "save-effect", prevCollections: 1, nextCollections: 0, refused: false });
     }
@@ -426,7 +432,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     //    §72 failure. They are routed through emitOutcome/emitToast for that
     //    reason; do not call args.* directly here.
     const doSave = () => {
-      backend.save({ tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }).then(() => {
+      backend.save(outgoing).then(() => { // ★ the SAME object the guard counted — see the note on `outgoing`; a re-spelled literal here is how a field gets counted and never written
         emitOutcome(null);
       }).catch((err) => {
         emitOutcome(err);
@@ -448,42 +454,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
         }
       });
     };
-    // `fired` guards against double-firing: once either the debounce timer or a
-    // flush has started the save, later triggers are no-ops. (If the timer
-    // already fired and that save is still in flight, skipping the flush is the
-    // simple, acceptable choice — the in-flight save carries this effect run's
-    // workspace snapshot anyway.)
-    let fired = false;
-    const timer = setTimeout(() => { fired = true; doSave(); }, 500);
-    // Flush-on-hide: a pending debounced save would be silently lost if the
-    // user hides or closes the tab within the 500ms window. `visibilitychange`
-    // → "hidden" is the primary signal; `pagehide` is the backup for actual
-    // unload/navigation (chosen over `beforeunload`, which is unreliable with
-    // the back/forward cache and not used elsewhere in this codebase).
-    // Listeners are only registered on effect runs that passed the hydrated/
-    // popout/suppress gates above, so the flush obeys the exact same gating as
-    // the debounced save and never fires when no save is pending.
-    const flush = () => {
-      if (fired) return;
-      fired = true;
-      clearTimeout(timer);
-      doSave();
-    };
-    const onVisibilityChange = () => {
-      if (document.visibilityState === "hidden") flush();
-    };
-    document.addEventListener("visibilitychange", onVisibilityChange);
-    window.addEventListener("pagehide", flush);
-    return () => {
-      clearTimeout(timer);
-      document.removeEventListener("visibilitychange", onVisibilityChange);
-      window.removeEventListener("pagehide", flush);
-    };
-    // ★ `loadWasTruncated` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
+    // ★ Debounce + flush-on-hide (the double-fire guard, why `pagehide` backs up
+    //   `visibilitychange`, and why this may only be reached AFTER the hydrated/
+    //   popout/suppress gates above) all live in debounced-save.ts. Read it there.
+    return scheduleDebouncedSave(doSave, SAVE_DEBOUNCE_MS);
+    // ★ `loadWasIncomplete` is a dep so LOWERING it (the user's "save anyway") re-runs this effect
     // and the escape actually WRITES — otherwise it no-ops until the next unrelated edit. ★★ Keep
     // the disable directive DIRECTLY below: a comment between it and the deps line silently voids it.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasTruncated]);
+  }, [tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog, args.hydrated, args.isPopout, backend, loadWasIncomplete]);
 
   const canSend = !args.isPopout;
   useBroadcastSync("tasks", tasks, setTasks, canSend);
@@ -760,6 +739,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
           window.confirm(t(langRef.current, "reloadEmptyConfirm"));
         recordDataLossEvent({ path: "reload", prevCollections: nonEmptyCollectionCount(currentWorkspace()), nextCollections: 0, refused: !confirmed });
         if (!confirmed) {
+          truncationOps.raiseDecodeFailuresFor(backend); // ★★★ THE CAUTIOUS ANSWER MUST NOT DISARM THE GUARD. Declining keeps the in-memory workspace and leaves autosave pointed at THIS backend, so an undecodable meta blob here is precisely the loss the flag exists to pause — the user picking the SAFE option was what skipped the report and left the next edit free to `DELETE FROM meta` over it. Raise-only, and truncation is deliberately not published: see `raiseDecodeFailuresFor`.
           emitOutcome(null);
           return;
         }
@@ -789,7 +769,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, truncation, loadWasTruncated, allowTruncatedSave,
+    reloadCurrentProject, allowDestructiveSave, truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

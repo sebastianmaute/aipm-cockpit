@@ -35,6 +35,7 @@ import { sanitizeProjectDocuments, type DocTruncationDiag } from "./document-mod
 import { sanitizeDocumentRichFields } from "./document-rich-fields";
 import { sanitizeDocumentVersions } from "./document-versions";
 import { sanitizeSettingsOverrides, hasAnyOverride } from "./settings-overrides";
+import { logDiag } from "./diagnostics";
 import type {
   Task, RaidItem, Absence, Shift, Resource, Role, Discipline, Grade, BudgetBucket, Milestone, ChangeItem, Stakeholder,
 } from "./types";
@@ -183,12 +184,31 @@ export function rowsToWorkspace(
   if (fxRow) {
     ws.fxRates = sanitizeFxRates({ base: fxRow.base, date: fxRow.date, fetchedAt: fxRow.fetchedAt, rates: decodeRatesMap(fxRow.rates ?? "") });
   }
+  // ★★ NOT silent, and NOT a rethrow. The diagnostics ring is the channel for
+  //    this loss, exactly as `jsonToWorkspace` does for the same class of
+  //    failure on `documents` ("a user who opens a file and finds no
+  //    documents has something to find"). Rethrowing would let ONE corrupt
+  //    slice discard the whole workspace — the load already proceeds with
+  //    whatever entity tables came back, so silently dropping this slice is
+  //    the failure the diagnostic exists to surface instead.
+  //
+  //    Reports to BOTH channels, always: the diagnostics ring for an operator
+  //    reading logs, and the `diag` accumulator for the caller — the ring is
+  //    not reachable from the save-time load guard, and the accumulator is
+  //    not visible to an operator reading logs.
+  const reportUnreadableSlice = (slice: string, err: unknown): void => {
+    logDiag("error", "turso.metaSliceUnreadable", {
+      slice,
+      message: err instanceof Error ? err.message : String(err),
+    });
+    if (diag) (diag.decodeFailedSlices ??= []).push(slice);
+  };
   const statusRow = rowObjects(byTable.get("meta")).find((r) => r.key === "project_status");
   if (statusRow?.value) {
     try {
       ws.status = sanitizeProjectStatus(JSON.parse(statusRow.value));
-    } catch {
-      // malformed — leave the emptyWorkspace() default
+    } catch (err) {
+      reportUnreadableSlice("project_status", err);
     }
   }
   const fvRow = rowObjects(byTable.get("meta")).find((r) => r.key === "field_visibility");
@@ -196,8 +216,8 @@ export function rowsToWorkspace(
     try {
       const fv = sanitizeFieldVisibility(JSON.parse(fvRow.value));
       if (fv) ws.fieldVisibility = fv;
-    } catch {
-      // malformed — leave default (undefined)
+    } catch (err) {
+      reportUnreadableSlice("field_visibility", err);
     }
   }
   const fnRow = rowObjects(byTable.get("meta")).find((r) => r.key === "features");
@@ -205,8 +225,8 @@ export function rowsToWorkspace(
     try {
       const f = sanitizeFeatures(JSON.parse(fnRow.value));
       if (f !== undefined) ws.features = f;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("features", err);
     }
   }
   const scRow = rowObjects(byTable.get("meta")).find((r) => r.key === "steering_committee");
@@ -214,8 +234,8 @@ export function rowsToWorkspace(
     try {
       const sc = sanitizeSteeringCommittee(JSON.parse(scRow.value));
       if (sc) ws.steeringCommittee = sc;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("steering_committee", err);
     }
   }
   const tlRow = rowObjects(byTable.get("meta")).find((r) => r.key === "timelog_links");
@@ -223,8 +243,8 @@ export function rowsToWorkspace(
     try {
       const tl = sanitizeTimelogLinks(JSON.parse(tlRow.value));
       if (tl) ws.timelogLinks = tl;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("timelog_links", err);
     }
   }
   const kiRow = rowObjects(byTable.get("meta")).find((r) => r.key === "knowledge_items");
@@ -232,8 +252,8 @@ export function rowsToWorkspace(
     try {
       const ki = sanitizeKnowledgeItems(JSON.parse(kiRow.value));
       if (ki.length) ws.knowledgeItems = ki;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("knowledge_items", err);
     }
   }
   const insRow = rowObjects(byTable.get("meta")).find((r) => r.key === "insights");
@@ -241,8 +261,8 @@ export function rowsToWorkspace(
     try {
       const ins = sanitizeInsights(JSON.parse(insRow.value));
       if (ins.length) ws.insights = ins;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("insights", err);
     }
   }
   const logRow = rowObjects(byTable.get("meta")).find((r) => r.key === "activityLog");
@@ -250,8 +270,8 @@ export function rowsToWorkspace(
     try {
       const log = sanitizeActivityLog(JSON.parse(logRow.value));
       if (log.length) ws.activityLog = log;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("activityLog", err);
     }
   }
   // Documents ride `meta` as one JSON blob — no table of their own, so
@@ -264,8 +284,8 @@ export function rowsToWorkspace(
     try {
       const docs = sanitizeProjectDocuments(JSON.parse(docRow.value), diag).map(sanitizeDocumentRichFields);
       if (docs.length) ws.documents = docs;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("documents", err);
     }
   }
   // documentVersions ride `meta` too — same two-pass shape as documents just
@@ -287,8 +307,8 @@ export function rowsToWorkspace(
         }).blocks,
       }));
       if (versions.length) ws.documentVersions = versions;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("documentVersions", err);
     }
   }
   const soRow = rowObjects(byTable.get("meta")).find((r) => r.key === "settings_overrides");
@@ -296,8 +316,8 @@ export function rowsToWorkspace(
     try {
       const so = sanitizeSettingsOverrides(JSON.parse(soRow.value));
       if (hasAnyOverride(so)) ws.settingsOverrides = so;
-    } catch {
-      // malformed — leave undefined
+    } catch (err) {
+      reportUnreadableSlice("settings_overrides", err);
     }
   }
   return migrateWorkspaceV10(ws);

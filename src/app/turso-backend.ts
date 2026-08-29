@@ -115,6 +115,9 @@ export class TursoBackend implements StorageBackend {
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
 
+  /** Which meta-blob slices the most recent load() could not decode at all. */
+  lastDecodeFailures: readonly string[] = [];
+
   constructor(
     private config: TursoConfig | null,
     private projectId?: string,
@@ -153,6 +156,7 @@ export class TursoBackend implements StorageBackend {
         entries: diag.truncatedEntries ?? 0,
         blocks: diag.truncatedBlocks ?? 0,
       };
+      this.lastDecodeFailures = diag.decodeFailedSlices ?? [];
     }
   }
 

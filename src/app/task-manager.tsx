@@ -441,17 +441,33 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
-    truncation, loadWasTruncated, allowTruncatedSave,
+    truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
   } = useStorageBackend({ settings, lang, hydrated, isPopout, showToast, setStorageConfig: (storageConfig) => setSettings((s) => ({ ...s, storageConfig })), onStorageOutcome: reportStorageOutcome, onRegistryChange: setRegistry });
 
   // ★★ Render-time reconcile, NOT an effect (`set-state-in-effect` is banned): a NEW
-  // truncated load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
+  // incomplete load re-shows the banner after a dismiss (the ONLY "Save anyway" surface).
   // ★ Keyed on the counts OBJECT — the boolean never lowers between two truncated loads.
+  // ★★★ AND ON THE DECODE NONCE, because the guard has TWO causes and the object
+  // covers only one: on the decode path `truncation` is `null` throughout, so a
+  // key made of it alone never moves and project #2's banner arrives ALREADY
+  // DISMISSED with saving paused and nothing on screen saying so. The nonce and
+  // not `decodeFailureCount`: a count compares equal when two projects fail the
+  // same NUMBER of slices, which reads as fixed while the defect survives.
   const [truncationSeen, setTruncationSeen] = useState<typeof truncation>(null);
-  if (truncation !== truncationSeen) { setTruncationSeen(truncation); setTruncationBannerDismissed(false); }
+  // ★ Seeded with the guard's OWN starting value, not with the live one. The
+  // guard mounts in this same render (task-manager calls the hook that owns it),
+  // so 0 is what it really is here — and seeding from the live value is the
+  // remount-swallow shape, where a fresh mount sees `value === seed` and drops a
+  // pending report.
+  const [decodeNonceSeen, setDecodeNonceSeen] = useState(0);
+  if (truncation !== truncationSeen || decodeFailureNonce !== decodeNonceSeen) {
+    setTruncationSeen(truncation);
+    setDecodeNonceSeen(decodeFailureNonce);
+    setTruncationBannerDismissed(false);
+  }
 
   // Refresh the Turso project list (active + archived) from the shared DB. The
   // list is the source of truth in Turso mode; this is called on first load and
@@ -581,7 +597,7 @@ function TaskManagerInner() {
   const currentProjectName = project?.name ?? (portfolioMode === "turso" ? null : currentEntry?.name) ?? null;
 
   // The status bubble must reflect real reachability: a stale Turso config is
-  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasTruncated` is NOT:
+  // `isReady()`-true but failing, so fold in the error. ★★★ `loadWasIncomplete` is NOT:
   // 2 of 3 consumers are `StorageConfigSection` (`ready`), where false means UNCONFIGURED
   // (bogus "permission needed"/Turso "needs config"). Only the footer DOT means healthy, so that ONE call site applies the truncation term itself.
   const storageOk = storageReady && !storageError;
@@ -1688,6 +1704,9 @@ function TaskManagerInner() {
     setSettings,
     isReadOnly: isPopout,
     currentView: activeTab, settingsProjectId: landingProjectId, holidaySet, logActivityAs,
+    // ★ `delete_document` is a second removal route into a COUNTED slice — see
+    //   the arming site in `use-document-tools.ts`.
+    allowDestructiveSave,
     getDashboardModel: () => dashboardModel,
     getBudgetRollup,
     getAllocationsSnapshot,
@@ -2002,6 +2021,7 @@ function TaskManagerInner() {
     },
     changes,
     documentsByEntity,
+    allowDestructiveSave,
     handleSaveChange: guardEdit(handleSaveChange),
     handleDeleteChange: guardEdit(handleDeleteChange),
     handleChangeStatusChange: guardEdit(handleChangeStatusChange),
@@ -2467,8 +2487,8 @@ function TaskManagerInner() {
       {!isPopout && storageError && !storageErrorDismissed && (
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
-      {!isPopout && loadWasTruncated && (
-        <TruncatedLoadBanner lang={lang} truncation={truncation} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowTruncatedSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
+      {!isPopout && loadWasIncomplete && (
+        <TruncatedLoadBanner lang={lang} truncation={truncation} decodeFailureCount={decodeFailureCount} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
     </>
   );
@@ -2661,8 +2681,8 @@ function TaskManagerInner() {
             lang={lang}
             collapsed={sidebarCollapsed}
             storageDescription={storageDescription}
-            storageReady={storageOk && !loadWasTruncated}
-            savingPaused={!isPopout && loadWasTruncated} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
+            storageReady={storageOk && !loadWasIncomplete}
+            savingPaused={!isPopout && loadWasIncomplete} onRestoreSavingNotice={() => setTruncationBannerDismissed(false)}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}
             onSignOut={() => { void msAuth.signOut().catch((e) => reportSilentFailure(showToast, lang, "msauth.signInFailed", e, "guardMsSignInFailed")); }}

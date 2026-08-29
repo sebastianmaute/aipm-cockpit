@@ -22,7 +22,7 @@ import { __resetMintStateForTests } from "./id-mint-session";
 // needs from storage keeps working and only the truncation fields are staged.
 const override = vi.hoisted(() => ({
   value: {} as Record<string, unknown>,
-  allowTruncatedSave: vi.fn(),
+  allowIncompleteSave: vi.fn(),
 }));
 
 vi.mock("./use-storage-backend", async (importOriginal) => {
@@ -65,7 +65,7 @@ const TRUNCATED = { entries: 5, blocks: 0 };
 beforeEach(() => {
   __resetMintStateForTests();
   footerSeen.storageReady.length = 0;
-  override.allowTruncatedSave = vi.fn();
+  override.allowIncompleteSave = vi.fn();
   override.value = {
     // ★ Forced true so `storageOk`'s OTHER terms cannot decide the outcome. The
     // real browser backend never reports ready inside this harness, which would
@@ -73,8 +73,8 @@ beforeEach(() => {
     // with the truncation guard — a vacuous pass.
     storageReady: true,
     truncation: TRUNCATED,
-    loadWasTruncated: true,
-    allowTruncatedSave: override.allowTruncatedSave,
+    loadWasIncomplete: true,
+    allowIncompleteSave: override.allowIncompleteSave,
   };
   window.localStorage.clear();
   window.localStorage.setItem(
@@ -112,17 +112,17 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(el as HTMLElement).getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   }, 45000);
 
-  it("wires the primary action to allowTruncatedSave, not to the dismiss handler", async () => {
+  it("wires the primary action to allowIncompleteSave, not to the dismiss handler", async () => {
     await mountApp();
     fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: "Save anyway" }));
 
     // Real ConfirmProvider is in the tree, so the gate is exercised end to end.
     await screen.findByText("Save anyway?");
-    expect(override.allowTruncatedSave).not.toHaveBeenCalled();
+    expect(override.allowIncompleteSave).not.toHaveBeenCalled();
 
     const confirms = screen.getAllByRole("button", { name: "Save anyway" });
     fireEvent.click(confirms[confirms.length - 1]);
-    await waitFor(() => expect(override.allowTruncatedSave).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(override.allowIncompleteSave).toHaveBeenCalledTimes(1));
     // ...and it did NOT merely hide itself: the guard is what resolves this.
     expect(banner()).not.toBeNull();
   }, 45000);
@@ -133,7 +133,7 @@ describe("task-manager → truncation banner mount", () => {
 
     await waitFor(() => expect(banner()).toBeNull());
     // The lockout is still in force — dismissing is not consenting.
-    expect(override.allowTruncatedSave).not.toHaveBeenCalled();
+    expect(override.allowIncompleteSave).not.toHaveBeenCalled();
 
     // ...and the door back exists and works.
     const control = pausedControl();
@@ -144,7 +144,7 @@ describe("task-manager → truncation banner mount", () => {
 
   it("a NEW truncated load re-shows a dismissed banner, with the new count", async () => {
     // ★★ The render-time reconcile. Two truncated projects in a row never lower
-    // `loadWasTruncated`, so a dismissal keyed on the BOOLEAN would carry over
+    // `loadWasIncomplete`, so a dismissal keyed on the BOOLEAN would carry over
     // and project #2's banner would arrive already dismissed — the user is never
     // told its documents could not be opened either. Keyed on the counts object,
     // a fresh report re-opens it.
@@ -159,8 +159,55 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(banner() as HTMLElement).getByText(/9 document entries could not be opened/i)).toBeInTheDocument();
   }, 45000);
 
+  it("a SECOND decode-failing load re-shows a dismissed banner, at the same failure count", async () => {
+    // ★★★ THE DECODE PATH HAS NO COUNTS OBJECT TO KEY ON. `truncation` is null
+    // for the whole of it, so a reconcile keyed on that alone never fires:
+    // project A fails to decode → banner → dismiss → project B ALSO fails, and
+    // B's banner arrives already dismissed while saving is paused on B and
+    // nothing on screen says so.
+    // ★★ THE COUNT IS DELIBERATELY HELD AT 2 ACROSS BOTH LOADS. Keying on
+    // `decodeFailureCount` would pass this test's premise (two projects, two
+    // banners) while failing exactly here — the commonest real shape is the same
+    // number of slices failing twice, and a fix that reads as done is worse than
+    // none. The nonce is what moves.
+    override.value = { ...override.value, truncation: null, decodeFailureCount: 2, decodeFailureNonce: 1, loadWasIncomplete: true };
+    const { rerender } = await mountApp();
+    fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(banner()).toBeNull());
+
+    override.value = { ...override.value, decodeFailureNonce: 2 };
+    rerender(<TaskManager />);
+
+    await waitFor(() => expect(banner()).not.toBeNull());
+    expect(within(banner() as HTMLElement).getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
+  }, 45000);
+
+  it("names how many kinds of data were unreadable in the save-anyway dialog", async () => {
+    // ★★★ THE DECODE CAUSE HAS NO `truncation` COUNTS, so the banner's count
+    // line and — the part that matters — the confirm dialog would name NO
+    // magnitude at all. That dialog is the last thing the user sees before
+    // permanently discarding the data, and "some data" is not enough to decide.
+    override.value = {
+      ...override.value,
+      truncation: null,
+      decodeFailureCount: 2,
+      loadWasIncomplete: true,
+    };
+    await mountApp();
+    const el = banner();
+    expect(el).not.toBeNull();
+    fireEvent.click(within(el as HTMLElement).getByRole("button", { name: "Save anyway" }));
+    await screen.findByText("Save anyway?");
+    // ★ Scoped to the DIALOG. The banner's own count line carries the same
+    // sentence, so an unscoped query matches twice and errors — and the dialog
+    // is the half that decides, so it is the half asserted here.
+    // ★ Named, because the guided tour's welcome dialog is mounted too.
+    const dialog = screen.getByRole("dialog", { name: "Save anyway?" });
+    expect(within(dialog).getByText(/2 kinds of saved data could not be read/)).toBeInTheDocument();
+  }, 45000);
+
   it("stops reporting storage as healthy while saving is paused", async () => {
-    // ★ `storageOk` must fold in `loadWasTruncated`. Reporting healthy while
+    // ★ `storageOk` must fold in `loadWasIncomplete`. Reporting healthy while
     // nothing is being written is the WRONG signal, not merely a missing one.
     // The control for this assertion is the clean-load test below, which proves
     // this harness DOES reach `storageReady: true` once a load lands — without
@@ -171,7 +218,7 @@ describe("task-manager → truncation banner mount", () => {
   }, 45000);
 
   it("shows neither the banner nor the paused indicator on a clean load, and reports healthy", async () => {
-    override.value = { storageReady: true, truncation: null, loadWasTruncated: false, allowTruncatedSave: override.allowTruncatedSave };
+    override.value = { storageReady: true, truncation: null, loadWasIncomplete: false, allowIncompleteSave: override.allowIncompleteSave };
     await mountApp();
     expect(banner()).toBeNull();
     expect(pausedControl()).toBeNull();

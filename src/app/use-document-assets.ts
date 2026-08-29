@@ -82,6 +82,28 @@ export interface UseDocumentAssetsDeps {
    *  only way concurrent writers can compose. See the header. */
   setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
   projectId: string;
+  /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
+   *  on `remove`. `documentAssets` counts toward `workspaceRecordCount`, so
+   *  removing several inside one save-debounce window is a mass deletion by
+   *  Layer B's arithmetic.
+   *  ★★★ THE WINDOW IS NARROWER THAN THIS COMMENT USED TO CLAIM. It said an
+   *  "ordinary click-per-second burst coalesces into one save", which the
+   *  constant contradicts: `SAVE_DEBOUNCE_MS` is 500 and the debounce is
+   *  TRAILING, so a click at t=0 fires its save at t=500, BEFORE a click at
+   *  t=1000 arrives — one-per-second clicks each get their own save and each
+   *  advances the committed baseline. Coalescing needs changes CLOSER TOGETHER
+   *  than 500ms. The arming still earns its place: a genuinely fast burst does
+   *  coalesce, and the AI `delete_document` route (`use-document-tools.ts`)
+   *  coalesces unambiguously: `chat-panel.tsx` runs every tool_use block of one
+   *  response in a single loop with no model round-trip between, and each block
+   *  is a local mutation.
+   *  ★ Say that as the LOOP SHAPE, not "one tick" — each block is `await`ed, so
+   *  consecutive blocks are separated by microtask turns rather than sharing a
+   *  React batch. "Closer together than 500ms" is all the argument needs, and
+   *  it holds by orders of magnitude.
+   *  Optional: the pane renders in contexts (tests, popouts) that supply no
+   *  bypass at all. */
+  allowDestructiveSave?: () => void;
 }
 
 export interface UseDocumentAssetsResult {
@@ -150,7 +172,7 @@ function setsEqual(a: ReadonlySet<string>, b: ReadonlySet<string>): boolean {
 }
 
 export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAssetsResult {
-  const { config, assets, setAssets, projectId } = deps;
+  const { config, assets, setAssets, projectId, allowDestructiveSave } = deps;
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<UploadError | null>(null);
   const [danglingIds, setDanglingIds] = useState<ReadonlySet<string>>(new Set());
@@ -335,7 +357,24 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     commitAssets((prev) => prev.map((a) => (a.id === id ? { ...a, name } : a)));
   }, [commitAssets]);
 
+  // ★★ A MIRROR, for the SAME reason `use-bulk-operations.ts` keeps one: the
+  // producer (`use-storage-backend.ts`) re-creates this arrow every render, so
+  // taking it into `remove`'s dep list would re-mint `remove` on every render
+  // of the whole tree — and `remove` is handed to `AssetLibrary` as `onDelete`.
+  // The ref keeps the dep list stable while the call below still reads the LIVE
+  // callback. Synced in an effect, never during render.
+  const allowDestructiveSaveRef = useRef(allowDestructiveSave);
+  useEffect(() => {
+    allowDestructiveSaveRef.current = allowDestructiveSave;
+  }, [allowDestructiveSave]);
+
   const remove = useCallback((id: string) => {
+    // ★★ Arm the one-shot destructive-save bypass. documentAssets now counts
+    //    toward workspaceRecordCount, so removing several in one debounce
+    //    window is a mass deletion by Layer B's arithmetic — and this IS the
+    //    explicit user action the bypass exists for (the caller confirms each
+    //    delete before reaching here).
+    allowDestructiveSaveRef.current?.();
     commitAssets((prev) => prev.filter((a) => a.id !== id));
     // Best-effort byte cleanup. A leftover byte row with no metadata
     // referencing it is inert and never surfaced — unlike a metadata row

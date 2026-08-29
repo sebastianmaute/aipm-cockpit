@@ -8,6 +8,34 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.263.1] - 2026-08-29 "Okorafor"
+
+### Fixed
+
+- **A project stored in a Turso database could silently lose its documents, and nothing
+  had to go wrong for it to happen.** When such a project was opened, any saved section the
+  app could not read back — documents, knowledge items, insights or activity history — was
+  discarded without a word, and the project opened looking as though that section had always
+  been empty. The next save then wrote the project back without it, destroying it for good.
+  No warning appeared at any point, and the save-time checks that exist to stop a save from
+  throwing data away did not count those sections at all, so a save that removed every
+  document looked like a save that changed nothing. Ordinary use was enough to reach this;
+  it did not require doing anything to the documents themselves.
+
+  Opening a project now reports how many kinds of saved data could not be read, and pauses
+  saving so that nothing is overwritten while the problem is unresolved. Anyone who
+  understands what is missing and wants to continue regardless can still commit the save
+  explicitly with **Save anyway**. Opening a second affected project raises the warning
+  again, rather than staying silent because an earlier one had already been acknowledged.
+
+- **The save-time data-loss checks now count documents, knowledge items and document
+  images.** Those three were invisible to the checks, so a save that dropped all of them
+  registered as harmless. Deleting your own documents, knowledge items or images still works
+  exactly as before — those actions tell the check that the removal was deliberate.
+
+- **A load that both truncated a project and failed to read part of it now reports both.**
+  Previously only one of the two problems was named, understating how much was missing.
+
 ## [0.263.0] - 2026-08-28 "Okorafor"
 
 ### Accessibility

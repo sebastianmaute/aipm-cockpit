@@ -31,10 +31,12 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //    one is non-empty. "Only documents" is an ordinary state — someone
     //    drafting a charter before entering any task — and without this a
     //    transient empty read applies, wipes them, and autosave persists it.
-    //    ★ Deliberately NOT added to nonEmptyCollectionCount /
-    //    workspaceRecordCount: those feed the SAVE-time mass-deletion
-    //    thresholds, so widening them changes when saves are REFUSED for every
-    //    existing project. See docs/open-followups.md §98.
+    //    ★ documents is NOW counted by nonEmptyCollectionCount /
+    //    workspaceRecordCount too — read the rule block on those two below.
+    //    It was held back while §98 was open, because widening the SAVE-time
+    //    thresholds changes when saves are REFUSED for every existing project;
+    //    that is now done, with the destructive-save bypass armed on the
+    //    delete path so a legitimate delete is still allowed through.
     && (ws.documents?.length ?? 0) === 0
     && (ws.documentVersions?.length ?? 0) === 0;
     // ★★★ activityLog is deliberately ABSENT here, INVERTING the documents rule
@@ -48,6 +50,35 @@ export function isWorkspaceEmpty(ws: Workspace): boolean {
     //     Same reasoning keeps it out of nonEmptyCollectionCount /
     //     workspaceRecordCount (SAVE-time mass-deletion thresholds, §98).
 }
+
+/** ★★★ WHICH SLICES COUNT, AND WHY THE EXCLUSIONS ARE LOAD-BEARING.
+ *
+ *  THE RULE: a slice counts toward these SAVE-time guards iff it holds
+ *  user-authored records that cannot be regenerated, AND its size is not driven
+ *  by automatic append.
+ *
+ *  COUNTED beyond the thirteen entity collections: documents, knowledgeItems,
+ *  documentAssets — all user-authored and unrecoverable.
+ *
+ *  NOT COUNTED, each for a reason that would break a guard if ignored:
+ *   - activityLog: auto-appended by ordinary use. Counting it here means
+ *     nonEmptyCollectionCount can never reach 0 in a project that has ever been
+ *     used, and reaching 0 is L3's entire trigger — the full-wipe guard would be
+ *     dead for good. isWorkspaceEmpty documents the identical inversion for
+ *     itself and warns against "completing" the documents precedent.
+ *   - documentVersions: auto-captured and pruned by retention, so counting it
+ *     would make an ordinary prune read as a mass deletion and refuse a
+ *     legitimate save.
+ *   - insights: derived by detection, regenerable.
+ *   - features: config, not records.
+ *
+ *  Every line of this is pinned by is-workspace-empty.test.ts, in both
+ *  directions — each exclusion was mutation-checked, so adding one of these
+ *  slices to a counter turns that exclusion's test red. A NEW slice is caught
+ *  by workspace-slice-policy.test.ts, which parses the Workspace type and fails
+ *  when a slice has no recorded decision in workspace-slice-policy.ts — the
+ *  registry of these decisions, which does NOT drive the counters below.
+ *  See docs/open-followups.md §98. */
 
 /** Number of user collections that hold at least one record. Used by the
  *  persistence-layer data-loss guard to tell a MULTI-collection simultaneous
@@ -68,6 +99,9 @@ export function nonEmptyCollectionCount(ws: Workspace): number {
   if (ws.changes?.length) n++;
   if (ws.stakeholders?.length) n++;
   if (ws.calendarEvents?.length) n++;
+  if (ws.documents?.length) n++;
+  if (ws.knowledgeItems?.length) n++;
+  if (ws.documentAssets?.length) n++;
   return n;
 }
 
@@ -86,7 +120,10 @@ export function workspaceRecordCount(ws: Workspace): number {
     + (ws.milestones?.length ?? 0)
     + (ws.changes?.length ?? 0)
     + (ws.stakeholders?.length ?? 0)
-    + (ws.calendarEvents?.length ?? 0);
+    + (ws.calendarEvents?.length ?? 0)
+    + (ws.documents?.length ?? 0)
+    + (ws.knowledgeItems?.length ?? 0)
+    + (ws.documentAssets?.length ?? 0);
 }
 
 /** Layer-B invariant: is this save an unexplained MASS deletion? True when it

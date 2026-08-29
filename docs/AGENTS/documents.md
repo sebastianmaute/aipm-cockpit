@@ -500,9 +500,20 @@ cited `activityLog`, whose reasoning does not transfer at all: `activityLog` is 
 ORDINARY USE auto-appends to it, so counting it would let a transient empty read overwrite real
 data. `documentAssets` rows come only from an explicit user upload, which is behaviourally
 `documents` — and `documents` IS counted. The code did not change; the model it taught anyone
-extending the slice did. ★ `documentAssets` is likewise absent from `nonEmptyCollectionCount` and
-`workspaceRecordCount` (the SAVE-time mass-deletion thresholds), on the same reasoning; all three
-live in `workspace-metrics.ts`.
+extending the slice did. ★★ **CORRECTED 2026-08-29: `documentAssets` IS now counted by
+`nonEmptyCollectionCount` and `workspaceRecordCount`** (the SAVE-time mass-deletion thresholds), and
+this line said the opposite. The meta-decode-loss slice widened both counters to `documents`,
+`knowledgeItems` and `documentAssets` on exactly the reasoning stated above — an asset row comes only
+from an explicit user upload, so it is behaviourally `documents`. ★ The `isWorkspaceEmpty` exclusion
+is UNCHANGED and the two are not the same question: emptiness asks whether a read may overwrite a
+populated project, the counters ask whether an outgoing save deleted records. All three functions
+live in `workspace-metrics.ts`; every array slice's decision, in both directions and with its reason,
+is recorded in `SLICE_POLICY` (`workspace-slice-policy.ts`) and a red test now enforces that a new
+slice carries one. Read the decisions there rather than a sentence here:
+
+```bash
+grep -n "counted: " src/app/workspace-slice-policy.ts
+```
 
 ## Entity links (`document-ref.ts`)
 

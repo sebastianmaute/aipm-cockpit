@@ -1,13 +1,14 @@
 // Documents ride the `meta` table as ONE JSON blob (like insights) — they have
 // no table of their own, so `TABLE_NAMES` (derived from ENTITY_SPECS) is
 // deliberately untouched and its guard test stays green unmodified.
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import {
   TABLE_NAMES, workspaceToStatements, rowsToWorkspace, dirtyWorkspaceTables,
   type PipelineResultLike,
 } from "./turso-schema";
 import { tenantWorkspaceToStatements } from "./turso-tenant-schema";
 import { emptyWorkspace } from "./workspace";
+import * as diagnostics from "./diagnostics";
 import {
   MAX_BLOCKS_PER_DOC, MAX_DOCUMENTS,
   type DocTruncationDiag, type ProjectDocument,
@@ -412,5 +413,121 @@ describe("turso — documentVersions load", () => {
     const ws = rowsToWorkspace(metaOnlyResults([["documentVersions", JSON.stringify([VERSION])]]), diag);
     expect(ws.documentVersions).toEqual([VERSION]);
     expect(diag.truncatedBlocks).toBeUndefined();
+  });
+});
+
+describe("malformed meta blobs are reported, not swallowed", () => {
+  it("logs a diagnostic naming the slice that failed to decode", () => {
+    const seen: Array<{ level: string; code: string; fields?: Record<string, unknown> }> = [];
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation((level, code, fields) => {
+      seen.push({ level, code, fields });
+    });
+    try {
+      const ws = rowsToWorkspace(metaOnlyResults([["documents", "{not json"]]));
+      expect(ws.documents).toBeUndefined();
+    } finally {
+      spy.mockRestore();
+    }
+    const hit = seen.find((e) => e.code === "turso.metaSliceUnreadable");
+    expect(hit, "a malformed documents blob must emit turso.metaSliceUnreadable").toBeDefined();
+    expect(hit?.level).toBe("error");
+    expect(hit?.fields?.slice).toBe("documents");
+  });
+
+  it("leaves sibling slices intact when one blob is malformed", () => {
+    // ★ The sibling has to be a POSITIVE observable, not merely a slice that
+    // "didn't throw". `insights` decodes with `if (ins.length) ws.insights =
+    // ins;` — an EMPTY array never reaches the assignment, so a `[]` seed
+    // (the shape this test used to carry) leaves `ws.insights` undefined
+    // regardless of whether the decode ran at all, and the test was green
+    // whether the sibling decode worked or was entirely broken. A
+    // `knowledge_items` seed that survives `sanitizeKnowledgeItems` non-empty
+    // gives the assertion something that can actually fail.
+    //
+    // ★★ THIS IS THE BEFORE-THE-FAILURE DIRECTION ONLY, and on its own it
+    // proves much less than its name suggests: `rowsToWorkspace` decodes
+    // `knowledge_items` well ABOVE `documents`, so the sibling is already
+    // assigned by the time the throw happens. The only way this can fail is if
+    // the whole decoder throws outright. Kept because that IS a real regression
+    // to pin — the failure must not become a rethrow — but the direction that
+    // matters is the case below.
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const ws = rowsToWorkspace(
+        metaOnlyResults([
+          ["documents", "{not json"],
+          ["knowledge_items", JSON.stringify([
+            { id: "ki-1", name: "Spec doc", url: "https://example.com/doc", kind: "file" },
+          ])],
+        ]),
+      );
+      expect(ws.documents).toBeUndefined();
+      expect(ws.knowledgeItems).toHaveLength(1);
+      expect(ws.knowledgeItems?.[0]?.id).toBe("ki-1");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("does not abort the slices decoded AFTER the malformed one", () => {
+    // ★★★ THE DIRECTION THAT ACTUALLY MATTERS, and the one the test above
+    // cannot reach. A decode failure has to leave its own slice undefined and
+    // let the REMAINING decodes run; if it ever short-circuits, every slice
+    // below the failure silently disappears from the load — and the next save
+    // runs `DELETE FROM meta` and re-inserts only what it has, so the loss is
+    // then permanent. The guard in `use-load-truncation.ts` pauses saving on a
+    // reported failure, but it is fed a COUNT: it cannot tell one lost slice
+    // from six, so this is the only place the difference is visible.
+    //
+    // ★★ `settings_overrides` is the sibling BECAUSE OF ITS POSITION — it is
+    // the LAST slice `rowsToWorkspace` decodes, several below `documents`
+    // (`documents` → `documentVersions` → `settings_overrides`). Re-read that
+    // order before swapping the seed for a different key: a sibling that moved
+    // above `documents` turns this back into the weaker test above with no
+    // visible change.
+    // ★ And it is a POSITIVE observable for the same reason the sibling above
+    // is: it is assigned behind `if (hasAnyOverride(so))`, so an empty or
+    // invalid override would leave `ws.settingsOverrides` undefined whether the
+    // decode ran or not.
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const ws = rowsToWorkspace(
+        metaOnlyResults([
+          ["documents", "{not json"],
+          ["settings_overrides", JSON.stringify({ timezone: { timezone: "Europe/Berlin" } })],
+        ]),
+      );
+      expect(ws.documents).toBeUndefined();
+      expect(ws.settingsOverrides?.timezone?.timezone).toBe("Europe/Berlin");
+    } finally {
+      spy.mockRestore();
+    }
+  });
+});
+
+describe("decode failures are accumulated for the caller", () => {
+  it("records the slice key in the diag", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const diag: DocTruncationDiag = {};
+    try {
+      rowsToWorkspace(metaOnlyResults([["documents", "{not json"]]), diag);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(diag.decodeFailedSlices).toEqual(["documents"]);
+  });
+
+  it("records every failing slice, and stays absent when all decode cleanly", () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    const bad: DocTruncationDiag = {};
+    const good: DocTruncationDiag = {};
+    try {
+      rowsToWorkspace(metaOnlyResults([["documents", "{not json"], ["insights", "{also not json"]]), bad);
+      rowsToWorkspace(metaOnlyResults([["insights", JSON.stringify([])]]), good);
+    } finally {
+      spy.mockRestore();
+    }
+    expect(bad.decodeFailedSlices).toEqual(["insights", "documents"]);
+    expect(good.decodeFailedSlices).toBeUndefined();
   });
 });

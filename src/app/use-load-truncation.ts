@@ -18,7 +18,7 @@ type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
  *
  * ★★★ THEY EXIST BECAUSE PER-CALL-SITE PATCHING IS WHAT BROKE THIS. The first
  * cut of the guard reported truncation at ONE of six `backend.load()` call
- * sites and checked `mayCommitAfterTruncation` at ONE of seven write sites, so
+ * sites and checked `mayCommitAfterIncompleteLoad` at ONE of seven write sites, so
  * a project switch both failed to warn AND committed the loss the banner was
  * meant to prevent. Anything that loads or flushes goes through here; nothing
  * in `use-storage-file-ops.ts` / `use-storage-turso-ops.ts` holds a backend it
@@ -52,9 +52,44 @@ export interface TruncationOps {
   reportFor: (
     backend: Pick<
       StorageBackend,
-      "lastLoadTruncation" | "lastImportDroppedRows" | "lastImportUnterminatedQuote"
+      | "lastLoadTruncation"
+      | "lastImportDroppedRows"
+      | "lastImportUnterminatedQuote"
+      | "lastDecodeFailures"
     >,
   ) => void;
+  /** The DECODE half of `reportFor`, RAISE-ONLY — for a load whose workspace was
+   *  REFUSED rather than applied (the two empty-load data-loss guards in
+   *  `use-storage-backend.ts`).
+   *
+   *  ★★★ THOSE PATHS MUST NOT CALL `reportFor`, AND MUST NOT STAY SILENT
+   *  EITHER. `reportFor` reports three things about the load, and only one of
+   *  them survives a refusal:
+   *    • TRUNCATION is a property of documents that were never applied, so
+   *      neither raising nor lowering it would describe the live workspace —
+   *      that is the reasoning the `reportFor` call sites carry, and it stands.
+   *    • A DECODE failure is not about the applied workspace at all. It is a
+   *      fact about the STORED BYTES that autosave is about to overwrite, and
+   *      autosave stays armed against exactly that backend after a refusal.
+   *      Measured shape: a documents-only project whose `documents` blob is
+   *      corrupt loads EMPTY, the reload confirm appears, the user picks the
+   *      SAFE option, the early return skips the report, `loadWasIncomplete`
+   *      stays false, and the next edit runs `DELETE FROM meta` over the blob.
+   *      Choosing the cautious option was what disarmed the guard.
+   *
+   *  ★★★ RAISE-ONLY IS THE LOAD-BEARING HALF, not an omission. `reportFor`
+   *  lowers the flag on a clean read because it is "scoped to the workspace that
+   *  is live RIGHT NOW" and that workspace was just applied. After a refusal
+   *  NOTHING was applied — the live workspace is still the PREVIOUS load's, and
+   *  so is any flag raised over it — so lowering here would clear a warning that
+   *  is still true, resuming autosave over a database that failed to decode
+   *  minutes ago on the strength of one suspicious empty read. Same rule as
+   *  `reportFor`, applied to a path where the two directions come apart.
+   *
+   *  ★ Import diagnostics are deliberately NOT published here either: they are
+   *  the same class as truncation (a property of rows that were not applied),
+   *  and the known gap around them is recorded at `onOpenStorageFile`. */
+  raiseDecodeFailuresFor: (backend: Pick<StorageBackend, "lastDecodeFailures">) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -86,7 +121,7 @@ export interface TruncationOps {
    *  it. Guarding a write is not the same as guarding an ACTION; when the action
    *  has side effects of its own, check first and call this. */
   /** Would a write be refused right now? NON-MUTATING, unlike
-   *  `mayCommitAfterTruncation`, which SPENDS the one-shot bypass when it
+   *  `mayCommitAfterIncompleteLoad`, which SPENDS the one-shot bypass when it
    *  answers. A caller that must decline before its own irreversible side effect
    *  has to ask without consuming anything — otherwise merely *checking* burns
    *  the authorisation the user just gave, and the write that follows is refused
@@ -100,7 +135,7 @@ export interface TruncationOps {
    *  These paths build their workspace rather than loading it, so `reportFor`
    *  never runs, and they set `suppressNextLoadRef`, so the load their
    *  storageConfig change triggers takes the suppress branch and reports nothing
-   *  either — leaving `loadWasTruncated` raised over a project that has no
+   *  either — leaving `loadWasIncomplete` raised over a project that has no
    *  documents at all. Every edit to it is then silently refused, and the banner
    *  reports the OLD project's counts against it. It is the same invariant
    *  `reportLoadTruncation` holds for a clean load ("scoped to the workspace
@@ -115,19 +150,55 @@ export interface LoadTruncationGuard {
    *  7s single-slot toast is gone by the time the user reads the banner, and
    *  "some data" is not enough to decide whether to accept the loss. */
   truncation: { entries: number; blocks: number } | null;
-  /** True while a truncated load is unresolved. Derived from `truncation` (one
-   *  source of truth) — drives the persistent banner and the save-effect dep.
-   *  See the lockout note on `allowTruncatedSave`. */
-  loadWasTruncated: boolean;
-  /** Lower the flag so saving resumes and the truncated set may be committed.
+  /** How many meta slices the last load could not read, 0 when none. ★ A COUNT,
+   *  not the keys: the keys are internal identifiers (`documentVersions`,
+   *  `settings_overrides`) and the diagnostics ring already carries them for an
+   *  operator. */
+  decodeFailureCount: number;
+  /** Bumped once per LOAD that reported at least one undecodable slice — the
+   *  identity a dismissal-reconcile needs, and NOT a magnitude.
+   *
+   *  ★★★ THE COUNT CANNOT SERVE AS THAT KEY, which is the whole reason this
+   *  exists. `task-manager.tsx` re-opens a dismissed banner by comparing what it
+   *  last saw against what the guard reports now; on the decode path `truncation`
+   *  is `null` on both sides, so the counts object never moves, and
+   *  `decodeFailureCount` is a NUMBER — two projects in a row failing the same
+   *  two slices compare equal. Either way the second project's banner arrives
+   *  already dismissed while saving is paused, and nothing tells the user.
+   *
+   *  ★★ MONOTONIC, and never reset — not by `allowIncompleteSave`, not by
+   *  `clearForFreshWorkspace`. Resetting would make a later value compare equal
+   *  to one a consumer had already seen, which is the same collision one level
+   *  down. Consumers must treat it as opaque: only `!==` against their own last
+   *  seen value is meaningful, never its size or its delta.
+   *
+   *  ★ A NONCE RATHER THAN THE `decodeFailures` ARRAY ITSELF, though that array
+   *  is freshly minted per failing load today (`turso-backend.ts` builds a new
+   *  `diag` per `load()`, and `turso-schema.ts` mints the array into it with
+   *  `??=`). Depending on that would make the reconcile correct by accident of
+   *  how one backend happens to allocate; a backend publishing a reused array
+   *  would silently reintroduce the pre-dismissed banner. It also keeps the slice
+   *  KEYS off the guard's public surface — see `decodeFailureCount` above. */
+  decodeFailureNonce: number;
+  /** True while an incomplete load is unresolved — from EITHER cause: a
+   *  truncating load, or a meta slice that could not be decoded. Derived from
+   *  the two states below it (one derivation, so they cannot disagree) — drives
+   *  the persistent banner and the save-effect dep. See the lockout note on
+   *  `allowIncompleteSave`. */
+  loadWasIncomplete: boolean;
+  /** Lower the flag so saving resumes and the incomplete set may be committed.
    *  ★★★ THIS IS THE ONLY WAY OUT AND IT MUST STAY REACHABLE FROM THE UI. The
    *  user CANNOT get under the cap by editing: the excess entries were never
    *  loaded, so the rows that would have to go are precisely the ones that are
    *  not there. Without a visible escape the sticky flag below is a permanent
-   *  save lockout — a worse defect than the one §103 is about. */
-  allowTruncatedSave: () => void;
+   *  save lockout — a worse defect than the one §103 is about.
+   *  ★★★ STICKIER STILL FOR A DECODE FAILURE. A truncation at least has a
+   *  theoretical repair outside the app (trim the source under the cap); a
+   *  malformed meta blob has none the user can reach from anywhere, so this is
+   *  their ONLY exit, not merely the convenient one. Clears BOTH causes. */
+  allowIncompleteSave: () => void;
   /** True when a save may proceed. */
-  mayCommitAfterTruncation: () => boolean;
+  mayCommitAfterIncompleteLoad: () => boolean;
   /** The choke points — see `TruncationOps`. */
   truncationOps: TruncationOps;
 }
@@ -190,30 +261,51 @@ export function useLoadTruncation(
 ): LoadTruncationGuard {
   // ★ The COUNTS are the state, not a boolean — the banner has to name a
   // magnitude, and a second `useState` for it would be a second source of truth
-  // that can drift from the flag. `loadWasTruncated` is derived below.
+  // that can drift from the flag. `loadWasIncomplete` is derived below.
   const [truncation, setTruncation] = useState<{ entries: number; blocks: number } | null>(null);
-  const loadWasTruncated = truncation !== null;
+  // ★★ A SEPARATE state, not a second copy of the flag. The note above warns
+  // against a boolean duplicating the counts — that is about restating the SAME
+  // fact twice. This is a DIFFERENT fact with different data (which slices, not
+  // how many entries), and `loadWasIncomplete` below is the single derivation
+  // over both, so the two causes cannot disagree about whether saving is paused.
+  const [decodeFailures, setDecodeFailures] = useState<readonly string[] | null>(null);
+  // ★★ NOT a third source of truth about whether saving is paused — it says
+  // nothing about that, and `loadWasIncomplete` below still derives from the two
+  // states alone. It is a per-failing-load IDENTITY, the one fact neither of
+  // those two carries: see `decodeFailureNonce` on `LoadTruncationGuard` for
+  // what breaks without it.
+  const [decodeFailureNonce, setDecodeFailureNonce] = useState(0);
+  const loadWasIncomplete = truncation !== null || decodeFailures !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
-  // saving is the STATE going false: `loadWasTruncated` is a dep of the save
+  // saving is the STATE going false: `loadWasIncomplete` is a dep of the save
   // effect (`use-storage-backend.ts`), so lowering it re-runs the effect with
   // the guard already down, and the handler closures the ops hooks hold are
   // rebuilt on that same render. Measured 2026-08-07 by mutation: replacing the
-  // whole of `mayCommitAfterTruncation` with `return !loadWasTruncated` left all
+  // whole of `mayCommitAfterIncompleteLoad` with `return !loadWasIncomplete` left all
   // 110 tests across the three suites GREEN, so nothing observes this ref today.
   // It is kept for the one shape a test cannot easily stage — a flush reached
   // from a closure captured BEFORE the click, which would otherwise skip a write
   // the user just authorised. Delete it only with that case in hand.
-  const allowTruncatedSaveRef = useRef(false);
+  const allowIncompleteSaveRef = useRef(false);
   /** The counts last reported, so an explicit-action refusal can restate WHY it
    *  refused. Not derivable from the backend at refusal time: the write target
    *  may be a different backend that never served a load (storage conversion). */
   const lastTruncationRef = useRef<{ entries: number; blocks: number } | null>(null);
+  /** The same, for the decode cause — and for the same reason: the write target
+   *  of an explicit action may be a backend that never served a load, so its
+   *  `lastDecodeFailures` is empty and reading it would report "clean". */
+  const lastDecodeCountRef = useRef(0);
 
-  const allowTruncatedSave = () => {
-    allowTruncatedSaveRef.current = true;
+  const allowIncompleteSave = () => {
+    allowIncompleteSaveRef.current = true;
     lastTruncationRef.current = null;
+    lastDecodeCountRef.current = 0;
     setTruncation(null);
+    // ★ BOTH causes, or the escape hatch is not one: clearing only the
+    // truncation leaves `loadWasIncomplete` derived-true off the other state and
+    // the user's click does nothing they can see.
+    setDecodeFailures(null);
   };
 
   /** The user-facing sentence for a truncation. ★ Entries dominate when both are
@@ -246,6 +338,43 @@ export function useLoadTruncation(
     lastTruncationRef.current = counts;
     showToast("error", truncationText(entries, blocks));
     setTruncation(counts);
+  };
+
+  /**
+   * The SECOND cause of an incomplete load: a stored meta blob the load could
+   * not decode (`rowsToWorkspace` → `StorageBackend.lastDecodeFailures`).
+   *
+   * ★★★ IT IS THE SAME LOSS AS §103, ARRIVING BY A DIFFERENT ROUTE, which is
+   * why it routes into this guard rather than a mechanism of its own. A
+   * malformed blob leaves its slice undefined and the load carries on —
+   * `isWorkspaceEmpty` refuses only a TOTALLY empty read — and the next save
+   * runs `DELETE FROM meta` and re-inserts only the rows it has, destroying the
+   * blob. Nothing document-related has to happen for that to land: `meta` is
+   * dirty whenever any of its slices changes reference, and `activityLog` is
+   * auto-appended by ordinary use.
+   *
+   * ★ Lowers the flag on a clean read, exactly as `reportLoadTruncation` does —
+   * this is scoped to the workspace that is live RIGHT NOW.
+   */
+  const reportDecodeFailures = (backend: Pick<StorageBackend, "lastDecodeFailures">) => {
+    const failed = backend.lastDecodeFailures ?? [];
+    if (failed.length === 0) {
+      lastDecodeCountRef.current = 0;
+      setDecodeFailures(null);
+      return;
+    }
+    // ★ The KEYS go to the operator channel, never to the user: `documentVersions`
+    // / `settings_overrides` are internal identifiers, and a label map for them
+    // is a translation surface nobody asked for. The user gets the magnitude.
+    logDiag("error", "workspace.metaSlicesUnreadable", { slices: failed.join(","), count: failed.length });
+    lastDecodeCountRef.current = failed.length;
+    showToast("error", t(langRef.current, "documentsUnreadableWarning", failed.length));
+    setDecodeFailures(failed);
+    // ★ Bumped HERE, in the failing branch only, so it marks a load that
+    // actually reported a loss. A clean load lowers the flag above and returns;
+    // moving this out of the branch would make every clean load look like a new
+    // failure to a consumer keying on it.
+    setDecodeFailureNonce((n) => n + 1);
   };
 
   // ★★ Deliberately does NOT touch the caller's L3/B baselines
@@ -283,9 +412,9 @@ export function useLoadTruncation(
   // explicit bulk op always mutates the workspace, so the save effect runs and
   // the branch above catches every armed bypass. Spending it from a background
   // flush would refuse a deletion the user did authorise, for no added safety.
-  const mayCommitAfterTruncation = (): boolean => {
-    if (loadWasTruncated && !allowTruncatedSaveRef.current) return false;
-    allowTruncatedSaveRef.current = false;
+  const mayCommitAfterIncompleteLoad = (): boolean => {
+    if (loadWasIncomplete && !allowIncompleteSaveRef.current) return false;
+    allowIncompleteSaveRef.current = false;
     return true;
   };
 
@@ -324,13 +453,27 @@ export function useLoadTruncation(
       // load that also reported import diagnostics raises both, and the import
       // toast — fired second — is the one that survives. That is the acceptable
       // direction, because truncation additionally raises the persistent banner
-      // (`truncation` / `loadWasTruncated`), which names its counts for as long
+      // (`truncation` / `loadWasIncomplete`), which names its counts for as long
       // as the user needs them, while import diagnostics have only the toast.
+      // ★ The decode report sits between them for the same reason: it too has
+      // the persistent banner behind it, so losing its toast to the import one
+      // costs the user nothing they cannot read back.
       reportLoadTruncation(backend.lastLoadTruncation);
+      reportDecodeFailures(backend);
       reportImportDiagnostics(backend);
     },
+    raiseDecodeFailuresFor: (backend) => {
+      // ★ The RAISE-ONLY gate, and the only line that differs from the shared
+      // implementation below — see this member's doc for why lowering a flag
+      // here would clear a warning that is still true of the live workspace.
+      if ((backend.lastDecodeFailures ?? []).length === 0) return;
+      // ★ Delegated rather than re-spelled: `reportDecodeFailures` reaches only
+      // its raising branch with a non-empty list, so the toast, the diagnostics
+      // row, the state and the nonce cannot drift from the `reportFor` path.
+      reportDecodeFailures(backend);
+    },
     flushCurrent: async () => {
-      if (!mayCommitAfterTruncation()) {
+      if (!mayCommitAfterIncompleteLoad()) {
         // Leave a forensic trail: the skip is invisible at the call site (every
         // flush is best-effort and swallows its own errors), so without this a
         // "my project switch did not save" report has nothing to read.
@@ -341,22 +484,34 @@ export function useLoadTruncation(
     },
     clearForFreshWorkspace: () => {
       lastTruncationRef.current = null;
+      lastDecodeCountRef.current = 0;
       setTruncation(null);
+      // ★ Both causes, for the reason in this member's doc: a brand-new project
+      // has no load to hang either flag on, so anything left raised is the
+      // PREVIOUS project's and refuses every edit to this one.
+      setDecodeFailures(null);
     },
-    wouldRefuseWrite: () => loadWasTruncated && !allowTruncatedSaveRef.current,
+    wouldRefuseWrite: () => loadWasIncomplete && !allowIncompleteSaveRef.current,
     refuseWrite: () => {
       const last = lastTruncationRef.current;
-      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}) });
+      const decoded = lastDecodeCountRef.current;
+      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}), decodeFailures: decoded });
       // Say it out loud. The caller returns, so no success toast and no config
       // repoint follow — the user is not left believing a store they just chose
       // holds a project it does not.
-      if (last) showToast("error", truncationText(last.entries, last.blocks));
+      // ★★ A decode-only refusal MUST speak too. Without this the refusal is a
+      // silent no-op on an explicit click — precisely what separates this from
+      // `flushCurrent`, which the user never asked for.
+      const parts: string[] = [];
+      if (last) parts.push(truncationText(last.entries, last.blocks));
+      if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
+      if (parts.length > 0) showToast("error", parts.join(" "));
     },
     guardedWrite: async (backend, ws) => {
       // ★ ONE implementation of the refusal, shared with `refuseWrite` above, so
       // a caller that declines early and one that declines at the write cannot
       // report the loss differently.
-      if (!mayCommitAfterTruncation()) {
+      if (!mayCommitAfterIncompleteLoad()) {
         truncationOps.refuseWrite();
         return false;
       }
@@ -365,5 +520,13 @@ export function useLoadTruncation(
     },
   };
 
-  return { truncation, loadWasTruncated, allowTruncatedSave, mayCommitAfterTruncation, truncationOps };
+  return {
+    truncation,
+    decodeFailureCount: decodeFailures?.length ?? 0,
+    decodeFailureNonce,
+    loadWasIncomplete,
+    allowIncompleteSave,
+    mayCommitAfterIncompleteLoad,
+    truncationOps,
+  };
 }

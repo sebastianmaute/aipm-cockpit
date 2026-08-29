@@ -133,10 +133,13 @@ export function DocumentsTabPanel({
   className,
   lang,
   isPopout,
+  allowDestructiveSave,
 }: {
   className: string;
   lang: Lang;
   isPopout: boolean;
+  /** Threaded straight through to `DocumentsPanel` — see its own docstring. */
+  allowDestructiveSave?: () => void;
 }) {
   const ws = useWorkspace();
   // ★★ The asset library's Turso gate. Mirrors workspace-section.tsx's
@@ -235,11 +238,15 @@ export function DocumentsTabPanel({
           ws={ws}
           isReadOnly={isPopout}
           onResetSize={resetPaneSize}
+          allowDestructiveSave={allowDestructiveSave}
           assetPane={{
             tursoConfig: assetsTursoConfig,
             projectId: assetsProjectId,
             assets: ws.documentAssets,
             setAssets: ws.setDocumentAssets,
+            // ★ The SAME bypass the panel itself gets — the asset remove is a
+            //   second delete route into a counted slice, so it needs it too.
+            allowDestructiveSave,
           }}
         />
       </div>

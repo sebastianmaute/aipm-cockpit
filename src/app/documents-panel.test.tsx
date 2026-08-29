@@ -172,7 +172,10 @@ function boxMutator(box: Box) {
   };
 }
 
-function renderPanel(initial: readonly ProjectDocument[] = []) {
+function renderPanel(
+  initial: readonly ProjectDocument[] = [],
+  opts: { allowDestructiveSave?: () => void } = {},
+) {
   const box: Box = { docs: initial, versions: [] };
   const mutateDocuments = boxMutator(box);
   vi.mocked(downloadDocument).mockClear();
@@ -186,6 +189,7 @@ function renderPanel(initial: readonly ProjectDocument[] = []) {
         documentVersions={[]}
         ws={emptyWorkspace()}
         onResetSize={onResetSize}
+        allowDestructiveSave={opts.allowDestructiveSave}
       />
     </PanelHost>,
   );
@@ -463,6 +467,50 @@ describe("DocumentsPanel", () => {
     const confirmBtn = await screen.findByRole("button", { name: "Delete" });
     fireEvent.click(confirmBtn);
     await waitFor(() => expect(box.docs.map((d) => d.id)).toEqual([2]));
+  });
+
+  it("arms the destructive-save bypass when a document is deleted", async () => {
+    const allowDestructiveSave = vi.fn();
+    const { box } = renderPanel([doc(1, "Alpha"), doc(2, "Beta")], { allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    const confirmBtn = await screen.findByRole("button", { name: "Delete" });
+    fireEvent.click(confirmBtn);
+    await waitFor(() => expect(box.docs.map((d) => d.id)).toEqual([2]));
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  // ★★★ ARMING BEFORE THE MUTATION LEAKED THE ONE-SHOT INDEFINITELY.
+  // `mutateDocuments` (`workspace-context.tsx`) returns early on
+  // `!result.changed` — no `setDocuments`, so no state change, so the save
+  // effect never runs and never CONSUMES the bypass. A concurrent writer (the
+  // AI `delete_document` tool, or another tab via broadcast sync) removing the
+  // same document while the confirm was open was enough to trigger it, and the
+  // bypass then waved a LATER accidental mass deletion through L3 and Layer B.
+  it("does NOT arm when the delete turns out to be a no-op", async () => {
+    const allowDestructiveSave = vi.fn();
+    const { box } = renderPanel([doc(1, "Alpha"), doc(2, "Beta")], { allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    const confirmBtn = await screen.findByRole("button", { name: "Delete" });
+    // THE CONCURRENT WRITER, landing between the confirm opening and the click.
+    // `boxMutator` reads `box.docs` at call time, so the mutation the confirm
+    // triggers now finds nothing to remove and reports `changed:false`.
+    box.docs = box.docs.filter((d) => d.id !== 1);
+    fireEvent.click(confirmBtn);
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    // Control: the mutation really did run and really did change nothing — so
+    // the assertion above is about the `changed` gate, not about a click that
+    // never reached the handler.
+    expect(box.docs.map((d) => d.id)).toEqual([2]);
+  });
+
+  it("does NOT arm the destructive-save bypass when the confirm is cancelled", async () => {
+    const allowDestructiveSave = vi.fn();
+    renderPanel([doc(1, "Alpha"), doc(2, "Beta")], { allowDestructiveSave });
+    fireEvent.click(screen.getByRole("button", { name: "Delete – Alpha" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Cancel" }));
+    await waitFor(() => expect(screen.queryByRole("dialog")).not.toBeInTheDocument());
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
 
   it("does NOT delete when the confirm is cancelled", async () => {

@@ -1,4 +1,4 @@
-<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.263.0 "Okorafor" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
+<!-- Generated: 2026-07-30 · counts re-verified 2026-08-19 at 6046dcd2 | App 0.263.1 "Okorafor" | Workspace SCHEMA_VERSION = 11 | Files scanned: types.ts, workspace.ts, csv/markdown codecs, turso-schema.ts, browser-backend.ts, sanitize*, rich-text* | Token estimate: ~1100 -->
 
 # Data
 
@@ -147,6 +147,17 @@ dumps decrypted keys to disk.
 
 ## Integrity guards
 
-`load()` throws on a malformed/partial read rather than masking it as an empty project; the save
-effect refuses a full-wipe or mass deletion over a populated project unless `allowDestructiveSave()`
-is armed (clear-all self-arms). Forensics land under `dataloss.*` codes in the diagnostics ring.
+★ **CORRECTED 2026-08-29 — this said "`load()` throws on a malformed/partial read rather than masking
+it as an empty project", and one path disproves it (open-followups §284).** A HARD read failure does
+propagate: a backend that is not ready, a handle that no longer resolves, a throwing codec. A
+malformed meta-blob SLICE on the Turso path does NOT — `rowsToWorkspace` decodes each slice in its own
+`try`/`catch`, and until 2026-08-29 every one of the eleven was a bare comment, so the slice was
+dropped and the load returned as though it had never held one. They now route through
+`reportUnreadableSlice` (the diagnostics ring, plus an accumulator the §103 incomplete-load guard turns
+into a save lockout) — reported and CONTINUED, deliberately not rethrown, because one corrupt slice
+must not discard a workspace whose entity tables came back intact. Read "throws" as "does not silently
+substitute an empty project", never as "every malformed read raises".
+
+The save effect refuses a full-wipe or mass deletion over a populated project unless
+`allowDestructiveSave()` is armed (clear-all self-arms). Forensics land under `dataloss.*` codes in
+the diagnostics ring.

@@ -64,7 +64,7 @@ function makeDeps(overrides: Partial<TursoProjectOpsDeps> = {}): TursoProjectOps
     tursoConfigNow: () => ({ httpUrl: "https://db.example", authToken: "tok" }) as never,
     tursoProjectId: "p-1",
     setTursoProjectId: vi.fn(),
-    truncationOps: { reportFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), wouldRefuseWrite: vi.fn(() => false), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
+    truncationOps: { reportFor: vi.fn(), raiseDecodeFailuresFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), wouldRefuseWrite: vi.fn(() => false), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
     currentWorkspace: () => emptyWorkspace(),
     applyWorkspace: vi.fn(),
     suppressNextLoadRef: { current: false },
@@ -129,11 +129,11 @@ describe("useTursoProjectOps — §103 truncation", () => {
   it("switchToTursoProject REPORTS the target's truncation", async () => {
     tursoTruncation.current = { entries: 6, blocks: 0 };
     const { result } = renderWithRealGuard(async () => {});
-    expect(result.current.guard.loadWasTruncated).toBe(false); // control
+    expect(result.current.guard.loadWasIncomplete).toBe(false); // control
 
     await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
 
-    expect(result.current.guard.loadWasTruncated).toBe(true);
+    expect(result.current.guard.loadWasIncomplete).toBe(true);
     expect(result.current.showToast).toHaveBeenCalledWith("error", expect.stringContaining("6"));
   });
 
@@ -141,12 +141,12 @@ describe("useTursoProjectOps — §103 truncation", () => {
     tursoTruncation.current = { entries: 6, blocks: 0 };
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
-    expect(result.current.guard.loadWasTruncated).toBe(true);
+    expect(result.current.guard.loadWasIncomplete).toBe(true);
 
     tursoTruncation.current = { entries: 0, blocks: 0 };
     await act(async () => { await result.current.ops.switchToTursoProject("p-3"); });
 
-    expect(result.current.guard.loadWasTruncated).toBe(false);
+    expect(result.current.guard.loadWasIncomplete).toBe(false);
   });
 
   it("the outgoing flush is SKIPPED while a truncated load is unresolved", async () => {
@@ -157,7 +157,7 @@ describe("useTursoProjectOps — §103 truncation", () => {
     // First switch raises the flag (its own flush runs — nothing was wrong yet).
     await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
     expect(saveCurrent).toHaveBeenCalledTimes(1);
-    expect(result.current.guard.loadWasTruncated).toBe(true);
+    expect(result.current.guard.loadWasIncomplete).toBe(true);
 
     // Second switch, now under an unresolved truncation: no write at all.
     await act(async () => { await result.current.ops.switchToTursoProject("p-3"); });
@@ -175,13 +175,13 @@ describe("useTursoProjectOps — §103 truncation", () => {
     tursoTruncation.current = { entries: 5, blocks: 0 };
     const { result } = renderWithRealGuard(async () => {});
     await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
-    expect(result.current.guard.loadWasTruncated).toBe(true); // control: really raised
+    expect(result.current.guard.loadWasIncomplete).toBe(true); // control: really raised
 
     await act(async () => {
       await result.current.ops.createTursoProject({ id: "n-1", name: "New", code: "N" } as never);
     });
 
-    expect(result.current.guard.loadWasTruncated).toBe(false);
+    expect(result.current.guard.loadWasIncomplete).toBe(false);
   });
 
   // ★★★ THE KILL LINE FOR MIGRATE'S PRE-CHECK. Removing it left this whole file
@@ -207,7 +207,7 @@ describe("useTursoProjectOps — §103 truncation", () => {
 
     // Raise the flag through a real load, then clear the call record.
     await act(async () => { await result.current.ops.switchToTursoProject("p-2"); });
-    expect(result.current.guard.loadWasTruncated).toBe(true); // control: really raised
+    expect(result.current.guard.loadWasIncomplete).toBe(true); // control: really raised
     vi.mocked(portfolioCreate).mockClear();
     saveMock.mockClear();
 

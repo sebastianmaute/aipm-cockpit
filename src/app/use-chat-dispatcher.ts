@@ -224,7 +224,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const readOnlyError = () =>
     new Error(t(settingsRef.current.language, "popoutReadOnly"));
 
-  const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAs);
+  const documentTools = useDocumentTools(args.isReadOnly, args.logActivityAs, args.allowDestructiveSave);
   // ★ The two refs are PASSED, not re-minted there — use-register-tools.ts's
   // header says why. Its own four register refs live in that file.
   const registerTools = useRegisterTools({

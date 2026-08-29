@@ -2,8 +2,8 @@
 // repo/license links, and the Version-popover highlight keys.
 // Per-version history lives in CHANGELOG.md (repo root) — the authoritative
 // changelog. APP_BUILD_DATE is the date of the last build.
-export const APP_VERSION = "0.263.0";
-export const APP_BUILD_DATE = "2026-08-28"; // 0.263.0: row-unique names, round 3 (Okorafor)
+export const APP_VERSION = "0.263.1";
+export const APP_BUILD_DATE = "2026-08-29"; // 0.263.1: meta-blob decode loss chain (Okorafor)
 /** Minor-series milestone codename (sci-fi/fantasy author names). The
  *  0.263.x line is "Okorafor" (Nnedi Okorafor, Nigerian-American SF/fantasy
  *  author). Reused: 0.223.x and 0.25.x also ran under this name.

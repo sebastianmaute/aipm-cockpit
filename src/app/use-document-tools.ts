@@ -141,6 +141,10 @@ function remapOpIndex(entry: string, callerIndexOf: readonly number[]): string {
 export function useDocumentTools(
   isReadOnly: boolean,
   logActivityAs?: LogActivityAsFn,
+  /** ★★ The one-shot destructive-save bypass — see the arming site in
+   *  `deleteDocument` below for why this route needs it and the panel route is
+   *  not enough. */
+  allowDestructiveSave?: () => void,
 ): DocumentToolDispatcher {
   const { documents, documentVersions, mutateDocuments } = useWorkspace();
 
@@ -156,6 +160,18 @@ export function useDocumentTools(
   useEffect(() => {
     versionsRef.current = documentVersions;
   }, [documentVersions]);
+
+  // ★★ A MIRROR, for the same reason `use-document-assets.ts` and
+  // `use-bulk-operations.ts` keep one: the producer (`use-storage-backend.ts`)
+  // re-creates this arrow every render, so taking it into the `useMemo` dep
+  // list below would rebuild the whole dispatcher on every render of the tree —
+  // defeating the stable identity the refs above exist to preserve. The ref
+  // keeps the deps stable while the arming site still reads the LIVE callback.
+  // Synced in an effect, never during render.
+  const allowDestructiveSaveRef = useRef(allowDestructiveSave);
+  useEffect(() => {
+    allowDestructiveSaveRef.current = allowDestructiveSave;
+  }, [allowDestructiveSave]);
 
   const readOnlyError = () =>
     new Error("This window is read-only; open the main window to make changes.");
@@ -440,6 +456,34 @@ export function useDocumentTools(
         // `changed:false` here means the id did not exist — nothing was
         // deleted, so nothing is logged.
         if (result.changed) {
+          // ★★★ ARM THE ONE-SHOT DESTRUCTIVE-SAVE BYPASS. `documents` counts
+          // toward `workspaceRecordCount`, and this is the SECOND removal route
+          // — `documents-panel.tsx` armed and this one did not. Several
+          // `delete_document` calls in one assistant turn run back-to-back —
+          // `chat-panel.tsx` walks EVERY tool_use block of ONE response in a
+          // single loop with no model round-trip between, and each block is a
+          // local mutation — so they land orders of magnitude inside
+          // SAVE_DEBOUNCE_MS and coalesce into one save. That save can then be
+          // REFUSED: the UI shows the documents gone while the backend still
+          // holds them.
+          // ★★★ THE THRESHOLD IS NOT INTUITIVE AND THIS COMMENT ONCE GOT IT
+          // WRONG. It claimed 8 deletes in a project of 8 documents + 1 task
+          // refuse. They do NOT: `isMassDeletion(9,1)` passes the floor (8 >= 5)
+          // and FAILS the fraction (1 <= 0.9 is false), so every document goes
+          // and Layer B stays silent. The near-miss is ONE RECORD wide. Run it,
+          // do not re-derive it:
+          //   node -e 'const f=(p,c,fl=5,fr=0.1)=>c<p&&(p-c)>=fl&&c<=p*fr;
+          //     console.log(f(10,1), f(9,1), f(8,0))'   -> true false true
+          // So 9 docs + 1 task refuses, and 8 docs with no other records
+          // refuses; 8 docs + 1 task does not.
+          // ★★ ARMED PER DELETE AND ONLY WHEN `changed`, deliberately, NOT once
+          // per tool run. There is no run-begin seam in the dispatcher, and
+          // arming for a run that deletes nothing leaks the one-shot: the
+          // bypass is consumed by the next SAVE, so with no state change none
+          // ever runs and it stays up indefinitely (the shape
+          // `documents-panel.tsx` was fixed for). Gating on `changed` means a
+          // state change is guaranteed, so the save that spends it is too.
+          allowDestructiveSaveRef.current?.();
           logActivityAs?.("ai", "ai.documentWrite", id, before?.title ?? "");
         }
         const newest = result.versions[result.versions.length - 1];

@@ -67,6 +67,10 @@ export interface DocumentAssetPaneProps {
   projectId: string;
   assets: readonly DocumentAsset[] | undefined;
   setAssets: Dispatch<SetStateAction<readonly DocumentAsset[] | undefined>>;
+  /** Threaded straight through to `useDocumentAssets` — see its own docstring.
+   *  It rides THIS bag rather than a sibling prop because the bag is what
+   *  already carries `setAssets`, i.e. the write path the bypass protects. */
+  allowDestructiveSave?: () => void;
 }
 
 /**
@@ -154,6 +158,7 @@ export function DocumentsAssetSection({
     assets,
     setAssets: assetPane?.setAssets ?? NOOP_SET_ASSETS,
     projectId,
+    allowDestructiveSave: assetPane?.allowDestructiveSave,
   });
 
   const usage = useMemo(() => countAssetUsage(documents), [documents]);

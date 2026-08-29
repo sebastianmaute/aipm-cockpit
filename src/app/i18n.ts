@@ -2775,10 +2775,26 @@ const enUS = {
   documentsCardNotApplied: "Not applied:",
   documentsCardMoreReasons: "…and {0} not shown",
   documentsTruncatedWarning: "{0} document entries could not be opened - this project is over the limit. Saving is paused so nothing is overwritten.",
+  documentsUnreadableWarning: "{0} kinds of saved data could not be read. Saving is paused so nothing is overwritten.",
+  documentsUnreadableCount: "{0} kinds of saved data could not be read.",
   documentsTruncatedBlocksWarning: "{0} blocks in stored documents could not be opened. Saving is paused so nothing is overwritten.",
   documentsTruncatedBanner: "Some of this project's document data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
   documentsTruncatedSaveAnyway: "Save anyway",
   documentsTruncatedBannerAria: "Document data could not be opened",
+  // ★★★ THE DECODE CAUSE COVERS ELEVEN META SLICES, NOT DOCUMENTS. The two keys
+  // above are the TRUNCATION headline and are accurate for it (the cap really
+  // does cut document entries and blocks). `reportUnreadableSlice` reaches
+  // project_status, field_visibility, features, steering_committee,
+  // timelog_links, knowledge_items, insights, activityLog, documents,
+  // documentVersions and settings_overrides — so a corrupt steering-committee
+  // blob in a project with NO documents used to be announced as document data,
+  // and the user made a PERMANENT discard decision on a screen that misnamed
+  // what was being discarded. These two are the cause-aware alternative, and
+  // they are deliberately the wider wording so they also cover the case where
+  // BOTH causes hold. Vocabulary matches `documentsUnreadableWarning` /
+  // `documentsUnreadableCount`, which the same banner already renders.
+  documentsUnreadableBanner: "Some of this project's saved data could not be opened. Saving is paused to protect your saved project - it still holds everything.",
+  documentsUnreadableBannerAria: "Saved data could not be opened",
   documentsTruncatedEntriesCount: "{0} document entries could not be opened.",
   documentsTruncatedBlocksCount: "{0} blocks in stored documents could not be opened.",
   documentsTruncatedConfirmTitle: "Save anyway?",

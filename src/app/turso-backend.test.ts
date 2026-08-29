@@ -5,6 +5,7 @@ import type { TursoConfig } from "./turso-config";
 import { SCHEMA_DDL, TABLE_NAMES } from "./turso-schema";
 import { singleTenantTableColumns } from "./turso-migrate";
 import { LOAD_TIMEOUT_MS } from "./turso-pipeline";
+import * as diagnostics from "./diagnostics";
 
 const CONFIG: TursoConfig = { httpUrl: "https://db.turso.io", authToken: "tok" };
 
@@ -123,6 +124,37 @@ describe("TursoBackend", () => {
     fetchSpy.mockResolvedValueOnce(jsonRes({ results }));
     const ws = await new TursoBackend(CONFIG).load();
     expect(ws.tasks).toEqual([]);
+  });
+
+  it("publishes the slices whose meta blob could not be decoded", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const badMeta = okExec(["key", "value"], [[{ value: "documents" }, { value: "{not json" }]]);
+      const results = makeLoadResults({ meta: badMeta });
+      fetchSpy.mockResolvedValueOnce(jsonRes({ results }));
+      const backend = new TursoBackend(CONFIG);
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["documents"]);
+    } finally {
+      spy.mockRestore();
+    }
+  });
+
+  it("resets the published decode failures on a clean load", async () => {
+    const spy = vi.spyOn(diagnostics, "logDiag").mockImplementation(() => {});
+    try {
+      const badMeta = okExec(["key", "value"], [[{ value: "documents" }, { value: "{not json" }]]);
+      fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults({ meta: badMeta }) }));
+      const backend = new TursoBackend(CONFIG);
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual(["documents"]);
+
+      fetchSpy.mockResolvedValueOnce(jsonRes({ results: makeLoadResults() }));
+      await backend.load();
+      expect(backend.lastDecodeFailures).toEqual([]);
+    } finally {
+      spy.mockRestore();
+    }
   });
 
   it("omits the Authorization header for a token-less loopback config", async () => {

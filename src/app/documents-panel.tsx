@@ -179,6 +179,13 @@ export interface DocumentsPanelProps {
   // Asset gate + byte-store scope + documentAssets, as ONE bag (house
   // convention). OPTIONAL — absent here means "disabled", not broken.
   assetPane?: DocumentAssetPaneProps;
+  /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
+   *  the instant a delete is confirmed. `documents` counts toward
+   *  `workspaceRecordCount`, so deleting several in one debounce window is a
+   *  mass deletion by Layer B's arithmetic — and this IS the explicit user
+   *  action the bypass exists for. Optional: the panel renders in contexts
+   *  (tests, popouts) that supply no bypass at all. */
+  allowDestructiveSave?: () => void;
 }
 
 export function DocumentsPanel({
@@ -191,6 +198,7 @@ export function DocumentsPanel({
   isReadOnly,
   onResetSize,
   assetPane,
+  allowDestructiveSave,
 }: DocumentsPanelProps) {
   // Lazy initialiser: reads storage ONCE at mount, never during a render body
   // (the react-hooks purity rule) and never in an effect (`set-state-in-effect`
@@ -556,7 +564,23 @@ export function DocumentsPanel({
     // ★ A delete is the one mutation whose before-image is the ONLY surviving
     // copy of the document — `mutateDocuments` writes that tombstone version,
     // which is what makes the deleted-documents list and Restore possible.
-    mutate({ kind: "delete", id: doc.id });
+    const result = mutate({ kind: "delete", id: doc.id });
+    // ★★ Arm the one-shot destructive-save bypass. Documents now count toward
+    //    workspaceRecordCount, so deleting several in one debounce window is a
+    //    mass deletion by Layer B's arithmetic — and this IS the explicit user
+    //    action the bypass exists for. Without it the widening refuses a
+    //    legitimate delete.
+    // ★★★ AFTER THE MUTATION AND ONLY WHEN IT `changed`, never before it.
+    //    `mutateDocuments` (`workspace-context.tsx`) returns EARLY on
+    //    `!result.changed` — no `setDocuments`, so no state change, so the save
+    //    effect never runs and never CONSUMES the one-shot. Arming first
+    //    therefore LEAKED it for an unbounded time whenever the delete turned
+    //    out to be a no-op: open the confirm for document X, a concurrent
+    //    writer (the AI `delete_document` tool, or another tab via broadcast
+    //    sync) removes X, confirm anyway → `changed:false` → the bypass stays
+    //    up, and a later accidental mass deletion rides through L3 and Layer B
+    //    unchecked. Gating on `changed` guarantees the save that spends it.
+    if (result.changed) allowDestructiveSave?.();
   }
 
   return (

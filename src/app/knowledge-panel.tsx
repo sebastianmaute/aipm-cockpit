@@ -64,7 +64,31 @@ const SOURCE_ORDER: DocSourceKind[] = ["project", "milestone", "task", "raid", "
 
 const STANDALONE_KEY = "__standalone__";
 
-export function KnowledgePanel() {
+export interface KnowledgePanelProps {
+  /** ★★ Arms the one-shot destructive-save bypass (see `use-storage-backend.ts`)
+   *  on a standalone-item remove. `knowledgeItems` counts toward
+   *  `workspaceRecordCount`, so removing several inside one save-debounce
+   *  window is a mass deletion by Layer B's arithmetic.
+   *  ★★★ THE WINDOW IS NARROWER THAN THIS COMMENT USED TO CLAIM. It said an
+   *  "ordinary click-per-second burst coalesces into one save", which
+   *  `SAVE_DEBOUNCE_MS` (debounced-save.ts) contradicts: the debounce is
+   *  TRAILING at 500ms, so a click at t=0 fires its save at t=500, before a
+   *  click at t=1000 arrives — one-per-second clicks each get their own save
+   *  and each advances the committed baseline. Coalescing needs changes CLOSER
+   *  TOGETHER than 500ms. The arming still earns its place: a genuinely fast
+   *  burst does coalesce, and the AI `delete_document` route coalesces
+   *  unambiguously: `chat-panel.tsx` runs EVERY tool_use block of one response
+   *  in a single loop with no model round-trip between, and each block is a
+   *  local mutation. ★ Say it as the LOOP SHAPE, not "one tick" — each block is
+   *  awaited, so consecutive blocks are separated by microtask turns rather
+   *  than sharing a React batch. The argument needs only "closer than 500ms",
+   *  which holds by orders of magnitude and survives a batching change.
+   *  Optional: the panel renders in contexts (tests, popouts) that supply no
+   *  bypass at all. */
+  allowDestructiveSave?: () => void;
+}
+
+export function KnowledgePanel({ allowDestructiveSave }: KnowledgePanelProps = {}) {
   const { settings } = useSettings();
   const lang = settings.language;
   const { ref, reset } = useResizable("aipm-cockpit:documents-size-full");
@@ -176,6 +200,33 @@ export function KnowledgePanel() {
     setLinkTaskIds([]);
   }
   function removeStandalone(idx: number) {
+    // ★★ Arm the one-shot destructive-save bypass. knowledgeItems now counts
+    //    toward workspaceRecordCount, so removing several in one debounce
+    //    window is a mass deletion by Layer B's arithmetic — and this IS the
+    //    explicit user action the bypass exists for.
+    // ★★★ AND THIS IS THE ONE ARMING ROUTE WITH NO CONFIRM IN FRONT OF IT —
+    //    deliberately, and the asymmetry is recorded here because nothing else
+    //    marks it. `documents-panel.tsx` awaits a `confirm(...)` and
+    //    `asset-library.tsx` gates its `onDelete` behind one; this button is
+    //    wired straight to `onClick`. The reason is the VALUE of the row, not
+    //    the bypass: a knowledge item is a name plus a URL, re-enterable from
+    //    the add form in seconds, while those two destroy a document whose only
+    //    surviving copy is a version before-image, and asset BYTES. Gating a
+    //    two-field link behind a modal would be heavier than every comparable
+    //    row delete in the app.
+    // ★★ WHAT BOUNDS THE EXPOSURE, since a stray click does arm L3 and Layer B:
+    //    the `filter` below ALWAYS mints a new array, so the slice changes
+    //    reference, the save effect always runs, and the one-shot is always
+    //    consumed by that save — at most one debounce cycle later. It cannot
+    //    leak the way `documents-panel.tsx`'s did, where `mutateDocuments`
+    //    could return `changed:false` and leave nothing to spend it. The
+    //    residual risk is an accidental mass deletion landing inside the same
+    //    ~500ms window as a stray click, which is not a human sequence.
+    // ★ Do NOT copy the "(the caller confirms each delete before reaching
+    //    here)" clause from `use-document-assets.ts` onto this route — it is
+    //    false here, and that wording being reused MINUS its clause is exactly
+    //    what made the difference invisible.
+    allowDestructiveSave?.();
     ws.setKnowledgeItems((prev) => (prev ?? []).filter((_, i) => i !== idx));
   }
   function setStandaloneTasks(idx: number, taskIds: number[]) {

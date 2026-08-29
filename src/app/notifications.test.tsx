@@ -163,7 +163,7 @@ describe("TruncatedLoadBanner", () => {
     // so a user who is never told saving stopped goes on editing into a paused
     // session. `banner.tsx` already defaults error → "alert" for exactly this
     // reason; AlertBanner's "region" default was overriding it.
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert", { name: "Document data could not be opened" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /document/i })).toBeNull();
   });
@@ -182,14 +182,14 @@ describe("TruncatedLoadBanner", () => {
     // "Document limit warning" — the exact claim this rule forbids. An earlier
     // version of this test only checked for /cut off/i and sailed straight past
     // the word "limit" two lines above it.
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").not.toMatch(/cut off|over the limit/i);
     expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/limit/i);
   });
 
   it("names the magnitude — the count is not left to a 7s toast", () => {
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   });
 
@@ -197,24 +197,106 @@ describe("TruncatedLoadBanner", () => {
     // ★ "stored documents", NOT "stored document versions": since 0.221.0 a LIVE
     // document over `MAX_BLOCKS_PER_DOC` feeds the same counter, so naming
     // versions would assert something the count no longer implies.
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/7 blocks in stored documents could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/versions/i)).toBeNull();
     expect(screen.queryByText(/document entries/i)).toBeNull();
+  });
+
+  it("names BOTH magnitudes when one load truncated AND failed to decode", async () => {
+    // ★★★ THE TWO CAUSES CO-OCCUR, and the count line used to short-circuit on
+    // the truncation branch under a comment asserting they did not.
+    // `rowsToWorkspace` (`turso-schema.ts`) threads ONE `DocTruncationDiag`
+    // through `sanitizeProjectDocuments` AND every `reportUnreadableSlice`, so a
+    // `documents` blob over the cap plus a thrown `settings_overrides` is a
+    // single load reporting both. The decode magnitude then reached NO
+    // persistent surface: its toast is single-slot and 7s long, and this line
+    // and the dialog it feeds are all that outlives it.
+    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
+    expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
+
+    // ★ And into the dialog — the last thing the user sees before discarding it
+    // all. A banner that names both while the dialog names one still decides the
+    // question on half the loss.
+    fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
+    await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
+    const message = String(confirmState.lastOpts?.message ?? "");
+    expect(message).toMatch(/5 document entries/i);
+    expect(message).toMatch(/3 kinds of saved data/i);
+  });
+
+  it("still names exactly ONE cause when only one is present", () => {
+    // ★ The control for the join above. Without it, a `countText` that
+    // unconditionally concatenated both strings would pass that test while
+    // telling every truncation-only user that some unnamed number of kinds of
+    // data was unreadable too — a joined line that reads as thorough and is
+    // false. Both directions, because each is a separate way to get it wrong.
+    const { unmount } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByRole("alert").textContent ?? "").not.toMatch(/could not be read/i);
+    unmount();
+
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/2 kinds of saved data could not be read/i);
+    expect(alert.textContent ?? "").not.toMatch(/document entries|blocks in stored documents/i);
+  });
+
+  // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS ELEVEN
+  // SLICES. `reportUnreadableSlice` reaches project_status, field_visibility,
+  // features, steering_committee, timelog_links, knowledge_items, insights,
+  // activityLog, documents, documentVersions and settings_overrides. A corrupt
+  // steering-committee blob in a project with NO documents announced itself as
+  // "document data", the user concluded it did not apply, and clicked the
+  // PERMANENT-discard button — on a screen that misnamed what was discarded.
+  it("does not call a decode failure 'document data', in the copy OR the accessible name", () => {
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    // The HEADLINE specifically: the count line legitimately says "kinds of
+    // saved data", so a whole-node scan for /document/i would be answered by a
+    // line that is not under test. Scoped to the first paragraph.
+    const headline = alert.querySelector("p")?.textContent ?? "";
+    expect(headline).toMatch(/saved data could not be opened/i);
+    expect(headline).not.toMatch(/document/i);
+    expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/document/i);
+  });
+
+  it("keeps the narrower 'document data' headline for a truncation-only load", () => {
+    // The control for the rule above, and the no-regression pin: truncation
+    // genuinely IS about documents (the cap cuts document entries and blocks),
+    // so widening its wording would lose real specificity.
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("p")?.textContent ?? "").toMatch(/document data could not be opened/i);
+    expect(alert.getAttribute("aria-label")).toBe("Document data could not be opened");
+  });
+
+  it("takes the WIDER headline when both causes hold", () => {
+    // ★ Both really can arrive together — `rowsToWorkspace` accumulates them
+    // into one diagnostic — and the only headline accurate for the pair is the
+    // one that names neither cause specifically. The count line below it still
+    // names each magnitude in its own vocabulary, so nothing is lost.
+    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.querySelector("p")?.textContent ?? "").not.toMatch(/document data/i);
+    // Positive control: the magnitudes are still both there, one line down.
+    expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
+    expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
   });
 
   it("uses the DESTRUCTIVE button variant, not the recommended-action primary", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign
     // primary blue made a data-destroying action read as the recommended one.
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Save anyway" }).className).toMatch(/ui-pink/);
   });
 
   it("gates Save anyway behind the confirm dialog and fires on accept", async () => {
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(onSaveAnyway).toHaveBeenCalledTimes(1));
@@ -227,7 +309,7 @@ describe("TruncatedLoadBanner", () => {
     // ignored would pass the accept test above and still destroy data on cancel.
     confirmState.result = false;
     const onSaveAnyway = vi.fn();
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.calls).toBe(1));
@@ -235,7 +317,7 @@ describe("TruncatedLoadBanner", () => {
   });
 
   it("carries the count INTO the confirm dialog, so the decision is made on a number", async () => {
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
     expect(String(confirmState.lastOpts?.message ?? "")).toMatch(/5 document entries/i);
@@ -246,7 +328,7 @@ describe("TruncatedLoadBanner", () => {
     // callbacks are distinct so the save guard stays armed after a dismiss.
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -263,7 +345,7 @@ describe("TruncatedLoadBanner", () => {
   // nothing and the second renders the full banner.
   it("leaves a re-open control when dismissed with no footer indicator (classic layout)", () => {
     const onReopen = vi.fn();
-    render(<TruncatedLoadBanner dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
 
     // Not the full banner — dismissing must still quieten it.
     expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
@@ -277,8 +359,30 @@ describe("TruncatedLoadBanner", () => {
     expect(confirmState.calls).toBe(0);
   });
 
+  it("names the DECODE magnitude on the dismissed chip, not a bare 'Saving paused'", () => {
+    // ★★ The chip's `countText ?? t(lang, "storageSavingPaused")` was covered
+    // for truncation only — every other render in this file passes
+    // `decodeFailureCount={0}`, so on a decode-only failure the one line a
+    // classic user gets was pinned nowhere. It matters most there: that layout
+    // has no sidebar footer, so this chip is the entire persistent account of
+    // what happened, and the decode cause has no counts object to fall back on.
+    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /show how to resolve/i })).toBeInTheDocument();
+  });
+
+  it("falls back to the status text on the chip only when NO magnitude is known", () => {
+    // ★ The control for the case above: without it, a chip hardcoded to the
+    // count string would pass that assertion, and a chip that ignored the count
+    // entirely would pass this one. `truncation` null with a zero decode count
+    // is the only shape that reaches the fallback.
+    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    expect(screen.getByText("Saving paused")).toBeInTheDocument();
+    expect(screen.queryByText(/could not be read|could not be opened/i)).toBeNull();
+  });
+
   it("renders nothing when dismissed and the footer already carries the indicator (modern layout)", () => {
-    const { container } = render(<TruncatedLoadBanner dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const { container } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     // Control: the SAME props with hasFooterIndicator=false DO render something
     // (the case above), so an empty container here is the branch, not a broken
     // fixture.

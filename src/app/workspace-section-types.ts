@@ -159,6 +159,10 @@ export interface WorkspaceSectionProps {
    *  the RAID and change panels are `memo`'d, and reading `documents` from
    *  `useWorkspace()` there would re-render both tables on ANY context change. */
   documentsByEntity: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Arms the one-shot destructive-save bypass on a confirmed document delete
+   *  (see `use-storage-backend.ts`) — threaded to `DocumentsTabPanel`. Optional:
+   *  callers that never touch storage (e.g. some test harnesses) omit it. */
+  allowDestructiveSave?: () => void;
   handleSaveChange: (item: ChangeItem, isNew?: boolean) => void;
   handleDeleteChange: (id: number, title: string) => void;
   /** Inline status change from a change row (routes through applyChangeStatus). */

@@ -30,7 +30,7 @@ describe("useLoadTruncation — reportFor", () => {
   it("raises the flag and toasts on truncated ENTRIES", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
-    expect(result.current.loadWasTruncated).toBe(true);
+    expect(result.current.loadWasIncomplete).toBe(true);
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("5"));
   });
 
@@ -42,12 +42,12 @@ describe("useLoadTruncation — reportFor", () => {
     // documents could not be opened.
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
-    expect(result.current.loadWasTruncated).toBe(true); // control: really raised
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
 
     showToast.mockClear();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 0, blocks: 0 })); });
 
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
     expect(showToast).not.toHaveBeenCalled(); // a clean load is silent, not reassuring
   });
 
@@ -57,7 +57,7 @@ describe("useLoadTruncation — reportFor", () => {
     const { result } = render();
     act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
     act(() => { result.current.truncationOps.reportFor(backendReporting(undefined)); });
-    expect(result.current.loadWasTruncated).toBe(false);
+    expect(result.current.loadWasIncomplete).toBe(false);
   });
 });
 
@@ -131,6 +131,147 @@ describe("useLoadTruncation — import diagnostics", () => {
   });
 });
 
+// ★★★ A DECODE FAILURE IS AN INCOMPLETE LOAD, and it routes into THIS guard
+// rather than a second mechanism. A malformed meta blob left its slice
+// undefined and the load proceeded silently; the next save then ran
+// `DELETE FROM meta` and re-inserted only the rows it had, destroying the blob.
+// Same banner, same lockout, same escape — and the escape is load-bearing here
+// in a way it is not for truncation: the user cannot repair a corrupt blob from
+// inside the app at any cap, so without a reachable way out this is a permanent
+// save lockout.
+describe("useLoadTruncation — undecodable meta slices", () => {
+  /** A backend stand-in for the decode channel. `lastLoadTruncation` is left
+   *  undefined so nothing observed here comes from the §103 cap. */
+  const decoding = (slices: readonly string[]) => ({
+    lastLoadTruncation: undefined,
+    lastImportDroppedRows: 0,
+    lastImportUnterminatedQuote: false,
+    lastDecodeFailures: slices,
+  });
+
+  it("pauses saving when a load could not decode a slice", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+  });
+
+  it("a clean load lowers the flag again", () => {
+    // The same invariant a clean load holds for truncation: the flag is scoped
+    // to the workspace that is live RIGHT NOW, and this one decoded fine.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("the escape hatch releases a decode-failure lockout", () => {
+    const { result } = render();
+    act(() => {
+      result.current.truncationOps.reportFor(decoding(["documents", "insights"]));
+    });
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+    act(() => { result.current.allowIncompleteSave(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(true);
+  });
+
+  it("names how many slices failed, for the banner — and drops it on a clean load", () => {
+    // The count is what the "Save anyway" dialog shows. The KEYS stay internal:
+    // `documentVersions` / `settings_overrides` are identifiers, not copy.
+    const { result } = render();
+    expect(result.current.decodeFailureCount).toBe(0);
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents", "insights"])); });
+    expect(result.current.decodeFailureCount).toBe(2);
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.decodeFailureCount).toBe(0);
+  });
+
+  it("tells the user, and stays quiet on a clean load", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("1"));
+    showToast.mockClear();
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  it("treats a backend that publishes NO decode field as a clean read", () => {
+    // `lastDecodeFailures` is optional on `StorageBackend` — only Turso stores
+    // meta blobs — so an undefined read means "nothing to report", not "unknown".
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(backendReporting(undefined)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.decodeFailureCount).toBe(0);
+  });
+
+  it("SKIPS a best-effort flush while a decode failure is unresolved", async () => {
+    // The lockout has to reach the same choke point truncation does; a flag
+    // nothing consults is the loss this guard exists to prevent.
+    const save = vi.fn(async () => {});
+    const { result } = render(save);
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    await act(async () => { await result.current.truncationOps.flushCurrent(); });
+    expect(save).not.toHaveBeenCalled();
+  });
+
+  // ── raiseDecodeFailuresFor — the refused-load reporter ─────────────────────
+  //
+  // ★★ The two empty-load refusals apply nothing, so `reportFor` is wrong for
+  // them in BOTH directions on truncation and in ONE direction on decode. These
+  // pin the asymmetry, which is the whole content of the member.
+  it("raises the decode flag for a load whose workspace was REFUSED", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.raiseDecodeFailuresFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.decodeFailureCount).toBe(1);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+  });
+
+  it("NEVER lowers a flag raised over the workspace that is still live", () => {
+    // A refusal applied nothing, so the raised flag still describes the LIVE
+    // workspace — the previous load's. Lowering it on the strength of one
+    // suspicious empty read resumes autosave over a database that failed to
+    // decode minutes ago.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decoding(["documents"])); });
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
+    act(() => { result.current.truncationOps.raiseDecodeFailuresFor(decoding([])); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.decodeFailureCount).toBe(1);
+    // CONTRAST, in the same test so the two cannot drift: `reportFor` — which
+    // runs only where a workspace WAS applied — does lower it.
+    act(() => { result.current.truncationOps.reportFor(decoding([])); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("leaves TRUNCATION alone — it is a property of documents never applied", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
+    expect(result.current.truncation).toEqual({ entries: 5, blocks: 0 }); // control
+    act(() => {
+      result.current.truncationOps.raiseDecodeFailuresFor({
+        ...decoding(["documents"]),
+        // A backend still publishing DIFFERENT truncation counts: they must not
+        // reach the guard through this member.
+        lastLoadTruncation: { entries: 99, blocks: 99 },
+      } as never);
+    });
+    expect(result.current.truncation).toEqual({ entries: 5, blocks: 0 });
+    expect(result.current.decodeFailureCount).toBe(1); // the decode half DID land
+  });
+
+  it("tells the user on a refusal, and stays quiet when there is nothing to say", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.raiseDecodeFailuresFor(decoding(["documents", "insights"])); });
+    expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("2"));
+    showToast.mockClear();
+    act(() => { result.current.truncationOps.raiseDecodeFailuresFor(decoding([])); });
+    expect(showToast).not.toHaveBeenCalled();
+  });
+});
+
 describe("useLoadTruncation — flushCurrent", () => {
   it("writes when nothing is unresolved", async () => {
     const save = vi.fn(async () => {});
@@ -158,7 +299,7 @@ describe("useLoadTruncation — flushCurrent", () => {
     });
   });
 
-  it("allowTruncatedSave() re-opens the flush", async () => {
+  it("allowIncompleteSave() re-opens the flush", async () => {
     // The mirror of the skip: a guard with no way out is a save LOCKOUT.
     const save = vi.fn(async () => {});
     const { result } = render(save);
@@ -166,7 +307,7 @@ describe("useLoadTruncation — flushCurrent", () => {
     await act(async () => { await result.current.truncationOps.flushCurrent(); });
     expect(save).not.toHaveBeenCalled(); // control
 
-    act(() => { result.current.allowTruncatedSave(); });
+    act(() => { result.current.allowIncompleteSave(); });
     await act(async () => { await result.current.truncationOps.flushCurrent(); });
 
     expect(save).toHaveBeenCalledTimes(1);
@@ -214,7 +355,7 @@ describe("useLoadTruncation — guardedWrite (explicit user actions)", () => {
     await act(async () => { await result.current.truncationOps.guardedWrite(target(), {} as never); });
 
     expect(showToast).toHaveBeenCalledWith("error", expect.stringContaining("9"));
-    expect(result.current.loadWasTruncated).toBe(true); // refusing must not clear the flag
+    expect(result.current.loadWasIncomplete).toBe(true); // refusing must not clear the flag
   });
 
   it("propagates a REAL save error rather than reporting a refusal", async () => {
@@ -249,12 +390,69 @@ describe("ops files — no unguarded backend access (source scan)", () => {
     expect(src.match(/deps\.backend\s*\./g)).toBeNull();
   });
 
-  it.each(OPS_FILES)("%s reports every load it performs", (file) => {
+  // ★★★ THIS CENSUS USED TO BE BLIND TO HALF THE LOAD SITES. It read OPS_FILES
+  // — the two ops files only — while `use-storage-backend.ts` holds THREE of
+  // the six `.load()` sites and was not in the list at all: loads=3 reports=2,
+  // unseen.
+  //
+  // ★★ Widening it naively goes RED on correct code. `onOpenStorageFile`
+  // (`use-storage-backend.ts`) deliberately does not report: that path applies
+  // tasks and RAID only, never the loaded documents, so raising the flag would
+  // warn about documents the user still has, and lowering it would clear a
+  // warning still true of the live ones. So this census honours a MARKED
+  // exemption at the site — the `ABSENCE_MARKERS` pattern from
+  // `scripts/check-agents-symbols.mjs`, where a deliberate absence is declared
+  // near the site and the scanner honours it — rather than a lower expected
+  // count. A bare lower count would be satisfied by any file with the same
+  // ratio, including one that simply forgot.
+  const CENSUS_FILES = [
+    "src/app/use-storage-backend.ts",
+    "src/app/use-storage-file-ops.ts",
+    "src/app/use-storage-turso-ops.ts",
+  ];
+  const REPORT_EXEMPT_MARKER = "NO reportFor:";
+
+  it.each(CENSUS_FILES)("%s reports for every load it does not explicitly exempt", (file) => {
     const src = readFileSync(file, "utf8");
     const loads = src.match(/\.load\(\)/g)?.length ?? 0;
     const reports = src.match(/reportFor\(/g)?.length ?? 0;
-    expect(loads).toBeGreaterThan(0); // control: the scan is looking at the right file
-    expect(reports).toBe(loads);
+    const exemptRe = new RegExp(REPORT_EXEMPT_MARKER, "g");
+    const exempt = src.match(exemptRe)?.length ?? 0;
+    expect(loads, `${file}: no load sites found — the census would be vacuous`).toBeGreaterThan(0);
+    expect(
+      reports + exempt,
+      `${file}: ${loads} load(s), ${reports} report(s), ${exempt} marked exemption(s). ` +
+        `Every load must call truncationOps.reportFor, or carry a "${REPORT_EXEMPT_MARKER}" ` +
+        `comment at the site saying why it must not.`,
+    ).toBe(loads);
+  });
+
+  // ★★★ THE CENSUS ABOVE CANNOT SEE A REPORT THAT IS NEVER REACHED, and that
+  // is the hole this one covers. Both empty-load data-loss guards
+  // (`use-storage-backend.ts`) `return` BEFORE their path's `reportFor`, so the
+  // token counts balanced while the DECODE signal — a fact about the stored
+  // bytes autosave is about to overwrite, not about the workspace that was
+  // refused — reached nothing at all. A user whose meta blob was corrupt, who
+  // reloaded and then picked the SAFE option at the confirm, left autosave
+  // fully armed against that database.
+  //
+  // ★★ STILL A SOURCE SCAN, with the same limits as its neighbour: it proves a
+  // reporter exists per refusal site, never that it runs on the right branch or
+  // is handed the backend that served the load. The behavioural pins are in
+  // `use-storage-backend.test.tsx` ("the decode signal survives the empty-load
+  // refusal"); this only catches a NEW refusal path added without one.
+  it("reports the decode cause at every empty-load refusal", () => {
+    const src = readFileSync("src/app/use-storage-backend.ts", "utf8");
+    // The refusal's own predicate — the one shape both guards share.
+    const refusals = src.match(/isWorkspaceEmpty\(workspace\)\s*&&\s*!isWorkspaceEmpty\(/g)?.length ?? 0;
+    const raises = src.match(/raiseDecodeFailuresFor\(/g)?.length ?? 0;
+    expect(refusals, "no empty-load refusal found — the census would be vacuous").toBeGreaterThan(0);
+    expect(
+      raises,
+      `${refusals} empty-load refusal(s), ${raises} decode report(s). A refusal keeps the ` +
+        `PREVIOUS workspace live and leaves autosave armed against the backend that just ` +
+        `served an unreadable blob — it must call truncationOps.raiseDecodeFailuresFor.`,
+    ).toBe(refusals);
   });
 
   // ★★★ THIS CENSUS EXISTS BECAUSE THE SCAN ABOVE MISSED A REAL DEFECT.
@@ -293,7 +491,7 @@ describe("ops files — no unguarded backend access (source scan)", () => {
    *  a 200-character destructure that merely happens to contain the binder. */
   const EXPECTED_WRITES = [
     // The choke point itself — the binder handed to useLoadTruncation, which
-    // `flushCurrent` calls only after `mayCommitAfterTruncation()`.
+    // `flushCurrent` calls only after `mayCommitAfterIncompleteLoad()`.
     "use-storage-backend.ts useStorageBackend — backend",
     // The debounced save effect, gated at the top of the same effect.
     "use-storage-backend.ts emitStorageConfig — backend",
