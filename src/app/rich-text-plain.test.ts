@@ -616,11 +616,14 @@ describe("DOM-free guard", () => {
     // scanning guard needs proof its scan ran.
     // ★★★ The DOM-free set is the sample generator's IMPORT GRAPH, resolved here,
     // NOT a list of path patterns. It used to be the latter, and that was the
-    // defect: the filter matched 18 of the 76 files the generator actually loads,
-    // and both times it was widened (workspace.ts/storage.ts, then
+    // defect: the filter matched 18 files while the generator loads FAR more, and
+    // both times it was widened (workspace.ts/storage.ts, then
     // rich-text-plain/narrative-html) it was because a reviewer happened to notice
     // one specific file. `templates.ts` — the file AGENTS.md now warns a reader not
-    // to add a DOMPurify import to — was among the 58 it missed.
+    // to add a DOMPurify import to — was among the ones it missed.
+    // ★ The 18 is a historical fact about the deleted filter and does not rot.
+    // The graph size does, which is why no second number appears here — see the
+    // floor's own comment below.
     //
     // ★★ Resolving the graph means the guard covers whatever the generator loads
     // TODAY, including files nobody thought to name. `.tsx` is followed too: a
@@ -698,9 +701,15 @@ describe("DOM-free guard", () => {
       }
     }
     expect(offenders).toEqual([]);
-    // ★★ The graph is 76 files today. A floor well above the old name-filter's 18
-    // proves the RESOLVER worked, not merely that a walk ran: if the entry point
-    // moves or `resolveSpec` stops resolving, this collapses to 1 and fails.
+    // ★★ A FLOOR, DELIBERATELY NOT A COUNT. This line used to say "the graph is
+    // 76 files today"; nothing printed that number and every import added
+    // anywhere in the graph moves it, so it rotted silently — a probe on
+    // 2026-08-29 printed 94. What the floor proves is that the RESOLVER worked rather than
+    // that a walk merely ran: if the entry point moves or `resolveSpec` stops
+    // resolving, `scanned` collapses to 1 and this fails. It is set well above
+    // the old name-filter's 18 for exactly that reason.
+    // ★ To see today's size, print `graph.size` from a scratch copy of this
+    // test — do not restore a number here.
     expect(scanned).toBeGreaterThan(50);
     // ★ And the file the old filter missed must actually be in the scanned set —
     // it is the one AGENTS.md warns a reader away from.

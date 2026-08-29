@@ -262,7 +262,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
-| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--open-small) | Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small | 0.210.0 (Larbalestier) | S | open |
+| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-still-open-small) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small | 0.210.0 (Larbalestier) | S | open |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
@@ -343,7 +343,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
 | [§115](#115-one-of-the-two-sanitizers-admits-arbitrary-data---closed-2026-08-13-by-140) | One of the two sanitizers admits arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | **CLOSED** 2026-08-13 by §140 |
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
-| [§117](#117-three-s3c-image-prerequisites-all-inert-today--b-fixed-2026-08-13-by-140-a-and-c-still-open) | Three S3c image prerequisites, all inert today — (b) FIXED 2026-08-13 by §140, (a) and (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
+| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--open-billed) | The background insight-recommendation runner has no `AbortController` at all — open, billed | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open |
@@ -367,7 +367,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
-| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-a-and-c-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16; (a) and (c) still open | — | — | open |
+| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | open |
 | [§142](#142-notelogpanels-labelsuffix-is-honour-system-and-unguarded--a-third-mount-site-collides-silently--closed-2026-08-12) | `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently | — | — | **CLOSED** 2026-08-12 |
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
@@ -376,9 +376,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--open-correctness-measured) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured | — | — | open |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
-| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
-| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-four-source-headers-and-still-asserted-as-a-live-rationale-in-eight-places--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
-| [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--open-the-two-signals-need-splitting) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open |
+| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured-the-detectable-half-fixed-2026-08-29) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29 | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
+| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
+| [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one — open | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
@@ -394,7 +394,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§165](#165-sanitizeaiconfig-drops-actionsuggestions-so-switching-the-action-centers-ai-off-reverts-to-on-on-the-next-reload--closed-2026-08-17) | `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload | — | — | **CLOSED** 2026-08-17 |
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
 | [§167](#167-bulk-edit-on-the-changes-register-bypassed-applychangestatus--closed-2026-08-18) | Bulk edit on the changes register bypassed `applyChangeStatus` | — | — | **CLOSED** 2026-08-18 |
-| [§168](#168-template-import-drops-every-registers-note-log--open-pre-existing) | Template import drops every register's note log — open, pre-existing | — | — | open |
+| [§168](#168-template-import-drops-every-registers-note-log--closed-2026-08-28) | Template import drops every register's note log | — | — | **CLOSED** 2026-08-28 |
 | [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--open) | TimeLog period keys are derived at FETCH time from the granularity, then cached — open | — | — | open |
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
@@ -510,8 +510,10 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
-| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof DISCHARGED 2026-08-29 |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11533,9 +11535,9 @@ internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock i
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
 
-## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29
 
-**Status:** open — a balanced stray quote pair that still swallows a section marker. Reproduced 2026-08-28 by `grep -n "unterminatedQuote" src/app/csv-codecs-decode.ts`.
+**Status:** open — the mislabelling is unchanged and the undecidable residue stands, but the MALFORMED subset (this entry's own fixture included) is now detected and pauses saving. Reproduced 2026-08-29 by `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both halves: the same mislabelled parse, and `malformedQuotes: 2` over it.
 
 Opened 2026-08-16 out of the cold review of the branch that closes §105.
 
@@ -11604,7 +11606,37 @@ the junk row → **1**, the junk row having gone through `decodeCsvSection`. Onl
 the counter, and it would have been read as a pre-branch diagnostic that does not exist. The bare line
 is what the numbers above were taken with.
 
-### Why no fix is proposed
+### Why the CLASS cannot be closed — and what was fixed anyway, 2026-08-29
+
+★★★ **THE MISLABELLING IS UNCHANGED. WHAT CHANGED IS THAT THE MEASURED FIXTURE IS NO LONGER SILENT
+AND NO LONGER AUTO-COMMITTED.** Read the two apart before doing anything with this entry: the
+undecidability argument below stands in full and always will; the "Why no fix is proposed" conclusion
+that used to sit on top of it did not.
+
+**The fix does not answer this entry's question. It answers a different, decidable one.** "Was a
+section marker swallowed?" is undecidable (below). "Does this file violate RFC 4180 quoting?" is
+local and syntactic — an opening quote not at a field start, or a closing quote not followed by a
+delimiter — and `splitCsvLines` now counts those into `ImportDiag.malformedQuotes`, which reaches the
+user as a toast and PAUSES saving via the third `useLoadTruncation` hold slot.
+
+★★ **The two questions coincide on this entry's own fixture, which is why it now fires.** The stray
+quotes here are `a"b` and `c"d`: the first opens mid-field, the second closes without a delimiter
+after it — both malformed. Measured 2026-08-29 with `npx vite-node` over the fixture above, decoded
+through `csvToWorkspace`:
+
+```
+taskIds [ 1, 6, 7 ]   taskNames [ 'T1', 'M6', 'M7' ]   milestones 0
+diag {"droppedRows":0,"unterminatedQuote":false,"malformedQuotes":2}
+```
+
+The mislabelling row-for-row is identical to the AFTER block above — three tasks, no milestones — so
+nothing about the parse changed. Only the diagnostic did.
+
+★★★ **AND THE RESIDUE IS REAL, SO DO NOT CLOSE THIS.** A stray pair that is BOTH balanced AND
+well-positioned — opening at a field start, closing before a delimiter — swallows a marker while
+counting zero violations, because at that point the file is byte-identically a legitimate quoted
+cell. That case stays silent, stays mislabelled, and stays undecidable. The detector narrows the
+class; it does not empty it.
 
 **It is undecidable at the byte level.** A legitimately quoted cell containing marker-shaped text and
 a stray quote that swallowed a real marker are BYTE-IDENTICAL. There is nothing for a parser to
@@ -11622,15 +11654,27 @@ blind because the rows are ABSORBED rather than rejected. A heuristic here does 
 detect; it mis-detects the legitimate case, and there is no input that separates the two.
 
 ★ The honest options are all outside the parser: refuse to import a CSV whose quotes are stray by
-some external check, or accept the class. Neither is scoped here.
+some external check, or accept the class. ★★ The 2026-08-29 fix is the FIRST of those two, done
+narrowly — it checks a syntactic property of the bytes rather than asking the parser to guess intent,
+which is exactly why it is not a heuristic and does not fire on the legitimate case. The `codec-roundtrip`
+property "never fires malformedQuotes on output our own encoder wrote" is what states that as a law.
 
-### The autosave interaction
+### The autosave interaction — FIXED for the malformed case, 2026-08-29
 
-Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterIncompleteLoad`
-(`mayCommitAfterTruncation` until 2026-08-29, §284) gates on `loadWasIncomplete` only, so import diagnostics never block a save — and here there is no
-diagnostic to block on: `reportImportDiagnostics` fires on `droppedRows` or `unterminatedQuote`, and
-both are falsy. The milestone rows are gone from `milestones` and present as tasks by the time the
-first ordinary save runs.
+★★★ **THIS SECTION SAID "NOTHING STOPS THE MISLABELLED WORKSPACE BEING WRITTEN BACK OVER ITS SOURCE",
+AND THAT IS NO LONGER TRUE OF THIS ENTRY'S OWN FIXTURE.** `malformedQuotes` is now a third cause of
+`loadWasIncomplete` in `useLoadTruncation`, so a file carrying violations raises the persistent banner
+and pauses saving until the user chooses. The overwrite this section describes is the exact loss that
+hold was added to prevent.
+
+★★ **Its wording is deliberately weaker than this entry's subject, and must stay that way.** The
+string says the file breaks CSV quoting rules and may not have been read correctly. It must never be
+relabelled as "a section may have been lost" — that is the undecidable claim, and dressing a guess as
+a fact is worse than the silence it replaces.
+
+★ The residue keeps its old behaviour: a balanced, well-positioned stray pair reports nothing, so
+`reportImportDiagnostics` still fires on neither `droppedRows` nor `unterminatedQuote` nor
+`malformedQuotes`, and the mislabelled rows reach the first ordinary save exactly as described above.
 
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
@@ -11775,9 +11819,42 @@ priority. The "do not just go delete the rule" warning above is unaffected in ev
 AGENTS.md on the back of it would be an unrelated change to the one always-loaded file. §97 already
 demonstrates the shape a scoped, measured retraction takes — copy that, per site, with a probe.
 
-## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting
+## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — CLOSED 2026-08-29
 
-**Status:** open — a load path that applies rows with no diagnostic. Reproduced 2026-08-28 by `grep -n "reportFor" src/app/use-storage-backend.ts`.
+**Status:** closed 2026-08-29 — both halves shipped: the signals are split (`TruncationOps.reportImportFor`) and the count is attributed per section. Verified by `npx vitest run src/app/use-storage-backend.test.tsx src/app/import-dropped-rows.test.ts src/app/use-load-truncation.test.ts`.
+
+### How it was closed
+
+**The split.** `TruncationOps.reportImportFor` reports the import sentences and raises the quoting
+hold, touching truncation and decode in NEITHER direction. `onOpenStorageFile` calls it after its own
+`storageOpenedToast`, and its `NO reportFor:` exemption marker is gone.
+
+★★ **The hold IS raised there, and the first design said it should not be.** The reasoning that
+looked right — "this path merges rows into an existing workspace, so no save of its backing file is
+pending" — is false: `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`, so the
+ACTIVE backend points at the picked file and the next debounced save writes the merged workspace over
+it. A toast-only op would have re-opened §150's overwrite one path along.
+
+★★★ **THE OVERWRITE-CONFIRM'S GUARD CLAUSE IS INVERTED FOR THAT REASON.** `openFileForBackend` has
+already re-pointed the backend by the time the confirm is asked, so DECLINING the overwrite still
+leaves the next save writing over the picked file. An early `return` would have exempted that exit
+silently; one report after the `if` covers both. ★ The re-point on decline is the WIDER defect and is
+NOT fixed here — see §287.
+
+**The attribution.** `ImportSectionKey` (a zero-import leaf union in `csv-codecs-sections.ts`) and
+`ImportDiag.droppedBySection`, threaded through `collectRows`, `decodeCsvSection`, `decodeMdTable`,
+`markdownToRefs` and the two task loops. `countDroppedRow` is the single writer of the breakdown AND
+the flat total, so they cannot disagree. Published as `StorageBackend.lastImportDroppedBySection` by
+the two backends that decode CSV/MD, and rendered as a fourth sentence on the existing join.
+
+★★ **The union is NOT derived from the `CSV_SECTION_*` strings, though the plan said to derive it.**
+Those are storage-format bytes pinned by `golden-workspace.test`, so keying a diagnostic on them would
+make a marker reword a silent diagnostic break — and Markdown has no `# TASKS` marker at all, so a
+marker-derived union could not have served that family.
+
+★ The census in `use-load-truncation.test.ts` counts both ops, and the new one is deliberately NOT
+expressible through `REPORT_EXEMPT_MARKER`: a site carrying both sums to 2 against 1 load and fails,
+so no path can claim exemption while reporting nothing.
 
 Found by the cold review of the branch closing §105, 2026-08-16. **Not introduced by that branch** —
 it is the residue of the fix that took `lastImportDroppedRows` from one reporting call site to five.
@@ -21997,3 +22074,36 @@ note stays rich HTML on every other route.
 ★ Fix shape, if wanted: extract the DOM-free half of `sanitizeNoteLog` into a shared helper both call,
 leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
 sanitiser on six write paths, which is why it is filed rather than done inside a bug-fix slice.
+
+## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading
+
+**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save.
+
+Found while splitting the import signals for §152, which is why that entry points here.
+
+`onOpenStorageFile` (`use-storage-backend.ts`) asks `openFileForBackend(backend)` FIRST and only then
+asks the user whether to overwrite their live tasks. `LocalFileBackend.openFile()` ends
+`await idbSet(this.idbKey, handle)` — it stores the picked handle under the ACTIVE backend's own key —
+so by the time the confirm appears the app is already pointed at the new file, and there is no path
+back. Declining therefore keeps the CURRENT workspace and repoints storage at a DIFFERENT file, after
+which the next debounced save writes the current project over it.
+
+```
+grep -n "async openFile" -A 10 src/app/local-file-backend.ts
+grep -n "openFileForBackend(backend)" -A 6 src/app/use-storage-backend.ts
+```
+
+★★ **This is NOT what §152 fixed, and the two must not be conflated.** §152 made the decline exit
+REPORT (import diagnostics, plus the quoting hold when the file is malformed) — which is why the guard
+clause there is inverted rather than an early `return`. Reporting is not the same as not re-pointing:
+a CLEAN file declined at the confirm is silently adopted as the save target with no diagnostic at all,
+because there is nothing wrong with it.
+
+★ The same ordering question applies to `onPickStorageFile`, whose picker likewise creates the file
+and persists the handle before any write — the repo already records that as the reason
+`wouldRefuseWrite`/`refuseWrite` exist as a pair. This entry is the READ half of that shape.
+
+**Fix shape, if wanted:** ask the confirm BEFORE the picker, or restore the previous handle when the
+user declines. The first is a behaviour change (the user picks a file only after agreeing to replace
+their tasks); the second needs the old handle captured and re-persisted, and must survive the picker
+throwing. Neither is scoped to a diagnostics slice.

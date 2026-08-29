@@ -306,3 +306,46 @@ describe("the fallback's cost: an unbalanced quote re-enables §105 (characteriz
     expect((back.milestones ?? []).map((m) => m.id)).toEqual([9]);
   });
 });
+
+// ★★★ §150's OWN FIXTURE, PINNED IN BOTH DIRECTIONS. That entry is about an
+// UNDECIDABLE class — a balanced, well-positioned stray pair that swallows a
+// section marker is byte-identical to a legitimate quoted cell — and that half
+// is unchanged and unfixable. What the malformed-quote detector added is that
+// THIS fixture, whose strays are also MISPOSITIONED, is no longer silent.
+// ★★ Both halves are asserted because either alone misrepresents the state: the
+// mislabelling without the count reads as "still undetected", the count without
+// the mislabelling reads as "fixed". Neither is true on its own.
+describe("§150: a stray quote pair that swallows a section marker", () => {
+  const FIXTURE = [
+    "# TASKS",
+    "id,taskName,blockers",
+    '1,T1,a"b',
+    "",
+    "# MILESTONES",
+    "id,name,date,description",
+    '5,M5,2026-02-01,c"d',
+    "6,M6,2026-03-01,",
+    "7,M7,2026-04-01,",
+  ].join("\r\n");
+
+  it("still mislabels the milestone rows as tasks — the undecidable half is UNCHANGED", () => {
+    const diag: ImportDiag = { droppedRows: 0 };
+    const ws = csvToWorkspace(FIXTURE, diag);
+    expect(ws.tasks.map((t) => t.id)).toEqual([1, 6, 7]);
+    expect(ws.tasks.map((t) => t.taskName)).toEqual(["T1", "M6", "M7"]);
+    expect(ws.milestones ?? []).toEqual([]);
+  });
+
+  it("reports it as MALFORMED — and reports neither of the two older signals", () => {
+    // ★★ The two older signals are the measurement §150 was written from, and
+    //    both are still falsy: the swallowed rows were ABSORBED rather than
+    //    rejected, and the document ends balanced. Asserting them here is what
+    //    shows the new count is a third, independent signal and not a
+    //    relabelling of either.
+    const diag: ImportDiag = { droppedRows: 0 };
+    csvToWorkspace(FIXTURE, diag);
+    expect(diag.malformedQuotes).toBe(2);
+    expect(diag.droppedRows).toBe(0);
+    expect(diag.unterminatedQuote ?? false).toBe(false);
+  });
+});
