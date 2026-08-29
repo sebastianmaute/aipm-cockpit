@@ -1416,4 +1416,65 @@ describe("useResourcePlanner", () => {
       vi.restoreAllMocks();
     });
   });
+
+  describe("useResourcePlanner — deletes arm the destructive-save bypass", () => {
+    const mkRaid = (id: number, title: string): RaidItem => ({
+      id, category: "R", title, description: "", severity: "Medium", status: "Open",
+      owner: "", ownerEmail: "", mitigation: undefined, linkedTaskIds: [], causedByRaidIds: [],
+      stakeholderIds: [], raisedDate: "2026-05-20", targetDate: undefined,
+      localModifiedAt: "2026-05-20T00:00:00.000Z",
+    });
+    const mkAbsence = (id: number): Absence => ({
+      id, assignee: "Alice", startDate: "2026-06-01", endDate: "2026-06-07", type: "vacation",
+    });
+    const mkShift = (id: number): Shift => ({
+      id, assignee: "Bob", hoursPerWeekday: [0, 8, 8, 8, 8, 8, 0],
+    });
+
+    it("handleDeleteRaidItem arms once for an item that exists", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setRaid([mkRaid(1, "Doomed")]); });
+      const id = (result.current.workspace.raid[0] as RaidItem).id;
+      act(() => { result.current.planner.handleDeleteRaidItem(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleDeleteRaidItem does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setRaid([mkRaid(1, "Real")]); });
+      act(() => { result.current.planner.handleDeleteRaidItem(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = (result.current.workspace.raid[0] as RaidItem).id;
+      act(() => { result.current.planner.handleDeleteRaidItem(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleDeleteAbsence does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setAbsences([mkAbsence(1)]); });
+      act(() => { result.current.planner.handleDeleteAbsence(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+    });
+
+    it("handleDeleteShift does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setShifts([mkShift(1)]); });
+      act(() => { result.current.planner.handleDeleteShift(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+    });
+
+    it("does not throw when no bypass is supplied", () => {
+      const { result } = renderPlanner({});
+      act(() => { result.current.workspace.setRaid([mkRaid(1, "Doomed")]); });
+      expect(() => {
+        const id = (result.current.workspace.raid[0] as RaidItem).id;
+        act(() => { result.current.planner.handleDeleteRaidItem(id); });
+      }).not.toThrow();
+    });
+  });
 });

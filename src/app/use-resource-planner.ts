@@ -81,6 +81,9 @@ export interface UseResourcePlannerArgs {
    *    grep -rn "useChangeLog(\|useStakeholders(" src/app --include=*.ts --include=*.tsx | grep -v "export function"
    */
   captureFieldRows: UndoStackApi["captureFieldRows"];
+  /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
+   *  supply none. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -105,6 +108,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const logActivityRef = useRef(args.logActivity);
   const captureRef = useRef(args.capture);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
+  // ★★ A REF, not `args.` — these delete callbacks do not list `args` in their
+  //    deps arrays, and `react-hooks/exhaustive-deps` is FATAL here. Mirrors
+  //    `captureRef` immediately above for exactly that reason.
+  const allowDestructiveRef = useRef(args.allowDestructiveSave);
+  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
   const captureFieldEditRef = useRef(args.captureFieldEdit);
   useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
   const captureFieldRowsRef = useRef(args.captureFieldRows);
@@ -243,6 +251,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
         logActivityRef.current("raid.deleted", id, removed.category, removed.title);
+        allowDestructiveRef.current?.();
       }
     },
     [raid, setRaid],
@@ -367,6 +376,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
         logActivityRef.current("absence.deleted", id, removed.assignee);
+        allowDestructiveRef.current?.();
       }
       setEditingAbsence(null);
     },
@@ -429,6 +439,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
         logActivityRef.current("shift.deleted", id, removed.assignee);
+        allowDestructiveRef.current?.();
       }
       setEditingShift(null);
     },
