@@ -31,7 +31,7 @@ function Wrapper({ children }: { children: ReactNode }) {
 //   diagnosis) and go green again the moment someone wired `capture` up.
 //   With both live, the regression captures whole rows and CLOBBERS the
 //   concurrent write, which is the property the test is actually named for.
-function renderChangeLogWithRealUndo() {
+function renderChangeLogWithRealUndo(overrides: { allowDestructiveSave?: () => void } = {}) {
   const logActivity = vi.fn();
   const showToast = vi.fn();
   const { result } = renderHook(
@@ -48,6 +48,7 @@ function renderChangeLogWithRealUndo() {
         showToast,
         capture: undoApi.capture,
         captureFieldRows: undoApi.captureFieldRows,
+        ...overrides,
       });
       const workspace = useWorkspace();
       return { changeLog, workspace, undo: undoApi.undo };
@@ -268,5 +269,37 @@ describe("useChangeLog — logActivity", () => {
     expect(changeById(1).noteLog?.map((n) => n.text)).toEqual(["added after the bulk edit"]);
     expect(changeById(1).requestedBy).toBe("Priya");
     expect(changeById(2).impact).toBe("Low");
+  });
+});
+
+describe("useChangeLog — delete arms the destructive-save bypass", () => {
+  it("arms once for a change that exists", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderChangeLogWithRealUndo({ allowDestructiveSave });
+    act(() => { result.current.changeLog.handleSaveChange(ci({ id: 1, title: "To delete" })); });
+    const victim = result.current.changeLog.changes[0]!;
+    act(() => { result.current.changeLog.handleDeleteChange(victim.id, victim.title); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does NOT arm for an id that does not exist", () => {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderChangeLogWithRealUndo({ allowDestructiveSave });
+    act(() => { result.current.changeLog.handleSaveChange(ci({ id: 1, title: "To delete" })); });
+    act(() => { result.current.changeLog.handleDeleteChange(999_999, "ghost"); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    // POSITIVE CONTROL
+    const victim = result.current.changeLog.changes[0]!;
+    act(() => { result.current.changeLog.handleDeleteChange(victim.id, victim.title); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when no bypass is supplied", () => {
+    const { result } = renderChangeLogWithRealUndo({});
+    act(() => { result.current.changeLog.handleSaveChange(ci({ id: 1, title: "To delete" })); });
+    const victim = result.current.changeLog.changes[0]!;
+    expect(() => {
+      act(() => { result.current.changeLog.handleDeleteChange(victim.id, victim.title); });
+    }).not.toThrow();
   });
 });

@@ -27,6 +27,8 @@ export interface UseChangeLogArgs {
   captureFieldEdit?: UndoStackApi["captureFieldEdit"];
   /** Capture a bulk field-patch edit for undo (changes bulk apply). */
   captureFieldRows?: UndoStackApi["captureFieldRows"];
+  /** Arms the one-shot destructive-save bypass — called only when a delete actually removed a row. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useChangeLog(args: UseChangeLogArgs) {
@@ -127,7 +129,13 @@ export function useChangeLog(args: UseChangeLogArgs) {
 
   const handleDeleteChange = useCallback((id: number, title: string) => {
     const doomed = changes.find((c) => c.id === id);
-    if (doomed) args.capture?.({ setter: setChanges, kind: "change.deleted", removed: [doomed], fromArray: changes, name: title });
+    if (doomed) {
+      args.capture?.({ setter: setChanges, kind: "change.deleted", removed: [doomed], fromArray: changes, name: title });
+      // ★★ Changes count toward the save-time data-loss guards. Armed inside
+      //    the `doomed` guard so a miss never arms — the setter below runs
+      //    either way (open-followups §285).
+      args.allowDestructiveSave?.();
+    }
     setChanges((prev) => prev.filter((c) => c.id !== id));
     args.logActivity?.("change.deleted", id, title);
   }, [changes, setChanges, args]);
