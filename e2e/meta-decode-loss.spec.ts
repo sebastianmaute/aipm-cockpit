@@ -31,9 +31,36 @@
 // clicking "Save anyway" and asserting the row DOES change. Withheld-then-
 // committed is the evidence; withheld alone is not.
 //
-// ★★★ CREDENTIALS ARE NEVER PRINTED. No value from `.env.local` is echoed,
+// ★★★ CREDENTIALS ARE NEVER PRINTED **BY THIS FILE**, and that qualifier is
+// load-bearing rather than pedantic. No value from `.env.local` is echoed,
 // logged, put in an assertion message or embedded in a failure diff — every
-// check is on a BOOLEAN or on observable app behaviour.
+// check is on a BOOLEAN or on observable app behaviour. But the HARNESS around
+// it had its own channel: the config's `trace: "retain-on-failure"` records
+// request headers, and the browser carries the inlined token to Turso on every
+// load, so a failing run wrote `Authorization: Bearer …` into `trace.zip`. The
+// describe below turns tracing off for exactly that reason. An unhandled fetch
+// rejection can still surface undici's `cause` (`ENOTFOUND <host>`) — the HOST,
+// never the token, but it is a `.env.local` value reaching a message, so do not
+// read this banner as an absolute.
+//
+// ★★★ WHAT IS MUTATION-PROVED, AND BY WHICH MUTANT. TWO were run, because ONE
+// WAS NOT ENOUGH and the reason generalises: playwright aborts at the first hard
+// `expect`, so a mutant that kills an EARLY assertion leaves every later one
+// UNEXECUTED — and therefore unproved, however green the revert looks.
+//   M1 — neuter the accumulator in `reportUnreadableSlice` (`turso-schema.ts`,
+//        `if (diag) (diag.decodeFailedSlices ??= []).push(slice)`). RED at the
+//        BANNER assertion, step 3. Proves step 3, and proves it SPECIFICALLY:
+//        the same function also calls `logDiag`, and neutering THAT instead
+//        leaves this file green, so the assertion discriminates the accumulator
+//        from the catch merely existing. Steps 4-5 never ran under M1.
+//   M2 — `mayCommitAfterIncompleteLoad` (`use-load-truncation.ts`) forced to
+//        return true, disarming the withholding while leaving the banner up.
+//        Step 3 stays GREEN and step 4 — "the save must be WITHHELD" — goes RED.
+//        That is what proves the DATABASE-ROW assertion this header calls
+//        load-bearing; M1 could not, and neither can any mutant that kills
+//        step 3 first.
+// Both reverted green. Record WHICH mutant backs a claim: "mutation-proved"
+// unqualified was written here once and was an overclaim for four of five steps.
 //
 // ★★ PARTITION-SCOPED, NOTHING DROPPED. Every write is under E2E_PROJECT_ID and
 // removed in `afterAll`. This file never runs DROP or TRUNCATE and never touches
@@ -52,6 +79,7 @@
 //   PORT=3100 npm run stop
 
 import { readFileSync, existsSync } from "node:fs";
+import { join } from "node:path";
 import type { Page } from "@playwright/test";
 import { test, expect } from "@playwright/test";
 
@@ -67,9 +95,25 @@ function readEnvLocal(): { url: string; token: string } {
     url: process.env.NEXT_PUBLIC_TURSO_DATABASE_URL ?? "",
     token: process.env.NEXT_PUBLIC_TURSO_AUTH_TOKEN ?? "",
   };
-  if (fromProcess.url) return fromProcess;
-  if (!existsSync(".env.local")) return { url: "", token: "" };
-  const txt = readFileSync(".env.local", "utf8");
+  // ★★ BOTH halves must be present before the shell wins. Short-circuiting on
+  // `url` alone lets a stale `NEXT_PUBLIC_TURSO_DATABASE_URL` exported in the
+  // shell redirect THE TEST PROCESS while the dev server still reads
+  // `.env.local` — two different databases, one run. That fails loudly at the
+  // liveness assertion, but only after this file has written and deleted a
+  // partition in the wrong one.
+  if (fromProcess.url && fromProcess.token) return fromProcess;
+  // ★★★ RESOLVE AGAINST THE REPO, NOT THE CWD. A bare ".env.local" is
+  // cwd-relative, so invoking playwright from any other directory finds no file,
+  // `LIVE` is false, and the describe SKIPS — against a perfectly live database.
+  // That is the silent false green this file's header spends nine lines warning
+  // about, reintroduced by its own loader.
+  // ★★ `__dirname`, NOT `import.meta.url`. Playwright transpiles specs to CJS,
+  // where `import.meta` is a runtime SyntaxError — and `npx tsc --noEmit`
+  // ACCEPTS it, so the failure appears only when the file actually runs, as
+  // "No tests found" rather than as a type error. Measured here, not reasoned.
+  const envPath = join(__dirname, "..", ".env.local");
+  if (!existsSync(envPath)) return { url: "", token: "" };
+  const txt = readFileSync(envPath, "utf8");
   const read = (key: string) => {
     const m = txt.match(new RegExp(`^${key}=(.*)$`, "m"));
     // Strip surrounding quotes and the CR of a CRLF file — both are silent
@@ -149,13 +193,21 @@ const txt = (value: string) => ({ type: "text", value });
  *  the row is absent. ★ null and "" are DIFFERENT outcomes here and the test
  *  distinguishes them: an absent row is the destruction §284 is about. */
 async function readDocumentsBlob(): Promise<string | null> {
-  const [r] = await pipeline([
+  const results = await pipeline([
     {
       sql: "SELECT value FROM meta WHERE key = ? AND project_id = ?",
       args: [txt("documents"), txt(E2E_PROJECT_ID)],
     },
   ]);
-  const rows = r?.response?.result?.rows ?? [];
+  // ★★★ ASSERT THE STATEMENT SUCCEEDED, or this helper turns a DATABASE FAILURE
+  // into `null` — and `null` is a value the assertions below ACCEPT. A libSQL
+  // pipeline answers HTTP 200 with per-statement errors (the reason
+  // `assertNoStatementErrors` exists at all), so without this a dropped table or
+  // an auth expiry mid-run reads as "the row is absent", which is exactly the
+  // outcome §284 is about. The one helper every assertion in this file depends
+  // on must not be able to report destruction it did not observe.
+  assertNoStatementErrors(results, "readDocumentsBlob");
+  const rows = results[0]?.response?.result?.rows ?? [];
   return rows.length === 0 ? null : (rows[0]?.[0]?.value ?? null);
 }
 
@@ -191,12 +243,46 @@ const SEED_DOCUMENTS = [
 
 /** Everything this file writes, scoped to E2E_PROJECT_ID. Every statement
  *  carries `WHERE project_id = ?`; nothing is dropped or truncated. */
+/** Every tenant-mode table a save under this partition can write. ★★ THE TEST
+ *  SEEDS THREE AND THE APP CAN WRITE ALL OF THESE — step 5 deliberately makes
+ *  the app save under this partition, so teardown must cover what the APP
+ *  touches, not what the test seeded. Nothing is left behind today only because
+ *  the workspace happens to be empty for the rest, which is an accident of the
+ *  current default, not a property this function held. Mirrors `TABLE_NAMES`
+ *  (`turso-schema.ts`); every one carries `project_id` in tenant mode. */
+const PARTITION_TABLES = [
+  "meta",
+  "plan",
+  "fx_rates",
+  "tasks",
+  "raid",
+  "absences",
+  "shifts",
+  "resources",
+  "roles",
+  "disciplines",
+  "grades",
+  "budget_buckets",
+  "milestones",
+  "changes",
+  "stakeholders",
+  "calendar_events",
+  "document_assets",
+] as const;
+
 async function cleanup(): Promise<void> {
-  await pipeline([
-    { sql: "DELETE FROM meta WHERE project_id = ?", args: [txt(E2E_PROJECT_ID)] },
-    { sql: "DELETE FROM tasks WHERE project_id = ?", args: [txt(E2E_PROJECT_ID)] },
+  const results = await pipeline([
+    ...PARTITION_TABLES.map((t) => ({
+      sql: `DELETE FROM ${t} WHERE project_id = ?`,
+      args: [txt(E2E_PROJECT_ID)],
+    })),
     { sql: "DELETE FROM projects WHERE id = ?", args: [txt(E2E_PROJECT_ID)] },
   ]);
+  // ★ Teardown gets the SAME check as every other statement in this file. A
+  // pipeline answers 200 with per-statement errors, so a silently failing
+  // DELETE would leave the partition populated and say nothing — and the next
+  // run would then start against dirty state rather than a clean one.
+  assertNoStatementErrors(results, "cleanup");
 }
 
 /** ★★★ NINE FIELDS, NOT THREE, AND THE SHORTFALL IS INVISIBLE UNTIL THE SHELL
@@ -308,8 +394,24 @@ async function openDocuments(page: Page): Promise<void> {
   await page.getByRole("button", { name: "Documents", exact: true }).first().click();
 }
 
+// ★★★ TRACING OFF, AND THIS IS A CREDENTIAL CONTROL RATHER THAN A PREFERENCE.
+// The config's `trace: "retain-on-failure"` captures request HEADERS, and the
+// page under test is a Next app with `NEXT_PUBLIC_TURSO_AUTH_TOKEN` inlined into
+// its client bundle — so the browser sends `Authorization: Bearer …` to Turso on
+// every load, and any FAILING run would write that token into
+// `test-results/**/trace.zip`. CI never runs this file, so it is not a pipeline
+// leak; a local trace attached to an MR or an issue is one. The header's
+// "credentials are never printed" promise is about this file's own code, and
+// without this line the harness quietly broke it. Screenshots stay on — they
+// capture pixels, not headers, and this test is hard to debug blind.
+// ★★ FILE-LEVEL, NOT INSIDE THE DESCRIBE. `trace` and `video` are worker-scoped
+// options, so a describe-level `test.use` is a hard startup error ("forces a new
+// worker") that reads as a broken spec, not as a misplaced line. Measured here.
+test.use({ trace: "off", video: "off" });
+
 test.describe("§284 — a malformed meta blob is caught before the next save destroys it", () => {
   test.skip(!LIVE, "no .env.local Turso credentials — see the header; a skip is never evidence of a pass");
+
 
   test.afterAll(async () => {
     if (LIVE) await cleanup();
@@ -381,7 +483,14 @@ test.describe("§284 — a malformed meta blob is caught before the next save de
     // The banner is the user-visible half of the fix. Its headline is
     // deliberately NOT "document data" — the decode cause covers eleven slices.
     await expect(
-      page.getByText(/could not be opened/i).first(),
+      // ★★ MATCH THE DECODE BANNER'S OWN WORDING, not the shared tail. A bare
+      // /could not be opened/i is satisfied by SIX EN keys, among them the
+      // TRUNCATION banner ("document data"), which is a DIFFERENT cause. It
+      // cannot fire on this path today — a JSON.parse failure counts no
+      // truncated entries — but that is a property of the product, not of the
+      // assertion, so a future change could keep this green for the wrong
+      // reason. "saved data" is `documentsUnreadableBanner`'s distinctive half.
+      page.getByText(/saved data could not be opened/i).first(),
       "an undecodable slice must raise the incomplete-load banner",
     ).toBeVisible({ timeout: 30_000 });
 
@@ -399,9 +508,15 @@ test.describe("§284 — a malformed meta blob is caught before the next save de
     // exactly the destructive DELETE-then-re-insert §284 is about.
     await openDocuments(page);
     await page.getByRole("button", { name: "New document", exact: true }).first().click();
+    // ★★ A FIXED WAIT ALONE IS THE WRONG INSTRUMENT HERE, and this line was one.
+    // Against a CORRECT product the row cannot move, so any wait passes — but
+    // this assertion only earns its keep against a REGRESSED one, where the
+    // destructive save is in flight and the read races it. Read too early and
+    // the corrupt bytes are still there, so the regression passes. The fixed
+    // wait clears the debounce; `waitForBlobStable` then refuses to return a
+    // MOVING value, which is the property step 2 already relies on.
     await page.waitForTimeout(4_000); // >> SAVE_DEBOUNCE_MS (500)
-
-    const afterEdit = await readDocumentsBlob();
+    const afterEdit = await waitForBlobStable();
     expect(
       afterEdit,
       "the save must be WITHHELD while the load is incomplete — the row must still hold the corrupt bytes, " +
@@ -419,15 +534,30 @@ test.describe("§284 — a malformed meta blob is caught before the next save de
     // never confirmed. This is the repo's documented duplicate-name trap, in the
     // silent direction. Click the trigger, then commit INSIDE the dialog.
     await page.getByRole("button", { name: "Save anyway", exact: true }).first().click();
-    const confirmDialog = page.getByRole("dialog", { name: "Save anyway?" });
+    const confirmDialog = page.getByRole("dialog", { name: "Save anyway?", exact: true });
     await expect(confirmDialog).toBeVisible({ timeout: 10_000 });
     await confirmDialog.getByRole("button", { name: "Save anyway", exact: true }).click();
     await page.waitForTimeout(6_000);
 
-    const afterSaveAnyway = await readDocumentsBlob();
+    // ★★★ A POSITIVE CLAIM, NOT `.not.toBe("{not json")`. The weaker form is
+    // satisfied by `null` — an ABSENT row — so the one assertion whose entire
+    // job is to be a positive observable was satisfiable by failing to observe.
+    // "The corrupt bytes are gone" is true of a row that was destroyed, of a row
+    // that was never written, and (before `readDocumentsBlob` asserted statement
+    // errors) of a SELECT that failed outright. Claim what a real commit
+    // produces: a row that still exists and parses.
+    const afterSaveAnyway = await waitForBlobStable();
+    expect(
+      afterSaveAnyway,
+      "Save anyway must COMMIT — the row must still EXIST, not merely stop holding the corrupt bytes",
+    ).not.toBeNull();
     expect(
       afterSaveAnyway,
       "Save anyway must be the thing that commits the loss — the row must no longer hold the corrupt bytes",
     ).not.toBe("{not json");
+    expect(
+      () => JSON.parse(afterSaveAnyway ?? ""),
+      "the committed row must be readable JSON — that is what makes this a positive observable rather than an absence",
+    ).not.toThrow();
   });
 });
