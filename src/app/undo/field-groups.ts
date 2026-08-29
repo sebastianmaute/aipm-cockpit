@@ -24,7 +24,7 @@ export function pick<T extends object>(row: T, keys: readonly (keyof T & string)
 
 /** Structural inequality for our plain-JSON entity values (primitives + arrays
  *  of primitives + small objects). Object.is fast-path; JSON for the rest. */
-function differs(a: unknown, b: unknown): boolean {
+export function differs(a: unknown, b: unknown): boolean {
   if (Object.is(a, b)) return false;
   const aObj = typeof a === "object" && a !== null;
   const bObj = typeof b === "object" && b !== null;
