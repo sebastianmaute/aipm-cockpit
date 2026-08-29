@@ -2230,6 +2230,36 @@ describe("useChatDispatcher — the register delete tools arm the destructive-sa
     expect(() => result.current.deleteAllTasks()).toThrow();
     expect(allowDestructiveSave).not.toHaveBeenCalled();
   });
+
+  it("deleteRaid arms only when an item was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteRaid(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createRaid({ category: "Risk", title: "R1" }).id;
+    });
+    act(() => { result.current.deleteRaid(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteMilestone arms only when a milestone was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteMilestone(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("deleteChange arms only when a change was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteChange(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("deleteStakeholder arms only when a stakeholder was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteStakeholder(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
 });
 
 // ★★ The `ai.documentWrite` activity row. The kind was registered everywhere

@@ -230,6 +230,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
   const registerTools = useRegisterTools({
     isReadOnly: args.isReadOnly,
     logActivityAs: args.logActivityAs,
+    allowDestructiveSave: args.allowDestructiveSave,
     clockRef,
     settingsRef,
   });

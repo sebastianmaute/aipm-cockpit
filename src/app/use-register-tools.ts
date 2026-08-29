@@ -71,6 +71,9 @@ export interface RegisterToolsDeps {
   /** True in a popout/mirror window — every write below refuses. */
   isReadOnly: boolean;
   logActivityAs?: LogActivityAsFn;
+  /** Arms the one-shot destructive-save bypass. Optional: the dispatcher
+   *  renders in contexts (tests, popouts) that supply none. */
+  allowDestructiveSave?: () => void;
   /** Owned by use-chat-dispatcher; see the ★★★ note at the top of this file. */
   clockRef: RefObject<ProjectClock>;
   /** Owned by use-chat-dispatcher — read only for the read-only refusal's language. */
@@ -78,7 +81,7 @@ export interface RegisterToolsDeps {
 }
 
 export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatcher {
-  const { isReadOnly, logActivityAs, clockRef, settingsRef } = deps;
+  const { isReadOnly, logActivityAs, clockRef, settingsRef, allowDestructiveSave } = deps;
   const {
     raid,
     setRaid,
@@ -174,6 +177,10 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         logActivityAs?.("ai", "raid.updated", merged.id, merged.category, merged.title);
         return toRaidSummary(merged);
       },
+      // ★★ These four registers count toward the save-time data-loss guards,
+      //    so a delete that empties one — or several deletes inside one save
+      //    debounce window — is refused unless the bypass is armed. Armed
+      //    AFTER the early return, so a miss never arms (open-followups §285).
       deleteRaid: (id) => {
         if (isReadOnly) throw readOnlyError();
         // `find`, not `some` — the row names the item, and the filter below
@@ -184,6 +191,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         raidRef.current = next;
         setRaid(next);
         logActivityAs?.("ai", "raid.deleted", doomed.id, doomed.category, doomed.title);
+        allowDestructiveSave?.();
         return true;
       },
 
@@ -234,6 +242,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         changesRef.current = next;
         setChanges(next);
         logActivityAs?.("ai", "change.deleted", doomed.id, doomed.title);
+        allowDestructiveSave?.();
         return true;
       },
 
@@ -282,6 +291,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         setMilestones(next);
         // ★★ ONE arg — "Deleted milestone #{0}", same as the panel's own row.
         logActivityAs?.("ai", "milestone.deleted", id);
+        allowDestructiveSave?.();
         return true;
       },
 
@@ -321,6 +331,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
         stakeholdersRef.current = next;
         setStakeholders(next);
         logActivityAs?.("ai", "stakeholder.deleted", doomed.id, doomed.name);
+        allowDestructiveSave?.();
         return true;
       },
     }),
@@ -350,6 +361,7 @@ export function useRegisterTools(deps: RegisterToolsDeps): RegisterToolDispatche
     [
       isReadOnly,
       logActivityAs,
+      allowDestructiveSave,
       readOnlyError,
       clockRef,
       setRaid,
