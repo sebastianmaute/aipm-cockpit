@@ -34,7 +34,7 @@ import type { Task } from "./types";
 // under test are built on, so an oracle written with it cannot disagree with
 // them — see the tautology note in the last describe block. Do not add it back
 // to make an assertion "simpler".
-import { splitCsvLines } from "./csv-line-scan";
+import { quoteStep, splitCsvLines } from "./csv-line-scan";
 
 /*
  * EXCLUSIONS — task fields NOT asserted to round-trip, with the reason. Every
@@ -806,25 +806,79 @@ describe("csv-line-scan and parseCsv agree about quoting", () => {
   // ★★ This is the property §150 could not have: intent is undecidable, so no
   // law can be stated about "was a marker swallowed". Malformedness is
   // syntactic, so it can be.
+  /** True iff a CRLF is reached while INSIDE a quoted cell — literally
+   *  `splitCsvLines`' own branch condition, replayed through the same exported
+   *  `quoteStep`, so this cannot disagree with production about what `""` means.
+   *  ★★★ NOT A REGEX, and two were measured wrong before this landed. The
+   *  shipped `/"[^"]*\r\n/` fires on any quoted cell (its closing quote), and
+   *  the obvious repair `/"[^"]*\r\n[^"]*"/` is wrong in the OPPOSITE direction:
+   *  over 1000 draws it produced 18 false positives (1.8%, the `""` over-fire)
+   *  but 57 false negatives (5.7%), missing real multi-line cells whose tail
+   *  after the newline contains a doubled quote. A regex cannot promise
+   *  agreement with the scanner; replaying the walk can.
+   *  ★ The `\r?\n` normalization mirrors `splitCsvLines` step 1 — the encoder
+   *  emits a BARE `\n` inside quoted cells, so a detector that looked only for
+   *  a literal CRLF would under-count against the very scanner it models. */
+  const hasMultilineQuotedCell = (text: string): boolean => {
+    const normalized = text.replace(/\r?\n/g, "\r\n");
+    let inQuotes = false;
+    let i = 0;
+    while (i < normalized.length) {
+      const step = quoteStep(normalized, i, inQuotes);
+      if (step) {
+        inQuotes = step.inQuotes;
+        i = step.next;
+        continue;
+      }
+      if (inQuotes && normalized.startsWith("\r\n", i)) return true;
+      i += 1;
+    }
+    return false;
+  };
+
   it("never fires malformedQuotes on output our own encoder wrote", () => {
+    const RUNS = 200;
     let quotedCells = 0;
-    let embeddedNewlines = 0;
+    let multilineQuotedRuns = 0;
     fc.assert(
       fc.property(tasksArb(anyString), (tasks) => {
         const csv = workspaceToCsv({ ...emptyWorkspace(), tasks });
         if (csv.includes('"')) quotedCells++;
-        if (/"[^"]*\r\n/.test(csv)) embeddedNewlines++;
+        if (hasMultilineQuotedCell(csv)) multilineQuotedRuns++;
         expect(splitCsvLines(csv).malformedQuotes).toBe(0);
       }),
-      { numRuns: 200 },
+      { numRuns: RUNS },
     );
     // ★★ Anti-vacuity, and it is not optional here: a run whose encoder output
     // never QUOTED anything would satisfy the property trivially, and this
-    // test's whole subject is what the escaper does with quotes. Floors sit far
-    // below the observed rate — re-measure if the alphabet changes, and do not
-    // tighten either to the number you happen to see.
+    // test's whole subject is what the escaper does with quotes.
     expect(quotedCells).toBeGreaterThan(20);
-    expect(embeddedNewlines).toBeGreaterThan(5);
+    // ★★★ THE SECOND FLOOR USED TO MEASURE NOTHING. It counted `/"[^"]*\r\n/`,
+    // which needs a `"` followed by non-quote characters up to a CRLF — a
+    // condition ANY quoted cell in a CRLF-terminated row satisfies via its
+    // CLOSING quote. Measured over 10 unseeded reps of 200: that regex and the
+    // bare `csv.includes('"')` counter above both averaged 199.5/200, i.e. it
+    // was empirically the SAME counter, and its `> 5` floor was a near-duplicate
+    // of the one above rather than a statement about multi-line quoted cells.
+    // ★★ THE COVERAGE WAS REAL ANYWAY — do not record this as "the branch was
+    // never exercised". Ground truth measured 0.926 (10x200 unseeded, min rep
+    // 0.895, max 0.965), so the CRLF-inside-quotes branch is reached in ~9 runs
+    // out of 10; the encoder emits a bare `\n` inside quoted cells and
+    // `splitCsvLines` normalizes it to CRLF before the walk. The defect was that
+    // the floor could not DETECT a future loss of that coverage, not that the
+    // coverage was missing.
+    // ★★★ A FRACTION, NEVER A SAMPLE MINIMUM. An absolute count gets EASIER to
+    // clear as `numRuns` rises, so a floor pinned to the count you happened to
+    // observe silently weakens the moment anyone raises N. At 0.75: P(false
+    // failure) is 3.0e-10 even if the true rate slipped to 0.90, and 7.7e-5 at
+    // 0.85 — negligible beside this suite's other flake sources — while it still
+    // trips essentially always if the class disappears. 0.85 was rejected as too
+    // tight (~1 spurious red per 100 runs at p=0.90).
+    // ★ Re-measure, do not re-guess, if the alphabet changes. The indicator is
+    // per-RUN ("this CSV holds >=1 multi-line quoted cell"), which is what this
+    // floor counts; it is NOT a per-cell rate and the two are not
+    // interchangeable if the counter is ever rewritten to count cells.
+    expect(multilineQuotedRuns / RUNS).toBeGreaterThan(0.75);
   });
 
   // ★★★ DO NOT write this one as `parseCsv(rejoined) === parseCsv(normalized)`.

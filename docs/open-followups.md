@@ -514,6 +514,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -11746,7 +11747,7 @@ Posture of every site, classified BY READING it — the sweep below only produce
 | §28 (this file) | ASSERTS — "out of scope by construction" |
 | §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added |
 | `templates.ts` `sanitizeSeedTask` | **RETRACTS as of 2026-08-28** — was ASSERTING, and is the site a fixer reads first |
-| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring comment also says "the graph is 76 files today" against the 92 measured 2026-08-28 |
+| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring "the graph is 76 files today" claim was DELETED on 2026-08-29 and replaced by a floor plus a retraction quoting the old wording — so an exact-phrase grep for it now returns 0, and this row must not be read as describing a live claim |
 | `docs/AGENTS/rich-text.md`, the `sanitizeSeedTask` mention | **RETRACTS as of 2026-08-28** — the other four mentions there still ASSERT |
 | §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
 
@@ -17307,10 +17308,13 @@ valid rows, so the bypass can only launder something a `src` writer should not h
 
 ★ The fix is wider than "reconcile the pair". `sanitizeSeedTask` REBUILDS a task from a fixed field
 list, so applying a template also drops `inquiriesSent`, `jiraKey`, `jiraIssueType`,
-`lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks` and
-`noteLog` outright, and discards the captured `createdDate` (`migrateTask` backfills a replacement
+`lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride` and `knowledgeLinks`
+outright, and discards the captured `createdDate` (`migrateTask` backfills a replacement
 from `lastUpdateDate`, so the applied task still carries one — just not the one that was
-captured). The load path already dropped all ten; this makes the two agree. It also stops a
+captured). ★★ NINE AS OF §168, and `noteLog` is NOT among them any more — it is carried, and
+allow-listed at apply. This entry is OPEN, so a reader takes its prose as current: leaving
+`noteLog` on the drop list described the fixed defect as required behaviour.
+The load path already dropped all nine; this makes the two agree. It also stops a
 per-row external link being CLONED — two local tasks pointing at one Jira issue is not a template.
 
 ★ A nuance, not a defect: `template-menus.tsx`'s seed breakdown reads `tpl.seed.tasks?.length`
@@ -22107,3 +22111,44 @@ and persists the handle before any write — the repo already records that as th
 user declines. The first is a behaviour change (the user picks a file only after agreeing to replace
 their tasks); the second needs the old handle captured and re-persisted, and must survive the picker
 throwing. Neither is scoped to a diagnostics slice.
+
+## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing
+
+**Status:** open — never machine-verified by a committed probe. Read out of `new-project-workspace.ts` and `sanitize-records.ts` on 2026-08-29 during the §168 review; no test drives a hostile model payload through `appendSeed`.
+
+Found by a cold reviewer of the §168 template-carry slice. NOT introduced by it — both branches
+predate that work — but the slice sharpened the asymmetry without naming it, which is why it is
+recorded here rather than left to be rediscovered.
+
+`buildNewProjectWorkspace` has two adjacent seed branches:
+
+```
+if (opts.template)            ws = applyTemplate(ws, opts.template, …);   // allow-lists ten rich fields
+else if (opts.aiSeed && …)    ws = appendSeed(ws, remapSeed(ws, opts.aiSeed));  // does not
+```
+
+`proposalToSeed` builds RAID, changes and milestones through `sanitizeRaidItem` /
+`sanitizeChangeItem` / `sanitizeMilestone`, which run `sanitizeRichText` only — a
+classify-and-upgrade against `RICH_SINK` with no allow-list pass. Only the TASK path reaches
+`sanitizeAiRichText`. So a model emitting `<p>ok</p><script>…</script>` as a risk description is
+classified rich on its leading `<p` and stored verbatim.
+
+★★ HONEST SCOPE, because over-reading this is the likelier error. It is **not** a live XSS:
+`RichTextView` sanitises at render (`sanitizeRichHtml` on the `dangerouslySetInnerHTML` path), and
+the whole-object load normalizer allow-lists on the next load. The exposure is unsanitised-AT-REST
+plus whatever export sinks do not re-sanitise on the way out.
+
+★ Why it is worth an entry anyway: AGENTS.md states `sanitizeAiRichText` + `AI_RICH_FIELDS` apply on
+*every* model-write path, and this is a model-write path where they do not. Either the code or that
+sentence is wrong, and a reader trusting the sentence will not go looking.
+
+**Reproduce:**
+```
+sed -n '26,34p' src/app/new-project-workspace.ts
+grep -c "sanitizeRichText" src/app/sanitize-records.ts     # 7
+grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
+```
+
+**Fix shape, if wanted:** route `appendSeed`'s rich fields through the same `allowListRich` pass
+`template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
+Not scoped to a template-carry slice, and it wants its own test for each entity.

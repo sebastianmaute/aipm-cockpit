@@ -265,9 +265,13 @@ describe("applyTemplate", () => {
 
   it("drops per-row external links so an in-session apply matches the load path", () => {
     // sanitizeSeedTask REBUILDS a task from a fixed field list rather than
-    // patching it, so routing apply through it drops ten Task fields that the
+    // patching it, so routing apply through it drops NINE Task fields that the
     // raw in-session copy used to carry. That is the point: the localStorage
     // load path already drops them, and this makes the two agree (§228).
+    // ★ Nine since §168 — `noteLog` left this list and is now carried. This
+    //   test asserts only `jiraKey`/`outlookEventId`, so the count above is
+    //   prose that no assertion can keep honest: check it against
+    //   `sanitizeSeedTask` in `templates.ts`, not against a green run.
     // ★ It also removes a real hazard. jiraKey/lastSyncedAt/outlookEventId each
     //   point at ONE external record, so copying them produced two local tasks
     //   claiming the same Jira issue and the same Outlook event.

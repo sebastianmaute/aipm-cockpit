@@ -36,7 +36,7 @@ longer carries its own changelog comment.
   part of the file that was going to be discarded anyway. The warning now adds, for example,
   "Affected sections: Tasks, RAID." — for both CSV and Markdown files.
 
-- **Template import kept every register's notes.** Notes attached to tasks, RAID items and
+- **Template import now keeps every register's notes.** Notes attached to tasks, RAID items and
   change requests were discarded when a template was applied. They are now carried through,
   and passed through the same safety filter as any other imported rich text.
 

@@ -282,11 +282,14 @@ export function applyTemplate(
   // ★★ This does MORE than reconcile the status/completedDate pair.
   //   `sanitizeSeedTask` rebuilds a task from a fixed field list, so it also
   //   drops `inquiriesSent`, `jiraKey`, `jiraIssueType`, `lastSyncedAt`,
-  //   `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks`
-  //   and `noteLog` outright. The captured `createdDate` is discarded too, but
+  //   `localModifiedAt`, `outlookEventId`, `healthOverride` and
+  //   `knowledgeLinks` outright. The captured `createdDate` is discarded too, but
   //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
   //   applied task still carries a `createdDate`, just not the one that was
-  //   captured. The load path already dropped all ten; this makes the two
+  //   captured. ★★ NINE, NOT TEN, AND `noteLog` IS NO LONGER AMONG THEM — it is
+  //   CARRIED as of §168, and allow-listed a dozen lines below in this very file.
+  //   Leaving it on this list contradicted the `allowListRich` docstring
+  //   underneath it. The load path already dropped all nine; this makes the two
   //   agree. It also stops a per-row external link being CLONED — two local
   //   tasks pointing at one Jira issue is not a template.
   let seed = tpl.seed.tasks
@@ -312,8 +315,11 @@ export function applyTemplate(
   // ★★ Milestones carry NO note log but DO carry a rich `description` —
   // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
   // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
-  // is the fourth seeded rich field and belongs here exactly as the other three
-  // do. It was missed on the first cut because the scope was framed as "the
+  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
+  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
+  // seventh that is not a note log). The two counts differ because three
+  // entities carry more than one rich field each, and an earlier revision of
+  // this line said "fourth seeded rich field", which contradicts §36(a)'s table. It was missed on the first cut because the scope was framed as "the
   // note-log entities", which is a property of the CARRY (§168) and not of this
   // allow-list — the two have different footprints and the entity list must be
   // derived from "what is rich", never from "what has a note log".

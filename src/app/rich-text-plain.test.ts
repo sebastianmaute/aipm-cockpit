@@ -708,8 +708,15 @@ describe("DOM-free guard", () => {
     // that a walk merely ran: if the entry point moves or `resolveSpec` stops
     // resolving, `scanned` collapses to 1 and this fails. It is set well above
     // the old name-filter's 18 for exactly that reason.
-    // ★ To see today's size, print `graph.size` from a scratch copy of this
-    // test — do not restore a number here.
+    // ★★★ `scanned` AND `graph.size` ARE DIFFERENT QUANTITIES, and the 94 above
+    // is `scanned` — the one this floor asserts on. `graph` is what the resolver
+    // walk reached; `scanned` is that set UNIONED with the name-pattern sweep,
+    // minus `.test` files, so it is the larger of the two. An earlier revision
+    // of this comment quoted `scanned` and then told the reader to print
+    // `graph.size`, which answers a different question and returns a smaller
+    // number — the reader then sees a mismatch and concludes one of them rotted.
+    // ★ To see today's value, print `scanned` from a scratch copy of this test —
+    // do not restore a number here, and do not quote `graph.size` against it.
     expect(scanned).toBeGreaterThan(50);
     // ★ And the file the old filter missed must actually be in the scanned set —
     // it is the one AGENTS.md warns a reader away from.
