@@ -514,26 +514,24 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (!promise) return;
     await promise;
     try {
-      const loaded = await backend.load(); // ★ NO reportFor: this path applies tasks+raid ONLY, never the loaded documents — raising the flag would warn about documents the user still has, lowering it would clear a warning that is still true of the live ones.
-      // ★★★ THAT ALSO SUPPRESSES IMPORT DIAGNOSTICS (dropped rows, unbalanced quotes), because both ride `reportFor` — and the truncation reason above does NOT carry over, so do not read it as covering this. `droppedRows` is a WORKSPACE-WIDE count bumped for EVERY section at FIVE sites across BOTH codec families — 3 CSV + 2 Markdown, and a CSV-only grep undercounts it (`grep -rn "droppedRows[+][+]" src/app --include=*.ts | grep -v "\.test\."` — bracketed so this comment is not itself a hit) — and the lines below apply `loaded.tasks` + `loaded.raid` LIVE, so a malformed CSV *or Markdown* file can land here having silently lost TASK or RAID rows the user is never told about. This is a KNOWN GAP, not a justified suppression: the two signals share one call, and splitting them (report the import loss without touching the §103 documents flag) is the fix — deliberately NOT done as part of a toast-ordering change. ★ Whoever does it must fire the `storageOpenedToast` below BEFORE the report; see the landmine on `TruncationOps.reportFor`. (One line — this file sits at the 800-line ratchet.)
-      if (
-        tasks.length > 0 &&
-        !window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))
-      ) {
-        return;
+      const loaded = await backend.load(); // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below.
+      // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits. `openFileForBackend` has ALREADY run `idbSet(this.idbKey, handle)` by here — the ACTIVE backend points at the picked file whichever way the confirm goes — so declining the overwrite still leaves the next debounced save writing the live workspace over that file. The decline path therefore needs the import report and the quoting hold every bit as much as the apply path does; an early `return` above would have silently exempted it. (The re-point itself is the wider defect and is NOT fixed here — see `docs/open-followups.md`.)
+      if (tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))) {
+        suppressNextSaveRef.current = true;
+        // Seed the session minter from the opened file so its (possibly larger)
+        // task/raid ids can't be reused after a delete. "raise" never lowers a
+        // kind's mark, so the absences/shifts NOT applied below keep their
+        // current-project high-water intact.
+        seedMintFromWorkspace(loaded, "raise");
+        setTasks(loaded.tasks);
+        setRaid(loaded.raid);
+        // NOTE: absences and shifts intentionally NOT restored here —
+        // faithful extraction of original behavior (not a bug fix).
+        await refreshBackendStatus();
+        emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
       }
-      suppressNextSaveRef.current = true;
-      // Seed the session minter from the opened file so its (possibly larger)
-      // task/raid ids can't be reused after a delete. "raise" never lowers a
-      // kind's mark, so the absences/shifts NOT applied below keep their
-      // current-project high-water intact.
-      seedMintFromWorkspace(loaded, "raise");
-      setTasks(loaded.tasks);
-      setRaid(loaded.raid);
-      // NOTE: absences and shifts intentionally NOT restored here —
-      // faithful extraction of original behavior (not a bug fix).
-      await refreshBackendStatus();
-      emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
+      // ★★★ AFTER the toast above, never before: the surface is single-slot and REPLACES, so a diagnostic fired first is created and instantly discarded. The confirmation is the disposable half — it carries no remedy, and a clean import shows nothing here so it still paints. See the landmine on `TruncationOps.reportFor`.
+      truncationOps.reportImportFor(backend);
     } catch (err) {
       if (err instanceof StorageNotReadyError) {
         const key =

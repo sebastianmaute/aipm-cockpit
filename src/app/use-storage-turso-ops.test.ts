@@ -64,7 +64,7 @@ function makeDeps(overrides: Partial<TursoProjectOpsDeps> = {}): TursoProjectOps
     tursoConfigNow: () => ({ httpUrl: "https://db.example", authToken: "tok" }) as never,
     tursoProjectId: "p-1",
     setTursoProjectId: vi.fn(),
-    truncationOps: { reportFor: vi.fn(), raiseDecodeFailuresFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), wouldRefuseWrite: vi.fn(() => false), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
+    truncationOps: { reportFor: vi.fn(), raiseDecodeFailuresFor: vi.fn(), reportImportFor: vi.fn(), flushCurrent: vi.fn(async () => {}), guardedWrite: vi.fn(async () => true), wouldRefuseWrite: vi.fn(() => false), refuseWrite: vi.fn(), clearForFreshWorkspace: vi.fn() },
     currentWorkspace: () => emptyWorkspace(),
     applyWorkspace: vi.fn(),
     suppressNextLoadRef: { current: false },

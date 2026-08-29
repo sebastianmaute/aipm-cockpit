@@ -91,6 +91,43 @@ export interface TruncationOps {
    *  the same class as truncation (a property of rows that were not applied),
    *  and the known gap around them is recorded at `onOpenStorageFile`. */
   raiseDecodeFailuresFor: (backend: Pick<StorageBackend, "lastDecodeFailures">) => void;
+  /** The IMPORT half of `reportFor`, for a load that APPLIES SOME ROWS into the
+   *  live workspace rather than replacing it (`onOpenStorageFile`,
+   *  `use-storage-backend.ts`, which takes `loaded.tasks` + `loaded.raid` and
+   *  discards every other slice).
+   *
+   *  ★★★ THAT PATH MUST NOT CALL `reportFor`, AND ITS SILENCE WAS A REAL GAP
+   *  (§152). The truncation reason it carries is sound and is sound ONLY for
+   *  truncation: the documents the §103 flag is about were never applied, so
+   *  raising would warn about documents the user still holds and lowering would
+   *  clear a warning still true of them. The IMPORT channel is the opposite —
+   *  the rows a malformed file dropped MAY BE the tasks and RAID this path is
+   *  about to apply — so bundling both signals on one call left a file that
+   *  silently lost task rows reporting nothing at all.
+   *  ★ "May be", not "are": `droppedRows` is one workspace-wide counter bumped
+   *  for every section, so a drop confined to milestones raises it too and this
+   *  path discards milestones. Per-section attribution is §152's second half.
+   *
+   *  ★★★ RAISE-ONLY on the quoting hold, and NEVER either direction on
+   *  truncation or decode. Same rule as {@link raiseDecodeFailuresFor}: this
+   *  load replaced nothing, so the live workspace still carries the PREVIOUS
+   *  load's reading and any flag raised over it is still true. Lowering here
+   *  would resume autosave on the strength of a partial merge.
+   *  ★★ It DOES raise for a malformed file, and reading the "import-only"
+   *  name as "toast-only" is the trap. `LocalFileBackend.openFile()` ends
+   *  `await idbSet(this.idbKey, handle)` — it re-points the ACTIVE backend at
+   *  the file it just read — so the next debounced save writes the merged live
+   *  workspace back OVER that file. That is exactly the overwrite-the-only-copy
+   *  case the quoting hold exists for, arriving through a narrower door.
+   *
+   *  ★★★ THE CALLER MUST FIRE ITS OWN "opened" TOAST BEFORE THIS, NEVER AFTER —
+   *  the surface is single-slot, see the landmine on {@link reportFor}. */
+  reportImportFor: (
+    backend: Pick<
+      StorageBackend,
+      "lastImportDroppedRows" | "lastImportUnterminatedQuote" | "lastImportMalformedQuotes"
+    >,
+  ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -521,11 +558,20 @@ export function useLoadTruncation(
       reportDecodeFailures(backend);
       // ★★ RAISES THE HOLD, and is deliberately NOT inside
       // `reportImportDiagnostics` even though its toast text is. That function
-      // is about to become reachable from an import-only path (§152) which must
-      // NOT touch the hold — it applies rows into an existing workspace rather
-      // than replacing it, so no save of ITS backing file is pending. Keeping
-      // the state change here and the sentence there is what lets one op report
-      // and the other both report and hold.
+      // is now reachable from `reportImportFor` too, and the two ops need
+      // DIFFERENT state behaviour over the same sentences: this one both raises
+      // AND lowers, that one raises only. Keeping the state change out here is
+      // what lets the sentence be shared while the direction is not.
+      //
+      // ★★★ AN EARLIER REVISION OF THIS COMMENT GAVE THE WRONG REASON AND THE
+      // WRONG BEHAVIOUR. It said the import-only path "must NOT touch the hold
+      // — it applies rows into an existing workspace rather than replacing it,
+      // so no save of ITS backing file is pending." The second clause is false:
+      // `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`,
+      // re-pointing the ACTIVE backend at the file it just read, so the next
+      // debounced save writes the merged workspace straight back over it. A
+      // toast-only op there would have re-opened the very hole this cause was
+      // added to close, one path over. See `reportImportFor`.
       reportMalformedQuotes(backend);
       reportImportDiagnostics(backend);
     },
@@ -538,6 +584,18 @@ export function useLoadTruncation(
       // its raising branch with a non-empty list, so the toast, the diagnostics
       // row, the state and the nonce cannot drift from the `reportFor` path.
       reportDecodeFailures(backend);
+    },
+    reportImportFor: (backend) => {
+      // ★ Sentences first, state second — the reverse of `reportFor`'s ordering
+      // note and for the same single-slot reason read from the other end: the
+      // raise below shows nothing, so nothing can overwrite this toast.
+      reportImportDiagnostics(backend);
+      // ★ The RAISE-ONLY gate, spelled exactly as `raiseDecodeFailuresFor`'s is
+      // and for the same reason: `reportMalformedQuotes` reaches only its
+      // raising branch with a positive count, so the diagnostics row, the state
+      // and the ref cannot drift from the `reportFor` path.
+      if ((backend.lastImportMalformedQuotes ?? 0) <= 0) return;
+      reportMalformedQuotes(backend);
     },
     flushCurrent: async () => {
       if (!mayCommitAfterIncompleteLoad()) {
