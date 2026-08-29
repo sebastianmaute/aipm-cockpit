@@ -442,6 +442,12 @@ const enUS = {
   // ★ A complete sentence: `reportImportDiagnostics` joins the applicable
   // warnings with a single space.
   importMalformedQuotesWarning: "The file breaks CSV quoting rules in {0} place(s), so it may not have been read correctly. Saving is paused until you confirm.",
+  // ★ The bare magnitude, for the persistent banner and the "Save anyway"
+  // confirm — the pattern `documentsUnreadableWarning` / `documentsUnreadableCount`
+  // already sets: the *Warning form carries "Saving is paused" because a toast is
+  // all the user gets, while the banner says that in its own chrome and would
+  // repeat itself.
+  importMalformedQuotesCount: "The file breaks CSV quoting rules in {0} place(s).",
   // ★ A fourth complete sentence on the same join, appended to the dropped-rows
   // one. It names WHICH sections lost rows — without it the user cannot tell
   // whether the loss hit what they imported or a section the path discards.

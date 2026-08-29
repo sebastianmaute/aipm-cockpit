@@ -151,6 +151,51 @@ describe("LocalFileBackend load() import diagnostics", () => {
     expect(be.lastImportUnterminatedQuote).toBe(false);
   });
 
+  // ★★★ THE PRODUCER SIDE, which nothing covered. Every other assertion about
+  // `lastImportDroppedBySection` in the repo is against a hand-built object
+  // literal or a stub the test itself assigns — those prove the CONSUMER and
+  // say nothing about whether a backend ever publishes the field. Deleting the
+  // assignment in `load()` killed the whole per-section feature on the primary
+  // backend (the toast falls back to a bare "N rows dropped" with no sections
+  // named) while the entire suite stayed green.
+  it("publishes the per-section breakdown, not just the total", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    // DIRTY_CSV's dropped row is a task with no id, so the breakdown must name
+    // that section and only that one.
+    expect(be.lastImportDroppedBySection).toEqual({ tasks: 1 });
+    // ★ The total ALONGSIDE the map, per the single-writer invariant: a second
+    // increment path that updated only one of them is otherwise invisible here
+    // exactly as it would be in the codec tests.
+    expect(be.lastImportDroppedRows).toBe(1);
+  });
+
+  // ★★★ THE SECOND LOAD MUST TAKE AN EARLY-RETURN PATH, and a clean CSV is NOT
+  // one. Measured, not reasoned: with a clean CSV as the second load, deleting
+  // the `= undefined` reset SURVIVED (9/9 passed). On that path the publish at
+  // the end of the `try` assigns `diag.droppedBySection`, which is itself
+  // `undefined` for a clean file — so the publish clears the field and the reset
+  // is redundant. The reset is load-bearing ONLY where the publish never runs:
+  // `if (!text.trim()) return emptyWorkspace()` returns before it, as do the
+  // not-picked and permission-denied throws. An empty file is therefore the
+  // shape that pins it — the same "mutate the FIXTURE, not just the code" rule
+  // the sibling SharePoint test states in its own comment.
+  it("clears the per-section breakdown when the file is now empty", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    expect(be.lastImportDroppedBySection).toEqual({ tasks: 1 });
+
+    await be.setHandle(fakeHandle({ text: "   \r\n" }));
+    await be.load();
+    // ★ ABSENT, not an empty object and not zeros — a load that decoded nothing
+    // inspected nothing, and `{tasks: 0}` would assert an inspection that never
+    // happened. Without the reset this reports the FIRST load's breakdown: the
+    // stale-flag defect the comment on the reset in `load()` records as having
+    // already shipped once on the sibling field.
+    expect(be.lastImportDroppedBySection).toBeUndefined();
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
   it("clears the malformed-quote count on the next clean load", async () => {
     const be = new LocalFileBackend("local-csv");
     await be.setHandle(

@@ -163,7 +163,7 @@ describe("TruncatedLoadBanner", () => {
     // so a user who is never told saving stopped goes on editing into a paused
     // session. `banner.tsx` already defaults error → "alert" for exactly this
     // reason; AlertBanner's "region" default was overriding it.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert", { name: "Document data could not be opened" })).toBeInTheDocument();
     expect(screen.queryByRole("region", { name: /document/i })).toBeNull();
   });
@@ -182,14 +182,14 @@ describe("TruncatedLoadBanner", () => {
     // "Document limit warning" — the exact claim this rule forbids. An earlier
     // version of this test only checked for /cut off/i and sailed straight past
     // the word "limit" two lines above it.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").not.toMatch(/cut off|over the limit/i);
     expect(alert.getAttribute("aria-label") ?? "").not.toMatch(/limit/i);
   });
 
   it("names the magnitude — the count is not left to a 7s toast", () => {
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/5 document entries could not be opened/i)).toBeInTheDocument();
   });
 
@@ -197,7 +197,7 @@ describe("TruncatedLoadBanner", () => {
     // ★ "stored documents", NOT "stored document versions": since 0.221.0 a LIVE
     // document over `MAX_BLOCKS_PER_DOC` feeds the same counter, so naming
     // versions would assert something the count no longer implies.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={{ entries: 0, blocks: 7 }} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/7 blocks in stored documents could not be opened/i)).toBeInTheDocument();
     expect(screen.queryByText(/versions/i)).toBeNull();
     expect(screen.queryByText(/document entries/i)).toBeNull();
@@ -212,7 +212,7 @@ describe("TruncatedLoadBanner", () => {
     // single load reporting both. The decode magnitude then reached NO
     // persistent surface: its toast is single-slot and 7s long, and this line
     // and the dialog it feeds are all that outlives it.
-    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").toMatch(/5 document entries could not be opened/i);
     expect(alert.textContent ?? "").toMatch(/3 kinds of saved data could not be read/i);
@@ -233,14 +233,62 @@ describe("TruncatedLoadBanner", () => {
     // telling every truncation-only user that some unnamed number of kinds of
     // data was unreadable too — a joined line that reads as thorough and is
     // false. Both directions, because each is a separate way to get it wrong.
-    const { unmount } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const { unmount } = render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("alert").textContent ?? "").not.toMatch(/could not be read/i);
     unmount();
 
-    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.textContent ?? "").toMatch(/2 kinds of saved data could not be read/i);
     expect(alert.textContent ?? "").not.toMatch(/document entries|blocks in stored documents/i);
+  });
+
+  // ★★★ THE THIRD CAUSE MUST NAME A MAGNITUDE, and for a release it named none.
+  // A malformed import commonly arrives with `truncation` null AND
+  // `decodeFailureCount` 0 — a file backend has no meta blob to fail decoding —
+  // so `countText` came out null, the banner rendered a bare headline, and
+  // `askThenSave` fell through to `message: body`. That dialog is a PERMANENT
+  // discard, which is the reason the counts are threaded here at all.
+  it("names the magnitude when malformed quoting is the only cause", async () => {
+    render(<TruncatedLoadBanner malformedQuoteCount={4} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const alert = screen.getByRole("alert");
+    expect(alert.textContent ?? "").toMatch(/breaks CSV quoting rules in 4 place/i);
+    // The other two causes are absent, so neither may be named — the control
+    // that stops an unconditional concatenation passing this.
+    expect(alert.textContent ?? "").not.toMatch(/could not be read|document entries/i);
+
+    // ★★ The dialog is the assertion that matters: the count reaching the BANNER
+    // but not the confirm would still leave the irreversible click unlabelled.
+    fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(String(confirmState.lastOpts?.message ?? "")).toMatch(/breaks CSV quoting rules in 4 place/i);
+  });
+
+  it("joins all three causes when all three hold", () => {
+    // ★ The join spans three now, not two. Each cause keeps its own vocabulary,
+    // so a reader can tell which loss is which.
+    render(<TruncatedLoadBanner malformedQuoteCount={3} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const text = screen.getByRole("alert").textContent ?? "";
+    expect(text).toMatch(/5 document entries/i);
+    expect(text).toMatch(/2 kinds of saved data could not be read/i);
+    expect(text).toMatch(/breaks CSV quoting rules in 3 place/i);
+  });
+
+  // ★★★ THE FIXTURE MUST ISOLATE THE MALFORMED TERM, and the obvious one does
+  // not. `truncationOnly` is `truncation != null && decode === 0 && malformed
+  // === 0`; an all-three fixture carries `decode > 0`, which forces the flag
+  // false on the DECODE term alone — so the malformed term is dead weight there
+  // and dropping it leaves such a test green. Measured, not reasoned: reverting
+  // the third term with an all-three fixture in place SURVIVED the whole file
+  // (30/30 passed). Truncation present, decode ZERO, malformed positive is the
+  // only shape in which the third term is load-bearing.
+  it("takes the wider headline when truncation and malformed quoting hold, with no decode failure", () => {
+    render(<TruncatedLoadBanner malformedQuoteCount={3} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    // ★ "Document data" is true of truncation and false of a malformed import,
+    // so the pair must take the wider wording — the same rule the
+    // truncation+decode pair already follows.
+    expect(screen.getByRole("alert", { name: "Saved data could not be opened" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert", { name: "Document data could not be opened" })).toBeNull();
   });
 
   // ★★★ THE HEADLINE MUST NOT NAME DOCUMENTS FOR A CAUSE THAT COVERS ELEVEN
@@ -251,7 +299,7 @@ describe("TruncatedLoadBanner", () => {
   // "document data", the user concluded it did not apply, and clicked the
   // PERMANENT-discard button — on a screen that misnamed what was discarded.
   it("does not call a decode failure 'document data', in the copy OR the accessible name", () => {
-    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     // The HEADLINE specifically: the count line legitimately says "kinds of
     // saved data", so a whole-node scan for /document/i would be answered by a
@@ -266,7 +314,7 @@ describe("TruncatedLoadBanner", () => {
     // The control for the rule above, and the no-regression pin: truncation
     // genuinely IS about documents (the cap cuts document entries and blocks),
     // so widening its wording would lose real specificity.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.querySelector("p")?.textContent ?? "").toMatch(/document data could not be opened/i);
     expect(alert.getAttribute("aria-label")).toBe("Document data could not be opened");
@@ -277,7 +325,7 @@ describe("TruncatedLoadBanner", () => {
     // into one diagnostic — and the only headline accurate for the pair is the
     // one that names neither cause specifically. The count line below it still
     // names each magnitude in its own vocabulary, so nothing is lost.
-    render(<TruncatedLoadBanner decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={3} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     const alert = screen.getByRole("alert");
     expect(alert.querySelector("p")?.textContent ?? "").not.toMatch(/document data/i);
     // Positive control: the magnitudes are still both there, one line down.
@@ -289,14 +337,14 @@ describe("TruncatedLoadBanner", () => {
     // ★ "Save anyway" permanently discards whatever could not be opened, and it
     // is the first tabbable control in <main>. Wearing StorageBanner's benign
     // primary blue made a data-destroying action read as the recommended one.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByRole("button", { name: "Save anyway" }).className).toMatch(/ui-pink/);
   });
 
   it("gates Save anyway behind the confirm dialog and fires on accept", async () => {
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(onSaveAnyway).toHaveBeenCalledTimes(1));
@@ -309,7 +357,7 @@ describe("TruncatedLoadBanner", () => {
     // ignored would pass the accept test above and still destroy data on cancel.
     confirmState.result = false;
     const onSaveAnyway = vi.fn();
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={vi.fn()} />);
 
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.calls).toBe(1));
@@ -317,7 +365,7 @@ describe("TruncatedLoadBanner", () => {
   });
 
   it("carries the count INTO the confirm dialog, so the decision is made on a number", async () => {
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: "Save anyway" }));
     await waitFor(() => expect(confirmState.lastOpts).not.toBeNull());
     expect(String(confirmState.lastOpts?.message ?? "")).toMatch(/5 document entries/i);
@@ -328,7 +376,7 @@ describe("TruncatedLoadBanner", () => {
     // callbacks are distinct so the save guard stays armed after a dismiss.
     const onSaveAnyway = vi.fn();
     const onDismiss = vi.fn();
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed={false} hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={onSaveAnyway} onDismiss={onDismiss} />);
 
     fireEvent.click(screen.getByRole("button", { name: /dismiss/i }));
     expect(onDismiss).toHaveBeenCalledTimes(1);
@@ -345,7 +393,7 @@ describe("TruncatedLoadBanner", () => {
   // nothing and the second renders the full banner.
   it("leaves a re-open control when dismissed with no footer indicator (classic layout)", () => {
     const onReopen = vi.fn();
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={onReopen} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
 
     // Not the full banner — dismissing must still quieten it.
     expect(screen.queryByRole("button", { name: "Save anyway" })).toBeNull();
@@ -366,7 +414,7 @@ describe("TruncatedLoadBanner", () => {
     // classic user gets was pinned nowhere. It matters most there: that layout
     // has no sidebar footer, so this chip is the entire persistent account of
     // what happened, and the decode cause has no counts object to fall back on.
-    render(<TruncatedLoadBanner decodeFailureCount={2} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={2} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show how to resolve/i })).toBeInTheDocument();
   });
@@ -376,13 +424,13 @@ describe("TruncatedLoadBanner", () => {
     // count string would pass that assertion, and a chip that ignored the count
     // entirely would pass this one. `truncation` null with a zero decode count
     // is the only shape that reaches the fallback.
-    render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator={false} onReopen={vi.fn()} lang="en-US" truncation={null} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     expect(screen.getByText("Saving paused")).toBeInTheDocument();
     expect(screen.queryByText(/could not be read|could not be opened/i)).toBeNull();
   });
 
   it("renders nothing when dismissed and the footer already carries the indicator (modern layout)", () => {
-    const { container } = render(<TruncatedLoadBanner decodeFailureCount={0} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
+    const { container } = render(<TruncatedLoadBanner malformedQuoteCount={0} decodeFailureCount={0} dismissed hasFooterIndicator onReopen={vi.fn()} lang="en-US" truncation={FIVE_ENTRIES} onSaveAnyway={vi.fn()} onDismiss={vi.fn()} />);
     // Control: the SAME props with hasFooterIndicator=false DO render something
     // (the case above), so an empty container here is the branch, not a broken
     // fixture.

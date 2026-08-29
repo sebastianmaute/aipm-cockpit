@@ -254,11 +254,28 @@ export interface LoadTruncationGuard {
    *  would silently reintroduce the pre-dismissed banner. It also keeps the slice
    *  KEYS off the guard's public surface — see `decodeFailureCount` above. */
   decodeFailureNonce: number;
-  /** True while an incomplete load is unresolved — from EITHER cause: a
-   *  truncating load, or a meta slice that could not be decoded. Derived from
-   *  the two states below it (one derivation, so they cannot disagree) — drives
-   *  the persistent banner and the save-effect dep. See the lockout note on
-   *  `allowIncompleteSave`. */
+  /** How many RFC 4180 quoting violations the imported file carried, 0 when
+   *  none. ★ Threaded to the banner so the THIRD cause names a magnitude on the
+   *  one surface that persists: the toast is single-slot and gone in seconds,
+   *  while the banner's count line feeds the "Save anyway" confirm — a permanent
+   *  discard, which shipped for a release showing no magnitude at all on this
+   *  cause. */
+  malformedQuoteCount: number;
+  /** Per-raising-load identity for the malformed cause, the exact analogue of
+   *  `decodeFailureNonce` above and opaque in the same way — only `!==` against
+   *  a consumer's own last-seen value is meaningful. Without it the banner's
+   *  re-show reconcile cannot see a malformed-only load at all. */
+  malformedQuotesNonce: number;
+  /** True while an incomplete load is unresolved — from ANY of THREE causes: a
+   *  truncating load, a meta slice that could not be decoded, or an imported
+   *  file that violates CSV quoting. Derived from the three states below it (one
+   *  derivation, so they cannot disagree) — drives the persistent banner and the
+   *  save-effect dep. See the lockout note on `allowIncompleteSave`.
+   *  ★★★ EVERY SURFACE THAT ENUMERATES THE CAUSES MUST ENUMERATE ALL THREE.
+   *  Adding the third one here without revisiting them shipped three separate
+   *  defects at once — a silent `refuseWrite`, a magnitude-less discard confirm,
+   *  and a banner that could not re-show. Grep `malformedQuoteCount` before
+   *  adding a fourth. */
   loadWasIncomplete: boolean;
   /** Lower the flag so saving resumes and the incomplete set may be committed.
    *  ★★★ THIS IS THE ONLY WAY OUT AND IT MUST STAY REACHABLE FROM THE UI. The
@@ -365,6 +382,16 @@ export function useLoadTruncation(
   // swallowed — that question is undecidable (§150) and nothing here may be
   // relabelled to imply it.
   const [malformedQuotes, setMalformedQuotes] = useState<number | null>(null);
+  // ★★ A PER-RAISING-LOAD IDENTITY for the third cause, exactly as
+  // `decodeFailureNonce` is for the second, and added for the same measured
+  // reason: the banner's re-show reconcile keys on the truncation OBJECT and the
+  // decode nonce, so a malformed-only load moves neither and project #2's banner
+  // arrives ALREADY DISMISSED. A COUNT will not do here — two projects violating
+  // the same NUMBER of quoting rules compare equal, which reads as fixed while
+  // the defect survives. Not reset by `clearForFreshWorkspace`, for the reason
+  // spelled out on `decodeFailureNonce`: resetting makes a later value compare
+  // equal to one a consumer already saw.
+  const [malformedQuotesNonce, setMalformedQuotesNonce] = useState(0);
   const loadWasIncomplete =
     truncation !== null || decodeFailures !== null || malformedQuotes !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
@@ -562,6 +589,10 @@ export function useLoadTruncation(
     logDiag("error", "workspace.importMalformedQuotes", { count });
     lastMalformedQuotesRef.current = count;
     setMalformedQuotes(count);
+    // ★ Bumped only on the RAISING branch, mirroring `setDecodeFailureNonce`: a
+    // nonce that also moved on the clearing branch would re-show the banner for
+    // a load that found nothing wrong.
+    setMalformedQuotesNonce((n) => n + 1);
   };
 
   const reportImportDiagnostics = (
@@ -692,9 +723,21 @@ export function useLoadTruncation(
       // ★★ A decode-only refusal MUST speak too. Without this the refusal is a
       // silent no-op on an explicit click — precisely what separates this from
       // `flushCurrent`, which the user never asked for.
+      // ★★★ EVERY CAUSE IN `loadWasIncomplete` MUST HAVE AN ARM HERE, and the
+      // malformed one shipped without one. `loadWasIncomplete` is a THREE-cause
+      // derivation (`truncation !== null || decodeFailures !== null ||
+      // malformedQuotes !== null`), but this list enumerated only two — and
+      // malformed-only is the NORMAL shape on the import path, since a file
+      // backend has no meta blob to fail decoding and typically no document
+      // truncation. So `wouldRefuseWrite()` returned true, this ran, `parts` was
+      // empty, and the user's explicit "Pick storage file" click did nothing and
+      // said nothing: the exact silent no-op the note above forbids, reintroduced
+      // by adding a cause to the derivation without revisiting the surfaces that
+      // enumerate them. Adding a fourth cause means adding a fourth arm.
       const parts: string[] = [];
       if (last) parts.push(truncationText(last.entries, last.blocks));
       if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
+      if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
     guardedWrite: async (backend, ws) => {
@@ -714,6 +757,8 @@ export function useLoadTruncation(
     truncation,
     decodeFailureCount: decodeFailures?.length ?? 0,
     decodeFailureNonce,
+    malformedQuoteCount: malformedQuotes ?? 0,
+    malformedQuotesNonce,
     loadWasIncomplete,
     allowIncompleteSave,
     mayCommitAfterIncompleteLoad,

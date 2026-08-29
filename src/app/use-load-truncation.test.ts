@@ -302,10 +302,17 @@ const decodingFor = (slices: readonly string[]) => ({
 // the very tasks and RAID it is about to apply — which is the split §152 asks
 // for and what this op is.
 describe("useLoadTruncation — reportImportFor", () => {
-  /** A backend stand-in for the import channel ALONE. It deliberately publishes
-   *  no `lastLoadTruncation` and no `lastDecodeFailures` field at all, so a
-   *  `reportImportFor` that started reading either would be a tsc error rather
-   *  than a silently-undefined read. */
+  /** A backend stand-in for the import channel ALONE — it publishes no
+   *  `lastLoadTruncation` and no `lastDecodeFailures` field at all.
+   *  ★★ WHAT STOPS `reportImportFor` READING EITHER IS ITS OWN PARAMETER TYPE, a
+   *  4-member `Pick<StorageBackend, …>`, NOT this fixture. An earlier revision of
+   *  this docstring claimed the omission itself would make such a read "a tsc
+   *  error rather than a silently-undefined read", and it cannot: every
+   *  `lastImport*` field plus `lastLoadTruncation`/`lastDecodeFailures` is
+   *  OPTIONAL on `StorageBackend`, and omitting an optional property from an
+   *  argument is never an error. The guarantee is real and the stated mechanism
+   *  was not — which matters, because a contributor who later widened the `Pick`
+   *  would have read this fixture as still protecting them. */
   const opened = (opts: { dropped?: number; unterminated?: boolean; malformed?: number }) => ({
     lastImportDroppedRows: opts.dropped,
     lastImportUnterminatedQuote: opts.unterminated,
@@ -332,6 +339,55 @@ describe("useLoadTruncation — reportImportFor", () => {
     const { result, showToast } = render();
     act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0, unterminated: false, malformed: 0 })); });
     expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THE REFUSAL MUST SPEAK ON THE MALFORMED CAUSE, and for a release it did
+  // not. `loadWasIncomplete` is a THREE-cause derivation while `refuseWrite`
+  // enumerated two, and malformed-only is the NORMAL shape here — a file backend
+  // has no meta blob to fail decoding and typically no document truncation. So
+  // `wouldRefuseWrite()` returned true, `refuseWrite()` built an EMPTY `parts`,
+  // and the user's explicit "Pick storage file" click did nothing and said
+  // nothing. Nothing tested `refuseWrite` at all before this: `grep -rn
+  // "refuseWrite" src/app/*.test.ts src/app/*.test.tsx` returned only `vi.fn()`
+  // mocks.
+  it("speaks when the ONLY cause is malformed quoting", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 3 })); });
+    // The hold is genuinely raised off this cause alone — the precondition that
+    // makes a silent refusal reachable. Without this the test below could pass
+    // because the refusal never ran.
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(true);
+
+    showToast.mockClear();
+    act(() => { result.current.truncationOps.refuseWrite(); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 3));
+  });
+
+  // ★ The nonce is what lets the banner's re-show reconcile see this cause at
+  // all; a COUNT cannot, since two projects violating the same NUMBER of rules
+  // compare equal. Bumped on the raising branch ONLY.
+  it("mints a fresh identity per raising load, and none on a clean one", () => {
+    const { result } = render();
+    const start = result.current.malformedQuotesNonce;
+
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    const afterFirst = result.current.malformedQuotesNonce;
+    expect(afterFirst).not.toBe(start);
+    expect(result.current.malformedQuoteCount).toBe(2);
+
+    // A SECOND load with the same COUNT must still move the nonce — this is the
+    // whole reason it is not a count.
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    expect(result.current.malformedQuotesNonce).not.toBe(afterFirst);
+
+    // A clean load lowers the count and must NOT mint an identity, or the banner
+    // re-shows for a load that found nothing wrong.
+    const afterSecond = result.current.malformedQuotesNonce;
+    act(() => { result.current.truncationOps.reportFor({ ...opened({ malformed: 0 }), lastLoadTruncation: undefined, lastDecodeFailures: [] }); });
+    expect(result.current.malformedQuotesNonce).toBe(afterSecond);
+    expect(result.current.malformedQuoteCount).toBe(0);
   });
 
   // ★★★ RAISE-ONLY, and this is the half the plan's one-line summary did not

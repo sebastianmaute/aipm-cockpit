@@ -443,6 +443,7 @@ export const de: Record<TranslationKey, string> = {
   importDroppedRowsWarning: "{0} ungültige Zeile(n) in der Datei wurden beim Import übersprungen.",
   importUnbalancedQuotesWarning: "Die Datei enthält ein nicht geschlossenes Anführungszeichen, daher fehlen möglicherweise Zeilen. Prüfen Sie die Datei, bevor Sie sie überschreiben.",
   importMalformedQuotesWarning: "Die Datei verletzt an {0} Stelle(n) die CSV-Anführungsregeln und wurde möglicherweise nicht korrekt gelesen. Das Speichern ist angehalten, bis Sie bestätigen.",
+  importMalformedQuotesCount: "Die Datei verletzt an {0} Stelle(n) die CSV-Anführungsregeln.",
   importDroppedRowsSections: "Betroffene Abschnitte: {0}.",
   importSectionTasks: "Aufgaben",
   importSectionRaid: "RAID",

@@ -239,6 +239,30 @@ describe("SharePointBackend", () => {
     expect(be.lastImportDroppedRows).toBe(0);
   });
 
+  // ★★★ THE PRODUCER SIDE OF THE PER-SECTION BREAKDOWN, on the backend whose
+  // early-return path is the one that can skip a reset. Every other assertion
+  // about `lastImportDroppedBySection` is against a hand-built literal or a
+  // stub, so nothing proved a backend publishes it at all — and the 404
+  // short-circuit above is exactly the exit that historically skipped the
+  // import-flag reset and re-published a previous load's diagnostics for a file
+  // that no longer exists.
+  it("publishes the per-section breakdown and clears it on a 404", async () => {
+    server.use(http.get(CONTENT_RE, () => HttpResponse.text(DIRTY_CSV)));
+    const be = new SharePointBackend({ kind: "sp-csv", ...FAKE_LOCATION }, acquireToken);
+    await be.load();
+    // The positive observable: DIRTY_CSV's id-less row is a dropped TASK, so the
+    // breakdown must name that section — without this the reset assertion below
+    // could not tell "the 404 cleared it" from "nothing ever set it".
+    expect(be.lastImportDroppedBySection).toEqual({ tasks: 1 });
+    expect(be.lastImportDroppedRows).toBe(1);
+
+    server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 404 })));
+    await be.load();
+    // ★ Absent, not zero-filled — same rule as the codec layer.
+    expect(be.lastImportDroppedBySection).toBeUndefined();
+    expect(be.lastImportDroppedRows).toBe(0);
+  });
+
   it("load 401 throws StorageNotReadyError with reauthenticate hint", async () => {
     server.use(http.get(CONTENT_RE, () => new HttpResponse("", { status: 401 })));
     const be = new SharePointBackend({ kind: "sp-json", ...FAKE_LOCATION }, acquireToken);

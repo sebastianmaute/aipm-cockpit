@@ -139,7 +139,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
    *  refused by the persistence guard. */
   const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
-  const { truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
+  const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
   // ── §72: caller-callback teardown guard ─────────────────────────────────────
   // Every callback this hook fires back into the component drives React state up
@@ -767,7 +767,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,
-    reloadCurrentProject, allowDestructiveSave, truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave,
+    reloadCurrentProject, allowDestructiveSave, truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso,
     archiveTursoProject, restoreTursoProject, hardDeleteTursoProject,

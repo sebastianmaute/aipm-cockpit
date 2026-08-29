@@ -434,8 +434,13 @@ export interface StorageBackend {
    * strictly weaker and actually checkable claim. Do not relabel it in the UI as
    * "a section may have been lost".
    * ★★ Non-zero is a real signal precisely because `csvEscape` wraps and doubles:
-   * no file this app writes can produce one. A property in
-   * `codec-roundtrip.property.test.ts` states that as a law over the encoder.
+   * no file this app writes can produce one. ★ THE PROPERTY BACKING THAT COVERS
+   * ONE SLICE, NOT THE ENCODER — `codec-roundtrip.property.test.ts` encodes
+   * `workspaceToCsv({ ...emptyWorkspace(), tasks })`, so RAID, milestones,
+   * changes and the rich-text fields never meet the hostile alphabet through it.
+   * Every slice routes through the same `csvEscape`, so the reasoning carries;
+   * the LAW does not, and an earlier revision of this comment claimed it did.
+   * Widen the arbitrary before restoring the stronger wording.
    * ★ CSV ONLY, like `lastImportUnterminatedQuote` above and unlike
    * `lastImportDroppedRows`. Verify the sole writer (assignment form):
    * `grep -rn "diag\.malformedQuotes =" src/app`.
