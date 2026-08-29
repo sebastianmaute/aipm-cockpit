@@ -1485,4 +1485,44 @@ describe("useResourcePlanner", () => {
       }).not.toThrow();
     });
   });
+
+  const mkResource = (id: number, firstName: string): Resource => ({
+    id, firstName, lastName: "Test", roleId: null,
+    utilizationMode: "percent", utilization: {},
+  });
+
+  describe("useResourceDirectory — deletes arm the destructive-save bypass", () => {
+    it("handleBulkDeleteResources arms once when it removed at least one", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setResources([mkResource(1, "Alice"), mkResource(2, "Bob")]); });
+      const ids = result.current.workspace.resources.slice(0, 2).map((r) => r.id);
+      act(() => { result.current.planner.handleBulkDeleteResources(ids); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleBulkDeleteResources does NOT arm when the id list matched nothing", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setResources([mkResource(1, "Alice")]); });
+      act(() => { result.current.planner.handleBulkDeleteResources([999_998, 999_999]); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.resources[0]!.id;
+      act(() => { result.current.planner.handleBulkDeleteResources([id]); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleDeleteResource does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setResources([mkResource(1, "Alice")]); });
+      act(() => { result.current.planner.handleDeleteResource(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.resources[0]!.id;
+      act(() => { result.current.planner.handleDeleteResource(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+  });
 });

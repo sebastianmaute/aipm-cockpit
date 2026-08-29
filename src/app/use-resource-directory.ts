@@ -111,6 +111,9 @@ export interface UseResourceDirectoryArgs {
     next: object,
     ...args: (string | number)[]
   ) => void;
+  /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
+   *  supply none. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useResourceDirectory(args: UseResourceDirectoryArgs) {
@@ -130,6 +133,8 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
   useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
   const captureFieldEditRef = useRef(args.captureFieldEdit);
   useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
+  const allowDestructiveRef = useRef(args.allowDestructiveSave);
+  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
 
   // ── moved verbatim from use-resource-planner.ts ──
 
@@ -264,6 +269,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
           ],
         });
         logActivityRef.current("resource.deleted", id, name);
+        allowDestructiveRef.current?.();
       }
     },
     [resources, absences, shifts, setResources, setAbsences, setShifts, purgeCalendarFor],
@@ -314,6 +320,7 @@ export function useResourceDirectory(args: UseResourceDirectoryArgs) {
             capturePart({ setter: setShifts, removed: purgedShifts, fromArray: shifts, fkRemapField: "resourceId" }),
           ],
         });
+        allowDestructiveRef.current?.();
       }
       for (const r of removed) {
         logActivityRef.current("resource.deleted", r.id, `${r.firstName} ${r.lastName}`.trim());

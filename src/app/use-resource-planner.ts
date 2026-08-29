@@ -390,7 +390,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate });
 
   // Resource-directory CRUD (create/edit/delete/bulk/import) extracted to use-resource-directory.ts.
-  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate });
+  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {
