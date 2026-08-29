@@ -521,6 +521,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
+| [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -22457,3 +22458,49 @@ truncation return, and "does not carry a destructive bypass across the suppress-
 return" / "still honours a bypass armed AFTER a suppressed load" for this one. The controls are
 load-bearing, not decoration: a cold review mutated `save-guard.ts` to refuse every mass deletion
 regardless of the arm and both leak tests still PASSED, while all four controls failed.
+
+## 295. Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard
+
+**Status:** open — never machine-verified. Filed 2026-08-29 immediately after merging main's
+0.264.0 undo-residue slice into `fix/destructive-save-arming`, by reading the merged tree. What is
+measured is the ABSENCE of arming and the presence of a redo-side removal; what is NOT measured is
+whether a redo reaches the save guard at refusing volume. Nobody has run that sequence.
+
+`fix/destructive-save-arming` armed every removal route the §285 census named, and §293 records that
+the resulting gate covers the AI surface only. Both censuses predate the undo stack growing a redo
+path that re-applies deletions, so neither looked at it.
+
+★★ **The undo module arms nothing.** `grep -rn "allowDestructive" src/app/undo/` returns zero
+non-test hits. `buildBeforeImages` in `undo-stack.ts` folds the rows an op removed into before-images
+tagged `op: "delete"`, and the runner it builds is explicitly bidirectional — its own docstring says
+applying it "mutates state (undo OR redo) via its captured setter(s)" and returns the inverse runner.
+So a redo drives the same workspace setters the save effect watches, with no bypass armed.
+
+★★ **Clear-all is the concrete case, and it is undoable by declaration.** `use-bulk-operations.ts`
+documents its `capture` dep as "a pre-op snapshot for undo (clear-all deletes, bulk-edit changes)".
+That hook DOES arm the bypass for the original clear-all. The sequence that skips the arming is:
+clear all tasks (armed, saves) → undo (restores every row) → **redo** (removes them all again,
+through the undo runner, which arms nothing). The guard then sees a full wipe or a mass deletion with
+`allowDestructive` false and refuses the save — the user's redo appears to work on screen and is
+never persisted, and the rows return on the next reload.
+
+★ **That is the same user-visible shape as the three defects this release already fixes**, reached
+through a route none of them touched: those were panel and AI delete handlers, this is the undo
+stack replaying one of them.
+
+★ **Why it is filed rather than fixed.** The fix is not obviously "arm in the redo thunk" — the
+runner is generic over any captured array and does not know whether a given replay removes records or
+restores them, which is exactly the delete-versus-edit distinction §293 explains no source scan can
+make. Arming unconditionally on every redo would hand a one-shot bypass to ordinary bulk-edit undo,
+which is the leak class §294 is about. The honest options are to arm from the CONSUMER that knows its
+op was destructive, or to have the runner report whether the applied images net-removed rows.
+
+**Reproduce:**
+```
+grep -rn "allowDestructive" src/app/undo/ | grep -v "\.test\." | wc -l
+grep -n "removed" src/app/undo/undo-stack.ts
+grep -n "clear-all deletes" src/app/use-bulk-operations.ts
+```
+The first returns 0, the second shows the removal images a redo re-applies, the third shows clear-all
+is captured for undo. None of the three proves a redo trips the guard — that needs a test driving
+clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owes.
