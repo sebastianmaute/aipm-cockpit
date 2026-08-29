@@ -22427,8 +22427,13 @@ nothing arming the bypass before hydration.
 
 **Consequence:** a new early return added above the consume site leaks the one-shot by default. It
 fails no gate, no test, and no review checklist; the failure is a bypass armed by a deliberate
-deletion silently waving through an unrelated accidental one an arbitrary time later, which is the
-data-loss vector the guard exists to prevent, reached through the mechanism meant to prevent it.
+deletion silently waving through an unrelated accidental one at the NEXT save of any kind. ★ That is an
+arbitrary WALL-CLOCK time later — a live arm survives unbounded loads and unbounded idle, because
+`refuse` is unreachable while it is set — but it is never "some later edit": the first save to reach
+the consume site spends it. An earlier revision said only "an arbitrary time later", which reads as
+the second and let a source comment cite this entry for a phrase it does not contain. Either way it
+is the data-loss vector the guard exists to prevent, reached through the mechanism meant to prevent
+it.
 
 **Reproduce:**
 ```

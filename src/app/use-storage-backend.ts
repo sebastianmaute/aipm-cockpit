@@ -414,7 +414,11 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   Enumerate them: grep -rn "allowDestructiveSave" src/app --include=*.ts --include=*.tsx
       // ★ Leaving it armed is the worse trade: a live arm makes `refuse` impossible, so the
       //   NEXT save of any kind spends it — the accident it waves through is whatever saves
-      //   first after this branch, not one "hours afterwards" (docs/open-followups.md §294).
+      //   FIRST after this branch, never "some later edit". ★★ That is not the same as saying
+      //   it is soon: a live arm survives unbounded loads and unbounded idle, so the next save
+      //   can be an arbitrary WALL-CLOCK time away. An earlier revision put the phrase "hours
+      //   afterwards" in §294's mouth; §294 says neither, and now states both halves itself
+      //   (docs/open-followups.md §294, "Consequence").
       allowDestructiveRef.current = false;
       return;
     }

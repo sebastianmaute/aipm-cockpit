@@ -15,8 +15,9 @@ longer carries its own changelog comment.
 - **Deleting every task through the AI assistant, or bulk-deleting resources, could be refused by
   the data-loss guard, so the deletion looked like it worked but was never actually saved.**
   The app refuses to save a change that looks like an accidental wipe or mass deletion unless the
-  action that caused it says the deletion was deliberate. Two routes never said so: clearing every
-  task via the assistant, and bulk-deleting resources. Either one could trip the guard, and the
+  action that caused it says the deletion was deliberate. Many deletion routes never said so; these
+  two are the ones you are most likely to hit: clearing every task via the assistant, and
+  bulk-deleting resources. Either one could trip the guard, and the
   app would report that it had withheld the save to protect your data — which is the right thing
   to say about an accident, but wrong here, because the deletion was exactly what you asked for.
   The deleted records then came back on the next reload. Both routes now tell the guard the

@@ -20,6 +20,15 @@ import { evaluateSaveGuard } from "./save-guard";
  * UI delete handler added tomorrow fails NOTHING here. That asymmetry is
  * filed, not fixed — see the register entry this file's commit names.
  *
+ * ★★ A SECOND, MUCH SMALLER HOLE WAS CLOSED, and it is not the same one. The
+ * registry is now checked in BOTH directions: every tool has a row, and every
+ * row names a live tool. ★★ THE HOLE WAS NARROWER THAN THE REVIEW THAT FOUND
+ * IT SAID, and the mutation is what settled that — the anti-vacuity block's
+ * count comparison already failed on a simple orphan, so only the EQUAL-COUNT
+ * case (one tool removed, another added) was ever silent. The block's own
+ * comment carries the measurement. Closing it does NOT narrow the UI-surface
+ * bound above by one inch — the two are unrelated.
+ *
  * ★★★ THAT BOUND IS NOT HYPOTHETICAL — IT HAS ALREADY BEEN PAID ONCE. The
  * by-hand census this file was written beside missed FOUR live routes
  * (`onClearUnlinked`, `onDeleteDiscipline`, `onDeleteGrade`, `commitBuckets`),
@@ -111,6 +120,34 @@ describe("destructive-save arming — the counted-slice removal invariant", () =
       `New AI removal tool(s) with no arming decision: ${undecided.join(", ")}. ` +
         "Arm the handler where it already reports it changed something, add a behavioural " +
         "suite in that route's test file, and record it in ARMED_AI_ROUTES.",
+    ).toEqual([]);
+  });
+
+  it("has no stale registry row naming a tool that no longer exists", () => {
+    // ★★ THE OTHER DIRECTION, and it is a SEPARATE it() on purpose — vitest
+    // aborts at the first failing hard assertion, so folding this into the
+    // block above would leave whichever ran second unproved. The block above
+    // asserts every TOOL has a row; this one asserts every ROW names a live
+    // tool. Found by a cold review.
+    // ★★ WHAT THE MUTANT ACTUALLY PROVED, which is LESS than the review claimed
+    // and less than the first draft of this comment said. Adding one orphan row
+    // (`delete_ghost_MUTANT`) failed TWO tests, not one: the anti-vacuity block's
+    // `names.length >= Object.keys(ARMED_AI_ROUTES).length` fails on the count
+    // alone. So "the suite stays green" was FALSE for the simple case — an
+    // orphan left by deleting a tool was already caught, just anonymously, by a
+    // count that cannot say WHICH row is dead.
+    // ★★ The case only THIS block catches is the equal-count one: a tool removed
+    // and another added in the same change, where the counts still match and the
+    // stale row sails through. That is the real hole, and it is narrower than
+    // "the registry is unchecked in that direction". Do not cite this assertion
+    // as mutation-proved in isolation — the mutant it was run against is killed
+    // by two assertions, and no mutant here isolates it.
+    const names = new Set(removalToolNames());
+    const orphaned = Object.keys(ARMED_AI_ROUTES).filter((n) => !names.has(n));
+    expect(
+      orphaned,
+      `ARMED_AI_ROUTES names tool(s) that TOOL_DEFS no longer declares: ${orphaned.join(", ")}. ` +
+        "Remove the row, or restore the tool — a row for a dead tool documents a decision about nothing.",
     ).toEqual([]);
   });
 

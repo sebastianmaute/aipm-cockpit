@@ -357,12 +357,20 @@ export function useDocumentAssets(deps: UseDocumentAssetsDeps): UseDocumentAsset
     commitAssets((prev) => prev.map((a) => (a.id === id ? { ...a, name } : a)));
   }, [commitAssets]);
 
-  // ★★ A MIRROR, for the SAME reason `use-bulk-operations.ts` keeps one: the
-  // producer (`use-storage-backend.ts`) re-creates this arrow every render, so
-  // taking it into `remove`'s dep list would re-mint `remove` on every render
-  // of the whole tree — and `remove` is handed to `AssetLibrary` as `onDelete`.
-  // The ref keeps the dep list stable while the call below still reads the LIVE
-  // callback. Synced in an effect, never during render.
+  // ★★ A MIRROR, for the SAME reason `use-bulk-operations.ts` keeps one:
+  // `remove` is handed to `AssetLibrary` as `onDelete`, so an unstable entry in
+  // its dep list re-mints it on every render of the whole tree. The ref keeps
+  // the dep list stable while the call below still reads the LIVE callback.
+  // Synced in an effect, never during render.
+  // ★★ THE ORIGINAL REASON NO LONGER HOLDS, and the mirror is kept anyway.
+  // This said the producer "re-creates this arrow every render"; 0.264.1 made
+  // `allowDestructiveSave` a `useCallback(…, [])` in `use-storage-backend.ts`,
+  // so it is now identity-stable at that one producer. Reproduce:
+  //   grep -n "const allowDestructiveSave" src/app/use-storage-backend.ts
+  // The prop is OPTIONAL and typed as a bare callback, so nothing stops a
+  // second caller passing an unstable one — the mirror is now defence against
+  // that rather than against a known-unstable producer. Do not read the
+  // stability as a licence to inline the callback into the dep list.
   const allowDestructiveSaveRef = useRef(allowDestructiveSave);
   useEffect(() => {
     allowDestructiveSaveRef.current = allowDestructiveSave;

@@ -2645,9 +2645,17 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     // deletion in one act() lets the effect body reach the GUARD, which spends
     // the arm at its normal consume site and resyncs the baselines, and the
     // suppress branch below then never sees a live arm at all. That shape
-    // passes against the unfixed tree. The real window is an arm whose mutation
-    // has not landed yet — a confirm handler that arms, then applies — with a
-    // load/apply (reload, project switch, background sync) interleaving first.
+    // passes against the unfixed tree.
+    // ★★★ THE WINDOW THIS CONSTRUCTS IS SYNTHETIC, and an earlier revision of
+    // this comment called it "the real window", which is false and contradicted
+    // the source comment on the branch it was landing beside. NO production
+    // caller can currently produce it: every arming site arms in the SAME
+    // synchronous block as its mutation, so a load/apply can never interleave
+    // between the two. Measured over all 27 non-test sites, not reasoned — for
+    // each one, `sed -n "$n,$((n+10))p"` after the arm contains no `await`.
+    // This test is HARDENING against a future site that arms, AWAITS, then
+    // mutates; it is not evidence of a shipping defect, which is why 0.264.1
+    // carries no user-facing CHANGELOG bullet for it.
     await act(async () => { result.current.allowDestructiveSave(); });
     await act(async () => { await result.current.reloadCurrentProject(); });
     await act(async () => { vi.advanceTimersByTime(600); });
