@@ -402,6 +402,15 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
           setForm(emptyForm());
         }
         args.logActivityAs?.("ai", "task.deleted", doomed.id, doomed.taskName);
+        // ★★ Arm the one-shot destructive-save bypass ONLY on a real removal.
+        //    Tasks count toward the save-time guards, and several delete_task
+        //    calls in one assistant turn land in a single save debounce window
+        //    — five removals leaving at most a tenth is a mass deletion by
+        //    Layer B's arithmetic, and this IS the deliberate action the
+        //    bypass exists for. Arming on a no-op would leak the one-shot
+        //    until some later accidental wipe spent it (documents-panel.tsx
+        //    carries the same reasoning at its own arming site).
+        args.allowDestructiveSave?.();
         return true;
       },
       deleteAllTasks: () => {
@@ -419,7 +428,14 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         // ★★ `bulk.delete`, NOT `bulk.edit`: chat tool writes take no undo
         // capture, so this row is the only account of an irreversible mass
         // deletion and must not read as an edit.
-        if (count > 0) args.logActivityAs?.("ai", "bulk.delete", count);
+        if (count > 0) {
+          args.logActivityAs?.("ai", "bulk.delete", count);
+          // Clearing every task is the archetypal case the bypass exists for.
+          // Gated on `count > 0` for the same reason the activity row is:
+          // deleting nothing is not a delete, and arming for it leaks a
+          // one-shot that no save will spend.
+          args.allowDestructiveSave?.();
+        }
         return count;
       },
       sendInquiry,
@@ -498,6 +514,7 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         resourcesRef.current = next;
         setResources(next);
         args.logActivityAs?.("ai", "resource.deleted", doomed.id, resourceLogName(doomed));
+        args.allowDestructiveSave?.();
         return true;
       },
 

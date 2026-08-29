@@ -2166,6 +2166,72 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
   });
 });
 
+describe("useChatDispatcher — the register delete tools arm the destructive-save bypass", () => {
+  function renderWithBypass(isReadOnly = false) {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderDispatcher(
+      seedTasks(), isReadOnly, "open-points", undefined, undefined, allowDestructiveSave,
+    );
+    return { result, allowDestructiveSave };
+  }
+
+  it("deleteTask arms once for a task that exists", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    const victim = result.current.listTasks()[0]!;
+    act(() => { result.current.deleteTask(victim.id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // Positive observable: the delete really ran.
+    expect(result.current.listTasks().some((t) => t.id === victim.id)).toBe(false);
+  });
+
+  it("deleteTask does NOT arm for an id that does not exist", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    const before = result.current.listTasks().length;
+    act(() => { result.current.deleteTask(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    expect(result.current.listTasks()).toHaveLength(before);
+    // POSITIVE CONTROL: the id that DOES exist arms, so the fixture is not vacuous.
+    act(() => { result.current.deleteTask(result.current.listTasks()[0]!.id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteAllTasks arms once when it emptied a non-empty register", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    expect(result.current.listTasks()).toEqual([]);
+  });
+
+  it("deleteAllTasks does NOT arm when the register was already empty", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // A second clear removes nothing: arming again would leave a one-shot up
+    // with no save to spend it.
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteResource arms only when a resource was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteResource(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("does not throw when no bypass is supplied", () => {
+    const { result } = renderDispatcher();
+    expect(() => {
+      act(() => { result.current.deleteAllTasks(); });
+    }).not.toThrow();
+  });
+
+  it("does NOT arm for a delete refused in a read-only popout", () => {
+    const { result, allowDestructiveSave } = renderWithBypass(true);
+    expect(() => result.current.deleteAllTasks()).toThrow();
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+});
+
 // ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
 // (the ActivityKind union, ACTIVITY_KIND_TO_KEY, dashboard-activity-nav's
 // documents deep-link, EN/DE strings) and emitted NOWHERE, so no AI document
