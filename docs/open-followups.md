@@ -21638,8 +21638,45 @@ clicks per second, not ~18, and would indeed read as unreachable. On the real tr
 mechanism it needs those eighteen removals spaced CLOSER than 500 ms apart — a burst, not a steady
 cadence. ★ The case that reaches it with no cadence question at all is a bulk operation that removes
 many records in ONE state update: that is a single reference change and therefore a single save, and
-it is exactly why clear-all self-arms the bypass. Read the thresholds from the function rather than
-from this paragraph:
+it is exactly why clear-all self-arms the bypass.
+
+★★ **The likeliest real-world trigger is an AI turn, and the MECHANISM is what to record — the
+conclusion alone has been mis-stated three times on this branch.** `chat-panel.tsx`'s
+`stop_reason === "tool_use"` branch walks EVERY `tool_use` block of ONE assistant response in a
+single `for (const block of response.content)` loop, awaiting `runTool` per block; the model
+round-trip happens AFTER the loop, when the results are fed back — never between blocks. And
+`deleteDocument` (`use-document-tools.ts`) is a local state mutation with no network call. So
+consecutive `delete_document` blocks land orders of magnitude inside `SAVE_DEBOUNCE_MS`, each one
+restarting the trailing timer, which therefore does not fire until the run ends: N deletes in one
+turn become ONE save.
+
+★★★ **EXECUTE THE THRESHOLD, DO NOT EYEBALL IT — the near-miss here is one record wide.** Nine
+deletes in a project of nine documents and one task DO satisfy `isMassDeletion` (prev 10, cur 1).
+EIGHT documents and one task do NOT (prev 9, cur 1 — one is more than a tenth of nine), even though
+every document in the project is gone. The floor and the fraction disagree in that gap, which is
+exactly the shape that survives a plausible-sounding paragraph:
+
+```bash
+node -e 'const f=(p,c,fl=5,fr=0.1)=>c<p&&(p-c)>=fl&&c<=p*fr;
+console.log(f(9,1), f(10,1), f(8,0), f(20,2), f(20,3))'   # false true true true false
+```
+
+Reproduce the loop shape rather than trusting this paragraph:
+
+```bash
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | grep -c "await runTool"                          # 1
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | grep -c "for (const block of response.content)"   # 1
+sed -n '/stop_reason === "tool_use"/,/^          }/p' src/app/chat-panel.tsx | wc -l                                            # 30 — the control
+```
+
+★ The third line is the control and is not optional: a `sed` range address fails OPEN, so a moved
+anchor degrades both counts to a silent 0. ★★ Deliberately NOT written as "in one tick": each block
+is AWAITED, so consecutive blocks are separated by microtask turns rather than sharing a React
+batch. The debounce needs only that they arrive closer together than 500 ms, which they do by orders
+of magnitude — so this case rests on the loop shape, not on batching semantics, and stays true if
+React's batching changes.
+
+Read the thresholds from the function rather than from this paragraph:
 
 ```bash
 sed -n '/export function isMassDeletion/,/^}/p' src/app/workspace-metrics.ts
@@ -21684,6 +21721,17 @@ refused by the very guard the counting just armed.
 bypass; the knowledge panel's standalone remove and the document-asset remove did not. The gap was
 found by a post-hoc read — not by lint, tsc, coverage, axe or any suite. Every gate was green across
 the commit that introduced it.
+
+★★ **A THIRD instance, and how it was found is the part worth recording.** The AI `delete_document`
+route (`use-document-tools.ts`) did not arm either. It surfaced by enumerating removal routes FROM
+the counters rather than by reading this branch's commits — the widening never touched that file, so
+a commit-by-commit review could not have reached it, which is precisely why the gate this entry asks
+for would have to work from the counted set and not from a diff. Closed on the same branch:
+`grep -c allowDestructiveSave src/app/use-document-tools.ts` → 5.
+★ Its arming is per-delete AND gated on the mutation having CHANGED something, deliberately. The
+bypass is a one-shot consumed by the next SAVE, so arming for a run that deletes nothing leaks it
+indefinitely — the same shape `documents-panel.tsx` was fixed for. A gate that only checked "does
+this route mention `allowDestructiveSave`" would pass both the correct form and the leaking one.
 
 ★★ **And the shape is not new to the widening — there is a PRE-EXISTING instance on a slice that
 counted all along.** `use-chat-dispatcher.ts`'s `deleteAllTasks` empties every task from a chat tool
