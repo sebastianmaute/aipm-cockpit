@@ -93,8 +93,14 @@ export interface UseDocumentAssetsDeps {
    *  t=1000 arrives — one-per-second clicks each get their own save and each
    *  advances the committed baseline. Coalescing needs changes CLOSER TOGETHER
    *  than 500ms. The arming still earns its place: a genuinely fast burst does
-   *  coalesce, and the AI `delete_document` route is several mutations in ONE
-   *  TICK (`use-document-tools.ts`), which coalesces unambiguously.
+   *  coalesce, and the AI `delete_document` route (`use-document-tools.ts`)
+   *  coalesces unambiguously: `chat-panel.tsx` runs every tool_use block of one
+   *  response in a single loop with no model round-trip between, and each block
+   *  is a local mutation.
+   *  ★ Say that as the LOOP SHAPE, not "one tick" — each block is `await`ed, so
+   *  consecutive blocks are separated by microtask turns rather than sharing a
+   *  React batch. "Closer together than 500ms" is all the argument needs, and
+   *  it holds by orders of magnitude.
    *  Optional: the pane renders in contexts (tests, popouts) that supply no
    *  bypass at all. */
   allowDestructiveSave?: () => void;

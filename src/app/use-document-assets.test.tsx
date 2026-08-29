@@ -454,7 +454,12 @@ describe("useDocumentAssets — rename and remove", () => {
   // debounce is TRAILING at 500ms, so a click at t=0 has already fired its save
   // when a click at t=1000 arrives. Changes must be closer together than 500ms
   // to coalesce. The arming is still justified — the AI `delete_document` route
-  // lands several mutations in ONE TICK, which always coalesces.
+  // always coalesces, because `chat-panel.tsx` runs every tool_use block of one
+  // response in a single loop with no model round-trip between and each block is
+  // a local mutation, so they land orders of magnitude inside the 500ms.
+  // ★ NOT "one tick": each block is `await`ed, so consecutive blocks are
+  // separated by microtask turns rather than sharing a React batch. The
+  // sub-500ms claim is the one the argument needs and the one that is true.
   it("arms allowDestructiveSave exactly once per remove", () => {
     const allowDestructiveSave = vi.fn();
     const assets: DocumentAsset[] = [

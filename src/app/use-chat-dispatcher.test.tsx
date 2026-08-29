@@ -2072,9 +2072,20 @@ describe("useChatDispatcher – document tools", () => {
 // ★★ THE ONE-SHOT DESTRUCTIVE-SAVE BYPASS ON THE AI DELETE ROUTE. `documents`
 // counts toward `workspaceRecordCount`, and it has TWO removal routes —
 // `documents-panel.tsx` and this one. Only the panel armed, so a turn that
-// emitted several `delete_document` calls (one tick, one debounced save) tripped
-// Layer B's mass-deletion arithmetic and the save was withheld while the UI
-// showed the documents gone.
+// emitted several `delete_document` calls could trip Layer B's mass-deletion
+// arithmetic and have the save withheld while the UI showed the documents gone.
+// They reach ONE debounced save because `chat-panel.tsx` runs every tool_use
+// block of one response in a single loop with no model round-trip between and
+// each block is a local mutation — NOT because they share a React tick (each
+// block is `await`ed). Sub-500ms is the claim; "one tick" is not.
+//
+// ★★ NOTHING HERE ASSERTS THE REFUSAL, deliberately. These tests pin the ARMING
+// — that the bypass is offered exactly when a document was really removed. Layer
+// B's threshold is owned and tested by `workspace-metrics` / `save-guard`, and
+// it is unintuitive enough that restating it in an assertion here would just be
+// a second place to get it wrong (an earlier version of the arming comment did:
+// it named 8 docs + 1 task, which does NOT refuse). The runnable check lives at
+// the arming site in `use-document-tools.ts`.
 describe("useChatDispatcher — delete_document arms the destructive-save bypass", () => {
   function renderWithBypass(isReadOnly = false) {
     const allowDestructiveSave = vi.fn();

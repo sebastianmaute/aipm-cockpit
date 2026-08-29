@@ -99,10 +99,19 @@ export interface ChatDispatcherArgs {
   /** ★★ Arms the one-shot destructive-save bypass (`use-storage-backend.ts`) —
    *  threaded through to `useDocumentTools`, which is the only consumer today.
    *  `documents` counts toward `workspaceRecordCount`, and several
-   *  `delete_document` calls in ONE assistant turn execute back-to-back in one
-   *  tick, so they coalesce into a single debounced save that Layer B reads as
-   *  a mass deletion and REFUSES — the deletions show as applied while the
-   *  backend still holds them. Optional, like `logActivityAs`: a test harness
-   *  or a popout supplies no bypass at all. */
+   *  `delete_document` calls in ONE assistant turn execute back-to-back:
+   *  `chat-panel.tsx` walks every tool_use block of one response in a single
+   *  loop with no model round-trip between, and each block is a local mutation.
+   *  So they land orders of magnitude inside `SAVE_DEBOUNCE_MS` and coalesce
+   *  into one debounced save, which Layer B can then read as a mass deletion
+   *  and REFUSE — the deletions show as applied while the backend still holds
+   *  them.
+   *  ★ THE LOOP SHAPE IS THE CLAIM, not "one tick". Each block is `await`ed, so
+   *  consecutive blocks are separated by microtask turns rather than sharing a
+   *  React batch; "closer together than 500ms" is all the argument needs and it
+   *  survives a batching change. The threshold arithmetic is NOT intuitive —
+   *  `use-document-tools.ts`'s arming site carries the runnable check.
+   *  Optional, like `logActivityAs`: a test harness or a popout supplies no
+   *  bypass at all. */
   allowDestructiveSave?: () => void;
 }
