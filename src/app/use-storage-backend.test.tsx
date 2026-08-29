@@ -3015,12 +3015,23 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
    *  PROPERTIES that `vi.clearAllMocks()` would not reset on a shared object, so
    *  a reporting fixture leaking into a later test would surface under the
    *  shuffled-seed gate as an unrelated failure elsewhere in the file. */
-  function makeImportBackend(diag: { dropped?: number; unterminated?: boolean } = {}) {
+  function makeImportBackend(
+    diag: {
+      dropped?: number;
+      unterminated?: boolean;
+      /** Per-section attribution (§152). Absent on JSON/Turso backends, which
+       *  is why it is optional here rather than defaulted to an empty object —
+       *  an empty object and an absent field must reach the reporter as
+       *  different things. */
+      bySection?: Partial<Record<string, number>>;
+    } = {},
+  ) {
     const b = {
       kind: "browser",
       load: vi.fn(async () => {
         b.lastImportDroppedRows = diag.dropped;
         b.lastImportUnterminatedQuote = diag.unterminated;
+        b.lastImportDroppedBySection = diag.bySection;
         return emptyWorkspace();
       }),
       save: vi.fn().mockResolvedValue(undefined),
@@ -3028,6 +3039,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       describe: vi.fn().mockResolvedValue("f.csv"),
       lastImportDroppedRows: undefined as number | undefined,
       lastImportUnterminatedQuote: undefined as boolean | undefined,
+      lastImportDroppedBySection: undefined as Partial<Record<string, number>> | undefined,
     };
     return b;
   }
@@ -3257,6 +3269,33 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //   property from "the user was told".
     expect(survivingToast()).toContain("7 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("7 invalid row(s)")]);
+  });
+
+  it("names the affected SECTIONS in the toast the user is left looking at", async () => {
+    // ★★★ ORDERING AND ATTRIBUTION IN ONE ASSERTION, ON THE SURVIVOR. The
+    // section sentence is the last thing appended to the dropped-rows one, so a
+    // report fired in front of `storageOpenedToast` loses the whole diagnostic
+    // — attribution included — and a call-log assertion would not notice.
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 4;
+      b.lastImportDroppedBySection = { raid: 1, tasks: 3 };
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    const seen = survivingToast();
+    expect(seen).toContain("4 invalid row(s)");
+    // Section ORDER follows `IMPORT_SECTION_KEYS`, not the fixture's insertion
+    // order — which is why the fixture above lists raid first.
+    expect(seen).toContain("Affected sections: Tasks, RAID.");
   });
 
   it("onOpenStorageFile reports even when the user DECLINES the overwrite", async () => {

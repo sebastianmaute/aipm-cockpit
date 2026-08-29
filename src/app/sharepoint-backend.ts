@@ -12,6 +12,7 @@ import {
   type StorageBackend,
   type Workspace,
 } from "./workspace";
+import type { ImportSectionKey } from "./csv-codecs-sections";
 
 export interface SpFileLocation {
   hostname: string;
@@ -39,6 +40,9 @@ export class SharePointBackend implements StorageBackend {
   readonly kind: "sp-json" | "sp-csv";
   /** Malformed rows dropped by the most recent CSV load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Which SECTIONS those rows came from. ★ ABSENT means "not known to have
+   *  lost anything", never "verified clean". */
+  lastImportDroppedBySection: Partial<Record<ImportSectionKey, number>> | undefined = undefined;
   /** Whether the most recent CSV load() hit an unterminated quote (false for JSON). */
   lastImportUnterminatedQuote = false;
   /** ★ CSV ONLY, like the field above. Malformedness, not a swallowed section. */
@@ -109,6 +113,7 @@ export class SharePointBackend implements StorageBackend {
     // mechanisms intact — a new early return is the exact shape that broke it.
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
+    this.lastImportDroppedBySection = undefined;
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
     try {
@@ -135,6 +140,7 @@ export class SharePointBackend implements StorageBackend {
         const csv = await res.text();
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
+        this.lastImportDroppedBySection = diag.droppedBySection;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
         this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
         return ws;

@@ -1,7 +1,8 @@
 "use client";
 import type React from "react";
 import { useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
+import { IMPORT_SECTION_KEYS, type ImportSectionKey } from "./csv-codecs-sections";
 import { logDiag } from "./diagnostics";
 import type { StorageBackend, Workspace } from "./storage";
 
@@ -11,6 +12,37 @@ import type { StorageBackend, Workspace } from "./storage";
 export type LoadTruncation = { entries: number; blocks: number } | undefined;
 
 type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
+
+/**
+ * What each import section is CALLED when a diagnostic names it.
+ *
+ * ★★★ A TOTAL `Record`, not a `Partial` and not a lookup with a fallback. A new
+ * member of `IMPORT_SECTION_KEYS` then fails `tsc` — which is the only thing
+ * that can catch it, since a section with no label would simply be omitted from
+ * the sentence and the report would silently under-name the loss. A `?? key`
+ * fallback would render an internal identifier to the user instead.
+ *
+ * ★★ ITS OWN `importSection*` KEYS RATHER THAN THE NAV/VIEW LABELS. Those name
+ * what a user clicks; these name what a FILE SECTION holds, and the two drift
+ * independently — `i18n.ts` already carries a `tasks: "Tasks"` that belongs to
+ * the UI and would silently reword this diagnostic if it were ever relabelled.
+ */
+const IMPORT_SECTION_LABELS: Record<ImportSectionKey, TranslationKey> = {
+  tasks: "importSectionTasks",
+  raid: "importSectionRaid",
+  absences: "importSectionAbsences",
+  shifts: "importSectionShifts",
+  calendarEvents: "importSectionCalendarEvents",
+  documentAssets: "importSectionDocumentAssets",
+  milestones: "importSectionMilestones",
+  changes: "importSectionChanges",
+  stakeholders: "importSectionStakeholders",
+  resources: "importSectionResources",
+  roles: "importSectionRoles",
+  budgets: "importSectionBudgets",
+  disciplines: "importSectionDisciplines",
+  grades: "importSectionGrades",
+};
 
 /**
  * The TWO choke points the storage layer routes every load and every
@@ -54,6 +86,7 @@ export interface TruncationOps {
       StorageBackend,
       | "lastLoadTruncation"
       | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
       | "lastImportUnterminatedQuote"
       | "lastImportMalformedQuotes"
       | "lastDecodeFailures"
@@ -125,7 +158,10 @@ export interface TruncationOps {
   reportImportFor: (
     backend: Pick<
       StorageBackend,
-      "lastImportDroppedRows" | "lastImportUnterminatedQuote" | "lastImportMalformedQuotes"
+      | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
+      | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
     >,
   ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
@@ -529,11 +565,37 @@ export function useLoadTruncation(
   };
 
   const reportImportDiagnostics = (
-    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote" | "lastImportMalformedQuotes">,
+    backend: Pick<
+      StorageBackend,
+      | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
+      | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
+    >,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
-    if (dropped > 0) parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+    if (dropped > 0) {
+      parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+      // ★★ WALKED IN `IMPORT_SECTION_KEYS` ORDER, never `Object.keys` order.
+      // The breakdown is built as the decoder happens to encounter sections, so
+      // the same data in a CSV and in a Markdown file would name them in
+      // different orders — a difference the reader would be left to interpret.
+      // ★ A ZERO IS SKIPPED, not rendered: `countDroppedRow` only ever writes a
+      // positive count, so this is defensive, but a section named as affected
+      // while it lost nothing is a false statement rather than a cosmetic one.
+      const by = backend.lastImportDroppedBySection;
+      const names = by
+        ? IMPORT_SECTION_KEYS.filter((k) => (by[k] ?? 0) > 0).map((k) =>
+            t(langRef.current, IMPORT_SECTION_LABELS[k]),
+          )
+        : [];
+      // ★ Nothing published (JSON, Turso) or nothing positive → no sentence at
+      // all. "Affected sections: ." reads as a bug, which it would be.
+      if (names.length > 0) {
+        parts.push(t(langRef.current, "importDroppedRowsSections", names.join(", ")));
+      }
+    }
     if (backend.lastImportUnterminatedQuote) parts.push(t(langRef.current, "importUnbalancedQuotesWarning"));
     // ★ A THIRD complete sentence on the same join. It is a different loss from
     // the two above — those rows are absent, these are present but possibly

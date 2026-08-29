@@ -442,6 +442,31 @@ const enUS = {
   // ★ A complete sentence: `reportImportDiagnostics` joins the applicable
   // warnings with a single space.
   importMalformedQuotesWarning: "The file breaks CSV quoting rules in {0} place(s), so it may not have been read correctly. Saving is paused until you confirm.",
+  // ★ A fourth complete sentence on the same join, appended to the dropped-rows
+  // one. It names WHICH sections lost rows — without it the user cannot tell
+  // whether the loss hit what they imported or a section the path discards.
+  importDroppedRowsSections: "Affected sections: {0}.",
+  // ★★ A DEDICATED FAMILY, not a reuse of the nav/view labels. Those are named
+  // for what a user clicks ("Open Points"); these name what a FILE SECTION
+  // holds, and the two drift for unrelated reasons. Reusing one would let a UI
+  // relabel silently reword an import diagnostic.
+  // ★ Every member of `IMPORT_SECTION_KEYS` (`csv-codecs-sections.ts`) needs one:
+  // the map in `use-load-truncation.ts` is a total `Record`, so a missing key is
+  // a tsc error rather than a section that renders as nothing.
+  importSectionTasks: "Tasks",
+  importSectionRaid: "RAID",
+  importSectionAbsences: "Absences",
+  importSectionShifts: "Shifts",
+  importSectionCalendarEvents: "Calendar events",
+  importSectionDocumentAssets: "Document images",
+  importSectionMilestones: "Milestones",
+  importSectionChanges: "Changes",
+  importSectionStakeholders: "Stakeholders",
+  importSectionResources: "Resources",
+  importSectionRoles: "Roles",
+  importSectionBudgets: "Budgets",
+  importSectionDisciplines: "Disciplines",
+  importSectionGrades: "Grades",
   projectSwitchNotFound: "That project is no longer in your portfolio.",
   projectSwitchHandleMissing:
     "Couldn't find the file for that project — re-open it from a file.",

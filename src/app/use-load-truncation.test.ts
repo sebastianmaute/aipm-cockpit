@@ -115,6 +115,73 @@ describe("useLoadTruncation — import diagnostics", () => {
     expect(showToast).toHaveBeenCalledWith("error", `${droppedMsg(3)} ${quoteMsg}`);
   });
 
+  // ── naming the sections (§152, second half, surfaced) ───────────────────
+  const sectionsMsg = (names: string) => t("en-US", "importDroppedRowsSections", names);
+
+  it("NAMES the sections a report's dropped rows came from", () => {
+    // ★★★ THE POINT OF THE WHOLE ATTRIBUTION SLICE. "5 invalid row(s)" leaves
+    // the user unable to tell whether the loss hit the tasks they just imported
+    // or a section the path discards — two losses, two remedies.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 5,
+        lastImportDroppedBySection: { raid: 2, tasks: 3 },
+      });
+    });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      `${droppedMsg(5)} ${sectionsMsg(`${t("en-US", "importSectionTasks")}, ${t("en-US", "importSectionRaid")}`)}`,
+    );
+  });
+
+  it("orders the names by IMPORT_SECTION_KEYS, not by insertion", () => {
+    // ★ The fixture above already lists raid BEFORE tasks and expects the
+    //   reverse, so this pins the rule rather than re-testing the case: an
+    //   `Object.keys` walk would echo whatever order the decoder happened to
+    //   write, which differs between a CSV and a Markdown file of the same data.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 3,
+        lastImportDroppedBySection: { grades: 1, milestones: 1, tasks: 1 },
+      });
+    });
+    const seen = String(showToast.mock.calls[0][1]);
+    expect(seen.indexOf(t("en-US", "importSectionTasks"))).toBeLessThan(
+      seen.indexOf(t("en-US", "importSectionMilestones")),
+    );
+    expect(seen.indexOf(t("en-US", "importSectionMilestones"))).toBeLessThan(
+      seen.indexOf(t("en-US", "importSectionGrades")),
+    );
+  });
+
+  it("omits the section sentence when the backend published none", () => {
+    // ★ JSON and Turso backends never set the field. A bare "Affected sections:"
+    //   with nothing after it is worse than saying nothing.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(importing(2, false)); });
+    expect(showToast).toHaveBeenCalledWith("error", droppedMsg(2));
+  });
+
+  it("omits the section sentence when every published count is zero", () => {
+    // ★ A defensive shape, not one the writer can produce: `countDroppedRow`
+    //   only ever writes a positive count. Pinned so a future writer that
+    //   zero-fills cannot make the sentence name sections that lost nothing.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 2,
+        lastImportDroppedBySection: { tasks: 0 },
+      });
+    });
+    expect(showToast).toHaveBeenCalledWith("error", droppedMsg(2));
+  });
+
   it("says NOTHING when the import was clean — and the fixture can still speak", () => {
     const { result, showToast } = render();
     // Absent fields, not zeroes: both are optional on `StorageBackend`, and an

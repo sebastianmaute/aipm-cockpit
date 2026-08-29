@@ -26,11 +26,16 @@ import {
   jsonToWorkspace,
   workspaceToJson,
 } from "./workspace";
+import type { ImportSectionKey } from "./csv-codecs-sections";
 
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Which SECTIONS those rows came from — CSV *and* MD, unlike the two quote
+   *  fields below. ★ ABSENT means "not known to have lost anything", never
+   *  "verified clean": a section missing from the file is never decoded. */
+  lastImportDroppedBySection: Partial<Record<ImportSectionKey, number>> | undefined = undefined;
   /**
    * Whether the most recent load() hit an unterminated quote.
    *
@@ -163,6 +168,7 @@ export class LocalFileBackend implements StorageBackend {
     // safe to do rather than a second bug.
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
+    this.lastImportDroppedBySection = undefined;
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
     try {
@@ -177,6 +183,7 @@ export class LocalFileBackend implements StorageBackend {
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
       this.lastImportDroppedRows = diag.droppedRows;
+      this.lastImportDroppedBySection = diag.droppedBySection;
       this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
       this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
       return ws;

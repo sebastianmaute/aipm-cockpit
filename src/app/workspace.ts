@@ -28,6 +28,10 @@ import {
   sanitizeStakeholder,
   sanitizeSteeringCommittee,
 } from "./sanitize";
+// ★ TYPE-ONLY, and from the zero-import LEAF rather than the codec barrel: the
+// barrel pulls the whole decode layer, which imports THIS file. `csv-codecs-sections.ts`
+// imports nothing, so this adds no runtime edge and no cycle (cf. §92).
+import type { ImportSectionKey } from "./csv-codecs-sections";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
@@ -387,6 +391,23 @@ export interface StorageBackend {
    * backends). Lets the import UI warn the user instead of showing only success.
    */
   lastImportDroppedRows?: number;
+  /**
+   * Optional: which SECTIONS the rows counted by
+   * {@link StorageBackend.lastImportDroppedRows} came from, when the backend
+   * can tell (CSV and Markdown both can).
+   *
+   * ★★★ THE TOTAL ALONE CANNOT ANSWER THE USER'S QUESTION. `onOpenStorageFile`
+   * applies tasks + RAID and DISCARDS every other slice, so "3 rows dropped"
+   * leaves them unable to tell whether the loss hit what they just imported or
+   * a section that was thrown away regardless — two losses, two remedies.
+   * ★★ ABSENT, not zero-filled, when nothing was dropped: a section missing
+   * from the file is never decoded, so a `{tasks: 0}` would assert an
+   * inspection that never happened. A reader must treat a missing key as "not
+   * known to have lost anything", never as "verified clean".
+   * ★ Derived from the same increment as the total (`countDroppedRow` is the
+   * single writer of both), so the two cannot disagree.
+   */
+  lastImportDroppedBySection?: Partial<Record<ImportSectionKey, number>>;
   /**
    * Optional: whether the LAST {@link load} hit an unterminated quote while
    * decoding a **CSV** import. Distinct from
