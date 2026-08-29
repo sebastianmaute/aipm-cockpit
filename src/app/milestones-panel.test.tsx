@@ -164,6 +164,36 @@ describe("MilestonesPanel", () => {
     expect(showToast).toHaveBeenCalledWith("error", expect.any(String));
   });
 
+  // §289. The APPLY, and it goes first — see the `stampField` test in
+  // "Milestones bulk edit" for why. `stampField` writes a FRESH stamp on undo
+  // AND redo rather than restoring a prior one, so wiring the capture alone
+  // would give this register a modification time that appears ONLY when a user
+  // REVERSES something, which is worse than the uniform absence it replaces.
+  it("stamps localModifiedAt when a milestone is saved", () => {
+    function StampProbe() {
+      const { milestones } = useWorkspace();
+      return (
+        <span data-testid="stamp-1">
+          {milestones.find((x) => x.id === 1)?.localModifiedAt ?? ""}
+        </span>
+      );
+    }
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10", { id: 1 })]} />
+        <MilestonesPanel {...baseProps} />
+        <StampProbe />
+      </>,
+      { wrapper },
+    );
+    // ★ ANTI-VACUITY: the seeded row carries NO stamp, so the assertion below
+    // cannot pass off a fixture value as the save's own write.
+    expect(screen.getByTestId("stamp-1").textContent).toBe("");
+    fireEvent.click(screen.getByRole("button", { name: "Alpha" }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
+    expect(screen.getByTestId("stamp-1").textContent).toMatch(/^\d{4}-\d{2}-\d{2}T/);
+  });
+
   it("renders the New milestone button at the left, styled like Gantt (solid dark-blue)", () => {
     // Render WITH a milestone so the empty-state clickable box (which also
     // contains "+ New milestone…") isn't present to make the query ambiguous.
@@ -423,6 +453,25 @@ describe("Milestones bulk edit", () => {
   // never looks at the argument, so nothing here described the patch's shape.
   // The CLEAR case is the shape worth describing: it is the only milestone patch
   // whose `after` value is `undefined`.
+  // §289, second half. `stampField` writes a FRESH stamp on undo AND redo — it
+  // does not restore the prior one — so what is pinned here is that the capture
+  // DECLARES the field, never that the stamp equals some captured value.
+  it("tells captureFieldRows to stamp localModifiedAt on a bulk-edit undo", () => {
+    const captureFieldRows = vi.fn();
+    render(
+      <>
+        <Seed milestones={[m("Alpha", "2026-06-10", { id: 1, achievedDate: "2026-06-01" })]} />
+        <MilestonesPanel {...baseProps} captureFieldRows={captureFieldRows} />
+      </>,
+      { wrapper },
+    );
+
+    bulkClearAchievedDate(["Alpha"]);
+
+    expect(captureFieldRows).toHaveBeenCalledTimes(1);
+    expect(captureFieldRows.mock.calls[0][0].stampField).toBe("localModifiedAt");
+  });
+
   it("hands captureFieldRows a patch whose cleared side carries an explicit undefined, not an absent key", () => {
     const captureFieldRows = vi.fn();
     render(
