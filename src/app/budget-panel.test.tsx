@@ -1108,3 +1108,70 @@ describe("BudgetPanel — per-person booking rows", () => {
     expect([...body.querySelectorAll("td")].map((td) => td.textContent)[2]).toBe("6 / 176");
   });
 });
+
+describe("BudgetPanel — the hours hints are stated once, not per cell (§246)", () => {
+  // §246: `HoursCell` used to render an InfoTooltip on BOTH its "Budget" and its
+  // "Actual" label, and one HoursCell renders per period per role row — so a
+  // bucket table put 2 x periods x roles focusable tab stops (InfoTooltip is
+  // tabIndex={0}) into one table, every one of them announcing one of the same
+  // two sentences. The fix is DELETION plus a single panel-wide legend, not
+  // qualification: there is nothing to tell the copies apart, because they say
+  // the same thing about the same two columns.
+  //
+  // The fixture is deliberately 2 buckets x 2 roles x 2 periods. With ONE bucket
+  // a per-bucket legend is indistinguishable from a panel-wide one, and with ONE
+  // period the per-cell repetition never materialises at all.
+  const hintRoles: Role[] = [
+    { id: 3, disciplineId: 1, gradeId: 1, internalRate: 100, externalRate: 150 },
+    { id: 4, disciplineId: 1, gradeId: 2, internalRate: 100, externalRate: 150 },
+  ];
+  const twoPeriodAllocations = [
+    { roleId: 3, resourceIds: [], budgetHours: { "2026-01": 40, "2026-02": 40 }, actualHours: { "2026-01": 30, "2026-02": 35 } },
+    { roleId: 4, resourceIds: [], budgetHours: { "2026-01": 20, "2026-02": 20 }, actualHours: { "2026-01": 25, "2026-02": 25 } },
+  ];
+  const hintBuckets: BudgetBucket[] = [
+    {
+      id: 1, name: "PAM", type: "tm", currency: "EUR", startDate: "2026-01-01",
+      endDate: "2026-02-28", status: "open", order: 0, allocations: twoPeriodAllocations,
+    },
+    {
+      id: 2, name: "DEV", type: "tm", currency: "EUR", startDate: "2026-01-01",
+      endDate: "2026-02-28", status: "open", order: 1, allocations: twoPeriodAllocations,
+    },
+  ];
+  const budgetHint = t("en-US", "budgetBudgetHoursHint");
+  const actualHint = t("en-US", "budgetActualHoursHint");
+  const renderHints = () => render(<BudgetPanel {...props} roles={hintRoles} buckets={hintBuckets} />);
+
+  test("states the Budget-hours hint exactly once across the whole panel", () => {
+    renderHints();
+    // The load-bearing assertion, and the reason the legend lives OUTSIDE the
+    // bucket map: rendering it once per BUCKET makes this 2 on this fixture.
+    expect(screen.getAllByLabelText(budgetHint)).toHaveLength(1);
+  });
+
+  test("no hours hint is repeated inside a bucket table", () => {
+    renderHints();
+    const tables = screen.getAllByRole("table");
+    // Non-vacuity floor: both buckets must actually have rendered a table, or
+    // the loop below would pass over nothing.
+    expect(tables.length).toBeGreaterThan(1);
+    for (const table of tables) {
+      expect(within(table).queryAllByLabelText(budgetHint)).toHaveLength(0);
+      expect(within(table).queryAllByLabelText(actualHint)).toHaveLength(0);
+    }
+  });
+
+  test("states the Actual-hours hint once in the legend, plus one per-bucket summary tile", () => {
+    renderHints();
+    // ★ NOT `toHaveLength(1)`, and deliberately so. `budgetActualHoursHint` has a
+    // SECOND source this task does not touch: each bucket's "Actual hours"
+    // summary tile in `budget-panel.tsx` carries the same hint from INSIDE the
+    // bucket map. That is a per-BUCKET repetition, not the per-CELL explosion
+    // §246 measured, and qualifying the bucket-scoped controls is a separate
+    // task — so the honest count today is one legend plus one tile per bucket.
+    // If that tile's label is later qualified per bucket this drops to 1 and the
+    // assertion goes red on purpose: TIGHTEN it then, never widen it.
+    expect(screen.getAllByLabelText(actualHint)).toHaveLength(hintBuckets.length + 1);
+  });
+});

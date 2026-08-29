@@ -384,6 +384,27 @@ export function BudgetPanel(props: BudgetPanelProps) {
       </section>
 
       <section className="flex flex-col gap-3">
+        {/* ★★★ PANEL-WIDE, NOT PER-BUCKET. These two hints used to render inside
+            every period cell of every role row (open-followups §246), i.e.
+            2 x periods x roles focusable tab stops per bucket table all
+            announcing one of the same two sentences. Rendering the legend once
+            per BUCKET table would re-create that collision the moment a second
+            bucket exists, so it lives here — outside the bucket map — where it
+            renders exactly once however many buckets there are. Pinned by
+            "states the Budget-hours hint exactly once across the whole panel"
+            in budget-panel.test.tsx. */}
+        {report.buckets.length > 0 && (
+          <div className="flex flex-wrap items-center gap-4 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              {t(lang, "budgetCellBudget")}
+              <InfoTooltip text={t(lang, "budgetBudgetHoursHint")} />
+            </span>
+            <span className="flex items-center gap-1">
+              {t(lang, "budgetCellActual")}
+              <InfoTooltip text={t(lang, "budgetActualHoursHint")} />
+            </span>
+          </div>
+        )}
         {report.buckets.length > 0 && (
           <div className="flex flex-wrap items-center gap-2">
             <TableFilter lang={lang} value={roleFilter} onChange={setRoleFilter} placeholderKey="budgetRoleFilter" />
