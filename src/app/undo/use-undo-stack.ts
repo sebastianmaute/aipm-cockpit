@@ -7,6 +7,7 @@ import { t, type Lang } from "../i18n";
 import type { ActivityKind } from "../activity-log";
 import type { ToastAction } from "../use-toast";
 import { WRITE_THROUGH_FIELDS } from "./write-through-fields";
+import { mergeFieldPatch } from "./merge-field-value";
 import {
   applyUndoRestoreWithRemap,
   applyUndoForward,
@@ -404,12 +405,21 @@ export function captureFieldPart<T extends { id: number }>(
   const { setter, edits, stampField } = part;
   if (edits.length === 0) return null;
   const byId = new Map(edits.map((e) => [e.id, e]));
-  const apply = (pick: (e: (typeof edits)[number]) => Partial<T>) => {
+  const apply = (
+    target: (e: (typeof edits)[number]) => Partial<T>,
+    other: (e: (typeof edits)[number]) => Partial<T>,
+  ) => {
     setter((prev) =>
       prev.map((row) => {
         const edit = byId.get(row.id);
         if (!edit) return row;
-        const merged = { ...row, ...pick(edit) } as T;
+        // Per-key merge, not a wholesale spread: a concurrent writer that changed
+        // a different key of a field this op also wrote keeps its change
+        // (open-followups §178). Both ends of the patch are passed because the
+        // keys the op ACTUALLY wrote are exactly those the two ends disagree on —
+        // that is what makes a group-completed key (§180), identical on both
+        // ends, resolve to the live value rather than being reverted.
+        const merged = mergeFieldPatch(row, target(edit), other(edit));
         return stampField
           ? ({ ...merged, [stampField]: new Date().toISOString() } as T)
           : merged;
@@ -417,8 +427,8 @@ export function captureFieldPart<T extends { id: number }>(
     );
   };
   const restore = (): (() => void) => {
-    apply((e) => e.before);
-    return () => apply((e) => e.after);
+    apply((e) => e.before, (e) => e.after);
+    return () => apply((e) => e.after, (e) => e.before);
   };
   return { isPrimary: false, restore };
 }

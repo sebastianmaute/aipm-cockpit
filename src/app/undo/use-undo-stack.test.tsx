@@ -963,4 +963,95 @@ describe("captureFieldRows", () => {
     expect(rows()[0].sev).toBe("High");
     expect(rows()[0].noteLog).toEqual(["note A", "note B"]);
   });
+
+  it("keeps a concurrently assigned RACI cell when a bulk suggestion is undone", () => {
+    // open-followups §178, the reachable case. Suggest RACI writes the whole
+    // `raci` map for several stakeholders as one bulk.edit; the user then assigns
+    // a cell for a DIFFERENT milestone on one of those rows; Ctrl+Z must revert
+    // the suggestion without taking the hand-assigned cell with it. Before the
+    // merge landed the whole map was replaced and `m2` vanished.
+    type S = { id: number; name: string; raci: Record<string, string> };
+    const { result, rows, setRows } = mountRows<S>([{ id: 1, name: "Ada", raci: { m1: "R" } }]);
+
+    act(() => {
+      result.current.captureFieldRows<S>({
+        setter: setRows,
+        kind: "bulk.edit",
+        entityKey: "stakeholder",
+        edits: [{ id: 1, before: { raci: { m1: "R" } }, after: { raci: { m1: "A" } } }],
+      });
+      setRows((prev) => prev.map((r) => ({ ...r, raci: { m1: "A" } })));
+    });
+
+    act(() => { setRows((prev) => prev.map((r) => ({ ...r, raci: { ...r.raci, m2: "I" } }))); });
+    act(() => { result.current.undo(); });
+
+    expect(rows()[0].raci).toEqual({ m1: "R", m2: "I" });
+  });
+
+  it("redoes the same way — the hand-assigned cell survives the redo too", () => {
+    // The merge is direction-symmetric: redo is merge(after, before, live). A test
+    // covering only undo would leave the redo arm free to clobber, and the redo
+    // arm is the one that runs on a Ctrl+Y the user reaches for AFTER noticing the
+    // undo did what they wanted.
+    type S = { id: number; name: string; raci: Record<string, string> };
+    const { result, rows, setRows } = mountRows<S>([{ id: 1, name: "Ada", raci: { m1: "R" } }]);
+
+    act(() => {
+      result.current.captureFieldRows<S>({
+        setter: setRows,
+        kind: "bulk.edit",
+        entityKey: "stakeholder",
+        edits: [{ id: 1, before: { raci: { m1: "R" } }, after: { raci: { m1: "A" } } }],
+      });
+      setRows((prev) => prev.map((r) => ({ ...r, raci: { m1: "A" } })));
+    });
+    act(() => { setRows((prev) => prev.map((r) => ({ ...r, raci: { ...r.raci, m2: "I" } }))); });
+    act(() => { result.current.undo(); });
+    act(() => { result.current.redo(); });
+
+    expect(rows()[0].raci).toEqual({ m1: "A", m2: "I" });
+  });
+
+  it("keeps a concurrent assigneeEmail refresh when a bulk assignee edit is undone", () => {
+    // The §180 ⟺ §178 interaction, and the ONLY thing that pins it. TASK_UNDO_GROUPS
+    // carries ["assignee","assigneeEmail","resourceId"], so since §180 a bulk
+    // ASSIGNEE edit drags `assigneeEmail` into the patch with the SAME value on
+    // both ends. `use-bulk-operations.ts`'s bulk-inquiry email refresh writes that
+    // field between the edit and the undo, and a wholesale spread would revert it
+    // — §180 would have introduced a data-loss path on a field that is NOT
+    // write-through and therefore not protected by the preserve list.
+    //
+    // It does not, because `mergeFieldValue` resolves a key both ends agree on to
+    // the LIVE value. That is the merge's second short-circuit, so this test dies
+    // if that short-circuit is ever "simplified" to return the target.
+    type T2 = { id: number; assignee: string; assigneeEmail: string; resourceId: number | null };
+    const { result, rows, setRows } = mountRows<T2>([
+      { id: 1, assignee: "Ada", assigneeEmail: "stale@example.com", resourceId: null },
+    ]);
+
+    act(() => {
+      result.current.captureFieldRows<T2>({
+        setter: setRows,
+        kind: "bulk.edit",
+        entityKey: "task",
+        edits: [
+          {
+            id: 1,
+            before: { assignee: "Ada", assigneeEmail: "stale@example.com", resourceId: null },
+            after: { assignee: "Bo", assigneeEmail: "stale@example.com", resourceId: null },
+          },
+        ],
+      });
+      setRows((prev) => prev.map((r) => ({ ...r, assignee: "Bo" })));
+    });
+
+    act(() => {
+      setRows((prev) => prev.map((r) => ({ ...r, assigneeEmail: "fresh@example.com" })));
+    });
+    act(() => { result.current.undo(); });
+
+    expect(rows()[0].assignee).toBe("Ada");
+    expect(rows()[0].assigneeEmail).toBe("fresh@example.com");
+  });
 });
