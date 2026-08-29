@@ -128,4 +128,39 @@ describe("LocalFileBackend load() import diagnostics", () => {
     expect(be.lastImportUnterminatedQuote).toBe(false);
     expect(be.lastImportDroppedRows).toBe(0);
   });
+
+  // ★★ THE TWO QUOTE SIGNALS ARE INDEPENDENT, and DIRTY_CSV is the proof:
+  // its quote OPENS at a field start (legal) and is never closed, so the
+  // document is unterminated while carrying zero RFC 4180 violations. A reader
+  // who assumes one implies the other will mis-read both.
+  it("reports no malformed quotes for a file that is merely unterminated", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await loadDirty(be);
+    expect(be.lastImportMalformedQuotes).toBe(0);
+  });
+
+  it("publishes a malformed-quote count for a quote opening mid-field", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(
+      fakeHandle({ text: '# TASKS\r\nid,taskName,blockers\r\n7,a"b",\r\n' }),
+    );
+    await be.load();
+    expect(be.lastImportMalformedQuotes).toBeGreaterThan(0);
+    // ★ And the file is otherwise fine — so this is the signal firing on its
+    // own, not a by-product of the other two diagnostics.
+    expect(be.lastImportUnterminatedQuote).toBe(false);
+  });
+
+  it("clears the malformed-quote count on the next clean load", async () => {
+    const be = new LocalFileBackend("local-csv");
+    await be.setHandle(
+      fakeHandle({ text: '# TASKS\r\nid,taskName,blockers\r\n7,a"b",\r\n' }),
+    );
+    await be.load();
+    expect(be.lastImportMalformedQuotes).toBeGreaterThan(0);
+
+    await be.setHandle(fakeHandle({ text: "# TASKS\r\nid,taskName,blockers\r\n7,T7,\r\n" }));
+    await be.load();
+    expect(be.lastImportMalformedQuotes).toBe(0);
+  });
 });

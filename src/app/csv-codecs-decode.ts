@@ -128,6 +128,19 @@ export interface ImportDiag extends DocTruncationDiag {
    *  mid-row section switch is fixed. Rows there are ABSORBED into one giant
    *  cell rather than rejected, so `droppedRows` cannot see them. */
   unterminatedQuote?: boolean;
+  /** How many RFC 4180 quoting violations the scan saw — an opening quote not
+   *  at a field start, or a closing quote not followed by a delimiter.
+   *  ★★★ THIS IS MALFORMEDNESS, NOT SUSPICION, and the difference is what makes
+   *  it reportable. Whether a section marker was SWALLOWED by a quoted cell is
+   *  undecidable (§150): the swallowed and the legitimate case are
+   *  byte-identical, so a detector built on that question fires on correct
+   *  imports. This one is syntactic and local.
+   *  ★★ Distinct from `unterminatedQuote`, which is the whole-document
+   *  end-state: a file can be perfectly balanced overall and still carry
+   *  violations mid-document, so neither implies the other.
+   *  ★ CSV ONLY, exactly as `unterminatedQuote` is — `splitCsvSections` is the
+   *  sole writer and `markdownToWorkspace` never sets it. */
+  malformedQuotes?: number;
 }
 
 /**
@@ -169,7 +182,10 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // marker then switched `mode` MID-ROW — silently destroying every later row
   // in the section (open-followups §105). Do not "simplify" this back.
   const scan = splitCsvLines(csv);
-  if (diag) diag.unterminatedQuote = scan.unterminatedQuote;
+  if (diag) {
+    diag.unterminatedQuote = scan.unterminatedQuote;
+    diag.malformedQuotes = scan.malformedQuotes;
+  }
   // ★★★ AND YET: ON AN UNBALANCED QUOTE WE DELIBERATELY FALL BACK TO THE OLD
   // PHYSICAL SPLIT FOR ROUTING. Quote state in a quote-aware scan carries across
   // the WHOLE FILE, where the physical split reset it at every line — so ONE

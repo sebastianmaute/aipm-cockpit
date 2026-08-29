@@ -402,6 +402,25 @@ export interface StorageBackend {
    */
   lastImportUnterminatedQuote?: boolean;
   /**
+   * Optional: how many RFC 4180 quoting violations the LAST {@link load} saw
+   * while decoding a **CSV** import — an opening quote not at a field start, or
+   * a closing quote not followed by a delimiter.
+   *
+   * ★★★ IT REPORTS MALFORMEDNESS, NOT A SWALLOWED SECTION. Whether a `# SECTION`
+   * marker was absorbed into a quoted cell is UNDECIDABLE — the swallowed and
+   * the legitimate cases are byte-identical — so nothing here can claim it. What
+   * a non-zero value does say is that the file violates the format, which is a
+   * strictly weaker and actually checkable claim. Do not relabel it in the UI as
+   * "a section may have been lost".
+   * ★★ Non-zero is a real signal precisely because `csvEscape` wraps and doubles:
+   * no file this app writes can produce one. A property in
+   * `codec-roundtrip.property.test.ts` states that as a law over the encoder.
+   * ★ CSV ONLY, like `lastImportUnterminatedQuote` above and unlike
+   * `lastImportDroppedRows`. Verify the sole writer (assignment form):
+   * `grep -rn "diag\.malformedQuotes =" src/app`.
+   */
+  lastImportMalformedQuotes?: number;
+  /**
    * Optional: what the LAST {@link load} silently discarded to stay inside the
    * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an
    * upper bound — see DocTruncationDiag); `blocks` counts blocks past

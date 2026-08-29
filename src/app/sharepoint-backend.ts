@@ -41,6 +41,8 @@ export class SharePointBackend implements StorageBackend {
   lastImportDroppedRows = 0;
   /** Whether the most recent CSV load() hit an unterminated quote (false for JSON). */
   lastImportUnterminatedQuote = false;
+  /** ★ CSV ONLY, like the field above. Malformedness, not a swallowed section. */
+  lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private location: SpFileLocation;
@@ -108,6 +110,7 @@ export class SharePointBackend implements StorageBackend {
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
     this.lastImportUnterminatedQuote = false;
+    this.lastImportMalformedQuotes = 0;
     try {
       const token = await this.getToken();
       const res = await fetch(graphUrlFor(this.location), {
@@ -133,6 +136,7 @@ export class SharePointBackend implements StorageBackend {
         const ws = csvToWorkspace(csv, diag);
         this.lastImportDroppedRows = diag.droppedRows;
         this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
+        this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
         return ws;
       }
       // Validate + migrate like every other JSON backend (was a raw cast that

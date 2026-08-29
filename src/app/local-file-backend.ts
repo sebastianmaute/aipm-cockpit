@@ -44,6 +44,11 @@ export class LocalFileBackend implements StorageBackend {
    * does not itself match: `grep -rn "diag\.unterminatedQuote =" src/app`.
    */
   lastImportUnterminatedQuote = false;
+
+  /** ★ CSV ONLY, like `lastImportUnterminatedQuote`. Counts RFC 4180 quoting
+   *  violations, NOT a swallowed section marker -- that question is undecidable
+   *  (see the field docs on StorageBackend). */
+  lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private readonly idbKey: string;
@@ -159,6 +164,7 @@ export class LocalFileBackend implements StorageBackend {
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
     this.lastImportUnterminatedQuote = false;
+    this.lastImportMalformedQuotes = 0;
     try {
       const handle = await this.getHandle();
       if (!handle) throw new StorageNotReadyError("local-file-not-picked");
@@ -172,6 +178,7 @@ export class LocalFileBackend implements StorageBackend {
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
       this.lastImportDroppedRows = diag.droppedRows;
       this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
+      this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
       return ws;
     } finally {
       this.lastLoadTruncation = {
