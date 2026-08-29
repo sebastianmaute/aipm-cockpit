@@ -387,7 +387,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit });
 
   // Reference-data (roles/disciplines/grades) CRUD extracted to use-reference-data.ts.
-  const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate });
+  const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
 
   // Resource-directory CRUD (create/edit/delete/bulk/import) extracted to use-resource-directory.ts.
   const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate, allowDestructiveSave: args.allowDestructiveSave });

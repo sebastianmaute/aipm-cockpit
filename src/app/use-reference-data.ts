@@ -52,6 +52,9 @@ export interface UseReferenceDataArgs {
     next: object,
     ...args: (string | number)[]
   ) => void;
+  /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
+   *  supply none. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useReferenceData(args: UseReferenceDataArgs) {
@@ -63,6 +66,8 @@ export function useReferenceData(args: UseReferenceDataArgs) {
   useEffect(() => { logActivityRef.current = args.logActivity; }, [args.logActivity]);
   const captureCompositeRef = useRef(args.captureComposite);
   useEffect(() => { captureCompositeRef.current = args.captureComposite; }, [args.captureComposite]);
+  const allowDestructiveRef = useRef(args.allowDestructiveSave);
+  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
 
   // ── moved verbatim from use-resource-planner.ts ──
 
@@ -125,6 +130,7 @@ export function useReferenceData(args: UseReferenceDataArgs) {
           ],
         });
         logActivityRef.current("role.deleted", id, `${removed.disciplineId}/${removed.gradeId}`);
+        allowDestructiveRef.current?.();
       }
     },
     [roles, resources, setRoles, setResources],

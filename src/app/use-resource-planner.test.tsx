@@ -1490,6 +1490,9 @@ describe("useResourcePlanner", () => {
     id, firstName, lastName: "Test", roleId: null,
     utilizationMode: "percent", utilization: {},
   });
+  const mkRole = (id: number): Role => ({
+    id, disciplineId: 1, gradeId: 1, internalRate: 0, externalRate: 0,
+  });
 
   describe("useResourceDirectory — deletes arm the destructive-save bypass", () => {
     it("handleBulkDeleteResources arms once when it removed at least one", () => {
@@ -1522,6 +1525,29 @@ describe("useResourcePlanner", () => {
       // POSITIVE CONTROL
       const id = result.current.workspace.resources[0]!.id;
       act(() => { result.current.planner.handleDeleteResource(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe("useReferenceData — role delete arms the destructive-save bypass", () => {
+    it("handleDeleteRole arms once for a role that exists", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setRoles([mkRole(1)]); });
+      const id = result.current.workspace.roles[0]!.id;
+      act(() => { result.current.planner.handleDeleteRole(id); });
+      expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    });
+
+    it("handleDeleteRole does NOT arm for an id that does not exist", () => {
+      const allowDestructiveSave = vi.fn();
+      const { result } = renderPlanner({ allowDestructiveSave });
+      act(() => { result.current.workspace.setRoles([mkRole(1)]); });
+      act(() => { result.current.planner.handleDeleteRole(999_999); });
+      expect(allowDestructiveSave).not.toHaveBeenCalled();
+      // POSITIVE CONTROL
+      const id = result.current.workspace.roles[0]!.id;
+      act(() => { result.current.planner.handleDeleteRole(id); });
       expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
     });
   });
