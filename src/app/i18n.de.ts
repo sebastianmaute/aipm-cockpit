@@ -3160,6 +3160,8 @@ export const de: Record<TranslationKey, string> = {
   rolesGradeHint: "Erfahrungsstufe für den Mischsatz.",
   rolesInternalRateHint: "Interner Stundensatz (EUR).",
   rolesExternalRateHint: "Externer Stundensatz (EUR).",
+  rolesInternalRateDayHint: "Interner Tagessatz (EUR). Wird aus dem Stundensatz berechnet, sofern nicht Tage als Eingabebasis gewählt ist.",
+  rolesExternalRateDayHint: "Externer Tagessatz bzw. Abrechnungssatz (EUR). Wird aus dem Stundensatz berechnet, sofern nicht Tage als Eingabebasis gewählt ist.",
   rolesRateBasisHint: "Geben Sie entweder den Tagessatz oder den Stundensatz ein — der jeweils andere wird aus Ihren Arbeitsstunden pro Tag berechnet und gesperrt. Verwenden Sie den Schalter Stunden/Tage, um zu wählen, welchen Sie eingeben.",
   rolesRateBasis: "Eingabe in",
   rolesBasisHours: "Stunden",

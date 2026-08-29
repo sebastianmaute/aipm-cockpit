@@ -261,13 +261,13 @@ export function RolesEditor({
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.internalDay, minWidth: ROLES_COL_WIDTHS.internalDay }}>
                   <span className="inline-flex items-center justify-end gap-1">
                     {t(lang, "rolesInternalRateDay")}
-                    <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
+                    <InfoTooltip text={t(lang, "rolesInternalRateDayHint")} />
                   </span>
                 </th>
                 <th className="relative px-3 py-2 text-right font-medium" style={{ width: ROLES_COL_WIDTHS.externalDay, minWidth: ROLES_COL_WIDTHS.externalDay }}>
                   <span className="inline-flex items-center justify-end gap-1">
                     {t(lang, "rolesExternalRateDay")}
-                    <InfoTooltip text={t(lang, "rolesRateBasisHint")} />
+                    <InfoTooltip text={t(lang, "rolesExternalRateDayHint")} />
                   </span>
                 </th>
                 <th className="relative px-3 py-2 font-medium" style={{ width: ROLES_COL_WIDTHS.basis, minWidth: ROLES_COL_WIDTHS.basis }}>
