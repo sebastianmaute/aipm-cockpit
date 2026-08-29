@@ -468,10 +468,24 @@ describe("useDocumentAssets — rename and remove", () => {
   // every render, so it is NOT in `remove`'s dep list — `remove` reads a mirror
   // synced by an effect instead. A missing sync effect keeps this hook arming
   // the callback captured at MOUNT, which for a long-lived pane is a stale
-  // closure over a torn-down storage hook. `setAssets` is hoisted stable
-  // precisely so `remove` does NOT re-mint here: with an inline `vi.fn()` a
-  // fresh `commitAssets` would re-mint `remove` each render and the test would
-  // pass with the sync effect deleted.
+  // closure over a torn-down storage hook.
+  // ★★ WHAT ACTUALLY KILLS THAT MUTANT is `useRef(allowDestructiveSave)`, which
+  // binds its INITIAL argument on the first render and ignores every later one.
+  // Delete the sync effect and `.current` is pinned to `first` for the life of
+  // the hook, so `expect(first).not.toHaveBeenCalled()` fails — regardless of
+  // how often `remove` is re-minted.
+  // ★★★ AN EARLIER REVISION OF THIS COMMENT CLAIMED THE OPPOSITE, and it is the
+  // "comment asserting a guarantee the code does not provide" class: it said
+  // `setAssets` is hoisted stable "precisely so `remove` does NOT re-mint here:
+  // with an inline `vi.fn()` a fresh `commitAssets` would re-mint `remove` each
+  // render and the test would pass with the sync effect deleted." MEASURED both
+  // ways, not reasoned — sync effect deleted, once with the hoisted `setAssets`
+  // and once with an inline `vi.fn()` in the render callback: the test is RED in
+  // BOTH, for the `useRef` reason above. The test is sound; that justification
+  // was not, and a false one reads as coverage and stops the next audit.
+  // ★ So the hoisted `setAssets` is hygiene here, not the killer. Keep it — a
+  // re-minting dep is noise in a test about a stale closure — but do not cite it
+  // as what makes this mutant die.
   it("reads the LIVE bypass, not the one captured when `remove` was minted", () => {
     const first = vi.fn();
     const second = vi.fn();
