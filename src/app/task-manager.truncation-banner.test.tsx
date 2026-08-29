@@ -182,6 +182,31 @@ describe("task-manager → truncation banner mount", () => {
     expect(within(banner() as HTMLElement).getByText(/2 kinds of saved data could not be read/i)).toBeInTheDocument();
   }, 45000);
 
+  it("a SECOND malformed-quote load re-shows a dismissed banner, at the same violation count", async () => {
+    // ★★★ THE THIRD CAUSE HAS NEITHER A COUNTS OBJECT NOR THE DECODE NONCE.
+    // On the import path `truncation` is null and `decodeFailureNonce` never
+    // moves, so a reconcile keyed on those two cannot see this load at all:
+    // file A imports with bad quoting → banner → dismiss → file B ALSO imports
+    // with bad quoting, and B's banner arrives already dismissed while saving is
+    // paused on B and nothing on screen says so. This is the SAME defect the
+    // decode test above records, one cause later, reintroduced by adding a third
+    // cause to `loadWasIncomplete` without extending the reconcile key.
+    // ★★ THE COUNT IS HELD AT 4 ACROSS BOTH LOADS, for the same reason it is
+    // held at 2 above: keying on `malformedQuoteCount` would satisfy the premise
+    // while failing exactly here, and two files breaking the same NUMBER of
+    // quoting rules is the commonest real shape. The nonce is what moves.
+    override.value = { ...override.value, truncation: null, decodeFailureCount: 0, decodeFailureNonce: 0, malformedQuoteCount: 4, malformedQuotesNonce: 1, loadWasIncomplete: true };
+    const { rerender } = await mountApp();
+    fireEvent.click(within(banner() as HTMLElement).getByRole("button", { name: /dismiss/i }));
+    await waitFor(() => expect(banner()).toBeNull());
+
+    override.value = { ...override.value, malformedQuotesNonce: 2 };
+    rerender(<TaskManager />);
+
+    await waitFor(() => expect(banner()).not.toBeNull());
+    expect(within(banner() as HTMLElement).getByText(/breaks CSV quoting rules in 4 place/i)).toBeInTheDocument();
+  }, 45000);
+
   it("names how many kinds of data were unreadable in the save-anyway dialog", async () => {
     // ★★★ THE DECODE CAUSE HAS NO `truncation` COUNTS, so the banner's count
     // line and — the part that matters — the confirm dialog would name NO

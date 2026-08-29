@@ -616,11 +616,14 @@ describe("DOM-free guard", () => {
     // scanning guard needs proof its scan ran.
     // ★★★ The DOM-free set is the sample generator's IMPORT GRAPH, resolved here,
     // NOT a list of path patterns. It used to be the latter, and that was the
-    // defect: the filter matched 18 of the 76 files the generator actually loads,
-    // and both times it was widened (workspace.ts/storage.ts, then
+    // defect: the filter matched 18 files while the generator loads FAR more, and
+    // both times it was widened (workspace.ts/storage.ts, then
     // rich-text-plain/narrative-html) it was because a reviewer happened to notice
     // one specific file. `templates.ts` — the file AGENTS.md now warns a reader not
-    // to add a DOMPurify import to — was among the 58 it missed.
+    // to add a DOMPurify import to — was among the ones it missed.
+    // ★ The 18 is a historical fact about the deleted filter and does not rot.
+    // The graph size does, which is why no second number appears here — see the
+    // floor's own comment below.
     //
     // ★★ Resolving the graph means the guard covers whatever the generator loads
     // TODAY, including files nobody thought to name. `.tsx` is followed too: a
@@ -698,13 +701,47 @@ describe("DOM-free guard", () => {
       }
     }
     expect(offenders).toEqual([]);
-    // ★★ The graph is 76 files today. A floor well above the old name-filter's 18
-    // proves the RESOLVER worked, not merely that a walk ran: if the entry point
-    // moves or `resolveSpec` stops resolving, this collapses to 1 and fails.
+    // ★★ A FLOOR, DELIBERATELY NOT A COUNT. This line used to say "the graph is
+    // 76 files today"; nothing printed that number and every import added
+    // anywhere in the graph moves it, so it rotted silently — a probe on
+    // 2026-08-29 printed 94. What the floor proves is that the RESOLVER worked rather than
+    // that a walk merely ran: if the entry point moves or `resolveSpec` stops
+    // resolving, `scanned` collapses to 1 and this fails. It is set well above
+    // the old name-filter's 18 for exactly that reason.
+    // ★ To see today's size, print `graph.size` from a scratch copy of this
+    // test — do not restore a number here.
     expect(scanned).toBeGreaterThan(50);
     // ★ And the file the old filter missed must actually be in the scanned set —
     // it is the one AGENTS.md warns a reader away from.
     expect([...graph].some((f) => f.endsWith("/src/app/templates.ts"))).toBe(true);
+  });
+
+  it("keeps the DOMPurify-bearing sanitiser out of templates.ts specifically", () => {
+    // ★★★ THE GUARD ABOVE DOES NOT COVER THIS, AND THREE COMMENTS CLAIMED IT DID.
+    // Its offender predicate names `rich-text-projection` and `ai-rich-text` and
+    // nothing else, so `import { sanitizeRichHtml } from "./sanitize-html"` in
+    // templates.ts passed it green — measured 2026-08-28 by adding exactly that
+    // import and running this file: 81 passed. The prohibition was a bare
+    // convention with no enforcement anywhere, while the register, AGENTS' rich-text
+    // doc and the sanitizeSeedTask comment all cited "the guard" as the reason it
+    // was safe. That is the false-coverage shape: a claimed guard stops the audit.
+    //
+    // ★★ It CANNOT be folded into the graph-wide sweep, which is why it is its own
+    // test. `sanitize-html` is legitimately imported BY graph members — `html-start.ts`
+    // takes RICH_ALLOWED_TAGS from it and `note-log.ts` calls it — so a blanket ban
+    // across the graph would fail on correct code. The DOM-free contract is per
+    // module, not per graph, and templates.ts is the module that carries it.
+    //
+    // ★ Deliberately NOT justified by "it would throw under bare node": that
+    // rationale is false (the generator installs JSDOM globals before its dynamic
+    // import, and sanitize-html is already in the graph). The reason is that the
+    // seed sanitizers are the DOM-free layer by contract, with the allow-list
+    // running at apply time in template-apply.ts instead. See open-followups §151.
+    const src = readFileSync(join(import.meta.dirname, "templates.ts"), "utf8")
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(src).not.toMatch(/dompurify/i);
+    expect(src).not.toMatch(/["'`][^"'`]*sanitize-html[^"'`]*["'`]/);
   });
 });
 

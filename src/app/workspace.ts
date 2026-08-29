@@ -28,6 +28,10 @@ import {
   sanitizeStakeholder,
   sanitizeSteeringCommittee,
 } from "./sanitize";
+// ★ TYPE-ONLY, and from the zero-import LEAF rather than the codec barrel: the
+// barrel pulls the whole decode layer, which imports THIS file. `csv-codecs-sections.ts`
+// imports nothing, so this adds no runtime edge and no cycle (cf. §92).
+import type { ImportSectionKey } from "./csv-codecs-sections";
 import { sanitizeTimelogLinks } from "./timelog-sanitize";
 import type { TimelogLinks } from "./timelog-types";
 import { sanitizeKnowledgeItems, type KnowledgeItem } from "./document-link";
@@ -388,6 +392,23 @@ export interface StorageBackend {
    */
   lastImportDroppedRows?: number;
   /**
+   * Optional: which SECTIONS the rows counted by
+   * {@link StorageBackend.lastImportDroppedRows} came from, when the backend
+   * can tell (CSV and Markdown both can).
+   *
+   * ★★★ THE TOTAL ALONE CANNOT ANSWER THE USER'S QUESTION. `onOpenStorageFile`
+   * applies tasks + RAID and DISCARDS every other slice, so "3 rows dropped"
+   * leaves them unable to tell whether the loss hit what they just imported or
+   * a section that was thrown away regardless — two losses, two remedies.
+   * ★★ ABSENT, not zero-filled, when nothing was dropped: a section missing
+   * from the file is never decoded, so a `{tasks: 0}` would assert an
+   * inspection that never happened. A reader must treat a missing key as "not
+   * known to have lost anything", never as "verified clean".
+   * ★ Derived from the same increment as the total (`countDroppedRow` is the
+   * single writer of both), so the two cannot disagree.
+   */
+  lastImportDroppedBySection?: Partial<Record<ImportSectionKey, number>>;
+  /**
    * Optional: whether the LAST {@link load} hit an unterminated quote while
    * decoding a **CSV** import. Distinct from
    * {@link StorageBackend.lastImportDroppedRows} — a dropped row was malformed
@@ -401,6 +422,30 @@ export interface StorageBackend {
    * Verify (assignment form): `grep -rn "diag\.unterminatedQuote =" src/app`.
    */
   lastImportUnterminatedQuote?: boolean;
+  /**
+   * Optional: how many RFC 4180 quoting violations the LAST {@link load} saw
+   * while decoding a **CSV** import — an opening quote not at a field start, or
+   * a closing quote not followed by a delimiter.
+   *
+   * ★★★ IT REPORTS MALFORMEDNESS, NOT A SWALLOWED SECTION. Whether a `# SECTION`
+   * marker was absorbed into a quoted cell is UNDECIDABLE — the swallowed and
+   * the legitimate cases are byte-identical — so nothing here can claim it. What
+   * a non-zero value does say is that the file violates the format, which is a
+   * strictly weaker and actually checkable claim. Do not relabel it in the UI as
+   * "a section may have been lost".
+   * ★★ Non-zero is a real signal precisely because `csvEscape` wraps and doubles:
+   * no file this app writes can produce one. ★ THE PROPERTY BACKING THAT COVERS
+   * ONE SLICE, NOT THE ENCODER — `codec-roundtrip.property.test.ts` encodes
+   * `workspaceToCsv({ ...emptyWorkspace(), tasks })`, so RAID, milestones,
+   * changes and the rich-text fields never meet the hostile alphabet through it.
+   * Every slice routes through the same `csvEscape`, so the reasoning carries;
+   * the LAW does not, and an earlier revision of this comment claimed it did.
+   * Widen the arbitrary before restoring the stronger wording.
+   * ★ CSV ONLY, like `lastImportUnterminatedQuote` above and unlike
+   * `lastImportDroppedRows`. Verify the sole writer (assignment form):
+   * `grep -rn "diag\.malformedQuotes =" src/app`.
+   */
+  lastImportMalformedQuotes?: number;
   /**
    * Optional: what the LAST {@link load} silently discarded to stay inside the
    * document caps. `entries` counts raw array entries past MAX_DOCUMENTS (an

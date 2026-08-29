@@ -441,7 +441,7 @@ function TaskManagerInner() {
   const {
     storageDescription, storageReady, workspaceLoaded, onPickStorageFile, onGrantWriteAccess,
     onOpenStorageFile, onRequestStorageSwitch, reloadCurrentProject, allowDestructiveSave,
-    truncation, decodeFailureCount, decodeFailureNonce, loadWasIncomplete, allowIncompleteSave,
+    truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave,
     switchToProject, createProject, createDemoProject, loadProjectFromFile,
     switchToTursoProject, createTursoProject, migrateCurrentProjectToTurso, archiveTursoProject,
     restoreTursoProject, hardDeleteTursoProject, tursoProjectId,
@@ -463,9 +463,22 @@ function TaskManagerInner() {
   // remount-swallow shape, where a fresh mount sees `value === seed` and drops a
   // pending report.
   const [decodeNonceSeen, setDecodeNonceSeen] = useState(0);
-  if (truncation !== truncationSeen || decodeFailureNonce !== decodeNonceSeen) {
+  // ★★★ AND ON THE MALFORMED NONCE, for the THIRD cause and by the identical
+  // argument: on the import path `truncation` is null and `decodeFailureNonce`
+  // never moves, so a key made of those two alone cannot see a malformed-only
+  // load at all — project #2's banner arrives already dismissed with saving
+  // paused. The comment above records this exact defect being fixed once for the
+  // decode cause; adding a third cause to `loadWasIncomplete` without extending
+  // this key reintroduced it.
+  const [malformedNonceSeen, setMalformedNonceSeen] = useState(0);
+  if (
+    truncation !== truncationSeen ||
+    decodeFailureNonce !== decodeNonceSeen ||
+    malformedQuotesNonce !== malformedNonceSeen
+  ) {
     setTruncationSeen(truncation);
     setDecodeNonceSeen(decodeFailureNonce);
+    setMalformedNonceSeen(malformedQuotesNonce);
     setTruncationBannerDismissed(false);
   }
 
@@ -2488,7 +2501,7 @@ function TaskManagerInner() {
         <StorageBanner kind={storageError.kind} lang={lang} onOpenSettings={() => setActiveTab("settings")} onDismiss={() => setStorageErrorDismissed(true)} />
       )}
       {!isPopout && loadWasIncomplete && (
-        <TruncatedLoadBanner lang={lang} truncation={truncation} decodeFailureCount={decodeFailureCount} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
+        <TruncatedLoadBanner lang={lang} truncation={truncation} decodeFailureCount={decodeFailureCount} malformedQuoteCount={malformedQuoteCount} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
     </>
   );

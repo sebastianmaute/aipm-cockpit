@@ -1,9 +1,17 @@
 import type { Workspace } from "./workspace";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import { sanitizeSeedTask } from "./templates";
-import type { Task, TaskDependency } from "./types";
+import type {
+  ChangeItem,
+  NoteLogEntry,
+  RaidItem,
+  Task,
+  TaskDependency,
+} from "./types";
 import { resourceDisplayName } from "./resource-foundation";
 import { mintIds, type MintKind } from "./id-mint-session";
+import { sanitizeRichHtml } from "./sanitize-html";
+import { htmlPlainProjection } from "./rich-text-plain";
 
 export interface ApplyTemplateOptions {
   includeSeed: boolean;
@@ -50,6 +58,83 @@ function remapDeps(
       return t !== undefined ? { ...d, taskId: t } : null;
     })
     .filter((d): d is TaskDependency => d !== null);
+}
+
+/**
+ * ★★ `templates.ts` cannot run this allow-list. That module sits inside
+ * `scripts/generate-sample-workspace.ts`'s import graph, whose DOM-free
+ * contract (enforced by `rich-text-plain.test.ts`) bans the DOMPurify-bearing
+ * modules — so a captured seed rich field only ever gets `sanitizeRichText`'s
+ * upgrade there, never an allow-list pass. `template-apply.ts` sits outside
+ * that graph, so the allow-list runs here, at apply time, on every seed row
+ * regardless of whether it reached `applyTemplate` via the storage load path
+ * (already run through `templates.ts`'s per-item sanitizers) or via a
+ * same-session save-then-apply, where `templateFromWorkspace` puts live
+ * entity objects into the seed BY REFERENCE and no sanitizer has touched them
+ * yet (the same hazard `sanitizeSeedTask` below is already guarding against).
+ *
+ * ★★★ `sanitizeRichHtml` is the SAME 21-tag list `RICH_SINK` classifies
+ * against (see the `description` comment in `sanitizeSeedTask`, `templates.ts`).
+ * That agreement between classifier and sink is what makes this safe — NOT the
+ * function's name. A narrower list here would destroy a captured heading that
+ * the classifier had already accepted as live markup.
+ */
+function allowListNoteLog(noteLog: NoteLogEntry[] | undefined): NoteLogEntry[] | undefined {
+  // ★★ `text` MUST be re-derived, not carried. The allow-list can remove markup
+  // whose inner text the projection had already captured — `<p>ok</p><script>
+  // alert(1)</script>` projects to "ok alert(1)", and keeping that beside an
+  // allow-listed `<p>ok</p>` stores a `text` that describes markup no longer
+  // present. `NoteLogEntry.text` feeds CSV/MD export, `cellText`, DOCX and
+  // search, so the stale projection is what a reader actually sees.
+  // ★ Same rule `sanitizeSeedNoteLog` states on the way in: the html is the
+  // source of truth and `text` is derived from it, at every boundary that
+  // rewrites the html.
+  return noteLog?.map((n) => {
+    const html = sanitizeRichHtml(n.html);
+    return { ...n, html, text: htmlPlainProjection(html) };
+  });
+}
+
+/** Allow-lists the description + note-log rich fields every seed entity with a
+ *  note log shares (Task, RaidItem, ChangeItem — see docs/AGENTS/rich-text.md). */
+function allowListRich<T extends { description?: string; noteLog?: NoteLogEntry[] }>(
+  row: T,
+): T {
+  return {
+    ...row,
+    ...(row.description ? { description: sanitizeRichHtml(row.description) } : {}),
+    ...(row.noteLog ? { noteLog: allowListNoteLog(row.noteLog) } : {}),
+  };
+}
+
+/** RAID carries a SECOND rich field (`mitigation`) the shared shape above
+ *  doesn't cover — `allowListRich` handles `description` + `noteLog`, this
+ *  layers `mitigation` on top rather than widening the generic helper for one
+ *  caller. */
+function allowListRaid(row: RaidItem): RaidItem {
+  const base = allowListRich(row);
+  return row.mitigation ? { ...base, mitigation: sanitizeRichHtml(row.mitigation) } : base;
+}
+
+/** Changes carry THREE rich fields beyond the note log — `description` (the
+ *  shared helper), plus `impactDescription` and `resolutionNotes`. All three
+ *  reach the seed unsanitised the same way: `sanitizeChangeItem` upgrades them
+ *  through `sanitizeRichText` inside the DOM-free graph and cannot allow-list
+ *  them, and a same-session `templateFromWorkspace` puts live rows in by
+ *  reference so nothing has touched them at all.
+ *  ★★ Miss one and it is silent — a `<script>` in `resolutionNotes` survives
+ *  apply exactly as one in `description` would. */
+function allowListChange(row: ChangeItem): ChangeItem {
+  const base = allowListRich(row);
+  return {
+    ...base,
+    ...(row.impactDescription
+      ? { impactDescription: sanitizeRichHtml(row.impactDescription) }
+      : {}),
+    ...(row.resolutionNotes
+      ? { resolutionNotes: sanitizeRichHtml(row.resolutionNotes) }
+      : {}),
+  };
 }
 
 /**
@@ -197,20 +282,49 @@ export function applyTemplate(
   // ★★ This does MORE than reconcile the status/completedDate pair.
   //   `sanitizeSeedTask` rebuilds a task from a fixed field list, so it also
   //   drops `inquiriesSent`, `jiraKey`, `jiraIssueType`, `lastSyncedAt`,
-  //   `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks`
-  //   and `noteLog` outright. The captured `createdDate` is discarded too, but
+  //   `localModifiedAt`, `outlookEventId`, `healthOverride` and
+  //   `knowledgeLinks` outright. The captured `createdDate` is discarded too, but
   //   `migrateTask` backfills a replacement from `lastUpdateDate` — so the
   //   applied task still carries a `createdDate`, just not the one that was
-  //   captured. The load path already dropped all ten; this makes the two
+  //   captured. ★★ NINE, NOT TEN, AND `noteLog` IS NO LONGER AMONG THEM — it is
+  //   CARRIED as of §168, and allow-listed a dozen lines below in this very file.
+  //   Leaving it on this list contradicted the `allowListRich` docstring
+  //   underneath it. The load path already dropped all nine; this makes the two
   //   agree. It also stops a per-row external link being CLONED — two local
   //   tasks pointing at one Jira issue is not a template.
-  const seed = tpl.seed.tasks
+  let seed = tpl.seed.tasks
     ? {
         ...tpl.seed,
         tasks: tpl.seed.tasks
           .map(sanitizeSeedTask)
-          .filter((x): x is Task => x !== null),
+          .filter((x): x is Task => x !== null)
+          // ★★ The allow-list pass — see the docstring above `allowListRich`.
+          .map(allowListRich),
       }
     : tpl.seed;
+  // RAID has no equivalent single-item re-sanitizer exported from
+  // `templates.ts` for `applyTemplate` to run here, so this only layers the
+  // allow-list onto `description`/`mitigation`/`noteLog` — it does not
+  // re-validate the rest of the row.
+  if (seed.raid) {
+    seed = { ...seed, raid: seed.raid.map(allowListRaid) };
+  }
+  if (seed.changes) {
+    seed = { ...seed, changes: seed.changes.map(allowListChange) };
+  }
+  // ★★ Milestones carry NO note log but DO carry a rich `description` —
+  // `sanitizeMilestone` upgrades it through the same `sanitizeRichText`/
+  // `RICH_SINK` pair inside the DOM-free graph and cannot allow-list it, so it
+  // is the fourth seeded ENTITY and belongs here exactly as the other three do.
+  // ★ ENTITY, not field — it is the tenth allow-listed rich FIELD (and the
+  // seventh that is not a note log). The two counts differ because three
+  // entities carry more than one rich field each, and an earlier revision of
+  // this line said "fourth seeded rich field", which contradicts §36(a)'s table. It was missed on the first cut because the scope was framed as "the
+  // note-log entities", which is a property of the CARRY (§168) and not of this
+  // allow-list — the two have different footprints and the entity list must be
+  // derived from "what is rich", never from "what has a note log".
+  if (seed.milestones) {
+    seed = { ...seed, milestones: seed.milestones.map(allowListRich) };
+  }
   return appendSeed(base, remapSeed(ws, seed));
 }

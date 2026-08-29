@@ -179,24 +179,41 @@ export function selectTopChanges(changes: readonly ChangeItem[], limit: number):
  * must carry the log across:
  *   `buildChangeFromObj` (CSV + Markdown + both Turso layouts), `jsonToWorkspace`,
  *   and the AI dispatcher's `updateChange`.
- * THREE build a row from scratch, so there is no stored log to lose:
- *   the dispatcher's `createChange` (a freshly minted id), `proposalToSeed`
- *   (a model-authored proposal), and `sanitizeSeed` (template import).
+ * TWO build a row from scratch, so there is no stored log to lose:
+ *   the dispatcher's `createChange` (a freshly minted id) and `proposalToSeed`
+ *   (a model-authored proposal).
+ * ONE has no STORED row but does have a CAPTURED one:
+ *   `sanitizeSeed` (template import). It re-attaches from the SEED's own log
+ *   rather than from a stored row — see the note below. It was in the
+ *   "nothing to lose" group until §168, and moving it is the whole of that fix.
  *
- * ★★ TWO of the safe three pass the sanitizer BY REFERENCE — into `buildList`
- * and `sanitizeArr` — so a call-shaped `sanitizeChangeItem(` grep sees FOUR of
- * the six and reports whatever list it produced as complete. Sweep the BARE
- * name instead:
+ * ★★ At least one site passes the sanitizer BY REFERENCE — `buildList` in
+ * `ai-project-proposal.ts` — so a call-shaped `sanitizeChangeItem(` grep
+ * under-reports and reads as complete. Sweep the BARE name instead:
  *   grep -rn sanitizeChangeItem src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
  * It also returns the imports, the declaration and every comment mentioning the
  * name — this docblock's own included, which is the grep matching itself.
  *
- * ★ Template import DOES drop a captured log, deliberately: `templateFromWorkspace`
- * assigns `seed.changes = ws.changes` verbatim, so a template captured from a live
- * project carries real logs. Tasks and RAID drop theirs the same way
- * (`sanitizeSeedTask` / `sanitizeSeedRaidItem` name no `noteLog`), and it must
+ * ★★★ TEMPLATE IMPORT NOW CARRIES A CAPTURED LOG — AND THIS PARAGRAPH USED TO
+ * FORBID THAT, WHICH IS WHY IT IS SPELLED OUT RATHER THAN QUIETLY REPLACED. It
+ * read: "Template import DOES drop a captured log, deliberately … and it must
  * stay that way here: that path runs no rich pass, so a log re-attached there
- * would be stored unsanitized.
+ * would be stored unsanitized." Every clause of that is now false.
+ * `templateFromWorkspace` still assigns `seed.changes = ws.changes` verbatim, so
+ * a template captured from a live project still carries real logs — but
+ * `sanitizeSeedTask` and `sanitizeSeedRaidItem` DO name `noteLog` now, and the
+ * seed path DOES run a rich pass: `sanitizeSeedNoteLog` sanitizes each entry, and
+ * `template-apply.ts` allow-lists the field again at apply time.
+ * ★★★ THE DANGER WAS NOT THE STALENESS, IT WAS THE DIRECTION. This module is the
+ * canonical `withStoredNoteLog` reference `docs/AGENTS/rich-text.md` points
+ * readers at, so the old wording told anyone auditing the carry that §168's fix
+ * was an unsanitized re-attach violating a stated invariant — an instruction to
+ * revert it and silently restore the data loss. A stale comment that merely
+ * describes the past is noise; one that forbids the present is a trap.
+ * ★★ The CHANGES route is still the odd one out and still must not move:
+ * `sanitizeSeedChangeItem` wraps the canonical `sanitizeChangeItem` rather than
+ * widening it, because the load and AI paths that share it must NOT gain a
+ * note-log carry. That helper's own docblock carries the reasoning.
  *
  * ★ RAID needs none of this at its decode or JSON boundaries because neither
  * calls `sanitizeRaidItem`; changes call theirs, which is why this helper exists

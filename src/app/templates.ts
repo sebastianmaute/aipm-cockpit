@@ -23,7 +23,7 @@ import {
   sanitizeTaskName,
   TEXTAREA_MAX,
 } from "./sanitize";
-import { sanitizeRichText } from "./rich-text-plain";
+import { htmlPlainProjection, sanitizeRichText } from "./rich-text-plain";
 import { RICH_SINK } from "./html-start";
 import {
   DEPENDENCY_TYPES,
@@ -32,6 +32,7 @@ import {
   type ChangeItem,
   type DependencyType,
   type Milestone,
+  type NoteLogEntry,
   type RaidCategory,
   type RaidItem,
   type RaidStatus,
@@ -104,6 +105,44 @@ const RAID_STATUS_SET = new Set<RaidStatus>([
 const RISK_SCALES = new Set([1, 2, 3, 4, 5]);
 
 /**
+ * The DOM-free seed carry for a captured note log.
+ *
+ * ★★ Same posture as `description` below — `sanitizeRichText` against
+ * `RICH_SINK`, no DOMPurify pass. This file is in the sample generator's import
+ * graph, and its DOM-free contract is deliberate; the allow-list runs at APPLY
+ * time in `template-apply.ts`, which is outside that graph.
+ *
+ * ★★★ DO NOT "fix" this by re-attaching the captured log after sanitizing. That
+ * stores it un-sanitised. The whole point of the carry is that every entry goes
+ * through the same boundary the description does.
+ *
+ * ★ `text` is DERIVED, never carried. A captured projection can disagree with
+ * its html — a hand-edited template, or a sink change since capture — and the
+ * html is the source of truth.
+ */
+function sanitizeSeedNoteLog(raw: unknown): NoteLogEntry[] | undefined {
+  if (!Array.isArray(raw)) return undefined;
+  const out: NoteLogEntry[] = [];
+  for (const item of raw) {
+    if (!isPlainObject(item)) continue;
+    const id = fkIdOrUndefined(item.id);
+    if (id === undefined) continue;
+    const timestamp = nonEmptyStr(item.timestamp);
+    if (!timestamp) continue;
+    const html = sanitizeRichText(item.html, TEXTAREA_MAX, RICH_SINK);
+    const entry: NoteLogEntry = { id, timestamp, html, text: htmlPlainProjection(html) };
+    const authorResourceId = fkIdOrUndefined(item.authorResourceId);
+    if (authorResourceId !== undefined) entry.authorResourceId = authorResourceId;
+    const authorName = nonEmptyStr(item.authorName);
+    if (authorName) entry.authorName = authorName;
+    const editedAt = nonEmptyStr(item.editedAt);
+    if (editedAt) entry.editedAt = editedAt;
+    out.push(entry);
+  }
+  return out.length ? out : undefined;
+}
+
+/**
  * Minimal single-item Task sanitizer for template seed content. The workspace
  * loader (`jsonToWorkspace`) casts the `tasks` array raw, so there is no
  * canonical per-item Task sanitizer to reuse; this validates the required
@@ -137,14 +176,23 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
     // plainToHtml would escape it into visible tags (AGENTS.md, rich-text bullet).
     // ★★★ And NOT `sanitizeAiRichText`, however much this looks like the same
     // boundary: THIS FILE IS IN `scripts/generate-sample-workspace.ts`'s import
-    // graph, so a DOMPurify call here throws under bare node and jsonToWorkspace's
-    // catch-all turns that into an EMPTY workspace which then "successfully"
-    // writes near-empty sample files. Template import therefore gets the upgrade
-    // but NO allow-list — the same DOM-free posture as the codec load paths in
-    // open-followups.md §28 — but recorded as its own item in §36(a), because §28
-    // covers the CODEC load paths and not this boundary. The guard in
-    // rich-text-plain.test.ts bans the import so this cannot be "fixed" by
-    // accident.
+    // graph, and the seed sanitizers are that graph's DOM-free layer by contract.
+    // ★★ Enforced by `keeps the DOMPurify-bearing sanitiser out of templates.ts
+    // specifically` in rich-text-plain.test.ts — NOT by the graph-wide sweep
+    // beside it, whose predicate names only rich-text-projection and
+    // ai-rich-text. That sweep passed green on a `./sanitize-html` import here
+    // (measured 2026-08-28), and three comments claimed otherwise.
+    // ★★★ THE REASON IS THE CONTRACT AND THE GUARD, NOT "it would throw under
+    // bare node" — that rationale is FALSE and this comment used to assert it.
+    // Measured 2026-08-28: the generator installs JSDOM globals BEFORE its
+    // dynamic `await import("../src/app/storage")`, so a DOMPurify call
+    // downstream has a DOM; and sanitize-html.ts — which imports dompurify — is
+    // ALREADY in that 92-file graph, via html-start.ts and again via
+    // note-log.ts. Neither leg survives. See open-followups.md §151.
+    // ★★ The allow-list DOES run, just not here: `template-apply.ts` is outside
+    // the graph and allow-lists every rich field on all three note-log entities
+    // at apply time (§36(a)). Do not read this DOM-free posture as "the seed is
+    // never allow-listed".
     // ★★ `||`, not `??`: a template carrying `description: ""` alongside a legacy
     // `notes` must fall back to the notes, and `??` only catches null/undefined.
     // ★★ The sink is the DESTINATION field's, never this file's. The value lands
@@ -202,6 +250,8 @@ export function sanitizeSeedTask(raw: unknown): Task | null {
         .filter((d): d is TaskDependency => d !== null)
     : [];
   if (deps.length) task.dependencies = deps;
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  if (noteLog) task.noteLog = noteLog;
   // `migrateTask` derives a valid workflow status for legacy/sparse seed
   // content; a present-and-valid status is left alone, EVEN when it
   // contradicts `completedDate` — its only status write is guarded on
@@ -272,16 +322,46 @@ function sanitizeSeedRaidItem(raw: unknown): RaidItem | null {
     const impact = sanitizeRiskScale(raw.impact);
     if (impact !== undefined) item.impact = impact;
   }
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  if (noteLog) item.noteLog = noteLog;
   return item;
 }
 
-function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
+/**
+ * ★★★ Changes route through the canonical `sanitizeChangeItem`, which
+ * deliberately DROPS `noteLog`: the load paths re-attach it from the STORED row
+ * via `withStoredNoteLog`, so a decoded or model-written change can never inject
+ * one. A template seed has no stored row, so the same re-attach happens here,
+ * from the seed's own captured log, through the same DOM-free boundary every
+ * other seed rich field uses.
+ *
+ * ★★★ DO NOT move this into `sanitizeChangeItem`. That would give every caller —
+ * the workspace load paths and the AI write path included — a note-log carry
+ * they must not have.
+ */
+function sanitizeSeedChangeItem(raw: unknown): ChangeItem | null {
+  const item = sanitizeChangeItem(raw);
+  if (!item) return null;
+  if (!isPlainObject(raw)) return item;
+  const noteLog = sanitizeSeedNoteLog(raw.noteLog);
+  return noteLog ? { ...item, noteLog } : item;
+}
+
+/** ★ Exported for TESTS only — no other module imports it, and its only caller
+ *  is `sanitizeTemplate` below (verify:
+ *  `grep -rnE "\bsanitizeSeed\b" src scripts e2e | grep -v "\.test\."`). The seed note-log
+ *  carry is wired per-route (tasks and RAID locally, changes through
+ *  `sanitizeSeedChangeItem`), and a test calling the per-item helpers directly
+ *  would pass with every route unwired. Reaching them THROUGH here is what
+ *  proves the wiring, so the widening buys a real assertion rather than
+ *  convenience. Do not add a production caller without revisiting that. */
+export function sanitizeSeed(raw: unknown): TemplateSeed | undefined {
   if (!isPlainObject(raw)) return undefined;
   const seed: TemplateSeed = {};
   const tasks = sanitizeArr<Task>(raw.tasks, sanitizeSeedTask);
   const milestones = sanitizeArr<Milestone>(raw.milestones, sanitizeMilestone);
   const rd = sanitizeArr<RaidItem>(raw.raid, sanitizeSeedRaidItem);
-  const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeChangeItem);
+  const changes = sanitizeArr<ChangeItem>(raw.changes, sanitizeSeedChangeItem);
   const stakeholders = sanitizeArr<Stakeholder>(
     raw.stakeholders,
     sanitizeStakeholder,

@@ -262,7 +262,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
-| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--open-small) | Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small | 0.210.0 (Larbalestier) | S | open |
+| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-still-open-small) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small | 0.210.0 (Larbalestier) | S | open |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
@@ -343,7 +343,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§114](#114-html_start-does-not-know-the-documents-allow-lists-nine-tags--closed-2026-08-10) | `HTML_START` does not know the documents allow-list's nine tags | S3a (`feat/documents-s3a-foundations`) — scoped out of the slice deliberately, see its plan's "does NOT do" | S-M | **CLOSED** 2026-08-10 |
 | [§115](#115-one-of-the-two-sanitizers-admits-arbitrary-data---closed-2026-08-13-by-140) | One of the two sanitizers admits arbitrary `data-*` | found while making `DOCUMENT_ALLOWED_ATTR` a real gate in S3a | S | **CLOSED** 2026-08-13 by §140 |
 | [§116](#116-the-duplication-gate-reads-total-duplicated-lines--the-per-format-token-figure-is-a-decoy--open-a-decision) | The duplication gate reads TOTAL duplicated LINES — the per-format token figure is a decoy — open, a decision | measured 2026-08-08 during the S3a gate run; the first revision inherited AGENTS.md's "per-format" and was wrong | S — a deferred decision, not a defect | open |
-| [§117](#117-three-s3c-image-prerequisites-all-inert-today--b-fixed-2026-08-13-by-140-a-and-c-still-open) | Three S3c image prerequisites, all inert today — (b) FIXED 2026-08-13 by §140, (a) and (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
+| [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
 | [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--open-billed) | The background insight-recommendation runner has no `AbortController` at all — open, billed | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open |
@@ -367,7 +367,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§138](#138-the-open-followups-consolidation-stopped-after-its-harness--p2p4-deferred-scope-measured) | The open-followups consolidation stopped after its harness — P2–P4 deferred, scope measured | — | — | open |
 | [§139](#139-the-entity-side-attach-door-was-designed-and-deliberately-not-built--documents-s4-shipped-one-door-of-two) | The entity-side attach door was designed and deliberately NOT built — documents S4 shipped one door of two | — | — | open |
 | [§140](#140-the-attribute-boundary--task-list-and-text-alignment-are-unbuilt-because-both-need-new-html-attributes--closed-2026-08-13) | The attribute boundary — task list and text alignment are unbuilt because both need new HTML attributes | — | — | **CLOSED** 2026-08-13 |
-| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-a-and-c-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16; (a) and (c) still open | — | — | open |
+| [§141](#141-rich-text-repair-and-export-fidelity--the-debt-137-deliberately-did-not-pay--b-and-d-fixed-2026-08-16-c-fell-with-31-on-2026-08-28-a-still-open) | Rich-text repair and export fidelity — the debt §137 deliberately did not pay — (b) and (d) FIXED 2026-08-16, (c) FELL WITH §31 on 2026-08-28; (a) still open | — | — | open |
 | [§142](#142-notelogpanels-labelsuffix-is-honour-system-and-unguarded--a-third-mount-site-collides-silently--closed-2026-08-12) | `NoteLogPanel`'s `labelSuffix` is honour-system and unguarded — a third mount site collides silently | — | — | **CLOSED** 2026-08-12 |
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
@@ -376,9 +376,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--open-correctness-measured) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured | — | — | open |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
-| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
-| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-four-source-headers-and-still-asserted-as-a-live-rationale-in-eight-places--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
-| [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--open-the-two-signals-need-splitting) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | open |
+| [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured-the-detectable-half-fixed-2026-08-29) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29 | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
+| [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
+| [§152](#152-onopenstoragefile-applies-tasks--raid-from-a-malformed-csv-and-reports-no-import-loss--closed-2026-08-29) | `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss | cold review of the branch closing §105, 2026-08-16 | S for the split; UNKNOWN for per-section attribution | **CLOSED** 2026-08-29 |
 | [§153](#153-pptx-export-is-one-slide-per-row-and-drops-most-rich-fields-before-they-can-be-rendered--open-measured) | PPTX export is one slide per row and drops most rich fields before they can be rendered — open, measured | — | — | open |
 | [§154](#154-native-docx-list-numbering-needs-a-package-part-and-nothing-in-the-repo-can-detect-a-malformed-one--open) | Native DOCX list numbering needs a package part, and nothing in the repo can detect a malformed one — open | — | — | open |
 | [§155](#155-builddocxtable-names-a-grid-table-style-that-nothing-declares--open-harmless-today-by-accident) | `buildDocxTable` names a `Grid` table style that nothing declares — open, harmless TODAY by accident | — | — | open |
@@ -394,7 +394,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§165](#165-sanitizeaiconfig-drops-actionsuggestions-so-switching-the-action-centers-ai-off-reverts-to-on-on-the-next-reload--closed-2026-08-17) | `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload | — | — | **CLOSED** 2026-08-17 |
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
 | [§167](#167-bulk-edit-on-the-changes-register-bypassed-applychangestatus--closed-2026-08-18) | Bulk edit on the changes register bypassed `applyChangeStatus` | — | — | **CLOSED** 2026-08-18 |
-| [§168](#168-template-import-drops-every-registers-note-log--open-pre-existing) | Template import drops every register's note log — open, pre-existing | — | — | open |
+| [§168](#168-template-import-drops-every-registers-note-log--closed-2026-08-28) | Template import drops every register's note log | — | — | **CLOSED** 2026-08-28 |
 | [§169](#169-timelog-period-keys-are-derived-at-fetch-time-from-the-granularity-then-cached--open) | TimeLog period keys are derived at FETCH time from the granularity, then cached — open | — | — | open |
 | [§170](#170-the-changepanelmemo-docblock-claims-a-usecallback-the-parent-does-not-do--closed-2026-08-20) | The `ChangePanelMemo` docblock claims a `useCallback` the parent does not do | — | — | **CLOSED** 2026-08-20 |
 | [§171](#171-the-axe-gate-now-scans-the-time-bookings-empty-state-not-the-table--open-knowingly-accepted) | The axe gate now scans the Time bookings EMPTY STATE, not the table — open, knowingly accepted | — | — | open |
@@ -510,8 +510,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
-| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof DISCHARGED 2026-08-29 |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1909,9 +1912,9 @@ handling together rather than special-casing the third pass.
 
 ---
 
-## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — open, small
+## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small
 
-**Status:** open — two rich-field write/export postures claimed as recorded that were not. Last asserted 2026-08-21; never machine-verified by a committed probe.
+**Status:** (a) fixed 2026-08-28 by an apply-time allow-list; (b) the `noteLog` export blob is still open and is a decision, not a bug fix. (a) verified by `npx vitest run src/app/template-apply.allowlist.test.ts`.
 
 Both surfaced in round-6 reviews of 0.210.0. Filed together because the shared defect was documentary: two
 places pointed at §28 for a posture §28 does not cover (§28 is scoped to the **codec** load paths — it names
@@ -1927,9 +1930,83 @@ channel**. `importTemplate` / `exportTemplate` do not exist (re-verified 2026-08
 template-JSON path either. A template is captured from your own workspace into your own
 `settings.templates`, so the trust level is "your own settings", not "a file someone sent you". Every
 read of the field also re-sanitizes at its sink.
-★★ It CANNOT be fixed in `templates.ts` — that file is in the sample generator's import graph, so a
-DOMPurify call there breaks the generator under bare node (and the guard now bans the import). The fix, if
-ever wanted, is an allow-list pass at the browser-side caller of `sanitizeTemplate`.
+★★ It cannot be fixed in `templates.ts`: the seed sanitizers are the DOM-free layer by contract. The
+fix is an allow-list pass at the browser-side caller.
+
+★★★ **AND THE ENFORCEMENT CLAIM WAS FALSE TOO — the first correction of this entry replaced one false
+rationale with another, which is the very failure §151 exists to stop.** It said the graph-wide
+import-graph guard "bans the DOMPurify-bearing modules". Read that guard's predicate: it names
+`rich-text-projection` and `ai-rich-text` and NOTHING else. Measured 2026-08-28 by adding
+`import { sanitizeRichHtml } from "./sanitize-html"` to `templates.ts` and running
+`npx vitest run src/app/rich-text-plain.test.ts` — **81 passed, green**. The prohibition was a bare
+convention with no enforcement, while three separate sites cited "the guard" as the reason it was safe.
+★★ It CANNOT be folded into the graph-wide sweep: `sanitize-html` is legitimately imported BY graph
+members (`html-start.ts` takes `RICH_ALLOWED_TAGS` from it, `note-log.ts` calls it), so a blanket ban
+across the graph fails on correct code. The contract is per MODULE, not per graph.
+★ Now enforced by its own test — `keeps the DOMPurify-bearing sanitiser out of templates.ts
+specifically` in `rich-text-plain.test.ts`, which fails on exactly the import that used to pass.
+
+★★★ **THE REASON GIVEN HERE WAS FALSE, AND IT SURVIVED INTO THE FIX'S OWN DESIGN.** This entry said a
+DOMPurify call in `templates.ts` "breaks the generator under bare node". Measured 2026-08-28, both
+legs fail: the generator installs JSDOM globals BEFORE its dynamic `await import("../src/app/storage")`,
+so a call downstream has a DOM; and `sanitize-html.ts` — the module importing `dompurify` — is ALREADY
+one of the 92 files in that graph, reached via `html-start.ts` and again via `note-log.ts`. The
+CONCLUSION stands on the contract and the guard, which are real; it never stood on this. §151 is the
+entry that exists to stop this being re-derived, and this is its fifth recorded site.
+
+### (a) FIXED 2026-08-28
+
+The pass lives in `template-apply.ts` — outside the graph, so it may call DOMPurify — as
+`allowListRich` / `allowListRaid` / `allowListChange`, using `sanitizeRichHtml`: the SAME 21-tag list
+`RICH_SINK` classifies against. ★★ That agreement between classifier and sink is what makes it safe,
+NOT the function's name; a narrower list would destroy a captured heading the classifier had already
+accepted, which is pinned by its own test.
+
+★★★ **THE SCOPE IS EVERY RICH FIELD ON EVERY SEEDED ENTITY, NOT THE TASK DESCRIPTION THIS ENTRY
+NAMES** — ten fields, and each is an independent silent hole:
+
+| entity | allow-listed |
+|---|---|
+| task | `description`, `noteLog[].html` |
+| RAID | `description`, `mitigation`, `noteLog[].html` |
+| change | `description`, `impactDescription`, `resolutionNotes`, `noteLog[].html` |
+| milestone | `description` |
+
+★★★ **MILESTONE WAS MISSED ON THE FIRST CUT AND A COLD REVIEW CAUGHT IT — the entry said "all three
+note-log entities", which is a property of §168's CARRY, not of this allow-list.** The two have
+different footprints: milestones have no note log but DO have a rich `description`, upgraded by
+`sanitizeMilestone` through the same `sanitizeRichText`/`RICH_SINK` pair inside the same DOM-free
+module. Derive the entity list from "what is rich", never from "what has a note log" — there are
+seven rich entity fields plus the note logs, enumerable with
+`grep -rn "sanitizeRichText(" src/app --include=*.ts | grep -v test`.
+
+★★ RAID's `description` needed it exactly as much as `mitigation` did — `sanitizeSeedRaidItem` runs
+BOTH through nothing but a trim, so neither ever got even the upgrade this entry credits the boundary
+with. A brief written from this entry's wording said otherwise and was corrected by reading the source.
+★★ The change fields became reachable in the SAME slice, because §168's carry lands a note log there.
+
+★★★ **EVERY ROW OF THAT TABLE IS MUTATION-PROVED, AND SAYING SO IS NOT DECORATION — the first cut
+claimed nine fields while EIGHT had tests.** RAID's `noteLog[].html` had none, and a mutant restoring
+the raw captured RAID log passed the entire suite; a cold review found it by mutating rather than by
+reading. Each mutant now kills exactly its own test and no other: the change branch (4 tests), the
+RAID note log, the milestone branch, the `text` re-derivation, and the seed-side `sanitizeRichText`
+call. ★ A field named in this table with no test beside it is the same false-coverage shape as the
+enforcement claim above — check the table against the test file, not against this sentence.
+
+★★ `text` is RE-DERIVED after the allow-list, not carried. The projection is taken BEFORE the pass
+runs, so a captured `text` describes markup the allow-list is about to remove — `<p>ok</p><script>
+alert(1)</script>` projects to `"ok alert(1)"`, and `NoteLogEntry.text` is what CSV/MD export,
+`cellText`, DOCX and search actually read. Carrying it stored a text naming a script the html no
+longer contained, contradicting the rule `sanitizeSeedNoteLog` states on the way in.
+
+★ Still true, and still why this was low risk: there is no template import channel. The seed is
+captured from your own workspace into your own `settings.templates`.
+
+★★ **NOT fixed, and NOT this entry's scope:** `templateFromWorkspace` puts live `RaidItem[]` into the
+seed BY REFERENCE, so a same-session save-then-apply never runs RAID rows through
+`sanitizeSeedRaidItem` at all — the allow-list touches the three rich fields and re-validates nothing
+else (id/category/status shape, the FK arrays). That is the RAID-side twin of the §228 hazard the
+task-side comment documents, and it wants its own entry.
 
 **(b) `noteLog` exports as a raw JSON blob into the document formats.** `noteLog` is a `CSV_COLUMNS` entry
 (`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every CSV column through
@@ -11459,9 +11536,9 @@ internally, like `rebaseline-popover.tsx`'s `TODAY_ISO`), and freeze the clock i
 the suite under a faked future date would enumerate them in one pass, but vitest fakes the clock
 per-test-file, so this needs a harness-level option rather than a one-off command.
 
-## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured
+## 150. A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29
 
-**Status:** open — a balanced stray quote pair that still swallows a section marker. Reproduced 2026-08-28 by `grep -n "unterminatedQuote" src/app/csv-codecs-decode.ts`.
+**Status:** open — the mislabelling is unchanged and the undecidable residue stands, but the MALFORMED subset (this entry's own fixture included) is now detected and pauses saving. Reproduced 2026-08-29 by `npx vitest run src/app/csv-section-split.test.ts -t "swallows a section marker"`, which pins both halves: the same mislabelled parse, and `malformedQuotes: 2` over it.
 
 Opened 2026-08-16 out of the cold review of the branch that closes §105.
 
@@ -11530,7 +11607,37 @@ the junk row → **1**, the junk row having gone through `decodeCsvSection`. Onl
 the counter, and it would have been read as a pre-branch diagnostic that does not exist. The bare line
 is what the numbers above were taken with.
 
-### Why no fix is proposed
+### Why the CLASS cannot be closed — and what was fixed anyway, 2026-08-29
+
+★★★ **THE MISLABELLING IS UNCHANGED. WHAT CHANGED IS THAT THE MEASURED FIXTURE IS NO LONGER SILENT
+AND NO LONGER AUTO-COMMITTED.** Read the two apart before doing anything with this entry: the
+undecidability argument below stands in full and always will; the "Why no fix is proposed" conclusion
+that used to sit on top of it did not.
+
+**The fix does not answer this entry's question. It answers a different, decidable one.** "Was a
+section marker swallowed?" is undecidable (below). "Does this file violate RFC 4180 quoting?" is
+local and syntactic — an opening quote not at a field start, or a closing quote not followed by a
+delimiter — and `splitCsvLines` now counts those into `ImportDiag.malformedQuotes`, which reaches the
+user as a toast and PAUSES saving via the third `useLoadTruncation` hold slot.
+
+★★ **The two questions coincide on this entry's own fixture, which is why it now fires.** The stray
+quotes here are `a"b` and `c"d`: the first opens mid-field, the second closes without a delimiter
+after it — both malformed. Measured 2026-08-29 with `npx vite-node` over the fixture above, decoded
+through `csvToWorkspace`:
+
+```
+taskIds [ 1, 6, 7 ]   taskNames [ 'T1', 'M6', 'M7' ]   milestones 0
+diag {"droppedRows":0,"unterminatedQuote":false,"malformedQuotes":2}
+```
+
+The mislabelling row-for-row is identical to the AFTER block above — three tasks, no milestones — so
+nothing about the parse changed. Only the diagnostic did.
+
+★★★ **AND THE RESIDUE IS REAL, SO DO NOT CLOSE THIS.** A stray pair that is BOTH balanced AND
+well-positioned — opening at a field start, closing before a delimiter — swallows a marker while
+counting zero violations, because at that point the file is byte-identically a legitimate quoted
+cell. That case stays silent, stays mislabelled, and stays undecidable. The detector narrows the
+class; it does not empty it.
 
 **It is undecidable at the byte level.** A legitimately quoted cell containing marker-shaped text and
 a stray quote that swallowed a real marker are BYTE-IDENTICAL. There is nothing for a parser to
@@ -11548,22 +11655,34 @@ blind because the rows are ABSORBED rather than rejected. A heuristic here does 
 detect; it mis-detects the legitimate case, and there is no input that separates the two.
 
 ★ The honest options are all outside the parser: refuse to import a CSV whose quotes are stray by
-some external check, or accept the class. Neither is scoped here.
+some external check, or accept the class. ★★ The 2026-08-29 fix is the FIRST of those two, done
+narrowly — it checks a syntactic property of the bytes rather than asking the parser to guess intent,
+which is exactly why it is not a heuristic and does not fire on the legitimate case. The `codec-roundtrip`
+property "never fires malformedQuotes on output our own encoder wrote" is what states that as a law.
 
-### The autosave interaction
+### The autosave interaction — FIXED for the malformed case, 2026-08-29
 
-Nothing stops the mislabelled workspace being written back over its source. `mayCommitAfterIncompleteLoad`
-(`mayCommitAfterTruncation` until 2026-08-29, §284) gates on `loadWasIncomplete` only, so import diagnostics never block a save — and here there is no
-diagnostic to block on: `reportImportDiagnostics` fires on `droppedRows` or `unterminatedQuote`, and
-both are falsy. The milestone rows are gone from `milestones` and present as tasks by the time the
-first ordinary save runs.
+★★★ **THIS SECTION SAID "NOTHING STOPS THE MISLABELLED WORKSPACE BEING WRITTEN BACK OVER ITS SOURCE",
+AND THAT IS NO LONGER TRUE OF THIS ENTRY'S OWN FIXTURE.** `malformedQuotes` is now a third cause of
+`loadWasIncomplete` in `useLoadTruncation`, so a file carrying violations raises the persistent banner
+and pauses saving until the user chooses. The overwrite this section describes is the exact loss that
+hold was added to prevent.
+
+★★ **Its wording is deliberately weaker than this entry's subject, and must stay that way.** The
+string says the file breaks CSV quoting rules and may not have been read correctly. It must never be
+relabelled as "a section may have been lost" — that is the undecidable claim, and dressing a guess as
+a fact is worse than the silence it replaces.
+
+★ The residue keeps its old behaviour: a balanced, well-positioned stray pair reports nothing, so
+`reportImportDiagnostics` still fires on neither `droppedRows` nor `unterminatedQuote` nor
+`malformedQuotes`, and the mislabelled rows reach the first ordinary save exactly as described above.
 
 ★ Read with §105 (the mid-row section switch this branch closes) — this is the residue of that fix,
 not an independent defect.
 
-## 151. "The sample generator runs under bare node" is FALSE, retracted in four source headers, and still asserted as a live rationale in eight places — open, needs a probe
+## 151. "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe
 
-**Status:** open — a retracted rationale still asserted in eight places; needs a probe. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** open — a retracted rationale still asserted in several places; three sites retracted 2026-08-28, the rest untouched. Both legs disproved 2026-08-28 by `grep -nE "JSDOM|await import" scripts/generate-sample-workspace.ts` plus the graph resolver below.
 
 Opened 2026-08-16, out of the same cold review as §150. **No fix is applied here and none should be
 applied casually** — this entry exists to stop a FIFTH retraction being derived from scratch.
@@ -11577,6 +11696,31 @@ would swallow the throw into a near-empty sample file."
 `await import("../src/app/storage")` — its own comment says the install exists so the DOM-bound
 sanitizers downstream work. It is also the only script that imports `src/app` at all; the other
 `scripts/*.mjs` files merely NAME the path inside comments and doc-gate fixtures.
+
+**There is a SECOND leg, added 2026-08-28, and it is the one that kills the weaker restatement.** Sites
+that hedge toward "a DOMPurify call there would PULL DOMPurify INTO the graph" are wrong too:
+`sanitize-html.ts`, the module that does `import DOMPurify from "dompurify"`, is ALREADY one of the 92
+files, reached by `html-start.ts` (which imports `RICH_ALLOWED_TAGS` from it) and independently by
+`note-log.ts`. So the graph contains the dependency either way; what the guard bans is the two named
+modules being imported by a graph member, which is a CONTRACT, not a consequence.
+★★ Keep the two legs separate. Leg 1 refutes "the call would throw"; leg 2 refutes "the import would
+pull it in". A correction that cites only one leaves the other restatement standing — and both
+spellings are in circulation.
+★ Resolve the graph rather than trusting either count; it moves on any import edit:
+
+```bash
+node -e 'const {readFileSync,existsSync,statSync}=require("fs"),{join,resolve,dirname}=require("path");
+const n=p=>p.split(String.fromCharCode(92)).join("/"),r=n(process.cwd());
+const rs=(f,s)=>{if(!s.startsWith("."))return null;const b=resolve(dirname(f),s);
+for(const c of [b,b+".ts",b+".tsx",join(b,"index.ts")])if(existsSync(c)&&statSync(c).isFile())return n(c);return null};
+const g=new Set(),q=[n(join(r,"scripts","generate-sample-workspace.ts"))];
+while(q.length){const f=q.pop();if(g.has(f))continue;g.add(f);
+for(const m of readFileSync(f,"utf8").matchAll(/(?:from|import)\s*\(?\s*["\x27]([^"\x27]+)["\x27]/g)){const x=rs(f,m[1]);if(x)q.push(x)}}
+console.log(g.size);for(const f of ["sanitize-html","html-start","note-log","templates","template-apply"])
+console.log((g.has(r+"/src/app/"+f+".ts")?"IN  ":"out ")+f)'
+```
+Measured 2026-08-28: 92 files; `sanitize-html`, `html-start`, `note-log`, `templates` all IN;
+`template-apply` OUT — which is why §36(a)'s allow-list is legal in the latter and not the former.
 
 ### Measured
 
@@ -11601,7 +11745,10 @@ Posture of every site, classified BY READING it — the sweep below only produce
 | §97 (this file) | RETRACTS, scoped to the DOCUMENT load paths only |
 | `docs/AGENTS/rich-text.md`, four separate mentions | ASSERTS — **moved out of AGENTS.md, see below** |
 | §28 (this file) | ASSERTS — "out of scope by construction" |
-| §36(a) (this file) | ASSERTS — the stated REASON the boundary cannot be added |
+| §36(a) (this file) | **RETRACTS as of 2026-08-28** — was the stated REASON the boundary cannot be added |
+| `templates.ts` `sanitizeSeedTask` | **RETRACTS as of 2026-08-28** — was ASSERTING, and is the site a fixer reads first |
+| `rich-text-plain.test.ts`, the graph guard's own comment | **ASSERTS** — leg 1 verbatim, and it is the DESTINATION the three retractions point at, so a fixer following them reads the false rationale again on arrival. Left deliberately: correcting it means editing the guard's rationale, which wants its own commit. ★★ Its neighbouring "the graph is 76 files today" claim was DELETED on 2026-08-29 and replaced by a floor plus a retraction quoting the old wording — so an exact-phrase grep for it now returns 0, and this row must not be read as describing a live claim |
+| `docs/AGENTS/rich-text.md`, the `sanitizeSeedTask` mention | **RETRACTS as of 2026-08-28** — the other four mentions there still ASSERT |
 | §49 (this file) | ASSERTS — "the obvious fix is forbidden" |
 
 Candidate sweep, flattening whitespace first — the phrase WRAPS ACROSS LINES in several headers, so a
@@ -11673,9 +11820,42 @@ priority. The "do not just go delete the rule" warning above is unaffected in ev
 AGENTS.md on the back of it would be an unrelated change to the one always-loaded file. §97 already
 demonstrates the shape a scoped, measured retraction takes — copy that, per site, with a probe.
 
-## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — open, the two signals need splitting
+## 152. `onOpenStorageFile` applies tasks + RAID from a malformed CSV and reports no import loss — CLOSED 2026-08-29
 
-**Status:** open — a load path that applies rows with no diagnostic. Reproduced 2026-08-28 by `grep -n "reportFor" src/app/use-storage-backend.ts`.
+**Status:** closed 2026-08-29 — both halves shipped: the signals are split (`TruncationOps.reportImportFor`) and the count is attributed per section. Verified by `npx vitest run src/app/use-storage-backend.test.tsx src/app/import-dropped-rows.test.ts src/app/use-load-truncation.test.ts`.
+
+### How it was closed
+
+**The split.** `TruncationOps.reportImportFor` reports the import sentences and raises the quoting
+hold, touching truncation and decode in NEITHER direction. `onOpenStorageFile` calls it after its own
+`storageOpenedToast`, and its `NO reportFor:` exemption marker is gone.
+
+★★ **The hold IS raised there, and the first design said it should not be.** The reasoning that
+looked right — "this path merges rows into an existing workspace, so no save of its backing file is
+pending" — is false: `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`, so the
+ACTIVE backend points at the picked file and the next debounced save writes the merged workspace over
+it. A toast-only op would have re-opened §150's overwrite one path along.
+
+★★★ **THE OVERWRITE-CONFIRM'S GUARD CLAUSE IS INVERTED FOR THAT REASON.** `openFileForBackend` has
+already re-pointed the backend by the time the confirm is asked, so DECLINING the overwrite still
+leaves the next save writing over the picked file. An early `return` would have exempted that exit
+silently; one report after the `if` covers both. ★ The re-point on decline is the WIDER defect and is
+NOT fixed here — see §287.
+
+**The attribution.** `ImportSectionKey` (a zero-import leaf union in `csv-codecs-sections.ts`) and
+`ImportDiag.droppedBySection`, threaded through `collectRows`, `decodeCsvSection`, `decodeMdTable`,
+`markdownToRefs` and the two task loops. `countDroppedRow` is the single writer of the breakdown AND
+the flat total, so they cannot disagree. Published as `StorageBackend.lastImportDroppedBySection` by
+the two backends that decode CSV/MD, and rendered as a fourth sentence on the existing join.
+
+★★ **The union is NOT derived from the `CSV_SECTION_*` strings, though the plan said to derive it.**
+Those are storage-format bytes pinned by `golden-workspace.test`, so keying a diagnostic on them would
+make a marker reword a silent diagnostic break — and Markdown has no `# TASKS` marker at all, so a
+marker-derived union could not have served that family.
+
+★ The census in `use-load-truncation.test.ts` counts both ops, and the new one is deliberately NOT
+expressible through `REPORT_EXEMPT_MARKER`: a site carrying both sums to 2 against 1 load and fails,
+so no path can claim exemption while reporting nothing.
 
 Found by the cold review of the branch closing §105, 2026-08-16. **Not introduced by that branch** —
 it is the residue of the fix that took `lastImportDroppedRows` from one reporting call site to five.
@@ -12864,9 +13044,9 @@ grep -rn "applyChangeStatus\|applyModelChangeStatus" src/app --include=*.ts --in
 ★ The status/`decisionDate` invariant is now held at all four transition points (row select, modal,
 bulk, dispatcher), matching what the task register does through `applyStatusChange`.
 
-## 168. Template import drops every register's note log — open, pre-existing
+## 168. Template import drops every register's note log — CLOSED 2026-08-28
 
-**Status:** open — note logs dropped on template import. Reproduced 2026-08-28 by `grep -c "noteLog" src/app/templates.ts`.
+**Status:** fixed 2026-08-28 — the seed sanitizers carry the note log on all three routes. Verified by `npx vitest run src/app/template-note-carry.test.ts`.
 
 Capturing a template from a workspace assigns the live entity arrays verbatim
 (`templateFromWorkspace` does `seed.changes = ws.changes`, and the same for `tasks` and `raid`),
@@ -12894,6 +13074,29 @@ UN-SANITISED, and `rich-text-plain.test.ts`'s import-graph guard bans `templates
 the DOMPurify-bearing modules precisely so this cannot be done by reflex. A real fix needs a
 sanitised carry that stays DOM-free — the same shape as the open item on `sanitizeSeedTask`
 (§36(a)), and it should probably be solved once for both.
+
+### Fixed 2026-08-28 — and it WAS solved once for both, as this entry predicted
+
+`sanitizeSeedNoteLog` (`templates.ts`) is the DOM-free carry: each entry goes through
+`sanitizeRichText` against `RICH_SINK`, the same boundary `description` already used, so nothing is
+re-attached un-sanitised. `text` is DERIVED from the sanitised html rather than carried, so a stale
+captured projection cannot survive a sink change.
+
+★★ **The three routes did NOT take the same fix, and that asymmetry is the point.** Tasks and RAID
+call the carry directly from their local seed sanitizers. Changes do NOT: they route through the
+canonical `sanitizeChangeItem`, which is also the workspace load-path and AI-write-path validator and
+which drops `noteLog` DELIBERATELY — the load paths re-attach from the STORED row via
+`withStoredNoteLog` so a decoded or model-written change can never inject one. Wiring a carry into
+that shared sanitizer would have handed the AI path a capability it must not have, so the re-attach
+happens in a seed-local `sanitizeSeedChangeItem` wrapper instead, from the seed's own captured log.
+`sanitize-records.ts` is untouched — and the obvious "complete the pattern" edit there is the defect
+this entry would otherwise have caused.
+
+★ The wrapper is mutation-proved: pointing the seed's change mapping back at `sanitizeChangeItem`
+fails exactly the change test and nothing else.
+
+★★ Carrying the log made the §36(a) allow-list gap WIDER before it closed it — a captured note log is
+rich HTML reaching a new sink. Both landed in the same slice; see §36(a).
 
 ## 169. TimeLog period keys are derived at FETCH time from the granularity, then cached — open
 
@@ -17105,10 +17308,13 @@ valid rows, so the bypass can only launder something a `src` writer should not h
 
 ★ The fix is wider than "reconcile the pair". `sanitizeSeedTask` REBUILDS a task from a fixed field
 list, so applying a template also drops `inquiriesSent`, `jiraKey`, `jiraIssueType`,
-`lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride`, `knowledgeLinks` and
-`noteLog` outright, and discards the captured `createdDate` (`migrateTask` backfills a replacement
+`lastSyncedAt`, `localModifiedAt`, `outlookEventId`, `healthOverride` and `knowledgeLinks`
+outright, and discards the captured `createdDate` (`migrateTask` backfills a replacement
 from `lastUpdateDate`, so the applied task still carries one — just not the one that was
-captured). The load path already dropped all ten; this makes the two agree. It also stops a
+captured). ★★ NINE AS OF §168, and `noteLog` is NOT among them any more — it is carried, and
+allow-listed at apply. This entry is OPEN, so a reader takes its prose as current: leaving
+`noteLog` on the drop list described the fixed defect as required behaviour.
+The load path already dropped all nine; this makes the two agree. It also stops a
 per-row external link being CLONED — two local tasks pointing at one Jira issue is not a template.
 
 ★ A nuance, not a defect: `template-menus.tsx`'s seed breakdown reads `tpl.seed.tasks?.length`
@@ -21828,3 +22034,144 @@ with two routes of which one is armed. That is a narrower guarantee than the def
 it, which is why this is filed rather than fixed.
 
 ★ Read with §98 (which owns the counters themselves) and §284 (which owns the widening).
+
+---
+
+## 286. The template seed's note-log validator diverges from the canonical one in six ways — open
+
+**Status:** open — a second note-log validator with six unforced divergences from `sanitizeNoteLog`. Found 2026-08-28 by a cold review of the §168 carry; reproduce by reading the two side by side (`grep -n "function sanitizeNoteLog" src/app/note-log.ts` and `grep -n "function sanitizeSeedNoteLog" src/app/templates.ts`).
+
+★★★ **AND THE COMMIT THAT FILED IT STILL SAYS 284.** `26a66e7f`'s message reads "Filed rather than
+fixed: 284 records six unforced divergences…", which now points at "A malformed Turso meta blob is
+discarded in silence" — a different entry entirely. The message cannot be corrected (amending a
+pushed commit in a shared worktree is its own hazard), so the correction lives HERE, at the number a
+reader arrives with. Anyone following that commit message lands on the wrong entry and concludes this
+one was never filed. Verify with `git show 26a66e7f -- docs/open-followups.md | grep -E "^\+## "`,
+which prints `+## 286.` — the diff is the witness, not the prose above it.
+★ The same message's subject says it closes "the six defects a cold review found"; it closes FIVE and
+FILES the sixth (this one). A filing is not a closure.
+
+★★ **THIS ENTRY WAS FILED AS 284 AND THE COLLISION HAPPENED.** It was minted 2026-08-28 while
+`fix/meta-decode-loss-chain` was unmerged; that branch landed as `948aa293` taking BOTH 284 and 285,
+and this became 286 on the rebase. Recorded because the register's own rule — a number is reserved
+only once it is on `origin/main` — is easy to read as advice and is in fact the only thing that
+prevents two entries with one number.
+
+§168's fix added `sanitizeSeedNoteLog` to `templates.ts` as a SECOND note-log validator. That much is
+legitimate and forced: the canonical `sanitizeNoteLog` (`note-log.ts`) calls `sanitizeRichHtml`, and
+`templates.ts` is the DOM-free layer, so it cannot reuse it. What is NOT forced is that the two
+disagree on six behaviours that have nothing to do with DOM access — every one is reachable DOM-free:
+
+| | canonical `sanitizeNoteLog` | seed `sanitizeSeedNoteLog` |
+|---|---|---|
+| entry count | caps at `MAX_NOTE_ENTRIES` | unbounded |
+| html cap | byte `.slice` at `MAX_NOTE_HTML` | visible-text cap `TEXTAREA_MAX`, degrades to plain past the ceiling |
+| `text` | control chars stripped, capped | raw projection, uncapped, no control strip |
+| `authorName` | control chars stripped, capped | `nonEmptyStr`, uncapped |
+| missing / duplicate `id` | **mints** one, de-dupes | **drops** the entry; duplicates pass |
+| `timestamp` | must parse as a date | any non-empty string |
+
+★★★ **THE `id` ROW IS THE ONE THAT BITES, AND A TEST PINS THE WRONG SIDE OF IT.** The canonical
+sanitizer MINTS a missing id because its own docstring says legacy entries without one exist. The
+seed validator DROPS them — so §168, whose heading is "template import drops every register's note
+log", is fixed except for exactly the legacy entries the canonical repair was written for. The new
+test `drops an entry with no usable id or timestamp, keeping its siblings` certifies that drop as
+intended behaviour. Decide which is right before that test is read as settled.
+
+★★ Duplicate ids pass through unchanged, and the notes window edits and deletes BY id — so two
+captured entries sharing `id: 1` make one of them unaddressable in the UI after apply.
+
+★ The html-cap divergence is a content-loss path in the opposite direction from §168: a captured note
+above the visible-text ceiling is degraded to PLAIN TEXT on the template route while the identical
+note stays rich HTML on every other route.
+
+★ Fix shape, if wanted: extract the DOM-free half of `sanitizeNoteLog` into a shared helper both call,
+leaving only the `sanitizeRichHtml` step behind the DOM boundary. That is a real refactor of a
+sanitiser on six write paths, which is why it is filed rather than done inside a bug-fix slice.
+
+## 287. Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading
+
+**Status:** open — never machine-verified by a committed probe. The mechanism was read out of `LocalFileBackend.openFile()` on 2026-08-29 while closing §152; no test drives the decline path far enough to observe a subsequent save. Independently re-read by a cold reviewer on 2026-08-29, who confirmed the mechanism and added the `refreshBackendStatus()` half below.
+
+★★ **THE UI ALSO KEEPS SHOWING THE OLD FILENAME, which is what makes this hard to notice.**
+`refreshBackendStatus()` runs only inside the accept branch, alongside `suppressNextSaveRef.current =
+true`. So after a decline the storage description still names the PREVIOUS file while the persisted
+handle points at the picked one — the user has no on-screen signal that anything moved, and the next
+debounced save goes to a file they were never told they were pointed at. A silent re-point is bad; a
+silent re-point behind a stale label is why nobody reports it.
+
+Found while splitting the import signals for §152, which is why that entry points here.
+
+`onOpenStorageFile` (`use-storage-backend.ts`) asks `openFileForBackend(backend)` FIRST and only then
+asks the user whether to overwrite their live tasks. `LocalFileBackend.openFile()` ends
+`await idbSet(this.idbKey, handle)` — it stores the picked handle under the ACTIVE backend's own key —
+so by the time the confirm appears the app is already pointed at the new file, and there is no path
+back. Declining therefore keeps the CURRENT workspace and repoints storage at a DIFFERENT file, after
+which the next debounced save writes the current project over it.
+
+```
+grep -n "async openFile" -A 10 src/app/local-file-backend.ts
+grep -n "openFileForBackend(backend)" -A 6 src/app/use-storage-backend.ts
+```
+
+★★ **This is NOT what §152 fixed, and the two must not be conflated.** §152 made the decline exit
+REPORT (import diagnostics, plus the quoting hold when the file is malformed) — which is why the guard
+clause there is inverted rather than an early `return`. Reporting is not the same as not re-pointing:
+a CLEAN file declined at the confirm is silently adopted as the save target with no diagnostic at all,
+because there is nothing wrong with it.
+
+★ The same ordering question applies to `onPickStorageFile`, whose picker likewise creates the file
+and persists the handle before any write — the repo already records that as the reason
+`wouldRefuseWrite`/`refuseWrite` exist as a pair. This entry is the READ half of that shape.
+
+**Fix shape, if wanted:** ask the confirm BEFORE the picker, or restore the previous handle when the
+user declines. The first is a behaviour change (the user picks a file only after agreeing to replace
+their tasks); the second needs the old handle captured and re-persisted, and must survive the picker
+throwing. Neither is scoped to a diagnostics slice.
+
+## 288. The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing
+
+**Status:** open — never machine-verified by a committed probe. Read out of `new-project-workspace.ts` and `sanitize-records.ts` on 2026-08-29 during the §168 review; no test drives a hostile model payload through `appendSeed`.
+
+Found by a cold reviewer of the §168 template-carry slice. NOT introduced by it — both branches
+predate that work — but the slice sharpened the asymmetry without naming it, which is why it is
+recorded here rather than left to be rediscovered.
+
+`buildNewProjectWorkspace` has two adjacent seed branches:
+
+```
+if (opts.template)            ws = applyTemplate(ws, opts.template, …);   // allow-lists ten rich fields
+else if (opts.aiSeed && …)    ws = appendSeed(ws, remapSeed(ws, opts.aiSeed));  // does not
+```
+
+`proposalToSeed` builds RAID, changes and milestones through `sanitizeRaidItem` /
+`sanitizeChangeItem` / `sanitizeMilestone`, which run `sanitizeRichText` only — a
+classify-and-upgrade against `RICH_SINK` with no allow-list pass. Only the TASK path reaches
+`sanitizeAiRichText`. So a model emitting `<p>ok</p><script>…</script>` as a risk description is
+classified rich on its leading `<p` and stored verbatim.
+
+★★ HONEST SCOPE, because over-reading this is the likelier error. It is **not** a live XSS:
+`RichTextView` sanitises at render (`sanitizeRichHtml` on the `dangerouslySetInnerHTML` path). The
+exposure is unsanitised-AT-REST plus whatever export sinks do not re-sanitise on the way out.
+
+★★ DO NOT add "and the load normalizer allow-lists it on the next load" as further reassurance —
+that clause was here and was deleted 2026-08-29 as false on four of the six write paths.
+`sanitizeRaidRichFields` / `sanitizeChangeRichFields` / `sanitizeMilestoneRichFields` are called
+from `browser-backend.ts` (IndexedDB) and `jsonToWorkspace` only; CSV, Markdown and both Turso
+layouts never run them. Verify before believing either version:
+`grep -rn "sanitizeRaidRichFields\|sanitizeChangeRichFields" src/app --include=*.ts | grep -v "\.test\."`
+
+★ Why it is worth an entry anyway: AGENTS.md states `sanitizeAiRichText` + `AI_RICH_FIELDS` apply on
+*every* model-write path, and this is a model-write path where they do not. Either the code or that
+sentence is wrong, and a reader trusting the sentence will not go looking.
+
+**Reproduce:**
+```
+sed -n '26,34p' src/app/new-project-workspace.ts
+grep -c "sanitizeRichText" src/app/sanitize-records.ts     # 7
+grep -c "sanitizeRichHtml\|allowList" src/app/sanitize-records.ts   # 0
+```
+
+**Fix shape, if wanted:** route `appendSeed`'s rich fields through the same `allowListRich` pass
+`template-apply.ts` uses, or move the allow-list into the shared seed boundary both routes cross.
+Not scoped to a template-carry slice, and it wants its own test for each entity.

@@ -2987,12 +2987,15 @@ describe("useStorageBackend — §103 truncation reaches every load/flush path",
 // the mount load effect is the one `reportFor` site with no competing toast, so
 // there is nothing to be overwritten by. They pin instead that it STAYS
 // uncontended — a toast added after `reportFor` there turns the first one red.
-// The `reportFor`-per-`load()` census in
-// `use-load-truncation.test.ts` cannot close that gap: it SOURCE-SCANS
-// `OPS_FILES` — `use-storage-file-ops.ts` and `use-storage-turso-ops.ts` — for
-// `reportFor(` tokens, so it never reads `use-storage-backend.ts` at all, and a
-// token count says nothing about runtime reachability either way. These drive
-// each path for real and assert on the toast TEXT a user reads.
+// The report-per-`load()` census in
+// `use-load-truncation.test.ts` cannot close that gap. ★★ AND NOT FOR THE REASON
+// THIS COMMENT USED TO GIVE — it said the census "never reads
+// `use-storage-backend.ts` at all", which was true of the two-file `OPS_FILES`
+// scan beside it and has not been true of the census itself since `CENSUS_FILES`
+// was widened to all three storage files. What still holds is the part that
+// matters: a TOKEN COUNT says nothing about runtime reachability, so a report
+// sitting in a dead branch or pointed at the wrong backend passes it. These
+// drive each path for real and assert on the toast TEXT a user reads.
 // ★★ Measured, not asserted: replacing the whole of `reportImportDiagnostics`'s
 // body with `void backend;` turns SIX of the seven tests below red (every one but
 // the clean-load control, which is killed instead by `dropped > 0` → `>= 0`).
@@ -3012,12 +3015,23 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
    *  PROPERTIES that `vi.clearAllMocks()` would not reset on a shared object, so
    *  a reporting fixture leaking into a later test would surface under the
    *  shuffled-seed gate as an unrelated failure elsewhere in the file. */
-  function makeImportBackend(diag: { dropped?: number; unterminated?: boolean } = {}) {
+  function makeImportBackend(
+    diag: {
+      dropped?: number;
+      unterminated?: boolean;
+      /** Per-section attribution (§152). Absent on JSON/Turso backends, which
+       *  is why it is optional here rather than defaulted to an empty object —
+       *  an empty object and an absent field must reach the reporter as
+       *  different things. */
+      bySection?: Partial<Record<string, number>>;
+    } = {},
+  ) {
     const b = {
       kind: "browser",
       load: vi.fn(async () => {
         b.lastImportDroppedRows = diag.dropped;
         b.lastImportUnterminatedQuote = diag.unterminated;
+        b.lastImportDroppedBySection = diag.bySection;
         return emptyWorkspace();
       }),
       save: vi.fn().mockResolvedValue(undefined),
@@ -3025,6 +3039,7 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
       describe: vi.fn().mockResolvedValue("f.csv"),
       lastImportDroppedRows: undefined as number | undefined,
       lastImportUnterminatedQuote: undefined as boolean | undefined,
+      lastImportDroppedBySection: undefined as Partial<Record<string, number>> | undefined,
     };
     return b;
   }
@@ -3219,6 +3234,103 @@ describe("useStorageBackend — import diagnostics reach every load path", () =>
     //    regression, invisible to a call-log assertion.
     expect(survivingToast()).toContain("9 invalid row(s)");
     expect(importToasts()).toEqual([expect.stringContaining("9 invalid row(s)")]);
+  });
+
+  // ── the sixth path: `onOpenStorageFile`, via the IMPORT-ONLY op (§152) ─────
+  // ★★★ IT REPORTED NOTHING AT ALL UNTIL NOW, and the census could not see it:
+  // the site carried a `NO reportFor:` marker whose stated reason is sound for
+  // TRUNCATION and was silently read as covering the import channel too. The
+  // rows a malformed file drops may be the very tasks and RAID this path
+  // applies. It now calls `reportImportFor` — the import sentences plus a
+  // RAISE-ONLY quoting hold, and truncation untouched in either direction.
+
+  it("onOpenStorageFile tells the user rows were dropped — the path that reported NOTHING", async () => {
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]); // control: not already reported
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 7;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    // ★ The survivor, not the log: this path also fires `storageOpenedToast`.
+    //   MUTATION-PROVED — moving the report in FRONT of that toast turns THIS
+    //   line red, and the received value is the confirmation itself ("Loaded 0
+    //   task(s) from file."): the diagnostic was raised and instantly discarded.
+    // ★★ No claim is made here about the `importToasts()` line below under that
+    //   mutant — the test aborts at the first failing expect, so it never ran.
+    //   It is a call LOG and is here for the COUNT, which is a different
+    //   property from "the user was told".
+    expect(survivingToast()).toContain("7 invalid row(s)");
+    expect(importToasts()).toEqual([expect.stringContaining("7 invalid row(s)")]);
+  });
+
+  it("names the affected SECTIONS in the toast the user is left looking at", async () => {
+    // ★★★ ORDERING AND ATTRIBUTION IN ONE ASSERTION, ON THE SURVIVOR. The
+    // section sentence is the last thing appended to the dropped-rows one, so a
+    // report fired in front of `storageOpenedToast` loses the whole diagnostic
+    // — attribution included — and a call-log assertion would not notice.
+    const b = makeImportBackend();
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 4;
+      b.lastImportDroppedBySection = { raid: 1, tasks: 3 };
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    const seen = survivingToast();
+    expect(seen).toContain("4 invalid row(s)");
+    // Section ORDER follows `IMPORT_SECTION_KEYS`, not the fixture's insertion
+    // order — which is why the fixture above lists raid first.
+    expect(seen).toContain("Affected sections: Tasks, RAID.");
+  });
+
+  it("onOpenStorageFile reports even when the user DECLINES the overwrite", async () => {
+    // ★★★ THE EXIT AN EARLY `return` WOULD HAVE EXEMPTED. `openFileForBackend`
+    // has already re-pointed the ACTIVE backend at the picked file by the time
+    // the confirm is asked, so declining still leaves the next save writing over
+    // it — the decline path needs the report as much as the apply path.
+    const b = makeImportBackend();
+    // The MOUNT load seeds a live task, so the overwrite confirm is reached at
+    // all — with no live tasks the handler applies unconditionally and this
+    // test would silently be a duplicate of the one above.
+    b.load.mockImplementationOnce(
+      async () => ({ ...emptyWorkspace(), tasks: [{ id: 1, taskName: "Live" }] }) as never,
+    );
+    createBackendMock.mockReturnValue(b);
+    (storageMod.openFileForBackend as ReturnType<typeof vi.fn>).mockReturnValue(Promise.resolve(undefined));
+    vi.spyOn(window, "confirm").mockReturnValue(false);
+
+    const { result } = renderBackend(makeArgs({ setStorageConfig }));
+    await act(async () => { await Promise.resolve(); });
+    expect(importToasts()).toEqual([]);
+    expect(result.current.tasks).toHaveLength(1); // control: the confirm is reachable
+
+    b.load.mockImplementationOnce(async () => {
+      b.lastImportDroppedRows = 6;
+      return emptyWorkspace();
+    });
+    await act(async () => { await result.current.onOpenStorageFile(); });
+
+    // POSITIVE CONTROL that the decline really happened — without it this test
+    // passes just as well against the APPLY path, which the test above covers.
+    expect(window.confirm).toHaveBeenCalled();
+    expect(result.current.tasks).toHaveLength(1);
+    // Nothing else toasts on this exit, so the diagnostic is the survivor.
+    expect(survivingToast()).toContain("6 invalid row(s)");
   });
 
   it("switchToTursoProject reports the target's unbalanced quotes", async () => {

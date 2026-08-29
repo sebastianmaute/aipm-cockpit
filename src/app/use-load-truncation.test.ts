@@ -115,6 +115,73 @@ describe("useLoadTruncation — import diagnostics", () => {
     expect(showToast).toHaveBeenCalledWith("error", `${droppedMsg(3)} ${quoteMsg}`);
   });
 
+  // ── naming the sections (§152, second half, surfaced) ───────────────────
+  const sectionsMsg = (names: string) => t("en-US", "importDroppedRowsSections", names);
+
+  it("NAMES the sections a report's dropped rows came from", () => {
+    // ★★★ THE POINT OF THE WHOLE ATTRIBUTION SLICE. "5 invalid row(s)" leaves
+    // the user unable to tell whether the loss hit the tasks they just imported
+    // or a section the path discards — two losses, two remedies.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 5,
+        lastImportDroppedBySection: { raid: 2, tasks: 3 },
+      });
+    });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenCalledWith(
+      "error",
+      `${droppedMsg(5)} ${sectionsMsg(`${t("en-US", "importSectionTasks")}, ${t("en-US", "importSectionRaid")}`)}`,
+    );
+  });
+
+  it("orders the names by IMPORT_SECTION_KEYS, not by insertion", () => {
+    // ★ The fixture above already lists raid BEFORE tasks and expects the
+    //   reverse, so this pins the rule rather than re-testing the case: an
+    //   `Object.keys` walk would echo whatever order the decoder happened to
+    //   write, which differs between a CSV and a Markdown file of the same data.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 3,
+        lastImportDroppedBySection: { grades: 1, milestones: 1, tasks: 1 },
+      });
+    });
+    const seen = String(showToast.mock.calls[0][1]);
+    expect(seen.indexOf(t("en-US", "importSectionTasks"))).toBeLessThan(
+      seen.indexOf(t("en-US", "importSectionMilestones")),
+    );
+    expect(seen.indexOf(t("en-US", "importSectionMilestones"))).toBeLessThan(
+      seen.indexOf(t("en-US", "importSectionGrades")),
+    );
+  });
+
+  it("omits the section sentence when the backend published none", () => {
+    // ★ JSON and Turso backends never set the field. A bare "Affected sections:"
+    //   with nothing after it is worse than saying nothing.
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportFor(importing(2, false)); });
+    expect(showToast).toHaveBeenCalledWith("error", droppedMsg(2));
+  });
+
+  it("omits the section sentence when every published count is zero", () => {
+    // ★ A defensive shape, not one the writer can produce: `countDroppedRow`
+    //   only ever writes a positive count. Pinned so a future writer that
+    //   zero-fills cannot make the sentence name sections that lost nothing.
+    const { result, showToast } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportDroppedRows: 2,
+        lastImportDroppedBySection: { tasks: 0 },
+      });
+    });
+    expect(showToast).toHaveBeenCalledWith("error", droppedMsg(2));
+  });
+
   it("says NOTHING when the import was clean — and the fixture can still speak", () => {
     const { result, showToast } = render();
     // Absent fields, not zeroes: both are optional on `StorageBackend`, and an
@@ -139,15 +206,238 @@ describe("useLoadTruncation — import diagnostics", () => {
 // in a way it is not for truncation: the user cannot repair a corrupt blob from
 // inside the app at any cap, so without a reachable way out this is a permanent
 // save lockout.
+// ★★★ MALFORMED QUOTING IS THE THIRD HOLD CAUSE, AND IT IS NOT THE SAME AS THE
+// TWO IMPORT DIAGNOSTICS ABOVE. Dropped rows and an unterminated quote are
+// TOAST-ONLY: they describe rows that never made it in, and the file they came
+// from is still on disk to re-import. A file carrying RFC 4180 violations is
+// different — we REINTERPRETED it, applied our reading to render scope, and the
+// next save writes that reading back OVER the source. So the hold exists to stop
+// a silent overwrite of the only copy, which is the same reasoning truncation
+// and undecodable slices already use.
+// ★★ It reports MALFORMEDNESS, never "a section was swallowed" — that question
+// is undecidable (§150) and no assertion here may imply otherwise.
+describe("useLoadTruncation — malformed quoting", () => {
+  const malformed = (count?: number) => ({
+    lastLoadTruncation: undefined,
+    lastImportMalformedQuotes: count,
+  });
+
+  it("raises the hold when the file violates RFC 4180", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+
+  it("LOWERS the hold on a clean load", () => {
+    // Same invariant as truncation: the flag is scoped to the workspace live
+    // RIGHT NOW, so leaving it raised blocks saving on a healthy project.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.loadWasIncomplete).toBe(true); // control: really raised
+    act(() => { result.current.truncationOps.reportFor(malformed(0)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("also lowers it for a backend publishing no such field at all", () => {
+    // The field is optional and MD/JSON never set it; undefined means "fine",
+    // not "unknown".
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => { result.current.truncationOps.reportFor(malformed(undefined)); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("refuses a write while the hold is up, and allows one after acknowledgement", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(true);
+
+    act(() => { result.current.allowIncompleteSave(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(false);
+  });
+
+  it("is cleared for a brand-new workspace", () => {
+    // A fresh project has no load to hang the flag on, so anything left raised
+    // belongs to the PREVIOUS project and would refuse every edit to this one.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => { result.current.truncationOps.clearForFreshWorkspace(); });
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("holds independently of the other two causes", () => {
+    // ★ A clean truncation report must not lower a hold raised by quoting, or
+    // one cause silently cancels another — the failure the single derivation
+    // over separate slots exists to prevent.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(malformed(2)); });
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: { entries: 0, blocks: 0 },
+        lastImportMalformedQuotes: 2,
+      });
+    });
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+});
+
+/** The decode-channel stand-in, at module scope so BOTH the import-only tests
+ *  and the decode describe below raise a decode hold the same way. */
+const decodingFor = (slices: readonly string[]) => ({
+  lastLoadTruncation: undefined,
+  lastImportDroppedRows: 0,
+  lastImportUnterminatedQuote: false,
+  lastDecodeFailures: slices,
+});
+
+// ── the import-only op (§152) ────────────────────────────────────────────────
+// ★★★ IT EXISTS BECAUSE ONE LOAD PATH APPLIES ROWS WITHOUT REPLACING THE
+// WORKSPACE. `onOpenStorageFile` (`use-storage-backend.ts`) applies `loaded.tasks`
+// and `loaded.raid` into the LIVE workspace and discards every other slice, so
+// `reportFor` is wrong for it in BOTH directions: raising the truncation flag
+// would warn about documents the user still holds, and lowering it would clear a
+// warning still true of those documents. That reasoning is truncation-specific
+// and does NOT extend to the import channel — the rows this path drops may be
+// the very tasks and RAID it is about to apply — which is the split §152 asks
+// for and what this op is.
+describe("useLoadTruncation — reportImportFor", () => {
+  /** A backend stand-in for the import channel ALONE — it publishes no
+   *  `lastLoadTruncation` and no `lastDecodeFailures` field at all.
+   *  ★★ WHAT STOPS `reportImportFor` READING EITHER IS ITS OWN PARAMETER TYPE, a
+   *  4-member `Pick<StorageBackend, …>`, NOT this fixture. An earlier revision of
+   *  this docstring claimed the omission itself would make such a read "a tsc
+   *  error rather than a silently-undefined read", and it cannot: every
+   *  `lastImport*` field plus `lastLoadTruncation`/`lastDecodeFailures` is
+   *  OPTIONAL on `StorageBackend`, and omitting an optional property from an
+   *  argument is never an error. The guarantee is real and the stated mechanism
+   *  was not — which matters, because a contributor who later widened the `Pick`
+   *  would have read this fixture as still protecting them. */
+  const opened = (opts: { dropped?: number; unterminated?: boolean; malformed?: number }) => ({
+    lastImportDroppedRows: opts.dropped,
+    lastImportUnterminatedQuote: opts.unterminated,
+    lastImportMalformedQuotes: opts.malformed,
+  });
+
+  it("reports dropped rows without raising the hold", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 4 })); });
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importDroppedRowsWarning", 4));
+    expect(result.current.loadWasIncomplete).toBe(false);
+  });
+
+  it("composes the same sentence join as the full report", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 2, unterminated: true })); });
+    expect(showToast).toHaveBeenLastCalledWith(
+      "error",
+      `${t("en-US", "importDroppedRowsWarning", 2)} ${t("en-US", "importUnbalancedQuotesWarning")}`,
+    );
+  });
+
+  it("stays silent on a clean import", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0, unterminated: false, malformed: 0 })); });
+    expect(showToast).not.toHaveBeenCalled();
+  });
+
+  // ★★★ THE REFUSAL MUST SPEAK ON THE MALFORMED CAUSE, and for a release it did
+  // not. `loadWasIncomplete` is a THREE-cause derivation while `refuseWrite`
+  // enumerated two, and malformed-only is the NORMAL shape here — a file backend
+  // has no meta blob to fail decoding and typically no document truncation. So
+  // `wouldRefuseWrite()` returned true, `refuseWrite()` built an EMPTY `parts`,
+  // and the user's explicit "Pick storage file" click did nothing and said
+  // nothing. Nothing tested `refuseWrite`'s BEHAVIOUR at all before this.
+  it("speaks when the ONLY cause is malformed quoting", () => {
+    const { result, showToast } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 3 })); });
+    // The hold is genuinely raised off this cause alone — the precondition that
+    // makes a silent refusal reachable. Without this the test below could pass
+    // because the refusal never ran.
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.truncationOps.wouldRefuseWrite()).toBe(true);
+
+    showToast.mockClear();
+    act(() => { result.current.truncationOps.refuseWrite(); });
+    expect(showToast).toHaveBeenCalledTimes(1);
+    expect(showToast).toHaveBeenLastCalledWith("error", t("en-US", "importMalformedQuotesWarning", 3));
+  });
+
+  // ★ The nonce is what lets the banner's re-show reconcile see this cause at
+  // all; a COUNT cannot, since two projects violating the same NUMBER of rules
+  // compare equal. Bumped on the raising branch ONLY.
+  it("mints a fresh identity per raising load, and none on a clean one", () => {
+    const { result } = render();
+    const start = result.current.malformedQuotesNonce;
+
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    const afterFirst = result.current.malformedQuotesNonce;
+    expect(afterFirst).not.toBe(start);
+    expect(result.current.malformedQuoteCount).toBe(2);
+
+    // A SECOND load with the same COUNT must still move the nonce — this is the
+    // whole reason it is not a count.
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    expect(result.current.malformedQuotesNonce).not.toBe(afterFirst);
+
+    // A clean load lowers the count and must NOT mint an identity, or the banner
+    // re-shows for a load that found nothing wrong.
+    const afterSecond = result.current.malformedQuotesNonce;
+    act(() => { result.current.truncationOps.reportFor({ ...opened({ malformed: 0 }), lastLoadTruncation: undefined, lastDecodeFailures: [] }); });
+    expect(result.current.malformedQuotesNonce).toBe(afterSecond);
+    expect(result.current.malformedQuoteCount).toBe(0);
+  });
+
+  // ★★★ RAISE-ONLY, and this is the half the plan's one-line summary did not
+  // carry. `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`
+  // — it re-points the ACTIVE backend at the picked file — so the next debounced
+  // save writes the merged live workspace back OVER the file just read. A
+  // malformed file reaching this path is therefore the malformed-quote hold's
+  // own case, not an exception to it.
+  it("RAISES the hold for a malformed file, because the next save overwrites it", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 2 })); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.mayCommitAfterIncompleteLoad()).toBe(false);
+  });
+
+  it("does NOT lower a truncation hold a previous load raised", () => {
+    // The whole reason this op exists: nothing here describes the documents the
+    // §103 flag is about, so a clean import may not clear their warning.
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(backendReporting({ entries: 5, blocks: 0 })); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 0 })); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.truncation).toEqual({ entries: 5, blocks: 0 });
+  });
+
+  it("does NOT lower a malformed-quote hold a previous load raised", () => {
+    // Same rule as `raiseDecodeFailuresFor`: the live workspace still carries
+    // the earlier file's reading, so the warning is still true of it.
+    const { result } = render();
+    act(() => {
+      result.current.truncationOps.reportFor({
+        lastLoadTruncation: undefined,
+        lastImportMalformedQuotes: 3,
+      });
+    });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ malformed: 0 })); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+  });
+
+  it("does NOT lower a decode hold a previous load raised", () => {
+    const { result } = render();
+    act(() => { result.current.truncationOps.reportFor(decodingFor(["documents"])); });
+    act(() => { result.current.truncationOps.reportImportFor(opened({ dropped: 1 })); });
+    expect(result.current.loadWasIncomplete).toBe(true);
+    expect(result.current.decodeFailureCount).toBe(1);
+  });
+});
+
 describe("useLoadTruncation — undecodable meta slices", () => {
   /** A backend stand-in for the decode channel. `lastLoadTruncation` is left
    *  undefined so nothing observed here comes from the §103 cap. */
-  const decoding = (slices: readonly string[]) => ({
-    lastLoadTruncation: undefined,
-    lastImportDroppedRows: 0,
-    lastImportUnterminatedQuote: false,
-    lastDecodeFailures: slices,
-  });
+  const decoding = decodingFor;
 
   it("pauses saving when a load could not decode a slice", () => {
     const { result } = render();
@@ -412,18 +702,47 @@ describe("ops files — no unguarded backend access (source scan)", () => {
   ];
   const REPORT_EXEMPT_MARKER = "NO reportFor:";
 
+  // ★★★ THERE ARE NOW TWO REPORTING OPS AND THE CENSUS MUST COUNT BOTH, or
+  // closing §152 would have turned this file RED at the very site it fixed.
+  // `reportImportFor` is the import-only op for a load that applies SOME rows
+  // into the live workspace instead of replacing it — it reports the import
+  // loss and raises the quoting hold, and touches truncation in neither
+  // direction. See its doc on `TruncationOps`.
+  //
+  // ★★ `/reportFor\(/` DOES NOT MATCH `reportImportFor(` — "report" is not
+  // followed by "For(" there — so the two regexes are disjoint and the sum is a
+  // real census rather than a double count. Verify before changing either:
+  //   node -e 'console.log(/reportFor\(/.test("truncationOps.reportImportFor("))'
+  // → false. If a future rename made them overlap, every import-only site would
+  // count TWICE and the file would fail on correct code.
+  //
+  // ★★★ AND THE NEW OP IS DELIBERATELY NOT EXPRESSIBLE THROUGH THE EXEMPT
+  // MARKER. A site carrying BOTH the marker and a `reportImportFor` call sums
+  // to 2 against 1 load and fails — which is the point: the marker means "this
+  // load reports NOTHING", and a path that reports the import half is not that.
+  // Without the collision a site could keep the exemption it no longer needs,
+  // and the census would go on accepting it forever if the call were later
+  // deleted. That is why `onOpenStorageFile` LOST its marker when it gained the
+  // call rather than keeping both.
+  // ★ Consequence: `exempt` is 0 across all three files today, so that term is
+  // dormant. It is kept because the next path that genuinely must stay silent
+  // needs somewhere to say so — a bare lower count would be satisfied by a file
+  // that simply forgot.
   it.each(CENSUS_FILES)("%s reports for every load it does not explicitly exempt", (file) => {
     const src = readFileSync(file, "utf8");
     const loads = src.match(/\.load\(\)/g)?.length ?? 0;
     const reports = src.match(/reportFor\(/g)?.length ?? 0;
+    const importReports = src.match(/reportImportFor\(/g)?.length ?? 0;
     const exemptRe = new RegExp(REPORT_EXEMPT_MARKER, "g");
     const exempt = src.match(exemptRe)?.length ?? 0;
     expect(loads, `${file}: no load sites found — the census would be vacuous`).toBeGreaterThan(0);
     expect(
-      reports + exempt,
-      `${file}: ${loads} load(s), ${reports} report(s), ${exempt} marked exemption(s). ` +
-        `Every load must call truncationOps.reportFor, or carry a "${REPORT_EXEMPT_MARKER}" ` +
-        `comment at the site saying why it must not.`,
+      reports + importReports + exempt,
+      `${file}: ${loads} load(s), ${reports} full report(s), ${importReports} import-only ` +
+        `report(s), ${exempt} marked exemption(s). Every load must call ` +
+        `truncationOps.reportFor, or truncationOps.reportImportFor if it applies rows into ` +
+        `the live workspace instead of replacing it, or carry a "${REPORT_EXEMPT_MARKER}" ` +
+        `comment at the site saying why it must do neither.`,
     ).toBe(loads);
   });
 

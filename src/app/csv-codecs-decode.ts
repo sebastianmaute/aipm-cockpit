@@ -7,6 +7,7 @@
 // Re-exported via the ./csv-codecs barrel.
 
 import { splitCsvLines } from "./csv-line-scan";
+import type { ImportSectionKey } from "./csv-codecs-sections";
 import { decodeKnowledgeLinks } from "./document-link";
 import type { DocTruncationDiag } from "./document-model";
 import { decodeNoteLog } from "./note-log";
@@ -128,6 +129,48 @@ export interface ImportDiag extends DocTruncationDiag {
    *  mid-row section switch is fixed. Rows there are ABSORBED into one giant
    *  cell rather than rejected, so `droppedRows` cannot see them. */
   unterminatedQuote?: boolean;
+  /** How many RFC 4180 quoting violations the scan saw — an opening quote not
+   *  at a field start, or a closing quote not followed by a delimiter.
+   *  ★★★ THIS IS MALFORMEDNESS, NOT SUSPICION, and the difference is what makes
+   *  it reportable. Whether a section marker was SWALLOWED by a quoted cell is
+   *  undecidable (§150): the swallowed and the legitimate case are
+   *  byte-identical, so a detector built on that question fires on correct
+   *  imports. This one is syntactic and local.
+   *  ★★ Distinct from `unterminatedQuote`, which is the whole-document
+   *  end-state: a file can be perfectly balanced overall and still carry
+   *  violations mid-document, so neither implies the other.
+   *  ★ CSV ONLY, exactly as `unterminatedQuote` is — `splitCsvSections` is the
+   *  sole writer and `markdownToWorkspace` never sets it. */
+  malformedQuotes?: number;
+  /** Which sections the dropped rows came from (§152). ★★★ `droppedRows` alone
+   *  cannot answer the question the user actually has: `onOpenStorageFile`
+   *  applies tasks + RAID and DISCARDS every other slice, so "3 rows dropped"
+   *  leaves them unable to tell whether the loss landed on what they just
+   *  imported or on a section that was thrown away regardless — two different
+   *  losses with two different remedies.
+   *  ★★ ABSENT rather than zero-filled when nothing was dropped: a section not
+   *  present in the file is never decoded at all, so a `{tasks: 0}` would claim
+   *  an inspection that did not happen.
+   *  ★★★ NEVER WRITTEN DIRECTLY — go through {@link countDroppedRow}, which
+   *  writes this and `droppedRows` together. A second increment path touching
+   *  only one of them makes the total and the breakdown disagree, and nothing
+   *  downstream can tell which is right. */
+  droppedBySection?: Partial<Record<ImportSectionKey, number>>;
+}
+
+/**
+ * Record ONE rejected import row, in both the flat total and the per-section
+ * breakdown. The single writer of either field.
+ *
+ * ★ A no-op without a `diag`, so every decoder keeps its "the optional arg
+ * never changes a clean decode" property (`import-dropped-rows.test.ts` pins
+ * that by comparing a decode with and without one).
+ */
+export function countDroppedRow(diag: ImportDiag | undefined, section: ImportSectionKey): void {
+  if (!diag) return;
+  diag.droppedRows++;
+  diag.droppedBySection ??= {};
+  diag.droppedBySection[section] = (diag.droppedBySection[section] ?? 0) + 1;
 }
 
 /**
@@ -169,7 +212,10 @@ function splitCsvSections(csv: string, diag?: ImportDiag): {
   // marker then switched `mode` MID-ROW — silently destroying every later row
   // in the section (open-followups §105). Do not "simplify" this back.
   const scan = splitCsvLines(csv);
-  if (diag) diag.unterminatedQuote = scan.unterminatedQuote;
+  if (diag) {
+    diag.unterminatedQuote = scan.unterminatedQuote;
+    diag.malformedQuotes = scan.malformedQuotes;
+  }
   // ★★★ AND YET: ON AN UNBALANCED QUOTE WE DELIBERATELY FALL BACK TO THE OLD
   // PHYSICAL SPLIT FOR ROUTING. Quote state in a quote-aware scan carries across
   // the WHOLE FILE, where the physical split reset it at every line — so ONE
@@ -430,27 +476,32 @@ function csvRowsToObjects(csv: string): Record<string, string>[] {
 function collectRows<T>(
   rows: Record<string, string>[],
   build: (obj: Record<string, string>) => T | null,
+  /** ★ REQUIRED, and positioned BEFORE the optional `diag` for that reason: a
+   *  generic collector cannot know which section it was handed, so the key can
+   *  only come from the caller. Optional here would let a call site forget it
+   *  and silently attribute nothing while the flat total still moved. */
+  section: ImportSectionKey,
   diag?: ImportDiag,
 ): T[] {
   const out: T[] = [];
   for (const o of rows) {
     const item = build(o);
     if (item) out.push(item);
-    else if (diag) diag.droppedRows++;
+    else countDroppedRow(diag, section);
   }
   return out;
 }
 
 function csvToResources(csv: string, diag?: ImportDiag): Resource[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeResource, diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeResource, "resources", diag);
 }
 
 function csvToRoles(csv: string, diag?: ImportDiag): Role[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeRole, diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeRole, "roles", diag);
 }
 
 function csvToBudgets(csv: string, diag?: ImportDiag): BudgetBucket[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeBudgetBucket, diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeBudgetBucket, "budgets", diag);
 }
 
 export function decodeRatesMap(s: string): Record<string, number> {
@@ -472,11 +523,11 @@ function parseFxRatesLine(line: string): FxRates | null {
 }
 
 function csvToDisciplines(csv: string, diag?: ImportDiag): Discipline[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeDiscipline, diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeDiscipline, "disciplines", diag);
 }
 
 function csvToGrades(csv: string, diag?: ImportDiag): Grade[] {
-  return collectRows(csvRowsToObjects(csv), sanitizeGrade, diag);
+  return collectRows(csvRowsToObjects(csv), sanitizeGrade, "grades", diag);
 }
 
 function parsePlanLine(line: string): ResourcePlan | null {
@@ -496,6 +547,8 @@ function parsePlanLine(line: string): ResourcePlan | null {
 function decodeCsvSection<T>(
   csv: string,
   build: (obj: Record<string, string>) => T | null,
+  /** Required for the same reason as `collectRows`' — see there. */
+  section: ImportSectionKey,
   diag?: ImportDiag,
 ): T[] {
   const rows = parseCsv(csv);
@@ -520,13 +573,13 @@ function decodeCsvSection<T>(
     });
     const item = build(obj);
     if (item) items.push(item);
-    else if (diag) diag.droppedRows++;
+    else countDroppedRow(diag, section);
   }
   return items;
 }
 
 function csvToAbsences(csv: string, diag?: ImportDiag): Absence[] {
-  return decodeCsvSection(csv, sanitizeAbsence, diag);
+  return decodeCsvSection(csv, sanitizeAbsence, "absences", diag);
 }
 
 /** Decodes a `# CALENDAR EVENTS` section into CalendarEvent[]. Mirrors
@@ -535,11 +588,11 @@ function csvToAbsences(csv: string, diag?: ImportDiag): Absence[] {
  *  here — drops just the rows `buildCalendarEventFromObj` rejects (a malformed
  *  row never takes the rest of the section down with it). */
 export function csvToCalendarEvents(csv: string, diag?: ImportDiag): CalendarEvent[] {
-  return decodeCsvSection(csv, buildCalendarEventFromObj, diag);
+  return decodeCsvSection(csv, buildCalendarEventFromObj, "calendarEvents", diag);
 }
 
 function csvToShifts(csv: string, diag?: ImportDiag): Shift[] {
-  return decodeCsvSection(csv, sanitizeShift, diag);
+  return decodeCsvSection(csv, sanitizeShift, "shifts", diag);
 }
 
 /** Decodes a `# DOCUMENT ASSETS` section into DocumentAsset[]. Same
@@ -549,23 +602,23 @@ function csvToShifts(csv: string, diag?: ImportDiag): Shift[] {
  *  document/version list per cell; asset metadata is one row per asset,
  *  matching calendarEvents). Bytes never appear here — only metadata. */
 function csvToDocumentAssets(csv: string, diag?: ImportDiag): DocumentAsset[] {
-  return decodeCsvSection(csv, buildDocumentAssetFromObj, diag);
+  return decodeCsvSection(csv, buildDocumentAssetFromObj, "documentAssets", diag);
 }
 
 function csvToMilestones(csv: string, diag?: ImportDiag): Milestone[] {
-  return decodeCsvSection(csv, buildMilestoneFromObj, diag);
+  return decodeCsvSection(csv, buildMilestoneFromObj, "milestones", diag);
 }
 
 function csvToChanges(csv: string, diag?: ImportDiag): ChangeItem[] {
-  return decodeCsvSection(csv, buildChangeFromObj, diag);
+  return decodeCsvSection(csv, buildChangeFromObj, "changes", diag);
 }
 
 export function csvToStakeholders(csv: string, diag?: ImportDiag): Stakeholder[] {
-  return decodeCsvSection(csv, buildStakeholderFromObj, diag);
+  return decodeCsvSection(csv, buildStakeholderFromObj, "stakeholders", diag);
 }
 
 function csvToRaid(csv: string, diag?: ImportDiag): RaidItem[] {
-  return decodeCsvSection(csv, buildRaidItemFromObj, diag);
+  return decodeCsvSection(csv, buildRaidItemFromObj, "raid", diag);
 }
 
 /** Parses all sections out of a (possibly section-marked) CSV string. Pass an
@@ -703,7 +756,9 @@ function csvToTasks(csv: string, diag?: ImportDiag): Task[] {
     });
     const task = buildTaskFromObj(obj);
     if (task) tasks.push(task);
-    else if (diag) diag.droppedRows++;
+    // ★ csvToTasks keeps its own loop (dangling-dependency pass below), so the
+    // key is a literal here rather than a parameter.
+    else countDroppedRow(diag, "tasks");
   }
   // Final pass: now that we know every id that survived parsing, drop any
   // dependency entries that point at missing or self ids. Older CSV files

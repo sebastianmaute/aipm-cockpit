@@ -139,7 +139,7 @@ export function StorageBanner({
  *  ★ `truncation` may be `null` (counts unknown) — the decision is then made on
  *  a screen showing no magnitude, so pass them whenever the guard has them. */
 export function TruncatedLoadBanner({
-  lang, truncation, decodeFailureCount, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
+  lang, truncation, decodeFailureCount, malformedQuoteCount, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
 }: {
   lang: Lang;
   truncation: { entries: number; blocks: number } | null;
@@ -148,6 +148,15 @@ export function TruncatedLoadBanner({
    *  confirm dialog name no magnitude at all on that path, and the dialog is the
    *  last thing the user sees before permanently discarding the data. */
   decodeFailureCount: number;
+  /** How many CSV quoting violations the imported file carried — the guard's
+   *  THIRD cause. ★★★ Threaded for the same reason `decodeFailureCount` is, and
+   *  omitted for a release for want of asking: this cause commonly arrives with
+   *  `truncation` null AND `decodeFailureCount` 0 (a file backend has no meta
+   *  blob to fail decoding), so without it the banner rendered a headline with
+   *  NO magnitude line and `askThenSave` fell through to `message: body` — the
+   *  permanent-discard confirm naming nothing at all, which is precisely what
+   *  the note on `decodeFailureCount` says the count is threaded to prevent. */
+  malformedQuoteCount: number;
   /** Hidden by the user. The save guard stays armed either way. */
   dismissed: boolean;
   /** The layout shows a persistent "saving paused" control elsewhere (the modern
@@ -183,9 +192,13 @@ export function TruncatedLoadBanner({
   // the whole composition.
   // ★ Each single-cause case still renders EXACTLY one sentence, unchanged: the
   // join is only visible when both hold.
+  // ★ The join now spans THREE causes for the same reason it spanned two: they
+  // are not mutually exclusive, and each single-cause case still renders exactly
+  // one sentence.
   const countParts = [
     truncationCount,
     decodeFailureCount > 0 ? t(lang, "documentsUnreadableCount", decodeFailureCount) : null,
+    malformedQuoteCount > 0 ? t(lang, "importMalformedQuotesCount", malformedQuoteCount) : null,
   ].filter((part): part is string => part !== null);
   const countText = countParts.length > 0 ? countParts.join(" ") : null;
   // ★★★ THE HEADLINE FOLLOWS THE CAUSE, because "document data" was true of only
@@ -204,7 +217,11 @@ export function TruncatedLoadBanner({
   // ★ The count line below still names each magnitude in its own vocabulary
   // ("N document entries…", "N kinds of saved data…"), so the specificity the
   // wider headline gives up is not lost — it moves one line down.
-  const truncationOnly = truncation != null && decodeFailureCount === 0;
+  // ★★ ALL THREE causes gate the narrower headline, not two. "Document data" is
+  // true of truncation alone; a malformed import is not about documents at all,
+  // so a truncation+malformed load must take the wider wording for the same
+  // reason the truncation+decode pair does.
+  const truncationOnly = truncation != null && decodeFailureCount === 0 && malformedQuoteCount === 0;
   const bannerKey = truncationOnly ? "documentsTruncatedBanner" : "documentsUnreadableBanner";
   const bannerAriaKey = truncationOnly ? "documentsTruncatedBannerAria" : "documentsUnreadableBannerAria";
   const askThenSave = async () => {

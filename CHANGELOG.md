@@ -8,6 +8,52 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.263.2] - 2026-08-29 "Okorafor"
+
+### Fixed
+
+- **A spreadsheet whose quotation marks are broken could be read wrongly and then saved
+  back over itself, with nothing said at any point.** A stray quotation mark in a hand-edited
+  or foreign CSV file can make the app read one part of the file as another — rows meant as
+  milestones arriving as tasks, for instance — and because nothing was rejected, no warning
+  followed and the next save wrote that reading back over the original. Opening such a file
+  now says that it breaks the quoting rules and pauses saving until you confirm, so the only
+  copy is not overwritten on a misreading.
+
+  The message says the file is malformed and may not have been read correctly. It does not
+  claim to know what was lost, because in general nothing can: a file that was misread and a
+  file that is simply unusual can be byte-for-byte identical.
+
+- **Opening a file into the current project reported nothing about rows it had to skip.**
+  **Storage → Open file** brings in tasks and RAID items from a chosen file. If that file had
+  malformed rows, they were dropped in silence — including rows from the very tasks and RAID
+  it was about to bring in. It now reports them, and pauses saving if the file's quoting is
+  broken. Declining the "replace your tasks?" prompt reports them too, because the app is
+  already pointed at the chosen file by then.
+
+- **A skipped-row warning now names which parts of the file lost rows.** "4 invalid row(s)
+  were skipped" left you unable to tell whether the loss hit what you were importing or a
+  part of the file that was going to be discarded anyway. The warning now adds, for example,
+  "Affected sections: Tasks, RAID." — for both CSV and Markdown files.
+
+- **Template import now keeps every register's notes.** Notes attached to tasks, RAID items and
+  change requests were discarded when a template was applied. They are now carried through,
+  and passed through the same safety filter as any other imported rich text.
+
+- **When saving was paused over a broken spreadsheet, "Pick storage file" did nothing and said
+  nothing.** Saving pauses after a file with broken quoting is opened, and choosing a new
+  storage file is refused while it is paused — but on this cause the refusal was silent, so the
+  button appeared dead. It now explains why it was refused.
+
+- **The warning banner said saving was paused without saying how much was at stake.** For a
+  broken-quoting file the banner showed no figure, and neither did the "Save anyway"
+  confirmation — which permanently discards whatever could not be read. Both now name how many
+  places break the quoting rules.
+
+- **Dismissing that banner hid it for later files too.** After dismissing the warning, opening a
+  second file with broken quoting brought saving to a halt again but left the banner hidden, so
+  nothing on screen said so. Each new affected file now re-shows it.
+
 ## [0.263.1] - 2026-08-29 "Okorafor"
 
 ### Fixed

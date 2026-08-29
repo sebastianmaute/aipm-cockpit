@@ -1,7 +1,8 @@
 "use client";
 import type React from "react";
 import { useRef, useState } from "react";
-import { type Lang, t } from "./i18n";
+import { type Lang, type TranslationKey, t } from "./i18n";
+import { IMPORT_SECTION_KEYS, type ImportSectionKey } from "./csv-codecs-sections";
 import { logDiag } from "./diagnostics";
 import type { StorageBackend, Workspace } from "./storage";
 
@@ -11,6 +12,37 @@ import type { StorageBackend, Workspace } from "./storage";
 export type LoadTruncation = { entries: number; blocks: number } | undefined;
 
 type ShowToast = (kind: "info" | "error" | "success", text: string) => void;
+
+/**
+ * What each import section is CALLED when a diagnostic names it.
+ *
+ * ★★★ A TOTAL `Record`, not a `Partial` and not a lookup with a fallback. A new
+ * member of `IMPORT_SECTION_KEYS` then fails `tsc` — which is the only thing
+ * that can catch it, since a section with no label would simply be omitted from
+ * the sentence and the report would silently under-name the loss. A `?? key`
+ * fallback would render an internal identifier to the user instead.
+ *
+ * ★★ ITS OWN `importSection*` KEYS RATHER THAN THE NAV/VIEW LABELS. Those name
+ * what a user clicks; these name what a FILE SECTION holds, and the two drift
+ * independently — `i18n.ts` already carries a `tasks: "Tasks"` that belongs to
+ * the UI and would silently reword this diagnostic if it were ever relabelled.
+ */
+const IMPORT_SECTION_LABELS: Record<ImportSectionKey, TranslationKey> = {
+  tasks: "importSectionTasks",
+  raid: "importSectionRaid",
+  absences: "importSectionAbsences",
+  shifts: "importSectionShifts",
+  calendarEvents: "importSectionCalendarEvents",
+  documentAssets: "importSectionDocumentAssets",
+  milestones: "importSectionMilestones",
+  changes: "importSectionChanges",
+  stakeholders: "importSectionStakeholders",
+  resources: "importSectionResources",
+  roles: "importSectionRoles",
+  budgets: "importSectionBudgets",
+  disciplines: "importSectionDisciplines",
+  grades: "importSectionGrades",
+};
 
 /**
  * The TWO choke points the storage layer routes every load and every
@@ -54,7 +86,9 @@ export interface TruncationOps {
       StorageBackend,
       | "lastLoadTruncation"
       | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
       | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
       | "lastDecodeFailures"
     >,
   ) => void;
@@ -90,6 +124,46 @@ export interface TruncationOps {
    *  the same class as truncation (a property of rows that were not applied),
    *  and the known gap around them is recorded at `onOpenStorageFile`. */
   raiseDecodeFailuresFor: (backend: Pick<StorageBackend, "lastDecodeFailures">) => void;
+  /** The IMPORT half of `reportFor`, for a load that APPLIES SOME ROWS into the
+   *  live workspace rather than replacing it (`onOpenStorageFile`,
+   *  `use-storage-backend.ts`, which takes `loaded.tasks` + `loaded.raid` and
+   *  discards every other slice).
+   *
+   *  ★★★ THAT PATH MUST NOT CALL `reportFor`, AND ITS SILENCE WAS A REAL GAP
+   *  (§152). The truncation reason it carries is sound and is sound ONLY for
+   *  truncation: the documents the §103 flag is about were never applied, so
+   *  raising would warn about documents the user still holds and lowering would
+   *  clear a warning still true of them. The IMPORT channel is the opposite —
+   *  the rows a malformed file dropped MAY BE the tasks and RAID this path is
+   *  about to apply — so bundling both signals on one call left a file that
+   *  silently lost task rows reporting nothing at all.
+   *  ★ "May be", not "are": `droppedRows` is one workspace-wide counter bumped
+   *  for every section, so a drop confined to milestones raises it too and this
+   *  path discards milestones. Per-section attribution is §152's second half.
+   *
+   *  ★★★ RAISE-ONLY on the quoting hold, and NEVER either direction on
+   *  truncation or decode. Same rule as {@link raiseDecodeFailuresFor}: this
+   *  load replaced nothing, so the live workspace still carries the PREVIOUS
+   *  load's reading and any flag raised over it is still true. Lowering here
+   *  would resume autosave on the strength of a partial merge.
+   *  ★★ It DOES raise for a malformed file, and reading the "import-only"
+   *  name as "toast-only" is the trap. `LocalFileBackend.openFile()` ends
+   *  `await idbSet(this.idbKey, handle)` — it re-points the ACTIVE backend at
+   *  the file it just read — so the next debounced save writes the merged live
+   *  workspace back OVER that file. That is exactly the overwrite-the-only-copy
+   *  case the quoting hold exists for, arriving through a narrower door.
+   *
+   *  ★★★ THE CALLER MUST FIRE ITS OWN "opened" TOAST BEFORE THIS, NEVER AFTER —
+   *  the surface is single-slot, see the landmine on {@link reportFor}. */
+  reportImportFor: (
+    backend: Pick<
+      StorageBackend,
+      | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
+      | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
+    >,
+  ) => void;
   /** Best-effort flush of the live workspace to the ACTIVE backend, SKIPPED
    *  while a truncated load is unresolved. Skipping is the safe outcome: the
    *  source still holds the documents that were not loaded, and a flush is by
@@ -180,11 +254,28 @@ export interface LoadTruncationGuard {
    *  would silently reintroduce the pre-dismissed banner. It also keeps the slice
    *  KEYS off the guard's public surface — see `decodeFailureCount` above. */
   decodeFailureNonce: number;
-  /** True while an incomplete load is unresolved — from EITHER cause: a
-   *  truncating load, or a meta slice that could not be decoded. Derived from
-   *  the two states below it (one derivation, so they cannot disagree) — drives
-   *  the persistent banner and the save-effect dep. See the lockout note on
-   *  `allowIncompleteSave`. */
+  /** How many RFC 4180 quoting violations the imported file carried, 0 when
+   *  none. ★ Threaded to the banner so the THIRD cause names a magnitude on the
+   *  one surface that persists: the toast is single-slot and gone in seconds,
+   *  while the banner's count line feeds the "Save anyway" confirm — a permanent
+   *  discard, which shipped for a release showing no magnitude at all on this
+   *  cause. */
+  malformedQuoteCount: number;
+  /** Per-raising-load identity for the malformed cause, the exact analogue of
+   *  `decodeFailureNonce` above and opaque in the same way — only `!==` against
+   *  a consumer's own last-seen value is meaningful. Without it the banner's
+   *  re-show reconcile cannot see a malformed-only load at all. */
+  malformedQuotesNonce: number;
+  /** True while an incomplete load is unresolved — from ANY of THREE causes: a
+   *  truncating load, a meta slice that could not be decoded, or an imported
+   *  file that violates CSV quoting. Derived from the three states below it (one
+   *  derivation, so they cannot disagree) — drives the persistent banner and the
+   *  save-effect dep. See the lockout note on `allowIncompleteSave`.
+   *  ★★★ EVERY SURFACE THAT ENUMERATES THE CAUSES MUST ENUMERATE ALL THREE.
+   *  Adding the third one here without revisiting them shipped three separate
+   *  defects at once — a silent `refuseWrite`, a magnitude-less discard confirm,
+   *  and a banner that could not re-show. Grep `malformedQuoteCount` before
+   *  adding a fourth. */
   loadWasIncomplete: boolean;
   /** Lower the flag so saving resumes and the incomplete set may be committed.
    *  ★★★ THIS IS THE ONLY WAY OUT AND IT MUST STAY REACHABLE FROM THE UI. The
@@ -275,7 +366,34 @@ export function useLoadTruncation(
   // those two carries: see `decodeFailureNonce` on `LoadTruncationGuard` for
   // what breaks without it.
   const [decodeFailureNonce, setDecodeFailureNonce] = useState(0);
-  const loadWasIncomplete = truncation !== null || decodeFailures !== null;
+  // ★★ THE THIRD CAUSE, and a separate slot for the same reason `decodeFailures`
+  // is one: a different fact with different data (how many RFC 4180 violations,
+  // not which slices or how many entries). The warning against a second
+  // `useState` above is about restating ONE fact twice; this is not that.
+  // ★★★ IT IS NOT AN IMPORT DIAGNOSTIC IN THE `reportImportDiagnostics` SENSE,
+  // however much it arrives on the same channel. Dropped rows and an
+  // unterminated quote describe rows that never made it in, and the source file
+  // is still on disk to re-import — they toast and nothing more. A file
+  // carrying quoting VIOLATIONS was REINTERPRETED, applied to render scope, and
+  // the next save writes that reading back OVER the source. The hold exists to
+  // stop a silent overwrite of the only copy, which is exactly why truncation
+  // and undecodable slices hold too.
+  // ★★ It says the file is MALFORMED, never that a section marker was
+  // swallowed — that question is undecidable (§150) and nothing here may be
+  // relabelled to imply it.
+  const [malformedQuotes, setMalformedQuotes] = useState<number | null>(null);
+  // ★★ A PER-RAISING-LOAD IDENTITY for the third cause, exactly as
+  // `decodeFailureNonce` is for the second, and added for the same measured
+  // reason: the banner's re-show reconcile keys on the truncation OBJECT and the
+  // decode nonce, so a malformed-only load moves neither and project #2's banner
+  // arrives ALREADY DISMISSED. A COUNT will not do here — two projects violating
+  // the same NUMBER of quoting rules compare equal, which reads as fixed while
+  // the defect survives. Not reset by `clearForFreshWorkspace`, for the reason
+  // spelled out on `decodeFailureNonce`: resetting makes a later value compare
+  // equal to one a consumer already saw.
+  const [malformedQuotesNonce, setMalformedQuotesNonce] = useState(0);
+  const loadWasIncomplete =
+    truncation !== null || decodeFailures !== null || malformedQuotes !== null;
   // ★★★ DEFENSIVE-ONLY, AND DO NOT DESCRIBE IT AS "THE ONE-SHOT BYPASS" — that
   // wording claims it is what re-opens saving, and it is not. What re-opens
   // saving is the STATE going false: `loadWasIncomplete` is a dep of the save
@@ -296,11 +414,16 @@ export function useLoadTruncation(
    *  of an explicit action may be a backend that never served a load, so its
    *  `lastDecodeFailures` is empty and reading it would report "clean". */
   const lastDecodeCountRef = useRef(0);
+  /** The same, for the quoting cause, and for the same reason: an explicit
+   *  action may write to a backend that never served a load. */
+  const lastMalformedQuotesRef = useRef(0);
 
   const allowIncompleteSave = () => {
     allowIncompleteSaveRef.current = true;
     lastTruncationRef.current = null;
     lastDecodeCountRef.current = 0;
+    lastMalformedQuotesRef.current = 0;
+    setMalformedQuotes(null);
     setTruncation(null);
     // ★ BOTH causes, or the escape hatch is not one: clearing only the
     // truncation leaves `loadWasIncomplete` derived-true off the other state and
@@ -437,13 +560,79 @@ export function useLoadTruncation(
    * two are different losses with different remedies, so neither may be dropped
    * when both hold.
    */
+  /**
+   * The THIRD cause of an incomplete load: the imported CSV violates RFC 4180.
+   *
+   * ★★★ WHY THIS HOLDS SAVING WHILE ITS TWO CHANNEL-MATES DO NOT. Dropped rows
+   * and an unterminated quote are toast-only because they describe rows that
+   * never entered the workspace, and the file they came from is untouched on
+   * disk. A malformed file was REINTERPRETED — our reading of it is now in
+   * render scope, and the next save writes that reading back over the source.
+   * Holding is the only thing between a mis-parse and the loss of the only copy.
+   *
+   * ★★★ IT REPORTS MALFORMEDNESS, NOT A SWALLOWED SECTION MARKER. Whether a
+   * `# SECTION` line was absorbed into a quoted cell is UNDECIDABLE — the
+   * swallowed and the legitimate cases are byte-identical (§150) — so this may
+   * never be relabelled as "a section may have been lost". What it says is that
+   * the file breaks the format, which is weaker and actually true.
+   *
+   * ★ Lowers on a clean read, exactly as the other two do: the flag is scoped to
+   * the workspace live RIGHT NOW.
+   */
+  const reportMalformedQuotes = (backend: Pick<StorageBackend, "lastImportMalformedQuotes">) => {
+    const count = backend.lastImportMalformedQuotes ?? 0;
+    if (count <= 0) {
+      lastMalformedQuotesRef.current = 0;
+      setMalformedQuotes(null);
+      return;
+    }
+    logDiag("error", "workspace.importMalformedQuotes", { count });
+    lastMalformedQuotesRef.current = count;
+    setMalformedQuotes(count);
+    // ★ Bumped only on the RAISING branch, mirroring `setDecodeFailureNonce`: a
+    // nonce that also moved on the clearing branch would re-show the banner for
+    // a load that found nothing wrong.
+    setMalformedQuotesNonce((n) => n + 1);
+  };
+
   const reportImportDiagnostics = (
-    backend: Pick<StorageBackend, "lastImportDroppedRows" | "lastImportUnterminatedQuote">,
+    backend: Pick<
+      StorageBackend,
+      | "lastImportDroppedRows"
+      | "lastImportDroppedBySection"
+      | "lastImportUnterminatedQuote"
+      | "lastImportMalformedQuotes"
+    >,
   ) => {
     const dropped = backend.lastImportDroppedRows ?? 0;
     const parts: string[] = [];
-    if (dropped > 0) parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+    if (dropped > 0) {
+      parts.push(t(langRef.current, "importDroppedRowsWarning", dropped));
+      // ★★ WALKED IN `IMPORT_SECTION_KEYS` ORDER, never `Object.keys` order.
+      // The breakdown is built as the decoder happens to encounter sections, so
+      // the same data in a CSV and in a Markdown file would name them in
+      // different orders — a difference the reader would be left to interpret.
+      // ★ A ZERO IS SKIPPED, not rendered: `countDroppedRow` only ever writes a
+      // positive count, so this is defensive, but a section named as affected
+      // while it lost nothing is a false statement rather than a cosmetic one.
+      const by = backend.lastImportDroppedBySection;
+      const names = by
+        ? IMPORT_SECTION_KEYS.filter((k) => (by[k] ?? 0) > 0).map((k) =>
+            t(langRef.current, IMPORT_SECTION_LABELS[k]),
+          )
+        : [];
+      // ★ Nothing published (JSON, Turso) or nothing positive → no sentence at
+      // all. "Affected sections: ." reads as a bug, which it would be.
+      if (names.length > 0) {
+        parts.push(t(langRef.current, "importDroppedRowsSections", names.join(", ")));
+      }
+    }
     if (backend.lastImportUnterminatedQuote) parts.push(t(langRef.current, "importUnbalancedQuotesWarning"));
+    // ★ A THIRD complete sentence on the same join. It is a different loss from
+    // the two above — those rows are absent, these are present but possibly
+    // mis-parsed — so it is added, never substituted.
+    const malformed = backend.lastImportMalformedQuotes ?? 0;
+    if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
     if (parts.length > 0) showToast("error", parts.join(" "));
   };
 
@@ -460,6 +649,23 @@ export function useLoadTruncation(
       // costs the user nothing they cannot read back.
       reportLoadTruncation(backend.lastLoadTruncation);
       reportDecodeFailures(backend);
+      // ★★ RAISES THE HOLD, and is deliberately NOT inside
+      // `reportImportDiagnostics` even though its toast text is. That function
+      // is now reachable from `reportImportFor` too, and the two ops need
+      // DIFFERENT state behaviour over the same sentences: this one both raises
+      // AND lowers, that one raises only. Keeping the state change out here is
+      // what lets the sentence be shared while the direction is not.
+      //
+      // ★★★ AN EARLIER REVISION OF THIS COMMENT GAVE THE WRONG REASON AND THE
+      // WRONG BEHAVIOUR. It said the import-only path "must NOT touch the hold
+      // — it applies rows into an existing workspace rather than replacing it,
+      // so no save of ITS backing file is pending." The second clause is false:
+      // `LocalFileBackend.openFile()` ends `await idbSet(this.idbKey, handle)`,
+      // re-pointing the ACTIVE backend at the file it just read, so the next
+      // debounced save writes the merged workspace straight back over it. A
+      // toast-only op there would have re-opened the very hole this cause was
+      // added to close, one path over. See `reportImportFor`.
+      reportMalformedQuotes(backend);
       reportImportDiagnostics(backend);
     },
     raiseDecodeFailuresFor: (backend) => {
@@ -471,6 +677,18 @@ export function useLoadTruncation(
       // its raising branch with a non-empty list, so the toast, the diagnostics
       // row, the state and the nonce cannot drift from the `reportFor` path.
       reportDecodeFailures(backend);
+    },
+    reportImportFor: (backend) => {
+      // ★ Sentences first, state second — the reverse of `reportFor`'s ordering
+      // note and for the same single-slot reason read from the other end: the
+      // raise below shows nothing, so nothing can overwrite this toast.
+      reportImportDiagnostics(backend);
+      // ★ The RAISE-ONLY gate, spelled exactly as `raiseDecodeFailuresFor`'s is
+      // and for the same reason: `reportMalformedQuotes` reaches only its
+      // raising branch with a positive count, so the diagnostics row, the state
+      // and the ref cannot drift from the `reportFor` path.
+      if ((backend.lastImportMalformedQuotes ?? 0) <= 0) return;
+      reportMalformedQuotes(backend);
     },
     flushCurrent: async () => {
       if (!mayCommitAfterIncompleteLoad()) {
@@ -485,6 +703,8 @@ export function useLoadTruncation(
     clearForFreshWorkspace: () => {
       lastTruncationRef.current = null;
       lastDecodeCountRef.current = 0;
+      lastMalformedQuotesRef.current = 0;
+      setMalformedQuotes(null);
       setTruncation(null);
       // ★ Both causes, for the reason in this member's doc: a brand-new project
       // has no load to hang either flag on, so anything left raised is the
@@ -495,16 +715,29 @@ export function useLoadTruncation(
     refuseWrite: () => {
       const last = lastTruncationRef.current;
       const decoded = lastDecodeCountRef.current;
-      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}), decodeFailures: decoded });
+      const malformed = lastMalformedQuotesRef.current;
+      logDiag("warn", "storage.writeRefusedAfterTruncation", { ...(last ?? {}), decodeFailures: decoded, malformedQuotes: malformed });
       // Say it out loud. The caller returns, so no success toast and no config
       // repoint follow — the user is not left believing a store they just chose
       // holds a project it does not.
       // ★★ A decode-only refusal MUST speak too. Without this the refusal is a
       // silent no-op on an explicit click — precisely what separates this from
       // `flushCurrent`, which the user never asked for.
+      // ★★★ EVERY CAUSE IN `loadWasIncomplete` MUST HAVE AN ARM HERE, and the
+      // malformed one shipped without one. `loadWasIncomplete` is a THREE-cause
+      // derivation (`truncation !== null || decodeFailures !== null ||
+      // malformedQuotes !== null`), but this list enumerated only two — and
+      // malformed-only is the NORMAL shape on the import path, since a file
+      // backend has no meta blob to fail decoding and typically no document
+      // truncation. So `wouldRefuseWrite()` returned true, this ran, `parts` was
+      // empty, and the user's explicit "Pick storage file" click did nothing and
+      // said nothing: the exact silent no-op the note above forbids, reintroduced
+      // by adding a cause to the derivation without revisiting the surfaces that
+      // enumerate them. Adding a fourth cause means adding a fourth arm.
       const parts: string[] = [];
       if (last) parts.push(truncationText(last.entries, last.blocks));
       if (decoded > 0) parts.push(t(langRef.current, "documentsUnreadableWarning", decoded));
+      if (malformed > 0) parts.push(t(langRef.current, "importMalformedQuotesWarning", malformed));
       if (parts.length > 0) showToast("error", parts.join(" "));
     },
     guardedWrite: async (backend, ws) => {
@@ -524,6 +757,8 @@ export function useLoadTruncation(
     truncation,
     decodeFailureCount: decodeFailures?.length ?? 0,
     decodeFailureNonce,
+    malformedQuoteCount: malformedQuotes ?? 0,
+    malformedQuotesNonce,
     loadWasIncomplete,
     allowIncompleteSave,
     mayCommitAfterIncompleteLoad,

@@ -26,11 +26,16 @@ import {
   jsonToWorkspace,
   workspaceToJson,
 } from "./workspace";
+import type { ImportSectionKey } from "./csv-codecs-sections";
 
 export class LocalFileBackend implements StorageBackend {
   readonly kind: LocalKind;
   /** Malformed rows dropped by the most recent CSV/MD load() (0 for JSON). */
   lastImportDroppedRows = 0;
+  /** Which SECTIONS those rows came from — CSV *and* MD, unlike the two quote
+   *  fields below. ★ ABSENT means "not known to have lost anything", never
+   *  "verified clean": a section missing from the file is never decoded. */
+  lastImportDroppedBySection: Partial<Record<ImportSectionKey, number>> | undefined = undefined;
   /**
    * Whether the most recent load() hit an unterminated quote.
    *
@@ -44,6 +49,11 @@ export class LocalFileBackend implements StorageBackend {
    * does not itself match: `grep -rn "diag\.unterminatedQuote =" src/app`.
    */
   lastImportUnterminatedQuote = false;
+
+  /** ★ CSV ONLY, like `lastImportUnterminatedQuote`. Counts RFC 4180 quoting
+   *  violations, NOT a swallowed section marker -- that question is undecidable
+   *  (see the field docs on StorageBackend). */
+  lastImportMalformedQuotes = 0;
   /** What the most recent load() discarded to stay inside the document caps. */
   lastLoadTruncation: { entries: number; blocks: number } = { entries: 0, blocks: 0 };
   private readonly idbKey: string;
@@ -158,7 +168,9 @@ export class LocalFileBackend implements StorageBackend {
     // safe to do rather than a second bug.
     const diag: ImportDiag = { droppedRows: 0 };
     this.lastImportDroppedRows = 0;
+    this.lastImportDroppedBySection = undefined;
     this.lastImportUnterminatedQuote = false;
+    this.lastImportMalformedQuotes = 0;
     try {
       const handle = await this.getHandle();
       if (!handle) throw new StorageNotReadyError("local-file-not-picked");
@@ -171,7 +183,9 @@ export class LocalFileBackend implements StorageBackend {
       const ws =
         this.format === "csv" ? csvToWorkspace(text, diag) : markdownToWorkspace(text, diag);
       this.lastImportDroppedRows = diag.droppedRows;
+      this.lastImportDroppedBySection = diag.droppedBySection;
       this.lastImportUnterminatedQuote = diag.unterminatedQuote ?? false;
+      this.lastImportMalformedQuotes = diag.malformedQuotes ?? 0;
       return ws;
     } finally {
       this.lastLoadTruncation = {
