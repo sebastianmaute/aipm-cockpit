@@ -510,7 +510,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
-| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof OWED |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof DISCHARGED 2026-08-29 |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
@@ -21550,9 +21550,12 @@ predates it. The branch is what made the divergence visible.
 **Status:** open — the code fix shipped 2026-08-29 on the meta-decode-loss branch, and the end-to-end
 proof was DISCHARGED the same day against a real Turso database:
 `npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1` (1 passed), run
-against a FRESH dev server on an isolated port (`PORT=3100 npm run dev`, stopped with
-`PORT=3100 npm run stop`) — the env pair is inlined at SERVER START, so attaching to a server that
-predates `.env.local` tests nothing.
+with `PORT=3100` in the environment for THAT command as well as for the `npm run dev` that starts
+the server and the `npm run stop` that ends it. All three need it, and the test invocation is the
+easy one to miss: `playwright.config.ts` derives its base URL from `PORT` (default 3000), so a bare
+invocation drives the long-running :3000 server instead, where `reuseExistingServer` attaches to
+whatever predates `.env.local` — which tests nothing. The env pair is inlined at SERVER START for
+that same reason.
 CI is still permanently silent on it — there is no live database there (§95, §215) — so this entry
 stays OPEN as the place recording how to RE-MEASURE the chain, not as an unfinished fix.
 
@@ -21571,8 +21574,8 @@ and "Save anyway" is what commits the loss. That last step is a NEGATIVE CONTROL
 nicety — "the row is unchanged after an edit" reads identically to "nothing ever saves in this
 harness", and it caught two drafts that would have passed for the wrong reason.
 
-**The chain, in three links.** It was established by READING code and by unit-level facts, never by
-running it end to end:
+**The chain, in three links.** Each link was established by READING code and by unit-level facts;
+the sequence was then run end to end against a live database — see the discharge record below:
 
 1. **The load discards the slice and says nothing.** `rowsToWorkspace` (`turso-schema.ts`) decodes
    eleven meta-blob slices, each inside its own `try`/`catch`. EVERY one of those catch bodies was
@@ -21699,19 +21702,26 @@ Read the thresholds from the function rather than from this paragraph:
 sed -n '/export function isMassDeletion/,/^}/p' src/app/workspace-metrics.ts
 ```
 
-### ★★★ What is still OWED, and why nothing here can close it
+### ★★★ What WAS owed, and what discharged it — 2026-08-29
 
-Every link above was established by READING code and by unit-level facts. **No step was ever run
-end-to-end against a live Turso database**, and CI has none (§215), so **no green suite in this repo
-is evidence for this chain** — the unit tests pin the pieces, not the sequence. What is owed, in
-order:
+For one day this section read "no step was ever run end-to-end against a live Turso database", and
+that was accurate: the unit tests pin the pieces, not the sequence, and CI has no database (§215),
+so no green suite in this repo was evidence for this chain. `e2e/meta-decode-loss.spec.ts` now runs
+all four owed steps in a single pass against a real database, in order:
 
-1. Corrupt a `documents` meta row in a real Turso project.
-2. Load it, and confirm the incomplete-load banner appears naming the slice.
-3. Confirm the automatic save is WITHHELD while the banner stands.
-4. Confirm "Save anyway" is the only thing that commits the loss.
+1. Corrupt a `documents` meta row in a real Turso project. ✓
+2. Load it, and confirm the incomplete-load banner is raised. ✓ ★ As first written this step said
+   "naming the slice", which OVER-SPECIFIED it — the banner headline is deliberately not
+   slice-specific, because one decode cause covers eleven slices. The spec asserts the banner; the
+   slice NAME goes to `logDiag`, not to the headline. Do not restore the stricter wording without
+   changing the product first.
+3. Confirm the automatic save is WITHHELD while the banner stands. ✓
+4. Confirm "Save anyway" is the only thing that commits the loss. ✓ ★ This is the NEGATIVE CONTROL
+   for step 3, not a fifth nicety — see the paragraph above on the two drafts it caught.
 
-Until that is done, treat the fix as reasoned rather than demonstrated.
+★★ That discharges the PROOF, not the entry. CI still cannot run this file (§215), so these four
+steps are re-measured only when someone holding a database runs it by hand — which is the whole
+reason the Status block above carries the command and the isolated-port setup it needs.
 
 ★ **One thing observed while wiring the surface, recorded here rather than as its own entry.**
 `reportFor` fires three reporters into a SINGLE-SLOT toast — truncation, then decode, then import —
