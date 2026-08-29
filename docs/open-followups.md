@@ -21559,12 +21559,25 @@ that same reason.
 CI is still permanently silent on it — there is no live database there (§95, §215) — so this entry
 stays OPEN as the place recording how to RE-MEASURE the chain, not as an unfinished fix.
 
-★★★ **THE PROOF IS MUTATION-PROVED, WHICH IS THE ONLY REASON A GREEN RUN MEANS ANYTHING.** Measured
-2026-08-29, red → green → red → green: neutering the single line in `rowsToWorkspace` that records a
-failed slice (the accumulator push inside `reportUnreadableSlice`) turns the spec RED at "an
-undecodable slice must raise the incomplete-load banner" — the pre-fix silent swallow, exactly — and
-reverting turns it green again. A live-database test that has quietly stopped exercising the product
-still passes, so re-do that mutation before trusting a green run after any refactor of the decode path.
+★★★ **THE PROOF IS MUTATION-PROVED BY TWO MUTANTS, AND ONE WAS NOT ENOUGH.** A live-database test
+that has quietly stopped exercising the product still passes, so re-do BOTH before trusting a green
+run after any refactor of the decode or save-guard path. Measured 2026-08-29, each red → green →
+red → green:
+
+- **M1 — the banner.** Neuter the single line in `rowsToWorkspace` that records a failed slice (the
+  accumulator push inside `reportUnreadableSlice`). RED at "an undecodable slice must raise the
+  incomplete-load banner" — the pre-fix silent swallow, exactly. It discriminates: the same function
+  also calls `logDiag`, and neutering THAT leaves the spec green, so the assertion is specific to the
+  accumulator rather than to the catch merely existing.
+- **M2 — the withholding.** Force `mayCommitAfterIncompleteLoad` to return true, which leaves the
+  banner up and disarms the save guard. Step 3 stays GREEN and the DATABASE-ROW assertion goes RED at
+  "the save must be WITHHELD while the load is incomplete".
+
+★★★ M2 EXISTS BECAUSE M1 PROVED ONE ASSERTION OF FIVE, AND THIS ENTRY CLAIMED OTHERWISE FOR A DAY.
+Playwright aborts at the first hard `expect`, so under M1 the database-row assertions — the ones the
+spec's own header calls load-bearing — NEVER EXECUTED, and an unexecuted assertion is unproved however
+green the revert looks. A mutant that kills an early assertion can never certify a later one. Found by
+a cold review, not by any gate; generalise it to every mutation claim made from an ordered e2e spec.
 
 ★★ What the run establishes, in order, and why each step is load-bearing: the load PROCEEDS (the
 seeded anchor task renders, so the entity tables came back populated and `isWorkspaceEmpty` did not
