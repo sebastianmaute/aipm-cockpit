@@ -510,7 +510,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
 | [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
-| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-owed) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof OWED | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof OWED |
+| [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open — code FIXED, end-to-end proof OWED |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29 | M | open |
 <!-- INDEX:END -->
 
@@ -21545,14 +21545,31 @@ predates it. The branch is what made the divergence visible.
 
 ---
 
-## 284. A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof OWED
+## 284. A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29
 
-**Status:** open — the code fix shipped 2026-08-29 on the meta-decode-loss branch; the end-to-end
-proof is OWED and nothing in this repo can supply it (CI has no live Turso database — §95, §215). The
-decode-report plumbing was reproduced 2026-08-29 by
-`grep -c "reportUnreadableSlice(" src/app/turso-schema.ts` (→ 11, one per formerly silent catch) and
-by the unit suites named below. The CHAIN itself — corrupt a real row, load, see the banner, watch
-the save be withheld — is never machine-verified.
+**Status:** open — the code fix shipped 2026-08-29 on the meta-decode-loss branch, and the end-to-end
+proof was DISCHARGED the same day against a real Turso database:
+`npx playwright test e2e/meta-decode-loss.spec.ts --project=chromium --workers=1` (1 passed), run
+against a FRESH dev server on an isolated port (`PORT=3100 npm run dev`, stopped with
+`PORT=3100 npm run stop`) — the env pair is inlined at SERVER START, so attaching to a server that
+predates `.env.local` tests nothing.
+CI is still permanently silent on it — there is no live database there (§95, §215) — so this entry
+stays OPEN as the place recording how to RE-MEASURE the chain, not as an unfinished fix.
+
+★★★ **THE PROOF IS MUTATION-PROVED, WHICH IS THE ONLY REASON A GREEN RUN MEANS ANYTHING.** Measured
+2026-08-29, red → green → red → green: neutering the single line in `rowsToWorkspace` that records a
+failed slice (the accumulator push inside `reportUnreadableSlice`) turns the spec RED at "an
+undecodable slice must raise the incomplete-load banner" — the pre-fix silent swallow, exactly — and
+reverting turns it green again. A live-database test that has quietly stopped exercising the product
+still passes, so re-do that mutation before trusting a green run after any refactor of the decode path.
+
+★★ What the run establishes, in order, and why each step is load-bearing: the load PROCEEDS (the
+seeded anchor task renders, so the entity tables came back populated and `isWorkspaceEmpty` did not
+refuse — without that the spec would silently exercise the refusal path instead); the banner is
+raised; an edit that genuinely dirties `meta` does NOT overwrite the row, i.e. the save is withheld;
+and "Save anyway" is what commits the loss. That last step is a NEGATIVE CONTROL rather than a
+nicety — "the row is unchanged after an edit" reads identically to "nothing ever saves in this
+harness", and it caught two drafts that would have passed for the wrong reason.
 
 **The chain, in three links.** It was established by READING code and by unit-level facts, never by
 running it end to end:
