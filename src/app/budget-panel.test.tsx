@@ -7,6 +7,7 @@ import { mintId, __resetMintStateForTests } from "./id-mint-session";
 import { t } from "./i18n";
 import { expectDestructiveButton, expectSecondaryButton } from "../test/button-variant";
 import { expectRowUniqueNames } from "../test/row-unique-names";
+import { rowLabel } from "./row-tokens";
 import type { BudgetBucket, Resource, Role, ResourcePlan } from "./types";
 
 const plan: ResourcePlan = { startDate: "2026-01-01", endDate: "2026-12-31", granularity: "month", currency: "EUR" };
@@ -920,7 +921,11 @@ test("the non-destructive bucket actions render as bordered secondary buttons", 
   //    `destructive` and is asserted in the test below. Adding it back here would
   //    fail, which is the point: the two variants must not silently converge.
   for (const key of ["budgetEditBucket", "budgetClose"] as const) {
-    const btn = screen.getByRole("button", { name: t("en-US", key) });
+    // ★ Qualified, not bare: these buttons take their accessible name from an
+    //   `aria-label` carrying the bucket's row token (§246), so a bare-verb
+    //   lookup finds nothing. The base fixture has ONE bucket, so its token is
+    //   its unqualified name.
+    const btn = screen.getByRole("button", { name: rowLabel(t("en-US", key), "PAM") });
     // ★★ Word-bounded, never `toContain` — see `src/test/button-variant.ts` for
     //    why the substring form is vacuous. NOT because "every variant ends in
     //    `hover:bg-surface-muted`" (an earlier revision of this comment claimed
@@ -943,7 +948,8 @@ test("the non-destructive bucket actions render as bordered secondary buttons", 
 
 test("remove bucket renders as the destructive variant, not secondary", () => {
   render(<BudgetPanel {...props} />);
-  const btn = screen.getByRole("button", { name: t("en-US", "budgetRemoveBucket") });
+  // ★ Qualified for the same reason as the secondary-variant test above.
+  const btn = screen.getByRole("button", { name: rowLabel(t("en-US", "budgetRemoveBucket"), "PAM") });
   // ★★ Removing a bucket is the only irreversible action in that row. Rendering
   //    it identically to Edit and Close is what this pins against — the killing
   //    mutation is flipping it back to `variant="secondary"`, which loses both
@@ -1162,16 +1168,53 @@ describe("BudgetPanel — the hours hints are stated once, not per cell (§246)"
     }
   });
 
-  test("states the Actual-hours hint once in the legend, plus one per-bucket summary tile", () => {
+  test("states the Actual-hours hint exactly once, in the legend", () => {
     renderHints();
-    // ★ NOT `toHaveLength(1)`, and deliberately so. `budgetActualHoursHint` has a
-    // SECOND source this task does not touch: each bucket's "Actual hours"
-    // summary tile in `budget-panel.tsx` carries the same hint from INSIDE the
-    // bucket map. That is a per-BUCKET repetition, not the per-CELL explosion
-    // §246 measured, and qualifying the bucket-scoped controls is a separate
-    // task — so the honest count today is one legend plus one tile per bucket.
-    // If that tile's label is later qualified per bucket this drops to 1 and the
-    // assertion goes red on purpose: TIGHTEN it then, never widen it.
-    expect(screen.getAllByLabelText(actualHint)).toHaveLength(hintBuckets.length + 1);
+    // ★ TIGHTENED from `hintBuckets.length + 1` to 1. `budgetActualHoursHint`
+    // had a SECOND source — each bucket's "Actual hours" summary tile carried
+    // the bare hint from INSIDE the bucket map, so the count was one legend plus
+    // one tile per bucket. That tile's trigger is now qualified with the
+    // bucket's row token, so its accessible name is no longer this string and
+    // the panel-wide legend is the only unqualified instance left.
+    // ★ `getAllByLabelText` matches the WHOLE accessible name, so a qualified
+    // "<hint> – PAM" does not match here — that is what makes this 1 rather
+    // than an assertion that silently stopped counting anything.
+    // The bucket-scoped names are covered by the collision test below.
+    expect(screen.getAllByLabelText(actualHint)).toHaveLength(1);
+  });
+
+  // §246: with two buckets, EVERY control inside the bucket map renders twice —
+  // the four CCI hint triggers, the three summary-tile hints, the manual-percent
+  // hint, the role sort header and the three bucket buttons. Before this fix
+  // eleven names were shared by two controls each.
+  //
+  // ★★ `requireCollisionSeed` is ON because this test CLAIMS to cover a
+  // collision. Without it a fixture cut to one bucket would still pass and
+  // certify nothing — and it is the only guard that can catch that, since
+  // `minControls` counts CONTROLS, not buckets.
+  //
+  // ★ The floor is the MEASURED count for this fixture, not a guess. Re-measure
+  // and BUMP it if the panel grows a control; never lower it to make a run
+  // green, because a floor below the real count is what lets a silently emptied
+  // scope read as a pass. Read the real number off this helper's own error by
+  // setting the floor absurdly high.
+  // ★★★ BOTH BUCKETS ARE NAMED "PAM", and that is the whole point of this
+  // fixture rather than reusing `hintBuckets` (whose two names differ). With
+  // distinct names, interpolating a bare `bucket.name` would ALSO pass — so the
+  // test could not tell the shipped fix from the wrong one. Bucket names are
+  // free text with no uniqueness constraint, so only the `buildRowTokens`
+  // occurrence index ("PAM (1)"/"PAM (2)") actually disambiguates here.
+  const collidingBuckets: BudgetBucket[] = hintBuckets.map((b) => ({ ...b, name: "PAM" }));
+
+  test("gives every bucket-scoped control a bucket-unique accessible name", () => {
+    const { container } = render(
+      <BudgetPanel {...props} roles={hintRoles} buckets={collidingBuckets} />,
+    );
+    expectRowUniqueNames({
+      minControls: 40,
+      scope: container,
+      roles: ["button"],
+      requireCollisionSeed: true,
+    });
   });
 });

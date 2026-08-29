@@ -413,6 +413,14 @@ export function BudgetPanel(props: BudgetPanelProps) {
         )}
         {visibleBuckets.map((br: BucketReport) => {
           const bucket = bucketById.get(br.bucketId)!;
+          // ★★ EVERY control inside this map is one of N identically-shaped
+          // controls once a second bucket exists, so each takes this token
+          // (open-followups §246). Bucket-UNIQUE, not merely bucket-QUALIFIED:
+          // names are free text with no uniqueness constraint, so interpolating
+          // `br.name` still collides when two buckets share one. The fallback is
+          // only reached if a bucket is missing from the token map, which cannot
+          // happen while the map is built over `visibleBuckets`.
+          const bucketToken = bucketTokens.get(br.bucketId) ?? br.name;
           const isBlended = bucket.planningMode === "blended";
           const rate = resolveRate(bucket, fxRates);
           const periods = bucketActivePeriods(bucket, plan);
@@ -446,7 +454,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     {...bucketOrder.handleProps(br.bucketId)}
                     // ★ Bucket-UNIQUE, not merely bucket-qualified: two buckets may share a
                     // name, so the token — not `br.name` — is what makes this WCAG 2.4.6-clean.
-                    ariaLabel={rowLabel(t(lang, "budgetReorderHandle"), bucketTokens.get(br.bucketId) ?? br.name)}
+                    ariaLabel={rowLabel(t(lang, "budgetReorderHandle"), bucketToken)}
                     title={t(lang, "budgetReorderHandle")}
                     // `select-none` and the focus-visible ring are the primitive's own
                     // base; `leading-none` went with the text glyph it used to tune.
@@ -463,7 +471,7 @@ export function BudgetPanel(props: BudgetPanelProps) {
                   <ManualPercentCell
                     lang={lang}
                     bucket={bucket}
-                    rowToken={bucketTokens.get(br.bucketId) ?? br.name}
+                    rowToken={bucketToken}
                     tasks={props.tasks}
                     onCommit={(pct) => updateBucket(bucket.id, { percentComplete: pct })}
                   />
@@ -471,32 +479,40 @@ export function BudgetPanel(props: BudgetPanelProps) {
               </div>
               <div className="grid grid-cols-2 gap-2 text-sm sm:grid-cols-4">
                 <div><div className="text-xs text-muted-foreground">{t(lang, "budgetBudgetHours")}</div>{br.budgetHours.toFixed(0)}</div>
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}<InfoTooltip text={t(lang, "budgetPlanHoursHint")} /></div><span className="inline-flex items-center gap-1.5">{br.plannedHours.toFixed(0)}{!br.budgetMirrorsPlan && <RagBadge value={planVsBudgetHealth(br.plannedHours, br.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />}</span></div>
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetActualHours")}<InfoTooltip text={t(lang, "budgetActualHoursHint")} /></div><span className="inline-flex items-center gap-1.5">{br.actualHours.toFixed(0)}<RagBadge value={ratioHealth(br.actualHours, br.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} /></span></div>
+                {/* ★ These three summary-tile hints render once per BUCKET, so each
+                    is qualified with the bucket token. The Actual-hours one has a
+                    panel-wide twin in the legend above, which stays BARE: the
+                    legend states the column's meaning once for the whole panel and
+                    is the only unqualified instance left (open-followups §246). */}
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetPlanHours")}<InfoTooltip text={t(lang, "budgetPlanHoursHint")} label={rowLabel(t(lang, "budgetPlanHoursHint"), bucketToken)} /></div><span className="inline-flex items-center gap-1.5">{br.plannedHours.toFixed(0)}{!br.budgetMirrorsPlan && <RagBadge value={planVsBudgetHealth(br.plannedHours, br.budgetHours)} lang={lang} title={t(lang, "budgetPlanHours")} />}</span></div>
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetActualHours")}<InfoTooltip text={t(lang, "budgetActualHoursHint")} label={rowLabel(t(lang, "budgetActualHoursHint"), bucketToken)} /></div><span className="inline-flex items-center gap-1.5">{br.actualHours.toFixed(0)}<RagBadge value={ratioHealth(br.actualHours, br.budgetHours)} lang={lang} title={t(lang, "budgetActualHours")} /></span></div>
                 {/* A fixed-price bucket's win/loss IS revenue − cost, so it is
                     unknowable without an internal rate. A T&M bucket's is
                     budgetValue − consumedValue on EXTERNAL rates and stays
                     valid — gating it there would hide a real figure. */}
-                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} /></div><span className="inline-flex items-center gap-1.5">{!costIsKnowable(br) && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
+                <div><div className="flex items-center gap-1 text-xs text-muted-foreground">{t(lang, "budgetWinLoss")}<InfoTooltip text={t(lang, "budgetWinLossHint")} label={rowLabel(t(lang, "budgetWinLossHint"), bucketToken)} /></div><span className="inline-flex items-center gap-1.5">{!costIsKnowable(br) && br.type === "fixed" ? "—" : <>{inCur(br.winLossValue)}<RagBadge value={winLossHealth(br.consumedValue, br.budgetValue)} lang={lang} title={t(lang, "budgetWinLoss")} /></>}</span></div>
               </div>
               {br.spilloverInHours !== 0 && (
                 <div className="mt-1 flex items-center gap-1 text-xs text-muted-foreground">
                   <span>{t(lang, "budgetSpilloverIn")}</span>
-                  <InfoTooltip text={t(lang, "budgetSpilloverInHint")} />
+                  {/* Qualified like its siblings even though it renders only when
+                      the bucket has spillover — two buckets that BOTH have some
+                      is an ordinary case, not an edge one. */}
+                  <InfoTooltip text={t(lang, "budgetSpilloverInHint")} label={rowLabel(t(lang, "budgetSpilloverInHint"), bucketToken)} />
                   <span>: {br.spilloverInHours.toFixed(0)} h · {inCur(br.spilloverInValue)}</span>
                 </div>
               )}
               <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!costIsKnowable(br)} />
-                <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(br)} />
+                <Cci label={t(lang, "budgetCciMargin")} hint={t(lang, "budgetCciMarginHint")} scopeName={bucketToken} value={cci(br.contributionMargin)} currency={bucket.currency} locale={locale} lang={lang} rag={marginHealth(br.contributionMargin.percent)} unknown={!costIsKnowable(br)} />
+                <Cci label={t(lang, "budgetCciBurn")} hint={t(lang, "budgetCciBurnHint")} scopeName={bucketToken} value={cci(br.costPerformance)} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceHealth(br.costPerformance.percent)} primary="percent" unknown={!costIsKnowable(br)} />
                 {/* Earned value needs progress (linked tasks or a manual %),
                     on top of the same internal-rate basis burn/margin need —
                     so it is gated on its OWN null-ness, not `costIsKnowable`
                     alone (a rated bucket with no progress set is still "—"). */}
-                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
+                <Cci label={t(lang, "budgetCciCpi")} hint={t(lang, "budgetCciCpiHint")} scopeName={bucketToken} value={cci(cpiCciValue(br.earnedValue, br.costPerformanceIndex))} currency={bucket.currency} locale={locale} lang={lang} rag={costPerformanceIndexHealth(br.costPerformanceIndex)} primary="percent" unknown={br.costPerformanceIndex === null} />
                 {/* Consumption is an EXTERNAL-rate ratio — knowable without a
                     rate card, so it is deliberately not gated. */}
-                <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
+                <Cci label={t(lang, "budgetCciConsumption")} hint={t(lang, "budgetCciConsumptionHint")} scopeName={bucketToken} value={cci(br.consumption)} currency={bucket.currency} locale={locale} lang={lang} rag={ratioHealth(br.consumedValue, br.budgetValue)} primary="percent" />
               </div>
               <CostUnknownNotice
                 lang={lang}
@@ -539,8 +555,16 @@ export function BudgetPanel(props: BudgetPanelProps) {
                             label out of layout makes 28 true in every language. */}
                         <span className="sr-only">{t(lang, "budgetRoleStatus")}</span>
                       </th>
+                      {/* ★ One table renders per BUCKET, so without this every
+                          bucket contributes a sort button named just "Role"
+                          (WCAG 2.4.6). The token is the CONTEXT only — the
+                          primitive joins it onto the visible label itself, which
+                          is what keeps 2.5.3 containment true by construction.
+                          Hence no `rowLabel` here: pre-joining would repeat the
+                          label. */}
                       <SortResizeTh
                         label={t(lang, isBlended ? "budgetDiscipline" : "budgetRole")}
+                        nameContext={bucketToken}
                         sortCol="role"
                         width={colWidths.role}
                         stickyLeft={DOT_COL_PX}
@@ -675,10 +699,19 @@ export function BudgetPanel(props: BudgetPanelProps) {
                     )}
                 </DataTable>
               </div>
+              {/* ★★ These three carry NO `aria-label` before this change — their
+                  accessible name came from their rendered CONTENT, which is why
+                  an attribute-matching grep could not find them (AGENTS.md's
+                  three-leg enumeration rule, leg 2). N buckets put N "Edit
+                  bucket"/"Close bucket"/"Remove bucket" controls on the page.
+                  ★ The token is APPENDED and the visible text is untouched:
+                  WCAG 2.5.3 asks for CONTAINMENT, not a prefix, so
+                  "Edit bucket – PAM" conforms. */}
               <div className="mt-2 flex items-center gap-4">
                 <Button
                   variant="secondary"
                   size="xs"
+                  aria-label={rowLabel(t(lang, "budgetEditBucket"), bucketToken)}
                   onClick={() => setEditingBucketId(bucket.id)}
                 >
                   {t(lang, "budgetEditBucket")}
@@ -686,6 +719,9 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <Button
                   variant="secondary"
                   size="xs"
+                  // The verb follows the bucket's own status, so the qualified
+                  // name tracks it too rather than pinning one of the two.
+                  aria-label={rowLabel(t(lang, bucket.status === "open" ? "budgetClose" : "budgetReopen"), bucketToken)}
                   onClick={() => updateBucket(bucket.id, bucket.status === "open"
                     ? { status: "closed", closedDate: props.today }
                     : { status: "open", closedDate: undefined })}
@@ -700,6 +736,10 @@ export function BudgetPanel(props: BudgetPanelProps) {
                 <Button
                   variant="destructive"
                   size="xs"
+                  // ★ The `title` below is left BARE on purpose: `aria-label`
+                  // wins the accessible name, so the title is only the hover
+                  // tooltip and does not need the token.
+                  aria-label={rowLabel(t(lang, "budgetRemoveBucket"), bucketToken)}
                   onClick={() => removeBucket(bucket.id)}
                   title={t(lang, "budgetRemoveBucket")}
                 >
