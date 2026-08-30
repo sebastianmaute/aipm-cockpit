@@ -288,7 +288,9 @@ function allowListSeed(seed: TemplateSeed): TemplateSeed {
  *  `sanitizeAiRichText` in `buildSeedTask` and now meets `allowListRich` too.
  *  `allowListNoteLog` re-derives `text` from the html at every boundary, so it
  *  is idempotent by construction; `sanitizeRichHtml` is idempotent under its
- *  default configuration (pinned in `sanitize-html.test.ts`). */
+ *  default configuration — but read that pin's SCOPE before leaning on it:
+ *  `sanitize-html.test.ts`'s "is idempotent on already-clean html" covers
+ *  exactly the second-application case this relies on, and nothing wider. */
 export function appendSeed(ws: Workspace, seed: TemplateSeed): Workspace {
   const allowed = allowListSeed(seed);
   return {
