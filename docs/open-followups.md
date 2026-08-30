@@ -262,7 +262,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§33](#33-a-multi-paragraph-description-can-overflow-its-pptx-box--open-cosmetic) | A multi-paragraph description can overflow its PPTX box — open, cosmetic | 0.210.0 (Larbalestier) | S | open |
 | [§34](#34-the-dom-free-guards-filter-is-a-name-list-where-the-real-set-is-an-import-graph--closed-in-02100) | ~~The DOM-free guard's filter is a NAME LIST where the real set is an import GRAPH~~ | 0.210.0 (Larbalestier) | S | **CLOSED** in 0.210.0 |
 | [§35](#35-sanitizeairichtexts-double-pass-can-double-escape-one-exotic-shape--open-suspicion) | `sanitizeAiRichText`'s double pass can double-escape one exotic shape — open, suspicion | 0.210.0 (Larbalestier) | S | open |
-| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-still-open-small) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small | 0.210.0 (Larbalestier) | S | open |
+| [§36](#36-two-rich-field-writeexport-postures-that-were-claimed-as-recorded-but-were-not--a-fixed-2026-08-28-b-fixed-2026-08-31--closed-2026-08-31) | Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 | 0.210.0 (Larbalestier) | S | **CLOSED** 2026-08-31 |
 | [§37](#37-raiditem-has-no-storage-side-length-cap-on-any-path--open-pre-existing) | `RaidItem` has NO storage-side length cap on any path — open, pre-existing | pre-existing, found 0.210.0 | M | open |
 | [§38](#38-allowed_uri_regexp-silently-strips-target-and-rel-from-every-stored-link--open-pre-existing) | `ALLOWED_URI_REGEXP` silently strips `target` and `rel` from every stored link — open, pre-existing | pre-existing, found 0.210.0 | S–M | open |
 | [§39](#39-the-timelog-partial-failure-toast--a-click-swallowed-by-the-buttons-disabled-state--mechanism-candidate-precondition-proved-causation-unreproduced-fix-landed) | The timelog partial-failure toast — a click swallowed by the button's `disabled` state — mechanism CANDIDATE (precondition proved, causation unreproduced), fix landed | first seen 0.205.0 | M | open |
@@ -314,7 +314,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§85](#85-strictmode-does-not-double-invoke-effects-under-vitest--cause-unknown-so-every-strictmode-dependent-test-may-be-vacuous--closed-false-premise-it-does-double-invoke-here-whether-it-does-on-a-given-mount-depends-on-the-wrapper-shape-and-the-rule-is-pinned-by-a-meta-test) | ~~StrictMode does NOT double-invoke effects under vitest — cause unknown, so every StrictMode-dependent test may be vacuous~~ | pre-existing, found in the slice-3 review | M | **CLOSED**, FALSE PREMISE: it does double-invoke here; whether it does on a given mount depends on the wrapper shape, and the rule is pinned by a meta-test |
 | [§86](#86-ai-cannot-read-timelog-entries--deliberate-no-tool-exposes-them) | AI cannot read timelog entries — deliberate, no tool exposes them | view-scoped AI prompts, unreleased | — | open |
 | [§87](#87-ai-cannot-read-the-activity-log--corrected-2026-08-18-stale) | AI cannot read the activity log — CORRECTED 2026-08-18, stale | view-scoped AI prompts, unreleased | — | open |
-| [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--open-a11y) | `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y | found during view-scoped AI prompts review, unreleased | S | open |
+| [§88](#88-ai-sectiontsxs-own-sub-section-titles-are-not-real-headings--closed-2026-08-31) | `ai-section.tsx`'s own sub-section titles are not real headings | found during view-scoped AI prompts review, unreleased | S | **CLOSED** 2026-08-31 |
 | [§89](#89-ai-cannot-read-absences-and-the-resource-calendar-view-renders-them-beside-meetings) | AI cannot read absences, and the Resource-calendar view renders them beside meetings | view-scoped AI prompts, unreleased | S | open |
 | [§90](#90-oncreateresource-is-unguarded-in-a-popout-and-cannot-take-guardedit--open) | `onCreateResource` is unguarded in a popout and cannot take `guardEdit` — open | undefined` | found in the help-coverage slice-3 review, unreleased | open |
 | [§91](#91-a-popout-can-record-an-undo-entry-and-persist-an-activity-line--open) | A popout can record an undo entry and persist an activity line — open | found in the help-coverage slice-3 review, unreleased | S | open |
@@ -335,7 +335,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§106](#106-the-markdown-codec-is-not-a-fixed-point-when-bare-crs-precede-a-newline--open-minor-progressive) | The Markdown codec is not a fixed point when bare CRs precede a newline — open, minor, progressive | property-based coverage (`!360`, no bump) | XS | open |
 | [§107](#107-html_start-and-sanitizetemplatehtml-disagree-about-u--h1--h2-so-a-model-description-leading-with-a-heading-is-stored-as-escaped-literal-markup--closed-2026-08-10) | `HTML_START` and `sanitizeTemplateHtml` disagree about `u` / `h1` / `h2`, so a model description LEADING with a heading is stored as escaped literal markup | property-based coverage (`!360`, no bump) | M | **CLOSED** 2026-08-10 |
 | [§108](#108-the-meeting-report-html-is-truncated-by-a-raw-slice-so-it-can-cut-mid-tag-and-split-a-surrogate-pair--open) | The meeting-report HTML is truncated by a raw `.slice`, so it can cut mid-tag AND split a surrogate pair — open | split out of §22 rather than folded in — same shape, strictly larger problem | S | open |
-| [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
+| [§109](#109-icon-only-controls-with-no-hover-tooltip-and-one-control-named-only-by-its-title--the-one-name-defect-fixed-2026-08-31-tooltip-inventory-still-open-ratchet) | Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet | filed on `feat/ui-batch-slice-2` as §103, renumbered TWICE — **shipped in 0.223.0 "Okorafor"** | M — ratchet | open |
 | [§110](#110-iconbutton-cannot-express-a-non-rounded-md--non-p-1-control--open) | `IconButton` cannot express a non-`rounded-md` / non-`p-1` control — open | found while converting the close-button family in slice 2 — **shipped in 0.223.0 "Okorafor"** | S–M | open |
 | [§111](#111-document-row-controls-are-named-by-a-title-that-is-not-unique-and-the-comment-says-it-is--the-documents-listtsx-half-fixed-2026-08-25-the-docid-sub-section-below-still-open) | Document row controls are named by a title that is NOT unique, and the comment says it is — the `documents-list.tsx` half FIXED 2026-08-25, the `#docId` sub-section below STILL OPEN | found 2026-08-08 by a merge review, in main's document-authoring code | M | open |
 | [§112](#112-the-settings-rails-rolegroup-breaks-the-wrapped-narrow-viewport-layout--closed-2026-08-08) | The settings rail's `role="group"` breaks the wrapped narrow-viewport layout | slice 2 eye-verify on a seeded Playwright run — **shipped in 0.223.0 "Okorafor"** | S | **CLOSED** 2026-08-08 |
@@ -346,7 +346,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§117](#117-three-s3c-image-prerequisites-all-inert-today--a-fixed-2026-08-25-b-fixed-2026-08-13-by-140-c-still-open) | Three S3c image prerequisites, all inert today — (a) FIXED 2026-08-25, (b) FIXED 2026-08-13 by §140, (c) still open | measured 2026-08-08 during the S3a review, all three inert today | M | open |
 | [§118](#118-a-legacy-plain-text-paragraph-collapses-in-every-renderer-and-the-obvious-fix-destroys-markup--closed-2026-08-10) | A legacy plain-text paragraph collapses in every renderer, and the obvious fix destroys markup | S3a; the collapse found by review, the fix's defect found by implementing it 2026-08-08 | M — blocked on §114 | **CLOSED** 2026-08-10 |
 | [§119](#119-a-href-is-dropped-by-both-ooxml-renderers--open) | `<a href>` is dropped by both OOXML renderers — open | pre-existing, confirmed 2026-08-08 during the S3a review | S | open |
-| [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--open-billed) | The background insight-recommendation runner has no `AbortController` at all — open, billed | UI batch slice 3 — 0.224.0 "Emshwiller" | S | open |
+| [§120](#120-the-background-insight-recommendation-runner-has-no-abortcontroller-at-all--closed-2026-08-31) | The background insight-recommendation runner has no `AbortController` at all | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-31 |
 | [§121](#121-use-tasks-deduptsx-never-aborts-its-in-flight-call-on-unmount--closed-2026-08-08) | `use-tasks-dedup.tsx` never aborts its in-flight call on unmount | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
 | [§122](#122-the-budget-people-rows-and-the-role-row-above-them-read-booked-from-two-different-sources--open-data-integrity) | The budget people rows and the role row above them read BOOKED from two different sources — open, data-integrity | UI batch slice 3 — 0.224.0 "Emshwiller" | M — it is a design question, not a wiring bug | open |
 | [§123](#123-the-budget-people-row-disclosure-clips-its-own-label-mid-glyph-with-no-ellipsis--closed-2026-08-08) | The budget people-row disclosure clips its own label mid-glyph, with no ellipsis | UI batch slice 3 — 0.224.0 "Emshwiller" | S | **CLOSED** 2026-08-08 |
@@ -354,7 +354,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§125](#125-two-more-controls-start-a-billed-anthropic-call-with-no-way-to-stop-it--open-billed) | Two more controls start a billed Anthropic call with no way to stop it — open, billed | found in the slice-3 review prose check | S each | open |
 | [§126](#126-two-same-type-insight-rows-produce-identically-named-per-row-controls-and-no-gate-can-see-it--closed-2026-08-25) | Two same-type Insight rows produce identically-named per-row controls, and no gate can see it | found in the slice-3 review, exposed by the new e2e seed | S | **CLOSED** 2026-08-25 |
 | [§127](#127-two-of-the-six-ai-trigger-hooks-never-abort-on-unmount--closed-2026-08-08) | Two of the six AI trigger hooks never abort on unmount | split out of §121 on 2026-08-08 | S each | **CLOSED** 2026-08-08 |
-| [§128](#128-use-timelog-syncts-clears-busy-from-a-superseded-run--open-ui) | `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI | split out of §127 on 2026-08-09 | S | open |
+| [§128](#128-use-timelog-syncts-clears-busy-from-a-superseded-run--closed-2026-08-31) | `use-timelog-sync.ts` clears `busy` from a superseded run | split out of §127 on 2026-08-09 | S | **CLOSED** 2026-08-31 |
 | [§129](#129-six-of-the-eight-richtexteditor-call-sites-import-it-statically-so-tiptap-ssrs-and-ships-in-the-initial-bundle--closed-2026-08-19) | Six of the eight `RichTextEditor` call sites import it statically, so Tiptap SSRs and ships in the initial bundle | — | — | **CLOSED** 2026-08-19 |
 | [§130](#130-the-prod-smoke-port-guard-probes-localhost-only-so-a-non-loopback-listener-on-its-port-is-invisible-and-can-still-be-killed--open-accepted-measured) | The `prod-smoke` port guard probes `localhost` only, so a non-loopback listener on its port is invisible and can still be killed — open, accepted, measured | — | — | open |
 | [§131](#131-the-doc-claims-ratchet-cannot-verify-a-citation-is-correct-the-grandfathered-debt-is-worked-down-to-3--open-accepted-measured) | The doc-claims ratchet cannot verify a citation is CORRECT; the grandfathered debt is worked down to 3 — open, accepted, measured | — | — | open |
@@ -372,9 +372,9 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
-| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` | — | — | **CLOSED** 2026-08-30 (Escape only; the prescribed reason union deliberately NOT built; the activate-an-item path carved out to §297) |
+| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | ~~`PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body`~~ | — | — | **CLOSED** 2026-08-30 |
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
-| [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--open-correctness-measured) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured | — | — | open |
+| [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--closed-2026-08-31) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread | — | — | **CLOSED** 2026-08-31 |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
 | [§150](#150-a-balanced-pair-of-stray-quotes-mislabels-rows-across-a-csv-section-boundary--open-undecidable-measured-the-detectable-half-fixed-2026-08-29) | A balanced pair of stray quotes mislabels rows across a CSV section boundary — open, UNDECIDABLE, measured; the DETECTABLE half FIXED 2026-08-29 | cold review of the branch closing §105, 2026-08-16 | UNKNOWN | open |
 | [§151](#151-the-sample-generator-runs-under-bare-node-is-false-retracted-in-several-source-headers-and-still-asserted-as-a-live-rationale-elsewhere--open-needs-a-probe) | "The sample generator runs under bare node" is FALSE, retracted in several source headers, and still asserted as a live rationale elsewhere — open, needs a probe | cold review of the branch closing §105, 2026-08-16 | UNKNOWN — it is a probe, not a fix | open |
@@ -389,7 +389,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
 | [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | open |
 | [§162](#162-the-historysearch-kill-switch-is-advertisement-scoped-not-enforced-at-the-executor--closed-2026-08-17-enforcement-added) | The `historySearch` kill switch is advertisement-scoped, not enforced at the executor | — | — | **CLOSED** 2026-08-17 (enforcement added) |
-| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete-and-its-numerator-never-moves--denominator-fixed-2026-08-17-numerator-closed-2026-08-30) | Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator CLOSED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
+| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete-and-its-numerator-never-moves--denominator-fixed-2026-08-17-numerator-fixed-2026-08-30--closed-2026-08-30) | Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator FIXED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
 | [§164](#164-renderactivityentry-lacks-the-args-element-guard-the-activity-panel-has-and-it-runs-inside-the-ai-tool-loop--closed-2026-08-17) | `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop | — | — | **CLOSED** 2026-08-17 |
 | [§165](#165-sanitizeaiconfig-drops-actionsuggestions-so-switching-the-action-centers-ai-off-reverts-to-on-on-the-next-reload--closed-2026-08-17) | `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload | — | — | **CLOSED** 2026-08-17 |
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
@@ -403,11 +403,11 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§174](#174-the-first-publish-in-turso-mode-claims-available-true-over-an-empty-list-while-the-load-is-still-in-flight--open-pre-existing) | The FIRST publish in Turso mode claims `available: true` over an empty list while the load is still in flight — open, pre-existing | — | — | open |
 | [§175](#175-buildchatpointerblock-is-no-longer-bounded-by-any-test--closed-2026-08-20) | `buildChatPointerBlock` is no longer bounded by any test | — | — | **CLOSED** 2026-08-20 |
 | [§176](#176-the-chat-pointer-title-path-flipped-from-flatten-then-cap-to-cap-then-flatten-and-no-test-pins-either-order--closed-2026-08-20) | The chat-pointer title path flipped from flatten-then-cap to cap-then-flatten, and no test pins either order | — | — | **CLOSED** 2026-08-20 |
-| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open (177a closed 2026-08-29; 177b open) |
-| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field | — | — | **CLOSED** 2026-08-29 |
-| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row | — | — | **CLOSED** 2026-08-29 |
-| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | `buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent | — | — | **CLOSED** 2026-08-29 |
-| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it | — | — | **CLOSED** 2026-08-29 (3 of 4; milestones deliberately left — SUPERSEDED for milestones by §289, 2026-08-30) |
+| [§177](#177-field-patch-undo-residue--whole-row-paths-still-revert-unlisted-concurrent-writes-deliberately-out-of-scope) | Field-patch undo residue — whole-row paths still revert unlisted concurrent writes, deliberately out of scope | — | — | open |
+| [§178](#178-a-field-patch-undo-still-reverts-a-concurrent-write-to-another-key-of-the-same-object-valued-field--closed-2026-08-29) | ~~A field-patch undo still reverts a concurrent write to another KEY of the same object-valued field~~ | — | — | **CLOSED** 2026-08-29 |
+| [§179](#179-the-undoredo-delete-branch-is-not-covered-by-the-preserve-mechanism-and-a-write-through-write-between-undo-and-redo-duplicates-the-row--closed-2026-08-29) | ~~The undo/redo DELETE branch is not covered by the preserve mechanism, and a write-through write between undo and redo duplicates the row~~ | — | — | **CLOSED** 2026-08-29 |
+| [§180](#180-buildbulkfieldedits-ignores-the-fieldgroup-invariants-so-a-field-patch-undo-can-leave-a-coupled-pair-inconsistent--closed-2026-08-29) | ~~`buildBulkFieldEdits` ignores the `FieldGroup` invariants, so a field-patch undo can leave a coupled pair inconsistent~~ | — | — | **CLOSED** 2026-08-29 |
+| [§181](#181-four-converted-registers-omit-stampfield-on-their-bulk-capture-while-the-tasks-bulk-edit-passes-it--closed-2026-08-29) | ~~Four converted registers omit `stampField` on their bulk capture while the tasks bulk edit passes it~~ | — | — | **CLOSED** 2026-08-29 |
 | [§182](#182-template-import-can-store-an-inconsistent-statuscompleteddate-pair-and-nothing-repairs-it--closed-2026-08-23) | Template import can store an inconsistent `status`/`completedDate` pair, and nothing repairs it | — | — | **CLOSED** 2026-08-23 |
 | [§183](#183-the-jira-conflict-merge-writes-completeddate-without-status-so-accepting-the-modals-default-splits-the-pair-from-well-formed-data--closed-2026-08-23) | The Jira conflict merge writes `completedDate` without `status`, so accepting the modal's default splits the pair from well-formed data | — | — | **CLOSED** 2026-08-23 |
 | [§184](#184-the-documents-block-editor-is-in-a11y_views-but-is-never-scanned--closed-2026-08-20) | The Documents block editor is in A11Y_VIEWS but is never scanned | — | — | **CLOSED** 2026-08-20 |
@@ -461,7 +461,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
 | [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
-| [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record — CLOSED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
+| [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | **CLOSED** 2026-08-30 |
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
@@ -472,7 +472,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§243](#243-history-rows-give-every-version-the-same-two-accessible-names-and-nothing-in-the-gate-suite-can-see-it--closed-2026-08-25) | History rows give every version the same two accessible names, and nothing in the gate suite can see it | pre-existing, found 0.259.0 | S | **CLOSED** 2026-08-25 |
 | [§244](#244-the-property-suites-anti-vacuity-floors-are-probabilistic-and-one-of-them-took-a-release-pipeline-red--closed-2026-08-26) | The property suites' anti-vacuity floors are probabilistic, and one of them took a release pipeline red | 0.259.0 release pipeline | S–M | **CLOSED** 2026-08-26 |
 | [§245](#245-the-row-unique-names-sweep-is-bounded-by-test-names-and-a-property-based-scan-finds-far-more-surface) | The row-unique-names sweep is bounded by test NAMES, and a property-based scan finds far more surface | row-unique-accessible-names slice (2026-08-25) | S | open |
-| [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30) | Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app | row-unique-accessible-names slice (2026-08-25) | M | **CLOSED** 2026-08-30 (named surfaces only — app NOT swept; two panels carved out to §296) |
+| [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30) | ~~Two shared primitives — `InfoTooltip` and `SortResizeTh` — collide on accessible name across the app~~ | row-unique-accessible-names slice (2026-08-25) | M | **CLOSED** 2026-08-30 |
 | [§247](#247-per-item-tasks-components-cannot-disambiguate-themselves--they-cannot-see-their-siblings--closed-2026-08-27) | Per-item Tasks components cannot disambiguate themselves — they cannot see their siblings | row-unique-accessible-names slice (2026-08-25) | S | **CLOSED** 2026-08-27 |
 | [§248](#248-a-whole-class-was-excluded-by-calling-row-varying-names-a-scan-false-positive--closed-2026-08-27) | A whole class was excluded by calling row-VARYING names a scan FALSE POSITIVE | — | — | **CLOSED** 2026-08-27 |
 | [§249](#249-218s-guard-is-argued-from-a-span-data-asset-id-the-loader-cannot-produce-and-every-test-for-it-scans-un-loaded-html) | §218's guard is argued from a `<span data-asset-id>` the loader cannot produce, and every test for it scans un-loaded html | pre-existing, found 2026-08-25 | S | open |
@@ -497,35 +497,38 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§268](#268-two-resources-sharing-a-mailbox-give-two-identically-named-copy-buttons--a-question-not-a-defect--closed-2026-08-28) | Two resources sharing a mailbox give two identically-named copy buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
 | [§269](#269-the-raid-badges-visible-glyph-string-is-not-contained-in-its-accessible-name-wcag-253--closed-2026-08-28) | The RAID badge's visible glyph string is not contained in its accessible name (WCAG 2.5.3) | pre-existing, found 2026-08-27 (row-unique-names round 2) | S | **CLOSED** 2026-08-28 |
 | [§270](#270-two-contacts-sharing-a-name-give-two-identically-named-remove-buttons--a-question-not-a-defect--closed-2026-08-28) | Two contacts sharing a name give two identically-named remove buttons — a question, not a defect | row-unique-names round 2 (2026-08-27) | — | **CLOSED** 2026-08-28 |
-| [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries | pre-existing, found 2026-08-26 | M | open |
+| [§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31) | `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 | pre-existing, found 2026-08-26 | M | **CLOSED** 2026-08-31 |
 | [§272](#272-task-managertsx-sits-exactly-at-its-file-size-baseline-so-the-next-line-added-to-it-fails-ci--closed-2026-08-28) | `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI | found 2026-08-26 | S | **CLOSED** 2026-08-28 |
 | [§273](#273-gantt-numbers-rows-the-chart-may-not-render--the-bar-residual) | Gantt numbers rows the chart may not render — the `!bar` residual | found 2026-08-28 | S | open |
 | [§274](#274-budget-paneltsxs-bucket-card-map-is-the-block-the-panel-split-convention-prescribes-extracting) | `budget-panel.tsx`'s bucket-card map is the block the panel-split convention prescribes extracting | found 2026-08-28 | M | open |
 | [§275](#275-use-insight-recommendationsts-was-coverage-excluded-under-a-glue-rationale-and-one-of-its-callbacks-is-a-security-boundary) | `use-insight-recommendations.ts` was coverage-excluded under a glue rationale, and one of its callbacks is a security boundary | found 2026-08-28 | S | open |
-| [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives | scan 2026-08-28 | L | open |
+| [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31) | The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 | scan 2026-08-28 | L | **CLOSED** 2026-08-31 |
 | [§277](#277-bulk-edit-field-labels-reuse-the-column-header-keys-in-four-panels--the-261-shape-on-a-different-pair) | Bulk-edit field labels reuse the column-header keys in four panels — the §261 shape on a different pair | found 2026-08-28 | M | open |
 | [§278](#278-two-of-the-five-column-toggle-consumers-got-the-fix-with-no-panel-level-regression-pin) | Two of the five column-toggle consumers got the fix with no panel-level regression pin | found 2026-08-28 | S | open |
 | [§279](#279-controlnames-reads-aria-label--textcontent-not-the-accessible-name--an-input-reports-the-empty-string) | `controlNames` reads `aria-label || textContent`, not the accessible name — an `<input>` reports the empty string | found 2026-08-28 | M | open |
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
-| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email — CLOSED 2026-08-30 | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
+| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
-| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
-| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30 | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — CLOSED 2026-08-30 | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
-| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
-| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
-| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
-| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
+| [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
+| [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--closed-2026-08-30) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--closed-2026-08-30) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses | found 2026-08-29, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | ~~Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either~~ | found 2026-08-29 | S | **CLOSED** 2026-08-30 |
+| [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` — open | found 2026-08-29 | XS | open |
+| [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s — open | found 2026-08-29 | S | open |
+| [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage — open | found 2026-08-29 | S | open |
 | [§293](#293-the-destructive-save-arming-gate-covers-the-ai-surface-only--a-new-ui-delete-handler-still-arms-nothing-and-fails-no-gate) | The destructive-save arming gate covers the AI surface only — a new UI delete handler still arms nothing and fails no gate | found 2026-08-29 | M | open |
 | [§294](#294-spending-the-one-shot-destructive-save-bypass-is-a-per-early-return-obligation--two-returns-decide-it-three-leave-it-by-accident-and-nothing-checks-either) | Spending the one-shot destructive-save bypass is a per-early-return obligation — two returns decide it, three leave it by accident, and nothing checks either | found 2026-08-29 | M | open |
 | [§295](#295-undoredo-re-applies-deletions-without-arming-the-destructive-save-bypass--redoing-a-clear-all-can-be-refused-by-the-guard) | Undo/redo re-applies deletions without arming the destructive-save bypass — redoing a clear-all can be refused by the guard | found 2026-08-29 | M | open |
-| [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
-| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
-| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
-| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
+| [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | **CLOSED** 2026-08-31 |
+| [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open | carved out of §146 on close, 2026-08-30 | M | open |
+| [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence — open | carved out of §286 on close, 2026-08-30 | M | open |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open | carved out of §235 on close, 2026-08-30 | M | open |
+| [§304](#304-every-export-section-header-is-a-raw-field-key-not-a-display-label) | Every export section header is a raw field key, not a display label | — | — | open |
+| [§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates) | Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates | — | — | open |
+| [§308](#308-controlnames-and-the-collision-helpers-built-on-it-are-blind-to-three-parts-of-the-real-accessible-name) | `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name | — | — | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -1923,9 +1926,9 @@ handling together rather than special-casing the third pass.
 
 ---
 
-## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28; (b) still open, small
+## 36. Two rich-field write/export postures that were CLAIMED as recorded but were not — (a) FIXED 2026-08-28, (b) FIXED 2026-08-31 — CLOSED 2026-08-31
 
-**Status:** (a) fixed 2026-08-28 by an apply-time allow-list; (b) the `noteLog` export blob is still open and is a decision, not a bug fix. (a) verified by `npx vitest run src/app/template-apply.allowlist.test.ts`.
+**Status:** (a) fixed 2026-08-28 by an apply-time allow-list, verified by `npx vitest run src/app/template-apply.allowlist.test.ts`; (b) fixed 2026-08-31 by projecting `noteLog` to readable text at export time, verified by `npx vitest run src/app/export-sections.test.ts`.
 
 Both surfaced in round-6 reviews of 0.210.0. Filed together because the shared defect was documentary: two
 places pointed at §28 for a posture §28 does not cover (§28 is scoped to the **codec** load paths — it names
@@ -2019,15 +2022,22 @@ seed BY REFERENCE, so a same-session save-then-apply never runs RAID rows throug
 else (id/category/status shape, the FK arrays). That is the RAID-side twin of the §228 hazard the
 task-side comment documents, and it wants its own entry.
 
-**(b) `noteLog` exports as a raw JSON blob into the document formats.** `noteLog` is a `CSV_COLUMNS` entry
-(`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every CSV column through
-`richCell` — where `noteLog` is correctly NOT a rich column. So a task or RAID row with notes exports a cell
-reading `[{"id":1,…,"html":"<p>…</p>","text":"…"}]` into the PDF/DOCX/XLSX/PPTX tables.
-★ Pre-existing since 0.196.0 and outside the rich-column mechanism this release fixed — but it sits in the
-same exported row as the descriptions that were just cleaned up, which makes the release note's "every other
-register already exported readable text" read further than it should.
-★ Fix is a decision, not a bug fix: drop `noteLog` from the document-format sections, or project it to
-readable text (author · date · text per entry).
+**(b) `noteLog` exported as a raw JSON blob into the document formats — FIXED 2026-08-31.** `noteLog` is a
+`CSV_COLUMNS` entry (`csv-codecs-core.ts` returns `encodeNoteLog(...)`), and `export-sections.ts` maps every
+CSV column through `richCell` — where `noteLog` is correctly NOT a rich column.
+★★★ **CORRECTED — the surface was three registers and five surfaces, not the "task or RAID row" into
+"the PDF/DOCX/XLSX/PPTX tables" this entry said.** Changes carry a `noteLog` too (the same carry (a) above
+credits to §168), so it is three registers, not two; and `doc-data-section.ts`'s `resolveDataSection` is a
+SECOND consumer of `buildExportSections` — used by `doc-render-html.ts`, `doc-render-docx.ts` and
+`doc-render-pptx.ts` for a document's own embedded data sections — so the raw blob reached five surfaces
+(the four export formats plus a document's embedded table), not four.
+★ Fixed by `projectNoteLog` (`export-sections.ts`), called from the tasks/RAID/changes section builders in
+place of the raw field: one `author · date · text` line per entry, read directly off the entity's own
+`noteLog` array (no `encodeNoteLog`/`decodeNoteLog` round trip, so no DOM dependency). Because both
+consumers share `buildExportSections`, the one change closes all five surfaces at once. `.text`, never
+`.html`, is what feeds the cell, so no markup can reach a flat XLSX/PPTX table. Storage (CSV/Markdown/Turso)
+is untouched — that round trip stays the `encodeNoteLog` JSON blob, which is correct and byte-pinned.
+★ Pre-existing since 0.196.0 and outside the rich-column mechanism 0.210.0 fixed.
 
 ---
 
@@ -5982,9 +5992,10 @@ this paragraph was written, so the TITLE is the durable half of that pointer.
 
 ---
 
-## 88. `ai-section.tsx`'s own sub-section titles are not real headings — open, a11y
+## 88. `ai-section.tsx`'s own sub-section titles are not real headings — CLOSED 2026-08-31
 
-**Status:** open — an a11y heading-semantics gap. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** fixed 2026-08-31 by a named `role="group"` wrapper — the same shape the sibling "Assistant
+behaviour" block already used. Verified by `npx vitest run src/app/settings-sections/ai-section.test.tsx`.
 
 Found while building the view-scoped AI prompts' Settings disclosure. At the time it was planned under
 the working name `AiViewScopeDisclosure`, in a file to be named `settings-sections/ai-view-scope-disclosure.tsx`.
@@ -5995,8 +6006,12 @@ always-visible list with no per-row toggle, folded into `src/app/settings-sectio
 by that rename and is still live: `ai-section.tsx`'s own "AI Assistant" and "Operating guides"
 sub-section titles are styled elements, not headings:
 
-- **STILL OPEN.** `{t(lang, "aiAssistant")}` renders inside a
-  `<span className="... text-sm font-medium ...">` — grep the key in `ai-section.tsx`.
+- **FIXED 2026-08-31.** `{t(lang, "aiAssistant")}` now renders inside a `<p id={aiHeadingId}>`, and the
+  wrapping `<div>` carries `role="group" aria-labelledby={aiHeadingId}` — the tooltip trigger sits
+  BESIDE the `<p>`, not inside it, so its own name cannot fold into the group's. Not a real heading
+  (still no outline position — that trade-off is deliberate, see below), but a screen-reader user
+  navigating by group/landmark now gets a stop where before there was none. Grep the id in
+  `ai-section.tsx`.
 - **CLOSED, verified 2026-08-09.** `{t(lang, "aiGuidesHeading")}` had the same defect in a `<p>`.
   That section has since moved to `ai-guides-section.tsx`, and `settings-view.tsx` renders a shared
   `<h2>` from the rail label instead — so the sub-section carries no heading of its own. A test in
@@ -6014,24 +6029,32 @@ rotor) skips the remaining one — it reads as body text, not a section landmark
 was written correctly from the start — a real `<h3>` for its own title — but the pre-existing titles
 above it were left alone as out of scope for that task. Not axe-visible: axe has no rule requiring a styled
 sub-heading to be a real heading element, so the gate is silent here (same class of gap as §9's
-`aria-sort` and §55's colour-only toggles). ★★★ **THE FIX IS NOT "SWAP THE `<span>` TO AN `<h3>`", WHICH IS WHAT THIS ENTRY PRESCRIBED UNTIL
-2026-08-25 — that trades an unscanned defect for a GATE-VISIBLE one.** `AiSection` is mounted by FOUR
-surfaces and only ONE supplies an `<h2>`: `settings-view.tsx` renders the shared rail heading, while
-`settings-menu.tsx`, `backend-setup-wizard.tsx` and `project-empty-state.tsx` mount it with no
-heading at all. An `<h3>` with no `<h2>` ancestor on those three is an axe `heading-order`
-violation. **The SIBLING block in the same file already made this call and records why**:
+`aria-sort` and §55's colour-only toggles). ★★★ **THE FIX WAS NOT "SWAP THE `<span>` TO AN `<h3>`", WHICH IS WHAT THIS ENTRY PRESCRIBED UNTIL
+2026-08-25 — that would have traded an unscanned defect for a GATE-VISIBLE one, or so this entry believed.**
+`AiSection` is mounted by FOUR surfaces and only ONE supplies an `<h2>`: `settings-view.tsx` renders the
+shared rail heading, while `settings-menu.tsx`, `backend-setup-wizard.tsx` and `project-empty-state.tsx`
+mount it with no heading at all. An `<h3>` with no `<h2>` ancestor on those three breaks the document
+outline for heading navigation there.
+★★★ **CORRECTED — that is NOT an axe `heading-order` violation, and this entry claimed otherwise until
+2026-08-31.** `heading-order` is tagged `cat.semantics, best-practice` ONLY — verify:
+`node -e "console.log(require('axe-core').getRules().find(r=>r.ruleId==='heading-order').tags)"` — which
+sits outside the four tags (`wcag2a wcag2aa wcag21a wcag21aa`) `e2e/a11y.spec.ts` requests, so the rule
+never runs under this gate (same class of gap as the `label-content-name-mismatch` measurement in
+AGENTS.md's a11y hard-constraint bullet). The recommendation to avoid a bare `<h3>` there stands on the
+screen-reader/outline argument alone, not on a gate failure that was never real.
+**The SIBLING block in the same file already made the same call and records why**:
 `dfdd0ea4 fix: reconcile three conversions with the contracts they broke` (2026-08-08) gave the
 "Assistant behaviour" group `role="group"` + `aria-labelledby` over a `<p>` for exactly this
-reason, naming the same three surfaces in its comment. Copy that shape — it carries the accessible
-name without claiming a position in the outline — and mint the id with `useId`, because four mounts
-make a literal id a collision risk. Reproduce:
+reason. The fix landed 2026-08-31 by copying that shape for the "AI Assistant" title too — it carries the
+accessible name without claiming a position in the outline — minting the id with `useId`, because four
+mounts make a literal id a collision risk. Reproduce:
 
 ```bash
 grep -rn "<AiSection" src/app --include=*.tsx | grep -v "\.test\."   # four mount surfaces
-grep -n "heading-order" -B 7 -A 3 src/app/settings-sections/ai-section.tsx   # the sibling's own reasoning
+grep -n "role=\"group\"" src/app/settings-sections/ai-section.tsx    # both named groups, sibling + fix
 ```
-★ Still recorded rather than fixed: it touches visual rhythm in a settings tab with no
-eye-verification pass scheduled.
+★ Visual rhythm is preserved — the moved classes (`text-sm font-medium text-foreground`) land on the new
+`<p>` unchanged, so no eye-verification pass was needed for this same-classes wrapper change.
 
 ---
 
@@ -7625,9 +7648,12 @@ the two states, because the next reader sees a sanitizer call and stops looking.
 sample fixture does. Unmeasured in the wild — the mechanism is read from the code, not observed.
 
 ---
-## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — open, ratchet
+## 109. Icon-only controls with no hover tooltip, and one control named only by its `title` — the one name defect FIXED 2026-08-31, tooltip inventory still open, ratchet
 
-**Status:** open — a tooltip-and-naming ratchet. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** the one name defect (`workspace-section-chrome.tsx`'s collapse chevron) fixed 2026-08-31 by
+adding an `aria-label`, verified by `npx vitest run src/app/workspace-section-chrome.test.tsx`. The
+tooltip inventory (Class B's held B1, the blocked-on-i18n row, the fifteen hardcoded-English names) is
+unaffected and stays open — never machine-verified by a committed probe beyond the counts below.
 
 ★ **Filed as §103** on `feat/ui-batch-slice-2`, renumbered to §105 when that branch first merged
 (main had already taken 103 for the over-cap document load), then renumbered AGAIN to §109 when
@@ -7696,12 +7722,14 @@ Everything below is what remains open after it:
 
   ★ `-A8`, not `-A6`: one toggle carries a three-line name/state-coherence comment between its tag
   and its `title`, so `-A6` returns **7** and reads as one uncovered control that is in fact covered.
-- ★★ **One name defect: `workspace-section-chrome.tsx:165`.** A collapse/expand chevron with
-  `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and **no `aria-label`**. Its
-  accessible name therefore comes only from `title`, the accname algorithm's last resort. **axe
-  passes it** (a name exists), so no gate will ever report it. Fix is `aria-label`, not `title`;
-  `title` is hover-only — no keyboard focus, unreachable on touch — and is never the fix for a
-  missing name. It is the only such control in the app.
+- ★★ **One name defect: `workspace-section-chrome.tsx:165` — FIXED 2026-08-31.** A collapse/expand
+  chevron with `title`, `aria-expanded`, `aria-controls` and an `aria-hidden` icon — and, until this
+  fix, no `aria-label`. Its accessible name came only from `title`, the accname algorithm's last
+  resort — **axe already passed it** (a name exists — this was a discoverability gap, not a gate
+  failure), so no gate ever reported it and none needed to change. It now carries the same
+  `workspaceExpand`/`workspaceCollapse` string as an `aria-label` alongside the unchanged `title`; the
+  `title` stays hover-only and was never the mechanism giving the control a name. It was the only such
+  control in the app.
 - ★★ **Fifteen hardcoded-English accessible names across nine files**, found while quoting the
   "existing name" column (two greps, both in the inventory; the `task-editor-raid-mini.tsx` pair is
   only half-literal and is arguably fine — "RAID" is a proper noun in the DE UI too).
@@ -8718,9 +8746,11 @@ a row of its own instead of being packed beside three unrelated top-level entrie
 is announced by more AT — not adopted here, because a one-class layout fix does not justify rewriting
 the rail's markup and re-verifying every announcement.
 
-## 120. The background insight-recommendation runner has no `AbortController` at all — open, billed
+## 120. The background insight-recommendation runner has no `AbortController` at all — CLOSED 2026-08-31
 
-**Status:** open — billed background calls with no abort signal. Reproduced 2026-08-28 by `grep -n "AbortController" src/app/use-insight-recommend-runner.ts`.
+**Status:** fixed 2026-08-31 — one `AbortController` per tick, aborted on unmount, checked before
+starting a candidate, after each call settles, and inside the catch block. Verified by
+`npx vitest run src/app/use-insight-recommend-runner.test.ts`.
 
 ★ **Filed as §113** on `feat/ui-batch-slice-3`, renumbered to §120 when that branch was prepared for
 merge: main had independently taken 113 (the documents-roadmap entry, `bba9b6a9`). Main is the trunk
@@ -8749,11 +8779,13 @@ and **"every AI CALL in this app is cancellable" is not**. Do not let the second
 AGENTS.md, a CHANGELOG entry or a commit body — this entry exists because the slice's own commit
 message was corrected for exactly that overclaim.
 
-★ Likely fix: give the runner an `abortRef`, pass `controller.signal` into the call, abort on
-unmount, and treat `isAbortError` as a silent stop (the established shape — `use-abortable-ai.ts`).
-Left open because the runner is background/unattended: there is no user-facing control to hang a
-Stop on, so the design question (does an unattended tick get cancelled on unmount only, or does the
-Insights view grow a "stop background recommendations" affordance?) is a slice of its own.
+★ Fixed 2026-08-31: the runner mints one `AbortController` per TICK (not per candidate, since unmount
+must stop every remaining candidate that tick) and aborts it in a `useEffect(() => () =>
+abortRef.current?.abort(), [])` cleanup — deliberately kept OUT of the interval effect's own `[intervalMs]`
+cleanup, which re-runs on a settings edit and would abort legitimate in-flight work, not just on unmount.
+The design question this entry raised (does an unattended tick get cancelled on unmount only, or does the
+Insights view grow a "stop background recommendations" affordance?) was answered as unmount-only — there
+is still no user-facing control to hang a Stop on, and none was added.
 
 ## 121. `use-tasks-dedup.tsx` never aborts its in-flight call on unmount — CLOSED 2026-08-08
 
@@ -9289,9 +9321,10 @@ finding, and why it is worth pinning with a test rather than a grep.
 ★ Reproduce the whole picture before quoting a count — the sweep is in §121, and the figure that
 matters is per-mount, not per-file.
 
-## 128. `use-timelog-sync.ts` clears `busy` from a superseded run — open, UI
+## 128. `use-timelog-sync.ts` clears `busy` from a superseded run — CLOSED 2026-08-31
 
-**Status:** open — a UI defect — a superseded run clears its busy flag. Last asserted 2026-08-25; never machine-verified by a committed probe.
+**Status:** fixed 2026-08-31 by moving `setBusy(false)` inside the existing `if (abortRef.current ===
+controller)` guard, verified by `npx vitest run src/app/use-timelog-sync.test.ts`.
 
 Split out of §127 on 2026-08-09. It was first written as a bullet INSIDE §127, which was the wrong
 home twice over: §127 is CLOSED, and a live defect in a closed entry has no index row and stops being
@@ -9332,9 +9365,8 @@ count SITES, not lines: the raw line count is **6**, of which 2 are those commen
 block; the instruction it supports is unaffected, which is exactly why the instruction, not the
 number, is the durable part.)
 
-★ Fix is to move `setBusy(false)` inside the existing `if`. Cheap, but it needs a test that
-supersedes a run and asserts the flag survives — the same shape that proved the other two, and
-without it the guard is unpinned exactly as `use-abortable-ai.ts`'s `setError` guard was.
+★ Fixed 2026-08-31 by moving `setBusy(false)` inside the existing `if`, pinned by a test that
+supersedes a run and asserts the flag survives — the same shape that proved the other two.
 
 ★★ Severity is lower than §127's: nothing is billed twice and nothing leaks, the UI just reads idle
 early. Filed rather than fixed because slice 3's review rounds were already three deep and this is a
@@ -11496,9 +11528,11 @@ task list is seeded, so a green Documents scan says nothing about this either wa
 `A11Y_VIEWS` seeding gap AGENTS.md already records). The only way to know this is stated behaviour is
 to read this entry or the code comment beside the CSS rule.
 
-## 148. `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured
+## 148. `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — CLOSED 2026-08-31
 
-**Status:** open — a reload branch with none of the in-flight guards its sibling gained. Reproduced 2026-08-28 by `grep -n "retryLoad" src/app/use-chat-threads.ts`.
+**Status:** fixed 2026-08-31 by hoisting the merge-vs-replace decision into two shared helpers
+(`mergeThreadsAfterLoad` / `resetThreadsAfterFailedLoad`) used by both the mount-fetch effect and
+`retryLoad`'s reload branch, verified by `npx vitest run src/app/use-chat-threads.test.tsx`.
 
 Opened 2026-08-14 out of the chat-thread-persistence branch's fourth review round. It is the SAME
 defect that round fixed in the mount-fetch effect, one function down, left unfixed deliberately to
@@ -11530,16 +11564,19 @@ returns before reaching here), AND a send to start between the click and the res
 case had no such precondition — `chat-panel.tsx`'s `chatSeed` effect auto-sends from a MOUNT effect,
 so "Analyze with AI" raced it every time.
 
-### Closing it
+### Closed 2026-08-31
 
-Hoist the guard rather than copying it: both call sites want "if the active thread changed while my
-request was in flight, do not overwrite it". A shared helper taking `startedOn` and returning
-merge-or-replace would make the two impossible to drift apart. ★ Do NOT close this by making
-`retryLoad` reuse the effect's body wholesale — the effect also clears `pendingRetryRef`/`latestSeqRef`
-on project switch, which `retryLoad` must not do.
+Hoisted the guard rather than copying it: both call sites want "if the active thread changed while my
+request was in flight, do not overwrite it". `mergeThreadsAfterLoad` (the `.then` mirror) and
+`resetThreadsAfterFailedLoad` (the `.catch` mirror) each take `startedOn` plus the live thread id and
+return a merge-or-replace/reset decision, shared by the mount-fetch effect and `retryLoad`'s reload
+branch so the two settle paths cannot drift apart again. `retryLoad` was NOT made to reuse the effect's
+body wholesale — the effect also clears `pendingRetryRef`/`latestSeqRef` on project switch, which
+`retryLoad` must not do, so the helpers are the shared surface, not the whole function.
 
-★ A test for this needs the failed-initial-fetch precondition set up explicitly; a fixture whose
-`pendingRetryRef` is non-empty never reaches the branch and passes whichever way it is written.
+★ Pinned with the failed-initial-fetch precondition set up explicitly, on both the merge and the reset
+path, so a mid-flight-minted thread's row is proved to survive a failed reload exactly as it already
+survived a failed initial fetch.
 
 ## 149. Date-dependent unit tests detonate on a calendar rollover, with no code change behind them
 
@@ -12692,7 +12729,7 @@ controls what we offer, not what we can do"), say so at the setting and at the `
 closes as by-design. If it is meant to be enforcement, it is a gap. Today the code says nothing
 either way, which is the actual defect.
 
-## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator CLOSED 2026-08-30
+## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator FIXED 2026-08-30 — CLOSED 2026-08-30
 
 **Status:** both halves are now fixed, on different branches and by different mechanisms — read the
 split before reading anything below it. The DENOMINATOR half was fixed 2026-08-17 (both actors), and
@@ -19020,7 +19057,7 @@ one is mechanical to convert — the gap is in FINDING candidates, not fixing th
 surface this entry NAMED is fixed (roles-editor, budget panel, the three reports tables) and the
 tooling to fix the rest now exists. Two further panels carry the same defect and are deliberately out
 of scope; they are filed as
-[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open).
+[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31).
 Pinned by new cases in `roles-editor.test.tsx`, `budget-panel.test.tsx`, `reports.test.tsx` and
 `report-table.test.tsx`; last executed green in the full suite (`npm run test:run`) on 2026-08-30.
 
@@ -19074,7 +19111,7 @@ OWN TEXT GENERALISES BEYOND WHAT WAS FIXED.** The sentence "ANY view embedding t
 shape collides on every shared column label" is still true, and a cold review of this slice found the
 same defect live in two panels nobody touched: `raid-report-panel.tsx` and `resources-report.tsx`.
 They are filed as
-[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open)
+[§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--closed-2026-08-31)
 and are deliberately OUT OF SCOPE here. Do not read this closure as "the primitives no longer
 collide anywhere" — read it as "the four named surfaces are fixed and the mechanism to fix the rest
 now exists".
@@ -20871,10 +20908,16 @@ cannot, since `ContactPerson` carries no `id` and the hook is declared `<T exten
 `aria-label` at all, so its accessible name is its rendered content, `t(lang, "add")`. That is not
 a collision inside this control — it renders once — and is recorded here only because an
 attribute-matching grep over this file cannot see it.
-## 271. `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries
+## 271. `CollectionSpec.nameField` is an unchecked string, so a spec can still name a field no record carries — the last known instance FIXED 2026-08-31 — CLOSED 2026-08-31
 
-**Status:** open. Filed 2026-08-27 at the close of the version-restore-residue slice, which
-repaired every instance that existed but did NOT close the class. Never machine-verified by a committed probe.
+**Status:** the one remaining known instance (`documentVersions` had neither `nameField` nor `nameOf`)
+fixed 2026-08-31 by adding `nameField: "title"`, verified by `npx vitest run src/app/version-diff.test.ts`.
+The GENERAL class — `nameField` being an unchecked `string` rather than `keyof Workspace[K][number]` — is
+a decision NOT taken (see "Option considered and NOT taken" below), not a bug left open: worth a type
+refactor if a sixth wrong-instance ever appears, not worth one on the strength of the five (now six)
+already-fixed by hand. The visible-row-label collision this slice's review surfaced while fixing
+`documentVersions` is a SEPARATE, pre-existing, general defect and is carved out to
+[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates).
 
 `COLLECTION_SPECS` (`version-diff.ts`) pairs a workspace slice with the field its records label
 themselves by. `key` is `keyof Workspace`; `nameField` is a bare `string`. **tsc cannot pair the
@@ -20948,35 +20991,26 @@ union of sixteen generic instantiations rather than one interface), and it would
 and pops it. Worth doing if a sixth instance ever appears; not worth a type refactor of the
 registry on the strength of five already-fixed ones.
 
-★★ **`documentVersions` STILL LABELS EVERY ROW `#id`, AND NOTHING IN THE REPO SAYS WHY.** Its
-`COLLECTION_SPECS` row carries neither `nameField` nor `nameOf` — `{ key: "documentVersions",
+★★ **`documentVersions` LABELLED EVERY ROW `#id`, AND NOTHING IN THE REPO SAID WHY — FIXED 2026-08-31.**
+Its `COLLECTION_SPECS` row carried neither `nameField` nor `nameOf` — `{ key: "documentVersions",
 label: "Document versions", kind: "list", restorable: false }` — while the `DocVersion` type
 carries a `title: string` that would serve. The comment block above that row explains
-`restorable: false` at length (`applyDocMutation` owns document history) and says nothing at all
+`restorable: false` at length (`applyDocMutation` owns document history) and said nothing at all
 about naming, and its `documents` neighbour is `restorable: false` **with** `nameField: "title"`,
-so "non-restorable rows do not need names" is not the repo's rule either. Verified by reading the
-spec row and the type, not inferred: the omission is simply **unaddressed**, not a recorded
-decision. ★★★ It is also excluded from the only detector BY CONSTRUCTION and will stay excluded
-however long it sits here: `version-diff.test.ts`'s "never falls back to #id for a
-fully-populated record" filters `COLLECTION_SPECS` to `s.nameField || s.nameOf` before it looks
-at anything, so a spec with neither can never appear in its result. Adding a `nameField` here is
-the whole fix and it would enrol itself in the detector at the same time.
+so "non-restorable rows do not need names" was never the repo's rule either — the omission was simply
+**unaddressed**, not a recorded decision. The fix is exactly `nameField: "title"` on the
+`documentVersions` row. ★★★ Adding it also enrols the row in the only detector, which excluded it BY
+CONSTRUCTION until now: `version-diff.test.ts`'s "never falls back to #id for a fully-populated
+record" filters `COLLECTION_SPECS` to `s.nameField || s.nameOf` before it looks at anything, so the
+spec is both the fix and its own new coverage.
 
-★★ **THE VISIBLE ROW LABEL LOST THE DISAMBIGUATOR THE ACCESSIBLE NAME KEPT.**
-`version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the
-occurrence-numbered token from `buildRowTokens` reaches only the `aria-label` (via `rowLabel`, at
-every per-row control in both layouts). Before this slice the five repaired slices —
-`tasks`/`resources`/`roles`/`absences`/`shifts` — were unique BY CONSTRUCTION, because `#id` is
-unique; naming them by a real field made them collidable, so two tasks sharing a `taskName` now
-render two visually identical rows. A screen-reader user hears "(1)" and "(2)"; a sighted user
-gets nothing to tell the rows apart. The component behaviour is pre-existing — this slice
-enlarged the collidable population rather than introducing the gap. ★★★ **The obvious precedent
-does NOT cover the visible half, and reading it as if it did would ship the wrong fix.**
-`documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**; its
-VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it
-is precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
-visible-label question here has no precedent in the repo — a fix has to choose one (an `#id`
-suffix, the occurrence token, or a per-row secondary field) rather than copy one.
+★★ Reviewing this fix surfaced a related but SEPARATE defect — `version-diff-view.tsx` renders
+`{c.recordLabel}` bare while only the accessible name carries a disambiguator — pre-existing and
+general, not introduced by naming `documentVersions`. Carved out to
+[§305](#305-version-diff-rows-whose-recordlabel-matches-render-identical-visible-text-only-the-accessible-name-disambiguates)
+rather than fixed here, for the same reason §296 was carved out of §246: not fixable per call site,
+and the choice of disambiguator (an `#id` suffix, the occurrence token, or a per-row secondary field)
+is a design decision, not a drive-by.
 
 ## 272. `task-manager.tsx` sits exactly at its file-size baseline, so the next line added to it fails CI — CLOSED 2026-08-28
 
@@ -21211,12 +21245,17 @@ so the extraction falsified a comment in a file it never opened. Correct it with
 entry rather than before: a correction is a new claim, and one made while the thing it describes is
 still moving is the shape this repo keeps re-staling.
 
-## 276. The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives
+## 276. The row-name surface scan: the GAP files with no asserting test, and the sites where nothing per-row survives — the one REAL defect it named FIXED 2026-08-31 — CLOSED 2026-08-31
 
-**Status:** open — an INVENTORY, filed 2026-08-28. Nothing here was fixed by the slice that produced
-it, deliberately: the scan exists to SIZE the remaining surface, and fixing from a scan without
-asking the WCAG 2.4.6 same-purpose question per site is the reflex this register keeps warning
-against — §268 and §270 are two adjacent entries that asked it and answered oppositely. Never machine-verified by a committed probe.
+**Status:** this entry's own job — build the scanner, size the surface, and fix what the scan proved
+was a REAL WCAG 2.4.6 collision rather than a mere coverage gap — is done. The one unconditional
+collision the scan named (`projects-panel.tsx`'s archived-row `projectsRestore`/
+`projectsDeletePermanently`, unguarded by any `isCurrent`-style branch) is fixed 2026-08-31 with
+`buildRowTokens`, verified by `npx vitest run src/app/projects-panel.test.tsx`. The remaining
+inventory below — the 15/64 weak/strong-marker GAP files, the FIXED-site census — is coverage
+information, not a defect count (this entry says so itself), and is tracked by the live, re-runnable
+`npm run rownames:check` report, not by this entry. Re-run it before treating any number
+below as current.
 
 `npm run rownames:check` (`scripts/check-rowname-surfaces.mjs`, added by `f8466714` · `122abf8f` ·
 `bd06f81d`, corrected by `5aa07575`) enumerates every per-row accessible-name site. **It is a REPORT,
@@ -21288,9 +21327,9 @@ CONTROL FLOW, and that turns some of them into non-findings. Worked example, che
 `projects-panel.tsx` reports four `FIXED` sites and they split two and two.
 `projectsEdit` / `projectsExport` sit inside an `isCurrent ? (…)` branch within `projects.map`, so at
 most ONE row ever renders them — no collision is possible.
-`projectsRestore` / `projectsDeletePermanently` sit in the ARCHIVED list's `.map` with no guard, so N
-archived projects give N buttons named "Restore" and N named "Delete permanently" — a real 2.4.6
-defect. Reproduce:
+`projectsRestore` / `projectsDeletePermanently` sat in the ARCHIVED list's `.map` with no guard, so N
+archived projects gave N buttons named "Restore" and N named "Delete permanently" — a real 2.4.6
+defect, FIXED 2026-08-31 (see this entry's Status line). Reproduce the shape that made it real:
 
 ```bash
 grep -n "isCurrent ? (" src/app/projects-panel.tsx
@@ -21547,7 +21586,7 @@ corpus by construction, so the regression pin has to be a hand-built string, not
 mutant first: revert the skip, and check the new test goes red on the fixture rather than on some
 incidental parse difference.
 
-★ Related: [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives)
+★ Related: [§276](#276-the-row-name-surface-scan-the-gap-files-with-no-asserting-test-and-the-sites-where-nothing-per-row-survives--the-one-real-defect-it-named-fixed-2026-08-31--closed-2026-08-31)
 holds the report this function feeds, and the three defects `5aa07575` fixed.
 
 ## 281. `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key
@@ -22895,12 +22934,17 @@ The first returns 0, the second shows the removal images a redo re-applies, the 
 is captured for undo. None of the three proves a redo trips the guard — that needs a test driving
 clear-all → undo → redo against `evaluateSaveGuard`, which is the verification this entry owes.
 
-## 296. Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels — open
+## 296. Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels — CLOSED 2026-08-31
 
-**Status:** open — the two collision sets below were verified 2026-08-30 by READING both files and
-counting rendered table instances; no committed probe asserts them, so the entry is otherwise
-**never machine-verified**. Reproduce the structure with the greps below; the counts follow from the
-instance arithmetic, not from a runtime scan.
+**Status:** fixed 2026-08-31 by qualifying every colliding header with `SortResizeTh`'s `nameContext`
+prop (`raidCategoryRisk`/`raidCategoryAssumption`/`raidCategoryIssue`/`raidCategoryDependency`/
+`raidReportColTotal` in `RaidCountHead`, `raidReportColOpen` in both `StatusTable` and
+`CategoryTable`, and `resourcesCapacityDays`/`resourcesInternalCost`/`resourcesExternalCost`/
+`resourcesReportHeadcount` across `resources-report.tsx`'s three table shapes), never by overriding
+the bare label. Verified by `npx vitest run src/app/raid-report-panel.test.tsx
+src/app/resources-report.test.tsx`. The two collision sets below were verified 2026-08-30 by READING
+both files and counting rendered table instances; reproduce the structure with the greps below —
+the counts follow from the instance arithmetic, not from a runtime scan.
 
 Carved out of [§246](#246-two-shared-primitives--infotooltip-and-sortresizeth--collide-on-accessible-name-across-the-app--closed-2026-08-30)
 when it closed on 2026-08-30. §246 fixed the surfaces it NAMED and stated plainly that the app was
@@ -22952,26 +22996,27 @@ grep -nE "^function (ByPeriodTable|ByGroupTable|ByResourceTable)" src/app/resour
 grep -n "<ByGroupTable\|<ByPeriodTable\|<ByResourceTable" src/app/resources-report.tsx
 ```
 
-### Closing it
+### Closed 2026-08-31
 
-The tooling now exists and did not when §246 was filed. `SortResizeTh` takes an optional
-`nameContext` which the primitive APPENDS as `${label} – ${nameContext}` — appending rather than
-overriding, so WCAG 2.5.3 containment holds by construction — and its `hint` tooltip (itself a named
-control) takes the same context automatically, so a fixer must NOT pre-qualify the hint string or it
-is appended twice. Callers passing nothing keep a byte-identical DOM.
+The tooling already existed (it did not when §246 was filed). `SortResizeTh`'s optional `nameContext`
+APPENDS as `${label} – ${nameContext}` — appending rather than overriding, so WCAG 2.5.3 containment
+holds by construction — and its `hint` tooltip (itself a named control) takes the same context
+automatically, so the fix did NOT pre-qualify any hint string, which would have appended it twice.
+Callers passing nothing keep a byte-identical DOM.
 
-Pass each table its own VISIBLE section heading, as the reports tables now do, so the announced
-context is the heading a sighted user already reads. ★ Make the prop REQUIRED on the shared
-components rather than optional: that makes tsc enumerate the call sites, which is the only
-mechanism that reliably catches the leg-3 instances this entry is about.
+Each table was passed its own VISIBLE section heading as `nameContext` (`RaidCountHead`'s
+`firstLabelKey`, `StatusTable`'s and `CategoryTable`'s own heading, `resources-report.tsx`'s per-table
+`title`/heading key), so the announced context is the heading a sighted user already reads. The prop
+was left OPTIONAL rather than made required on the shared components — a narrower fix than this entry
+recommended; re-open a fresh entry if a future leg-3 instance slips through for that reason.
 
-★★ **`requireCollisionSeed` will NOT certify this fix and will go RED against correct code** — it
-strips only `buildRowTokens`' ` (N)` occurrence suffix and is blind to a ` – <heading>` disambiguator.
-§246 records the measurement. Use an explicit strip-and-collide assertion plus a positive per-table
-assertion, as `reports.test.tsx` does.
+★★ **`requireCollisionSeed` did NOT certify this fix** — it strips only `buildRowTokens`' ` (N)`
+occurrence suffix and is blind to a ` – <heading>` disambiguator (§246 records the measurement), so
+each panel's test uses an explicit strip-and-collide assertion plus a positive per-table assertion,
+as `reports.test.tsx` already did.
 
 ★★ **The axe gate cannot see any of this**, in either panel, at any seed size — AGENTS.md carries the
-measurement. Whatever unit test the fixer writes is the only detector this will ever have.
+measurement. The unit tests above are the only detector this will ever have.
 
 ## 297. `PopoverPanel` restores focus on dismiss, but not when a consumer closes it from an item's own handler — open
 
@@ -23138,3 +23183,88 @@ missing call.
 ★ **Not detectable by the census, at any anchor.** `status-activity-census.test.ts` walks `src/app`
 with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
 alone would not reach it. Its header records this as its third stated limitation.
+
+## 304. Every export section header is a raw field key, not a display label
+
+**Status:** open — never machine-verified by a committed probe. Found 2026-08-31 while fixing §36(b).
+
+`ExportSection.columns` (`export-sections.ts`) is commented `string[]; // header row (display
+labels)`, but every `*Section` builder assigns it directly from the entity's `*_CSV_COLUMNS` constant
+— `Array<keyof Task>` and its siblings in `csv-codecs-core.ts` — with no translation pass. So a PDF,
+DOCX, XLSX or PPTX export table renders raw storage field names as its column headers: `noteLog`,
+`dueDate`, `taskName`, and so on, for every register the exporter serves (tasks, RAID, milestones,
+changes, stakeholders, budgets, resources, roles, absences, shifts). Reproduce:
+
+```bash
+grep -n "columns: string\[\]" src/app/export-sections.ts
+grep -n "const columns = .*_CSV_COLUMNS as unknown as string\[\]" src/app/export-sections.ts
+```
+
+Deliberately out of scope for the §36(b) fix (`projectNoteLog`, this same release): that fix projects
+one COLUMN's raw VALUE to readable text, and translating one column's HEADER while every sibling
+header in the same row stays a raw field key would read as more broken, not less — a reader would see
+one polished label beside nine raw ones and have no way to tell whether the rest were an oversight or
+a different kind of field. The fix here is a full pass, presumably a `keyof Task -> TranslationKey`
+map per entity (mirroring the `*_CSV_COLUMNS` module maps AGENTS.md already tracks for a new column),
+not a per-column patch.
+
+## 305. Version-diff rows whose `recordLabel` matches render identical VISIBLE text; only the accessible name disambiguates
+
+**Status:** open — never machine-verified by a committed probe. Carved out of
+[§271](#271-collectionspecnamefield-is-an-unchecked-string-so-a-spec-can-still-name-a-field-no-record-carries--the-last-known-instance-fixed-2026-08-31--closed-2026-08-31)
+when it closed 2026-08-31, when giving `documentVersions` a real `nameField` enlarged the population
+this affects. Pre-existing and general — not introduced by that fix.
+
+`version-diff-view.tsx` renders `{c.recordLabel}` bare in BOTH layouts, while the occurrence-numbered
+token `buildRowTokens` mints reaches only the `aria-label` (via `rowLabel`, at every per-row control in
+both layouts). Before §271's fix the five already-repaired slices — `tasks`/`resources`/`roles`/
+`absences`/`shifts` — were unique BY CONSTRUCTION, because `#id` is unique; naming a slice by a real
+field makes it collidable, so two records sharing that field's value now render two visually identical
+rows. A screen-reader user hears "(1)" and "(2)"; a sighted user gets nothing to tell the rows apart.
+
+★ **The obvious precedent does NOT cover the visible half, and reading it as if it did would ship the
+wrong fix.** `documents-deleted-section.tsx`'s ` · #id` suffix is in that row's **`aria-label` only**;
+its VISIBLE row disambiguates by rendering the version's `savedAt` timestamp beside the title. So it is
+precedent for the accessible-name pattern `version-diff-view.tsx` already follows, and the
+visible-label question here has no precedent in the repo — a fix has to choose one (an `#id` suffix,
+the occurrence token, or a per-row secondary field) rather than copy one.
+
+## 308. `controlNames` and the collision helpers built on it are blind to three parts of the real accessible name
+
+**Status:** open — never machine-verified by a committed probe. Found 2026-08-30 during this slice's
+own row-unique-names work.
+
+`controlNames` (`src/test/toolbar-order.ts`), the shared primitive behind both `expectRowUniqueNames`
+(`src/test/row-unique-names.ts`) and the toolbar-order assertions, reads:
+
+```ts
+.map((el) => el.getAttribute("aria-label") || el.textContent || "");
+```
+
+That is `aria-label` if present, else raw `textContent` — never a real accessible-name computation.
+Three divergences from the accname algorithm, all affecting every consumer of `expectRowUniqueNames`:
+
+- `aria-hidden` content is EXCLUDED from a real accessible name but INCLUDED in the `textContent`
+  fallback. A sortable header's arrow glyph is `aria-hidden` (`report-table.tsx`), so two headers
+  sharing a visible label evade the collision check whenever their sort state differs. Observed
+  2026-08-30 on `raid-report-panel.tsx`'s Total column.
+- `title` is accname's LAST RESORT but is absent from `textContent`, so an icon-only button named only
+  by its `title` (the §109 chevron shape, before its 2026-08-31 fix) reads as `""` here.
+- `aria-labelledby` OUTRANKS `aria-label` in accname and is ignored by the helper entirely.
+
+Additionally, `requireCollisionSeed` (`row-unique-names.ts`) consumes the SAME `names` array the real
+collision count does, but the two halves disagree on normalisation: the seed check whitespace-collapses
+names (`.replace(/\s+/g, " ")`) before comparing, while the actual collision counting a few lines below
+builds its `Map` from the RAW, uncollapsed strings. So a suite can be blind to a real collision while
+satisfied it staged one.
+
+★★ **Include this sentence, it bounds the blast radius:** the error direction is UNDER-reporting only,
+never over-reporting, so no currently-green test is invalidated and this slice's Task 4 and Task 5 reds
+were genuine (5 and 7 real collisions). A reader who lacks that sentence has to re-audit every adopting
+test.
+
+★ The fix is its own slice: computing the real name (e.g. `dom-accessibility-api`, already transitive
+via testing-library — `toolbar-order.ts`'s own docstring records why a bare import is unsafe today, see
+its "live hazard" paragraph) re-measures `minControls` for every adopting test, and `minControls` is the
+guard that stops a scope rendering too few controls — so changing what it counts is not a mechanical
+edit.
