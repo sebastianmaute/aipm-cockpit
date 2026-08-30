@@ -115,6 +115,55 @@ describe("useInsightRecommendRunner", () => {
     await expect(act(async () => { await flushMicrotasks(); })).resolves.not.toThrow();
     expect(applyRecommendation).not.toHaveBeenCalled();
   });
+
+  // ★★★ REGRESSION (§120): the runner had NO AbortController anywhere, so
+  //    navigating away mid-tick did not stop the remaining billed calls.
+  // ★ Vacuity trap: the mount tick fires immediately, so the first call MUST
+  //   still be in flight (a never-settling promise) when unmount() runs — an
+  //   already-finished tick would let this pass with the cleanup deleted.
+  test("captures an AbortSignal on the in-flight call and aborts it when the runner unmounts", async () => {
+    let captured: AbortSignal | undefined;
+    mockRun.mockImplementation((args) => {
+      captured = args.signal;
+      return new Promise<InsightRecommendation>(() => {});
+    });
+    const { unmount } = renderRunner({ insights: [makeInsight(1)] });
+    await act(async () => { await flushMicrotasks(); });
+    expect(captured).toBeDefined();
+    // Guard against a vacuous pass: an already-aborted signal would satisfy
+    // the post-unmount assertion below without the cleanup ever running.
+    expect(captured!.aborted).toBe(false);
+    unmount();
+    expect(captured!.aborted).toBe(true);
+  });
+
+  // ★★★ The signal flipping to aborted is not, by itself, proof that billing
+  //    stops: without a `break` on abort the serial loop still walks the
+  //    remaining candidates once the in-flight call settles. The observable
+  //    here is the call COUNT on the mocked runner, not the signal — a real
+  //    fetch rejects as soon as its signal aborts, so the mock reproduces
+  //    that by rejecting the first call the instant its signal aborts, which
+  //    lets the loop's `await` return and (absent the fix) proceed to the
+  //    second candidate.
+  test("does not issue the next candidate's call after the tick aborts mid-loop", async () => {
+    const insights = [makeInsight(1), makeInsight(2), makeInsight(3)];
+    mockRun.mockImplementationOnce((args) => {
+      return new Promise<InsightRecommendation>((_resolve, reject) => {
+        args.signal?.addEventListener("abort", () => {
+          reject(Object.assign(new Error("aborted"), { name: "AbortError" }));
+        });
+      });
+    });
+    mockRun.mockResolvedValue(fakeRec); // would answer candidate 2 if wrongly called
+    const { unmount } = renderRunner({ insights });
+    await act(async () => { await flushMicrotasks(); });
+    // Positive control: the first candidate's call WAS issued.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+    unmount();
+    await act(async () => { await flushMicrotasks(); });
+    // Absence assertion: the second candidate's call was never issued.
+    expect(mockRun).toHaveBeenCalledTimes(1);
+  });
 });
 
 // The cadence is user-settable (SP4). These assertions are only meaningful with
