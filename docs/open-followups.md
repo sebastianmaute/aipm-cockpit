@@ -530,6 +530,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§301](#301-three-type-to-confirm-phrases-are-hardcoded-english-and-one-cannot-be-localised-by-a-string-swap--open) | Three type-to-confirm phrases are hardcoded English, and one cannot be localised by a string swap | found 2026-08-30, fixing the DE wipe phrase | M | open |
 | [§302](#302-the-storage-readiness-indicator-is-never-disclosed-to-assistive-technology-in-either-state--open) | The storage readiness indicator is never disclosed to assistive technology, in either state | found 2026-08-30, fixing the colour-only state cue | M | open |
 | [§303](#303-one-refused-save-writes-two-forensic-entries-and-de-duplicating-it-needs-evaluate-to-report-the-mint--open) | One refused save writes two forensic entries, and de-duplicating it needs evaluate to report the mint | found 2026-08-30, in the destructive-refusal fix round | M | open |
+| [§306](#306-negative-test-assertions-matching-quoted-english-literals-go-silently-vacuous-on-a-reword--open) | Negative test assertions matching quoted English literals go silently vacuous on a reword | found 2026-08-30, in the destructive-refusal deletion round | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -23339,3 +23340,35 @@ The only discriminator is whether `evaluate` MINTED a new refusal object or retu
 `evaluate` does not report that today. Closing this means changing its return in
 `use-destructive-save-guard.ts` and having the save effect record on the mint — a change to the guard's
 contract, which is why it was left rather than bodged during a fix round.
+## 306. Negative test assertions matching quoted English literals go silently vacuous on a reword — open
+
+**Status:** open — enumerated 2026-08-30 with
+`grep -rn "query[A-Za-z]*(" src/app --include=*.test.tsx --include=*.test.ts | grep -i "toBeNull\|not\." | grep '"'`
+which lists the negatives whose matcher is a quoted English string rather than a `t(...)` call.
+Never machine-verified: nothing asserts that any of them WOULD go vacuous, and by construction
+nothing can — a vacuous negative passes, which is the entire defect.
+
+A negative assertion — `expect(screen.queryByText("…")).toBeNull()` — that matches a quoted UI
+string stops matching anything the moment that string is reworded, and then passes for the wrong
+reason. The positive form is not affected: `getByRole` / `findByText` THROW when they match nothing,
+so a rename fails loudly. Only the negative fails silently, and it fails in the direction that looks
+like success.
+
+★★★ **THIS IS NOT HYPOTHETICAL AND THE COST IS RECORDED.** Rewording one storage string on the
+recoverable-destructive-refusal branch moved SIX assertions at once: four positives went red
+immediately, and **two negatives went silently vacuous** and were only found because the four reds
+sent someone to read the file. The fix there was to derive the expectation from `t(...)`, so the
+assertion moves with the string. A third instance was introduced and caught in the same slice's
+review, in a test whose own comment named the mutant it was supposed to catch.
+
+**What is in scope.** The survivors are in test files that PREDATE that slice and were not authored
+by it — the storage banner and sidebar-footer suites. They were left deliberately rather than swept,
+because converting assertions in unrelated tests during a fix round is how a release branch doubles
+in size. The enumerator above is the reproduce; run it rather than trusting a list here.
+
+★★ **The rule, so a reader does not over-apply it.** Derive from `t(...)` when the assertion is a
+NEGATIVE, or when it matches free text a translator or a copy edit can move. Leave a quoted literal
+where it is a POSITIVE locator: it is brittle, it announces itself, and threading the string table
+through a test that does not otherwise need it costs more than it buys. ★ The same split governs
+`e2e/`, for a stronger reason — no spec there imports the string table, so converting one would
+introduce the suite's first dependency on `src/app/i18n` as a side effect of a copy change.
