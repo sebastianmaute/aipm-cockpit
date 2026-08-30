@@ -4,11 +4,9 @@ import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
   type StorageConfig,
-  type StorageKind,
   type Workspace,
   StorageNotImplementedError, StorageNotReadyError, createBackend,
-  getBackendFileHandle, loadFromHandleForBackend, openFileForBackend,
-  pickFileForBackend, requestWriteAccessForBackend, setBackendFileHandle,
+  getBackendFileHandle, requestWriteAccessForBackend,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { scheduleDebouncedSave, SAVE_DEBOUNCE_MS } from "./debounced-save";
@@ -25,10 +23,10 @@ import { mergeActivityLogs } from "./activity-log-merge";
 import { useMsAuth } from "./use-ms-auth";
 import { useWorkspace } from "./workspace-context";
 import { useTursoProjectOps } from "./use-storage-turso-ops";
-import { useFileProjectOps } from "./use-storage-file-ops";
+import { useFileProjectOps, useStorageFilePickerOps } from "./use-storage-file-ops";
 import { useLoadTruncation } from "./use-load-truncation";
 import { useDestructiveSaveGuard } from "./use-destructive-save-guard";
-import { STORAGE_LABEL_KEYS, type UseStorageBackendArgs } from "./use-storage-backend-types";
+import type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
 export type { UseStorageBackendArgs } from "./use-storage-backend-types";
 
@@ -487,133 +485,10 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   // the read-only project header in popout windows. The generic handles undefined.
   useBroadcastSync("project", project, setProject, canSend);
 
-  async function onPickStorageFile() {
-    if (truncationOps.wouldRefuseWrite()) { truncationOps.refuseWrite(); return; } // ★★★ §103: refuse BEFORE the picker — it creates the file and persists the handle on the ACTIVE backend, so a write-only guard stranded the app on an empty file. See `refuseWrite` (use-load-truncation.ts).
-    const promise = pickFileForBackend(backend);
-    if (!promise) return;
-    await promise;
-    try {
-      if (!(await truncationOps.guardedWrite(backend, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }))) return; // ★ Kept as the backstop: the pre-check above is the one that matters, but a truncating load landing between them must still not commit.
-      await refreshBackendStatus();
-      emitToast("info", t(langRef.current, "storageSwitchedToast"));
-    } catch (err) {
-      emitToast("error", t(langRef.current, "storageSaveFailed", String(err)));
-    }
-  }
-
-  async function onGrantWriteAccess() {
-    const promise = requestWriteAccessForBackend(backend);
-    if (!promise) return;
-    const granted = await promise;
-    await refreshBackendStatus();
-    if (granted) {
-      emitToast("info", t(langRef.current, "storagePermissionGranted"));
-    } else {
-      emitToast("error", t(langRef.current, "storagePermissionDenied"));
-    }
-  }
-
-  async function onOpenStorageFile() {
-    const promise = openFileForBackend(backend);
-    if (!promise) return;
-    const picked = await promise;
-    try {
-      const load = loadFromHandleForBackend(backend, picked);
-      if (!load) throw new StorageNotReadyError("local-file-not-picked"); // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend, and both facade helpers narrow on the same `instanceof` against the same instance. The guard exists only because every facade helper is uniformly nullable. ★★★ A `throw`, NEVER a `return`. BOTH exit above `reportImportFor`, and that is fine here — no load has happened yet, so there are no import diagnostics to report. What differs is SILENCE: a bare `return` makes the user's click do nothing and say nothing, while the throw reaches the catch below and surfaces a real error. Nothing pins that the two helpers' predicates stay in agreement, so if this ever DOES become reachable it must fail loudly. ★★ Its neighbour `setBackendFileHandle` below is nullable for the same reason and is deliberately NOT hardened — do not read the asymmetry as a claim it is safer: a `null` there `await`s to nothing, so the pick would go silently UNBOUND while the apply proceeded, which is the worse failure of the two. It is left alone because a second unreachable guard costs a line this file has no budget for, not because it cannot go wrong.
-      const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
-      // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits OF THE CONFIRM: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
-      const accepted = tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length));
-      if (accepted) {
-        await setBackendFileHandle(backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
-        suppressNextSaveRef.current = true; // ★★★ AFTER the bind, never before. The flag suppresses the save that the `setTasks` below triggers, and `setTasks` runs after this line either way — but a bind that THROWS jumps to the catch, and an already-armed flag would then swallow the next legitimate save of a workspace nothing had modified. Arming it here means a failed bind leaves no residue.
-        // Seed the session minter from the opened file so its (possibly larger)
-        // task/raid ids can't be reused after a delete. "raise" never lowers a
-        // kind's mark, so the absences/shifts NOT applied below keep their
-        // current-project high-water intact.
-        seedMintFromWorkspace(loaded, "raise");
-        setTasks(loaded.tasks);
-        setRaid(loaded.raid);
-        // NOTE: absences and shifts intentionally NOT restored here —
-        // faithful extraction of original behavior (not a bug fix).
-        await refreshBackendStatus();
-        emitToast("info", t(langRef.current, "storageOpenedToast", loaded.tasks.length));
-      }
-      // ★★★ AFTER the toast above, never before: the surface is single-slot and REPLACES, so a diagnostic fired first is created and instantly discarded. The confirmation is the disposable half — it carries no remedy, and a clean import shows nothing here so it still paints. See the landmine on `TruncationOps.reportFor`.
-      truncationOps.reportImportFor(backend, accepted); // ★★★ THE SECOND ARGUMENT IS THE DECISION, NOT A FORMALITY: diagnostics fire on BOTH exits OF THE CONFIRM — not on both exits of the function, since a rejecting `setBackendFileHandle` jumps to the catch and never reaches this line, leaving that file's dropped rows unreported (pre-existing, not this branch's) — the quoting HOLD only when a pending save could actually reach the file just read — ACCEPT alone since §287, because DECLINE commits nothing and leaves the backend on the user's previous file. A bare `true` here restores a real regression (autosave of an untouched project halted all session over a file the user refused to open) and no gate would notice. Full reasoning on `TruncationOps.reportImportFor`.
-    } catch (err) {
-      if (err instanceof StorageNotReadyError) {
-        const key =
-          (err as StorageNotReadyError).hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : "storageNotReady";
-        emitToast("error", t(langRef.current, key));
-      } else {
-        emitToast("error", t(langRef.current, "storageLoadFailed", String(err)));
-      }
-    }
-  }
-
-  // Reads the current workspace via render-scope closure — same pattern
-  // as onPickStorageFile/onOpenStorageFile. Must NOT be memoized by consumers,
-  // or it would capture a stale snapshot of tasks/raid/etc. The same applies to
-  // the emitters it calls (emitStorageConfig, emitToast): they are re-created
-  // each render and read `args.*` live, so memoizing this handler would capture
-  // stale versions of those callbacks too — and a stale `mountedRef` with them.
-  async function onRequestStorageSwitch(newKind: StorageKind): Promise<void> {
-    if (args.isPopout) return;
-    const current = settingsRef.current.storageConfig;
-    if (newKind === current.kind) return;
-    const newConfig: StorageConfig =
-      (newKind === "sp-json" || newKind === "sp-csv") && (current.kind === "sp-json" || current.kind === "sp-csv")
-        ? { ...current, kind: newKind }
-        // Cast is safe: browser/local-*/turso variants carry no required fields
-        // beyond `kind`; only sp-* needs hostname/sitePath/itemPath, handled by
-        // the spread branch above.
-        : ({ kind: newKind } as StorageConfig);
-    const label = t(langRef.current, STORAGE_LABEL_KEYS[newKind]);
-    const leavingTurso = current.kind === "turso" && newKind !== "turso";
-    const confirmKey = leavingTurso ? "storageTursoLeaveWarn" : "storageConvertConfirm";
-    if (!window.confirm(t(langRef.current, confirmKey, tasks.length, label))) return;
-    const target = createBackend(newConfig, {
-      acquireToken: auth.acquireToken,
-      tursoConfig: getTursoConfig(
-        settingsRef.current.integrations?.turso?.databaseUrl,
-        settingsRef.current.integrations?.turso?.authToken,
-      ),
-    });
-    try {
-      const pick = pickFileForBackend(target);
-      if (pick) await pick;
-      if (!(await truncationOps.guardedWrite(target, { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog }))) return; // ★★ §103: the conversion writes to a DIFFERENT backend, so the source survives — but `emitStorageConfig` below then repoints the app AT the short copy and the intact original becomes the abandoned one. Refuse loudly instead.
-      suppressNextLoadRef.current = true;
-      emitStorageConfig(newConfig);
-      emitToast("info", t(langRef.current, "storageConvertedToast", label));
-    } catch (err) {
-      const msg = err instanceof Error ? err.message : String(err);
-      if (/abort/i.test(msg) || /user activation/i.test(msg)) return;
-      if (err instanceof StorageNotReadyError) {
-        const hint = (err as StorageNotReadyError).hint;
-        const key =
-          hint === "local-file-permission-needed"
-            ? "storagePermissionGestureNeeded"
-            : hint === "storage-unreachable"
-              ? "storageUnreachable"
-              : "storageNotReady";
-        emitToast("error", t(langRef.current, key));
-      } else if (isTursoLockTimeout(err)) {
-        // Conversion target was Turso and the cross-tab write lock timed out.
-        emitToast("error", t(langRef.current, "tursoLockTimeout"));
-      } else {
-        // StorageNotImplementedError also surfaces here — user confirmed a
-        // conversion write, so silent failure is wrong.
-        emitToast("error", t(langRef.current, "storageSaveFailed", msg));
-      }
-    }
-  }
-
   // Snapshot the live workspace from the render-scope closure — same pattern as
-  // the file handlers above. Must NOT be memoized or it would capture stale
-  // state.
+  // the file-picker handlers in use-storage-file-ops.ts (onPickStorageFile /
+  // onOpenStorageFile / onRequestStorageSwitch), which take it as a dep. Must
+  // NOT be memoized or it would capture stale state.
   function currentWorkspace(): Workspace {
     return { tasks, raid, absences, shifts, resources, roles, disciplines, grades, plan, budgets, fxRates, status, project, fieldVisibility, features, milestones, changes, stakeholders, steeringCommittee, timelogLinks, knowledgeItems, insights, documents, documentVersions, settingsOverrides, calendarEvents, documentAssets, activityLog };
   }
@@ -722,6 +597,29 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     reportProjectError,
     suppressNextLoadRef,
     suppressNextSaveRef,
+  });
+
+  const {
+    onPickStorageFile,
+    onGrantWriteAccess,
+    onOpenStorageFile,
+    onRequestStorageSwitch,
+  } = useStorageFilePickerOps({
+    isPopout: args.isPopout,
+    backend,
+    truncationOps,
+    currentWorkspace,
+    refreshBackendStatus,
+    emitToast,
+    langRef,
+    settingsRef,
+    suppressNextSaveRef,
+    suppressNextLoadRef,
+    emitStorageConfig,
+    acquireToken: auth.acquireToken,
+    setTasks,
+    setRaid,
+    tasks,
   });
 
   // Re-load the CURRENT project's workspace from its backend, discarding the
