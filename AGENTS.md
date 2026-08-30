@@ -1293,14 +1293,17 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `sortCol`) + `width` are SEPARATE from `sortCol` — they diverge on the name/label column (sort key `name`,
   width/resize key `label`). `align="right"` picks the `text-right` variant; `hint` forwards to the
   `InfoTooltip`. DOM is byte-equivalent to the hand-rolled trio it replaced ONLY while `nameContext`
-  is absent — which it is at every call site but one. ★★ `nameContext` appends ` – <context>` to the
-  header button's accessible name AND to its hint tooltip's, so a caller that passes it is no longer
-  byte-equivalent (Reports is axe-scanned, and its headers now carry an `aria-label` they did not).
-  Pass it ONLY when one view renders the SAME table shape twice — sharing a column label across two
-  embedded tables is the collision it exists for; a single table needs nothing, and qualifying it
-  adds noise to every screen reader. Building the name from `label` inside the primitive rather than
-  taking a finished string is deliberate: it puts WCAG 2.5.3 containment in the TYPE, where a call
-  site cannot defeat it.
+  is absent. ★★ `nameContext` appends ` – <context>` to the header button's accessible name AND to
+  its hint tooltip's, so a caller that passes it is no longer byte-equivalent (Reports is
+  axe-scanned, and its headers now carry an `aria-label` they did not). Pass it when ONE VIEW
+  EMBEDS TWO TABLES THAT SHARE A COLUMN LABEL — that collision is what it exists for, and the two
+  tables need not be the same SHAPE (Reports, the motivating case, collides `AssigneeTable` against
+  `GroupOrLabelTable`). A single table needs nothing, and qualifying it adds noise to every screen
+  reader. Building the name from `label` inside the primitive rather than taking a finished string
+  is deliberate: containment for WCAG 2.5.3 then holds BY CONSTRUCTION, at every call site, with no
+  call site able to defeat it. ★ Not by the TYPE — `nameContext` is a bare `string | undefined` and
+  tsc checks nothing here; an earlier revision of this sentence said "in the TYPE", which invites a
+  reader to trust a guarantee the compiler never made.
   ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
   per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
   omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",

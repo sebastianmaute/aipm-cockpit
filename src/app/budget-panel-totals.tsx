@@ -124,11 +124,25 @@ function HoursCell({
   // ★ `gap-0.5` came out with the icons and its removal is provably inert:
   // column-gap needs two flex ITEMS and the span now holds a single text node
   // (measured in Chromium on the seeded Budget view — `childElementCount: 0`,
-  // so no gap was ever drawn). `flex items-center` is NOT inert and stays: it
-  // forms the line box the input is centred against. That leaves this span one
-  // class richer than its read-only twin in `TotalsTd` below, which is plain
-  // `w-14` — they render identically today (both fixed-width, single-line), and
-  // the pair is worth keeping in step because HOURS_LINE_UNITS assumes it.
+  // so no gap was ever drawn).
+  //
+  // ★★ `flex items-center` is LEFTOVER TOO, and do not write it up as
+  // load-bearing. The label and the input are centred against each other by the
+  // PARENT row (`flex items-center gap-1`, just below), not by anything on this
+  // span; the span's own `items-center` centres one line inside its own auto
+  // height, which is a no-op. The proof is two lines away: `TotalsTd`'s
+  // read-only twin is a plain `w-14` span with neither class and renders
+  // identically. An earlier revision of this comment claimed the span "forms
+  // the line box the input is centred against" AND that the twin renders
+  // identically — which cannot both be true, and the false half is the one a
+  // future reader would cite when declining to align the pair. Left in place
+  // only because removing them is a live layout change nothing here can test
+  // (jsdom has no layout); align the two spellings whenever the Budget view is
+  // next verified in a browser.
+  //
+  // ★ Neither class is a term in HOURS_LINE_UNITS. The 31 units are `w-14` +
+  // the PARENT's `gap-1` + `w-16`; `gap-0.5` lived inside the span and was
+  // never counted.
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">

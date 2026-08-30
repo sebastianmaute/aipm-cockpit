@@ -567,8 +567,14 @@ describe("SortResizeTh nameContext", () => {
   // ★ No panel COUNT here on purpose (AGENTS.md's no-consumer-tally rule): this
   // comment said "the five axe-scanned panels" and the real figure was eight,
   // measured the same day the sentence was written. Derive today's with
-  //   grep -rl "hint=" src/app --include=*.tsx | xargs grep -l SortResizeTh | grep -v test
-  // The sentence works with no number in it, which is why there is none.
+  //   grep -rlzP '<SortResizeTh(?:(?!/>)[\s\S])*?hint=' src/app --include=*.tsx | grep -v test
+  // ★★ The multiline form is load-bearing. The obvious two-grep pipeline
+  // (`grep -rl "hint=" … | xargs grep -l SortResizeTh`) returns a SUPERSET —
+  // it matches a file where the two strings merely COEXIST. It lands on
+  // `budget-panel.tsx`, whose `hint=`s are all on `<Cci>` while its lone
+  // SortResizeTh passes nameContext and NO hint: the exact opposite of the
+  // sentence above. A reproduce command that cannot answer the claim beside it
+  // is worse than none.
   it("leaves the hint tooltip's name bare when no nameContext is given", () => {
     render(
       <table><thead><tr>

@@ -372,7 +372,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§143](#143-the-sink-argument-is-unpinned-at-every-call-site--the-107114-class-surviving-one-level-up--conversion-complete-2026-08-16-the-type-level-guard-is-still-open) | The sink ARGUMENT is unpinned at every call site — the §107/§114 class surviving one level up — CONVERSION COMPLETE 2026-08-16; the TYPE-level guard is still open | cold review of `unify-rich-text-s1`, 2026-08-11 | S–M | open |
 | [§144](#144-the-new-rich-text-toolbar-is-invisible-to-every-gate-in-the-repo--closed-2026-08-12-a11y-measured) | The new rich-text toolbar is invisible to every gate in the repo | `unify-rich-text-s1`, 2026-08-11 | M | **CLOSED** 2026-08-12, a11y, measured |
 | [§145](#145-the-heroicons--lucide-react-migration--closed-2026-08-21-a-decision-measured) | The heroicons → `lucide-react` migration | — | — | **CLOSED** 2026-08-21, a decision, measured |
-| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` | — | — | **CLOSED** 2026-08-30 (Escape only; the prescribed reason union deliberately NOT built) |
+| [§146](#146-popoverpanel-never-restores-focus-on-dismiss-so-escape-from-a-menu-drops-the-user-at-documentbody--closed-2026-08-30) | `PopoverPanel` never restores focus on dismiss, so Escape from a menu drops the user at `document.body` | — | — | **CLOSED** 2026-08-30 (Escape only; the prescribed reason union deliberately NOT built; the activate-an-item path carved out to §297) |
 | [§147](#147-read-only-task-item-checked-state-is-a-character-name-to-at-not-checked--open-a11y-known-limit) | Read-only task-item checked state is a character name to AT, not "checked" — open, a11y, known limit | — | — | open |
 | [§148](#148-retryloads-reload-branch-clobbers-a-concurrently-minted-chat-thread--open-correctness-measured) | `retryLoad`'s reload branch clobbers a concurrently-minted chat thread — open, correctness, measured | — | — | open |
 | [§149](#149-date-dependent-unit-tests-detonate-on-a-calendar-rollover-with-no-code-change-behind-them) | Date-dependent unit tests detonate on a calendar rollover, with no code change behind them | — | — | open |
@@ -515,7 +515,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-six-ways--open) | The template seed's note-log validator diverges from the canonical one in six ways — open | — | — | open |
 | [§287](#287-declining-onopenstoragefiles-overwrite-confirm-still-re-points-the-active-backend-at-the-picked-file--open-measured-by-reading) | Declining `onOpenStorageFile`'s overwrite confirm still re-points the active backend at the picked file — open, measured by reading | — | — | open |
 | [§288](#288-the-ai-seed-route-into-a-new-project-bypasses-the-rich-field-allow-list-the-template-route-uses--open-pre-existing) | The AI-seed route into a new project bypasses the rich-field allow-list the template route uses — open, pre-existing | found 2026-08-29 | M | open |
-| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (apply first, then the undo; SUPERSEDES §181) |
+| [§289](#289-milestones-should-stamp-localmodifiedat--the-apply-does-not-write-it-and-the-bulk-undo-therefore-does-not-either--closed-2026-08-30) | Milestones should stamp `localModifiedAt` — the apply does not write it, and the bulk undo therefore does not either | found 2026-08-29 | S | **CLOSED** 2026-08-30 (all THREE paths: apply, single-row undo, bulk undo; SUPERSEDES §181) |
 | [§290](#290-differs-and-valuesdiffer-are-two-exported-spellings-of-one-predicate-in-field-groupsts--open) | `differs` and `valuesDiffer` are two exported spellings of one predicate in `field-groups.ts` | found 2026-08-29 | XS | open |
 | [§291](#291-mergerecord-rebuilds-in-lives-key-order-not-targets--open) | `mergeRecord` rebuilds in `live`'s key order, not `target`'s | found 2026-08-29 | S | open |
 | [§292](#292-the-merge-property-tests-anti-vacuity-floor-measures-generator-diversity-not-merge-path-coverage--open) | The merge property test's anti-vacuity floor measures generator diversity, not merge-path coverage | found 2026-08-29 | S | open |
@@ -22756,8 +22756,13 @@ src/app/document-block-gutter.tsx:161   onPick={(type) => { const at = addAt; cl
 src/app/document-block-gutter.tsx:243   <BlockKindList … onPick={(type) => { close(); onPick(type); }} />
 ```
 
-`close` is `useCallback(() => { setOpen(false); setAddAt(null); }, [])` (`:75`) — it never reaches
-`PopoverPanel`'s `onClose`, so the wrapper §146 added is not in the path at all. The panel unmounts
+`close` is `useCallback(() => { setOpen(false); setAddAt(null); }, [])` (`:75`) — and it never goes
+through `closeRestoringFocus`, so the wrapper §146 added is not in the path at all. ★ Note `close`
+IS the primitive's `onClose` — both `PopoverPanel` mounts in this file are wired
+`onClose={close}` (`grep -n "onClose={close}" src/app/document-block-gutter.tsx` returns two
+lines); what the consumer skips is the WRAPPER, not the callback. An earlier revision here said it
+"never reaches `PopoverPanel`'s `onClose`", which sends a reader hunting for a second, different
+`onClose` that does not exist. The panel unmounts
 with focus inside it and focus falls to `document.body`: byte-for-byte the failure §146's own repro
 records, reached by Enter on a menu item rather than by Escape. WCAG 2.4.3.
 
@@ -22765,9 +22770,17 @@ records, reached by Enter on a menu item rather than by Escape. WCAG 2.4.3.
 the dismiss paths and the reasoning carries: it puts a decision only the primitive can make into
 every call site, where it drifts. The natural fix is for the primitive to restore focus on ANY
 unmount while focus is inside it, which subsumes both this and the Escape case and makes the
-`closeRestoringFocus` wrapper redundant. Check first whether that re-introduces the outside-click
-yank §146 exists to prevent — an outside MOUSEDOWN moves focus before the unmount, so the
-"focus is inside" test may already discriminate, but that is a hypothesis, not a measurement.
+`closeRestoringFocus` wrapper redundant.
+
+★★★ **IT WOULD RE-INTRODUCE THE OUTSIDE-CLICK YANK, so do not adopt it unguarded.** An earlier
+revision here hypothesised the opposite — that an outside mousedown moves focus BEFORE the unmount,
+letting a "focus is inside" test discriminate. It does not. Focus-on-click is the mousedown DEFAULT
+ACTION, which runs after listeners dispatch: that is precisely why `ToggleButton`'s
+`preventFocusSteal` works by calling `preventDefault()` on `mousedown`
+(`grep -n preventFocusSteal src/app/toggle-button.tsx`). `PopoverPanel`'s outside-click handler is
+itself a `mousedown` LISTENER, so when it runs `document.activeElement` is still inside the panel and
+an unmount-based restore would fire — yanking focus back to the trigger on a click the user aimed
+somewhere else, the exact bug §146 declined to ship. Any fix needs a different discriminator.
 
 ★★ **The axe gate is silent on this in every view.** No axe rule checks where focus lands after a
 control disappears — AGENTS.md carries the measurement for the sibling blind spot. Whatever unit
