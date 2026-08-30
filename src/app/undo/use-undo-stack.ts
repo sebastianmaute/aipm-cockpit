@@ -734,13 +734,11 @@ export function useUndoStack(deps: UseUndoStackDeps): UndoStackApi {
     // ★★ NEITHER DIRECTION ARMS THE DESTRUCTIVE BYPASS, and that is deliberate
     // (§295), not an oversight — this `runRedo` is one of several in the file
     // (the others live in `fragmentUndoRunner`, `fieldRowsRunner` and
-    // `compositeUndoRunner`; enumerate with
-    // `grep -n "const runRedo\|function runRedo" src/app/undo/use-undo-stack.ts`)
-    // and the easiest to mistake for a missing arm. `merge` is `prev.map(...)`,
-    // a map over the rows that already exist, so it can rewrite a row but never
-    // drop one; the array length is invariant in both directions. Arming here
-    // would hand a one-shot bypass to an ordinary single-field redo and the next
-    // unrelated save would spend it.
+    // `compositeUndoRunner`) and the easiest to mistake for a missing arm.
+    // `merge` is `prev.map(...)`, a map over the rows that already exist, so it
+    // can rewrite a row but never drop one; the array length is invariant in
+    // both directions. Arming here would hand a one-shot bypass to an ordinary
+    // single-field redo and the next unrelated save would spend it.
     function runUndo(): Runner { merge(before); return runRedo; }
     function runRedo(): Runner { merge(after); return runUndo; }
     pushEntry(kind, 1, runUndo, { name });

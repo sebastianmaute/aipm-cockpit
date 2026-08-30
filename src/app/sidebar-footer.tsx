@@ -15,11 +15,7 @@ interface SidebarFooterProps {
   /** Saving is paused by a lockout — a truncated load
    *  (`use-load-truncation.ts`) or a withheld mass deletion
    *  (`use-destructive-save-guard.ts`). The two cannot hold at once, by TWO
-   *  mechanisms and not one: the save effect returns on the truncation lockout
-   *  ABOVE the destructive guard (so no NEW refusal is raised while truncation
-   *  stands), AND its suppress-after-load branch clears a standing refusal (so
-   *  no OLD refusal outlives the workspace that raised it — the direction the
-   *  early return alone never covered). */
+   *  mechanisms and not one. */
   savingPaused?: boolean;
   /** Re-show whichever saving-paused banner is standing; it carries the only
    *  "save anyway" for that cause. */
@@ -106,18 +102,14 @@ export function SidebarFooter({
         // `ToggleButton`'s `data-pressed-marker` is: ALWAYS rendered and merely
         // `invisible` in the quiet state, so the line keeps ONE width and the
         // description cannot reflow as storage flips.
-        // ★ The `<p>` carried a ternary whose two branches were the SAME string
-        // (`text-ui-light-grey` either way) — a dead choice, collapsed here
-        // rather than given a second colour, because a second colour would be
-        // the very channel this comment says is not sufficient on its own.
+        // ★ a second colour would be the very channel this comment says is not
+        // sufficient on its own.
         // ★★ IT DOES NOT CLOSE THE ASSISTIVE-TECH HALF, and nothing here does:
         // the marker is `aria-hidden` like the dot, and `storageDescription`
         // names the BACKEND, never its readiness — so a screen reader is told
-        // nothing about this state on this line. Saying it in words needs an
-        // i18n key covering all three causes (unusable backend · truncated load
-        // · standing refusal); `storageNotReady` is not it, it asserts the first
-        // cause only. Until then the `SavingPausedButton` above is the only
-        // SPOKEN disclosure, and it is absent for a plain not-ready backend.
+        // nothing about this state on this line. Until then the
+        // `SavingPausedButton` above is the only SPOKEN disclosure, and it is
+        // absent for a plain not-ready backend.
         <p className="text-ui-light-grey">
           <span
             aria-hidden

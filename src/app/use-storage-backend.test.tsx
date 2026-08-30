@@ -2813,8 +2813,8 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
   // `refusalWasStanding` suppresses the announcement. The user is then offered
   // one exit, under a banner describing a different project's records, and
   // taking it authorises whatever is actually pending.
-  // ★★ THE ARM ITSELF IS NOT THE HAZARD, and an earlier framing of this said it
-  // was. `allowDestructiveSaveAnyway` arms AND clears, `destructive.refusal` is
+  // ★★ THE ARM ITSELF IS NOT THE HAZARD.
+  // `allowDestructiveSaveAnyway` arms AND clears, `destructive.refusal` is
   // a dep of the save effect, and `consumeArm()` is that effect's FIRST
   // statement — so the arm is spent by the very effect run the clearing
   // triggers, never carried to a later edit. What the stale banner buys is a
@@ -2834,7 +2834,7 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     expect(backend.save).not.toHaveBeenCalled();               // control: the guard engaged
     expect(result.current.destructiveRefusal).not.toBeNull();  // control: the refusal really stands
 
-    // The load/apply. `reloadCurrentProject` is the cheapest of the NINE sites
+    // The load/apply. `reloadCurrentProject` is the cheapest of the sites
     // that set `suppressNextSaveRef`; the branch it reaches is shared by all of
     // them, project switch and create included, which is why one clear covers
     // the lot (see the comment on that branch).

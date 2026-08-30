@@ -68,15 +68,6 @@ describe("useDestructiveSaveGuard", () => {
 
   // ★★★ Identity, not equality. `use-storage-backend.ts` puts `refusal` in the save
   // effect's dep array, so a fresh object per evaluation loops the effect forever.
-  // ★★ NOT the only detector, and do not restore a claim that it is: the same
-  // property is pinned end-to-end by "keeps refusing every later save while a
-  // refusal stands" in `use-storage-backend.test.tsx`, whose closing
-  // `toBe(standing)` runs the REAL save effect and so is the one that would
-  // actually reach the heap OOM. What THIS test covers that the sibling cannot is
-  // the hook's own contract with no effect in the loop: it fails on the CAUSE (a
-  // fresh `refusal` from a repeat `evaluate`) rather than on a downstream symptom,
-  // and it stays valid if `use-storage-backend.ts` ever stops depending on it.
-  // Neither subsumes the other — deleting either leaves a real gap.
   it("keeps a standing refusal's identity stable while nothing about it changes", () => {
     const { result } = renderHook(() => useDestructiveSaveGuard());
     act(() => { result.current.syncBaselines(3, 90); });

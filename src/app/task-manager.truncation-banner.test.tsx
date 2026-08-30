@@ -255,9 +255,6 @@ describe("task-manager → truncation banner mount", () => {
     // paused indicator on a clean load, and reports healthy", which proves this
     // harness DOES reach `storageReady: true` once a load lands — without it,
     // "never true" would be satisfied by a mount that never got that far.
-    // ★ Named, not positioned: the sibling of this comment in the
-    // destructive-refusal describe said "the describe above" and pointed at the
-    // wrong test. A relative pointer rots on the next insertion.
     await mountApp();
     await waitFor(() => expect(footerSeen.storageReady.length).toBeGreaterThan(0));
     expect(footerSeen.storageReady.some((v) => v === true)).toBe(false);
@@ -371,10 +368,7 @@ describe("task-manager → destructive-refusal banner mount", () => {
     };
     await mountApp();
     fireEvent.click(
-      // ★ The WIPE tier's own trigger label. It used to be
-      // `storageDestructiveSaveAnyway` ("Save this deletion"), shared with the mass
-      // deletion, while this banner's count line and dialog title both said WIPE;
-      // the wipe tier now renders `storageDestructiveWipeBannerSaveAnyway`. Only the
+      // ★ The WIPE tier's own trigger label. Only the
       // EXPECTED STRING moved — the query is still `getByRole` scoped to the
       // destructive banner, so a component that dropped the wipe trigger entirely
       // still fails here.
@@ -554,8 +548,6 @@ describe("task-manager → destructive-refusal banner mount", () => {
     const truncationDismiss = within(banner() as HTMLElement).getByRole("button", { name: /dismiss/i });
     const destructiveDismiss = within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i });
     expect(destructiveDismiss).not.toBe(truncationDismiss);
-    // ★ Read the attribute, not the rendered text: `DismissButton` sets both, so
-    // an assertion on `textContent` would still pass if only one carried a name.
     expect(truncationDismiss.getAttribute("aria-label")).toBeTruthy();
     expect(destructiveDismiss.getAttribute("aria-label")).toBe(truncationDismiss.getAttribute("aria-label"));
   }, 45000);

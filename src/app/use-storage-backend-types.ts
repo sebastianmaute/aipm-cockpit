@@ -38,8 +38,7 @@ export interface UseStorageBackendArgs {
   /** Reveals a dismissed saving-paused banner. The refusal toast points here
    *  rather than carrying the destructive action itself.
    *
-   *  ★★★ REQUIRED, and deliberately so — it was optional until 0.263.x and the
-   *  hook invoked it as `?.()`. A consumer omitting it therefore got a refusal
+   *  ★★★ REQUIRED, and deliberately so. A consumer omitting it would get a refusal
    *  toast whose ONLY button silently did nothing, with every gate green: this is
    *  the sole route from the transient toast back to the persistent banner, so
    *  the omission leaves a paused save with no recourse the user can find. That

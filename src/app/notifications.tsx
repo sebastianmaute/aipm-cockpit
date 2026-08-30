@@ -118,13 +118,7 @@ export function StorageBanner({
 }
 
 /** WHY saving is paused. The two causes cannot be active at once, and it takes
- *  TWO mechanisms — quoting only the first is how this comment was wrong before:
- *    • the save effect returns on the truncation lockout ABOVE the destructive
- *      guard, so no NEW refusal is raised while truncation stands;
- *    • its suppress-after-load branch calls `clearRefusal`, so no OLD refusal
- *      outlives the workspace whose baselines raised it — without which a
- *      refusal followed a project switch and met the new project's truncation.
- *  Either alone leaves the two banners stackable with contradictory advice.
+ *  TWO mechanisms.
  *  See `use-destructive-save-guard.ts`'s header. */
 export type SavingPausedCause =
   | {
@@ -306,10 +300,7 @@ export function SavingPausedBanner({
   const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
   const { countText, bannerKey, bannerAriaKey } =
     cause.kind === "destructive" ? destructiveCopy(lang, cause) : truncationCopy(lang, cause);
-  // ★★ THREE trigger labels, not two. The wipe tier used to borrow the mass
-  // deletion's "Save this deletion" while its own count line and dialog title
-  // both said WIPE — the one control committing to the larger loss was the one
-  // understating it.
+  // ★★ THREE trigger labels, not two.
   // ★ It stays distinct from `storageDestructiveWipeSaveAnyway`, the wipe
   // dialog's commit button: that dialog opens OVER this banner, so the two are
   // on screen together and sharing a name is the duplicate-name defect the whole

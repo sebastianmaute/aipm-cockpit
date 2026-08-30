@@ -463,7 +463,7 @@ describe("SavingPausedBanner", () => {
     // unmounts behind it: two buttons carried the identical accessible name at the
     // same time, one opening an irreversible gate and one committing it (WCAG
     // 2.4.6). The axe gate provably cannot see a duplicate accessible name in any
-    // view at any seed size, so this test is the only detector there will ever be.
+    // view at any seed size.
     // ★ This file mocks the whole `./confirm-dialog` module, so the real dialog can
     // never render here and the options object it was handed is the ONLY available
     // observable — same reasoning as the destructive test.
@@ -529,9 +529,7 @@ describe("SavingPausedBanner", () => {
     // literal it replaces (`/\d+ of \d+ records would be removed/i`) was the
     // then-current wording of `storageDestructiveCount`, so any reword of that
     // key would have left this negative matching NOTHING and passing for the
-    // wrong reason — the exact failure that already cost this branch a red
-    // elsewhere, where four literal-matching assertions went red and two went
-    // silently vacuous. Passing the wipe's OWN numbers makes the asserted-absent
+    // wrong reason. Passing the wipe's OWN numbers makes the asserted-absent
     // string exactly the true-but-useless "900 of 900" this copy refuses.
     renderDestructive({ cause: FULL_WIPE });
     expect(screen.getByText(t("en-US", "storageDestructiveWipeCount"))).toBeInTheDocument();
@@ -543,9 +541,6 @@ describe("SavingPausedBanner", () => {
   });
 
   it("names the WIPE on the wipe tier's trigger, not the mass deletion's label", () => {
-    // ★★ The wipe tier used to render `storageDestructiveSaveAnyway` ("Save this
-    // deletion") while its count line and its dialog title both said WIPE — the
-    // one control committing to the larger loss understated it.
     // ★ The negative is the half that pins the fix: the mass-deletion label must
     // be ABSENT here, or a component rendering both (or reverting to the shared
     // string, which still contains no wipe wording) would pass the positive.

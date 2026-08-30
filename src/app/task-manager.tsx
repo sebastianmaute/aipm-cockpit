@@ -522,14 +522,11 @@ function TaskManagerInner() {
   // flips it. Pinned by "an ESCALATING refusal re-shows a dismissed banner while
   // it still stands" in `task-manager.truncation-banner.test.tsx`, the only one of
   // that file's three reconcile tests to go red under a boolean key.
-  // ★★★ A COUNTS-DERIVED KEY IS EQUIVALENT, NOT WORSE, and an earlier revision of
-  // this comment asserted the opposite of both halves — that a counts key "would
-  // say the same thing more weakly" and that a boolean "could not see a second
-  // episode whose counts moved". `sameRefusal` makes object identity ⟺ the counts
-  // tuple, so NO input separates object from counts: a faithful counts key was
-  // measured green against all 19 tests in that file. Prefer the object key
-  // because it does not restate `sameRefusal`'s field list — which would drift the
-  // day a field is added to it — NOT because it catches anything extra.
+  // ★★★ A COUNTS-DERIVED KEY IS EQUIVALENT, NOT WORSE. `sameRefusal` makes object
+  // identity ⟺ the counts tuple, so NO input separates object from counts: a
+  // faithful counts key was measured green. Prefer the object key because it does
+  // not restate `sameRefusal`'s field list — which would drift the day a field is
+  // added to it — NOT because it catches anything extra.
   // ★ Do not "simplify" it to a nonce: there is none to bump — the guard's state
   // IS the event.
   // ★ Resetting on the transition to `null` is deliberate, not sloppiness: the

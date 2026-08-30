@@ -432,7 +432,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       //   announcement, so the user gets the stale counts instead of theirs and the only
       //   exit they are offered authorises whatever is pending under a banner that describes
       //   something else.
-      // ★★★ ONE SITE COVERS ALL NINE LOAD/SWITCH/CREATE PATHS, which is why there is no
+      // ★★★ ONE SITE COVERS ALL LOAD/SWITCH/CREATE PATHS, which is why there is no
       //   per-path obligation to add. `suppressNextSaveRef` is set by every one of them, and
       //   this branch is INSIDE the save effect, so clearing here dominates the lot and a
       //   tenth path cannot forget it. Enumerate them:
