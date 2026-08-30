@@ -24,7 +24,7 @@ function DismissButton({ lang, onClick }: { lang: Lang; onClick: () => void }) {
 // always used — right for the snoozeable, informational ones, which sit there
 // waiting to be found. It is a PER-CALLER override, not a change to `Banner`'s
 // own severity-driven default (`banner.tsx`), because one caller genuinely needs
-// `"alert"`: see `TruncatedLoadBanner`.
+// `"alert"`: see `SavingPausedBanner`.
 function AlertBanner({
   severity, role = "region", ariaLabel, icon, children, actions,
 }: { severity: BannerSeverity; role?: AriaRole; ariaLabel: string; icon: string; children: ReactNode; actions: ReactNode }) {
@@ -115,58 +115,47 @@ export function StorageBanner({
   );
 }
 
-/** §103 — a load that truncated the documents array pauses autosave (see
- *  `use-load-truncation.ts`). This banner is the ONLY route out: the user cannot
- *  get under the cap by editing, because the excess entries were never loaded.
- *  ★★ Dismissing hides the banner but must NOT clear `loadWasIncomplete` — the
- *  save guard stays armed. Only "Save anyway" resolves it.
- *
- *  ★★ `role="alert"`, NOT the `"region"` its siblings use. The other three sit
- *  and wait to be found; this one arrives asynchronously AFTER a load, reports
- *  an ongoing blocking state, and is the sole exit from a save lockout — a
- *  landmark nobody navigates to announces none of that.
- *
- *  ★★★ THE PRIMARY ACTION IS DESTRUCTIVE AND GATED. "Save anyway" permanently
- *  discards whatever could not be opened, and it is the FIRST tabbable control
- *  inside `<main>`, so a stray Enter would have destroyed data on a `variant=
- *  "primary"` button that looked exactly like `StorageBanner`'s benign "Open
- *  settings". It now routes through `ConfirmDialog` — the LIGHTER tier, not
- *  `TypeToConfirmDialog`: type-a-phrase friction on a user's only exit from a
- *  lockout is punitive, and unlike "clear all tasks" they did not choose to be
- *  here. Deleting ONE document already costs a `ConfirmDialog`
- *  (`documents-panel.tsx`); discarding N of them cannot cost less.
- *
- *  ★ `truncation` may be `null` (counts unknown) — the decision is then made on
- *  a screen showing no magnitude, so pass them whenever the guard has them. */
-export function TruncatedLoadBanner({
-  lang, truncation, decodeFailureCount, malformedQuoteCount, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
-}: {
-  lang: Lang;
-  truncation: { entries: number; blocks: number } | null;
-  /** How many stored slices the load could not DECODE — the guard's second
-   *  cause, `null` truncation and all. ★ Without it the count line and the
-   *  confirm dialog name no magnitude at all on that path, and the dialog is the
-   *  last thing the user sees before permanently discarding the data. */
-  decodeFailureCount: number;
-  /** How many CSV quoting violations the imported file carried — the guard's
-   *  THIRD cause. ★★★ Threaded for the same reason `decodeFailureCount` is, and
-   *  omitted for a release for want of asking: this cause commonly arrives with
-   *  `truncation` null AND `decodeFailureCount` 0 (a file backend has no meta
-   *  blob to fail decoding), so without it the banner rendered a headline with
-   *  NO magnitude line and `askThenSave` fell through to `message: body` — the
-   *  permanent-discard confirm naming nothing at all, which is precisely what
-   *  the note on `decodeFailureCount` says the count is threaded to prevent. */
-  malformedQuoteCount: number;
-  /** Hidden by the user. The save guard stays armed either way. */
-  dismissed: boolean;
-  /** The layout shows a persistent "saving paused" control elsewhere (the modern
-   *  shell's sidebar footer). FALSE in the classic layout, which has none. */
-  hasFooterIndicator: boolean;
-  onSaveAnyway: () => void;
-  onDismiss: () => void;
-  onReopen: () => void;
-}) {
-  const confirm = useConfirm();
+/** WHY saving is paused. The two causes cannot be active at once — the save
+ *  effect returns on the truncation lockout ABOVE the destructive guard — so one
+ *  banner renders whichever holds, and they can never stack with contradictory
+ *  advice. See `use-destructive-save-guard.ts`'s header. */
+export type SavingPausedCause =
+  | {
+      kind: "truncation";
+      /** ★ May be `null` (counts unknown) — the decision is then made on a
+       *  screen showing no magnitude, so pass them whenever the guard has them. */
+      truncation: { entries: number; blocks: number } | null;
+      /** How many stored slices the load could not DECODE — the guard's second
+       *  cause, `null` truncation and all. ★ Without it the count line and the
+       *  confirm dialog name no magnitude at all on that path, and the dialog is the
+       *  last thing the user sees before permanently discarding the data. */
+      decodeFailureCount: number;
+      /** How many CSV quoting violations the imported file carried — the guard's
+       *  THIRD cause. ★★★ Threaded for the same reason `decodeFailureCount` is, and
+       *  omitted for a release for want of asking: this cause commonly arrives with
+       *  `truncation` null AND `decodeFailureCount` 0 (a file backend has no meta
+       *  blob to fail decoding), so without it the banner rendered a headline with
+       *  NO magnitude line and `askThenSave` fell through to `message: body` — the
+       *  permanent-discard confirm naming nothing at all, which is precisely what
+       *  the note on `decodeFailureCount` says the count is threaded to prevent. */
+      malformedQuoteCount: number;
+    }
+  | {
+      kind: "destructive";
+      prevRecords: number;
+      curRecords: number;
+      fullWipe: boolean;
+    };
+
+/** The headline, aria-label and count line for the TRUNCATION cause. Pure
+ *  string selection — every landmine about WHY this banner exists, and why its
+ *  primary action is gated the way it is, lives on `SavingPausedBanner` below. */
+function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "truncation" }>): {
+  countText: string | null;
+  bannerKey: "documentsTruncatedBanner" | "documentsUnreadableBanner";
+  bannerAriaKey: "documentsTruncatedBannerAria" | "documentsUnreadableBannerAria";
+} {
+  const { truncation, decodeFailureCount, malformedQuoteCount } = c;
   // ★ Entries dominate BLOCKS when both are present, mirroring
   // `useLoadTruncation`'s own `truncationText` — losing whole documents is the
   // larger loss, and the banner must not disagree with the toast the same load
@@ -224,6 +213,52 @@ export function TruncatedLoadBanner({
   const truncationOnly = truncation != null && decodeFailureCount === 0 && malformedQuoteCount === 0;
   const bannerKey = truncationOnly ? "documentsTruncatedBanner" : "documentsUnreadableBanner";
   const bannerAriaKey = truncationOnly ? "documentsTruncatedBannerAria" : "documentsUnreadableBannerAria";
+  return { countText, bannerKey, bannerAriaKey };
+}
+
+/** The ONE banner for "saving is paused", rendering whichever cause holds. It
+ *  is the ONLY route out of either lockout, and dismissing it hides the banner
+ *  but must NOT clear the underlying guard — only the confirmed primary action
+ *  resolves one.
+ *
+ *  ★★ `role="alert"`, NOT the `"region"` its siblings use. The other three sit
+ *  and wait to be found; this one arrives asynchronously AFTER a load or a
+ *  refused save, reports an ongoing blocking state, and is the sole exit from
+ *  that lockout — a landmark nobody navigates to announces none of that.
+ *
+ *  ★★★ THE PRIMARY ACTION IS DESTRUCTIVE AND GATED. It permanently discards
+ *  data, and it is the FIRST tabbable control inside `<main>`, so a stray Enter
+ *  would have destroyed data on a `variant="primary"` button that looked exactly
+ *  like `StorageBanner`'s benign "Open settings".
+ *
+ *  ★★ THE TRUNCATION CAUSE (§103) TAKES THE LIGHTER TIER. A load that truncated
+ *  the documents array pauses autosave (`use-load-truncation.ts`) and the user
+ *  cannot get under the cap by editing, because the excess entries were never
+ *  loaded. Its "Save anyway" routes through `ConfirmDialog`, NOT
+ *  `TypeToConfirmDialog`: type-a-phrase friction on a user's only exit from a
+ *  lockout they did not choose is punitive. Deleting ONE document already costs
+ *  a `ConfirmDialog` (`documents-panel.tsx`); discarding N of them cannot cost
+ *  less. */
+export function SavingPausedBanner({
+  lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
+}: {
+  lang: Lang;
+  cause: SavingPausedCause;
+  /** Hidden by the user. The save guard stays armed either way. */
+  dismissed: boolean;
+  /** The layout shows a persistent "saving paused" control elsewhere (the modern
+   *  shell's sidebar footer). FALSE in the classic layout, which has none. */
+  hasFooterIndicator: boolean;
+  onSaveAnyway: () => void;
+  onDismiss: () => void;
+  onReopen: () => void;
+}) {
+  const confirm = useConfirm();
+  if (cause.kind !== "truncation") {
+    // Task 7 adds the destructive-save-guard branch here.
+    return null;
+  }
+  const { countText, bannerKey, bannerAriaKey } = truncationCopy(lang, cause);
   const askThenSave = async () => {
     const body = t(lang, "documentsTruncatedConfirmBody");
     const ok = await confirm({
