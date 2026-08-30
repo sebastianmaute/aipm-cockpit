@@ -33,6 +33,12 @@ export interface BucketCommitMeta {
 interface Deps {
   budgets: readonly BudgetBucket[];
   setBudgets: Dispatch<SetStateAction<readonly BudgetBucket[]>>;
+  /** Arms the one-shot save-guard bypass. `budgets` is a COUNTED slice, so a
+   *  deliberate bucket deletion can trip the save-time data-loss guard and be
+   *  refused. ★ Armed ONLY when a row was genuinely removed — the bypass is
+   *  one-shot, so arming on an edit-only or no-op commit LEAKS it and some
+   *  later accidental mass deletion spends it. */
+  allowDestructiveSave?: () => void;
   capture: UndoStackApi["capture"];
   captureComposite: UndoStackApi["captureComposite"];
   logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
@@ -43,7 +49,7 @@ export interface BudgetBucketsApi {
 }
 
 export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
-  const { budgets, setBudgets, capture, captureComposite, logActivity } = deps;
+  const { budgets, setBudgets, allowDestructiveSave, capture, captureComposite, logActivity } = deps;
 
   function commitBuckets(next: readonly BudgetBucket[], meta?: BucketCommitMeta): void {
     const prev = budgets;
@@ -137,6 +143,11 @@ export function useBudgetBuckets(deps: Deps): BudgetBucketsApi {
     }
 
     if (meta?.callerLogs !== true) logActivity(kind, name ?? touched);
+    // ★ `deleted.length > 0`, never `touched > 0`: an edit- or create-only
+    // commit removes no record, so arming there would leak the one-shot bypass
+    // into whatever save follows. Computed from the prev→next diff above, not
+    // inside a setState updater (React may run an updater more than once).
+    if (deleted.length > 0) allowDestructiveSave?.();
     setBudgets(next);
   }
 

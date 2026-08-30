@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useBroadcastSync } from "./broadcast-sync";
 import { t } from "./i18n";
 import {
@@ -137,7 +137,7 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   /** Arm a one-shot bypass so the NEXT save may destroy data (a confirmed
    *  clear-all / bulk delete). Without this an unexplained mass deletion is
    *  refused by the persistence guard. */
-  const allowDestructiveSave = () => { allowDestructiveRef.current = true; };
+  const allowDestructiveSave = useCallback(() => { allowDestructiveRef.current = true; }, []); // ★ useCallback with EMPTY deps: it only writes a ref, so it closes over nothing that can go stale — and use-register-tools.ts lists it in an exhaustive useMemo deps array that assumes every member is identity-stable.
   // ★★ §103 — the STICKY sibling of suppressNextSaveRef above (one-shot, so it cannot protect a truncated load). See use-load-truncation.ts.
   const { truncation, decodeFailureCount, decodeFailureNonce, malformedQuoteCount, malformedQuotesNonce, loadWasIncomplete, allowIncompleteSave, mayCommitAfterIncompleteLoad, truncationOps } = useLoadTruncation(langRef, emitToast, () => backend.save(currentWorkspace())); // ★ `emitToast`/`currentWorkspace` are hoisted function declarations; the closure is rebuilt every render, so it always writes the LIVE workspace to the CURRENT backend.
 
@@ -399,6 +399,27 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
       suppressNextSaveRef.current = false;
       prevCollectionCountRef.current = curCollections; // sync baselines on a load/apply
       prevRecordCountRef.current = curRecords;
+      // ★★★ SPEND the bypass here too — but NOT for the incomplete-load return's reason,
+      //   which an earlier revision of this comment copied. "The save never ran" is true of
+      //   BOTH returns, so it distinguishes nothing. There the arm is still NEEDED and
+      //   spending it costs a legitimate save (accepted — the user gets a refusal toast and
+      //   the data survives). HERE the baselines have just been resynced, so a deletion that
+      //   ALREADY landed is folded into the baseline and the arm has nothing left to authorise.
+      // ★★★ THAT HOLDS ONLY BECAUSE ARMING AND MUTATING ARE ATOMIC. Every call site arms in
+      //   the SAME synchronous block as its mutation, so React commits both together and the
+      //   mutation is always already in the counts by the time this branch runs. A future site
+      //   that arms, AWAITS, then mutates would have its permission spent here and its
+      //   deletion refused. `use-load-truncation.ts`'s `guardedWrite` leans on the same
+      //   invariant from the other side — read that comment before adding an arming site.
+      //   Enumerate them: grep -rn "allowDestructiveSave" src/app --include=*.ts --include=*.tsx
+      // ★ Leaving it armed is the worse trade: a live arm makes `refuse` impossible, so the
+      //   NEXT save of any kind spends it — the accident it waves through is whatever saves
+      //   FIRST after this branch, never "some later edit". ★★ That is not the same as saying
+      //   it is soon: a live arm survives unbounded loads and unbounded idle, so the next save
+      //   can be an arbitrary WALL-CLOCK time away. An earlier revision put the phrase "hours
+      //   afterwards" in §294's mouth; §294 says neither, and now states both halves itself
+      //   (docs/open-followups.md §294, "Consequence").
+      allowDestructiveRef.current = false;
       return;
     }
     // ★ DATA-LOSS INVARIANTS at the persistence choke point (all backends): L3 and
@@ -763,7 +784,9 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   };
 
   // Grouped one line per concern — a plain re-export list, and the cheapest block
-  // to compress in a file that sits AT the 800-line ratchet.
+  // to compress in a file that runs close to the 800-line ratchet. ★ Do not quote a
+  // number here — this comment said "sits AT" while the file had 14 lines of headroom.
+  // Measure: node -e "console.log(require('fs').readFileSync('src/app/use-storage-backend.ts','utf8').split('\n').length)"
   return {
     storageDescription, storageReady, workspaceLoaded,
     onPickStorageFile, onGrantWriteAccess, onOpenStorageFile, onRequestStorageSwitch,

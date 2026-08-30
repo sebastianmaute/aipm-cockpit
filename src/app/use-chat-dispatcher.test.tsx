@@ -2166,6 +2166,126 @@ describe("useChatDispatcher — delete_document arms the destructive-save bypass
   });
 });
 
+describe("useChatDispatcher — the register delete tools arm the destructive-save bypass", () => {
+  function renderWithBypass(isReadOnly = false) {
+    const allowDestructiveSave = vi.fn();
+    const { result } = renderDispatcher(
+      seedTasks(), isReadOnly, "open-points", undefined, undefined, allowDestructiveSave,
+    );
+    return { result, allowDestructiveSave };
+  }
+
+  it("deleteTask arms once for a task that exists", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    const victim = result.current.listTasks()[0]!;
+    act(() => { result.current.deleteTask(victim.id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // Positive observable: the delete really ran.
+    expect(result.current.listTasks().some((t) => t.id === victim.id)).toBe(false);
+  });
+
+  it("deleteTask does NOT arm for an id that does not exist", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    const before = result.current.listTasks().length;
+    act(() => { result.current.deleteTask(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    expect(result.current.listTasks()).toHaveLength(before);
+    // POSITIVE CONTROL: the id that DOES exist arms, so the fixture is not vacuous.
+    act(() => { result.current.deleteTask(result.current.listTasks()[0]!.id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteAllTasks arms once when it emptied a non-empty register", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    expect(result.current.listTasks()).toEqual([]);
+  });
+
+  it("deleteAllTasks does NOT arm when the register was already empty", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+    // A second clear removes nothing: arming again would leave a one-shot up
+    // with no save to spend it.
+    act(() => { result.current.deleteAllTasks(); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteResource arms only when a resource was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteResource(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createResource({ firstName: "Ada", lastName: "Lovelace" }).id;
+    });
+    act(() => { result.current.deleteResource(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not throw when no bypass is supplied", () => {
+    const { result } = renderDispatcher();
+    expect(() => {
+      act(() => { result.current.deleteAllTasks(); });
+    }).not.toThrow();
+  });
+
+  it("does NOT arm for a delete refused in a read-only popout", () => {
+    const { result, allowDestructiveSave } = renderWithBypass(true);
+    expect(() => result.current.deleteAllTasks()).toThrow();
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+  });
+
+  it("deleteRaid arms only when an item was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteRaid(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createRaid({ category: "Risk", title: "R1" }).id;
+    });
+    act(() => { result.current.deleteRaid(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteMilestone arms only when a milestone was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteMilestone(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createMilestone({ name: "M1", date: "2026-09-01" }).id;
+    });
+    act(() => { result.current.deleteMilestone(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteChange arms only when a change was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteChange(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createChange({ title: "C1" }).id;
+    });
+    act(() => { result.current.deleteChange(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+
+  it("deleteStakeholder arms only when a stakeholder was removed", () => {
+    const { result, allowDestructiveSave } = renderWithBypass();
+    act(() => { result.current.deleteStakeholder(999_999); });
+    expect(allowDestructiveSave).not.toHaveBeenCalled();
+    let id!: number;
+    act(() => {
+      id = result.current.createStakeholder({ name: "S1" }).id;
+    });
+    act(() => { result.current.deleteStakeholder(id); });
+    expect(allowDestructiveSave).toHaveBeenCalledTimes(1);
+  });
+});
+
 // ★★ The `ai.documentWrite` activity row. The kind was registered everywhere
 // (the ActivityKind union, ACTIVITY_KIND_TO_KEY, dashboard-activity-nav's
 // documents deep-link, EN/DE strings) and emitted NOWHERE, so no AI document

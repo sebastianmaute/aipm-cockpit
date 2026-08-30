@@ -692,7 +692,7 @@ function TaskManagerInner() {
     handleImportAbsences,
     handleCloseResourceModal,
     handleSetAllUtilizationMode,
-  } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows });
+  } = useResourcePlanner({ lang, today, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, showToast, workdayHours: settings.resources.workdayHours, holidaySet, capture: undoApi.capture, captureComposite: undoApi.captureComposite, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
   // Day rates are the rate card's source of truth; the hourly cost rate every
   // budget/EVM consumer reads is DERIVED from workday hours. When that setting
@@ -709,13 +709,13 @@ function TaskManagerInner() {
   }
 
   // Change Log CRUD. The hook reads/writes `changes` via WorkspaceProvider.
-  const { handleSaveChange, handleDeleteChange, handleChangeStatusChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows });
+  const { handleSaveChange, handleDeleteChange, handleChangeStatusChange, captureBulkUndo: captureChangeBulk } = useChangeLog({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
   // Stakeholder register / RACI / map CRUD. The hook reads/writes `stakeholders`
   // via WorkspaceProvider; the three panels source `resources`/`milestones` from
   // context inside WorkspaceSection.
   const { stakeholders, handleSaveStakeholder, handleDeleteStakeholder, captureBulkUndo: captureStakeholderBulk } =
-    useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows });
+    useStakeholders({ today, lang, showToast, logActivity: logActivityUser, logActivityChanges: logActivityChangesUser, capture: undoApi.capture, captureFieldEdit: undoApi.captureFieldEdit, captureFieldRows: undoApi.captureFieldRows, allowDestructiveSave });
 
   // Save/Apply template wiring for the action cluster. `buildCurrentWorkspace`
   // assembles a Workspace from the live workspace-context collections the same
@@ -1352,7 +1352,7 @@ function TaskManagerInner() {
     },
     [setTasks],
   );
-  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser });
+  const { commitBuckets } = useBudgetBuckets({ budgets, setBudgets, allowDestructiveSave, capture: undoApi.capture, captureComposite: undoApi.captureComposite, logActivity: logActivityUser });
   const editorBuffer = useTaskEditorBuffer({ applyRaid: applyRaidFromTask, applyLink: applyLinkFromTask });
   const { flush: flushEditorBuffer, discard: discardEditorBuffer, stageRaid: stageEditorRaid, stageLink: stageEditorLink } = editorBuffer;
   const { budgetLink, onTaskCreated: onTaskCreatedWithBucket, onEditorDiscard: onEditorDiscardWithBucket } = useTaskBudgetLink({ enabled: isModuleEnabled("budget", settings.features), budgets, editingId, commitBuckets, flushEditorBuffer, discardEditorBuffer });
@@ -2123,11 +2123,22 @@ function TaskManagerInner() {
       const email = row.email.trim().toLowerCase();
       const matchName = (s: string | undefined | null) => !!name && !!s && s.trim().toLowerCase() === name;
       const matchEmail = (e: string | undefined | null) => !!email && !!e && e.trim().toLowerCase() === email;
+      // ★ Whether anything is REMOVED, decided from the live arrays before any
+      // setter runs — never inside an updater, which React may invoke twice.
+      // The task/raid writes below are field EDITS (they map), so they remove
+      // no record and must not count; only the two filters do. `absences` and
+      // `shifts` are both COUNTED slices and this route drops an UNBOUNDED
+      // number of their rows on one confirm, so it can trip the save-time
+      // mass-deletion guard on its own — hence the one-shot bypass, armed only
+      // when a row genuinely went (arming on a no-op leaks it to a later save).
+      const removesAbsence = absences.some((a) => matchName(a.assignee));
+      const removesShift = shifts.some((s) => matchName(s.assignee));
       setTasks((prev) => prev.map((tk) =>
         matchName(tk.assignee) || matchEmail(tk.assigneeEmail) ? { ...tk, assignee: "", assigneeEmail: "" } : tk));
       setRaid((prev) => prev.map((r) => matchName(r.owner) ? { ...r, owner: "" } : r));
       setAbsences((prev) => prev.filter((a) => !matchName(a.assignee)));
       setShifts((prev) => prev.filter((s) => !matchName(s.assignee)));
+      if (removesAbsence || removesShift) allowDestructiveSave?.();
     }),
     onSetAllUtilizationMode: guardEdit(handleSetAllUtilizationMode),
     onSetAbsenceOverride: guardEdit(handleSetAbsenceOverride),

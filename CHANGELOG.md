@@ -8,6 +8,35 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.264.1] - 2026-08-29 "Russell"
+
+### Fixed
+
+- **Deleting every task through the AI assistant, or bulk-deleting resources, could be refused by
+  the data-loss guard, so the deletion looked like it worked but was never actually saved.**
+  The app refuses to save a change that looks like an accidental wipe or mass deletion unless the
+  action that caused it says the deletion was deliberate. Many deletion routes never said so; these
+  two are the ones you are most likely to hit: clearing every task via the assistant, and
+  bulk-deleting resources. Either one could trip the guard, and the
+  app would report that it had withheld the save to protect your data — which is the right thing
+  to say about an accident, but wrong here, because the deletion was exactly what you asked for.
+  The deleted records then came back on the next reload. Both routes now tell the guard the
+  deletion is intentional, so it saves as expected.
+
+- **Several deletions made by the assistant in quick succession could add up to a "mass deletion"
+  and be refused, even though each one individually was fine.** When multiple assistant actions land
+  in the same short save window, their combined effect is what the guard checks — so a handful of
+  ordinary deletions in one exchange could cross the same threshold as an accidental wipe and be
+  refused with the same withheld-save notice. This is now accounted for as well, so a save is no
+  longer refused for a batch of deletions the assistant made deliberately.
+
+- **Deleting a person, or clearing a departed person's leftover calendar records, could be refused
+  the same way.** Both remove more than the single row they appear to: deleting a resource also
+  removes that person's absences and shift entries, and "Clear unlinked" removes every absence and
+  shift still carrying their name, which can be many rows at once. On a smaller project either could
+  empty enough of the workspace to look like an accidental wipe and be withheld, with the deleted
+  records back on the next reload.
+
 ## [0.264.0] - 2026-08-29 "Russell"
 
 ### Fixed

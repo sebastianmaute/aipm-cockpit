@@ -129,6 +129,9 @@ type MilestonesPanelProps = {
    *  panel is un-memoized so it would work either way, but one mechanism across
    *  all four badge surfaces is easier to keep correct than two. */
   documentsByEntity?: ReadonlyMap<string, readonly ProjectDocument[]>;
+  /** Arms the one-shot destructive-save bypass. Optional: the panel renders in
+   *  contexts (tests, popouts) that supply none. */
+  allowDestructiveSave?: () => void;
 };
 
 export function MilestonesPanel(props: MilestonesPanelProps) {
@@ -160,6 +163,7 @@ function MilestonesPanelBody({
   onAiEdit,
   aiEditEnabled,
   documentsByEntity,
+  allowDestructiveSave,
 }: MilestonesPanelProps) {
   const { milestones, setMilestones, tasks } = useWorkspace();
   // `-full` suffix: the view changed from a centered half-width pane to full
@@ -358,7 +362,12 @@ function MilestonesPanelBody({
 
   function del(id: number) {
     const doomed = milestones.find((m) => m.id === id);
-    if (doomed) capture?.({ setter: setMilestones, kind: "milestone.deleted", removed: [doomed], fromArray: milestones, name: doomed.name });
+    if (doomed) {
+      capture?.({ setter: setMilestones, kind: "milestone.deleted", removed: [doomed], fromArray: milestones, name: doomed.name });
+      // ★★ Milestones count toward the save-time data-loss guards. Armed
+      //    inside the `doomed` guard so a miss never arms (§285).
+      allowDestructiveSave?.();
+    }
     setMilestones((prev) => prev.filter((m) => m.id !== id));
     logActivity?.("milestone.deleted", id);
     setEditing(null);

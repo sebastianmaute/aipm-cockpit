@@ -81,6 +81,9 @@ export interface UseResourcePlannerArgs {
    *    grep -rn "useChangeLog(\|useStakeholders(" src/app --include=*.ts --include=*.tsx | grep -v "export function"
    */
   captureFieldRows: UndoStackApi["captureFieldRows"];
+  /** Arms the one-shot destructive-save bypass. Optional — popouts and tests
+   *  supply none. */
+  allowDestructiveSave?: () => void;
 }
 
 export function useResourcePlanner(args: UseResourcePlannerArgs) {
@@ -105,6 +108,11 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   const logActivityRef = useRef(args.logActivity);
   const captureRef = useRef(args.capture);
   useEffect(() => { captureRef.current = args.capture; }, [args.capture]);
+  // ★★ A REF, not `args.` — these delete callbacks do not list `args` in their
+  //    deps arrays, and `react-hooks/exhaustive-deps` is FATAL here. Mirrors
+  //    `captureRef` immediately above for exactly that reason.
+  const allowDestructiveRef = useRef(args.allowDestructiveSave);
+  useEffect(() => { allowDestructiveRef.current = args.allowDestructiveSave; }, [args.allowDestructiveSave]);
   const captureFieldEditRef = useRef(args.captureFieldEdit);
   useEffect(() => { captureFieldEditRef.current = args.captureFieldEdit; }, [args.captureFieldEdit]);
   const captureFieldRowsRef = useRef(args.captureFieldRows);
@@ -243,6 +251,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setRaid((prev) => prev.filter((r) => r.id !== id));
       if (removed) {
         logActivityRef.current("raid.deleted", id, removed.category, removed.title);
+        allowDestructiveRef.current?.();
       }
     },
     [raid, setRaid],
@@ -373,6 +382,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setAbsences((prev) => prev.filter((a) => a.id !== id));
       if (removed) {
         logActivityRef.current("absence.deleted", id, removed.assignee);
+        allowDestructiveRef.current?.();
       }
       setEditingAbsence(null);
     },
@@ -380,13 +390,13 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
   );
 
   // CRUD extracted to use-calendar-events.ts (useChangeLog/useStakeholders convention).
-  const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit });
+  const calendarEventsApi = useCalendarEvents({ today, logActivity: args.logActivity, logActivityChanges: args.logActivityChanges, capture: args.capture, captureFieldEdit: args.captureFieldEdit, allowDestructiveSave: args.allowDestructiveSave });
 
   // Reference-data (roles/disciplines/grades) CRUD extracted to use-reference-data.ts.
-  const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate });
+  const referenceDataApi = useReferenceData({ logActivity: args.logActivity, captureComposite: args.captureComposite, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
 
   // Resource-directory CRUD (create/edit/delete/bulk/import) extracted to use-resource-directory.ts.
-  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate });
+  const resourceDirectoryApi = useResourceDirectory({ lang: args.lang, logActivity: args.logActivity, showToast: args.showToast, capture: args.capture, captureComposite: args.captureComposite, captureFieldEdit: args.captureFieldEdit, logUpdate, allowDestructiveSave: args.allowDestructiveSave });
 
   const handleOpenShiftEditor = useCallback(
     (existing: Shift | null, seed: { display: string; email: string }) => {
@@ -435,6 +445,7 @@ export function useResourcePlanner(args: UseResourcePlannerArgs) {
       setShifts((prev) => prev.filter((s) => s.id !== id));
       if (removed) {
         logActivityRef.current("shift.deleted", id, removed.assignee);
+        allowDestructiveRef.current?.();
       }
       setEditingShift(null);
     },
