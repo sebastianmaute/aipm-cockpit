@@ -249,7 +249,14 @@ it has no table of its own, NOT because it sits outside the workspace.
   today 06-21: activity `[task.completed 06-10, task.created 06-12]` → `[06-10 → 100, 06-12 → 50]`;
   drop the completion entry → `[]`. (2) Two tasks delivered 06-10 and 06-15 against two `task.created`
   days 06-08/06-09, `currentDone` 2, `currentTotal` 4: without completion writers →
-  `[06-08 → 0, 06-09 → 50]`, with them → `[06-08 → 0, 06-09 → 0, 06-15 → 50]`. `06-09` MOVES, because
+  `[06-08 → 0, 06-09 → 50]`, with them → `[06-08 → 0, 06-09 → 0, 06-10 → 25, 06-15 → 50]`.
+  ★★★ **THE THIRD POINT IS THE ONE THIS BULLET EXISTS FOR, AND AN EARLIER REVISION TRANSCRIBED THE
+  SERIES WITHOUT IT.** 06-10 carries a completion and NO create or delete, so no total moves on it and
+  it is plotted only because `task.completed` is a member of `COUNT_KINDS` — a completion-only day, the
+  exact thing the surrounding prose argues for. Dropping it left the paragraph making its case over
+  evidence that did not show it, which is the cheapest way for a "measured" claim to be believed and be
+  useless. Re-measured 2026-08-30 against the same fixture and the same module; the prose conclusion
+  below was unaffected. `06-09` MOVES, because
   the last plotted point keeps `currentDone` by design and seeding a later day demotes 06-09 to history,
   where `deliveredBy` correctly reports 0 delivered. The new value is the CORRECT one — this is an
   accuracy improvement, not a regression — but it is a user-visible change on the default file-mode path.

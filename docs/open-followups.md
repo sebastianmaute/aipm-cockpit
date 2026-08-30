@@ -12731,8 +12731,13 @@ POST (writers now emit)     : [06-08 -> 0, 06-09 -> 0, 06-10 -> 33, 06-15 -> 67]
 Two days appear that were never plotted, and both surviving points change value — the last plotted
 point keeps `currentDone` by design, so seeding a LATER day demotes an earlier one to history, where
 it is data-derived rather than pinned to the live count. The same fixture cut to a single
-`task.created` day returns `[]` before and a two-point series after, so a project that fell under the
-`days.length < 2` floor and rendered nothing can now render a chart. The new values are the correct
+`task.created` day (06-08) returns `[]` before and a THREE-point series `06-08 -> 0`, `06-10 -> 33`,
+`06-15 -> 67` after, so a project that fell under the `days.length < 2` floor and rendered nothing can
+now render a chart. ★★ This line said **two**-point, re-measured 2026-08-30 and corrected: two points
+is what the fixture yields only when the COMPLETIONS are cut to one as well (`06-08 -> 0`,
+`06-10 -> 67`), which the sentence did not say. The floor conclusion holds under either cut — but a
+reader reproducing the stated fixture got a different answer from the stated one, which is how a
+verified-looking claim spends someone's afternoon. The new values are the correct
 ones; the change in the plotted DAY SET is the part nobody predicted.
 
 ★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
