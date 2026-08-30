@@ -1,7 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { buildNewProjectWorkspace } from "./new-project-workspace";
+import { appendSeed } from "./template-apply";
 import type { ProjectTemplate, TemplateSeed } from "./templates";
 import type { ProjectMeta } from "./types";
+import type { Workspace } from "./workspace";
 
 const tpl: ProjectTemplate = {
   id: "t",
@@ -149,5 +151,76 @@ describe("buildNewProjectWorkspace — the AI-seed branch is allow-listed (§288
     expect(ws.raid).toHaveLength(1);
     expect(ws.changes).toHaveLength(1);
     expect(ws.milestones).toHaveLength(1);
+  });
+});
+
+/** Minimal Workspace carrying just the seven arrays `appendSeed` reads
+ *  (tasks/milestones/raid/changes/stakeholders/budgets/resources) — kept
+ *  narrow on purpose so this idempotency check does not depend on
+ *  `emptyWorkspace()`'s full shape. */
+function emptyLike(): Workspace {
+  return {
+    tasks: [],
+    raid: [],
+    milestones: [],
+    changes: [],
+    stakeholders: [],
+    budgets: [],
+    resources: [],
+  } as never;
+}
+
+describe("appendSeed — the allow-list is idempotent (§288)", () => {
+  // Mutation record (§288 reorder verification): reverting `allowListSeed`'s
+  // `raid` line to a pass-through (`if (out.raid) out = { ...out, raid:
+  // out.raid };`) turned red FOUR tests at once — "strips a script element
+  // from a seeded RAID description"/"...mitigation" (module-level describe
+  // above), "actually changed something on the FIRST application
+  // (anti-vacuity)" below, AND "leaves the template branch's output
+  // unchanged" (the describe below this one) — one mutant, four assertions,
+  // none of them individually proved by it alone. "produces identical bytes
+  // on a second application" stayed GREEN under that mutant (a no-op
+  // pass-through is trivially idempotent), which is exactly why the
+  // anti-vacuity test exists beside it.
+
+  // ★★★ THIS IS A PRECONDITION OF THE FIX, NOT A NICE-TO-HAVE. An AI-seeded
+  // task already met `sanitizeAiRichText` in `buildSeedTask` and now meets
+  // `allowListRich` as well. If a second pass altered the bytes, seeding would
+  // corrupt exactly the content it is meant to protect.
+  const seeded = () =>
+    ({ raid: [{ id: 1, title: "R", description: HOSTILE }] }) as never;
+
+  it("produces identical bytes on a second application", () => {
+    const base = emptyLike();
+    const once = appendSeed(base, seeded());
+    const twice = appendSeed(base, { raid: once.raid } as never);
+    expect(twice.raid[0].description).toBe(once.raid[0].description);
+  });
+
+  it("actually changed something on the FIRST application (anti-vacuity)", () => {
+    // ★★ Without this, a no-op allow-list would satisfy the idempotency test
+    // perfectly — two identical no-ops agree.
+    const base = emptyLike();
+    const once = appendSeed(base, seeded());
+    expect(once.raid[0].description).not.toContain("<script");
+  });
+});
+
+describe("buildNewProjectWorkspace — the template branch's allow-list survived the reorder (§288)", () => {
+  it("leaves the template branch's output unchanged", () => {
+    // The passes MOVED (from `applyTemplate` into `appendSeed`); template
+    // behaviour must not. This is the pin a template-path regression would
+    // trip. `raidTpl` is shadowed distinctly from the module-level `tpl` above
+    // so the two fixtures don't get confused.
+    const raidTpl: ProjectTemplate = {
+      id: "t-raid",
+      name: "T",
+      features: [],
+      fieldVisibility: {},
+      seed: { raid: [{ id: 1, title: "R", description: HOSTILE }] } as never,
+    };
+    const ws = buildNewProjectWorkspace(meta, { template: raidTpl, includeSeed: true });
+    expect(ws.raid[0].description).not.toContain("<script");
+    expect(ws.raid).toHaveLength(1);
   });
 });
