@@ -33,6 +33,27 @@ describe("SidebarFooter", () => {
     expect(container).toBeEmptyDOMElement();
   });
 
+  it("distinguishes storage-ready from not-ready by SHAPE, not by the dot's colour alone", () => {
+    // ★★ WCAG 1.4.1. The status dot is `aria-hidden` and its two states differ
+    // ONLY in fill colour, so the trailing marker is the entire non-colour
+    // channel — and it now stands for a withheld mass deletion too, not just an
+    // unconfigured backend.
+    // ★ BOTH halves are asserted deliberately. The `data-` attribute alone
+    // would pass a mutant that leaves the glyph `invisible` in both states
+    // (colour-only again, silently); the visibility alone would pass one that
+    // renders the marker conditionally, which is the reflow `ToggleButton`'s
+    // always-rendered `data-pressed-marker` exists to avoid.
+    const marker = (storageReady: boolean) => {
+      const { container, unmount } = render(<SidebarFooter {...base} storageReady={storageReady} />);
+      const el = container.querySelector("[data-storage-marker]") as HTMLElement | null;
+      const seen = el && { state: el.dataset.storageMarker, hidden: el.className.split(/\s+/).includes("invisible") };
+      unmount();
+      return seen;
+    };
+    expect(marker(true)).toEqual({ state: "ready", hidden: true });
+    expect(marker(false)).toEqual({ state: "not-ready", hidden: false });
+  });
+
   describe("saving-paused indicator", () => {
     // ★★★ This control is the DOOR BACK. `SavingPausedBanner` is dismissable
     // and is the only surface carrying "Save anyway", so without a control that

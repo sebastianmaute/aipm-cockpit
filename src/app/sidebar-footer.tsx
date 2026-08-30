@@ -95,7 +95,30 @@ export function SidebarFooter({
     <div className="flex flex-col gap-3">
       {pausedControl}
       {storageDescription && (
-        <p className={storageReady ? "text-ui-light-grey" : "text-ui-light-grey"}>
+        // ★★ WCAG 1.4.1 — THE DOT'S TWO STATES DIFFER ONLY IN FILL COLOUR
+        // (`--ui-green` vs `--ui-medium-grey`) and the dot is `aria-hidden`, so
+        // a reader who cannot tell those apart sees a paused session as a
+        // healthy one. That got worse rather than better on this branch:
+        // `storageReady` here is `storageOk && !loadWasIncomplete &&
+        // destructiveRefusal === null` (`task-manager.tsx`), so the grey dot now
+        // also stands for a withheld mass deletion.
+        // ★ The trailing marker is the non-colour channel, built the way
+        // `ToggleButton`'s `data-pressed-marker` is: ALWAYS rendered and merely
+        // `invisible` in the quiet state, so the line keeps ONE width and the
+        // description cannot reflow as storage flips.
+        // ★ The `<p>` carried a ternary whose two branches were the SAME string
+        // (`text-ui-light-grey` either way) — a dead choice, collapsed here
+        // rather than given a second colour, because a second colour would be
+        // the very channel this comment says is not sufficient on its own.
+        // ★★ IT DOES NOT CLOSE THE ASSISTIVE-TECH HALF, and nothing here does:
+        // the marker is `aria-hidden` like the dot, and `storageDescription`
+        // names the BACKEND, never its readiness — so a screen reader is told
+        // nothing about this state on this line. Saying it in words needs an
+        // i18n key covering all three causes (unusable backend · truncated load
+        // · standing refusal); `storageNotReady` is not it, it asserts the first
+        // cause only. Until then the `SavingPausedButton` above is the only
+        // SPOKEN disclosure, and it is absent for a plain not-ready backend.
+        <p className="text-ui-light-grey">
           <span
             aria-hidden
             className={
@@ -104,6 +127,13 @@ export function SidebarFooter({
             }
           />
           {storageDescription}
+          <span
+            aria-hidden
+            data-storage-marker={storageReady ? "ready" : "not-ready"}
+            className={"ml-1 text-xs leading-none" + (storageReady ? " invisible" : "")}
+          >
+            ⚠
+          </span>
         </p>
       )}
 
