@@ -88,8 +88,9 @@ This is why the recourse needs a persistent surface and not only a toast.
 
 ## Architecture
 
-Four parts. Part 0 is structural and must land first; Parts 1 and 2 are one behavioural change
-split for reviewability; Part 3 is independent of the others.
+Four parts. Part 0 is structural and must land first because the file-size ratchet forces it.
+Part 1 is the only part that changes what a user sees. Parts 2 and 3 are independent of Part 1 and
+of each other.
 
 ```
 Part 0   extract  use-destructive-save-guard.ts   (peer of use-load-truncation.ts)
@@ -314,11 +315,23 @@ by this effect. Nothing arms before hydration, and a popout never reaches the gu
 the only placement where "every path spends" is total; anywhere lower leaves the returns above it
 as exactly the hand-decided cases this entry is about.
 
-**`verdict.refuse` now spends the arm.** Today it does not, and is safe only by a cross-module
-coincidence in `save-guard.ts`'s formula that nothing states. Under this change it spends like
-every other path, which is safe **only because Part 1 exists** — the user re-arms explicitly from
-the banner. Parts 1 and 2 are one behavioural change; landing Part 2 alone would make a refusal
-unrecoverable in a new way.
+**★★★ THIS PART CHANGES NO BEHAVIOUR ON ANY CURRENTLY REACHABLE PATH, and saying otherwise was
+an error in an earlier revision of this spec.** Walk the five returns: the truncation and
+suppress-after-load returns already spend the arm explicitly, so the hoist only relocates their
+spend. `verdict.refuse` has **nothing to spend** — `evaluateSaveGuard` refuses only when
+`!allowDestructive`, so reaching that branch already implies the arm was false, which is the
+cross-module coincidence §294 names. Nothing arms before hydration, and a popout returns before
+the guard is ever consulted.
+
+So Part 2 is a **refactor**, and its whole value is prospective: a new early return added below
+the hoist cannot leak the one-shot, because there is no longer a ref for it to leak. That is
+precisely what §294 asks for — "make the spend structural rather than per-return" — and it does
+**not** depend on Part 1.
+
+**Consequence for testing, stated because it is uncomfortable:** there is no new behavioural
+assertion to write. The safety net is the four existing leak/control tests plus tsc. A test
+claiming to pin this hoist would be measuring nothing, and writing one anyway would be worse than
+having none — it would read as protection and stop the next audit.
 
 **Existing coverage that must stay green.** Four tests in `use-storage-backend.test.tsx` pin the
 two known returns — a leak test and a control for each. The controls are load-bearing, not
@@ -463,8 +476,9 @@ and the `isClosed` witness.
   defect. Generalising must preserve each one and attribute it to the cause it came from.
 - **Part 0 headroom.** If the extraction leaves under 20 lines of headroom, a second extraction is
   needed and the branch grows. Measure immediately after Part 0.
-- **Parts 1 and 2 cannot be split across releases.** Part 2 makes `verdict.refuse` spend the arm,
-  which is only safe with Part 1's exit in place.
+- **Part 2 is unobservable, which makes it easy to get wrong quietly.** It changes no behaviour on
+  any reachable path, so every existing test passes whether the hoist is right or not. Review it by
+  reading the five returns, not by trusting a green suite.
 - **The outage claim is reasoned, not measured.** If the test written for it shows the refusal
   does *not* persist, the argument for a persistent banner weakens and the design should be
   revisited before building the surface.
