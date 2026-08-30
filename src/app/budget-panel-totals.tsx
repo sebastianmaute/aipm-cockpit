@@ -130,19 +130,10 @@ function HoursCell({
   // load-bearing. The label and the input are centred against each other by the
   // PARENT row (`flex items-center gap-1`, just below), not by anything on this
   // span; the span's own `items-center` centres one line inside its own auto
-  // height, which is a no-op. The proof is two lines away: `TotalsTd`'s
-  // read-only twin is a plain `w-14` span with neither class and renders
-  // identically. An earlier revision of this comment claimed the span "forms
-  // the line box the input is centred against" AND that the twin renders
-  // identically — which cannot both be true, and the false half is the one a
-  // future reader would cite when declining to align the pair. Left in place
-  // only because removing them is a live layout change nothing here can test
-  // (jsdom has no layout); align the two spellings whenever the Budget view is
-  // next verified in a browser.
-  //
-  // ★ Neither class is a term in HOURS_LINE_UNITS. The 31 units are `w-14` +
-  // the PARENT's `gap-1` + `w-16`; `gap-0.5` lived inside the span and was
-  // never counted.
+  // height, which is a no-op. Left in place only because removing them is a
+  // live layout change nothing here can test (jsdom has no layout); align this
+  // span with the plain `w-14` spelling in `TotalsTd` whenever the Budget view
+  // is next verified in a browser.
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center gap-1">

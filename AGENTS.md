@@ -1301,9 +1301,7 @@ worse than no gate — it reports success. A "green" claim is only worth what th
   `GroupOrLabelTable`). A single table needs nothing, and qualifying it adds noise to every screen
   reader. Building the name from `label` inside the primitive rather than taking a finished string
   is deliberate: containment for WCAG 2.5.3 then holds BY CONSTRUCTION, at every call site, with no
-  call site able to defeat it. ★ Not by the TYPE — `nameContext` is a bare `string | undefined` and
-  tsc checks nothing here; an earlier revision of this sentence said "in the TYPE", which invites a
-  reader to trust a guarantee the compiler never made.
+  call site able to defeat it.
   ★★★ **NO CONSUMER TALLY IS QUOTED HERE, AND RESTORING ONE IS A REGRESSION.** This spot carried a
   per-file breakdown plus a total, and it rotted TWICE: an early revision said "raid-report (34)" and
   omitted `resources-report` outright, and its correction ("TEN non-test files, 77 invocations",

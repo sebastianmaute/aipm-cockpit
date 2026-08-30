@@ -22760,9 +22760,7 @@ src/app/document-block-gutter.tsx:243   <BlockKindList … onPick={(type) => { c
 through `closeRestoringFocus`, so the wrapper §146 added is not in the path at all. ★ Note `close`
 IS the primitive's `onClose` — both `PopoverPanel` mounts in this file are wired
 `onClose={close}` (`grep -n "onClose={close}" src/app/document-block-gutter.tsx` returns two
-lines); what the consumer skips is the WRAPPER, not the callback. An earlier revision here said it
-"never reaches `PopoverPanel`'s `onClose`", which sends a reader hunting for a second, different
-`onClose` that does not exist. The panel unmounts
+lines); what the consumer skips is the WRAPPER, not the callback. The panel unmounts
 with focus inside it and focus falls to `document.body`: byte-for-byte the failure §146's own repro
 records, reached by Enter on a menu item rather than by Escape. WCAG 2.4.3.
 
@@ -22772,15 +22770,14 @@ every call site, where it drifts. The natural fix is for the primitive to restor
 unmount while focus is inside it, which subsumes both this and the Escape case and makes the
 `closeRestoringFocus` wrapper redundant.
 
-★★★ **IT WOULD RE-INTRODUCE THE OUTSIDE-CLICK YANK, so do not adopt it unguarded.** An earlier
-revision here hypothesised the opposite — that an outside mousedown moves focus BEFORE the unmount,
-letting a "focus is inside" test discriminate. It does not. Focus-on-click is the mousedown DEFAULT
-ACTION, which runs after listeners dispatch: that is precisely why `ToggleButton`'s
+★★★ **IT WOULD RE-INTRODUCE THE OUTSIDE-CLICK YANK, so do not adopt it unguarded.** Focus-on-click
+is the mousedown DEFAULT ACTION, which runs after listeners dispatch: that is precisely why
+`ToggleButton`'s
 `preventFocusSteal` works by calling `preventDefault()` on `mousedown`
 (`grep -n preventFocusSteal src/app/toggle-button.tsx`). `PopoverPanel`'s outside-click handler is
 itself a `mousedown` LISTENER, so when it runs `document.activeElement` is still inside the panel and
 an unmount-based restore would fire — yanking focus back to the trigger on a click the user aimed
-somewhere else, the exact bug §146 declined to ship. Any fix needs a different discriminator.
+somewhere else, the exact bug §146 declined to ship.
 
 ★★ **The axe gate is silent on this in every view.** No axe rule checks where focus lands after a
 control disappears — AGENTS.md carries the measurement for the sibling blind spot. Whatever unit

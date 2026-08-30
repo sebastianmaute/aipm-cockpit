@@ -437,13 +437,10 @@ describe("MilestonesPanel", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: t("en-US", "milestoneSave") }));
 
-    // ★ Kept for the FAILURE MESSAGE, not for coverage — and an earlier
-    // revision of this comment claimed otherwise ("so a save path that stopped
-    // capturing cannot pass this as 'no bad call'"). It cannot: vitest's
+    // ★ Kept for the FAILURE MESSAGE, not for coverage. Vitest's
     // `toHaveBeenCalledWith` is a `.some()` over the recorded calls
     // (`@vitest/expect`), and `[].some(…)` is false, so zero calls already
-    // fails the next line. What this buys is a red that says "never called"
-    // instead of a diff against an empty call list.
+    // fails the next line.
     expect(captureFieldEdit).toHaveBeenCalled();
     expect(captureFieldEdit).toHaveBeenCalledWith(
       expect.objectContaining({ stampField: "localModifiedAt" }),

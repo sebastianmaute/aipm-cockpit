@@ -564,17 +564,12 @@ describe("SortResizeTh nameContext", () => {
   // keep the raw hint as its name. Unlike the button above, InfoTooltip
   // resolves `label ?? text`, so the attribute is still PRESENT here — it just
   // holds the bare hint.
-  // ★ No panel COUNT here on purpose (AGENTS.md's no-consumer-tally rule): this
-  // comment said "the five axe-scanned panels" and the real figure was eight,
-  // measured the same day the sentence was written. Derive today's with
+  // ★ No panel COUNT here on purpose (AGENTS.md's no-consumer-tally rule).
+  // Derive today's with
   //   grep -rlzP '<SortResizeTh(?:(?!/>)[\s\S])*?hint=' src/app --include=*.tsx | grep -v test
   // ★★ The multiline form is load-bearing. The obvious two-grep pipeline
   // (`grep -rl "hint=" … | xargs grep -l SortResizeTh`) returns a SUPERSET —
-  // it matches a file where the two strings merely COEXIST. It lands on
-  // `budget-panel.tsx`, whose `hint=`s are all on `<Cci>` while its lone
-  // SortResizeTh passes nameContext and NO hint: the exact opposite of the
-  // sentence above. A reproduce command that cannot answer the claim beside it
-  // is worse than none.
+  // it matches a file where the two strings merely COEXIST.
   it("leaves the hint tooltip's name bare when no nameContext is given", () => {
     render(
       <table><thead><tr>
