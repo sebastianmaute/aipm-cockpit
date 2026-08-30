@@ -785,8 +785,28 @@ git commit --only docs/open-followups.md -m "docs: close nine defect entries and
 
 - [ ] **Step 1: Bump `src/app/version.ts`**
 
-Set `APP_VERSION = "0.268.0"`, `APP_BUILD_DATE = "2026-08-30"`, and a new milestone codename with a
-one-line comment naming this slice, matching the shape of the existing entries.
+★★ **DO NOT hardcode the number — resolve it at bump time.** A concurrent branch
+(`aipm-wt-a-09`) bumped to `0.268.0 "Ogawa"` on 2026-08-30, and `origin/main` is still at
+`0.267.0`, so NEITHER branch is authoritative until one merges. Whichever merges second must
+take the next free minor. Resolve immediately before editing:
+
+```bash
+git show origin/main:src/app/version.ts | grep -n "APP_VERSION\|APP_MILESTONE"
+git log --all --oneline -S'APP_VERSION = "0.268' -- src/app/version.ts   # who else took it
+```
+Set `APP_VERSION` to the next free minor above BOTH, `APP_BUILD_DATE` to the actual bump date,
+and a new milestone codename, with a one-line comment naming this slice and matching the shape
+of the existing entries.
+
+★★ **Codename uniqueness is PER MINOR LINE, not across all history.** Reuse is permitted, but a
+reused name MUST carry the `REUSED` footnote that the 0.265.x and 0.266.x entries carry —
+without it a later reader greps the name, finds an earlier hit, and wrongly concludes it was
+taken. Check a candidate against BOTH files before taking it:
+```bash
+grep -rn "<candidate>" CHANGELOG.md src/app/version.ts
+```
+The obvious pool is nearly exhausted — a peer checked fifteen candidates and fourteen had prior
+hits — so expect to need the footnote rather than a clean name.
 
 - [ ] **Step 2: Propagate to the other five places**
 
@@ -807,7 +827,7 @@ symbol changed. ★ NEVER put a `[session link removed]...` URL in `CHANGELOG.md
 
 ```bash
 git add CHANGELOG.md src/app/version.ts package.json package-lock.json README.md docs/CODEMAPS
-git commit -m "chore: release 0.268.0"
+git commit -m "chore: release <the version resolved in Step 1>"
 ```
 
 ---
