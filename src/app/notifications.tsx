@@ -1,8 +1,10 @@
 "use client";
 
+import { useState } from "react";
 import type { AriaRole, ReactNode } from "react";
 import { type Lang, t } from "./i18n";
 import { useConfirm } from "./confirm-dialog";
+import { TypeToConfirmDialog } from "./type-to-confirm-dialog";
 import { SNOOZE_1H, SNOOZE_1D } from "./reminder-snooze";
 import type { UpcomingBirthday } from "./birthdays";
 import { resourceDisplayName } from "./resource-foundation";
@@ -216,6 +218,26 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
   return { countText, bannerKey, bannerAriaKey };
 }
 
+/** The headline, aria-label and count line for the DESTRUCTIVE cause. Pure
+ *  string selection, mirroring `truncationCopy` — the tier decision this copy
+ *  feeds lives on `SavingPausedBanner` below.
+ *  ★ The full wipe names NO arithmetic: `prevRecords - curRecords` is a true but
+ *  useless "900 of 900", and a reader scanning a number for proportion reads the
+ *  worst case as just another large deletion. */
+function destructiveCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "destructive" }>): {
+  countText: string;
+  bannerKey: "storageDestructiveBanner";
+  bannerAriaKey: "storageDestructiveBannerAria";
+} {
+  return {
+    countText: c.fullWipe
+      ? t(lang, "storageDestructiveWipeCount")
+      : t(lang, "storageDestructiveCount", c.prevRecords - c.curRecords, c.prevRecords),
+    bannerKey: "storageDestructiveBanner",
+    bannerAriaKey: "storageDestructiveBannerAria",
+  };
+}
+
 /** The ONE banner for "saving is paused", rendering whichever cause holds. It
  *  is the ONLY route out of either lockout, and dismissing it hides the banner
  *  but must NOT clear the underlying guard — only the confirmed primary action
@@ -238,7 +260,26 @@ function truncationCopy(lang: Lang, c: Extract<SavingPausedCause, { kind: "trunc
  *  `TypeToConfirmDialog`: type-a-phrase friction on a user's only exit from a
  *  lockout they did not choose is punitive. Deleting ONE document already costs
  *  a `ConfirmDialog` (`documents-panel.tsx`); discarding N of them cannot cost
- *  less. */
+ *  less.
+ *
+ *  ★★ THE DESTRUCTIVE FULL-WIPE ARM TAKES THE HEAVIER TIER ANYWAY, and the
+ *  anti-friction objection above lapses for one specific reason: the dismiss ✕
+ *  and the re-open chip. "Save anyway" is NOT the only exit here — the user can
+ *  quieten the banner and come back to it, or reload and lose nothing at all —
+ *  so type-a-phrase friction is not coercive the way it would be on a lockout
+ *  with a single door. IF A FUTURE CHANGE MAKES THIS BANNER NON-DISMISSIBLE,
+ *  DROP THE HEAVY TIER WITH IT — the two are a pair, and keeping the friction
+ *  after removing the escape converts it into exactly the punishment the
+ *  truncation paragraph refuses.
+ *
+ *  ★★ A DESTRUCTIVE MASS DELETION KEEPS THE LIGHT TIER. It is recoverable by
+ *  reload — the stored data is untouched until a save lands — and the magnitude
+ *  line already names what would go, so the decision is made on a number either
+ *  way. Only the wipe, where "what would go" is everything, buys the ceremony.
+ *
+ *  ★ `TypeToConfirmDialog` holds `TITLE_ID` as a MODULE constant, so only one
+ *  may be open at a time. That is why the recourse lives on this banner and not
+ *  ALSO on the toast — two triggers would need two instances. */
 export function SavingPausedBanner({
   lang, cause, dismissed, hasFooterIndicator, onSaveAnyway, onDismiss, onReopen,
 }: {
@@ -254,12 +295,30 @@ export function SavingPausedBanner({
   onReopen: () => void;
 }) {
   const confirm = useConfirm();
-  if (cause.kind !== "truncation") {
-    // Task 7 adds the destructive-save-guard branch here.
-    return null;
-  }
-  const { countText, bannerKey, bannerAriaKey } = truncationCopy(lang, cause);
+  // ★ Unconditional, above every early return — the `dismissed` branch below
+  // returns before the dialog can render, and a hook behind it would break the
+  // rules of hooks the first time a banner was dismissed.
+  const [wipeConfirmOpen, setWipeConfirmOpen] = useState(false);
+  const isDestructive = cause.kind === "destructive";
+  const { countText, bannerKey, bannerAriaKey } =
+    cause.kind === "destructive" ? destructiveCopy(lang, cause) : truncationCopy(lang, cause);
+  const saveLabel = t(lang, isDestructive ? "storageDestructiveSaveAnyway" : "documentsTruncatedSaveAnyway");
   const askThenSave = async () => {
+    if (cause.kind === "destructive") {
+      const ok = await confirm({
+        title: t(lang, "storageDestructiveConfirmTitle"),
+        message: `${countText}\n\n${t(lang, "storageDestructiveConfirmBody")}`,
+        // ★★ NOT the trigger's own label. `ConfirmDialog` renders this as a
+        // button while the banner stays mounted behind the open dialog, so
+        // reusing `storageDestructiveSaveAnyway` would put two identically-named
+        // buttons on screen — the SAME defect the wipe branch below avoids, one
+        // tier down. (`documentsTruncatedSaveAnyway` on the truncation arm still
+        // does exactly this; it predates the slice — `docs/open-followups.md`.)
+        confirmLabel: t(lang, "storageDestructiveConfirmSaveAnyway"),
+      });
+      if (ok) onSaveAnyway();
+      return;
+    }
     const body = t(lang, "documentsTruncatedConfirmBody");
     const ok = await confirm({
       title: t(lang, "documentsTruncatedConfirmTitle"),
@@ -299,19 +358,40 @@ export function SavingPausedBanner({
     );
   }
   return (
-    <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
-      actions={<>
-        <Button variant="destructive" size="xs" onClick={() => { void askThenSave(); }}>
-          {t(lang, "documentsTruncatedSaveAnyway")}
-        </Button>
-        <DismissButton lang={lang} onClick={onDismiss} />
-      </>}>
-      <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
-        {t(lang, bannerKey)}
-      </p>
-      {countText && (
-        <p className="text-xs text-ui-dark-blue dark:text-ui-light-grey">{countText}</p>
+    <>
+      <AlertBanner severity="error" role="alert" ariaLabel={t(lang, bannerAriaKey)} icon="⚠"
+        actions={<>
+          <Button variant="destructive" size="xs" onClick={() => {
+            if (cause.kind === "destructive" && cause.fullWipe) { setWipeConfirmOpen(true); return; }
+            void askThenSave();
+          }}>
+            {saveLabel}
+          </Button>
+          <DismissButton lang={lang} onClick={onDismiss} />
+        </>}>
+        <p className="text-sm font-semibold text-ui-dark-blue dark:text-ui-light-grey">
+          {t(lang, bannerKey)}
+        </p>
+        {countText && (
+          <p className="text-xs text-ui-dark-blue dark:text-ui-light-grey">{countText}</p>
+        )}
+      </AlertBanner>
+      {wipeConfirmOpen && (
+        <TypeToConfirmDialog
+          lang={lang}
+          title={t(lang, "storageDestructiveWipeConfirmTitle")}
+          message={t(lang, "storageDestructiveWipeConfirmBody")}
+          confirmValue={t(lang, "storageDestructiveWipeConfirmValue")}
+          // ★★ A SEPARATE KEY from the banner trigger's `storageDestructiveSaveAnyway`,
+          // deliberately. The trigger stays mounted behind the open dialog, so sharing
+          // the string would put two buttons with the SAME accessible name on screen at
+          // once — the duplicate-name defect the axe gate provably cannot catch, and the
+          // reason `getByRole("button", { name })` would go ambiguous in a test.
+          confirmLabel={t(lang, "storageDestructiveWipeSaveAnyway")}
+          onConfirm={() => { setWipeConfirmOpen(false); onSaveAnyway(); }}
+          onCancel={() => setWipeConfirmOpen(false)}
+        />
       )}
-    </AlertBanner>
+    </>
   );
 }

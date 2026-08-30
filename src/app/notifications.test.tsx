@@ -1,5 +1,6 @@
 import { render, screen, fireEvent, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ComponentProps } from "react";
 import { BirthdayBanner, JiraTokenBanner, SavingPausedBanner } from "./notifications";
 
 // SavingPausedBanner routes "Save anyway" through the branded ConfirmDialog.
@@ -452,5 +453,133 @@ describe("SavingPausedBanner", () => {
     );
     expect(screen.getByRole("alert")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: t("en-US", "documentsTruncatedSaveAnyway") })).toBeInTheDocument();
+  });
+
+  // ── The DESTRUCTIVE cause (the refused mass-deletion / full-wipe save) ──
+  //
+  // ★★ No `ConfirmProvider` is mounted, and mounting one would prove nothing:
+  // this file module-mocks the WHOLE confirm module, so the real dialog can
+  // never render here. The two tiers are therefore discriminated by a POSITIVE
+  // and a NEGATIVE each — the light tier increments `confirmState.calls` and
+  // mounts NO textbox; the heavy tier leaves `calls` at 0 and mounts the real,
+  // unmocked `TypeToConfirmDialog` (hence a textbox). Either assertion alone
+  // would pass against a component that always took one tier.
+  const MASS_DELETE = { kind: "destructive" as const, prevRecords: 900, curRecords: 53, fullWipe: false };
+  const FULL_WIPE = { kind: "destructive" as const, prevRecords: 900, curRecords: 0, fullWipe: true };
+  const REMOVED = MASS_DELETE.prevRecords - MASS_DELETE.curRecords;
+
+  // ★ Every destructive render goes through here so no case can quietly elide a
+  // prop and pass for the wrong reason.
+  const renderDestructive = (over: Partial<ComponentProps<typeof SavingPausedBanner>> = {}) =>
+    render(
+      <SavingPausedBanner
+        lang="en-US"
+        cause={MASS_DELETE}
+        dismissed={false}
+        hasFooterIndicator
+        onSaveAnyway={vi.fn()}
+        onDismiss={vi.fn()}
+        onReopen={vi.fn()}
+        {...over}
+      />,
+    );
+
+  it("names the magnitude of a refused mass deletion", () => {
+    // ★ The count is what makes the decision reviewable — "a large deletion was
+    // withheld" alone tells the user nothing about what they are about to lose.
+    renderDestructive();
+    expect(
+      screen.getByText(t("en-US", "storageDestructiveCount", REMOVED, MASS_DELETE.prevRecords)),
+    ).toBeInTheDocument();
+  });
+
+  it("names a full wipe without arithmetic, and NOT as an N-of-M count", () => {
+    // ★★ The negative is the half that matters: a branch that rendered both
+    // lines, or that always rendered the count, passes the positive alone.
+    renderDestructive({ cause: FULL_WIPE });
+    expect(screen.getByText(t("en-US", "storageDestructiveWipeCount"))).toBeInTheDocument();
+    expect(screen.queryByText(/\d+ of \d+ records would be removed/i)).toBeNull();
+  });
+
+  it("routes a refused mass deletion through the LIGHT confirm tier", async () => {
+    // ★★ Recoverable by reload, and the count line already names what would go —
+    // type-a-phrase friction here would be punitive, not protective.
+    renderDestructive();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    await waitFor(() => expect(confirmState.calls).toBe(1));
+    expect(confirmState.lastOpts?.title).toBe(t("en-US", "storageDestructiveConfirmTitle"));
+    // The negative: no type-to-confirm was mounted for this tier.
+    expect(screen.queryByRole("textbox")).toBeNull();
+  });
+
+  it("gives the confirm's commit button a name the banner trigger does not share", () => {
+    // ★★★ `ConfirmDialog` renders `confirmLabel` as a button while this banner
+    // stays mounted behind it, so the obvious `confirmLabel: <trigger label>`
+    // puts TWO identically-named buttons on screen — a WCAG 2.4.6 failure the
+    // axe gate provably cannot see (AGENTS.md measures this), and the reason a
+    // `getByRole("button", { name })` in a caller's test would go ambiguous.
+    // The real dialog cannot render here (this file mocks the module), so the
+    // ONLY place this is checkable is the options object it was handed.
+    renderDestructive();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    expect(confirmState.lastOpts?.confirmLabel).not.toBe(t("en-US", "storageDestructiveSaveAnyway"));
+    expect(confirmState.lastOpts?.confirmLabel).toBe(t("en-US", "storageDestructiveConfirmSaveAnyway"));
+  });
+
+  it("routes a refused FULL WIPE through the HEAVY type-to-confirm tier", () => {
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    // The negative: the shared ConfirmDialog was NOT used for this tier.
+    expect(confirmState.calls).toBe(0);
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: t("en-US", "storageDestructiveWipeConfirmValue") },
+    });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") }));
+    expect(onSaveAnyway).toHaveBeenCalledTimes(1);
+    expect(confirmState.calls).toBe(0);
+  });
+
+  it("keeps the wipe confirm DISABLED until the exact value is typed", () => {
+    // ★★ Pins the FRICTION, not merely that an input exists — a dialog whose
+    // commit fired on any keystroke would pass the tier test above.
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    const commit = screen.getByRole("button", { name: t("en-US", "storageDestructiveWipeSaveAnyway") });
+    expect(commit).toBeDisabled();
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "yes" } });
+    expect(commit).toBeDisabled();
+    fireEvent.click(commit);
+    expect(onSaveAnyway).not.toHaveBeenCalled();
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: t("en-US", "storageDestructiveWipeConfirmValue") },
+    });
+    expect(commit).toBeEnabled();
+  });
+
+  it("leaves the refusal standing when the wipe confirm is cancelled", () => {
+    const onSaveAnyway = vi.fn();
+    renderDestructive({ cause: FULL_WIPE, onSaveAnyway });
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") }));
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "cancel") }));
+    expect(onSaveAnyway).not.toHaveBeenCalled();
+    expect(screen.queryByRole("textbox")).toBeNull();
+    // The lockout is still announced — cancelling the dialog resolves nothing.
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+  });
+
+  it("offers the re-open chip for the destructive cause in the classic layout", () => {
+    // ★★ The same escape hatch the truncation cause gets. It is also what makes
+    // the heavy tier defensible: "Save anyway" is not the only exit here, so the
+    // friction is not coercive.
+    const onReopen = vi.fn();
+    renderDestructive({ dismissed: true, hasFooterIndicator: false, onReopen });
+    expect(screen.queryByRole("button", { name: t("en-US", "storageDestructiveSaveAnyway") })).toBeNull();
+    expect(
+      screen.getByText(t("en-US", "storageDestructiveCount", REMOVED, MASS_DELETE.prevRecords)),
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: t("en-US", "storageSavingPausedAction") }));
+    expect(onReopen).toHaveBeenCalledTimes(1);
   });
 });

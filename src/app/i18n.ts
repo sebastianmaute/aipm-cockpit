@@ -3897,9 +3897,19 @@ const enUS = {
   storageDestructiveSaveAnyway: "Save this deletion",
   storageDestructiveConfirmTitle: "Save this deletion?",
   storageDestructiveConfirmBody: "If you did not do this, reload the page instead - your saved data is intact.",
+  // ★★ NOT `storageDestructiveSaveAnyway`, for the same reason as the wipe pair
+  // below: `ConfirmDialog` renders this as a button while the banner's own
+  // trigger stays mounted behind it, so sharing the string would put two
+  // identically-named buttons on screen at once.
+  storageDestructiveConfirmSaveAnyway: "Remove these records",
   storageDestructiveWipeConfirmTitle: "Save this wipe?",
   storageDestructiveWipeConfirmBody: "This removes every record in the project. If you did not do this, reload the page instead - your saved data is intact.",
   storageDestructiveWipeConfirmValue: "yes, save this wipe",
+  // ★★ DELIBERATELY NOT `storageDestructiveSaveAnyway`. The banner's own trigger
+  // keeps that string and stays in the DOM behind the open dialog, so reusing it
+  // would put two buttons with the same accessible name on screen at once — the
+  // duplicate-name defect the axe gate provably cannot see.
+  storageDestructiveWipeSaveAnyway: "Save this wipe",
   historyRestoreNothing: "Nothing to restore — this version has no differences from the current project (it may be an empty snapshot).",
   historyRestoreNothingManaged: "Nothing to restore — every change in this version is document history, which is managed per document.",
   projectsSwitch: "Switch project",
