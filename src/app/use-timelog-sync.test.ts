@@ -386,3 +386,60 @@ it("week granularity: aggregates under weekly key (2026-W24), not monthly key (2
   expect(byPeriod?.["2026-W24"]?.hours).toBe(4);
   expect(byPeriod?.["2026-06"]).toBeUndefined();
 });
+
+// §128 — a superseded run's `finally` must not clear `busy` out from under its
+// successor. Run A's mocked `listTimeItemsSelf` genuinely settles on abort (an
+// AbortError rejection wired to the signal), so it reaches the SAME `finally`
+// a real cancelled fetch would. Run B's is held open by `resolveB` so we can
+// observe state strictly BETWEEN "A has settled" and "B settles" — no
+// wall-clock wait, just awaiting the real promise chain.
+//
+// ★ Both tests share this setup rather than a helper returning live handles,
+// because each needs its OWN renderHook/mocks (a `beforeEach` `vi.clearAllMocks`
+// isolates them) — copying the four setup lines is cheaper than threading a
+// closure between two `it()` blocks, and keeps each assertion in its own block
+// per the plan's requirement.
+it("keeps busy raised when a superseded run settles while its successor is still in flight", async () => {
+  let resolveB!: (items: unknown[]) => void;
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>)
+    .mockImplementationOnce((_creds, _start, _end, signal: AbortSignal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    }))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveB = resolve; }));
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+
+  let runA!: ReturnType<typeof result.current.fetchBookings>;
+  await act(async () => {
+    runA = result.current.fetchBookings("2026-06-01", "2026-06-30"); // starts, then suspends on listTimeItemsSelf
+    result.current.fetchBookings("2026-06-01", "2026-06-30"); // supersedes A: aborts it, raises busy again for B
+    await runA; // flush A's abort-rejection through its catch + finally
+  });
+
+  expect(result.current.busy).toBe(true); // B is still pending — must not have been cleared by A's finally
+  resolveB([]); // let the still-pending run settle so the suite doesn't leave a dangling act()
+});
+
+it("clears busy once the successor settles", async () => {
+  let resolveB!: (items: unknown[]) => void;
+  (api.listTimeItemsSelf as ReturnType<typeof vi.fn>)
+    .mockImplementationOnce((_creds, _start, _end, signal: AbortSignal) => new Promise((_resolve, reject) => {
+      signal.addEventListener("abort", () => reject(new DOMException("aborted", "AbortError")));
+    }))
+    .mockImplementationOnce(() => new Promise((resolve) => { resolveB = resolve; }));
+  const { result } = renderHook(() => useTimelogSync(args({ scopeMode: "self" })));
+
+  let runA!: ReturnType<typeof result.current.fetchBookings>;
+  let runB!: ReturnType<typeof result.current.fetchBookings>;
+  await act(async () => {
+    runA = result.current.fetchBookings("2026-06-01", "2026-06-30");
+    runB = result.current.fetchBookings("2026-06-01", "2026-06-30");
+    await runA;
+  });
+
+  await act(async () => {
+    resolveB([]);
+    await runB;
+  });
+
+  expect(result.current.busy).toBe(false); // the untested opposite failure: busy stuck forever
+});
