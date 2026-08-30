@@ -20,7 +20,7 @@
 // storage/Turso/M365/Timelog) and a "Run setup wizard" button (the guided
 // BackendSetupWizard) before the user creates or loads a project.
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { BackendConfigModal } from "./backend-config-modal";
 import { BackendSetupWizard } from "./backend-setup-wizard";
 import { TursoProjectPicker } from "./turso-project-picker";
@@ -34,6 +34,7 @@ import { t, type Lang } from "./i18n";
 import { Modal } from "./modal";
 import { ModalHeader } from "./modal-header";
 import { type NewProjectOpts } from "./new-project-workspace";
+import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Settings } from "./settings-types";
 import { ResetSizeButton } from "./task-manager-ui";
 import { useResizable } from "./use-resizable";
@@ -103,6 +104,17 @@ export function ProjectEmptyState({
   const [tursoPickerOpen, setTursoPickerOpen] = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<{ id: string; name: string } | null>(null);
   const { ref: sizeRef, reset: resetSize } = useResizable("aipm-cockpit:create-modal-size");
+  // Archived-row control names (Restore / Delete permanently) collide
+  // unconditionally otherwise — the registry de-dupes by id only, so two
+  // archived projects can share a display name (§276's second surface;
+  // projects-panel.tsx was fixed for the same defect on its own list).
+  // ProjectRegistryEntry-shaped ids here are strings, so `useRowTokens`
+  // (constrained to `{ id: number }`) doesn't fit — call `buildRowTokens`
+  // directly and own the memo, mirroring projects-panel.tsx.
+  const archivedTokens = useMemo(
+    () => buildRowTokens(archivedProjects.map((p) => ({ id: p.id, name: p.name }))),
+    [archivedProjects],
+  );
 
   const handleOpenCreate = () => setView("create");
 
@@ -236,7 +248,10 @@ export function ProjectEmptyState({
                           <Button
                             variant="secondary"
                             onClick={() => onRestore(p.id)}
-                            aria-label={`${t(lang, "projectsRestore")} – ${p.name}`}
+                            aria-label={rowLabel(
+                              t(lang, "projectsRestore"),
+                              archivedTokens.get(p.id) ?? p.name,
+                            )}
                           >
                             {t(lang, "projectsRestore")}
                           </Button>
@@ -244,7 +259,10 @@ export function ProjectEmptyState({
                             <Button
                               variant="destructive"
                               onClick={() => setDeleteTarget({ id: p.id, name: p.name })}
-                              aria-label={`${t(lang, "projectsDeletePermanently")} – ${p.name}`}
+                              aria-label={rowLabel(
+                                t(lang, "projectsDeletePermanently"),
+                                archivedTokens.get(p.id) ?? p.name,
+                              )}
                             >
                               {t(lang, "delete")}
                             </Button>

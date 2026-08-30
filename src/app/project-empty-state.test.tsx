@@ -220,8 +220,8 @@ describe("ProjectEmptyState", () => {
     ).toBeInTheDocument();
   });
 
-  it("turso mode lists archived projects with a row-unique Restore button; clicking calls onRestore", () => {
-    const { onRestore } = setup({
+  it("turso mode lists archived projects with name-qualified Restore buttons", () => {
+    setup({
       mode: "turso",
       archivedProjects: [
         { id: "p1", name: "Orion" },
@@ -229,13 +229,43 @@ describe("ProjectEmptyState", () => {
       ],
     });
     // Each row has a name-qualified accessible label (WCAG 2.4.6, not N identical "Restore").
-    const restoreOrion = screen.getByRole("button", { name: /restore – orion/i });
-    expect(restoreOrion).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /restore – orion/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /restore – pegasus/i })).toBeInTheDocument();
-    expectRowUniqueNames({ minControls: 10 });
-    fireEvent.click(restoreOrion);
+  });
+
+  it("clicking an archived project's Restore button calls onRestore with its id", () => {
+    const { onRestore } = setup({
+      mode: "turso",
+      archivedProjects: [
+        { id: "p1", name: "Orion" },
+        { id: "p2", name: "Pegasus" },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: /restore – orion/i }));
     expect(onRestore).toHaveBeenCalledTimes(1);
     expect(onRestore).toHaveBeenCalledWith("p1");
+  });
+
+  // §276's second surface: archivedProjects.map has no guard and the registry
+  // de-dupes by id only, so two archived projects can genuinely share a
+  // display name — the AGENTS.md landmine verbatim (interpolating a per-row
+  // field proves nothing when the field repeats). Seed exactly that collision
+  // so this test cannot pass against the raw-interpolation defect it exists
+  // to catch (requireCollisionSeed enforces that: it throws if the fixture
+  // fails to seed two rows sharing a display name).
+  it("gives archived projects sharing a display name row-unique Restore and Delete-permanently buttons", () => {
+    setup({
+      mode: "turso",
+      archivedProjects: [
+        { id: "p1", name: "Orion" },
+        { id: "p2", name: "Orion" },
+      ],
+    });
+    // minControls measured by passing 9999 and reading the thrown count off
+    // expectRowUniqueNames's own error message: 10 controls render in this
+    // fixture (3 top-level choice buttons + the 2x2 archived-row buttons +
+    // 3 backend-setup buttons + the header's reset-size button).
+    expectRowUniqueNames({ minControls: 10, requireCollisionSeed: true });
   });
 
   it("file mode does not render the archived-projects restore list", () => {
