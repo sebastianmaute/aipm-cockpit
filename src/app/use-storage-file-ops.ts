@@ -222,7 +222,10 @@ export function useFileProjectOps(deps: FileProjectOpsDeps) {
       if (!preopenedBackend) {
         const open = openFileForBackend(targetBackend);
         if (!open) return;
-        await open;
+        // ★ Adoption IS the intent on this path — there is no confirm to lose,
+        //   so the handle is committed straight away. Contrast
+        //   `onOpenStorageFile`, which must wait for the user (§287).
+        await setBackendFileHandle(targetBackend, await open);
       }
       const loaded = await targetBackend.load();
       const fileName = targetBackend.describe ? await targetBackend.describe() : null;

@@ -6,13 +6,9 @@ import {
   type StorageConfig,
   type StorageKind,
   type Workspace,
-  StorageNotImplementedError,
-  StorageNotReadyError,
-  createBackend,
-  getBackendFileHandle,
-  openFileForBackend,
-  pickFileForBackend,
-  requestWriteAccessForBackend,
+  StorageNotImplementedError, StorageNotReadyError, createBackend,
+  getBackendFileHandle, loadFromHandleForBackend, openFileForBackend,
+  pickFileForBackend, requestWriteAccessForBackend, setBackendFileHandle,
 } from "./storage";
 import { isWorkspaceEmpty, nonEmptyCollectionCount, workspaceRecordCount } from "./workspace";
 import { evaluateSaveGuard } from "./save-guard";
@@ -533,12 +529,15 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
   async function onOpenStorageFile() {
     const promise = openFileForBackend(backend);
     if (!promise) return;
-    await promise;
+    const picked = await promise;
     try {
-      const loaded = await backend.load(); // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
-      // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits. `openFileForBackend` has ALREADY run `idbSet(this.idbKey, handle)` by here — the ACTIVE backend points at the picked file whichever way the confirm goes — so declining the overwrite still leaves the next debounced save writing the live workspace over that file. The decline path therefore needs the import report and the quoting hold every bit as much as the apply path does; an early `return` above would have silently exempted it. (The re-point itself is the wider defect and is NOT fixed here — see `docs/open-followups.md` §287.)
+      const load = loadFromHandleForBackend(backend, picked);
+      if (!load) return; // Unreachable: `openFileForBackend` returned non-null above, so this IS the LocalFileBackend. The guard exists only because every facade helper is uniformly nullable.
+      const loaded = await load; // ★ `reportImportFor`, NOT `reportFor` — see the report at the end of this try. This path applies tasks+raid ONLY, never the loaded documents, so raising the §103 flag would warn about documents the user still has and lowering it would clear a warning still true of the live ones. That reason is TRUNCATION-specific and never covered the import channel (§152): `droppedRows` is one workspace-wide count bumped at five sites across BOTH codec families, so the rows a malformed CSV *or Markdown* file dropped may be the very tasks and RAID applied below. ★★ COUNT THE CALL SITES, NOT THE INCREMENTS — every bump now routes through one writer, so the obvious `grep -rn "droppedRows++"` reads as a refutation of this sentence: `grep -rn "countDroppedRow(" src/app --include=*.ts | grep -v "\.test\." | grep -v "export function"` returns the five (3 CSV + 2 Markdown).
+      // ★★★ A GUARD CLAUSE INVERTED ON PURPOSE, so ONE report below covers BOTH exits: the decline path needs the import report and the quoting hold every bit as much as the apply path does — a malformed file drops the same rows whichever way the confirm goes — and an early `return` above would have silently exempted it (§152). ★★ The re-point that used to happen on BOTH exits is GONE — `openFileForBackend` commits nothing now, and the handle is bound inside the accept branch below (§287).
       if (tasks.length === 0 || window.confirm(t(langRef.current, "storageConfirmOverwrite", tasks.length))) {
         suppressNextSaveRef.current = true;
+        await setBackendFileHandle(backend, picked); // ★ commit the pick ONLY now (§287) — before this line the backend still points at the previous file, so a decline leaves nothing to undo.
         // Seed the session minter from the opened file so its (possibly larger)
         // task/raid ids can't be reused after a delete. "raise" never lowers a
         // kind's mark, so the absences/shifts NOT applied below keep their

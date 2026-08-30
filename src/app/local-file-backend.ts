@@ -98,15 +98,27 @@ export class LocalFileBackend implements StorageBackend {
     await idbSet(this.idbKey, handle);
   }
 
-  async openFile(): Promise<void> {
+  /**
+   * Pick a file and return its handle WITHOUT persisting it.
+   *
+   * ★★★ THE CALLER COMMITS (§287). This used to end `idbSet(this.idbKey,
+   * handle)`, which pointed the ACTIVE backend at the picked file BEFORE the
+   * caller asked the user whether to overwrite their live tasks — so declining
+   * kept the workspace and re-pointed storage anyway, and the next debounced
+   * save wrote the live project over a file the user had just refused. The
+   * `idbKey` is derived from the backend KIND, not the instance, so it really
+   * was the active slot.
+   * ★★ `tryGrantPermission` STAYS here: showOpenFilePicker returns a read-only
+   * handle, and we are still in the user-gesture context from the click that
+   * opened the picker, so readwrite must be requested now while it is allowed.
+   * If the user dismisses or the browser denies, the handle is returned anyway
+   * and `save()` surfaces a clearer "grant access" toast later.
+   * ★ Commit with `setHandle(handle)` once the user has accepted.
+   */
+  async openFile(): Promise<FsHandle> {
     const handle = await pickOpenFile(this.format);
-    // showOpenFilePicker returns a read-only handle. We're still in the
-    // user-gesture context from the click that triggered the picker, so
-    // request readwrite now while it's allowed. If the user dismisses or
-    // the browser denies, we store the handle anyway and surface a clearer
-    // "grant access" toast the next time save() runs.
     await tryGrantPermission(handle, "readwrite");
-    await idbSet(this.idbKey, handle);
+    return handle;
   }
 
   /**
