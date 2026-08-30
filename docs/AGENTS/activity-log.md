@@ -211,22 +211,61 @@ it has no table of its own, NOT because it sits outside the workspace.
   `grep -n COUNT_KINDS src/app/completion-trend.ts` prints the set;
   `grep -oE 'logActivityAs\?\.\("ai", "[a-z.]+"' src/app/use-chat-dispatcher.ts | sort -u` prints the 21
   distinct kinds the dispatcher writes across its 23 sites, of which those two intersect the set.
-  ★★ **An AI status change to Done logs `task.updated`, NOT `task.completed`** — `update_task` stamps that
-  ONE kind whichever fields it touches, exactly as the form save does (`use-task-submit.ts`, which routes
-  the status through `logActivityChanges("task.updated", …)`), so a completion is invisible to the set. ★ The
-  INLINE status dropdown logs nothing at all — `use-task-row-handlers.ts` calls `logActivityRef.current`
-  on DELETE only: `grep -c "logActivityRef.current(" src/app/use-task-row-handlers.ts` → **1**, and the
-  `-n` form shows that one hit is the `"task.deleted"` call. A separate pre-existing coverage gap.
-  ★★ **SCOPE THE COMMAND TO THE CLAIM.** This was attached as `grep -n "logActivity"` on that file,
-  which returns **6** lines — the prop type, the destructure, the ref init, the ref assignment, a dep
-  array and the one call. The claim was TRUE and the command did not reproduce it, which is the exact
-  failure the rule at the top of this file exists to prevent; both reviewers flagged it independently.
-  Do not read the set's membership as "these four fire": `task.completed`
-  and `task.reopened` have **NO writer anywhere in the app**, only a union member, an
-  `activityMessageKey` row and their seat in this set. Verify before reasoning about either:
-  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'` →
-  only `activity-log.ts` and `completion-trend.ts`. Pre-existing, not introduced by this branch — but it
-  means the trend's `dDone` term is fed by NOTHING, so the reconstruction path moves only on totals.
+  ★★ **An AI status change to Done still logs `task.updated`, and now logs a completion BESIDE it** —
+  `update_task` stamps that one kind whichever fields it touches, exactly as the form save does
+  (`use-task-submit.ts`, which routes the status through `logActivityChanges("task.updated", …)`), so the
+  `task.updated` entry alone remains invisible to the set; both sites now also emit the transition. Same
+  for the INLINE status dropdown, which used to log on DELETE only.
+  ★★ **SCOPE THE COMMAND TO THE CLAIM.** An earlier revision attached `grep -n "logActivity"` to the
+  dropdown claim, which returns **6** lines on that file — the prop type, the destructure, the ref init,
+  the ref assignment, a dep array and the one call. The claim was TRUE and the command did not reproduce
+  it, which is the exact failure the rule at the top of this file exists to prevent; both reviewers
+  flagged it independently.
+  ★★★ **`task.completed` AND `task.reopened` NOW HAVE WRITERS, and this
+  entry used to say the opposite.** It read: they "have **NO writer anywhere in the app**, only a union
+  member, an `activityMessageKey` row and their seat in this set", with
+  `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
+  attached and an expected answer of "only `activity-log.ts` and `completion-trend.ts`". Both halves are
+  stale, and the COMMAND is the more dangerous half: the writers do not spell either literal, they call
+  the shared `statusActivityKind` decision, which returns the kind. Run today it prints THREE files —
+  `activity-log.ts`, `completion-trend.ts` and `task-status.ts` — and names not one writer. Enumerate
+  them with the helper instead:
+  `git grep -nE 'statusActivityKind' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
+  → the definition in `task-status.ts` plus SIX consuming files: `use-task-submit.ts`,
+  `use-task-row-handlers.ts`, `use-bulk-operations.ts`, `use-action-center-handlers.ts`,
+  `use-chat-dispatcher.ts` and `use-jira-sync.ts`.
+  ★★★ **A MISSED WRITER COSTS AN AUDIT ENTRY *AND* CAN MOVE THE CHART — and this line used to deny the
+  second half.** It read "A MISSED WRITER COSTS AN AUDIT ENTRY AND NEVER A METRIC", then contradicted
+  itself one clause later by conceding "their only metric-side job stays the seeding one". Seeding IS a
+  metric effect. What is true: the **numerator** cannot be moved by a missed writer, because `deliveredBy`
+  reduces over `tasks` and never over these entries. What is false: that nothing else can. Both kinds sit
+  in `COUNT_KINDS`, which both ADMITS an entry past the `continue` guard and decides which days SEED a
+  point — so a missed writer changes which days the reconstructed sparkline plots, and can drop it under
+  the `days.length < 2` floor, rendering no chart at all.
+  ★★ Measured 2026-08-30 against the real module with `npx vite-node`, not reasoned — two probes, because
+  the effect is not merely additive. (1) One task delivered 06-10, `currentDone` 1, `currentTotal` 2,
+  today 06-21: activity `[task.completed 06-10, task.created 06-12]` → `[06-10 → 100, 06-12 → 50]`;
+  drop the completion entry → `[]`. (2) Two tasks delivered 06-10 and 06-15 against two `task.created`
+  days 06-08/06-09, `currentDone` 2, `currentTotal` 4: without completion writers →
+  `[06-08 → 0, 06-09 → 50]`, with them → `[06-08 → 0, 06-09 → 0, 06-10 → 25, 06-15 → 50]`.
+  ★★★ **THE THIRD POINT IS THE ONE THIS BULLET EXISTS FOR.** 06-10 carries a completion and NO create
+  or delete, so no total moves on it and
+  it is plotted only because `task.completed` is a member of `COUNT_KINDS` — a completion-only day, the
+  exact thing the surrounding prose argues for. `06-09` MOVES, because
+  the last plotted point keeps `currentDone` by design and seeding a later day demotes 06-09 to history,
+  where `deliveredBy` correctly reports 0 delivered. The new value is the CORRECT one — this is an
+  accuracy improvement, not a regression — but it is a user-visible change on the default file-mode path.
+  Pinned by the "a completion-only day" pair in `completion-trend.test.ts`.
+  ★★ `status-activity-census.test.ts` shipped in `9bf06d3b` and its own header states the
+  two reasons it is a convenience: it is file-granular, and it matches on spelling. A file with several
+  write sites passes on any one of them. Per-site coverage is per-site
+  tests, and nothing else.
+  ★★ The numerator is READ from task data (`deliveredBy` in
+  `completion-trend.ts` counts `completedDate <= day`), which is what let the fix work retroactively over
+  history already on disk. ★★★ So the two kinds' ONLY remaining job in `COUNT_KINDS` is deciding which
+  days SEED a point — a day carrying a completion and no create/delete moves no total at all, yet the
+  percent moves on it, so removing them from the set silently DROPS every completion-only day from the
+  series. They are members with no delta arm on purpose; do not "tidy" them out.
   ★★ `bulk.delete` is STILL deliberately NOT in `COUNT_KINDS` — that set's members each move the metric
   by ±1 per entry, while one `bulk.delete` entry carries a count of N, so adding it would under-count by
   N−1. §163 closed the gap the OTHER way, as that entry said it had to be: a second set,

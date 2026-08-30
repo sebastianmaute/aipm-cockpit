@@ -31,6 +31,7 @@ import { type ProjectDraft, type ProjectErrorField } from "./project-validation"
 import { ResourcePicker } from "./resource-picker";
 import { buildRowTokens, rowLabel } from "./row-tokens";
 import { type Contact } from "./contacts";
+import { contactDisplay } from "./contact-display";
 import {
   type ContactPerson,
   type Deployment,
@@ -663,8 +664,6 @@ function ContactPersonsControl({
   // (which accessible-name computation does), so "Bob  Jones" adds happily
   // beside "Bob Jones"; and `sanitizeProjectMeta` does not dedupe an imported
   // project, so exact repeats arrive from a file.
-  /** The string the row actually RENDERS. */
-  const contactDisplay = (cp: ContactPerson) => `${cp.name}${cp.email ? ` <${cp.email}>` : ""}`;
   /** ★★★ THE EMAIL JOINS THE TOKEN ONLY FOR A NAME THAT ACTUALLY REPEATS, and
    *  the conditional is the whole point. Two "Bob Jones" rows with different
    *  addresses are visually distinct but would announce as "Remove – Bob Jones

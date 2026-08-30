@@ -9,7 +9,7 @@ import { t, type Lang } from "./i18n";
 import { mintId } from "./id-mint-session";
 import { type Settings } from "./settings-types";
 import { type Task, type RaidItem } from "./types";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
 import { captureFieldChanges } from "./undo/capture-field-changes";
 import { TASK_UNDO_GROUPS } from "./undo/field-groups";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
@@ -404,6 +404,11 @@ export function useTaskSubmit(args: UseTaskSubmitArgs): {
           } else {
             logActivity("task.updated", updatedId, taskName);
           }
+          // ★ Only this branch can decide a transition: it is the only one
+          // holding a BEFORE row. The `else` below fires when tasksRef has no
+          // matching row, so there is no delivered-ness to compare against.
+          const transition = statusActivityKind(prevTask, nextTask);
+          if (transition) logActivity(transition, updatedId, taskName);
         } else {
           logActivity("task.updated", updatedId, taskName);
         }

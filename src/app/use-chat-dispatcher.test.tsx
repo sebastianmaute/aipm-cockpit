@@ -644,6 +644,31 @@ describe("useChatDispatcher", () => {
     expect(reopened?.completedDate ?? "").toBe("");
   });
 
+  /** PER-SITE COVER for the AI update's transition (`statusActivityKind` in
+   *  `use-chat-dispatcher.ts`). The file-granular census cannot see this site,
+   *  and the ACTOR is half the claim: this file logs MODEL writes, so a
+   *  transition threaded with the user actor would misattribute them in the
+   *  activity log. Both blocks therefore assert the `"ai"` actor explicitly. */
+  it("logs an ai-actored completion when the assistant moves a task to Done", () => {
+    const logActivityAs = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAs);
+    act(() => { result.current.updateTask(1, { status: "Done" }); });
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "ai", "task.completed", 1, expect.any(String),
+    );
+  });
+
+  it("logs an ai-actored reopening when the assistant moves a task off Done", () => {
+    const logActivityAs = vi.fn();
+    const { result } = renderDispatcher(seedTasks(), false, "open-points", logActivityAs);
+    act(() => { result.current.updateTask(1, { status: "Done" }); });
+    logActivityAs.mockClear();
+    act(() => { result.current.updateTask(1, { status: "To Do" }); });
+    expect(logActivityAs).toHaveBeenCalledWith(
+      "ai", "task.reopened", 1, expect.any(String),
+    );
+  });
+
   it("updateTask rejects a status change on a jiraKey-linked task and leaves it unchanged", () => {
     const tasksWithJira = seedTasks().map((t, i) =>
       i === 0 ? { ...t, jiraKey: "LOP-1" } : t,

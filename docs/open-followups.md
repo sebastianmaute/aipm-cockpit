@@ -389,7 +389,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§160](#160-an-ai-update_settings-writes-two-activity-rows-and-the-second-one-cannot-be-taught-who-caused-it--closed-2026-08-17) | An AI `update_settings` writes TWO activity rows, and the second one cannot be taught who caused it | — | — | **CLOSED** 2026-08-17 |
 | [§161](#161-latestat-picks-the-latest-activity-entry-by-raw-lexicographic-string-compare) | `latestAt` picks the "latest" activity entry by raw lexicographic string compare | — | — | open |
 | [§162](#162-the-historysearch-kill-switch-is-advertisement-scoped-not-enforced-at-the-executor--closed-2026-08-17-enforcement-added) | The `historySearch` kill switch is advertisement-scoped, not enforced at the executor | — | — | **CLOSED** 2026-08-17 (enforcement added) |
-| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete--fixed-2026-08-17-both-actors-the-ddone-half-stays-open) | Completion-trend reconstruction under-counts the historical denominator after a mass delete — FIXED 2026-08-17 (both actors); the `dDone` half stays OPEN | — | — | open |
+| [§163](#163-completion-trend-reconstruction-under-counts-the-historical-denominator-after-a-mass-delete-and-its-numerator-never-moves--denominator-fixed-2026-08-17-numerator-closed-2026-08-30) | Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator CLOSED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
 | [§164](#164-renderactivityentry-lacks-the-args-element-guard-the-activity-panel-has-and-it-runs-inside-the-ai-tool-loop--closed-2026-08-17) | `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop | — | — | **CLOSED** 2026-08-17 |
 | [§165](#165-sanitizeaiconfig-drops-actionsuggestions-so-switching-the-action-centers-ai-off-reverts-to-on-on-the-next-reload--closed-2026-08-17) | `sanitizeAiConfig` drops `actionSuggestions`, so switching the Action Center's AI off reverts to ON on the next reload | — | — | **CLOSED** 2026-08-17 |
 | [§166](#166-an-undone-bulkdelete-corrupted-the-completion-trend-permanently--closed) | An UNDONE `bulk.delete` corrupted the completion trend permanently | — | — | **CLOSED** |
@@ -461,7 +461,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§232](#232-workspacesteeringcommittee-is-loaded-into-state-and-written-back-by-nothing-so-every-backend-deletes-it-on-the-next-unrelated-autosave--closed-2026-08-25) | `Workspace.steeringCommittee` is loaded into state and written back by NOTHING, so every backend deletes it on the next unrelated autosave | — | — | **CLOSED** 2026-08-25 |
 | [§233](#233-ask_claude_prompts-has-no-activity-chip-and-the-reason-the-test-records-for-it-is-stale) | `ASK_CLAUDE_PROMPTS` has no `activity` chip, and the reason the test records for it is stale | — | — | open |
 | [§234](#234-four-critical-flows-have-no-e2e-coverage-of-any-kind-and-this-register-makes-the-picture-look-mapped) | Four critical flows have no E2E coverage of any kind, and this register makes the picture look mapped | — | — | open |
-| [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record | — | — | open |
+| [§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30) | The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record — CLOSED 2026-08-30 | — | — | **CLOSED** 2026-08-30 |
 | [§236](#236-five-version-carrying-places-are-ungated-and-the-release-checklist-is-the-only-thing-holding-them--closed-2026-08-26) | Five version-carrying places are ungated, and the release checklist is the only thing holding them | — | — | **CLOSED** 2026-08-26 |
 | [§237](#237-two-more-read-gaps-the-ai-cannot-see-around-stakeholder-raci-and-anything-outside-the-active-project) | Two more read gaps the AI cannot see around: stakeholder RACI, and anything outside the active project | — | — | open |
 | [§238](#238-sample-workspace-bighugejson-are-generated-artifacts-with-no-consumer-and-no-regeneration-gate) | `sample-workspace-big/huge.json` are generated artifacts with no consumer and no regeneration gate | — | — | open |
@@ -509,7 +509,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§280](#280-matchdelimiters-counts-brackets-without-skipping-strings-or-comments--the-class-that-just-bit-scanopentag) | `matchDelimiters` counts brackets without skipping strings or comments — the class that just bit `scanOpenTag` | found 2026-08-28 | S | open |
 | [§281](#281-modulekey-is-basename-only-so-directory-distinct-modules-collapse-into-one-coverage-key) | `moduleKey` is basename-only, so directory-distinct modules collapse into one coverage key | found 2026-08-28 | S | open |
 | [§282](#282-the-scope-choice-rule-in-row-unique-namests-has-no-live-worked-example) | The SCOPE CHOICE rule in `row-unique-names.ts` has no live worked example | found 2026-08-28 | S | open |
-| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email) | Export sections emits an empty angle-bracket pair for a contact with no email | found 2026-08-28 | S | open |
+| [§283](#283-export-sections-emits-an-empty-angle-bracket-pair-for-a-contact-with-no-email--closed-2026-08-30) | Export sections emits an empty angle-bracket pair for a contact with no email — CLOSED 2026-08-30 | found 2026-08-28 | S | **CLOSED** 2026-08-30 |
 | [§284](#284-a-malformed-turso-meta-blob-is-discarded-in-silence-then-written-over-as-an-intentional-empty--fixed-2026-08-29-end-to-end-proof-discharged-2026-08-29) | A malformed Turso meta blob is discarded in silence, then written over as an intentional empty — FIXED 2026-08-29, end-to-end proof DISCHARGED 2026-08-29 | found 2026-08-28, fixed 2026-08-29 | L — three links, all shipped | open |
 | [§285](#285-nothing-gates-that-a-counted-slices-delete-routes-arm-the-destructive-save-bypass--closed-2026-08-29) | Nothing gates that a counted slice's delete routes arm the destructive-save bypass — CLOSED 2026-08-29 | found 2026-08-29, fixed 2026-08-29 | M | **CLOSED** 2026-08-29 |
 | [§286](#286-the-template-seeds-note-log-validator-diverges-from-the-canonical-one-in-seven-ways--filed-as-six--closed-2026-08-30) | The template seed's note-log validator diverges from the canonical one in seven ways — filed as six — CLOSED 2026-08-30 | found 2026-08-28, fixed 2026-08-30 | M | **CLOSED** 2026-08-30 |
@@ -525,6 +525,7 @@ this file records elsewhere. The check below anchors its greps at `^` for the sa
 | [§296](#296-two-panels-still-collide-on-sortable-header-names--raid-report-paneltsx-and-resources-reporttsx-co-render-tables-sharing-column-labels--open) | Two panels still collide on sortable-header names — `raid-report-panel.tsx` and `resources-report.tsx` co-render tables sharing column labels | carved out of §246 on close, 2026-08-30 | M | open |
 | [§297](#297-popoverpanel-restores-focus-on-dismiss-but-not-when-a-consumer-closes-it-from-an-items-own-handler--open) | `PopoverPanel` restores focus on dismiss but not when a consumer closes it from an item's own handler | carved out of §146 on close, 2026-08-30 | M | open |
 | [§298](#298-the-template-seeds-note-log-html-cap-is-a-second-forced-difference-not-a-closed-divergence--open) | The template seed's note-log html cap is a second forced difference, not a closed divergence | carved out of §286 on close, 2026-08-30 | M | open |
+| [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open) | Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry | carved out of §235 on close, 2026-08-30 | M | open |
 <!-- INDEX:END -->
 
 ★★ **Check the table against the headings; never read it for agreement.** The rebuild makes the two
@@ -12691,9 +12692,50 @@ controls what we offer, not what we can do"), say so at the setting and at the `
 closes as by-design. If it is meant to be enforcement, it is a gap. Today the code says nothing
 either way, which is the actual defect.
 
-## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete — FIXED 2026-08-17 (both actors); the `dDone` half stays OPEN
+## 163. Completion-trend reconstruction under-counts the historical denominator after a mass delete, and its numerator never moves — denominator FIXED 2026-08-17, numerator CLOSED 2026-08-30
 
-**Status:** open — PARTLY FIXED, the numerator half is still open. Reproduced 2026-08-28 by `grep -n "dDone" src/app/completion-trend.ts`.
+**Status:** both halves are now fixed, on different branches and by different mechanisms — read the
+split before reading anything below it. The DENOMINATOR half was fixed 2026-08-17 (both actors), and
+the section "Fixed 2026-08-17 — the denominator half" still describes the live code. The NUMERATOR
+half was fixed 2026-08-30 on `fix/trend-numerator-and-audit-log` by `411702b8`, and **not in the way
+this entry prescribed.**
+
+★★★ **THE PRESCRIPTION WAS SUPERSEDED, NOT SATISFIED.** This entry ends by saying the numerator needs
+"a real `task.completed` / `task.reopened` writer". Those writers DID land on the same branch — that
+is §235, closed the same day — but the numerator does **not** read them. `reconstructFromActivity`
+now derives each historical point's done-count from `Task.completedDate` (via its local `deliveredBy`
+reduction over `tasks`, which asks `isTaskDelivered`), and the event kinds feed nothing but the day
+SEEDING. That was chosen deliberately over an event-producer fix: an event producer only starts
+recording from the day it ships, so the curve would have stayed flat over all history already on
+disk, whereas `completedDate` is data that is already there. So a reader who returns here expecting
+an event-fed numerator will not find one, and must not "complete the pattern" by adding one.
+
+★★ Verified 2026-08-30. This entry's own witness command
+`grep -n "dDone" src/app/completion-trend.ts` now matches NOTHING and exits 1 — the variable was
+removed along with the event-fed tally, so a reader running it gets silence rather than a
+contradiction. The live readings are `grep -n "deliveredBy\|isTaskDelivered" src/app/completion-trend.ts`
+(the numerator) and `grep -n -A25 COUNT_KINDS src/app/completion-trend.ts` (the seeding, unchanged in
+membership). Covered by `npx vitest run --maxWorkers=1 src/app/completion-trend.test.ts src/app/completion-trend.property.test.ts`.
+
+★★ **A USER-VISIBLE CONSEQUENCE THAT IS NOT A NUMERATOR CHANGE AT ALL.** `task.completed` and
+`task.reopened` are members of `COUNT_KINDS`, which decides which days get SEEDED as well as which
+entries survive the accumulation loop's `continue`. While nothing wrote either kind that seeding arm
+was dead; §235's writers make it live. Measured 2026-08-30 with `npx vite-node` against the real
+module, running `main`'s copy beside the branch's over the same fixture (two tasks delivered 06-10
+and 06-15, `task.created` days 06-08 and 06-09, `currentDone` 2 / `currentTotal` 3):
+
+```
+PRE  (no completion writers): [06-08 -> 100, 06-09 -> 67]
+POST (writers now emit)     : [06-08 -> 0, 06-09 -> 0, 06-10 -> 33, 06-15 -> 67]
+```
+
+Two days appear that were never plotted, and both surviving points change value — the last plotted
+point keeps `currentDone` by design, so seeding a LATER day demotes an earlier one to history, where
+it is data-derived rather than pinned to the live count. The same fixture cut to a single
+`task.created` day (06-08) returns `[]` before and a THREE-point series `06-08 -> 0`, `06-10 -> 33`,
+`06-15 -> 67` after, so a project that fell under the `days.length < 2` floor and rendered nothing can
+now render a chart. The new values are the correct
+ones; the change in the plotted DAY SET is the part nobody predicted.
 
 ★★★ **THE FIRST CLOSE INVERTED THE ASYMMETRY INSTEAD OF REMOVING IT, and the title said "AI".**
 `BULK_TOTAL_KINDS` corrected the denominator for `bulk.delete`, but that kind had exactly ONE writer —
@@ -12723,7 +12765,10 @@ after a chat mass-delete the reconstructed historical `total` is understated by 
 the walk with `grep -n -A25 COUNT_KINDS src/app/completion-trend.ts`.
 
 ★★ **A second, older asymmetry compounds it and is worth fixing in the same pass:** `dDone` is fed
-ONLY by `task.completed` and `task.reopened`, and **nothing in the app writes either kind**. Verify:
+ONLY by `task.completed` and `task.reopened`, and **nothing in the app writes either kind**. — FALSE
+SINCE 2026-08-30 IN BOTH HALVES, kept as the diagnosis that opened the numerator work: `dDone` no
+longer exists, and §235's writers now emit both kinds. The command below returned two files on
+2026-08-16 and returns more today, in more files. Verify:
 `git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'`
 → only `activity-log.ts` (the union member and its `activityMessageKey` row) and `completion-trend.ts`
 itself. A status change to Done logs `task.updated`, from every writer including the AI's
@@ -12763,6 +12808,31 @@ fields ALPHABETICALLY, and "status" sorts late — a wide edit can drop it from 
 Closing it needs a real `task.completed` / `task.reopened` writer, which is a design slice. Until
 then the reconstruction is a curve about TASK COUNT, not completion, and `completion-trend.ts` says
 so at the top of `reconstructFromActivity`.
+
+### Closed 2026-08-30 — the numerator half, by a route this entry did not consider
+
+The paragraph immediately above is the prescription that was **superseded**, and it is left standing
+because it holds the reason the obvious `changes`-based fix was rejected, which is still true. What
+it got wrong is the assumption that the numerator has to come from an EVENT at all.
+
+`reconstructFromActivity` now takes the live `tasks` array and reads each historical point's
+done-count out of `Task.completedDate`, so the numerator is DERIVED FROM DATA rather than
+reconstructed from a stream. Three consequences worth writing down, because none of them follow from
+an event-producer fix:
+
+- It works **retroactively**. Every completion already on disk carries its date, so the curve is
+  correct over history recorded long before this branch. A producer would have started at zero.
+- It cannot be broken by a MISSED WRITER. §235's file-granular census is a convenience precisely
+  because the numerator does not depend on it — `deliveredBy` reduces over `tasks`, never over
+  entries. ★★ The SERIES still can be: see the Status block's seeding measurement. Do not flatten the
+  two into "a missed writer cannot move the chart".
+- The `status`/`completedDate` invariant becomes the thing the numerator rests on, so a split pair is
+  now a trend defect as well as a status defect. `isTaskDelivered` (never an inline
+  `!!t.completedDate`) is the canonical reader; the Cancelled-with-a-completedDate edge is called out
+  in `completion-trend.ts` and left as-is deliberately.
+
+★ The `days.length < 2` floor, `MAX_POINTS`, `BULK_TOTAL_KINDS` and `COUNT_KINDS` membership are all
+UNCHANGED by this closure — only where the numerator comes from moved.
 
 ## 164. `renderActivityEntry` lacks the `args`-element guard the Activity panel has, and it runs inside the AI tool loop — CLOSED 2026-08-17
 
@@ -18024,11 +18094,81 @@ switch have neither an e2e nor any browser-level test of the round trip.
 
 ---
 
-## 235. The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record
+## 235. The inline status control writes no activity-log entry, so the fastest way to complete a task leaves no audit record — CLOSED 2026-08-30
 
-**Status:** open — a real gap in the audit trail. **Severity:** medium. Nothing is lost from the task
-itself; what is missing is the record that the change happened, and §163 reconstructs completion
-trends from exactly that record. Reproduced 2026-08-28 by `grep -n "logActivityRef" src/app/use-task-row-handlers.ts`.
+**Status:** fixed 2026-08-30 on `fix/trend-numerator-and-audit-log` by `dd099c44` (the pure decision)
+· `cd4fdcc2` (the adopters) · `3e182c78` (the fifth, Jira, writer) · `9bf06d3b` (the census gate).
+A status **transition** — a write with a before-row — now decides whether that write was a
+completion or a reopening, through one pure helper `statusActivityKind` (`task-status.ts`), and logs
+the resulting `task.completed` / `task.reopened`; a CREATION has no before-row and classifies
+nothing. The helper compares
+DELIVERED-ness (`isTaskDelivered`), not CLOSED-ness — cancelling a task is not a completion.
+
+★★★ **THAT IS A POPULATION, NOT AN ABSOLUTE — this line said "Every path that writes a task's
+`status`/`completedDate` pair", and `docs/AGENTS/task-status.md` documents FIVE writers of that
+pair.** Two of the five are outside the fix, and they are outside it for different reasons, so read
+them separately:
+
+- **Undo/redo restore** — `runUndo` / `runRedo` in `use-undo-stack.ts` restore a before-image, and
+  `TASK_UNDO_GROUPS` carries `["status", "completedDate"]` as its FIRST group, so undoing a mark-done
+  restores both halves and genuinely flips delivered-ness. It logs `undo` / `redo` and never
+  `task.completed` / `task.reopened`. A real gap, filed as
+  [§299](#299-undoredo-restore-flips-a-tasks-delivered-ness-and-writes-no-completion-or-reopening-entry--open)
+  and deliberately NOT fixed on this branch.
+- **Template import** — `templates.ts` reaches the pair through `reconcileStatusFromDate`. That is
+  CREATION: there is no before-row, so there is no transition to classify. Defensibly exempt on
+  exactly the rationale `status-activity-census.test.ts` already records for `task-manager.tsx`'s
+  `handleCreateLinkedTask`, and therefore NOT filed.
+
+★★ **The census is structurally blind to both, and its own header now says so as a THIRD limitation.**
+Neither writer spells a
+`WRITER_ANCHORS` pattern, and `writerFiles()` walks `src/app` NON-recursively, so `src/app/undo/` is
+never read at all — the anchors could be widened and that file would still be invisible. Reproduce the
+walk with `node -e "console.log(require('fs').readdirSync('src/app').includes('use-undo-stack.ts'))"`
+→ `false`, and the anchor gap with `grep -rn "statusActivityKind" src/app/undo/` → no match, exit 1.
+
+★★ **THE TWO FENCED COMMANDS BELOW WERE ACCURATE WHEN WRITTEN AND ARE BOTH FALSE NOW.** Their
+readings are dated 2026-08-28 and are kept as the diagnosis; the current answers, re-run 2026-08-30,
+are:
+
+- `grep -c "logActivityRef.current(" src/app/use-task-row-handlers.ts` → **3**, not 1. The two new
+  ones are the `<select>` (`onStatusChange`) and the Kanban swimlane drop (`onSwimlaneDrop`), each
+  guarded `if (kind)`; the third is still the `task.deleted` this entry names.
+- `grep -rn '"task\.completed"' src/app --include=*.ts --include=*.tsx | grep -v "\.test\."` → **5**
+  lines in THREE files, not four in two. The new file is `task-status.ts` (the return type of
+  `statusActivityKind`, and the expression that picks between the two kinds). ★★★ **THAT GREP CANNOT
+  FIND THE PRODUCERS AND NEVER WILL** — every call site logs the kind as a VARIABLE
+  (`logActivityRef.current(kind, …)` / `logActivity(transition, …)`), so a string-literal search
+  reports "declaration and consumption, no producer" over a tree that has five producers. Enumerate
+  them with `grep -rn "statusActivityKind" src --include=*.ts --include=*.tsx | grep -v "\.test\."`
+  instead, which returns SEVEN files: the DECLARATION in `task-status.ts` plus the six adopters
+  `use-task-row-handlers.ts` · `use-task-submit.ts` · `use-bulk-operations.ts` ·
+  `use-chat-dispatcher.ts` · `use-action-center-handlers.ts` · `use-jira-sync.ts`. ★ Counting the
+  files it prints as adopters therefore overstates by one — the first hit is where the helper is
+  defined, not a site that calls it.
+
+★★ **THE PRODUCERS LANDED AND THE TREND DOES NOT CONSUME THEM — the two are not wired together, and
+this entry's closing paragraph asked the opposite question.** §163's numerator was closed on the same
+branch by reading `Task.completedDate`, so the distortion this entry feared ("the inline path becomes
+the only producer and the trend counts inline completions and no others") cannot occur: a missed
+writer cannot move the completion NUMERATOR at all. ★★ It CAN move the SERIES. Both kinds remain
+members of `COUNT_KINDS`, which also decides which days get SEEDED, so a status write that logs
+nothing drops a completion-only day from the sparkline and can take a sparse project back under the
+`days.length < 2` floor. Do not read "data-derived numerator" as "the audit log is decorative here".
+
+★ The recurrence gate is `src/app/status-activity-census.test.ts`, and it is a CONVENIENCE, not a
+proof: it is FILE-granular (a file with two writers where only one decides passes) and matches on
+SPELLING (a renamed anchor goes invisible). Its own header states both limits and records the two
+mutants that were run against it. Verified by
+`npx vitest run --maxWorkers=1 src/app/task-status.test.ts src/app/status-activity-census.test.ts src/app/use-jira-sync.test.tsx`.
+
+★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE**, kept as the diagnosis — same convention as §162,
+§164, §165 and §283.
+
+Original status, kept as written: open — a real gap in the audit trail. **Severity:** medium. Nothing
+is lost from the task itself; what is missing is the record that the change happened, and §163
+reconstructs completion trends from exactly that record. Reproduced 2026-08-28 by
+`grep -n "logActivityRef" src/app/use-task-row-handlers.ts`.
 
 `use-task-row-handlers.ts` owns the table row's status `<select>` (`onStatusChange`) and the Kanban
 swimlane drop (`onSwimlaneDrop`). Both write through `applyStatusChange`; neither logs:
@@ -21859,10 +21999,21 @@ MR → poll the MR-ref pipeline to `status:success` yourself → plain
 green. Gates: `npx tsc --noEmit` · `npm run lint` · `npm run size:check` · `npm run test:run` ·
 `npm run dup:check` · palette guards · axe. Internal a11y/refactor work = **no version bump**.
 
-## 283. Export sections emits an empty angle-bracket pair for a contact with no email
+## 283. Export sections emits an empty angle-bracket pair for a contact with no email — CLOSED 2026-08-30
 
-**Status:** open. Found 2026-08-28 by a cold review of the round-3 fix round, while checking whether
-`contactDisplay` is the canonical spelling of a contact's display string. It is not. Never machine-verified by a committed probe.
+**Status:** fixed 2026-08-30 on `fix/trend-numerator-and-audit-log` by `f73ff8e0`. There is now ONE
+rule: `contactDisplay` moved out of the project form into its own module `contact-display.ts`, and
+both the form and `export-sections.ts` import it — so the two surfaces cannot disagree for any input,
+not just the empty-email one this entry found. Verified 2026-08-30 by re-running this entry's own
+reproduce, which now matches NOTHING and exits 1:
+`grep -n 'cp.name} <\${cp.email}' src/app/export-sections.ts`. The live spelling is
+`grep -n contactDisplay src/app/export-sections.ts` → two lines, the import and one
+`persons.map(contactDisplay)` call site. Covered by
+`npx vitest run --maxWorkers=1 src/app/contact-display.test.ts`.
+
+★ **EVERYTHING BELOW DESCRIBES THE PRE-FIX TREE** and is kept as the diagnosis, not as a current
+reading — same convention as §162, §164 and §165. The fenced command below is the reading it gave on
+2026-08-28; it returns nothing today, and the Status line above says so.
 
 `export-sections.ts` builds the same string UNCONDITIONALLY:
 
@@ -22946,3 +23097,44 @@ that the names above exist, and the divergence needs a note past a cap to appear
 feeding one fixture through `sanitizeNoteLog` and `sanitizeSeedNoteLog` and asserting where they agree
 and where they do not is the only detector this will ever have — and it should PIN the difference as
 intended, not assert it away.
+
+## 299. Undo/redo restore flips a task's delivered-ness and writes no completion or reopening entry — open
+
+**Status:** open — **never machine-verified**. Nothing here has been EXECUTED; every reading below is
+of the call path, taken from the source on 2026-08-30 with these three commands:
+`grep -n -A 3 "export const TASK_UNDO_GROUPS" src/app/undo/field-groups.ts` (prints
+`["status", "completedDate"]` as the first group), `grep -rn "statusActivityKind" src/app/undo/` (no
+match, exit 1) and `grep -c 'logActivity("undo"\|logActivity("redo"' src/app/undo/use-undo-stack.ts`
+(prints 4 — the four log sites, all of which write `undo`/`redo` and nothing else). No committed test
+drives a mark-done through undo and asserts on what was logged.
+
+Carved out of
+[§235](#235-the-inline-status-control-writes-no-activity-log-entry-so-the-fastest-way-to-complete-a-task-leaves-no-audit-record--closed-2026-08-30)
+on close, 2026-08-30, when a cold review found that entry's Status line claiming "every path" over a
+five-writer population.
+
+**The gap.** `TASK_UNDO_GROUPS` pairs `status` with `completedDate`, so an undo restores both halves
+together — which is correct, and is what makes this a real transition rather than a partial write.
+Undo a mark-done and the task stops being delivered; redo it and it is delivered again. Both are
+transitions with a genuine before and after in hand, and both currently produce an `undo` / `redo`
+row and no `task.completed` / `task.reopened`.
+
+★★ **Two consequences, and the second is the one that is easy to miss.** The audit log loses the
+transition, which is the obvious half. The completion-trend SERIES can also move: both kinds are
+members of `COUNT_KINDS`, which decides which days SEED a point, so an undo that restores a task to
+undelivered leaves that day unseeded where the original completion seeded one. The NUMERATOR is safe
+either way — `deliveredBy` reduces over `tasks[].completedDate`, which the restore rewrites — so this
+is a missing point, never a wrong percentage.
+
+★★★ **Why it is NOT simply "call `statusActivityKind` in the runners".** The undo stack's log line is
+already load-bearing arithmetic: `logActivity("undo", count, ...reversedKindCounts(...))` feeds
+`reversedForwardDelta`, the THIRD delta shape in `completion-trend.ts` (neither `COUNT_KINDS` nor
+`BULK_TOTAL_KINDS` — see `docs/AGENTS/activity-log.md`). Emitting a second, separate
+`task.completed` / `task.reopened` row beside it would make the same restore count once through the
+reversal arithmetic and once through the ±1 arithmetic. Whatever the fix is, it has to decide which
+of the two owns the day, and a test has to pin that decision — this is a design question, not a
+missing call.
+
+★ **Not detectable by the census, at any anchor.** `status-activity-census.test.ts` walks `src/app`
+with a NON-recursive `readdirSync`, so `src/app/undo/` is never opened; widening `WRITER_ANCHORS`
+alone would not reach it. Its header records this as its third stated limitation.

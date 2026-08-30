@@ -8,6 +8,36 @@ This file is the authoritative per-version history. The current version and
 build date are exported by [`src/app/version.ts`](src/app/version.ts), which no
 longer carries its own changelog comment.
 
+## [0.267.0] - 2026-08-30 "Nagamatsu"
+
+### Fixed
+
+- **The Dashboard completion sparkline was really a picture of how many tasks you had, not of how
+  many you had finished.** On projects without snapshot history — which is every project that is not
+  on a database backend — the line's completed-task count never moved from day to day, so the only
+  thing that changed the curve was tasks being added or deleted. It now reads each task's completion
+  date, so the curve shows completion. Because that date is already stored with every finished task,
+  the corrected curve covers your existing history too, not just work done from today onwards.
+- **Changing a task's status from the Open Points table, or by dragging a card between Kanban
+  columns, left no trace in the activity log.** The two quickest ways to finish a task were the two
+  that went unrecorded, while pressing Undo on that same change *did* write an entry. Completing or
+  reopening a task now writes an activity entry from the table, the board, the task form, bulk edit,
+  the Action Center, the AI assistant and a Jira sync. Undo and Redo are the exception: they still
+  record themselves as such, not as the completion or reopening they turn out to be.
+- **A contact with no email address exported as their name followed by an empty pair of angle
+  brackets** — `Bob Jones <>`. The project form had always left the brackets off in that case; the
+  export now agrees with it and shows the name alone.
+
+### Changed
+
+- **The completion sparkline plots more days than it used to, and some points move.** This follows
+  from status changes now being recorded: the chart marks a point on any day the project's task
+  situation changed, and until now a day on which tasks were only *finished* was not one of those
+  days. Days on which work was completed but nothing was created or deleted now appear on the chart,
+  and points that were already there can shift — the corrected completion count is read per day
+  rather than carried back from today's figure, so earlier points read lower and more accurately
+  than before. A project with too little recorded history to draw a chart at all may now show one.
+
 ## [0.266.0] - 2026-08-30 "VanderMeer"
 
 ### Fixed

@@ -144,9 +144,15 @@ export function DashboardPanel(props: DashboardPanelProps) {
   const noActiveScope = hasNoActiveScope(model.progress);
   const completionSeries = useMemo(
     () =>
-      computeCompletionTrend({ snapshots, activity, currentDone, currentTotal, today }),
+      computeCompletionTrend({ snapshots, activity, tasks: props.tasks, currentDone, currentTotal, today }),
+    // ★★ `props.tasks` and NOT `props.tasks.length`, which is what the
+    //   neighbouring scalar deps (`snapCount`, `activityCount`) make the obvious
+    //   reach. The numerator depends on `completedDate` VALUES, not on how many
+    //   tasks there are: a date edited to a different past day leaves the count
+    //   identical and the curve stale, and the disable below means the linter
+    //   cannot catch it either.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [snapCount, activityCount, currentDone, currentTotal, today],
+    [snapCount, activityCount, props.tasks, currentDone, currentTotal, today],
   );
 
   // Landing cockpit: greeting + "since you last looked" delta.

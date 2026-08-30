@@ -22,7 +22,8 @@ import type { EscalateBundle } from "./escalate-popover";
 import type { RebaselineBundle } from "./rebaseline-popover";
 import type { RescheduleBundle } from "./reschedule-popover";
 import { applyOwnerAssignment } from "./action-assign-owner";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
+import type { ActivityKind } from "./activity-log";
 import { buildTaskSeedFromAction } from "./action-task-seed";
 import { emptyForm } from "./task-form-context";
 import { resolveDraftRecipient, buildMailtoUrl } from "./mailto";
@@ -60,6 +61,11 @@ export interface ActionCenterHandlerDeps {
   pendingLinkRaidIdRef: MutableRefObject<number | null>;
   recordLearning: (action: SuggestedAction, type: OutcomeType) => Promise<void>;
   showToast: (kind: "info" | "error", text: string) => void;
+  /** ★ REQUIRED, matching every other member of this bag — none is optional.
+   *  An optional logger here would let a caller wire the hook up and silently
+   *  get no audit trail, which is the exact defect (open-followups §235) this
+   *  thread exists to close. `task-manager.tsx` must pass `logActivityUser`. */
+  logActivity: (kind: ActivityKind, ...args: (string | number)[]) => void;
 }
 
 export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
@@ -88,6 +94,7 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     pendingLinkRaidIdRef,
     recordLearning,
     showToast,
+    logActivity,
   } = deps;
 
   const assignOwnerBundle = useMemo<AssignOwnerBundle | undefined>(
@@ -141,9 +148,17 @@ export function useActionCenterHandlers(deps: ActionCenterHandlerDeps) {
     if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;
     const id = Number(action.cta.id);
     setTasks((prev) => prev.map((tk) => (tk.id === id ? applyStatusChange(tk, "Done", today) : tk)));
+    // The row is read from the live `tasks` prop — the same source the sibling
+    // handlers in this file already use (there is no tasks ref here). Decided
+    // OUTSIDE the setter so StrictMode's double-invoke cannot double-log.
+    const before = tasks.find((tk) => tk.id === id);
+    if (before) {
+      const transition = statusActivityKind(before, applyStatusChange(before, "Done", today));
+      if (transition) logActivity(transition, id, before.taskName);
+    }
     void recordLearning(action, "acted");
     showToast("info", t(lang, "actionTaskCompleted"));
-  }, [setTasks, today, recordLearning, showToast, lang]);
+  }, [setTasks, tasks, today, recordLearning, showToast, lang, logActivity]);
 
   const handleClearBlockerFromAction = useCallback((action: SuggestedAction) => {
     if (action.cta.kind !== "open" || action.cta.view !== "open-points") return;

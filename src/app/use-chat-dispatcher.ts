@@ -40,7 +40,7 @@ import {
 } from "./sanitize";
 import { sanitizeAiRichText } from "./ai-rich-text";
 import { emptyForm, useTaskForm } from "./task-form-context";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
 import { DEFAULT_TASK_STATUS, TASK_STATUSES, type Task, type TaskStatus } from "./types";
 import { useWorkspace } from "./workspace-context";
 import { useDocumentTools } from "./use-document-tools";
@@ -311,6 +311,10 @@ export function useChatDispatcher(args: ChatDispatcherArgs): ToolDispatcher {
         tasksRef.current = next;
         setTasks(next);
         args.logActivityAs?.("ai", "task.updated", merged.id, merged.taskName);
+        // ★ The `"ai"` actor is required: this file logs MODEL writes, and
+        // threading the user actor here would misattribute them.
+        const transition = statusActivityKind(existing, merged);
+        if (transition) args.logActivityAs?.("ai", transition, merged.id, merged.taskName);
         return merged;
       },
       setTaskDependencies: (id, raw) => {

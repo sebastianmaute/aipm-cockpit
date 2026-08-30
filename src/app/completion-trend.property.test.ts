@@ -29,7 +29,7 @@ describe("computeCompletionTrend properties", () => {
           }));
           const total = Math.max(done, totalRaw);
           const out = computeCompletionTrend({
-            snapshots: [], activity, currentDone: done, currentTotal: total, today: "2026-12-31",
+            snapshots: [], activity, tasks: [], currentDone: done, currentTotal: total, today: "2026-12-31",
           });
           expect(out.length).toBeLessThanOrEqual(MAX_POINTS);
           for (const p of out) {

@@ -17,7 +17,7 @@ import {
   sanitizeVoiceTranscript,
 } from "./sanitize";
 import { buildBulkEditUpdates, buildInquiryMessage } from "./bulk-operations-helpers";
-import { applyStatusChange } from "./task-status";
+import { applyStatusChange, statusActivityKind } from "./task-status";
 import { todayInZone, resolveTimezone } from "./timezone";
 import { captureFieldPart, type UndoStackApi } from "./undo/use-undo-stack";
 import { TASK_UNDO_GROUPS, buildBulkFieldEdits } from "./undo/field-groups";
@@ -321,6 +321,25 @@ export function useBulkOperations(args: UseBulkOperationsArgs) {
     // `targetIds.length > 0` test carried, now implied by construction.
     if (editedIds.size > 0) {
       setTasks((prev) => prev.map((row) => (editedIds.has(row.id) ? patchRow(row) : row)));
+      // PER ROW, not once per batch: `activityTaskCompleted` is "Task #{0}
+      // marked complete: {1}", which names ONE task and has no room for a
+      // count. (An earlier revision added "and neither completion kind is in
+      // `BULK_TOTAL_KINDS`, so neither carries a count the way `bulk.edit`
+      // does" — false, and disproved by its own example: `bulk.edit` is NOT a
+      // member of that set either, yet it renders "{0} task(s)". Membership
+      // governs the completion-trend DENOMINATOR, not message arity.)
+      // Driven off `editedIds` so the entries
+      // describe exactly the rows the write above touched — a synced row (whose
+      // `patchRow` never applies status) and a non-status edit both yield `null`
+      // from the helper, so this is self-gating on top of that.
+      // ★ Deliberately OUTSIDE the setter: `patchRow` is already called twice
+      // per row (once to build the undo edits, once in the updater above), and
+      // logging from in there would double every entry under StrictMode.
+      for (const row of beforeRows) {
+        if (!editedIds.has(row.id)) continue;
+        const transition = statusActivityKind(row, patchRow(row));
+        if (transition) logActivityRef.current(transition, row.id, row.taskName);
+      }
     }
     if (bucketsChanged) {
       commitBuckets(nextBuckets, { kind: "bulk.edit", primaryCount: count, tasksPart, callerLogs: true });

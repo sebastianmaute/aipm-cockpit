@@ -1,11 +1,15 @@
 // Pure, i18n-free engine for the Dashboard completion-trend sparkline.
 // Produces a chronological series of % complete (0–100). Prefers exact Turso
-// snapshot history; falls back to reconstructing done/total from the local
-// activity log when there are fewer than two snapshots. No I/O, no clock —
-// `today`, `currentDone`, `currentTotal` are passed in.
+// snapshot history; falls back to reconstructing the series when there are
+// fewer than two snapshots. That fallback splits its two halves: the
+// DENOMINATOR is walked back through the local activity log, the NUMERATOR is
+// READ from `tasks[].completedDate`. No I/O, no clock — `today`, `tasks`,
+// `currentDone`, `currentTotal` are passed in.
 
 import type { SnapshotRecord } from "./snapshot";
 import type { ActivityEntry } from "./activity-log";
+import { isTaskDelivered } from "./task-closed";
+import type { Task } from "./types";
 
 export interface CompletionPoint {
   /** Short day label "MM-DD" for tooltips/labels. */
@@ -17,6 +21,13 @@ export interface CompletionPoint {
 export interface CompletionTrendInput {
   snapshots: readonly SnapshotRecord[];
   activity: readonly ActivityEntry[];
+  /** Live task list — the numerator's source for every point but the last.
+   *
+   *  ★★ A task's `completedDate` states when it was delivered, so the historical
+   *     numerator is READ rather than reconstructed. That is what makes it work
+   *     retroactively over data already on disk: an event-producer fix would
+   *     leave the curve flat over all history already recorded. */
+  tasks: readonly Task[];
   /** Live completed-task count (model.progress.completed). */
   currentDone: number;
   /** Live IN-SCOPE task count (model.progress.inScope — total minus cancelled),
@@ -195,35 +206,66 @@ function reversedForwardDelta(args: readonly (string | number)[]): number {
   return delta;
 }
 
-type DayDelta = { day: string; dDone: number; dTotal: number };
+type DayDelta = { day: string; dTotal: number };
 
 function reconstructFromActivity(
   activity: readonly ActivityEntry[],
+  tasks: readonly Task[],
   currentDone: number,
   currentTotal: number,
   today: string,
 ): CompletionPoint[] {
-  // Per-day deltas from task events (created/deleted/bulk-delete move total;
-  // completed/reopened move done). Deleted task's done-state is unknown ->
-  // assumed not done (documented approximation).
+  // Per-day deltas from task events move the DENOMINATOR only
+  // (created/deleted/bulk-delete). The NUMERATOR is read from task data below.
   //
-  // ★★★ THE NUMERATOR IS STILL CONSTANT ACROSS EVERY RECONSTRUCTED DAY, and
-  //   §163's bulk-delete fix does not change that — only the denominator moves,
-  //   so this reconstruction is a curve about TASK COUNT, not about completion.
-  //   `dDone` is fed solely by `task.completed` / `task.reopened`, and NOTHING
-  //   in the app writes either kind: a status change to Done logs `task.updated`
-  //   from every writer. Verify before reasoning about it:
-  //     git grep -nE '"task\.(completed|reopened)"' -- 'src/app/*.ts' 'src/app/*.tsx' | grep -v '\.test\.'
-  //   → only this file and `activity-log.ts` (the union member + its message row).
-  // ★★ IT IS NOT CLOSABLE BY READING `changes` FOR A STATUS DIFF, which is the
-  //   obvious fix and was measured before being rejected: the AI's `update_task`
-  //   logs with NO `changes` array (`use-chat-dispatcher.ts` calls
-  //   `logActivityAs?.("ai", "task.updated", id, name)`), while a form save
-  //   passes `diffFields(...)`. So a changes-based numerator would move for user
-  //   edits and not for AI ones — reintroducing exactly the user/AI asymmetry
-  //   §163 exists to remove, one metric over. Closing it needs a real
-  //   `task.completed` writer, which is a design slice. See open-followups §163.
-  const byDay = new Map<string, { dDone: number; dTotal: number }>();
+  // ★★★ `task.completed` and `task.reopened` STAY IN `COUNT_KINDS` WITH NO
+  //   DELTA ARM, AND DELETING THEM DROPS EVERY COMPLETION-ONLY DAY FROM THE
+  //   SERIES. `COUNT_KINDS` does ONE job here: deciding which days get SEEDED.
+  //   A day on which something was delivered but nothing was created or deleted
+  //   moves no `dTotal` at all, yet the percent moves on it, so it must seed.
+  // ★★ The zero-delta warning just below is about UNDO and does NOT generalise
+  //   to these two. A reverted edit seeds a point carrying no information; a
+  //   completion seeds one carrying the only information this chart is about.
+  //
+  // ★★★ NO CLAMP, DELIBERATELY — AND *NOT* BECAUSE A CLAMP WOULD DO NOTHING.
+  //   Two successive revisions of this note contradicted each other in place:
+  //   the first called a `Math.max(total, done)` here "dead code a later reader
+  //   mistakes for load-bearing", the second correctly observed that
+  //   `clampPctFromCounts` returns 0 when `total <= 0`. Both cannot hold, and
+  //   the second is the true one — the clamp is a BEHAVIOUR CHANGE, and a bad
+  //   one. Do not reinstate the dead-code wording; it reads as permission.
+  //   The numerator is read from live task fields while the denominator is
+  //   reconstructed from an activity ring that caps and forgets
+  //   (`ACTIVITY_MAX_ENTRIES`), so a stale `total` CAN sit under `done` — and
+  //   the backward walk can drive it to 0 outright while `deliveredBy` stays
+  //   positive. `clampPctFromCounts` opens with `if (total <= 0) return 0` and
+  //   `endState` floors `total` at 0, so that day renders 0%. Clamping `total`
+  //   up to `done` makes `total === done`, which renders 100%.
+  // ★★ MEASURED 2026-08-30 by mutating the `endState[i] = …` line below to
+  //   `Math.max(Math.max(0, total), Math.max(0, done))` and re-running the
+  //   fixture through `npx vite-node`, then reverting — not reasoned. One task
+  //   delivered 06-10 plus `task.created` days 06-12 and 06-14, `currentDone`
+  //   1, `currentTotal` 2, today 06-21: as shipped
+  //   `[06-10 → 0, 06-12 → 100, 06-14 → 50]`; with the clamp
+  //   `[06-10 → 100, 06-12 → 100, 06-14 → 50]`.
+  //   So the real question is WHICH WRONG NUMBER IS SAFER, and 0% wins: it is a
+  //   benign reading of a prefix the ring has forgotten, while a confident 100%
+  //   asserts the project was finished on a day it was not.
+  // ★ The "raw counts never leave this function" fact is TRUE and worth
+  //   keeping, it is simply not an argument that the clamp is inert: `endState`
+  //   is local and each pair is rendered through `clampPctFromCounts` into a
+  //   `CompletionPoint` carrying only `label` and `percent`, so no consumer
+  //   ever sees a `done > total` pair and none has to defend against one.
+  // ★★ THE NUMERATOR IS EXACT ONLY FOR TASKS STILL PRESENT. A row delivered on
+  //   day D and later DELETED, or REOPENED (`applyStatusChange` writes
+  //   `completedDate: ""` for any non-Done status), drops out of every
+  //   historical numerator RETROACTIVELY while the walk still restores its
+  //   create/delete events into the denominator. Measured: 10 tasks, 5 delivered by 06-10,
+  //   all 5 bulk-deleted on 06-20 → the walk restores a total of 10 on 06-10
+  //   while `deliveredBy("2026-06-10")` returns 0, so the point reads 0% where
+  //   the truth was 50%. A documented approximation, not a regression — the
+  //   event-counted numerator this replaced read 0% there too.
+  const byDay = new Map<string, number>();
   for (const e of activity) {
     // ★★ An undo/redo whose reversal decodes to 0 must fall through to `continue`
     //    and NOT seed a day: it would add a zero-delta point to the sparkline for
@@ -235,30 +277,54 @@ function reconstructFromActivity(
     if (reversal === 0 && !isBulk && !COUNT_KINDS.has(e.kind)) continue;
     const day = e.timestamp.slice(0, 10);
     if (day > today) continue; // clock-skew guard
-    const cur = byDay.get(day) ?? { dDone: 0, dTotal: 0 };
     // ★ Reversal first, then bulk: both read their delta from the entry rather
     //   than implying it from the kind, so neither can reach the ±1 chain below.
-    if (reversal !== 0) cur.dTotal += reversal;
-    else if (isBulk) cur.dTotal -= bulkTaskCount(e.args);
-    else if (e.kind === "task.created") cur.dTotal += 1;
-    else if (e.kind === "task.deleted") cur.dTotal -= 1;
-    else if (e.kind === "task.completed") cur.dDone += 1;
-    else if (e.kind === "task.reopened") cur.dDone -= 1;
-    byDay.set(day, cur);
+    let dTotal = 0;
+    if (reversal !== 0) dTotal = reversal;
+    else if (isBulk) dTotal = -bulkTaskCount(e.args);
+    else if (e.kind === "task.created") dTotal = 1;
+    else if (e.kind === "task.deleted") dTotal = -1;
+    // A completion kind falls through with dTotal 0 and STILL seeds the day.
+    byDay.set(day, (byDay.get(day) ?? 0) + dTotal);
   }
   const days: DayDelta[] = [...byDay.entries()]
-    .map(([day, d]) => ({ day, ...d }))
+    .map(([day, dTotal]) => ({ day, dTotal }))
     .sort((a, b) => a.day.localeCompare(b.day));
   if (days.length < 2) return [];
 
-  // Walk backward: the last event-day's END state = current; subtract each
-  // day's delta to get the end state of the previous day. Floor counts at 0.
+  // Walk backward for the DENOMINATOR only: the last event-day's END state =
+  // current, so subtract each day's delta to get the previous day's end state.
+  // The NUMERATOR is read from `tasks` per day — except for the last point,
+  // which stays on `currentDone` so it agrees with the completion tile rendered
+  // directly above the sparkline (see the `currentTotal` doc comment).
+  // ★★ `isTaskDelivered`, never an inline `!!t.completedDate`. The repo keeps
+  //   DELIVERED ("was it completed?") and CLOSED ("will it be worked on
+  //   again?") apart on purpose — see `task-closed.ts` — and this numerator is
+  //   the canonical DELIVERED reader. The call is behaviourally identical to
+  //   the expression it replaced; what it buys is that the question is named.
+  // ★ KNOWN, UNCHANGED EDGE, and the import does NOT close it: a split row
+  //   carrying `status: "Cancelled"` beside a `completedDate` — which
+  //   `migrateTask` deliberately does not repair — is OUT of the progress
+  //   model's in-scope denominator yet counted here, so it inflates the
+  //   historical points. `isTaskDelivered` reads `completedDate` alone, so
+  //   filtering it out would need `!isTaskClosed` beside it, which would ALSO
+  //   drop every legitimately Done row. Left as-is deliberately.
+  // ★★ COST: this runs inside the backward loop over EVERY day, so the walk is
+  //   O(distinct activity days × |tasks|). `trailing()`/`MAX_POINTS` bounds the
+  //   RETURNED series, not this work — it is applied to the finished `points`
+  //   array below. Distinct days is bounded only by `ACTIVITY_MAX_ENTRIES`
+  //   (500), so the worst case is small; do not optimise it.
+  const deliveredBy = (day: string): number =>
+    tasks.reduce(
+      (n, t) => (isTaskDelivered(t) && t.completedDate! <= day ? n + 1 : n),
+      0,
+    );
+
   const endState: { done: number; total: number }[] = new Array(days.length);
-  let done = currentDone;
   let total = currentTotal;
   for (let i = days.length - 1; i >= 0; i--) {
+    const done = i === days.length - 1 ? currentDone : deliveredBy(days[i].day);
     endState[i] = { done: Math.max(0, done), total: Math.max(0, total) };
-    done -= days[i].dDone;
     total -= days[i].dTotal;
   }
   const points = days.map((d, i) => ({
@@ -271,5 +337,11 @@ function reconstructFromActivity(
 export function computeCompletionTrend(input: CompletionTrendInput): CompletionPoint[] {
   const snap = fromSnapshots(input.snapshots);
   if (snap.length >= 2) return snap;
-  return reconstructFromActivity(input.activity, input.currentDone, input.currentTotal, input.today);
+  return reconstructFromActivity(
+    input.activity,
+    input.tasks,
+    input.currentDone,
+    input.currentTotal,
+    input.today,
+  );
 }
