@@ -134,7 +134,19 @@ export class LocalFileBackend implements StorageBackend {
     return await hasGrantedPermission(handle, "readwrite");
   }
 
-  async load(): Promise<Workspace> {
+  /**
+   * Load from an EXPLICIT handle, without consulting or touching stored state.
+   *
+   * ★★★ THIS IS THE READ HALF OF THE COMMIT-ON-ACCEPT SPLIT (§287). A caller
+   * that has picked a file but not yet been authorised to adopt it reads
+   * through here; nothing it does can re-point the backend. `load()` is the
+   * thin wrapper that supplies the STORED handle.
+   * ★★ Both diagnostic mechanisms live in this body unchanged — the `finally`
+   * publishing `lastLoadTruncation`, and the import-flag reset above the first
+   * possible exit. Adding an early return here is the shape that broke
+   * `sharepoint-backend.load()`; do not add one.
+   */
+  async loadFrom(handle: FsHandle | null): Promise<Workspace> {
     // ★★ ONE accumulator, and every diagnostic field written on every exit.
     // An exit that left a field unwritten would keep a STALE value from the
     // PREVIOUS load, worse than zero because it would raise a data-loss warning
@@ -172,7 +184,6 @@ export class LocalFileBackend implements StorageBackend {
     this.lastImportUnterminatedQuote = false;
     this.lastImportMalformedQuotes = 0;
     try {
-      const handle = await this.getHandle();
       if (!handle) throw new StorageNotReadyError("local-file-not-picked");
       if (!(await hasGrantedPermission(handle, "read"))) {
         throw new StorageNotReadyError("local-file-permission-needed");
@@ -193,6 +204,10 @@ export class LocalFileBackend implements StorageBackend {
         blocks: diag.truncatedBlocks ?? 0,
       };
     }
+  }
+
+  async load(): Promise<Workspace> {
+    return this.loadFrom(await this.getHandle());
   }
 
   async save(ws: Workspace): Promise<void> {
