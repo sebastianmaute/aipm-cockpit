@@ -2530,10 +2530,18 @@ function TaskManagerInner() {
       {!isPopout && loadWasIncomplete && (
         <SavingPausedBanner lang={lang} cause={{ kind: "truncation", truncation, decodeFailureCount, malformedQuoteCount }} dismissed={truncationBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowIncompleteSave} onDismiss={() => setTruncationBannerDismissed(true)} onReopen={() => setTruncationBannerDismissed(false)} />
       )}
-      {/* ★ A SIBLING of the truncation mount, never an `else` on it: the two
-          causes are mutually exclusive by the save effect's control flow, so at
-          most one of these conditions can hold and nesting them would only hide
-          that fact. */}
+      {/* ★ A SIBLING of the truncation mount, never an `else` on it: the two causes
+          are mutually exclusive UPSTREAM, by TWO mechanisms — the save effect returns
+          on truncation ABOVE the destructive guard (no NEW refusal while truncation
+          stands), and its suppress-after-load branch clears a standing refusal (no OLD
+          refusal outlives its workspace). An `else` would ENCODE that exclusivity here
+          and hide where it is actually enforced.
+          ★★ So these siblings are UNGUARDED against each other on purpose, and the cost
+          is visible: were the combined state ever reachable again, BOTH would render —
+          two `role="alert"` regions, two identically-named Dismiss buttons, and two
+          "save anyway" buttons authorising different things. That consequence is
+          characterized in `task-manager.truncation-banner.test.tsx`; the exclusivity
+          itself is pinned in `use-storage-backend.test.tsx`, which is where it lives. */}
       {!isPopout && destructiveRefusal !== null && (
         <SavingPausedBanner lang={lang} cause={{ kind: "destructive", prevRecords: destructiveRefusal.prevRecords, curRecords: destructiveRefusal.curRecords, fullWipe: destructiveRefusal.fullWipe }} dismissed={destructiveBannerDismissed} hasFooterIndicator={settings.layout !== "classic"} onSaveAnyway={allowDestructiveSaveAnyway} onDismiss={() => setDestructiveBannerDismissed(true)} onReopen={() => setDestructiveBannerDismissed(false)} />
       )}
@@ -2731,8 +2739,13 @@ function TaskManagerInner() {
             storageReady={storageOk && !loadWasIncomplete && destructiveRefusal === null}
             savingPaused={!isPopout && (loadWasIncomplete || destructiveRefusal !== null)}
             // ★ Clearing BOTH dismissals is correct, not sloppiness: the two causes
-            // cannot hold at once, so at most one banner is standing and clearing
-            // the other flag is a no-op.
+            // cannot hold at once — truncation returns ABOVE the destructive guard so
+            // no new refusal is raised, AND the save effect's suppress-after-load
+            // branch clears a standing refusal so none outlives its workspace — so at
+            // most one banner is standing and clearing the other flag is a no-op.
+            // ★ It stays correct if that ever stopped holding: clearing both re-shows
+            // both, which is the honest outcome for a user who asked to see why
+            // saving is paused.
             onRestoreSavingNotice={() => { setTruncationBannerDismissed(false); setDestructiveBannerDismissed(false); }}
             isSignedIn={msAuth.account != null}
             accountName={msAuth.account?.username ?? null}

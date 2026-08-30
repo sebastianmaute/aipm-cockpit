@@ -5,10 +5,23 @@
 // blocking state, and both hand the user one explicit way out; keeping them the
 // same shape is what lets ONE banner render either cause.
 //
-// ★★★ THE TWO LOCKOUTS CANNOT BE ACTIVE AT ONCE, and that is a property of the
-// save effect's control flow, not a convention: `use-storage-backend.ts` calls
-// `mayCommitAfterIncompleteLoad()` and returns EARLY above `evaluate` below, so
-// a destructive verdict is unreachable while a truncation lockout stands.
+// ★★★ THE TWO LOCKOUTS CANNOT BE ACTIVE AT ONCE, AND IT TAKES TWO MECHANISMS.
+// The early return is only half the argument: `use-storage-backend.ts` calls
+// `mayCommitAfterIncompleteLoad()` and returns above `evaluate` below, which
+// proves a NEW destructive verdict cannot be RAISED while a truncation lockout
+// stands — and says nothing about the other order, a STANDING refusal meeting a
+// newly-raised truncation. Both directions are closed, one each:
+//   (a) truncation-first — `allowIncompleteSave` clears all three truncation
+//       states (`use-load-truncation.ts`), so the lockout it holds is the only
+//       one that can outlive itself;
+//   (b) refusal-first — the save effect's suppress-after-load branch calls
+//       `clearRefusal`, and every load/switch/create sets that flag, so a
+//       refusal cannot outlive the workspace whose baselines raised it.
+// ★★ (b) IS NEW, AND ITS ABSENCE MADE THE COMBINED STATE REACHABLE: a refusal
+// raised on one project survived a switch to another and stood there alongside
+// that project's fresh truncation. Every comment that called the state
+// impossible cited the early return alone, which never covered this direction.
+// Do not shorten either half back to "the save effect returns on truncation".
 //
 // ★★ `evaluate` SETS STATE, and that is why it lives here rather than inline in
 // the save effect. `react-hooks/set-state-in-effect` is fatal under

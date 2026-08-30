@@ -2795,6 +2795,133 @@ describe("useStorageBackend — §103 truncated-load guard", () => {
     );
   });
 
+  // ── a refusal must not outlive the workspace whose baselines raised it ────
+  // ★★★ THE ONLY THING THAT EVER CLEARED A REFUSAL WAS A COMMITTED SAVE, and a
+  // project you have just switched away from never commits one. So a refusal
+  // raised on project A survived a reload, a project switch, an opened file and
+  // a BRAND-NEW project, and stood there quoting A's magnitudes. What that costs
+  // on the new project: the banner says saving is paused when it is not, the
+  // sidebar reports the project not-ready, and — the one that loses data — a
+  // GENUINE mass deletion on the new project is refused SILENTLY, because
+  // `refusalWasStanding` suppresses the announcement. The user is then offered
+  // one exit, under a banner describing a different project's records, and
+  // taking it authorises whatever is actually pending.
+  // ★★ THE ARM ITSELF IS NOT THE HAZARD, and an earlier framing of this said it
+  // was. `allowDestructiveSaveAnyway` arms AND clears, `destructive.refusal` is
+  // a dep of the save effect, and `consumeArm()` is that effect's FIRST
+  // statement — so the arm is spent by the very effect run the clearing
+  // triggers, never carried to a later edit. What the stale banner buys is a
+  // MISINFORMED consent, not a floating bypass.
+  it("drops a standing refusal when a load/apply replaces the workspace", async () => {
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });   // 20 records → baseline 20
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    // Raise a refusal: 19 of 20 records deleted with nothing armed.
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(backend.save).not.toHaveBeenCalled();               // control: the guard engaged
+    expect(result.current.destructiveRefusal).not.toBeNull();  // control: the refusal really stands
+
+    // The load/apply. `reloadCurrentProject` is the cheapest of the NINE sites
+    // that set `suppressNextSaveRef`; the branch it reaches is shared by all of
+    // them, project switch and create included, which is why one clear covers
+    // the lot (see the comment on that branch).
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.destructiveRefusal).toBeNull();
+  });
+
+  it("judges the next mass deletion after a suppressed load as a NEW refusal, not a continuing one", async () => {
+    // ★★★ THE CONSEQUENCE THAT MATTERS, and the reason the state assertion above
+    // is not enough on its own. A carried-over refusal makes `refusalWasStanding`
+    // true for the first real deletion on the NEW project, and the guard
+    // announces a refusal ONLY when it is new — so the deletion is withheld in
+    // silence, under a banner already on screen quoting the OLD project's
+    // counts. This test's kill line is the toast, not the `save` assertion:
+    // `save` is not called either way, so a version asserting only that passes
+    // against the unfixed tree.
+    // ★ There is no direct observable for `allowDestructiveRef` through this
+    // hook's surface, and there does not need to be — see the ★★ above: the arm
+    // cannot outlive the effect run that clears the refusal. The reachable harm
+    // is this silence, so this is what is pinned.
+    const backend = useReloadableBackend();
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    backend.save.mockClear();
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());  // control: project A was announced
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    // Everything from here on is the NEW project's own story.
+    backend.save.mockClear();
+    showToastAction.mockClear();
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(backend.save).not.toHaveBeenCalled();                          // still withheld…
+    expect(showToastAction).toHaveBeenCalledWith(...refusalToastArgs());  // …and this time SAID so
+  });
+
+  it("leaves exactly ONE lockout standing when a truncating load arrives on a refusal", async () => {
+    // ★★★ THE CLAIM FIVE COMMENTS MAKE, AND THIS IS WHERE IT LIVES. They assert
+    // the two lockouts cannot hold at once and used to justify it with the
+    // truncation early return ALONE — which proves only that no NEW refusal is
+    // raised while truncation stands, and says nothing about this order. This
+    // combination WAS reachable: refuse on A, switch to a project whose load
+    // truncates, and both were up at once. The banner mounts are siblings with
+    // no guard between them, so that state rendered two stacked banners.
+    // ★ The fixture loads CLEAN first and truncates only on the reload — a
+    // backend that truncates from the start never lets a save commit, so no
+    // refusal could be established to carry.
+    let loads = 0;
+    const backend = {
+      load: vi.fn(async () => {
+        loads += 1;
+        backend.lastLoadTruncation = loads > 1 ? { entries: 5, blocks: 0 } : undefined;
+        return { tasks: manyTasks, raid: [], absences: [], shifts: [] };
+      }),
+      save: vi.fn().mockResolvedValue(undefined),
+      isReady: vi.fn().mockResolvedValue(true),
+      describe: vi.fn().mockResolvedValue(null),
+      lastLoadTruncation: undefined as { entries: number; blocks: number } | undefined,
+    };
+    (storageMod.createBackend as ReturnType<typeof vi.fn>).mockReturnValue(backend);
+
+    const { result } = renderBackend();
+    await act(async () => { await Promise.resolve(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.loadWasIncomplete).toBe(false);   // control: the FIRST load was clean
+
+    await act(async () => { result.current.setTasks([{ id: 1, taskName: "T" }] as unknown as Task[]); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+    expect(result.current.destructiveRefusal).not.toBeNull();
+
+    await act(async () => { await result.current.reloadCurrentProject(); });
+    await act(async () => { vi.advanceTimersByTime(600); });
+    await act(async () => { await Promise.resolve(); });
+
+    expect(result.current.loadWasIncomplete).toBe(true);      // the new lockout took over…
+    expect(result.current.destructiveRefusal).toBeNull();     // …and the old one did not linger
+  });
+
   // ── a refusal is a standing OUTAGE, not one lost save ─────────────────────
   // ★★★ The refusal keeps the baselines ("so a later change re-evaluates"), so
   // `prevRecords` stays at 20 while `curRecords` stays at 1 — `isMassDeletion`

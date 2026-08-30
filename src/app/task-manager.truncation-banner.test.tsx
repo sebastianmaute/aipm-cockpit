@@ -281,10 +281,21 @@ describe("task-manager → destructive-refusal banner mount", () => {
 
   beforeEach(() => {
     allowAnyway = vi.fn();
-    // ★ NO truncation. The two lockouts cannot hold at once (the save effect
-    // returns on truncation ABOVE the destructive guard), so staging both would
-    // pin a state the app cannot reach — and the truncation banner would satisfy
-    // a loosely-written query here.
+    // ★ NO truncation — but NOT for the reason that used to sit here. That
+    // comment said staging both "would pin a state the app cannot reach", and
+    // the state WAS reachable: a refusal raised on one project outlived a
+    // switch and met the new project's truncating load. Its justification (the
+    // save effect returns on truncation ABOVE the destructive guard) only ever
+    // covered the OTHER order — a new refusal while truncation stands.
+    // Exclusivity takes TWO mechanisms: (a) `allowIncompleteSave` clears all
+    // three truncation states, and (b) the save effect's suppress-after-load
+    // branch clears a standing refusal, on all nine load/switch/create paths.
+    // ★★ Neither can be pinned HERE: this file overrides the storage hook, so
+    // it stages banner inputs directly and can never exercise the guard that
+    // makes them exclusive. Both live in `use-storage-backend.test.tsx`. What
+    // this beforeEach is really doing is the SECOND half of the old comment,
+    // which was sound on its own: the truncation banner would satisfy a loosely
+    // written query for the destructive one, so stage one cause per test.
     override.value = {
       storageReady: true,
       truncation: null,
@@ -352,5 +363,37 @@ describe("task-manager → destructive-refusal banner mount", () => {
     expect(destructiveBanner()).toBeNull();
     expect(pausedControl()).toBeNull();
     await waitFor(() => expect(footerSeen.storageReady).toContain(true), { timeout: 40000 });
+  }, 45000);
+
+  it("stacks BOTH banners when both causes are staged — the price of the sibling mounts", async () => {
+    // ★★★ A CHARACTERIZATION OF THE MOUNT LAYER, NOT A CLAIM THAT THIS HAPPENS.
+    // The two JSX mounts in `task-manager.tsx` are siblings with no guard
+    // between them, deliberately: the exclusivity is enforced upstream in the
+    // save effect, and an `else` here would ENCODE it where it is not enforced
+    // and hide where it is. The price is that the mount layer degrades badly
+    // rather than safely — and it degraded for real, because until the
+    // suppress-after-load branch learned to clear a standing refusal this
+    // combination WAS reachable (refuse on one project, switch to a project
+    // whose load truncates).
+    // ★ So this asserts what the app DOES in that state, not what it should. If
+    // you guard the destructive mount against `loadWasIncomplete`, THIS is the
+    // test to rewrite, and what makes that safe is
+    // `use-storage-backend.test.tsx`'s "leaves exactly ONE lockout standing when
+    // a truncating load arrives on a refusal" — the pin for the real invariant.
+    override.value = { ...override.value, truncation: TRUNCATED, loadWasIncomplete: true };
+    await mountApp();
+    expect(banner()).not.toBeNull();
+    expect(destructiveBanner()).not.toBeNull();
+
+    // The concrete damage, and the reason upstream exclusivity is worth having:
+    // two live controls, same role, same accessible name, different meanings —
+    // the duplicate-name class the axe gate provably cannot see.
+    const truncationDismiss = within(banner() as HTMLElement).getByRole("button", { name: /dismiss/i });
+    const destructiveDismiss = within(destructiveBanner() as HTMLElement).getByRole("button", { name: /dismiss/i });
+    expect(destructiveDismiss).not.toBe(truncationDismiss);
+    // ★ Read the attribute, not the rendered text: `DismissButton` sets both, so
+    // an assertion on `textContent` would still pass if only one carried a name.
+    expect(truncationDismiss.getAttribute("aria-label")).toBeTruthy();
+    expect(destructiveDismiss.getAttribute("aria-label")).toBe(truncationDismiss.getAttribute("aria-label"));
   }, 45000);
 });

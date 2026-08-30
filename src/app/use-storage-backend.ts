@@ -412,6 +412,36 @@ export function useStorageBackend(args: UseStorageBackendArgs) {
     if (suppressNextSaveRef.current) {
       suppressNextSaveRef.current = false;
       destructive.syncBaselines(curCollections, curRecords); // sync baselines on a load/apply
+      // ★★★ AND DROP ANY STANDING REFUSAL — a refusal is scoped to the workspace that
+      //   raised it. The baselines it was measured against were just replaced one line up,
+      //   so it now quotes magnitudes ("847 of 900 records") belonging to a project that is
+      //   no longer on screen. Left standing it survives a reload, a project switch, an
+      //   opened file and a BRAND-NEW project: the banner claims saving is paused on the new
+      //   project while it is not, the sidebar reports the new project as not-ready
+      //   (`storageReady` folds in `destructiveRefusal`), and a genuine mass deletion on the
+      //   new project is then refused SILENTLY — `refusalWasStanding` below suppresses the
+      //   announcement, so the user gets the stale counts instead of theirs and the only
+      //   exit they are offered authorises whatever is pending under a banner that describes
+      //   something else.
+      // ★★★ ONE SITE COVERS ALL NINE LOAD/SWITCH/CREATE PATHS, which is why there is no
+      //   per-path obligation to add. `suppressNextSaveRef` is set by every one of them, and
+      //   this branch is INSIDE the save effect, so clearing here dominates the lot and a
+      //   tenth path cannot forget it. Enumerate them:
+      //     grep -rn "suppressNextSaveRef.current = true" src/app --include=*.ts --include=*.tsx | grep -v "\.test\."
+      // ★★ DO NOT "complete the pattern" by copying the PEER lockout's shape — the
+      //   asymmetry is real, not an oversight. `use-load-truncation.ts` exposes
+      //   `clearForFreshWorkspace` and needs THREE explicit call sites (two in
+      //   `use-storage-file-ops.ts`, one in `use-storage-turso-ops.ts`) because its state is
+      //   raised by load-REPORTING, outside this effect, which therefore cannot clear it.
+      //   Ours is raised and cleared in the same effect. Adding call sites beside those
+      //   three would be redundant writes, and a fourth path would still be uncovered.
+      // ★★ CLEARING RE-RUNS THIS EFFECT (`destructive.refusal` is a dep, deliberately —
+      //   see the deps note), so when a refusal WAS standing the suppressed load is followed
+      //   by one ordinary save of the freshly-loaded workspace against the freshly-synced
+      //   baselines. That is a redundant write, not a guard bypass: the re-run consumes any
+      //   arm at the top and evaluates the loaded counts against themselves. A test asserting
+      //   "no save after a suppressed load" is only true when no refusal was standing.
+      destructive.clearRefusal();
       // ★★★ SPEND the bypass here too — but NOT for the incomplete-load return's reason,
       //   which an earlier revision of this comment copied. "The save never ran" is true of
       //   BOTH returns, so it distinguishes nothing. There the arm is still NEEDED and

@@ -117,10 +117,15 @@ export function StorageBanner({
   );
 }
 
-/** WHY saving is paused. The two causes cannot be active at once — the save
- *  effect returns on the truncation lockout ABOVE the destructive guard — so one
- *  banner renders whichever holds, and they can never stack with contradictory
- *  advice. See `use-destructive-save-guard.ts`'s header. */
+/** WHY saving is paused. The two causes cannot be active at once, and it takes
+ *  TWO mechanisms — quoting only the first is how this comment was wrong before:
+ *    • the save effect returns on the truncation lockout ABOVE the destructive
+ *      guard, so no NEW refusal is raised while truncation stands;
+ *    • its suppress-after-load branch calls `clearRefusal`, so no OLD refusal
+ *      outlives the workspace whose baselines raised it — without which a
+ *      refusal followed a project switch and met the new project's truncation.
+ *  Either alone leaves the two banners stackable with contradictory advice.
+ *  See `use-destructive-save-guard.ts`'s header. */
 export type SavingPausedCause =
   | {
       kind: "truncation";

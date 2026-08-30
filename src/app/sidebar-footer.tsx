@@ -14,8 +14,12 @@ interface SidebarFooterProps {
   storageReady: boolean;
   /** Saving is paused by a lockout — a truncated load
    *  (`use-load-truncation.ts`) or a withheld mass deletion
-   *  (`use-destructive-save-guard.ts`). The two cannot hold at once: the save
-   *  effect returns on the truncation lockout ABOVE the destructive guard. */
+   *  (`use-destructive-save-guard.ts`). The two cannot hold at once, by TWO
+   *  mechanisms and not one: the save effect returns on the truncation lockout
+   *  ABOVE the destructive guard (so no NEW refusal is raised while truncation
+   *  stands), AND its suppress-after-load branch clears a standing refusal (so
+   *  no OLD refusal outlives the workspace that raised it — the direction the
+   *  early return alone never covered). */
   savingPaused?: boolean;
   /** Re-show whichever saving-paused banner is standing; it carries the only
    *  "save anyway" for that cause. */
